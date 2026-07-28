@@ -1,0 +1,94 @@
+# ==============================
+# Dependencies
+# ==============================
+node_modules/
+.pnp
+.pnp.js
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# ==============================
+# Environment variables
+# ==============================
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.test
+!.env.example
+
+# ==============================
+# Next.js
+# ==============================
+.next/
+out/
+next-env.d.ts
+
+# ==============================
+# NestJS / Node build output
+# ==============================
+dist/
+build/
+*.tsbuildinfo
+
+# ==============================
+# Prisma
+# ==============================
+prisma/*.db
+prisma/*.db-journal
+prisma/migrations/dev/
+
+# ==============================
+# Supabase
+# ==============================
+supabase/.branches/
+supabase/.temp/
+.supabase/
+
+# ==============================
+# Testing / coverage
+# ==============================
+coverage/
+.nyc_output/
+
+# ==============================
+# Logs
+# ==============================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ==============================
+# Package manager
+# ==============================
+.pnpm-store/
+
+# ==============================
+# Editor / OS
+# ==============================
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# ==============================
+# Claude Code (local/personal settings)
+# ==============================
+.claude/settings.local.json
+
+# ==============================
+# Misc
+# ==============================
+*.tsbuildinfo
+.turbo/
+.cache/
+tmp/
+temp/
