@@ -13,6 +13,11 @@ export default tseslint.config(
       "**/coverage/**",
       "**/.turbo/**",
       "**/*.config.js",
+      // Each app under apps/* ships its own framework-specific ESLint config
+      // (eslint-config-next, Nest's eslint.config.mjs) and lints itself via
+      // its own `lint` script — the root config only covers packages/* and
+      // top-level tooling/docs.
+      "apps/**",
     ],
   },
   js.configs.recommended,

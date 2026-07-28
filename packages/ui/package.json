@@ -1,0 +1,23 @@
+{
+  "name": "@mercury/ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared UI component library for the Mercury System workspace",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mercury/shared": "workspace:*",
+    "@mercury/types": "workspace:*"
+  },
+  "devDependencies": {
+    "@mercury/config": "workspace:*",
+    "typescript": "^5.7.3"
+  }
+}

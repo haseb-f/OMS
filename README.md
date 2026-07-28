@@ -25,8 +25,14 @@ The foundation is prepared for the following stack (to be scaffolded in later st
 
 ```
 .
-├── apps/                 # Deployable applications (frontend, API, etc.)
-├── packages/             # Shared libraries consumed by apps (types, UI, config...)
+├── apps/
+│   ├── web/              # Next.js frontend (App Router, TypeScript, Tailwind)
+│   └── api/              # NestJS backend (bootstrap only, no modules yet)
+├── packages/
+│   ├── config/           # Shared TypeScript config presets
+│   ├── types/            # Shared TypeScript types (@mercury/types)
+│   ├── shared/            # Shared framework-agnostic utilities (@mercury/shared)
+│   └── ui/               # Shared UI component library (@mercury/ui)
 ├── docs/
 │   ├── blueprints/       # Design/spec documents for planned modules
 │   ├── prompts/          # Reusable AI-assisted development prompts

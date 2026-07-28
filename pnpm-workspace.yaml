@@ -1,3 +1,10 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# Packages whose install/build scripts are allowed to run without an
+# explicit approval prompt (pnpm blocks postinstall scripts by default).
+# next.js relies on these for optional native/image-processing bindings.
+ignoredBuiltDependencies:
+  - sharp
+  - unrs-resolver
