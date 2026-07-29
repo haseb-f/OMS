@@ -20,9 +20,9 @@
     ],
     "paths": {
       "@/*": ["./*"],
-      "@mercury/ui": ["../../packages/ui/index.ts"],
-      "@mercury/shared": ["../../packages/shared/index.ts"],
-      "@mercury/types": ["../../packages/types/index.ts"]
+      "@oms/ui": ["../../packages/ui/index.ts"],
+      "@oms/shared": ["../../packages/shared/index.ts"],
+      "@oms/types": ["../../packages/types/index.ts"]
     }
   },
   "include": [

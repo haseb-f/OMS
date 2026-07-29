@@ -1,0 +1,984 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id       String @id @default(uuid()) @db.Uuid
+  email    String @unique
+  fullName String @map("full_name")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  userRoles UserRole[]
+
+  leadsAsSalesEmployee Lead[]
+  leadAssignments      LeadAssignment[]
+  leadNotes            LeadNote[]
+
+  salesOrdersAsSalesEmployee    SalesOrder[]           @relation("SalesOrderSalesEmployee")
+  salesOrdersAsShippingEmployee SalesOrder[]           @relation("SalesOrderShippingEmployee")
+  salesOrdersAsCreatedBy        SalesOrder[]           @relation("SalesOrderCreatedBy")
+  salesOrdersAsPaymentVerifiedBy SalesOrder[]          @relation("SalesOrderPaymentVerifiedBy")
+  salesOrdersAsPackedBy         SalesOrder[]           @relation("SalesOrderPackedBy")
+  salesOrdersAsHandedToShippingBy SalesOrder[]          @relation("SalesOrderHandedToShippingBy")
+  salesOrderNotes               SalesOrderNote[]
+  salesOrderAttachments         SalesOrderAttachment[]
+
+  paymentNotes         PaymentNote[]
+  paymentAttachments   PaymentAttachment[]
+  paymentsAsMatchedBy  Payment[]           @relation("PaymentMatchedBy")
+  paymentsAsVerifiedBy Payment[]           @relation("PaymentVerifiedBy")
+  paymentsAsRejectedBy Payment[]           @relation("PaymentRejectedBy")
+
+  @@map("users")
+}
+
+model Role {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String  @unique
+  description String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String  @unique
+  description String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id String @id @default(uuid()) @db.Uuid
+
+  roleId       String @map("role_id") @db.Uuid
+  permissionId String @map("permission_id") @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId String @map("user_id") @db.Uuid
+  roleId String @map("role_id") @db.Uuid
+
+  user User @relation(fields: [userId], references: [id])
+  role Role @relation(fields: [roleId], references: [id])
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+// ---------------------------------------------------------------------------
+// Reference Data — system master data referenced by future business modules
+// (Products, Customers, Orders, Accounting, Shipping, Reports). These entities
+// are independent of each other and of those future modules.
+// ---------------------------------------------------------------------------
+
+model Currency {
+  id     String  @id @default(uuid()) @db.Uuid
+  code   String  @unique
+  name   String
+  symbol String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  leads Lead[]
+  salesOrders SalesOrder[]
+  payments    Payment[]
+  receivingAccounts ReceivingAccount[]
+
+  @@map("currencies")
+}
+
+model Country {
+  id   String @id @default(uuid()) @db.Uuid
+  code String @unique
+  name String
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  leads Lead[]
+  salesOrders SalesOrder[]
+
+  @@map("countries")
+}
+
+model Project {
+  id          String  @id @default(uuid()) @db.Uuid
+  code        String  @unique
+  name        String
+  description String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  salesOrders SalesOrder[]
+
+  @@map("projects")
+}
+
+model CostCenter {
+  id          String  @id @default(uuid()) @db.Uuid
+  code        String  @unique
+  name        String
+  description String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  salesOrders SalesOrder[]
+
+  @@map("cost_centers")
+}
+
+/// Placeholder entity only. Account mapping, commission rules, and automatic
+/// journal entries are explicitly deferred — not implemented here.
+model PaymentMethod {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String  @unique
+  description String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  salesOrders SalesOrder[]
+
+  @@map("payment_methods")
+}
+
+/// Discriminates the two future shipping-method types. The internal delivery
+/// representative module itself is explicitly deferred — this enum only
+/// prepares the architecture to distinguish the two categories.
+enum ShippingMethodType {
+  INTERNAL_DELIVERY
+  EXTERNAL_COMPANY
+}
+
+model ShippingMethod {
+  id          String             @id @default(uuid()) @db.Uuid
+  name        String             @unique
+  type        ShippingMethodType
+  description String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("shipping_methods")
+}
+
+model ProductCategory {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String  @unique
+  description String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("product_categories")
+}
+
+model ProductBrand {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String  @unique
+  description String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("product_brands")
+}
+
+model Warehouse {
+  id          String  @id @default(uuid()) @db.Uuid
+  code        String  @unique
+  name        String
+  description String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  salesOrders SalesOrder[]
+
+  @@map("warehouses")
+}
+
+/// Reference Data — Sales Orders Phase 2, decision #2: Shipping Company must be a
+/// reference-data entity, never free text.
+model ShippingCompany {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String  @unique
+  description String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  shipments Shipment[]
+
+  @@map("shipping_companies")
+}
+
+// ---------------------------------------------------------------------------
+// CRM — Phase 1: Lead Management Foundation. Every sale starts as a Lead; this
+// is intentionally simple (not a marketing CRM) — receive, distribute, and
+// follow leads until they become confirmed orders. No Customer/Order/Payment
+// entities exist yet — those are future modules.
+// ---------------------------------------------------------------------------
+
+/// Closed set — do not add statuses beyond these four without a new decision.
+enum LeadStatus {
+  NEW
+  UNDER_FOLLOW_UP
+  PAID
+  ARCHIVED
+}
+
+/// Closed set — do not add sources beyond these three without a new decision.
+enum LeadSource {
+  MANUAL
+  EXCEL
+  GOOGLE_SHEETS
+}
+
+model Lead {
+  id           String @id @default(uuid()) @db.Uuid
+  leadNumber   String @unique @map("lead_number")
+  customerName String @map("customer_name")
+  mobileNumber String @map("mobile_number")
+
+  countryId String  @map("country_id") @db.Uuid
+  country   Country @relation(fields: [countryId], references: [id])
+
+  city    String
+  address String
+
+  /// No Product entity/module exists yet — reserved for future integration,
+  /// intentionally not a foreign key.
+  productId String? @map("product_id") @db.Uuid
+  quantity  Int
+
+  currencyId String   @map("currency_id") @db.Uuid
+  currency   Currency @relation(fields: [currencyId], references: [id])
+
+  /// Current assignee (denormalized from the latest LeadAssignment). Null
+  /// until the lead is assigned.
+  salesEmployeeId String? @map("sales_employee_id") @db.Uuid
+  salesEmployee   User?   @relation(fields: [salesEmployeeId], references: [id])
+  assignedAt      DateTime? @map("assigned_at")
+
+  status LeadStatus @default(NEW)
+  source LeadSource
+
+  /// Optional, no business meaning enforced yet — set when status is
+  /// ARCHIVED, but that is not validated here.
+  archivedReason String? @map("archived_reason")
+
+  /// Set at creation by LeadDuplicateDetectionService when another lead
+  /// shares the same mobile number + customer name but a different product.
+  /// Never set by the client.
+  possibleDuplicate Boolean @default(false) @map("possible_duplicate")
+
+  /// Groups leads created by the same Excel/Google Sheets import run. Null
+  /// for manually entered leads.
+  importBatch String? @map("import_batch")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  assignments LeadAssignment[]
+  activities  LeadActivity[]
+  notes       LeadNote[]
+  salesOrders SalesOrder[]
+  payments    Payment[]
+
+  @@map("leads")
+}
+
+/// Append-only assignment history. Reassigning a lead creates a new row here
+/// (and updates Lead.salesEmployeeId/assignedAt) rather than editing one.
+model LeadAssignment {
+  id String @id @default(uuid()) @db.Uuid
+
+  leadId String @map("lead_id") @db.Uuid
+  lead   Lead   @relation(fields: [leadId], references: [id])
+
+  assignedToId String @map("assigned_to_id") @db.Uuid
+  assignedTo   User   @relation(fields: [assignedToId], references: [id])
+
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("lead_assignments")
+}
+
+/// System-generated timeline. `type` is a plain string, not an enum — the
+/// task described examples (Lead Created, Lead Assigned, Lead Status
+/// Changed, Note Added), not a closed set, so new entry types can appear
+/// later without a migration. This timeline will later become Order History.
+model LeadActivity {
+  id String @id @default(uuid()) @db.Uuid
+
+  leadId String @map("lead_id") @db.Uuid
+  lead   Lead   @relation(fields: [leadId], references: [id])
+
+  type        String
+  description String
+  metadata    Json?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("lead_activities")
+}
+
+model LeadNote {
+  id String @id @default(uuid()) @db.Uuid
+
+  leadId String @map("lead_id") @db.Uuid
+  lead   Lead   @relation(fields: [leadId], references: [id])
+
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id])
+
+  text String
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("lead_notes")
+}
+
+// ---------------------------------------------------------------------------
+// Sales Orders — Phase 2 core module. Starts only after a Lead reaches PAID.
+// No Customer entity exists yet (SalesOrder.leadId is the only customer-facing
+// link); no pricing calculation, inventory deduction, accounting, invoicing,
+// reporting, or warehouse stock movement is implemented here — see
+// docs/blueprints/sales-orders-phase1-design.md for the full design and the
+// approved-decisions table it was updated with before this schema was written.
+// ---------------------------------------------------------------------------
+
+/// TASK-012 decision #3: LABEL_CREATED inserted between READY_FOR_SHIPPING and
+/// SHIPPED. RETURNED may be reached from any prior stage.
+enum SalesOrderStatus {
+  CREATED
+  READY_FOR_SHIPPING
+  LABEL_CREATED
+  SHIPPED
+  DELIVERED
+  RETURNED
+}
+
+/// Closed set, exactly as approved — who pays for shipping cost.
+enum ShippingCostPayer {
+  CUSTOMER
+  COMPANY
+}
+
+/// TASK-012 decision #2 (Shipment stores its own Status) + decision #6
+/// (returns distinguish before/after delivery). This is per-shipment-attempt
+/// state, distinct from the order-level SalesOrderStatus.
+enum ShipmentStatus {
+  LABEL_CREATED
+  SHIPPED
+  DELIVERED
+  RETURN_BEFORE_DELIVERY
+  RETURN_AFTER_DELIVERY
+}
+
+model SalesOrder {
+  id          String @id @default(uuid()) @db.Uuid
+  orderNumber String @unique @map("order_number")
+
+  leadId String @map("lead_id") @db.Uuid
+  lead   Lead   @relation(fields: [leadId], references: [id])
+
+  /// Snapshot fields — copied from the Lead at creation, never updated
+  /// afterward (decision #13). Currency is copied the same way by extension.
+  customerName String @map("customer_name")
+  mobileNumber String @map("mobile_number")
+
+  countryId String  @map("country_id") @db.Uuid
+  country   Country @relation(fields: [countryId], references: [id])
+
+  city    String
+  address String
+
+  currencyId String   @map("currency_id") @db.Uuid
+  currency   Currency @relation(fields: [currencyId], references: [id])
+
+  costCenterId String     @map("cost_center_id") @db.Uuid
+  costCenter   CostCenter @relation(fields: [costCenterId], references: [id])
+
+  projectId String  @map("project_id") @db.Uuid
+  project   Project @relation(fields: [projectId], references: [id])
+
+  /// Mandatory — decision #6.
+  paymentMethodId String        @map("payment_method_id") @db.Uuid
+  paymentMethod   PaymentMethod @relation(fields: [paymentMethodId], references: [id])
+
+  /// Mandatory — decision #7.
+  warehouseId String    @map("warehouse_id") @db.Uuid
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+
+  /// Snapshot of the Lead's sales employee at creation time. Stored
+  /// separately from shippingEmployeeId — decision #8.
+  salesEmployeeId String? @map("sales_employee_id") @db.Uuid
+  salesEmployee   User?   @relation("SalesOrderSalesEmployee", fields: [salesEmployeeId], references: [id])
+
+  /// Assigned later via the "Assign Shipping Employee" operation.
+  shippingEmployeeId String? @map("shipping_employee_id") @db.Uuid
+  shippingEmployee   User?   @relation("SalesOrderShippingEmployee", fields: [shippingEmployeeId], references: [id])
+
+  /// TASK-012 decision #4: operational users, each a real FK to User (unlike
+  /// the generic unenforced createdBy/updatedBy audit columns below). No
+  /// auth exists, so all four are nullable and client-supplied wherever set.
+  /// createdById is distinct from the generic audit `created_by` column —
+  /// this one is a proper relation because it has explicit business meaning
+  /// here (who operationally created the order), not just an audit trail.
+  createdById String? @map("created_by_id") @db.Uuid
+  createdByUser User? @relation("SalesOrderCreatedBy", fields: [createdById], references: [id])
+
+  /// Snapshotted from the Lead's verified Payment at order-creation time, if
+  /// one exists (Payment Verification module).
+  paymentVerifiedById String? @map("payment_verified_by_id") @db.Uuid
+  paymentVerifiedByUser User? @relation("SalesOrderPaymentVerifiedBy", fields: [paymentVerifiedById], references: [id])
+
+  /// No operation sets this yet in this phase — schema-only, see ADR-0008.
+  packedById String? @map("packed_by_id") @db.Uuid
+  packedByUser User? @relation("SalesOrderPackedBy", fields: [packedById], references: [id])
+
+  /// No operation sets this yet in this phase — schema-only, see ADR-0008.
+  handedToShippingById String? @map("handed_to_shipping_by_id") @db.Uuid
+  handedToShippingByUser User? @relation("SalesOrderHandedToShippingBy", fields: [handedToShippingById], references: [id])
+
+  status SalesOrderStatus @default(CREATED)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  items         OrderItem[]
+  shipments     Shipment[]
+  attachments   SalesOrderAttachment[]
+  notes         SalesOrderNote[]
+  activities    SalesOrderActivity[]
+  statusHistory SalesOrderStatusHistory[]
+
+  @@map("sales_orders")
+}
+
+/// Pricing snapshot per line item (decision #5) — future product price
+/// changes must never affect existing orders, so nothing here is derived
+/// from a live Product price (no Product entity exists yet anyway).
+/// TASK-012 decision #1: SalesOrder -> OrderItem -> Product (placeholder),
+/// Product is never linked directly to SalesOrder. Renamed from
+/// SalesOrderItem to match this exact architecture vocabulary.
+model OrderItem {
+  id String @id @default(uuid()) @db.Uuid
+
+  salesOrderId String     @map("sales_order_id") @db.Uuid
+  salesOrder   SalesOrder @relation(fields: [salesOrderId], references: [id])
+
+  /// No Product entity/module exists yet — same placeholder pattern as
+  /// Lead.productId, intentionally not a foreign key.
+  productId String? @map("product_id") @db.Uuid
+
+  quantity  Int
+  unitPrice Decimal @map("unit_price") @db.Decimal(12, 2)
+  discount  Decimal @default(0) @db.Decimal(12, 2)
+  offer     String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("order_items")
+}
+
+/// One shipping attempt — independent entity (TASK-012 decision #2), never
+/// storing tracking number (or anything else shipment-specific) on
+/// SalesOrder itself. Reshipping creates a new row here against the same
+/// SalesOrder (decision #15/#5: unlimited attempts, #1/#2/#3...) rather than
+/// overwriting this one — that's what keeps every shipment's tracking/cost/
+/// label/notes history intact permanently.
+model Shipment {
+  id String @id @default(uuid()) @db.Uuid
+
+  salesOrderId String     @map("sales_order_id") @db.Uuid
+  salesOrder   SalesOrder @relation(fields: [salesOrderId], references: [id])
+
+  /// 1, 2, 3... per order — decision #5's explicit "#1 / #2 / #3" numbering.
+  attemptNumber Int @map("attempt_number")
+
+  /// Reference Data, never free text — decision #2.
+  shippingCompanyId String?          @map("shipping_company_id") @db.Uuid
+  shippingCompany   ShippingCompany? @relation(fields: [shippingCompanyId], references: [id])
+
+  trackingNumber String? @map("tracking_number")
+
+  /// Set by the "Upload Shipping Label" operation — decision #2: Shipment
+  /// stores the label itself, not only a generic tagged attachment (though
+  /// an attachment is still created too, preserving full history).
+  labelUrl String? @map("label_url")
+
+  /// Per-shipment-attempt state — decision #2. Null until the shipment
+  /// progresses to LABEL_CREATED.
+  status ShipmentStatus?
+
+  /// Decision #11.
+  baseShippingCost       Decimal?           @map("base_shipping_cost") @db.Decimal(12, 2)
+  additionalShippingCost Decimal?           @map("additional_shipping_cost") @db.Decimal(12, 2)
+  costPaidBy             ShippingCostPayer? @map("cost_paid_by")
+
+  /// Decision #2: Shipment stores Notes. A plain field, not an unlimited
+  /// collection — unlike SalesOrderNote/PaymentNote, no "unlimited" wording
+  /// was used for this one.
+  notes String?
+
+  isReship Boolean @default(false) @map("is_reship")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  attachments SalesOrderAttachment[]
+
+  @@map("shipments")
+}
+
+/// Unlimited attachments (decision #10), including the shipping label image —
+/// tagged via attachmentType and linked to a Shipment, not a dedicated column.
+model SalesOrderAttachment {
+  id String @id @default(uuid()) @db.Uuid
+
+  salesOrderId String     @map("sales_order_id") @db.Uuid
+  salesOrder   SalesOrder @relation(fields: [salesOrderId], references: [id])
+
+  shipmentId String?   @map("shipment_id") @db.Uuid
+  shipment   Shipment? @relation(fields: [shipmentId], references: [id])
+
+  /// Required — "every attachment stores... uploader" (decision #10). No
+  /// auth exists, so the client supplies this explicitly, same precedent as
+  /// LeadNote.userId.
+  uploadedById String @map("uploaded_by_id") @db.Uuid
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+
+  fileUrl        String  @map("file_url")
+  fileName        String? @map("file_name")
+  /// Plain string, not an enum — e.g. "SHIPPING_LABEL", "GENERAL". Left open
+  /// the same way LeadActivity.type is, since more types may appear later.
+  attachmentType String  @map("attachment_type")
+  description    String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("sales_order_attachments")
+}
+
+/// Append-only in this phase — create + list only, no update/delete
+/// operation was in the required list.
+model SalesOrderNote {
+  id String @id @default(uuid()) @db.Uuid
+
+  salesOrderId String     @map("sales_order_id") @db.Uuid
+  salesOrder   SalesOrder @relation(fields: [salesOrderId], references: [id])
+
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id])
+
+  text String
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("sales_order_notes")
+}
+
+/// General timeline — decision #9: "Timeline is not Status History." Plain
+/// string type (not an enum), same reasoning as LeadActivity: the examples
+/// given are illustrative, not an exhaustive closed set.
+model SalesOrderActivity {
+  id String @id @default(uuid()) @db.Uuid
+
+  salesOrderId String     @map("sales_order_id") @db.Uuid
+  salesOrder   SalesOrder @relation(fields: [salesOrderId], references: [id])
+
+  type        String
+  description String
+  metadata    Json?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("sales_order_activities")
+}
+
+/// Decision #1: dedicated, append-only status log. Deliberately omits
+/// updated_at/updated_by/deleted_at — present on every other table per
+/// ADR-0002, but their existence here would contradict "never update, never
+/// delete." Enforced by the application never calling update/delete on this
+/// table (no such service methods exist), not by a DB-level trigger.
+model SalesOrderStatusHistory {
+  id String @id @default(uuid()) @db.Uuid
+
+  salesOrderId String     @map("sales_order_id") @db.Uuid
+  salesOrder   SalesOrder @relation(fields: [salesOrderId], references: [id])
+
+  fromStatus SalesOrderStatus? @map("from_status")
+  toStatus   SalesOrderStatus  @map("to_status")
+
+  changedAt DateTime @default(now()) @map("changed_at")
+  changedBy String?  @map("changed_by") @db.Uuid
+
+  @@map("sales_order_status_history")
+}
+
+// ---------------------------------------------------------------------------
+// Payment Verification — Phase 1. Confirms a customer's payment before a Lead
+// becomes PAID and a Sales Order can be created. Payment.leadId is optional
+// (a payment can be recorded before it's matched to any lead); Customer and
+// Sales Order links are explicitly future work — not modeled here at all
+// (not even as nullable placeholders), since neither exists as a concrete
+// need yet at the point a Payment is verified.
+// ---------------------------------------------------------------------------
+
+enum PaymentStatus {
+  PENDING
+  MATCHED
+  VERIFIED
+  REJECTED
+}
+
+/// Reference Data — "PAYMENT SOURCES... Reference Data only." Distinct from
+/// the existing generic PaymentMethod entity (Reference Data Engine,
+/// ADR-0003), which was seeded with nothing and has no concrete meaning yet;
+/// this one is seeded with the exact given values.
+/// Minimal ledger-account reference list only — NOT an accounting engine.
+/// No posting, no journal entries, no balances live here (explicitly out of
+/// scope). This exists purely so PaymentSource.defaultChartOfAccountId and
+/// ReceivingAccount.chartOfAccountId (required) have a valid, real FK
+/// target — "the accounting entry MUST ultimately use the Receiving
+/// Account's ChartOfAccount," but no accounting entry is created by OMS.
+model ChartOfAccount {
+  id          String  @id @default(uuid()) @db.Uuid
+  code        String  @unique
+  name        String
+  description String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  paymentSourcesDefault PaymentSource[]
+  receivingAccounts     ReceivingAccount[]
+
+  @@map("chart_of_accounts")
+}
+
+/// "HOW the customer paid" (Cash, Bank Transfer, Visa, MyFatoorah, ...) —
+/// purely a reference-data label. No gateway credentials, API keys, URLs,
+/// webhook fields, provider settings, or authentication live here or
+/// anywhere else in OMS — OMS is an ERP, not a payment gateway.
+model PaymentSource {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String  @unique
+  /// Nullable: 6 rows already existed before this field was added (no
+  /// backfill performed on pre-existing seed data) — new rows should set it.
+  code        String?
+  description String?
+  sortOrder   Int     @default(0) @map("sort_order")
+  /// Distinct from deletedAt/"Archive": IsActive is a separate toggle
+  /// ("Deactivate") that hides a source from new use without removing it.
+  isActive    Boolean @default(true) @map("is_active")
+
+  /// Optional default suggestion only — never the actual accounting
+  /// destination (that's always ReceivingAccount.chartOfAccountId).
+  defaultChartOfAccountId String?         @map("default_chart_of_account_id") @db.Uuid
+  defaultChartOfAccount   ChartOfAccount? @relation(fields: [defaultChartOfAccountId], references: [id])
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  payments Payment[]
+
+  @@map("payment_sources")
+}
+
+/// "WHERE the money actually arrived" (Main Cashbox, Al Rajhi Main, SNB
+/// Bank, STC Wallet, ...) — the real accounting destination. Distinct from
+/// PaymentSource: a single ReceivingAccount can receive money from many
+/// different PaymentSources (e.g. both "Visa" and "Mada" might settle into
+/// the same bank account).
+model ReceivingAccount {
+  id   String @id @default(uuid()) @db.Uuid
+  name String
+  code String @unique
+
+  /// No Company/multi-entity module exists yet — same placeholder pattern
+  /// as Lead.productId / OrderItem.productId, intentionally not a foreign key.
+  companyId String? @map("company_id") @db.Uuid
+
+  currencyId String?   @map("currency_id") @db.Uuid
+  currency   Currency? @relation(fields: [currencyId], references: [id])
+
+  /// Required — decision: "ChartOfAccountId is REQUIRED on Receiving
+  /// Account." This is the accounting destination every Payment against
+  /// this account ultimately uses.
+  chartOfAccountId String         @map("chart_of_account_id") @db.Uuid
+  chartOfAccount   ChartOfAccount @relation(fields: [chartOfAccountId], references: [id])
+
+  notes    String?
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  payments Payment[]
+
+  @@map("receiving_accounts")
+}
+
+model Payment {
+  id            String @id @default(uuid()) @db.Uuid
+  paymentNumber String @unique @map("payment_number")
+
+  /// Optional — a payment can exist before it's tied to any lead.
+  leadId String? @map("lead_id") @db.Uuid
+  lead   Lead?   @relation(fields: [leadId], references: [id])
+
+  paymentDate  DateTime  @map("payment_date")
+  receivedDate DateTime? @map("received_date")
+
+  amount Decimal @db.Decimal(12, 2)
+
+  currencyId String   @map("currency_id") @db.Uuid
+  currency   Currency @relation(fields: [currencyId], references: [id])
+
+  /// PaymentSourceId answers "how did the customer pay?" — required alongside
+  /// ReceivingAccountId ("where did the money arrive?"), never only one.
+  paymentSourceId String        @map("payment_source_id") @db.Uuid
+  paymentSource   PaymentSource @relation(fields: [paymentSourceId], references: [id])
+
+  receivingAccountId String           @map("receiving_account_id") @db.Uuid
+  receivingAccount   ReceivingAccount @relation(fields: [receivingAccountId], references: [id])
+
+  referenceNumber String? @map("reference_number")
+  senderName      String  @map("sender_name")
+  bankAccount     String? @map("bank_account")
+
+  status PaymentStatus @default(PENDING)
+
+  matchedAt    DateTime? @map("matched_at")
+  matchedById  String?   @map("matched_by_id") @db.Uuid
+  matchedBy    User?     @relation("PaymentMatchedBy", fields: [matchedById], references: [id])
+
+  verifiedAt   DateTime? @map("verified_at")
+  verifiedById String?   @map("verified_by_id") @db.Uuid
+  verifiedBy   User?     @relation("PaymentVerifiedBy", fields: [verifiedById], references: [id])
+
+  rejectedAt     DateTime? @map("rejected_at")
+  rejectedById   String?   @map("rejected_by_id") @db.Uuid
+  rejectedBy     User?     @relation("PaymentRejectedBy", fields: [rejectedById], references: [id])
+  rejectionReason String?  @map("rejection_reason")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  attachments PaymentAttachment[]
+  notes       PaymentNote[]
+  activities  PaymentActivity[]
+
+  @@map("payments")
+}
+
+/// Unlimited attachments (Transfer Receipt, Bank Screenshot, Payment
+/// Confirmation, ...) — same shape as SalesOrderAttachment.
+model PaymentAttachment {
+  id String @id @default(uuid()) @db.Uuid
+
+  paymentId String  @map("payment_id") @db.Uuid
+  payment   Payment @relation(fields: [paymentId], references: [id])
+
+  uploadedById String @map("uploaded_by_id") @db.Uuid
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+
+  fileUrl        String  @map("file_url")
+  fileName       String? @map("file_name")
+  attachmentType String  @map("attachment_type")
+  description    String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("payment_attachments")
+}
+
+/// Unlimited internal notes — same shape as SalesOrderNote (create + list only).
+model PaymentNote {
+  id String @id @default(uuid()) @db.Uuid
+
+  paymentId String  @map("payment_id") @db.Uuid
+  payment   Payment @relation(fields: [paymentId], references: [id])
+
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id])
+
+  text String
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("payment_notes")
+}
+
+/// General timeline (Payment Created, Matched, Verified, Rejected, Attachment
+/// Added, Note Added, ...) — plain string type, same reasoning as
+/// LeadActivity/SalesOrderActivity: examples given, not a closed set. No
+/// separate append-only "status history" table was requested for Payment
+/// (unlike SalesOrder's decision #1), so this single timeline covers status
+/// changes too.
+model PaymentActivity {
+  id String @id @default(uuid()) @db.Uuid
+
+  paymentId String  @map("payment_id") @db.Uuid
+  payment   Payment @relation(fields: [paymentId], references: [id])
+
+  type        String
+  description String
+  metadata    Json?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("payment_activities")
+}

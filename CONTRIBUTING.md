@@ -1,6 +1,13 @@
-# Contributing to Mercury System
+# Contributing to OMS
 
-This document describes the development workflow for the Mercury System monorepo.
+This document describes the development workflow for the OMS monorepo.
+
+## AI-Assisted Development
+
+- Before implementing any feature, always read `OMS.md` (`.claude/OMS.md`) first — it is
+  the single source of truth for architecture, coding standards, and business rules.
+- Do not invent business decisions, workflows, or architecture choices that are not
+  documented in `OMS.md`.
 
 ## Prerequisites
 
@@ -52,6 +59,22 @@ Every commit is checked locally via Husky + lint-staged:
 - **Prettier** — formatting is auto-applied to staged files.
 
 CI re-runs these checks on every push and pull request.
+
+Every task must additionally pass **Build**, **Type Check**, and **Tests** locally before
+its changes are committed. Never commit broken code, never push failing code, and never
+deploy unverified code.
+
+## Development Environment & Deployment
+
+This project follows a Local-First workflow: **Local Development → GitHub → Vercel
+Preview → Production**. Local development is the primary environment — develop, run,
+test, and fix locally before pushing. Use a local PostgreSQL database; Supabase is not
+the primary development database and must never be developed against directly or used
+with production data during development. Supabase is for cloud database/storage only,
+and destructive migrations always require explicit approval.
+
+See `OMS.md` → **Development Workflow** for the full environment, deployment, and
+quality-gate policy.
 
 ## Adding a New App or Package
 

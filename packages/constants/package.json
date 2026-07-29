@@ -1,0 +1,19 @@
+{
+  "name": "@oms/constants",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared constants for the OMS workspace",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@oms/config": "workspace:*",
+    "typescript": "^5.7.3"
+  }
+}

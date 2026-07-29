@@ -1,8 +1,8 @@
-# Mercury System
+# OMS
 
 ## Project Goal
 
-Mercury System is an enterprise business platform foundation. This repository currently
+OMS is an enterprise business platform foundation. This repository currently
 contains **only the project foundation** — repository structure, tooling, and
 documentation scaffolding. No business modules (CRM, Orders, Inventory, Accounting,
 Reports, etc.) have been implemented yet; they will be built as separate, deliberate
@@ -30,9 +30,9 @@ The foundation is prepared for the following stack (to be scaffolded in later st
 │   └── api/              # NestJS backend (bootstrap only, no modules yet)
 ├── packages/
 │   ├── config/           # Shared TypeScript config presets
-│   ├── types/            # Shared TypeScript types (@mercury/types)
-│   ├── shared/            # Shared framework-agnostic utilities (@mercury/shared)
-│   └── ui/               # Shared UI component library (@mercury/ui)
+│   ├── types/            # Shared TypeScript types (@oms/types)
+│   ├── shared/            # Shared framework-agnostic utilities (@oms/shared)
+│   └── ui/               # Shared UI component library (@oms/ui)
 ├── docs/
 │   ├── blueprints/       # Design/spec documents for planned modules
 │   ├── prompts/          # Reusable AI-assisted development prompts
@@ -63,6 +63,20 @@ cp .env.example .env
 
 `pnpm install` also runs the `prepare` script, which installs the Husky Git hooks.
 
+### Local Database
+
+`apps/api` uses Prisma against a local PostgreSQL database (see `.claude/OMS.md` →
+Development Workflow for the full Local-First policy). If Docker is available:
+
+```bash
+docker compose up -d postgres   # starts Postgres on localhost:5434
+cp apps/api/.env.example apps/api/.env
+pnpm --filter api exec prisma generate
+```
+
+If Docker is not available, install PostgreSQL natively and point
+`apps/api/.env`'s `DATABASE_URL` at it instead — see ADR-0001 in `DECISIONS.md`.
+
 ### Available Scripts
 
 ```bash
@@ -70,6 +84,16 @@ pnpm lint           # Run ESLint across the repository
 pnpm lint:fix        # Run ESLint and auto-fix issues
 pnpm format          # Format the repository with Prettier
 pnpm format:check    # Check formatting without writing changes
+pnpm build           # Build every app/package that defines a build script
+pnpm typecheck       # Type-check every app/package that defines a typecheck script
+pnpm test            # Run tests for every app/package that defines a test script
+```
+
+### Running the apps
+
+```bash
+pnpm --filter web dev    # Next.js dev server (http://localhost:3000)
+pnpm --filter api start  # NestJS server (http://localhost:3000/health)
 ```
 
 ## Development Rules
@@ -88,6 +112,17 @@ pnpm format:check    # Check formatting without writing changes
    conventions.
 7. **Apps vs. packages.** Deployable units go in `/apps`; shared, reusable code goes in
    `/packages`. Nothing business-specific belongs at the repository root.
+
+## AI Development
+
+- `.claude/OMS.md` is the official AI knowledge base for this project — the single
+  source of truth for architecture, coding standards, UI standards, business rules,
+  accounting rules, and the development workflow.
+- Every implementation task (AI-assisted or otherwise) must follow `OMS.md`.
+- Business decisions must never be invented. If `OMS.md` does not cover a rule, stop and
+  ask rather than assuming.
+- Architecture decisions must follow `OMS.md` and be recorded there (and indexed in
+  `DECISIONS.md`) before implementation.
 
 ## License
 

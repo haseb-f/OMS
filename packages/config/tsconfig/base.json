@@ -15,9 +15,9 @@
     "declaration": true,
     "baseUrl": ".",
     "paths": {
-      "@mercury/ui": ["../../ui/index.ts"],
-      "@mercury/shared": ["../../shared/index.ts"],
-      "@mercury/types": ["../../types/index.ts"]
+      "@oms/ui": ["../../ui/index.ts"],
+      "@oms/shared": ["../../shared/index.ts"],
+      "@oms/types": ["../../types/index.ts"]
     }
   }
 }
