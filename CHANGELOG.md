@@ -225,7 +225,13 @@ release}` — no generic movement CRUD), plus read-only `GET /inventory/stock`
   switch, and a Language Switch placeholder that drives genuine, verified-live RTL
   layout mirroring with no translated content). Profile menu shows an honest
   generic placeholder identity — no Authentication module exists yet. Vercel
-  connection was not performed — it requires the user's own OAuth authorization;
-  exact manual steps were given directly instead. No business pages were built
-  (`/` is a placeholder shell-demo route) — every other nav route 404s until a
-  later phase.
+  project `oms` created under the `haseb-f-s-projects` team once the user
+  authenticated the CLI themselves, linked to `apps/web` (Root Directory
+  `apps/web`, Framework `nextjs`), connected to the `haseb-f/OMS` GitHub repo, and
+  a Preview deployment built and verified `READY`. The Git "Production Branch"
+  setting could not be changed via CLI/API (dashboard-only) — until the user
+  changes it away from `main`, every push to `main` auto-creates a Production
+  deployment; this occurred twice during this task and was corrected both times
+  by removing the auto-generated production aliases. No business pages were
+  built (`/` is a placeholder shell-demo route) — every other nav route 404s
+  until a later phase.

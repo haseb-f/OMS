@@ -107,13 +107,25 @@ person, with every menu action disabled — there is no Authentication module ye
 (see TODO.md), and inventing a working logout with nothing to log out of would be
 inventing business behavior the task explicitly forbids.
 
-**Vercel connection could not be performed.** Linking a GitHub repository to a
-Vercel account is an OAuth authorization the user must grant in their own browser;
-the `vercel` CLI isn't installed or authenticated in this environment, and even if it
-were, creating a cloud project under the user's account is exactly the kind of
-external, account-tied action this assistant does not perform without the user's
-direct involvement. Exact manual steps were given to the user directly instead (see
-chat), including the monorepo-specific "Root Directory: apps/web" setting.
+**Vercel was connected after the user authenticated the CLI themselves.** Linking a
+GitHub repository to a Vercel account requires an OAuth authorization only the user
+can grant; once they logged in via `vercel login` in their own session, the CLI
+(`vercel project add`, `vercel link`, `vercel git connect`, and the `/v9/projects`
+API for `rootDirectory`/`framework`) was used to create the `oms` project under the
+`haseb-f-s-projects` team, link it to `apps/web` (Root Directory `apps/web`,
+Framework `nextjs`), and connect it to the `haseb-f/OMS` GitHub repository.
+
+**The Git "Production Branch" setting could not be changed via CLI or API** —
+`vercel project update` has no flag for it, and `PATCH /v9/projects/{id}` rejects
+both a top-level `productionBranch` field and a nested `link` object as unknown
+properties. This appears to be a dashboard-only setting
+(Project Settings → Git → Production Branch). Left at its default (`main`), this
+means **every push to `main` auto-creates a Production deployment** via the Git
+integration — confirmed live twice during this task (once triggered by a manual
+CLI deploy, once by a routine `git push`), both times corrected by removing the
+auto-generated production aliases (`vercel alias rm`) immediately after. The user
+was asked and confirmed this remediation; they still need to change the Production
+Branch setting themselves to stop it recurring on their next push.
 
 ## Consequences
 
@@ -127,5 +139,8 @@ chat), including the monorepo-specific "Root Directory: apps/web" setting.
   `apps/api`) — `README.md` updated to match.
 - No business page, data table, form, or API-wired view exists yet — every route
   besides `/` 404s until Part 2 (or a later task) builds it.
-- Vercel is not yet connected; no Preview Deployment exists for this branch until the
-  user completes the manual dashboard steps and this work is pushed to GitHub.
+- Vercel is connected and a Preview Deployment of this work exists and was verified
+  `READY`. Until the user changes the Production Branch away from `main` in the
+  dashboard, every future push to `main` will keep auto-creating a Production
+  deployment that needs its aliases manually removed — this is the one outstanding
+  Vercel item.

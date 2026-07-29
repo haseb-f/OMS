@@ -405,7 +405,7 @@
       properties, mirrored in `theme/tokens.ts` for JS/Motion use; spacing/shadow/
       border-width/opacity/breakpoints deliberately reuse Tailwind's own defaults
 - [x] Full frontend architecture folders under `src/`: `components/{ui,shared,
-    layout,business}`, `providers`, `hooks`, `lib`, `services`, `navigation`,
+  layout,business}`, `providers`, `hooks`, `lib`, `services`, `navigation`,
       `config`, `types`, `theme`, `constants`, `assets`
 - [x] `navigation.config.ts` — flat, `parent`-id-based list (id/title/subtitle/
       icon/route/parent/order/permissions/featureFlag/badge/visible/children)
@@ -439,9 +439,21 @@
       mirrored correctly), state persistence across reload — mobile/tablet
       breakpoint behavior verified by code review only (the sandboxed browser
       tool could not resize its window), not a live screenshot
-- [ ] Vercel connection **not performed** — connecting a GitHub repo to a Vercel
-      account requires the user's own OAuth authorization, which this assistant
-      cannot perform; exact manual steps were given directly to the user instead
+- [x] Vercel project `oms` created under the `haseb-f-s-projects` team, linked to
+      `apps/web` (Root Directory `apps/web`, Framework `nextjs`), and connected to
+      the `haseb-f/OMS` GitHub repository via `vercel git connect`; a genuine
+      Preview deployment was built and verified `READY`
+- [ ] **Vercel Production Branch still needs a manual dashboard change.** No CLI/
+      API path was found to change it (`vercel project update` and the Projects
+      PATCH API both reject a `productionBranch`/`link` field) — it appears to be
+      dashboard-only. Until changed away from `main` at
+      vercel.com/haseb-f-s-projects/oms/settings/git, **every future push to
+      `main` will auto-create a new Production deployment** via the Git
+      integration. This happened twice during this task (once from a manual CLI
+      deploy, once from a routine `git push`) — both times the auto-generated
+      production aliases were removed immediately after, but the underlying
+      setting is still unresolved and will keep recurring on every push until
+      fixed
 - [ ] No business pages built — `/` is a placeholder shell-demo route; every
       other nav route 404s until a later phase builds it (explicitly out of
       scope: "Do not start business pages yet")
