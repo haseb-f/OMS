@@ -19,7 +19,7 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"],
+      "@/*": ["./src/*"],
       "@oms/ui": ["../../packages/ui/index.ts"],
       "@oms/shared": ["../../packages/shared/index.ts"],
       "@oms/types": ["../../packages/types/index.ts"]

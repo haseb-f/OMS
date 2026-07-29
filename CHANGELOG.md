@@ -110,3 +110,122 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `receivingAccountId` — never only one — each validated active at creation. No
   invoices, journal entries, bank import, automatic matching, reconciliation, gateway
   integration, accounting posting, or background jobs implemented.
+- Product Engine Foundation (ADR-0011): flexible product model spanning
+  PHYSICAL/SERVICE/DIGITAL/BUNDLE product types without implementing bundle
+  composition/assembly logic. New reference-data entity `Unit` (seeded: Piece, Box,
+  Pack, Book, Carton, Kilogram, Gram, Liter, Meter — unit conversion out of scope).
+  New Prisma models `Product` (name, unique SKU, optional barcode, optional
+  Category/Brand/Unit, description, `ProductType`/`ProductStatus` enums, image URL,
+  nullable weight/width/height/length for future Shipping use) and `ProductActivity`
+  (timeline, logging `PRODUCT_CREATED`/`PRODUCT_UPDATED`/`PRODUCT_ARCHIVED`). NestJS
+  `units` and `products` modules — plain CRUD (Create/Update/Delete/List/Details),
+  a deliberate departure from the named-business-operation API style used for
+  Lead/SalesOrder/Payment — with filtering by Category/Brand/Status/Type and search
+  by SKU/Name/Barcode. Soft delete only. No inventory quantities, stock movement,
+  cost, selling/purchase price, accounting, tax, warehouse balance, or ecommerce
+  fields implemented. `Lead.productId`/`OrderItem.productId` left as their existing
+  placeholder columns, not wired to the new `Product` table.
+- Product Master Completion (ADR-0012): `Product` gained `internalName`/`displayName`
+  (both required, additive to `name`), `searchKeywords` (optional), `shortDescription`/
+  `longDescription` (both optional). `categoryId` and `unitId` are now required FKs
+  (`brandId` stays optional) — the existing reference-data architecture itself
+  untouched. Added `isPurchasable`/`isSellable`/`isInventoryItem` flags with
+  type-based defaults (PHYSICAL: all true; SERVICE/DIGITAL/BUNDLE:
+  purchasable=false/sellable=true/inventoryItem=false), always manually overridable.
+  `weight`/`width`/`height`/`length` become mandatory whenever the resolved
+  `isInventoryItem` is true (enforced in `ProductsService` on both create and update),
+  otherwise remain nullable. Added nullable placeholder columns
+  `defaultWarehouseId`/`defaultCostMethod`/`defaultTaxCategory` — no FK, no API, no
+  validation, no business logic. `GET /products?search=` extended to also match
+  `internalName`/`displayName`/`searchKeywords`, alongside the existing
+  `sku`/`name`/`barcode`. No Pricing, Inventory, Warehouse Balances, Stock Movement,
+  Accounting, Taxes, Ecommerce, Odoo Integration, Images Gallery, Product Variants, or
+  Bundles logic implemented.
+- Inventory Engine Foundation (ADR-0013): movement-based inventory — stock quantity is
+  never stored or edited directly; every change is an append-only `InventoryMovement`
+  row (no `updatedAt`/`updatedBy`/`deletedAt`, same exception as
+  `SalesOrderStatusHistory`), and current quantity is derived by summing movements.
+  New `InventoryMovementType` enum (OPENING_BALANCE, ADJUSTMENT, TRANSFER,
+  RESERVATION, RESERVATION_RELEASE, DAMAGE, EXPIRED, ASSEMBLY, DISASSEMBLY,
+  PRODUCTION — the last three exist only as enum values, no logic). New
+  `InventoryMovementActivity` timeline. `Warehouse` gained `isDefault`,
+  `warehouseType` (free-text), `isActive`, and a prepared-only `parentWarehouseId`
+  self-relation. NestJS `inventory` module: 7 business-operation endpoints only
+  (`POST /inventory/{opening-balance,adjustment,transfer,damage,expired,reserve,
+release}` — no generic movement CRUD), plus read-only `GET /inventory/stock`
+  (derived on-hand/reserved/available), `GET /inventory/movements`,
+  `GET /inventory/movements/:id`, and `GET /inventory/movements/:id/activities`.
+  Reservations track a separate reserved-ledger and do not move on-hand quantity.
+  Validates: product exists/active/`isInventoryItem`, warehouse exists/active,
+  non-zero quantity, no same-warehouse transfer, and no operation may drive on-hand
+  (or reserved) quantity negative. Movement Number generated via
+  `inventory_movement_number_seq` ("MV-000001", ...), same pattern as Lead/SalesOrder/
+  Payment numbers. No accounting, costing, taxes, purchasing, suppliers,
+  manufacturing, ecommerce, Odoo, reports, dashboard, barcode printing, or physical
+  counting workflow implemented.
+- Cost Engine Foundation (ADR-0014): prepares the architecture a future Purchasing
+  module will drive — no FIFO/LIFO/Average calculation, no cost allocation math, no
+  accounting journal entries, no purchasing/supplier logic implemented. New
+  `CostComponent` reference-data entity (code/name/description/isActive, own
+  `CostComponentActivity` timeline) seeded with 8 system components (PRODUCT_COST,
+  PRINTING, PACKAGING, CUSTOM_BOX, CUSTOMS, INBOUND_SHIPPING,
+  OUTBOUND_PREPARATION, OTHER). New `CostAllocationMethod` enum (BY_QUANTITY,
+  BY_COST, EQUAL, MANUAL) and `CostAllocationRule` model — schema only, no API, per
+  "No calculation yet. Only architecture." New append-only `ProductCostHistory`
+  (previousCost/newCost/reason/reference, never overwritten) and single-row-per-
+  product `ProductCostSnapshot` (maintained in place, no direct edit endpoint).
+  `Product` gained `currentCost`/`lastCostUpdate` (denormalized mirror of the active
+  snapshot); the existing `defaultCostMethod` (ADR-0012) satisfies this task's
+  "CostMethod (placeholder)" — no duplicate column added. NestJS `cost-components`
+  module (full reference-data CRUD) and `product-cost` module:
+  `POST/GET /product-cost/:productId` (records/reads current cost — no calculation,
+  same non-calculating nature as Inventory's Adjustment) and
+  `GET /product-cost-history/:productId`. Validates: duplicate component code,
+  negative cost, inactive product, deleted product. Logs `PRODUCT_COST_UPDATED`/
+  `SNAPSHOT_CREATED` onto the existing `ProductActivity` timeline (ADR-0011) rather
+  than a new one.
+- Purchasing Phase 1 — Suppliers + Purchase Orders (ADR-0015): "Purchase Order is
+  only an agreement to buy" — it never touches Inventory, Product Cost, Accounting,
+  or Stock; verified live that Approve leaves both untouched. New `Supplier` entity
+  (auto-numbered `SUP-000001`, unique user-editable code, name, contact/registration
+  fields, optional Currency/Country, `status` ACTIVE/INACTIVE, `isPreferred`,
+  placeholder-only `defaultPayableAccountId`/`defaultExpenseAccountId`) with its own
+  `SupplierActivity` timeline. NestJS `suppliers` module: named business operations
+  (Create, Update, Archive = soft-delete, Activate = reactivate, Search) rather than
+  plain CRUD. New `PurchaseOrder`/`PurchaseOrderItem` (auto-numbered `PO-000001`;
+  `PurchaseType` enum: INVENTORY/SAMPLE/OFFICE_SUPPLY/SERVICE/FIXED_ASSET,
+  classification only; `PurchaseOrderStatus`: DRAFT/APPROVED/CANCELLED/CLOSED;
+  "Preparation For Future" fields schema-only, not exposed via API) with
+  `PurchaseOrderActivity` timeline. NestJS `purchase-orders` module: Create, Approve
+  (DRAFT→APPROVED), Cancel (DRAFT/APPROVED→CANCELLED), Close (APPROVED→CLOSED),
+  Search, Details, Timeline — no generic CRUD. Validates: inactive/deleted
+  supplier, inactive/deleted product per line item, negative quantity, negative
+  price, duplicate PO number, duplicate supplier code. `PurchaseOrderItem.productId`
+  is a required real FK to `Product` (unlike the older, still-untouched
+  `OrderItem.productId` placeholder). No Goods Receipt, Purchase Invoice, Supplier
+  Payments, Cost Allocation, Accounting, Inventory Transactions, or Tax implemented.
+- OMS Frontend Foundation (ADR-0016): the permanent frontend architecture — backend
+  feature development paused for this task. `apps/web` restructured onto `src/`
+  (`app/` → `src/app/`, `features/` merged into `src/features/`), resolving the
+  overlap ADR-0004 left unresolved. shadcn/ui bootstrapped via its own CLI (Nova
+  preset, Radix base, `--rtl`) with a single indigo accent over its neutral base;
+  design tokens split between real Tailwind utilities (`@theme` — typography
+  aliases) and plain CSS custom properties (z-index, motion duration/easing,
+  mirrored in `theme/tokens.ts`). New `navigation.config.ts` — a flat,
+  `parent`-id-based list (not a nested tree) covering every backend module built so
+  far (CRM, Sales, Products, Inventory, Purchasing, Costing, Finance, Settings,
+  Identity), assembled into a tree by `buildNavigationTree()`. Permanent
+  application shell: an enterprise Sidebar built on shadcn's `Sidebar` primitive
+  (icon-collapsed mode, mobile Sheet, cookie-persisted state, Cmd/Ctrl+B) with
+  OMS-specific layers — one-parent-expanded-at-a-time (auto-synced to the active
+  route), Pinned Modules and Recent Pages (client-side preferences only, no
+  backend), in-sidebar search — and a TopBar (breadcrumb, page title/subtitle,
+  a fully functional Cmd/Ctrl+K command palette, notifications and quick-actions
+  placeholders using the empty-state pattern, a real light/dark/system theme
+  switch, and a Language Switch placeholder that drives genuine, verified-live RTL
+  layout mirroring with no translated content). Profile menu shows an honest
+  generic placeholder identity — no Authentication module exists yet. Vercel
+  connection was not performed — it requires the user's own OAuth authorization;
+  exact manual steps were given directly instead. No business pages were built
+  (`/` is a placeholder shell-demo route) — every other nav route 404s until a
+  later phase.

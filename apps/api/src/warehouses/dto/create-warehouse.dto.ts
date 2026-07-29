@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 
 export class CreateWarehouseDto {
   @IsString()
@@ -12,4 +18,22 @@ export class CreateWarehouseDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isDefault?: boolean;
+
+  /** No closed set of values specified — free-text classifier. */
+  @IsString()
+  @IsOptional()
+  warehouseType?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
+
+  /** Future warehouse hierarchy — prepared only, no depth/cycle validation. */
+  @IsUUID()
+  @IsOptional()
+  parentWarehouseId?: string;
 }

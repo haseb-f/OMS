@@ -33,6 +33,29 @@ const paymentSources = [
   { name: 'Other' },
 ];
 
+const units = [
+  { name: 'Piece' },
+  { name: 'Box' },
+  { name: 'Pack' },
+  { name: 'Book' },
+  { name: 'Carton' },
+  { name: 'Kilogram' },
+  { name: 'Gram' },
+  { name: 'Liter' },
+  { name: 'Meter' },
+];
+
+const costComponents = [
+  { code: 'PRODUCT_COST', name: 'Product Cost' },
+  { code: 'PRINTING', name: 'Printing' },
+  { code: 'PACKAGING', name: 'Packaging' },
+  { code: 'CUSTOM_BOX', name: 'Custom Box' },
+  { code: 'CUSTOMS', name: 'Customs' },
+  { code: 'INBOUND_SHIPPING', name: 'Inbound Shipping' },
+  { code: 'OUTBOUND_PREPARATION', name: 'Outbound Preparation' },
+  { code: 'OTHER', name: 'Other' },
+];
+
 async function main() {
   await Promise.all(
     currencies.map((currency) =>
@@ -78,6 +101,26 @@ async function main() {
   // were specified for this task — which ones a business accepts is a business
   // decision, not an architectural one, so none are seeded here. The entity and its
   // CRUD endpoints exist and are ready.
+
+  await Promise.all(
+    units.map((unit) =>
+      prisma.unit.upsert({
+        where: { name: unit.name },
+        update: {},
+        create: unit,
+      }),
+    ),
+  );
+
+  await Promise.all(
+    costComponents.map((component) =>
+      prisma.costComponent.upsert({
+        where: { code: component.code },
+        update: {},
+        create: component,
+      }),
+    ),
+  );
 }
 
 main()

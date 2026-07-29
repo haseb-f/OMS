@@ -139,6 +139,8 @@ model Currency {
   salesOrders SalesOrder[]
   payments    Payment[]
   receivingAccounts ReceivingAccount[]
+  suppliers         Supplier[]
+  purchaseOrders    PurchaseOrder[]
 
   @@map("currencies")
 }
@@ -156,6 +158,7 @@ model Country {
 
   leads Lead[]
   salesOrders SalesOrder[]
+  suppliers   Supplier[]
 
   @@map("countries")
 }
@@ -172,7 +175,8 @@ model Project {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  salesOrders SalesOrder[]
+  salesOrders    SalesOrder[]
+  purchaseOrders PurchaseOrder[]
 
   @@map("projects")
 }
@@ -189,7 +193,8 @@ model CostCenter {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  salesOrders SalesOrder[]
+  salesOrders    SalesOrder[]
+  purchaseOrders PurchaseOrder[]
 
   @@map("cost_centers")
 }
@@ -246,6 +251,8 @@ model ProductCategory {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
+  products Product[]
+
   @@map("product_categories")
 }
 
@@ -260,13 +267,17 @@ model ProductBrand {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
+  products Product[]
+
   @@map("product_brands")
 }
 
-model Warehouse {
+/// Reference Data — Product Engine Foundation. "Support examples: Piece, Box,
+/// Pack, Book, Carton, Kilogram, Gram, Liter, Meter." Future unit conversion
+/// is explicitly out of scope — this is a flat named list only.
+model Unit {
   id          String  @id @default(uuid()) @db.Uuid
-  code        String  @unique
-  name        String
+  name        String  @unique
   description String?
 
   createdAt DateTime  @default(now()) @map("created_at")
@@ -275,7 +286,43 @@ model Warehouse {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  salesOrders SalesOrder[]
+  products           Product[]
+  purchaseOrderItems PurchaseOrderItem[]
+
+  @@map("units")
+}
+
+model Warehouse {
+  id          String  @id @default(uuid()) @db.Uuid
+  code        String  @unique
+  name        String
+  description String?
+
+  /// Inventory Engine Foundation (ADR-0013) additions.
+  isDefault Boolean @default(false) @map("is_default")
+
+  /// No closed set of values was specified, so this is a free-text
+  /// classifier rather than an invented enum (same reasoning as
+  /// Product.defaultCostMethod/defaultTaxCategory in ADR-0012).
+  warehouseType String? @map("warehouse_type")
+
+  isActive Boolean @default(true) @map("is_active")
+
+  /// Future warehouse hierarchy — prepared only: a nullable self-relation,
+  /// no depth limit, no cycle detection, no traversal API. Real FK since
+  /// Warehouse already exists (unlike Product's future-column placeholders).
+  parentWarehouseId String?     @map("parent_warehouse_id") @db.Uuid
+  parentWarehouse   Warehouse?  @relation("WarehouseHierarchy", fields: [parentWarehouseId], references: [id])
+  childWarehouses   Warehouse[] @relation("WarehouseHierarchy")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  salesOrders        SalesOrder[]
+  inventoryMovements InventoryMovement[]
 
   @@map("warehouses")
 }
@@ -981,4 +1028,580 @@ model PaymentActivity {
   deletedAt DateTime? @map("deleted_at")
 
   @@map("payment_activities")
+}
+
+// ---------------------------------------------------------------------------
+// Product Engine — Foundation. A flexible product model every future module
+// (Inventory, Pricing, Ecommerce, Shipping, ...) will depend on. No inventory
+// quantities, stock movement, cost, selling/purchase price, accounting, tax,
+// warehouse balance, or ecommerce fields live here — those are explicitly
+// future phases. Bundle *behavior* is not implemented — BUNDLE exists only as
+// a ProductType value.
+// ---------------------------------------------------------------------------
+
+/// Closed set, exactly as specified. BUNDLE is a type value only — no bundle
+/// composition/logic is implemented in this phase.
+enum ProductType {
+  PHYSICAL
+  SERVICE
+  DIGITAL
+  BUNDLE
+}
+
+/// Closed set, exactly as specified.
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Product {
+  id   String @id @default(uuid()) @db.Uuid
+  name String
+
+  /// Identity (ADR-0012) — both required. internalName is the operational/
+  /// back-office name; displayName is customer-facing. Additive to `name`
+  /// (ADR-0011): this task adds fields, it doesn't rename or remove one.
+  internalName String @map("internal_name")
+  displayName  String @map("display_name")
+
+  /// "Internal Code (SKU)" — must be unique.
+  sku String @unique
+
+  barcode String?
+
+  /// Free-text search aid (ADR-0012) — optional, not a tag/category system.
+  searchKeywords String? @map("search_keywords")
+
+  /// Relations (ADR-0012): Category and Unit are now required; Brand stays
+  /// optional, exactly as specified. Reference-data architecture
+  /// (ProductCategory/ProductBrand/Unit) itself is untouched.
+  categoryId String          @map("category_id") @db.Uuid
+  category   ProductCategory @relation(fields: [categoryId], references: [id])
+
+  brandId String?       @map("brand_id") @db.Uuid
+  brand   ProductBrand? @relation(fields: [brandId], references: [id])
+
+  unitId String @map("unit_id") @db.Uuid
+  unit   Unit   @relation(fields: [unitId], references: [id])
+
+  description String?
+
+  /// Descriptions (ADR-0012) — both optional, additive to `description`.
+  shortDescription String? @map("short_description")
+  longDescription  String? @map("long_description")
+
+  type   ProductType
+  status ProductStatus @default(ACTIVE)
+
+  imageUrl String? @map("image_url")
+
+  /// Product Flags (ADR-0012) — type-based defaults computed in
+  /// ProductsService (PHYSICAL: all true; SERVICE/DIGITAL/BUNDLE:
+  /// purchasable=false, sellable=true, inventoryItem=false), manual override
+  /// always allowed. No DB-level @default since the default depends on
+  /// `type`, which Prisma column defaults can't express.
+  isPurchasable   Boolean @map("is_purchasable")
+  isSellable      Boolean @map("is_sellable")
+  isInventoryItem Boolean @map("is_inventory_item")
+
+  /// Dimensions — nullable at the DB level; "mandatory when isInventoryItem
+  /// is true" (ADR-0012) is enforced in ProductsService, since it's
+  /// conditional on another column and Postgres NOT NULL can't express that
+  /// without a CHECK constraint this task didn't ask for.
+  weight Decimal? @db.Decimal(12, 3)
+  width  Decimal? @db.Decimal(12, 3)
+  height Decimal? @db.Decimal(12, 3)
+  length Decimal? @db.Decimal(12, 3)
+
+  /// Future Columns (ADR-0012) — nullable placeholders only: no FK, no
+  /// business logic, no API, no validation. Left untyped as any specific
+  /// enum/reference since none was specified for cost method or tax
+  /// category.
+  defaultWarehouseId String? @map("default_warehouse_id") @db.Uuid
+  defaultCostMethod  String? @map("default_cost_method")
+  defaultTaxCategory String? @map("default_tax_category")
+
+  /// Cost Engine Foundation (ADR-0014) — denormalized mirror of the current
+  /// ProductCostSnapshot for fast reads without a join. "CostMethod
+  /// (placeholder)" from this task is satisfied by the existing
+  /// defaultCostMethod column above (ADR-0012) — not a new column, to avoid
+  /// two parallel "cost method" fields on the same entity.
+  currentCost    Decimal?  @map("current_cost") @db.Decimal(12, 2)
+  lastCostUpdate DateTime? @map("last_cost_update")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  activities          ProductActivity[]
+  inventoryMovements  InventoryMovement[]
+  costHistory         ProductCostHistory[]
+  costSnapshot        ProductCostSnapshot?
+  purchaseOrderItems  PurchaseOrderItem[]
+
+  @@map("products")
+}
+
+/// General timeline ("Log every business operation") — plain string type,
+/// same reasoning as every other *Activity entity in this codebase (Lead,
+/// SalesOrder, Payment): CRUD operations here are Create/Update/Delete, not
+/// a closed set of named business operations, so a fixed enum would be the
+/// wrong shape.
+model ProductActivity {
+  id String @id @default(uuid()) @db.Uuid
+
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id])
+
+  type        String
+  description String
+  metadata    Json?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("product_activities")
+}
+
+// ---------------------------------------------------------------------------
+// Inventory Engine — Foundation (ADR-0013). Movement-based: stock quantity is
+// never stored or edited directly on Product/Warehouse — every change is an
+// InventoryMovement row, and current on-hand quantity is derived by summing
+// movements for a given product+warehouse. No costing, pricing, accounting,
+// tax, purchasing, manufacturing, or ecommerce logic lives here — those are
+// future, separately-scoped modules. ASSEMBLY/DISASSEMBLY/PRODUCTION exist
+// only as movement-type values — no Bundle/Manufacturing logic implemented,
+// same treatment as ProductType.BUNDLE in ADR-0011.
+// ---------------------------------------------------------------------------
+
+/// Closed set, exactly as specified.
+enum InventoryMovementType {
+  OPENING_BALANCE
+  ADJUSTMENT
+  TRANSFER
+  RESERVATION
+  RESERVATION_RELEASE
+  DAMAGE
+  EXPIRED
+  ASSEMBLY
+  DISASSEMBLY
+  PRODUCTION
+}
+
+/// Append-only ledger — no updatedAt/updatedBy/deletedAt (ADR-0013). Movement
+/// history must never be edited or deleted: doing so would corrupt every
+/// later quantityBefore/quantityAfter snapshot for the same product+warehouse.
+/// Same exception already used for SalesOrderStatusHistory (ADR-0007).
+model InventoryMovement {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// App-generated ("MV-000001", ...) via inventory_movement_number_seq —
+  /// not a Prisma-managed default, same pattern as Lead/SalesOrder/Payment
+  /// numbers.
+  movementNumber String @unique @map("movement_number")
+
+  type InventoryMovementType
+
+  warehouseId String    @map("warehouse_id") @db.Uuid
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id])
+
+  /// Signed delta. For OPENING_BALANCE/ADJUSTMENT/TRANSFER/DAMAGE/EXPIRED/
+  /// ASSEMBLY/DISASSEMBLY/PRODUCTION this changes on-hand quantity. For
+  /// RESERVATION/RESERVATION_RELEASE this is a separate reserved-ledger
+  /// delta and does NOT change quantityBefore/quantityAfter (ADR-0013) —
+  /// reservations don't move physical stock in this foundation.
+  quantity Int
+
+  /// On-hand quantity snapshot (product+warehouse), not the reserved ledger.
+  quantityBefore Int @map("quantity_before")
+  quantityAfter  Int @map("quantity_after")
+
+  /// Free-form link to whatever business document caused this movement
+  /// (e.g. a future Sales Order, Purchase Order, or this movement's own
+  /// TRANSFER counterpart) — no FK, since most of those modules don't exist
+  /// yet.
+  referenceType String? @map("reference_type")
+  referenceId   String? @map("reference_id") @db.Uuid
+
+  notes String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  activities InventoryMovementActivity[]
+
+  @@map("inventory_movements")
+}
+
+/// Timeline — same shape as every other *Activity entity in this codebase.
+model InventoryMovementActivity {
+  id String @id @default(uuid()) @db.Uuid
+
+  inventoryMovementId String            @map("inventory_movement_id") @db.Uuid
+  inventoryMovement   InventoryMovement @relation(fields: [inventoryMovementId], references: [id])
+
+  type        String
+  description String
+  metadata    Json?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("inventory_movement_activities")
+}
+
+// ---------------------------------------------------------------------------
+// Cost Engine — Foundation (ADR-0014). Prepares the architecture that a future
+// Purchasing module will drive: no FIFO/LIFO/Average calculation, no cost
+// allocation/distribution logic, no inventory valuation, no accounting journal
+// entries live here. CostAllocationRule exists as schema/enum only — "No
+// calculation yet. Only architecture" — no service/controller was built for
+// it in this task.
+// ---------------------------------------------------------------------------
+
+model CostComponent {
+  id          String  @id @default(uuid()) @db.Uuid
+  code        String  @unique
+  name        String
+  description String?
+  isActive    Boolean @default(true) @map("is_active")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  activities      CostComponentActivity[]
+  allocationRules CostAllocationRule[]
+
+  @@map("cost_components")
+}
+
+/// Timeline — same shape as every other *Activity entity in this codebase.
+model CostComponentActivity {
+  id String @id @default(uuid()) @db.Uuid
+
+  costComponentId String        @map("cost_component_id") @db.Uuid
+  costComponent   CostComponent @relation(fields: [costComponentId], references: [id])
+
+  type        String
+  description String
+  metadata    Json?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("cost_component_activities")
+}
+
+/// Closed set, exactly as specified. No calculation logic anywhere reads
+/// this yet — schema/architecture only, for a future Purchasing/allocation
+/// task to build against.
+enum CostAllocationMethod {
+  BY_QUANTITY
+  BY_COST
+  EQUAL
+  MANUAL
+}
+
+/// Schema only — no DTO/service/controller in this task ("No calculation
+/// yet. Only architecture"), unlike CostComponent which the task explicitly
+/// gave business-operation endpoints for.
+model CostAllocationRule {
+  id     String               @id @default(uuid()) @db.Uuid
+  name   String
+  method CostAllocationMethod
+
+  costComponentId String?        @map("cost_component_id") @db.Uuid
+  costComponent   CostComponent? @relation(fields: [costComponentId], references: [id])
+
+  description String?
+  isActive    Boolean @default(true) @map("is_active")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("cost_allocation_rules")
+}
+
+/// Append-only — "Never overwrite history." Same reasoning as
+/// InventoryMovement (ADR-0013): no updatedAt/updatedBy/deletedAt.
+model ProductCostHistory {
+  id String @id @default(uuid()) @db.Uuid
+
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id])
+
+  /// Null on the very first cost ever recorded for a product (no prior value existed).
+  previousCost Decimal? @map("previous_cost") @db.Decimal(12, 2)
+  newCost      Decimal  @map("new_cost") @db.Decimal(12, 2)
+
+  reason String?
+
+  /// Free-form link to whatever caused this change (e.g. a future Purchase
+  /// Order) — no FK, since Purchasing doesn't exist yet.
+  referenceType String? @map("reference_type")
+  referenceId   String? @map("reference_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  @@map("product_cost_histories")
+}
+
+/// "Maintain current product cost. One active snapshot per product." —
+/// enforced via the unique productId: this row is updated in place when cost
+/// changes (unlike ProductCostHistory, which never overwrites). "No manual
+/// editing endpoint" — only ProductCostService writes to this table.
+model ProductCostSnapshot {
+  id String @id @default(uuid()) @db.Uuid
+
+  productId String  @unique @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id])
+
+  cost Decimal @db.Decimal(12, 2)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+
+  @@map("product_cost_snapshots")
+}
+
+// ---------------------------------------------------------------------------
+// Purchasing — Phase 1 (ADR-0015): Suppliers + Purchase Orders. "Purchase
+// Order is only an agreement to buy" — it never touches Inventory, Product
+// Cost, Accounting, or Stock. No Goods Receipt, Purchase Invoice, Supplier
+// Payments, Cost Allocation, Accounting, Inventory Transactions, or Tax logic
+// lives here — those are future, separately-scoped phases.
+// ---------------------------------------------------------------------------
+
+/// Closed set, exactly as specified.
+enum SupplierStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Supplier {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// App-generated ("SUP-000001", ...) via supplier_number_seq — same
+  /// pattern as Lead/SalesOrder/Payment/InventoryMovement numbers.
+  supplierNumber String @unique @map("supplier_number")
+
+  /// "Editable by user, unique" — distinct from the auto-generated number above.
+  code String @unique
+
+  name           String
+  commercialName String? @map("commercial_name")
+
+  phone   String?
+  mobile  String?
+  email   String?
+  website String?
+
+  taxNumber              String? @map("tax_number")
+  commercialRegistration String? @map("commercial_registration")
+
+  currencyId String?   @map("currency_id") @db.Uuid
+  currency   Currency? @relation(fields: [currencyId], references: [id])
+
+  /// No closed set of values was specified — free-text (same reasoning as
+  /// Product.defaultCostMethod, ADR-0012).
+  paymentTerm String?  @map("payment_term")
+  creditLimit Decimal? @map("credit_limit") @db.Decimal(12, 2)
+
+  countryId String?  @map("country_id") @db.Uuid
+  country   Country? @relation(fields: [countryId], references: [id])
+
+  /// No City reference-data entity exists — plain text, same as every other
+  /// ad hoc address field in this codebase.
+  city    String?
+  address String?
+  notes   String?
+
+  status      SupplierStatus @default(ACTIVE)
+  isPreferred Boolean        @default(false) @map("is_preferred")
+
+  /// "(nullable placeholder only)" — no FK, no business logic, no API, no
+  /// validation. Same treatment as Product.defaultWarehouseId (ADR-0012),
+  /// even though ChartOfAccount already exists as a real table.
+  defaultPayableAccountId String? @map("default_payable_account_id") @db.Uuid
+  defaultExpenseAccountId String? @map("default_expense_account_id") @db.Uuid
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  activities     SupplierActivity[]
+  purchaseOrders PurchaseOrder[]
+
+  @@map("suppliers")
+}
+
+/// Timeline — same shape as every other *Activity entity in this codebase.
+model SupplierActivity {
+  id String @id @default(uuid()) @db.Uuid
+
+  supplierId String   @map("supplier_id") @db.Uuid
+  supplier   Supplier @relation(fields: [supplierId], references: [id])
+
+  type        String
+  description String
+  metadata    Json?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("supplier_activities")
+}
+
+/// Closed set, exactly as specified. "This is ONLY classification. No
+/// business logic yet."
+enum PurchaseType {
+  INVENTORY
+  SAMPLE
+  OFFICE_SUPPLY
+  SERVICE
+  FIXED_ASSET
+}
+
+/// Closed set, exactly as specified. "Only status management. NO inventory
+/// movement."
+enum PurchaseOrderStatus {
+  DRAFT
+  APPROVED
+  CANCELLED
+  CLOSED
+}
+
+model PurchaseOrder {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// App-generated ("PO-000001", ...) via purchase_order_number_seq.
+  poNumber String @unique @map("po_number")
+
+  supplierId String   @map("supplier_id") @db.Uuid
+  supplier   Supplier @relation(fields: [supplierId], references: [id])
+
+  projectId String?  @map("project_id") @db.Uuid
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  costCenterId String?     @map("cost_center_id") @db.Uuid
+  costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
+
+  currencyId String?   @map("currency_id") @db.Uuid
+  currency   Currency? @relation(fields: [currencyId], references: [id])
+
+  purchaseType PurchaseType @map("purchase_type")
+
+  expectedDeliveryDate DateTime? @map("expected_delivery_date")
+
+  referenceNumber String? @map("reference_number")
+  internalNotes   String? @map("internal_notes")
+  supplierNotes   String? @map("supplier_notes")
+
+  status PurchaseOrderStatus @default(DRAFT)
+
+  /// Preparation For Future — nullable placeholders only: no FK, no
+  /// business logic, no API, no validation. Same treatment as Product's
+  /// Future Columns (ADR-0012).
+  receivingWarehouseId String?   @map("receiving_warehouse_id") @db.Uuid
+  priceListId          String?   @map("price_list_id") @db.Uuid
+  incoterms            String?
+  buyerId              String?   @map("buyer_id") @db.Uuid
+  shippingMethodId     String?   @map("shipping_method_id") @db.Uuid
+  expectedReceiptDate  DateTime? @map("expected_receipt_date")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  items      PurchaseOrderItem[]
+  activities PurchaseOrderActivity[]
+
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id String @id @default(uuid()) @db.Uuid
+
+  purchaseOrderId String        @map("purchase_order_id") @db.Uuid
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id])
+
+  description String?
+
+  quantity Int
+
+  unitId String? @map("unit_id") @db.Uuid
+  unit   Unit?   @relation(fields: [unitId], references: [id])
+
+  unitPrice Decimal @map("unit_price") @db.Decimal(12, 2)
+
+  discountValue   Decimal @default(0) @map("discount_value") @db.Decimal(12, 2)
+  discountPercent Decimal @default(0) @map("discount_percent") @db.Decimal(5, 2)
+
+  /// Caller-supplied, like every other line-item money field in this
+  /// codebase (OrderItem) — not computed server-side. Storing arithmetic
+  /// here is not "Cost Calculation"; it is just recording what was agreed.
+  subtotal Decimal @db.Decimal(12, 2)
+
+  notes String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("purchase_order_items")
+}
+
+/// Timeline — same shape as every other *Activity entity in this codebase.
+model PurchaseOrderActivity {
+  id String @id @default(uuid()) @db.Uuid
+
+  purchaseOrderId String        @map("purchase_order_id") @db.Uuid
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+
+  type        String
+  description String
+  metadata    Json?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("purchase_order_activities")
 }

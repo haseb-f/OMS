@@ -25,17 +25,23 @@ What becomes easier or harder as a result of this change?
 
 ## Index
 
-| ID                                                                      | Title                                                                       | Status   |
-| ----------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
-| [0001](./docs/decisions/0001-local-postgresql-via-docker-compose.md)    | Local PostgreSQL via Docker Compose, Prisma schema in apps/api              | Accepted |
-| [0002](./docs/decisions/0002-identity-module-structure.md)              | Identity Module — schema conventions, Prisma driver adapters, module layout | Accepted |
-| [0003](./docs/decisions/0003-reference-data-engine.md)                  | Reference Data Engine — master data modules, seeding                        | Accepted |
-| [0004](./docs/decisions/0004-workspace-finalization.md)                 | Workspace finalization — shared packages and infra scaffolding              | Accepted |
-| [0005](./docs/decisions/0005-crm-lead-management-foundation.md)         | CRM Phase 1 — Lead Management Foundation                                    | Accepted |
-| [0006](./docs/decisions/0006-crm-phase2-business-rules.md)              | CRM Phase 2 — Business Rules                                                | Accepted |
-| [0007](./docs/decisions/0007-sales-orders-phase2-core.md)               | Sales Orders Phase 2 — Core Implementation                                  | Accepted |
-| [0008](./docs/decisions/0008-sales-orders-refactor-task012.md)          | Sales Orders Refactor (pre-Payment Verification)                            | Accepted |
-| [0009](./docs/decisions/0009-payment-verification-phase1.md)            | Payment Verification Module — Phase 1                                       | Accepted |
-| [0010](./docs/decisions/0010-payment-sources-and-receiving-accounts.md) | Payment Sources & Receiving Accounts                                        | Accepted |
+| ID                                                                           | Title                                                                       | Status   |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
+| [0001](./docs/decisions/0001-local-postgresql-via-docker-compose.md)         | Local PostgreSQL via Docker Compose, Prisma schema in apps/api              | Accepted |
+| [0002](./docs/decisions/0002-identity-module-structure.md)                   | Identity Module — schema conventions, Prisma driver adapters, module layout | Accepted |
+| [0003](./docs/decisions/0003-reference-data-engine.md)                       | Reference Data Engine — master data modules, seeding                        | Accepted |
+| [0004](./docs/decisions/0004-workspace-finalization.md)                      | Workspace finalization — shared packages and infra scaffolding              | Accepted |
+| [0005](./docs/decisions/0005-crm-lead-management-foundation.md)              | CRM Phase 1 — Lead Management Foundation                                    | Accepted |
+| [0006](./docs/decisions/0006-crm-phase2-business-rules.md)                   | CRM Phase 2 — Business Rules                                                | Accepted |
+| [0007](./docs/decisions/0007-sales-orders-phase2-core.md)                    | Sales Orders Phase 2 — Core Implementation                                  | Accepted |
+| [0008](./docs/decisions/0008-sales-orders-refactor-task012.md)               | Sales Orders Refactor (pre-Payment Verification)                            | Accepted |
+| [0009](./docs/decisions/0009-payment-verification-phase1.md)                 | Payment Verification Module — Phase 1                                       | Accepted |
+| [0010](./docs/decisions/0010-payment-sources-and-receiving-accounts.md)      | Payment Sources & Receiving Accounts                                        | Accepted |
+| [0011](./docs/decisions/0011-product-engine-foundation.md)                   | Product Engine Foundation                                                   | Accepted |
+| [0012](./docs/decisions/0012-product-master-completion.md)                   | Product Master Completion                                                   | Accepted |
+| [0013](./docs/decisions/0013-inventory-engine-foundation.md)                 | Inventory Engine Foundation                                                 | Accepted |
+| [0014](./docs/decisions/0014-cost-engine-foundation.md)                      | Cost Engine Foundation                                                      | Accepted |
+| [0015](./docs/decisions/0015-purchasing-phase1-suppliers-purchase-orders.md) | Purchasing Phase 1 — Suppliers + Purchase Orders                            | Accepted |
+| [0016](./docs/decisions/0016-frontend-foundation.md)                         | OMS Frontend Foundation — Design System, Navigation, App Shell              | Accepted |
 
 > Add new rows here as ADRs are created in `docs/decisions/`.

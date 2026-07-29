@@ -1,0 +1,94 @@
+import {
+  IsBoolean,
+  IsEmail,
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Min,
+} from 'class-validator';
+import { SupplierStatus } from '@prisma/client';
+
+/**
+ * Default Payable/Expense Account are "(nullable placeholder only)" — no
+ * FK, no business logic, no API, no validation (ADR-0012 precedent) — not
+ * exposed here, schema columns only.
+ */
+export class CreateSupplierDto {
+  /** "Editable by user, unique" — distinct from the auto-generated supplierNumber. */
+  @IsString()
+  @IsNotEmpty()
+  code!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  name!: string;
+
+  @IsString()
+  @IsOptional()
+  commercialName?: string;
+
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
+  @IsString()
+  @IsOptional()
+  mobile?: string;
+
+  @IsEmail()
+  @IsOptional()
+  email?: string;
+
+  @IsString()
+  @IsOptional()
+  website?: string;
+
+  @IsString()
+  @IsOptional()
+  taxNumber?: string;
+
+  @IsString()
+  @IsOptional()
+  commercialRegistration?: string;
+
+  @IsUUID()
+  @IsOptional()
+  currencyId?: string;
+
+  /** No closed set of values specified — free-text. */
+  @IsString()
+  @IsOptional()
+  paymentTerm?: string;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  creditLimit?: number;
+
+  @IsUUID()
+  @IsOptional()
+  countryId?: string;
+
+  @IsString()
+  @IsOptional()
+  city?: string;
+
+  @IsString()
+  @IsOptional()
+  address?: string;
+
+  @IsString()
+  @IsOptional()
+  notes?: string;
+
+  @IsEnum(SupplierStatus)
+  @IsOptional()
+  status?: SupplierStatus;
+
+  @IsBoolean()
+  @IsOptional()
+  isPreferred?: boolean;
+}

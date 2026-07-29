@@ -205,6 +205,247 @@
       PaymentSource with default COA → Payment referencing both →
       deactivate/reactivate/archive)
 
+## Product Engine Foundation (this stage)
+
+- [x] Added `Unit` Reference Data entity (seeded: Piece, Box, Pack, Book, Carton,
+      Kilogram, Gram, Liter, Meter — future unit conversion out of scope)
+- [x] Created `Product` (name, unique `sku`, optional `barcode`, optional
+      `categoryId`/`brandId`/`unitId`, `description`, `ProductType`/`ProductStatus`
+      enums, `imageUrl`, nullable `weight`/`width`/`height`/`length`) and
+      `ProductActivity` — see ADR-0011
+- [x] `ProductType` (PHYSICAL/SERVICE/DIGITAL/BUNDLE) and `ProductStatus`
+      (ACTIVE/INACTIVE) enums — closed sets, exactly as specified; BUNDLE has no
+      composition/assembly logic implemented
+- [x] Generated and applied migration to local PostgreSQL (39 tables total)
+- [x] NestJS `units` module (standard reference-data CRUD) and `products` module —
+      plain CRUD (Create/Update/Delete/List/Details), not the named-business-operation
+      style used for Lead/SalesOrder/Payment, per this task's explicit "CRUD only"
+      request
+- [x] `GET /products` supports filtering by `categoryId`/`brandId`/`status`/`type` and
+      case-insensitive partial search across `sku`/`name`/`barcode`
+- [x] Read-only `ProductActivity` timeline nested at `/products/:productId/activities`,
+      logging `PRODUCT_CREATED`/`PRODUCT_UPDATED`/`PRODUCT_ARCHIVED`
+- [x] SKU uniqueness and non-empty name enforced; soft delete only (no hard delete)
+- [x] `Lead.productId`/`OrderItem.productId` deliberately left as their existing
+      placeholder columns, not wired to the new `Product` table (Phase 2)
+- [x] Verify build, prisma generate/migrate, backend start, lint, and type check all
+      succeed; smoke-tested full lifecycle live against local PostgreSQL (Units CRUD;
+      Product create/details/update/soft-delete; filtering by category/brand/status/
+      type; search by sku/name/barcode; SKU-uniqueness and invalid-FK rejection;
+      SERVICE-type product with no dimensions; activity timeline)
+
+## Product Master Completion (this stage)
+
+- [x] Added `internalName`/`displayName` (both required, additive to existing `name`)
+      and optional `searchKeywords` — see ADR-0012
+- [x] Added optional `shortDescription`/`longDescription` (additive to existing
+      `description`)
+- [x] `categoryId` and `unitId` are now required FKs on `Product`; `brandId` stays
+      optional — existing `ProductCategory`/`ProductBrand`/`Unit` reference-data
+      architecture untouched
+- [x] Added `isPurchasable`/`isSellable`/`isInventoryItem` with type-based defaults
+      (PHYSICAL: all true; SERVICE/DIGITAL/BUNDLE: purchasable=false/sellable=true/
+      inventoryItem=false), computed in `ProductsService` and always manually
+      overridable
+- [x] `weight`/`width`/`height`/`length` become mandatory whenever the resolved
+      `isInventoryItem` is true — enforced in `ProductsService` on both create and
+      update (covers flipping `isInventoryItem` on an existing product too);
+      nullable otherwise
+- [x] Added nullable placeholder columns `defaultWarehouseId`/`defaultCostMethod`/
+      `defaultTaxCategory` — no FK, no API, no validation, no business logic
+- [x] Extended `GET /products?search=` to also match `internalName`/`displayName`/
+      `searchKeywords`, keeping the existing `sku`/`name`/`barcode` match
+- [x] Generated and applied migration to local PostgreSQL (still 39 tables — no new
+      tables, only new `Product` columns)
+- [x] Verify build, prisma generate/migrate, backend start, lint, and type check all
+      succeed; smoke-tested live: required category/unit/internalName/displayName
+      rejection; PHYSICAL default `isInventoryItem=true` rejecting a create with no
+      dimensions; manual override of `isInventoryItem=false` allowing no dimensions;
+      SERVICE/DIGITAL/BUNDLE default flags; manual flag override; search by
+      internalName/displayName/searchKeywords; update-time dimension validation when
+      flipping `isInventoryItem` false→true on an existing product; timeline entries
+      logged for all of the above
+
+## Inventory Engine Foundation (this stage)
+
+- [x] Movement-based architecture: stock quantity never stored/edited directly;
+      every change is an append-only `InventoryMovement` row (no `updatedAt`/
+      `updatedBy`/`deletedAt` — movement history must never be edited or deleted);
+      current on-hand quantity derived by summing movements — see ADR-0013
+- [x] Added `InventoryMovementType` enum (OPENING_BALANCE, ADJUSTMENT, TRANSFER,
+      RESERVATION, RESERVATION_RELEASE, DAMAGE, EXPIRED, ASSEMBLY, DISASSEMBLY,
+      PRODUCTION) — the last three are enum-only, no Assembly/Manufacturing logic
+- [x] Created `InventoryMovement` (movement number, type, warehouse, product,
+      quantity, quantityBefore, quantityAfter, referenceType/referenceId, notes) and
+      `InventoryMovementActivity` timeline
+- [x] `Warehouse` gained `isDefault`, `warehouseType` (free-text, no closed set
+      specified), `isActive`, and a prepared-only `parentWarehouseId` self-relation
+      (no depth/cycle logic) — existing reference-data architecture untouched
+- [x] NestJS `inventory` module: 7 business-operation endpoints only (Opening
+      Balance, Adjustment, Transfer, Damage, Expired, Reserve, Release) — no generic
+      CRUD for movements
+- [x] Reservations (`RESERVATION`/`RESERVATION_RELEASE`) track a separate reserved
+      ledger and do not change on-hand `quantityBefore`/`quantityAfter`; derived
+      `available = onHand - reserved`
+- [x] Read-only `GET /inventory/stock` (derived on-hand/reserved/available),
+      `GET /inventory/movements` (filter by product/warehouse/type),
+      `GET /inventory/movements/:id`, `GET /inventory/movements/:id/activities`
+- [x] Validated: product exists/active/`isInventoryItem`, warehouse exists/active,
+      non-zero quantity, no same-warehouse transfer, no operation may drive on-hand
+      or reserved quantity negative
+- [x] Movement Number generated via `inventory_movement_number_seq` ("MV-000001",
+      ...) in its own follow-up migration, same pattern as Lead/SalesOrder/Payment
+      numbers
+- [x] Generated and applied 2 migrations to local PostgreSQL (39 tables total)
+- [x] Verify build, prisma generate/migrate, backend start, lint, and type check all
+      succeed; smoke-tested live: SERVICE (non-inventory) product rejection,
+      invalid product/warehouse (404), inactive warehouse rejection, zero/negative
+      quantity rejection, opening balance, adjustment (including negative-result
+      rejection), transfer (same-warehouse rejection, valid two-sided transfer,
+      insufficient-stock rejection), damage, expired, reserve/release (including
+      over-reserve and over-release rejection), stock derivation, movement list/
+      detail/filter, and timeline activities — all test data cleaned up afterward
+
+## Cost Engine Foundation (this stage)
+
+- [x] Added `CostComponent` reference-data entity (code unique, name, description,
+      isActive) with its own `CostComponentActivity` timeline — see ADR-0014
+- [x] Seeded 8 system components: PRODUCT_COST, PRINTING, PACKAGING, CUSTOM_BOX,
+      CUSTOMS, INBOUND_SHIPPING, OUTBOUND_PREPARATION, OTHER — editable by admins
+      via the standard CRUD (not locked/protected)
+- [x] Added `CostAllocationMethod` enum (BY_QUANTITY, BY_COST, EQUAL, MANUAL) and
+      `CostAllocationRule` model — schema only, no DTO/service/controller, per "No
+      calculation yet. Only architecture"
+- [x] Added append-only `ProductCostHistory` (previousCost/newCost/reason/
+      referenceType/referenceId; no updatedAt/updatedBy/deletedAt — never
+      overwritten) and single-row-per-product `ProductCostSnapshot` (unique
+      productId, updated in place, no direct edit endpoint)
+- [x] `Product` gained `currentCost`/`lastCostUpdate` (denormalized mirror of the
+      active snapshot); the existing `defaultCostMethod` (ADR-0012) satisfies this
+      task's "CostMethod (placeholder)" — no duplicate column added
+- [x] NestJS `cost-components` module: full reference-data CRUD
+      (POST/GET/GET:id/PATCH/DELETE) plus nested read-only
+      `/cost-components/:id/activities`
+- [x] NestJS `product-cost` module: `POST/GET /product-cost/:productId` (record/read
+      current cost — no calculation) and `GET /product-cost-history/:productId`
+- [x] Validated: duplicate component code, negative cost value, inactive product,
+      deleted product
+- [x] `PRODUCT_COST_UPDATED`/`SNAPSHOT_CREATED` logged onto the existing
+      `ProductActivity` timeline (ADR-0011) rather than a new one;
+      `COST_COMPONENT_CREATED`/`COST_COMPONENT_UPDATED` on the new
+      `CostComponentActivity`
+- [x] Generated and applied migration to local PostgreSQL
+- [x] Verify build, prisma generate/migrate, backend start, lint, and type check all
+      succeed; smoke-tested live: seeded components present, duplicate-code
+      rejection, component update/soft-delete, component timeline, cost-not-yet-
+      recorded 404, negative-cost rejection, inactive-product rejection, deleted-
+      product rejection, valid cost recording (snapshot created), second cost
+      update (same snapshot row updated in place, not recreated), history showing
+      previousCost/newCost chain, Product.currentCost/lastCostUpdate mirrored, and
+      Product timeline showing both cost activity types — all test data cleaned up
+      afterward, only the 8 seeded components remain
+
+## Purchasing Phase 1 — Suppliers + Purchase Orders (this stage)
+
+- [x] Added `Supplier` entity: auto-numbered `supplierNumber` ("SUP-000001", ...),
+      unique user-editable `code`, name/commercial name/contact/tax/registration
+      fields, optional Currency/Country, `status` (ACTIVE/INACTIVE), `isPreferred`,
+      placeholder-only `defaultPayableAccountId`/`defaultExpenseAccountId` (no FK,
+      no API) — with its own `SupplierActivity` timeline — see ADR-0015
+- [x] NestJS `suppliers` module: named business operations only — Create, Update,
+      Archive (soft-delete), Activate (sets status back to ACTIVE), Search (by
+      code/name/commercial name, filter by status) — no generic CRUD; added
+      `GET /suppliers/:id` as a necessary gap-fill (needed by Update/Archive/PO
+      validation, not itself one of the five named operations)
+- [x] Added `PurchaseOrder`/`PurchaseOrderItem`: auto-numbered `poNumber`
+      ("PO-000001", ...), Supplier (required)/Project/CostCenter/Currency
+      (optional), `PurchaseType` enum (INVENTORY, SAMPLE, OFFICE_SUPPLY, SERVICE,
+      FIXED_ASSET — classification only), `PurchaseOrderStatus` (DRAFT, APPROVED,
+      CANCELLED, CLOSED), "Preparation For Future" fields (Receiving Warehouse,
+      Price List, Incoterms, Buyer, Shipping Method, Expected Receipt Date) as
+      schema-only nullable placeholders, not exposed via API — with
+      `PurchaseOrderActivity` timeline
+- [x] `PurchaseOrderItem.productId` is a required, real FK to `Product` (unlike the
+      older `OrderItem.productId` placeholder, left untouched) — quantity/unitPrice
+      reject negative only (zero allowed, per this task's literal wording);
+      `subtotal` is caller-supplied, never computed server-side
+- [x] NestJS `purchase-orders` module: Create, Approve (DRAFT→APPROVED), Cancel
+      (DRAFT/APPROVED→CANCELLED), Close (APPROVED→CLOSED), Search (supplier/status/
+      purchaseType filters, PO/reference number search), Details, Timeline — no
+      generic CRUD, no Update
+- [x] Validated: inactive/deleted supplier, inactive/deleted product (per line
+      item), negative quantity, negative price, duplicate PO number, duplicate
+      supplier code
+- [x] Confirmed live: Approving a Purchase Order does not create inventory
+      movements, does not update product cost, and does not touch accounting —
+      product on-hand stock and cost snapshot verified unchanged after Approve
+- [x] Generated and applied 2 migrations to local PostgreSQL (5 new tables: 49
+      total)
+- [x] Verify build, prisma generate/migrate, backend start, lint, and type check
+      all succeed; smoke-tested live: supplier create/update/archive/activate/
+      search/timeline, duplicate supplier code rejection, PO create/approve/
+      cancel/close, invalid transition rejection (Close before Approve, re-Approve,
+      Cancel after Close), inactive supplier/product rejection, invalid supplier/
+      product 404, negative quantity/price rejection, sequential PO numbering,
+      Details/Search/Timeline — all test data cleaned up afterward
+
+## OMS Frontend Foundation (this stage — backend feature development paused)
+
+- [x] Restructured `apps/web` onto `src/` (`app/` → `src/app/`, top-level
+      `features/` merged into `src/features/`) — resolves the overlap ADR-0004
+      left unresolved; `tsconfig.json` `@/*` now points at `./src/*`
+- [x] Bootstrapped shadcn/ui via its own CLI (Nova preset, Radix base, `--rtl`);
+      added Sidebar, Command, Sheet, Dialog, Dropdown Menu, Tooltip, Popover,
+      Breadcrumb, Collapsible, Avatar, Badge, and related primitives; installed
+      `motion` and `next-themes` — see ADR-0016
+- [x] Introduced a single indigo accent color over shadcn's neutral Nova base
+      (light + dark)
+- [x] Design tokens: typography aliases as real Tailwind utilities (`@theme` in
+      `theme/tokens.css`); z-index/motion duration/easing as plain CSS custom
+      properties, mirrored in `theme/tokens.ts` for JS/Motion use; spacing/shadow/
+      border-width/opacity/breakpoints deliberately reuse Tailwind's own defaults
+- [x] Full frontend architecture folders under `src/`: `components/{ui,shared,
+    layout,business}`, `providers`, `hooks`, `lib`, `services`, `navigation`,
+      `config`, `types`, `theme`, `constants`, `assets`
+- [x] `navigation.config.ts` — flat, `parent`-id-based list (id/title/subtitle/
+      icon/route/parent/order/permissions/featureFlag/badge/visible/children)
+      covering every backend module built so far (CRM, Sales, Products,
+      Inventory, Purchasing, Costing, Finance, Settings, Identity);
+      `buildNavigationTree()`/`flattenNavigationTree()`/`findNavigationItemByRoute()`/
+      `getNavigationBreadcrumb()` assemble/search/breadcrumb it
+- [x] Enterprise Sidebar (on shadcn's `Sidebar` primitive): hierarchical nested
+      menus, only one parent expanded at a time (auto-synced to the active
+      route), icon-collapsed mode, mobile Sheet, cookie-persisted state,
+      Cmd/Ctrl+B shortcut, Pinned Modules + Recent Pages (client-side
+      preferences, no backend), in-sidebar search, collapsed-mode tooltips
+- [x] TopBar: company name, breadcrumb, page title/subtitle, a fully functional
+      Cmd/Ctrl+K command palette (searches/navigates the same nav tree),
+      Notifications and Quick Actions (empty-state placeholders), a real
+      light/dark/system theme switch, a Language Switch placeholder that drives
+      genuine RTL layout mirroring (verified live) with no translated content,
+      and a Profile Menu with an honest generic placeholder identity (no
+      Authentication module exists yet — every menu action disabled)
+- [x] Fixed two bugs found during live smoke testing: icon-less pinned nav items
+      rendering as clipped text in collapsed mode (added a fallback icon), and a
+      `cmdk` runtime error from `CommandDialog` not implicitly wrapping children
+      in the `Command` root in this shadcn version (added it explicitly)
+- [x] `apps/web` dev/start scripts moved to port 3001 (was colliding with
+      `apps/api` on 3000); `README.md` and a new `apps/web/.env.example` updated
+      to match
+- [x] Verify build, lint, and type check succeed workspace-wide; smoke-tested
+      live in-browser: sidebar hierarchy/expand-collapse/pin/search, icon-collapsed
+      mode with tooltips, command palette (open/filter/navigate), theme switch
+      (light/dark), full RTL flip (breadcrumb/sidebar/icons/topbar controls all
+      mirrored correctly), state persistence across reload — mobile/tablet
+      breakpoint behavior verified by code review only (the sandboxed browser
+      tool could not resize its window), not a live screenshot
+- [ ] Vercel connection **not performed** — connecting a GitHub repo to a Vercel
+      account requires the user's own OAuth authorization, which this assistant
+      cannot perform; exact manual steps were given directly to the user instead
+- [ ] No business pages built — `/` is a placeholder shell-demo route; every
+      other nav route 404s until a later phase builds it (explicitly out of
+      scope: "Do not start business pages yet")
+
 ## Next Stages (not started — out of scope for this task)
 
 - [ ] Decide and record ADR for monorepo tooling (Turborepo/Nx/none)
@@ -244,9 +485,44 @@
       `ReceivingAccount.companyId` is currently just a placeholder (see ADR-0010)
 - [ ] Reports: "Sales by Payment Source," "Balances by Receiving Account" — the data
       structure supports them (ADR-0010), no report endpoint exists yet
-- [ ] Still entirely unscoped: inventory deduction, dashboard, payment reconciliation,
-      warehouse stock movement, and Customer record creation
+- [ ] Still entirely unscoped: dashboard, payment reconciliation, and Customer record
+      creation
 - [ ] Build `apps/web` Sales Orders / Payments UI once auth/design direction is decided
+- [ ] Product Phase 3: wire `Lead.productId`/`OrderItem.productId` to the real
+      `Product` table; Bundle composition/assembly logic; Product Variants; Images
+      Gallery (ADR-0011/ADR-0012 explicitly left all unimplemented)
+- [ ] Build `apps/web` Product Engine UI (Products, Units) once auth/design direction
+      is decided
+- [ ] Pricing/Ecommerce phases attach to the now-stable `Product` table (selling/
+      purchase price, tax, channel data) — none of that exists yet (see ADR-0011);
+      `defaultTaxCategory` is a nullable placeholder only, no FK/enum/logic decided
+      yet (see ADR-0012)
+- [ ] Inventory Phase 2: wire Sales Orders to actually call `reserve`/`release`/
+      `adjustment` (Inventory Foundation has no knowledge of Sales Orders yet);
+      Purchases/Suppliers creating `OPENING_BALANCE`/`ADJUSTMENT` movements;
+      physical counting workflow; barcode printing; `defaultWarehouseId` wiring;
+      enforce single default warehouse if ever needed (see ADR-0013)
+- [ ] Build `apps/web` Inventory UI (movements, stock views) once auth/design
+      direction is decided
+- [ ] A real ASSEMBLY/DISASSEMBLY/PRODUCTION workflow for Bundle/Manufacturing —
+      the movement types exist (ADR-0013), no logic implemented
+- [ ] Cost Engine Phase 2: real cost calculation once Purchasing exists (FIFO/LIFO/
+      Average against `InventoryMovement`/`ProductCostHistory`); actual cost
+      allocation math and a CRUD surface for `CostAllocationRule` (schema exists,
+      no API yet); wiring `POST /product-cost/:productId` as a side effect of real
+      Purchase Order receipt instead of direct/manual calls; accounting journal
+      entries against `ChartOfAccount` driven by cost changes (see ADR-0014)
+- [ ] Build `apps/web` Cost Engine UI (cost components, product cost history) once
+      auth/design direction is decided
+- [ ] Purchasing Phase 2: Goods Receipt (the actual event that should create
+      `InventoryMovement`/`OPENING_BALANCE`-or-similar rows and record product
+      cost via `POST /product-cost/:productId` — neither happens today); Purchase
+      Invoice; Supplier Payments; wiring `PurchaseOrder.receivingWarehouseId`/
+      `priceListId`/`incoterms`/`buyerId`/`shippingMethodId`/
+      `expectedReceiptDate` placeholders; `Supplier.defaultPayableAccountId`/
+      `defaultExpenseAccountId` wiring once accounting exists (see ADR-0015)
+- [ ] Build `apps/web` Purchasing UI (Suppliers, Purchase Orders) once auth/design
+      direction is decided
 
-> Business modules (Customers, Inventory, Accounting, Reports) are intentionally
-> excluded until each is explicitly scoped as its own task.
+> Business modules (Customers, Accounting, Reports) are intentionally excluded until
+> each is explicitly scoped as its own task.

@@ -92,7 +92,7 @@ pnpm test            # Run tests for every app/package that defines a test scrip
 ### Running the apps
 
 ```bash
-pnpm --filter web dev    # Next.js dev server (http://localhost:3000)
+pnpm --filter web dev    # Next.js dev server (http://localhost:3001)
 pnpm --filter api start  # NestJS server (http://localhost:3000/health)
 ```
 

@@ -20,6 +20,13 @@ import { PaymentSourcesModule } from './payment-sources/payment-sources.module';
 import { PaymentsModule } from './payments/payments.module';
 import { ChartOfAccountsModule } from './chart-of-accounts/chart-of-accounts.module';
 import { ReceivingAccountsModule } from './receiving-accounts/receiving-accounts.module';
+import { UnitsModule } from './units/units.module';
+import { ProductsModule } from './products/products.module';
+import { InventoryModule } from './inventory/inventory.module';
+import { CostComponentsModule } from './cost-components/cost-components.module';
+import { ProductCostModule } from './product-cost/product-cost.module';
+import { SuppliersModule } from './suppliers/suppliers.module';
+import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module';
 
 @Module({
   imports: [
@@ -43,6 +50,13 @@ import { ReceivingAccountsModule } from './receiving-accounts/receiving-accounts
     ReceivingAccountsModule,
     PaymentSourcesModule,
     PaymentsModule,
+    UnitsModule,
+    ProductsModule,
+    InventoryModule,
+    CostComponentsModule,
+    ProductCostModule,
+    SuppliersModule,
+    PurchaseOrdersModule,
   ],
   controllers: [HealthController],
   providers: [],
