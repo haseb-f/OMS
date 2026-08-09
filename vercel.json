@@ -1,8 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "pnpm install",
+  "buildCommand": "pnpm --filter api exec prisma generate && pnpm --filter web run build",
+  "outputDirectory": "apps/web/.next",
   "functions": {
-    "apps/api/api/index.ts": {}
-  },
-  "rewrites": [{ "source": "/api/:path*", "destination": "/apps/api/api" }]
+    "api/[...path].ts": {
+      "maxDuration": 60
+    }
+  }
 }
