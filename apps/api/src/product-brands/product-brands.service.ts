@@ -1,40 +1,27 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { ProductBrand } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateProductBrandDto } from './dto/create-product-brand.dto';
-import { UpdateProductBrandDto } from './dto/update-product-brand.dto';
+import { MasterDataActivityLogService } from '../master-data/master-data-activity-log.service';
+import {
+  MasterDataCrudService,
+  MasterDataDelegate,
+} from '../master-data/master-data-crud.service';
 
 @Injectable()
-export class ProductBrandsService {
-  constructor(private readonly prisma: PrismaService) {}
+export class ProductBrandsService extends MasterDataCrudService<ProductBrand> {
+  protected readonly entityType = 'PRODUCT_BRAND';
+  protected readonly entityLabel = 'Brand';
+  protected readonly searchFields = ['name', 'description'];
 
-  create(dto: CreateProductBrandDto) {
-    return this.prisma.productBrand.create({ data: dto });
+  constructor(
+    prisma: PrismaService,
+    activityLog: MasterDataActivityLogService,
+  ) {
+    super(prisma, activityLog);
   }
 
-  findAll() {
-    return this.prisma.productBrand.findMany({ where: { deletedAt: null } });
-  }
-
-  async findOne(id: string) {
-    const productBrand = await this.prisma.productBrand.findFirst({
-      where: { id, deletedAt: null },
-    });
-    if (!productBrand) {
-      throw new NotFoundException(`Product brand ${id} not found`);
-    }
-    return productBrand;
-  }
-
-  async update(id: string, dto: UpdateProductBrandDto) {
-    await this.findOne(id);
-    return this.prisma.productBrand.update({ where: { id }, data: dto });
-  }
-
-  async remove(id: string) {
-    await this.findOne(id);
-    return this.prisma.productBrand.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+  protected get delegate(): MasterDataDelegate<ProductBrand> {
+    return this.prisma
+      .productBrand as unknown as MasterDataDelegate<ProductBrand>;
   }
 }

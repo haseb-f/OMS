@@ -1,40 +1,27 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { CostCenter } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateCostCenterDto } from './dto/create-cost-center.dto';
-import { UpdateCostCenterDto } from './dto/update-cost-center.dto';
+import { MasterDataActivityLogService } from '../master-data/master-data-activity-log.service';
+import {
+  MasterDataCrudService,
+  MasterDataDelegate,
+} from '../master-data/master-data-crud.service';
 
+/** TASK-048 — Cost Center master data, referenced by JournalEntry/SalesOrder/PurchaseOrder (prepared-only until this task). Same generic CRUD shape as Currency/PaymentMethod. */
 @Injectable()
-export class CostCentersService {
-  constructor(private readonly prisma: PrismaService) {}
+export class CostCentersService extends MasterDataCrudService<CostCenter> {
+  protected readonly entityType = 'COST_CENTER';
+  protected readonly entityLabel = 'Cost Center';
+  protected readonly searchFields = ['code', 'name'];
 
-  create(dto: CreateCostCenterDto) {
-    return this.prisma.costCenter.create({ data: dto });
+  constructor(
+    prisma: PrismaService,
+    activityLog: MasterDataActivityLogService,
+  ) {
+    super(prisma, activityLog);
   }
 
-  findAll() {
-    return this.prisma.costCenter.findMany({ where: { deletedAt: null } });
-  }
-
-  async findOne(id: string) {
-    const costCenter = await this.prisma.costCenter.findFirst({
-      where: { id, deletedAt: null },
-    });
-    if (!costCenter) {
-      throw new NotFoundException(`Cost center ${id} not found`);
-    }
-    return costCenter;
-  }
-
-  async update(id: string, dto: UpdateCostCenterDto) {
-    await this.findOne(id);
-    return this.prisma.costCenter.update({ where: { id }, data: dto });
-  }
-
-  async remove(id: string) {
-    await this.findOne(id);
-    return this.prisma.costCenter.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+  protected get delegate(): MasterDataDelegate<CostCenter> {
+    return this.prisma.costCenter as unknown as MasterDataDelegate<CostCenter>;
   }
 }

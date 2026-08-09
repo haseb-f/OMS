@@ -9,9 +9,10 @@ import { PaymentNotesService } from './notes/payment-notes.service';
 import { PaymentAttachmentsController } from './attachments/payment-attachments.controller';
 import { PaymentAttachmentsService } from './attachments/payment-attachments.service';
 import { PaymentAutoMatchingService } from './auto-matching/payment-auto-matching.service';
+import { NumberingModule } from '../numbering/numbering.module';
 
 @Module({
-  imports: [LeadsModule],
+  imports: [LeadsModule, NumberingModule],
   controllers: [
     PaymentsController,
     PaymentActivitiesController,

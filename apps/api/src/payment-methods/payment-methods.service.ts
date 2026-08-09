@@ -1,40 +1,27 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { PaymentMethod } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreatePaymentMethodDto } from './dto/create-payment-method.dto';
-import { UpdatePaymentMethodDto } from './dto/update-payment-method.dto';
+import { MasterDataActivityLogService } from '../master-data/master-data-activity-log.service';
+import {
+  MasterDataCrudService,
+  MasterDataDelegate,
+} from '../master-data/master-data-crud.service';
 
 @Injectable()
-export class PaymentMethodsService {
-  constructor(private readonly prisma: PrismaService) {}
+export class PaymentMethodsService extends MasterDataCrudService<PaymentMethod> {
+  protected readonly entityType = 'PAYMENT_METHOD';
+  protected readonly entityLabel = 'Payment Method';
+  protected readonly searchFields = ['name', 'description'];
 
-  create(dto: CreatePaymentMethodDto) {
-    return this.prisma.paymentMethod.create({ data: dto });
+  constructor(
+    prisma: PrismaService,
+    activityLog: MasterDataActivityLogService,
+  ) {
+    super(prisma, activityLog);
   }
 
-  findAll() {
-    return this.prisma.paymentMethod.findMany({ where: { deletedAt: null } });
-  }
-
-  async findOne(id: string) {
-    const paymentMethod = await this.prisma.paymentMethod.findFirst({
-      where: { id, deletedAt: null },
-    });
-    if (!paymentMethod) {
-      throw new NotFoundException(`Payment method ${id} not found`);
-    }
-    return paymentMethod;
-  }
-
-  async update(id: string, dto: UpdatePaymentMethodDto) {
-    await this.findOne(id);
-    return this.prisma.paymentMethod.update({ where: { id }, data: dto });
-  }
-
-  async remove(id: string) {
-    await this.findOne(id);
-    return this.prisma.paymentMethod.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+  protected get delegate(): MasterDataDelegate<PaymentMethod> {
+    return this.prisma
+      .paymentMethod as unknown as MasterDataDelegate<PaymentMethod>;
   }
 }

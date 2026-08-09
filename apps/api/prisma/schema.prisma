@@ -12,9 +12,27 @@ datasource db {
 }
 
 model User {
-  id       String @id @default(uuid()) @db.Uuid
-  email    String @unique
-  fullName String @map("full_name")
+  id                 String    @id @default(uuid()) @db.Uuid
+  email              String    @unique
+  username           String    @unique
+  fullName           String    @map("full_name")
+  passwordHash       String    @map("password_hash")
+  mobile             String?
+  /// Free-text — no fixed list requested (unlike Job Title, which IS a closed set — see `JobTitle`).
+  department         String?
+  isActive           Boolean   @default(true) @map("is_active")
+  /// TASK-060 — set by "Lock"/"Unlock", independent of `isActive`: Active/Inactive is an admin-toggled field, Lock is a security action (e.g. after a manual lock or a future failed-login policy). A locked user cannot log in even if `isActive` is true.
+  isLocked           Boolean   @default(false) @map("is_locked")
+  /// TASK-060 — "Force Password Change": the next successful login must change the password before doing anything else.
+  mustChangePassword Boolean   @default(false) @map("must_change_password")
+  lastLoginAt        DateTime? @map("last_login_at")
+
+  jobTitleId String?   @map("job_title_id") @db.Uuid
+  jobTitle   JobTitle? @relation(fields: [jobTitleId], references: [id])
+
+  /// TASK-060 — the user's assigned Branch (distinct from `CompanyMembership.branchId`, which is a per-company default). Simple direct FK, matching the flat "Branch" field the Users form asks for.
+  branchId String? @map("branch_id") @db.Uuid
+  branch   Branch? @relation(fields: [branchId], references: [id])
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -22,20 +40,23 @@ model User {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  userRoles UserRole[]
+  /// TASK-060 — "Permissions are assigned directly to each user" (no Role/RBAC layer). See `UserPermission`.
+  userPermissions     UserPermission[]
+  companyMemberships  CompanyMembership[]
+  passwordResetTokens PasswordResetToken[]
 
   leadsAsSalesEmployee Lead[]
   leadAssignments      LeadAssignment[]
   leadNotes            LeadNote[]
 
-  salesOrdersAsSalesEmployee    SalesOrder[]           @relation("SalesOrderSalesEmployee")
-  salesOrdersAsShippingEmployee SalesOrder[]           @relation("SalesOrderShippingEmployee")
-  salesOrdersAsCreatedBy        SalesOrder[]           @relation("SalesOrderCreatedBy")
-  salesOrdersAsPaymentVerifiedBy SalesOrder[]          @relation("SalesOrderPaymentVerifiedBy")
-  salesOrdersAsPackedBy         SalesOrder[]           @relation("SalesOrderPackedBy")
-  salesOrdersAsHandedToShippingBy SalesOrder[]          @relation("SalesOrderHandedToShippingBy")
-  salesOrderNotes               SalesOrderNote[]
-  salesOrderAttachments         SalesOrderAttachment[]
+  salesOrdersAsSalesEmployee      SalesOrder[]           @relation("SalesOrderSalesEmployee")
+  salesOrdersAsShippingEmployee   SalesOrder[]           @relation("SalesOrderShippingEmployee")
+  salesOrdersAsCreatedBy          SalesOrder[]           @relation("SalesOrderCreatedBy")
+  salesOrdersAsPaymentVerifiedBy  SalesOrder[]           @relation("SalesOrderPaymentVerifiedBy")
+  salesOrdersAsPackedBy           SalesOrder[]           @relation("SalesOrderPackedBy")
+  salesOrdersAsHandedToShippingBy SalesOrder[]           @relation("SalesOrderHandedToShippingBy")
+  salesOrderNotes                 SalesOrderNote[]
+  salesOrderAttachments           SalesOrderAttachment[]
 
   paymentNotes         PaymentNote[]
   paymentAttachments   PaymentAttachment[]
@@ -43,26 +64,34 @@ model User {
   paymentsAsVerifiedBy Payment[]           @relation("PaymentVerifiedBy")
   paymentsAsRejectedBy Payment[]           @relation("PaymentRejectedBy")
 
+  productAttachments ProductAttachment[]
+  managedWarehouses  Warehouse[]
+  inventoryMovements InventoryMovement[]
+
   @@map("users")
 }
 
-model Role {
-  id          String  @id @default(uuid()) @db.Uuid
-  name        String  @unique
-  description String?
+/// TASK-060 — "Job Title is ONLY a label. Real access is controlled ONLY by
+/// Permissions." A closed, admin-seeded list (see seed.ts's 8 Arabic
+/// titles) — never joined into any permission check anywhere in this
+/// codebase. Replaces the old `Role` model, which conflated "job title" with
+/// "permission grant" (Odoo-style RBAC) — explicitly forbidden by this task.
+model JobTitle {
+  id   String @id @default(uuid()) @db.Uuid
+  name String @unique
 
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  createdBy String?   @map("created_by") @db.Uuid
-  updatedBy String?   @map("updated_by") @db.Uuid
-  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  userRoles       UserRole[]
-  rolePermissions RolePermission[]
+  users User[]
 
-  @@map("roles")
+  @@map("job_titles")
 }
 
+/// TASK-060 — the full catalog of grantable permission strings
+/// (`module.action`, e.g. `sales.invoices.create`). Unchanged shape from the
+/// pre-TASK-060 schema — only how a permission reaches a user changes (see
+/// `UserPermission`), not the catalog itself.
 model Permission {
   id          String  @id @default(uuid()) @db.Uuid
   name        String  @unique
@@ -74,38 +103,47 @@ model Permission {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  rolePermissions RolePermission[]
+  userPermissions UserPermission[]
 
   @@map("permissions")
 }
 
-model RolePermission {
+/// TASK-060 — "Permissions are assigned directly to each user." The ONLY
+/// place a permission grant lives; there is no Role/RolePermission layer.
+/// "Copy Permissions From" (Part 9) reads another user's rows here and
+/// inserts matching rows for the target user — user-to-user only, never a
+/// Role template.
+model UserPermission {
   id String @id @default(uuid()) @db.Uuid
 
-  roleId       String @map("role_id") @db.Uuid
+  userId       String @map("user_id") @db.Uuid
   permissionId String @map("permission_id") @db.Uuid
 
-  role       Role       @relation(fields: [roleId], references: [id])
-  permission Permission @relation(fields: [permissionId], references: [id])
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  createdBy String?   @map("created_by") @db.Uuid
-  updatedBy String?   @map("updated_by") @db.Uuid
-  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  createdBy String?  @map("created_by") @db.Uuid
 
-  @@unique([roleId, permissionId])
-  @@map("role_permissions")
+  @@unique([userId, permissionId])
+  @@map("user_permissions")
 }
 
-model UserRole {
-  id String @id @default(uuid()) @db.Uuid
+// ---------------------------------------------------------------------------
+// Auth + Company Context (ADR-0022 foundation) — every future API request
+// must be scoped to a Company (and optionally a Branch). A user can belong
+// to more than one Company (multi-company support); CompanyMembership is the
+// join that also carries the branch a membership defaults to. No business
+// logic depends on these yet — this is the auth/context foundation only.
+// ---------------------------------------------------------------------------
+model Company {
+  id   String @id @default(uuid()) @db.Uuid
+  name String
+  code String @unique
 
-  userId String @map("user_id") @db.Uuid
-  roleId String @map("role_id") @db.Uuid
-
-  user User @relation(fields: [userId], references: [id])
-  role Role @relation(fields: [roleId], references: [id])
+  logoUrl        String? @map("logo_url")
+  primaryColor   String? @map("primary_color")
+  secondaryColor String? @map("secondary_color")
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -113,8 +151,88 @@ model UserRole {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  @@unique([userId, roleId])
-  @@map("user_roles")
+  branches       Branch[]
+  memberships    CompanyMembership[]
+  journalEntries JournalEntry[]
+
+  /// TASK-051 Document Context Enrichment — ambient scoping on every operational document.
+  salesQuotations       SalesQuotation[]
+  salesOrderDocuments   SalesOrderDocument[]
+  salesInvoices         SalesInvoice[]
+  salesReturns          SalesReturn[]
+  purchaseQuotations    PurchaseQuotation[]
+  purchaseOrders        PurchaseOrder[]
+  purchaseInvoices      PurchaseInvoice[]
+  purchaseReturns       PurchaseReturn[]
+  financialTransactions FinancialTransaction[]
+  fiscalYears           FiscalYear[]
+  journals              Journal[]
+
+  @@map("companies")
+}
+
+model Branch {
+  id        String @id @default(uuid()) @db.Uuid
+  companyId String @map("company_id") @db.Uuid
+  name      String
+  code      String
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  company        Company             @relation(fields: [companyId], references: [id])
+  memberships    CompanyMembership[]
+  journalEntries JournalEntry[]
+  /// TASK-060 — Users form's "Branch" field.
+  users          User[]
+
+  /// TASK-051 Document Context Enrichment — ambient scoping on every operational document.
+  salesQuotations       SalesQuotation[]
+  salesOrderDocuments   SalesOrderDocument[]
+  salesInvoices         SalesInvoice[]
+  salesReturns          SalesReturn[]
+  purchaseQuotations    PurchaseQuotation[]
+  purchaseOrders        PurchaseOrder[]
+  purchaseInvoices      PurchaseInvoice[]
+  purchaseReturns       PurchaseReturn[]
+  financialTransactions FinancialTransaction[]
+  journals              Journal[]
+
+  @@unique([companyId, code])
+  @@map("branches")
+}
+
+model CompanyMembership {
+  id        String  @id @default(uuid()) @db.Uuid
+  userId    String  @map("user_id") @db.Uuid
+  companyId String  @map("company_id") @db.Uuid
+  branchId  String? @map("branch_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id])
+  company Company @relation(fields: [companyId], references: [id])
+  branch  Branch? @relation(fields: [branchId], references: [id])
+
+  @@unique([userId, companyId])
+  @@map("company_memberships")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("password_reset_tokens")
 }
 
 // ---------------------------------------------------------------------------
@@ -135,12 +253,24 @@ model Currency {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  leads Lead[]
-  salesOrders SalesOrder[]
-  payments    Payment[]
-  receivingAccounts ReceivingAccount[]
-  suppliers         Supplier[]
-  purchaseOrders    PurchaseOrder[]
+  leads                 Lead[]
+  salesOrders           SalesOrder[]
+  payments              Payment[]
+  receivingAccounts     ReceivingAccount[]
+  suppliers             Supplier[]
+  purchaseOrders        PurchaseOrder[]
+  customers             Customer[]
+  salesQuotations       SalesQuotation[]
+  salesOrderDocuments   SalesOrderDocument[]
+  salesInvoices         SalesInvoice[]
+  salesReturns          SalesReturn[]
+  purchaseQuotations    PurchaseQuotation[]
+  purchaseInvoices      PurchaseInvoice[]
+  purchaseReturns       PurchaseReturn[]
+  financialTransactions FinancialTransaction[]
+  journalEntries        JournalEntry[]
+  journals              Journal[]
+  chartOfAccounts       ChartOfAccount[]
 
   @@map("currencies")
 }
@@ -156,9 +286,11 @@ model Country {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  leads Lead[]
+  leads       Lead[]
   salesOrders SalesOrder[]
   suppliers   Supplier[]
+  cities      City[]
+  customers   Customer[]
 
   @@map("countries")
 }
@@ -175,8 +307,17 @@ model Project {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  salesOrders    SalesOrder[]
-  purchaseOrders PurchaseOrder[]
+  salesOrders       SalesOrder[]
+  purchaseOrders    PurchaseOrder[]
+  journalEntries    JournalEntry[]
+  journalEntryLines JournalEntryLine[]
+
+  /// TASK-051 Document Context Enrichment — posting documents only (Quotations/Orders don't carry cost attribution).
+  salesInvoices         SalesInvoice[]
+  salesReturns          SalesReturn[]
+  purchaseInvoices      PurchaseInvoice[]
+  purchaseReturns       PurchaseReturn[]
+  financialTransactions FinancialTransaction[]
 
   @@map("projects")
 }
@@ -193,8 +334,17 @@ model CostCenter {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  salesOrders    SalesOrder[]
-  purchaseOrders PurchaseOrder[]
+  salesOrders       SalesOrder[]
+  purchaseOrders    PurchaseOrder[]
+  journalEntries    JournalEntry[]
+  journalEntryLines JournalEntryLine[]
+
+  /// TASK-051 Document Context Enrichment — posting documents only (Quotations/Orders don't carry cost attribution).
+  salesInvoices         SalesInvoice[]
+  salesReturns          SalesReturn[]
+  purchaseInvoices      PurchaseInvoice[]
+  purchaseReturns       PurchaseReturn[]
+  financialTransactions FinancialTransaction[]
 
   @@map("cost_centers")
 }
@@ -215,6 +365,31 @@ model PaymentMethod {
   salesOrders SalesOrder[]
 
   @@map("payment_methods")
+}
+
+/// Master Data — Payment Terms (TASK-028). Distinct from PaymentMethod:
+/// PaymentMethod answers "how" (Cash, Card, Transfer); PaymentTerm answers
+/// "when payment is due" (Net 30, Due on Receipt, COD). `days` is nullable
+/// since not every term is day-based (e.g. "Cash on Delivery"). Code is
+/// auto-generated via the Numbering Engine, same as every other TASK-030+
+/// master-data entity — never typed by hand.
+model PaymentTerm {
+  id          String  @id @default(uuid()) @db.Uuid
+  code        String  @unique
+  name        String
+  days        Int?
+  description String?
+  isActive    Boolean @default(true) @map("is_active")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  customers Customer[]
+
+  @@map("payment_terms")
 }
 
 /// Discriminates the two future shipping-method types. The internal delivery
@@ -244,6 +419,21 @@ model ProductCategory {
   id          String  @id @default(uuid()) @db.Uuid
   name        String  @unique
   description String?
+
+  /// Accounting Configuration (TASK-047) — optional per-category overrides
+  /// of the global Accounting Settings defaults. Empty means "use the
+  /// global default" — resolved by AccountMappingService, never here.
+  revenueAccountId String?         @map("revenue_account_id") @db.Uuid
+  revenueAccount   ChartOfAccount? @relation("CategoryRevenueAccount", fields: [revenueAccountId], references: [id])
+
+  inventoryAccountId String?         @map("inventory_account_id") @db.Uuid
+  inventoryAccount   ChartOfAccount? @relation("CategoryInventoryAccount", fields: [inventoryAccountId], references: [id])
+
+  cogsAccountId String?         @map("cogs_account_id") @db.Uuid
+  cogsAccount   ChartOfAccount? @relation("CategoryCogsAccount", fields: [cogsAccountId], references: [id])
+
+  purchaseAccountId String?         @map("purchase_account_id") @db.Uuid
+  purchaseAccount   ChartOfAccount? @relation("CategoryPurchaseAccount", fields: [purchaseAccountId], references: [id])
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -286,10 +476,52 @@ model Unit {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  products           Product[]
-  purchaseOrderItems PurchaseOrderItem[]
+  products                Product[]
+  purchaseOrderItems      PurchaseOrderItem[]
+  conversionsFrom         UnitConversion[]         @relation("UnitConversionFrom")
+  conversionsTo           UnitConversion[]         @relation("UnitConversionTo")
+  salesQuotationItems     SalesQuotationItem[]
+  salesOrderDocumentItems SalesOrderDocumentItem[]
+  salesInvoiceItems       SalesInvoiceItem[]
+  salesReturnItems        SalesReturnItem[]
+  purchaseQuotationItems  PurchaseQuotationItem[]
+  purchaseInvoiceItems    PurchaseInvoiceItem[]
+  purchaseReturnItems     PurchaseReturnItem[]
 
   @@map("units")
+}
+
+/// Units of Measure — Conversions (TASK-030). `Unit` itself stays the flat
+/// named list it always was (ADR-0011/0012); this table separately records
+/// "1 fromUnit = ratio toUnit" pairs (e.g. Box -> Piece = 12, Kilogram ->
+/// Gram = 1000) so a future Purchasing/Sales module can convert between a
+/// product's purchase/sales unit and its base unit. Not wired onto Product
+/// yet — no purchaseUnitId/salesUnitId column was added there, which would
+/// expand Product Engine's already-closed scope (ADR-0012); this is the
+/// reference table those future columns would point through.
+model UnitConversion {
+  id String @id @default(uuid()) @db.Uuid
+
+  fromUnitId String @map("from_unit_id") @db.Uuid
+  fromUnit   Unit   @relation("UnitConversionFrom", fields: [fromUnitId], references: [id])
+
+  toUnitId String @map("to_unit_id") @db.Uuid
+  toUnit   Unit   @relation("UnitConversionTo", fields: [toUnitId], references: [id])
+
+  /// "1 fromUnit = conversionRatio toUnit" — e.g. fromUnit=Box, toUnit=Piece, ratio=12.
+  conversionRatio Decimal @map("conversion_ratio") @db.Decimal(18, 6)
+
+  description String?
+  isActive    Boolean @default(true) @map("is_active")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@unique([fromUnitId, toUnitId])
+  @@map("unit_conversions")
 }
 
 model Warehouse {
@@ -315,16 +547,68 @@ model Warehouse {
   parentWarehouse   Warehouse?  @relation("WarehouseHierarchy", fields: [parentWarehouseId], references: [id])
   childWarehouses   Warehouse[] @relation("WarehouseHierarchy")
 
+  /// TASK-028 Part 3 — real FKs, not free-text: the person responsible for
+  /// this warehouse (User already exists) and the analytic account its
+  /// inventory activity should default to (AnalyticAccount already exists).
+  managerId String? @map("manager_id") @db.Uuid
+  manager   User?   @relation(fields: [managerId], references: [id])
+
+  defaultAnalyticAccountId String?          @map("default_analytic_account_id") @db.Uuid
+  defaultAnalyticAccount   AnalyticAccount? @relation(fields: [defaultAnalyticAccountId], references: [id])
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   createdBy String?   @map("created_by") @db.Uuid
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  salesOrders        SalesOrder[]
-  inventoryMovements InventoryMovement[]
+  salesOrders             SalesOrder[]
+  inventoryMovements      InventoryMovement[]
+  locations               WarehouseLocation[]
+  preferredByProducts     Product[]
+  physicalCounts          PhysicalCount[]
+  salesQuotationItems     SalesQuotationItem[]
+  salesOrderDocumentItems SalesOrderDocumentItem[]
+  salesInvoiceItems       SalesInvoiceItem[]
+  salesReturnItems        SalesReturnItem[]
+  purchaseInvoiceItems    PurchaseInvoiceItem[]
+  purchaseReturnItems     PurchaseReturnItem[]
 
   @@map("warehouses")
+}
+
+/// Warehouse Locations (TASK-030) — unlimited bins/shelves/zones per
+/// Warehouse (e.g. Main Warehouse > A1, A2, B1, B2, Returns, Damaged), tree
+/// via a nullable self-relation the same way Warehouse itself models its
+/// own future hierarchy (ADR-0013). No inventory-quantity or costing field
+/// lives here — a Location is purely a place; InventoryMovement stays the
+/// only source of quantity truth (ADR-0013).
+model WarehouseLocation {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// App-generated ("LOC-000001", ...) via the Numbering Engine — never
+  /// typed by hand, same treatment as Warehouse.code.
+  code String @unique
+
+  name        String
+  description String?
+
+  warehouseId String    @map("warehouse_id") @db.Uuid
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+
+  parentLocationId String?             @map("parent_location_id") @db.Uuid
+  parentLocation   WarehouseLocation?  @relation("WarehouseLocationHierarchy", fields: [parentLocationId], references: [id])
+  childLocations   WarehouseLocation[] @relation("WarehouseLocationHierarchy")
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("warehouse_locations")
 }
 
 /// Reference Data — Sales Orders Phase 2, decision #2: Shipping Company must be a
@@ -389,8 +673,8 @@ model Lead {
 
   /// Current assignee (denormalized from the latest LeadAssignment). Null
   /// until the lead is assigned.
-  salesEmployeeId String? @map("sales_employee_id") @db.Uuid
-  salesEmployee   User?   @relation(fields: [salesEmployeeId], references: [id])
+  salesEmployeeId String?   @map("sales_employee_id") @db.Uuid
+  salesEmployee   User?     @relation(fields: [salesEmployeeId], references: [id])
   assignedAt      DateTime? @map("assigned_at")
 
   status LeadStatus @default(NEW)
@@ -409,6 +693,22 @@ model Lead {
   /// for manually entered leads.
   importBatch String? @map("import_batch")
 
+  /// TASK-061 — the source system's own order identifier (e.g. an e-commerce
+  /// platform's order number), supplied on manual entry or import. Used to
+  /// detect a re-imported duplicate order (same External Order ID) without
+  /// relying on mobile+name+product matching alone. Null for leads that
+  /// never carried one. Not unique at the DB level (older/manual leads have
+  /// none), enforced in `LeadsService.create()` instead.
+  externalOrderId String? @map("external_order_id")
+
+  /// Sales Foundation (TASK-037) — set only by the "Convert to Customer"
+  /// action. Lead stays a CRM/pre-sales entity; Customer is the canonical
+  /// commercial account, so this is a one-way, optional link, never the
+  /// reverse (Customer has no FK back to a single Lead — a repeat customer
+  /// may originate multiple leads over time).
+  customerId String?   @map("customer_id") @db.Uuid
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   createdBy String?   @map("created_by") @db.Uuid
@@ -421,6 +721,7 @@ model Lead {
   salesOrders SalesOrder[]
   payments    Payment[]
 
+  @@index([externalOrderId])
   @@map("leads")
 }
 
@@ -576,21 +877,21 @@ model SalesOrder {
   /// createdById is distinct from the generic audit `created_by` column —
   /// this one is a proper relation because it has explicit business meaning
   /// here (who operationally created the order), not just an audit trail.
-  createdById String? @map("created_by_id") @db.Uuid
-  createdByUser User? @relation("SalesOrderCreatedBy", fields: [createdById], references: [id])
+  createdById   String? @map("created_by_id") @db.Uuid
+  createdByUser User?   @relation("SalesOrderCreatedBy", fields: [createdById], references: [id])
 
   /// Snapshotted from the Lead's verified Payment at order-creation time, if
   /// one exists (Payment Verification module).
-  paymentVerifiedById String? @map("payment_verified_by_id") @db.Uuid
-  paymentVerifiedByUser User? @relation("SalesOrderPaymentVerifiedBy", fields: [paymentVerifiedById], references: [id])
+  paymentVerifiedById   String? @map("payment_verified_by_id") @db.Uuid
+  paymentVerifiedByUser User?   @relation("SalesOrderPaymentVerifiedBy", fields: [paymentVerifiedById], references: [id])
 
   /// No operation sets this yet in this phase — schema-only, see ADR-0008.
-  packedById String? @map("packed_by_id") @db.Uuid
-  packedByUser User? @relation("SalesOrderPackedBy", fields: [packedById], references: [id])
+  packedById   String? @map("packed_by_id") @db.Uuid
+  packedByUser User?   @relation("SalesOrderPackedBy", fields: [packedById], references: [id])
 
   /// No operation sets this yet in this phase — schema-only, see ADR-0008.
-  handedToShippingById String? @map("handed_to_shipping_by_id") @db.Uuid
-  handedToShippingByUser User? @relation("SalesOrderHandedToShippingBy", fields: [handedToShippingById], references: [id])
+  handedToShippingById   String? @map("handed_to_shipping_by_id") @db.Uuid
+  handedToShippingByUser User?   @relation("SalesOrderHandedToShippingBy", fields: [handedToShippingById], references: [id])
 
   status SalesOrderStatus @default(CREATED)
 
@@ -711,7 +1012,7 @@ model SalesOrderAttachment {
   uploadedBy   User   @relation(fields: [uploadedById], references: [id])
 
   fileUrl        String  @map("file_url")
-  fileName        String? @map("file_name")
+  fileName       String? @map("file_name")
   /// Plain string, not an enum — e.g. "SHIPPING_LABEL", "GENERAL". Left open
   /// the same way LeadActivity.type is, since more types may appear later.
   attachmentType String  @map("attachment_type")
@@ -816,11 +1117,48 @@ enum PaymentStatus {
 /// ReceivingAccount.chartOfAccountId (required) have a valid, real FK
 /// target — "the accounting entry MUST ultimately use the Receiving
 /// Account's ChartOfAccount," but no accounting entry is created by OMS.
+/// TASK-044 Part 6 — the 5 fundamental accounting classifications. A closed
+/// set (same treatment as ProductType/FinancialTransactionType), not a
+/// free-text classifier, because Journal Entry balance/reporting logic will
+/// eventually need to switch on it.
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
 model ChartOfAccount {
   id          String  @id @default(uuid()) @db.Uuid
   code        String  @unique
   name        String
   description String?
+
+  /// TASK-044 Part 6 — required: no rows existed yet when this was added
+  /// (unlike PaymentSource.code), so no nullable-for-backfill compromise
+  /// was needed.
+  accountType AccountType @map("account_type")
+
+  /// Account Hierarchy (TASK-044 Part 6, same prepared-only pattern as
+  /// Warehouse.parentWarehouseId / AnalyticAccount.parentAccountId): a real
+  /// self-relation FK, no depth limit. TASK-053 adds real cycle prevention
+  /// in ChartOfAccountsService (walks the full ancestor chain, not just the
+  /// immediate self-parent check that existed before) — no traversal API.
+  parentAccountId String?          @map("parent_account_id") @db.Uuid
+  parentAccount   ChartOfAccount?  @relation("ChartOfAccountHierarchy", fields: [parentAccountId], references: [id])
+  childAccounts   ChartOfAccount[] @relation("ChartOfAccountHierarchy")
+
+  /// TASK-053 — an account can be locked to one currency (e.g. a USD bank
+  /// account); null means it follows whatever currency each posting uses,
+  /// same as before this task. `allowReconciliation` marks an account as a
+  /// matching/reconciliation candidate (AR/AP/Bank) — prepared for a future
+  /// reconciliation feature, same "flag exists, no engine consumes it yet"
+  /// pattern as `Product.defaultCostMethod` (ADR-0012).
+  currencyId String?   @map("currency_id") @db.Uuid
+  currency   Currency? @relation(fields: [currencyId], references: [id])
+
+  allowReconciliation Boolean @default(false) @map("allow_reconciliation")
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -830,8 +1168,110 @@ model ChartOfAccount {
 
   paymentSourcesDefault PaymentSource[]
   receivingAccounts     ReceivingAccount[]
+  journalEntryLines     JournalEntryLine[]
+
+  /// TASK-046 (Accounting Posting Engine) — every role a Chart of Account
+  /// can play for the Posting Engine's default/fallback account resolution.
+  customersDefaultReceivable Customer[] @relation("CustomerDefaultReceivable")
+  suppliersDefaultPayable    Supplier[] @relation("SupplierDefaultPayable")
+  suppliersDefaultExpense    Supplier[] @relation("SupplierDefaultExpense")
+  taxOutputFor               Tax[]      @relation("TaxOutputAccount")
+  taxInputFor                Tax[]      @relation("TaxInputAccount")
+
+  postingSettingsSalesRevenue        PostingSettings[] @relation("PostingSalesRevenue")
+  postingSettingsCogs                PostingSettings[] @relation("PostingCogs")
+  postingSettingsInventory           PostingSettings[] @relation("PostingInventory")
+  postingSettingsAr                  PostingSettings[] @relation("PostingAr")
+  postingSettingsAp                  PostingSettings[] @relation("PostingAp")
+  postingSettingsExpense             PostingSettings[] @relation("PostingExpense")
+  postingSettingsSalesDiscount       PostingSettings[] @relation("PostingSalesDiscount")
+  postingSettingsSalesReturn         PostingSettings[] @relation("PostingSalesReturn")
+  postingSettingsInventoryAdjustment PostingSettings[] @relation("PostingInventoryAdjustment")
+  postingSettingsPurchase            PostingSettings[] @relation("PostingPurchase")
+  postingSettingsPurchaseReturn      PostingSettings[] @relation("PostingPurchaseReturn")
+  postingSettingsCash                PostingSettings[] @relation("PostingCash")
+  postingSettingsBank                PostingSettings[] @relation("PostingBank")
+  postingSettingsVatOutput           PostingSettings[] @relation("PostingVatOutput")
+  postingSettingsVatInput            PostingSettings[] @relation("PostingVatInput")
+  postingSettingsRoundDifference     PostingSettings[] @relation("PostingRoundDifference")
+  postingSettingsPurchaseDiscount    PostingSettings[] @relation("PostingPurchaseDiscount")
+  postingSettingsExchangeDifference  PostingSettings[] @relation("PostingExchangeDifference")
+  postingSettingsSuspense            PostingSettings[] @relation("PostingSuspense")
+  postingSettingsRetainedEarnings    PostingSettings[] @relation("PostingRetainedEarnings")
+
+  /// TASK-047 — Product Category / Customer Group / Supplier Group
+  /// account-mapping overrides.
+  categoriesDefaultRevenue   ProductCategory[] @relation("CategoryRevenueAccount")
+  categoriesDefaultInventory ProductCategory[] @relation("CategoryInventoryAccount")
+  categoriesDefaultCogs      ProductCategory[] @relation("CategoryCogsAccount")
+  categoriesDefaultPurchase  ProductCategory[] @relation("CategoryPurchaseAccount")
+  customerGroupsReceivable   CustomerGroup[]   @relation("CustomerGroupDefaultReceivable")
+  customerGroupsRevenue      CustomerGroup[]   @relation("CustomerGroupDefaultRevenue")
+  supplierGroupsPayable      SupplierGroup[]   @relation("SupplierGroupDefaultPayable")
+  supplierGroupsPurchase     SupplierGroup[]   @relation("SupplierGroupDefaultPurchase")
+
+  /// TASK-053 — Journal default Dr/Cr account configuration.
+  journalsDefaultDebit  Journal[] @relation("JournalDefaultDebit")
+  journalsDefaultCredit Journal[] @relation("JournalDefaultCredit")
 
   @@map("chart_of_accounts")
+}
+
+enum JournalType {
+  SALES
+  PURCHASE
+  CASH
+  BANK
+  GENERAL
+}
+
+/// Journal (TASK-053) — Odoo-style journal configuration: WHICH book of
+/// entry an accounting document belongs to (Sales/Purchase/Cash/Bank/
+/// General), each with its own default Dr/Cr accounts, currency, and
+/// branch. Purely a configuration + classification entity — it does not
+/// replace or rewire the Posting Engine's own numbering (every automatic
+/// posting still mints its number from the single "JOURNAL_ENTRY"
+/// NumberSeries, same as before this task); `sequencePrefix` is a display
+/// label only. `JournalEntry.journalId` links an entry to one of these —
+/// nullable so existing/automatic entries keep working unchanged, but
+/// required before a manual entry can be Posted (see JournalEntriesService).
+model Journal {
+  id   String      @id @default(uuid()) @db.Uuid
+  name String
+  code String      @unique
+  type JournalType
+
+  /// Display-only prefix shown next to the journal (e.g. "SJ") — the real
+  /// auto-numbering still runs through the existing NumberingEngineService.
+  sequencePrefix String? @map("sequence_prefix")
+
+  defaultDebitAccountId String?         @map("default_debit_account_id") @db.Uuid
+  defaultDebitAccount   ChartOfAccount? @relation("JournalDefaultDebit", fields: [defaultDebitAccountId], references: [id])
+
+  defaultCreditAccountId String?         @map("default_credit_account_id") @db.Uuid
+  defaultCreditAccount   ChartOfAccount? @relation("JournalDefaultCredit", fields: [defaultCreditAccountId], references: [id])
+
+  currencyId String?   @map("currency_id") @db.Uuid
+  currency   Currency? @relation(fields: [currencyId], references: [id])
+
+  companyId String?  @map("company_id") @db.Uuid
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  branchId String? @map("branch_id") @db.Uuid
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  journalEntries        JournalEntry[]
+  journalEntryTemplates JournalEntryTemplate[]
+
+  @@map("journals")
 }
 
 /// "HOW the customer paid" (Cash, Bank Transfer, Visa, MyFatoorah, ...) —
@@ -861,7 +1301,8 @@ model PaymentSource {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  payments Payment[]
+  payments              Payment[]
+  financialTransactions FinancialTransaction[]
 
   @@map("payment_sources")
 }
@@ -898,7 +1339,8 @@ model ReceivingAccount {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  payments Payment[]
+  payments              Payment[]
+  financialTransactions FinancialTransaction[]
 
   @@map("receiving_accounts")
 }
@@ -933,18 +1375,18 @@ model Payment {
 
   status PaymentStatus @default(PENDING)
 
-  matchedAt    DateTime? @map("matched_at")
-  matchedById  String?   @map("matched_by_id") @db.Uuid
-  matchedBy    User?     @relation("PaymentMatchedBy", fields: [matchedById], references: [id])
+  matchedAt   DateTime? @map("matched_at")
+  matchedById String?   @map("matched_by_id") @db.Uuid
+  matchedBy   User?     @relation("PaymentMatchedBy", fields: [matchedById], references: [id])
 
   verifiedAt   DateTime? @map("verified_at")
   verifiedById String?   @map("verified_by_id") @db.Uuid
   verifiedBy   User?     @relation("PaymentVerifiedBy", fields: [verifiedById], references: [id])
 
-  rejectedAt     DateTime? @map("rejected_at")
-  rejectedById   String?   @map("rejected_by_id") @db.Uuid
-  rejectedBy     User?     @relation("PaymentRejectedBy", fields: [rejectedById], references: [id])
-  rejectionReason String?  @map("rejection_reason")
+  rejectedAt      DateTime? @map("rejected_at")
+  rejectedById    String?   @map("rejected_by_id") @db.Uuid
+  rejectedBy      User?     @relation("PaymentRejectedBy", fields: [rejectedById], references: [id])
+  rejectionReason String?   @map("rejection_reason")
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -1039,13 +1481,41 @@ model PaymentActivity {
 // a ProductType value.
 // ---------------------------------------------------------------------------
 
-/// Closed set, exactly as specified. BUNDLE is a type value only — no bundle
-/// composition/logic is implemented in this phase.
+/// Closed set (TASK-027) — replaces the earlier PHYSICAL/SERVICE/DIGITAL/
+/// BUNDLE set (never seeded, no production data, safe rename). STOCKABLE is
+/// tracked in inventory; CONSUMABLE is purchased/used but not precisely
+/// stock-tracked; SERVICE has no physical form.
+/// Product Operation Type (TASK-028) — replaces the earlier STOCKABLE/
+/// SERVICE/CONSUMABLE set with business-oriented types that drive which
+/// tabs/fields the UI shows.
+/// "Business Behavior" (TASK-028, Inventory Foundation pass) — KIT renamed
+/// to MANUFACTURED (Prisma enum-value rename, existing rows keep their
+/// data) and SALES_ONLY added: sellable, not purchased through this
+/// system, still inventory-tracked (distinct from SERVICE, which has no
+/// physical form at all). MANUFACTURED is "sold as one item, built from
+/// child products (BOM)" — the BOM itself lives on `ProductComponent`;
+/// automatic inventory deduction on sale is NOT implemented here (it would
+/// mean changing SalesOrders' fulfillment logic, a separate module this
+/// task doesn't touch) — the architecture is prepared, not wired.
+/// EXPENSE_ITEM predates this behavior list and isn't one of its five named
+/// values, but nothing asked for its removal and it may already have data
+/// — kept as a sixth, additional value rather than deleted.
 enum ProductType {
-  PHYSICAL
+  PURCHASE_ONLY
+  SALES_ONLY
+  PURCHASE_AND_SALE
+  MANUFACTURED
   SERVICE
-  DIGITAL
-  BUNDLE
+  EXPENSE_ITEM
+}
+
+/// Costing Method (TASK-028 Part 2) — closed set, exactly as specified.
+/// Architecture only, same as `InventoryValuationMethod` (TASK-030): no
+/// FIFO/Standard-variance calculation engine reads this yet.
+enum ProductCostingMethod {
+  AVERAGE
+  FIFO
+  STANDARD
 }
 
 /// Closed set, exactly as specified.
@@ -1056,7 +1526,12 @@ enum ProductStatus {
 
 model Product {
   id   String @id @default(uuid()) @db.Uuid
+  /// Arabic name — the primary identity field (Arabic is the default locale
+  /// throughout OMS); unchanged column from ADR-0011's `name`.
   name String
+
+  /// English name (TASK-027) — optional, additive to `name`.
+  nameEn String? @map("name_en")
 
   /// Identity (ADR-0012) — both required. internalName is the operational/
   /// back-office name; displayName is customer-facing. Additive to `name`
@@ -1064,13 +1539,26 @@ model Product {
   internalName String @map("internal_name")
   displayName  String @map("display_name")
 
-  /// "Internal Code (SKU)" — must be unique.
+  /// "Product Code" / "SKU" (TASK-027) — one auto-generated identifier
+  /// serving both roles (never typed by a user), minted via the Numbering
+  /// Engine's PRODUCT series. Must be unique.
   sku String @unique
 
-  barcode String?
+  barcode     String?
+  /// QR payload (TASK-027) — independent of barcode; a business may encode a
+  /// different value (URL, JSON) in its QR label than its barcode.
+  qrCodeValue String? @map("qr_code_value")
 
   /// Free-text search aid (ADR-0012) — optional, not a tag/category system.
   searchKeywords String? @map("search_keywords")
+
+  /// Internal-only notes (TASK-027) — never shown to customers, distinct
+  /// from `description`/`shortDescription`/`longDescription`.
+  internalNotes String? @map("internal_notes")
+
+  /// Simple text-tag list (TASK-027) — no separate Tag entity; lightweight,
+  /// matches `searchKeywords`'s "no tag/category system" precedent above.
+  tags String[] @default([])
 
   /// Relations (ADR-0012): Category and Unit are now required; Brand stays
   /// optional, exactly as specified. Reference-data architecture
@@ -1084,6 +1572,19 @@ model Product {
   unitId String @map("unit_id") @db.Uuid
   unit   Unit   @relation(fields: [unitId], references: [id])
 
+  /// Classification (TASK-027) — Tax Group, Cost Center (an Analytic
+  /// Account, per the existing Analytic Accounting foundation), and
+  /// Preferred Supplier. All optional: a product may exist before any of
+  /// these are decided.
+  taxId String? @map("tax_id") @db.Uuid
+  tax   Tax?    @relation(fields: [taxId], references: [id])
+
+  analyticAccountId String?          @map("analytic_account_id") @db.Uuid
+  analyticAccount   AnalyticAccount? @relation(fields: [analyticAccountId], references: [id])
+
+  preferredSupplierId String?   @map("preferred_supplier_id") @db.Uuid
+  preferredSupplier   Supplier? @relation(fields: [preferredSupplierId], references: [id])
+
   description String?
 
   /// Descriptions (ADR-0012) — both optional, additive to `description`.
@@ -1095,14 +1596,42 @@ model Product {
 
   imageUrl String? @map("image_url")
 
-  /// Product Flags (ADR-0012) — type-based defaults computed in
-  /// ProductsService (PHYSICAL: all true; SERVICE/DIGITAL/BUNDLE:
-  /// purchasable=false, sellable=true, inventoryItem=false), manual override
-  /// always allowed. No DB-level @default since the default depends on
-  /// `type`, which Prisma column defaults can't express.
+  /// Product Flags (ADR-0012, retyped for TASK-027) — type-based defaults
+  /// computed in ProductsService (STOCKABLE: all true; SERVICE:
+  /// purchasable=false/sellable=true/inventoryItem=false; CONSUMABLE:
+  /// purchasable=true/sellable=false/inventoryItem=false), manual override
+  /// always allowed. Doubles as "Available For Purchase" / "Available For
+  /// Sale" / "Track Inventory" (TASK-027) — no separate columns for the
+  /// same three booleans.
   isPurchasable   Boolean @map("is_purchasable")
   isSellable      Boolean @map("is_sellable")
   isInventoryItem Boolean @map("is_inventory_item")
+
+  /// Sales section (TASK-027).
+  salesPrice       Decimal? @map("sales_price") @db.Decimal(12, 2)
+  salesTaxIncluded Boolean  @default(false) @map("sales_tax_included")
+  salesDescription String?  @map("sales_description")
+  allowDiscount    Boolean  @default(true) @map("allow_discount")
+
+  /// Purchasing section (TASK-027). `preferredSupplierId` is declared above
+  /// with the other Classification relations.
+  purchasePrice       Decimal? @map("purchase_price") @db.Decimal(12, 2)
+  purchaseDescription String?  @map("purchase_description")
+
+  /// Inventory section (TASK-027) — `isInventoryItem` above doubles as
+  /// "Track Inventory". `reorderLevel` is the reorder POINT (the on-hand
+  /// threshold that triggers reordering); `reorderQuantity` (TASK-028) is
+  /// the separate "how much to reorder" amount, and `safetyStock` is the
+  /// buffer floor kept on top of forecast demand — three distinct planning
+  /// numbers, not one field wearing three names.
+  reorderLevel         Decimal? @map("reorder_level") @db.Decimal(12, 3)
+  reorderQuantity      Decimal? @map("reorder_quantity") @db.Decimal(12, 3)
+  safetyStock          Decimal? @map("safety_stock") @db.Decimal(12, 3)
+  minQuantity          Decimal? @map("min_quantity") @db.Decimal(12, 3)
+  maxQuantity          Decimal? @map("max_quantity") @db.Decimal(12, 3)
+  storageLocation      String?  @map("storage_location")
+  serialNumberTracking Boolean  @default(false) @map("serial_number_tracking")
+  batchTracking        Boolean  @default(false) @map("batch_tracking")
 
   /// Dimensions — nullable at the DB level; "mandatory when isInventoryItem
   /// is true" (ADR-0012) is enforced in ProductsService, since it's
@@ -1113,19 +1642,20 @@ model Product {
   height Decimal? @db.Decimal(12, 3)
   length Decimal? @db.Decimal(12, 3)
 
-  /// Future Columns (ADR-0012) — nullable placeholders only: no FK, no
-  /// business logic, no API, no validation. Left untyped as any specific
-  /// enum/reference since none was specified for cost method or tax
-  /// category.
-  defaultWarehouseId String? @map("default_warehouse_id") @db.Uuid
-  defaultCostMethod  String? @map("default_cost_method")
-  defaultTaxCategory String? @map("default_tax_category")
+  /// TASK-028 — the two ADR-0012 "future placeholders" become real,
+  /// wired fields: a genuine FK to Warehouse (Preferred Warehouse) and a
+  /// closed-set Costing Method, both settable via the Product form/API now.
+  /// `defaultTaxCategory` stays an untyped placeholder — no closed set was
+  /// given for it and this task didn't touch tax categorization.
+  preferredWarehouseId String?               @map("preferred_warehouse_id") @db.Uuid
+  preferredWarehouse   Warehouse?            @relation(fields: [preferredWarehouseId], references: [id])
+  costingMethod        ProductCostingMethod? @map("costing_method")
+  defaultTaxCategory   String?               @map("default_tax_category")
 
   /// Cost Engine Foundation (ADR-0014) — denormalized mirror of the current
-  /// ProductCostSnapshot for fast reads without a join. "CostMethod
-  /// (placeholder)" from this task is satisfied by the existing
-  /// defaultCostMethod column above (ADR-0012) — not a new column, to avoid
-  /// two parallel "cost method" fields on the same entity.
+  /// ProductCostSnapshot for fast reads without a join. `costingMethod`
+  /// above (TASK-028) is the one and only "cost method" field — not a
+  /// second column parallel to it.
   currentCost    Decimal?  @map("current_cost") @db.Decimal(12, 2)
   lastCostUpdate DateTime? @map("last_cost_update")
 
@@ -1135,13 +1665,101 @@ model Product {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  activities          ProductActivity[]
-  inventoryMovements  InventoryMovement[]
-  costHistory         ProductCostHistory[]
-  costSnapshot        ProductCostSnapshot?
-  purchaseOrderItems  PurchaseOrderItem[]
+  activities         ProductActivity[]
+  inventoryMovements InventoryMovement[]
+  costHistory        ProductCostHistory[]
+  costSnapshot       ProductCostSnapshot?
+  purchaseOrderItems PurchaseOrderItem[]
+  variants           ProductVariant[]
+  attachments        ProductAttachment[]
+  /// BOM lines where this product is the finished Kit.
+  components         ProductComponent[]   @relation("KitComponents")
+  /// BOM lines where this product is used AS a component of some Kit.
+  usedInKits         ProductComponent[]   @relation("ComponentUsedIn")
+  physicalCountLines PhysicalCountLine[]
+
+  salesQuotationItems     SalesQuotationItem[]
+  salesOrderDocumentItems SalesOrderDocumentItem[]
+  salesInvoiceItems       SalesInvoiceItem[]
+  salesReturnItems        SalesReturnItem[]
+  purchaseQuotationItems  PurchaseQuotationItem[]
+  purchaseInvoiceItems    PurchaseInvoiceItem[]
+  purchaseReturnItems     PurchaseReturnItem[]
 
   @@map("products")
+}
+
+/// Kit Bill of Materials (TASK-028) — one row per (Kit, component) pair.
+/// Deliberately just the composition list: quantity of each component per
+/// one unit of the Kit. No automatic inventory deduction on sale is wired
+/// here (see the ProductType enum comment) — this is the data a future
+/// Sales fulfillment step would explode against, not a working deduction
+/// engine yet.
+model ProductComponent {
+  id String @id @default(uuid()) @db.Uuid
+
+  kitProductId String  @map("kit_product_id") @db.Uuid
+  kitProduct   Product @relation("KitComponents", fields: [kitProductId], references: [id])
+
+  componentProductId String  @map("component_product_id") @db.Uuid
+  componentProduct   Product @relation("ComponentUsedIn", fields: [componentProductId], references: [id])
+
+  quantity Decimal @db.Decimal(12, 3)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([kitProductId, componentProductId])
+  @@map("product_components")
+}
+
+/// Product Variants (TASK-027) — generic attribute bag (`attributes` as
+/// JSON, e.g. `{"color":"Red","size":"L"}`) rather than a full attribute/
+/// value/combination-matrix engine: enough to represent "this SKU is the
+/// Red/L version of that product" and list/manage it, without building an
+/// automatic combination generator nothing asked for yet.
+model ProductVariant {
+  id String @id @default(uuid()) @db.Uuid
+
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id])
+
+  /// Same Numbering Engine series as the parent product — never typed by hand.
+  sku             String   @unique
+  attributes      Json
+  priceAdjustment Decimal? @map("price_adjustment") @db.Decimal(12, 2)
+  active          Boolean  @default(true)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("product_variants")
+}
+
+/// Product Attachments (TASK-027) — same url-based, metadata-only shape as
+/// `PaymentAttachment`/`SalesOrderAttachment`: no file-upload backend exists
+/// anywhere in this codebase yet, so this stores a caller-supplied URL, not
+/// file bytes.
+model ProductAttachment {
+  id String @id @default(uuid()) @db.Uuid
+
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id])
+
+  uploadedById String @map("uploaded_by_id") @db.Uuid
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+
+  fileUrl     String  @map("file_url")
+  fileName    String? @map("file_name")
+  description String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("product_attachments")
 }
 
 /// General timeline ("Log every business operation") — plain string type,
@@ -1179,7 +1797,14 @@ model ProductActivity {
 // same treatment as ProductType.BUNDLE in ADR-0011.
 // ---------------------------------------------------------------------------
 
-/// Closed set, exactly as specified.
+/// Closed set. TASK-030 added the six purchasing/sales/production document
+/// types as master-data vocabulary (matching this codebase's existing
+/// pattern of representing a closed reference list as an enum, e.g.
+/// LeadStatus/ShippingMethodType, rather than a parallel DB table) — no
+/// Purchasing/Sales/Manufacturing module writes these yet (those stay
+/// "must never create inventory movements" per ADR-0015 until their own
+/// fulfillment phases exist); the values only complete the vocabulary this
+/// engine's future callers will use.
 enum InventoryMovementType {
   OPENING_BALANCE
   ADJUSTMENT
@@ -1191,6 +1816,17 @@ enum InventoryMovementType {
   ASSEMBLY
   DISASSEMBLY
   PRODUCTION
+  PURCHASE_RECEIPT
+  PURCHASE_RETURN
+  SALES_DELIVERY
+  SALES_RETURN
+  PRODUCTION_CONSUMPTION
+  PRODUCTION_OUTPUT
+  /// TASK-029 — the adjustment a confirmed Physical Count generates for a
+  /// counted/system quantity difference. A distinct type (not a reuse of
+  /// ADJUSTMENT) so the Stock Movement History can tell a manual adjustment
+  /// apart from a count-driven one at a glance.
+  PHYSICAL_COUNT
 }
 
 /// Append-only ledger — no updatedAt/updatedBy/deletedAt (ADR-0013). Movement
@@ -1231,12 +1867,29 @@ model InventoryMovement {
   referenceType String? @map("reference_type")
   referenceId   String? @map("reference_id") @db.Uuid
 
+  /// Caller-supplied unit cost at the time of this movement (TASK-028 Stock
+  /// Movements) — nullable, since most movement types (Adjustment/
+  /// Transfer/Damage) don't carry a cost. Never calculated here — the same
+  /// "store what's given, compute nothing" rule as ProductCostService.
+  unitCost Decimal? @map("unit_cost") @db.Decimal(12, 2)
+
+  /// TASK-029 — required on Adjustment ("Reason" field), also set on the
+  /// movements a confirmed Physical Count generates. Nullable at the DB
+  /// level since most movement types never carry one; DTO-level validation
+  /// enforces "required" for the types that need it.
+  reason String?
+
   notes String?
 
-  createdAt DateTime @default(now()) @map("created_at")
-  createdBy String?  @map("created_by") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
+  createdBy     String?  @map("created_by") @db.Uuid
+  createdByUser User?    @relation(fields: [createdBy], references: [id])
 
   activities InventoryMovementActivity[]
+
+  /// Reverse side of PhysicalCountLine.movement — the count line(s) this
+  /// movement was generated for (normally at most one).
+  physicalCountLines PhysicalCountLine[]
 
   @@map("inventory_movements")
 }
@@ -1259,6 +1912,96 @@ model InventoryMovementActivity {
   deletedAt DateTime? @map("deleted_at")
 
   @@map("inventory_movement_activities")
+}
+
+/// TASK-029 — Physical Inventory Count. DRAFT while counted quantities are
+/// being entered; CONFIRMED once the differences have generated their
+/// PHYSICAL_COUNT movements (irreversible, same posture as every other
+/// append-only inventory operation); CANCELLED if abandoned before confirm.
+enum PhysicalCountStatus {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+
+/// A counting document for one Warehouse — one or more lines snapshot the
+/// system on-hand quantity at creation time; the user enters what they
+/// physically counted; confirming generates one PHYSICAL_COUNT movement per
+/// line with a real difference (ADR-0013: never edits stock directly).
+model PhysicalCount {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// App-generated ("CNT-2026-000001") via the Numbering Engine.
+  countNumber String @unique @map("count_number")
+
+  warehouseId String    @map("warehouse_id") @db.Uuid
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+
+  status PhysicalCountStatus @default(DRAFT)
+  notes  String?
+
+  confirmedAt DateTime? @map("confirmed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  lines PhysicalCountLine[]
+
+  @@map("physical_counts")
+}
+
+/// One product's counted line within a PhysicalCount. `systemQuantity` is a
+/// frozen snapshot (never recalculated after creation, so the comparison
+/// stays meaningful even if other movements happen mid-count);
+/// `countedQuantity` is null until the user enters it; `movementId` links to
+/// the PHYSICAL_COUNT movement generated for this line on confirm (null if
+/// the count matched exactly — no movement needed for a zero difference).
+model PhysicalCountLine {
+  id String @id @default(uuid()) @db.Uuid
+
+  physicalCountId String        @map("physical_count_id") @db.Uuid
+  physicalCount   PhysicalCount @relation(fields: [physicalCountId], references: [id])
+
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id])
+
+  systemQuantity  Int  @map("system_quantity")
+  countedQuantity Int? @map("counted_quantity")
+
+  movementId String?            @map("movement_id") @db.Uuid
+  movement   InventoryMovement? @relation(fields: [movementId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([physicalCountId, productId])
+  @@map("physical_count_lines")
+}
+
+/// Closed set, exactly as specified (TASK-030 section 7 — "Architecture
+/// only"). No FIFO/Average calculation engine reads this yet; it exists so
+/// the system-level setting has a real value to hold.
+enum InventoryValuationMethod {
+  AVERAGE_COST
+  FIFO
+}
+
+/// System-wide setting, not per-product — singleton row (fixed id) rather
+/// than a full settings table, since exactly one value exists company-wide
+/// today. `InventoryService.getOrCreateValuationSettings()` creates this row
+/// with the default on first read rather than requiring a migration-time
+/// seed.
+model InventorySettings {
+  id Int @id @default(1)
+
+  valuationMethod InventoryValuationMethod @default(AVERAGE_COST) @map("valuation_method")
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  @@map("inventory_settings")
 }
 
 // ---------------------------------------------------------------------------
@@ -1379,10 +2122,10 @@ model ProductCostSnapshot {
 
   cost Decimal @db.Decimal(12, 2)
 
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  createdBy String?   @map("created_by") @db.Uuid
-  updatedBy String?   @map("updated_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedBy String?  @map("updated_by") @db.Uuid
 
   @@map("product_cost_snapshots")
 }
@@ -1425,6 +2168,12 @@ model Supplier {
   currencyId String?   @map("currency_id") @db.Uuid
   currency   Currency? @relation(fields: [currencyId], references: [id])
 
+  /// TASK-047 — same treatment as Customer.customerGroupId: an optional
+  /// classification that also drives Accounting Configuration group-level
+  /// account-mapping overrides.
+  supplierGroupId String?        @map("supplier_group_id") @db.Uuid
+  supplierGroup   SupplierGroup? @relation(fields: [supplierGroupId], references: [id])
+
   /// No closed set of values was specified — free-text (same reasoning as
   /// Product.defaultCostMethod, ADR-0012).
   paymentTerm String?  @map("payment_term")
@@ -1442,11 +2191,18 @@ model Supplier {
   status      SupplierStatus @default(ACTIVE)
   isPreferred Boolean        @default(false) @map("is_preferred")
 
-  /// "(nullable placeholder only)" — no FK, no business logic, no API, no
-  /// validation. Same treatment as Product.defaultWarehouseId (ADR-0012),
-  /// even though ChartOfAccount already exists as a real table.
-  defaultPayableAccountId String? @map("default_payable_account_id") @db.Uuid
-  defaultExpenseAccountId String? @map("default_expense_account_id") @db.Uuid
+  /// TASK-046 (Accounting Posting Engine) — promoted from a nullable
+  /// placeholder to a real FK: the Posting Engine's SupplierPostingProvider
+  /// reads this as the Accounts Payable account for this supplier,
+  /// falling back to PostingSettings.accountsPayableAccountId when unset.
+  defaultPayableAccountId String?         @map("default_payable_account_id") @db.Uuid
+  defaultPayableAccount   ChartOfAccount? @relation("SupplierDefaultPayable", fields: [defaultPayableAccountId], references: [id])
+
+  /// TASK-046 — likewise promoted: the expense account used for
+  /// non-inventory-tracked Purchase Invoice lines (services), falling back
+  /// to PostingSettings.defaultExpenseAccountId.
+  defaultExpenseAccountId String?         @map("default_expense_account_id") @db.Uuid
+  defaultExpenseAccount   ChartOfAccount? @relation("SupplierDefaultExpense", fields: [defaultExpenseAccountId], references: [id])
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -1454,8 +2210,14 @@ model Supplier {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  activities     SupplierActivity[]
-  purchaseOrders PurchaseOrder[]
+  activities            SupplierActivity[]
+  purchaseOrders        PurchaseOrder[]
+  preferredForProducts  Product[]
+  purchaseQuotations    PurchaseQuotation[]
+  purchaseInvoices      PurchaseInvoice[]
+  purchaseReturns       PurchaseReturn[]
+  financialTransactions FinancialTransaction[]
+  journalEntries        JournalEntry[]         @relation("JournalEntryPartnerSupplier")
 
   @@map("suppliers")
 }
@@ -1478,6 +2240,647 @@ model SupplierActivity {
   deletedAt DateTime? @map("deleted_at")
 
   @@map("supplier_activities")
+}
+
+// ---------------------------------------------------------------------------
+// Sales Foundation (TASK-037) — Customer is the canonical commercial account,
+// independent of Lead (the existing Leads→Shipping COD pipeline's single-use
+// prospect record, which has no balance/credit-limit/payment-term fields).
+// Lead gains an optional, one-way "convert to Customer" link (see
+// Lead.customerId above); Customer itself is creatable from any channel
+// (manual entry, Website, Salla, API, import, Google Sheets — see
+// CustomerSource) and is never duplicated: conversion and any future
+// integration look Customer up by phone/email first.
+// ---------------------------------------------------------------------------
+
+/// Closed set, exactly as specified.
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+}
+
+/// Where this Customer record originated. Only MANUAL and LEAD_CONVERSION
+/// are actually produced by this task's code — the channel integrations
+/// themselves (Website/Salla/API/Google Sheets) are a future, separate
+/// scope; this field is the extensibility point they plug into later.
+enum CustomerSource {
+  MANUAL
+  WEBSITE
+  SALLA
+  API
+  IMPORT
+  GOOGLE_SHEETS
+  LEAD_CONVERSION
+  OTHER
+}
+
+model Customer {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// App-generated ("CUST-000001") via the Numbering Engine — same pattern
+  /// as Supplier.supplierNumber.
+  customerNumber String @unique @map("customer_number")
+
+  name           String
+  commercialName String? @map("commercial_name")
+
+  phone   String?
+  mobile  String?
+  email   String?
+  website String?
+
+  taxNumber              String? @map("tax_number")
+  commercialRegistration String? @map("commercial_registration")
+
+  customerGroupId String?        @map("customer_group_id") @db.Uuid
+  customerGroup   CustomerGroup? @relation(fields: [customerGroupId], references: [id])
+
+  currencyId String?   @map("currency_id") @db.Uuid
+  currency   Currency? @relation(fields: [currencyId], references: [id])
+
+  /// Real FK (unlike Supplier.paymentTerm, which predates the PaymentTerm
+  /// master-data table) — this task explicitly requires Payment Terms as a
+  /// first-class Customer field.
+  paymentTermId String?      @map("payment_term_id") @db.Uuid
+  paymentTerm   PaymentTerm? @relation(fields: [paymentTermId], references: [id])
+
+  creditLimit Decimal? @map("credit_limit") @db.Decimal(12, 2)
+
+  countryId String?  @map("country_id") @db.Uuid
+  country   Country? @relation(fields: [countryId], references: [id])
+
+  city    String?
+  address String?
+  notes   String?
+
+  status CustomerStatus @default(ACTIVE)
+  source CustomerSource @default(MANUAL)
+
+  /// TASK-046 (Accounting Posting Engine) — promoted from a nullable
+  /// placeholder to a real FK: the Posting Engine's SalesInvoicePostingProvider
+  /// / CustomerReceipt provider read this as the Accounts Receivable account
+  /// for this customer, falling back to PostingSettings.accountsReceivableAccountId.
+  defaultReceivableAccountId String?         @map("default_receivable_account_id") @db.Uuid
+  defaultReceivableAccount   ChartOfAccount? @relation("CustomerDefaultReceivable", fields: [defaultReceivableAccountId], references: [id])
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  leads                 Lead[]
+  salesQuotations       SalesQuotation[]
+  salesOrders           SalesOrderDocument[]
+  salesInvoices         SalesInvoice[]
+  salesReturns          SalesReturn[]
+  financialTransactions FinancialTransaction[]
+  journalEntries        JournalEntry[]         @relation("JournalEntryPartnerCustomer")
+
+  /// TASK-038 — indexed for the "prevent duplicate by phone/email" lookup
+  /// CustomersService.create() runs on every write.
+  @@index([phone])
+  @@index([email])
+  @@map("customers")
+}
+
+// ---------------------------------------------------------------------------
+// Sales Foundation (TASK-037) — the B2B document pipeline: Quotation → Sales
+// Order → Invoice → Return. Mirrors the Purchasing module's proven shape
+// (PurchaseOrder/PurchaseOrderItem/PurchaseOrderActivity) field-for-field
+// wherever the concepts overlap. Named `SalesOrderDocument` (not
+// `SalesOrder`) specifically to avoid colliding with the existing, unrelated
+// `SalesOrder` model above (the Leads→Shipping COD fulfillment order, which
+// already owns the Numbering Engine's `SALES_ORDER` key) — that model is not
+// touched by this task. No accounting entries are created by any status
+// transition here — `postedToAccounting`/`accountingPostedAt` are prep-only
+// placeholders for TASK-039, exactly like Supplier's default account
+// columns were prepared without implementation in ADR-0015.
+// ---------------------------------------------------------------------------
+
+/// Shared status vocabulary across all four Sales documents — each document
+/// type uses its own valid subset/transition graph (enforced in each
+/// service's own `transition()` helper, mirroring
+/// PurchaseOrdersService.transition()), not every status applies to every
+/// document (e.g. PARTIALLY_DELIVERED/DELIVERED are Sales Order-only).
+enum SalesDocumentStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  CONFIRMED
+  PARTIALLY_DELIVERED
+  DELIVERED
+  CANCELLED
+  CLOSED
+}
+
+model SalesQuotation {
+  id              String @id @default(uuid()) @db.Uuid
+  quotationNumber String @unique @map("quotation_number")
+
+  customerId String   @map("customer_id") @db.Uuid
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  currencyId String?   @map("currency_id") @db.Uuid
+  currency   Currency? @relation(fields: [currencyId], references: [id])
+
+  /// TASK-051 Document Context Enrichment — nullable, ambient (resolved from
+  /// the request's active-company header, same as JournalEntry's own
+  /// companyId/branchId): never required on create, never breaks an
+  /// existing caller that doesn't send one.
+  companyId String?  @map("company_id") @db.Uuid
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  branchId String? @map("branch_id") @db.Uuid
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  /// TASK-040 — an editable business date, independent of `createdAt`
+  /// (which stays the immutable system timestamp). Defaults to "now" so
+  /// every pre-existing row backfills cleanly.
+  documentDate DateTime @default(now()) @map("document_date")
+
+  referenceNumber String? @map("reference_number")
+  internalNotes   String? @map("internal_notes")
+  customerNotes   String? @map("customer_notes")
+
+  status SalesDocumentStatus @default(DRAFT)
+
+  /// Server-computed from `items` on every create/update — never trusted
+  /// from the client (deliberate deviation from PurchaseOrderItem.subtotal,
+  /// which is caller-supplied: these are customer-facing financial
+  /// documents feeding future Accounting, so totals must be internally
+  /// consistent, not merely "recorded").
+  subtotal      Decimal @default(0) @db.Decimal(12, 2)
+  discountTotal Decimal @default(0) @map("discount_total") @db.Decimal(12, 2)
+  taxTotal      Decimal @default(0) @map("tax_total") @db.Decimal(12, 2)
+  grandTotal    Decimal @default(0) @map("grand_total") @db.Decimal(12, 2)
+
+  confirmedAt DateTime? @map("confirmed_at")
+  confirmedBy String?   @map("confirmed_by") @db.Uuid
+  cancelledAt DateTime? @map("cancelled_at")
+  cancelledBy String?   @map("cancelled_by") @db.Uuid
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  items       SalesQuotationItem[]
+  activities  SalesQuotationActivity[]
+  salesOrders SalesOrderDocument[]
+
+  @@map("sales_quotations")
+}
+
+model SalesQuotationItem {
+  id String @id @default(uuid()) @db.Uuid
+
+  salesQuotationId String         @map("sales_quotation_id") @db.Uuid
+  salesQuotation   SalesQuotation @relation(fields: [salesQuotationId], references: [id])
+
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id])
+
+  description String?
+
+  /// Optional here (unlike the other three documents) — a quotation commits
+  /// nothing, so forcing a warehouse choice at quote time would fight the
+  /// UX policy's "minimize clicks, hide unnecessary fields."
+  warehouseId String?    @map("warehouse_id") @db.Uuid
+  warehouse   Warehouse? @relation(fields: [warehouseId], references: [id])
+
+  unitId String @map("unit_id") @db.Uuid
+  unit   Unit   @relation(fields: [unitId], references: [id])
+
+  quantity  Int
+  unitPrice Decimal @map("unit_price") @db.Decimal(12, 2)
+
+  discountPercent Decimal @default(0) @map("discount_percent") @db.Decimal(5, 2)
+  discountValue   Decimal @default(0) @map("discount_value") @db.Decimal(12, 2)
+
+  taxId String? @map("tax_id") @db.Uuid
+  tax   Tax?    @relation(fields: [taxId], references: [id])
+
+  taxAmount Decimal @default(0) @map("tax_amount") @db.Decimal(12, 2)
+  lineTotal Decimal @map("line_total") @db.Decimal(12, 2)
+
+  notes String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("sales_quotation_items")
+}
+
+model SalesQuotationActivity {
+  id String @id @default(uuid()) @db.Uuid
+
+  salesQuotationId String         @map("sales_quotation_id") @db.Uuid
+  salesQuotation   SalesQuotation @relation(fields: [salesQuotationId], references: [id])
+
+  type        String
+  description String
+  metadata    Json?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("sales_quotation_activities")
+}
+
+/// The new B2B Sales Order document — see the module-level comment above for
+/// why this is not named `SalesOrder`.
+model SalesOrderDocument {
+  id          String @id @default(uuid()) @db.Uuid
+  orderNumber String @unique @map("order_number")
+
+  customerId String   @map("customer_id") @db.Uuid
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  quotationId String?         @map("quotation_id") @db.Uuid
+  quotation   SalesQuotation? @relation(fields: [quotationId], references: [id])
+
+  currencyId String?   @map("currency_id") @db.Uuid
+  currency   Currency? @relation(fields: [currencyId], references: [id])
+
+  /// TASK-051 Document Context Enrichment — see SalesQuotation.companyId.
+  companyId String?  @map("company_id") @db.Uuid
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  branchId String? @map("branch_id") @db.Uuid
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  referenceNumber String? @map("reference_number")
+  internalNotes   String? @map("internal_notes")
+  customerNotes   String? @map("customer_notes")
+
+  status SalesDocumentStatus @default(DRAFT)
+
+  subtotal      Decimal @default(0) @db.Decimal(12, 2)
+  discountTotal Decimal @default(0) @map("discount_total") @db.Decimal(12, 2)
+  taxTotal      Decimal @default(0) @map("tax_total") @db.Decimal(12, 2)
+  grandTotal    Decimal @default(0) @map("grand_total") @db.Decimal(12, 2)
+
+  confirmedAt DateTime? @map("confirmed_at")
+  confirmedBy String?   @map("confirmed_by") @db.Uuid
+  cancelledAt DateTime? @map("cancelled_at")
+  cancelledBy String?   @map("cancelled_by") @db.Uuid
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  items      SalesOrderDocumentItem[]
+  activities SalesOrderDocumentActivity[]
+  invoices   SalesInvoice[]
+
+  @@map("sales_order_documents")
+}
+
+model SalesOrderDocumentItem {
+  id String @id @default(uuid()) @db.Uuid
+
+  salesOrderId String             @map("sales_order_id") @db.Uuid
+  salesOrder   SalesOrderDocument @relation(fields: [salesOrderId], references: [id])
+
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id])
+
+  description String?
+
+  warehouseId String    @map("warehouse_id") @db.Uuid
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+
+  unitId String @map("unit_id") @db.Uuid
+  unit   Unit   @relation(fields: [unitId], references: [id])
+
+  quantity  Int
+  unitPrice Decimal @map("unit_price") @db.Decimal(12, 2)
+
+  discountPercent Decimal @default(0) @map("discount_percent") @db.Decimal(5, 2)
+  discountValue   Decimal @default(0) @map("discount_value") @db.Decimal(12, 2)
+
+  taxId String? @map("tax_id") @db.Uuid
+  tax   Tax?    @relation(fields: [taxId], references: [id])
+
+  taxAmount Decimal @default(0) @map("tax_amount") @db.Decimal(12, 2)
+  lineTotal Decimal @map("line_total") @db.Decimal(12, 2)
+
+  /// Incremented as Sales Invoices are confirmed against this line — drives
+  /// the order's Partially-Delivered/Delivered rollup. Never edited
+  /// directly by a client.
+  deliveredQuantity Int @default(0) @map("delivered_quantity")
+
+  notes String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  invoiceLines SalesInvoiceItem[]
+
+  @@map("sales_order_document_items")
+}
+
+model SalesOrderDocumentActivity {
+  id String @id @default(uuid()) @db.Uuid
+
+  salesOrderId String             @map("sales_order_id") @db.Uuid
+  salesOrder   SalesOrderDocument @relation(fields: [salesOrderId], references: [id])
+
+  type        String
+  description String
+  metadata    Json?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("sales_order_document_activities")
+}
+
+model SalesInvoice {
+  id            String @id @default(uuid()) @db.Uuid
+  invoiceNumber String @unique @map("invoice_number")
+
+  customerId String   @map("customer_id") @db.Uuid
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  salesOrderId String?             @map("sales_order_id") @db.Uuid
+  salesOrder   SalesOrderDocument? @relation(fields: [salesOrderId], references: [id])
+
+  currencyId String?   @map("currency_id") @db.Uuid
+  currency   Currency? @relation(fields: [currencyId], references: [id])
+
+  /// TASK-051 Document Context Enrichment — see SalesQuotation.companyId.
+  /// This is a posting document: costCenter/project are also carried here
+  /// (unlike Quotation/Order) so they can propagate onto the Journal Entry
+  /// the Posting Engine creates when this invoice is confirmed.
+  companyId String?  @map("company_id") @db.Uuid
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  branchId String? @map("branch_id") @db.Uuid
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  costCenterId String?     @map("cost_center_id") @db.Uuid
+  costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
+
+  projectId String?  @map("project_id") @db.Uuid
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  /// Snapshot at creation, never updated afterward — same "snapshot"
+  /// pattern SalesOrder.customerName already uses elsewhere in this schema.
+  paymentTermId String? @map("payment_term_id") @db.Uuid
+
+  referenceNumber String? @map("reference_number")
+  internalNotes   String? @map("internal_notes")
+  customerNotes   String? @map("customer_notes")
+
+  status SalesDocumentStatus @default(DRAFT)
+
+  subtotal      Decimal @default(0) @db.Decimal(12, 2)
+  discountTotal Decimal @default(0) @map("discount_total") @db.Decimal(12, 2)
+  taxTotal      Decimal @default(0) @map("tax_total") @db.Decimal(12, 2)
+  grandTotal    Decimal @default(0) @map("grand_total") @db.Decimal(12, 2)
+
+  /// Prep-for-future (TASK-039) — never set true by this task's code.
+  postedToAccounting Boolean   @default(false) @map("posted_to_accounting")
+  accountingPostedAt DateTime? @map("accounting_posted_at")
+
+  confirmedAt DateTime? @map("confirmed_at")
+  confirmedBy String?   @map("confirmed_by") @db.Uuid
+  cancelledAt DateTime? @map("cancelled_at")
+  cancelledBy String?   @map("cancelled_by") @db.Uuid
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  items       SalesInvoiceItem[]
+  activities  SalesInvoiceActivity[]
+  returns     SalesReturn[]
+  /// TASK-043 — Financial Transactions & Matching Engine. Payment status is
+  /// never stored here (see FinancialTransaction module comment) — always
+  /// derived by summing these allocations for CONFIRMED transactions.
+  allocations FinancialTransactionAllocation[]
+
+  @@map("sales_invoices")
+}
+
+model SalesInvoiceItem {
+  id String @id @default(uuid()) @db.Uuid
+
+  salesInvoiceId String       @map("sales_invoice_id") @db.Uuid
+  salesInvoice   SalesInvoice @relation(fields: [salesInvoiceId], references: [id])
+
+  /// Links back to the originating order line, when this invoice was
+  /// created via "Convert to Invoice" — caps invoiced qty at ordered qty
+  /// and drives SalesOrderDocumentItem.deliveredQuantity. Null for a direct
+  /// invoice with no originating Sales Order.
+  salesOrderItemId String?                 @map("sales_order_item_id") @db.Uuid
+  salesOrderItem   SalesOrderDocumentItem? @relation(fields: [salesOrderItemId], references: [id])
+
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id])
+
+  description String?
+
+  warehouseId String    @map("warehouse_id") @db.Uuid
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+
+  unitId String @map("unit_id") @db.Uuid
+  unit   Unit   @relation(fields: [unitId], references: [id])
+
+  quantity  Int
+  unitPrice Decimal @map("unit_price") @db.Decimal(12, 2)
+
+  discountPercent Decimal @default(0) @map("discount_percent") @db.Decimal(5, 2)
+  discountValue   Decimal @default(0) @map("discount_value") @db.Decimal(12, 2)
+
+  taxId String? @map("tax_id") @db.Uuid
+  tax   Tax?    @relation(fields: [taxId], references: [id])
+
+  taxAmount Decimal @default(0) @map("tax_amount") @db.Decimal(12, 2)
+  lineTotal Decimal @map("line_total") @db.Decimal(12, 2)
+
+  /// TASK-057 — the moving-average cost in effect when this line's Sales
+  /// Invoice was posted (COGS = unitCost * quantity). Set once, at posting
+  /// time, by SalesInvoicePostingProvider; never recomputed afterward. A
+  /// Sales Return reversing this line replays THIS cost (via
+  /// SalesReturnItem.salesInvoiceItem) instead of re-reading the product's
+  /// current cost, so the reversal always matches the original COGS amount
+  /// exactly even if the product's cost has moved since the sale. Null for
+  /// non-inventory items and for rows created before this task.
+  unitCost Decimal? @map("unit_cost") @db.Decimal(12, 2)
+
+  notes String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  returnLines SalesReturnItem[]
+
+  @@map("sales_invoice_items")
+}
+
+model SalesInvoiceActivity {
+  id String @id @default(uuid()) @db.Uuid
+
+  salesInvoiceId String       @map("sales_invoice_id") @db.Uuid
+  salesInvoice   SalesInvoice @relation(fields: [salesInvoiceId], references: [id])
+
+  type        String
+  description String
+  metadata    Json?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("sales_invoice_activities")
+}
+
+model SalesReturn {
+  id           String @id @default(uuid()) @db.Uuid
+  returnNumber String @unique @map("return_number")
+
+  customerId String   @map("customer_id") @db.Uuid
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  salesInvoiceId String?       @map("sales_invoice_id") @db.Uuid
+  salesInvoice   SalesInvoice? @relation(fields: [salesInvoiceId], references: [id])
+
+  currencyId String?   @map("currency_id") @db.Uuid
+  currency   Currency? @relation(fields: [currencyId], references: [id])
+
+  /// TASK-051 Document Context Enrichment — see SalesInvoice.companyId.
+  companyId String?  @map("company_id") @db.Uuid
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  branchId String? @map("branch_id") @db.Uuid
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  costCenterId String?     @map("cost_center_id") @db.Uuid
+  costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
+
+  projectId String?  @map("project_id") @db.Uuid
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  referenceNumber String? @map("reference_number")
+  internalNotes   String? @map("internal_notes")
+  customerNotes   String? @map("customer_notes")
+
+  status SalesDocumentStatus @default(DRAFT)
+
+  subtotal      Decimal @default(0) @db.Decimal(12, 2)
+  discountTotal Decimal @default(0) @map("discount_total") @db.Decimal(12, 2)
+  taxTotal      Decimal @default(0) @map("tax_total") @db.Decimal(12, 2)
+  grandTotal    Decimal @default(0) @map("grand_total") @db.Decimal(12, 2)
+
+  /// Prep-for-future (TASK-039) — never set true by this task's code.
+  postedToAccounting Boolean   @default(false) @map("posted_to_accounting")
+  accountingPostedAt DateTime? @map("accounting_posted_at")
+
+  confirmedAt DateTime? @map("confirmed_at")
+  confirmedBy String?   @map("confirmed_by") @db.Uuid
+  cancelledAt DateTime? @map("cancelled_at")
+  cancelledBy String?   @map("cancelled_by") @db.Uuid
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  items      SalesReturnItem[]
+  activities SalesReturnActivity[]
+
+  @@map("sales_returns")
+}
+
+model SalesReturnItem {
+  id String @id @default(uuid()) @db.Uuid
+
+  salesReturnId String      @map("sales_return_id") @db.Uuid
+  salesReturn   SalesReturn @relation(fields: [salesReturnId], references: [id])
+
+  /// Links back to the invoice line being reversed — caps returned quantity
+  /// at invoiced quantity minus already-returned quantity. Null for a
+  /// return not tied to a specific invoice line.
+  salesInvoiceItemId String?           @map("sales_invoice_item_id") @db.Uuid
+  salesInvoiceItem   SalesInvoiceItem? @relation(fields: [salesInvoiceItemId], references: [id])
+
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id])
+
+  description String?
+
+  warehouseId String    @map("warehouse_id") @db.Uuid
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+
+  unitId String @map("unit_id") @db.Uuid
+  unit   Unit   @relation(fields: [unitId], references: [id])
+
+  quantity  Int
+  unitPrice Decimal @map("unit_price") @db.Decimal(12, 2)
+
+  discountPercent Decimal @default(0) @map("discount_percent") @db.Decimal(5, 2)
+  discountValue   Decimal @default(0) @map("discount_value") @db.Decimal(12, 2)
+
+  taxId String? @map("tax_id") @db.Uuid
+  tax   Tax?    @relation(fields: [taxId], references: [id])
+
+  taxAmount Decimal @default(0) @map("tax_amount") @db.Decimal(12, 2)
+  lineTotal Decimal @map("line_total") @db.Decimal(12, 2)
+
+  notes String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("sales_return_items")
+}
+
+model SalesReturnActivity {
+  id String @id @default(uuid()) @db.Uuid
+
+  salesReturnId String      @map("sales_return_id") @db.Uuid
+  salesReturn   SalesReturn @relation(fields: [salesReturnId], references: [id])
+
+  type        String
+  description String
+  metadata    Json?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("sales_return_activities")
 }
 
 /// Closed set, exactly as specified. "This is ONLY classification. No
@@ -1508,6 +2911,12 @@ model PurchaseOrder {
   supplierId String   @map("supplier_id") @db.Uuid
   supplier   Supplier @relation(fields: [supplierId], references: [id])
 
+  /// Set when this PO was created via PurchaseQuotation's "Convert to
+  /// Order" action — mirrors SalesOrderDocument.quotationId. Null for a PO
+  /// created directly with no originating quotation.
+  quotationId String?            @map("quotation_id") @db.Uuid
+  quotation   PurchaseQuotation? @relation(fields: [quotationId], references: [id])
+
   projectId String?  @map("project_id") @db.Uuid
   project   Project? @relation(fields: [projectId], references: [id])
 
@@ -1516,6 +2925,13 @@ model PurchaseOrder {
 
   currencyId String?   @map("currency_id") @db.Uuid
   currency   Currency? @relation(fields: [currencyId], references: [id])
+
+  /// TASK-051 Document Context Enrichment — see SalesQuotation.companyId.
+  companyId String?  @map("company_id") @db.Uuid
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  branchId String? @map("branch_id") @db.Uuid
+  branch   Branch? @relation(fields: [branchId], references: [id])
 
   purchaseType PurchaseType @map("purchase_type")
 
@@ -1545,6 +2961,8 @@ model PurchaseOrder {
 
   items      PurchaseOrderItem[]
   activities PurchaseOrderActivity[]
+  /// Goods Receipt(s) created via "Convert to Invoice" — see PurchaseInvoice.purchaseOrderId.
+  invoices   PurchaseInvoice[]
 
   @@map("purchase_orders")
 }
@@ -1573,7 +2991,18 @@ model PurchaseOrderItem {
   /// Caller-supplied, like every other line-item money field in this
   /// codebase (OrderItem) — not computed server-side. Storing arithmetic
   /// here is not "Cost Calculation"; it is just recording what was agreed.
+  /// It is the taxable base — `taxAmount`/`lineTotal` below are computed
+  /// from it, same convention as every other Purchasing document.
   subtotal Decimal @db.Decimal(12, 2)
+
+  /// Tax is fully optional (Additional Business Rules Phase 2.5+) — a line
+  /// with no `taxId` posts/prints/totals with zero tax, never a forced
+  /// selection.
+  taxId String? @map("tax_id") @db.Uuid
+  tax   Tax?    @relation(fields: [taxId], references: [id])
+
+  taxAmount Decimal @default(0) @map("tax_amount") @db.Decimal(12, 2)
+  lineTotal Decimal @default(0) @map("line_total") @db.Decimal(12, 2)
 
   notes String?
 
@@ -1582,6 +3011,9 @@ model PurchaseOrderItem {
   createdBy String?   @map("created_by") @db.Uuid
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
+
+  /// Goods Receipt line(s) created against this PO line — see PurchaseInvoiceItem.purchaseOrderItemId.
+  invoiceLines PurchaseInvoiceItem[]
 
   @@map("purchase_order_items")
 }
@@ -1604,4 +3036,1343 @@ model PurchaseOrderActivity {
   deletedAt DateTime? @map("deleted_at")
 
   @@map("purchase_order_activities")
+}
+
+// ---------------------------------------------------------------------------
+// Purchasing Document Pipeline (TASK-048) — Quotation -> Order -> Invoice ->
+// Return, mirroring the Sales Foundation's proven shape (SalesQuotation/
+// SalesInvoice/SalesReturn) field-for-field wherever the concepts overlap.
+// PurchaseOrder itself (ADR-0015, above) keeps its own schema/status/
+// endpoints exactly as shipped — it is only linked to, never redesigned:
+// PurchaseQuotation gains a "Convert to Order" action that creates a
+// PurchaseOrder through the existing PurchaseOrdersService, and PurchaseOrder
+// gains a "Convert to Invoice" (Goods Receipt) action the same way. Totals
+// on all three new documents are server-computed (never caller-supplied),
+// per this task's explicit "Use backend calculations only" — a deliberate
+// departure from PurchaseOrderItem.subtotal's caller-supplied convention,
+// same reasoning as SalesQuotation.subtotal's schema comment. Only
+// Invoice/Return carry a `warehouseId` per line (required, enforced in each
+// service, same "conditionally required" pattern SalesLineItemInputDto
+// uses) — Quotation and PurchaseOrder have none, matching the existing
+// PurchaseOrderItem shape; a warehouse is only meaningful once goods
+// actually move. Goods Receipt = Purchase Invoice confirm (increases
+// Inventory via InventoryService.postPurchaseReceipt); Purchase Return
+// confirm decreases it via postPurchaseReturn — see inventory.service.ts.
+// ---------------------------------------------------------------------------
+
+/// Shared status vocabulary across the three new Purchasing documents.
+/// Mirrors SalesDocumentStatus minus PARTIALLY_DELIVERED/DELIVERED (no
+/// partial-receipt tracking exists on PurchaseOrderItem to roll up against).
+enum PurchaseDocumentStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  CONFIRMED
+  CANCELLED
+  CLOSED
+}
+
+model PurchaseQuotation {
+  id              String @id @default(uuid()) @db.Uuid
+  quotationNumber String @unique @map("quotation_number")
+
+  supplierId String   @map("supplier_id") @db.Uuid
+  supplier   Supplier @relation(fields: [supplierId], references: [id])
+
+  currencyId String?   @map("currency_id") @db.Uuid
+  currency   Currency? @relation(fields: [currencyId], references: [id])
+
+  /// TASK-051 Document Context Enrichment — see SalesQuotation.companyId.
+  companyId String?  @map("company_id") @db.Uuid
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  branchId String? @map("branch_id") @db.Uuid
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  /// Required, like PurchaseOrder.purchaseType — carried through unchanged
+  /// on "Convert to Order" since PO's own create() requires it too.
+  purchaseType PurchaseType @map("purchase_type")
+
+  documentDate DateTime @default(now()) @map("document_date")
+
+  referenceNumber String? @map("reference_number")
+  internalNotes   String? @map("internal_notes")
+  supplierNotes   String? @map("supplier_notes")
+
+  status PurchaseDocumentStatus @default(DRAFT)
+
+  subtotal      Decimal @default(0) @db.Decimal(12, 2)
+  discountTotal Decimal @default(0) @map("discount_total") @db.Decimal(12, 2)
+  taxTotal      Decimal @default(0) @map("tax_total") @db.Decimal(12, 2)
+  grandTotal    Decimal @default(0) @map("grand_total") @db.Decimal(12, 2)
+
+  confirmedAt DateTime? @map("confirmed_at")
+  confirmedBy String?   @map("confirmed_by") @db.Uuid
+  cancelledAt DateTime? @map("cancelled_at")
+  cancelledBy String?   @map("cancelled_by") @db.Uuid
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  items          PurchaseQuotationItem[]
+  activities     PurchaseQuotationActivity[]
+  purchaseOrders PurchaseOrder[]
+
+  @@map("purchase_quotations")
+}
+
+model PurchaseQuotationItem {
+  id String @id @default(uuid()) @db.Uuid
+
+  purchaseQuotationId String            @map("purchase_quotation_id") @db.Uuid
+  purchaseQuotation   PurchaseQuotation @relation(fields: [purchaseQuotationId], references: [id])
+
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id])
+
+  description String?
+
+  unitId String @map("unit_id") @db.Uuid
+  unit   Unit   @relation(fields: [unitId], references: [id])
+
+  quantity  Int
+  unitPrice Decimal @map("unit_price") @db.Decimal(12, 2)
+
+  discountPercent Decimal @default(0) @map("discount_percent") @db.Decimal(5, 2)
+  discountValue   Decimal @default(0) @map("discount_value") @db.Decimal(12, 2)
+
+  taxId String? @map("tax_id") @db.Uuid
+  tax   Tax?    @relation(fields: [taxId], references: [id])
+
+  taxAmount Decimal @default(0) @map("tax_amount") @db.Decimal(12, 2)
+  lineTotal Decimal @map("line_total") @db.Decimal(12, 2)
+
+  notes String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("purchase_quotation_items")
+}
+
+model PurchaseQuotationActivity {
+  id String @id @default(uuid()) @db.Uuid
+
+  purchaseQuotationId String            @map("purchase_quotation_id") @db.Uuid
+  purchaseQuotation   PurchaseQuotation @relation(fields: [purchaseQuotationId], references: [id])
+
+  type        String
+  description String
+  metadata    Json?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("purchase_quotation_activities")
+}
+
+/// Goods Receipt document. Confirming it increases Inventory (postPurchaseReceipt).
+model PurchaseInvoice {
+  id            String @id @default(uuid()) @db.Uuid
+  invoiceNumber String @unique @map("invoice_number")
+
+  supplierId String   @map("supplier_id") @db.Uuid
+  supplier   Supplier @relation(fields: [supplierId], references: [id])
+
+  purchaseOrderId String?        @map("purchase_order_id") @db.Uuid
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+
+  currencyId String?   @map("currency_id") @db.Uuid
+  currency   Currency? @relation(fields: [currencyId], references: [id])
+
+  /// TASK-051 Document Context Enrichment — see SalesInvoice.companyId.
+  companyId String?  @map("company_id") @db.Uuid
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  branchId String? @map("branch_id") @db.Uuid
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  costCenterId String?     @map("cost_center_id") @db.Uuid
+  costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
+
+  projectId String?  @map("project_id") @db.Uuid
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  referenceNumber String? @map("reference_number")
+  internalNotes   String? @map("internal_notes")
+  supplierNotes   String? @map("supplier_notes")
+
+  status PurchaseDocumentStatus @default(DRAFT)
+
+  subtotal      Decimal @default(0) @db.Decimal(12, 2)
+  discountTotal Decimal @default(0) @map("discount_total") @db.Decimal(12, 2)
+  taxTotal      Decimal @default(0) @map("tax_total") @db.Decimal(12, 2)
+  grandTotal    Decimal @default(0) @map("grand_total") @db.Decimal(12, 2)
+
+  /// Prep-for-future (Accounting Posting) — never set true by this task's code.
+  postedToAccounting Boolean   @default(false) @map("posted_to_accounting")
+  accountingPostedAt DateTime? @map("accounting_posted_at")
+
+  confirmedAt DateTime? @map("confirmed_at")
+  confirmedBy String?   @map("confirmed_by") @db.Uuid
+  cancelledAt DateTime? @map("cancelled_at")
+  cancelledBy String?   @map("cancelled_by") @db.Uuid
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  items       PurchaseInvoiceItem[]
+  activities  PurchaseInvoiceActivity[]
+  returns     PurchaseReturn[]
+  /// TASK-043 — Financial Transactions & Matching Engine. Payment status is
+  /// never stored here — always derived by summing these allocations for
+  /// CONFIRMED transactions.
+  allocations FinancialTransactionAllocation[]
+
+  @@map("purchase_invoices")
+}
+
+model PurchaseInvoiceItem {
+  id String @id @default(uuid()) @db.Uuid
+
+  purchaseInvoiceId String          @map("purchase_invoice_id") @db.Uuid
+  purchaseInvoice   PurchaseInvoice @relation(fields: [purchaseInvoiceId], references: [id])
+
+  /// Links back to the originating PO line, when this invoice was created
+  /// via "Convert to Invoice." Null for a direct invoice with no PO.
+  purchaseOrderItemId String?            @map("purchase_order_item_id") @db.Uuid
+  purchaseOrderItem   PurchaseOrderItem? @relation(fields: [purchaseOrderItemId], references: [id])
+
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id])
+
+  description String?
+
+  /// Required — the Goods Receipt destination. Unlike Quotation/PO, this is
+  /// the first point in the Purchasing pipeline a warehouse is meaningful.
+  warehouseId String    @map("warehouse_id") @db.Uuid
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+
+  unitId String @map("unit_id") @db.Uuid
+  unit   Unit   @relation(fields: [unitId], references: [id])
+
+  quantity  Int
+  unitPrice Decimal @map("unit_price") @db.Decimal(12, 2)
+
+  discountPercent Decimal @default(0) @map("discount_percent") @db.Decimal(5, 2)
+  discountValue   Decimal @default(0) @map("discount_value") @db.Decimal(12, 2)
+
+  taxId String? @map("tax_id") @db.Uuid
+  tax   Tax?    @relation(fields: [taxId], references: [id])
+
+  taxAmount Decimal @default(0) @map("tax_amount") @db.Decimal(12, 2)
+  lineTotal Decimal @map("line_total") @db.Decimal(12, 2)
+
+  notes String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  returnLines PurchaseReturnItem[]
+
+  @@map("purchase_invoice_items")
+}
+
+model PurchaseInvoiceActivity {
+  id String @id @default(uuid()) @db.Uuid
+
+  purchaseInvoiceId String          @map("purchase_invoice_id") @db.Uuid
+  purchaseInvoice   PurchaseInvoice @relation(fields: [purchaseInvoiceId], references: [id])
+
+  type        String
+  description String
+  metadata    Json?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("purchase_invoice_activities")
+}
+
+/// Confirming a Return decreases Inventory (postPurchaseReturn) — goods going back to the Supplier.
+model PurchaseReturn {
+  id           String @id @default(uuid()) @db.Uuid
+  returnNumber String @unique @map("return_number")
+
+  supplierId String   @map("supplier_id") @db.Uuid
+  supplier   Supplier @relation(fields: [supplierId], references: [id])
+
+  purchaseInvoiceId String?          @map("purchase_invoice_id") @db.Uuid
+  purchaseInvoice   PurchaseInvoice? @relation(fields: [purchaseInvoiceId], references: [id])
+
+  currencyId String?   @map("currency_id") @db.Uuid
+  currency   Currency? @relation(fields: [currencyId], references: [id])
+
+  /// TASK-051 Document Context Enrichment — see SalesInvoice.companyId.
+  companyId String?  @map("company_id") @db.Uuid
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  branchId String? @map("branch_id") @db.Uuid
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  costCenterId String?     @map("cost_center_id") @db.Uuid
+  costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
+
+  projectId String?  @map("project_id") @db.Uuid
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  referenceNumber String? @map("reference_number")
+  internalNotes   String? @map("internal_notes")
+  supplierNotes   String? @map("supplier_notes")
+
+  status PurchaseDocumentStatus @default(DRAFT)
+
+  subtotal      Decimal @default(0) @db.Decimal(12, 2)
+  discountTotal Decimal @default(0) @map("discount_total") @db.Decimal(12, 2)
+  taxTotal      Decimal @default(0) @map("tax_total") @db.Decimal(12, 2)
+  grandTotal    Decimal @default(0) @map("grand_total") @db.Decimal(12, 2)
+
+  /// Prep-for-future (Accounting Posting) — never set true by this task's code.
+  postedToAccounting Boolean   @default(false) @map("posted_to_accounting")
+  accountingPostedAt DateTime? @map("accounting_posted_at")
+
+  confirmedAt DateTime? @map("confirmed_at")
+  confirmedBy String?   @map("confirmed_by") @db.Uuid
+  cancelledAt DateTime? @map("cancelled_at")
+  cancelledBy String?   @map("cancelled_by") @db.Uuid
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  items      PurchaseReturnItem[]
+  activities PurchaseReturnActivity[]
+
+  @@map("purchase_returns")
+}
+
+model PurchaseReturnItem {
+  id String @id @default(uuid()) @db.Uuid
+
+  purchaseReturnId String         @map("purchase_return_id") @db.Uuid
+  purchaseReturn   PurchaseReturn @relation(fields: [purchaseReturnId], references: [id])
+
+  /// Links back to the invoice line being reversed — caps returned quantity
+  /// at received-minus-already-returned. Null for a return not tied to a
+  /// specific invoice line.
+  purchaseInvoiceItemId String?              @map("purchase_invoice_item_id") @db.Uuid
+  purchaseInvoiceItem   PurchaseInvoiceItem? @relation(fields: [purchaseInvoiceItemId], references: [id])
+
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id])
+
+  description String?
+
+  warehouseId String    @map("warehouse_id") @db.Uuid
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+
+  unitId String @map("unit_id") @db.Uuid
+  unit   Unit   @relation(fields: [unitId], references: [id])
+
+  quantity  Int
+  unitPrice Decimal @map("unit_price") @db.Decimal(12, 2)
+
+  discountPercent Decimal @default(0) @map("discount_percent") @db.Decimal(5, 2)
+  discountValue   Decimal @default(0) @map("discount_value") @db.Decimal(12, 2)
+
+  taxId String? @map("tax_id") @db.Uuid
+  tax   Tax?    @relation(fields: [taxId], references: [id])
+
+  taxAmount Decimal @default(0) @map("tax_amount") @db.Decimal(12, 2)
+  lineTotal Decimal @map("line_total") @db.Decimal(12, 2)
+
+  notes String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("purchase_return_items")
+}
+
+model PurchaseReturnActivity {
+  id String @id @default(uuid()) @db.Uuid
+
+  purchaseReturnId String         @map("purchase_return_id") @db.Uuid
+  purchaseReturn   PurchaseReturn @relation(fields: [purchaseReturnId], references: [id])
+
+  type        String
+  description String
+  metadata    Json?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("purchase_return_activities")
+}
+
+// ---------------------------------------------------------------------------
+// Analytic Accounting (TASK-025) — Odoo-style Analytic Plans + Analytic
+// Accounts, replacing traditional Cost Centers as the org-dimension model
+// for this single-company MVP. The existing `CostCenter` table/FKs on
+// SalesOrder/PurchaseOrder are left exactly as they are (same "keep the
+// infrastructure, remove only the admin surface" rule TASK-024 used for
+// Company/Branch) — this is new, parallel architecture, not a rename.
+// AnalyticDistributionLine is the generic attachment point every future
+// transactional document (Sales Invoice, Purchase Invoice, Expense,
+// Journal Entry, ...) uses to carry "one Analytic Account per Analytic
+// Plan" without a schema change — adding a new Plan is a data row, never a
+// migration, which is what lets future reports (Profit by Project, Revenue
+// by Branch, ...) aggregate without a redesign.
+// ---------------------------------------------------------------------------
+
+model AnalyticPlan {
+  id           String  @id @default(uuid()) @db.Uuid
+  code         String  @unique
+  name         String
+  description  String?
+  active       Boolean @default(true)
+  displayOrder Int     @default(0) @map("display_order")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  accounts          AnalyticAccount[]
+  distributionLines AnalyticDistributionLine[]
+
+  @@map("analytic_plans")
+}
+
+model AnalyticAccount {
+  id     String  @id @default(uuid()) @db.Uuid
+  code   String  @unique
+  name   String
+  active Boolean @default(true)
+  notes  String?
+
+  analyticPlanId String       @map("analytic_plan_id") @db.Uuid
+  analyticPlan   AnalyticPlan @relation(fields: [analyticPlanId], references: [id])
+
+  /// Unlimited hierarchy (same prepared-only pattern as
+  /// Warehouse.parentWarehouseId, ADR-0013): a real self-relation FK, no
+  /// depth limit, no cycle detection, no traversal API — the UI shows it as
+  /// a flat table with a Parent Account column/select, not a tree widget.
+  parentAccountId String?           @map("parent_account_id") @db.Uuid
+  parentAccount   AnalyticAccount?  @relation("AnalyticAccountHierarchy", fields: [parentAccountId], references: [id])
+  childAccounts   AnalyticAccount[] @relation("AnalyticAccountHierarchy")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  distributionLines    AnalyticDistributionLine[]
+  products             Product[]
+  defaultForWarehouses Warehouse[]
+
+  @@map("analytic_accounts")
+}
+
+/// The generic attachment point every transactional document uses to carry
+/// analytic dimensions — "one Analytic Account from EACH Analytic Plan."
+/// `documentType`/`documentId` are a free-form link (same idiom as
+/// InventoryMovement.referenceType/referenceId) rather than a real FK,
+/// since most of the documents this will attach to don't exist as tables
+/// yet.
+model AnalyticDistributionLine {
+  id String @id @default(uuid()) @db.Uuid
+
+  documentType String @map("document_type")
+  documentId   String @map("document_id") @db.Uuid
+
+  analyticPlanId String       @map("analytic_plan_id") @db.Uuid
+  analyticPlan   AnalyticPlan @relation(fields: [analyticPlanId], references: [id])
+
+  analyticAccountId String          @map("analytic_account_id") @db.Uuid
+  analyticAccount   AnalyticAccount @relation(fields: [analyticAccountId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  /// One account per plan per document — selecting a new account for the
+  /// same plan replaces the line, it never adds a second one.
+  @@unique([documentType, documentId, analyticPlanId])
+  @@index([documentType, documentId])
+  @@map("analytic_distribution_lines")
+}
+
+// ---------------------------------------------------------------------------
+// Universal Numbering Engine (TASK-025) — one reusable service every module
+// calls instead of hand-rolling its own Postgres sequence. `template` is
+// rendered against {DOC}/{YEAR}/{MONTH}/{DAY}/{SEQ}/{BRANCH}/{WAREHOUSE}/
+// {COMPANY}/{FISCAL_YEAR} — changing a business's numbering format is an
+// edit to this table's row, never a code change.
+// ---------------------------------------------------------------------------
+
+model NumberSeries {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Stable key every generateNumber(documentType) call passes — e.g.
+  /// "SALES_ORDER", "SUPPLIER". Not a Prisma enum: new document types must
+  /// be addable as data, never a migration.
+  documentType String  @unique @map("document_type")
+  /// The label an admin sees when configuring this series (e.g. "Sales Order").
+  label        String
+  /// The {DOC} placeholder's value (e.g. "SO").
+  docCode      String  @map("doc_code")
+  template     String  @default("{DOC}-{YEAR}-{SEQ}")
+  nextNumber   Int     @default(1) @map("next_number")
+  padding      Int     @default(6)
+  separator    String  @default("-")
+  yearReset    Boolean @default(true) @map("year_reset")
+  monthReset   Boolean @default(false) @map("month_reset")
+  dayReset     Boolean @default(false) @map("day_reset")
+  /// The last YYYY / YYYYMM / YYYYMMDD key nextNumber was reset for — lets
+  /// generateNumber() detect "the period rolled over" without a cron job.
+  lastResetKey String? @map("last_reset_key")
+  active       Boolean @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  @@map("number_series")
+}
+
+// ---------------------------------------------------------------------------
+// Master Data Foundation — reference entities with no business logic of
+// their own (Taxes, Customer/Supplier Groups, Cities, Languages). Reuses the
+// codebase-wide soft-delete convention (deletedAt = archived) rather than a
+// parallel status enum: Active/Archived is simply "deletedAt is null / set".
+// MasterDataActivityLog is one shared append-only timeline for all of them
+// (entityType + entityId), unlike Product/Supplier/Lead's dedicated *Activity
+// tables — those are rich, long-lived business objects; these are flat
+// reference lists, so one shared log avoids fifteen near-identical tables.
+// ---------------------------------------------------------------------------
+
+model Tax {
+  id          String  @id @default(uuid()) @db.Uuid
+  code        String  @unique
+  name        String
+  rate        Decimal @db.Decimal(5, 2)
+  description String?
+
+  /// TASK-046 (Accounting Posting Engine) — the GL account each posting
+  /// provider credits (sales-side VAT Output) or debits (purchase-side VAT
+  /// Input) for tax collected/paid under this code. Nullable: a Tax row
+  /// with no account configured simply can't be posted yet (the Posting
+  /// Engine throws a clear error rather than guessing an account).
+  outputAccountId String?         @map("output_account_id") @db.Uuid
+  outputAccount   ChartOfAccount? @relation("TaxOutputAccount", fields: [outputAccountId], references: [id])
+
+  inputAccountId String?         @map("input_account_id") @db.Uuid
+  inputAccount   ChartOfAccount? @relation("TaxInputAccount", fields: [inputAccountId], references: [id])
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  products Product[]
+
+  salesQuotationItems     SalesQuotationItem[]
+  salesOrderDocumentItems SalesOrderDocumentItem[]
+  salesInvoiceItems       SalesInvoiceItem[]
+  salesReturnItems        SalesReturnItem[]
+  purchaseQuotationItems  PurchaseQuotationItem[]
+  purchaseOrderItems      PurchaseOrderItem[]
+  purchaseInvoiceItems    PurchaseInvoiceItem[]
+  purchaseReturnItems     PurchaseReturnItem[]
+
+  @@map("taxes")
+}
+
+model CustomerGroup {
+  id          String  @id @default(uuid()) @db.Uuid
+  code        String  @unique
+  name        String
+  description String?
+
+  /// Accounting Configuration (TASK-047) — optional group-level overrides;
+  /// a Customer's own defaultReceivableAccountId still takes priority over
+  /// this (resolved by AccountMappingService).
+  defaultReceivableAccountId String?         @map("default_receivable_account_id") @db.Uuid
+  defaultReceivableAccount   ChartOfAccount? @relation("CustomerGroupDefaultReceivable", fields: [defaultReceivableAccountId], references: [id])
+
+  defaultRevenueAccountId String?         @map("default_revenue_account_id") @db.Uuid
+  defaultRevenueAccount   ChartOfAccount? @relation("CustomerGroupDefaultRevenue", fields: [defaultRevenueAccountId], references: [id])
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  customers Customer[]
+
+  @@map("customer_groups")
+}
+
+model SupplierGroup {
+  id          String  @id @default(uuid()) @db.Uuid
+  code        String  @unique
+  name        String
+  description String?
+
+  /// Accounting Configuration (TASK-047) — optional group-level overrides;
+  /// a Supplier's own defaultPayableAccountId still takes priority over
+  /// this (resolved by AccountMappingService).
+  defaultPayableAccountId String?         @map("default_payable_account_id") @db.Uuid
+  defaultPayableAccount   ChartOfAccount? @relation("SupplierGroupDefaultPayable", fields: [defaultPayableAccountId], references: [id])
+
+  defaultPurchaseAccountId String?         @map("default_purchase_account_id") @db.Uuid
+  defaultPurchaseAccount   ChartOfAccount? @relation("SupplierGroupDefaultPurchase", fields: [defaultPurchaseAccountId], references: [id])
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  suppliers Supplier[]
+
+  @@map("supplier_groups")
+}
+
+model City {
+  id   String @id @default(uuid()) @db.Uuid
+  code String
+  name String
+
+  countryId String  @map("country_id") @db.Uuid
+  country   Country @relation(fields: [countryId], references: [id])
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@unique([countryId, code])
+  @@map("cities")
+}
+
+/// Closed set — text direction has exactly two values.
+enum TextDirection {
+  LTR
+  RTL
+}
+
+model Language {
+  id         String        @id @default(uuid()) @db.Uuid
+  code       String        @unique
+  name       String
+  nativeName String?       @map("native_name")
+  direction  TextDirection @default(LTR)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("languages")
+}
+
+/// Append-only ledger (same exception as InventoryMovement/SalesOrderStatusHistory
+/// — no updatedAt/updatedBy/deletedAt) shared across every Master Data entity.
+/// `entityType` is a plain string ("WAREHOUSE", "TAX", ...), not an enum — new
+/// master data modules can log to this without a migration.
+model MasterDataActivityLog {
+  id String @id @default(uuid()) @db.Uuid
+
+  entityType String @map("entity_type")
+  entityId   String @map("entity_id") @db.Uuid
+
+  type        String
+  description String
+  metadata    Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  @@index([entityType, entityId])
+  @@map("master_data_activity_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Financial Transactions & Matching Engine (TASK-043) — NOT the Accounting
+// Engine (TASK-044): no journal entries, no General Ledger, no Chart of
+// Accounts logic live here. This is the settlement layer the Accounting
+// Engine will later consume — Customer Receipt and Supplier Payment are the
+// same shape (party + date + how-paid + amount + reference + notes +
+// allocations), so they share ONE model pair (discriminated by `type`)
+// rather than duplicating a second near-identical table pair the way
+// Sales/Purchasing intentionally do mirror each other with separate tables
+// — those are full multi-status documents with different line-item shapes;
+// a receipt and a payment are the same record with the money flowing the
+// other way, so unifying them is the non-duplicative choice here, not a
+// deviation from precedent.
+//
+// Invoice payment status is NEVER stored on SalesInvoice/PurchaseInvoice —
+// always derived by summing `FinancialTransactionAllocation` rows for
+// CONFIRMED transactions against that invoice (see
+// financial-transactions/shared/invoice-payment.util.ts). This guarantees
+// "never allow manual editing" by construction: there is no column to edit.
+//
+// Reuses existing reference data rather than re-inventing it: `PaymentSource`
+// (how paid) and `ReceivingAccount` (where it landed) already exist for the
+// COD `Payment` model — both are genuinely party-agnostic, so they are
+// reused as-is here, not duplicated.
+// ---------------------------------------------------------------------------
+
+enum FinancialTransactionType {
+  CUSTOMER_RECEIPT
+  SUPPLIER_PAYMENT
+}
+
+/// Deliberately minimal — no Submit/Approve step was requested for
+/// Receipts/Payments (unlike Sales/Purchasing documents). Draft is fully
+/// editable (including allocations, which don't count toward invoice
+/// payment status yet); Confirm locks the header and makes its allocations
+/// "real" (invoice status recomputed); Cancel reverses a Confirmed
+/// transaction (unallocates, invoice status recomputed again).
+enum FinancialTransactionStatus {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+
+model FinancialTransaction {
+  id                String                   @id @default(uuid()) @db.Uuid
+  transactionNumber String                   @unique @map("transaction_number")
+  type              FinancialTransactionType
+
+  customerId String?   @map("customer_id") @db.Uuid
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
+  supplierId String?   @map("supplier_id") @db.Uuid
+  supplier   Supplier? @relation(fields: [supplierId], references: [id])
+
+  currencyId String?   @map("currency_id") @db.Uuid
+  currency   Currency? @relation(fields: [currencyId], references: [id])
+
+  /// TASK-051 Document Context Enrichment — see SalesInvoice.companyId.
+  companyId String?  @map("company_id") @db.Uuid
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  branchId String? @map("branch_id") @db.Uuid
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  costCenterId String?     @map("cost_center_id") @db.Uuid
+  costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
+
+  projectId String?  @map("project_id") @db.Uuid
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  transactionDate DateTime @default(now()) @map("transaction_date")
+
+  /// "How paid" (Cash, Bank Transfer, Visa...) — reuses the existing
+  /// PaymentSource table (built for the COD Payment flow, genuinely
+  /// party-agnostic) rather than the legacy, still-unimplemented
+  /// PaymentMethod placeholder entity.
+  paymentSourceId String?        @map("payment_source_id") @db.Uuid
+  paymentSource   PaymentSource? @relation(fields: [paymentSourceId], references: [id])
+
+  /// "Where the money landed" — nullable placeholder, not shown in the
+  /// default editor view (More Details only), prepared for TASK-044 the
+  /// same way PurchaseOrder's "Preparation For Future" columns were
+  /// (ADR-0015): no extra business logic attached to it here.
+  receivingAccountId String?           @map("receiving_account_id") @db.Uuid
+  receivingAccount   ReceivingAccount? @relation(fields: [receivingAccountId], references: [id])
+
+  amount Decimal @db.Decimal(12, 2)
+
+  referenceNumber String? @map("reference_number")
+  notes           String?
+
+  status FinancialTransactionStatus @default(DRAFT)
+
+  confirmedAt DateTime? @map("confirmed_at")
+  confirmedBy String?   @map("confirmed_by") @db.Uuid
+  cancelledAt DateTime? @map("cancelled_at")
+  cancelledBy String?   @map("cancelled_by") @db.Uuid
+
+  /// Prep-for-future (TASK-044) — never set true by this task's code, same
+  /// treatment as SalesInvoice/PurchaseInvoice.postedToAccounting.
+  postedToAccounting Boolean   @default(false) @map("posted_to_accounting")
+  accountingPostedAt DateTime? @map("accounting_posted_at")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  allocations FinancialTransactionAllocation[]
+  activities  FinancialTransactionActivity[]
+
+  @@map("financial_transactions")
+}
+
+/// "One receipt/payment may settle one or many invoices; one invoice may be
+/// settled by many receipts/payments" — the join table for the matching
+/// engine. Exactly one of `salesInvoiceId`/`purchaseInvoiceId` is populated,
+/// matching the parent transaction's `type` (validated in the service
+/// layer — the same "closed set, conditionally required" pattern
+/// SalesLineItemInputDto already uses for warehouseId). Hard-deleted on
+/// "Unallocate" — allocations aren't specified as an append-only ledger
+/// (unlike InventoryMovement, ADR-0013); the parent transaction's own
+/// Activity timeline preserves the "what happened" audit trail.
+model FinancialTransactionAllocation {
+  id String @id @default(uuid()) @db.Uuid
+
+  transactionId String               @map("transaction_id") @db.Uuid
+  transaction   FinancialTransaction @relation(fields: [transactionId], references: [id])
+
+  salesInvoiceId String?       @map("sales_invoice_id") @db.Uuid
+  salesInvoice   SalesInvoice? @relation(fields: [salesInvoiceId], references: [id])
+
+  purchaseInvoiceId String?          @map("purchase_invoice_id") @db.Uuid
+  purchaseInvoice   PurchaseInvoice? @relation(fields: [purchaseInvoiceId], references: [id])
+
+  allocatedAmount Decimal  @map("allocated_amount") @db.Decimal(12, 2)
+  allocationDate  DateTime @default(now()) @map("allocation_date")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  @@map("financial_transaction_allocations")
+}
+
+/// Timeline — same shape as every other *Activity entity in this codebase.
+model FinancialTransactionActivity {
+  id String @id @default(uuid()) @db.Uuid
+
+  transactionId String               @map("transaction_id") @db.Uuid
+  transaction   FinancialTransaction @relation(fields: [transactionId], references: [id])
+
+  type        String
+  description String
+  metadata    Json?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("financial_transaction_activities")
+}
+
+/// Accounting Foundation (TASK-044 Part 6) — infrastructure only, no
+/// mappings: nothing in Sales/Purchasing/Financial Transactions creates a
+/// JournalEntry automatically yet. Draft is fully editable; Posted is
+/// immutable and part of the ledger; Reversed is terminal — set on the
+/// ORIGINAL entry once its counter-entry (debits/credits swapped) is
+/// created, which itself posts immediately as a normal Posted entry linked
+/// back via reversalOfEntryId. Mirrors FinancialTransactionStatus in having
+/// no Submit/Approve step.
+enum JournalEntryStatus {
+  DRAFT
+  POSTED
+  REVERSED
+}
+
+model JournalEntry {
+  id          String             @id @default(uuid()) @db.Uuid
+  entryNumber String             @unique @map("entry_number")
+  /// Doubles as "Posting Date" — the ledger date this entry belongs to.
+  entryDate   DateTime           @default(now()) @map("entry_date")
+  description String?
+  status      JournalEntryStatus @default(DRAFT)
+
+  /// Server-computed from `lines` at create/update time — never trusted
+  /// from the client, same convention as SalesInvoice's totals.
+  totalDebit  Decimal @default(0) @map("total_debit") @db.Decimal(14, 2)
+  totalCredit Decimal @default(0) @map("total_credit") @db.Decimal(14, 2)
+
+  /// Posting Engine / Posting Providers (TASK-046) — which provider/source
+  /// document created this entry. Free-text + nullable id, not a real FK,
+  /// since the source can be any document table (Sales Invoice, Purchase
+  /// Invoice, Financial Transaction, Inventory Movement, ...). Manual
+  /// entries created through the Journal Entries UI use sourceType=MANUAL.
+  sourceType String? @map("source_type")
+  sourceId   String? @map("source_id") @db.Uuid
+
+  /// The originating document's own number (e.g. SalesInvoice.invoiceNumber)
+  /// — display/audit convenience only, never used for lookups.
+  referenceNumber String? @map("reference_number")
+
+  /// TASK-046 Journal Entry Structure — Company/Branch/Currency are real
+  /// FKs (those models already exist); Project/CostCenter are real FKs too
+  /// but nothing populates them yet (no document carries a project/cost
+  /// center today — same "prepared, not wired" pattern as
+  /// ChartOfAccount.parentAccountId). InvestorBatch has no model at all
+  /// (Investor Accounting is explicitly out of scope), so it stays a bare
+  /// placeholder id, same treatment as Supplier.defaultExpenseAccountId
+  /// before this task.
+  companyId String?  @map("company_id") @db.Uuid
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  branchId String? @map("branch_id") @db.Uuid
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  currencyId String?   @map("currency_id") @db.Uuid
+  currency   Currency? @relation(fields: [currencyId], references: [id])
+
+  projectId String?  @map("project_id") @db.Uuid
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  costCenterId String?     @map("cost_center_id") @db.Uuid
+  costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
+
+  /// TASK-053 — which Journal (Sales/Purchase/Cash/Bank/General) this entry
+  /// belongs to. Nullable so every entry the Posting Engine already created
+  /// keeps working unchanged; `JournalEntriesService.post()` requires it for
+  /// entries created from here on ("no posting without a Journal").
+  journalId String?  @map("journal_id") @db.Uuid
+  journal   Journal? @relation(fields: [journalId], references: [id])
+
+  /// TASK-058 — "Partner (optional)": a Manual Journal Entry may reference
+  /// at most one Customer OR one Supplier (never both — validated in
+  /// JournalEntriesService, same "closed set, conditionally required"
+  /// pattern as FinancialTransaction's own customerId/supplierId split).
+  /// Purely a reference for reconciliation/reporting — never required, and
+  /// never read by the Posting Engine (only PostingProviders' own
+  /// auto-generated entries carry real accounting meaning for a party).
+  partnerCustomerId String?   @map("partner_customer_id") @db.Uuid
+  partnerCustomer   Customer? @relation("JournalEntryPartnerCustomer", fields: [partnerCustomerId], references: [id])
+
+  partnerSupplierId String?   @map("partner_supplier_id") @db.Uuid
+  partnerSupplier   Supplier? @relation("JournalEntryPartnerSupplier", fields: [partnerSupplierId], references: [id])
+
+  /// TASK-055 — "every accounting document must belong to a Fiscal Year."
+  /// Auto-resolved from `entryDate` by the Posting Engine and
+  /// `JournalEntriesService`, the same way `journalId`/period-open checks
+  /// already resolve by date — never a field the caller sets directly.
+  /// Nullable so entries dated outside any configured Fiscal Year (or
+  /// created before this task) keep working unchanged.
+  fiscalYearId String?     @map("fiscal_year_id") @db.Uuid
+  fiscalYear   FiscalYear? @relation(fields: [fiscalYearId], references: [id])
+
+  investorBatchId String? @map("investor_batch_id") @db.Uuid
+
+  /// Self-relation: the reversing entry points back at the entry it
+  /// reverses. One reversing entry per original (hence @unique).
+  reversalOfEntryId String?       @unique @map("reversal_of_entry_id") @db.Uuid
+  reversalOfEntry   JournalEntry? @relation("JournalEntryReversal", fields: [reversalOfEntryId], references: [id])
+  reversedByEntry   JournalEntry? @relation("JournalEntryReversal")
+
+  postedAt   DateTime? @map("posted_at")
+  postedBy   String?   @map("posted_by") @db.Uuid
+  reversedAt DateTime? @map("reversed_at")
+  reversedBy String?   @map("reversed_by") @db.Uuid
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  lines      JournalEntryLine[]
+  activities JournalEntryActivity[]
+
+  @@map("journal_entries")
+}
+
+model JournalEntryLine {
+  id String @id @default(uuid()) @db.Uuid
+
+  journalEntryId String       @map("journal_entry_id") @db.Uuid
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+
+  accountId String         @map("account_id") @db.Uuid
+  account   ChartOfAccount @relation(fields: [accountId], references: [id])
+
+  /// TASK-053 — per-line cost attribution (the Journal Lines Grid's Cost
+  /// Center / Project columns), distinct from `JournalEntry.costCenterId`/
+  /// `projectId` above (header-level, still unpopulated by any provider):
+  /// a manual entry can debit one cost center and credit another on the
+  /// same entry, so this lives on the line, not the header.
+  costCenterId String?     @map("cost_center_id") @db.Uuid
+  costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
+
+  projectId String?  @map("project_id") @db.Uuid
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  description String?
+  debit       Decimal @default(0) @db.Decimal(14, 2)
+  credit      Decimal @default(0) @db.Decimal(14, 2)
+  lineOrder   Int     @default(0) @map("line_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("journal_entry_lines")
+}
+
+/// Timeline — same shape as every other *Activity entity in this codebase.
+model JournalEntryActivity {
+  id String @id @default(uuid()) @db.Uuid
+
+  journalEntryId String       @map("journal_entry_id") @db.Uuid
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id])
+
+  type        String
+  description String
+  metadata    Json?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("journal_entry_activities")
+}
+
+/// TASK-058 — "Recurring Journal Templates": a saved starting point for a
+/// new Manual Journal Entry (Journal + description pattern + line
+/// structure), applied via "New from Template". `lines` stores the same
+/// shape the editor's grid already works with (accountId/description/
+/// costCenterId/projectId/debit/credit) as JSON — mirrors
+/// `ImportMappingTemplate.columnMapping`'s own "template payload as JSON"
+/// choice. Deliberately NOT a scheduler: creating an entry from a template
+/// is a manual action every time, the same "prepare architecture, don't
+/// implement scheduler" boundary already used for ImportJob.scheduleConfig.
+model JournalEntryTemplate {
+  id String @id @default(uuid()) @db.Uuid
+
+  name        String  @unique
+  description String?
+
+  journalId String?  @map("journal_id") @db.Uuid
+  journal   Journal? @relation(fields: [journalId], references: [id])
+
+  lines Json
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  @@map("journal_entry_templates")
+}
+
+/// TASK-051 Phase 2 — Fiscal Years & Accounting Periods. A closed set of two
+/// statuses: OPEN (default) and CLOSED (reopenable back to OPEN by an
+/// Administrator). Company-scoped but nullable, same "prepared, ambient"
+/// treatment as every other companyId this task added — a single-company
+/// deployment can leave it unset.
+enum FiscalYearStatus {
+  OPEN
+  CLOSED
+}
+
+/// Three states, not two: OPEN (postable) -> CLOSED (blocks posting,
+/// reversible) -> LOCKED (blocks posting, permanent — only reachable from
+/// CLOSED, never reopened). The Posting Engine checks this status for every
+/// Journal Entry it creates (see PostingEngineService.assertPeriodOpen).
+enum AccountingPeriodStatus {
+  OPEN
+  CLOSED
+  LOCKED
+}
+
+model FiscalYear {
+  id        String           @id @default(uuid()) @db.Uuid
+  name      String
+  startDate DateTime         @map("start_date")
+  endDate   DateTime         @map("end_date")
+  status    FiscalYearStatus @default(OPEN)
+
+  /// TASK-055 — the year new documents' auto-resolved fiscalYearId falls
+  /// back to display as "the current year" in the UI; not enforced at the
+  /// database level (only one row should be true at a time — the service
+  /// layer clears any prior default when setting a new one, same pattern
+  /// as ReceivingAccount/PaymentSource "default" flags elsewhere).
+  isDefault Boolean @default(false) @map("is_default")
+
+  companyId String?  @map("company_id") @db.Uuid
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  periods        AccountingPeriod[]
+  journalEntries JournalEntry[]
+
+  @@map("fiscal_years")
+}
+
+/// Auto-generated as 12 monthly periods when its FiscalYear is created —
+/// never created one at a time by a user, matching how this codebase
+/// prefers system-generated document numbers over manual entry (UX Policy).
+model AccountingPeriod {
+  id        String                 @id @default(uuid()) @db.Uuid
+  name      String
+  startDate DateTime               @map("start_date")
+  endDate   DateTime               @map("end_date")
+  status    AccountingPeriodStatus @default(OPEN)
+
+  fiscalYearId String     @map("fiscal_year_id") @db.Uuid
+  fiscalYear   FiscalYear @relation(fields: [fiscalYearId], references: [id])
+
+  closedAt DateTime? @map("closed_at")
+  closedBy String?   @map("closed_by") @db.Uuid
+  lockedAt DateTime? @map("locked_at")
+  lockedBy String?   @map("locked_by") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  @@map("accounting_periods")
+}
+
+/// Accounting Posting Engine (TASK-046) — the global fallback Chart of
+/// Accounts a Posting Provider uses when a more specific source (Customer/
+/// Supplier/Tax's own account fields) has none configured. Deliberately a
+/// singleton (one row, no company/branch scoping) since no document carries
+/// a companyId/branchId today — same simplification every other
+/// not-yet-multi-entity setting in this codebase makes. No admin UI is
+/// built for this in TASK-046 (out of scope) — configure via the API.
+model PostingSettings {
+  id String @id @default(uuid()) @db.Uuid
+
+  salesRevenueAccountId String?         @map("sales_revenue_account_id") @db.Uuid
+  salesRevenueAccount   ChartOfAccount? @relation("PostingSalesRevenue", fields: [salesRevenueAccountId], references: [id])
+
+  costOfGoodsSoldAccountId String?         @map("cogs_account_id") @db.Uuid
+  costOfGoodsSoldAccount   ChartOfAccount? @relation("PostingCogs", fields: [costOfGoodsSoldAccountId], references: [id])
+
+  inventoryAccountId String?         @map("inventory_account_id") @db.Uuid
+  inventoryAccount   ChartOfAccount? @relation("PostingInventory", fields: [inventoryAccountId], references: [id])
+
+  accountsReceivableAccountId String?         @map("ar_account_id") @db.Uuid
+  accountsReceivableAccount   ChartOfAccount? @relation("PostingAr", fields: [accountsReceivableAccountId], references: [id])
+
+  accountsPayableAccountId String?         @map("ap_account_id") @db.Uuid
+  accountsPayableAccount   ChartOfAccount? @relation("PostingAp", fields: [accountsPayableAccountId], references: [id])
+
+  /// Fallback for non-inventory-tracked Purchase Invoice lines when the
+  /// Supplier has no defaultExpenseAccountId of its own.
+  defaultExpenseAccountId String?         @map("default_expense_account_id") @db.Uuid
+  defaultExpenseAccount   ChartOfAccount? @relation("PostingExpense", fields: [defaultExpenseAccountId], references: [id])
+
+  /// TASK-047 — completes the Accounting Settings surface. Several of
+  /// these (Sales Discount/Return, Purchase Return, Cash, Bank, Round
+  /// Difference) are stored and exposed for configuration but have no
+  /// consumer in the Posting Engine yet — wiring them in would mean
+  /// posting a new/different journal line, which this task's "do not
+  /// change posting rules" constraint explicitly forbids. They're
+  /// prepared infrastructure, same pattern as every other
+  /// not-yet-wired-but-real column in this codebase.
+  salesDiscountAccountId String?         @map("sales_discount_account_id") @db.Uuid
+  salesDiscountAccount   ChartOfAccount? @relation("PostingSalesDiscount", fields: [salesDiscountAccountId], references: [id])
+
+  salesReturnAccountId String?         @map("sales_return_account_id") @db.Uuid
+  salesReturnAccount   ChartOfAccount? @relation("PostingSalesReturn", fields: [salesReturnAccountId], references: [id])
+
+  /// Wired: InventoryAdjustmentPostingProvider's offsetting line (was
+  /// hardcoded to costOfGoodsSoldAccountId in TASK-046).
+  inventoryAdjustmentAccountId String?         @map("inventory_adjustment_account_id") @db.Uuid
+  inventoryAdjustmentAccount   ChartOfAccount? @relation("PostingInventoryAdjustment", fields: [inventoryAdjustmentAccountId], references: [id])
+
+  /// Wired: the fallback tier ahead of defaultExpenseAccountId for
+  /// non-inventory Purchase Invoice lines once Category/SupplierGroup have
+  /// no override either.
+  purchaseAccountId String?         @map("purchase_account_id") @db.Uuid
+  purchaseAccount   ChartOfAccount? @relation("PostingPurchase", fields: [purchaseAccountId], references: [id])
+
+  purchaseReturnAccountId String?         @map("purchase_return_account_id") @db.Uuid
+  purchaseReturnAccount   ChartOfAccount? @relation("PostingPurchaseReturn", fields: [purchaseReturnAccountId], references: [id])
+
+  cashAccountId String?         @map("cash_account_id") @db.Uuid
+  cashAccount   ChartOfAccount? @relation("PostingCash", fields: [cashAccountId], references: [id])
+
+  bankAccountId String?         @map("bank_account_id") @db.Uuid
+  bankAccount   ChartOfAccount? @relation("PostingBank", fields: [bankAccountId], references: [id])
+
+  /// Wired: fallback used only when a specific Tax record has no
+  /// outputAccountId/inputAccountId of its own — Tax is always checked
+  /// first (never hardcoded, per this task's explicit instruction).
+  vatOutputAccountId String?         @map("vat_output_account_id") @db.Uuid
+  vatOutputAccount   ChartOfAccount? @relation("PostingVatOutput", fields: [vatOutputAccountId], references: [id])
+
+  vatInputAccountId String?         @map("vat_input_account_id") @db.Uuid
+  vatInputAccount   ChartOfAccount? @relation("PostingVatInput", fields: [vatInputAccountId], references: [id])
+
+  roundDifferenceAccountId String?         @map("round_difference_account_id") @db.Uuid
+  roundDifferenceAccount   ChartOfAccount? @relation("PostingRoundDifference", fields: [roundDifferenceAccountId], references: [id])
+
+  /// TASK-055 — completes the Accounting Settings surface. Purchase
+  /// Discount/Exchange Difference/Suspense stay prepared-but-unwired, same
+  /// treatment as Sales Discount/Return above (no FX revaluation or
+  /// discount-splitting engine exists to consume them). Retained Earnings
+  /// IS wired — FiscalYearsService.close() posts the year's net P&L to it.
+  purchaseDiscountAccountId String?         @map("purchase_discount_account_id") @db.Uuid
+  purchaseDiscountAccount   ChartOfAccount? @relation("PostingPurchaseDiscount", fields: [purchaseDiscountAccountId], references: [id])
+
+  exchangeDifferenceAccountId String?         @map("exchange_difference_account_id") @db.Uuid
+  exchangeDifferenceAccount   ChartOfAccount? @relation("PostingExchangeDifference", fields: [exchangeDifferenceAccountId], references: [id])
+
+  suspenseAccountId String?         @map("suspense_account_id") @db.Uuid
+  suspenseAccount   ChartOfAccount? @relation("PostingSuspense", fields: [suspenseAccountId], references: [id])
+
+  retainedEarningsAccountId String?         @map("retained_earnings_account_id") @db.Uuid
+  retainedEarningsAccount   ChartOfAccount? @relation("PostingRetainedEarnings", fields: [retainedEarningsAccountId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  @@map("posting_settings")
+}
+
+// ---------------------------------------------------------------------------
+// Import Center (TASK-056) — architecture only: Import Job lifecycle, a
+// plug-in registry of Import Types (each wrapping an EXISTING domain
+// service — CustomersService.create(), InventoryService.adjustment(), ...
+// — never a parallel write path into Prisma), and a generic CSV Mapping
+// Engine. Connectors (Google Sheets, Bank Statements, external APIs,
+// Marketplaces) are explicitly NOT implemented — `sourceConnector` exists
+// only so a future connector can tag which jobs it created.
+// ---------------------------------------------------------------------------
+
+enum ImportJobStatus {
+  DRAFT
+  UPLOADING
+  MAPPING
+  VALIDATING
+  IMPORTING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+/// One row per upload-through-import run. `fileContent` holds the raw
+/// decoded file text (CSV today) — this "architecture only" phase never
+/// touches external/object storage; that's a clean future swap, not a
+/// blocker (same "prepared, not wired" precedent as `PostingSettings`'s
+/// unwired fields elsewhere in this schema). `columnMapping` is
+/// `{ [fieldKey]: sourceColumnHeader }`.
+model ImportJob {
+  id String @id @default(uuid()) @db.Uuid
+
+  importType String          @map("import_type")
+  status     ImportJobStatus @default(DRAFT)
+
+  fileName      String @map("file_name")
+  fileContent   String @map("file_content")
+  columnMapping Json?  @map("column_mapping")
+
+  /// Not implemented by any connector yet (TASK-056 Part 7) — reserved so a
+  /// future Bank/API/Marketplace connector can tag the jobs it creates
+  /// without a schema change; `null` means "manual upload." The Google
+  /// Sheets connector (Phase 1) is the first to actually set this, to
+  /// `"google-sheets"`.
+  sourceConnector String? @map("source_connector")
+
+  /// The Google Sheets share URL a job was created/refreshed from — only
+  /// set when `sourceConnector = "google-sheets"`. Lets "Manual Refresh"
+  /// re-fetch the same sheet without the user re-pasting the URL.
+  sourceUrl String? @map("source_url")
+
+  /// Architecture placeholder only (Phase 1 — "prepare architecture for
+  /// scheduled refresh, do NOT implement a scheduler now"). No cron/queue
+  /// reads this column yet; it exists so a future scheduler can store its
+  /// config here without another migration.
+  scheduleConfig Json? @map("schedule_config")
+
+  totalRows    Int @default(0) @map("total_rows")
+  successCount Int @default(0) @map("success_count")
+  errorCount   Int @default(0) @map("error_count")
+
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  durationMs  Int?      @map("duration_ms")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  errors ImportJobError[]
+
+  @@map("import_jobs")
+}
+
+/// One row per failed source row — never silently dropped (Part 6).
+model ImportJobError {
+  id String @id @default(uuid()) @db.Uuid
+
+  importJobId String    @map("import_job_id") @db.Uuid
+  importJob   ImportJob @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+
+  rowNumber    Int     @map("row_number")
+  columnName   String? @map("column_name")
+  errorMessage String  @map("error_message")
+  suggestedFix String? @map("suggested_fix")
+  /// The raw source row, so "Download Error Report" can round-trip a
+  /// corrected file without the user re-locating each row in the original.
+  rawRowData   Json    @map("raw_row_data")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("import_job_errors")
+}
+
+/// "Save Mapping Template" (Part 4) — a reusable column mapping for a given
+/// Import Type, so a recurring import (e.g. a monthly supplier price file)
+/// never needs re-mapping.
+model ImportMappingTemplate {
+  id String @id @default(uuid()) @db.Uuid
+
+  importType    String @map("import_type")
+  name          String
+  columnMapping Json   @map("column_mapping")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  @@unique([importType, name])
+  @@map("import_mapping_templates")
 }

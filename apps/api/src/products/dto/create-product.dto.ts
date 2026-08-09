@@ -1,4 +1,6 @@
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
   IsEnum,
   IsNotEmpty,
@@ -7,32 +9,37 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
-import { ProductStatus, ProductType } from '@prisma/client';
+import {
+  ProductCostingMethod,
+  ProductStatus,
+  ProductType,
+} from '@prisma/client';
 
 /**
- * Flexible model for PHYSICAL / SERVICE / DIGITAL / BUNDLE — bundle
- * composition/logic is not implemented, BUNDLE exists only as a type value.
- * No inventory, cost, price, tax, or ecommerce fields — explicitly excluded.
+ * Enterprise Products (TASK-027) — STOCKABLE / SERVICE / CONSUMABLE. `sku`
+ * is never supplied by the client: ProductsService mints it via the
+ * Numbering Engine's PRODUCT series before the row is created.
  */
 export class CreateProductDto {
+  /** Arabic name — primary identity, required. */
   @IsString()
   @IsNotEmpty()
   name!: string;
 
-  /** Operational/back-office name. */
+  /** English name — optional. */
   @IsString()
-  @IsNotEmpty()
-  internalName!: string;
+  @IsOptional()
+  nameEn?: string;
 
-  /** Customer-facing name. */
+  /** Operational/back-office name — defaults to `name` when omitted (TASK-028: not asked at creation). */
   @IsString()
-  @IsNotEmpty()
-  displayName!: string;
+  @IsOptional()
+  internalName?: string;
 
-  /** SKU must be unique. */
+  /** Customer-facing name — defaults to `name` when omitted (TASK-028: not asked at creation). */
   @IsString()
-  @IsNotEmpty()
-  sku!: string;
+  @IsOptional()
+  displayName?: string;
 
   @IsString()
   @IsOptional()
@@ -40,7 +47,21 @@ export class CreateProductDto {
 
   @IsString()
   @IsOptional()
+  qrCodeValue?: string;
+
+  @IsString()
+  @IsOptional()
   searchKeywords?: string;
+
+  @IsString()
+  @IsOptional()
+  internalNotes?: string;
+
+  @IsArray()
+  @ArrayMaxSize(50)
+  @IsString({ each: true })
+  @IsOptional()
+  tags?: string[];
 
   /** Required. */
   @IsUUID()
@@ -53,6 +74,19 @@ export class CreateProductDto {
   /** Required. */
   @IsUUID()
   unitId!: string;
+
+  @IsUUID()
+  @IsOptional()
+  taxId?: string;
+
+  /** Cost Center — an Analytic Account. */
+  @IsUUID()
+  @IsOptional()
+  analyticAccountId?: string;
+
+  @IsUUID()
+  @IsOptional()
+  preferredSupplierId?: string;
 
   @IsString()
   @IsOptional()
@@ -77,7 +111,8 @@ export class CreateProductDto {
   @IsOptional()
   imageUrl?: string;
 
-  /** Defaults by type when omitted (see ProductsService); manual override always allowed. */
+  /** Defaults by type when omitted (see ProductsService); manual override always allowed.
+   * Doubles as "Available For Purchase" / "Available For Sale" / "Track Inventory". */
   @IsBoolean()
   @IsOptional()
   isPurchasable?: boolean;
@@ -90,7 +125,74 @@ export class CreateProductDto {
   @IsOptional()
   isInventoryItem?: boolean;
 
-  /** Required by Shipping later — nullable here since SERVICE/DIGITAL products have no physical form.
+  // --- Sales ---------------------------------------------------------
+  @IsNumber()
+  @IsOptional()
+  salesPrice?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  salesTaxIncluded?: boolean;
+
+  @IsString()
+  @IsOptional()
+  salesDescription?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  allowDiscount?: boolean;
+
+  // --- Purchasing ------------------------------------------------------
+  @IsNumber()
+  @IsOptional()
+  purchasePrice?: number;
+
+  @IsString()
+  @IsOptional()
+  purchaseDescription?: string;
+
+  // --- Inventory -------------------------------------------------------
+  @IsNumber()
+  @IsOptional()
+  reorderLevel?: number;
+
+  @IsNumber()
+  @IsOptional()
+  reorderQuantity?: number;
+
+  @IsNumber()
+  @IsOptional()
+  safetyStock?: number;
+
+  @IsUUID()
+  @IsOptional()
+  preferredWarehouseId?: string;
+
+  @IsEnum(ProductCostingMethod)
+  @IsOptional()
+  costingMethod?: ProductCostingMethod;
+
+  @IsNumber()
+  @IsOptional()
+  minQuantity?: number;
+
+  @IsNumber()
+  @IsOptional()
+  maxQuantity?: number;
+
+  @IsString()
+  @IsOptional()
+  storageLocation?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  serialNumberTracking?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  batchTracking?: boolean;
+
+  /** Required by Shipping later — nullable since SERVICE/CONSUMABLE products have no physical form.
    * Mandatory when isInventoryItem is true (enforced in ProductsService). */
   @IsNumber()
   @IsOptional()

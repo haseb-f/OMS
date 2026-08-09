@@ -1,40 +1,26 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { Country } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateCountryDto } from './dto/create-country.dto';
-import { UpdateCountryDto } from './dto/update-country.dto';
+import { MasterDataActivityLogService } from '../master-data/master-data-activity-log.service';
+import {
+  MasterDataCrudService,
+  MasterDataDelegate,
+} from '../master-data/master-data-crud.service';
 
 @Injectable()
-export class CountriesService {
-  constructor(private readonly prisma: PrismaService) {}
+export class CountriesService extends MasterDataCrudService<Country> {
+  protected readonly entityType = 'COUNTRY';
+  protected readonly entityLabel = 'Country';
+  protected readonly searchFields = ['code', 'name'];
 
-  create(dto: CreateCountryDto) {
-    return this.prisma.country.create({ data: dto });
+  constructor(
+    prisma: PrismaService,
+    activityLog: MasterDataActivityLogService,
+  ) {
+    super(prisma, activityLog);
   }
 
-  findAll() {
-    return this.prisma.country.findMany({ where: { deletedAt: null } });
-  }
-
-  async findOne(id: string) {
-    const country = await this.prisma.country.findFirst({
-      where: { id, deletedAt: null },
-    });
-    if (!country) {
-      throw new NotFoundException(`Country ${id} not found`);
-    }
-    return country;
-  }
-
-  async update(id: string, dto: UpdateCountryDto) {
-    await this.findOne(id);
-    return this.prisma.country.update({ where: { id }, data: dto });
-  }
-
-  async remove(id: string) {
-    await this.findOne(id);
-    return this.prisma.country.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+  protected get delegate(): MasterDataDelegate<Country> {
+    return this.prisma.country as unknown as MasterDataDelegate<Country>;
   }
 }

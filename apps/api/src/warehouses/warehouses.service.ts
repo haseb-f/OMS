@@ -1,40 +1,47 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { Warehouse } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { MasterDataActivityLogService } from '../master-data/master-data-activity-log.service';
+import {
+  MasterDataCrudService,
+  MasterDataDelegate,
+} from '../master-data/master-data-crud.service';
+import { MasterDataQueryDto } from '../master-data/dto/master-data-query.dto';
+import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import { CreateWarehouseDto } from './dto/create-warehouse.dto';
-import { UpdateWarehouseDto } from './dto/update-warehouse.dto';
+
+const DOCUMENT_TYPE = 'WAREHOUSE';
 
 @Injectable()
-export class WarehousesService {
-  constructor(private readonly prisma: PrismaService) {}
+export class WarehousesService extends MasterDataCrudService<Warehouse> {
+  protected readonly entityType = 'WAREHOUSE';
+  protected readonly entityLabel = 'Warehouse';
+  protected readonly searchFields = ['code', 'name', 'description'];
 
-  create(dto: CreateWarehouseDto) {
-    return this.prisma.warehouse.create({ data: dto });
+  constructor(
+    prisma: PrismaService,
+    activityLog: MasterDataActivityLogService,
+    private readonly numberingEngine: NumberingEngineService,
+  ) {
+    super(prisma, activityLog);
   }
 
-  findAll() {
-    return this.prisma.warehouse.findMany({ where: { deletedAt: null } });
+  protected get delegate(): MasterDataDelegate<Warehouse> {
+    return this.prisma.warehouse as unknown as MasterDataDelegate<Warehouse>;
   }
 
-  async findOne(id: string) {
-    const warehouse = await this.prisma.warehouse.findFirst({
-      where: { id, deletedAt: null },
-    });
-    if (!warehouse) {
-      throw new NotFoundException(`Warehouse ${id} not found`);
-    }
-    return warehouse;
+  /** Code is never typed by hand (TASK-030) — minted the same way Product.sku is. */
+  async create(dto: CreateWarehouseDto, userId?: string) {
+    const code = await this.numberingEngine.generateNumber(DOCUMENT_TYPE);
+    return super.create({ ...dto, code }, userId);
   }
 
-  async update(id: string, dto: UpdateWarehouseDto) {
-    await this.findOne(id);
-    return this.prisma.warehouse.update({ where: { id }, data: dto });
-  }
-
-  async remove(id: string) {
-    await this.findOne(id);
-    return this.prisma.warehouse.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+  /** List needs the manager's name and default analytic account's name, not just their ids. */
+  findAll(query: MasterDataQueryDto) {
+    return super.findAll(
+      query,
+      {},
+      { include: { manager: true, defaultAnalyticAccount: true } },
+    );
   }
 }

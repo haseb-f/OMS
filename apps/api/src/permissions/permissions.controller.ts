@@ -1,42 +1,23 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
-} from '@nestjs/common';
-import { PermissionsService } from './permissions.service';
-import { CreatePermissionDto } from './dto/create-permission.dto';
-import { UpdatePermissionDto } from './dto/update-permission.dto';
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionModule } from '../auth/decorators/permission-module.decorator';
+import { PermissionAction } from '../auth/decorators/permission-action.decorator';
+import { PERMISSION_CATALOG } from './permission-catalog';
 
+/**
+ * TASK-060 — read-only: the Permission Matrix UI's entire data source.
+ * Permission rows themselves are fully seed-managed from `PERMISSION_CATALOG`
+ * (never created/edited via API) — granting/revoking happens per-user, see
+ * `UsersController`'s `/users/:id/permissions` endpoints.
+ */
 @Controller('permissions')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@PermissionModule('settings')
 export class PermissionsController {
-  constructor(private readonly permissionsService: PermissionsService) {}
-
-  @Post()
-  create(@Body() dto: CreatePermissionDto) {
-    return this.permissionsService.create(dto);
-  }
-
-  @Get()
-  findAll() {
-    return this.permissionsService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.permissionsService.findOne(id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdatePermissionDto) {
-    return this.permissionsService.update(id, dto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.permissionsService.remove(id);
+  @Get('catalog')
+  @PermissionAction('manage')
+  getCatalog() {
+    return PERMISSION_CATALOG;
   }
 }

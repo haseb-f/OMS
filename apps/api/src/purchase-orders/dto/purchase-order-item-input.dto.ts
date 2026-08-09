@@ -7,7 +7,7 @@ import {
   Min,
 } from 'class-validator';
 
-/** No computed totals — subtotal is caller-supplied, matching OrderItem's raw-value convention. */
+/** `subtotal` is caller-supplied, matching OrderItem's raw-value convention — but `taxId` is a real, optional lookup: the service resolves its rate and computes `taxAmount`/`lineTotal` server-side (0 tax when omitted). */
 export class PurchaseOrderItemInputDto {
   @IsUUID()
   productId!: string;
@@ -41,6 +41,10 @@ export class PurchaseOrderItemInputDto {
   @IsNumber()
   @Min(0)
   subtotal!: number;
+
+  @IsUUID()
+  @IsOptional()
+  taxId?: string;
 
   @IsString()
   @IsOptional()

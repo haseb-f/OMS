@@ -3,8 +3,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, SupplierStatus } from '@prisma/client';
+import {
+  FinancialTransactionStatus,
+  Prisma,
+  PurchaseDocumentStatus,
+  SupplierStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import {
   SupplierActivityService,
   SupplierActivityType,
@@ -12,20 +18,34 @@ import {
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
 import { FindSuppliersQueryDto } from './dto/find-suppliers-query.dto';
+import { FindOrCreateSupplierDto } from './dto/find-or-create-supplier.dto';
+
+const BALANCE_STATUSES: PurchaseDocumentStatus[] = [
+  PurchaseDocumentStatus.CONFIRMED,
+  PurchaseDocumentStatus.CLOSED,
+];
+
+type SupplierWithBalance<T> = T & { balance: number };
 
 @Injectable()
 export class SuppliersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly activityService: SupplierActivityService,
+    private readonly numberingEngine: NumberingEngineService,
   ) {}
 
   async create(dto: CreateSupplierDto) {
+    // Minted before the transaction opens — the Numbering Engine runs its
+    // own short transaction internally (TASK-025 Part 4), the same way the
+    // Postgres sequence this replaces was never rolled back by an outer
+    // transaction failing either.
+    const supplierNumber =
+      await this.numberingEngine.generateNumber('SUPPLIER');
     try {
       return await this.prisma.$transaction(async (tx) => {
-        const supplierNumber = await this.generateSupplierNumber(tx);
         const supplier = await tx.supplier.create({
-          data: { ...dto, supplierNumber },
+          data: { ...dto, code: dto.code || supplierNumber, supplierNumber },
         });
         await this.activityService.log(
           supplier.id,
@@ -47,10 +67,16 @@ export class SuppliersService {
     }
   }
 
-  /** "Search" — filters by Status; matches Code/Name/Commercial Name. */
-  findAll(query: FindSuppliersQueryDto) {
+  /**
+   * "Search" — filters by Status; matches Code/Name/Commercial Name.
+   * TASK-048 — paginated (`{items,total,page,pageSize}`), matching every
+   * other list endpoint SupplierPicker/EnterpriseDataTable expect.
+   */
+  async findAll(query: FindSuppliersQueryDto) {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 20;
     const where: Prisma.SupplierWhereInput = {
-      deletedAt: null,
+      deletedAt: query.includeArchived ? undefined : null,
       status: query.status,
     };
 
@@ -62,17 +88,30 @@ export class SuppliersService {
       ];
     }
 
-    return this.prisma.supplier.findMany({ where });
+    const [items, total] = await Promise.all([
+      this.prisma.supplier.findMany({
+        where,
+        include: { currency: true, country: true, supplierGroup: true },
+        orderBy: { [query.sortBy || 'name']: query.sortOrder ?? 'asc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.supplier.count({ where }),
+    ]);
+
+    return { items: await this.attachBalances(items), total, page, pageSize };
   }
 
   async findOne(id: string) {
     const supplier = await this.prisma.supplier.findFirst({
       where: { id, deletedAt: null },
+      include: { currency: true, country: true },
     });
     if (!supplier) {
       throw new NotFoundException(`Supplier ${id} not found`);
     }
-    return supplier;
+    const [withBalance] = await this.attachBalances([supplier]);
+    return withBalance;
   }
 
   async update(id: string, dto: UpdateSupplierDto) {
@@ -119,6 +158,28 @@ export class SuppliersService {
     });
   }
 
+  /** Counterpart of Archive — clears deletedAt so the row rejoins the default list. */
+  async restore(id: string) {
+    const existing = await this.prisma.supplier.findFirst({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException(`Supplier ${id} not found`);
+    }
+    return this.prisma.$transaction(async (tx) => {
+      const supplier = await tx.supplier.update({
+        where: { id },
+        data: { deletedAt: null },
+      });
+      await this.activityService.log(
+        id,
+        SupplierActivityType.SUPPLIER_RESTORED,
+        `Supplier ${existing.code} restored`,
+        undefined,
+        tx,
+      );
+      return supplier;
+    });
+  }
+
   /** Sets Status back to ACTIVE — the counterpart of manually setting it to INACTIVE via Update. */
   async activate(id: string) {
     const existing = await this.findOne(id);
@@ -138,12 +199,106 @@ export class SuppliersService {
     });
   }
 
-  private async generateSupplierNumber(
-    tx: Prisma.TransactionClient,
-  ): Promise<string> {
-    const result = await tx.$queryRaw<
-      { nextval: bigint }[]
-    >`SELECT nextval('supplier_number_seq')`;
-    return `SUP-${result[0].nextval.toString().padStart(6, '0')}`;
+  /**
+   * Never duplicates a Supplier: looks up an existing, non-archived record
+   * by phone OR email first and reuses it as-is if found; only creates a
+   * new Supplier otherwise. Mirrors `CustomersService.findOrCreate` — used
+   * by the Supplier Picker's Quick Create.
+   */
+  async findOrCreate(dto: FindOrCreateSupplierDto) {
+    const existing = await this.findDuplicate(dto.phone, dto.email);
+    if (existing) {
+      return { supplier: existing, created: false };
+    }
+    const supplier = await this.create(dto);
+    return { supplier, created: true };
+  }
+
+  /** Reused by every Purchasing document service — "no inactive suppliers" is enforced once here. */
+  async assertActiveSupplier(supplierId: string) {
+    const supplier = await this.findOne(supplierId);
+    if (supplier.status !== SupplierStatus.ACTIVE) {
+      throw new BadRequestException('Supplier is inactive.');
+    }
+    return supplier;
+  }
+
+  private async findDuplicate(phone?: string, email?: string) {
+    const matchers: Prisma.SupplierWhereInput[] = [];
+    if (phone) matchers.push({ phone });
+    if (email) matchers.push({ email });
+    if (matchers.length === 0) return null;
+
+    return this.prisma.supplier.findFirst({
+      where: { deletedAt: null, OR: matchers },
+    });
+  }
+
+  /**
+   * Payable balance = confirmed/closed Purchase Invoices minus confirmed/
+   * closed Purchase Returns minus CONFIRMED Supplier Payment allocations for
+   * that supplier (TASK-052) — the payable mirror of
+   * `CustomersService.attachBalances`, reusing the same Matching Engine
+   * allocation data rather than a second computation. Batched: grouped
+   * aggregates + one allocation join per page, never N+1.
+   */
+  private async attachBalances<T extends { id: string }>(
+    suppliers: T[],
+  ): Promise<SupplierWithBalance<T>[]> {
+    if (suppliers.length === 0) return [];
+    const ids = suppliers.map((s) => s.id);
+
+    const [invoiceSums, returnSums, allocations] = await Promise.all([
+      this.prisma.purchaseInvoice.groupBy({
+        by: ['supplierId'],
+        where: { supplierId: { in: ids }, status: { in: BALANCE_STATUSES } },
+        _sum: { grandTotal: true },
+      }),
+      this.prisma.purchaseReturn.groupBy({
+        by: ['supplierId'],
+        where: { supplierId: { in: ids }, status: { in: BALANCE_STATUSES } },
+        _sum: { grandTotal: true },
+      }),
+      this.prisma.financialTransactionAllocation.findMany({
+        where: {
+          transaction: { status: FinancialTransactionStatus.CONFIRMED },
+          purchaseInvoice: { supplierId: { in: ids } },
+        },
+        select: {
+          allocatedAmount: true,
+          purchaseInvoice: { select: { supplierId: true } },
+        },
+      }),
+    ]);
+    const invoicedBySupplier = new Map(
+      invoiceSums.map((row) => [
+        row.supplierId,
+        Number(row._sum.grandTotal ?? 0),
+      ]),
+    );
+    const returnedBySupplier = new Map(
+      returnSums.map((row) => [
+        row.supplierId,
+        Number(row._sum.grandTotal ?? 0),
+      ]),
+    );
+    const paidBySupplier = new Map<string, number>();
+    for (const allocation of allocations) {
+      const supplierId = allocation.purchaseInvoice?.supplierId;
+      if (!supplierId) continue;
+      paidBySupplier.set(
+        supplierId,
+        (paidBySupplier.get(supplierId) ?? 0) +
+          Number(allocation.allocatedAmount),
+      );
+    }
+
+    return suppliers.map((supplier) => ({
+      ...supplier,
+      balance:
+        (invoicedBySupplier.get(supplier.id) ?? 0) -
+        (returnedBySupplier.get(supplier.id) ?? 0) -
+        (paidBySupplier.get(supplier.id) ?? 0),
+    }));
   }
 }

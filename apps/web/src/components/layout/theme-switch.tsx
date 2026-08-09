@@ -9,28 +9,33 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-
-const options = [
-  { value: "light", label: "Light", icon: Sun },
-  { value: "dark", label: "Dark", icon: Moon },
-  { value: "system", label: "System", icon: SunMoon },
-] as const;
+import { EnterpriseButton } from "@/components/ui/button";
+import { useLocale } from "@/providers/locale-provider";
 
 export function ThemeSwitch() {
   const { theme, setTheme } = useTheme();
+  const { t } = useLocale();
   // Avoid a hydration mismatch: the resolved theme is only known client-side.
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
+
+  const options = [
+    { value: "light", label: t("topbar.themeLight"), icon: Sun },
+    { value: "dark", label: t("topbar.themeDark"), icon: Moon },
+    { value: "system", label: t("topbar.themeSystem"), icon: SunMoon },
+  ] as const;
 
   const ActiveIcon = options.find((option) => option.value === theme)?.icon ?? SunMoon;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label="Change theme">
+        <EnterpriseButton variant="ghost" size="icon-sm" aria-label={t("topbar.changeTheme")}>
           {mounted ? <ActiveIcon /> : <SunMoon />}
-        </Button>
+        </EnterpriseButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {options.map((option) => (

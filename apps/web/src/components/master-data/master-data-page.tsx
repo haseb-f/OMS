@@ -1,0 +1,632 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
+import type { LucideIcon } from "lucide-react";
+import { Copy, Plus } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import type { ZodType } from "zod";
+import { EnterpriseButton } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import { Eye } from "lucide-react";
+import { PageHeader } from "@/components/shared/page-header";
+import { EnterpriseModal, type EnterpriseModalSize } from "@/components/shared/enterprise-modal";
+import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { LoadingOverlay } from "@/components/shared/loading-overlay";
+import { KpiCard } from "@/components/shared/kpi-card";
+import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
+import {
+  EnterpriseDataTable,
+  exportRowsToCsv,
+  exportColumnsFromKeys,
+} from "./enterprise-data-table";
+import {
+  MasterDataForm,
+  type MasterDataFormField,
+  type MasterDataFormSection,
+} from "./master-data-form";
+import { getColumnDisplayValue } from "@/components/shared/data-table";
+import type { MasterDataActivityEntry, MasterDataListParams } from "@/services/master-data-service";
+import { useLocale } from "@/providers/locale-provider";
+import { useUserContext } from "@/providers/user-context";
+import { toast } from "@/lib/toast";
+import { ApiError } from "@/services/api-client";
+import { formatDateTime } from "@/lib/date";
+import type { MessageKey } from "@/i18n/translate";
+
+export interface MasterDataEntity {
+  id: string;
+  deletedAt?: string | null;
+}
+
+interface MasterDataService<TEntity> {
+  list: (
+    params: MasterDataListParams,
+  ) => Promise<{ items: TEntity[]; total: number; page: number; pageSize: number }>;
+  create: (dto: Record<string, unknown>) => Promise<TEntity>;
+  update: (id: string, dto: Record<string, unknown>) => Promise<TEntity>;
+  archive: (id: string) => Promise<TEntity>;
+  restore: (id: string) => Promise<TEntity>;
+  activity: (id: string) => Promise<MasterDataActivityEntry[]>;
+}
+
+/** Picks the modal size automatically from how many fields the form has — never a tiny dialog, never an oversized one for a 2-field form. */
+function pickModalSize(fieldCount: number): EnterpriseModalSize {
+  if (fieldCount > 8) return "xl";
+  if (fieldCount > 4) return "lg";
+  return "md";
+}
+
+/**
+ * The one page template every Master Data entity renders through (Companies,
+ * Branches, Warehouses, ...): PageHeader, EnterpriseDataTable wired to a
+ * MasterDataService, a Create/Edit EnterpriseModal (per the Enterprise Modal
+ * System — never a dedicated page for a normal CRUD form) built from
+ * MasterDataForm, and an Activity Log panel — all config-driven, so an
+ * entity page is just this component plus its own columns/fields/schema.
+ */
+export function MasterDataPage<TEntity extends MasterDataEntity>({
+  titleKey,
+  descriptionKey,
+  tableId,
+  icon,
+  service,
+  columns,
+  exportColumnKeys,
+  formFields,
+  formSections,
+  schema,
+  defaultValues,
+  toFormValues,
+  permissionPrefix,
+  extraListParams,
+  rowLabel,
+  stats,
+  renderRowExtraActions,
+  extraFilters,
+  extraActions,
+  defaultSortBy = "name",
+  disableArchiveRestore = false,
+}: {
+  titleKey: MessageKey;
+  descriptionKey: MessageKey;
+  breadcrumbKeys: MessageKey[];
+  tableId: string;
+  icon?: LucideIcon;
+  service: MasterDataService<TEntity>;
+  columns: ColumnDef<TEntity, unknown>[];
+  exportColumnKeys: string[];
+  /** Flat single-section field list — used by every plain Master Data entity. Omit in favor of `formSections` for a richer, multi-section dialog (e.g. Customer, TASK-038). */
+  formFields?: MasterDataFormField[];
+  formSections?: MasterDataFormSection[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  schema: ZodType<any, any, any>;
+  defaultValues: Record<string, unknown>;
+  toFormValues?: (entity: TEntity) => Record<string, unknown>;
+  permissionPrefix: string;
+  extraListParams?: Record<string, string | number | boolean | undefined>;
+  rowLabel: (entity: TEntity) => string;
+  /** Opt-in KPI strip above the table — no entity computes these yet, so it only renders when a caller supplies values. */
+  stats?: { icon: LucideIcon; label: string; value?: string | number }[];
+  /** Opt-in extra row action(s) rendered before the standard Quick Preview/Activity/Edit/Duplicate/Archive set — e.g. a "View Profile" link to a richer detail page most entities don't have. */
+  renderRowExtraActions?: (entity: TEntity) => ReactNode;
+  /** Opt-in extra filter control(s) rendered next to the "Show Archived" toggle. */
+  extraFilters?: ReactNode;
+  /** Opt-in extra toolbar action(s) rendered before the internal "+ New" button — e.g. `<ModuleImportButtons />` (TASK-060B Part 5). */
+  extraActions?: ReactNode;
+  /** Initial sort field — defaults to "name" (every existing Master Data entity has one); override for an entity that doesn't (e.g. Leads, sorted by "createdAt"). */
+  defaultSortBy?: string;
+  /**
+   * Hides the generic Archive/Restore row actions and the bulk-archive bar
+   * — for an entity whose "Archive" is a business-status transition (e.g.
+   * Lead's `POST :id/archive` -> `status: ARCHIVED`), not this page's usual
+   * soft-delete/`deletedAt` semantics, and which offers its own Archive
+   * action instead (via `renderRowExtraActions`) so the two concepts never
+   * get shown as if they were the same toggle.
+   */
+  disableArchiveRestore?: boolean;
+}) {
+  const { t } = useLocale();
+  const { hasPermission } = useUserContext();
+
+  const canCreate = hasPermission(`${permissionPrefix}.create`);
+  const canEdit = hasPermission(`${permissionPrefix}.edit`);
+  const canArchive = !disableArchiveRestore && hasPermission(`${permissionPrefix}.archive`);
+
+  const [items, setItems] = useState<TEntity[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<string>(defaultSortBy);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [includeArchived, setIncludeArchived] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingEntity, setEditingEntity] = useState<TEntity | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [archiveTarget, setArchiveTarget] = useState<TEntity | null>(null);
+  const [restoreTarget, setRestoreTarget] = useState<TEntity | null>(null);
+  const [duplicateSource, setDuplicateSource] = useState<TEntity | null>(null);
+  const [isMutating, setIsMutating] = useState(false);
+
+  const [activityEntity, setActivityEntity] = useState<TEntity | null>(null);
+  const [activityEntries, setActivityEntries] = useState<MasterDataActivityEntry[] | null>(null);
+  const [previewEntity, setPreviewEntity] = useState<TEntity | null>(null);
+
+  const extraKey = JSON.stringify(extraListParams ?? {});
+
+  // The modal owns one `useForm()` instance for its whole lifetime — the
+  // footer's Save/Save & New buttons (siblings of the field grid inside the
+  // modal chrome) submit this same form, so form state is lifted here
+  // instead of living inside `MasterDataForm`.
+  const form = useForm<Record<string, unknown>>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(schema as any),
+    defaultValues,
+  });
+
+  useEffect(() => {
+    if (!modalOpen) return;
+    const source = editingEntity ?? duplicateSource;
+    const values = source
+      ? toFormValues
+        ? toFormValues(source)
+        : (source as unknown as Record<string, unknown>)
+      : defaultValues;
+    form.reset(values);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modalOpen, editingEntity, duplicateSource]);
+
+  const isDirty = form.formState.isDirty;
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const result = await service.list({
+        search: search || undefined,
+        page,
+        pageSize,
+        sortBy,
+        sortOrder,
+        includeArchived,
+        ...extraListParams,
+      });
+      setItems(result.items);
+      setTotal(result.total);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Failed to load data.");
+    } finally {
+      setIsLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, page, pageSize, sortBy, sortOrder, includeArchived, extraKey]);
+
+  useEffect(() => {
+    // Fetch-on-dependency-change: the standard data-fetching effect pattern
+    // (same as this codebase's own auth-provider.tsx) — setState happens
+    // inside `load`'s async body, not synchronously in the effect itself.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load();
+  }, [load]);
+
+  useEffect(() => {
+    if (!activityEntity) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setActivityEntries(null);
+      return;
+    }
+    service
+      .activity(activityEntity.id)
+      .then(setActivityEntries)
+      .catch(() => setActivityEntries([]));
+  }, [activityEntity, service]);
+
+  const openCreate = () => {
+    setEditingEntity(null);
+    setDuplicateSource(null);
+    setModalOpen(true);
+  };
+  const openEdit = useCallback((entity: TEntity) => {
+    setEditingEntity(entity);
+    setDuplicateSource(null);
+    setModalOpen(true);
+  }, []);
+  const openDuplicate = useCallback((entity: TEntity) => {
+    setEditingEntity(null);
+    setDuplicateSource(entity);
+    setModalOpen(true);
+  }, []);
+  const closeModal = (open: boolean) => {
+    setModalOpen(open);
+    if (!open) setDuplicateSource(null);
+  };
+
+  const submit = (andNew: boolean) =>
+    form.handleSubmit(async (values) => {
+      setIsSubmitting(true);
+      try {
+        if (editingEntity) {
+          await service.update(editingEntity.id, values);
+        } else {
+          await service.create(values);
+        }
+        toast.success(t("common.save"));
+        await load();
+        if (andNew) {
+          form.reset(defaultValues);
+        } else {
+          setModalOpen(false);
+        }
+      } catch (error) {
+        toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      } finally {
+        setIsSubmitting(false);
+      }
+    })();
+
+  const confirmArchive = async () => {
+    if (!archiveTarget) return;
+    setIsMutating(true);
+    try {
+      await service.archive(archiveTarget.id);
+      toast.success(t("common.archive"));
+      setArchiveTarget(null);
+      await load();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Failed to archive.");
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
+  const confirmRestore = async () => {
+    if (!restoreTarget) return;
+    setIsMutating(true);
+    try {
+      await service.restore(restoreTarget.id);
+      toast.success(t("common.restore"));
+      setRestoreTarget(null);
+      await load();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Failed to restore.");
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
+  const bulkArchiveSelected = async () => {
+    const ids = Object.keys(rowSelection);
+    setIsMutating(true);
+    try {
+      await Promise.all(ids.map((id) => service.archive(id).catch(() => undefined)));
+      setRowSelection({});
+      toast.success(t("common.archive"));
+      await load();
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
+  const actionsColumn = useMemo<ColumnDef<TEntity, unknown>>(
+    () => ({
+      id: "__actions",
+      meta: { titleKey: "common.actions" },
+      enableHiding: false,
+      enableSorting: false,
+      cell: ({ row }) => {
+        const entity = row.original;
+        const isArchived = !!entity.deletedAt;
+        return (
+          <div className="flex items-center gap-1">
+            {renderRowExtraActions?.(entity)}
+            <EnterpriseButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="gap-1"
+              onClick={() => setPreviewEntity(entity)}
+            >
+              <Eye className="size-3.5" />
+              {t("masterData.actions.quickPreview")}
+            </EnterpriseButton>
+            <EnterpriseButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setActivityEntity(entity)}
+            >
+              {t("masterData.actions.viewActivity")}
+            </EnterpriseButton>
+            {canEdit && !isArchived && (
+              <EnterpriseButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => openEdit(entity)}
+              >
+                {t("common.edit")}
+              </EnterpriseButton>
+            )}
+            {canCreate && !isArchived && (
+              <EnterpriseButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="gap-1"
+                onClick={() => openDuplicate(entity)}
+              >
+                <Copy className="size-3.5" />
+                {t("table.duplicate")}
+              </EnterpriseButton>
+            )}
+            {canArchive && !isArchived && (
+              <EnterpriseButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setArchiveTarget(entity)}
+              >
+                {t("common.archive")}
+              </EnterpriseButton>
+            )}
+            {canArchive && isArchived && (
+              <EnterpriseButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setRestoreTarget(entity)}
+              >
+                {t("common.restore")}
+              </EnterpriseButton>
+            )}
+          </div>
+        );
+      },
+    }),
+    [canEdit, canArchive, canCreate, t, openEdit, openDuplicate, renderRowExtraActions],
+  );
+
+  const tableColumns = useMemo(() => [...columns, actionsColumn], [columns, actionsColumn]);
+
+  const activityTimelineEntries: TimelineEntry[] = (activityEntries ?? []).map((entry) => ({
+    id: entry.id,
+    title: entry.description,
+    timestamp: formatDateTime(entry.createdAt),
+    status: entry.type === "ARCHIVED" ? "rejected" : entry.type === "CREATED" ? "done" : "pending",
+  }));
+
+  const totalFieldCount = formSections
+    ? formSections.reduce((sum, section) => sum + section.fields.length, 0)
+    : (formFields?.length ?? 0);
+  const modalSize = pickModalSize(totalFieldCount);
+
+  return (
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title={t(titleKey)}
+        subtitle={t(descriptionKey)}
+        actions={
+          <>
+            {extraActions}
+            {canCreate && (
+              <EnterpriseButton type="button" onClick={openCreate}>
+                <Plus />
+                {t("masterData.actions.addNew")}
+              </EnterpriseButton>
+            )}
+          </>
+        }
+        filters={
+          <>
+            {extraFilters}
+            <EnterpriseButton
+              type="button"
+              variant={includeArchived ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => setIncludeArchived((value) => !value)}
+            >
+              {t("common.showArchived")}
+            </EnterpriseButton>
+          </>
+        }
+      />
+
+      {stats && stats.length > 0 && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {stats.map((stat) => (
+            <KpiCard key={stat.label} icon={stat.icon} label={stat.label} value={stat.value} />
+          ))}
+        </div>
+      )}
+
+      <div className="relative">
+        {isMutating && <LoadingOverlay />}
+        <EnterpriseDataTable
+          tableId={tableId}
+          printTitle={t(titleKey)}
+          columns={tableColumns}
+          data={items}
+          totalCount={total}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onSortChange={(nextSortBy, nextSortOrder) => {
+            setSortBy(nextSortBy);
+            setSortOrder(nextSortOrder);
+          }}
+          search={search}
+          onSearchChange={(value) => {
+            setSearch(value);
+            setPage(1);
+          }}
+          isLoading={isLoading}
+          rowSelection={rowSelection}
+          onRowSelectionChange={setRowSelection}
+          bulkActions={
+            canArchive && (
+              <EnterpriseButton
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={bulkArchiveSelected}
+              >
+                {t("common.archive")}
+              </EnterpriseButton>
+            )
+          }
+          onRefresh={load}
+          exportColumns={exportColumnsFromKeys(columns, exportColumnKeys, t)}
+          onExport={(selectedKeys) =>
+            exportRowsToCsv(
+              items as unknown as Record<string, unknown>[],
+              selectedKeys,
+              `${tableId}.csv`,
+            )
+          }
+        />
+      </div>
+
+      <EnterpriseModal
+        open={modalOpen}
+        onOpenChange={closeModal}
+        size={modalSize}
+        icon={icon}
+        title={
+          editingEntity
+            ? t("common.edit")
+            : duplicateSource
+              ? t("table.duplicate")
+              : t("masterData.actions.addNew")
+        }
+        description={t(descriptionKey)}
+        isDirty={isDirty}
+        footer={(requestClose) => (
+          <>
+            <EnterpriseButton
+              type="button"
+              variant="ghost"
+              onClick={requestClose}
+              disabled={isSubmitting}
+            >
+              {t("common.cancel")}
+            </EnterpriseButton>
+            {!editingEntity && (
+              <EnterpriseButton
+                type="button"
+                variant="outline"
+                onClick={() => submit(true)}
+                disabled={isSubmitting}
+              >
+                {t("masterData.actions.saveAndNew")}
+              </EnterpriseButton>
+            )}
+            <EnterpriseButton type="button" onClick={() => submit(false)} disabled={isSubmitting}>
+              {t("common.save")}
+            </EnterpriseButton>
+          </>
+        )}
+      >
+        {formSections ? (
+          <MasterDataForm form={form} sections={formSections} />
+        ) : (
+          <MasterDataForm
+            form={form}
+            fields={formFields ?? []}
+            sectionTitle={t("common.generalInformation")}
+            columns={modalSize === "xl" ? 3 : 2}
+          />
+        )}
+      </EnterpriseModal>
+
+      <ConfirmationDialog
+        open={!!archiveTarget}
+        onOpenChange={(open) => !open && setArchiveTarget(null)}
+        title={t("common.confirmArchiveTitle")}
+        description={
+          archiveTarget && `${rowLabel(archiveTarget)} — ${t("common.confirmArchiveDescription")}`
+        }
+        onConfirm={confirmArchive}
+        confirmLabel={t("common.archive")}
+      />
+
+      <ConfirmationDialog
+        open={!!restoreTarget}
+        onOpenChange={(open) => !open && setRestoreTarget(null)}
+        title={t("common.confirmRestoreTitle")}
+        description={
+          restoreTarget && `${rowLabel(restoreTarget)} — ${t("common.confirmRestoreDescription")}`
+        }
+        onConfirm={confirmRestore}
+        confirmLabel={t("common.restore")}
+      />
+
+      <Sheet open={!!previewEntity} onOpenChange={(open) => !open && setPreviewEntity(null)}>
+        <SheetContent className="sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>{previewEntity && rowLabel(previewEntity)}</SheetTitle>
+            <SheetDescription>{t("masterData.actions.quickPreview")}</SheetDescription>
+          </SheetHeader>
+          {previewEntity && (
+            <dl className="flex flex-col gap-3 overflow-y-auto px-4 pb-4">
+              {columns.map((column) => (
+                <div
+                  key={column.id}
+                  className="flex items-center justify-between gap-4 border-b border-border/60 pb-2"
+                >
+                  <dt className="text-caption text-muted-foreground">
+                    {column.meta?.titleKey ? t(column.meta.titleKey) : (column.id ?? "")}
+                  </dt>
+                  <dd className="text-sm font-medium">
+                    {getColumnDisplayValue(column, previewEntity)}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={!!activityEntity} onOpenChange={(open) => !open && setActivityEntity(null)}>
+        <SheetContent className="sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>{t("common.activityLog")}</SheetTitle>
+            <SheetDescription>{activityEntity && rowLabel(activityEntity)}</SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto px-4 pb-4">
+            {activityEntries === null ? (
+              <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
+            ) : activityTimelineEntries.length === 0 ? (
+              <p className="text-caption text-muted-foreground">{t("common.noActivity")}</p>
+            ) : (
+              <AuditTimeline entries={activityTimelineEntries} />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}

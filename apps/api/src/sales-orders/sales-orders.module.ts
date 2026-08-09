@@ -11,8 +11,10 @@ import { SalesOrderAttachmentsController } from './attachments/sales-order-attac
 import { SalesOrderAttachmentsService } from './attachments/sales-order-attachments.service';
 import { SalesOrderNotesController } from './notes/sales-order-notes.controller';
 import { SalesOrderNotesService } from './notes/sales-order-notes.service';
+import { NumberingModule } from '../numbering/numbering.module';
 
 @Module({
+  imports: [NumberingModule],
   controllers: [
     SalesOrdersController,
     SalesOrderActivitiesController,

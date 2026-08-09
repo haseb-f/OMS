@@ -21,6 +21,11 @@ export class CreatePurchaseOrderDto {
   @IsUUID()
   supplierId!: string;
 
+  /** Set internally when a PO is created via "Convert to Order" (TASK-048) — never accepted from a plain create-PO request body. */
+  @IsUUID()
+  @IsOptional()
+  quotationId?: string;
+
   @IsUUID()
   @IsOptional()
   projectId?: string;

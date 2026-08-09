@@ -14,12 +14,12 @@ export function useLocalStorage<T>(key: string, defaultValue: T) {
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(key);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (stored !== null) setValue(JSON.parse(stored) as T);
     } catch {
       // Corrupt or inaccessible storage — fall back to defaultValue silently.
     }
     setIsHydrated(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
   const update = useCallback(

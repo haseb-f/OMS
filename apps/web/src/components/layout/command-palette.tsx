@@ -15,6 +15,7 @@ import {
 import { navigationConfig } from "@/navigation/navigation.config";
 import { flattenNavigationTree, buildNavigationTree } from "@/navigation/build-navigation-tree";
 import { iconRegistry } from "@/navigation/icon-registry";
+import { useLocale } from "@/providers/locale-provider";
 
 const navigableItems = flattenNavigationTree(buildNavigationTree(navigationConfig)).filter(
   (item) => item.route,
@@ -29,6 +30,7 @@ const navigableItems = flattenNavigationTree(buildNavigationTree(navigationConfi
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
+  const { t } = useLocale();
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -51,11 +53,11 @@ export function CommandPalette() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex h-8 w-full max-w-64 items-center gap-2 rounded-md border border-input bg-background px-2.5 text-sm text-muted-foreground shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground"
+        className="flex h-11 w-full items-center gap-2.5 rounded-lg border border-border bg-muted/40 px-4 text-body text-muted-foreground shadow-xs transition-all duration-(--duration-base) ease-(--ease-standard) hover:border-border hover:bg-muted/70 hover:text-foreground focus-visible:border-ring focus-visible:bg-card focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:outline-none"
       >
-        <Search className="size-3.5 shrink-0" />
-        <span className="flex-1 truncate text-start">Search…</span>
-        <kbd className="hidden shrink-0 items-center gap-0.5 rounded border bg-muted px-1.5 font-mono text-[10px] text-muted-foreground sm:inline-flex">
+        <Search className="size-4 shrink-0" />
+        <span className="flex-1 truncate text-start">{t("topbar.searchPlaceholder")}</span>
+        <kbd className="hidden shrink-0 items-center gap-0.5 rounded border bg-card px-1.5 font-mono text-[10px] text-muted-foreground sm:inline-flex">
           <span>⌘</span>K
         </kbd>
       </button>
@@ -63,24 +65,25 @@ export function CommandPalette() {
       <CommandDialog
         open={open}
         onOpenChange={setOpen}
-        title="Command Palette"
-        description="Search modules and pages"
+        title={t("topbar.commandPaletteTitle")}
+        description={t("topbar.commandPaletteDescription")}
       >
         <Command>
-          <CommandInput placeholder="Search modules and pages…" />
+          <CommandInput placeholder={t("topbar.commandPalettePlaceholder")} />
           <CommandList>
-            <CommandEmpty>No results found.</CommandEmpty>
-            <CommandGroup heading="Navigate">
+            <CommandEmpty>{t("common.noResults")}</CommandEmpty>
+            <CommandGroup heading={t("topbar.commandPaletteGroupNavigate")}>
               {navigableItems.map((item) => {
                 const Icon = item.icon ? iconRegistry[item.icon] : Search;
+                const title = t(item.titleKey);
                 return (
                   <CommandItem
                     key={item.id}
-                    value={item.title}
+                    value={title}
                     onSelect={() => runNavigate(item.route!)}
                   >
                     <Icon />
-                    <span>{item.title}</span>
+                    <span>{title}</span>
                   </CommandItem>
                 );
               })}

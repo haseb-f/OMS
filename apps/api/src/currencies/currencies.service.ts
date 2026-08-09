@@ -1,40 +1,26 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { Currency } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateCurrencyDto } from './dto/create-currency.dto';
-import { UpdateCurrencyDto } from './dto/update-currency.dto';
+import { MasterDataActivityLogService } from '../master-data/master-data-activity-log.service';
+import {
+  MasterDataCrudService,
+  MasterDataDelegate,
+} from '../master-data/master-data-crud.service';
 
 @Injectable()
-export class CurrenciesService {
-  constructor(private readonly prisma: PrismaService) {}
+export class CurrenciesService extends MasterDataCrudService<Currency> {
+  protected readonly entityType = 'CURRENCY';
+  protected readonly entityLabel = 'Currency';
+  protected readonly searchFields = ['code', 'name', 'symbol'];
 
-  create(dto: CreateCurrencyDto) {
-    return this.prisma.currency.create({ data: dto });
+  constructor(
+    prisma: PrismaService,
+    activityLog: MasterDataActivityLogService,
+  ) {
+    super(prisma, activityLog);
   }
 
-  findAll() {
-    return this.prisma.currency.findMany({ where: { deletedAt: null } });
-  }
-
-  async findOne(id: string) {
-    const currency = await this.prisma.currency.findFirst({
-      where: { id, deletedAt: null },
-    });
-    if (!currency) {
-      throw new NotFoundException(`Currency ${id} not found`);
-    }
-    return currency;
-  }
-
-  async update(id: string, dto: UpdateCurrencyDto) {
-    await this.findOne(id);
-    return this.prisma.currency.update({ where: { id }, data: dto });
-  }
-
-  async remove(id: string) {
-    await this.findOne(id);
-    return this.prisma.currency.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+  protected get delegate(): MasterDataDelegate<Currency> {
+    return this.prisma.currency as unknown as MasterDataDelegate<Currency>;
   }
 }

@@ -1,0 +1,54 @@
+"use client";
+
+import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { useTheme } from "next-themes";
+import { useAuth } from "./auth-provider";
+import { useLocale } from "./locale-provider";
+import type { CurrentUser } from "@/services/auth-service";
+
+interface UserContextValue {
+  user: CurrentUser | null;
+  roles: string[];
+  permissions: string[];
+  hasPermission: (permission: string) => boolean;
+  /** No avatar upload feature exists yet — always null, never a fabricated image. */
+  avatarUrl: string | null;
+  language: string;
+  theme: string | undefined;
+}
+
+const UserContext = createContext<UserContextValue | null>(null);
+
+/**
+ * Part 3 foundation: a single place every future business module reads
+ * "who is the current user, what can they do, and what are their active
+ * preferences" from — composed from AuthProvider (identity/roles/
+ * permissions), LocaleProvider (language), and next-themes (theme), rather
+ * than duplicating that state.
+ */
+export function UserContextProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const { locale } = useLocale();
+  const { theme } = useTheme();
+
+  const value = useMemo<UserContextValue>(() => {
+    const permissions = user?.permissions ?? [];
+    return {
+      user,
+      roles: user?.roles ?? [],
+      permissions,
+      hasPermission: (permission: string) => permissions.includes(permission),
+      avatarUrl: null,
+      language: locale,
+      theme,
+    };
+  }, [user, locale, theme]);
+
+  return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
+}
+
+export function useUserContext() {
+  const context = useContext(UserContext);
+  if (!context) throw new Error("useUserContext must be used within a UserContextProvider");
+  return context;
+}

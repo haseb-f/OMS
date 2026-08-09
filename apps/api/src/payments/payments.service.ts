@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PaymentStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import { LeadsService } from '../leads/leads.service';
 import {
   PaymentActivityService,
@@ -34,16 +35,8 @@ export class PaymentsService {
     private readonly activityService: PaymentActivityService,
     private readonly notesService: PaymentNotesService,
     private readonly attachmentsService: PaymentAttachmentsService,
+    private readonly numberingEngine: NumberingEngineService,
   ) {}
-
-  private async generatePaymentNumber(
-    tx: Prisma.TransactionClient,
-  ): Promise<string> {
-    const result = await tx.$queryRaw<
-      { nextval: bigint }[]
-    >`SELECT nextval('payment_number_seq')`;
-    return `PAY-${result[0].nextval.toString().padStart(6, '0')}`;
-  }
 
   /** Business operation: Create Payment. Must reference BOTH a PaymentSource (how the
    *  customer paid) and a ReceivingAccount (where the money arrived) — never only one. */
@@ -66,9 +59,9 @@ export class PaymentsService {
       );
     }
 
+    const paymentNumber = await this.numberingEngine.generateNumber('PAYMENT');
     try {
       return await this.prisma.$transaction(async (tx) => {
-        const paymentNumber = await this.generatePaymentNumber(tx);
         const payment = await tx.payment.create({
           data: {
             paymentNumber,

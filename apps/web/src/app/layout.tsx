@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Geist } from "next/font/google";
+import { IBM_Plex_Sans_Arabic } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { AppProviders } from "@/providers/app-providers";
 import { siteConfig } from "@/config/site";
 
-const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
+/** IBM Plex Sans Arabic — Arabic-first typography (ADR-0020), since Arabic is the default locale. Falls back to Alexandria. */
+const bodyFont = IBM_Plex_Sans_Arabic({
+  subsets: ["arabic", "latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-sans",
+  fallback: ["Alexandria", "system-ui", "sans-serif"],
+});
 
 export const metadata: Metadata = {
   title: { default: siteConfig.fullName, template: `%s — ${siteConfig.name}` },
@@ -18,7 +24,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn("font-sans", geist.variable)} suppressHydrationWarning>
+    <html
+      lang="ar"
+      dir="rtl"
+      className={cn("font-sans", bodyFont.variable)}
+      suppressHydrationWarning
+    >
       <body>
         <AppProviders>{children}</AppProviders>
       </body>

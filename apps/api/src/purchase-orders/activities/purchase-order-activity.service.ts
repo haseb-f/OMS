@@ -4,9 +4,11 @@ import { PrismaService } from '../../prisma/prisma.service';
 
 export const PurchaseOrderActivityType = {
   PO_CREATED: 'PO_CREATED',
+  PO_UPDATED: 'PO_UPDATED',
   PO_APPROVED: 'PO_APPROVED',
   PO_CANCELLED: 'PO_CANCELLED',
   PO_CLOSED: 'PO_CLOSED',
+  PO_ARCHIVED: 'PO_ARCHIVED',
 } as const;
 
 @Injectable()

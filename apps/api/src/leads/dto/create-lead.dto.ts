@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsEnum,
   IsInt,
@@ -9,6 +10,10 @@ import {
   Min,
 } from 'class-validator';
 import { LeadSource } from '@prisma/client';
+
+/** A UI form's untouched "no selection" Select value — normalized to `undefined` so `@IsOptional()` actually skips validation for it (an empty string is not `null`/`undefined`, so it would otherwise still be checked against `@IsUUID()`/`@IsString()`). */
+const emptyToUndefined = ({ value }: { value: unknown }) =>
+  value === '' ? undefined : value;
 
 export class CreateLeadDto {
   @IsString()
@@ -45,6 +50,7 @@ export class CreateLeadDto {
   @IsEnum(LeadSource)
   source!: LeadSource;
 
+  @Transform(emptyToUndefined)
   @IsUUID()
   @IsOptional()
   salesEmployeeId?: string;
@@ -52,4 +58,10 @@ export class CreateLeadDto {
   @IsString()
   @IsOptional()
   importBatch?: string;
+
+  /** The source system's own order identifier — used to detect a re-imported duplicate order (see LeadsService.create). */
+  @Transform(emptyToUndefined)
+  @IsString()
+  @IsOptional()
+  externalOrderId?: string;
 }

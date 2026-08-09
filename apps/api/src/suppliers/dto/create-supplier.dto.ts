@@ -17,10 +17,18 @@ import { SupplierStatus } from '@prisma/client';
  * exposed here, schema columns only.
  */
 export class CreateSupplierDto {
-  /** "Editable by user, unique" — distinct from the auto-generated supplierNumber. */
+  /**
+   * "Editable by user, unique" — distinct from the auto-generated
+   * supplierNumber. Optional here (TASK-048): the UX Policy's "generate
+   * codes automatically, never require the user to type one manually"
+   * applies to the Supplier Quick-Create flow, so `SuppliersService.create`
+   * defaults `code` to the minted `supplierNumber` when omitted — the
+   * full Supplier form still lets a user type/edit their own.
+   */
   @IsString()
   @IsNotEmpty()
-  code!: string;
+  @IsOptional()
+  code?: string;
 
   @IsString()
   @IsNotEmpty()
@@ -57,6 +65,11 @@ export class CreateSupplierDto {
   @IsUUID()
   @IsOptional()
   currencyId?: string;
+
+  /** TASK-047 — same treatment as Customer.customerGroupId; also drives Accounting Configuration group-level account-mapping overrides. */
+  @IsUUID()
+  @IsOptional()
+  supplierGroupId?: string;
 
   /** No closed set of values specified — free-text. */
   @IsString()

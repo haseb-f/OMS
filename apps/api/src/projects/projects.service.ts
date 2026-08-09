@@ -1,40 +1,27 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { Project } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateProjectDto } from './dto/create-project.dto';
-import { UpdateProjectDto } from './dto/update-project.dto';
+import { MasterDataActivityLogService } from '../master-data/master-data-activity-log.service';
+import {
+  MasterDataCrudService,
+  MasterDataDelegate,
+} from '../master-data/master-data-crud.service';
 
+/** TASK-048 — Project master data, referenced by JournalEntry/SalesOrder/PurchaseOrder (prepared-only until this task). Same generic CRUD shape as Currency/PaymentMethod. */
 @Injectable()
-export class ProjectsService {
-  constructor(private readonly prisma: PrismaService) {}
+export class ProjectsService extends MasterDataCrudService<Project> {
+  protected readonly entityType = 'PROJECT';
+  protected readonly entityLabel = 'Project';
+  protected readonly searchFields = ['code', 'name'];
 
-  create(dto: CreateProjectDto) {
-    return this.prisma.project.create({ data: dto });
+  constructor(
+    prisma: PrismaService,
+    activityLog: MasterDataActivityLogService,
+  ) {
+    super(prisma, activityLog);
   }
 
-  findAll() {
-    return this.prisma.project.findMany({ where: { deletedAt: null } });
-  }
-
-  async findOne(id: string) {
-    const project = await this.prisma.project.findFirst({
-      where: { id, deletedAt: null },
-    });
-    if (!project) {
-      throw new NotFoundException(`Project ${id} not found`);
-    }
-    return project;
-  }
-
-  async update(id: string, dto: UpdateProjectDto) {
-    await this.findOne(id);
-    return this.prisma.project.update({ where: { id }, data: dto });
-  }
-
-  async remove(id: string) {
-    await this.findOne(id);
-    return this.prisma.project.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+  protected get delegate(): MasterDataDelegate<Project> {
+    return this.prisma.project as unknown as MasterDataDelegate<Project>;
   }
 }

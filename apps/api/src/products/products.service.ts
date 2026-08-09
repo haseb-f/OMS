@@ -1,55 +1,114 @@
 import {
-  BadRequestException,
   Injectable,
+  BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, ProductType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import {
   ProductActivityService,
   ProductActivityType,
 } from './activities/product-activity.service';
+import { ProductAttachmentsService } from './attachments/product-attachments.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { FindProductsQueryDto } from './dto/find-products-query.dto';
+import { CreateProductAttachmentDto } from './dto/create-product-attachment.dto';
 
-/** Product Flags (ADR-0012) — type-based defaults, overridable per product. */
+/**
+ * Product Business Behavior defaults (TASK-028) — each behavior has
+ * sensible isPurchasable/isSellable/isInventoryItem defaults, always
+ * overridable per product:
+ * - PURCHASE_ONLY: enters inventory, never sold.
+ * - SALES_ONLY: sold, not purchased through this system, still
+ *   inventory-tracked (distinct from SERVICE, which has no physical form).
+ * - PURCHASE_AND_SALE: normal inventory item.
+ * - MANUFACTURED (renamed from KIT): sold as one item, built from
+ *   component products — its BOM (ProductComponent rows) is what actually
+ *   carries the component-level inventory; the manufactured item itself is
+ *   still purchasable/stockable (e.g. produced in bulk, purchased pending
+ *   production) and sellable.
+ * - SERVICE: no inventory.
+ * - EXPENSE_ITEM: future ready — bought and expensed, never stocked or sold.
+ */
 const DEFAULT_FLAGS_BY_TYPE: Record<
   ProductType,
   { isPurchasable: boolean; isSellable: boolean; isInventoryItem: boolean }
 > = {
-  PHYSICAL: { isPurchasable: true, isSellable: true, isInventoryItem: true },
+  PURCHASE_ONLY: {
+    isPurchasable: true,
+    isSellable: false,
+    isInventoryItem: true,
+  },
+  SALES_ONLY: {
+    isPurchasable: false,
+    isSellable: true,
+    isInventoryItem: true,
+  },
+  PURCHASE_AND_SALE: {
+    isPurchasable: true,
+    isSellable: true,
+    isInventoryItem: true,
+  },
+  MANUFACTURED: {
+    isPurchasable: true,
+    isSellable: true,
+    isInventoryItem: true,
+  },
   SERVICE: { isPurchasable: false, isSellable: true, isInventoryItem: false },
-  DIGITAL: { isPurchasable: false, isSellable: true, isInventoryItem: false },
-  BUNDLE: { isPurchasable: false, isSellable: true, isInventoryItem: false },
+  EXPENSE_ITEM: {
+    isPurchasable: true,
+    isSellable: false,
+    isInventoryItem: false,
+  },
 };
+
+const DOCUMENT_TYPE = 'PRODUCT';
 
 @Injectable()
 export class ProductsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly activityService: ProductActivityService,
+    private readonly attachmentsService: ProductAttachmentsService,
+    private readonly numberingEngine: NumberingEngineService,
   ) {}
 
-  async create(dto: CreateProductDto) {
+  /**
+   * TASK-028: the create screen only asks for name/type/category/unit/
+   * prices/tax/analytic account — no weight/dimensions, no Internal Name,
+   * no Display Name. Dimensions are never required here (deferred entirely
+   * to post-save editing, superseding ADR-0012's "mandatory when
+   * isInventoryItem" rule for the creation flow specifically);
+   * internalName/displayName default to the Arabic `name` when omitted,
+   * remaining editable later for a business that wants them to diverge.
+   */
+  async create(dto: CreateProductDto, userId?: string) {
     const defaults = DEFAULT_FLAGS_BY_TYPE[dto.type];
     const isPurchasable = dto.isPurchasable ?? defaults.isPurchasable;
     const isSellable = dto.isSellable ?? defaults.isSellable;
     const isInventoryItem = dto.isInventoryItem ?? defaults.isInventoryItem;
 
-    if (isInventoryItem) {
-      this.assertDimensionsPresent(
-        dto.weight,
-        dto.width,
-        dto.height,
-        dto.length,
-      );
-    }
+    // Minted before the transaction — same trade-off as every other
+    // caller of the Numbering Engine (Suppliers/Leads/SalesOrders/...):
+    // a rollback leaves a gap in the sequence, which is fine.
+    const sku = await this.numberingEngine.generateNumber(DOCUMENT_TYPE);
 
     try {
       return await this.prisma.$transaction(async (tx) => {
         const product = await tx.product.create({
-          data: { ...dto, isPurchasable, isSellable, isInventoryItem },
+          data: {
+            ...dto,
+            sku,
+            internalName: dto.internalName || dto.name,
+            displayName: dto.displayName || dto.name,
+            isPurchasable,
+            isSellable,
+            isInventoryItem,
+            createdBy: userId ?? null,
+            updatedBy: userId ?? null,
+          },
         });
         await this.activityService.log(
           product.id,
@@ -61,29 +120,23 @@ export class ProductsService {
         return product;
       });
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2002') {
-          throw new BadRequestException('SKU must be unique.');
-        }
-        if (error.code === 'P2003') {
-          throw new BadRequestException(
-            'Invalid category, brand, or unit reference.',
-          );
-        }
-      }
-      throw error;
+      throw this.mapError(error);
     }
   }
 
   /**
-   * Filtering by Category/Brand/Status/Type; search by SKU/Name/Barcode/
-   * InternalName/DisplayName/SearchKeywords.
+   * Real server-side pagination (TASK-027) — Products is the first "rich
+   * entity" module in this codebase to get one; Suppliers/Leads still
+   * return everything unpaginated. Filtering by Category/Brand/Tax/Status/
+   * Type; search by SKU/Name/NameEn/Barcode/InternalName/DisplayName/
+   * SearchKeywords.
    */
-  findAll(query: FindProductsQueryDto) {
+  async findAll(query: FindProductsQueryDto) {
     const where: Prisma.ProductWhereInput = {
-      deletedAt: null,
+      deletedAt: query.includeArchived ? undefined : null,
       categoryId: query.categoryId,
       brandId: query.brandId,
+      taxId: query.taxId,
       status: query.status,
       type: query.type,
     };
@@ -92,6 +145,7 @@ export class ProductsService {
       where.OR = [
         { sku: { contains: query.search, mode: 'insensitive' } },
         { name: { contains: query.search, mode: 'insensitive' } },
+        { nameEn: { contains: query.search, mode: 'insensitive' } },
         { barcode: { contains: query.search, mode: 'insensitive' } },
         { internalName: { contains: query.search, mode: 'insensitive' } },
         { displayName: { contains: query.search, mode: 'insensitive' } },
@@ -99,12 +153,43 @@ export class ProductsService {
       ];
     }
 
-    return this.prisma.product.findMany({ where });
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 20;
+    const sortBy = query.sortBy ?? 'createdAt';
+    const sortOrder = query.sortOrder ?? 'asc';
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.product.findMany({
+        where,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        orderBy: { [sortBy]: sortOrder },
+        include: {
+          category: true,
+          brand: true,
+          unit: true,
+          tax: true,
+          preferredWarehouse: true,
+        },
+      }),
+      this.prisma.product.count({ where }),
+    ]);
+
+    return { items, total, page, pageSize };
   }
 
   async findOne(id: string) {
     const product = await this.prisma.product.findFirst({
       where: { id, deletedAt: null },
+      include: {
+        category: true,
+        brand: true,
+        unit: true,
+        tax: true,
+        analyticAccount: true,
+        preferredSupplier: true,
+        preferredWarehouse: true,
+      },
     });
     if (!product) {
       throw new NotFoundException(`Product ${id} not found`);
@@ -112,23 +197,15 @@ export class ProductsService {
     return product;
   }
 
-  async update(id: string, dto: UpdateProductDto) {
-    const existing = await this.findOne(id);
-
-    const resolvedIsInventoryItem =
-      dto.isInventoryItem ?? existing.isInventoryItem;
-    if (resolvedIsInventoryItem) {
-      this.assertDimensionsPresent(
-        dto.weight !== undefined ? dto.weight : existing.weight,
-        dto.width !== undefined ? dto.width : existing.width,
-        dto.height !== undefined ? dto.height : existing.height,
-        dto.length !== undefined ? dto.length : existing.length,
-      );
-    }
+  async update(id: string, dto: UpdateProductDto, userId?: string) {
+    await this.findOne(id);
 
     try {
       return await this.prisma.$transaction(async (tx) => {
-        const product = await tx.product.update({ where: { id }, data: dto });
+        const product = await tx.product.update({
+          where: { id },
+          data: { ...dto, updatedBy: userId ?? null },
+        });
         await this.activityService.log(
           id,
           ProductActivityType.PRODUCT_UPDATED,
@@ -139,27 +216,17 @@ export class ProductsService {
         return product;
       });
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2002') {
-          throw new BadRequestException('SKU must be unique.');
-        }
-        if (error.code === 'P2003') {
-          throw new BadRequestException(
-            'Invalid category, brand, or unit reference.',
-          );
-        }
-      }
-      throw error;
+      throw this.mapError(error);
     }
   }
 
   /** Soft delete only. */
-  async remove(id: string) {
+  async archive(id: string, userId?: string) {
     const existing = await this.findOne(id);
     return this.prisma.$transaction(async (tx) => {
       const product = await tx.product.update({
         where: { id },
-        data: { deletedAt: new Date() },
+        data: { deletedAt: new Date(), updatedBy: userId ?? null },
       });
       await this.activityService.log(
         id,
@@ -172,26 +239,60 @@ export class ProductsService {
     });
   }
 
-  /** "If isInventoryItem=true, all four values become mandatory." */
-  private assertDimensionsPresent(
-    weight: unknown,
-    width: unknown,
-    height: unknown,
-    length: unknown,
-  ) {
-    if (
-      weight === null ||
-      weight === undefined ||
-      width === null ||
-      width === undefined ||
-      height === null ||
-      height === undefined ||
-      length === null ||
-      length === undefined
-    ) {
-      throw new BadRequestException(
-        'weight, width, height, and length are required when isInventoryItem is true.',
-      );
+  async restore(id: string, userId?: string) {
+    const product = await this.prisma.product.findFirst({
+      where: { id, NOT: { deletedAt: null } },
+    });
+    if (!product) {
+      throw new NotFoundException(`Archived product ${id} not found`);
     }
+    return this.prisma.$transaction(async (tx) => {
+      const restored = await tx.product.update({
+        where: { id },
+        data: { deletedAt: null, updatedBy: userId ?? null },
+      });
+      await this.activityService.log(
+        id,
+        ProductActivityType.PRODUCT_RESTORED,
+        `Product ${restored.sku} restored`,
+        undefined,
+        tx,
+      );
+      return restored;
+    });
+  }
+
+  async attach(id: string, dto: CreateProductAttachmentDto, userId: string) {
+    await this.findOne(id);
+    return this.prisma.$transaction(async (tx) => {
+      const attachment = await this.attachmentsService.create(
+        id,
+        userId,
+        dto,
+        tx,
+      );
+      await this.activityService.log(
+        id,
+        ProductActivityType.ATTACHMENT_ADDED,
+        'Attachment added',
+        { attachmentId: attachment.id, fileName: dto.fileName },
+        tx,
+      );
+      return attachment;
+    });
+  }
+
+  private mapError(error: unknown): Error {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2002') {
+        return new BadRequestException('SKU must be unique.');
+      }
+      if (error.code === 'P2003') {
+        return new BadRequestException(
+          'Invalid category, brand, unit, tax, analytic account, warehouse, or supplier reference.',
+        );
+      }
+    }
+    return error as Error;
   }
 }

@@ -1,5 +1,6 @@
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
 
+/** Account-mapping fields are TASK-047 (Accounting Configuration) — optional overrides of the Accounting Settings defaults. */
 export class CreateProductCategoryDto {
   @IsString()
   @IsNotEmpty()
@@ -8,4 +9,20 @@ export class CreateProductCategoryDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @IsUUID()
+  @IsOptional()
+  revenueAccountId?: string;
+
+  @IsUUID()
+  @IsOptional()
+  inventoryAccountId?: string;
+
+  @IsUUID()
+  @IsOptional()
+  cogsAccountId?: string;
+
+  @IsUUID()
+  @IsOptional()
+  purchaseAccountId?: string;
 }

@@ -6,11 +6,8 @@ import {
   IsUUID,
 } from 'class-validator';
 
+/** Code is never accepted from the client — minted by the Numbering Engine (TASK-030). */
 export class CreateWarehouseDto {
-  @IsString()
-  @IsNotEmpty()
-  code!: string;
-
   @IsString()
   @IsNotEmpty()
   name!: string;
@@ -36,4 +33,14 @@ export class CreateWarehouseDto {
   @IsUUID()
   @IsOptional()
   parentWarehouseId?: string;
+
+  /** The user responsible for this warehouse (TASK-028 Part 3). */
+  @IsUUID()
+  @IsOptional()
+  managerId?: string;
+
+  /** Analytic account this warehouse's inventory activity defaults to (TASK-028 Part 3). */
+  @IsUUID()
+  @IsOptional()
+  defaultAnalyticAccountId?: string;
 }

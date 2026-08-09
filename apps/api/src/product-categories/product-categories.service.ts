@@ -1,40 +1,27 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { ProductCategory } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateProductCategoryDto } from './dto/create-product-category.dto';
-import { UpdateProductCategoryDto } from './dto/update-product-category.dto';
+import { MasterDataActivityLogService } from '../master-data/master-data-activity-log.service';
+import {
+  MasterDataCrudService,
+  MasterDataDelegate,
+} from '../master-data/master-data-crud.service';
 
 @Injectable()
-export class ProductCategoriesService {
-  constructor(private readonly prisma: PrismaService) {}
+export class ProductCategoriesService extends MasterDataCrudService<ProductCategory> {
+  protected readonly entityType = 'PRODUCT_CATEGORY';
+  protected readonly entityLabel = 'Category';
+  protected readonly searchFields = ['name', 'description'];
 
-  create(dto: CreateProductCategoryDto) {
-    return this.prisma.productCategory.create({ data: dto });
+  constructor(
+    prisma: PrismaService,
+    activityLog: MasterDataActivityLogService,
+  ) {
+    super(prisma, activityLog);
   }
 
-  findAll() {
-    return this.prisma.productCategory.findMany({ where: { deletedAt: null } });
-  }
-
-  async findOne(id: string) {
-    const productCategory = await this.prisma.productCategory.findFirst({
-      where: { id, deletedAt: null },
-    });
-    if (!productCategory) {
-      throw new NotFoundException(`Product category ${id} not found`);
-    }
-    return productCategory;
-  }
-
-  async update(id: string, dto: UpdateProductCategoryDto) {
-    await this.findOne(id);
-    return this.prisma.productCategory.update({ where: { id }, data: dto });
-  }
-
-  async remove(id: string) {
-    await this.findOne(id);
-    return this.prisma.productCategory.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+  protected get delegate(): MasterDataDelegate<ProductCategory> {
+    return this.prisma
+      .productCategory as unknown as MasterDataDelegate<ProductCategory>;
   }
 }

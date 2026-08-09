@@ -10,9 +10,11 @@ import { LeadNotesService } from './notes/lead-notes.service';
 import { LeadImportModule } from './import/lead-import.module';
 import { LeadDuplicateDetectionService } from './duplicate-detection/lead-duplicate-detection.service';
 import { LeadAutoDistributionService } from './distribution/lead-auto-distribution.service';
+import { NumberingModule } from '../numbering/numbering.module';
+import { CustomersModule } from '../customers/customers.module';
 
 @Module({
-  imports: [LeadImportModule],
+  imports: [LeadImportModule, NumberingModule, CustomersModule],
   controllers: [
     LeadsController,
     LeadActivitiesController,
@@ -27,6 +29,6 @@ import { LeadAutoDistributionService } from './distribution/lead-auto-distributi
     LeadDuplicateDetectionService,
     LeadAutoDistributionService,
   ],
-  exports: [LeadsService],
+  exports: [LeadsService, LeadAutoDistributionService],
 })
 export class LeadsModule {}

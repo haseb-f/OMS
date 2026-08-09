@@ -10,6 +10,7 @@ import {
   SalesOrderStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import {
   SalesOrderActivityService,
   SalesOrderActivityType,
@@ -36,16 +37,8 @@ export class SalesOrdersService {
     private readonly shipmentsService: ShipmentsService,
     private readonly attachmentsService: SalesOrderAttachmentsService,
     private readonly notesService: SalesOrderNotesService,
+    private readonly numberingEngine: NumberingEngineService,
   ) {}
-
-  private async generateOrderNumber(
-    tx: Prisma.TransactionClient,
-  ): Promise<string> {
-    const result = await tx.$queryRaw<
-      { nextval: bigint }[]
-    >`SELECT nextval('sales_order_number_seq')`;
-    return `SO-${result[0].nextval.toString().padStart(6, '0')}`;
-  }
 
   /** Shared by simple status-changing operations: updates SalesOrder.status, records
    *  StatusHistory (decision #1), and logs the operation's own named activity. */
@@ -107,10 +100,10 @@ export class SalesOrdersService {
       orderBy: { verifiedAt: 'desc' },
     });
 
+    const orderNumber =
+      await this.numberingEngine.generateNumber('SALES_ORDER');
     try {
       return await this.prisma.$transaction(async (tx) => {
-        const orderNumber = await this.generateOrderNumber(tx);
-
         const order = await tx.salesOrder.create({
           data: {
             orderNumber,

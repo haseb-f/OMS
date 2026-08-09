@@ -1,40 +1,26 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { Unit } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateUnitDto } from './dto/create-unit.dto';
-import { UpdateUnitDto } from './dto/update-unit.dto';
+import { MasterDataActivityLogService } from '../master-data/master-data-activity-log.service';
+import {
+  MasterDataCrudService,
+  MasterDataDelegate,
+} from '../master-data/master-data-crud.service';
 
 @Injectable()
-export class UnitsService {
-  constructor(private readonly prisma: PrismaService) {}
+export class UnitsService extends MasterDataCrudService<Unit> {
+  protected readonly entityType = 'UNIT';
+  protected readonly entityLabel = 'Unit';
+  protected readonly searchFields = ['name', 'description'];
 
-  create(dto: CreateUnitDto) {
-    return this.prisma.unit.create({ data: dto });
+  constructor(
+    prisma: PrismaService,
+    activityLog: MasterDataActivityLogService,
+  ) {
+    super(prisma, activityLog);
   }
 
-  findAll() {
-    return this.prisma.unit.findMany({ where: { deletedAt: null } });
-  }
-
-  async findOne(id: string) {
-    const unit = await this.prisma.unit.findFirst({
-      where: { id, deletedAt: null },
-    });
-    if (!unit) {
-      throw new NotFoundException(`Unit ${id} not found`);
-    }
-    return unit;
-  }
-
-  async update(id: string, dto: UpdateUnitDto) {
-    await this.findOne(id);
-    return this.prisma.unit.update({ where: { id }, data: dto });
-  }
-
-  async remove(id: string) {
-    await this.findOne(id);
-    return this.prisma.unit.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+  protected get delegate(): MasterDataDelegate<Unit> {
+    return this.prisma.unit as unknown as MasterDataDelegate<Unit>;
   }
 }

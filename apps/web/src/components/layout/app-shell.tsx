@@ -2,11 +2,13 @@ import type { ReactNode } from "react";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "./app-sidebar";
 import { TopBar } from "./top-bar";
+import { BreadcrumbBar } from "./breadcrumb-bar";
 
 /**
- * The permanent OMS application shell: Sidebar + TopBar + content area.
- * Every future business page renders as `children` here — this component
- * itself never changes when a new module is added (see navigation.config.ts).
+ * The permanent OMS application shell: Sidebar / Topbar / Breadcrumb / Page
+ * Content. Every future business page renders as `children` (using its own
+ * `PageHeader` for Title/Subtitle/Actions/Filters) — this component itself
+ * never changes when a new module is added (see navigation.config.ts).
  */
 export function AppShell({
   children,
@@ -20,7 +22,12 @@ export function AppShell({
       <AppSidebar />
       <SidebarInset>
         <TopBar />
-        <main className="flex flex-1 flex-col gap-4 p-4">{children}</main>
+        <BreadcrumbBar />
+        <main className="flex flex-1 justify-center">
+          <div className="flex w-full max-w-[1400px] flex-1 flex-col gap-6 px-4 pt-2 pb-8 sm:px-6 lg:px-8">
+            {children}
+          </div>
+        </main>
       </SidebarInset>
     </SidebarProvider>
   );

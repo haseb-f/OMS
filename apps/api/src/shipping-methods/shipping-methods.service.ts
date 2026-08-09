@@ -1,40 +1,27 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { ShippingMethod } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateShippingMethodDto } from './dto/create-shipping-method.dto';
-import { UpdateShippingMethodDto } from './dto/update-shipping-method.dto';
+import { MasterDataActivityLogService } from '../master-data/master-data-activity-log.service';
+import {
+  MasterDataCrudService,
+  MasterDataDelegate,
+} from '../master-data/master-data-crud.service';
 
 @Injectable()
-export class ShippingMethodsService {
-  constructor(private readonly prisma: PrismaService) {}
+export class ShippingMethodsService extends MasterDataCrudService<ShippingMethod> {
+  protected readonly entityType = 'SHIPPING_METHOD';
+  protected readonly entityLabel = 'Shipping Method';
+  protected readonly searchFields = ['name', 'description'];
 
-  create(dto: CreateShippingMethodDto) {
-    return this.prisma.shippingMethod.create({ data: dto });
+  constructor(
+    prisma: PrismaService,
+    activityLog: MasterDataActivityLogService,
+  ) {
+    super(prisma, activityLog);
   }
 
-  findAll() {
-    return this.prisma.shippingMethod.findMany({ where: { deletedAt: null } });
-  }
-
-  async findOne(id: string) {
-    const shippingMethod = await this.prisma.shippingMethod.findFirst({
-      where: { id, deletedAt: null },
-    });
-    if (!shippingMethod) {
-      throw new NotFoundException(`Shipping method ${id} not found`);
-    }
-    return shippingMethod;
-  }
-
-  async update(id: string, dto: UpdateShippingMethodDto) {
-    await this.findOne(id);
-    return this.prisma.shippingMethod.update({ where: { id }, data: dto });
-  }
-
-  async remove(id: string) {
-    await this.findOne(id);
-    return this.prisma.shippingMethod.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+  protected get delegate(): MasterDataDelegate<ShippingMethod> {
+    return this.prisma
+      .shippingMethod as unknown as MasterDataDelegate<ShippingMethod>;
   }
 }
