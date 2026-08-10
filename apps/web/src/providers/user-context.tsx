@@ -10,6 +10,7 @@ interface UserContextValue {
   user: CurrentUser | null;
   roles: string[];
   permissions: string[];
+  isSuperAdmin: boolean;
   hasPermission: (permission: string) => boolean;
   /** No avatar upload feature exists yet — always null, never a fabricated image. */
   avatarUrl: string | null;
@@ -33,11 +34,13 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<UserContextValue>(() => {
     const permissions = user?.permissions ?? [];
+    const isSuperAdmin = user?.isSuperAdmin ?? false;
     return {
       user,
       roles: user?.roles ?? [],
       permissions,
-      hasPermission: (permission: string) => permissions.includes(permission),
+      isSuperAdmin,
+      hasPermission: (permission: string) => isSuperAdmin || permissions.includes(permission),
       avatarUrl: null,
       language: locale,
       theme,

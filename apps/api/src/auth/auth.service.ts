@@ -175,6 +175,7 @@ export class AuthService {
       mustChangePassword: user.mustChangePassword,
       /// TASK-060 — "roles" no longer exists as an access-control concept (Odoo-style RBAC is forbidden); kept as an empty array only so any not-yet-updated frontend reads of `user.roles` degrade to "no roles" instead of crashing.
       roles: [] as string[],
+      isSuperAdmin: user.isSuperAdmin,
       permissions,
       companies,
     };

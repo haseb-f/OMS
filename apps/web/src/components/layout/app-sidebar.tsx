@@ -49,13 +49,14 @@ function NavIcon({ name }: { name?: IconName }) {
 export function AppSidebar() {
   const { t, direction } = useLocale();
   const { current } = useCurrentNavigation();
-  const { permissions } = useUserContext();
+  const { permissions, isSuperAdmin } = useUserContext();
 
   // Sidebar must display only modules the user has permission to access
   // (ADR-0022 Part 4) — hidden modules never reach the render tree at all.
+  // A super admin sees every module regardless of individual grants.
   const navigationTree = useMemo(
-    () => buildNavigationTree(filterByAccess(navigationConfig, permissions)),
-    [permissions],
+    () => buildNavigationTree(filterByAccess(navigationConfig, permissions, isSuperAdmin)),
+    [permissions, isSuperAdmin],
   );
 
   // Strict accordion (ADR-0022, permanent): at most one module expanded at

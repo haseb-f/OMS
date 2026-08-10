@@ -56,6 +56,14 @@ export class PermissionsGuard implements CanActivate {
     if (explicitAction === null) return true;
 
     const request = context.switchToHttp().getRequest<Request>();
+    const user = request.user;
+    if (!user?.sub) return false;
+
+    // SYSTEM_ADMIN bypass — unrestricted access, including actions that
+    // opted into enforcement but have no registered catalog entry (the
+    // fail-closed throw below would otherwise block even a super admin).
+    if (await this.resolver.isSuperAdmin(user.sub)) return true;
+
     const action =
       explicitAction ?? DEFAULT_ACTION_BY_METHOD[request.method] ?? 'view';
 
@@ -71,9 +79,6 @@ export class PermissionsGuard implements CanActivate {
         `No permission is registered for "${moduleName}.${action}".`,
       );
     }
-
-    const user = request.user;
-    if (!user?.sub) return false;
 
     const allowed = await this.resolver.hasPermission(user.sub, permissionName);
     if (!allowed) {

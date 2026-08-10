@@ -40,12 +40,19 @@ function sortByOrder(items: NavigationItem[]): NavigationItem[] {
  * every listed permission. Filter the flat list with this BEFORE calling
  * `buildNavigationTree`, so a hidden parent's children never orphan into
  * the tree.
+ *
+ * SYSTEM_ADMIN bypass — `isSuperAdmin` shows every item regardless of its
+ * `permissions` list, including sections whose coarse `*.view` gate (e.g.
+ * `crm.view`, `finance.view`) has no corresponding Permission Matrix row to
+ * grant through the normal UI.
  */
 export function filterByAccess(
   items: NavigationItem[],
   userPermissions: string[],
+  isSuperAdmin = false,
 ): NavigationItem[] {
   const hasAccess = (item: NavigationItem) =>
+    isSuperAdmin ||
     !item.permissions?.length ||
     item.permissions.every((permission) => userPermissions.includes(permission));
 

@@ -26,6 +26,8 @@ model User {
   /// TASK-060 — "Force Password Change": the next successful login must change the password before doing anything else.
   mustChangePassword Boolean   @default(false) @map("must_change_password")
   lastLoginAt        DateTime? @map("last_login_at")
+  /// System-level bypass, orthogonal to `UserPermission` grants (still no Role/RBAC layer — this is a single superuser flag, not a role). A super admin always passes every permission check, including actions with no registered catalog entry; individual `UserPermission` rows are still recorded and shown for audit/UI, they just stop being the gate for this user. Defaults false; must be granted explicitly, never inferred from a permission count.
+  isSuperAdmin       Boolean   @default(false) @map("is_super_admin")
 
   jobTitleId String?   @map("job_title_id") @db.Uuid
   jobTitle   JobTitle? @relation(fields: [jobTitleId], references: [id])

@@ -29,6 +29,8 @@ export interface CurrentUser extends AuthUser {
   mustChangePassword: boolean;
   /** TASK-060 — always empty; Role/RBAC no longer exists. Kept only so any stale read of `user.roles` degrades safely. */
   roles: string[];
+  /** System-level bypass, orthogonal to `permissions` — not a role. A super admin passes every `hasPermission()` check regardless of individual grants. */
+  isSuperAdmin: boolean;
   permissions: string[];
   companies: CompanyContext[];
 }
