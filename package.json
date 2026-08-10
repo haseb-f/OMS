@@ -39,6 +39,7 @@
     "express": "^5.2.1",
     "libphonenumber-js": "^1.13.9",
     "multer": "^2.2.0",
+    "next": "16.2.12",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
