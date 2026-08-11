@@ -16,7 +16,10 @@ import { PermissionsResolverService } from '../permissions/permissions-resolver.
 import { CreateChartOfAccountDto } from './dto/create-chart-of-account.dto';
 import { UpdateChartOfAccountDto } from './dto/update-chart-of-account.dto';
 import { FindChartOfAccountsQueryDto } from './dto/find-chart-of-accounts-query.dto';
-import { CODE_SUFFIX_DIGIT_WIDTH } from './code-generation.constants';
+import {
+  ROOT_CODE_BY_ACCOUNT_TYPE,
+  suffixDigitWidthForParentLevel,
+} from './code-generation.constants';
 
 const INCLUDE_RELATIONS = { parentAccount: true, currency: true } as const;
 const OVERRIDE_PERMISSION = 'accounting.chart-of-accounts.override-code';
@@ -73,11 +76,27 @@ export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount
   }
 
   /**
-   * The next code a child of `parentAccountId` would get — the same logic
-   * `create()` itself uses, exposed read-only so the frontend can show "the
-   * proposed code" before the user saves (Part 14). Never mutates anything.
+   * The next code a child of `parentAccountId` — or, with no parent, a new
+   * root of `accountType` — would get. The exact same logic `create()`
+   * itself uses, exposed read-only so the frontend can show "the proposed
+   * code" before the user saves. Never mutates anything.
    */
   async proposeNextCode(
+    parentAccountId: string | null,
+    accountType?: AccountType,
+  ): Promise<{ code: string; accountType: AccountType }> {
+    if (parentAccountId) {
+      return this.proposeChildCode(parentAccountId);
+    }
+    if (!accountType) {
+      throw new BadRequestException(
+        'accountType is required to propose a root account code.',
+      );
+    }
+    return this.proposeRootCode(accountType);
+  }
+
+  private async proposeChildCode(
     parentAccountId: string,
   ): Promise<{ code: string; accountType: AccountType }> {
     const parent = await this.prisma.chartOfAccount.findFirst({
@@ -93,6 +112,7 @@ export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount
       select: { code: true },
     });
 
+    const width = suffixDigitWidthForParentLevel(parent.level);
     let maxSuffix = 0;
     for (const sibling of siblings) {
       if (!sibling.code.startsWith(parent.code)) continue;
@@ -100,10 +120,40 @@ export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount
       if (Number.isInteger(suffix) && suffix > maxSuffix) maxSuffix = suffix;
     }
 
-    const code =
-      parent.code +
-      String(maxSuffix + 1).padStart(CODE_SUFFIX_DIGIT_WIDTH, '0');
+    const code = parent.code + String(maxSuffix + 1).padStart(width, '0');
     return { code, accountType: parent.accountType };
+  }
+
+  /**
+   * Root codes follow the standard 1=Assets/2=Liabilities/3=Equity/
+   * 4=Revenue/5=Expense convention (Part 5) — a normal employee never types
+   * one. `code` is unique across the *entire* table, not just among roots
+   * (a child account can easily already occupy "11", "12", etc.), so the
+   * collision check must query every account, not only other roots — a
+   * root-scoped check previously let this propose an already-taken child
+   * code (caught live in browser verification, not by unit tests). If the
+   * base digit or its suffixed extensions are all taken, a numeric suffix
+   * is appended rather than colliding or fabricating an unrelated code.
+   */
+  private async proposeRootCode(
+    accountType: AccountType,
+  ): Promise<{ code: string; accountType: AccountType }> {
+    const base = ROOT_CODE_BY_ACCOUNT_TYPE[accountType];
+    const existing = await this.prisma.chartOfAccount.findMany({
+      where: { deletedAt: null },
+      select: { code: true },
+    });
+    const existingCodes = new Set(existing.map((row) => row.code));
+    if (!existingCodes.has(base)) {
+      return { code: base, accountType };
+    }
+    let suffix = 1;
+    let candidate = `${base}-${suffix}`;
+    while (existingCodes.has(candidate)) {
+      suffix += 1;
+      candidate = `${base}-${suffix}`;
+    }
+    return { code: candidate, accountType };
   }
 
   private async assertOverridePermission(userId?: string) {
@@ -120,14 +170,24 @@ export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount
     }
   }
 
+  /** A `create()` `BadRequestException` whose Prisma `code` unique-constraint violation was specifically on `code` — see `create()`'s retry loop. */
+  private isDuplicateCodeError(error: unknown): boolean {
+    if (!(error instanceof BadRequestException)) return false;
+    const response = error.getResponse();
+    if (typeof response !== 'object' || response === null) return false;
+    const body = response as { code?: string; fields?: { field?: string }[] };
+    return (
+      body.code === 'DUPLICATE' &&
+      (body.fields ?? []).some((f) => f.field === 'code')
+    );
+  }
+
   async create(dto: CreateChartOfAccountDto, userId?: string) {
     const { codeOverride, parentAccountId, accountType, ...rest } = dto;
 
-    let code: string;
-    let level = 1;
-
+    let parent: ChartOfAccount | null = null;
     if (parentAccountId) {
-      const parent = await this.findOne(parentAccountId);
+      parent = await this.findOne(parentAccountId);
       if (parent.accountType !== accountType) {
         throw new BadRequestException({
           code: 'VALIDATION_ERROR',
@@ -137,48 +197,52 @@ export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount
           ],
         });
       }
-      level = parent.level + 1;
-      if (codeOverride) {
-        await this.assertOverridePermission(userId);
-        code = codeOverride;
-      } else {
-        code = (await this.proposeNextCode(parentAccountId)).code;
-      }
-    } else {
-      // A root account has nothing to derive a code from — always requires
-      // the override permission (Part 12's privileged-admin exception).
-      if (!codeOverride) {
-        throw new BadRequestException({
-          code: 'VALIDATION_ERROR',
-          message:
-            'A root account (no parent) needs an explicit code — pick a parent to get one generated automatically.',
-          fields: [
-            { field: 'codeOverride', constraints: ['required_for_root'] },
-          ],
-        });
-      }
+    }
+    const level = parent ? parent.level + 1 : 1;
+
+    if (codeOverride) {
       await this.assertOverridePermission(userId);
-      code = codeOverride;
     }
 
-    const created = await super.create(
-      { ...rest, accountType, parentAccountId, code, level },
-      userId,
-    );
+    // Two employees creating sibling accounts at the same moment could both
+    // compute the same proposed code before either write lands — the `code`
+    // unique constraint catches that at the database level, and this loop
+    // recomputes and retries once rather than surfacing a raw conflict
+    // (Part 10's concurrency-safety requirement). An explicit `codeOverride`
+    // never retries — silently swapping an admin's chosen code for a
+    // different one would be worse than just failing.
+    const MAX_ATTEMPTS = codeOverride ? 1 : 3;
+    let lastError: unknown;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const code =
+        codeOverride ??
+        (await this.proposeNextCode(parentAccountId ?? null, accountType)).code;
+      try {
+        const created = await super.create(
+          { ...rest, accountType, parentAccountId, code, level },
+          userId,
+        );
 
-    if (parentAccountId) {
-      // A header account stops accepting direct postings the moment it gets
-      // its first child (Part 13, leaf-only posting) — a best-effort
-      // follow-up write, not inside the create transaction: this flag is a
-      // posting-eligibility guard, not financial data itself, and is always
-      // safely re-derivable/correctable if this step were ever interrupted.
-      await this.prisma.chartOfAccount.update({
-        where: { id: parentAccountId },
-        data: { allowsPosting: false },
-      });
+        if (parentAccountId) {
+          // A header account stops accepting direct postings the moment it
+          // gets its first child (Part 13, leaf-only posting) — a best-
+          // effort follow-up write, not inside the create transaction: this
+          // flag is a posting-eligibility guard, not financial data itself,
+          // and is always safely re-derivable/correctable if this step were
+          // ever interrupted.
+          await this.prisma.chartOfAccount.update({
+            where: { id: parentAccountId },
+            data: { allowsPosting: false },
+          });
+        }
+
+        return created;
+      } catch (error) {
+        lastError = error;
+        if (!this.isDuplicateCodeError(error)) throw error;
+      }
     }
-
-    return created;
+    throw lastError;
   }
 
   async update(id: string, dto: UpdateChartOfAccountDto, userId?: string) {
@@ -231,5 +295,33 @@ export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount
         });
       currentId = current?.parentAccountId ?? null;
     }
+  }
+
+  /**
+   * Every descendant id of `id` (children, grandchildren, ...) — the Parent
+   * Account picker excludes these (alongside `id` itself) so a user can
+   * never even select a circular relationship in the UI; `assertNoCycle`
+   * above remains the real server-side enforcement regardless.
+   */
+  async descendantIds(id: string): Promise<string[]> {
+    const all = await this.prisma.chartOfAccount.findMany({
+      where: { deletedAt: null },
+      select: { id: true, parentAccountId: true },
+    });
+    const childrenByParent = new Map<string, string[]>();
+    for (const row of all) {
+      if (!row.parentAccountId) continue;
+      const list = childrenByParent.get(row.parentAccountId) ?? [];
+      list.push(row.id);
+      childrenByParent.set(row.parentAccountId, list);
+    }
+    const descendants: string[] = [];
+    const queue = [...(childrenByParent.get(id) ?? [])];
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      descendants.push(current);
+      queue.push(...(childrenByParent.get(current) ?? []));
+    }
+    return descendants;
   }
 }

@@ -736,7 +736,12 @@ export interface ChartOfAccountRow {
   description: string | null;
   accountType: "ASSET" | "LIABILITY" | "EQUITY" | "REVENUE" | "EXPENSE";
   parentAccountId: string | null;
-  parentAccount?: { name: string } | null;
+  parentAccount?: {
+    id: string;
+    code: string;
+    name: string;
+    accountType: "ASSET" | "LIABILITY" | "EQUITY" | "REVENUE" | "EXPENSE";
+  } | null;
   currencyId: string | null;
   currency?: { code: string } | null;
   allowReconciliation: boolean;

@@ -8,6 +8,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { AccountType } from '@prisma/client';
 import { ChartOfAccountsService } from './chart-of-accounts.service';
 import { CreateChartOfAccountDto } from './dto/create-chart-of-account.dto';
 import { UpdateChartOfAccountDto } from './dto/update-chart-of-account.dto';
@@ -44,6 +45,18 @@ export class ChartOfAccountsController {
     return this.chartOfAccountsService.findAll(query);
   }
 
+  /**
+   * The proposed next code for a NEW ROOT account of `?accountType=` (Part
+   * 14) — read-only, never mutates anything. Declared before `:id` so a
+   * request to `/chart-of-accounts/next-code` never gets swallowed by the
+   * `findOne(':id')` route (NestJS matches static routes before dynamic
+   * ones only if they're registered first).
+   */
+  @Get('next-code')
+  nextRootCode(@Query('accountType') accountType: AccountType) {
+    return this.chartOfAccountsService.proposeNextCode(null, accountType);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.chartOfAccountsService.findOne(id);
@@ -53,6 +66,12 @@ export class ChartOfAccountsController {
   @Get(':parentId/next-code')
   nextCode(@Param('parentId') parentId: string) {
     return this.chartOfAccountsService.proposeNextCode(parentId);
+  }
+
+  /** Every descendant id of `:id` — the frontend's Parent Account picker uses this to exclude a subtree from its own selectable options (Part 8/10). */
+  @Get(':id/descendants')
+  descendants(@Param('id') id: string) {
+    return this.chartOfAccountsService.descendantIds(id);
   }
 
   @Get(':id/activity')

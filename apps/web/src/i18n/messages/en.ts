@@ -679,17 +679,21 @@ const en = {
         archived: "Archived",
       },
       invalidHierarchy: "An account cannot be its own ancestor.",
-      proposedCodeLabel: "Proposed Code",
       proposedCodeHint:
-        "The system generates this code automatically from the parent account — a normal employee cannot type one manually.",
+        "The system generates the account code automatically based on its position in the account tree — a normal employee cannot type one manually.",
       codeOverrideLabel: "Custom code (advanced permission only)",
       codeOverrideHint:
         'Enter a manual code instead of the proposed one — only available to someone with the "Manage" permission on Chart of Accounts.',
-      rootCodeRequired:
-        "A root account (no parent) needs an explicit code — this action is only available to a privileged administrator.",
-      rootRequiresPermission:
-        "You don't have permission to create a new root account with no parent. Pick a parent to add a child account instead.",
-      headerAccountBadge: "Header account (cannot receive direct postings)",
+      natureLabel: "Account Nature",
+      natureMain: "Main Account",
+      natureSub: "Sub-Account",
+      selectParent: "Select the parent account...",
+      parentHint: "Choose the account this one will appear under.",
+      parentRequired: "A sub-account needs a parent account.",
+      postingAccount: "Posting Account",
+      groupAccount: "Group Account",
+      expandAll: "Expand All",
+      collapseAll: "Collapse All",
     },
     bankTransactions: {
       title: "Bank Transactions",

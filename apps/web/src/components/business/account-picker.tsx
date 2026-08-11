@@ -42,11 +42,17 @@ export function AccountPicker({
   onChange,
   disabled,
   placeholder,
+  /** Excludes these ids from the results — e.g. the account being edited itself and every one of its own descendants, so a circular parent relationship is never even selectable (Part 8/10). */
+  excludeIds,
+  /** Only shows accounts of this classification — e.g. when picking a Parent Account, restricted to the same `accountType` the new/edited account already has (Part 13). */
+  accountType,
 }: {
   value: ChartOfAccountRow | null | undefined;
   onChange: (account: ChartOfAccountRow | null) => void;
   disabled?: boolean;
   placeholder?: string;
+  excludeIds?: string[];
+  accountType?: ChartOfAccountRow["accountType"];
 }) {
   const { t } = useLocale();
   const [open, setOpen] = useState(false);
@@ -54,14 +60,21 @@ export function AccountPicker({
   const [results, setResults] = useState<ChartOfAccountRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  const excludeKey = excludeIds?.join(",") ?? "";
+
   useEffect(() => {
     if (!open) return;
     const timeout = setTimeout(() => {
       const runSearch = async () => {
         setIsLoading(true);
         try {
-          const result = await accountsService.list({ search: search || undefined, pageSize: 10 });
-          setResults(result.items);
+          const result = await accountsService.list({
+            search: search || undefined,
+            pageSize: 20,
+            ...(accountType ? { accountType } : {}),
+          });
+          const excluded = new Set(excludeKey ? excludeKey.split(",") : []);
+          setResults(result.items.filter((item) => !excluded.has(item.id)));
         } catch {
           setResults([]);
         } finally {
@@ -71,7 +84,7 @@ export function AccountPicker({
       void runSearch();
     }, 200);
     return () => clearTimeout(timeout);
-  }, [search, open]);
+  }, [search, open, accountType, excludeKey]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -135,7 +148,11 @@ export function AccountPicker({
                 >
                   <CommandResultRow
                     title={account.name}
-                    subtitle={`${account.code} · ${t(ACCOUNT_TYPE_LABEL_KEY[account.accountType])}`}
+                    subtitle={
+                      account.parentAccount
+                        ? `${account.code} · ${account.parentAccount.name}`
+                        : `${account.code} · ${t(ACCOUNT_TYPE_LABEL_KEY[account.accountType])}`
+                    }
                   />
                 </CommandItem>
               ))}
