@@ -196,13 +196,14 @@ function FormFieldGrid<TFieldValues extends FieldValues>({
                         placeholder={field.placeholder}
                         {...rhfField}
                         value={rhfField.value ?? ""}
-                        onChange={(event) =>
-                          rhfField.onChange(
-                            field.type === "number"
-                              ? event.target.valueAsNumber
-                              : event.target.value,
-                          )
-                        }
+                        onChange={(event) => {
+                          if (field.type !== "number") {
+                            rhfField.onChange(event.target.value);
+                            return;
+                          }
+                          const raw = event.target.valueAsNumber;
+                          rhfField.onChange(Number.isNaN(raw) ? undefined : raw);
+                        }}
                       />
                     )}
                   </FormControl>

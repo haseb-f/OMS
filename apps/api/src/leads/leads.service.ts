@@ -36,6 +36,7 @@ const LEAD_INCLUDE = {
   currency: { select: { id: true, code: true, name: true } },
   customer: { select: { id: true, customerNumber: true, name: true } },
   salesEmployee: { select: { id: true, fullName: true, email: true } },
+  product: { select: { id: true, name: true, displayName: true, sku: true } },
 } satisfies Prisma.LeadInclude;
 
 /** Fields imported/entered order data may carry that live on `Payment`/`LeadNote`, not on `Lead` itself — recorded onto the timeline instead of a new table (see `recordImportedOrderDetails`). */
@@ -120,7 +121,79 @@ export class LeadsService {
    * no-op for a Lead created through this path (customerId is already set),
    * but remains correct for any Lead created before this change.
    */
+  /**
+   * Order mode's extra requirements — address/product/paid amount — depend
+   * on more than one field together, so this lives in the service, not as
+   * DTO decorators (which only ever see one field at a time).
+   */
+  private assertOrderReady(dto: CreateLeadDto): void {
+    const missing: { field: string; constraints: string[] }[] = [];
+    if (!dto.address)
+      missing.push({ field: 'address', constraints: ['required_for_order'] });
+    if (!dto.productId)
+      missing.push({ field: 'productId', constraints: ['required_for_order'] });
+    if (dto.paidAmount === undefined || dto.paidAmount === null) {
+      missing.push({
+        field: 'paidAmount',
+        constraints: ['required_for_order'],
+      });
+    }
+    if (missing.length > 0) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: 'Order is missing fields required to save as an Order.',
+        fields: missing,
+      });
+    }
+  }
+
+  /** Order mode omits currencyId — resolved from the selected country's `defaultCurrencyId`, falling back to the system's first active currency. */
+  private async resolveDefaultCurrencyId(countryId: string): Promise<string> {
+    const country = await this.prisma.country.findFirst({
+      where: { id: countryId, deletedAt: null },
+      select: { defaultCurrencyId: true },
+    });
+    if (country?.defaultCurrencyId) return country.defaultCurrencyId;
+    const fallback = await this.prisma.currency.findFirst({
+      where: { deletedAt: null },
+      orderBy: { code: 'asc' },
+    });
+    if (!fallback) {
+      throw new BadRequestException(
+        'No currency is configured — add at least one Currency in Master Data before creating Leads.',
+      );
+    }
+    return fallback.id;
+  }
+
+  /** Order mode's PaymentSource/ReceivingAccount — the row flagged `isDefault`, else the first active one — so the user only ever types the Paid Amount. */
+  private async resolvePaymentDefault<
+    T extends { id: string; isDefault: boolean; isActive: boolean },
+  >(
+    delegate: { findMany: (args: object) => Promise<T[]> },
+    overrideId: string | undefined,
+    orderBy: object,
+  ): Promise<string> {
+    if (overrideId) return overrideId;
+    const candidates = await delegate.findMany({
+      where: { deletedAt: null, isActive: true },
+      orderBy: [{ isDefault: 'desc' }, orderBy],
+      take: 1,
+    });
+    if (!candidates[0]) {
+      throw new BadRequestException(
+        'No active Payment Source/Receiving Account is configured — add at least one before saving an Order with a Paid Amount.',
+      );
+    }
+    return candidates[0].id;
+  }
+
   async create(dto: CreateLeadDto, userId?: string) {
+    const recordType = dto.recordType ?? 'LEAD';
+    if (recordType === 'ORDER') {
+      this.assertOrderReady(dto);
+    }
+
     const mobileNumber = await this.normalizeLeadMobile(
       dto.mobileNumber,
       dto.countryId,
@@ -163,15 +236,61 @@ export class LeadsService {
       ? []
       : this.detectCustomerDataMismatch(customer, dto);
 
-    const leadNumber = await this.numberingEngine.generateNumber('LEAD');
+    const quantity = dto.quantity ?? 1;
+    const currencyId =
+      dto.currencyId ?? (await this.resolveDefaultCurrencyId(dto.countryId));
+
+    // Minted before the transaction, same trade-off as leadNumber below — a
+    // rollback leaves a gap in the sequence, which is fine. Only minted for
+    // Order mode with a Paid Amount, since that's the only case a Payment
+    // gets created at all.
+    const shouldCreatePayment =
+      recordType === 'ORDER' &&
+      dto.paidAmount !== undefined &&
+      dto.paidAmount !== null;
+    const [leadNumber, paymentNumber, paymentSourceId, receivingAccountId] =
+      await Promise.all([
+        this.numberingEngine.generateNumber('LEAD'),
+        shouldCreatePayment
+          ? this.numberingEngine.generateNumber('PAYMENT')
+          : Promise.resolve(null),
+        shouldCreatePayment
+          ? this.resolvePaymentDefault(
+              this.prisma.paymentSource,
+              dto.paymentSourceId,
+              { name: 'asc' as const },
+            )
+          : Promise.resolve(null),
+        shouldCreatePayment
+          ? this.resolvePaymentDefault(
+              this.prisma.receivingAccount,
+              dto.receivingAccountId,
+              { name: 'asc' as const },
+            )
+          : Promise.resolve(null),
+      ]);
+
     let lead: Prisma.LeadGetPayload<object>;
     try {
       lead = await this.prisma.$transaction(async (tx) => {
+        const {
+          recordType: _recordType,
+          paidAmount: _paidAmount,
+          paymentSourceId: _paymentSourceId,
+          receivingAccountId: _receivingAccountId,
+          ...leadFields
+        } = dto;
+        void _recordType;
+        void _paidAmount;
+        void _paymentSourceId;
+        void _receivingAccountId;
         const created = await tx.lead.create({
           data: {
-            ...dto,
+            ...leadFields,
             mobileNumber,
             leadNumber,
+            quantity,
+            currencyId,
             status: LeadStatus.NEW,
             possibleDuplicate: duplicateCheck.isPossibleDuplicate,
             customerId: customer.id,
@@ -204,6 +323,41 @@ export class LeadsService {
             tx,
           );
         }
+
+        // Order mode with a Paid Amount — create the linked Payment in the
+        // same transaction (Lead and its Payment either both exist or
+        // neither does), reusing PaymentsService's own field shape without
+        // calling PaymentsService itself (it depends on LeadsService, so
+        // injecting it back here would be a circular module dependency).
+        if (
+          shouldCreatePayment &&
+          paymentNumber &&
+          paymentSourceId &&
+          receivingAccountId
+        ) {
+          const payment = await tx.payment.create({
+            data: {
+              paymentNumber,
+              leadId: created.id,
+              paymentDate: new Date(),
+              amount: dto.paidAmount!,
+              currencyId,
+              paymentSourceId,
+              receivingAccountId,
+              senderName: dto.customerName,
+              status: 'PENDING',
+            },
+          });
+          await tx.paymentActivity.create({
+            data: {
+              paymentId: payment.id,
+              type: 'PAYMENT_CREATED',
+              description: `Payment ${payment.paymentNumber} created from Order ${created.leadNumber}`,
+              metadata: { leadId: created.id },
+            },
+          });
+        }
+
         return created;
       });
     } catch (error) {
@@ -212,7 +366,7 @@ export class LeadsService {
         error.code === 'P2003'
       ) {
         throw new BadRequestException(
-          'Invalid country, currency, or sales employee reference.',
+          'Invalid country, currency, product, or sales employee reference.',
         );
       }
       throw error;
@@ -430,8 +584,8 @@ export class LeadsService {
         name: lead.customerName,
         phone: lead.mobileNumber,
         countryId: lead.countryId,
-        city: lead.city,
-        address: lead.address,
+        city: lead.city ?? undefined,
+        address: lead.address ?? undefined,
         source: CustomerSource.LEAD_CONVERSION,
       },
       userId,

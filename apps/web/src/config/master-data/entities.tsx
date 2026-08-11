@@ -740,6 +740,9 @@ export interface ChartOfAccountRow {
   currencyId: string | null;
   currency?: { code: string } | null;
   allowReconciliation: boolean;
+  level: number;
+  /** False once this account has at least one child — a header account, never a direct journal-posting target (Part 13). */
+  allowsPosting: boolean;
   deletedAt: string | null;
 }
 

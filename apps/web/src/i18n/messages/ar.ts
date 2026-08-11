@@ -68,6 +68,7 @@ const ar = {
       INVALID_LENGTH: "طول الرقم غير صحيح لهذه الدولة.",
       INVALID_COUNTRY: "رقم الجوال لا يتوافق مع الدولة المختارة.",
       INVALID_PATTERN: "رقم الجوال لا يتوافق مع تنسيق الدولة المختارة.",
+      exampleSuffix: "مثال رقم صحيح: {example}",
     },
   },
   /**
@@ -180,6 +181,7 @@ const ar = {
       supplierPayments: "سندات صرف الموردين",
       journalEntries: "قيود اليومية",
       chartOfAccounts: "دليل الحسابات",
+      bankTransactions: "الحركات البنكية",
       openingBalances: "الأرصدة الافتتاحية",
       openingInventory: "المخزون الافتتاحي",
       financialReports: "التقارير المالية",
@@ -216,6 +218,7 @@ const ar = {
     expensesProductCost: "تكلفة المنتج",
     finance: "المالية",
     financeChartOfAccounts: "دليل الحسابات",
+    financeBankTransactions: "الحركات البنكية",
     financeJournals: "دفاتر اليومية",
     financePaymentSources: "مصادر الدفع",
     financeReceivingAccounts: "حسابات الاستلام",
@@ -673,6 +676,40 @@ const ar = {
         archived: "مؤرشف",
       },
       invalidHierarchy: "لا يمكن أن يكون الحساب أصلاً لنفسه.",
+      proposedCodeLabel: "الكود المقترح",
+      proposedCodeHint:
+        "يُنشئ النظام هذا الكود تلقائيًا بناءً على الحساب الرئيسي — لا يمكن للموظف العادي كتابة كود يدويًا.",
+      codeOverrideLabel: "كود مخصص (صلاحية متقدمة فقط)",
+      codeOverrideHint:
+        'أدخل كودًا يدويًا بدلاً من الكود المقترح — متاح فقط لمن يملك صلاحية "إدارة" على دليل الحسابات.',
+      rootCodeRequired:
+        "الحساب الرئيسي (بدون حساب أب) يحتاج كودًا صريحًا — هذا الإجراء متاح فقط لمن يملك صلاحية متقدمة.",
+      rootRequiresPermission:
+        "لا تملك صلاحية إنشاء حساب رئيسي جديد بدون حساب أب. اختر حسابًا أب لإضافة حساب فرعي.",
+      headerAccountBadge: "حساب رئيسي (لا يقبل ترحيلاً مباشرًا)",
+    },
+    bankTransactions: {
+      title: "الحركات البنكية",
+      description: "استيراد كشف الحساب البنكي ومطابقته مع المدفوعات المسجلة.",
+      empty: "لا توجد حركات بنكية بعد.",
+      runMatching: "تشغيل المطابقة",
+      review: "مراجعة",
+      confirmMatch: "تأكيد المطابقة",
+      noCandidates: "لا توجد دفعات مرشحة لهذه الحركة.",
+      matchConfirmed: "تم تأكيد المطابقة.",
+      matchingRunSuccess: "تمت مطابقة {count} حركة.",
+      status: {
+        UNMATCHED: "غير مطابقة",
+        POTENTIAL: "مطابقة محتملة",
+        MATCHED: "مطابقة",
+        DUPLICATE: "تعارض",
+      },
+      fields: {
+        date: "التاريخ",
+        description: "الوصف",
+        reference: "المرجع",
+        amount: "المبلغ",
+      },
     },
     journals: {
       title: "دفاتر اليومية",
@@ -1296,12 +1333,28 @@ const ar = {
         currency: "العملة",
         externalOrderId: "رقم الطلب الخارجي",
         source: "المصدر",
+        product: "المنتج",
+        paidAmount: "المبلغ المدفوع",
       },
       sections: {
         general: "معلومات الطلب",
         assignment: "الإسناد",
         timeline: "السجل الزمني",
         notes: "الملاحظات",
+      },
+      createDialog: {
+        title: "إضافة جديد",
+        description: "أدخل الحد الأدنى من البيانات الآن — يمكنك إكمال الباقي لاحقًا.",
+        modeLead: "عميل محتمل",
+        modeLeadHint: "الاسم ورقم الجوال والدولة فقط — أكمل الباقي لاحقًا.",
+        modeOrder: "طلب",
+        modeOrderHint: "طلب مكتمل: العنوان والمنتج والمبلغ المدفوع مطلوبة.",
+        saveAsLead: "حفظ كعميل محتمل",
+        saveAsOrder: "حفظ كطلب",
+        productHelper: "المنتج الذي طلبه العميل.",
+        paidAmountHelper: "المبلغ الذي دفعه العميل فعليًا — سيُنشئ سجل دفعة تلقائيًا.",
+        quantityHelper: "الكمية — تُفترض 1 إن لم تُحدَّد.",
+        currencyHelper: "تُشتق تلقائيًا من الدولة المختارة إن لم تُحدَّد.",
       },
       status: {
         NEW: "جديد",
@@ -2494,6 +2547,18 @@ const ar = {
     requiredFieldsCount: "{count} مطلوب",
     viewJob: "عرض",
     types: {
+      leads: {
+        label: "العملاء المحتملون",
+        description: "استيراد عملاء محتملين — الاسم والهاتف والدولة فقط، أكمل الباقي لاحقًا.",
+      },
+      orders: {
+        label: "الطلبات",
+        description: "استيراد طلبات مكتملة — العنوان والمنتج والمبلغ المدفوع مطلوبة.",
+      },
+      bankTransactions: {
+        label: "كشف الحساب البنكي",
+        description: "استيراد حركات كشف الحساب البنكي لمطابقتها مع المدفوعات.",
+      },
       customers: { label: "العملاء", description: "استيراد بيانات العملاء الأساسية." },
       suppliers: { label: "الموردون", description: "استيراد بيانات الموردين الأساسية." },
       products: { label: "المنتجات", description: "استيراد بيانات المنتجات/الخدمات الأساسية." },
@@ -2551,11 +2616,6 @@ const ar = {
       openingStock: {
         label: "المخزون الافتتاحي",
         description: "استيراد كميات المخزون الافتتاحية لكل منتج بالمستودع.",
-      },
-      leads: {
-        label: "العملاء المحتملون",
-        description:
-          "استيراد العملاء المحتملين — يدعم تعيين المندوب والتوزيع التلقائي واكتشاف التكرار.",
       },
     },
     fields: {
@@ -2622,6 +2682,15 @@ const ar = {
       receipt1: "إيصال 1",
       receipt2: "إيصال 2",
       receipt3: "إيصال 3",
+      bankTransactionId: "رقم الحركة البنكية",
+      transactionDate: "تاريخ الحركة",
+      valueDate: "تاريخ القيمة",
+      bankAccountNumber: "رقم الحساب",
+      bankReference: "المرجع البنكي",
+      bankAmount: "المبلغ",
+      balance: "الرصيد",
+      bankName: "اسم البنك",
+      branch: "الفرع",
     },
     status: {
       DRAFT: "مسودة",
@@ -2646,6 +2715,7 @@ const ar = {
       errorCount: "أخطاء",
       duration: "المدة",
       createdAt: "تاريخ الإنشاء",
+      lastSynced: "آخر تحديث",
     },
     wizard: {
       title: "استيراد {type}",
@@ -2673,9 +2743,12 @@ const ar = {
       },
       googleSheets: {
         urlLabel: "رابط Google Sheets",
-        urlHint: 'يجب مشاركة الجدول بخيار "أي شخص لديه الرابط يمكنه العرض".',
-        refresh: "تحديث",
+        urlHint: "شارك الجدول مع البريد الإلكتروني لحساب الخدمة (Service Account) الخاص بالتكامل.",
+        refresh: "تحديث البيانات",
+        refreshing: "جاري تحديث البيانات...",
+        refreshTooltip: "جلب أحدث البيانات من Google Sheets",
         refreshed: "تم جلب أحدث البيانات من Google Sheets.",
+        lastSynced: "آخر تحديث ناجح: {datetime}",
       },
       mapping: {
         title: "ربط الأعمدة",
@@ -2700,6 +2773,10 @@ const ar = {
         runImport: "تنفيذ الاستيراد",
         running: "جارٍ الاستيراد…",
         totalRowsHint: "سيتم استيراد {count} صف.",
+        summaryTotal: "الإجمالي",
+        summaryNew: "جديد",
+        summaryDuplicate: "مكرر",
+        summaryInvalid: "غير صالح",
       },
       validation: {
         running: "جارٍ التحقق…",

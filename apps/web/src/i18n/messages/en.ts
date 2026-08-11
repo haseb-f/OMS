@@ -69,6 +69,7 @@ const en = {
       INVALID_LENGTH: "The number's length is invalid for this country.",
       INVALID_COUNTRY: "The phone number doesn't match the selected country.",
       INVALID_PATTERN: "The phone number doesn't match the selected country's format.",
+      exampleSuffix: "Example of a valid number: {example}",
     },
   },
   /**
@@ -181,6 +182,7 @@ const en = {
       supplierPayments: "Supplier Payments",
       journalEntries: "Journal Entries",
       chartOfAccounts: "Chart of Accounts",
+      bankTransactions: "Bank Transactions",
       openingBalances: "Opening Balances",
       openingInventory: "Opening Inventory",
       financialReports: "Financial Reports",
@@ -217,6 +219,7 @@ const en = {
     expensesProductCost: "Product Cost",
     finance: "Finance",
     financeChartOfAccounts: "Chart of Accounts",
+    financeBankTransactions: "Bank Transactions",
     financeJournals: "Journals",
     financePaymentSources: "Payment Sources",
     financeReceivingAccounts: "Receiving Accounts",
@@ -676,6 +679,40 @@ const en = {
         archived: "Archived",
       },
       invalidHierarchy: "An account cannot be its own ancestor.",
+      proposedCodeLabel: "Proposed Code",
+      proposedCodeHint:
+        "The system generates this code automatically from the parent account — a normal employee cannot type one manually.",
+      codeOverrideLabel: "Custom code (advanced permission only)",
+      codeOverrideHint:
+        'Enter a manual code instead of the proposed one — only available to someone with the "Manage" permission on Chart of Accounts.',
+      rootCodeRequired:
+        "A root account (no parent) needs an explicit code — this action is only available to a privileged administrator.",
+      rootRequiresPermission:
+        "You don't have permission to create a new root account with no parent. Pick a parent to add a child account instead.",
+      headerAccountBadge: "Header account (cannot receive direct postings)",
+    },
+    bankTransactions: {
+      title: "Bank Transactions",
+      description: "Import a bank statement and match its transactions against recorded payments.",
+      empty: "No bank transactions yet.",
+      runMatching: "Run Matching",
+      review: "Review",
+      confirmMatch: "Confirm Match",
+      noCandidates: "No candidate payments for this transaction.",
+      matchConfirmed: "Match confirmed.",
+      matchingRunSuccess: "{count} transaction(s) classified.",
+      status: {
+        UNMATCHED: "Unmatched",
+        POTENTIAL: "Potential Match",
+        MATCHED: "Matched",
+        DUPLICATE: "Conflict",
+      },
+      fields: {
+        date: "Date",
+        description: "Description",
+        reference: "Reference",
+        amount: "Amount",
+      },
     },
     journals: {
       title: "Journals",
@@ -1308,12 +1345,29 @@ const en = {
         currency: "Currency",
         externalOrderId: "External Order ID",
         source: "Source",
+        product: "Product",
+        paidAmount: "Paid Amount",
       },
       sections: {
         general: "Order Information",
         assignment: "Assignment",
         timeline: "Timeline",
         notes: "Notes",
+      },
+      createDialog: {
+        title: "Add New",
+        description: "Enter the minimum required now — you can complete the rest later.",
+        modeLead: "Lead",
+        modeLeadHint: "Just name, phone, and country — complete the rest later.",
+        modeOrder: "Order",
+        modeOrderHint: "A complete order: address, product, and paid amount are required.",
+        saveAsLead: "Save as Lead",
+        saveAsOrder: "Save as Order",
+        productHelper: "The product the customer ordered.",
+        paidAmountHelper:
+          "The amount the customer actually paid — this creates a payment record automatically.",
+        quantityHelper: "Quantity — defaults to 1 if not specified.",
+        currencyHelper: "Derived automatically from the selected country if not specified.",
       },
       status: {
         NEW: "New",
@@ -2517,6 +2571,18 @@ const en = {
     requiredFieldsCount: "{count} required",
     viewJob: "View",
     types: {
+      leads: {
+        label: "Leads",
+        description: "Import leads — name, phone, and country only; complete the rest later.",
+      },
+      orders: {
+        label: "Orders",
+        description: "Import complete orders — address, product, and paid amount are required.",
+      },
+      bankTransactions: {
+        label: "Bank Statement",
+        description: "Import bank statement transactions to match against payments.",
+      },
       customers: { label: "Customers", description: "Import customer master records." },
       suppliers: { label: "Suppliers", description: "Import supplier master records." },
       products: { label: "Products", description: "Import product/service master records." },
@@ -2580,11 +2646,6 @@ const en = {
       openingStock: {
         label: "Opening Stock",
         description: "Import opening warehouse stock quantities per product.",
-      },
-      leads: {
-        label: "Leads",
-        description:
-          "Import CRM leads — supports Assign Agent, Auto Distribution, and Duplicate Detection.",
       },
     },
     fields: {
@@ -2651,6 +2712,15 @@ const en = {
       receipt1: "Receipt 1",
       receipt2: "Receipt 2",
       receipt3: "Receipt 3",
+      bankTransactionId: "Bank Transaction ID",
+      transactionDate: "Transaction Date",
+      valueDate: "Value Date",
+      bankAccountNumber: "Account Number",
+      bankReference: "Bank Reference",
+      bankAmount: "Amount",
+      balance: "Balance",
+      bankName: "Bank Name",
+      branch: "Branch",
     },
     status: {
       DRAFT: "Draft",
@@ -2675,6 +2745,7 @@ const en = {
       errorCount: "Errors",
       duration: "Duration",
       createdAt: "Created",
+      lastSynced: "Last Synced",
     },
     wizard: {
       title: "Import {type}",
@@ -2701,9 +2772,12 @@ const en = {
       },
       googleSheets: {
         urlLabel: "Google Sheets URL",
-        urlHint: 'The sheet must be shared as "Anyone with the link can view."',
-        refresh: "Refresh",
+        urlHint: "Share the sheet with the integration's service-account email address.",
+        refresh: "Refresh Data",
+        refreshing: "Refreshing data...",
+        refreshTooltip: "Fetch the latest data from Google Sheets",
         refreshed: "Re-fetched the latest data from Google Sheets.",
+        lastSynced: "Last successful sync: {datetime}",
       },
       mapping: {
         title: "Map Columns",
@@ -2728,6 +2802,10 @@ const en = {
         runImport: "Run Import",
         running: "Importing…",
         totalRowsHint: "{count} total row(s) will be imported.",
+        summaryTotal: "Total",
+        summaryNew: "New",
+        summaryDuplicate: "Duplicate",
+        summaryInvalid: "Invalid",
       },
       validation: {
         running: "Validating…",

@@ -217,7 +217,28 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
   {
     key: 'chart-of-accounts',
     labelKey: 'permissions.modules.chartOfAccounts',
-    actions: crud('accounting.chart-of-accounts', { export: true }),
+    actions: [
+      ...crud('accounting.chart-of-accounts', { export: true }),
+      // "manage" — the one action in the fixed vocabulary that fits
+      // "highly-privileged admin overrides a system-generated account code"
+      // (Part 12): every other employee with plain Create only ever gets
+      // the server-proposed code, never a free-typed one.
+      {
+        action: 'manage',
+        name: 'accounting.chart-of-accounts.override-code',
+      },
+    ],
+  },
+  {
+    key: 'bank-transactions',
+    labelKey: 'permissions.modules.bankTransactions',
+    actions: [
+      { action: 'view', name: 'accounting.bank-transactions.view' },
+      // "manage" covers both Confirm Match and Re-run Matching — reviewing
+      // and reconciling bank transactions is one Accounting business
+      // operation, not two separate permissions (Part 10).
+      { action: 'manage', name: 'accounting.bank-transactions.manage' },
+    ],
   },
   {
     key: 'opening-balances',
@@ -317,6 +338,7 @@ export const IMPLIED_SECTION_PERMISSION: Record<string, string> = {
   'inventory.opening-stock': 'inventory.view',
   'accounting.journal-entries': 'finance.view',
   'accounting.chart-of-accounts': 'finance.view',
+  'accounting.bank-transactions': 'finance.view',
   'accounting.opening-balances': 'finance.view',
   'reports.financial': 'reports.view',
   'reports.inventory': 'reports.view',

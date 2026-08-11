@@ -25,7 +25,7 @@ import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { ApiError, apiClient } from "@/services/api-client";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import { exportRowsToCsv } from "@/components/master-data/enterprise-data-table";
 import { siteConfig } from "@/config/site";
@@ -80,21 +80,22 @@ function collectMatchIds(nodes: TreeNode[], query: string, ancestors: string[] =
 }
 
 interface FormState {
-  code: string;
   name: string;
   accountType: (typeof ACCOUNT_TYPES)[number];
   currencyId: string;
   allowReconciliation: boolean;
   description: string;
+  /** Only ever sent to the server when non-empty — a child account normally gets a server-generated code (Part 12); this is the privileged-admin escape hatch, and the only way at all to set a root account's code. */
+  codeOverride: string;
 }
 
 const emptyForm: FormState = {
-  code: "",
   name: "",
   accountType: "ASSET",
   currencyId: "",
   allowReconciliation: false,
   description: "",
+  codeOverride: "",
 };
 
 /** TASK-053 — the accountant workflow: hierarchy tree, collapse/expand, fast search, Account Type/Status filters. Reuses the tree-page pattern already established by Warehouse Locations. */
@@ -102,7 +103,8 @@ function ChartOfAccountsPageContent() {
   const { t } = useLocale();
   const { printList } = usePrintEngine();
   const { activeCompany } = useCompany();
-  const { user } = useUserContext();
+  const { user, hasPermission } = useUserContext();
+  const canOverrideCode = hasPermission("accounting.chart-of-accounts.override-code");
 
   const [accounts, setAccounts] = useState<ChartOfAccountRow[]>([]);
   const [currencies, setCurrencies] = useState<CurrencyRow[]>([]);
@@ -116,6 +118,7 @@ function ChartOfAccountsPageContent() {
   const [editingAccount, setEditingAccount] = useState<ChartOfAccountRow | null>(null);
   const [parentForNew, setParentForNew] = useState<ChartOfAccountRow | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [proposedCode, setProposedCode] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [archiveTarget, setArchiveTarget] = useState<ChartOfAccountRow | null>(null);
@@ -164,45 +167,65 @@ function ChartOfAccountsPageContent() {
     return collectMatchIds(tree, query);
   }, [tree, search]);
 
-  const openCreate = (parent: ChartOfAccountRow | null) => {
+  const openCreate = async (parent: ChartOfAccountRow | null) => {
+    if (!parent && !canOverrideCode) {
+      toast.error(t("masterData.chartOfAccounts.rootRequiresPermission"));
+      return;
+    }
     setEditingAccount(null);
     setParentForNew(parent);
-    setForm(emptyForm);
+    setProposedCode(null);
+    setForm(parent ? { ...emptyForm, accountType: parent.accountType } : emptyForm);
     setModalOpen(true);
+    if (parent) {
+      try {
+        const result = await apiClient.get<{ code: string }>(
+          `/chart-of-accounts/${parent.id}/next-code`,
+        );
+        setProposedCode(result.code);
+      } catch {
+        setProposedCode(null);
+      }
+    }
   };
   const openEdit = (account: ChartOfAccountRow) => {
     setEditingAccount(account);
     setParentForNew(null);
+    setProposedCode(null);
     setForm({
-      code: account.code,
       name: account.name,
       accountType: account.accountType,
       currencyId: account.currencyId ?? "",
       allowReconciliation: account.allowReconciliation,
       description: account.description ?? "",
+      codeOverride: "",
     });
     setModalOpen(true);
   };
 
   const submit = async () => {
-    if (!form.code.trim() || !form.name.trim()) {
-      toast.error(t("masterData.fields.code") + " / " + t("masterData.fields.name"));
+    if (!form.name.trim()) {
+      toast.error(t("masterData.fields.name"));
+      return;
+    }
+    if (!editingAccount && !parentForNew && !form.codeOverride.trim()) {
+      toast.error(t("masterData.chartOfAccounts.rootCodeRequired"));
       return;
     }
     setIsSubmitting(true);
     try {
-      const payload = {
-        code: form.code,
+      const payload: Record<string, unknown> = {
         name: form.name,
         accountType: form.accountType,
         currencyId: form.currencyId || undefined,
         allowReconciliation: form.allowReconciliation,
         description: form.description || undefined,
-        parentAccountId: editingAccount ? undefined : (parentForNew?.id ?? undefined),
       };
+      if (form.codeOverride.trim()) payload.codeOverride = form.codeOverride.trim();
       if (editingAccount) {
         await service.update(editingAccount.id, payload);
       } else {
+        payload.parentAccountId = parentForNew?.id ?? undefined;
         await service.create(payload);
       }
       toast.success(t("common.save"));
@@ -339,6 +362,14 @@ function ChartOfAccountsPageContent() {
               {t("common.archived")}
             </span>
           )}
+          {!node.allowsPosting && (
+            <span
+              className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+              title={t("masterData.chartOfAccounts.headerAccountBadge")}
+            >
+              {t("masterData.chartOfAccounts.headerAccountBadge")}
+            </span>
+          )}
           <div className="ms-auto flex items-center gap-1">
             {!isArchived && (
               <>
@@ -413,7 +444,14 @@ function ChartOfAccountsPageContent() {
               <Printer className="size-3.5" />
               {t("table.print")}
             </EnterpriseButton>
-            <EnterpriseButton type="button" onClick={() => openCreate(null)}>
+            <EnterpriseButton
+              type="button"
+              onClick={() => openCreate(null)}
+              disabled={!canOverrideCode}
+              title={
+                canOverrideCode ? undefined : t("masterData.chartOfAccounts.rootRequiresPermission")
+              }
+            >
               <Plus />
               {t("masterData.chartOfAccounts.addAccount")}
             </EnterpriseButton>
@@ -501,14 +539,25 @@ function ChartOfAccountsPageContent() {
       >
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium">
-              {t("masterData.fields.code")} <span className="text-destructive">*</span>
-            </label>
-            <Input
-              dir="ltr"
-              value={form.code}
-              onChange={(event) => setForm((current) => ({ ...current, code: event.target.value }))}
-            />
+            <label className="text-sm font-medium">{t("masterData.fields.code")}</label>
+            {editingAccount ? (
+              <code dir="ltr" className="rounded bg-muted px-2 py-2 text-sm text-muted-foreground">
+                {editingAccount.code}
+              </code>
+            ) : parentForNew ? (
+              <code dir="ltr" className="rounded bg-muted px-2 py-2 text-sm">
+                {proposedCode ?? t("common.loading")}
+              </code>
+            ) : (
+              <span className="text-caption text-muted-foreground">
+                {t("masterData.chartOfAccounts.rootCodeRequired")}
+              </span>
+            )}
+            {!editingAccount && parentForNew && (
+              <p className="text-caption text-muted-foreground">
+                {t("masterData.chartOfAccounts.proposedCodeHint")}
+              </p>
+            )}
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium">
@@ -519,28 +568,52 @@ function ChartOfAccountsPageContent() {
               onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
             />
           </div>
+          {canOverrideCode && (
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <label className="text-sm font-medium">
+                {t("masterData.chartOfAccounts.codeOverrideLabel")}
+                {!editingAccount && !parentForNew && <span className="text-destructive"> *</span>}
+              </label>
+              <Input
+                dir="ltr"
+                value={form.codeOverride}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, codeOverride: event.target.value }))
+                }
+              />
+              <p className="text-caption text-muted-foreground">
+                {t("masterData.chartOfAccounts.codeOverrideHint")}
+              </p>
+            </div>
+          )}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium">{t("masterData.fields.accountType")}</label>
-            <Select
-              value={form.accountType}
-              onValueChange={(value) =>
-                setForm((current) => ({
-                  ...current,
-                  accountType: value as FormState["accountType"],
-                }))
-              }
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ACCOUNT_TYPES.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {t(ACCOUNT_TYPE_LABEL_KEY[type])}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {parentForNew ? (
+              <span className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
+                {t(ACCOUNT_TYPE_LABEL_KEY[form.accountType])}
+              </span>
+            ) : (
+              <Select
+                value={form.accountType}
+                onValueChange={(value) =>
+                  setForm((current) => ({
+                    ...current,
+                    accountType: value as FormState["accountType"],
+                  }))
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ACCOUNT_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {t(ACCOUNT_TYPE_LABEL_KEY[type])}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium">{t("masterData.fields.currency")}</label>

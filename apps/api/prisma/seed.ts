@@ -8,6 +8,7 @@ import {
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcryptjs';
 import { ALL_PERMISSION_NAMES } from '../src/permissions/permission-catalog';
+import { seedCountries } from './scripts/seed-countries';
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
@@ -431,6 +432,10 @@ async function main() {
     ),
   );
 
+  // Curated Arabic names for the 3 countries the business actually operates
+  // in — seeded first so `seedCountries()` below (Part 2: full ISO 3166-1
+  // dataset) finds `name` already set and never overwrites it with the
+  // library's more literal Arabic translation.
   await Promise.all(
     countries.map((country) =>
       prisma.country.upsert({
@@ -440,6 +445,33 @@ async function main() {
       }),
     ),
   );
+  const countrySeedResult = await seedCountries(prisma);
+  console.log(
+    `Countries: ${countrySeedResult.created} created, ${countrySeedResult.updated} updated, ${countrySeedResult.skipped} skipped (of ${countrySeedResult.total} ISO 3166-1 regions).`,
+  );
+
+  // Wires `Country.defaultCurrencyId` (Part 1/3 — "Currency should be
+  // auto-derived from country... not manually typed") for every
+  // country/currency pair this system actually has both rows for — never a
+  // fabricated pairing for a currency this system doesn't seed.
+  const defaultCurrencyByCountryCode: Record<string, string> = {
+    SA: 'SAR',
+    AE: 'AED',
+    EG: 'EGP',
+    US: 'USD',
+  };
+  for (const [countryCode, currencyCode] of Object.entries(
+    defaultCurrencyByCountryCode,
+  )) {
+    const currency = await prisma.currency.findUnique({
+      where: { code: currencyCode },
+    });
+    if (!currency) continue;
+    await prisma.country.update({
+      where: { code: countryCode },
+      data: { defaultCurrencyId: currency.id },
+    });
+  }
 
   // Name-unique — a reseed can't "update in place" onto a renamed row, so
   // the old English demo rows are removed first (TASK-024 Part 6: Arabic demo data).

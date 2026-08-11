@@ -192,6 +192,28 @@ function ImportCenterPageContent() {
         },
       },
       {
+        id: "lastSynced",
+        header: t("importCenter.table.lastSynced"),
+        meta: { titleKey: "importCenter.table.lastSynced" },
+        accessorFn: (row) =>
+          row.sourceConnector === "google-sheets"
+            ? row.lastSyncedAt
+              ? formatDateTime(row.lastSyncedAt)
+              : "—"
+            : "",
+        cell: (info) => {
+          const row = info.row.original;
+          if (row.sourceConnector !== "google-sheets") return "—";
+          return (
+            <span className={row.isSyncing ? "text-warning" : undefined}>
+              {row.isSyncing
+                ? t("importCenter.wizard.googleSheets.refreshing")
+                : (info.getValue() as string)}
+            </span>
+          );
+        },
+      },
+      {
         id: "createdAt",
         header: t("importCenter.table.createdAt"),
         meta: { titleKey: "importCenter.table.createdAt" },

@@ -11,9 +11,11 @@ export interface LeadRow {
   mobileNumber: string;
   countryId: string;
   country: { id: string; name: string } | null;
-  city: string;
-  address: string;
+  /** Optional at the minimal Lead-creation stage — required only when saved as an Order. */
+  city: string | null;
+  address: string | null;
   productId: string | null;
+  product: { id: string; name: string; displayName: string; sku: string } | null;
   quantity: number;
   currencyId: string;
   currency: { id: string; code: string; name: string } | null;

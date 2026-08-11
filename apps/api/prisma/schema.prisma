@@ -66,6 +66,8 @@ model User {
   paymentsAsVerifiedBy Payment[]           @relation("PaymentVerifiedBy")
   paymentsAsRejectedBy Payment[]           @relation("PaymentRejectedBy")
 
+  bankTransactionsAsMatchedBy BankTransaction[] @relation("BankTransactionMatchedBy")
+
   productAttachments ProductAttachment[]
   managedWarehouses  Warehouse[]
   inventoryMovements InventoryMovement[]
@@ -255,32 +257,61 @@ model Currency {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  leads                 Lead[]
-  salesOrders           SalesOrder[]
-  payments              Payment[]
-  receivingAccounts     ReceivingAccount[]
-  suppliers             Supplier[]
-  purchaseOrders        PurchaseOrder[]
-  customers             Customer[]
-  salesQuotations       SalesQuotation[]
-  salesOrderDocuments   SalesOrderDocument[]
-  salesInvoices         SalesInvoice[]
-  salesReturns          SalesReturn[]
-  purchaseQuotations    PurchaseQuotation[]
-  purchaseInvoices      PurchaseInvoice[]
-  purchaseReturns       PurchaseReturn[]
-  financialTransactions FinancialTransaction[]
-  journalEntries        JournalEntry[]
-  journals              Journal[]
-  chartOfAccounts       ChartOfAccount[]
+  leads                   Lead[]
+  salesOrders             SalesOrder[]
+  payments                Payment[]
+  receivingAccounts       ReceivingAccount[]
+  suppliers               Supplier[]
+  purchaseOrders          PurchaseOrder[]
+  customers               Customer[]
+  salesQuotations         SalesQuotation[]
+  countriesDefaultingHere Country[]
+  bankTransactions        BankTransaction[]
+  salesOrderDocuments     SalesOrderDocument[]
+  salesInvoices           SalesInvoice[]
+  salesReturns            SalesReturn[]
+  purchaseQuotations      PurchaseQuotation[]
+  purchaseInvoices        PurchaseInvoice[]
+  purchaseReturns         PurchaseReturn[]
+  financialTransactions   FinancialTransaction[]
+  journalEntries          JournalEntry[]
+  journals                Journal[]
+  chartOfAccounts         ChartOfAccount[]
 
   @@map("currencies")
 }
 
+/// Ships with a full international dataset (seeded from libphonenumber-js's
+/// own supported-region list + the `i18n-iso-countries` reference package —
+/// never hand-typed codes) instead of being admin-created master data.
 model Country {
-  id   String @id @default(uuid()) @db.Uuid
-  code String @unique
-  name String
+  id     String  @id @default(uuid()) @db.Uuid
+  /// ISO 3166-1 alpha-2 — the one code the phone-validation architecture
+  /// already keys everything off of.
+  code   String  @unique
+  /// Arabic name — primary identity, matches the Product/Lead convention.
+  name   String
+  nameEn String? @map("name_en")
+
+  /// ISO 3166-1 alpha-3 / numeric — reference identifiers, not used for
+  /// lookups anywhere yet.
+  iso3        String? @db.Char(3)
+  numericCode String? @map("numeric_code") @db.Char(3)
+
+  /// Denormalized from libphonenumber-js purely for contexts that need a
+  /// calling code without loading the phone library (exports, other
+  /// services) — actual phone validation still resolves live from `code`
+  /// via `PhoneNumberService`/`phone-service.ts`, never trusts this column,
+  /// so it can never drift into being a second source of truth for validity.
+  callingCode String? @map("calling_code")
+
+  /// Distinct from `deletedAt` (soft-delete/archive): lets a specific
+  /// country be hidden from selection without removing the reference row —
+  /// e.g. a sanctioned/unsupported territory the business doesn't serve.
+  isActive Boolean @default(true) @map("is_active")
+
+  defaultCurrencyId String?   @map("default_currency_id") @db.Uuid
+  defaultCurrency   Currency? @relation(fields: [defaultCurrencyId], references: [id])
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -722,12 +753,16 @@ model Lead {
   countryId String  @map("country_id") @db.Uuid
   country   Country @relation(fields: [countryId], references: [id])
 
-  city    String
-  address String
+  /// Optional at the Lead stage — required only when saved as an Order
+  /// (enforced in LeadsService.create()'s assertOrderReady(), not here, so
+  /// the same column serves both minimum-fields Lead creation and the
+  /// fuller Order flow).
+  city    String?
+  address String?
 
-  /// No Product entity/module exists yet — reserved for future integration,
-  /// intentionally not a foreign key.
-  productId String? @map("product_id") @db.Uuid
+  /// A real reference to the Product catalog — required only in Order mode.
+  productId String?  @map("product_id") @db.Uuid
+  product   Product? @relation(fields: [productId], references: [id])
   quantity  Int
 
   currencyId String   @map("currency_id") @db.Uuid
@@ -1222,6 +1257,17 @@ model ChartOfAccount {
 
   allowReconciliation Boolean @default(false) @map("allow_reconciliation")
 
+  /// Denormalized hierarchy depth (root = 1, set from `parentAccount.level +
+  /// 1` on create) — avoids an ancestor walk just to indent/group the tree.
+  level Int @default(1)
+
+  /// A header/parent account stops accepting direct journal postings the
+  /// moment it gets its first child (leaf-only posting model, Part 13) —
+  /// flipped to `false` server-side in the same transaction that creates
+  /// that first child, never set directly by a client. `JournalEntry` line
+  /// resolution rejects any line whose account has this `false`.
+  allowsPosting Boolean @default(true) @map("allows_posting")
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   createdBy String?   @map("created_by") @db.Uuid
@@ -1351,6 +1397,10 @@ model PaymentSource {
   /// Distinct from deletedAt/"Archive": IsActive is a separate toggle
   /// ("Deactivate") that hides a source from new use without removing it.
   isActive    Boolean @default(true) @map("is_active")
+  /// The row auto-selected when an Order-mode Lead needs a PaymentSource but
+  /// the user only typed a Paid Amount — falls back to the first active row
+  /// (by sortOrder/name) when nothing is flagged.
+  isDefault   Boolean @default(false) @map("is_default")
 
   /// Optional default suggestion only — never the actual accounting
   /// destination (that's always ReceivingAccount.chartOfAccountId).
@@ -1392,8 +1442,10 @@ model ReceivingAccount {
   chartOfAccountId String         @map("chart_of_account_id") @db.Uuid
   chartOfAccount   ChartOfAccount @relation(fields: [chartOfAccountId], references: [id])
 
-  notes    String?
-  isActive Boolean @default(true) @map("is_active")
+  notes     String?
+  isActive  Boolean @default(true) @map("is_active")
+  /// Same Order-mode smart-default role as PaymentSource.isDefault.
+  isDefault Boolean @default(false) @map("is_default")
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -1460,7 +1512,83 @@ model Payment {
   notes       PaymentNote[]
   activities  PaymentActivity[]
 
+  reconciledBankTransactions BankTransaction[]
+
   @@map("payments")
+}
+
+/// Bank Statement import + reconciliation (Part 10) — step one of Bank
+/// Transaction -> Find Matching Order -> Match Payment -> Update Payment
+/// Status -> Create reconciliation record. Never auto-confirms a match —
+/// `PaymentAutoMatchingService` only classifies/scores candidates; a human
+/// always performs the actual "Confirm Match" write via
+/// `BankTransactionsService.confirmMatch()`, which reuses `PaymentsService
+/// .match()` (the existing manual "Match Payment" business operation)
+/// rather than a second, parallel matching mechanism.
+enum BankTransactionMatchStatus {
+  UNMATCHED
+  POTENTIAL
+  MATCHED
+  DUPLICATE
+}
+
+model BankTransaction {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// The bank's own transaction id, when the source provides one — many
+  /// bank exports don't, so this stays nullable; `fingerprint` (below) is
+  /// the real duplicate-safe identity, never this.
+  transactionId String? @map("transaction_id")
+
+  transactionDate DateTime  @map("transaction_date")
+  valueDate       DateTime? @map("value_date")
+
+  account     String?
+  reference   String?
+  description String?
+
+  /// Raw debit/credit as the source file had them (banks differ on whether
+  /// they use two columns or one signed column) — `amount` (below) is
+  /// always the one normalized, signed value every matching/reporting query
+  /// actually reads.
+  debit  Decimal? @db.Decimal(12, 2)
+  credit Decimal? @db.Decimal(12, 2)
+  amount Decimal  @db.Decimal(12, 2)
+
+  currencyId String?   @map("currency_id") @db.Uuid
+  currency   Currency? @relation(fields: [currencyId], references: [id])
+
+  balance  Decimal? @db.Decimal(12, 2)
+  bankName String?  @map("bank_name")
+  branch   String?
+  notes    String?
+
+  /// Deterministic hash of date+amount+reference+description+account+
+  /// currency — the stable business identity for a row from a source with
+  /// no `transactionId`. If the same row moves from row 500 to row 600 on a
+  /// re-import, this is still the same value, so re-importing a statement
+  /// never creates a duplicate row (upserted by this, not by row position).
+  fingerprint String @unique
+
+  matchStatus     BankTransactionMatchStatus @default(UNMATCHED) @map("match_status")
+  /// The scored candidate list from the last `PaymentAutoMatchingService`
+  /// classification pass — display-only, recomputed on every matching run,
+  /// never hand-edited.
+  matchCandidates Json?                      @map("match_candidates")
+
+  matchedPaymentId String?   @map("matched_payment_id") @db.Uuid
+  matchedPayment   Payment?  @relation(fields: [matchedPaymentId], references: [id])
+  matchedAt        DateTime? @map("matched_at")
+  matchedById      String?   @map("matched_by_id") @db.Uuid
+  matchedBy        User?     @relation("BankTransactionMatchedBy", fields: [matchedById], references: [id])
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("bank_transactions")
 }
 
 /// Unlimited attachments (Transfer Receipt, Bank Screenshot, Payment
@@ -1751,6 +1879,7 @@ model Product {
   purchaseQuotationItems  PurchaseQuotationItem[]
   purchaseInvoiceItems    PurchaseInvoiceItem[]
   purchaseReturnItems     PurchaseReturnItem[]
+  leads                   Lead[]
 
   @@map("products")
 }
@@ -4387,6 +4516,19 @@ model ImportJob {
   /// reads this column yet; it exists so a future scheduler can store its
   /// config here without another migration.
   scheduleConfig Json? @map("schedule_config")
+
+  /// Sync status (Part 4 — "prominent refresh button... last successful/
+  /// attempted sync, current status"), source-connector jobs only.
+  /// `lastAttemptedAt` is set on every `refresh()` call regardless of
+  /// outcome; `lastSyncedAt` only on a successful one, so the UI can show
+  /// "last attempt failed, still showing data from <lastSyncedAt>".
+  /// `isSyncing` is a simple advisory lock — `refresh()` sets it before the
+  /// fetch and clears it in a `finally`, and a second concurrent refresh
+  /// request is rejected while it's `true` (Part 4's "concurrent-refresh
+  /// prevention"), enforced server-side, not just a disabled frontend button.
+  lastSyncedAt    DateTime? @map("last_synced_at")
+  lastAttemptedAt DateTime? @map("last_attempted_at")
+  isSyncing       Boolean   @default(false) @map("is_syncing")
 
   totalRows    Int @default(0) @map("total_rows")
   successCount Int @default(0) @map("success_count")

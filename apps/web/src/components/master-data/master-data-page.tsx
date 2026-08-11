@@ -106,6 +106,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   defaultSortBy = "name",
   disableArchiveRestore = false,
   supportsSelectAllMatching = false,
+  hideCreateButton = false,
 }: {
   titleKey: MessageKey;
   descriptionKey: MessageKey;
@@ -148,6 +149,8 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   disableArchiveRestore?: boolean;
   /** Opt-in — only set once the backend's `GET :entity/ids` and `POST :entity/bulk-archive` routes actually exist for this entity (Customers first; see `MasterDataService.listIds`/`bulkArchive`). */
   supportsSelectAllMatching?: boolean;
+  /** Suppresses the internal "+ New" button — for a page that renders its own create trigger/dialog instead (e.g. Leads' dual-mode Lead/Order create dialog) while still using this component for list/edit/archive. */
+  hideCreateButton?: boolean;
 }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
@@ -462,7 +465,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
         actions={
           <>
             {extraActions}
-            {canCreate && (
+            {canCreate && !hideCreateButton && (
               <EnterpriseButton type="button" onClick={openCreate}>
                 <Plus />
                 {t("masterData.actions.addNew")}

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isPhoneValidForCountry, phoneErrorMessageKey } from "@/components/shared/phone-input";
+import { isPhoneValidForCountry, phoneErrorMessage } from "@/components/shared/phone-input";
 import { parsePhone } from "@/services/phone-service";
 import type { MessageKey } from "@/i18n/translate";
 
@@ -41,7 +41,11 @@ export function buildSupplierSchema(
         if (!value) continue;
         if (!isPhoneValidForCountry(value, countryCode)) {
           const reason = parsePhone(value, countryCode).errorReason;
-          ctx.addIssue({ code: "custom", path: [field], message: t(phoneErrorMessageKey(reason)) });
+          ctx.addIssue({
+            code: "custom",
+            path: [field],
+            message: phoneErrorMessage(reason, countryCode, t),
+          });
         }
       }
     });
@@ -78,7 +82,11 @@ export function buildSupplierQuickCreateSchema(t: (key: MessageKey) => string) {
     .superRefine((values, ctx) => {
       if (values.phone && !isPhoneValidForCountry(values.phone, undefined)) {
         const reason = parsePhone(values.phone, undefined).errorReason;
-        ctx.addIssue({ code: "custom", path: ["phone"], message: t(phoneErrorMessageKey(reason)) });
+        ctx.addIssue({
+          code: "custom",
+          path: ["phone"],
+          message: phoneErrorMessage(reason, undefined, t),
+        });
       }
     });
 }

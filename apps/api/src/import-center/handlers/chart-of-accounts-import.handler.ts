@@ -128,7 +128,11 @@ export class ChartOfAccountsImportHandler
 
     const account = await this.chartOfAccountsService.create(
       {
-        code: row.code,
+        // Bulk-importing a chart of accounts is itself a privileged setup
+        // operation (Part 12) — every imported row's explicit code goes
+        // through the same `codeOverride` gate a manual override would,
+        // never a silent bypass just because it came from a spreadsheet.
+        codeOverride: row.code,
         name: row.name,
         accountType: accountType as AccountType,
         parentAccountId,

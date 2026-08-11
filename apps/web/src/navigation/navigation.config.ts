@@ -273,6 +273,15 @@ export const navigationConfig: NavigationItem[] = [
     permissions: ["accounting.chart-of-accounts.view"],
   },
   {
+    id: "finance-bank-transactions",
+    titleKey: "nav.financeBankTransactions",
+    parent: "finance",
+    route: "/finance/bank-transactions",
+    icon: "landmark",
+    order: 3.5,
+    permissions: ["accounting.bank-transactions.view"],
+  },
+  {
     id: "finance-journals",
     titleKey: "nav.financeJournals",
     parent: "finance",

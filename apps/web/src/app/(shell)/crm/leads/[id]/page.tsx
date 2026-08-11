@@ -271,8 +271,12 @@ function LeadDetailContent() {
                       label={t("crm.leads.fields.country")}
                       value={lead.country?.name ?? ""}
                     />
-                    <InfoRow label={t("crm.leads.fields.city")} value={lead.city} />
-                    <InfoRow label={t("crm.leads.fields.address")} value={lead.address} />
+                    <InfoRow label={t("crm.leads.fields.city")} value={lead.city ?? ""} />
+                    <InfoRow label={t("crm.leads.fields.address")} value={lead.address ?? ""} />
+                    <InfoRow
+                      label={t("crm.leads.fields.product")}
+                      value={lead.product?.displayName ?? lead.product?.name ?? ""}
+                    />
                     <InfoRow label={t("crm.leads.fields.quantity")} value={String(lead.quantity)} />
                     <InfoRow
                       label={t("crm.leads.fields.currency")}

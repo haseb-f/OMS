@@ -143,6 +143,8 @@ function toChartRow(ref: AccountRef | null): ChartOfAccountRow | null {
     parentAccountId: null,
     currencyId: null,
     allowReconciliation: false,
+    level: 1,
+    allowsPosting: true,
     deletedAt: null,
   };
 }

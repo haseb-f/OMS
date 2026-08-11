@@ -29,6 +29,12 @@ export interface ImportJobRow {
   /** `"google-sheets"` when this job was uploaded from a Google Sheets URL rather than a file — `null` for a manual upload. */
   sourceConnector: string | null;
   sourceUrl: string | null;
+  /** Stamped on every refresh attempt regardless of outcome — `null` if this job has never been refreshed. */
+  lastAttemptedAt: string | null;
+  /** Stamped only on a successful refresh/initial Google Sheets fetch. */
+  lastSyncedAt: string | null;
+  /** True while a refresh is in flight — the server's own advisory lock, not just this tab's local loading state (a second browser tab gets the same "already syncing" rejection). */
+  isSyncing: boolean;
   totalRows: number;
   successCount: number;
   errorCount: number;
@@ -58,11 +64,20 @@ export interface ImportDuplicateGroup {
   rowNumbers: number[];
 }
 
+export interface ImportPreviewSummary {
+  totalRows: number;
+  newCount: number;
+  duplicateCount: number;
+  invalidCount: number;
+  needsReviewCount: number;
+}
+
 export interface ImportValidationResult {
   totalRows: number;
   errorCount: number;
   errors: ImportRowValidationError[];
   duplicateGroups: ImportDuplicateGroup[];
+  summary: ImportPreviewSummary;
 }
 
 /**

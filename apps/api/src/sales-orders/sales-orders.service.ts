@@ -89,6 +89,24 @@ export class SalesOrdersService {
         'Sales Orders can only be created from a Lead with status PAID.',
       );
     }
+    // Lead.city/address are optional at the minimal Lead-creation stage
+    // (Draft-first) — a formal Sales Order snapshot still needs both, same
+    // as Order-mode Lead creation requires them.
+    const { city, address } = lead;
+    if (!city || !address) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: 'Lead is missing fields required to create a Sales Order.',
+        fields: [
+          ...(!city
+            ? [{ field: 'city', constraints: ['required_for_order'] }]
+            : []),
+          ...(!address
+            ? [{ field: 'address', constraints: ['required_for_order'] }]
+            : []),
+        ],
+      });
+    }
 
     // Decision #4: snapshot who verified the payment that authorized this order, if any.
     const verifiedPayment = await this.prisma.payment.findFirst({
@@ -112,8 +130,8 @@ export class SalesOrdersService {
             customerName: lead.customerName,
             mobileNumber: lead.mobileNumber,
             countryId: lead.countryId,
-            city: lead.city,
-            address: lead.address,
+            city,
+            address,
             currencyId: lead.currencyId,
             salesEmployeeId: lead.salesEmployeeId,
             costCenterId: dto.costCenterId,

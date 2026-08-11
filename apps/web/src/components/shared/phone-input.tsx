@@ -130,7 +130,7 @@ export function OMSPhoneInput({
             ) : (
               <TriangleAlert
                 className="size-4 text-destructive"
-                aria-label={t(phoneErrorMessageKey(result.errorReason))}
+                aria-label={phoneErrorMessage(result.errorReason, countryCode, t)}
               />
             )}
           </InputGroupAddon>
@@ -172,6 +172,31 @@ function RegionMismatchNote({ detectedRegion }: { detectedRegion: CountryCode })
 /** Maps a `PhoneErrorReason` to its Arabic-first i18n key — the one place that translation lives, reused by every consumer instead of a per-form switch statement. */
 export function phoneErrorMessageKey(reason: PhoneErrorReason | null): MessageKey {
   return `phone.errors.${reason ?? "INVALID_PATTERN"}` as MessageKey;
+}
+
+/**
+ * The full, actionable phone error message every form/field shows the user
+ * (Part 3: "no technical validation errors, messages must be actionable") —
+ * the base reason plus a real example number for the selected country
+ * (never a fabricated one; `getExampleNumber` is the same library metadata
+ * `OMSPhoneInput`'s own placeholder/hint already renders). Appends the
+ * example only when one is available (a country is actually selected and
+ * the library has metadata for it) — `EMPTY`/`INVALID_COUNTRY` never get one
+ * since it wouldn't help fix either case.
+ */
+export function phoneErrorMessage(
+  reason: PhoneErrorReason | null,
+  countryCode: string | null | undefined,
+  t: (key: MessageKey, params?: Record<string, string | number>) => string,
+): string {
+  const base = t(phoneErrorMessageKey(reason));
+  if (reason === "EMPTY" || reason === "INVALID_COUNTRY") return base;
+
+  const callingCode = countryCode ? getCallingCode(countryCode) : null;
+  const example = countryCode ? getExampleNumber(countryCode) : null;
+  if (!callingCode || !example) return base;
+
+  return `${base} ${t("phone.errors.exampleSuffix", { example: `+${callingCode} ${example}` })}`;
 }
 
 /** Standalone validity check for a zod `.superRefine` — parses the same way the input itself does, so form-submit validation and the live status icon can never disagree. */

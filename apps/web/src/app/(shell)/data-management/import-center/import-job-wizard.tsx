@@ -36,6 +36,7 @@ import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { downloadBlob } from "@/lib/download";
 import { ApiError } from "@/services/api-client";
+import { formatDateTime } from "@/lib/date";
 import {
   importJobsService,
   type ImportJobRow,
@@ -352,10 +353,13 @@ export function ImportJobWizard({
                       type="button"
                       variant="outline"
                       onClick={handleRefresh}
-                      disabled={isRefreshing || isLoading}
+                      disabled={isRefreshing || isLoading || !!job?.isSyncing}
+                      title={t("importCenter.wizard.googleSheets.refreshTooltip")}
                     >
                       <RefreshCw className={isRefreshing ? "animate-spin" : undefined} />
-                      {t("importCenter.wizard.googleSheets.refresh")}
+                      {isRefreshing
+                        ? t("importCenter.wizard.googleSheets.refreshing")
+                        : t("importCenter.wizard.googleSheets.refresh")}
                     </EnterpriseButton>
                   )}
                   <EnterpriseButton
@@ -612,16 +616,28 @@ export function ImportJobWizard({
                 </p>
               </div>
               {job.sourceConnector === "google-sheets" && (
-                <EnterpriseButton
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRefresh}
-                  disabled={isRefreshing}
-                >
-                  <RefreshCw className={isRefreshing ? "animate-spin" : undefined} />
-                  {t("importCenter.wizard.googleSheets.refresh")}
-                </EnterpriseButton>
+                <div className="flex flex-col items-end gap-1">
+                  <EnterpriseButton
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRefresh}
+                    disabled={isRefreshing || !!job.isSyncing}
+                    title={t("importCenter.wizard.googleSheets.refreshTooltip")}
+                  >
+                    <RefreshCw className={isRefreshing ? "animate-spin" : undefined} />
+                    {isRefreshing
+                      ? t("importCenter.wizard.googleSheets.refreshing")
+                      : t("importCenter.wizard.googleSheets.refresh")}
+                  </EnterpriseButton>
+                  {job.lastSyncedAt && (
+                    <p className="text-xs text-muted-foreground">
+                      {t("importCenter.wizard.googleSheets.lastSynced", {
+                        datetime: formatDateTime(job.lastSyncedAt),
+                      })}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
             <p className="text-caption text-muted-foreground">
@@ -651,6 +667,38 @@ export function ImportJobWizard({
                     ? t("importCenter.wizard.validation.passed")
                     : t("importCenter.wizard.validation.failed", { count: validation.errorCount })}
                 </p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="rounded-md border border-border/60 bg-card p-2 text-center">
+                    <p className="text-card-title font-semibold">{validation.summary.totalRows}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t("importCenter.wizard.preview.summaryTotal")}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-success/30 bg-success/5 p-2 text-center">
+                    <p className="text-card-title font-semibold text-success">
+                      {validation.summary.newCount}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {t("importCenter.wizard.preview.summaryNew")}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-warning/30 bg-warning/5 p-2 text-center">
+                    <p className="text-card-title font-semibold text-warning">
+                      {validation.summary.duplicateCount}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {t("importCenter.wizard.preview.summaryDuplicate")}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-center">
+                    <p className="text-card-title font-semibold text-destructive">
+                      {validation.summary.invalidCount}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {t("importCenter.wizard.preview.summaryInvalid")}
+                    </p>
+                  </div>
+                </div>
                 {validation.duplicateGroups.length > 0 && (
                   <p className="text-xs text-destructive">
                     {t("importCenter.wizard.validation.duplicatesFound", {

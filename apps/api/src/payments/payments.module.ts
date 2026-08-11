@@ -26,5 +26,6 @@ import { NumberingModule } from '../numbering/numbering.module';
     PaymentAttachmentsService,
     PaymentAutoMatchingService,
   ],
+  exports: [PaymentsService, PaymentAutoMatchingService],
 })
 export class PaymentsModule {}

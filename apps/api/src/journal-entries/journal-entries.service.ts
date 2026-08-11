@@ -525,13 +525,26 @@ export class JournalEntriesService {
     const accountIds = [...new Set(lines.map((l) => l.accountId))];
     const accounts = await this.prisma.chartOfAccount.findMany({
       where: { id: { in: accountIds }, deletedAt: null },
-      select: { id: true },
+      select: { id: true, allowsPosting: true, code: true },
     });
-    const validIds = new Set(accounts.map((a) => a.id));
+    const accountById = new Map(accounts.map((a) => [a.id, a]));
 
     return lines.map((line) => {
-      if (!validIds.has(line.accountId)) {
+      const account = accountById.get(line.accountId);
+      if (!account) {
         throw new BadRequestException(`Account ${line.accountId} not found.`);
+      }
+      // A header/parent account (has children) never accepts a direct
+      // posting — only leaf accounts do, set the moment an account gets its
+      // first child (see ChartOfAccountsService.create()).
+      if (!account.allowsPosting) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: `Account ${account.code} is a header account and cannot receive direct postings.`,
+          fields: [
+            { field: 'accountId', constraints: ['header_account_no_posting'] },
+          ],
+        });
       }
       const debit = line.debit ?? 0;
       const credit = line.credit ?? 0;

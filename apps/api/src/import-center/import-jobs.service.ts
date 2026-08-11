@@ -8,7 +8,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ImportTypeRegistryService } from './import-type-registry.service';
 import { parseCsv, type ParsedTable } from './csv-parser.util';
 import { parseXlsx } from './xlsx-parser.util';
-import { fetchGoogleSheetCsv } from './google-sheets.util';
+import { parseGoogleSheetsUrl } from './google-sheets.util';
+import { GoogleSheetsService } from './google-sheets.service';
 import { groupRowsByKey } from './import-value.util';
 import { CreateImportJobDto } from './dto/create-import-job.dto';
 import { SetMappingDto } from './dto/set-mapping.dto';
@@ -29,11 +30,32 @@ export interface ImportDuplicateGroup {
   rowNumbers: number[];
 }
 
+/**
+ * Aggregate counts the Import preview screen shows before the user approves
+ * anything (Part 4) — a projection over the same per-row `errors`/
+ * `duplicateGroups` `validate()` already computes, never a second pass.
+ * `duplicateCount` is rows sharing a `uniqueWithinFile` field value with
+ * another row in the same file (External Order ID, SKU, ...); detecting a
+ * duplicate against an *existing* database record is a per-type concern
+ * only a few handlers (Leads/Orders) implement today via
+ * `LeadDuplicateDetectionService`, and isn't rolled up here yet —
+ * `needsReviewCount` stays 0 until every handler exposes that signal,
+ * rather than a fabricated number.
+ */
+export interface ImportPreviewSummary {
+  totalRows: number;
+  newCount: number;
+  duplicateCount: number;
+  invalidCount: number;
+  needsReviewCount: number;
+}
+
 export interface ImportValidationResult {
   totalRows: number;
   errorCount: number;
   errors: ImportRowValidationError[];
   duplicateGroups: ImportDuplicateGroup[];
+  summary: ImportPreviewSummary;
 }
 
 /**
@@ -52,6 +74,7 @@ export class ImportJobsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly registry: ImportTypeRegistryService,
+    private readonly googleSheets: GoogleSheetsService,
   ) {}
 
   async create(dto: CreateImportJobDto, userId?: string) {
@@ -100,12 +123,13 @@ export class ImportJobsService {
   }
 
   /**
-   * Google Sheets URL Source (Phase 1) — fetches the sheet's live CSV
-   * export server-side and stores it exactly like an uploaded `.csv` file;
-   * `parseFile`/`preview`/`setMapping`/`run` below never know the
-   * difference. Only the sheet's own share URL is needed — no Google API
-   * credentials, no OAuth (works the same way pasting the URL into a
-   * browser tab would).
+   * Google Sheets URL Source (Phase 1, Part 5) — reads the sheet server-side
+   * via the authenticated `GoogleSheetsService` (service-account, never a
+   * public "anyone with the link" export) and stores it exactly like an
+   * uploaded `.csv` file; `parseFile`/`preview`/`setMapping`/`run` below
+   * never know the difference. The spreadsheet must be shared with the
+   * service account's own email first — `GoogleSheetsService` surfaces that
+   * exact instruction if it isn't.
    */
   async uploadFromGoogleSheets(id: string, url: string) {
     const job = await this.findOne(id);
@@ -114,7 +138,8 @@ export class ImportJobsService {
         `Cannot upload a file to Import Job in ${job.status} status.`,
       );
     }
-    const content = await fetchGoogleSheetCsv(url);
+    const { spreadsheetId, gid } = parseGoogleSheetsUrl(url);
+    const content = await this.googleSheets.getSheetAsCsv(spreadsheetId, gid);
     return this.storeContent(id, 'google-sheet.csv', content, {
       sourceConnector: 'google-sheets',
       sourceUrl: url,
@@ -122,10 +147,17 @@ export class ImportJobsService {
   }
 
   /**
-   * "Manual Refresh" (Phase 1) — re-fetches the same Google Sheet and
+   * "Manual Refresh" (Part 4) — re-fetches the same Google Sheet and
    * replaces the stored content, without disturbing the job's current
    * column mapping/status. Scheduled (automatic) refresh is explicitly out
    * of scope this phase — see `ImportJob.scheduleConfig`.
+   *
+   * `isSyncing` is a real server-side advisory lock, not just a disabled
+   * frontend button — a second refresh request while one is already running
+   * is rejected outright (Part 4's "concurrent-refresh prevention").
+   * `lastAttemptedAt` is stamped regardless of outcome; `lastSyncedAt` only
+   * on success, so the review screen can show "last attempt failed, still
+   * showing data from <lastSyncedAt>" instead of silently going stale.
    */
   async refresh(id: string) {
     const job = await this.findOne(id);
@@ -142,16 +174,41 @@ export class ImportJobsService {
         `Cannot refresh an Import Job in ${job.status} status.`,
       );
     }
-    const content = await fetchGoogleSheetCsv(job.sourceUrl);
-    const table = parseCsv(content);
-    if (table.rows.length === 0) {
-      throw new BadRequestException('The Google Sheet has no data rows.');
+    if (job.isSyncing) {
+      throw new BadRequestException(
+        'A refresh is already in progress for this import job.',
+      );
     }
-    return this.prisma.importJob.update({
+
+    await this.prisma.importJob.update({
       where: { id },
-      data: { fileContent: content, totalRows: table.rows.length },
-      include: JOB_INCLUDE,
+      data: { isSyncing: true, lastAttemptedAt: new Date() },
     });
+
+    try {
+      const { spreadsheetId, gid } = parseGoogleSheetsUrl(job.sourceUrl);
+      const content = await this.googleSheets.getSheetAsCsv(spreadsheetId, gid);
+      const table = parseCsv(content);
+      if (table.rows.length === 0) {
+        throw new BadRequestException('The Google Sheet has no data rows.');
+      }
+      return await this.prisma.importJob.update({
+        where: { id },
+        data: {
+          fileContent: content,
+          totalRows: table.rows.length,
+          isSyncing: false,
+          lastSyncedAt: new Date(),
+        },
+        include: JOB_INCLUDE,
+      });
+    } catch (error) {
+      await this.prisma.importJob.update({
+        where: { id },
+        data: { isSyncing: false },
+      });
+      throw error;
+    }
   }
 
   private async storeContent(
@@ -173,6 +230,9 @@ export class ImportJobsService {
         totalRows: table.rows.length,
         sourceConnector: source?.sourceConnector,
         sourceUrl: source?.sourceUrl,
+        ...(source
+          ? { lastSyncedAt: new Date(), lastAttemptedAt: new Date() }
+          : {}),
       },
       include: JOB_INCLUDE,
     });
@@ -342,11 +402,31 @@ export class ImportJobsService {
     }
 
     errors.sort((a, b) => a.rowNumber - b.rowNumber);
+
+    const invalidRowNumbers = new Set(errors.map((e) => e.rowNumber));
+    const duplicateRowNumbers = new Set(
+      duplicateGroups.flatMap((group) => group.rowNumbers),
+    );
+    // A row counted as invalid never double-counts as a duplicate too — the
+    // three buckets partition every row exactly once, so they always sum to
+    // `totalRows`.
+    const duplicateOnlyCount = [...duplicateRowNumbers].filter(
+      (rowNumber) => !invalidRowNumbers.has(rowNumber),
+    ).length;
+    const summary: ImportPreviewSummary = {
+      totalRows: table.rows.length,
+      invalidCount: invalidRowNumbers.size,
+      duplicateCount: duplicateOnlyCount,
+      newCount: table.rows.length - invalidRowNumbers.size - duplicateOnlyCount,
+      needsReviewCount: 0,
+    };
+
     return {
       totalRows: table.rows.length,
       errorCount: errors.length,
       errors,
       duplicateGroups,
+      summary,
     };
   }
 

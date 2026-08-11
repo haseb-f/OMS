@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ImportTypeRegistryService } from './import-type-registry.service';
 import { ImportJobsService } from './import-jobs.service';
+import { GoogleSheetsService } from './google-sheets.service';
 import { ImportJobsController } from './import-jobs.controller';
 import { ImportTypesController } from './import-types.controller';
 import { ImportMappingTemplatesService } from './import-mapping-templates.service';
@@ -15,6 +16,8 @@ import { TaxRatesImportHandler } from './handlers/tax-rates-import.handler';
 import { CostCentersImportHandler } from './handlers/cost-centers-import.handler';
 import { ProjectsImportHandler } from './handlers/projects-import.handler';
 import { LeadsImportHandler } from './handlers/leads-import.handler';
+import { OrdersImportHandler } from './handlers/orders-import.handler';
+import { BankTransactionsImportHandler } from './handlers/bank-transactions-import.handler';
 import { OpeningStockImportHandler } from './handlers/opening-stock-import.handler';
 import { SalesQuotationsImportHandler } from './handlers/sales-quotations-import.handler';
 import { SalesOrdersImportHandler } from './handlers/sales-orders-import.handler';
@@ -57,6 +60,7 @@ import { PurchaseReturnsModule } from '../purchasing/returns/purchase-returns.mo
 import { FinancialTransactionsModule } from '../financial-transactions/financial-transactions.module';
 import { JournalEntriesModule } from '../journal-entries/journal-entries.module';
 import { OpeningBalancesModule } from '../accounting/opening-balances/opening-balances.module';
+import { BankTransactionsModule } from '../bank-transactions/bank-transactions.module';
 
 /**
  * Import Center (TASK-056/TASK-059 "Universal Import Center") — deliberately
@@ -99,11 +103,13 @@ import { OpeningBalancesModule } from '../accounting/opening-balances/opening-ba
     FinancialTransactionsModule,
     JournalEntriesModule,
     OpeningBalancesModule,
+    BankTransactionsModule,
   ],
   controllers: [ImportJobsController, ImportTypesController],
   providers: [
     ImportTypeRegistryService,
     ImportJobsService,
+    GoogleSheetsService,
     ImportMappingTemplatesService,
     ImportTemplateService,
     CustomersImportHandler,
@@ -116,6 +122,8 @@ import { OpeningBalancesModule } from '../accounting/opening-balances/opening-ba
     CostCentersImportHandler,
     ProjectsImportHandler,
     LeadsImportHandler,
+    OrdersImportHandler,
+    BankTransactionsImportHandler,
     OpeningStockImportHandler,
     SalesQuotationsImportHandler,
     SalesOrdersImportHandler,
@@ -130,5 +138,6 @@ import { OpeningBalancesModule } from '../accounting/opening-balances/opening-ba
     JournalEntriesImportHandler,
     OpeningBalancesImportHandler,
   ],
+  exports: [GoogleSheetsService],
 })
 export class ImportCenterModule {}

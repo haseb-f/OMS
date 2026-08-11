@@ -49,6 +49,12 @@ export class ChartOfAccountsController {
     return this.chartOfAccountsService.findOne(id);
   }
 
+  /** The proposed next code for a child of `:parentId` (Part 14) — read-only, never mutates anything; same `view` permission as the rest of this module (GET's default). */
+  @Get(':parentId/next-code')
+  nextCode(@Param('parentId') parentId: string) {
+    return this.chartOfAccountsService.proposeNextCode(parentId);
+  }
+
   @Get(':id/activity')
   activity(@Param('id') id: string) {
     return this.chartOfAccountsService.activityFor(id);
