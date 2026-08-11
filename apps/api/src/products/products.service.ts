@@ -187,12 +187,12 @@ export class ProductsService {
         skip: (page - 1) * pageSize,
         take: pageSize,
         orderBy: { [sortBy]: sortOrder },
+        // List/preview UI only ever reads category.name and brand.name —
+        // unit/tax/preferredWarehouse were fetched in full on every row of
+        // every page without being used anywhere on the list screen.
         include: {
-          category: true,
-          brand: true,
-          unit: true,
-          tax: true,
-          preferredWarehouse: true,
+          category: { select: { id: true, name: true } },
+          brand: { select: { id: true, name: true } },
         },
       }),
       this.prisma.product.count({ where }),
