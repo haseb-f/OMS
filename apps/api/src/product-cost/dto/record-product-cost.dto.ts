@@ -1,4 +1,5 @@
-import { IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 /** Records a caller-supplied cost value — no calculation happens here. */
 export class RecordProductCostDto {
@@ -14,7 +15,6 @@ export class RecordProductCostDto {
   @IsOptional()
   referenceType?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   referenceId?: string;
 }

@@ -11,22 +11,20 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { AllocationInputDto } from '../../shared/allocation-input.dto';
+import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.decorator';
 
 export class CreateCustomerReceiptDto {
   @IsUUID()
   customerId!: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   currencyId?: string;
 
   /** TASK-051 Document Context Enrichment — optional cost attribution, never required. */
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   costCenterId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   projectId?: string;
 
   /** Defaults to "now" in the service when omitted. */
@@ -34,12 +32,10 @@ export class CreateCustomerReceiptDto {
   @IsOptional()
   transactionDate?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   paymentSourceId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   receivingAccountId?: string;
 
   @IsNumber()

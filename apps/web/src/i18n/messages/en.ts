@@ -4,6 +4,9 @@ const en = {
     search: "Search",
     loading: "Loading…",
     noResults: "No results found.",
+    noDataAvailable: "No data available.",
+    addNew: "Add new",
+    loadListFailed: 'Couldn\'t load "{name}". Refresh the page or try again later.',
     comingSoon: "Coming Soon",
     comingSoonDescription: "This page is not built yet.",
     offline: "You're offline",
@@ -47,6 +50,94 @@ const en = {
     title: "Access Denied",
     description:
       "You don't have permission to view this page. Contact an administrator if you believe this is a mistake.",
+  },
+  phone: {
+    countryLabel: "Country",
+    numberLabel: "Phone number",
+    searchCountryPlaceholder: "Search by name or country code...",
+    noCountryFound: "No results.",
+    exampleLabel: "Example",
+    valid: "Valid phone number",
+    regionMismatchTitle: "A different country code was detected",
+    regionMismatchDescription:
+      "This number starts with a different country code than the selected country ({country}). Check the number or change the country.",
+    errors: {
+      EMPTY: "Phone number is required.",
+      NOT_A_NUMBER: "This doesn't look like a phone number.",
+      TOO_SHORT: "The number is too short.",
+      TOO_LONG: "The number is longer than allowed for this country.",
+      INVALID_LENGTH: "The number's length is invalid for this country.",
+      INVALID_COUNTRY: "The phone number doesn't match the selected country.",
+      INVALID_PATTERN: "The phone number doesn't match the selected country's format.",
+    },
+  },
+  /**
+   * The one place a backend error becomes user-facing text — mirrors ar.ts
+   * exactly (see there for the rationale). Kept in English as the fallback
+   * for the (currently unused) secondary locale.
+   */
+  errors: {
+    VALIDATION_ERROR: "Check the information you entered and try again.",
+    VALIDATION_ERROR_FIELD: 'The value in "{field}" isn\'t valid. Check it, then try saving again.',
+    DUPLICATE:
+      "This value is already used by another record. Enter a different value and try again.",
+    DUPLICATE_FIELD:
+      'The value in "{field}" is already used by another record. Enter a different value and try again.',
+    PERMISSION_ERROR:
+      "You don't have permission to do this. Contact your system administrator if you need access.",
+    NOT_FOUND:
+      "This item couldn't be found — it may have been deleted or moved. Refresh the page and try again.",
+    SERVER_ERROR:
+      "An unexpected server error occurred. Try again, and contact support if the problem continues.",
+    DATABASE_ERROR:
+      "The operation couldn't complete due to a database error. Try again or contact support.",
+    DEPENDENCY_ERROR:
+      "This action can't be completed because this item is linked to other data in the system.",
+    NETWORK_ERROR: "Couldn't reach the server. Check your internet connection and try again.",
+    generic: "Something went wrong. Try again.",
+    activationBlocked:
+      "Can't activate until you complete: {fields}. You can keep working on it as a draft until then.",
+    fields: {
+      revenueAccountId: "Revenue Account",
+      inventoryAccountId: "Inventory Account",
+      cogsAccountId: "Cost of Goods Sold Account",
+      purchaseAccountId: "Purchase Account",
+      parentAccountId: "Parent Account",
+      accountId: "Account",
+      currencyId: "Currency",
+      categoryId: "Category",
+      brandId: "Brand",
+      unitId: "Unit",
+      taxId: "Tax",
+      customerGroupId: "Customer Group",
+      supplierGroupId: "Supplier Group",
+      paymentTermId: "Payment Term",
+      paymentMethodId: "Payment Method",
+      shippingMethodId: "Shipping Method",
+      countryId: "Country",
+      cityId: "City",
+      warehouseId: "Warehouse",
+      preferredWarehouseId: "Default Warehouse",
+      preferredSupplierId: "Preferred Supplier",
+      analyticAccountId: "Cost Center",
+      costCenterId: "Cost Center",
+      customerId: "Customer",
+      supplierId: "Supplier",
+      productId: "Product",
+      name: "Name",
+      code: "Code",
+      email: "Email",
+      phone: "Phone",
+      mobile: "Mobile",
+      sku: "SKU",
+      username: "Username",
+      salesPrice: "Sales Price",
+      purchasePrice: "Purchase Price",
+      weight: "Weight & Dimensions",
+      width: "Weight & Dimensions",
+      height: "Weight & Dimensions",
+      length: "Weight & Dimensions",
+    },
   },
   permissions: {
     searchPlaceholder: "Search modules…",
@@ -131,6 +222,8 @@ const en = {
     financeReceivingAccounts: "Receiving Accounts",
     financeProjects: "Projects",
     financeCostCenters: "Cost Centers",
+    financeExpenses: "Expenses",
+    financeFixedAssets: "Fixed Assets",
     financeJournalEntries: "Journal Entries",
     financeCustomerReceipts: "Customer Receipt Vouchers",
     financeSupplierPayments: "Supplier Payment Vouchers",
@@ -234,6 +327,10 @@ const en = {
     selectAll: "Select all rows",
     selectRow: "Select row",
     rowsSelected: "selected",
+    selectAllMatching: "Select all {count} records matching filters",
+    selectingAllMatching: "Selecting…",
+    allMatchingSelected: "All {count} matching records selected",
+    clearSelection: "Clear selection",
     rowsPerPage: "Rows per page",
     pageOf: "Page {page} of {pageCount}",
     goToFirstPage: "Go to first page",
@@ -430,6 +527,7 @@ const en = {
       saveAndNew: "Save & New",
       quickPreview: "Quick Preview",
       viewActivity: "View Activity",
+      bulkArchivePartialFailure: "Failed to archive {count} of the selected items.",
     },
     fields: {
       code: "Code",
@@ -494,6 +592,24 @@ const en = {
       title: "Cost Centers",
       description: "Manage cost centers for journal entries and orders.",
     },
+    expenses: {
+      title: "Expenses",
+      description: "Record expenses — no approval workflow or accounting posting yet.",
+      fields: {
+        date: "Date",
+        amount: "Amount",
+        costCenter: "Cost Center",
+        paymentMethod: "Payment Method",
+      },
+    },
+    fixedAssets: {
+      title: "Fixed Assets",
+      description: "Fixed-asset register — no depreciation calculation or accounting posting yet.",
+      fields: {
+        acquisitionDate: "Acquisition Date",
+        cost: "Cost",
+      },
+    },
     projects: {
       title: "Projects",
       description: "Manage projects for journal entries and orders.",
@@ -524,6 +640,13 @@ const en = {
     categories: {
       title: "Categories",
       description: "Manage product categories.",
+      helperText: {
+        name: "The name that will appear throughout the system.",
+        revenueAccountId: "The account this category's product sales revenue posts to.",
+        inventoryAccountId: "The account representing this category's inventory value.",
+        cogsAccountId: "The account used to record the cost of goods sold from this category.",
+        purchaseAccountId: "The account used when purchasing products in this category.",
+      },
     },
     brands: {
       title: "Brands",
@@ -938,6 +1061,7 @@ const en = {
       SERIAL: "Serial Number",
     },
     status: {
+      DRAFT: "Draft",
       ACTIVE: "Active",
       INACTIVE: "Inactive",
     },
@@ -959,6 +1083,17 @@ const en = {
     attachmentsEmpty: "No attachments yet.",
     noSupplier: "No preferred supplier",
     noCategoryYet: "Create a Category and Unit in Master Data first.",
+    addCategory: "Add new category",
+    categoryQuickCreate: {
+      title: "Quick-create a category",
+      description:
+        "Create a category without leaving this product. You can add its accounting overrides later in Master Data.",
+      success: "Category created and selected.",
+      fields: {
+        name: "Category name",
+        description: "Description",
+      },
+    },
     saved: "Product saved.",
     createdSuccess: "Product created successfully.",
     archived: "Product archived.",

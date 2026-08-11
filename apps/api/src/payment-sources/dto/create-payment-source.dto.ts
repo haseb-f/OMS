@@ -4,8 +4,8 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  IsUUID,
 } from 'class-validator';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 /**
  * "HOW the customer paid" — a reference-data label only. No gateway
@@ -34,7 +34,6 @@ export class CreatePaymentSourceDto {
   isActive?: boolean;
 
   /** Optional default suggestion only — never the actual accounting destination. */
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   defaultChartOfAccountId?: string;
 }

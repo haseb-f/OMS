@@ -10,6 +10,7 @@ import {
 } from 'class-validator';
 import { PurchaseType } from '@prisma/client';
 import { PurchaseOrderItemInputDto } from './purchase-order-item-input.dto';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 /**
  * "Purchase Order is only an agreement to buy." Preparation-For-Future
@@ -22,20 +23,16 @@ export class CreatePurchaseOrderDto {
   supplierId!: string;
 
   /** Set internally when a PO is created via "Convert to Order" (TASK-048) — never accepted from a plain create-PO request body. */
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   quotationId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   projectId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   costCenterId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   currencyId?: string;
 
   @IsEnum(PurchaseType)

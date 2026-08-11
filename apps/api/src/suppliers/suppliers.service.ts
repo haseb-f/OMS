@@ -12,6 +12,10 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import {
+  PhoneNumberService,
+  phoneErrorMessage,
+} from '../common/phone/phone-number.service';
+import {
   SupplierActivityService,
   SupplierActivityType,
 } from './activities/supplier-activity.service';
@@ -33,9 +37,37 @@ export class SuppliersService {
     private readonly prisma: PrismaService,
     private readonly activityService: SupplierActivityService,
     private readonly numberingEngine: NumberingEngineService,
+    private readonly phoneNumberService: PhoneNumberService,
   ) {}
 
+  /** Mirrors `CustomersService.normalizeCustomerPhone` — resolves `countryId` (when given) to its ISO2 code, validates strictly against it, and best-effort normalizes without a country (Supplier's `countryId` is nullable). */
+  private async normalizeSupplierPhone(
+    value: string | undefined | null,
+    countryId: string | undefined | null,
+  ): Promise<string | undefined> {
+    if (!value?.trim()) return undefined;
+    const country = countryId
+      ? await this.prisma.country.findFirst({
+          where: { id: countryId, deletedAt: null },
+        })
+      : null;
+    const result = this.phoneNumberService.parse(value, country?.code);
+    if (country) {
+      if (!result.isValid || !result.e164) {
+        throw new BadRequestException(phoneErrorMessage(result.errorReason));
+      }
+      return result.e164;
+    }
+    return result.e164 ?? value.trim();
+  }
+
   async create(dto: CreateSupplierDto) {
+    const phone = dto.phone
+      ? await this.normalizeSupplierPhone(dto.phone, dto.countryId)
+      : dto.phone;
+    const mobile = dto.mobile
+      ? await this.normalizeSupplierPhone(dto.mobile, dto.countryId)
+      : dto.mobile;
     // Minted before the transaction opens — the Numbering Engine runs its
     // own short transaction internally (TASK-025 Part 4), the same way the
     // Postgres sequence this replaces was never rolled back by an outer
@@ -45,7 +77,13 @@ export class SuppliersService {
     try {
       return await this.prisma.$transaction(async (tx) => {
         const supplier = await tx.supplier.create({
-          data: { ...dto, code: dto.code || supplierNumber, supplierNumber },
+          data: {
+            ...dto,
+            phone,
+            mobile,
+            code: dto.code || supplierNumber,
+            supplierNumber,
+          },
         });
         await this.activityService.log(
           supplier.id,
@@ -115,10 +153,18 @@ export class SuppliersService {
   }
 
   async update(id: string, dto: UpdateSupplierDto) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
+    const data = { ...dto };
+    const countryId = dto.countryId ?? existing.countryId ?? undefined;
+    if (dto.phone) {
+      data.phone = await this.normalizeSupplierPhone(dto.phone, countryId);
+    }
+    if (dto.mobile) {
+      data.mobile = await this.normalizeSupplierPhone(dto.mobile, countryId);
+    }
     try {
       return await this.prisma.$transaction(async (tx) => {
-        const supplier = await tx.supplier.update({ where: { id }, data: dto });
+        const supplier = await tx.supplier.update({ where: { id }, data });
         await this.activityService.log(
           id,
           SupplierActivityType.SUPPLIER_UPDATED,
@@ -223,15 +269,31 @@ export class SuppliersService {
     return supplier;
   }
 
+  /** Compares canonical E.164 values, never raw strings (mirrors `CustomersService.findDuplicate`) — a supplier stored as "0501234567" must still match a lookup for "+966501234567". */
   private async findDuplicate(phone?: string, email?: string) {
-    const matchers: Prisma.SupplierWhereInput[] = [];
-    if (phone) matchers.push({ phone });
-    if (email) matchers.push({ email });
-    if (matchers.length === 0) return null;
+    const normalizedPhone = phone
+      ? this.phoneNumberService.normalizeToE164(phone)
+      : null;
 
-    return this.prisma.supplier.findFirst({
-      where: { deletedAt: null, OR: matchers },
-    });
+    if (normalizedPhone) {
+      const candidates = await this.prisma.supplier.findMany({
+        where: { deletedAt: null, phone: { not: null } },
+      });
+      const phoneMatch = candidates.find(
+        (c) =>
+          this.phoneNumberService.normalizeToE164(c.phone) === normalizedPhone,
+      );
+      if (phoneMatch) return phoneMatch;
+    }
+
+    if (email) {
+      const emailMatch = await this.prisma.supplier.findFirst({
+        where: { deletedAt: null, email },
+      });
+      if (emailMatch) return emailMatch;
+    }
+
+    return null;
   }
 
   /**

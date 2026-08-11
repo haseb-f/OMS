@@ -3,7 +3,7 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, ProductType } from '@prisma/client';
+import { Prisma, ProductStatus, ProductType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import {
@@ -83,12 +83,34 @@ export class ProductsService {
    * isInventoryItem" rule for the creation flow specifically);
    * internalName/displayName default to the Arabic `name` when omitted,
    * remaining editable later for a business that wants them to diverge.
+   *
+   * Defaults to DRAFT (not ACTIVE) when `status` is omitted — this is the
+   * Draft-first principle: a product created with only the lean create
+   * screen's fields isn't yet operationally complete (no price, no
+   * dimensions), so it shouldn't silently look ACTIVE. Explicitly
+   * requesting ACTIVE at creation still goes through the same activation
+   * check as `update()`.
    */
   async create(dto: CreateProductDto, userId?: string) {
     const defaults = DEFAULT_FLAGS_BY_TYPE[dto.type];
     const isPurchasable = dto.isPurchasable ?? defaults.isPurchasable;
     const isSellable = dto.isSellable ?? defaults.isSellable;
     const isInventoryItem = dto.isInventoryItem ?? defaults.isInventoryItem;
+    const status = dto.status ?? ProductStatus.DRAFT;
+
+    if (status === ProductStatus.ACTIVE) {
+      this.assertActivationReady({
+        isSellable,
+        isPurchasable,
+        isInventoryItem,
+        salesPrice: dto.salesPrice,
+        purchasePrice: dto.purchasePrice,
+        weight: dto.weight,
+        width: dto.width,
+        height: dto.height,
+        length: dto.length,
+      });
+    }
 
     // Minted before the transaction — same trade-off as every other
     // caller of the Numbering Engine (Suppliers/Leads/SalesOrders/...):
@@ -100,6 +122,7 @@ export class ProductsService {
         const product = await tx.product.create({
           data: {
             ...dto,
+            status,
             sku,
             internalName: dto.internalName || dto.name,
             displayName: dto.displayName || dto.name,
@@ -198,7 +221,25 @@ export class ProductsService {
   }
 
   async update(id: string, dto: UpdateProductDto, userId?: string) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
+
+    const nextStatus = dto.status ?? existing.status;
+    if (
+      nextStatus === ProductStatus.ACTIVE &&
+      existing.status !== ProductStatus.ACTIVE
+    ) {
+      this.assertActivationReady({
+        isSellable: dto.isSellable ?? existing.isSellable,
+        isPurchasable: dto.isPurchasable ?? existing.isPurchasable,
+        isInventoryItem: dto.isInventoryItem ?? existing.isInventoryItem,
+        salesPrice: dto.salesPrice ?? existing.salesPrice?.toNumber(),
+        purchasePrice: dto.purchasePrice ?? existing.purchasePrice?.toNumber(),
+        weight: dto.weight ?? existing.weight?.toNumber(),
+        width: dto.width ?? existing.width?.toNumber(),
+        height: dto.height ?? existing.height?.toNumber(),
+        length: dto.length ?? existing.length?.toNumber(),
+      });
+    }
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -280,6 +321,61 @@ export class ProductsService {
       );
       return attachment;
     });
+  }
+
+  /**
+   * The Draft → Active gate. Grounded only in rules that already exist
+   * elsewhere in this codebase — ADR-0012's "weight/dimensions mandatory
+   * when isInventoryItem" verbatim, plus the same "can't sell/purchase
+   * without a price" logic implied by `salesPrice`/`purchasePrice` existing
+   * as real, meaningful fields once `isSellable`/`isPurchasable` is true.
+   * Never gates on Category/Tax/accounts — those already resolve to a
+   * working default via Category/Accounting Settings, so there's nothing
+   * genuinely missing at the product level to block on.
+   */
+  private assertActivationReady(data: {
+    isSellable: boolean;
+    isPurchasable: boolean;
+    isInventoryItem: boolean;
+    salesPrice?: number | null;
+    purchasePrice?: number | null;
+    weight?: number | null;
+    width?: number | null;
+    height?: number | null;
+    length?: number | null;
+  }): void {
+    const missing: string[] = [];
+    if (
+      data.isSellable &&
+      (data.salesPrice === null || data.salesPrice === undefined)
+    ) {
+      missing.push('salesPrice');
+    }
+    if (
+      data.isPurchasable &&
+      (data.purchasePrice === null || data.purchasePrice === undefined)
+    ) {
+      missing.push('purchasePrice');
+    }
+    if (
+      data.isInventoryItem &&
+      (data.weight == null ||
+        data.width == null ||
+        data.height == null ||
+        data.length == null)
+    ) {
+      missing.push('weight', 'width', 'height', 'length');
+    }
+    if (missing.length > 0) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: 'Product is missing fields required for activation.',
+        fields: missing.map((field) => ({
+          field,
+          constraints: ['required_for_activation'],
+        })),
+      });
+    }
   }
 
   private mapError(error: unknown): Error {

@@ -1,11 +1,5 @@
-import {
-  IsInt,
-  IsNumber,
-  IsOptional,
-  IsString,
-  IsUUID,
-  Min,
-} from 'class-validator';
+import { IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 /**
  * Pricing snapshot per line item — decision #5. No computed totals; raw
@@ -14,8 +8,7 @@ import {
  */
 export class OrderItemInputDto {
   /** No Product entity/module exists yet — reserved for future integration, not a foreign key. */
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   productId?: string;
 
   @IsInt()

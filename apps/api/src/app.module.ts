@@ -6,10 +6,13 @@ import { UsersModule } from './users/users.module';
 import { JobTitlesModule } from './job-titles/job-titles.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { PermissionsCoreModule } from './permissions/permissions-core.module';
+import { PhoneModule } from './common/phone/phone.module';
 import { CurrenciesModule } from './currencies/currencies.module';
 import { CountriesModule } from './countries/countries.module';
 import { ProjectsModule } from './projects/projects.module';
 import { CostCentersModule } from './cost-centers/cost-centers.module';
+import { ExpensesModule } from './expenses/expenses.module';
+import { FixedAssetsModule } from './fixed-assets/fixed-assets.module';
 import { PaymentMethodsModule } from './payment-methods/payment-methods.module';
 import { PaymentTermsModule } from './payment-terms/payment-terms.module';
 import { ShippingMethodsModule } from './shipping-methods/shipping-methods.module';
@@ -65,6 +68,7 @@ import { ImportCenterModule } from './import-center/import-center.module';
   imports: [
     PrismaModule,
     PermissionsCoreModule,
+    PhoneModule,
     AuthModule,
     UsersModule,
     JobTitlesModule,
@@ -73,6 +77,8 @@ import { ImportCenterModule } from './import-center/import-center.module';
     CountriesModule,
     ProjectsModule,
     CostCentersModule,
+    ExpensesModule,
+    FixedAssetsModule,
     PaymentMethodsModule,
     ShippingMethodsModule,
     ProductCategoriesModule,

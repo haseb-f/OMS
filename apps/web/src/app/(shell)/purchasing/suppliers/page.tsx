@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Truck } from "lucide-react";
+import { Truck, Eye } from "lucide-react";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
 import type { MasterDataFormSection } from "@/components/master-data/master-data-form";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
-import { EnterpriseButton } from "@/components/ui/button";
+import type { RowAction } from "@/components/shared/data-table";
 import { suppliersService, type SupplierRow } from "@/services/suppliers-service";
 import { createMasterDataService } from "@/services/master-data-service";
 import type { CurrencyRow, CountryRow } from "@/config/master-data/entities";
@@ -15,7 +15,7 @@ import {
   supplierExportColumns,
   supplierRowLabel,
 } from "@/config/purchasing/supplier-columns";
-import { supplierSchema, supplierDefaultValues } from "@/config/purchasing/supplier-form";
+import { buildSupplierSchema, supplierDefaultValues } from "@/config/purchasing/supplier-form";
 import { useLocale } from "@/providers/locale-provider";
 import { PermissionGate } from "@/components/shared/permission-gate";
 
@@ -60,8 +60,18 @@ function SuppliersPageContent() {
         title: t("purchasing.suppliers.sections.contact"),
         columns: 2,
         fields: [
-          { name: "phone", label: "purchasing.suppliers.fields.phone", type: "text" },
-          { name: "mobile", label: "purchasing.suppliers.fields.mobile", type: "text" },
+          {
+            name: "phone",
+            label: "purchasing.suppliers.fields.phone",
+            type: "phone",
+            countryFieldName: "countryId",
+          },
+          {
+            name: "mobile",
+            label: "purchasing.suppliers.fields.mobile",
+            type: "phone",
+            countryFieldName: "countryId",
+          },
           { name: "email", label: "purchasing.suppliers.fields.email", type: "text" },
           { name: "website", label: "purchasing.suppliers.fields.website", type: "text" },
         ],
@@ -93,8 +103,7 @@ function SuppliersPageContent() {
           {
             name: "countryId",
             label: "purchasing.suppliers.fields.country",
-            type: "select",
-            options: countries.map((c) => ({ value: c.id, label: c.name })),
+            type: "country",
           },
           { name: "city", label: "purchasing.suppliers.fields.city", type: "text" },
           { name: "address", label: "purchasing.suppliers.fields.address", type: "text" },
@@ -109,6 +118,8 @@ function SuppliersPageContent() {
     [t, currencies, countries],
   );
 
+  const supplierSchema = useMemo(() => buildSupplierSchema(countries, t), [countries, t]);
+
   return (
     <MasterDataPage<SupplierRow>
       titleKey="purchasing.suppliers.title"
@@ -121,20 +132,19 @@ function SuppliersPageContent() {
       exportColumnKeys={supplierExportColumns}
       formSections={formSections}
       schema={supplierSchema}
+      phoneCountries={countries}
       defaultValues={supplierDefaultValues}
       permissionPrefix="purchasing.suppliers"
       rowLabel={supplierRowLabel}
       extraActions={<ModuleImportButtons importType="SUPPLIERS" />}
-      renderRowExtraActions={(entity) => (
-        <EnterpriseButton
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => router.push(`/purchasing/suppliers/${entity.id}`)}
-        >
-          {t("purchasing.suppliers.viewProfile")}
-        </EnterpriseButton>
-      )}
+      extraRowActions={(entity): RowAction[] => [
+        {
+          key: "view-profile",
+          label: t("purchasing.suppliers.viewProfile"),
+          icon: Eye,
+          onSelect: () => router.push(`/purchasing/suppliers/${entity.id}`),
+        },
+      ]}
     />
   );
 }

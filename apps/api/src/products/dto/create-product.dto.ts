@@ -14,6 +14,7 @@ import {
   ProductStatus,
   ProductType,
 } from '@prisma/client';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 /**
  * Enterprise Products (TASK-027) — STOCKABLE / SERVICE / CONSUMABLE. `sku`
@@ -67,25 +68,21 @@ export class CreateProductDto {
   @IsUUID()
   categoryId!: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   brandId?: string;
 
   /** Required. */
   @IsUUID()
   unitId!: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   taxId?: string;
 
   /** Cost Center — an Analytic Account. */
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   analyticAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   preferredSupplierId?: string;
 
   @IsString()
@@ -164,8 +161,7 @@ export class CreateProductDto {
   @IsOptional()
   safetyStock?: number;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   preferredWarehouseId?: string;
 
   @IsEnum(ProductCostingMethod)

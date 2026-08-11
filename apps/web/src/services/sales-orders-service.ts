@@ -112,6 +112,16 @@ export interface SalesOrderListResult {
   pageSize: number;
 }
 
+export interface SalesOrderIdsResult {
+  ids: string[];
+  total: number;
+}
+
+export interface BulkArchiveResult {
+  succeeded: string[];
+  failed: { id: string; message: string }[];
+}
+
 export interface ConvertOrderToInvoiceLinePayload {
   salesOrderItemId: string;
   quantity: number;
@@ -144,6 +154,11 @@ export const salesOrdersService = {
     apiClient.get<SalesOrderListResult>(
       `/sales/orders${buildQueryString(params as Record<string, unknown>)}`,
     ),
+  /** "Select all matching filters" (Part 8) — same params as `list`, bare IDs only. */
+  listIds: (params: SalesOrderListParams = {}) =>
+    apiClient.get<SalesOrderIdsResult>(
+      `/sales/orders/ids${buildQueryString(params as Record<string, unknown>)}`,
+    ),
   get: (id: string) => apiClient.get<SalesOrderRow>(`/sales/orders/${id}`),
   create: (dto: SalesOrderFormPayload) => apiClient.post<SalesOrderRow>("/sales/orders", dto),
   update: (id: string, dto: Partial<SalesOrderFormPayload>) =>
@@ -154,6 +169,9 @@ export const salesOrdersService = {
   cancel: (id: string) => apiClient.post<SalesOrderRow>(`/sales/orders/${id}/cancel`),
   /** Soft-delete — hides the order from the list without destroying data. Only allowed from Draft/Cancelled/Delivered/Closed (enforced server-side). */
   archive: (id: string) => apiClient.post<SalesOrderRow>(`/sales/orders/${id}/archive`),
+  /** One controlled server-side call instead of fanning out N concurrent archive requests for a large/cross-page selection. */
+  bulkArchive: (ids: string[]) =>
+    apiClient.post<BulkArchiveResult>(`/sales/orders/bulk-archive`, { ids }),
   activities: (id: string) =>
     apiClient.get<SalesOrderActivityEntry[]>(`/sales/orders/${id}/activities`),
   /** Delegates to the existing `SalesOrdersService.convertToInvoice` → `SalesInvoicesService.createFromOrder` backend flow — no line-item or inventory math happens on the frontend. */

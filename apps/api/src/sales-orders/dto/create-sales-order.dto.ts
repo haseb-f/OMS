@@ -1,11 +1,7 @@
 import { Type } from 'class-transformer';
-import {
-  ArrayMinSize,
-  IsOptional,
-  IsUUID,
-  ValidateNested,
-} from 'class-validator';
+import { ArrayMinSize, IsUUID, ValidateNested } from 'class-validator';
 import { OrderItemInputDto } from './order-item-input.dto';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 /**
  * "Create Order From Paid Lead" — the only creation path (decision: business
@@ -34,8 +30,7 @@ export class CreateSalesOrderDto {
   warehouseId!: string;
 
   /** Operational user who created the order — decision #4. No auth exists, so client-supplied. */
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   createdById?: string;
 
   @ValidateNested({ each: true })

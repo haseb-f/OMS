@@ -11,13 +11,13 @@ import {
 import { Type } from 'class-transformer';
 import { PurchaseType } from '@prisma/client';
 import { PurchaseLineItemInputDto } from '../../shared/purchase-line-item-input.dto';
+import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.decorator';
 
 export class CreatePurchaseQuotationDto {
   @IsUUID()
   supplierId!: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   currencyId?: string;
 
   @IsEnum(PurchaseType)

@@ -1,10 +1,10 @@
-import { IsOptional, IsUUID } from 'class-validator';
+import { IsUUID } from 'class-validator';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 export class GetStockQueryDto {
   @IsUUID()
   productId!: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   warehouseId?: string;
 }

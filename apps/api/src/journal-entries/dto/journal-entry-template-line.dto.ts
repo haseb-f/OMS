@@ -1,4 +1,5 @@
 import { IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 /** Same per-line shape the editor's grid already works with — stored as-is in `JournalEntryTemplate.lines` (JSON). */
 export class JournalEntryTemplateLineDto {
@@ -9,12 +10,10 @@ export class JournalEntryTemplateLineDto {
   @IsOptional()
   description?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   costCenterId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   projectId?: string;
 
   @IsNumber()

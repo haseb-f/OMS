@@ -5,10 +5,10 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  IsUUID,
   ValidateNested,
 } from 'class-validator';
 import { JournalEntryTemplateLineDto } from './journal-entry-template-line.dto';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 export class SaveJournalEntryTemplateDto {
   @IsString()
@@ -19,8 +19,7 @@ export class SaveJournalEntryTemplateDto {
   @IsOptional()
   description?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   journalId?: string;
 
   @IsArray()

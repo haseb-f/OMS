@@ -1,5 +1,6 @@
-import { IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 import { BaseQuantityMovementDto } from './base-quantity-movement.dto';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 export class ReserveDto extends BaseQuantityMovementDto {
   /** Sales Foundation (TASK-037) — links this reservation back to its
@@ -11,7 +12,6 @@ export class ReserveDto extends BaseQuantityMovementDto {
   @IsOptional()
   referenceType?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   referenceId?: string;
 }

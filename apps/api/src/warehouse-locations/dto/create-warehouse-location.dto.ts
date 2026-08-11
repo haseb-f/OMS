@@ -5,6 +5,7 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 export class CreateWarehouseLocationDto {
   @IsString()
@@ -19,8 +20,7 @@ export class CreateWarehouseLocationDto {
   @IsNotEmpty()
   warehouseId!: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   parentLocationId?: string;
 
   @IsBoolean()

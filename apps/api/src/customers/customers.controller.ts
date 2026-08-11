@@ -22,6 +22,7 @@ import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { FindOrCreateCustomerDto } from './dto/find-or-create-customer.dto';
 import { MasterDataQueryDto } from '../master-data/dto/master-data-query.dto';
+import { BulkIdsDto } from '../master-data/dto/bulk-ids.dto';
 
 /** Business operations: Create, Update, Archive, Restore, Search, Find-or-Create. */
 @Controller('customers')
@@ -53,6 +54,12 @@ export class CustomersController {
     return this.customersService.lookupByPhone(phone);
   }
 
+  /** "Select all matching filters" (Part 8) — bare IDs only, same filter/search as `findAll`. */
+  @Get('ids')
+  findAllIds(@Query() query: MasterDataQueryDto) {
+    return this.customersService.findAllIds(query);
+  }
+
   @Get()
   findAll(@Query() query: MasterDataQueryDto) {
     return this.customersService.findAll(query);
@@ -81,6 +88,12 @@ export class CustomersController {
   @PermissionAction('delete')
   archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.customersService.archive(id, user.sub);
+  }
+
+  @Post('bulk-archive')
+  @PermissionAction('delete')
+  bulkArchive(@Body() dto: BulkIdsDto, @CurrentUser() user: JwtPayload) {
+    return this.customersService.archiveMany(dto.ids, user.sub);
   }
 
   @Post(':id/restore')

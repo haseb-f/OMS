@@ -112,6 +112,16 @@ export interface JournalEntryListResult {
   pageSize: number;
 }
 
+export interface JournalEntryIdsResult {
+  ids: string[];
+  total: number;
+}
+
+export interface JournalEntryBulkArchiveResult {
+  succeeded: string[];
+  failed: { id: string; message: string }[];
+}
+
 export interface JournalEntryActivityEntry {
   id: string;
   type: string;
@@ -140,6 +150,11 @@ export const journalEntriesService = {
     apiClient.get<JournalEntryListResult>(
       `/journal-entries${buildQueryString(params as Record<string, unknown>)}`,
     ),
+  /** "Select all matching filters" (Part 8) — same params as `list`, bare IDs only. */
+  listIds: (params: JournalEntryListParams = {}) =>
+    apiClient.get<JournalEntryIdsResult>(
+      `/journal-entries/ids${buildQueryString(params as Record<string, unknown>)}`,
+    ),
   get: (id: string) => apiClient.get<JournalEntryRow>(`/journal-entries/${id}`),
   create: (dto: JournalEntryFormPayload) =>
     apiClient.post<JournalEntryRow>("/journal-entries", dto),
@@ -149,6 +164,9 @@ export const journalEntriesService = {
   reverse: (id: string) => apiClient.post<JournalEntryRow>(`/journal-entries/${id}/reverse`),
   /** Soft-delete — Draft only (enforced server-side). A Posted entry is permanent ledger history; use Reverse instead. */
   archive: (id: string) => apiClient.post<JournalEntryRow>(`/journal-entries/${id}/archive`),
+  /** One controlled server-side call instead of fanning out N concurrent archive requests for a large/cross-page selection. */
+  bulkArchive: (ids: string[]) =>
+    apiClient.post<JournalEntryBulkArchiveResult>(`/journal-entries/bulk-archive`, { ids }),
   /** Hard delete — Draft only (enforced server-side). Once Posted, use Archive/Reverse instead. */
   remove: (id: string) => apiClient.delete<void>(`/journal-entries/${id}`),
   /** Creates a new Draft copying this entry's journal/description/lines — never its number, status, or posted/reversed audit fields. */

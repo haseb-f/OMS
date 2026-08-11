@@ -6,15 +6,14 @@ import {
   IsInt,
   IsOptional,
   IsString,
-  IsUUID,
   Max,
   Min,
 } from 'class-validator';
 import { PurchaseOrderStatus, PurchaseType } from '@prisma/client';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 export class FindPurchaseOrdersQueryDto {
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   supplierId?: string;
 
   @IsEnum(PurchaseOrderStatus)

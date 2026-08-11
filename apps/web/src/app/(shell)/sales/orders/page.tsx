@@ -71,6 +71,14 @@ function SalesOrdersPageContent() {
   const [dateRange, setDateRange] = useState<DateRangeValue>(EMPTY_DATE_RANGE);
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [isSelectingAllMatching, setIsSelectingAllMatching] = useState(false);
+  // Cross-page selection (Part 7) — `rowSelection` itself is already ID-keyed
+  // and survives pagination (see `EnterpriseDataTable`'s `getRowId`), but
+  // `items` only ever holds the CURRENT page. Bulk print/export need the
+  // actual row data (customer name, totals, ...), not just IDs, so every
+  // page fetched is merged into this cache instead of being discarded —
+  // a row selected on page 1 keeps its data available after paging to 2.
+  const [itemsCache, setItemsCache] = useState<Record<string, SalesOrderRow>>({});
   const [usersById, setUsersById] = useState<Record<string, string>>({});
   const [cancelTarget, setCancelTarget] = useState<SalesOrderRow | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<SalesOrderRow | null>(null);
@@ -99,6 +107,10 @@ function SalesOrdersPageContent() {
       });
       setItems(result.items);
       setTotal(result.total);
+      setItemsCache((cache) => ({
+        ...cache,
+        ...Object.fromEntries(result.items.map((item) => [item.id, item])),
+      }));
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Failed to load sales orders.");
     } finally {
@@ -210,10 +222,17 @@ function SalesOrdersPageContent() {
     [router, usersById, activeCompany, user],
   );
 
-  const selectedItems = items.filter((item) => rowSelection[item.id]);
+  const selectedIds = Object.keys(rowSelection);
+  // Only rows actually fetched (this session) have data in the cache — a
+  // huge "select all matching" set can include IDs never paged through.
+  // Print/Export need real row data, so they operate on the subset that's
+  // actually available; Archive is ID-only and works on the full selection
+  // regardless (the backend enforces the archivable-status rule per row).
+  const selectedItems = selectedIds.map((id) => itemsCache[id]).filter((item) => !!item);
   const selectedArchivable = selectedItems.filter((item) =>
     ORDER_ARCHIVABLE_STATUSES.includes(item.status),
   );
+  const hasUncachedSelection = selectedIds.length > selectedItems.length;
 
   const handleBulkPrint = () => {
     if (selectedItems.length === 0) return;
@@ -239,20 +258,36 @@ function SalesOrdersPageContent() {
     );
   };
 
+  const handleSelectAllMatching = async () => {
+    setIsSelectingAllMatching(true);
+    try {
+      const result = await salesOrdersService.listIds({
+        search: search || undefined,
+        status: (statusFilter || undefined) as SalesDocumentStatusValue | undefined,
+        customerId: customerFilter?.id,
+        dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
+        dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
+      });
+      setRowSelection(Object.fromEntries(result.ids.map((id) => [id, true])));
+    } catch (error) {
+      toast.error(
+        error instanceof ApiError ? error.message : "Failed to select all matching orders.",
+      );
+    } finally {
+      setIsSelectingAllMatching(false);
+    }
+  };
+
   const handleBulkArchiveConfirmed = async () => {
     setBulkArchiveOpen(false);
-    let failures = 0;
-    for (const item of selectedArchivable) {
-      try {
-        await salesOrdersService.archive(item.id);
-      } catch {
-        failures += 1;
-      }
-    }
-    if (failures === 0) {
-      toast.success(t("sales.orders.toasts.bulkArchived", { count: selectedArchivable.length }));
+    // Send every selected ID, not just the cache-known archivable subset —
+    // a "select all matching" selection can include rows never fetched, and
+    // `archive()` already enforces the status rule per row server-side.
+    const result = await salesOrdersService.bulkArchive(selectedIds);
+    if (result.failed.length === 0) {
+      toast.success(t("sales.orders.toasts.bulkArchived", { count: result.succeeded.length }));
     } else {
-      toast.error(t("sales.orders.toasts.bulkArchiveFailed", { count: failures }));
+      toast.error(t("sales.orders.toasts.bulkArchiveFailed", { count: result.failed.length }));
     }
     setRowSelection({});
     void load();
@@ -356,12 +391,18 @@ function SalesOrdersPageContent() {
         isLoading={isLoading}
         rowSelection={rowSelection}
         onRowSelectionChange={setRowSelection}
+        onSelectAllMatching={handleSelectAllMatching}
+        isSelectingAllMatching={isSelectingAllMatching}
         bulkActions={
           <SalesListBulkActions
             onPrint={handleBulkPrint}
             onExport={handleBulkExport}
             onArchive={() => setBulkArchiveOpen(true)}
-            archiveDisabled={selectedArchivable.length === 0}
+            // Fully known from cache -> disable when nothing archivable;
+            // partially unknown (a "select all matching" set reaching past
+            // fetched pages) -> never block the attempt, the backend sorts
+            // out which of the selected rows are actually archivable.
+            archiveDisabled={!hasUncachedSelection && selectedArchivable.length === 0}
             labels={{
               print: t("table.print"),
               export: t("table.export"),
@@ -408,7 +449,9 @@ function SalesOrdersPageContent() {
         open={bulkArchiveOpen}
         onOpenChange={setBulkArchiveOpen}
         tone="destructive"
-        title={t("sales.orders.bulk.archiveConfirmTitle", { count: selectedArchivable.length })}
+        title={t("sales.orders.bulk.archiveConfirmTitle", {
+          count: hasUncachedSelection ? selectedIds.length : selectedArchivable.length,
+        })}
         description={t("sales.orders.confirmArchiveDescription")}
         confirmLabel={t("common.archive")}
         cancelLabel={t("common.close")}

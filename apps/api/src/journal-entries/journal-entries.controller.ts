@@ -22,6 +22,7 @@ import { CreateJournalEntryDto } from './dto/create-journal-entry.dto';
 import { UpdateJournalEntryDto } from './dto/update-journal-entry.dto';
 import { FindJournalEntriesQueryDto } from './dto/find-journal-entries-query.dto';
 import { SaveJournalEntryTemplateDto } from './dto/save-journal-entry-template.dto';
+import { BulkIdsDto } from '../master-data/dto/bulk-ids.dto';
 
 /** Business operations only: Create, Update, Delete, Post, Reverse, Archive, Search, Templates. */
 @Controller('journal-entries')
@@ -41,6 +42,12 @@ export class JournalEntriesController {
   @Get()
   findAll(@Query() query: FindJournalEntriesQueryDto) {
     return this.journalEntries.findAll(query);
+  }
+
+  /** "Select all matching filters" (Part 8) — bare IDs only, same filter/search as `findAll`. Registered before `:id` for the same reason `templates` is below. */
+  @Get('ids')
+  findAllIds(@Query() query: FindJournalEntriesQueryDto) {
+    return this.journalEntries.findAllIds(query);
   }
 
   /** "Recurring Journal Templates" — registered before `:id` so `templates` is never swallowed by the id route. */
@@ -102,6 +109,13 @@ export class JournalEntriesController {
   @PermissionAction('delete')
   archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.journalEntries.archive(id, user.sub);
+  }
+
+  @Post('bulk-archive')
+  @HttpCode(200)
+  @PermissionAction('delete')
+  bulkArchive(@Body() dto: BulkIdsDto, @CurrentUser() user: JwtPayload) {
+    return this.journalEntries.archiveMany(dto.ids, user.sub);
   }
 
   @Post(':id/duplicate')

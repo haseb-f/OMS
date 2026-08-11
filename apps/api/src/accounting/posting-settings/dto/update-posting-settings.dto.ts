@@ -1,83 +1,63 @@
-import { IsOptional, IsUUID } from 'class-validator';
+import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.decorator';
 
 export class UpdatePostingSettingsDto {
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   salesRevenueAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   salesDiscountAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   salesReturnAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   costOfGoodsSoldAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   inventoryAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   inventoryAdjustmentAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   purchaseAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   purchaseReturnAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   accountsReceivableAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   accountsPayableAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   cashAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   bankAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   vatOutputAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   vatInputAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   roundDifferenceAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   defaultExpenseAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   purchaseDiscountAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   exchangeDifferenceAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   suspenseAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   retainedEarningsAccountId?: string;
 }

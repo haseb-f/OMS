@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { UserCircle } from "lucide-react";
+import { UserCircle, Eye } from "lucide-react";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
 import type { MasterDataFormSection } from "@/components/master-data/master-data-form";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
-import { EnterpriseButton } from "@/components/ui/button";
+import type { RowAction } from "@/components/shared/data-table";
 import {
   Select,
   SelectContent,
@@ -31,7 +31,7 @@ import {
   customerExportColumns,
   customerRowLabel,
 } from "@/config/sales/customer-columns";
-import { customerSchema, customerDefaultValues } from "@/config/sales/customer-form";
+import { buildCustomerSchema, customerDefaultValues } from "@/config/sales/customer-form";
 import { useLocale } from "@/providers/locale-provider";
 import { PermissionGate } from "@/components/shared/permission-gate";
 
@@ -100,8 +100,18 @@ function CustomersPageContent() {
         title: t("sales.customers.sections.contact"),
         columns: 2,
         fields: [
-          { name: "phone", label: "sales.customers.fields.phone", type: "text" },
-          { name: "mobile", label: "sales.customers.fields.mobile", type: "text" },
+          {
+            name: "phone",
+            label: "sales.customers.fields.phone",
+            type: "phone",
+            countryFieldName: "countryId",
+          },
+          {
+            name: "mobile",
+            label: "sales.customers.fields.mobile",
+            type: "phone",
+            countryFieldName: "countryId",
+          },
           { name: "email", label: "sales.customers.fields.email", type: "text" },
           { name: "website", label: "sales.customers.fields.website", type: "text" },
         ],
@@ -138,8 +148,7 @@ function CustomersPageContent() {
           {
             name: "countryId",
             label: "sales.customers.fields.country",
-            type: "select",
-            options: countries.map((c) => ({ value: c.id, label: c.name })),
+            type: "country",
           },
           { name: "city", label: "sales.customers.fields.city", type: "text" },
           { name: "address", label: "sales.customers.fields.address", type: "text" },
@@ -154,6 +163,8 @@ function CustomersPageContent() {
     [t, customerGroups, currencies, paymentTerms, countries],
   );
 
+  const customerSchema = useMemo(() => buildCustomerSchema(countries, t), [countries, t]);
+
   return (
     <MasterDataPage<CustomerRow>
       titleKey="sales.customers.title"
@@ -166,9 +177,11 @@ function CustomersPageContent() {
       exportColumnKeys={customerExportColumns}
       formSections={formSections}
       schema={customerSchema}
+      phoneCountries={countries}
       defaultValues={customerDefaultValues}
       permissionPrefix="sales.customers"
       rowLabel={customerRowLabel}
+      supportsSelectAllMatching
       extraActions={<ModuleImportButtons importType="CUSTOMERS" />}
       extraListParams={sourceFilter ? { source: sourceFilter } : undefined}
       extraFilters={
@@ -189,16 +202,14 @@ function CustomersPageContent() {
           </SelectContent>
         </Select>
       }
-      renderRowExtraActions={(entity) => (
-        <EnterpriseButton
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => router.push(`/sales/customers/${entity.id}`)}
-        >
-          {t("sales.customers.viewProfile")}
-        </EnterpriseButton>
-      )}
+      extraRowActions={(entity): RowAction[] => [
+        {
+          key: "view-profile",
+          label: t("sales.customers.viewProfile"),
+          icon: Eye,
+          onSelect: () => router.push(`/sales/customers/${entity.id}`),
+        },
+      ]}
     />
   );
 }

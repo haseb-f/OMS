@@ -4,9 +4,9 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  IsUUID,
 } from 'class-validator';
 import { JournalType } from '@prisma/client';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 /**
  * Journal (TASK-053) — the book of entry an accounting document belongs to
@@ -29,24 +29,19 @@ export class CreateJournalDto {
   @IsOptional()
   sequencePrefix?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   defaultDebitAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   defaultCreditAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   currencyId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   companyId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   branchId?: string;
 
   @IsBoolean()

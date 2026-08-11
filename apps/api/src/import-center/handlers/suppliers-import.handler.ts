@@ -1,6 +1,13 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import { SuppliersService } from '../../suppliers/suppliers.service';
+import { CountriesService } from '../../countries/countries.service';
 import { ImportTypeRegistryService } from '../import-type-registry.service';
+import { resolveOptionalIdByField } from '../import-value.util';
+import {
+  PhoneNumberService,
+  phoneErrorMessage,
+} from '../../common/phone/phone-number.service';
 import type {
   ImportFieldDef,
   ImportRowOptions,
@@ -21,6 +28,13 @@ const FIELDS: ImportFieldDef[] = [
     key: 'commercialName',
     labelKey: 'importCenter.fields.commercialName',
     label: 'Commercial Name',
+    required: false,
+    type: 'string',
+  },
+  {
+    key: 'countryName',
+    labelKey: 'importCenter.fields.countryName',
+    label: 'Country',
     required: false,
     type: 'string',
   },
@@ -88,7 +102,9 @@ export class SuppliersImportHandler implements ImportTypeHandler, OnModuleInit {
 
   constructor(
     private readonly suppliersService: SuppliersService,
+    private readonly countriesService: CountriesService,
     private readonly registry: ImportTypeRegistryService,
+    private readonly phoneNumberService: PhoneNumberService,
   ) {}
 
   onModuleInit() {
@@ -100,10 +116,28 @@ export class SuppliersImportHandler implements ImportTypeHandler, OnModuleInit {
     _userId?: string,
     options?: ImportRowOptions,
   ): Promise<ImportRowResult> {
+    const countryId = await resolveOptionalIdByField(
+      this.countriesService,
+      'name',
+      row.countryName,
+      'Country',
+    );
+    const countryCode = countryId
+      ? (await this.countriesService.findOne(countryId)).code
+      : undefined;
+    for (const value of [row.phone, row.mobile]) {
+      if (!value) continue;
+      const check = this.phoneNumberService.parse(value, countryCode);
+      if (countryCode && !check.isValid) {
+        throw new BadRequestException(phoneErrorMessage(check.errorReason));
+      }
+    }
+
     if (options?.dryRun) return { id: 'dry-run' };
     const supplier = await this.suppliersService.create({
       name: row.name,
       commercialName: row.commercialName || undefined,
+      countryId,
       phone: row.phone || undefined,
       mobile: row.mobile || undefined,
       email: row.email || undefined,

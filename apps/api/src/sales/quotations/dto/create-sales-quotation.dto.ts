@@ -9,13 +9,13 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { SalesLineItemInputDto } from '../../shared/sales-line-item-input.dto';
+import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.decorator';
 
 export class CreateSalesQuotationDto {
   @IsUUID()
   customerId!: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   currencyId?: string;
 
   /** Defaults to "now" in the service when omitted. */

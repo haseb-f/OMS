@@ -4,9 +4,9 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  IsUUID,
   MinLength,
 } from 'class-validator';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 export class CreateUserDto {
   @IsEmail()
@@ -32,12 +32,10 @@ export class CreateUserDto {
   @IsOptional()
   department?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   jobTitleId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   branchId?: string;
 
   @IsBoolean()

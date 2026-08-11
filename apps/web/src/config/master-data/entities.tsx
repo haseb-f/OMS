@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { MasterDataFormField } from "@/components/master-data/master-data-form";
 import { statusColumn, textColumn } from "./shared-columns";
+import { formatDate } from "@/lib/date";
 
 // ---------------------------------------------------------------------------
 // Entity shapes — the subset of each Prisma model the Master Data UI reads.
@@ -46,6 +47,31 @@ export interface CostCenterRow {
   code: string;
   name: string;
   description: string | null;
+  deletedAt: string | null;
+}
+
+export interface ExpenseRow {
+  id: string;
+  date: string;
+  amount: string | number;
+  description: string;
+  costCenterId: string | null;
+  costCenter?: { id: string; code: string; name: string } | null;
+  paymentMethodId: string | null;
+  paymentMethod?: { id: string; name: string } | null;
+  notes: string | null;
+  deletedAt: string | null;
+}
+
+export interface FixedAssetRow {
+  id: string;
+  name: string;
+  code: string | null;
+  acquisitionDate: string;
+  cost: string | number;
+  costCenterId: string | null;
+  costCenter?: { id: string; code: string; name: string } | null;
+  notes: string | null;
   deletedAt: string | null;
 }
 
@@ -318,6 +344,118 @@ export const costCentersSchema = z.object({
 export const costCentersDefaultValues = { code: "", name: "", description: "" };
 export const costCentersExportColumns = ["code", "name", "description"];
 export const costCenterRowLabel = (row: CostCenterRow) => `${row.code} — ${row.name}`;
+
+// ---------------------------------------------------------------------------
+// Expenses — no approval workflow, no journal-entry posting (architecture
+// only, same scoping precedent as the Cost Engine Foundation). costCenterId
+// and paymentMethodId options are resolved dynamically by the page, same
+// pattern as Categories' account-override selects.
+// ---------------------------------------------------------------------------
+
+export const expensesColumns: ColumnDef<ExpenseRow, unknown>[] = [
+  textColumn("date", "masterData.expenses.fields.date", (r) => formatDate(r.date)),
+  textColumn("description", "masterData.fields.description", (r) => r.description),
+  textColumn("amount", "masterData.expenses.fields.amount", (r) =>
+    Number(r.amount).toLocaleString(),
+  ),
+  textColumn(
+    "costCenter",
+    "masterData.expenses.fields.costCenter",
+    (r) => r.costCenter?.name ?? null,
+  ),
+  textColumn(
+    "paymentMethod",
+    "masterData.expenses.fields.paymentMethod",
+    (r) => r.paymentMethod?.name ?? null,
+  ),
+  statusColumn<ExpenseRow>(),
+];
+
+export const expensesFormFields: MasterDataFormField[] = [
+  { name: "date", label: "masterData.expenses.fields.date", type: "date", required: true },
+  { name: "amount", label: "masterData.expenses.fields.amount", type: "number", required: true },
+  {
+    name: "description",
+    label: "masterData.fields.description",
+    type: "text",
+    required: true,
+  },
+  { name: "notes", label: "masterData.fields.notes", type: "textarea" },
+];
+
+export const expensesSchema = z.object({
+  date: z.string().min(1),
+  amount: z.number().min(0),
+  description: z.string().min(1),
+  costCenterId: z.string().optional().or(z.literal("")),
+  paymentMethodId: z.string().optional().or(z.literal("")),
+  notes: z.string().optional().or(z.literal("")),
+});
+
+export const expensesDefaultValues = {
+  date: "",
+  amount: 0,
+  description: "",
+  costCenterId: "",
+  paymentMethodId: "",
+  notes: "",
+};
+export const expensesExportColumns = ["date", "description", "amount", "notes"];
+export const expenseRowLabel = (row: ExpenseRow) => `${formatDate(row.date)} — ${row.description}`;
+
+// ---------------------------------------------------------------------------
+// Fixed Assets — no depreciation calculation, no journal-entry posting
+// (architecture only, same scoping precedent as Expenses). costCenterId
+// options are resolved dynamically by the page.
+// ---------------------------------------------------------------------------
+
+export const fixedAssetsColumns: ColumnDef<FixedAssetRow, unknown>[] = [
+  textColumn("name", "masterData.fields.name", (r) => r.name),
+  textColumn("code", "masterData.fields.code", (r) => r.code),
+  textColumn("acquisitionDate", "masterData.fixedAssets.fields.acquisitionDate", (r) =>
+    formatDate(r.acquisitionDate),
+  ),
+  textColumn("cost", "masterData.fixedAssets.fields.cost", (r) => Number(r.cost).toLocaleString()),
+  textColumn(
+    "costCenter",
+    "masterData.expenses.fields.costCenter",
+    (r) => r.costCenter?.name ?? null,
+  ),
+  statusColumn<FixedAssetRow>(),
+];
+
+export const fixedAssetsFormFields: MasterDataFormField[] = [
+  { name: "name", label: "masterData.fields.name", type: "text", required: true },
+  { name: "code", label: "masterData.fields.code", type: "text" },
+  {
+    name: "acquisitionDate",
+    label: "masterData.fixedAssets.fields.acquisitionDate",
+    type: "date",
+    required: true,
+  },
+  { name: "cost", label: "masterData.fixedAssets.fields.cost", type: "number", required: true },
+  { name: "notes", label: "masterData.fields.notes", type: "textarea" },
+];
+
+export const fixedAssetsSchema = z.object({
+  name: z.string().min(1),
+  code: z.string().optional().or(z.literal("")),
+  acquisitionDate: z.string().min(1),
+  cost: z.number().min(0),
+  costCenterId: z.string().optional().or(z.literal("")),
+  notes: z.string().optional().or(z.literal("")),
+});
+
+export const fixedAssetsDefaultValues = {
+  name: "",
+  code: "",
+  acquisitionDate: "",
+  cost: 0,
+  costCenterId: "",
+  notes: "",
+};
+export const fixedAssetsExportColumns = ["name", "code", "acquisitionDate", "cost", "notes"];
+export const fixedAssetRowLabel = (row: FixedAssetRow) => row.name;
 
 // ---------------------------------------------------------------------------
 // Projects (TASK-048) — referenced by JournalEntry/SalesOrder/PurchaseOrder

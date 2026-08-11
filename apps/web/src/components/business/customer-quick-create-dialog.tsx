@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
@@ -8,7 +8,7 @@ import { EnterpriseButton } from "@/components/ui/button";
 import { MasterDataForm } from "@/components/master-data/master-data-form";
 import { customersService, type CustomerRow } from "@/services/customers-service";
 import {
-  customerQuickCreateSchema,
+  buildCustomerQuickCreateSchema,
   customerQuickCreateDefaultValues,
 } from "@/config/sales/customer-form";
 import { useLocale } from "@/providers/locale-provider";
@@ -34,9 +34,10 @@ export function CustomerQuickCreateDialog({
 }) {
   const { t } = useLocale();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const quickCreateSchema = useMemo(() => buildCustomerQuickCreateSchema(t), [t]);
 
   const form = useForm({
-    resolver: zodResolver(customerQuickCreateSchema),
+    resolver: zodResolver(quickCreateSchema),
     defaultValues: customerQuickCreateDefaultValues,
   });
 
@@ -93,7 +94,7 @@ export function CustomerQuickCreateDialog({
         columns={2}
         fields={[
           { name: "name", label: "sales.customers.fields.name", type: "text", required: true },
-          { name: "phone", label: "sales.customers.fields.phone", type: "text" },
+          { name: "phone", label: "sales.customers.fields.phone", type: "phone" },
           { name: "email", label: "sales.customers.fields.email", type: "text" },
         ]}
       />

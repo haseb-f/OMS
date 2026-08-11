@@ -165,7 +165,12 @@ export class SalesOrdersService {
     );
   }
 
-  async findAll(query: FindSalesOrdersQueryDto) {
+  private buildFindWhere(
+    query: Pick<
+      FindSalesOrdersQueryDto,
+      'customerId' | 'status' | 'search' | 'dateFrom' | 'dateTo'
+    >,
+  ): Prisma.SalesOrderDocumentWhereInput {
     const where: Prisma.SalesOrderDocumentWhereInput = {
       deletedAt: null,
       customerId: query.customerId,
@@ -180,7 +185,11 @@ export class SalesOrdersService {
     if (query.dateFrom || query.dateTo) {
       where.createdAt = buildDateRangeFilter(query.dateFrom, query.dateTo);
     }
+    return where;
+  }
 
+  async findAll(query: FindSalesOrdersQueryDto) {
+    const where = this.buildFindWhere(query);
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
     const [items, total] = await Promise.all([
@@ -195,6 +204,39 @@ export class SalesOrdersService {
     ]);
 
     return { items, total, page, pageSize };
+  }
+
+  /** "Select all matching filters" (Part 8) — bare IDs only, same filter/search as `findAll`, capped so the response never approaches "download the dataset." */
+  async findAllIds(query: FindSalesOrdersQueryDto) {
+    const where = this.buildFindWhere(query);
+    const [rows, total] = await Promise.all([
+      this.prisma.salesOrderDocument.findMany({
+        where,
+        select: { id: true },
+        take: 10_000,
+      }),
+      this.prisma.salesOrderDocument.count({ where }),
+    ]);
+    return { ids: rows.map((row) => row.id), total };
+  }
+
+  /** Bulk Archive — sequential loop over the existing single-row `archive()` (which already enforces the archivable-status rule), same partial-failure pattern used elsewhere in the API. */
+  async archiveMany(ids: string[], userId?: string) {
+    const succeeded: string[] = [];
+    const failed: { id: string; message: string }[] = [];
+    for (const id of ids) {
+      try {
+        await this.archive(id, userId);
+        succeeded.push(id);
+      } catch (error) {
+        failed.push({
+          id,
+          message:
+            error instanceof Error ? error.message : 'Failed to archive.',
+        });
+      }
+    }
+    return { succeeded, failed };
   }
 
   async findOne(id: string) {

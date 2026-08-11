@@ -8,6 +8,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PurchaseLineItemInputDto } from '../../shared/purchase-line-item-input.dto';
+import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.decorator';
 
 /**
  * TASK-048 — a Purchase Return must always originate from an existing
@@ -22,8 +23,7 @@ export class CreatePurchaseReturnDto {
   @IsUUID()
   purchaseInvoiceId!: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   currencyId?: string;
 
   @IsString()

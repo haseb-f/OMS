@@ -32,6 +32,7 @@ import { ModalSection, ModalFieldFullWidth } from "@/components/shared/modal-sec
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
 import { StatusBadge } from "@/components/business/status-badge";
+import { CategoryQuickCreateDialog } from "@/components/business/category-quick-create-dialog";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
@@ -212,6 +213,7 @@ export function ProductModal({
   suppliers,
   warehouses,
   onSaved,
+  onCategoryCreated,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -226,6 +228,8 @@ export function ProductModal({
   suppliers: SupplierRow[];
   warehouses: WarehouseRow[];
   onSaved: () => void;
+  /** Appends the newly created category to the page's `categories` list — this modal never owns that state itself. */
+  onCategoryCreated?: (category: CategoryRow) => void;
 }) {
   const { t } = useLocale();
   const [activeTab, setActiveTab] = useState("general");
@@ -236,6 +240,7 @@ export function ProductModal({
   );
   const [pendingType, setPendingType] = useState<ProductType | null>(null);
   const [openingBalanceOpen, setOpeningBalanceOpen] = useState(false);
+  const [categoryQuickCreateOpen, setCategoryQuickCreateOpen] = useState(false);
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
@@ -599,6 +604,7 @@ export function ProductModal({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                          <SelectItem value="DRAFT">{t("products.status.DRAFT")}</SelectItem>
                           <SelectItem value="ACTIVE">{t("products.status.ACTIVE")}</SelectItem>
                           <SelectItem value="INACTIVE">{t("products.status.INACTIVE")}</SelectItem>
                         </SelectContent>
@@ -615,20 +621,38 @@ export function ProductModal({
                       <FormLabel>
                         {t("products.fields.category")} <span className="text-destructive">*</span>
                       </FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger className="w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {categories.map((category) => (
-                            <SelectItem key={category.id} value={category.id}>
-                              {category.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex items-center gap-1.5">
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <FormControl>
+                            <SelectTrigger className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {categories.length ? (
+                              categories.map((category) => (
+                                <SelectItem key={category.id} value={category.id}>
+                                  {category.name}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <div className="px-2 py-3 text-center text-caption text-muted-foreground">
+                                {t("common.noDataAvailable")}
+                              </div>
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <EnterpriseButton
+                          type="button"
+                          variant="outline"
+                          size="icon-sm"
+                          aria-label={t("products.addCategory")}
+                          title={t("products.addCategory")}
+                          onClick={() => setCategoryQuickCreateOpen(true)}
+                        >
+                          <Plus className="size-4" />
+                        </EnterpriseButton>
+                      </div>
                       {categories.length === 0 && (
                         <p className="text-caption text-muted-foreground">
                           {t("products.noCategoryYet")}
@@ -1262,6 +1286,15 @@ export function ProductModal({
         onOpenChange={setOpeningBalanceOpen}
         product={savedProduct}
         warehouses={warehouses}
+      />
+
+      <CategoryQuickCreateDialog
+        open={categoryQuickCreateOpen}
+        onOpenChange={setCategoryQuickCreateOpen}
+        onCreated={(category) => {
+          onCategoryCreated?.(category);
+          form.setValue("categoryId", category.id, { shouldDirty: true, shouldValidate: true });
+        }}
       />
     </>
   );

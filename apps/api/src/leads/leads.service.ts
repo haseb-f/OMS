@@ -18,6 +18,10 @@ import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { ArchiveLeadDto } from './dto/archive-lead.dto';
 import { MasterDataQueryDto } from '../master-data/dto/master-data-query.dto';
+import {
+  PhoneNumberService,
+  phoneErrorMessage,
+} from '../common/phone/phone-number.service';
 
 const SEARCH_FIELDS = [
   'leadNumber',
@@ -53,7 +57,26 @@ export class LeadsService {
     private readonly leadAutoDistributionService: LeadAutoDistributionService,
     private readonly numberingEngine: NumberingEngineService,
     private readonly customersService: CustomersService,
+    private readonly phoneNumberService: PhoneNumberService,
   ) {}
+
+  /** Resolves `dto.countryId` to its ISO2 code and validates/normalizes `dto.mobileNumber` against it — the country-aware check `@IsPhoneNumber()` on the DTO can't do (it has no access to the sibling `countryId`). Returns the E.164 value every caller should use in place of the raw input. */
+  private async normalizeLeadMobile(
+    mobileNumber: string,
+    countryId: string,
+  ): Promise<string> {
+    const country = await this.prisma.country.findFirst({
+      where: { id: countryId, deletedAt: null },
+    });
+    if (!country) {
+      throw new BadRequestException('Invalid country.');
+    }
+    const phone = this.phoneNumberService.parse(mobileNumber, country.code);
+    if (!phone.isValid || !phone.e164) {
+      throw new BadRequestException(phoneErrorMessage(phone.errorReason));
+    }
+    return phone.e164;
+  }
 
   private async transitionStatus(
     id: string,
@@ -98,8 +121,13 @@ export class LeadsService {
    * but remains correct for any Lead created before this change.
    */
   async create(dto: CreateLeadDto, userId?: string) {
+    const mobileNumber = await this.normalizeLeadMobile(
+      dto.mobileNumber,
+      dto.countryId,
+    );
+
     const duplicateCheck = await this.leadDuplicateDetectionService.check({
-      mobileNumber: dto.mobileNumber,
+      mobileNumber,
       customerName: dto.customerName,
       productId: dto.productId,
     });
@@ -123,7 +151,7 @@ export class LeadsService {
       await this.customersService.findOrCreate(
         {
           name: dto.customerName,
-          phone: dto.mobileNumber,
+          phone: mobileNumber,
           countryId: dto.countryId,
           city: dto.city,
           address: dto.address,
@@ -142,6 +170,7 @@ export class LeadsService {
         const created = await tx.lead.create({
           data: {
             ...dto,
+            mobileNumber,
             leadNumber,
             status: LeadStatus.NEW,
             possibleDuplicate: duplicateCheck.isPossibleDuplicate,
@@ -305,9 +334,17 @@ export class LeadsService {
     const statusChanged =
       dto.status !== undefined && dto.status !== existing.status;
 
+    const data = { ...dto };
+    if (dto.mobileNumber !== undefined) {
+      data.mobileNumber = await this.normalizeLeadMobile(
+        dto.mobileNumber,
+        dto.countryId ?? existing.countryId,
+      );
+    }
+
     try {
       return await this.prisma.$transaction(async (tx) => {
-        const updated = await tx.lead.update({ where: { id }, data: dto });
+        const updated = await tx.lead.update({ where: { id }, data });
         if (statusChanged) {
           await this.leadActivityService.log(
             id,

@@ -1,4 +1,5 @@
-import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 /** Account-mapping fields are TASK-047 (Accounting Configuration) — optional overrides of the Accounting Settings defaults. */
 export class CreateSupplierGroupDto {
@@ -14,11 +15,9 @@ export class CreateSupplierGroupDto {
   @IsOptional()
   description?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   defaultPayableAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   defaultPurchaseAccountId?: string;
 }

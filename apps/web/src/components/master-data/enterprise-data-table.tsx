@@ -118,6 +118,8 @@ export function EnterpriseDataTable<TData>({
   rowSelection,
   onRowSelectionChange,
   bulkActions,
+  onSelectAllMatching,
+  isSelectingAllMatching,
   exportColumns,
   onExport,
   onImport,
@@ -144,6 +146,16 @@ export function EnterpriseDataTable<TData>({
   rowSelection?: RowSelectionState;
   onRowSelectionChange?: (next: RowSelectionState) => void;
   bulkActions?: ReactNode;
+  /**
+   * Server mode only — called when the user asks to extend selection from
+   * "every row on this page" to "every row matching the current filters"
+   * (server-side; the caller fetches just the matching IDs, never the full
+   * records, and merges them into `rowSelection`). Omit to hide the
+   * affordance entirely — e.g. for a table with no bulk actions at all.
+   */
+  onSelectAllMatching?: () => void | Promise<void>;
+  /** Shows a loading state on the "select all matching" affordance while `onSelectAllMatching` is in flight. */
+  isSelectingAllMatching?: boolean;
   /** Columns offered in the Export dialog's picker — omit to hide the Export button entirely. */
   exportColumns?: ExportColumn[];
   /** Foundation only — exports the current page's visible rows for the columns the user kept checked. */
@@ -407,6 +419,19 @@ export function EnterpriseDataTable<TData>({
   });
 
   const selectedCount = Object.keys(effectiveRowSelection).length;
+  // "Select all matching filters" (cross-page selection, Part 8) — only
+  // offered in server mode, only once every row on the current page is
+  // already selected, and only when the filtered set is actually bigger
+  // than one page. `onSelectAllMatching` does the real work (fetch just the
+  // matching IDs, never full records); this component only decides when to
+  // show the affordance and renders its two states.
+  const isCurrentPageFullySelected =
+    isServerMode &&
+    data.length > 0 &&
+    data.every((row, index) => effectiveRowSelection[resolveRowId(row, index)]);
+  const hasMoreThanPageMatching = isServerMode && (totalCount ?? 0) > data.length;
+  const isAllMatchingSelected =
+    isServerMode && (totalCount ?? 0) > 0 && selectedCount >= (totalCount ?? 0);
   // Comfortable: py-3.5 (28px) + text-body line-height (24px) = 52px row
   // height, landing in the spec's 52-56px band from existing tokens alone.
   // Compact stays a deliberately tighter alternate density.
@@ -516,11 +541,45 @@ export function EnterpriseDataTable<TData>({
   return (
     <div className="flex flex-col gap-3" id={`table-${tableId}`}>
       {selectedCount > 0 && bulkActions && (
-        <div className="flex items-center gap-3 rounded-md border border-border bg-muted/40 px-3 py-2">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border border-border bg-muted/40 px-3 py-2">
           <span className="text-caption font-medium">
-            {selectedCount} {t("table.rowsSelected")}
+            {isAllMatchingSelected
+              ? t("table.allMatchingSelected", { count: selectedCount })
+              : `${selectedCount} ${t("table.rowsSelected")}`}
           </span>
-          <div className="flex items-center gap-2">{bulkActions}</div>
+
+          {/* "Select all matching filters" — offered once every row on this
+              page is checked; disappears once the whole filtered set is
+              already selected, replaced by a plain clear-selection action. */}
+          {onSelectAllMatching &&
+            isCurrentPageFullySelected &&
+            hasMoreThanPageMatching &&
+            !isAllMatchingSelected && (
+              <EnterpriseButton
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto p-0"
+                disabled={isSelectingAllMatching}
+                onClick={() => onSelectAllMatching()}
+              >
+                {isSelectingAllMatching
+                  ? t("table.selectingAllMatching")
+                  : t("table.selectAllMatching", { count: totalCount ?? 0 })}
+              </EnterpriseButton>
+            )}
+
+          <EnterpriseButton
+            type="button"
+            variant="link"
+            size="sm"
+            className="h-auto p-0 text-muted-foreground"
+            onClick={() => handleRowSelectionChange({})}
+          >
+            {t("table.clearSelection")}
+          </EnterpriseButton>
+
+          <div className="ms-auto flex items-center gap-2">{bulkActions}</div>
         </div>
       )}
 

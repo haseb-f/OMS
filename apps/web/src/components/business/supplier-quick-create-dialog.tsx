@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
@@ -8,7 +8,7 @@ import { EnterpriseButton } from "@/components/ui/button";
 import { MasterDataForm } from "@/components/master-data/master-data-form";
 import { suppliersService, type SupplierRow } from "@/services/suppliers-service";
 import {
-  supplierQuickCreateSchema,
+  buildSupplierQuickCreateSchema,
   supplierQuickCreateDefaultValues,
 } from "@/config/purchasing/supplier-form";
 import { useLocale } from "@/providers/locale-provider";
@@ -32,9 +32,10 @@ export function SupplierQuickCreateDialog({
 }) {
   const { t } = useLocale();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const quickCreateSchema = useMemo(() => buildSupplierQuickCreateSchema(t), [t]);
 
   const form = useForm({
-    resolver: zodResolver(supplierQuickCreateSchema),
+    resolver: zodResolver(quickCreateSchema),
     defaultValues: supplierQuickCreateDefaultValues,
   });
 
@@ -91,7 +92,7 @@ export function SupplierQuickCreateDialog({
         columns={2}
         fields={[
           { name: "name", label: "purchasing.suppliers.fields.name", type: "text", required: true },
-          { name: "phone", label: "purchasing.suppliers.fields.phone", type: "text" },
+          { name: "phone", label: "purchasing.suppliers.fields.phone", type: "phone" },
           { name: "email", label: "purchasing.suppliers.fields.email", type: "text" },
         ]}
       />

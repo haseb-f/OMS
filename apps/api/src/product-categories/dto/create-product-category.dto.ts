@@ -1,4 +1,5 @@
-import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 /** Account-mapping fields are TASK-047 (Accounting Configuration) — optional overrides of the Accounting Settings defaults. */
 export class CreateProductCategoryDto {
@@ -10,19 +11,15 @@ export class CreateProductCategoryDto {
   @IsOptional()
   description?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   revenueAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   inventoryAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   cogsAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   purchaseAccountId?: string;
 }

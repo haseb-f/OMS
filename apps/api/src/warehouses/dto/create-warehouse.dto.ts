@@ -1,10 +1,5 @@
-import {
-  IsBoolean,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  IsUUID,
-} from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 /** Code is never accepted from the client — minted by the Numbering Engine (TASK-030). */
 export class CreateWarehouseDto {
@@ -30,17 +25,14 @@ export class CreateWarehouseDto {
   isActive?: boolean;
 
   /** Future warehouse hierarchy — prepared only, no depth/cycle validation. */
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   parentWarehouseId?: string;
 
   /** The user responsible for this warehouse (TASK-028 Part 3). */
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   managerId?: string;
 
   /** Analytic account this warehouse's inventory activity defaults to (TASK-028 Part 3). */
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   defaultAnalyticAccountId?: string;
 }

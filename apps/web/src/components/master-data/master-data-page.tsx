@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
 import type { LucideIcon } from "lucide-react";
-import { Copy, Plus } from "lucide-react";
+import { Copy, Eye, History, Pencil, Archive as ArchiveIcon, RotateCcw, Plus } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ZodType } from "zod";
@@ -15,7 +15,6 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { Eye } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EnterpriseModal, type EnterpriseModalSize } from "@/components/shared/enterprise-modal";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
@@ -32,7 +31,12 @@ import {
   type MasterDataFormField,
   type MasterDataFormSection,
 } from "./master-data-form";
-import { getColumnDisplayValue } from "@/components/shared/data-table";
+import type { PhoneCountryOption } from "@/components/shared/phone-country-selector";
+import {
+  getColumnDisplayValue,
+  RowActionsMenu,
+  type RowAction,
+} from "@/components/shared/data-table";
 import type { MasterDataActivityEntry, MasterDataListParams } from "@/services/master-data-service";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
@@ -50,9 +54,15 @@ interface MasterDataService<TEntity> {
   list: (
     params: MasterDataListParams,
   ) => Promise<{ items: TEntity[]; total: number; page: number; pageSize: number }>;
+  /** "Select all matching filters" (Part 8) — opt in via `supportsSelectAllMatching`; only wired up once the backend route exists for this entity. */
+  listIds?: (params: MasterDataListParams) => Promise<{ ids: string[]; total: number }>;
   create: (dto: Record<string, unknown>) => Promise<TEntity>;
   update: (id: string, dto: Record<string, unknown>) => Promise<TEntity>;
   archive: (id: string) => Promise<TEntity>;
+  /** Single-call bulk archive — opt in via `supportsSelectAllMatching`; falls back to N sequential `archive()` calls otherwise. */
+  bulkArchive?: (
+    ids: string[],
+  ) => Promise<{ succeeded: string[]; failed: { id: string; message: string }[] }>;
   restore: (id: string) => Promise<TEntity>;
   activity: (id: string) => Promise<MasterDataActivityEntry[]>;
 }
@@ -82,6 +92,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   exportColumnKeys,
   formFields,
   formSections,
+  phoneCountries,
   schema,
   defaultValues,
   toFormValues,
@@ -89,11 +100,12 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   extraListParams,
   rowLabel,
   stats,
-  renderRowExtraActions,
+  extraRowActions,
   extraFilters,
   extraActions,
   defaultSortBy = "name",
   disableArchiveRestore = false,
+  supportsSelectAllMatching = false,
 }: {
   titleKey: MessageKey;
   descriptionKey: MessageKey;
@@ -106,6 +118,8 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   /** Flat single-section field list — used by every plain Master Data entity. Omit in favor of `formSections` for a richer, multi-section dialog (e.g. Customer, TASK-038). */
   formFields?: MasterDataFormField[];
   formSections?: MasterDataFormSection[];
+  /** Required whenever `formFields`/`formSections` includes a `"country"`/`"phone"` field — the one shared country list both draw from. */
+  phoneCountries?: PhoneCountryOption[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   schema: ZodType<any, any, any>;
   defaultValues: Record<string, unknown>;
@@ -115,8 +129,8 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   rowLabel: (entity: TEntity) => string;
   /** Opt-in KPI strip above the table — no entity computes these yet, so it only renders when a caller supplies values. */
   stats?: { icon: LucideIcon; label: string; value?: string | number }[];
-  /** Opt-in extra row action(s) rendered before the standard Quick Preview/Activity/Edit/Duplicate/Archive set — e.g. a "View Profile" link to a richer detail page most entities don't have. */
-  renderRowExtraActions?: (entity: TEntity) => ReactNode;
+  /** Opt-in extra row action(s) merged into the row's overflow menu, before the standard Quick Preview/Activity/Edit/Duplicate/Archive set — e.g. a "View Profile" link to a richer detail page most entities don't have. */
+  extraRowActions?: (entity: TEntity) => RowAction[];
   /** Opt-in extra filter control(s) rendered next to the "Show Archived" toggle. */
   extraFilters?: ReactNode;
   /** Opt-in extra toolbar action(s) rendered before the internal "+ New" button — e.g. `<ModuleImportButtons />` (TASK-060B Part 5). */
@@ -128,10 +142,12 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
    * — for an entity whose "Archive" is a business-status transition (e.g.
    * Lead's `POST :id/archive` -> `status: ARCHIVED`), not this page's usual
    * soft-delete/`deletedAt` semantics, and which offers its own Archive
-   * action instead (via `renderRowExtraActions`) so the two concepts never
-   * get shown as if they were the same toggle.
+   * action instead (via `extraRowActions`) so the two concepts never get
+   * shown as if they were the same toggle.
    */
   disableArchiveRestore?: boolean;
+  /** Opt-in — only set once the backend's `GET :entity/ids` and `POST :entity/bulk-archive` routes actually exist for this entity (Customers first; see `MasterDataService.listIds`/`bulkArchive`). */
+  supportsSelectAllMatching?: boolean;
 }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
@@ -150,6 +166,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   const [includeArchived, setIncludeArchived] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [isSelectingAllMatching, setIsSelectingAllMatching] = useState(false);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEntity, setEditingEntity] = useState<TEntity | null>(null);
@@ -316,12 +333,49 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
     const ids = Object.keys(rowSelection);
     setIsMutating(true);
     try {
-      await Promise.all(ids.map((id) => service.archive(id).catch(() => undefined)));
+      // One controlled server-side call when the entity supports it (never
+      // fan out hundreds/thousands of concurrent requests for a large
+      // cross-page or select-all-matching selection); otherwise fall back to
+      // the original per-row loop, which every entity already supports.
+      if (supportsSelectAllMatching && service.bulkArchive) {
+        const result = await service.bulkArchive(ids);
+        if (result.failed.length > 0) {
+          toast.error(
+            t("masterData.actions.bulkArchivePartialFailure", { count: result.failed.length }),
+          );
+        } else {
+          toast.success(t("common.archive"));
+        }
+      } else {
+        await Promise.all(ids.map((id) => service.archive(id).catch(() => undefined)));
+        toast.success(t("common.archive"));
+      }
       setRowSelection({});
-      toast.success(t("common.archive"));
       await load();
     } finally {
       setIsMutating(false);
+    }
+  };
+
+  /** "Select all matching filters" (Part 8) — fetches just the IDs matching the current search/filters (never full records) and merges them into the cross-page selection. */
+  const handleSelectAllMatching = async () => {
+    if (!service.listIds) return;
+    setIsSelectingAllMatching(true);
+    try {
+      const result = await service.listIds({
+        search: search || undefined,
+        sortBy,
+        sortOrder,
+        includeArchived,
+        ...extraListParams,
+      });
+      setRowSelection(Object.fromEntries(result.ids.map((id) => [id, true])));
+    } catch (error) {
+      toast.error(
+        error instanceof ApiError ? error.message : "Failed to select all matching records.",
+      );
+    } finally {
+      setIsSelectingAllMatching(false);
     }
   };
 
@@ -334,74 +388,56 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
       cell: ({ row }) => {
         const entity = row.original;
         const isArchived = !!entity.deletedAt;
-        return (
-          <div className="flex items-center gap-1">
-            {renderRowExtraActions?.(entity)}
-            <EnterpriseButton
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="gap-1"
-              onClick={() => setPreviewEntity(entity)}
-            >
-              <Eye className="size-3.5" />
-              {t("masterData.actions.quickPreview")}
-            </EnterpriseButton>
-            <EnterpriseButton
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setActivityEntity(entity)}
-            >
-              {t("masterData.actions.viewActivity")}
-            </EnterpriseButton>
-            {canEdit && !isArchived && (
-              <EnterpriseButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => openEdit(entity)}
-              >
-                {t("common.edit")}
-              </EnterpriseButton>
-            )}
-            {canCreate && !isArchived && (
-              <EnterpriseButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="gap-1"
-                onClick={() => openDuplicate(entity)}
-              >
-                <Copy className="size-3.5" />
-                {t("table.duplicate")}
-              </EnterpriseButton>
-            )}
-            {canArchive && !isArchived && (
-              <EnterpriseButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setArchiveTarget(entity)}
-              >
-                {t("common.archive")}
-              </EnterpriseButton>
-            )}
-            {canArchive && isArchived && (
-              <EnterpriseButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setRestoreTarget(entity)}
-              >
-                {t("common.restore")}
-              </EnterpriseButton>
-            )}
-          </div>
-        );
+        const actions: RowAction[] = [
+          ...(extraRowActions?.(entity) ?? []),
+          {
+            key: "quick-preview",
+            label: t("masterData.actions.quickPreview"),
+            icon: Eye,
+            onSelect: () => setPreviewEntity(entity),
+          },
+          {
+            key: "view-activity",
+            label: t("masterData.actions.viewActivity"),
+            icon: History,
+            onSelect: () => setActivityEntity(entity),
+          },
+          {
+            key: "edit",
+            label: t("common.edit"),
+            icon: Pencil,
+            onSelect: () => openEdit(entity),
+            hidden: !canEdit || isArchived,
+          },
+          {
+            key: "duplicate",
+            label: t("table.duplicate"),
+            icon: Copy,
+            onSelect: () => openDuplicate(entity),
+            hidden: !canCreate || isArchived,
+          },
+          {
+            key: "archive",
+            label: t("common.archive"),
+            icon: ArchiveIcon,
+            onSelect: () => setArchiveTarget(entity),
+            hidden: !canArchive || isArchived,
+            destructive: true,
+            separatorBefore: true,
+          },
+          {
+            key: "restore",
+            label: t("common.restore"),
+            icon: RotateCcw,
+            onSelect: () => setRestoreTarget(entity),
+            hidden: !canArchive || !isArchived,
+            separatorBefore: true,
+          },
+        ];
+        return <RowActionsMenu actions={actions} label={t("common.actions")} />;
       },
     }),
-    [canEdit, canArchive, canCreate, t, openEdit, openDuplicate, renderRowExtraActions],
+    [canEdit, canArchive, canCreate, t, openEdit, openDuplicate, extraRowActions],
   );
 
   const tableColumns = useMemo(() => [...columns, actionsColumn], [columns, actionsColumn]);
@@ -486,6 +522,10 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
           isLoading={isLoading}
           rowSelection={rowSelection}
           onRowSelectionChange={setRowSelection}
+          onSelectAllMatching={
+            supportsSelectAllMatching && service.listIds ? handleSelectAllMatching : undefined
+          }
+          isSelectingAllMatching={isSelectingAllMatching}
           bulkActions={
             canArchive && (
               <EnterpriseButton
@@ -551,13 +591,14 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
         )}
       >
         {formSections ? (
-          <MasterDataForm form={form} sections={formSections} />
+          <MasterDataForm form={form} sections={formSections} countries={phoneCountries} />
         ) : (
           <MasterDataForm
             form={form}
             fields={formFields ?? []}
             sectionTitle={t("common.generalInformation")}
             columns={modalSize === "xl" ? 3 : 2}
+            countries={phoneCountries}
           />
         )}
       </EnterpriseModal>

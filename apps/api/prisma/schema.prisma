@@ -347,6 +347,8 @@ model CostCenter {
   purchaseInvoices      PurchaseInvoice[]
   purchaseReturns       PurchaseReturn[]
   financialTransactions FinancialTransaction[]
+  expenses              Expense[]
+  fixedAssets           FixedAsset[]
 
   @@map("cost_centers")
 }
@@ -365,8 +367,62 @@ model PaymentMethod {
   deletedAt DateTime? @map("deleted_at")
 
   salesOrders SalesOrder[]
+  expenses    Expense[]
 
   @@map("payment_methods")
+}
+
+/// A simple recorded expense — date/amount/description, optionally
+/// attributed to a Cost Center and a Payment Method. No approval workflow,
+/// no journal-entry posting: same "architecture only, no accounting math
+/// yet" scoping the Cost Engine Foundation (ADR-0014) already applied to
+/// Purchasing — a future Accounting module can add posting on top of this.
+model Expense {
+  id          String   @id @default(uuid()) @db.Uuid
+  date        DateTime @db.Date
+  amount      Decimal  @db.Decimal(12, 2)
+  description String
+
+  costCenterId String?     @map("cost_center_id") @db.Uuid
+  costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
+
+  paymentMethodId String?        @map("payment_method_id") @db.Uuid
+  paymentMethod   PaymentMethod? @relation(fields: [paymentMethodId], references: [id])
+
+  notes String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("expenses")
+}
+
+/// A simple fixed-asset register entry — name/acquisition date/cost,
+/// optionally attributed to a Cost Center. No depreciation calculation, no
+/// journal-entry posting: same "architecture only" scoping as Expense —
+/// a future Accounting module can add depreciation schedules on top.
+model FixedAsset {
+  id              String   @id @default(uuid()) @db.Uuid
+  name            String
+  code            String?
+  acquisitionDate DateTime @map("acquisition_date") @db.Date
+  cost            Decimal  @db.Decimal(12, 2)
+
+  costCenterId String?     @map("cost_center_id") @db.Uuid
+  costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
+
+  notes String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("fixed_assets")
 }
 
 /// Master Data — Payment Terms (TASK-028). Distinct from PaymentMethod:
@@ -419,7 +475,11 @@ model ShippingMethod {
 
 model ProductCategory {
   id          String  @id @default(uuid()) @db.Uuid
-  name        String  @unique
+  /// Not `@unique` here — uniqueness is enforced only among active
+  /// (non-archived) rows via a partial unique index added in a raw-SQL
+  /// migration (Prisma's schema DSL can't express a `WHERE deleted_at IS
+  /// NULL` index), so a name freed up by archiving can be reused.
+  name        String
   description String?
 
   /// Accounting Configuration (TASK-047) — optional per-category overrides
@@ -1520,8 +1580,12 @@ enum ProductCostingMethod {
   STANDARD
 }
 
-/// Closed set, exactly as specified.
+/// Closed set. DRAFT added for the Draft-first creation flow (TASK-028
+/// already lets Create ask for only name/type/category/unit — DRAFT makes
+/// that incompleteness visible instead of silently marking a
+/// not-yet-operational product ACTIVE) — ACTIVE/INACTIVE stay as specified.
 enum ProductStatus {
+  DRAFT
   ACTIVE
   INACTIVE
 }

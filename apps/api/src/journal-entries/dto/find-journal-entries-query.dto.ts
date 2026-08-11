@@ -6,11 +6,11 @@ import {
   IsInt,
   IsOptional,
   IsString,
-  IsUUID,
   Max,
   Min,
 } from 'class-validator';
 import { JournalEntryStatus } from '@prisma/client';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 /** Mirrors FindFinancialTransactionsQueryDto's search/pagination shape. */
 export class FindJournalEntriesQueryDto {
@@ -19,8 +19,7 @@ export class FindJournalEntriesQueryDto {
   status?: JournalEntryStatus;
 
   /** TASK-053 — filter by which book of entry (Sales/Purchase/Cash/Bank/General Journal) the entry belongs to. */
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   journalId?: string;
 
   /** TASK-054 — Journal ↔ Source Document navigation: look up the entry a business document was auto-posted from (both required together). */
@@ -28,8 +27,7 @@ export class FindJournalEntriesQueryDto {
   @IsOptional()
   sourceType?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   sourceId?: string;
 
   /** Matches Entry Number or Description (case-insensitive, partial). */

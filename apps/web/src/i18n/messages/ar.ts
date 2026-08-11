@@ -4,6 +4,9 @@ const ar = {
     search: "بحث",
     loading: "جارٍ التحميل…",
     noResults: "لا توجد نتائج.",
+    noDataAvailable: "لا توجد بيانات متاحة.",
+    addNew: "إضافة جديد",
+    loadListFailed: 'تعذر تحميل "{name}". حدّث الصفحة أو حاول لاحقًا.',
     comingSoon: "قريباً",
     comingSoonDescription: "هذه الصفحة قيد الإنشاء.",
     offline: "أنت غير متصل",
@@ -46,6 +49,94 @@ const ar = {
   accessDenied: {
     title: "الوصول مرفوض",
     description: "ليس لديك صلاحية لعرض هذه الصفحة. تواصل مع المسؤول إذا كنت تعتقد أن هذا خطأ.",
+  },
+  phone: {
+    countryLabel: "الدولة",
+    numberLabel: "رقم الجوال",
+    searchCountryPlaceholder: "ابحث بالاسم أو رمز الدولة...",
+    noCountryFound: "لا توجد نتائج.",
+    exampleLabel: "مثال",
+    valid: "رقم جوال صحيح",
+    regionMismatchTitle: "تم اكتشاف رمز دولة مختلف",
+    regionMismatchDescription:
+      "هذا الرقم يبدأ برمز دولة مختلف عن الدولة المختارة ({country}). تحقق من الرقم أو غيّر الدولة.",
+    errors: {
+      EMPTY: "رقم الجوال مطلوب.",
+      NOT_A_NUMBER: "هذا لا يبدو كرقم جوال صحيح.",
+      TOO_SHORT: "الرقم قصير جدًا.",
+      TOO_LONG: "الرقم أطول من المسموح لهذه الدولة.",
+      INVALID_LENGTH: "طول الرقم غير صحيح لهذه الدولة.",
+      INVALID_COUNTRY: "رقم الجوال لا يتوافق مع الدولة المختارة.",
+      INVALID_PATTERN: "رقم الجوال لا يتوافق مع تنسيق الدولة المختارة.",
+    },
+  },
+  /**
+   * The one place a backend error becomes user-facing text — `apiClient`
+   * translates every response through this instead of ever showing a raw
+   * class-validator/Prisma message. Each code answers "what happened", and
+   * the `_FIELD` variant adds "which field" using `fields.*` labels when the
+   * backend identified one; every message still ends with what to do next.
+   */
+  errors: {
+    VALIDATION_ERROR: "تحقق من البيانات المدخلة وحاول مرة أخرى.",
+    VALIDATION_ERROR_FIELD:
+      'القيمة المدخلة في حقل "{field}" غير صالحة. تحقق منها ثم حاول الحفظ مرة أخرى.',
+    DUPLICATE: "هذه القيمة مستخدمة من قبل في سجل آخر. أدخل قيمة مختلفة وحاول مرة أخرى.",
+    DUPLICATE_FIELD:
+      'قيمة حقل "{field}" مستخدمة من قبل في سجل آخر. أدخل قيمة مختلفة وحاول مرة أخرى.',
+    PERMISSION_ERROR:
+      "ليست لديك صلاحية لتنفيذ هذا الإجراء. تواصل مع مسؤول النظام إذا كنت تحتاج إلى هذه الصلاحية.",
+    NOT_FOUND: "تعذر العثور على هذا العنصر. قد يكون تم حذفه أو نقله — حدّث الصفحة وحاول مرة أخرى.",
+    SERVER_ERROR:
+      "حدث خطأ غير متوقع في الخادم. حاول مرة أخرى، وإذا استمرت المشكلة تواصل مع الدعم الفني.",
+    DATABASE_ERROR:
+      "تعذر إكمال العملية بسبب خطأ في قاعدة البيانات. حاول مرة أخرى أو تواصل مع الدعم الفني.",
+    DEPENDENCY_ERROR: "لا يمكن إكمال هذا الإجراء لأن هذا العنصر مرتبط ببيانات أخرى في النظام.",
+    NETWORK_ERROR: "تعذر الاتصال بالخادم. تحقق من اتصال الإنترنت وحاول مرة أخرى.",
+    generic: "حدث خطأ ما. حاول مرة أخرى.",
+    activationBlocked:
+      "لا يمكن التفعيل قبل إكمال: {fields}. يمكنك متابعة العمل كمسودة حتى ذلك الحين.",
+    fields: {
+      revenueAccountId: "حساب الإيرادات",
+      inventoryAccountId: "حساب المخزون",
+      cogsAccountId: "حساب تكلفة المبيعات",
+      purchaseAccountId: "حساب المشتريات",
+      parentAccountId: "الحساب الأب",
+      accountId: "الحساب",
+      currencyId: "العملة",
+      categoryId: "الفئة",
+      brandId: "العلامة التجارية",
+      unitId: "الوحدة",
+      taxId: "الضريبة",
+      customerGroupId: "مجموعة العملاء",
+      supplierGroupId: "مجموعة الموردين",
+      paymentTermId: "شروط الدفع",
+      paymentMethodId: "طريقة الدفع",
+      shippingMethodId: "طريقة الشحن",
+      countryId: "الدولة",
+      cityId: "المدينة",
+      warehouseId: "المستودع",
+      preferredWarehouseId: "المستودع الافتراضي",
+      preferredSupplierId: "المورد المفضل",
+      analyticAccountId: "مركز التكلفة",
+      costCenterId: "مركز التكلفة",
+      customerId: "العميل",
+      supplierId: "المورد",
+      productId: "المنتج",
+      name: "الاسم",
+      code: "الرمز",
+      email: "البريد الإلكتروني",
+      phone: "الهاتف",
+      mobile: "الجوال",
+      sku: "رمز المنتج (SKU)",
+      username: "اسم المستخدم",
+      salesPrice: "سعر البيع",
+      purchasePrice: "سعر الشراء",
+      weight: "الوزن والأبعاد",
+      width: "الوزن والأبعاد",
+      height: "الوزن والأبعاد",
+      length: "الوزن والأبعاد",
+    },
   },
   permissions: {
     searchPlaceholder: "بحث في الوحدات…",
@@ -130,6 +221,8 @@ const ar = {
     financeReceivingAccounts: "حسابات الاستلام",
     financeProjects: "المشاريع",
     financeCostCenters: "مراكز التكلفة",
+    financeExpenses: "المصروفات",
+    financeFixedAssets: "الأصول الثابتة",
     financeJournalEntries: "قيود اليومية",
     financeCustomerReceipts: "سندات قبض العملاء",
     financeSupplierPayments: "سندات صرف الموردين",
@@ -233,6 +326,10 @@ const ar = {
     selectAll: "تحديد كل الصفوف",
     selectRow: "تحديد الصف",
     rowsSelected: "محدد",
+    selectAllMatching: "تحديد جميع السجلات المطابقة للفلاتر ({count})",
+    selectingAllMatching: "جارٍ التحديد…",
+    allMatchingSelected: "تم تحديد جميع السجلات المطابقة للفلاتر ({count})",
+    clearSelection: "مسح التحديد",
     rowsPerPage: "عدد الصفوف",
     pageOf: "صفحة {page} من {pageCount}",
     goToFirstPage: "الانتقال إلى الصفحة الأولى",
@@ -428,6 +525,7 @@ const ar = {
       saveAndNew: "حفظ وجديد",
       quickPreview: "معاينة سريعة",
       viewActivity: "عرض النشاط",
+      bulkArchivePartialFailure: "تعذّر أرشفة {count} من العناصر المحددة.",
     },
     fields: {
       code: "الرمز",
@@ -492,6 +590,24 @@ const ar = {
       title: "مراكز التكلفة",
       description: "إدارة مراكز التكلفة لقيود اليومية وأوامر البيع والشراء.",
     },
+    expenses: {
+      title: "المصروفات",
+      description: "تسجيل المصروفات — بدون سير موافقة أو ترحيل محاسبي بعد.",
+      fields: {
+        date: "التاريخ",
+        amount: "المبلغ",
+        costCenter: "مركز التكلفة",
+        paymentMethod: "طريقة الدفع",
+      },
+    },
+    fixedAssets: {
+      title: "الأصول الثابتة",
+      description: "سجل الأصول الثابتة — بدون احتساب إهلاك أو ترحيل محاسبي بعد.",
+      fields: {
+        acquisitionDate: "تاريخ الاقتناء",
+        cost: "التكلفة",
+      },
+    },
     projects: {
       title: "المشاريع",
       description: "إدارة المشاريع لقيود اليومية وأوامر البيع والشراء.",
@@ -521,6 +637,13 @@ const ar = {
     categories: {
       title: "الفئات",
       description: "إدارة فئات المنتجات.",
+      helperText: {
+        name: "الاسم الذي سيظهر داخل النظام.",
+        revenueAccountId: "الحساب المحاسبي الذي تُسجل عليه إيرادات بيع منتجات هذه الفئة.",
+        inventoryAccountId: "الحساب الذي يمثل قيمة مخزون منتجات هذه الفئة.",
+        cogsAccountId: "الحساب المستخدم لتسجيل تكلفة المنتجات المباعة من هذه الفئة.",
+        purchaseAccountId: "الحساب المستخدم عند شراء منتجات هذه الفئة.",
+      },
     },
     brands: {
       title: "العلامات التجارية",
@@ -932,6 +1055,7 @@ const ar = {
       SERIAL: "رقم تسلسلي",
     },
     status: {
+      DRAFT: "مسودة",
       ACTIVE: "نشط",
       INACTIVE: "غير نشط",
     },
@@ -953,6 +1077,17 @@ const ar = {
     attachmentsEmpty: "لا توجد مرفقات بعد.",
     noSupplier: "بدون مورد مفضل",
     noCategoryYet: "أنشئ فئة ووحدة قياس من البيانات الأساسية أولاً.",
+    addCategory: "إضافة فئة جديدة",
+    categoryQuickCreate: {
+      title: "إنشاء فئة سريعة",
+      description:
+        "أنشئ فئة دون مغادرة هذا المنتج. يمكنك إضافة الحسابات المحاسبية لاحقًا من البيانات الأساسية.",
+      success: "تم إنشاء الفئة وتحديدها.",
+      fields: {
+        name: "اسم الفئة",
+        description: "الوصف",
+      },
+    },
     saved: "تم حفظ المنتج.",
     archived: "تمت أرشفة المنتج.",
     restored: "تمت استعادة المنتج.",

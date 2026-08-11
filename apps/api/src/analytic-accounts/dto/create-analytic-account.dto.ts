@@ -5,6 +5,7 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 export class CreateAnalyticAccountDto {
   @IsString()
@@ -22,8 +23,7 @@ export class CreateAnalyticAccountDto {
   /// Unlimited hierarchy (TASK-025 Part 1) — a real self-relation FK, no
   /// depth limit or cycle check (same prepared-only pattern as
   /// Warehouse.parentWarehouseId).
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   parentAccountId?: string;
 
   @IsBoolean()

@@ -8,14 +8,14 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { SalesLineItemInputDto } from '../../shared/sales-line-item-input.dto';
+import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.decorator';
 
 /** Warehouse is required on every line here (unlike Quotation) — enforced in the service. */
 export class CreateSalesOrderDto {
   @IsUUID()
   customerId!: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   currencyId?: string;
 
   @IsString()

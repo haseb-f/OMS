@@ -8,6 +8,10 @@ import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
 import {
+  PhoneNumberService,
+  phoneErrorMessage,
+} from '../common/phone/phone-number.service';
+import {
   ALL_PERMISSION_NAMES,
   withImpliedSectionPermissions,
 } from '../permissions/permission-catalog';
@@ -47,14 +51,39 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly resolver: PermissionsResolverService,
+    private readonly phoneNumberService: PhoneNumberService,
   ) {}
 
+  /**
+   * `User` has no `countryId` (unlike Lead/Customer/Supplier) — the
+   * frontend's `OMSPhoneInput` always resolves a local number against the
+   * user's chosen country to a full E.164 value before it ever reaches this
+   * DTO, so this is a defense-in-depth check against a direct API call: it
+   * accepts anything that parses as a genuine international number
+   * (leading "+", or a recognizable "00..." prefix) and normalizes it, but
+   * can't validate a bare local-format number with no country context at all.
+   */
+  private normalizeUserMobile(
+    value: string | undefined | null,
+  ): string | undefined {
+    if (!value?.trim()) return undefined;
+    const result = this.phoneNumberService.parse(value);
+    if (!result.isValid || !result.e164) {
+      throw new BadRequestException(phoneErrorMessage(result.errorReason));
+    }
+    return result.e164;
+  }
+
   async create(dto: CreateUserDto) {
-    const { password, ...rest } = dto;
+    const { password, mobile, ...rest } = dto;
     const passwordHash = await bcrypt.hash(password, 10);
     try {
       return await this.prisma.user.create({
-        data: { ...rest, passwordHash },
+        data: {
+          ...rest,
+          mobile: mobile ? this.normalizeUserMobile(mobile) : mobile,
+          passwordHash,
+        },
         select: PUBLIC_USER_SELECT,
       });
     } catch (error) {
@@ -91,10 +120,14 @@ export class UsersService {
 
   async update(id: string, dto: UpdateUserDto) {
     await this.findOne(id);
+    const data = { ...dto };
+    if (dto.mobile) {
+      data.mobile = this.normalizeUserMobile(dto.mobile);
+    }
     try {
       return await this.prisma.user.update({
         where: { id },
-        data: dto,
+        data,
         select: PUBLIC_USER_SELECT,
       });
     } catch (error) {

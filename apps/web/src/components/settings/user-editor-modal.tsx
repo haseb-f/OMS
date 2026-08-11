@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { OMSPhoneInput, isPhoneValidForCountry } from "@/components/shared/phone-input";
 import { PermissionMatrix } from "./permission-matrix";
 import { usersService, type UserRow, type UserFormPayload } from "@/services/users-service";
 import { jobTitlesService, type JobTitleRow } from "@/services/job-titles-service";
@@ -134,6 +135,10 @@ export function UserEditorModal({
       toast.error(t("settings.users.editor.validationPassword"));
       return;
     }
+    if (form.mobile.trim() && !isPhoneValidForCountry(form.mobile, null)) {
+      toast.error(t("phone.errors.INVALID_PATTERN"));
+      return;
+    }
     setIsSaving(true);
     try {
       const payload: UserFormPayload = {
@@ -232,11 +237,13 @@ export function UserEditorModal({
               <label className="text-caption text-muted-foreground">
                 {t("settings.users.fields.mobile")}
               </label>
-              <Input
-                inputSize="sm"
-                dir="ltr"
+              <OMSPhoneInput
                 value={form.mobile}
-                onChange={(event) => setForm((c) => ({ ...c, mobile: event.target.value }))}
+                onChange={(value) => setForm((c) => ({ ...c, mobile: value }))}
+                // No Country field exists on User (Employees/system accounts
+                // aren't tied to one) — falls back to the same
+                // international-format-only rule this field already had.
+                countryCode={null}
               />
             </div>
             {!user && (

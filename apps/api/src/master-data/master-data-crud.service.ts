@@ -20,6 +20,19 @@ export interface MasterDataListResult<TEntity> {
   pageSize: number;
 }
 
+export interface MasterDataIdsResult {
+  ids: string[];
+  total: number;
+}
+
+export interface BulkActionResult {
+  succeeded: string[];
+  failed: { id: string; message: string }[];
+}
+
+/** "Select all matching filters" (Part 8) never enumerates more than this many IDs in one response — large enough for any real Master Data list, small enough that a UUID-only payload stays trivial. */
+const SELECT_ALL_MATCHING_CAP = 10_000;
+
 /**
  * Base class every Master Data service extends (Companies, Branches,
  * Warehouses, Taxes, Currencies, ...). Centralizes the logic that would
@@ -45,14 +58,10 @@ export abstract class MasterDataCrudService<
 
   protected abstract get delegate(): MasterDataDelegate<TEntity>;
 
-  async findAll(
+  private buildWhere(
     query: MasterDataQueryDto,
-    extraWhere: Record<string, unknown> = {},
-    /** e.g. `{ include: { parentAccount: true } }` — for entities whose list view needs a related row's name, not just its id. */
-    extraArgs: Record<string, unknown> = {},
-  ): Promise<MasterDataListResult<TEntity>> {
-    const page = query.page ?? 1;
-    const pageSize = query.pageSize ?? 20;
+    extraWhere: Record<string, unknown>,
+  ): Record<string, unknown> {
     const where: Record<string, unknown> = {
       ...extraWhere,
       deletedAt: query.includeArchived ? undefined : null,
@@ -62,6 +71,18 @@ export abstract class MasterDataCrudService<
         [field]: { contains: query.search, mode: 'insensitive' },
       }));
     }
+    return where;
+  }
+
+  async findAll(
+    query: MasterDataQueryDto,
+    extraWhere: Record<string, unknown> = {},
+    /** e.g. `{ include: { parentAccount: true } }` — for entities whose list view needs a related row's name, not just its id. */
+    extraArgs: Record<string, unknown> = {},
+  ): Promise<MasterDataListResult<TEntity>> {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 20;
+    const where = this.buildWhere(query, extraWhere);
     const orderBy = {
       [query.sortBy || this.defaultSortField]: query.sortOrder ?? 'asc',
     };
@@ -78,6 +99,53 @@ export abstract class MasterDataCrudService<
     ]);
 
     return { items, total, page, pageSize };
+  }
+
+  /**
+   * "Select all matching filters" (Part 8) — the same filter/search the list
+   * view already applies, but returns bare IDs (never full records) so the
+   * frontend can populate cross-page selection without downloading the
+   * dataset. Capped at `SELECT_ALL_MATCHING_CAP`; `total` still reports the
+   * real matching count so the UI can tell the user if the cap was hit.
+   */
+  async findAllIds(
+    query: MasterDataQueryDto,
+    extraWhere: Record<string, unknown> = {},
+  ): Promise<MasterDataIdsResult> {
+    const where = this.buildWhere(query, extraWhere);
+    const [rows, total] = await Promise.all([
+      this.delegate.findMany({
+        where,
+        select: { id: true },
+        take: SELECT_ALL_MATCHING_CAP,
+      }),
+      this.delegate.count({ where }),
+    ]);
+    return { ids: rows.map((row) => row.id), total };
+  }
+
+  /**
+   * Bulk Archive (Part 6) — a sequential loop over the existing single-row
+   * `archive()`, same partial-failure pattern as Leads bulk-assign and
+   * Fiscal Period bulk-close/open: one bad ID never aborts the rest of the
+   * batch, and the caller gets back exactly which ones failed and why.
+   */
+  async archiveMany(ids: string[], userId?: string): Promise<BulkActionResult> {
+    const succeeded: string[] = [];
+    const failed: { id: string; message: string }[] = [];
+    for (const id of ids) {
+      try {
+        await this.archive(id, userId);
+        succeeded.push(id);
+      } catch (error) {
+        failed.push({
+          id,
+          message:
+            error instanceof Error ? error.message : 'Failed to archive.',
+        });
+      }
+    }
+    return { succeeded, failed };
   }
 
   async findOne(id: string): Promise<TEntity> {
@@ -174,9 +242,15 @@ export abstract class MasterDataCrudService<
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === 'P2002'
     ) {
-      return new BadRequestException(
-        `${this.entityLabel} code must be unique.`,
-      );
+      const target = Array.isArray(error.meta?.target)
+        ? (error.meta.target as string[])
+        : [];
+      const field = target[0] ?? 'value';
+      return new BadRequestException({
+        code: 'DUPLICATE',
+        message: `${this.entityLabel} with this ${field} already exists.`,
+        fields: [{ field, constraints: ['unique'] }],
+      });
     }
     return error as Error;
   }

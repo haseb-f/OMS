@@ -6,10 +6,10 @@ import {
   IsInt,
   IsOptional,
   IsString,
-  IsUUID,
   Max,
   Min,
 } from 'class-validator';
+import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.decorator';
 
 /**
  * TASK-047 Financial Reports — the common filter/pagination shape every
@@ -17,24 +17,19 @@ import {
  * extends. Read-only reporting layer only; never used by any write path.
  */
 export class ReportQueryBaseDto {
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   companyId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   branchId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   costCenterId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   projectId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   currencyId?: string;
 
   @IsDateString()

@@ -14,19 +14,31 @@ import {
   type CategoryRow,
   type ChartOfAccountRow,
 } from "@/config/master-data/entities";
+import { useLocale } from "@/providers/locale-provider";
+import { toast } from "@/lib/toast";
+import { ApiError } from "@/services/api-client";
 
 const service = createMasterDataService<CategoryRow>("/product-categories");
 const accountsService = createMasterDataService<ChartOfAccountRow>("/chart-of-accounts");
 
 /** TASK-047 (Accounting Configuration) — adds 4 optional account-override selects to the base Category form. */
 export default function CategoriesPage() {
+  const { t } = useLocale();
   const [accounts, setAccounts] = useState<ChartOfAccountRow[]>([]);
 
   useEffect(() => {
     accountsService
       .list({ pageSize: 500 })
       .then((result) => setAccounts(result.items))
-      .catch(() => setAccounts([]));
+      .catch((error: unknown) => {
+        setAccounts([]);
+        toast.error(
+          error instanceof ApiError
+            ? error.message
+            : t("common.loadListFailed", { name: t("accounting.settings.fields.salesRevenue") }),
+        );
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const accountOptions = useMemo(
@@ -40,33 +52,41 @@ export default function CategoriesPage() {
 
   const formFields = useMemo<MasterDataFormField[]>(
     () => [
-      ...categoriesFormFields,
+      ...categoriesFormFields.map((field) =>
+        field.name === "name"
+          ? { ...field, description: t("masterData.categories.helperText.name") }
+          : field,
+      ),
       {
         name: "revenueAccountId",
         label: "accounting.settings.fields.salesRevenue",
         type: "select",
         options: accountOptions,
+        description: t("masterData.categories.helperText.revenueAccountId"),
       },
       {
         name: "inventoryAccountId",
         label: "accounting.settings.fields.inventoryAsset",
         type: "select",
         options: accountOptions,
+        description: t("masterData.categories.helperText.inventoryAccountId"),
       },
       {
         name: "cogsAccountId",
         label: "accounting.settings.fields.cogs",
         type: "select",
         options: accountOptions,
+        description: t("masterData.categories.helperText.cogsAccountId"),
       },
       {
         name: "purchaseAccountId",
         label: "accounting.settings.fields.purchase",
         type: "select",
         options: accountOptions,
+        description: t("masterData.categories.helperText.purchaseAccountId"),
       },
     ],
-    [accountOptions],
+    [accountOptions, t],
   );
 
   return (

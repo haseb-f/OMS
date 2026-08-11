@@ -313,6 +313,22 @@ export const navigationConfig: NavigationItem[] = [
     order: 8,
   },
   {
+    id: "finance-expenses",
+    titleKey: "nav.financeExpenses",
+    parent: "finance",
+    route: "/finance/expenses",
+    icon: "receipt",
+    order: 8.5,
+  },
+  {
+    id: "finance-fixed-assets",
+    titleKey: "nav.financeFixedAssets",
+    parent: "finance",
+    route: "/finance/fixed-assets",
+    icon: "building",
+    order: 8.6,
+  },
+  {
     id: "finance-fiscal-periods",
     titleKey: "nav.financeFiscalPeriods",
     parent: "finance",

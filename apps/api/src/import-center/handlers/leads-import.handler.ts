@@ -7,6 +7,10 @@ import { CurrenciesService } from '../../currencies/currencies.service';
 import { UsersService } from '../../users/users.service';
 import { ImportTypeRegistryService } from '../import-type-registry.service';
 import { resolveRequiredIdByField } from '../import-value.util';
+import {
+  PhoneNumberService,
+  phoneErrorMessage,
+} from '../../common/phone/phone-number.service';
 import type {
   ImportFieldDef,
   ImportRowOptions,
@@ -160,6 +164,7 @@ export class LeadsImportHandler implements ImportTypeHandler, OnModuleInit {
     private readonly currenciesService: CurrenciesService,
     private readonly usersService: UsersService,
     private readonly registry: ImportTypeRegistryService,
+    private readonly phoneNumberService: PhoneNumberService,
   ) {}
 
   onModuleInit() {
@@ -198,6 +203,19 @@ export class LeadsImportHandler implements ImportTypeHandler, OnModuleInit {
       'Currency',
     );
     const salesEmployeeId = await this.resolveAgent(row.agentEmail);
+
+    // Validated here too (not just inside LeadsService.create()) so the
+    // dry-run validation pass — which returns before create() is ever
+    // called — actually catches a bad phone number instead of silently
+    // deferring it to the real import pass.
+    const country = await this.countriesService.findOne(countryId);
+    const phoneCheck = this.phoneNumberService.parse(
+      row.mobileNumber,
+      country.code,
+    );
+    if (!phoneCheck.isValid) {
+      throw new BadRequestException(phoneErrorMessage(phoneCheck.errorReason));
+    }
 
     if (options?.dryRun) return { id: 'dry-run' };
 

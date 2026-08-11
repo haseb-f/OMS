@@ -6,15 +6,14 @@ import {
   IsInt,
   IsOptional,
   IsString,
-  IsUUID,
   Max,
   Min,
 } from 'class-validator';
 import { SalesDocumentStatus } from '@prisma/client';
+import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.decorator';
 
 export class FindSalesReturnsQueryDto {
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   customerId?: string;
 
   @IsEnum(SalesDocumentStatus)

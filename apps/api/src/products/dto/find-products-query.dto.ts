@@ -6,11 +6,11 @@ import {
   IsInt,
   IsOptional,
   IsString,
-  IsUUID,
   Max,
   Min,
 } from 'class-validator';
 import { ProductStatus, ProductType } from '@prisma/client';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 /**
  * Filtering by Category/Brand/Tax/Status/Type; search across SKU/Name/
@@ -21,16 +21,13 @@ import { ProductStatus, ProductType } from '@prisma/client';
  * Table).
  */
 export class FindProductsQueryDto {
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   categoryId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   brandId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   taxId?: string;
 
   @IsEnum(ProductStatus)

@@ -6,6 +6,7 @@ import {
   IsUUID,
   Min,
 } from 'class-validator';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 /** `subtotal` is caller-supplied, matching OrderItem's raw-value convention — but `taxId` is a real, optional lookup: the service resolves its rate and computes `taxAmount`/`lineTotal` server-side (0 tax when omitted). */
 export class PurchaseOrderItemInputDto {
@@ -20,8 +21,7 @@ export class PurchaseOrderItemInputDto {
   @Min(0)
   quantity!: number;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   unitId?: string;
 
   @IsNumber()
@@ -42,8 +42,7 @@ export class PurchaseOrderItemInputDto {
   @Min(0)
   subtotal!: number;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   taxId?: string;
 
   @IsString()

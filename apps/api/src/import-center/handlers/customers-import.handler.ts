@@ -1,6 +1,13 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import { CustomersService } from '../../customers/customers.service';
+import { CountriesService } from '../../countries/countries.service';
 import { ImportTypeRegistryService } from '../import-type-registry.service';
+import { resolveOptionalIdByField } from '../import-value.util';
+import {
+  PhoneNumberService,
+  phoneErrorMessage,
+} from '../../common/phone/phone-number.service';
 import type {
   ImportFieldDef,
   ImportRowOptions,
@@ -21,6 +28,13 @@ const FIELDS: ImportFieldDef[] = [
     key: 'commercialName',
     labelKey: 'importCenter.fields.commercialName',
     label: 'Commercial Name',
+    required: false,
+    type: 'string',
+  },
+  {
+    key: 'countryName',
+    labelKey: 'importCenter.fields.countryName',
+    label: 'Country',
     required: false,
     type: 'string',
   },
@@ -95,7 +109,9 @@ export class CustomersImportHandler implements ImportTypeHandler, OnModuleInit {
 
   constructor(
     private readonly customersService: CustomersService,
+    private readonly countriesService: CountriesService,
     private readonly registry: ImportTypeRegistryService,
+    private readonly phoneNumberService: PhoneNumberService,
   ) {}
 
   onModuleInit() {
@@ -107,11 +123,32 @@ export class CustomersImportHandler implements ImportTypeHandler, OnModuleInit {
     userId?: string,
     options?: ImportRowOptions,
   ): Promise<ImportRowResult> {
+    const countryId = await resolveOptionalIdByField(
+      this.countriesService,
+      'name',
+      row.countryName,
+      'Country',
+    );
+    // Country is optional on Customer, but validate strictly whenever the
+    // file did supply one — same rule CustomersService.create() enforces,
+    // checked here too so the dry-run preview catches it before import.
+    const countryCode = countryId
+      ? (await this.countriesService.findOne(countryId)).code
+      : undefined;
+    for (const value of [row.phone, row.mobile]) {
+      if (!value) continue;
+      const check = this.phoneNumberService.parse(value, countryCode);
+      if (countryCode && !check.isValid) {
+        throw new BadRequestException(phoneErrorMessage(check.errorReason));
+      }
+    }
+
     if (options?.dryRun) return { id: 'dry-run' };
     const customer = await this.customersService.create(
       {
         name: row.name,
         commercialName: row.commercialName || undefined,
+        countryId,
         phone: row.phone || undefined,
         mobile: row.mobile || undefined,
         email: row.email || undefined,

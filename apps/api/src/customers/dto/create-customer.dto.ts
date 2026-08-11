@@ -5,10 +5,10 @@ import {
   IsNumber,
   IsOptional,
   IsString,
-  IsUUID,
   Min,
 } from 'class-validator';
 import { CustomerSource, CustomerStatus } from '@prisma/client';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 /**
  * `defaultReceivableAccountId` is "(nullable placeholder only)" — no FK, no
@@ -49,16 +49,13 @@ export class CreateCustomerDto {
   @IsOptional()
   commercialRegistration?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   customerGroupId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   currencyId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   paymentTermId?: string;
 
   @IsNumber()
@@ -66,8 +63,7 @@ export class CreateCustomerDto {
   @IsOptional()
   creditLimit?: number;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   countryId?: string;
 
   @IsString()

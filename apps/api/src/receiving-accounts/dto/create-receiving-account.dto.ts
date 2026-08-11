@@ -5,6 +5,7 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 /**
  * "WHERE the money actually arrived" — the real accounting destination.
@@ -21,12 +22,10 @@ export class CreateReceivingAccountDto {
   code!: string;
 
   /** No Company/multi-entity module exists yet — placeholder, not validated against anything. */
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   companyId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   currencyId?: string;
 
   @IsUUID()

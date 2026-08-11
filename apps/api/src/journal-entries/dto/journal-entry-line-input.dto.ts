@@ -1,4 +1,5 @@
 import { IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 /** One debit/credit line — balance (sum debit === sum credit) is checked in the service, not here. */
 export class JournalEntryLineInputDto {
@@ -10,12 +11,10 @@ export class JournalEntryLineInputDto {
   description?: string;
 
   /** TASK-053 — per-line cost attribution (Journal Lines Grid's Cost Center / Project columns). */
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   costCenterId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   projectId?: string;
 
   @IsNumber()

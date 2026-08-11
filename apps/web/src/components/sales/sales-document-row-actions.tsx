@@ -1,74 +1,19 @@
 "use client";
 
-import { Fragment } from "react";
-import type { LucideIcon } from "lucide-react";
-import { Archive, Download, MoreHorizontal, Printer } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Archive, Download, Printer } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-
-export interface SalesDocumentRowAction {
-  key: string;
-  label: string;
-  icon: LucideIcon;
-  onSelect: () => void;
-  /** Omit the item entirely — used when the action never applies to this document type. */
-  hidden?: boolean;
-  /** Keep the item visible but non-actionable — used when the current status doesn't allow it. */
-  disabled?: boolean;
-  destructive?: boolean;
-  /** Renders a separator above this item — groups destructive actions apart from the rest. */
-  separatorBefore?: boolean;
-}
+import { RowActionsMenu, type RowAction } from "@/components/shared/data-table";
 
 /**
- * TASK-047 — the one row-actions dropdown every Sales document list reuses
- * (Quotation/Order/Invoice/Return) instead of four hand-rolled per-page
- * action rows. Callers decide which actions apply to a given row and
- * whether the current status allows each one (`hidden`/`disabled`) — this
- * component only renders the menu.
+ * TASK-047 — kept as a re-export so the 21 existing Sales/Purchasing/
+ * Finance/Inventory/Settings imports of these names never had to change.
+ * The actual implementation now lives in the generic, tableId-agnostic
+ * `RowActionsMenu` under `components/shared/data-table` — every new
+ * consumer (Master Data, etc.) should import that directly instead of
+ * these Sales-named aliases.
  */
-export function SalesDocumentRowActionsMenu({
-  actions,
-  label,
-}: {
-  actions: SalesDocumentRowAction[];
-  label: string;
-}) {
-  const visible = actions.filter((action) => !action.hidden);
-  if (visible.length === 0) return null;
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <EnterpriseButton type="button" variant="ghost" size="icon-sm" aria-label={label}>
-          <MoreHorizontal className="size-4" />
-        </EnterpriseButton>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {visible.map((action) => (
-          <Fragment key={action.key}>
-            {action.separatorBefore && <DropdownMenuSeparator />}
-            <DropdownMenuItem
-              disabled={action.disabled}
-              onSelect={action.onSelect}
-              className={cn(action.destructive && "text-destructive focus:text-destructive")}
-            >
-              <action.icon className="size-4" />
-              {action.label}
-            </DropdownMenuItem>
-          </Fragment>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
+export type SalesDocumentRowAction = RowAction;
+export const SalesDocumentRowActionsMenu = RowActionsMenu;
 
 /**
  * The one bulk-actions row every Sales document list reuses (Print/Export/

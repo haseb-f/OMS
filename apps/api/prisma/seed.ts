@@ -60,6 +60,9 @@ const masterDataEntities = [
   // "masterdata.chart-of-accounts.*"; Journals is the new entity this task adds.
   'chart-of-accounts',
   'journals',
+  // System-Wide Data-Entry Standard pass — Expenses, Fixed Assets.
+  'expenses',
+  'fixed-assets',
 ];
 const masterDataActions = ['view', 'create', 'edit', 'archive'];
 const masterDataPermissions = masterDataEntities.flatMap((entity) =>
@@ -501,14 +504,21 @@ async function main() {
   await prisma.productCategory.deleteMany({
     where: { name: { in: obsoleteProductCategoryNames } },
   });
+  // Not a plain `upsert` — `ProductCategory.name` is only unique among
+  // active (non-archived) rows (a partial index, not expressible as a
+  // Prisma `@unique`), so lookup has to filter `deletedAt: null` itself.
   await Promise.all(
-    productCategories.map((category) =>
-      prisma.productCategory.upsert({
-        where: { name: category.name },
-        update: category,
-        create: category,
-      }),
-    ),
+    productCategories.map(async (category) => {
+      const existing = await prisma.productCategory.findFirst({
+        where: { name: category.name, deletedAt: null },
+      });
+      return existing
+        ? prisma.productCategory.update({
+            where: { id: existing.id },
+            data: category,
+          })
+        : prisma.productCategory.create({ data: category });
+    }),
   );
 
   await prisma.productBrand.deleteMany({

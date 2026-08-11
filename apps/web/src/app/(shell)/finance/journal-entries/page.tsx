@@ -89,6 +89,11 @@ function JournalEntriesPageContent() {
   const [dateRange, setDateRange] = useState<DateRangeValue>(EMPTY_DATE_RANGE);
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [isSelectingAllMatching, setIsSelectingAllMatching] = useState(false);
+  // Cross-page selection (Part 7) — see the identical comment in
+  // sales/orders/page.tsx: `items` only ever holds the current page, so
+  // every page fetched is merged into this cache instead of discarded.
+  const [itemsCache, setItemsCache] = useState<Record<string, JournalEntryRow>>({});
   const [usersById, setUsersById] = useState<Record<string, string>>({});
   const [journals, setJournals] = useState<JournalRow[]>([]);
   const [postTarget, setPostTarget] = useState<JournalEntryRow | null>(null);
@@ -123,6 +128,10 @@ function JournalEntriesPageContent() {
       });
       setItems(result.items);
       setTotal(result.total);
+      setItemsCache((cache) => ({
+        ...cache,
+        ...Object.fromEntries(result.items.map((item) => [item.id, item])),
+      }));
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Failed to load journal entries.");
     } finally {
@@ -353,10 +362,12 @@ function JournalEntriesPageContent() {
     "createdBy",
   ];
 
-  const selectedItems = items.filter((item) => rowSelection[item.id]);
+  const selectedIds = Object.keys(rowSelection);
+  const selectedItems = selectedIds.map((id) => itemsCache[id]).filter((item) => !!item);
   const selectedArchivable = selectedItems.filter((item) =>
     JOURNAL_ENTRY_ARCHIVABLE_STATUSES.includes(item.status),
   );
+  const hasUncachedSelection = selectedIds.length > selectedItems.length;
 
   const handleBulkPrint = () => {
     if (selectedItems.length === 0) return;
@@ -382,22 +393,37 @@ function JournalEntriesPageContent() {
     );
   };
 
+  const handleSelectAllMatching = async () => {
+    setIsSelectingAllMatching(true);
+    try {
+      const result = await journalEntriesService.listIds({
+        search: search || undefined,
+        status: (statusFilter || undefined) as JournalEntryStatusValue | undefined,
+        journalId: journalFilter || undefined,
+        dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
+        dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
+      });
+      setRowSelection(Object.fromEntries(result.ids.map((id) => [id, true])));
+    } catch (error) {
+      toast.error(
+        error instanceof ApiError ? error.message : "Failed to select all matching entries.",
+      );
+    } finally {
+      setIsSelectingAllMatching(false);
+    }
+  };
+
   const handleBulkArchiveConfirmed = async () => {
     setBulkArchiveOpen(false);
-    let failures = 0;
-    for (const item of selectedArchivable) {
-      try {
-        await journalEntriesService.archive(item.id);
-      } catch {
-        failures += 1;
-      }
-    }
-    if (failures === 0) {
+    const result = await journalEntriesService.bulkArchive(selectedIds);
+    if (result.failed.length === 0) {
       toast.success(
-        t("accounting.journalEntries.toasts.bulkArchived", { count: selectedArchivable.length }),
+        t("accounting.journalEntries.toasts.bulkArchived", { count: result.succeeded.length }),
       );
     } else {
-      toast.error(t("accounting.journalEntries.toasts.bulkArchiveFailed", { count: failures }));
+      toast.error(
+        t("accounting.journalEntries.toasts.bulkArchiveFailed", { count: result.failed.length }),
+      );
     }
     setRowSelection({});
     void load();
@@ -504,12 +530,14 @@ function JournalEntriesPageContent() {
         isLoading={isLoading}
         rowSelection={rowSelection}
         onRowSelectionChange={setRowSelection}
+        onSelectAllMatching={handleSelectAllMatching}
+        isSelectingAllMatching={isSelectingAllMatching}
         bulkActions={
           <SalesListBulkActions
             onPrint={handleBulkPrint}
             onExport={handleBulkExport}
             onArchive={() => setBulkArchiveOpen(true)}
-            archiveDisabled={selectedArchivable.length === 0}
+            archiveDisabled={!hasUncachedSelection && selectedArchivable.length === 0}
             labels={{
               print: t("table.print"),
               export: t("table.export"),
@@ -567,7 +595,7 @@ function JournalEntriesPageContent() {
         onOpenChange={setBulkArchiveOpen}
         tone="destructive"
         title={t("accounting.journalEntries.bulk.archiveConfirmTitle", {
-          count: selectedArchivable.length,
+          count: hasUncachedSelection ? selectedIds.length : selectedArchivable.length,
         })}
         description={t("accounting.journalEntries.confirmArchiveDescription")}
         confirmLabel={t("common.archive")}

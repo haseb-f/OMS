@@ -27,6 +27,7 @@ import { CreateSalesOrderDto } from './dto/create-sales-order.dto';
 import { UpdateSalesOrderDto } from './dto/update-sales-order.dto';
 import { FindSalesOrdersQueryDto } from './dto/find-sales-orders-query.dto';
 import { ConvertOrderToInvoiceDto } from './dto/convert-order-to-invoice.dto';
+import { BulkIdsDto } from '../../master-data/dto/bulk-ids.dto';
 
 /** Business operations only: Create, Update, Submit, Approve, Confirm (Reserve Inventory), Cancel, Archive, Convert-to-Invoice, Search, Details. */
 @Controller('sales/orders')
@@ -46,6 +47,12 @@ export class SalesOrdersController {
   @Get()
   findAll(@Query() query: FindSalesOrdersQueryDto) {
     return this.ordersService.findAll(query);
+  }
+
+  /** "Select all matching filters" (Part 8) — bare IDs only, same filter/search as `findAll`. */
+  @Get('ids')
+  findAllIds(@Query() query: FindSalesOrdersQueryDto) {
+    return this.ordersService.findAllIds(query);
   }
 
   @Get(':id')
@@ -91,6 +98,13 @@ export class SalesOrdersController {
   @PermissionAction('delete')
   archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.ordersService.archive(id, user.sub);
+  }
+
+  @Post('bulk-archive')
+  @HttpCode(200)
+  @PermissionAction('delete')
+  bulkArchive(@Body() dto: BulkIdsDto, @CurrentUser() user: JwtPayload) {
+    return this.ordersService.archiveMany(dto.ids, user.sub);
   }
 
   @Post(':id/convert-to-invoice')

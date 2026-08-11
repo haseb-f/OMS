@@ -109,10 +109,16 @@ function ProductsPageContent() {
   }, [load]);
 
   useEffect(() => {
+    const notifyLoadFailed = (name: string, error: unknown) => {
+      toast.error(error instanceof ApiError ? error.message : t("common.loadListFailed", { name }));
+    };
     categoriesService
       .list({ pageSize: 200 })
       .then((r) => setCategories(r.items))
-      .catch(() => setCategories([]));
+      .catch((error: unknown) => {
+        setCategories([]);
+        notifyLoadFailed(t("products.fields.category"), error);
+      });
     brandsService
       .list({ pageSize: 200 })
       .then((r) => setBrands(r.items))
@@ -137,6 +143,7 @@ function ProductsPageContent() {
       .list({ pageSize: 200 })
       .then((r) => setWarehouses(r.items))
       .catch(() => setWarehouses([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const openCreate = () => setCreateDialogOpen(true);
@@ -387,6 +394,7 @@ function ProductsPageContent() {
         suppliers={suppliers}
         warehouses={warehouses}
         onSaved={load}
+        onCategoryCreated={(category) => setCategories((prev) => [...prev, category])}
       />
 
       <ConfirmationDialog

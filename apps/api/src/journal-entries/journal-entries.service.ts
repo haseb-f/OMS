@@ -108,7 +108,18 @@ export class JournalEntriesService {
     }
   }
 
-  async findAll(query: FindJournalEntriesQueryDto) {
+  private buildFindWhere(
+    query: Pick<
+      FindJournalEntriesQueryDto,
+      | 'status'
+      | 'journalId'
+      | 'sourceType'
+      | 'sourceId'
+      | 'search'
+      | 'dateFrom'
+      | 'dateTo'
+    >,
+  ): Prisma.JournalEntryWhereInput {
     const where: Prisma.JournalEntryWhereInput = {
       deletedAt: null,
       status: query.status,
@@ -125,7 +136,11 @@ export class JournalEntriesService {
     if (query.dateFrom || query.dateTo) {
       where.createdAt = buildDateRangeFilter(query.dateFrom, query.dateTo);
     }
+    return where;
+  }
 
+  async findAll(query: FindJournalEntriesQueryDto) {
+    const where = this.buildFindWhere(query);
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
     const [items, total] = await Promise.all([
@@ -140,6 +155,39 @@ export class JournalEntriesService {
     ]);
 
     return { items, total, page, pageSize };
+  }
+
+  /** "Select all matching filters" (Part 8) — bare IDs only, same filter/search as `findAll`. */
+  async findAllIds(query: FindJournalEntriesQueryDto) {
+    const where = this.buildFindWhere(query);
+    const [rows, total] = await Promise.all([
+      this.prisma.journalEntry.findMany({
+        where,
+        select: { id: true },
+        take: 10_000,
+      }),
+      this.prisma.journalEntry.count({ where }),
+    ]);
+    return { ids: rows.map((row) => row.id), total };
+  }
+
+  /** Bulk Archive — sequential loop over the existing single-row `archive()` (Draft-only, enforced there), same partial-failure pattern used elsewhere in the API. */
+  async archiveMany(ids: string[], userId?: string) {
+    const succeeded: string[] = [];
+    const failed: { id: string; message: string }[] = [];
+    for (const id of ids) {
+      try {
+        await this.archive(id, userId);
+        succeeded.push(id);
+      } catch (error) {
+        failed.push({
+          id,
+          message:
+            error instanceof Error ? error.message : 'Failed to archive.',
+        });
+      }
+    }
+    return { succeeded, failed };
   }
 
   async findOne(id: string) {

@@ -4,12 +4,12 @@ import {
   IsInt,
   IsNotEmpty,
   IsOptional,
-  IsPhoneNumber,
   IsString,
   IsUUID,
   Min,
 } from 'class-validator';
 import { LeadSource } from '@prisma/client';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 /** A UI form's untouched "no selection" Select value — normalized to `undefined` so `@IsOptional()` actually skips validation for it (an empty string is not `null`/`undefined`, so it would otherwise still be checked against `@IsUUID()`/`@IsString()`). */
 const emptyToUndefined = ({ value }: { value: unknown }) =>
@@ -20,8 +20,15 @@ export class CreateLeadDto {
   @IsNotEmpty()
   customerName!: string;
 
-  /** International format (e.g. +201000000000) — not tied to a specific country. */
-  @IsPhoneNumber()
+  /**
+   * Any common representation (local "0501234567", international
+   * "+966501234567", or "00966501234567") — `PhoneNumberService` in
+   * `LeadsService.create()` parses this against `countryId`'s ISO2 code and
+   * rejects/normalizes it there, where country context is available. A bare
+   * `@IsPhoneNumber()` here would wrongly reject valid local-format input.
+   */
+  @IsString()
+  @IsNotEmpty()
   mobileNumber!: string;
 
   @IsUUID()
@@ -36,8 +43,7 @@ export class CreateLeadDto {
   address!: string;
 
   /** No Product entity/module exists yet — reserved for future integration, not a foreign key. */
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   productId?: string;
 
   @IsInt()
@@ -51,8 +57,7 @@ export class CreateLeadDto {
   source!: LeadSource;
 
   @Transform(emptyToUndefined)
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   salesEmployeeId?: string;
 
   @IsString()

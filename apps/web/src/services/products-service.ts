@@ -7,7 +7,7 @@ export type ProductType =
   | "MANUFACTURED"
   | "SERVICE"
   | "EXPENSE_ITEM";
-export type ProductStatus = "ACTIVE" | "INACTIVE";
+export type ProductStatus = "DRAFT" | "ACTIVE" | "INACTIVE";
 
 export interface ProductRow {
   id: string;

@@ -6,10 +6,10 @@ import {
   IsNumber,
   IsOptional,
   IsString,
-  IsUUID,
   Min,
 } from 'class-validator';
 import { SupplierStatus } from '@prisma/client';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 /**
  * Default Payable/Expense Account are "(nullable placeholder only)" — no
@@ -62,13 +62,11 @@ export class CreateSupplierDto {
   @IsOptional()
   commercialRegistration?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   currencyId?: string;
 
   /** TASK-047 — same treatment as Customer.customerGroupId; also drives Accounting Configuration group-level account-mapping overrides. */
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   supplierGroupId?: string;
 
   /** No closed set of values specified — free-text. */
@@ -81,8 +79,7 @@ export class CreateSupplierDto {
   @IsOptional()
   creditLimit?: number;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   countryId?: string;
 
   @IsString()

@@ -7,6 +7,16 @@ export interface MasterDataListResult<TEntity> {
   pageSize: number;
 }
 
+export interface MasterDataIdsResult {
+  ids: string[];
+  total: number;
+}
+
+export interface BulkActionResult {
+  succeeded: string[];
+  failed: { id: string; message: string }[];
+}
+
 export interface MasterDataListParams {
   search?: string;
   page?: number;
@@ -52,10 +62,15 @@ export function createMasterDataService<
   return {
     list: (params: MasterDataListParams = {}) =>
       apiClient.get<MasterDataListResult<TEntity>>(`${basePath}${buildQueryString(params)}`),
+    /** "Select all matching filters" (Part 8) — same params as `list`, bare IDs only. */
+    listIds: (params: MasterDataListParams = {}) =>
+      apiClient.get<MasterDataIdsResult>(`${basePath}/ids${buildQueryString(params)}`),
     get: (id: string) => apiClient.get<TEntity>(`${basePath}/${id}`),
     create: (dto: TCreateDto) => apiClient.post<TEntity>(basePath, dto),
     update: (id: string, dto: TUpdateDto) => apiClient.patch<TEntity>(`${basePath}/${id}`, dto),
     archive: (id: string) => apiClient.post<TEntity>(`${basePath}/${id}/archive`),
+    bulkArchive: (ids: string[]) =>
+      apiClient.post<BulkActionResult>(`${basePath}/bulk-archive`, { ids }),
     restore: (id: string) => apiClient.post<TEntity>(`${basePath}/${id}/restore`),
     activity: (id: string) =>
       apiClient.get<MasterDataActivityEntry[]>(`${basePath}/${id}/activity`),

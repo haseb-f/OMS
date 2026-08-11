@@ -4,9 +4,9 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  IsUUID,
 } from 'class-validator';
 import { AccountType } from '@prisma/client';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 /**
  * A real Chart of Accounts reference list — code/name/type/hierarchy — but
@@ -30,12 +30,10 @@ export class CreateChartOfAccountDto {
   @IsEnum(AccountType)
   accountType!: AccountType;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   parentAccountId?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   currencyId?: string;
 
   @IsBoolean()

@@ -6,6 +6,7 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 /**
  * paymentNumber is auto-generated (own sequence, mirrors Lead/SalesOrder) —
@@ -13,8 +14,7 @@ import {
  * Lead (Optional)").
  */
 export class CreatePaymentDto {
-  @IsUUID()
-  @IsOptional()
+  @IsOptionalUuid()
   leadId?: string;
 
   @IsDateString()

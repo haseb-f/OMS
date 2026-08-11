@@ -7,7 +7,10 @@ import {
   SalesDocumentStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { normalizePhone } from '../common/phone.util';
+import {
+  PhoneNumberService,
+  phoneErrorMessage,
+} from '../common/phone/phone-number.service';
 import { MasterDataActivityLogService } from '../master-data/master-data-activity-log.service';
 import {
   MasterDataCrudService,
@@ -46,8 +49,32 @@ export class CustomersService extends MasterDataCrudService<
     prisma: PrismaService,
     activityLog: MasterDataActivityLogService,
     private readonly numberingEngine: NumberingEngineService,
+    private readonly phoneNumberService: PhoneNumberService,
   ) {
     super(prisma, activityLog);
+  }
+
+  /** Resolves `countryId` (when given) to its ISO2 code and validates/normalizes a phone value against it; without a country, best-effort normalizes but doesn't reject (no country rules to validate against — `phone`/`mobile` are optional and `countryId` is nullable on Customer). Returns `undefined` for an empty input so an untouched optional field never becomes a validation error. */
+  private async normalizeCustomerPhone(
+    value: string | undefined | null,
+    countryId: string | undefined | null,
+  ): Promise<string | undefined> {
+    if (!value?.trim()) return undefined;
+    const country = countryId
+      ? await this.prisma.country.findFirst({
+          where: { id: countryId, deletedAt: null },
+        })
+      : null;
+    const result = this.phoneNumberService.parse(value, country?.code);
+    if (country) {
+      if (!result.isValid || !result.e164) {
+        throw new BadRequestException(phoneErrorMessage(result.errorReason));
+      }
+      return result.e164;
+    }
+    // No country context — accept as-is if it doesn't even parse (we can't
+    // validate a numbering plan we don't know), but still normalize when it does.
+    return result.e164 ?? value.trim();
   }
 
   protected get delegate(): MasterDataDelegate<
@@ -60,20 +87,49 @@ export class CustomersService extends MasterDataCrudService<
 
   /** Customer Number is never typed by hand — minted the same way Warehouse.code is. */
   async create(dto: CreateCustomerDto, userId?: string) {
-    await this.assertNoDuplicate([dto.phone, dto.mobile], dto.email);
+    const phone = await this.normalizeCustomerPhone(dto.phone, dto.countryId);
+    const mobile = await this.normalizeCustomerPhone(dto.mobile, dto.countryId);
+    await this.assertNoDuplicate([phone, mobile], dto.email);
     const customerNumber =
       await this.numberingEngine.generateNumber(DOCUMENT_TYPE);
     return super.create(
-      { ...dto, customerNumber, source: dto.source ?? CustomerSource.MANUAL },
+      {
+        ...dto,
+        phone,
+        mobile,
+        customerNumber,
+        source: dto.source ?? CustomerSource.MANUAL,
+      },
       userId,
     );
   }
 
   async update(id: string, dto: UpdateCustomerDto, userId?: string) {
-    if (dto.phone || dto.mobile || dto.email) {
-      await this.assertNoDuplicate([dto.phone, dto.mobile], dto.email, id);
+    const data = { ...dto };
+    let countryId = dto.countryId;
+    if (dto.phone !== undefined || dto.mobile !== undefined) {
+      if (countryId === undefined) {
+        const existing = await super.findOne(id);
+        countryId = existing.countryId ?? undefined;
+      }
+      // An explicit "" / null clears the field — only run normalization for
+      // an actual value, so clearing never gets silently turned into a
+      // no-op by `normalizeCustomerPhone` treating empty as "not provided."
+      if (dto.phone !== undefined) {
+        data.phone = dto.phone
+          ? await this.normalizeCustomerPhone(dto.phone, countryId)
+          : dto.phone;
+      }
+      if (dto.mobile !== undefined) {
+        data.mobile = dto.mobile
+          ? await this.normalizeCustomerPhone(dto.mobile, countryId)
+          : dto.mobile;
+      }
     }
-    return super.update(id, dto, userId);
+    if (data.phone || data.mobile || dto.email) {
+      await this.assertNoDuplicate([data.phone, data.mobile], dto.email, id);
+    }
+    return super.update(id, data, userId);
   }
 
   /**
@@ -146,11 +202,17 @@ export class CustomersService extends MasterDataCrudService<
     const existing = await this.findDuplicate(phones, email, excludingId);
     if (existing) {
       const normalizedInputs = new Set(
-        phones.map((p) => normalizePhone(p)).filter((p): p is string => !!p),
+        phones
+          .map((p) => this.phoneNumberService.normalizeToE164(p))
+          .filter((p): p is string => !!p),
       );
       const field =
-        normalizedInputs.has(normalizePhone(existing.phone) ?? '') ||
-        normalizedInputs.has(normalizePhone(existing.mobile) ?? '')
+        normalizedInputs.has(
+          this.phoneNumberService.normalizeToE164(existing.phone) ?? '',
+        ) ||
+        normalizedInputs.has(
+          this.phoneNumberService.normalizeToE164(existing.mobile) ?? '',
+        )
           ? 'phone number'
           : 'email';
       throw new BadRequestException(
@@ -175,7 +237,9 @@ export class CustomersService extends MasterDataCrudService<
   ) {
     const normalizedPhones = [
       ...new Set(
-        phones.map((p) => normalizePhone(p)).filter((p): p is string => !!p),
+        phones
+          .map((p) => this.phoneNumberService.normalizeToE164(p))
+          .filter((p): p is string => !!p),
       ),
     ];
 
@@ -189,8 +253,8 @@ export class CustomersService extends MasterDataCrudService<
       });
       const phoneMatch = candidates.find((c) => {
         const candidatePhones = [
-          normalizePhone(c.phone),
-          normalizePhone(c.mobile),
+          this.phoneNumberService.normalizeToE164(c.phone),
+          this.phoneNumberService.normalizeToE164(c.mobile),
         ];
         return candidatePhones.some(
           (p) => p !== null && normalizedPhones.includes(p),

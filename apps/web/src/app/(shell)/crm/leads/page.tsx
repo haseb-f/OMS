@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Contact } from "lucide-react";
+import { Contact, Eye, UserPlus } from "lucide-react";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
 import type { MasterDataFormSection } from "@/components/master-data/master-data-form";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
-import { EnterpriseButton } from "@/components/ui/button";
+import type { RowAction } from "@/components/shared/data-table";
 import { leadsService, type LeadRow } from "@/services/leads-service";
 import {
   createMasterDataService,
@@ -14,7 +14,7 @@ import {
 } from "@/services/master-data-service";
 import type { CurrencyRow, CountryRow } from "@/config/master-data/entities";
 import { leadColumns, leadExportColumns, leadRowLabel } from "@/config/crm/lead-columns";
-import { leadSchema, leadDefaultValues } from "@/config/crm/lead-form";
+import { buildLeadSchema, leadDefaultValues } from "@/config/crm/lead-form";
 import { useLocale } from "@/providers/locale-provider";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { AssignLeadDialog } from "@/components/business/assign-lead-dialog";
@@ -54,17 +54,17 @@ function CrmLeadsPageContent() {
             required: true,
           },
           {
-            name: "mobileNumber",
-            label: "crm.leads.fields.mobileNumber",
-            type: "text",
+            name: "countryId",
+            label: "crm.leads.fields.country",
+            type: "country",
             required: true,
           },
           {
-            name: "countryId",
-            label: "crm.leads.fields.country",
-            type: "select",
+            name: "mobileNumber",
+            label: "crm.leads.fields.mobileNumber",
+            type: "phone",
             required: true,
-            options: countries.map((c) => ({ value: c.id, label: c.name })),
+            countryFieldName: "countryId",
           },
           { name: "city", label: "crm.leads.fields.city", type: "text", required: true },
           { name: "address", label: "crm.leads.fields.address", type: "text", required: true },
@@ -87,6 +87,8 @@ function CrmLeadsPageContent() {
     ],
     [t, countries, currencies],
   );
+
+  const leadSchema = useMemo(() => buildLeadSchema(countries, t), [countries, t]);
 
   return (
     <>
@@ -116,32 +118,27 @@ function CrmLeadsPageContent() {
         exportColumnKeys={leadExportColumns}
         formSections={formSections}
         schema={leadSchema}
+        phoneCountries={countries}
         defaultValues={leadDefaultValues}
         permissionPrefix="crm.leads"
         rowLabel={leadRowLabel}
         defaultSortBy="createdAt"
         disableArchiveRestore
         extraActions={<ModuleImportButtons importType="LEADS" />}
-        renderRowExtraActions={(entity) => (
-          <>
-            <EnterpriseButton
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push(`/crm/leads/${entity.id}`)}
-            >
-              {t("crm.leads.view")}
-            </EnterpriseButton>
-            <EnterpriseButton
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setAssigningLead(entity)}
-            >
-              {t("crm.leads.assign")}
-            </EnterpriseButton>
-          </>
-        )}
+        extraRowActions={(entity): RowAction[] => [
+          {
+            key: "view",
+            label: t("crm.leads.view"),
+            icon: Eye,
+            onSelect: () => router.push(`/crm/leads/${entity.id}`),
+          },
+          {
+            key: "assign",
+            label: t("crm.leads.assign"),
+            icon: UserPlus,
+            onSelect: () => setAssigningLead(entity),
+          },
+        ]}
       />
       <AssignLeadDialog
         open={!!assigningLead}
