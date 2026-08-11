@@ -1474,6 +1474,16 @@ async function main() {
       docCode: 'AST',
       template: '{DOC}-{YEAR}-{SEQ}',
     },
+    {
+      // Store Orders + Shipping Operations — independent storefront/
+      // marketplace order pipeline (never the Leads->SalesOrder 'SALES_ORDER'
+      // key above, and never the B2B 'SALES_ORDER_DOC' key). internalOrderId
+      // is always app-generated here, never client-supplied.
+      documentType: 'STORE_ORDER',
+      label: 'Store Order',
+      docCode: 'STO',
+      template: '{DOC}-{YEAR}-{SEQ}',
+    },
   ];
 
   for (const series of numberSeriesData) {

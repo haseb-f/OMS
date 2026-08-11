@@ -64,6 +64,7 @@ import { OpeningBalancesModule } from './accounting/opening-balances/opening-bal
 import { YearClosingModule } from './accounting/year-closing/year-closing.module';
 import { ImportCenterModule } from './import-center/import-center.module';
 import { BankTransactionsModule } from './bank-transactions/bank-transactions.module';
+import { StoreOrdersModule } from './store-orders/store-orders.module';
 
 @Module({
   imports: [
@@ -131,6 +132,7 @@ import { BankTransactionsModule } from './bank-transactions/bank-transactions.mo
     YearClosingModule,
     ImportCenterModule,
     BankTransactionsModule,
+    StoreOrdersModule,
   ],
   controllers: [HealthController],
   providers: [],

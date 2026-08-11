@@ -72,6 +72,12 @@ model User {
   managedWarehouses  Warehouse[]
   inventoryMovements InventoryMovement[]
 
+  /// Store Orders + Shipping Operations — independent order pipeline, not
+  /// routed through Lead/SalesOrder. See the StoreOrder model comment.
+  storeOrdersAsEmployee    StoreOrder[]         @relation("StoreOrderEmployee")
+  storeOrderReceiptUploads StoreOrderReceipt[]
+  storeOrderActivities     StoreOrderActivity[]
+
   @@map("users")
 }
 
@@ -259,6 +265,7 @@ model Currency {
 
   leads                   Lead[]
   salesOrders             SalesOrder[]
+  storeOrders             StoreOrder[]
   payments                Payment[]
   receivingAccounts       ReceivingAccount[]
   suppliers               Supplier[]
@@ -922,6 +929,13 @@ enum ShipmentStatus {
   DELIVERED
   RETURN_BEFORE_DELIVERY
   RETURN_AFTER_DELIVERY
+
+  /// Store Orders shipping pipeline only (see StoreOrder model comment) —
+  /// additive values, never used by the legacy SalesOrder shipment flow
+  /// above, which keeps using the five original values unchanged.
+  OUT_FOR_DELIVERY
+  DELIVERY_FAILED
+  NEEDS_RESHIPMENT
 }
 
 model SalesOrder {
@@ -1047,8 +1061,15 @@ model OrderItem {
 model Shipment {
   id String @id @default(uuid()) @db.Uuid
 
-  salesOrderId String     @map("sales_order_id") @db.Uuid
-  salesOrder   SalesOrder @relation(fields: [salesOrderId], references: [id])
+  /// Nullable — a Shipment now belongs to exactly one of SalesOrder (legacy
+  /// Leads-COD pipeline) or StoreOrder (see StoreOrder model comment), never
+  /// both. Made optional (was required) so the same table serves both
+  /// pipelines instead of forking a second Shipment concept.
+  salesOrderId String?     @map("sales_order_id") @db.Uuid
+  salesOrder   SalesOrder? @relation(fields: [salesOrderId], references: [id])
+
+  storeOrderId String?     @map("store_order_id") @db.Uuid
+  storeOrder   StoreOrder? @relation(fields: [storeOrderId], references: [id])
 
   /// 1, 2, 3... per order — decision #5's explicit "#1 / #2 / #3" numbering.
   attemptNumber Int @map("attempt_number")
@@ -1467,6 +1488,13 @@ model Payment {
   leadId String? @map("lead_id") @db.Uuid
   lead   Lead?   @relation(fields: [leadId], references: [id])
 
+  /// Optional — parallel to leadId, for the independent Store Orders
+  /// pipeline (see StoreOrder model comment). A Payment belongs to at most
+  /// one of leadId/storeOrderId. Reuses this same reconciliation/bank-
+  /// matching engine untouched — it has no source filtering today.
+  storeOrderId String?     @map("store_order_id") @db.Uuid
+  storeOrder   StoreOrder? @relation(fields: [storeOrderId], references: [id])
+
   paymentDate  DateTime  @map("payment_date")
   receivedDate DateTime? @map("received_date")
 
@@ -1511,9 +1539,11 @@ model Payment {
   attachments PaymentAttachment[]
   notes       PaymentNote[]
   activities  PaymentActivity[]
+  receipts    StoreOrderReceipt[]
 
   reconciledBankTransactions BankTransaction[]
 
+  @@index([storeOrderId])
   @@map("payments")
 }
 
@@ -1880,6 +1910,7 @@ model Product {
   purchaseInvoiceItems    PurchaseInvoiceItem[]
   purchaseReturnItems     PurchaseReturnItem[]
   leads                   Lead[]
+  storeOrderItems         StoreOrderItem[]
 
   @@map("products")
 }
@@ -2531,12 +2562,173 @@ model Customer {
   salesReturns          SalesReturn[]
   financialTransactions FinancialTransaction[]
   journalEntries        JournalEntry[]         @relation("JournalEntryPartnerCustomer")
+  storeOrders           StoreOrder[]
 
   /// TASK-038 — indexed for the "prevent duplicate by phone/email" lookup
   /// CustomersService.create() runs on every write.
   @@index([phone])
   @@index([email])
   @@map("customers")
+}
+
+// ---------------------------------------------------------------------------
+// Store Orders + Shipping Operations — an independent order pipeline for
+// storefront/marketplace orders (manual entry + Excel/Sheets import). Never
+// a Lead, never routed through Lead -> SalesOrder. Reuses existing
+// infrastructure by extension rather than duplication: Payment gained
+// storeOrderId (bank-matching/reconciliation engine untouched), Shipment
+// gained storeOrderId (reshipment-on-failure/attempt-history logic
+// untouched), SalesInvoice gained storeOrderId (Posting Engine untouched).
+// externalOrderId is the unique import identity; phone is only ever the
+// Customer matching key (via the existing CustomersService.findOrCreate),
+// never the Order key — re-importing the same externalOrderId must always
+// be rejected as a duplicate of the existing internalOrderId, never create
+// a second Order.
+// ---------------------------------------------------------------------------
+
+enum StoreOrderSource {
+  MANUAL
+  IMPORT
+}
+
+enum StoreOrderPaymentStatus {
+  PAYMENT_PENDING
+  PARTIALLY_PAID
+  FULLY_PAID_RECONCILED
+  OVERPAID
+  UNMATCHED
+  PAYMENT_REVIEW
+}
+
+/// Order-level shipping gate before any Shipment row exists. Once a
+/// Shipment is created, the order's effective shipping state is read from
+/// its current (latest, non-superseded) Shipment.status instead — this enum
+/// only covers the pre-shipment stage, not the full 7-state lifecycle
+/// (that lifecycle lives on ShipmentStatus).
+enum StoreOrderShippingStage {
+  NOT_READY
+  READY_FOR_SHIPPING
+}
+
+model StoreOrder {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// App-generated via the Numbering Engine ("STORE_ORDER" key) — never
+  /// user-typed, same pattern as Customer.customerNumber.
+  internalOrderId String @unique @map("internal_order_id")
+
+  /// The source system's own order id (e.g. a marketplace order number).
+  /// THE unique import identity — re-importing the same value is rejected
+  /// as a duplicate of the existing internalOrderId, never a new Order.
+  /// Null for manually-created orders (internalOrderId alone identifies
+  /// those).
+  externalOrderId String? @unique @map("external_order_id")
+
+  customerId String   @map("customer_id") @db.Uuid
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  orderDate DateTime @default(now()) @map("order_date")
+
+  source        StoreOrderSource @default(MANUAL)
+  sourceChannel String?          @map("source_channel")
+
+  employeeId String? @map("employee_id") @db.Uuid
+  employee   User?   @relation("StoreOrderEmployee", fields: [employeeId], references: [id])
+
+  paymentStatus StoreOrderPaymentStatus @default(PAYMENT_PENDING) @map("payment_status")
+  shippingStage StoreOrderShippingStage @default(NOT_READY) @map("shipping_stage")
+
+  currencyId String   @map("currency_id") @db.Uuid
+  currency   Currency @relation(fields: [currencyId], references: [id])
+
+  notes String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  items      StoreOrderItem[]
+  receipts   StoreOrderReceipt[]
+  activities StoreOrderActivity[]
+  payments   Payment[]
+  shipments  Shipment[]
+  invoices   SalesInvoice[]
+
+  @@index([customerId])
+  @@index([externalOrderId])
+  @@map("store_orders")
+}
+
+/// Pricing snapshot per line — same rationale as the legacy OrderItem model
+/// above: future Product price changes must never affect an existing order.
+model StoreOrderItem {
+  id String @id @default(uuid()) @db.Uuid
+
+  storeOrderId String     @map("store_order_id") @db.Uuid
+  storeOrder   StoreOrder @relation(fields: [storeOrderId], references: [id])
+
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id])
+
+  quantity  Int
+  unitPrice Decimal @map("unit_price") @db.Decimal(12, 2)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("store_order_items")
+}
+
+/// Mirrors the established "paste a URL" attachment pattern (PaymentAttachment
+/// / SalesOrderAttachment) — no real file-upload pipeline exists anywhere in
+/// this app yet. driveFileId/driveFileUrl are prep-only placeholders for a
+/// future Google Drive write integration (today's Drive access is
+/// read-only), not consumed by any code path yet. A filename may carry a
+/// normalized phone as a non-authoritative matching signal only — never
+/// treated as proof of identity by itself.
+model StoreOrderReceipt {
+  id String @id @default(uuid()) @db.Uuid
+
+  storeOrderId String     @map("store_order_id") @db.Uuid
+  storeOrder   StoreOrder @relation(fields: [storeOrderId], references: [id])
+
+  paymentId String?  @map("payment_id") @db.Uuid
+  payment   Payment? @relation(fields: [paymentId], references: [id])
+
+  fileUrl  String  @map("file_url")
+  fileName String? @map("file_name")
+  mimeType String? @map("mime_type")
+
+  driveFileId  String? @map("drive_file_id")
+  driveFileUrl String? @map("drive_file_url")
+
+  uploadedById String?  @map("uploaded_by_id") @db.Uuid
+  uploadedBy   User?    @relation(fields: [uploadedById], references: [id])
+  uploadedAt   DateTime @default(now()) @map("uploaded_at")
+
+  @@map("store_order_receipts")
+}
+
+/// Append-only audit trail — never updated or deleted, same convention as
+/// InventoryMovement (ADR-0013).
+model StoreOrderActivity {
+  id String @id @default(uuid()) @db.Uuid
+
+  storeOrderId String     @map("store_order_id") @db.Uuid
+  storeOrder   StoreOrder @relation(fields: [storeOrderId], references: [id])
+
+  action  String
+  details String?
+
+  performedById String? @map("performed_by_id") @db.Uuid
+  performedBy   User?   @relation(fields: [performedById], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("store_order_activities")
 }
 
 // ---------------------------------------------------------------------------
@@ -2816,6 +3008,12 @@ model SalesInvoice {
 
   salesOrderId String?             @map("sales_order_id") @db.Uuid
   salesOrder   SalesOrderDocument? @relation(fields: [salesOrderId], references: [id])
+
+  /// Optional — parallel to salesOrderId, for an invoice generated from the
+  /// independent Store Orders pipeline (see StoreOrder model comment).
+  /// Reuses this same SalesInvoice/Posting Engine flow untouched.
+  storeOrderId String?     @map("store_order_id") @db.Uuid
+  storeOrder   StoreOrder? @relation(fields: [storeOrderId], references: [id])
 
   currencyId String?   @map("currency_id") @db.Uuid
   currency   Currency? @relation(fields: [currencyId], references: [id])

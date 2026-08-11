@@ -7,6 +7,7 @@ import { PaymentStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import { LeadsService } from '../leads/leads.service';
+import { StoreOrderPaymentSyncService } from '../store-orders/store-order-payment-sync.service';
 import {
   PaymentActivityService,
   PaymentActivityType,
@@ -36,6 +37,7 @@ export class PaymentsService {
     private readonly notesService: PaymentNotesService,
     private readonly attachmentsService: PaymentAttachmentsService,
     private readonly numberingEngine: NumberingEngineService,
+    private readonly storeOrderPaymentSync: StoreOrderPaymentSyncService,
   ) {}
 
   /** Business operation: Create Payment. Must reference BOTH a PaymentSource (how the
@@ -120,8 +122,8 @@ export class PaymentsService {
     if (existing.status !== PaymentStatus.PENDING) {
       throw new BadRequestException('Only a PENDING payment can be matched.');
     }
-    return this.prisma.$transaction(async (tx) => {
-      const payment = await tx.payment.update({
+    const payment = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.payment.update({
         where: { id },
         data: {
           status: PaymentStatus.MATCHED,
@@ -136,8 +138,14 @@ export class PaymentsService {
         { matchedById: dto.matchedById },
         tx,
       );
-      return payment;
+      return updated;
     });
+
+    if (payment.storeOrderId) {
+      await this.storeOrderPaymentSync.recompute(payment.storeOrderId);
+    }
+
+    return payment;
   }
 
   /** Business operation: Verify Payment. Requires current status MATCHED. Cascades:
@@ -169,6 +177,9 @@ export class PaymentsService {
     if (payment.leadId) {
       await this.leadsService.markPaid(payment.leadId);
     }
+    if (payment.storeOrderId) {
+      await this.storeOrderPaymentSync.recompute(payment.storeOrderId);
+    }
 
     return payment;
   }
@@ -180,8 +191,8 @@ export class PaymentsService {
     if (existing.status !== PaymentStatus.MATCHED) {
       throw new BadRequestException('Only a MATCHED payment can be rejected.');
     }
-    return this.prisma.$transaction(async (tx) => {
-      const payment = await tx.payment.update({
+    const payment = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.payment.update({
         where: { id },
         data: {
           status: PaymentStatus.REJECTED,
@@ -200,8 +211,14 @@ export class PaymentsService {
         },
         tx,
       );
-      return payment;
+      return updated;
     });
+
+    if (payment.storeOrderId) {
+      await this.storeOrderPaymentSync.recompute(payment.storeOrderId);
+    }
+
+    return payment;
   }
 
   /** Business operation: Attach Receipt. */

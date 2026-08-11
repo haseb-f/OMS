@@ -101,6 +101,64 @@ export const navigationConfig: NavigationItem[] = [
     order: 3,
     permissions: ["sales.returns.view"],
   },
+  /// Standalone top-level module — Store Orders + Shipping Operations.
+  /// Deliberately separate from "sales" (id: "sales"): a Store Order is not
+  /// a Sales Order or a CRM Lead, it's its own external-order-driven
+  /// pipeline (import-first, phone-matched-to-existing-customer, payment
+  /// reconciliation -> shipping). Never merged into the Sales section.
+  {
+    id: "store-orders",
+    titleKey: "nav.storeOrders",
+    icon: "store",
+    order: 25,
+    permissions: ["store-orders.view"],
+  },
+  {
+    id: "store-orders-list",
+    titleKey: "nav.storeOrdersList",
+    parent: "store-orders",
+    route: "/store-orders",
+    icon: "shopping-cart",
+    order: 0,
+    permissions: ["store-orders.view"],
+  },
+  {
+    id: "store-orders-import",
+    titleKey: "nav.storeOrdersImport",
+    parent: "store-orders",
+    route: "/store-orders/import",
+    icon: "upload-cloud",
+    order: 1,
+    permissions: ["store-orders.view"],
+  },
+  {
+    id: "store-orders-needs-review",
+    titleKey: "nav.storeOrdersNeedsReview",
+    parent: "store-orders",
+    route: "/store-orders/needs-review",
+    icon: "list-checks",
+    order: 2,
+    permissions: ["store-orders.view"],
+  },
+  {
+    id: "store-orders-shipping",
+    titleKey: "nav.storeOrdersShipping",
+    parent: "store-orders",
+    route: "/shipping",
+    icon: "ship",
+    order: 3,
+    permissions: ["shipping.view"],
+  },
+  {
+    id: "store-orders-shipping-import",
+    titleKey: "nav.storeOrdersShippingImport",
+    parent: "store-orders",
+    route: "/shipping/import",
+    icon: "upload-cloud",
+    order: 4,
+    permissions: ["shipping.view"],
+  },
+
   {
     id: "purchasing",
     titleKey: "nav.purchasing",

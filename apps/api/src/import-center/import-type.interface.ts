@@ -45,6 +45,30 @@ export interface ImportRowResult {
 }
 
 /**
+ * Third outcome beyond success/throw (TASK — Store Orders + Shipping
+ * Operations import) — a handler throws this instead of a plain `Error`
+ * when a row is neither a clean success nor a hard failure, but needs a
+ * human's explicit confirm/reject before anything is written (e.g. Store
+ * Orders import: "an existing Customer was found by phone — attach or
+ * create new?"). `ImportJobsService` treats this distinctly from a normal
+ * validation error: it never blocks the rest of the batch, is counted in
+ * `ImportPreviewSummary.needsReviewCount` (not `invalidCount`), and — when
+ * thrown from `run()` — is persisted as an `ImportJobError` row (reusing
+ * the existing `rawRowData` storage mechanism, no new table) tagged with
+ * the `NEEDS_REVIEW_PREFIX` so `ImportJobsService.confirmRow`/`rejectRow`
+ * can find it again later.
+ */
+export class ImportRowNeedsReviewError extends Error {
+  constructor(reason: string) {
+    super(reason);
+    this.name = 'ImportRowNeedsReviewError';
+  }
+}
+
+/** Prefix stamped on the `ImportJobError.errorMessage` of a needs-review row — see `ImportRowNeedsReviewError`. */
+export const NEEDS_REVIEW_PREFIX = 'NEEDS_REVIEW: ';
+
+/**
  * One registered Import Type. `isAvailable: false` means the type is fully
  * registered (visible in the dashboard, its field schema drives the Mapping
  * Engine) but `importRow` is not implemented yet — TASK-056 explicitly
@@ -83,5 +107,21 @@ export interface ImportTypeHandler {
     rows: Record<string, string>[],
     userId?: string,
     options?: ImportRowOptions,
+  ): Promise<ImportRowResult>;
+
+  /**
+   * Resolves a row previously flagged via `ImportRowNeedsReviewError` —
+   * called only from `ImportJobsService.confirmRow` after a human has
+   * explicitly clicked Confirm on that specific row, with the same mapped
+   * row shape `importRow` received originally (re-derived from the
+   * `ImportJobError.rawRowData` it was stored with). Never re-checks the
+   * condition that triggered the review (the human's confirm IS the
+   * answer) — always writes for real, exactly like `importRow` called
+   * without `dryRun`. Required on any handler whose `importRow`/
+   * `importGroup` can throw `ImportRowNeedsReviewError`.
+   */
+  resolveNeedsReview?(
+    row: Record<string, string>,
+    userId?: string,
   ): Promise<ImportRowResult>;
 }

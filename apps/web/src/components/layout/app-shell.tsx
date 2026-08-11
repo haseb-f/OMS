@@ -24,7 +24,7 @@ export function AppShell({
         <TopBar />
         <BreadcrumbBar />
         <main className="flex flex-1 justify-center">
-          <div className="flex w-full max-w-[1400px] flex-1 flex-col gap-6 px-4 pt-2 pb-8 sm:px-6 lg:px-8">
+          <div className="flex w-full max-w-[1400px] flex-1 flex-col gap-4 px-4 pt-1 pb-8 sm:px-6 lg:px-8">
             {children}
           </div>
         </main>

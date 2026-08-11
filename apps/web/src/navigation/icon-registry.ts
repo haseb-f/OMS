@@ -51,6 +51,8 @@ import {
   BookText,
   Target,
   UploadCloud,
+  Store,
+  ListChecks,
 } from "lucide-react";
 
 /**
@@ -111,6 +113,8 @@ export const iconRegistry = {
   library: Library,
   "calendar-check": CalendarCheck2,
   "upload-cloud": UploadCloud,
+  store: Store,
+  "list-checks": ListChecks,
 } as const;
 
 export type IconName = keyof typeof iconRegistry;

@@ -196,6 +196,12 @@ const en = {
     dashboardSubtitle: "Overview across every OMS module",
     crm: "CRM",
     crmLeads: "Leads",
+    storeOrders: "Store Orders",
+    storeOrdersList: "Store Orders",
+    storeOrdersImport: "Import Orders",
+    storeOrdersNeedsReview: "Needs Review",
+    storeOrdersShipping: "Shipping",
+    storeOrdersShippingImport: "Import Shipping",
     sales: "Sales",
     salesCustomers: "Customers",
     salesQuotations: "Quotations",
@@ -1858,6 +1864,207 @@ const en = {
       },
     },
   },
+  storeOrders: {
+    title: "Store Orders",
+    description:
+      "External store orders — imported or entered manually, matched to Customers by phone, reconciled and shipped.",
+    empty: "No store orders yet.",
+    open: "Open",
+    createDialog: {
+      trigger: "New Order",
+      title: "New Store Order",
+      description:
+        "Enter a Store Order manually — the customer is matched or created by phone, exactly like Import.",
+      success: "Store order created.",
+      sections: {
+        orderInfo: "Order Info",
+        customer: "Customer",
+        notes: "Notes",
+      },
+      fields: {
+        customerName: "Customer Name",
+        customerEmail: "Customer Email",
+        currency: "Currency",
+        notes: "Notes",
+      },
+      items: {
+        title: "Line Items",
+        add: "Add Row",
+        remove: "Remove row",
+        required: "Add at least one line item with a product and quantity.",
+      },
+    },
+    filters: {
+      paymentStatus: "Payment Status",
+      allPaymentStatuses: "All Payment Statuses",
+      shippingStage: "Shipping Stage",
+      allShippingStages: "All Shipping Stages",
+      source: "Source",
+      allSources: "All Sources",
+    },
+    fields: {
+      internalOrderId: "Order #",
+      externalOrderId: "External Order ID",
+      customer: "Customer",
+      phone: "Phone",
+      orderDate: "Order Date",
+      paymentStatus: "Payment Status",
+      shippingStage: "Shipping Stage",
+      total: "Total",
+      source: "Source",
+      sourceChannel: "Source Channel",
+    },
+    source: {
+      MANUAL: "Manual",
+      IMPORT: "Import",
+    },
+    paymentStatus: {
+      PAYMENT_PENDING: "Payment Pending",
+      PARTIALLY_PAID: "Partially Paid",
+      FULLY_PAID_RECONCILED: "Fully Paid (Reconciled)",
+      OVERPAID: "Overpaid",
+      UNMATCHED: "Unmatched",
+      PAYMENT_REVIEW: "Payment Review",
+      explanation: {
+        PAYMENT_PENDING: "No payment has been matched to this order yet.",
+        PARTIALLY_PAID: "Part of the order total has been paid and matched so far.",
+        FULLY_PAID_RECONCILED:
+          "The full order amount has been paid and reconciled — this order is eligible to be marked Ready for Shipping.",
+        OVERPAID: "The matched payments exceed the order total — review before proceeding.",
+        UNMATCHED: "A payment was found but could not be automatically matched to this order.",
+        PAYMENT_REVIEW: "This order's payment matching needs manual review.",
+      },
+    },
+    shippingStage: {
+      NOT_READY: "Not Ready",
+      READY_FOR_SHIPPING: "Ready for Shipping",
+    },
+    detail: {
+      sections: {
+        customer: "Customer Info",
+        orderInfo: "Order Info",
+        payments: "Payment Info",
+        reconciliation: "Reconciliation Status",
+        invoice: "Invoice / Accounting Status",
+        shippingSummary: "Shipping Summary",
+        shipmentHistory: "Shipment History",
+        receipts: "Receipts",
+        activity: "Activity / Audit History",
+      },
+      items: {
+        product: "Product",
+        quantity: "Quantity",
+        unitPrice: "Unit Price",
+      },
+      payments: {
+        empty: "No payments linked to this order yet.",
+        number: "Payment #",
+        date: "Date",
+        amount: "Amount",
+      },
+      invoice: {
+        notGenerated: "No invoice has been generated for this order yet.",
+        generate: "Generate Invoice",
+        generated: "Invoice generated.",
+        gatedHint: "Available once the order's payment is Fully Paid (Reconciled).",
+      },
+      shippingSummary: {
+        notReadyHint:
+          "Ready for Shipping is only reachable once payment is Fully Paid (Reconciled).",
+      },
+      shipmentHistory: {
+        empty: "No shipment attempts yet.",
+        attempt: "Attempt",
+      },
+      receipts: {
+        empty: "No receipts attached yet.",
+        fileName: "File Name",
+        fileNamePlaceholder: "e.g. receipt-1.pdf",
+        url: "File URL",
+        attach: "Attach",
+        attached: "Receipt attached.",
+      },
+      notes: {
+        addLabel: "Add a note",
+        placeholder: "Write a note…",
+        save: "Save Note",
+        added: "Note added.",
+      },
+    },
+    import: {
+      description:
+        "Import Store Orders from Excel/CSV or Google Sheets — an existing Customer is matched by phone, never duplicated.",
+      typeUnavailable: "The Store Orders import type is not registered yet.",
+    },
+    needsReview: {
+      description:
+        "Rows where an existing Customer was matched by phone — confirm to attach the order to that Customer, or reject to discard the row.",
+      selectJob: "Select an import job",
+      noJobs: "No Store Orders import jobs yet.",
+      empty: "No rows need review.",
+      matchedCustomer: "Matched Customer",
+      reason: "Reason",
+      confirm: "Confirm",
+      reject: "Reject",
+      bulkConfirm: "Confirm Selected",
+      bulkReject: "Reject Selected",
+      confirmRejectTitle: "Reject this row?",
+      confirmRejectDescription:
+        "The row will be discarded — no order or customer link will be created.",
+      confirmBulkRejectTitle: "Reject {count} selected rows?",
+      toasts: {
+        confirmed: "Row confirmed and attached to the customer.",
+        rejected: "Row rejected.",
+        bulkConfirmed: "{count} rows confirmed.",
+        bulkRejected: "{count} rows rejected.",
+        bulkFailed: "{count} rows failed.",
+      },
+    },
+  },
+  shipping: {
+    title: "Shipping",
+    description:
+      "Every shipment across every Store Order — track, update status, and bulk-update in one flat list.",
+    empty: "No shipments yet.",
+    open: "Open",
+    filters: {
+      status: "Status",
+      allStatuses: "All Statuses",
+      company: "Shipping Company",
+      allCompanies: "All Companies",
+    },
+    fields: {
+      internalOrderId: "Order #",
+      externalOrderId: "External Order ID",
+      customer: "Customer",
+      shippingCompany: "Shipping Company",
+      trackingNumber: "Tracking Number",
+      status: "Status",
+      shippedAt: "Ship Date",
+    },
+    status: {
+      READY_FOR_SHIPPING: "Ready for Shipping",
+      LABEL_CREATED: "Label Created",
+      SHIPPED: "Shipped",
+      OUT_FOR_DELIVERY: "Out for Delivery",
+      DELIVERED: "Delivered",
+      DELIVERY_FAILED: "Delivery Failed",
+      NEEDS_RESHIPMENT: "Needs Reshipment",
+    },
+    bulk: {
+      selectStatus: "Select status…",
+      updateStatus: "Update Status",
+      confirmTitle: "Update status for {count} selected shipments?",
+      confirmDescription:
+        'All selected shipments will be set to "{status}". This cannot be undone.',
+      success: "{count} shipments updated.",
+      partialFailure: "{count} shipments failed to update.",
+    },
+    import: {
+      description:
+        "Import shipping status updates (carrier, tracking number, status) for existing orders — a failed delivery can also trigger a reship.",
+    },
+  },
   purchasing: {
     suppliers: {
       title: "Suppliers",
@@ -2650,6 +2857,15 @@ const en = {
       openingStock: {
         label: "Opening Stock",
         description: "Import opening warehouse stock quantities per product.",
+      },
+      storeOrders: {
+        label: "Store Orders",
+        description: "Import Store Orders — the Customer is matched automatically by phone.",
+      },
+      shippingUpdates: {
+        label: "Shipping Updates",
+        description:
+          "Import shipping status updates (carrier, tracking number, status) for existing orders.",
       },
     },
     fields: {

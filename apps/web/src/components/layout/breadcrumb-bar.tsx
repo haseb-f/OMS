@@ -26,7 +26,7 @@ export function BreadcrumbBar() {
   if (breadcrumb.length === 0) return null;
 
   return (
-    <div className="px-6 pt-6 pb-2 text-caption">
+    <div className="px-6 py-2 text-caption">
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>

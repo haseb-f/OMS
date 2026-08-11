@@ -33,6 +33,8 @@ import {
 } from './handlers/financial-transactions-import.handler';
 import { JournalEntriesImportHandler } from './handlers/journal-entries-import.handler';
 import { OpeningBalancesImportHandler } from './handlers/opening-balances-import.handler';
+import { StoreOrdersImportHandler } from './handlers/store-orders-import.handler';
+import { ShippingUpdatesImportHandler } from './handlers/shipping-updates-import.handler';
 import { CustomersModule } from '../customers/customers.module';
 import { SuppliersModule } from '../suppliers/suppliers.module';
 import { ProductsModule } from '../products/products.module';
@@ -61,6 +63,7 @@ import { FinancialTransactionsModule } from '../financial-transactions/financial
 import { JournalEntriesModule } from '../journal-entries/journal-entries.module';
 import { OpeningBalancesModule } from '../accounting/opening-balances/opening-balances.module';
 import { BankTransactionsModule } from '../bank-transactions/bank-transactions.module';
+import { StoreOrdersModule } from '../store-orders/store-orders.module';
 
 /**
  * Import Center (TASK-056/TASK-059 "Universal Import Center") — deliberately
@@ -104,6 +107,7 @@ import { BankTransactionsModule } from '../bank-transactions/bank-transactions.m
     JournalEntriesModule,
     OpeningBalancesModule,
     BankTransactionsModule,
+    StoreOrdersModule,
   ],
   controllers: [ImportJobsController, ImportTypesController],
   providers: [
@@ -137,6 +141,8 @@ import { BankTransactionsModule } from '../bank-transactions/bank-transactions.m
     SupplierPaymentsImportHandler,
     JournalEntriesImportHandler,
     OpeningBalancesImportHandler,
+    StoreOrdersImportHandler,
+    ShippingUpdatesImportHandler,
   ],
   exports: [GoogleSheetsService],
 })

@@ -80,6 +80,31 @@ export interface ImportValidationResult {
   summary: ImportPreviewSummary;
 }
 
+export type ImportRowStatus = "NEEDS_REVIEW" | "CONFIRMED" | "REJECTED";
+
+/**
+ * A single imported row awaiting human review — e.g. an existing-customer
+ * match found by phone that must be explicitly confirmed before a Store
+ * Order is attached to that Customer, never auto-accepted.
+ */
+export interface ImportJobRowRecord {
+  id: string;
+  jobId: string;
+  rowNumber: number;
+  status: ImportRowStatus;
+  rawRowData: Record<string, unknown>;
+  reviewReason: string | null;
+  matchedCustomerId: string | null;
+  matchedCustomerName: string | null;
+  matchedCustomerPhone: string | null;
+  createdAt: string;
+}
+
+export interface BulkRowActionResult {
+  succeeded: string[];
+  failed: { id: string; message: string }[];
+}
+
 /**
  * Import Job engine client (TASK-056 Part 3) — every call maps 1:1 to
  * `ImportJobsService` on the API; the frontend never re-implements the
@@ -115,4 +140,25 @@ export const importJobsService = {
   run: (id: string) => apiClient.post<ImportJobRow>(`/import-center/jobs/${id}/run`),
   cancel: (id: string) => apiClient.post<ImportJobRow>(`/import-center/jobs/${id}/cancel`),
   exportErrorsCsv: (id: string) => apiClient.getBlob(`/import-center/jobs/${id}/errors/export`),
+
+  // Needs Review (Store Orders import) — an existing-customer-by-phone row
+  // requires an explicit human confirm/reject click, per row or in bulk;
+  // confirming attaches the row's order to the matched Customer, rejecting
+  // discards the row. Neither ever happens automatically.
+  rows: (jobId: string, status?: ImportRowStatus) =>
+    apiClient.get<ImportJobRowRecord[]>(
+      `/import-center/jobs/${jobId}/rows${status ? `?status=${status}` : ""}`,
+    ),
+  confirmRow: (jobId: string, rowId: string) =>
+    apiClient.post<ImportJobRowRecord>(`/import-center/jobs/${jobId}/rows/${rowId}/confirm`),
+  rejectRow: (jobId: string, rowId: string) =>
+    apiClient.post<ImportJobRowRecord>(`/import-center/jobs/${jobId}/rows/${rowId}/reject`),
+  bulkConfirmRows: (jobId: string, rowIds: string[]) =>
+    apiClient.post<BulkRowActionResult>(`/import-center/jobs/${jobId}/rows/bulk-confirm`, {
+      rowIds,
+    }),
+  bulkRejectRows: (jobId: string, rowIds: string[]) =>
+    apiClient.post<BulkRowActionResult>(`/import-center/jobs/${jobId}/rows/bulk-reject`, {
+      rowIds,
+    }),
 };

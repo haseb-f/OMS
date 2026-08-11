@@ -294,6 +294,50 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
       { action: 'manage', name: 'settings.manage' },
     ],
   },
+  {
+    // Store Orders + Shipping Operations — the independent storefront/
+    // marketplace order pipeline (never the Leads->SalesOrder pipeline,
+    // never the B2B Sales pipeline). A top-level sidebar section of its
+    // own (`navigation.config.ts`'s `store-orders` section), not nested
+    // under `sales` — so its own `.view` action IS the section's gate,
+    // unlike most other modules below whose section-view is a *different*,
+    // coarser permission (see `IMPLIED_SECTION_PERMISSION`).
+    key: 'store-orders',
+    labelKey: 'permissions.modules.storeOrders',
+    actions: [
+      { action: 'view', name: 'store-orders.view' },
+      { action: 'create', name: 'store-orders.create' },
+      { action: 'edit', name: 'store-orders.edit' },
+      { action: 'cancel', name: 'store-orders.cancel' },
+      // "Delete" — soft-delete-only (Archive IS Delete), same convention as
+      // every other document type in this catalog.
+      { action: 'delete', name: 'store-orders.archive' },
+      { action: 'print', name: 'store-orders.print' },
+      { action: 'export', name: 'store-orders.export' },
+      // "manage" = view every Store Order, not just assigned-to-self — same
+      // "authorized manager" capability as `crm.leads.manage`.
+      { action: 'manage', name: 'store-orders.manage' },
+    ],
+  },
+  {
+    // Shipping Operations list/board — its own module (`shipping` sidebar
+    // item, `GET /shipping`), separate from `store-orders` since a user can
+    // be granted warehouse/shipping-desk access without full Store Order
+    // visibility, and vice versa.
+    key: 'shipping',
+    labelKey: 'permissions.modules.shipping',
+    actions: [
+      { action: 'view', name: 'shipping.view' },
+      { action: 'create', name: 'shipping.create' },
+      { action: 'edit', name: 'shipping.edit' },
+      // "manage" = bulk status updates (`POST /shipping/bulk-update`) +
+      // cross-order visibility on the flat Shipping list.
+      { action: 'manage', name: 'shipping.manage' },
+      { action: 'import', name: 'shipping.import' },
+      { action: 'export', name: 'shipping.export' },
+      { action: 'print', name: 'shipping.print' },
+    ],
+  },
 ];
 
 export const ALL_PERMISSION_NAMES: string[] = [
@@ -344,6 +388,14 @@ export const IMPLIED_SECTION_PERMISSION: Record<string, string> = {
   'reports.inventory': 'reports.view',
   'import-center': 'datamanagement.view',
   settings: 'settings.view',
+  // Both are already top-level sidebar sections gated on this exact same
+  // granular permission (`navigation.config.ts`'s `store-orders`/`shipping`
+  // entries) — bundling it here just means granting any one
+  // `store-orders.*`/`shipping.*` permission also grants that module's own
+  // `.view`, so the section reliably appears without a separate explicit
+  // view grant, same as every other module in this map.
+  'store-orders': 'store-orders.view',
+  shipping: 'shipping.view',
 };
 
 /** Expands a granted-permission list with every implied coarse section permission (see `IMPLIED_SECTION_PERMISSION`). */

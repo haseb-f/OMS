@@ -20,11 +20,11 @@ export function PageHeader({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col gap-4", className)}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex flex-col gap-2">
+    <div className={cn("flex flex-col gap-3", className)}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-0.5">
           <h1 className="text-page-title font-semibold tracking-tight">{title}</h1>
-          {subtitle && <p className="text-body text-muted-foreground">{subtitle}</p>}
+          {subtitle && <p className="text-caption text-muted-foreground">{subtitle}</p>}
         </div>
         {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
       </div>

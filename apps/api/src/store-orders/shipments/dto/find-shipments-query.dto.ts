@@ -1,0 +1,53 @@
+import { Type } from 'class-transformer';
+import {
+  IsDateString,
+  IsEnum,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
+import { ShipmentStatus } from '@prisma/client';
+import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.decorator';
+
+/** Flat, cross-order shipment listing for the Shipping list page. */
+export class FindShipmentsQueryDto {
+  @IsEnum(ShipmentStatus)
+  @IsOptional()
+  status?: ShipmentStatus;
+
+  @IsOptionalUuid()
+  shippingCompanyId?: string;
+
+  /** Matches the order's customer phone/mobile OR the order's externalOrderId. */
+  @IsString()
+  @IsOptional()
+  search?: string;
+
+  @IsDateString()
+  @IsOptional()
+  dateFrom?: string;
+
+  @IsDateString()
+  @IsOptional()
+  dateTo?: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  page?: number = 1;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  @IsOptional()
+  pageSize?: number = 20;
+
+  @IsIn(['asc', 'desc'])
+  @IsOptional()
+  sortOrder?: 'asc' | 'desc' = 'desc';
+}

@@ -11,6 +11,11 @@ import { parseXlsx } from './xlsx-parser.util';
 import { parseGoogleSheetsUrl } from './google-sheets.util';
 import { GoogleSheetsService } from './google-sheets.service';
 import { groupRowsByKey } from './import-value.util';
+import {
+  ImportRowNeedsReviewError,
+  NEEDS_REVIEW_PREFIX,
+  type ImportFieldDef,
+} from './import-type.interface';
 import { CreateImportJobDto } from './dto/create-import-job.dto';
 import { SetMappingDto } from './dto/set-mapping.dto';
 
@@ -38,9 +43,11 @@ export interface ImportDuplicateGroup {
  * another row in the same file (External Order ID, SKU, ...); detecting a
  * duplicate against an *existing* database record is a per-type concern
  * only a few handlers (Leads/Orders) implement today via
- * `LeadDuplicateDetectionService`, and isn't rolled up here yet —
- * `needsReviewCount` stays 0 until every handler exposes that signal,
- * rather than a fabricated number.
+ * `LeadDuplicateDetectionService`.
+ * `needsReviewCount` is a real, per-row-outcome count — a row a handler
+ * flags by throwing `ImportRowNeedsReviewError` (e.g. Store Orders import's
+ * "existing customer found by phone") — never a fabricated number; a
+ * handler that never throws it simply contributes 0.
  */
 export interface ImportPreviewSummary {
   totalRows: number;
@@ -50,11 +57,17 @@ export interface ImportPreviewSummary {
   needsReviewCount: number;
 }
 
+export interface ImportRowNeedsReview {
+  rowNumber: number;
+  reason: string;
+}
+
 export interface ImportValidationResult {
   totalRows: number;
   errorCount: number;
   errors: ImportRowValidationError[];
   duplicateGroups: ImportDuplicateGroup[];
+  needsReview: ImportRowNeedsReview[];
   summary: ImportPreviewSummary;
 }
 
@@ -369,6 +382,8 @@ export class ImportJobsService {
       }
     }
 
+    const needsReview: ImportRowNeedsReview[] = [];
+
     if (handler.groupKey && handler.importGroup) {
       const groups = groupRowsByKey(mappedRows, handler.groupKey);
       for (const groupRows of groups.values()) {
@@ -379,6 +394,12 @@ export class ImportJobsService {
             { dryRun: true },
           );
         } catch (error) {
+          if (error instanceof ImportRowNeedsReviewError) {
+            for (const { rowNumber } of groupRows) {
+              needsReview.push({ rowNumber, reason: error.message });
+            }
+            continue;
+          }
           const message =
             error instanceof Error ? error.message : 'Validation failed.';
           for (const { rowNumber } of groupRows) {
@@ -391,6 +412,10 @@ export class ImportJobsService {
         try {
           await handler.importRow(mappedRow, userId, { dryRun: true });
         } catch (error) {
+          if (error instanceof ImportRowNeedsReviewError) {
+            needsReview.push({ rowNumber, reason: error.message });
+            continue;
+          }
           errors.push({
             rowNumber,
             columnName: null,
@@ -402,14 +427,16 @@ export class ImportJobsService {
     }
 
     errors.sort((a, b) => a.rowNumber - b.rowNumber);
+    needsReview.sort((a, b) => a.rowNumber - b.rowNumber);
 
     const invalidRowNumbers = new Set(errors.map((e) => e.rowNumber));
     const duplicateRowNumbers = new Set(
       duplicateGroups.flatMap((group) => group.rowNumbers),
     );
-    // A row counted as invalid never double-counts as a duplicate too — the
-    // three buckets partition every row exactly once, so they always sum to
-    // `totalRows`.
+    const needsReviewRowNumbers = new Set(needsReview.map((r) => r.rowNumber));
+    // A row counted as invalid never double-counts as a duplicate or a
+    // needs-review row too — the four buckets partition every row exactly
+    // once, so they always sum to `totalRows`.
     const duplicateOnlyCount = [...duplicateRowNumbers].filter(
       (rowNumber) => !invalidRowNumbers.has(rowNumber),
     ).length;
@@ -417,8 +444,12 @@ export class ImportJobsService {
       totalRows: table.rows.length,
       invalidCount: invalidRowNumbers.size,
       duplicateCount: duplicateOnlyCount,
-      newCount: table.rows.length - invalidRowNumbers.size - duplicateOnlyCount,
-      needsReviewCount: 0,
+      needsReviewCount: needsReviewRowNumbers.size,
+      newCount:
+        table.rows.length -
+        invalidRowNumbers.size -
+        duplicateOnlyCount -
+        needsReviewRowNumbers.size,
     };
 
     return {
@@ -426,6 +457,7 @@ export class ImportJobsService {
       errorCount: errors.length,
       errors,
       duplicateGroups,
+      needsReview,
       summary,
     };
   }
@@ -492,6 +524,18 @@ export class ImportJobsService {
           );
           successCount += groupRows.length;
         } catch (error) {
+          if (error instanceof ImportRowNeedsReviewError) {
+            for (const { rowNumber, sourceRow } of groupRows) {
+              errors.push({
+                importJobId: id,
+                rowNumber,
+                columnName: null,
+                errorMessage: `${NEEDS_REVIEW_PREFIX}${error.message}`,
+                rawRowData: sourceRow,
+              });
+            }
+            continue;
+          }
           const errorMessage =
             error instanceof Error ? error.message : 'Import failed.';
           const suggestedFix = this.suggestFix(error);
@@ -513,6 +557,16 @@ export class ImportJobsService {
           await handler.importRow(mappedRow, userId);
           successCount++;
         } catch (error) {
+          if (error instanceof ImportRowNeedsReviewError) {
+            errors.push({
+              importJobId: id,
+              rowNumber,
+              columnName: null,
+              errorMessage: `${NEEDS_REVIEW_PREFIX}${error.message}`,
+              rawRowData: sourceRow,
+            });
+            continue;
+          }
           errors.push({
             importJobId: id,
             rowNumber,
@@ -545,6 +599,119 @@ export class ImportJobsService {
       },
       include: JOB_INCLUDE,
     });
+  }
+
+  /** Re-derives the mapped-field row `importRow`/`resolveNeedsReview` expect from a stored `ImportJobError.rawRowData` (original-header source row) + the job's saved `columnMapping` — the exact same projection `run()`/`validate()` build, just replayed later for one specific row. */
+  private remapRow(
+    sourceRow: Record<string, unknown>,
+    columnMapping: Record<string, string>,
+    fields: ImportFieldDef[],
+  ): Record<string, string> {
+    const mappedRow: Record<string, string> = {};
+    for (const field of fields) {
+      const column = columnMapping[field.key];
+      const value = column ? sourceRow[column] : undefined;
+      mappedRow[field.key] =
+        typeof value === 'string'
+          ? value
+          : value == null
+            ? ''
+            : JSON.stringify(value);
+    }
+    return mappedRow;
+  }
+
+  private async getNeedsReviewRow(jobId: string, rowId: string) {
+    const row = await this.prisma.importJobError.findFirst({
+      where: { id: rowId, importJobId: jobId },
+    });
+    if (!row) {
+      throw new NotFoundException(`Import row ${rowId} not found`);
+    }
+    if (!row.errorMessage.startsWith(NEEDS_REVIEW_PREFIX)) {
+      throw new BadRequestException(
+        'This row is not flagged as needing review.',
+      );
+    }
+    return row;
+  }
+
+  /** Business operation: Confirm a needs-review row — writes the record for real via the handler's `resolveNeedsReview`, then removes the flagged row and counts it as a success. */
+  async confirmRow(jobId: string, rowId: string, userId?: string) {
+    const job = await this.findOne(jobId);
+    const row = await this.getNeedsReviewRow(jobId, rowId);
+    const handler = this.registry.get(job.importType);
+    if (!handler.resolveNeedsReview) {
+      throw new BadRequestException(
+        `Import type "${job.importType}" has no needs-review resolution.`,
+      );
+    }
+    const mappedRow = this.remapRow(
+      row.rawRowData as Record<string, unknown>,
+      (job.columnMapping ?? {}) as Record<string, string>,
+      handler.fields,
+    );
+    const result = await handler.resolveNeedsReview(mappedRow, userId);
+    await this.prisma.$transaction([
+      this.prisma.importJobError.delete({ where: { id: rowId } }),
+      this.prisma.importJob.update({
+        where: { id: jobId },
+        data: {
+          successCount: { increment: 1 },
+          errorCount: { decrement: 1 },
+        },
+      }),
+    ]);
+    return result;
+  }
+
+  /** Business operation: Reject a needs-review row — discarded, never written. */
+  async rejectRow(jobId: string, rowId: string) {
+    await this.getNeedsReviewRow(jobId, rowId);
+    await this.prisma.$transaction([
+      this.prisma.importJobError.delete({ where: { id: rowId } }),
+      this.prisma.importJob.update({
+        where: { id: jobId },
+        data: { errorCount: { decrement: 1 } },
+      }),
+    ]);
+    return { id: rowId, rejected: true };
+  }
+
+  /** Bulk variants — partial success allowed, same as every other bulk endpoint in this API. */
+  async confirmRows(jobId: string, rowIds: string[], userId?: string) {
+    const results: { id: string; success: boolean; message?: string }[] = [];
+    for (const rowId of rowIds) {
+      try {
+        await this.confirmRow(jobId, rowId, userId);
+        results.push({ id: rowId, success: true });
+      } catch (error) {
+        results.push({
+          id: rowId,
+          success: false,
+          message:
+            error instanceof Error ? error.message : 'Failed to confirm.',
+        });
+      }
+    }
+    return results;
+  }
+
+  async rejectRows(jobId: string, rowIds: string[]) {
+    const results: { id: string; success: boolean; message?: string }[] = [];
+    for (const rowId of rowIds) {
+      try {
+        await this.rejectRow(jobId, rowId);
+        results.push({ id: rowId, success: true });
+      } catch (error) {
+        results.push({
+          id: rowId,
+          success: false,
+          message: error instanceof Error ? error.message : 'Failed to reject.',
+        });
+      }
+    }
+    return results;
   }
 
   async cancel(id: string) {

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { LeadsModule } from '../leads/leads.module';
+import { StoreOrdersModule } from '../store-orders/store-orders.module';
 import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
 import { PaymentActivitiesController } from './activities/payment-activities.controller';
@@ -12,7 +13,7 @@ import { PaymentAutoMatchingService } from './auto-matching/payment-auto-matchin
 import { NumberingModule } from '../numbering/numbering.module';
 
 @Module({
-  imports: [LeadsModule, NumberingModule],
+  imports: [LeadsModule, StoreOrdersModule, NumberingModule],
   controllers: [
     PaymentsController,
     PaymentActivitiesController,
