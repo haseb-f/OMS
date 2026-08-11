@@ -1109,6 +1109,8 @@ model Shipment {
 
   attachments SalesOrderAttachment[]
 
+  @@index([storeOrderId])
+  @@index([salesOrderId])
   @@map("shipments")
 }
 
@@ -1142,6 +1144,7 @@ model SalesOrderAttachment {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
+  @@index([salesOrderId])
   @@map("sales_order_attachments")
 }
 
@@ -1164,6 +1167,7 @@ model SalesOrderNote {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
+  @@index([salesOrderId])
   @@map("sales_order_notes")
 }
 
@@ -1186,6 +1190,7 @@ model SalesOrderActivity {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
+  @@index([salesOrderId])
   @@map("sales_order_activities")
 }
 
@@ -1544,6 +1549,8 @@ model Payment {
   reconciledBankTransactions BankTransaction[]
 
   @@index([storeOrderId])
+  @@index([leadId])
+  @@index([status])
   @@map("payments")
 }
 
@@ -4435,6 +4442,7 @@ model JournalEntryLine {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  @@index([accountId])
   @@map("journal_entry_lines")
 }
 
@@ -4759,6 +4767,16 @@ model ImportJobError {
   /// The raw source row, so "Download Error Report" can round-trip a
   /// corrected file without the user re-locating each row in the original.
   rawRowData   Json    @map("raw_row_data")
+
+  /// Set only for a needs-review row (see `NEEDS_REVIEW_PREFIX`) the user
+  /// explicitly rejected — the row is kept (never deleted) so the reason
+  /// stays visible in the review/report UI, unlike a Confirmed row which is
+  /// deleted once written for real. `rejectionReasonCode` is one of a fixed
+  /// set (DUPLICATE_ORDER/INVALID_PHONE/.../OTHER); `rejectionReasonNote` is
+  /// the free-text reason required only when the code is OTHER.
+  rejectionReasonCode String?   @map("rejection_reason_code")
+  rejectionReasonNote String?   @map("rejection_reason_note")
+  rejectedAt          DateTime? @map("rejected_at")
 
   createdAt DateTime @default(now()) @map("created_at")
 
