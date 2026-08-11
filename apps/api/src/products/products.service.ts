@@ -220,6 +220,24 @@ export class ProductsService {
     return product;
   }
 
+  /**
+   * Batched lookup for per-line "is this product active" validation loops
+   * (Sales/Purchase Orders, Invoices, Quotations, Returns) — one query for
+   * every line on a document instead of one query per line. Callers pair
+   * this with `assertActiveProduct` from `assert-active-product.util.ts`.
+   */
+  async findManyForValidation(productIds: string[]) {
+    const uniqueIds = [...new Set(productIds)];
+    if (uniqueIds.length === 0) {
+      return new Map<string, { id: string; status: ProductStatus }>();
+    }
+    const products = await this.prisma.product.findMany({
+      where: { id: { in: uniqueIds }, deletedAt: null },
+      select: { id: true, status: true },
+    });
+    return new Map(products.map((p) => [p.id, p]));
+  }
+
   async update(id: string, dto: UpdateProductDto, userId?: string) {
     const existing = await this.findOne(id);
 

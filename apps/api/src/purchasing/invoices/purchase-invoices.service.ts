@@ -5,7 +5,6 @@ import {
 } from '@nestjs/common';
 import {
   Prisma,
-  ProductStatus,
   PurchaseDocumentStatus,
   PurchaseOrder,
   PurchaseOrderItem,
@@ -37,6 +36,7 @@ import { CreatePurchaseInvoiceDto } from './dto/create-purchase-invoice.dto';
 import { UpdatePurchaseInvoiceDto } from './dto/update-purchase-invoice.dto';
 import { FindPurchaseInvoicesQueryDto } from './dto/find-purchase-invoices-query.dto';
 import type { PurchaseLineItemInputDto } from '../shared/purchase-line-item-input.dto';
+import { assertActiveProduct } from '../../products/assert-active-product.util';
 
 const INVOICE_REFERENCE_TYPE = 'PURCHASE_INVOICE';
 
@@ -65,8 +65,11 @@ export class PurchaseInvoicesService {
     context: CompanyContext = { companyId: null, branchId: null },
   ) {
     await this.suppliersService.assertActiveSupplier(dto.supplierId);
+    const productsById = await this.productsService.findManyForValidation(
+      dto.items.map((item) => item.productId),
+    );
     for (const item of dto.items) {
-      await this.assertActiveProduct(item.productId);
+      assertActiveProduct(item.productId, productsById);
       await this.assertInvoiceWarehouse(item.warehouseId);
     }
     const computed = await this.computeLines(dto.items);
@@ -273,8 +276,11 @@ export class PurchaseInvoicesService {
 
     let computed: ComputedInvoiceLines | undefined;
     if (dto.items) {
+      const productsById = await this.productsService.findManyForValidation(
+        dto.items.map((item) => item.productId),
+      );
       for (const item of dto.items) {
-        await this.assertActiveProduct(item.productId);
+        assertActiveProduct(item.productId, productsById);
         await this.assertInvoiceWarehouse(item.warehouseId);
       }
       computed = await this.computeLines(dto.items);
@@ -577,14 +583,6 @@ export class PurchaseInvoicesService {
       }
       throw error;
     }
-  }
-
-  private async assertActiveProduct(productId: string) {
-    const product = await this.productsService.findOne(productId);
-    if (product.status !== ProductStatus.ACTIVE) {
-      throw new BadRequestException('Product is inactive.');
-    }
-    return product;
   }
 
   private async assertInvoiceWarehouse(warehouseId: string | undefined) {

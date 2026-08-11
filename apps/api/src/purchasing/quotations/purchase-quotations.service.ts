@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, ProductStatus, PurchaseDocumentStatus } from '@prisma/client';
+import { Prisma, PurchaseDocumentStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
 import { ProductsService } from '../../products/products.service';
@@ -22,6 +22,7 @@ import { CreatePurchaseQuotationDto } from './dto/create-purchase-quotation.dto'
 import { UpdatePurchaseQuotationDto } from './dto/update-purchase-quotation.dto';
 import { FindPurchaseQuotationsQueryDto } from './dto/find-purchase-quotations-query.dto';
 import type { PurchaseLineItemInputDto } from '../shared/purchase-line-item-input.dto';
+import { assertActiveProduct } from '../../products/assert-active-product.util';
 
 @Injectable()
 export class PurchaseQuotationsService {
@@ -38,8 +39,11 @@ export class PurchaseQuotationsService {
     context: CompanyContext = { companyId: null, branchId: null },
   ) {
     await this.suppliersService.assertActiveSupplier(dto.supplierId);
+    const productsById = await this.productsService.findManyForValidation(
+      dto.items.map((item) => item.productId),
+    );
     for (const item of dto.items) {
-      await this.assertActiveProduct(item.productId);
+      assertActiveProduct(item.productId, productsById);
     }
     const computed = await this.computeLines(dto.items);
 
@@ -153,8 +157,11 @@ export class PurchaseQuotationsService {
 
     let computed: Awaited<ReturnType<typeof this.computeLines>> | undefined;
     if (dto.items) {
+      const productsById = await this.productsService.findManyForValidation(
+        dto.items.map((item) => item.productId),
+      );
       for (const item of dto.items) {
-        await this.assertActiveProduct(item.productId);
+        assertActiveProduct(item.productId, productsById);
       }
       computed = await this.computeLines(dto.items);
     }
@@ -306,14 +313,6 @@ export class PurchaseQuotationsService {
       );
       return updated;
     });
-  }
-
-  private async assertActiveProduct(productId: string) {
-    const product = await this.productsService.findOne(productId);
-    if (product.status !== ProductStatus.ACTIVE) {
-      throw new BadRequestException('Product is inactive.');
-    }
-    return product;
   }
 
   /** Resolves each line's tax rate, computes per-line + document totals — shared math, see sales/shared/sales-totals.util.ts. */

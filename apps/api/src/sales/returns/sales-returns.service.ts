@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, ProductStatus, SalesDocumentStatus } from '@prisma/client';
+import { Prisma, SalesDocumentStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
 import { ProductsService } from '../../products/products.service';
@@ -24,6 +24,7 @@ import { CreateSalesReturnDto } from './dto/create-sales-return.dto';
 import { UpdateSalesReturnDto } from './dto/update-sales-return.dto';
 import { FindSalesReturnsQueryDto } from './dto/find-sales-returns-query.dto';
 import type { SalesLineItemInputDto } from '../shared/sales-line-item-input.dto';
+import { assertActiveProduct } from '../../products/assert-active-product.util';
 
 const REFERENCE_TYPE = 'SALES_RETURN';
 
@@ -51,8 +52,11 @@ export class SalesReturnsService {
       dto.salesInvoiceId,
       dto.customerId,
     );
+    const productsById = await this.productsService.findManyForValidation(
+      dto.items.map((item) => item.productId),
+    );
     for (const item of dto.items) {
-      await this.assertActiveProduct(item.productId);
+      assertActiveProduct(item.productId, productsById);
       await this.assertReturnWarehouse(item.warehouseId);
       if (!item.salesInvoiceItemId) {
         throw new BadRequestException(
@@ -231,8 +235,11 @@ export class SalesReturnsService {
           'This Sales Return has no source Sales Invoice — reference one before editing lines.',
         );
       }
+      const productsById = await this.productsService.findManyForValidation(
+        dto.items.map((item) => item.productId),
+      );
       for (const item of dto.items) {
-        await this.assertActiveProduct(item.productId);
+        assertActiveProduct(item.productId, productsById);
         await this.assertReturnWarehouse(item.warehouseId);
         if (!item.salesInvoiceItemId) {
           throw new BadRequestException(
@@ -452,14 +459,6 @@ export class SalesReturnsService {
       );
       return updated;
     });
-  }
-
-  private async assertActiveProduct(productId: string) {
-    const product = await this.productsService.findOne(productId);
-    if (product.status !== ProductStatus.ACTIVE) {
-      throw new BadRequestException('Product is inactive.');
-    }
-    return product;
   }
 
   private async assertReturnWarehouse(warehouseId: string | undefined) {

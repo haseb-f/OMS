@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, ProductStatus, SalesDocumentStatus } from '@prisma/client';
+import { Prisma, SalesDocumentStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
 import { ProductsService } from '../../products/products.service';
@@ -27,6 +27,7 @@ import { ConvertQuotationToOrderDto } from './dto/convert-quotation-to-order.dto
 import { ConvertOrderToInvoiceDto } from './dto/convert-order-to-invoice.dto';
 import type { SalesLineItemInputDto } from '../shared/sales-line-item-input.dto';
 import { SalesInvoicesService } from '../invoices/sales-invoices.service';
+import { assertActiveProduct } from '../../products/assert-active-product.util';
 
 const REFERENCE_TYPE = 'SALES_ORDER_DOC';
 
@@ -48,8 +49,11 @@ export class SalesOrdersService {
     context: CompanyContext = { companyId: null, branchId: null },
   ) {
     await this.customersService.assertActiveCustomer(dto.customerId);
+    const productsById = await this.productsService.findManyForValidation(
+      dto.items.map((item) => item.productId),
+    );
     for (const item of dto.items) {
-      await this.assertActiveProduct(item.productId);
+      assertActiveProduct(item.productId, productsById);
       await this.assertOrderWarehouse(item.warehouseId);
     }
     const computed = await this.computeLines(dto.items);
@@ -104,6 +108,9 @@ export class SalesOrdersService {
     const quotationItemById = new Map(
       quotation.items.map((item) => [item.id, item]),
     );
+    const productsById = await this.productsService.findManyForValidation(
+      quotation.items.map((item) => item.productId),
+    );
     const items: SalesLineItemInputDto[] = [];
     for (const line of dto.items) {
       const quotationItem = quotationItemById.get(line.quotationItemId);
@@ -112,7 +119,7 @@ export class SalesOrdersService {
           `Quotation item ${line.quotationItemId} does not belong to this Quotation.`,
         );
       }
-      await this.assertActiveProduct(quotationItem.productId);
+      assertActiveProduct(quotationItem.productId, productsById);
       await this.assertOrderWarehouse(line.warehouseId);
       items.push({
         productId: quotationItem.productId,
@@ -274,8 +281,11 @@ export class SalesOrdersService {
 
     let computed: Awaited<ReturnType<typeof this.computeLines>> | undefined;
     if (dto.items) {
+      const productsById = await this.productsService.findManyForValidation(
+        dto.items.map((item) => item.productId),
+      );
       for (const item of dto.items) {
-        await this.assertActiveProduct(item.productId);
+        assertActiveProduct(item.productId, productsById);
         await this.assertOrderWarehouse(item.warehouseId);
       }
       computed = await this.computeLines(dto.items);
@@ -626,14 +636,6 @@ export class SalesOrdersService {
       }
       throw error;
     }
-  }
-
-  private async assertActiveProduct(productId: string) {
-    const product = await this.productsService.findOne(productId);
-    if (product.status !== ProductStatus.ACTIVE) {
-      throw new BadRequestException('Product is inactive.');
-    }
-    return product;
   }
 
   private async assertOrderWarehouse(warehouseId: string | undefined) {

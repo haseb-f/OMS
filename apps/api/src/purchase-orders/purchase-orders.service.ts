@@ -5,7 +5,6 @@ import {
 } from '@nestjs/common';
 import {
   Prisma,
-  ProductStatus,
   PurchaseDocumentStatus,
   PurchaseOrderStatus,
   SupplierStatus,
@@ -27,6 +26,7 @@ import { buildDateRangeFilter } from '../sales/shared/sales-list-query.util';
 import { round2 } from '../sales/shared/sales-totals.util';
 import { PurchaseOrderItemInputDto } from './dto/purchase-order-item-input.dto';
 import type { CompanyContext } from '../common/decorators/current-company-context.decorator';
+import { assertActiveProduct } from '../products/assert-active-product.util';
 
 const QUOTATION_ACTIVITY_TYPE = {
   QUOTATION_CONVERTED_TO_ORDER: 'QUOTATION_CONVERTED_TO_ORDER',
@@ -53,8 +53,11 @@ export class PurchaseOrdersService {
     context: CompanyContext = { companyId: null, branchId: null },
   ) {
     await this.assertActiveSupplier(dto.supplierId);
+    const productsById = await this.productsService.findManyForValidation(
+      dto.items.map((item) => item.productId),
+    );
     for (const item of dto.items) {
-      await this.assertActiveProduct(item.productId);
+      assertActiveProduct(item.productId, productsById);
     }
 
     const poNumber =
@@ -98,8 +101,11 @@ export class PurchaseOrdersService {
     let computedItems:
       Awaited<ReturnType<typeof this.computeItems>> | undefined;
     if (dto.items) {
+      const productsById = await this.productsService.findManyForValidation(
+        dto.items.map((item) => item.productId),
+      );
       for (const item of dto.items) {
-        await this.assertActiveProduct(item.productId);
+        assertActiveProduct(item.productId, productsById);
       }
       computedItems = await this.computeItems(dto.items);
     }
@@ -512,14 +518,5 @@ export class PurchaseOrdersService {
       throw new BadRequestException('Supplier is inactive.');
     }
     return supplier;
-  }
-
-  /** "Reject: Inactive Product, Deleted Product." */
-  private async assertActiveProduct(productId: string) {
-    const product = await this.productsService.findOne(productId);
-    if (product.status !== ProductStatus.ACTIVE) {
-      throw new BadRequestException('Product is inactive.');
-    }
-    return product;
   }
 }

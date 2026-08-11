@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, ProductStatus, PurchaseDocumentStatus } from '@prisma/client';
+import { Prisma, PurchaseDocumentStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
 import { ProductsService } from '../../products/products.service';
@@ -24,6 +24,7 @@ import { CreatePurchaseReturnDto } from './dto/create-purchase-return.dto';
 import { UpdatePurchaseReturnDto } from './dto/update-purchase-return.dto';
 import { FindPurchaseReturnsQueryDto } from './dto/find-purchase-returns-query.dto';
 import type { PurchaseLineItemInputDto } from '../shared/purchase-line-item-input.dto';
+import { assertActiveProduct } from '../../products/assert-active-product.util';
 
 const REFERENCE_TYPE = 'PURCHASE_RETURN';
 
@@ -51,8 +52,11 @@ export class PurchaseReturnsService {
       dto.purchaseInvoiceId,
       dto.supplierId,
     );
+    const productsById = await this.productsService.findManyForValidation(
+      dto.items.map((item) => item.productId),
+    );
     for (const item of dto.items) {
-      await this.assertActiveProduct(item.productId);
+      assertActiveProduct(item.productId, productsById);
       await this.assertReturnWarehouse(item.warehouseId);
       if (!item.purchaseInvoiceItemId) {
         throw new BadRequestException(
@@ -237,8 +241,11 @@ export class PurchaseReturnsService {
           'This Purchase Return has no source Purchase Invoice — reference one before editing lines.',
         );
       }
+      const productsById = await this.productsService.findManyForValidation(
+        dto.items.map((item) => item.productId),
+      );
       for (const item of dto.items) {
-        await this.assertActiveProduct(item.productId);
+        assertActiveProduct(item.productId, productsById);
         await this.assertReturnWarehouse(item.warehouseId);
         if (!item.purchaseInvoiceItemId) {
           throw new BadRequestException(
@@ -458,14 +465,6 @@ export class PurchaseReturnsService {
       );
       return updated;
     });
-  }
-
-  private async assertActiveProduct(productId: string) {
-    const product = await this.productsService.findOne(productId);
-    if (product.status !== ProductStatus.ACTIVE) {
-      throw new BadRequestException('Product is inactive.');
-    }
-    return product;
   }
 
   private async assertReturnWarehouse(warehouseId: string | undefined) {

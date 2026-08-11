@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, ProductStatus, SalesDocumentStatus } from '@prisma/client';
+import { Prisma, SalesDocumentStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
 import { ProductsService } from '../../products/products.service';
@@ -23,6 +23,7 @@ import { CreateSalesQuotationDto } from './dto/create-sales-quotation.dto';
 import { UpdateSalesQuotationDto } from './dto/update-sales-quotation.dto';
 import { FindSalesQuotationsQueryDto } from './dto/find-sales-quotations-query.dto';
 import type { SalesLineItemInputDto } from '../shared/sales-line-item-input.dto';
+import { assertActiveProduct } from '../../products/assert-active-product.util';
 
 @Injectable()
 export class SalesQuotationsService {
@@ -40,8 +41,11 @@ export class SalesQuotationsService {
     context: CompanyContext = { companyId: null, branchId: null },
   ) {
     await this.customersService.assertActiveCustomer(dto.customerId);
+    const productsById = await this.productsService.findManyForValidation(
+      dto.items.map((item) => item.productId),
+    );
     for (const item of dto.items) {
-      await this.assertActiveProduct(item.productId);
+      assertActiveProduct(item.productId, productsById);
       await this.assertQuotationWarehouse(item.warehouseId);
     }
     const computed = await this.computeLines(dto.items);
@@ -163,8 +167,11 @@ export class SalesQuotationsService {
 
     let computed: Awaited<ReturnType<typeof this.computeLines>> | undefined;
     if (dto.items) {
+      const productsById = await this.productsService.findManyForValidation(
+        dto.items.map((item) => item.productId),
+      );
       for (const item of dto.items) {
-        await this.assertActiveProduct(item.productId);
+        assertActiveProduct(item.productId, productsById);
         await this.assertQuotationWarehouse(item.warehouseId);
       }
       computed = await this.computeLines(dto.items);
@@ -338,14 +345,6 @@ export class SalesQuotationsService {
       );
       return updated;
     });
-  }
-
-  private async assertActiveProduct(productId: string) {
-    const product = await this.productsService.findOne(productId);
-    if (product.status !== ProductStatus.ACTIVE) {
-      throw new BadRequestException('Product is inactive.');
-    }
-    return product;
   }
 
   /**
