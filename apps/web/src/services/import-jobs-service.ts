@@ -82,6 +82,23 @@ export interface ImportValidationResult {
 
 export type ImportRowStatus = "NEEDS_REVIEW" | "CONFIRMED" | "REJECTED";
 
+/** Fixed dropdown the Reject dialog presents — "OTHER" requires a custom note. */
+export const IMPORT_ROW_REJECTION_REASON_CODES = [
+  "DUPLICATE_ORDER",
+  "INVALID_PHONE",
+  "INVALID_CUSTOMER_DATA",
+  "MISSING_REQUIRED_DATA",
+  "CUSTOMER_CANCELLED",
+  "INVALID_ORDER",
+  "OTHER",
+] as const;
+export type ImportRowRejectionReasonCode = (typeof IMPORT_ROW_REJECTION_REASON_CODES)[number];
+
+export interface RejectImportRowPayload {
+  reasonCode: ImportRowRejectionReasonCode;
+  note?: string;
+}
+
 /**
  * A single imported row awaiting human review — e.g. an existing-customer
  * match found by phone that must be explicitly confirmed before a Store
@@ -94,6 +111,9 @@ export interface ImportJobRowRecord {
   status: ImportRowStatus;
   rawRowData: Record<string, unknown>;
   reviewReason: string | null;
+  rejectionReasonCode: ImportRowRejectionReasonCode | null;
+  rejectionReasonNote: string | null;
+  rejectedAt: string | null;
   matchedCustomerId: string | null;
   matchedCustomerName: string | null;
   matchedCustomerPhone: string | null;
@@ -151,14 +171,17 @@ export const importJobsService = {
     ),
   confirmRow: (jobId: string, rowId: string) =>
     apiClient.post<ImportJobRowRecord>(`/import-center/jobs/${jobId}/rows/${rowId}/confirm`),
-  rejectRow: (jobId: string, rowId: string) =>
-    apiClient.post<ImportJobRowRecord>(`/import-center/jobs/${jobId}/rows/${rowId}/reject`),
+  /** A reason is always required — the Reject dialog never lets this fire without one. */
+  rejectRow: (jobId: string, rowId: string, reason: RejectImportRowPayload) =>
+    apiClient.post<ImportJobRowRecord>(`/import-center/jobs/${jobId}/rows/${rowId}/reject`, reason),
   bulkConfirmRows: (jobId: string, rowIds: string[]) =>
     apiClient.post<BulkRowActionResult>(`/import-center/jobs/${jobId}/rows/bulk-confirm`, {
       rowIds,
     }),
-  bulkRejectRows: (jobId: string, rowIds: string[]) =>
+  /** One reason applies to every selected row. */
+  bulkRejectRows: (jobId: string, rowIds: string[], reason: RejectImportRowPayload) =>
     apiClient.post<BulkRowActionResult>(`/import-center/jobs/${jobId}/rows/bulk-reject`, {
       rowIds,
+      ...reason,
     }),
 };

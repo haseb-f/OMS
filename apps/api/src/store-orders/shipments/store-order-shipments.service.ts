@@ -253,6 +253,7 @@ export class StoreOrderShipmentsService {
   private buildFlatWhere(query: {
     status?: ShipmentStatus;
     shippingCompanyId?: string;
+    countryId?: string;
     search?: string;
     dateFrom?: string;
     dateTo?: string;
@@ -263,21 +264,44 @@ export class StoreOrderShipmentsService {
       status: query.status,
       shippingCompanyId: query.shippingCompanyId,
     };
-    if (query.search) {
+    /// Both the free-text search and the Country filter (Part 2 of the
+    /// four-gaps task) resolve through the same `storeOrder.customer`
+    /// relation — a customer's Country is the shipment's Country, there is
+    /// no separate shipping-address concept in this pipeline yet — so they
+    /// combine into one `storeOrder` filter object rather than two
+    /// conflicting ones.
+    if (query.search || query.countryId) {
       where.storeOrder = {
-        OR: [
-          { externalOrderId: { contains: query.search, mode: 'insensitive' } },
-          { internalOrderId: { contains: query.search, mode: 'insensitive' } },
-          {
-            customer: {
+        ...(query.search
+          ? {
               OR: [
-                { phone: { contains: query.search } },
-                { mobile: { contains: query.search } },
-                { name: { contains: query.search, mode: 'insensitive' } },
+                {
+                  externalOrderId: {
+                    contains: query.search,
+                    mode: 'insensitive',
+                  },
+                },
+                {
+                  internalOrderId: {
+                    contains: query.search,
+                    mode: 'insensitive',
+                  },
+                },
+                {
+                  customer: {
+                    OR: [
+                      { phone: { contains: query.search } },
+                      { mobile: { contains: query.search } },
+                      { name: { contains: query.search, mode: 'insensitive' } },
+                    ],
+                  },
+                },
               ],
-            },
-          },
-        ],
+            }
+          : {}),
+        ...(query.countryId
+          ? { customer: { countryId: query.countryId } }
+          : {}),
       };
     }
     if (query.dateFrom || query.dateTo) {
@@ -294,6 +318,7 @@ export class StoreOrderShipmentsService {
   async findAllFlat(query: {
     status?: ShipmentStatus;
     shippingCompanyId?: string;
+    countryId?: string;
     search?: string;
     dateFrom?: string;
     dateTo?: string;
@@ -309,7 +334,7 @@ export class StoreOrderShipmentsService {
         where,
         include: {
           shippingCompany: true,
-          storeOrder: { include: { customer: true } },
+          storeOrder: { include: { customer: { include: { country: true } } } },
         },
         orderBy: { createdAt: query.sortOrder ?? 'desc' },
         skip: (page - 1) * pageSize,
@@ -323,6 +348,7 @@ export class StoreOrderShipmentsService {
   async findAllFlatIds(query: {
     status?: ShipmentStatus;
     shippingCompanyId?: string;
+    countryId?: string;
     search?: string;
     dateFrom?: string;
     dateTo?: string;

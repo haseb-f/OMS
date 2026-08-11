@@ -28,6 +28,7 @@ export const StoreOrderActivityType = {
   DELIVERY_FAILED: 'DELIVERY_FAILED',
   RESHIPPED: 'RESHIPPED',
   SHIPPING_COST_ADDED: 'SHIPPING_COST_ADDED',
+  RECEIPT_ATTACHED: 'RECEIPT_ATTACHED',
 } as const;
 
 @Injectable()

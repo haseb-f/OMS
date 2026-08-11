@@ -31,6 +31,7 @@ import { UpdateStoreOrderDto } from './dto/update-store-order.dto';
 import { FindStoreOrdersQueryDto } from './dto/find-store-orders-query.dto';
 import { CreateStoreOrderPaymentDto } from './dto/create-store-order-payment.dto';
 import { CreateStoreOrderNoteDto } from './dto/create-store-order-note.dto';
+import { CreateStoreOrderReceiptDto } from './dto/create-store-order-receipt.dto';
 import { SetPaymentReviewStatusDto } from './dto/set-payment-review-status.dto';
 
 const ORDER_INCLUDE = {
@@ -56,9 +57,26 @@ const ORDER_INCLUDE = {
   },
 } satisfies Prisma.StoreOrderInclude;
 
-type StoreOrderWithRelations = Prisma.StoreOrderGetPayload<{
-  include: typeof ORDER_INCLUDE;
-}>;
+/**
+ * Trimmed variant of ORDER_INCLUDE for `findAll`/list rows — the list table
+ * (`order-columns.tsx`) only ever renders internalOrderId/externalOrderId/
+ * customer name+phone/orderDate/paymentStatus/shippingStage/total, and bulk
+ * print/export use the same fixed column set. Fetching every relation's
+ * full row (all Payment/Invoice/Shipment/Product columns, on every page of
+ * every list request) was pure over-fetch — only `items.quantity/unitPrice`
+ * (for the derived `total`) and the single latest shipment (for the derived
+ * `currentShippingStatus`) are actually read.
+ */
+const ORDER_LIST_INCLUDE = {
+  customer: { select: { id: true, name: true, phone: true, mobile: true } },
+  currency: { select: { id: true, code: true, name: true, symbol: true } },
+  items: { select: { id: true, quantity: true, unitPrice: true } },
+  shipments: {
+    where: { deletedAt: null },
+    orderBy: { attemptNumber: 'desc' as const },
+    take: 1,
+  },
+} satisfies Prisma.StoreOrderInclude;
 
 /**
  * Independent storefront/marketplace order pipeline — never routed through
@@ -228,7 +246,7 @@ export class StoreOrdersService {
     const [items, total] = await Promise.all([
       this.prisma.storeOrder.findMany({
         where,
-        include: ORDER_INCLUDE,
+        include: ORDER_LIST_INCLUDE,
         orderBy: { [query.sortBy || 'createdAt']: query.sortOrder ?? 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
@@ -286,7 +304,13 @@ export class StoreOrdersService {
    * stored: the latest non-superseded Shipment's own status when one
    * exists, otherwise the order's own pre-shipment `shippingStage`.
    */
-  private attachCurrentShippingStatus(order: StoreOrderWithRelations) {
+  private attachCurrentShippingStatus<
+    T extends {
+      shippingStage: StoreOrderShippingStage;
+      shipments: { status: ShipmentStatus | null }[];
+      items: { quantity: number; unitPrice: Prisma.Decimal }[];
+    },
+  >(order: T) {
     const latestShipment = order.shipments[0];
     const currentShippingStatus: ShipmentStatus | StoreOrderShippingStage =
       latestShipment?.status ?? order.shippingStage;
@@ -376,6 +400,42 @@ export class StoreOrdersService {
     });
     await this.paymentSync.recompute(id);
     return payment;
+  }
+
+  /** Business operation: Attach Receipt — same "paste a URL" convention as every other attachment in this app; optionally links to the specific Payment it evidences. */
+  async addReceipt(
+    id: string,
+    dto: CreateStoreOrderReceiptDto,
+    userId?: string,
+  ) {
+    await this.findOne(id);
+    if (dto.paymentId) {
+      const payment = await this.prisma.payment.findFirst({
+        where: { id: dto.paymentId, storeOrderId: id, deletedAt: null },
+      });
+      if (!payment) {
+        throw new BadRequestException('Payment not found on this Store Order.');
+      }
+    }
+    return this.prisma.$transaction(async (tx) => {
+      const receipt = await tx.storeOrderReceipt.create({
+        data: {
+          storeOrderId: id,
+          paymentId: dto.paymentId,
+          fileUrl: dto.fileUrl,
+          fileName: dto.fileName,
+          uploadedById: userId,
+        },
+      });
+      await this.activityService.log(
+        id,
+        StoreOrderActivityType.RECEIPT_ATTACHED,
+        `Receipt attached${dto.fileName ? `: ${dto.fileName}` : ''}`,
+        userId,
+        tx,
+      );
+      return receipt;
+    });
   }
 
   private async createPaymentRow(

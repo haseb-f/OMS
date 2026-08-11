@@ -21,6 +21,10 @@ export class FindShipmentsQueryDto {
   @IsOptionalUuid()
   shippingCompanyId?: string;
 
+  /** The order's Customer's Country (Part 2 of the four-gaps task) — there is no separate shipping-address concept in this pipeline yet. */
+  @IsOptionalUuid()
+  countryId?: string;
+
   /** Matches the order's customer phone/mobile OR the order's externalOrderId. */
   @IsString()
   @IsOptional()

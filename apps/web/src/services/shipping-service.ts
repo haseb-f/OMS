@@ -10,12 +10,18 @@ export interface ShipmentListRow {
     id: string;
     internalOrderId: string;
     externalOrderId: string | null;
-    customer: { id: string; name: string; phone: string | null } | null;
+    customer: {
+      id: string;
+      name: string;
+      phone: string | null;
+      country: { id: string; name: string; code: string } | null;
+    } | null;
   };
   attemptNumber: number;
   shippingCompanyId: string | null;
   shippingCompany: { id: string; name: string } | null;
   trackingNumber: string | null;
+  labelUrl: string | null;
   status: ShipmentStatusValue;
   shippingCost: string | null;
   shippedAt: string | null;
@@ -26,6 +32,7 @@ export interface ShipmentListRow {
 export interface ShipmentListParams {
   status?: ShipmentStatusValue;
   shippingCompanyId?: string;
+  countryId?: string;
   dateFrom?: string;
   dateTo?: string;
   search?: string;

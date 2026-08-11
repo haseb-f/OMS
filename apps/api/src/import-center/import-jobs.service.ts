@@ -18,6 +18,7 @@ import {
 } from './import-type.interface';
 import { CreateImportJobDto } from './dto/create-import-job.dto';
 import { SetMappingDto } from './dto/set-mapping.dto';
+import { RejectImportRowDto } from './dto/reject-import-row.dto';
 
 const JOB_INCLUDE = {
   errors: { orderBy: { rowNumber: 'asc' as const } },
@@ -105,11 +106,16 @@ export class ImportJobsService {
     });
   }
 
+  /**
+   * List view — the Import Center list page only ever reads the scalar
+   * `errorCount` column (never the `errors` relation itself), so unlike
+   * `findOne`/`create` this doesn't pull every row-level error for every
+   * job in the list.
+   */
   async findAll(importType?: string) {
     return this.prisma.importJob.findMany({
       where: importType ? { importType } : undefined,
       orderBy: { createdAt: 'desc' },
-      include: JOB_INCLUDE,
     });
   }
 
@@ -633,7 +639,50 @@ export class ImportJobsService {
         'This row is not flagged as needing review.',
       );
     }
+    if (row.rejectedAt) {
+      throw new BadRequestException('This row has already been rejected.');
+    }
     return row;
+  }
+
+  /**
+   * Lists a job's needs-review rows, projected into the shape the review UI
+   * renders — `NEEDS_REVIEW` (still awaiting a decision) or `REJECTED`
+   * (kept, never deleted, so its reason stays visible). A Confirmed row has
+   * no listing here: `confirmRow` deletes it once written for real, exactly
+   * as before this change.
+   */
+  async rows(jobId: string, status?: 'NEEDS_REVIEW' | 'REJECTED') {
+    await this.findOne(jobId);
+    const candidates = await this.prisma.importJobError.findMany({
+      where: {
+        importJobId: jobId,
+        errorMessage: { startsWith: NEEDS_REVIEW_PREFIX },
+        ...(status === 'NEEDS_REVIEW'
+          ? { rejectedAt: null }
+          : status === 'REJECTED'
+            ? { rejectedAt: { not: null } }
+            : {}),
+      },
+      orderBy: { rowNumber: 'asc' },
+    });
+    return candidates.map((row) => ({
+      id: row.id,
+      jobId: row.importJobId,
+      rowNumber: row.rowNumber,
+      status: row.rejectedAt
+        ? ('REJECTED' as const)
+        : ('NEEDS_REVIEW' as const),
+      rawRowData: row.rawRowData,
+      reviewReason: row.errorMessage.slice(NEEDS_REVIEW_PREFIX.length),
+      rejectionReasonCode: row.rejectionReasonCode,
+      rejectionReasonNote: row.rejectionReasonNote,
+      rejectedAt: row.rejectedAt,
+      matchedCustomerId: null,
+      matchedCustomerName: null,
+      matchedCustomerPhone: null,
+      createdAt: row.createdAt,
+    }));
   }
 
   /** Business operation: Confirm a needs-review row — writes the record for real via the handler's `resolveNeedsReview`, then removes the flagged row and counts it as a success. */
@@ -665,17 +714,29 @@ export class ImportJobsService {
     return result;
   }
 
-  /** Business operation: Reject a needs-review row — discarded, never written. */
-  async rejectRow(jobId: string, rowId: string) {
+  /**
+   * Business operation: Reject a needs-review row — never written to the
+   * target service, but (unlike before) never deleted either: the row and
+   * its required reason stay queryable via `rows(jobId, 'REJECTED')` so the
+   * review/report UI can show why it was rejected.
+   */
+  async rejectRow(jobId: string, rowId: string, dto: RejectImportRowDto) {
     await this.getNeedsReviewRow(jobId, rowId);
-    await this.prisma.$transaction([
-      this.prisma.importJobError.delete({ where: { id: rowId } }),
+    const [, updated] = await this.prisma.$transaction([
       this.prisma.importJob.update({
         where: { id: jobId },
         data: { errorCount: { decrement: 1 } },
       }),
+      this.prisma.importJobError.update({
+        where: { id: rowId },
+        data: {
+          rejectedAt: new Date(),
+          rejectionReasonCode: dto.reasonCode,
+          rejectionReasonNote: dto.note ?? null,
+        },
+      }),
     ]);
-    return { id: rowId, rejected: true };
+    return { id: updated.id, rejected: true };
   }
 
   /** Bulk variants — partial success allowed, same as every other bulk endpoint in this API. */
@@ -697,11 +758,12 @@ export class ImportJobsService {
     return results;
   }
 
-  async rejectRows(jobId: string, rowIds: string[]) {
+  /** Bulk reject — the one reason in `dto` is required and applies to every row, same "must provide a reason before rejection completes" rule as the single-row path. */
+  async rejectRows(jobId: string, rowIds: string[], dto: RejectImportRowDto) {
     const results: { id: string; success: boolean; message?: string }[] = [];
     for (const rowId of rowIds) {
       try {
-        await this.rejectRow(jobId, rowId);
+        await this.rejectRow(jobId, rowId, dto);
         results.push({ id: rowId, success: true });
       } catch (error) {
         results.push({

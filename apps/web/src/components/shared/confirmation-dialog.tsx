@@ -39,22 +39,29 @@ export function ConfirmationDialog({
   onOpenChange,
   title,
   description,
+  extra,
   onConfirm,
   confirmLabel,
   cancelLabel,
   destructive,
   tone,
+  confirmDisabled,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
+  /** Plain text/inline content only — renders inside `<AlertDialogDescription>`, which is a `<p>`; block-level content (a Select, a form field) here is invalid HTML and breaks hydration. Use `extra` for that. */
   description?: ReactNode;
+  /** Block-level content (form fields, pickers) rendered below the description, outside the `<p>` — use this instead of stuffing it into `description`. */
+  extra?: ReactNode;
   onConfirm: () => void;
   confirmLabel?: string;
   cancelLabel?: string;
   /** @deprecated use `tone="destructive"` instead — kept so existing callers don't break. */
   destructive?: boolean;
   tone?: ConfirmationTone;
+  /** Keeps the confirm action inert until a caller-supplied condition is met (e.g. a required reason field) — every other caller omits this and keeps today's always-enabled behavior. */
+  confirmDisabled?: boolean;
 }) {
   const { t } = useLocale();
   const resolvedTone: ConfirmationTone = tone ?? (destructive ? "destructive" : "default");
@@ -69,9 +76,14 @@ export function ConfirmationDialog({
           </AlertDialogTitle>
           {description && <AlertDialogDescription>{description}</AlertDialogDescription>}
         </AlertDialogHeader>
+        {extra}
         <AlertDialogFooter>
           <AlertDialogCancel>{cancelLabel ?? t("common.cancel")}</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm} className={actionToneClasses[resolvedTone]}>
+          <AlertDialogAction
+            onClick={onConfirm}
+            disabled={confirmDisabled}
+            className={actionToneClasses[resolvedTone]}
+          >
             {confirmLabel ?? t("common.confirm")}
           </AlertDialogAction>
         </AlertDialogFooter>

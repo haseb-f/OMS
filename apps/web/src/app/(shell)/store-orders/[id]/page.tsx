@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { FileText, Link as LinkIcon, Receipt } from "lucide-react";
+import { FileText, Link as LinkIcon, Receipt, Wallet } from "lucide-react";
+import { StoreOrderAddPaymentDialog } from "@/components/store-orders/store-order-add-payment-dialog";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -83,6 +84,7 @@ function StoreOrderDetailContent() {
   const [receiptUrl, setReceiptUrl] = useState("");
   const [receiptName, setReceiptName] = useState("");
   const [isAttachingReceipt, setIsAttachingReceipt] = useState(false);
+  const [addPaymentOpen, setAddPaymentOpen] = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -272,8 +274,20 @@ function StoreOrderDetailContent() {
 
       {/* 3. Payment info */}
       <EnterpriseCard>
-        <EnterpriseCardHeader>
+        <EnterpriseCardHeader className="flex flex-row items-center justify-between gap-3">
           <EnterpriseCardTitle>{t("storeOrders.detail.sections.payments")}</EnterpriseCardTitle>
+          {canManage && (
+            <EnterpriseButton
+              type="button"
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => setAddPaymentOpen(true)}
+            >
+              <Wallet className="size-3.5" />
+              {t("storeOrders.detail.payments.add")}
+            </EnterpriseButton>
+          )}
         </EnterpriseCardHeader>
         <EnterpriseCardContent>
           {!order.payments || order.payments.length === 0 ? (
@@ -529,6 +543,15 @@ function StoreOrderDetailContent() {
           )}
         </EnterpriseCardContent>
       </EnterpriseCard>
+
+      <StoreOrderAddPaymentDialog
+        storeOrderId={order.id}
+        orderCurrencyId={order.currencyId}
+        customerName={order.customer?.name ?? ""}
+        open={addPaymentOpen}
+        onOpenChange={setAddPaymentOpen}
+        onAdded={load}
+      />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { Eye } from "lucide-react";
+import { Eye, Truck } from "lucide-react";
 import { StatusBadge } from "@/components/business/status-badge";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -19,20 +19,34 @@ function StatusCell({ status }: { status: ShipmentListRow["status"] }) {
 
 export interface ShipmentRowHandlers {
   onView: (row: ShipmentListRow) => void;
+  onManage: (row: ShipmentListRow) => void;
 }
 
 function ActionsCell({ row, handlers }: { row: ShipmentListRow; handlers: ShipmentRowHandlers }) {
   const { t } = useLocale();
   return (
-    <EnterpriseButton
-      type="button"
-      variant="ghost"
-      size="icon-sm"
-      aria-label={t("shipping.open")}
-      onClick={() => handlers.onView(row)}
-    >
-      <Eye className="size-3.5" />
-    </EnterpriseButton>
+    <div className="flex items-center gap-1">
+      <EnterpriseButton
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label={t("shipping.manage.title")}
+        title={t("shipping.manage.title")}
+        onClick={() => handlers.onManage(row)}
+      >
+        <Truck className="size-3.5" />
+      </EnterpriseButton>
+      <EnterpriseButton
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label={t("shipping.open")}
+        title={t("shipping.open")}
+        onClick={() => handlers.onView(row)}
+      >
+        <Eye className="size-3.5" />
+      </EnterpriseButton>
+    </div>
   );
 }
 

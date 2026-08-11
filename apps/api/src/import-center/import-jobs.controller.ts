@@ -29,6 +29,8 @@ import { SetMappingDto } from './dto/set-mapping.dto';
 import { SaveMappingTemplateDto } from './dto/save-mapping-template.dto';
 import { UploadGoogleSheetsDto } from './dto/upload-google-sheets.dto';
 import { BulkImportRowIdsDto } from './dto/bulk-import-row-ids.dto';
+import { RejectImportRowDto } from './dto/reject-import-row.dto';
+import { BulkRejectImportRowsDto } from './dto/bulk-reject-import-rows.dto';
 
 /** Business operations: Create Draft, Upload, Preview, Set Mapping, Run, Cancel, Errors Export. */
 @Controller('import-center/jobs')
@@ -134,6 +136,15 @@ export class ImportJobsController {
     return this.importJobs.cancel(id);
   }
 
+  /** Lists a job's needs-review rows — `?status=NEEDS_REVIEW` (default view) or `?status=REJECTED` (kept, with their reason, for the review/report UI). */
+  @Get(':id/rows')
+  rows(
+    @Param('id') id: string,
+    @Query('status') status?: 'NEEDS_REVIEW' | 'REJECTED',
+  ) {
+    return this.importJobs.rows(id, status);
+  }
+
   /** Confirms one needs-review row (e.g. Store Orders import's "existing customer found by phone") — writes it for real. */
   @Post(':id/rows/:rowId/confirm')
   @HttpCode(200)
@@ -146,15 +157,19 @@ export class ImportJobsController {
     return this.importJobs.confirmRow(id, rowId, user.sub);
   }
 
-  /** Rejects one needs-review row — discarded, never written. */
+  /** Rejects one needs-review row — a reason is required, kept (never deleted) so it stays visible in the review UI. */
   @Post(':id/rows/:rowId/reject')
   @HttpCode(200)
   @PermissionAction('import')
-  rejectRow(@Param('id') id: string, @Param('rowId') rowId: string) {
-    return this.importJobs.rejectRow(id, rowId);
+  rejectRow(
+    @Param('id') id: string,
+    @Param('rowId') rowId: string,
+    @Body() dto: RejectImportRowDto,
+  ) {
+    return this.importJobs.rejectRow(id, rowId, dto);
   }
 
-  @Post(':id/rows/confirm')
+  @Post(':id/rows/bulk-confirm')
   @HttpCode(200)
   @PermissionAction('import')
   confirmRows(
@@ -165,11 +180,11 @@ export class ImportJobsController {
     return this.importJobs.confirmRows(id, dto.rowIds, user.sub);
   }
 
-  @Post(':id/rows/reject')
+  @Post(':id/rows/bulk-reject')
   @HttpCode(200)
   @PermissionAction('import')
-  rejectRows(@Param('id') id: string, @Body() dto: BulkImportRowIdsDto) {
-    return this.importJobs.rejectRows(id, dto.rowIds);
+  rejectRows(@Param('id') id: string, @Body() dto: BulkRejectImportRowsDto) {
+    return this.importJobs.rejectRows(id, dto.rowIds, dto);
   }
 
   @Get(':id/errors/export')

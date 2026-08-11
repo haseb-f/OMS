@@ -22,6 +22,7 @@ import {
   exportRowsToCsv,
 } from "@/components/master-data/enterprise-data-table";
 import { ShippingBulkActions } from "@/components/shipping/shipping-bulk-actions";
+import { ShipmentManageDialog } from "@/components/shipping/shipment-manage-dialog";
 import { buildShipmentColumns, shipmentExportColumns } from "@/config/shipping/shipment-columns";
 import {
   SHIPMENT_STATUS_LABEL_KEY,
@@ -33,7 +34,7 @@ import {
   type ShipmentStatusValue,
 } from "@/services/shipping-service";
 import { createMasterDataService } from "@/services/master-data-service";
-import type { ShippingMethodRow } from "@/config/master-data/entities";
+import type { ShippingMethodRow, CountryRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { formatDate, toISODate } from "@/lib/date";
@@ -41,6 +42,7 @@ import { ApiError } from "@/services/api-client";
 import { PermissionGate } from "@/components/shared/permission-gate";
 
 const shippingMethodsService = createMasterDataService<ShippingMethodRow>("/shipping-methods");
+const countriesService = createMasterDataService<CountryRow>("/countries");
 
 const EMPTY_DATE_RANGE: DateRangeValue = { from: null, to: null };
 
@@ -57,17 +59,24 @@ function ShippingPageContent() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [companyFilter, setCompanyFilter] = useState<string>("");
+  const [countryFilter, setCountryFilter] = useState<string>("");
   const [companies, setCompanies] = useState<ShippingMethodRow[]>([]);
+  const [countries, setCountries] = useState<CountryRow[]>([]);
   const [dateRange, setDateRange] = useState<DateRangeValue>(EMPTY_DATE_RANGE);
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [isSelectingAllMatching, setIsSelectingAllMatching] = useState(false);
+  const [manageTarget, setManageTarget] = useState<ShipmentListRow | null>(null);
 
   useEffect(() => {
     shippingMethodsService
       .list({ pageSize: 200 })
       .then((result) => setCompanies(result.items))
       .catch(() => setCompanies([]));
+    countriesService
+      .list({ pageSize: 300 })
+      .then((result) => setCountries(result.items))
+      .catch(() => setCountries([]));
   }, []);
 
   const listParams = useCallback(
@@ -75,10 +84,11 @@ function ShippingPageContent() {
       search: search || undefined,
       status: (statusFilter || undefined) as ShipmentStatusValue | undefined,
       shippingCompanyId: companyFilter || undefined,
+      countryId: countryFilter || undefined,
       dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
       dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
     }),
-    [search, statusFilter, companyFilter, dateRange],
+    [search, statusFilter, companyFilter, countryFilter, dateRange],
   );
 
   const load = useCallback(async () => {
@@ -109,6 +119,7 @@ function ShippingPageContent() {
     () =>
       buildShipmentColumns({
         onView: (row) => router.push(`/store-orders/${row.storeOrderId}`),
+        onManage: (row) => setManageTarget(row),
       }),
     [router],
   );
@@ -200,6 +211,25 @@ function ShippingPageContent() {
                 ))}
               </SelectContent>
             </Select>
+            <Select
+              value={countryFilter || "__all__"}
+              onValueChange={(v) => {
+                setCountryFilter(v === "__all__" ? "" : v);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger size="sm" className="w-48">
+                <SelectValue placeholder={t("shipping.filters.country")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">{t("shipping.filters.allCountries")}</SelectItem>
+                {countries.map((country) => (
+                  <SelectItem key={country.id} value={country.id}>
+                    {country.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <EnterpriseDateRangePicker
               value={dateRange}
               onChange={(range) => {
@@ -257,6 +287,14 @@ function ShippingPageContent() {
         }
         emptyTitle={t("shipping.empty")}
         getRowId={(row) => row.id}
+      />
+
+      <ShipmentManageDialog
+        shipment={manageTarget}
+        open={!!manageTarget}
+        onOpenChange={(open) => !open && setManageTarget(null)}
+        onUpdated={load}
+        shippingCompanies={companies}
       />
     </div>
   );

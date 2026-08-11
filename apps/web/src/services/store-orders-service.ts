@@ -49,6 +49,7 @@ export interface StoreOrderShipmentRow {
   shippingCompanyId: string | null;
   shippingCompany?: { id: string; name: string } | null;
   trackingNumber: string | null;
+  labelUrl: string | null;
   status: ShipmentStatusValue;
   labelCreatedAt: string | null;
   shippedAt: string | null;
@@ -177,6 +178,21 @@ export const storeOrdersService = {
   }) => apiClient.post<StoreOrderRow>("/store-orders", dto),
   addNote: (id: string, note: string) =>
     apiClient.post<StoreOrderRow>(`/store-orders/${id}/notes`, { note }),
+  /** Manual "Add Payment" (Part 4 of the four-gaps task) — a normal `Payment` row, same shape the optional first-payment-on-create path already uses; recomputes `paymentStatus`/`shippingStage` server-side exactly like every other payment write. */
+  addPayment: (
+    id: string,
+    dto: {
+      paymentDate: string;
+      receivedDate?: string;
+      amount: number;
+      currencyId?: string;
+      paymentSourceId: string;
+      receivingAccountId: string;
+      referenceNumber?: string;
+      senderName: string;
+      bankAccount?: string;
+    },
+  ) => apiClient.post<StoreOrderPaymentRow>(`/store-orders/${id}/payments`, dto),
   generateInvoice: (id: string) =>
     apiClient.post<{ id: string; invoiceNumber: string }>(`/store-orders/${id}/generate-invoice`),
   activities: (id: string) =>
@@ -186,7 +202,8 @@ export const storeOrdersService = {
   // always creates a brand-new Shipment row on the same order, never a new
   // Store Order.
   shipments: {
-    createLabel: (storeOrderId: string, dto: { shippingCompanyId?: string }) =>
+    /** No real file-upload pipeline exists anywhere in this app — the label is a pasted URL, same "attach by URL" convention as receipts. */
+    setLabel: (storeOrderId: string, dto: { fileUrl: string; fileName?: string }) =>
       apiClient.post<StoreOrderShipmentRow>(`/store-orders/${storeOrderId}/shipments/label`, dto),
     setTrackingNumber: (storeOrderId: string, shipmentId: string, trackingNumber: string) =>
       apiClient.post<StoreOrderShipmentRow>(
@@ -233,7 +250,9 @@ export const storeOrdersService = {
   // Receipts — the same "attach by URL" pattern used elsewhere in OMS
   // (e.g. Product's `imageUrl`) rather than a real file upload widget.
   receipts: {
-    attach: (storeOrderId: string, dto: { fileUrl: string; fileName: string }) =>
-      apiClient.post<StoreOrderReceiptRow>(`/store-orders/${storeOrderId}/receipts`, dto),
+    attach: (
+      storeOrderId: string,
+      dto: { fileUrl: string; fileName: string; paymentId?: string },
+    ) => apiClient.post<StoreOrderReceiptRow>(`/store-orders/${storeOrderId}/receipts`, dto),
   },
 };

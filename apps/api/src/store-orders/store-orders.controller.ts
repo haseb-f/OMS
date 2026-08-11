@@ -22,6 +22,7 @@ import { FindStoreOrdersQueryDto } from './dto/find-store-orders-query.dto';
 import { CreateStoreOrderNoteDto } from './dto/create-store-order-note.dto';
 import { CreateStoreOrderPaymentDto } from './dto/create-store-order-payment.dto';
 import { SetPaymentReviewStatusDto } from './dto/set-payment-review-status.dto';
+import { CreateStoreOrderReceiptDto } from './dto/create-store-order-receipt.dto';
 
 /**
  * Business operations, not generic CRUD — `update` is deliberately narrow
@@ -106,5 +107,15 @@ export class StoreOrdersController {
   @PermissionAction('edit')
   generateInvoice(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.storeOrdersService.generateInvoice(id, user.sub);
+  }
+
+  @Post(':id/receipts')
+  @PermissionAction('edit')
+  addReceipt(
+    @Param('id') id: string,
+    @Body() dto: CreateStoreOrderReceiptDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.storeOrdersService.addReceipt(id, dto, user.sub);
   }
 }
