@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, StoreOrderActivitySource } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+
+export { StoreOrderActivitySource };
 
 /**
  * Append-only audit trail (schema: `StoreOrderActivity` has no
@@ -35,15 +37,23 @@ export const StoreOrderActivityType = {
 export class StoreOrderActivityService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * `source` is a new, backward-compatible trailing parameter (Data
+   * Synchronization — Google Sheets shipping sync, section 28) — every
+   * existing call site that only ever passed the first 5 arguments keeps
+   * defaulting to `MANUAL` unchanged; only the bulk-update and
+   * import/sync-driven call sites pass it explicitly.
+   */
   log(
     storeOrderId: string,
     action: string,
     details?: string,
     performedById?: string,
     tx: Prisma.TransactionClient | PrismaService = this.prisma,
+    source: StoreOrderActivitySource = StoreOrderActivitySource.MANUAL,
   ) {
     return tx.storeOrderActivity.create({
-      data: { storeOrderId, action, details, performedById },
+      data: { storeOrderId, action, details, performedById, source },
     });
   }
 

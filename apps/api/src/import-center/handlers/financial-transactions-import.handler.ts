@@ -52,6 +52,7 @@ function fields(partyLabelKey: string, partyLabel: string): ImportFieldDef[] {
       label: 'Currency Code',
       required: false,
       type: 'string',
+      referenceType: 'CURRENCY',
     },
     {
       key: 'referenceNumber',

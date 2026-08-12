@@ -44,6 +44,7 @@ const FIELDS: ImportFieldDef[] = [
     label: 'Supplier Name',
     required: true,
     type: 'string',
+    referenceType: 'SUPPLIER',
   },
   {
     key: 'invoiceNumber',
@@ -59,6 +60,7 @@ const FIELDS: ImportFieldDef[] = [
     label: 'Currency Code',
     required: false,
     type: 'string',
+    referenceType: 'CURRENCY',
   },
   {
     key: 'referenceNumber',

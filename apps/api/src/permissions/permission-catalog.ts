@@ -284,6 +284,12 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
       { action: 'view', name: 'import-center.view' },
       { action: 'import', name: 'import-center.manage' },
       { action: 'export', name: 'import-center.export' },
+      // Data Synchronization ("مزامنة البيانات") — a privileged operation
+      // distinct from `import-center.manage`: reads live data from a
+      // configured Google Sheets source and commits it through the same
+      // pipeline a manual import uses. Granting `.manage` (configure
+      // mapping templates, run manual uploads) does NOT imply `.sync`.
+      { action: 'sync', name: 'import-center.sync' },
     ],
   },
   {

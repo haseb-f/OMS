@@ -3,15 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Printer, FileText } from "lucide-react";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { PageHeader } from "@/components/shared/page-header";
+import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
   EnterpriseCard,
@@ -68,6 +61,8 @@ export default function SupplierProfilePage() {
   const [isLoadingPayments, setIsLoadingPayments] = useState(true);
   const [openInvoices, setOpenInvoices] = useState<OpenInvoiceRow[]>([]);
   const [isLoadingOpenInvoices, setIsLoadingOpenInvoices] = useState(true);
+
+  useBreadcrumbLabel(supplier?.name ?? null);
 
   useEffect(() => {
     const loadSupplier = async () => {
@@ -193,20 +188,6 @@ export default function SupplierProfilePage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/purchasing/suppliers">
-              {t("purchasing.suppliers.title")}
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>{supplier.name}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-
       <PageHeader
         title={supplier.name}
         subtitle={supplier.supplierNumber}

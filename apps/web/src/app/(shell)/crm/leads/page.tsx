@@ -6,6 +6,7 @@ import { Contact, Eye, Plus, UserPlus } from "lucide-react";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
 import type { MasterDataFormSection } from "@/components/master-data/master-data-form";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
+import { SyncButton } from "@/components/shared/sync-button";
 import { EnterpriseButton } from "@/components/ui/button";
 import type { RowAction } from "@/components/shared/data-table";
 import { leadsService, type LeadRow } from "@/services/leads-service";
@@ -131,6 +132,7 @@ function CrmLeadsPageContent() {
         hideCreateButton
         extraActions={
           <>
+            <SyncButton sourceType="LEADS" onSynced={() => setRefreshToken((n) => n + 1)} />
             <ModuleImportButtons
               importType="LEADS"
               onImported={() => setRefreshToken((n) => n + 1)}

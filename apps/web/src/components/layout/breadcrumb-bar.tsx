@@ -13,17 +13,26 @@ import {
 } from "@/components/ui/breadcrumb";
 import { useCurrentNavigation } from "@/hooks/use-current-navigation";
 import { useLocale } from "@/providers/locale-provider";
+import { useBreadcrumbValue } from "@/providers/breadcrumb-provider";
 
 /**
  * A dedicated Breadcrumb layer between the TopBar and each page's own
  * header. The root crumb is a Home icon, not the "OMS" wordmark — the logo
- * belongs only to the Sidebar, never repeated inside pages (ADR-0019).
+ * belongs only to the Sidebar, never repeated inside pages (ADR-0019). The
+ * ONE place breadcrumb navigation is rendered — no page builds its own;
+ * a dynamic detail page (a Lead, a Customer, ...) only ever supplies the
+ * trailing crumb's text via `useBreadcrumbLabel`, never the whole trail.
  */
 export function BreadcrumbBar() {
-  const { breadcrumb } = useCurrentNavigation();
+  const { breadcrumb, isExactMatch } = useCurrentNavigation();
   const { t } = useLocale();
+  const dynamicLabel = useBreadcrumbValue();
 
   if (breadcrumb.length === 0) return null;
+  // On a dynamic sub-page (isExactMatch === false) the resolved trail ends
+  // at its list-page ANCESTOR, which must stay clickable — the page's own
+  // label (once loaded) becomes the actual final, non-clickable crumb.
+  const showDynamicCrumb = !isExactMatch && dynamicLabel;
 
   return (
     <div className="px-6 py-2 text-caption">
@@ -37,13 +46,17 @@ export function BreadcrumbBar() {
             </BreadcrumbLink>
           </BreadcrumbItem>
           {breadcrumb.map((item, index) => {
-            const isLast = index === breadcrumb.length - 1;
+            // The resolved trail's own last item is only the actual
+            // current page when the route matched exactly — otherwise a
+            // dynamic sub-page crumb follows it below, so this one must
+            // stay clickable like any other ancestor.
+            const isFinalCrumb = index === breadcrumb.length - 1 && !showDynamicCrumb;
             const title = t(item.titleKey);
             return (
               <Fragment key={item.id}>
                 <BreadcrumbSeparator />
                 <BreadcrumbItem>
-                  {isLast || !item.route ? (
+                  {isFinalCrumb || !item.route ? (
                     <BreadcrumbPage>{title}</BreadcrumbPage>
                   ) : (
                     <BreadcrumbLink asChild>
@@ -54,6 +67,14 @@ export function BreadcrumbBar() {
               </Fragment>
             );
           })}
+          {showDynamicCrumb && (
+            <Fragment>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>{dynamicLabel}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </Fragment>
+          )}
         </BreadcrumbList>
       </Breadcrumb>
     </div>

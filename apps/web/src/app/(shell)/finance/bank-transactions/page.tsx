@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import { StatusBadge, type StatusTone } from "@/components/business/status-badge";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
+import { SyncButton } from "@/components/shared/sync-button";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
@@ -133,6 +134,7 @@ function BankTransactionsPageContent() {
         subtitle={t("masterData.bankTransactions.description")}
         actions={
           <div className="flex items-center gap-2">
+            <SyncButton sourceType="CASH_FLOW" onSynced={load} />
             <ModuleImportButtons importType="BANK_TRANSACTIONS" onImported={load} />
             {canManage && (
               <EnterpriseButton

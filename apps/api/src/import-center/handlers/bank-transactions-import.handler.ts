@@ -1,9 +1,8 @@
 import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { BankTransactionsService } from '../../bank-transactions/bank-transactions.service';
-import { CurrenciesService } from '../../currencies/currencies.service';
 import { ImportTypeRegistryService } from '../import-type-registry.service';
-import { resolveOptionalIdByField } from '../import-value.util';
+import { ReferenceDataRegistryService } from '../reference-data/reference-data-registry.service';
 import type {
   ImportFieldDef,
   ImportRowOptions,
@@ -83,6 +82,7 @@ const FIELDS: ImportFieldDef[] = [
     required: false,
     type: 'string',
     example: 'SAR',
+    referenceType: 'CURRENCY',
   },
   {
     key: 'balance',
@@ -115,11 +115,19 @@ const FIELDS: ImportFieldDef[] = [
 ];
 
 /**
- * Bank Statement Import (Part 6/9/10) — step one of Bank Transaction ->
- * Find Matching Order -> Match Payment -> Update Payment Status -> Create
- * reconciliation record (the remaining steps live in
- * `BankTransactionsService`/`PaymentAutoMatchingService`, triggered
- * separately from the review screen, never automatically from here).
+ * Bank Statement / Cash Flow Import (Part 6/9/10; Data Synchronization) —
+ * step one of Bank Transaction -> Find Matching Order -> Match Payment ->
+ * Update Payment Status -> Create reconciliation record (the remaining
+ * steps live in `BankTransactionsService`/`PaymentAutoMatchingService`,
+ * triggered separately from the review screen, never automatically from
+ * here). This is also the one handler behind the "Cash Flow" sync source
+ * (banks, wallets, gateways, BNPL providers — never hardcoded): a Cash Flow
+ * worksheet's provider label reaches every row via `options.context.provider`
+ * (falls back into `bankName` only when the sheet itself has no Bank Name
+ * column), and `options.context.importJobId` links the created/updated row
+ * back to the sync run that produced it — see `ImportJob.rowDefaults`.
+ * Manual CSV/XLSX bank-statement uploads never set `context`, so both paths
+ * share this one handler without a parallel import system.
  *
  * Every bank exports differently — some give a single signed `amount`
  * column, others separate `debit`/`credit` columns — so both are accepted
@@ -143,8 +151,8 @@ export class BankTransactionsImportHandler
 
   constructor(
     private readonly bankTransactionsService: BankTransactionsService,
-    private readonly currenciesService: CurrenciesService,
     private readonly registry: ImportTypeRegistryService,
+    private readonly referenceData: ReferenceDataRegistryService,
   ) {}
 
   onModuleInit() {
@@ -156,6 +164,8 @@ export class BankTransactionsImportHandler
     _userId?: string,
     options?: ImportRowOptions,
   ): Promise<ImportRowResult> {
+    const provider = options?.context?.provider;
+    const importJobId = options?.context?.importJobId;
     const transactionDate = parseDate(row.transactionDate, 'Transaction Date');
     const valueDate = row.valueDate
       ? parseDate(row.valueDate, 'Value Date')
@@ -176,14 +186,27 @@ export class BankTransactionsImportHandler
       );
     }
 
-    const currencyId = await resolveOptionalIdByField(
-      this.currenciesService,
+    const currencyId = await this.referenceData.resolveOptional(
+      'CURRENCY',
       'code',
       row.currencyCode,
       'Currency',
     );
     const currencyCode = row.currencyCode?.trim().toUpperCase() ?? '';
+    // The sheet's own Bank Name column wins when present (a manual
+    // multi-bank statement upload, or a Cash Flow tab that happens to
+    // include one); otherwise fall back to the worksheet's configured
+    // provider label (Cash Flow sync — see the handler doc comment).
+    const bankName = row.bankName || provider || undefined;
 
+    // Deliberately unchanged from the pre-Cash-Flow formula (date+amount+
+    // reference+description+account+currency only) — folding `bankName`/
+    // `provider` in here would silently change the fingerprint of every
+    // already-imported bank transaction and duplicate it on the next
+    // re-sync. A Cash Flow provider with no natural `account` value should
+    // instead map a stable per-provider value (its own transaction/
+    // reference id, or the provider name itself) into `account` or
+    // `reference` when configuring that source's column mapping.
     const fingerprint = computeFingerprint({
       transactionDate,
       amount,
@@ -210,7 +233,8 @@ export class BankTransactionsImportHandler
       amount,
       currencyId,
       balance,
-      bankName: row.bankName || undefined,
+      bankName,
+      importJobId: importJobId || undefined,
       branch: row.branch || undefined,
       notes: row.notes || undefined,
     });

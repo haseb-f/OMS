@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { RowSelectionState } from "@tanstack/react-table";
 import { PageHeader } from "@/components/shared/page-header";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
+import { SyncButton } from "@/components/shared/sync-button";
 import {
   EnterpriseDateRangePicker,
   type DateRangeValue,
@@ -166,7 +167,12 @@ function ShippingPageContent() {
       <PageHeader
         title={t("shipping.title")}
         subtitle={t("shipping.description")}
-        actions={<ModuleImportButtons importType="SHIPPING_UPDATES" onImported={load} />}
+        actions={
+          <>
+            <ModuleImportButtons importType="SHIPPING_UPDATES" onImported={load} />
+            <SyncButton sourceType="SHIPPING_UPDATES" onSynced={load} />
+          </>
+        }
         filters={
           <>
             <Select

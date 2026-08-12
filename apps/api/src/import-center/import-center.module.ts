@@ -64,6 +64,12 @@ import { JournalEntriesModule } from '../journal-entries/journal-entries.module'
 import { OpeningBalancesModule } from '../accounting/opening-balances/opening-balances.module';
 import { BankTransactionsModule } from '../bank-transactions/bank-transactions.module';
 import { StoreOrdersModule } from '../store-orders/store-orders.module';
+import { SyncSourceConfigService } from './sync/sync-source-config.service';
+import { SyncOrchestratorService } from './sync/sync-orchestrator.service';
+import { SyncController } from './sync/sync.controller';
+import { ReferenceDataRegistryService } from './reference-data/reference-data-registry.service';
+import { ReferenceDataSourcesService } from './reference-data/reference-data-sources.service';
+import { ReferenceDataController } from './reference-data/reference-data.controller';
 
 /**
  * Import Center (TASK-056/TASK-059 "Universal Import Center") — deliberately
@@ -109,13 +115,22 @@ import { StoreOrdersModule } from '../store-orders/store-orders.module';
     BankTransactionsModule,
     StoreOrdersModule,
   ],
-  controllers: [ImportJobsController, ImportTypesController],
+  controllers: [
+    ImportJobsController,
+    ImportTypesController,
+    SyncController,
+    ReferenceDataController,
+  ],
   providers: [
     ImportTypeRegistryService,
     ImportJobsService,
     GoogleSheetsService,
     ImportMappingTemplatesService,
     ImportTemplateService,
+    SyncSourceConfigService,
+    SyncOrchestratorService,
+    ReferenceDataRegistryService,
+    ReferenceDataSourcesService,
     CustomersImportHandler,
     SuppliersImportHandler,
     ProductsImportHandler,
@@ -144,6 +159,6 @@ import { StoreOrdersModule } from '../store-orders/store-orders.module';
     StoreOrdersImportHandler,
     ShippingUpdatesImportHandler,
   ],
-  exports: [GoogleSheetsService],
+  exports: [GoogleSheetsService, ReferenceDataRegistryService],
 })
 export class ImportCenterModule {}

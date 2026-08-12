@@ -40,6 +40,8 @@ const FIELDS: ImportFieldDef[] = [
     required: true,
     type: 'string',
     example: 'GJ',
+    referenceType: 'JOURNAL',
+    referenceMatchField: 'code',
   },
   {
     key: 'referenceNumber',
@@ -54,6 +56,8 @@ const FIELDS: ImportFieldDef[] = [
     label: 'Account Code',
     required: true,
     type: 'string',
+    referenceType: 'CHART_OF_ACCOUNT',
+    referenceMatchField: 'code',
   },
   {
     key: 'debit',
@@ -82,6 +86,8 @@ const FIELDS: ImportFieldDef[] = [
     label: 'Cost Center Code',
     required: false,
     type: 'string',
+    referenceType: 'COST_CENTER',
+    referenceMatchField: 'code',
   },
   {
     key: 'projectCode',
@@ -89,6 +95,8 @@ const FIELDS: ImportFieldDef[] = [
     label: 'Project Code',
     required: false,
     type: 'string',
+    referenceType: 'PROJECT',
+    referenceMatchField: 'code',
   },
 ];
 

@@ -3,13 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Download, UploadCloud } from "lucide-react";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { PageHeader } from "@/components/shared/page-header";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
@@ -17,6 +10,8 @@ import { EnterpriseBadge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/business/status-badge";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
 import { ImportJobWizard } from "./import-job-wizard";
+import { SyncButton } from "@/components/shared/sync-button";
+import { SyncSourcesManager } from "./sync-sources-manager";
 import { importTypesService, type ImportTypeDefinition } from "@/services/import-types-service";
 import { importJobsService, type ImportJobRow } from "@/services/import-jobs-service";
 import { useUsersList } from "@/hooks/use-reference-data";
@@ -50,6 +45,7 @@ function ImportCenterPageContent() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardTypeDef, setWizardTypeDef] = useState<ImportTypeDefinition | null>(null);
   const [wizardJobId, setWizardJobId] = useState<string | undefined>(undefined);
+  const [sourcesManagerOpen, setSourcesManagerOpen] = useState(false);
 
   const loadJobs = useCallback(async () => {
     setIsLoadingJobs(true);
@@ -240,19 +236,28 @@ function ImportCenterPageContent() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbPage>{t("nav.dataManagement")}</BreadcrumbPage>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>{t("nav.dataManagementImportCenter")}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-
       <PageHeader title={t("importCenter.title")} subtitle={t("importCenter.description")} />
+
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-card-title font-semibold">{t("importCenter.sync.button")}</h2>
+          <EnterpriseButton
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setSourcesManagerOpen(true)}
+          >
+            {t("importCenter.sync.sources.title")}
+          </EnterpriseButton>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-muted/20 p-3">
+          <SyncButton sourceType="LEADS" onSynced={loadJobs} />
+          <SyncButton sourceType="STORE_ORDERS" onSynced={loadJobs} />
+          <SyncButton sourceType="CASH_FLOW" onSynced={loadJobs} />
+          <SyncButton sourceType="SHIPPING_UPDATES" onSynced={loadJobs} />
+        </div>
+      </div>
+      <SyncSourcesManager open={sourcesManagerOpen} onOpenChange={setSourcesManagerOpen} />
 
       <div className="flex flex-col gap-3">
         <h2 className="text-card-title font-semibold">{t("importCenter.availableTypes")}</h2>

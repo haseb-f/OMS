@@ -34,6 +34,8 @@ const FIELDS: ImportFieldDef[] = [
     label: 'Account Code',
     required: true,
     type: 'string',
+    referenceType: 'CHART_OF_ACCOUNT',
+    referenceMatchField: 'code',
   },
   {
     key: 'debit',

@@ -60,6 +60,11 @@ export class BankTransactionsService {
     bankName?: string;
     branch?: string;
     notes?: string;
+    /** Data Synchronization only — the `ImportJob` this run belongs to. Set
+     * on first insert only (never in `update`, below) so a row's source
+     * lineage always points at the sync that originally created it, not
+     * whichever run last refreshed its other fields. */
+    importJobId?: string;
   }): Promise<{ id: string }> {
     const transaction = await this.prisma.bankTransaction.upsert({
       where: { fingerprint: data.fingerprint },

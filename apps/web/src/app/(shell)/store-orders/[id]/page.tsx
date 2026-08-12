@@ -4,15 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { FileText, Link as LinkIcon, Receipt, Wallet } from "lucide-react";
 import { StoreOrderAddPaymentDialog } from "@/components/store-orders/store-order-add-payment-dialog";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { PageHeader } from "@/components/shared/page-header";
+import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { EmptyState } from "@/components/shared/empty-state";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,6 +78,8 @@ function StoreOrderDetailContent() {
   const [receiptName, setReceiptName] = useState("");
   const [isAttachingReceipt, setIsAttachingReceipt] = useState(false);
   const [addPaymentOpen, setAddPaymentOpen] = useState(false);
+
+  useBreadcrumbLabel(order?.internalOrderId ?? null);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -180,18 +175,6 @@ function StoreOrderDetailContent() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/store-orders">{t("storeOrders.title")}</BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage dir="ltr">{order.internalOrderId}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-
       <PageHeader
         title={order.internalOrderId}
         subtitle={

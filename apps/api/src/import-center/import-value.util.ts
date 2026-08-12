@@ -1,25 +1,79 @@
 import { BadRequestException } from '@nestjs/common';
+import { getReferenceCache } from './reference-data/reference-cache';
 
 interface SearchableService<T> {
-  findAll(query: { search: string; pageSize: number }): Promise<{ items: T[] }>;
+  findAll(query: {
+    search: string;
+    pageSize: number;
+    page?: number;
+  }): Promise<{ items: T[]; total?: number }>;
 }
 
-async function findIdByField<
+/**
+ * The full row set for one `(service, field)` pair — paged through at a
+ * safe, universally-accepted page size (every list endpoint's `pageSize`
+ * DTO caps somewhere between 200 and 1000; 200 is the lowest of those, see
+ * `find-products-query.dto.ts`) rather than one best-guess huge `pageSize`,
+ * so this works unmodified against any current or future service. Cached
+ * per import run (see `reference-cache.ts`) — a search-matched lookup used
+ * to only ever see the first 20 results (`findAll({search, pageSize:20})`),
+ * silently mis-reporting "not found" for a real value ranked 21st+; fetching
+ * everything once and matching in memory fixes that correctness bug too.
+ */
+async function fetchAllItems<
+  T extends { id: string } & Record<string, unknown>,
+>(service: SearchableService<T>, cacheKey: string): Promise<T[]> {
+  const cache = getReferenceCache();
+  const cached = cache?.get(cacheKey);
+  if (cached) return cached as T[];
+
+  const pageSize = 200;
+  let page = 1;
+  let items: T[] = [];
+  for (;;) {
+    const result = await service.findAll({ search: '', pageSize, page });
+    items = items.concat(result.items);
+    const total = result.total ?? items.length;
+    if (items.length >= total || result.items.length < pageSize) break;
+    page++;
+  }
+  cache?.set(cacheKey, items);
+  return items;
+}
+
+async function findRecordByField<
   T extends { id: string } & Record<string, unknown>,
 >(
   service: SearchableService<T>,
   field: keyof T & string,
   trimmed: string,
   label: string,
-): Promise<string> {
-  const result = await service.findAll({ search: trimmed, pageSize: 20 });
-  const match = result.items.find(
+): Promise<T> {
+  const cacheKey = `${service.constructor.name}:${field}`;
+  const items = await fetchAllItems(service, cacheKey);
+  const match = items.find(
     (item) => String(item[field] ?? '').toLowerCase() === trimmed.toLowerCase(),
   );
   if (!match) {
     throw new BadRequestException(`${label} "${trimmed}" not found.`);
   }
-  return match.id;
+  return match;
+}
+
+/** Same lookup as `resolveRequiredIdByField`, but returns the whole matched record — for a caller that needs more than the id (e.g. `resolveProductBySku` also needs `unitId`). */
+export async function resolveRequiredRecordByField<
+  T extends { id: string } & Record<string, unknown>,
+>(
+  service: SearchableService<T>,
+  field: keyof T & string,
+  value: string | undefined,
+  label: string,
+): Promise<T> {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    throw new BadRequestException(`${label} is required.`);
+  }
+  return findRecordByField(service, field, trimmed, label);
 }
 
 /**
@@ -37,11 +91,13 @@ export async function resolveRequiredIdByField<
   value: string | undefined,
   label: string,
 ): Promise<string> {
-  const trimmed = value?.trim();
-  if (!trimmed) {
-    throw new BadRequestException(`${label} is required.`);
-  }
-  return findIdByField(service, field, trimmed, label);
+  const record = await resolveRequiredRecordByField(
+    service,
+    field,
+    value,
+    label,
+  );
+  return record.id;
 }
 
 /** Same lookup as `resolveRequiredIdByField`, but an empty value resolves to `undefined` instead of throwing — for optional foreign keys. */
@@ -55,7 +111,8 @@ export async function resolveOptionalIdByField<
 ): Promise<string | undefined> {
   const trimmed = value?.trim();
   if (!trimmed) return undefined;
-  return findIdByField(service, field, trimmed, label);
+  const record = await findRecordByField(service, field, trimmed, label);
+  return record.id;
 }
 
 /** Accepts common CSV/Excel truthy spellings ("true", "1", "yes", case-insensitive) for `boolean`-typed fields. */

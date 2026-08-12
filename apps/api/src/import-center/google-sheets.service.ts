@@ -73,8 +73,14 @@ export class GoogleSheetsService {
     this.authClient = new google.auth.JWT({
       email: credentials.client_email,
       key: credentials.private_key,
+      // Full (read+write) `spreadsheets` scope — Data Synchronization's
+      // write-back (`writeRowResults`) needs write access to the OMS
+      // result columns it appends; `spreadsheets.readonly` alone can no
+      // longer be used since a JWT client has exactly one scope set for
+      // every request it makes. `drive.readonly` is unrelated (file
+      // metadata only) and stays read-only.
       scopes: [
-        'https://www.googleapis.com/auth/spreadsheets.readonly',
+        'https://www.googleapis.com/auth/spreadsheets',
         'https://www.googleapis.com/auth/drive.readonly',
       ],
     });
@@ -135,8 +141,8 @@ export class GoogleSheetsService {
     }
   }
 
-  /** Resolves a URL's numeric `gid` (or no gid — first sheet) to the sheet's actual title, since `values.get()` addresses ranges by title, not gid. */
-  private async resolveSheetTitle(
+  /** Resolves a URL's numeric `gid` (or no gid — first sheet) to the sheet's actual title, since `values.get()` addresses ranges by title, not gid. Public — also used by `SyncSourceConfigService` to resolve/display a configured worksheet's current title without duplicating this lookup. */
+  async resolveSheetTitle(
     spreadsheetId: string,
     gid: string | undefined,
   ): Promise<string> {
@@ -228,4 +234,157 @@ export class GoogleSheetsService {
       extra: headers.filter((h) => h && !expectedSet.has(h)),
     };
   }
+
+  /**
+   * Data Synchronization write-back — appends dedicated "OMS ..." result
+   * columns to the END of the header row (creating each one, once, on
+   * first use) and returns its A1 column letter keyed by the caller's own
+   * column name. Never touches an existing column — an already-present
+   * header with the same name is reused as-is, so re-running a sync never
+   * duplicates or shifts a result column.
+   */
+  async ensureResultColumns(
+    spreadsheetId: string,
+    columnNames: string[],
+    gid?: string,
+  ): Promise<Record<string, string>> {
+    const title = await this.resolveSheetTitle(spreadsheetId, gid);
+    const headers = await this.getHeaders(spreadsheetId, gid);
+    const columnLetters: Record<string, string> = {};
+    headers.forEach((header, index) => {
+      if (columnNames.includes(header)) {
+        columnLetters[header] = columnIndexToLetter(index);
+      }
+    });
+    const missing = columnNames.filter((name) => !(name in columnLetters));
+    if (missing.length > 0) {
+      const startIndex = headers.length;
+      try {
+        await this.sheetsClient().spreadsheets.values.update({
+          spreadsheetId,
+          range: `${quoteSheetTitle(title)}!${columnIndexToLetter(startIndex)}1`,
+          valueInputOption: 'RAW',
+          requestBody: { values: [missing] },
+        });
+      } catch (error) {
+        throw this.mapError(error);
+      }
+      missing.forEach((name, offset) => {
+        columnLetters[name] = columnIndexToLetter(startIndex + offset);
+      });
+    }
+    return columnLetters;
+  }
+
+  /**
+   * Writes each row's result values into its own dedicated OMS column(s)
+   * (auto-created via `ensureResultColumns`) at `rowNumber` (1-indexed
+   * sheet row — header is row 1, first data row is row 2, the same
+   * convention `ImportJobsService` uses) — never any other cell. Callers
+   * (`SyncOrchestratorService`) only ever call this AFTER a successful
+   * database commit, so a sheet never shows "تم" for a row that didn't
+   * actually get written to the OMS.
+   */
+  async writeRowResults(
+    spreadsheetId: string,
+    rows: { rowNumber: number; values: Record<string, string> }[],
+    gid?: string,
+  ): Promise<void> {
+    if (rows.length === 0) return;
+    const columnNames = [
+      ...new Set(rows.flatMap((row) => Object.keys(row.values))),
+    ];
+    const columnLetters = await this.ensureResultColumns(
+      spreadsheetId,
+      columnNames,
+      gid,
+    );
+    const title = await this.resolveSheetTitle(spreadsheetId, gid);
+    const data = rows.flatMap((row) =>
+      Object.entries(row.values).map(([name, value]) => ({
+        range: `${quoteSheetTitle(title)}!${columnLetters[name]}${row.rowNumber}`,
+        values: [[value]],
+      })),
+    );
+    try {
+      await this.sheetsClient().spreadsheets.values.batchUpdate({
+        spreadsheetId,
+        requestBody: { valueInputOption: 'RAW', data },
+      });
+    } catch (error) {
+      throw this.mapError(error);
+    }
+  }
+
+  /** Creates `title` as a new tab if the spreadsheet doesn't already have one by that name — idempotent, never touches an existing tab's content. */
+  async ensureWorksheet(spreadsheetId: string, title: string): Promise<void> {
+    const metadata = await this.getSpreadsheetMetadata(spreadsheetId);
+    if (metadata.sheets.some((sheet) => sheet.title === title)) return;
+    try {
+      await this.sheetsClient().spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: { requests: [{ addSheet: { properties: { title } } }] },
+      });
+    } catch (error) {
+      throw this.mapError(error);
+    }
+  }
+
+  /**
+   * Data Synchronization — Master Data reference worksheet (spec: "A
+   * dedicated hidden/reference worksheet... can contain Countries,
+   * Currencies, Products, ... Do NOT duplicate the actual business data.
+   * The reference values must originate from OMS Master Data."). Writes
+   * one column per reference type into `worksheetTitle` (creating the tab
+   * if needed), OVERWRITING that tab's entire content every time — it
+   * exists only to be pointed at by data-validation dropdowns on the
+   * business-data tab, never hand-edited, so a full overwrite on refresh
+   * is exactly right (never a merge).
+   */
+  async writeReferenceColumns(
+    spreadsheetId: string,
+    worksheetTitle: string,
+    columns: { header: string; values: string[] }[],
+  ): Promise<void> {
+    await this.ensureWorksheet(spreadsheetId, worksheetTitle);
+    const rowCount = Math.max(1, ...columns.map((c) => c.values.length)) + 1;
+    const grid: string[][] = Array.from({ length: rowCount }, () =>
+      new Array<string>(columns.length).fill(''),
+    );
+    columns.forEach((column, colIndex) => {
+      grid[0][colIndex] = column.header;
+      column.values.forEach((value, rowIndex) => {
+        grid[rowIndex + 1][colIndex] = value;
+      });
+    });
+    try {
+      await this.sheetsClient().spreadsheets.values.update({
+        spreadsheetId,
+        range: `${quoteSheetTitle(worksheetTitle)}!A1`,
+        valueInputOption: 'RAW',
+        requestBody: { values: grid },
+      });
+    } catch (error) {
+      throw this.mapError(error);
+    }
+  }
+}
+
+/** 0-based column index -> A1 column letters (0 -> "A", 26 -> "AA", ...). */
+function columnIndexToLetter(index: number): string {
+  let n = index + 1;
+  let letters = '';
+  while (n > 0) {
+    const remainder = (n - 1) % 26;
+    letters = String.fromCharCode(65 + remainder) + letters;
+    n = Math.floor((n - 1) / 26);
+  }
+  return letters;
+}
+
+/** A1 notation requires a sheet title to be single-quoted whenever it isn't a bare alphanumeric/underscore token (e.g. it has spaces, like "Al Rajhi"). */
+function quoteSheetTitle(title: string): string {
+  return /^[A-Za-z0-9_]+$/.test(title)
+    ? title
+    : `'${title.replace(/'/g, "''")}'`;
 }

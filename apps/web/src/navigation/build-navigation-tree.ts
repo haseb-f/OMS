@@ -75,12 +75,37 @@ export function flattenNavigationTree(items: NavigationItem[]): NavigationItem[]
   );
 }
 
-/** Finds the item whose `route` matches the given pathname, if any. */
+/** Finds the item whose `route` exactly matches the given pathname, if any. */
 export function findNavigationItemByRoute(
   items: NavigationItem[],
   pathname: string,
 ): NavigationItem | undefined {
   return flattenNavigationTree(items).find((item) => item.route === pathname);
+}
+
+/**
+ * Falls back to the closest registered ANCESTOR route when nothing matches
+ * exactly — e.g. `/crm/leads/8f2c...` has no nav entry of its own (a Lead
+ * detail page is dynamic, per-record), but `/crm/leads` does, and is the
+ * right "you are here" trail root. Only ever matches on a `/`-boundary
+ * prefix (`/crm/leads` matches `/crm/leads/123`, never `/crm/leadsx`), and
+ * picks the LONGEST such match so a more specific nested route always wins
+ * over a shorter parent one.
+ */
+export function findNavigationAncestorByRoute(
+  items: NavigationItem[],
+  pathname: string,
+): NavigationItem | undefined {
+  const candidates = flattenNavigationTree(items).filter(
+    (item) =>
+      item.route &&
+      item.route !== "/" &&
+      (pathname === item.route || pathname.startsWith(`${item.route}/`)),
+  );
+  if (candidates.length === 0) return undefined;
+  return candidates.reduce((longest, candidate) =>
+    (candidate.route?.length ?? 0) > (longest.route?.length ?? 0) ? candidate : longest,
+  );
 }
 
 /** Walks up `parent` ids to build the breadcrumb trail (root-first) for the matched item. */

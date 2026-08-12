@@ -32,6 +32,8 @@ const FIELDS: ImportFieldDef[] = [
     label: 'Parent Warehouse',
     required: false,
     type: 'string',
+    referenceType: 'WAREHOUSE',
+    referenceMatchField: 'name',
   },
   {
     key: 'description',

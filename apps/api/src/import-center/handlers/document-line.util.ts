@@ -6,6 +6,7 @@ import { TaxesService } from '../../taxes/taxes.service';
 import {
   resolveOptionalIdByField,
   resolveRequiredIdByField,
+  resolveRequiredRecordByField,
 } from '../import-value.util';
 
 /**
@@ -17,20 +18,12 @@ export async function resolveProductBySku(
   productsService: ProductsService,
   sku: string | undefined,
 ): Promise<{ id: string; unitId: string }> {
-  const trimmed = sku?.trim();
-  if (!trimmed) {
-    throw new BadRequestException('Product SKU is required.');
-  }
-  const result = await productsService.findAll({
-    search: trimmed,
-    pageSize: 20,
-  });
-  const match = result.items.find(
-    (item) => item.sku.toLowerCase() === trimmed.toLowerCase(),
+  const match = await resolveRequiredRecordByField(
+    productsService,
+    'sku',
+    sku,
+    'Product SKU',
   );
-  if (!match) {
-    throw new BadRequestException(`Product with SKU "${trimmed}" not found.`);
-  }
   return { id: match.id, unitId: match.unitId };
 }
 
@@ -116,6 +109,8 @@ export const PRODUCT_LINE_FIELDS = {
     required: true as const,
     type: 'string' as const,
     example: 'PRD-000123',
+    referenceType: 'PRODUCT' as const,
+    referenceMatchField: 'code' as const,
   },
   description: {
     key: 'description',
@@ -130,6 +125,8 @@ export const PRODUCT_LINE_FIELDS = {
     label: 'Warehouse',
     required: false as const,
     type: 'string' as const,
+    referenceType: 'WAREHOUSE' as const,
+    referenceMatchField: 'name' as const,
   },
   unitName: {
     key: 'unitName',
@@ -138,6 +135,7 @@ export const PRODUCT_LINE_FIELDS = {
     required: false as const,
     type: 'string' as const,
     example: 'Defaults to the product’s own unit when left blank',
+    referenceType: 'UNIT' as const,
   },
   quantity: {
     key: 'quantity',
@@ -168,5 +166,6 @@ export const PRODUCT_LINE_FIELDS = {
     label: 'Tax',
     required: false as const,
     type: 'string' as const,
+    referenceType: 'TAX' as const,
   },
 };

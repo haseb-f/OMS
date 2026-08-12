@@ -54,6 +54,7 @@ const FIELDS: ImportFieldDef[] = [
     label: 'Country',
     required: true,
     type: 'string',
+    referenceType: 'COUNTRY',
   },
   {
     key: 'mobileNumber',
@@ -84,6 +85,8 @@ const FIELDS: ImportFieldDef[] = [
     required: true,
     type: 'string',
     example: 'PRD-000123',
+    referenceType: 'PRODUCT',
+    referenceMatchField: 'code',
   },
   {
     key: 'quantity',
@@ -107,6 +110,7 @@ const FIELDS: ImportFieldDef[] = [
     required: false,
     type: 'string',
     example: 'SAR',
+    referenceType: 'CURRENCY',
   },
   {
     key: 'paymentMethodLabel',

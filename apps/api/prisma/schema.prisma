@@ -1101,6 +1101,15 @@ model Shipment {
 
   isReship Boolean @default(false) @map("is_reship")
 
+  /// Data Synchronization (Google Sheets / CSV shipping updates) conflict
+  /// detection — stamped only by `ShippingUpdatesImportHandler` right after
+  /// it successfully applies a change, never by the manual UI or bulk
+  /// actions. If `updatedAt` is later than this the next time an import/
+  /// sync run reaches this shipment, some OTHER channel touched it since,
+  /// so the row is flagged `NEEDS_REVIEW` instead of silently overwritten
+  /// — see that handler's own doc comment for the exact check.
+  lastExternalSyncAt DateTime? @map("last_external_sync_at")
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   createdBy String?   @map("created_by") @db.Uuid
@@ -1618,6 +1627,13 @@ model BankTransaction {
   matchedAt        DateTime? @map("matched_at")
   matchedById      String?   @map("matched_by_id") @db.Uuid
   matchedBy        User?     @relation("BankTransactionMatchedBy", fields: [matchedById], references: [id])
+
+  /// Which sync/import run created this row (Data Synchronization — Cash
+  /// Flow) — set only on first insert, never overwritten on a later
+  /// re-sync upsert, so it always points at the original source run.
+  /// Null for a manually-uploaded bank statement (no sync run involved).
+  importJobId String?    @map("import_job_id") @db.Uuid
+  importJob   ImportJob? @relation(fields: [importJobId], references: [id])
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -2721,6 +2737,19 @@ model StoreOrderReceipt {
 
 /// Append-only audit trail — never updated or deleted, same convention as
 /// InventoryMovement (ADR-0013).
+/// Which channel produced a `StoreOrderActivity` entry — MANUAL is the
+/// default (every pre-existing row and every controller call site that
+/// hasn't been updated to pass one explicitly still lands here), BULK is
+/// the Shipping screen's bulk-update action, IMPORT is a manual CSV/Excel
+/// upload through Import Center, GOOGLE_SHEETS is the Data Synchronization
+/// channel. Never used to gate business rules — only for the audit trail.
+enum StoreOrderActivitySource {
+  MANUAL
+  BULK
+  IMPORT
+  GOOGLE_SHEETS
+}
+
 model StoreOrderActivity {
   id String @id @default(uuid()) @db.Uuid
 
@@ -2729,6 +2758,11 @@ model StoreOrderActivity {
 
   action  String
   details String?
+
+  /// Section 28 (Data Synchronization) — "record the source of the
+  /// change." Defaults MANUAL, including for every historical row (their
+  /// true origin isn't recoverable; MANUAL is the least-wrong default).
+  source StoreOrderActivitySource @default(MANUAL)
 
   performedById String? @map("performed_by_id") @db.Uuid
   performedBy   User?   @relation(fields: [performedById], references: [id])
@@ -4744,13 +4778,109 @@ model ImportJob {
   completedAt DateTime? @map("completed_at")
   durationMs  Int?      @map("duration_ms")
 
+  /// Data Synchronization only (`SyncOrchestratorService`) — constant
+  /// field values merged into every mapped row when the source sheet has
+  /// no column for them (e.g. a Cash Flow worksheet's provider label, or
+  /// this job's own id for traceability) — `ImportJobsService.validate()`/
+  /// `run()` apply these as a fallback only, never overriding an actual
+  /// column mapping. Null for a plain manual upload.
+  rowDefaults Json? @map("row_defaults")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   createdBy String?  @map("created_by") @db.Uuid
 
-  errors ImportJobError[]
+  errors           ImportJobError[]
+  bankTransactions BankTransaction[]
+  syncSourceConfig SyncSourceConfig?
 
   @@map("import_jobs")
+}
+
+enum SyncSourceType {
+  LEADS
+  STORE_ORDERS
+  CASH_FLOW
+  /// Two-way Store Orders / Shipping workflow — reads Shipping Status/
+  /// Tracking Number/Shipping Company from the SAME spreadsheet row a
+  /// STORE_ORDERS source already imported (matched by the same External
+  /// Order ID, never a row number), through the existing
+  /// `ShippingUpdatesImportHandler` — never a second shipping pipeline.
+  SHIPPING_UPDATES
+}
+
+enum SyncRunStatus {
+  NEVER_RUN
+  SUCCESS
+  PARTIAL
+  FAILED
+}
+
+/// Data Synchronization (مزامنة البيانات) — a persistent, named Google
+/// Sheets source a privileged user configures once per module (Leads,
+/// Store Orders) or once per provider tab (Cash Flow: one row per bank/
+/// wallet/BNPL worksheet, never hardcoded). Reuses the Import Center engine
+/// end to end — `SyncOrchestratorService` builds a fresh `ImportJob` from
+/// this config's saved spreadsheet/mapping on every Preview/Commit cycle
+/// (an `ImportJob` is documented as "one row per upload-through-import
+/// run" — a sync run is exactly that, never a long-lived job repeatedly
+/// refreshed), never a parallel import pipeline. `importJobId` always
+/// points at the most recent such run, for traceability and the "Last
+/// Sync" summary below.
+model SyncSourceConfig {
+  id String @id @default(uuid()) @db.Uuid
+
+  sourceType SyncSourceType @map("source_type")
+
+  /// Display name — the module name for Leads/Store Orders, or the
+  /// provider name (e.g. "Al Rajhi", "Tabby") for a Cash Flow tab. Also
+  /// used as the fallback value for fields the sheet itself has no column
+  /// for (see `ImportJob.rowDefaults`).
+  label String
+
+  spreadsheetId String  @map("spreadsheet_id")
+  /// The worksheet's numeric gid — `undefined`/null resolves to the
+  /// spreadsheet's first sheet, same convention as `parseGoogleSheetsUrl`.
+  worksheetGid  String? @map("worksheet_gid")
+  /// Cached tab title for display only — resolved from the spreadsheet on
+  /// save, re-resolved on every sync; never the identity (`worksheetGid`/
+  /// index is).
+  worksheetName String? @map("worksheet_name")
+
+  enabled Boolean @default(true)
+
+  /// Concurrency guard (spec: "do not allow two synchronization jobs to
+  /// process the same source concurrently") — set true for the duration of
+  /// one `preview()`/`commit()` call, mirroring `ImportJob.isSyncing`'s
+  /// existing advisory-lock pattern one level up (per-source instead of
+  /// per-job, since this engine builds a fresh `ImportJob` every run).
+  isSyncing Boolean @default(false) @map("is_syncing")
+
+  importJobId String?    @unique @map("import_job_id") @db.Uuid
+  importJob   ImportJob? @relation(fields: [importJobId], references: [id])
+
+  lastSyncedAt    DateTime?     @map("last_synced_at")
+  lastSyncStatus  SyncRunStatus @default(NEVER_RUN) @map("last_sync_status")
+  lastSyncUserId  String?       @map("last_sync_user_id") @db.Uuid
+  /// The same `{totalRows, newCount, duplicateCount, needsReviewCount,
+  /// rejectedCount, errorCount}` shape `SyncOrchestratorService.commit()`
+  /// returns — stored so the "Last Sync" summary survives a page reload
+  /// without re-fetching the sheet.
+  lastSyncSummary Json?         @map("last_sync_summary")
+
+  /// Free-form per-source settings (e.g. a saved `ImportMappingTemplate`
+  /// name) — architecture placeholder for source-specific config that
+  /// doesn't need its own column yet.
+  configMetadata Json? @map("config_metadata")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@unique([sourceType, spreadsheetId, worksheetGid])
+  @@map("sync_source_configs")
 }
 
 /// One row per failed source row — never silently dropped (Part 6).

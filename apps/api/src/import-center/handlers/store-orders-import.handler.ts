@@ -2,11 +2,9 @@ import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
 import { StoreOrderSource } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CustomersService } from '../../customers/customers.service';
-import { CurrenciesService } from '../../currencies/currencies.service';
-import { ProductsService } from '../../products/products.service';
 import { StoreOrdersService } from '../../store-orders/store-orders.service';
 import { ImportTypeRegistryService } from '../import-type-registry.service';
-import { resolveRequiredIdByField } from '../import-value.util';
+import { ReferenceDataRegistryService } from '../reference-data/reference-data-registry.service';
 import {
   ImportRowNeedsReviewError,
   type ImportFieldDef,
@@ -63,6 +61,7 @@ const FIELDS: ImportFieldDef[] = [
     required: true,
     type: 'string',
     example: 'PRD-000123',
+    referenceType: 'PRODUCT',
   },
   {
     key: 'quantity',
@@ -87,6 +86,7 @@ const FIELDS: ImportFieldDef[] = [
     required: true,
     type: 'string',
     example: 'SAR',
+    referenceType: 'CURRENCY',
   },
   {
     key: 'sourceChannel',
@@ -132,10 +132,9 @@ export class StoreOrdersImportHandler
   constructor(
     private readonly prisma: PrismaService,
     private readonly customersService: CustomersService,
-    private readonly currenciesService: CurrenciesService,
-    private readonly productsService: ProductsService,
     private readonly storeOrdersService: StoreOrdersService,
     private readonly registry: ImportTypeRegistryService,
+    private readonly referenceData: ReferenceDataRegistryService,
   ) {}
 
   onModuleInit() {
@@ -235,15 +234,15 @@ export class StoreOrdersImportHandler
       );
     }
 
-    const currencyId = await resolveRequiredIdByField(
-      this.currenciesService,
+    const currencyId = await this.referenceData.resolveRequired(
+      'CURRENCY',
       'code',
       row.currencyCode,
       'Currency',
     );
-    const productId = await resolveRequiredIdByField(
-      this.productsService,
-      'sku',
+    const productId = await this.referenceData.resolveRequired(
+      'PRODUCT',
+      'code',
       row.productSku,
       'Product',
     );

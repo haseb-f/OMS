@@ -3,15 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { UserCheck } from "lucide-react";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { PageHeader } from "@/components/shared/page-header";
+import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
   EnterpriseCard,
@@ -77,6 +70,8 @@ function LeadDetailContent() {
 
   const canEdit = hasPermission("crm.leads.edit");
   const canManage = hasPermission("crm.leads.manage");
+
+  useBreadcrumbLabel(lead?.leadNumber ?? null);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -161,18 +156,6 @@ function LeadDetailContent() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/crm/leads">{t("crm.leads.title")}</BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>{lead.leadNumber}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-
       <PageHeader
         title={lead.leadNumber}
         subtitle={lead.customerName}

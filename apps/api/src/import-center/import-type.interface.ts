@@ -21,10 +21,25 @@ export interface ImportFieldDef {
   type: ImportFieldType;
   /** Shown in the mapping UI as an example of the expected value, and in the Excel Template's Field Guide sheet. */
   example?: string;
-  /** Closed set of accepted values (e.g. an enum) — rendered as an Excel data-validation dropdown on the Template's Data sheet. */
+  /** Closed set of accepted values (e.g. an enum) — rendered as an Excel data-validation dropdown on the Template's Data sheet. Never used for live Master Data (which can change size/content) — see `referenceType` for that. */
   options?: string[];
   /** Detected as a "Duplicate Codes/Customers/Phones"-style error (Phase 1 upfront validation) when the same value appears on more than one row of the same file — before anything is saved. */
   uniqueWithinFile?: boolean;
+  /**
+   * Master Data awareness — set when this field's value must be an
+   * existing `ReferenceDataRegistryService` record (Country, Currency,
+   * Product, ...) rather than free text. Drives three things from one
+   * declaration: the Excel Template's dropdown (backed by a live
+   * "Reference Data" sheet, not a hardcoded list), the Google Sheets
+   * reference worksheet, and `ReferenceDataRegistryService.resolveRequired`/
+   * `resolveOptional`'s validation (unrecognized vs. inactive, never an
+   * auto-created record). One of the type strings
+   * `ReferenceDataSourcesService` registers, e.g. `'COUNTRY'`, `'CURRENCY'`,
+   * `'PRODUCT'`.
+   */
+  referenceType?: string;
+  /** Which `ReferenceRecord` field this column's values match against — defaults to the reference type's own `defaultMatchField` (e.g. Product defaults to SKU) when omitted. */
+  referenceMatchField?: 'code' | 'name';
 }
 
 /** Row-level pre-flight validation options (Phase 1) — see `ImportTypeHandler.importRow`'s `dryRun` note. */
@@ -38,10 +53,32 @@ export interface ImportRowOptions {
    * actually happens on Run Import.
    */
   dryRun?: boolean;
+  /**
+   * Data Synchronization only — server-computed constants for this run,
+   * mirroring `ImportJob.rowDefaults` (e.g. a Cash Flow worksheet's
+   * provider label, or this job's own id for traceability). A separate
+   * channel from `row` on purpose: `row` is only ever user-mapped
+   * spreadsheet/file data, so a handler can tell "the sheet had no Bank
+   * Name column" apart from "this is a sync run and the worksheet's
+   * provider is known" without a fake column appearing in the mapping UI
+   * or the generated Excel Template. Absent on a plain manual
+   * upload/import.
+   */
+  context?: Record<string, string>;
 }
 
 export interface ImportRowResult {
   id: string;
+  /**
+   * Data Synchronization idempotency (spec: "running Sync twice without
+   * changes must return NO_CHANGE, never create duplicate history") — set
+   * by a handler that detected the requested values already match the
+   * current record exactly and skipped writing/logging anything. Absent
+   * (falsy) for a handler that doesn't implement this distinction, which
+   * `ImportJobsService`/`SyncOrchestratorService` treat as a normal
+   * success (the pre-existing behavior, unchanged).
+   */
+  noChange?: boolean;
 }
 
 /**
@@ -108,6 +145,24 @@ export interface ImportTypeHandler {
     userId?: string,
     options?: ImportRowOptions,
   ): Promise<ImportRowResult>;
+
+  /**
+   * Performance (Data Synchronization spec: "avoid N+1 queries... load
+   * relevant records in batches"). Called ONCE by
+   * `ImportJobsService.validate()`/`run()` with every mapped row in the
+   * batch, BEFORE the per-row loop, for a handler whose per-row lookup key
+   * (e.g. `externalOrderId`) differs on every row — unlike a
+   * `referenceType` field (same value looked up on every row, already
+   * cached generically by `ReferenceDataRegistryService`), this needs an
+   * explicit batched `findMany({ where: { key: { in: [...] } } })` a
+   * generic mechanism can't infer. A handler that implements this should
+   * populate its own request-scoped cache (see `reference-cache.ts`) and
+   * have `importRow` consult it first, falling back to a live per-row
+   * query when the cache is empty (a direct `importRow` call outside the
+   * engine, e.g. in a test). Optional — a handler without this hook is
+   * unaffected.
+   */
+  preloadRows?(rows: Record<string, string>[], userId?: string): Promise<void>;
 
   /**
    * Resolves a row previously flagged via `ImportRowNeedsReviewError` —

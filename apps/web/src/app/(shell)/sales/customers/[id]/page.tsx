@@ -3,15 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Printer } from "lucide-react";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { PageHeader } from "@/components/shared/page-header";
+import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
   EnterpriseCard,
@@ -81,6 +74,8 @@ export default function CustomerProfilePage() {
   const [isLoadingOpenInvoices, setIsLoadingOpenInvoices] = useState(true);
   const [orders, setOrders] = useState<LeadRow[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
+
+  useBreadcrumbLabel(customer?.name ?? null);
 
   useEffect(() => {
     const loadCustomer = async () => {
@@ -213,18 +208,6 @@ export default function CustomerProfilePage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/sales/customers">{t("sales.customers.title")}</BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>{customer.name}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-
       <PageHeader
         title={customer.name}
         subtitle={customer.customerNumber}

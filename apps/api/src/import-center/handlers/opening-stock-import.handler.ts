@@ -19,6 +19,8 @@ const FIELDS: ImportFieldDef[] = [
     required: true,
     type: 'string',
     example: 'PRD-000123',
+    referenceType: 'PRODUCT',
+    referenceMatchField: 'code',
   },
   {
     key: 'warehouseCode',
@@ -27,6 +29,8 @@ const FIELDS: ImportFieldDef[] = [
     required: true,
     type: 'string',
     example: 'MAIN',
+    referenceType: 'WAREHOUSE',
+    referenceMatchField: 'code',
   },
   {
     key: 'quantity',

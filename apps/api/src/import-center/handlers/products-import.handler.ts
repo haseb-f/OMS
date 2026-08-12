@@ -36,6 +36,7 @@ const FIELDS: ImportFieldDef[] = [
     label: 'Category',
     required: true,
     type: 'string',
+    referenceType: 'CATEGORY',
   },
   {
     key: 'unitName',
@@ -43,6 +44,7 @@ const FIELDS: ImportFieldDef[] = [
     label: 'Unit',
     required: true,
     type: 'string',
+    referenceType: 'UNIT',
   },
   {
     key: 'barcode',

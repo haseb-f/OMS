@@ -11,6 +11,7 @@ import { parseXlsx } from './xlsx-parser.util';
 import { parseGoogleSheetsUrl } from './google-sheets.util';
 import { GoogleSheetsService } from './google-sheets.service';
 import { groupRowsByKey } from './import-value.util';
+import { runWithReferenceCache } from './reference-data/reference-cache';
 import {
   ImportRowNeedsReviewError,
   NEEDS_REVIEW_PREFIX,
@@ -311,6 +312,17 @@ export class ImportJobsService {
    * job's status, safe to call repeatedly (e.g. after fixing the mapping).
    */
   async validate(id: string, userId?: string): Promise<ImportValidationResult> {
+    // Scopes one request-local Master-Data lookup cache for this entire
+    // validation pass (see `reference-cache.ts`) — every row's
+    // `resolveRequiredIdByField`/reference-type lookup shares one fetch per
+    // referenced entity instead of one query per row.
+    return runWithReferenceCache(() => this.validateInner(id, userId));
+  }
+
+  private async validateInner(
+    id: string,
+    userId?: string,
+  ): Promise<ImportValidationResult> {
     const job = await this.findOne(id);
     if (
       job.status !== ImportJobStatus.MAPPING &&
@@ -327,6 +339,8 @@ export class ImportJobsService {
     const handler = this.registry.get(job.importType);
     const table = await this.parseFile(job.fileName, job.fileContent);
     const mapping = job.columnMapping as Record<string, string>;
+    const rowDefaults =
+      (job.rowDefaults as Record<string, string> | null) ?? undefined;
     const uniqueFields = handler.fields.filter(
       (field) => field.uniqueWithinFile,
     );
@@ -390,6 +404,13 @@ export class ImportJobsService {
 
     const needsReview: ImportRowNeedsReview[] = [];
 
+    if (handler.preloadRows) {
+      await handler.preloadRows(
+        mappedRows.map((r) => r.mappedRow),
+        userId,
+      );
+    }
+
     if (handler.groupKey && handler.importGroup) {
       const groups = groupRowsByKey(mappedRows, handler.groupKey);
       for (const groupRows of groups.values()) {
@@ -397,7 +418,7 @@ export class ImportJobsService {
           await handler.importGroup(
             groupRows.map((r) => r.mappedRow),
             userId,
-            { dryRun: true },
+            { dryRun: true, context: rowDefaults },
           );
         } catch (error) {
           if (error instanceof ImportRowNeedsReviewError) {
@@ -416,7 +437,10 @@ export class ImportJobsService {
     } else {
       for (const { rowNumber, mappedRow } of mappedRows) {
         try {
-          await handler.importRow(mappedRow, userId, { dryRun: true });
+          await handler.importRow(mappedRow, userId, {
+            dryRun: true,
+            context: rowDefaults,
+          });
         } catch (error) {
           if (error instanceof ImportRowNeedsReviewError) {
             needsReview.push({ rowNumber, reason: error.message });
@@ -479,6 +503,14 @@ export class ImportJobsService {
    * isn't).
    */
   async run(id: string, userId?: string) {
+    // Same request-local Master-Data lookup cache `validate()` uses — a
+    // `run()` immediately following a `validate()` on the same job still
+    // gets its own fresh fetch (no cache is shared across calls), so
+    // Master Data changed between preview and commit is always picked up.
+    return runWithReferenceCache(() => this.runInner(id, userId));
+  }
+
+  private async runInner(id: string, userId?: string) {
     const job = await this.findOne(id);
     if (job.status !== ImportJobStatus.VALIDATING) {
       throw new BadRequestException(
@@ -494,6 +526,8 @@ export class ImportJobsService {
     const handler = this.registry.get(job.importType);
     const table = await this.parseFile(job.fileName, job.fileContent);
     const mapping = job.columnMapping as Record<string, string>;
+    const rowDefaults =
+      (job.rowDefaults as Record<string, string> | null) ?? undefined;
 
     await this.prisma.importJob.update({
       where: { id },
@@ -503,6 +537,14 @@ export class ImportJobsService {
     const startedAt = Date.now();
     let successCount = 0;
     const errors: Prisma.ImportJobErrorCreateManyInput[] = [];
+    // Per-row created-record ids (Data Synchronization write-back only —
+    // e.g. writing "OMS Order ID" back to the source sheet needs to know
+    // exactly which row produced which Store Order, not just an aggregate
+    // count). `noChange` mirrors `ImportRowResult.noChange` — a handler
+    // that detected nothing needed to change for this row. Every other
+    // caller ignores both fields.
+    const successRows: { rowNumber: number; id: string; noChange?: boolean }[] =
+      [];
 
     const mappedRows: {
       rowNumber: number;
@@ -520,15 +562,30 @@ export class ImportJobsService {
       mappedRows.push({ rowNumber, mappedRow, sourceRow });
     }
 
+    if (handler.preloadRows) {
+      await handler.preloadRows(
+        mappedRows.map((r) => r.mappedRow),
+        userId,
+      );
+    }
+
     if (handler.groupKey && handler.importGroup) {
       const groups = groupRowsByKey(mappedRows, handler.groupKey);
       for (const groupRows of groups.values()) {
         try {
-          await handler.importGroup(
+          const result = await handler.importGroup(
             groupRows.map((r) => r.mappedRow),
             userId,
+            { context: rowDefaults },
           );
           successCount += groupRows.length;
+          for (const { rowNumber } of groupRows) {
+            successRows.push({
+              rowNumber,
+              id: result.id,
+              noChange: result.noChange,
+            });
+          }
         } catch (error) {
           if (error instanceof ImportRowNeedsReviewError) {
             for (const { rowNumber, sourceRow } of groupRows) {
@@ -560,8 +617,15 @@ export class ImportJobsService {
     } else {
       for (const { rowNumber, mappedRow, sourceRow } of mappedRows) {
         try {
-          await handler.importRow(mappedRow, userId);
+          const result = await handler.importRow(mappedRow, userId, {
+            context: rowDefaults,
+          });
           successCount++;
+          successRows.push({
+            rowNumber,
+            id: result.id,
+            noChange: result.noChange,
+          });
         } catch (error) {
           if (error instanceof ImportRowNeedsReviewError) {
             errors.push({
@@ -594,7 +658,7 @@ export class ImportJobsService {
     const finalStatus =
       successCount > 0 ? ImportJobStatus.COMPLETED : ImportJobStatus.FAILED;
 
-    return this.prisma.importJob.update({
+    const updated = await this.prisma.importJob.update({
       where: { id },
       data: {
         status: finalStatus,
@@ -605,6 +669,8 @@ export class ImportJobsService {
       },
       include: JOB_INCLUDE,
     });
+
+    return { ...updated, successRows };
   }
 
   /** Re-derives the mapped-field row `importRow`/`resolveNeedsReview` expect from a stored `ImportJobError.rawRowData` (original-header source row) + the job's saved `columnMapping` — the exact same projection `run()`/`validate()` build, just replayed later for one specific row. */

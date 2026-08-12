@@ -6,6 +6,7 @@ import { LocaleProvider } from "./locale-provider";
 import { AuthProvider } from "./auth-provider";
 import { CompanyProvider } from "./company-provider";
 import { UserContextProvider } from "./user-context";
+import { BreadcrumbProvider } from "./breadcrumb-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -17,10 +18,12 @@ export function AppProviders({ children }: { children: ReactNode }) {
         <AuthProvider>
           <CompanyProvider>
             <UserContextProvider>
-              <TooltipProvider delayDuration={200}>
-                {children}
-                <Toaster />
-              </TooltipProvider>
+              <BreadcrumbProvider>
+                <TooltipProvider delayDuration={200}>
+                  {children}
+                  <Toaster />
+                </TooltipProvider>
+              </BreadcrumbProvider>
             </UserContextProvider>
           </CompanyProvider>
         </AuthProvider>

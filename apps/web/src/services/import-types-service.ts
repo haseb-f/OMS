@@ -5,9 +5,14 @@ export type ImportFieldType = "string" | "number" | "date" | "boolean";
 export interface ImportFieldDef {
   key: string;
   labelKey: string;
+  label: string;
   required: boolean;
   type: ImportFieldType;
   example?: string;
+  options?: string[];
+  /** Set when this field's value must be an existing Master Data record — see `referenceDataService`. */
+  referenceType?: string;
+  referenceMatchField?: "code" | "name";
 }
 
 export interface ImportTypeDefinition {

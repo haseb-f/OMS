@@ -7,9 +7,12 @@ import { ShipmentStatus, ShippingCostPayer } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   StoreOrderActivityService,
+  StoreOrderActivitySource,
   StoreOrderActivityType,
 } from '../activities/store-order-activity.service';
 import { StoreOrderShipmentsService } from './store-order-shipments.service';
+
+const MANUAL = StoreOrderActivitySource.MANUAL;
 
 /**
  * Orchestrates one shipment mutation + its own named activity log entry in
@@ -18,6 +21,13 @@ import { StoreOrderShipmentsService } from './store-order-shipments.service';
  * operations since a Store Order has no order-level status column that
  * also needs updating on every shipment transition (only the
  * pre-shipment `shippingStage` gate, handled by `StoreOrderPaymentSyncService`).
+ *
+ * Every method takes a trailing, optional `source` (default `MANUAL`) —
+ * the ONE place that distinguishes which channel (manual OMS UI, bulk
+ * action, Google Sheets sync) drove a change for the audit trail (Data
+ * Synchronization spec section 28). The underlying operation and
+ * validation are identical regardless of `source` — it only tags the
+ * resulting `StoreOrderActivity` row, never gates behavior.
  */
 @Injectable()
 export class StoreOrderShipmentOperationsService {
@@ -41,6 +51,7 @@ export class StoreOrderShipmentOperationsService {
     storeOrderId: string,
     shippingCompanyId: string,
     userId?: string,
+    source: StoreOrderActivitySource = MANUAL,
   ) {
     await this.assertOrderExists(storeOrderId);
     return this.prisma.$transaction(async (tx) => {
@@ -57,6 +68,7 @@ export class StoreOrderShipmentOperationsService {
           `Shipment #${shipment.attemptNumber} created`,
           userId,
           tx,
+          source,
         );
       }
       await this.activityService.log(
@@ -65,6 +77,7 @@ export class StoreOrderShipmentOperationsService {
         'Shipping company assigned',
         userId,
         tx,
+        source,
       );
       return shipment;
     });
@@ -74,6 +87,7 @@ export class StoreOrderShipmentOperationsService {
     storeOrderId: string,
     trackingNumber: string,
     userId?: string,
+    source: StoreOrderActivitySource = MANUAL,
   ) {
     await this.assertOrderExists(storeOrderId);
     return this.prisma.$transaction(async (tx) => {
@@ -88,12 +102,18 @@ export class StoreOrderShipmentOperationsService {
         `Tracking number updated: ${trackingNumber}`,
         userId,
         tx,
+        source,
       );
       return shipment;
     });
   }
 
-  async setLabel(storeOrderId: string, fileUrl: string, userId?: string) {
+  async setLabel(
+    storeOrderId: string,
+    fileUrl: string,
+    userId?: string,
+    source: StoreOrderActivitySource = MANUAL,
+  ) {
     await this.assertOrderExists(storeOrderId);
     return this.prisma.$transaction(async (tx) => {
       const shipment = await this.shipmentsService.setLabel(
@@ -107,12 +127,17 @@ export class StoreOrderShipmentOperationsService {
         'Label Created',
         userId,
         tx,
+        source,
       );
       return shipment;
     });
   }
 
-  async markShipped(storeOrderId: string, userId?: string) {
+  async markShipped(
+    storeOrderId: string,
+    userId?: string,
+    source: StoreOrderActivitySource = MANUAL,
+  ) {
     await this.assertOrderExists(storeOrderId);
     return this.prisma.$transaction(async (tx) => {
       const shipment = await this.shipmentsService.markShipped(
@@ -125,12 +150,17 @@ export class StoreOrderShipmentOperationsService {
         'Marked Shipped',
         userId,
         tx,
+        source,
       );
       return shipment;
     });
   }
 
-  async markOutForDelivery(storeOrderId: string, userId?: string) {
+  async markOutForDelivery(
+    storeOrderId: string,
+    userId?: string,
+    source: StoreOrderActivitySource = MANUAL,
+  ) {
     await this.assertOrderExists(storeOrderId);
     return this.prisma.$transaction(async (tx) => {
       const shipment = await this.shipmentsService.markOutForDelivery(
@@ -143,12 +173,17 @@ export class StoreOrderShipmentOperationsService {
         'Marked Out For Delivery',
         userId,
         tx,
+        source,
       );
       return shipment;
     });
   }
 
-  async markDelivered(storeOrderId: string, userId?: string) {
+  async markDelivered(
+    storeOrderId: string,
+    userId?: string,
+    source: StoreOrderActivitySource = MANUAL,
+  ) {
     await this.assertOrderExists(storeOrderId);
     return this.prisma.$transaction(async (tx) => {
       const shipment = await this.shipmentsService.markDelivered(
@@ -161,12 +196,17 @@ export class StoreOrderShipmentOperationsService {
         'Marked Delivered',
         userId,
         tx,
+        source,
       );
       return shipment;
     });
   }
 
-  async markDeliveryFailed(storeOrderId: string, userId?: string) {
+  async markDeliveryFailed(
+    storeOrderId: string,
+    userId?: string,
+    source: StoreOrderActivitySource = MANUAL,
+  ) {
     await this.assertOrderExists(storeOrderId);
     return this.prisma.$transaction(async (tx) => {
       const shipment = await this.shipmentsService.markDeliveryFailed(
@@ -179,12 +219,17 @@ export class StoreOrderShipmentOperationsService {
         'Marked Delivery Failed',
         userId,
         tx,
+        source,
       );
       return shipment;
     });
   }
 
-  async markNeedsReshipment(storeOrderId: string, userId?: string) {
+  async markNeedsReshipment(
+    storeOrderId: string,
+    userId?: string,
+    source: StoreOrderActivitySource = MANUAL,
+  ) {
     await this.assertOrderExists(storeOrderId);
     return this.prisma.$transaction(async (tx) => {
       const shipment = await this.shipmentsService.markNeedsReshipment(
@@ -197,12 +242,17 @@ export class StoreOrderShipmentOperationsService {
         'Flagged as needing reshipment',
         userId,
         tx,
+        source,
       );
       return shipment;
     });
   }
 
-  async createReshipment(storeOrderId: string, userId?: string) {
+  async createReshipment(
+    storeOrderId: string,
+    userId?: string,
+    source: StoreOrderActivitySource = MANUAL,
+  ) {
     await this.assertOrderExists(storeOrderId);
     return this.prisma.$transaction(async (tx) => {
       const shipment = await this.shipmentsService.createReshipment(
@@ -215,6 +265,7 @@ export class StoreOrderShipmentOperationsService {
         `Shipment #${shipment.attemptNumber} created (reship)`,
         userId,
         tx,
+        source,
       );
       return shipment;
     });
@@ -229,6 +280,7 @@ export class StoreOrderShipmentOperationsService {
       notes?: string;
     },
     userId?: string,
+    source: StoreOrderActivitySource = MANUAL,
   ) {
     await this.assertOrderExists(storeOrderId);
     return this.prisma.$transaction(async (tx) => {
@@ -243,12 +295,18 @@ export class StoreOrderShipmentOperationsService {
         'Shipping cost added',
         userId,
         tx,
+        source,
       );
       return shipment;
     });
   }
 
-  async addNotes(storeOrderId: string, notes: string, userId?: string) {
+  async addNotes(
+    storeOrderId: string,
+    notes: string,
+    userId?: string,
+    source: StoreOrderActivitySource = MANUAL,
+  ) {
     await this.assertOrderExists(storeOrderId);
     return this.prisma.$transaction(async (tx) => {
       const shipment = await this.shipmentsService.addNotes(
@@ -262,6 +320,7 @@ export class StoreOrderShipmentOperationsService {
         'Shipment note added',
         userId,
         tx,
+        source,
       );
       return shipment;
     });
@@ -278,7 +337,7 @@ export class StoreOrderShipmentOperationsService {
    * per row with partial success allowed. Only accepts targetStatus values
    * that need no extra input (LABEL_CREATED needs a label URL, and
    * reshipment creates a new row rather than "setting a status" — both stay
-   * single-item-only operations).
+   * single-item-only operations). Tags every resulting activity row `BULK`.
    */
   private readonly BULK_TARGET_STATUSES: ShipmentStatus[] = [
     ShipmentStatus.SHIPPED,
@@ -311,21 +370,34 @@ export class StoreOrderShipmentOperationsService {
         if (!shipment.storeOrderId) {
           throw new Error('Not a Store Order shipment.');
         }
+        const source = StoreOrderActivitySource.BULK;
         switch (targetStatus) {
           case ShipmentStatus.SHIPPED:
-            await this.markShipped(shipment.storeOrderId, userId);
+            await this.markShipped(shipment.storeOrderId, userId, source);
             break;
           case ShipmentStatus.OUT_FOR_DELIVERY:
-            await this.markOutForDelivery(shipment.storeOrderId, userId);
+            await this.markOutForDelivery(
+              shipment.storeOrderId,
+              userId,
+              source,
+            );
             break;
           case ShipmentStatus.DELIVERED:
-            await this.markDelivered(shipment.storeOrderId, userId);
+            await this.markDelivered(shipment.storeOrderId, userId, source);
             break;
           case ShipmentStatus.DELIVERY_FAILED:
-            await this.markDeliveryFailed(shipment.storeOrderId, userId);
+            await this.markDeliveryFailed(
+              shipment.storeOrderId,
+              userId,
+              source,
+            );
             break;
           case ShipmentStatus.NEEDS_RESHIPMENT:
-            await this.markNeedsReshipment(shipment.storeOrderId, userId);
+            await this.markNeedsReshipment(
+              shipment.storeOrderId,
+              userId,
+              source,
+            );
             break;
           default:
             throw new Error(`Unsupported target status "${targetStatus}".`);

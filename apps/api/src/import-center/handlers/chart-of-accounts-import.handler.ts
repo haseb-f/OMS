@@ -44,6 +44,8 @@ const FIELDS: ImportFieldDef[] = [
     label: 'Parent Account Code',
     required: false,
     type: 'string',
+    referenceType: 'CHART_OF_ACCOUNT',
+    referenceMatchField: 'code',
   },
   {
     key: 'currencyCode',
@@ -52,6 +54,8 @@ const FIELDS: ImportFieldDef[] = [
     required: false,
     type: 'string',
     example: 'SAR',
+    referenceType: 'CURRENCY',
+    referenceMatchField: 'code',
   },
   {
     key: 'allowReconciliation',

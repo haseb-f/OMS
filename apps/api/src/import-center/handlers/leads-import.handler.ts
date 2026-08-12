@@ -3,13 +3,8 @@ import { BadRequestException } from '@nestjs/common';
 import { LeadSource } from '@prisma/client';
 import { LeadsService } from '../../leads/leads.service';
 import { CountriesService } from '../../countries/countries.service';
-import { UsersService } from '../../users/users.service';
-import { ProductsService } from '../../products/products.service';
 import { ImportTypeRegistryService } from '../import-type-registry.service';
-import {
-  resolveOptionalIdByField,
-  resolveRequiredIdByField,
-} from '../import-value.util';
+import { ReferenceDataRegistryService } from '../reference-data/reference-data-registry.service';
 import {
   PhoneNumberService,
   phoneErrorMessage,
@@ -53,6 +48,7 @@ const FIELDS: ImportFieldDef[] = [
     label: 'Country',
     required: true,
     type: 'string',
+    referenceType: 'COUNTRY',
   },
   {
     key: 'city',
@@ -74,6 +70,7 @@ const FIELDS: ImportFieldDef[] = [
     label: 'Product (SKU)',
     required: false,
     type: 'string',
+    referenceType: 'PRODUCT',
   },
   {
     key: 'notes',
@@ -88,6 +85,8 @@ const FIELDS: ImportFieldDef[] = [
     label: 'Employee',
     required: false,
     type: 'string',
+    referenceType: 'EMPLOYEE',
+    referenceMatchField: 'code',
   },
 ];
 
@@ -114,10 +113,9 @@ export class LeadsImportHandler implements ImportTypeHandler, OnModuleInit {
   constructor(
     private readonly leadsService: LeadsService,
     private readonly countriesService: CountriesService,
-    private readonly usersService: UsersService,
-    private readonly productsService: ProductsService,
     private readonly registry: ImportTypeRegistryService,
     private readonly phoneNumberService: PhoneNumberService,
+    private readonly referenceData: ReferenceDataRegistryService,
   ) {}
 
   onModuleInit() {
@@ -129,16 +127,21 @@ export class LeadsImportHandler implements ImportTypeHandler, OnModuleInit {
     userId?: string,
     options?: ImportRowOptions,
   ): Promise<ImportRowResult> {
-    const countryId = await resolveRequiredIdByField(
-      this.countriesService,
+    const countryId = await this.referenceData.resolveRequired(
+      'COUNTRY',
       'name',
       row.countryName,
       'Country',
     );
-    const salesEmployeeId = await this.resolveAgent(row.agentEmail);
-    const productId = await resolveOptionalIdByField(
-      this.productsService,
-      'sku',
+    const salesEmployeeId = await this.referenceData.resolveOptional(
+      'EMPLOYEE',
+      'code',
+      row.agentEmail,
+      'Employee',
+    );
+    const productId = await this.referenceData.resolveOptional(
+      'PRODUCT',
+      'code',
       row.productSku,
       'Product',
     );
@@ -182,20 +185,5 @@ export class LeadsImportHandler implements ImportTypeHandler, OnModuleInit {
     }
 
     return { id: lead.id };
-  }
-
-  private async resolveAgent(
-    email: string | undefined,
-  ): Promise<string | undefined> {
-    const trimmed = email?.trim();
-    if (!trimmed) return undefined;
-    const users = await this.usersService.findAll();
-    const match = users.find(
-      (user) => user.email.toLowerCase() === trimmed.toLowerCase(),
-    );
-    if (!match) {
-      throw new BadRequestException(`Agent "${trimmed}" not found.`);
-    }
-    return match.id;
   }
 }
