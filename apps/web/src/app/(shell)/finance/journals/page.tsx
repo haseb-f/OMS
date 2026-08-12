@@ -13,31 +13,26 @@ import {
   journalRowLabel,
   type JournalRow,
   type ChartOfAccountRow,
-  type CurrencyRow,
 } from "@/config/master-data/entities";
 import { useCompany } from "@/providers/company-provider";
 import { useLocale } from "@/providers/locale-provider";
+import { useCurrencies } from "@/hooks/use-reference-data";
 
 const service = createMasterDataService<JournalRow>("/journals");
 const accountsService = createMasterDataService<ChartOfAccountRow>("/chart-of-accounts");
-const currenciesService = createMasterDataService<CurrencyRow>("/currencies");
 
 /** TASK-053 — Journal configuration (Sales/Purchase/Cash/Bank/General): same generic Master Data pattern as Chart of Accounts. */
 export default function JournalsPage() {
   const { t } = useLocale();
   const { companies } = useCompany();
   const [accounts, setAccounts] = useState<ChartOfAccountRow[]>([]);
-  const [currencies, setCurrencies] = useState<CurrencyRow[]>([]);
+  const currencies = useCurrencies();
 
   useEffect(() => {
     accountsService
       .list({ pageSize: 500 })
       .then((result) => setAccounts(result.items))
       .catch(() => setAccounts([]));
-    currenciesService
-      .list({ pageSize: 200 })
-      .then((result) => setCurrencies(result.items))
-      .catch(() => setCurrencies([]));
   }, []);
 
   const accountOptions = useMemo(

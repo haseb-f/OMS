@@ -18,8 +18,6 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { ProductPicker } from "@/components/business/product-picker";
-import { createMasterDataService } from "@/services/master-data-service";
-import type { CurrencyRow } from "@/config/master-data/entities";
 import { storeOrdersService, type StoreOrderRow } from "@/services/store-orders-service";
 import type { ProductRow } from "@/services/products-service";
 import {
@@ -28,10 +26,9 @@ import {
   type StoreOrderCreateFormValues,
 } from "@/config/store-orders/store-order-create-schema";
 import { useLocale } from "@/providers/locale-provider";
+import { useCurrencies } from "@/hooks/use-reference-data";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
-
-const currenciesService = createMasterDataService<CurrencyRow>("/currencies");
 
 interface StoreOrderCreateLine {
   /** Client-side row identity (React key + remove target) — never a DB id at this layer, same convention as `ProductLineItemsGrid`'s own rows. */
@@ -67,17 +64,9 @@ export function StoreOrderCreateDialog({
   onCreated: (order: StoreOrderRow) => void;
 }) {
   const { t } = useLocale();
-  const [currencies, setCurrencies] = useState<CurrencyRow[]>([]);
+  const currencies = useCurrencies();
   const [lines, setLines] = useState<StoreOrderCreateLine[]>([createEmptyLine()]);
   const [itemsError, setItemsError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    currenciesService
-      .list({ pageSize: 200 })
-      .then((r) => setCurrencies(r.items))
-      .catch(() => setCurrencies([]));
-  }, [open]);
 
   const schema = useMemo(() => buildStoreOrderCreateSchema(t), [t]);
 

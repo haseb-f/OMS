@@ -49,7 +49,6 @@ import type {
   JournalRow,
   CostCenterRow,
   ProjectRow,
-  CurrencyRow,
 } from "@/config/master-data/entities";
 import { customersService, type CustomerRow } from "@/services/customers-service";
 import { suppliersService, type SupplierRow } from "@/services/suppliers-service";
@@ -62,12 +61,12 @@ import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
+import { useCurrencies } from "@/hooks/use-reference-data";
 import { formatDateTime } from "@/lib/date";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 
 const accountsService = createMasterDataService<ChartOfAccountRow>("/chart-of-accounts");
-const currenciesService = createMasterDataService<CurrencyRow>("/currencies");
 
 type PartnerType = "none" | "customer" | "supplier";
 /** The entry's own `currency` include is a slim `{id,code,name}` projection (see ENTRY_INCLUDE server-side), not a full CurrencyRow — the selector only ever needs these three fields. */
@@ -139,7 +138,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
   const [journalId, setJournalId] = useState("");
   const [referenceNumber, setReferenceNumber] = useState("");
   const [lines, setLines] = useState<JournalEntryLineGridRow[]>([]);
-  const [currencies, setCurrencies] = useState<CurrencyOption[]>([]);
+  const currencies = useCurrencies();
   const [currency, setCurrency] = useState<CurrencyOption | null>(null);
   const [partnerType, setPartnerType] = useState<PartnerType>("none");
   const [partnerCustomer, setPartnerCustomer] = useState<CustomerRow | null>(null);
@@ -207,12 +206,6 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
         setProjects(result.items.map((p) => ({ id: p.id, code: p.code, name: p.name }))),
       )
       .catch(() => setProjects([]));
-    currenciesService
-      .list({ pageSize: 200 })
-      .then((result) =>
-        setCurrencies(result.items.map((c) => ({ id: c.id, code: c.code, name: c.name }))),
-      )
-      .catch(() => setCurrencies([]));
     journalEntriesService.templates
       .list()
       .then(setTemplates)

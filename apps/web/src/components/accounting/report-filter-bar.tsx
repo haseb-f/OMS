@@ -15,16 +15,11 @@ import {
 } from "@/components/shared/date-range-picker";
 import { AccountPicker } from "@/components/business/account-picker";
 import { createMasterDataService } from "@/services/master-data-service";
-import type {
-  ChartOfAccountRow,
-  CostCenterRow,
-  ProjectRow,
-  CurrencyRow,
-} from "@/config/master-data/entities";
+import type { ChartOfAccountRow, CostCenterRow, ProjectRow } from "@/config/master-data/entities";
 import { useCompany } from "@/providers/company-provider";
 import { useLocale } from "@/providers/locale-provider";
+import { useCurrencies } from "@/hooks/use-reference-data";
 
-const currenciesService = createMasterDataService<CurrencyRow>("/currencies");
 const costCentersService = createMasterDataService<CostCenterRow>("/cost-centers");
 const projectsService = createMasterDataService<ProjectRow>("/projects");
 const ALL = "__all__";
@@ -75,7 +70,7 @@ export function AccountingReportFilterBar({
   const { companies } = useCompany();
   const [costCenters, setCostCenters] = useState<CostCenterRow[]>([]);
   const [projects, setProjects] = useState<ProjectRow[]>([]);
-  const [currencies, setCurrencies] = useState<CurrencyRow[]>([]);
+  const currencies = useCurrencies();
 
   useEffect(() => {
     costCentersService
@@ -86,10 +81,6 @@ export function AccountingReportFilterBar({
       .list({ pageSize: 200 })
       .then((r) => setProjects(r.items))
       .catch(() => setProjects([]));
-    currenciesService
-      .list({ pageSize: 200 })
-      .then((r) => setCurrencies(r.items))
-      .catch(() => setCurrencies([]));
   }, []);
 
   const branches = companies.find((c) => c.id === value.companyId)?.branches ?? [];

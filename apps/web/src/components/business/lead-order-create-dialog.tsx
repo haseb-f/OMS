@@ -16,15 +16,12 @@ import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import { leadsService, type LeadRow } from "@/services/leads-service";
 import { productsService } from "@/services/products-service";
-import { createMasterDataService } from "@/services/master-data-service";
-import type { CurrencyRow } from "@/config/master-data/entities";
+import { useCurrencies } from "@/hooks/use-reference-data";
 import {
   buildLeadOrderCreateSchema,
   leadOrderCreateDefaultValues,
   type LeadOrderCreateFormValues,
 } from "@/config/crm/lead-order-create-schema";
-
-const currenciesService = createMasterDataService<CurrencyRow>("/currencies");
 
 /**
  * The Lead/Order dual-mode create dialog (TASK-061 follow-up, Part 1) — a
@@ -49,7 +46,7 @@ export function LeadOrderCreateDialog({
   onCreated: (lead: LeadRow) => void;
 }) {
   const { t } = useLocale();
-  const [currencies, setCurrencies] = useState<CurrencyRow[]>([]);
+  const currencies = useCurrencies();
   const [products, setProducts] = useState<{ id: string; displayName: string; sku: string }[]>([]);
 
   useEffect(() => {
@@ -60,10 +57,6 @@ export function LeadOrderCreateDialog({
         setProducts(r.items.map((p) => ({ id: p.id, displayName: p.displayName, sku: p.sku }))),
       )
       .catch(() => setProducts([]));
-    currenciesService
-      .list({ pageSize: 200 })
-      .then((r) => setCurrencies(r.items))
-      .catch(() => setCurrencies([]));
   }, [open]);
 
   const schema = useMemo(() => buildLeadOrderCreateSchema(countries, t), [countries, t]);

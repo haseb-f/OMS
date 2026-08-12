@@ -20,12 +20,7 @@ import {
   type CustomerSourceValue,
 } from "@/services/customers-service";
 import { createMasterDataService } from "@/services/master-data-service";
-import type {
-  CurrencyRow,
-  CountryRow,
-  PaymentTermRow,
-  CustomerGroupRow,
-} from "@/config/master-data/entities";
+import type { PaymentTermRow, CustomerGroupRow } from "@/config/master-data/entities";
 import {
   customerColumns,
   customerExportColumns,
@@ -34,9 +29,8 @@ import {
 import { buildCustomerSchema, customerDefaultValues } from "@/config/sales/customer-form";
 import { useLocale } from "@/providers/locale-provider";
 import { PermissionGate } from "@/components/shared/permission-gate";
+import { useCurrencies, useCountries } from "@/hooks/use-reference-data";
 
-const currenciesService = createMasterDataService<CurrencyRow>("/currencies");
-const countriesService = createMasterDataService<CountryRow>("/countries");
 const paymentTermsService = createMasterDataService<PaymentTermRow>("/payment-terms");
 const customerGroupsService = createMasterDataService<CustomerGroupRow>("/customer-groups");
 
@@ -55,21 +49,13 @@ function CustomersPageContent() {
   const { t } = useLocale();
   const router = useRouter();
 
-  const [currencies, setCurrencies] = useState<CurrencyRow[]>([]);
-  const [countries, setCountries] = useState<CountryRow[]>([]);
+  const currencies = useCurrencies();
+  const countries = useCountries();
   const [paymentTerms, setPaymentTerms] = useState<PaymentTermRow[]>([]);
   const [customerGroups, setCustomerGroups] = useState<CustomerGroupRow[]>([]);
   const [sourceFilter, setSourceFilter] = useState<string>("");
 
   useEffect(() => {
-    currenciesService
-      .list({ pageSize: 200 })
-      .then((r) => setCurrencies(r.items))
-      .catch(() => setCurrencies([]));
-    countriesService
-      .list({ pageSize: 200 })
-      .then((r) => setCountries(r.items))
-      .catch(() => setCountries([]));
     paymentTermsService
       .list({ pageSize: 200 })
       .then((r) => setPaymentTerms(r.items))

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
 import { createMasterDataService } from "@/services/master-data-service";
+import { useCountries } from "@/hooks/use-reference-data";
 import type { MasterDataFormField } from "@/components/master-data/master-data-form";
 import {
   citiesColumns,
@@ -12,21 +13,12 @@ import {
   citiesExportColumns,
   cityRowLabel,
   type CityRow,
-  type CountryRow,
 } from "@/config/master-data/entities";
 
 const service = createMasterDataService<CityRow>("/cities");
-const countriesService = createMasterDataService<CountryRow>("/countries");
 
 export default function CitiesPage() {
-  const [countries, setCountries] = useState<CountryRow[]>([]);
-
-  useEffect(() => {
-    countriesService
-      .list({ pageSize: 200 })
-      .then((result) => setCountries(result.items))
-      .catch(() => setCountries([]));
-  }, []);
+  const countries = useCountries();
 
   const formFields = useMemo<MasterDataFormField[]>(
     () => [

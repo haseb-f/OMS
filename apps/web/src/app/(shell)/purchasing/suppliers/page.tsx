@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Truck, Eye } from "lucide-react";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
@@ -8,8 +8,6 @@ import type { MasterDataFormSection } from "@/components/master-data/master-data
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import type { RowAction } from "@/components/shared/data-table";
 import { suppliersService, type SupplierRow } from "@/services/suppliers-service";
-import { createMasterDataService } from "@/services/master-data-service";
-import type { CurrencyRow, CountryRow } from "@/config/master-data/entities";
 import {
   supplierColumns,
   supplierExportColumns,
@@ -18,28 +16,15 @@ import {
 import { buildSupplierSchema, supplierDefaultValues } from "@/config/purchasing/supplier-form";
 import { useLocale } from "@/providers/locale-provider";
 import { PermissionGate } from "@/components/shared/permission-gate";
-
-const currenciesService = createMasterDataService<CurrencyRow>("/currencies");
-const countriesService = createMasterDataService<CountryRow>("/countries");
+import { useCurrencies, useCountries } from "@/hooks/use-reference-data";
 
 /** Mirrors `sales/customers/page.tsx` (TASK-048) — Supplier's list/create/edit/archive/restore reuse `MasterDataPage`, same as Customer. */
 function SuppliersPageContent() {
   const { t } = useLocale();
   const router = useRouter();
 
-  const [currencies, setCurrencies] = useState<CurrencyRow[]>([]);
-  const [countries, setCountries] = useState<CountryRow[]>([]);
-
-  useEffect(() => {
-    currenciesService
-      .list({ pageSize: 200 })
-      .then((r) => setCurrencies(r.items))
-      .catch(() => setCurrencies([]));
-    countriesService
-      .list({ pageSize: 200 })
-      .then((r) => setCountries(r.items))
-      .catch(() => setCountries([]));
-  }, []);
+  const currencies = useCurrencies();
+  const countries = useCountries();
 
   const formSections = useMemo<MasterDataFormSection[]>(
     () => [

@@ -22,10 +22,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { storeOrdersService } from "@/services/store-orders-service";
-import { createMasterDataService } from "@/services/master-data-service";
 import { apiClient, ApiError } from "@/services/api-client";
-import type { CurrencyRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
+import { useCurrencies } from "@/hooks/use-reference-data";
 import { toast } from "@/lib/toast";
 import { toISODate } from "@/lib/date";
 
@@ -36,7 +35,6 @@ interface LookupRow {
 
 const paymentSourcesService = { list: () => apiClient.get<LookupRow[]>("/payment-sources") };
 const receivingAccountsService = { list: () => apiClient.get<LookupRow[]>("/receiving-accounts") };
-const currenciesService = createMasterDataService<CurrencyRow>("/currencies");
 
 /**
  * Manual "Add Payment" (Part 4 of the four-gaps task) — creates a normal
@@ -65,7 +63,7 @@ export function StoreOrderAddPaymentDialog({
   const { t } = useLocale();
   const [paymentSources, setPaymentSources] = useState<LookupRow[]>([]);
   const [receivingAccounts, setReceivingAccounts] = useState<LookupRow[]>([]);
-  const [currencies, setCurrencies] = useState<CurrencyRow[]>([]);
+  const currencies = useCurrencies();
 
   const [amount, setAmount] = useState("");
   const [currencyId, setCurrencyId] = useState(orderCurrencyId);
@@ -88,10 +86,6 @@ export function StoreOrderAddPaymentDialog({
       .list()
       .then(setReceivingAccounts)
       .catch(() => setReceivingAccounts([]));
-    currenciesService
-      .list({ pageSize: 200 })
-      .then((r) => setCurrencies(r.items))
-      .catch(() => setCurrencies([]));
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setAmount("");
     setCurrencyId(orderCurrencyId);
