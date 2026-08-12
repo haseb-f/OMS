@@ -21,7 +21,8 @@ import { LoadingOverlay } from "@/components/shared/loading-overlay";
 import { AccountPicker } from "@/components/business/account-picker";
 import { StatusBadge } from "@/components/business/status-badge";
 import { createMasterDataService } from "@/services/master-data-service";
-import type { ChartOfAccountRow, CurrencyRow } from "@/config/master-data/entities";
+import type { ChartOfAccountRow } from "@/config/master-data/entities";
+import { useCurrencies } from "@/hooks/use-reference-data";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
@@ -35,7 +36,6 @@ import type { MessageKey } from "@/i18n/translate";
 import { PermissionGate } from "@/components/shared/permission-gate";
 
 const service = createMasterDataService<ChartOfAccountRow>("/chart-of-accounts");
-const currenciesService = createMasterDataService<CurrencyRow>("/currencies");
 
 const ACCOUNT_TYPES = ["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE"] as const;
 
@@ -113,7 +113,7 @@ function ChartOfAccountsPageContent() {
   const canOverrideCode = hasPermission("accounting.chart-of-accounts.override-code");
 
   const [accounts, setAccounts] = useState<ChartOfAccountRow[]>([]);
-  const [currencies, setCurrencies] = useState<CurrencyRow[]>([]);
+  const currencies = useCurrencies();
   const [isLoading, setIsLoading] = useState(true);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
@@ -149,13 +149,6 @@ function ChartOfAccountsPageContent() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
-
-  useEffect(() => {
-    currenciesService
-      .list({ pageSize: 200 })
-      .then((result) => setCurrencies(result.items))
-      .catch(() => setCurrencies([]));
-  }, []);
 
   const visibleAccounts = useMemo(
     () =>

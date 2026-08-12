@@ -34,15 +34,15 @@ import {
   type ShipmentStatusValue,
 } from "@/services/shipping-service";
 import { createMasterDataService } from "@/services/master-data-service";
-import type { ShippingMethodRow, CountryRow } from "@/config/master-data/entities";
+import type { ShippingMethodRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { formatDate, toISODate } from "@/lib/date";
 import { ApiError } from "@/services/api-client";
 import { PermissionGate } from "@/components/shared/permission-gate";
+import { useCountries } from "@/hooks/use-reference-data";
 
 const shippingMethodsService = createMasterDataService<ShippingMethodRow>("/shipping-methods");
-const countriesService = createMasterDataService<CountryRow>("/countries");
 
 const EMPTY_DATE_RANGE: DateRangeValue = { from: null, to: null };
 
@@ -61,7 +61,7 @@ function ShippingPageContent() {
   const [companyFilter, setCompanyFilter] = useState<string>("");
   const [countryFilter, setCountryFilter] = useState<string>("");
   const [companies, setCompanies] = useState<ShippingMethodRow[]>([]);
-  const [countries, setCountries] = useState<CountryRow[]>([]);
+  const countries = useCountries();
   const [dateRange, setDateRange] = useState<DateRangeValue>(EMPTY_DATE_RANGE);
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -73,10 +73,6 @@ function ShippingPageContent() {
       .list({ pageSize: 200 })
       .then((result) => setCompanies(result.items))
       .catch(() => setCompanies([]));
-    countriesService
-      .list({ pageSize: 300 })
-      .then((result) => setCountries(result.items))
-      .catch(() => setCountries([]));
   }, []);
 
   const listParams = useCallback(

@@ -10,41 +10,27 @@ import { EnterpriseButton } from "@/components/ui/button";
 import type { RowAction } from "@/components/shared/data-table";
 import { leadsService, type LeadRow } from "@/services/leads-service";
 import { productsService } from "@/services/products-service";
-import {
-  createMasterDataService,
-  type MasterDataActivityEntry,
-} from "@/services/master-data-service";
-import type { CurrencyRow, CountryRow } from "@/config/master-data/entities";
+import { type MasterDataActivityEntry } from "@/services/master-data-service";
 import { leadColumns, leadExportColumns, leadRowLabel } from "@/config/crm/lead-columns";
 import { buildLeadSchema, leadDefaultValues } from "@/config/crm/lead-form";
 import { useLocale } from "@/providers/locale-provider";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { AssignLeadDialog } from "@/components/business/assign-lead-dialog";
 import { LeadOrderCreateDialog } from "@/components/business/lead-order-create-dialog";
-
-const currenciesService = createMasterDataService<CurrencyRow>("/currencies");
-const countriesService = createMasterDataService<CountryRow>("/countries");
+import { useCurrencies, useCountries } from "@/hooks/use-reference-data";
 
 function CrmLeadsPageContent() {
   const { t } = useLocale();
   const router = useRouter();
 
-  const [currencies, setCurrencies] = useState<CurrencyRow[]>([]);
-  const [countries, setCountries] = useState<CountryRow[]>([]);
+  const currencies = useCurrencies();
+  const countries = useCountries();
   const [products, setProducts] = useState<{ id: string; displayName: string; sku: string }[]>([]);
   const [assigningLead, setAssigningLead] = useState<LeadRow | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
 
   useEffect(() => {
-    currenciesService
-      .list({ pageSize: 200 })
-      .then((r) => setCurrencies(r.items))
-      .catch(() => setCurrencies([]));
-    countriesService
-      .list({ pageSize: 200 })
-      .then((r) => setCountries(r.items))
-      .catch(() => setCountries([]));
     productsService
       .list({ pageSize: 200 })
       .then((r) =>
