@@ -157,19 +157,26 @@ export class BankTransactionsService {
     const pending = await this.prisma.bankTransaction.findMany({
       where: { deletedAt: null, matchedPaymentId: null },
     });
+    if (pending.length === 0) return { classified: 0, byStatus: {} };
+
+    const resultsByTransactionId =
+      await this.autoMatching.classifyMany(pending);
     const byStatus: Record<string, number> = {};
-    for (const transaction of pending) {
-      const result = await this.autoMatching.classifyTransaction(transaction);
-      await this.prisma.bankTransaction.update({
-        where: { id: transaction.id },
-        data: {
-          matchStatus: result.status,
-          matchCandidates:
-            result.candidates as unknown as Prisma.InputJsonValue,
-        },
-      });
-      byStatus[result.status] = (byStatus[result.status] ?? 0) + 1;
-    }
+
+    await Promise.all(
+      pending.map((transaction) => {
+        const result = resultsByTransactionId.get(transaction.id)!;
+        byStatus[result.status] = (byStatus[result.status] ?? 0) + 1;
+        return this.prisma.bankTransaction.update({
+          where: { id: transaction.id },
+          data: {
+            matchStatus: result.status,
+            matchCandidates:
+              result.candidates as unknown as Prisma.InputJsonValue,
+          },
+        });
+      }),
+    );
     return { classified: pending.length, byStatus };
   }
 
