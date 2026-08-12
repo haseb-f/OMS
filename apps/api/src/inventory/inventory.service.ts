@@ -721,12 +721,81 @@ export class InventoryService {
     return this.buildStockCard(product);
   }
 
+  /**
+   * Batched variant of getStockCard/buildStockCard for the full-catalog
+   * report — the per-product version does 3 queries (on-hand aggregate,
+   * reserved aggregate, last-movement lookup) which is correct for a single
+   * product but was previously run once per product here too (1 + 3N
+   * queries for N products). Same three numbers, computed with one
+   * `groupBy` each for on-hand/reserved and one `distinct` query for the
+   * latest movement per product, regardless of catalog size.
+   */
   async getStockCards() {
     const products = await this.prisma.product.findMany({
       where: { isInventoryItem: true, deletedAt: null },
       orderBy: { name: 'asc' },
     });
-    return Promise.all(products.map((product) => this.buildStockCard(product)));
+    if (products.length === 0) return [];
+    const productIds = products.map((p) => p.id);
+
+    const [onHandGroups, reservedGroups, lastMovements] = await Promise.all([
+      this.prisma.inventoryMovement.groupBy({
+        by: ['productId'],
+        where: {
+          productId: { in: productIds },
+          type: { notIn: RESERVATION_TYPES },
+        },
+        _sum: { quantity: true },
+      }),
+      this.prisma.inventoryMovement.groupBy({
+        by: ['productId'],
+        where: {
+          productId: { in: productIds },
+          type: { in: RESERVATION_TYPES },
+        },
+        _sum: { quantity: true },
+      }),
+      this.prisma.inventoryMovement.findMany({
+        where: { productId: { in: productIds } },
+        orderBy: { createdAt: 'desc' },
+        distinct: ['productId'],
+      }),
+    ]);
+    const onHandByProduct = new Map(
+      onHandGroups.map((g) => [g.productId, g._sum.quantity ?? 0]),
+    );
+    const reservedByProduct = new Map(
+      reservedGroups.map((g) => [g.productId, g._sum.quantity ?? 0]),
+    );
+    const lastMovementByProduct = new Map(
+      lastMovements.map((m) => [m.productId, m]),
+    );
+
+    return products.map((product) => {
+      const onHand = onHandByProduct.get(product.id) ?? 0;
+      const reserved = reservedByProduct.get(product.id) ?? 0;
+      const lastMovement = lastMovementByProduct.get(product.id) ?? null;
+      const cost = product.currentCost ? Number(product.currentCost) : null;
+      return {
+        productId: product.id,
+        sku: product.sku,
+        productName: product.displayName || product.name,
+        onHand,
+        reserved,
+        available: onHand - reserved,
+        averageCost: cost,
+        lastCost: cost,
+        stockValue: cost !== null ? cost * onHand : null,
+        lastMovement: lastMovement
+          ? {
+              id: lastMovement.id,
+              movementNumber: lastMovement.movementNumber,
+              type: lastMovement.type,
+              createdAt: lastMovement.createdAt,
+            }
+          : null,
+      };
+    });
   }
 
   private async buildStockCard(product: {
