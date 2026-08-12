@@ -13,6 +13,7 @@ const ar = {
     comingSoonDescription: "هذه الصفحة قيد الإنشاء.",
     offline: "أنت غير متصل",
     offlineDescription: "تحقق من اتصالك وحاول مرة أخرى.",
+    retry: "إعادة المحاولة",
     noPermission: "لا تملك صلاحية",
     noPermissionDescription: "ليس لديك صلاحية الوصول إلى هذه الصفحة.",
     cancel: "إلغاء",

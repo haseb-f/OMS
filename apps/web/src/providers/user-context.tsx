@@ -2,12 +2,14 @@
 
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useTheme } from "next-themes";
-import { useAuth } from "./auth-provider";
+import { useAuth, type AuthStatus } from "./auth-provider";
 import { useLocale } from "./locale-provider";
 import type { CurrentUser } from "@/services/auth-service";
 
 interface UserContextValue {
   user: CurrentUser | null;
+  /** Mirrors `AuthProvider`'s status — `PermissionGate` (and anything else gating on `hasPermission`) must check this before treating an empty/false permission check as real. */
+  status: AuthStatus;
   roles: string[];
   permissions: string[];
   isSuperAdmin: boolean;
@@ -28,7 +30,7 @@ const UserContext = createContext<UserContextValue | null>(null);
  * than duplicating that state.
  */
 export function UserContextProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, status } = useAuth();
   const { locale } = useLocale();
   const { theme } = useTheme();
 
@@ -37,6 +39,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     const isSuperAdmin = user?.isSuperAdmin ?? false;
     return {
       user,
+      status,
       roles: user?.roles ?? [],
       permissions,
       isSuperAdmin,
@@ -45,7 +48,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       language: locale,
       theme,
     };
-  }, [user, locale, theme]);
+  }, [user, status, locale, theme]);
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 }

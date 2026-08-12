@@ -13,6 +13,7 @@ const en = {
     comingSoonDescription: "This page is not built yet.",
     offline: "You're offline",
     offlineDescription: "Check your connection and try again.",
+    retry: "Retry",
     noPermission: "No Permission",
     noPermissionDescription: "You don't have access to this page.",
     cancel: "Cancel",
