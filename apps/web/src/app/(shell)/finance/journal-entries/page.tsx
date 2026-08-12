@@ -35,7 +35,7 @@ import {
   type JournalEntryRow,
   type JournalEntryStatusValue,
 } from "@/services/journal-entries-service";
-import { usersService } from "@/services/users-service";
+import { useUsersLookup } from "@/hooks/use-reference-data";
 import { createMasterDataService } from "@/services/master-data-service";
 import type { JournalRow } from "@/config/master-data/entities";
 import {
@@ -94,7 +94,7 @@ function JournalEntriesPageContent() {
   // sales/orders/page.tsx: `items` only ever holds the current page, so
   // every page fetched is merged into this cache instead of discarded.
   const [itemsCache, setItemsCache] = useState<Record<string, JournalEntryRow>>({});
-  const [usersById, setUsersById] = useState<Record<string, string>>({});
+  const usersById = useUsersLookup();
   const [journals, setJournals] = useState<JournalRow[]>([]);
   const [postTarget, setPostTarget] = useState<JournalEntryRow | null>(null);
   const [reverseTarget, setReverseTarget] = useState<JournalEntryRow | null>(null);
@@ -102,10 +102,6 @@ function JournalEntriesPageContent() {
   const [bulkArchiveOpen, setBulkArchiveOpen] = useState(false);
 
   useEffect(() => {
-    usersService
-      .list()
-      .then((users) => setUsersById(Object.fromEntries(users.map((u) => [u.id, u.fullName]))))
-      .catch(() => setUsersById({}));
     journalsService
       .list({ pageSize: 200 })
       .then((result) => setJournals(result.items))

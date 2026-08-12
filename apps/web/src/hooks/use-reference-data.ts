@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createMasterDataService } from "@/services/master-data-service";
 import type { CurrencyRow, CountryRow } from "@/config/master-data/entities";
+import { usersService, type UserRow } from "@/services/users-service";
 
 /**
  * Session-lifetime cache for read-mostly reference data (currencies,
@@ -67,3 +68,18 @@ export const useCurrencies = createReferenceDataHook<CurrencyRow>(() =>
 export const useCountries = createReferenceDataHook<CountryRow>(() =>
   countriesService.list({ pageSize: 300 }).then((r) => r.items),
 );
+
+/**
+ * Users were the other systemic duplicate: 14 list pages independently
+ * fetched the entire user table just to build an id -> fullName map for a
+ * "created by" column. Note: `GET /users` requires the `settings.manage`
+ * permission (unchanged here, not something this refactor alters) — a user
+ * without it gets the same empty map today as before, just without
+ * re-attempting the request on every page navigation.
+ */
+export const useUsersList = createReferenceDataHook<UserRow>(() => usersService.list());
+
+export function useUsersLookup(): Record<string, string> {
+  const users = useUsersList();
+  return useMemo(() => Object.fromEntries(users.map((u) => [u.id, u.fullName])), [users]);
+}

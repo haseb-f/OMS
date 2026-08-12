@@ -32,7 +32,7 @@ import {
   type SalesReturnRow,
 } from "@/services/sales-returns-service";
 import type { CustomerRow } from "@/services/customers-service";
-import { usersService } from "@/services/users-service";
+import { useUsersLookup } from "@/hooks/use-reference-data";
 import { buildReturnColumns, returnExportColumns } from "@/config/sales/return-columns";
 import {
   RETURN_ARCHIVABLE_STATUSES,
@@ -71,17 +71,10 @@ function SalesReturnsPageContent() {
   const [dateRange, setDateRange] = useState<DateRangeValue>(EMPTY_DATE_RANGE);
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
-  const [usersById, setUsersById] = useState<Record<string, string>>({});
+  const usersById = useUsersLookup();
   const [cancelTarget, setCancelTarget] = useState<SalesReturnRow | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<SalesReturnRow | null>(null);
   const [bulkArchiveOpen, setBulkArchiveOpen] = useState(false);
-
-  useEffect(() => {
-    usersService
-      .list()
-      .then((users) => setUsersById(Object.fromEntries(users.map((u) => [u.id, u.fullName]))))
-      .catch(() => setUsersById({}));
-  }, []);
 
   const load = useCallback(async () => {
     setIsLoading(true);

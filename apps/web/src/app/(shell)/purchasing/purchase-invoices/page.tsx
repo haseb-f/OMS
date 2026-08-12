@@ -32,7 +32,7 @@ import {
 } from "@/services/purchase-invoices-service";
 import type { PurchaseDocumentStatusValue } from "@/services/purchase-quotations-service";
 import type { SupplierRow } from "@/services/suppliers-service";
-import { usersService } from "@/services/users-service";
+import { useUsersLookup } from "@/hooks/use-reference-data";
 import { buildInvoiceColumns, invoiceExportColumns } from "@/config/purchasing/invoice-columns";
 import {
   INVOICE_ARCHIVABLE_STATUSES,
@@ -73,18 +73,11 @@ function PurchaseInvoicesPageContent() {
   const [dateRange, setDateRange] = useState<DateRangeValue>(EMPTY_DATE_RANGE);
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
-  const [usersById, setUsersById] = useState<Record<string, string>>({});
+  const usersById = useUsersLookup();
   const [cancelTarget, setCancelTarget] = useState<PurchaseInvoiceRow | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<PurchaseInvoiceRow | null>(null);
   const [returnTarget, setReturnTarget] = useState<PurchaseInvoiceRow | null>(null);
   const [bulkArchiveOpen, setBulkArchiveOpen] = useState(false);
-
-  useEffect(() => {
-    usersService
-      .list()
-      .then((users) => setUsersById(Object.fromEntries(users.map((u) => [u.id, u.fullName]))))
-      .catch(() => setUsersById({}));
-  }, []);
 
   const load = useCallback(async () => {
     setIsLoading(true);

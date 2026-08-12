@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
 import { createMasterDataService } from "@/services/master-data-service";
-import { usersService, type UserRow } from "@/services/users-service";
+import { useUsersList } from "@/hooks/use-reference-data";
 import type { MasterDataFormField } from "@/components/master-data/master-data-form";
 import {
   warehousesColumns,
@@ -21,14 +21,10 @@ const service = createMasterDataService<WarehouseRow>("/warehouses");
 const analyticAccountsService = createMasterDataService<AnalyticAccountRow>("/analytic-accounts");
 
 export default function WarehousesPage() {
-  const [users, setUsers] = useState<UserRow[]>([]);
+  const users = useUsersList();
   const [analyticAccounts, setAnalyticAccounts] = useState<AnalyticAccountRow[]>([]);
 
   useEffect(() => {
-    usersService
-      .list()
-      .then(setUsers)
-      .catch(() => setUsers([]));
     analyticAccountsService
       .list({ pageSize: 200 })
       .then((result) => setAnalyticAccounts(result.items))

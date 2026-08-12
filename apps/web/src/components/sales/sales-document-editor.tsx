@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -18,9 +18,7 @@ import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { StatusBadge } from "@/components/business/status-badge";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
 import { CustomerPicker } from "@/components/business/customer-picker";
-import { usersService, type UserRow } from "@/services/users-service";
-import { createMasterDataService } from "@/services/master-data-service";
-import type { CurrencyRow } from "@/config/master-data/entities";
+import { useUsersList, useCurrencies } from "@/hooks/use-reference-data";
 import type { SalesDocumentActivityEntry } from "./sales-document-editor.types";
 import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
@@ -37,8 +35,6 @@ import type {
 function formatMoney(value: number) {
   return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
-
-const currenciesService = createMasterDataService<CurrencyRow>("/currencies");
 
 /**
  * Sales Document Editor Foundation (TASK-039, redesigned TASK-040, compacted
@@ -86,19 +82,8 @@ export function SalesDocumentEditor<TDocument>({
   const { t } = useLocale();
   const { activeCompany } = useCompany();
   const { hasPermission } = useUserContext();
-  const [users, setUsers] = useState<UserRow[]>([]);
-  const [currencies, setCurrencies] = useState<CurrencyRow[]>([]);
-
-  useEffect(() => {
-    usersService
-      .list()
-      .then(setUsers)
-      .catch(() => setUsers([]));
-    currenciesService
-      .list({ pageSize: 200 })
-      .then((r) => setCurrencies(r.items))
-      .catch(() => setCurrencies([]));
-  }, []);
+  const users = useUsersList();
+  const currencies = useCurrencies();
 
   const activeBranch = activeCompany?.branches.find(
     (branch) => branch.id === activeCompany?.defaultBranchId,

@@ -32,7 +32,7 @@ import {
   type SalesOrderRow,
 } from "@/services/sales-orders-service";
 import type { CustomerRow } from "@/services/customers-service";
-import { usersService } from "@/services/users-service";
+import { useUsersLookup } from "@/hooks/use-reference-data";
 import { buildOrderColumns, orderExportColumns } from "@/config/sales/order-columns";
 import {
   ORDER_ARCHIVABLE_STATUSES,
@@ -79,17 +79,10 @@ function SalesOrdersPageContent() {
   // page fetched is merged into this cache instead of being discarded —
   // a row selected on page 1 keeps its data available after paging to 2.
   const [itemsCache, setItemsCache] = useState<Record<string, SalesOrderRow>>({});
-  const [usersById, setUsersById] = useState<Record<string, string>>({});
+  const usersById = useUsersLookup();
   const [cancelTarget, setCancelTarget] = useState<SalesOrderRow | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<SalesOrderRow | null>(null);
   const [bulkArchiveOpen, setBulkArchiveOpen] = useState(false);
-
-  useEffect(() => {
-    usersService
-      .list()
-      .then((users) => setUsersById(Object.fromEntries(users.map((u) => [u.id, u.fullName]))))
-      .catch(() => setUsersById({}));
-  }, []);
 
   const load = useCallback(async () => {
     setIsLoading(true);

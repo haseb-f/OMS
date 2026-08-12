@@ -19,7 +19,7 @@ import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-ta
 import { ImportJobWizard } from "./import-job-wizard";
 import { importTypesService, type ImportTypeDefinition } from "@/services/import-types-service";
 import { importJobsService, type ImportJobRow } from "@/services/import-jobs-service";
-import { usersService, type UserRow } from "@/services/users-service";
+import { useUsersList } from "@/hooks/use-reference-data";
 import { IMPORT_JOB_STATUS_LABEL_KEY, IMPORT_JOB_STATUS_TONE } from "@/config/import-center/status";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
@@ -45,7 +45,7 @@ function ImportCenterPageContent() {
   const [types, setTypes] = useState<ImportTypeDefinition[]>([]);
   const [jobs, setJobs] = useState<ImportJobRow[]>([]);
   const [isLoadingJobs, setIsLoadingJobs] = useState(true);
-  const [users, setUsers] = useState<UserRow[]>([]);
+  const users = useUsersList();
 
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardTypeDef, setWizardTypeDef] = useState<ImportTypeDefinition | null>(null);
@@ -68,10 +68,6 @@ function ImportCenterPageContent() {
       .list()
       .then(setTypes)
       .catch(() => setTypes([]));
-    usersService
-      .list()
-      .then(setUsers)
-      .catch(() => setUsers([]));
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadJobs();
   }, [loadJobs]);
