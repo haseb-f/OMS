@@ -46,6 +46,8 @@ export function AccountPicker({
   excludeIds,
   /** Only shows accounts of this classification — e.g. when picking a Parent Account, restricted to the same `accountType` the new/edited account already has (Part 13). */
   accountType,
+  /** Excludes header/parent accounts — for a field that must resolve to a direct posting target (e.g. Payment Method's linked account), matching the same leaf-only rule the Posting Engine enforces on `JournalEntryLine`. */
+  postingOnly,
 }: {
   value: ChartOfAccountRow | null | undefined;
   onChange: (account: ChartOfAccountRow | null) => void;
@@ -53,6 +55,7 @@ export function AccountPicker({
   placeholder?: string;
   excludeIds?: string[];
   accountType?: ChartOfAccountRow["accountType"];
+  postingOnly?: boolean;
 }) {
   const { t } = useLocale();
   const [open, setOpen] = useState(false);
@@ -74,7 +77,11 @@ export function AccountPicker({
             ...(accountType ? { accountType } : {}),
           });
           const excluded = new Set(excludeKey ? excludeKey.split(",") : []);
-          setResults(result.items.filter((item) => !excluded.has(item.id)));
+          setResults(
+            result.items.filter(
+              (item) => !excluded.has(item.id) && (!postingOnly || item.allowsPosting),
+            ),
+          );
         } catch {
           setResults([]);
         } finally {
@@ -84,7 +91,7 @@ export function AccountPicker({
       void runSearch();
     }, 200);
     return () => clearTimeout(timeout);
-  }, [search, open, accountType, excludeKey]);
+  }, [search, open, accountType, excludeKey, postingOnly]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

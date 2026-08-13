@@ -1369,6 +1369,13 @@ async function main() {
       template: '{DOC}-{YEAR}-{SEQ}',
     },
     {
+      // Cash Flow module — Outgoing Expense Payment Voucher.
+      documentType: 'EXPENSE_PAYMENT',
+      label: 'Expense Payment',
+      docCode: 'EP',
+      template: '{DOC}-{YEAR}-{SEQ}',
+    },
+    {
       // TASK-048 — Purchase Quotation had no prepared row yet.
       documentType: 'PURCHASE_QUOTATION',
       label: 'Purchase Quotation',

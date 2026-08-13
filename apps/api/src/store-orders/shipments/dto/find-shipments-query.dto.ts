@@ -9,7 +9,7 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import { ShipmentStatus } from '@prisma/client';
+import { ShipmentStatus, StoreOrderSource } from '@prisma/client';
 import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.decorator';
 
 /** Flat, cross-order shipment listing for the Shipping list page. */
@@ -24,6 +24,11 @@ export class FindShipmentsQueryDto {
   /** The order's Customer's Country (Part 2 of the four-gaps task) — there is no separate shipping-address concept in this pipeline yet. */
   @IsOptionalUuid()
   countryId?: string;
+
+  /** The shipment's own Store Order's `source` (Manual vs Import) — same field the Store Orders list filters by. */
+  @IsEnum(StoreOrderSource)
+  @IsOptional()
+  source?: StoreOrderSource;
 
   /** Matches the order's customer phone/mobile OR the order's externalOrderId. */
   @IsString()

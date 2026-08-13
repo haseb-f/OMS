@@ -358,6 +358,7 @@ model Project {
   purchaseInvoices      PurchaseInvoice[]
   purchaseReturns       PurchaseReturn[]
   financialTransactions FinancialTransaction[]
+  bankTransactions      BankTransaction[]
 
   @@map("projects")
 }
@@ -387,16 +388,28 @@ model CostCenter {
   financialTransactions FinancialTransaction[]
   expenses              Expense[]
   fixedAssets           FixedAsset[]
+  bankTransactions      BankTransaction[]
 
   @@map("cost_centers")
 }
 
-/// Placeholder entity only. Account mapping, commission rules, and automatic
-/// journal entries are explicitly deferred — not implemented here.
+/// Google Sheets Readiness (2026-08-13) — every Payment Method must now
+/// identify its linked accounting account, so an imported/reconciled
+/// transaction always resolves to a real Chart of Accounts destination
+/// (spec section 5). Nullable at the DB level only because 4 rows already
+/// existed with no account (same nullable-for-backfill compromise as
+/// `PaymentSource.code`) — the Create DTO requires it for every new row,
+/// and the service never auto-creates the account itself (the user must
+/// create it first in Chart of Accounts).  Deliberately still has no
+/// Currency/Country field — a Payment Method identifies the channel +
+/// account only; Currency/Country belong to the transaction (spec 7/8).
 model PaymentMethod {
   id          String  @id @default(uuid()) @db.Uuid
   name        String  @unique
   description String?
+
+  accountId String?         @map("account_id") @db.Uuid
+  account   ChartOfAccount? @relation("PaymentMethodAccount", fields: [accountId], references: [id])
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -1313,6 +1326,14 @@ model ChartOfAccount {
   receivingAccounts     ReceivingAccount[]
   journalEntryLines     JournalEntryLine[]
 
+  /// Cash Flow module — accounts used as a direct Expense debit target.
+  financialTransactionsExpense FinancialTransaction[] @relation("FinancialTransactionExpenseAccount")
+  bankTransactionsExpense      BankTransaction[]      @relation("BankTransactionExpenseAccount")
+
+  /// Google Sheets Readiness — every Payment Method's required linked
+  /// accounting account (spec section 5).
+  paymentMethods PaymentMethod[] @relation("PaymentMethodAccount")
+
   /// TASK-046 (Accounting Posting Engine) — every role a Chart of Account
   /// can play for the Posting Engine's default/fallback account resolution.
   customersDefaultReceivable Customer[] @relation("CustomerDefaultReceivable")
@@ -1488,8 +1509,12 @@ model ReceivingAccount {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  payments              Payment[]
-  financialTransactions FinancialTransaction[]
+  payments                   Payment[]
+  financialTransactions      FinancialTransaction[]
+  /// Cash Flow module — the master-data "Cash Source" every imported Bank/
+  /// Cash Flow transaction maps to (never a free-text bank name for a new
+  /// import — see BankTransaction.cashSourceId).
+  bankTransactionsCashSource BankTransaction[]      @relation("BankTransactionCashSource")
 
   @@map("receiving_accounts")
 }
@@ -1563,27 +1588,60 @@ model Payment {
   @@map("payments")
 }
 
-/// Bank Statement import + reconciliation (Part 10) — step one of Bank
-/// Transaction -> Find Matching Order -> Match Payment -> Update Payment
-/// Status -> Create reconciliation record. Never auto-confirms a match —
-/// `PaymentAutoMatchingService` only classifies/scores candidates; a human
-/// always performs the actual "Confirm Match" write via
-/// `BankTransactionsService.confirmMatch()`, which reuses `PaymentsService
-/// .match()` (the existing manual "Match Payment" business operation)
-/// rather than a second, parallel matching mechanism.
+/// Bank Statement import + reconciliation (Part 10), extended into the Cash
+/// Flow module — step one of Bank Transaction -> Find Matching Order/
+/// Invoice -> Match/Reconcile -> Update Status -> Create reconciliation
+/// record. Never auto-confirms a match — `PaymentAutoMatchingService` /
+/// `CashFlowReconciliationService` only classify/score candidates; a human
+/// always performs the actual "Confirm Match" write, reusing the existing
+/// `PaymentsService.match()` (Store Orders) / `FinancialTransactionsService
+/// .confirm()` (B2B, Supplier Payment, Expense) business operations rather
+/// than a second, parallel matching or posting mechanism.
 enum BankTransactionMatchStatus {
   UNMATCHED
+  /// Shown to the user as "Suggested" — a scored candidate exists but
+  /// hasn't been confirmed.
   POTENTIAL
+  /// This transaction's amount was allocated across matched documents but
+  /// not fully consumed (e.g. a receipt partially allocated to invoices).
+  PARTIALLY_MATCHED
   MATCHED
+  /// Import-time duplicate (same fingerprint/external id already exists).
   DUPLICATE
+  /// The already-reconciled/posted transaction changed materially on a
+  /// later re-sync (amount/currency/date) — never silently re-posted.
+  CONFLICT
+  /// Ambiguous (tied candidates, or a conflict) — routed to a human, never
+  /// auto-resolved.
+  MANUAL_REVIEW
+}
+
+enum CashFlowDirection {
+  INCOMING
+  OUTGOING
+}
+
+/// Outgoing-only classification (spec: "NOT every cash movement is a bank
+/// reconciliation... Incoming and outgoing transactions have different
+/// accounting/business workflows"). Extensible — adding a value here later
+/// is a closed-set addition, never a second transaction table.
+enum CashFlowOutgoingType {
+  SUPPLIER_PAYMENT
+  EXPENSE
 }
 
 model BankTransaction {
   id String @id @default(uuid()) @db.Uuid
 
-  /// The bank's own transaction id, when the source provides one — many
-  /// bank exports don't, so this stays nullable; `fingerprint` (below) is
-  /// the real duplicate-safe identity, never this.
+  /// The source's own External Transaction ID. For a manually-uploaded raw
+  /// bank statement this often stays empty (many exports have none) and
+  /// `fingerprint` (below) remains the dedup identity; for a Cash Flow
+  /// Google Sheets sync row this is REQUIRED (enforced in
+  /// `BankTransactionsImportHandler`, not at the DB level, since the two
+  /// channels have different guarantees) and — together with `cashSourceId`
+  /// — is THE idempotency key: `@@unique([cashSourceId, transactionId])`
+  /// below. Scoped per cash source, not globally, since two different
+  /// banks/providers can legitimately reuse the same transaction id scheme.
   transactionId String? @map("transaction_id")
 
   transactionDate DateTime  @map("transaction_date")
@@ -1605,6 +1663,8 @@ model BankTransaction {
   currency   Currency? @relation(fields: [currencyId], references: [id])
 
   balance  Decimal? @db.Decimal(12, 2)
+  /// Raw source label, display-only — never the accounting mapping (that's
+  /// always `cashSourceId` below, once mapped).
   bankName String?  @map("bank_name")
   branch   String?
   notes    String?
@@ -1616,17 +1676,70 @@ model BankTransaction {
   /// never creates a duplicate row (upserted by this, not by row position).
   fingerprint String @unique
 
-  matchStatus     BankTransactionMatchStatus @default(UNMATCHED) @map("match_status")
-  /// The scored candidate list from the last `PaymentAutoMatchingService`
-  /// classification pass — display-only, recomputed on every matching run,
-  /// never hand-edited.
-  matchCandidates Json?                      @map("match_candidates")
+  /// Incoming vs Outgoing (Cash Flow spec section 1) — set once at import
+  /// time from the sync source's configured direction (or the sign of
+  /// `amount` for a manual upload), never recomputed afterward so it can't
+  /// drift if a correction changes the sign.
+  direction CashFlowDirection?
 
-  matchedPaymentId String?   @map("matched_payment_id") @db.Uuid
-  matchedPayment   Payment?  @relation(fields: [matchedPaymentId], references: [id])
-  matchedAt        DateTime? @map("matched_at")
-  matchedById      String?   @map("matched_by_id") @db.Uuid
-  matchedBy        User?     @relation("BankTransactionMatchedBy", fields: [matchedById], references: [id])
+  /// The Chart-of-Accounts-backed master-data "Cash Source" this row's raw
+  /// `bankName`/`account` text was mapped to (spec section 3 — "never a
+  /// free-text account name where the system already has a master-data
+  /// record"). Reuses `ReceivingAccount` — already "the real accounting
+  /// destination" master-data entity — rather than inventing a parallel
+  /// CashSource entity.
+  cashSourceId String?           @map("cash_source_id") @db.Uuid
+  cashSource   ReceivingAccount? @relation("BankTransactionCashSource", fields: [cashSourceId], references: [id])
+
+  /// Outgoing-only classification hint, usually supplied by the source
+  /// sheet's own "Transaction Type" column — drives which reconciliation
+  /// path (Purchase Invoice vs Payment Voucher) a human is offered.
+  outgoingType CashFlowOutgoingType? @map("outgoing_type")
+
+  /// Outgoing + EXPENSE only — the expense account an auto-generated
+  /// Payment Voucher (FinancialTransaction/EXPENSE_PAYMENT) should debit.
+  expenseAccountId String?         @map("expense_account_id") @db.Uuid
+  expenseAccount   ChartOfAccount? @relation("BankTransactionExpenseAccount", fields: [expenseAccountId], references: [id])
+
+  /// Outgoing + SUPPLIER_PAYMENT only — a classification hint from the
+  /// source row (e.g. a "Partner/Supplier" column), never itself the
+  /// reconciliation (that's `matchedFinancialTransactionId`).
+  partnerSupplierId String?   @map("partner_supplier_id") @db.Uuid
+  partnerSupplier   Supplier? @relation(fields: [partnerSupplierId], references: [id])
+
+  costCenterId String?     @map("cost_center_id") @db.Uuid
+  costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
+
+  projectId String?  @map("project_id") @db.Uuid
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  matchStatus     BankTransactionMatchStatus @default(UNMATCHED) @map("match_status")
+  /// The scored candidate list from the last `PaymentAutoMatchingService` /
+  /// `CashFlowReconciliationService` classification pass — display-only,
+  /// recomputed on every matching run, never hand-edited.
+  matchCandidates Json?                      @map("match_candidates")
+  /// Human-readable reason for CONFLICT/MANUAL_REVIEW — e.g. "amount
+  /// changed from 500.00 to 520.00 after this row was already reconciled".
+  conflictReason  String?                    @map("conflict_reason")
+
+  /// Incoming, Store Order path — reuses the existing `Payment`/
+  /// `PaymentsService.match()`/`StoreOrderPaymentSyncService` machinery
+  /// untouched (see model doc comment).
+  matchedPaymentId String?  @map("matched_payment_id") @db.Uuid
+  matchedPayment   Payment? @relation(fields: [matchedPaymentId], references: [id])
+
+  /// Incoming B2B / Outgoing Supplier Payment / Outgoing Expense paths —
+  /// the `FinancialTransaction` (Customer Receipt / Supplier Payment /
+  /// Expense Payment Voucher) this row was reconciled to or generated,
+  /// reusing `FinancialTransactionsService`/the Posting Engine untouched.
+  /// Checked before creating a new one on re-sync — the idempotency
+  /// guarantee for this reconciliation path.
+  matchedFinancialTransactionId String?               @map("matched_financial_transaction_id") @db.Uuid
+  matchedFinancialTransaction   FinancialTransaction? @relation(fields: [matchedFinancialTransactionId], references: [id])
+
+  matchedAt   DateTime? @map("matched_at")
+  matchedById String?   @map("matched_by_id") @db.Uuid
+  matchedBy   User?     @relation("BankTransactionMatchedBy", fields: [matchedById], references: [id])
 
   /// Which sync/import run created this row (Data Synchronization — Cash
   /// Flow) — set only on first insert, never overwritten on a later
@@ -1641,6 +1754,13 @@ model BankTransaction {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
+  /// Idempotency for a Cash-Flow-synced row (spec section 4) — scoped per
+  /// cash source since two different banks/providers can share the same
+  /// external id scheme; both nullable, so legacy/manual rows with neither
+  /// set are simply excluded from this guarantee (Postgres treats every
+  /// NULL as distinct), same as before this migration.
+  @@unique([cashSourceId, transactionId])
+  @@index([direction, matchStatus])
   @@map("bank_transactions")
 }
 
@@ -2459,14 +2579,16 @@ model Supplier {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  activities            SupplierActivity[]
-  purchaseOrders        PurchaseOrder[]
-  preferredForProducts  Product[]
-  purchaseQuotations    PurchaseQuotation[]
-  purchaseInvoices      PurchaseInvoice[]
-  purchaseReturns       PurchaseReturn[]
-  financialTransactions FinancialTransaction[]
-  journalEntries        JournalEntry[]         @relation("JournalEntryPartnerSupplier")
+  activities              SupplierActivity[]
+  purchaseOrders          PurchaseOrder[]
+  preferredForProducts    Product[]
+  purchaseQuotations      PurchaseQuotation[]
+  purchaseInvoices        PurchaseInvoice[]
+  purchaseReturns         PurchaseReturn[]
+  financialTransactions   FinancialTransaction[]
+  journalEntries          JournalEntry[]         @relation("JournalEntryPartnerSupplier")
+  /// Cash Flow module — outgoing transactions the sync/import row hinted are this supplier (classification only, before a Supplier Payment Voucher is created).
+  bankTransactionsPartner BankTransaction[]
 
   @@map("suppliers")
 }
@@ -4194,6 +4316,12 @@ model MasterDataActivityLog {
 enum FinancialTransactionType {
   CUSTOMER_RECEIPT
   SUPPLIER_PAYMENT
+  /// Cash Flow module — an outgoing transaction classified as an Expense
+  /// (never a Supplier Payment): debits `expenseAccountId` directly instead
+  /// of resolving Accounts Payable via AccountMappingService, and
+  /// `supplierId`/`customerId` both stay null. Reuses this exact model/
+  /// service/Confirm-posts workflow — never a second "Expense Journal".
+  EXPENSE_PAYMENT
 }
 
 /// Deliberately minimal — no Submit/Approve step was requested for
@@ -4218,6 +4346,11 @@ model FinancialTransaction {
 
   supplierId String?   @map("supplier_id") @db.Uuid
   supplier   Supplier? @relation(fields: [supplierId], references: [id])
+
+  /// Only set when `type = EXPENSE_PAYMENT` — the account debited directly
+  /// (Marketing Expense, ...) instead of resolving Accounts Payable.
+  expenseAccountId String?         @map("expense_account_id") @db.Uuid
+  expenseAccount   ChartOfAccount? @relation("FinancialTransactionExpenseAccount", fields: [expenseAccountId], references: [id])
 
   currencyId String?   @map("currency_id") @db.Uuid
   currency   Currency? @relation(fields: [currencyId], references: [id])
@@ -4274,8 +4407,12 @@ model FinancialTransaction {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  allocations FinancialTransactionAllocation[]
-  activities  FinancialTransactionActivity[]
+  allocations               FinancialTransactionAllocation[]
+  activities                FinancialTransactionActivity[]
+  /// Cash Flow module — the Bank/Cash Flow Transaction(s) this voucher was
+  /// generated/matched from, if any (never set for a manually-created
+  /// voucher). Traceability back to the original imported row.
+  matchedByBankTransactions BankTransaction[]
 
   @@map("financial_transactions")
 }

@@ -1,5 +1,5 @@
 import { apiClient } from "./api-client";
-import type { ShipmentStatusValue } from "./store-orders-service";
+import type { ShipmentStatusValue, StoreOrderSourceValue } from "./store-orders-service";
 
 export type { ShipmentStatusValue };
 
@@ -33,6 +33,8 @@ export interface ShipmentListParams {
   status?: ShipmentStatusValue;
   shippingCompanyId?: string;
   countryId?: string;
+  /** The shipment's own Store Order's `source` (Manual vs Import) — same field/values as the Store Orders list filter. */
+  source?: StoreOrderSourceValue;
   dateFrom?: string;
   dateTo?: string;
   search?: string;

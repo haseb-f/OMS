@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { ControllerRenderProps, FieldValues, UseFormReturn } from "react-hook-form";
 import {
   Form,
@@ -27,18 +28,34 @@ import {
   type PhoneCountryOption,
 } from "@/components/shared/phone-country-selector";
 import { OMSPhoneInput } from "@/components/shared/phone-input";
+import { AccountPicker } from "@/components/business/account-picker";
+import { createMasterDataService } from "@/services/master-data-service";
+import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
+
+const accountsService = createMasterDataService<ChartOfAccountRow>("/chart-of-accounts");
 
 export interface MasterDataFormField {
   name: string;
   /** An i18n key, not literal text — Arabic is the default locale (see nav.config.ts convention). */
   label: MessageKey;
-  type: "text" | "textarea" | "number" | "date" | "select" | "boolean" | "country" | "phone";
+  type:
+    | "text"
+    | "textarea"
+    | "number"
+    | "date"
+    | "select"
+    | "boolean"
+    | "country"
+    | "phone"
+    | "account";
   required?: boolean;
   placeholder?: string;
   /** Pre-resolved display text (translated or a raw entity name) — the page builds this via `t()`/live data, not a MessageKey itself. */
   options?: { value: string; label: string }[];
+  /** `type: "account"` only — restricts the picker to leaf/posting accounts (e.g. Payment Method's linked account must never be a header account). */
+  postingOnly?: boolean;
   description?: string;
   /**
    * `type: "phone"` only — the sibling field holding the selected
@@ -91,6 +108,54 @@ function PhoneFormField<TFieldValues extends FieldValues>({
       onBlur={rhfField.onBlur}
       countryCode={countryCode}
       placeholder={field.placeholder}
+    />
+  );
+}
+
+/** Resolves a `type: "account"` field's stored id (a bare `ChartOfAccount.id`) to the full row `AccountPicker` needs to display code/name — fetched once per id, e.g. when an Edit modal opens with an already-linked account. */
+function AccountFormField<TFieldValues extends FieldValues>({
+  rhfField,
+  postingOnly,
+  placeholder,
+}: {
+  rhfField: ControllerRenderProps<TFieldValues, never>;
+  postingOnly?: boolean;
+  placeholder?: string;
+}) {
+  const id = rhfField.value as string | undefined;
+  const [resolved, setResolved] = useState<ChartOfAccountRow | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setResolved(null);
+      return;
+    }
+    if (resolved?.id === id) return;
+    accountsService
+      .get(id)
+      .then((account) => {
+        if (!cancelled) setResolved(account);
+      })
+      .catch(() => {
+        if (!cancelled) setResolved(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  return (
+    <AccountPicker
+      value={resolved}
+      onChange={(account) => {
+        setResolved(account);
+        rhfField.onChange(account?.id ?? undefined);
+      }}
+      postingOnly={postingOnly}
+      placeholder={placeholder}
     />
   );
 }
@@ -183,6 +248,12 @@ function FormFieldGrid<TFieldValues extends FieldValues>({
                         form={form}
                         field={field}
                         countries={countries ?? []}
+                      />
+                    ) : field.type === "account" ? (
+                      <AccountFormField
+                        rhfField={rhfField}
+                        postingOnly={field.postingOnly}
+                        placeholder={field.placeholder}
                       />
                     ) : (
                       <Input

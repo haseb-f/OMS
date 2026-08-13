@@ -24,7 +24,7 @@ import {
 import { shipmentStatusLabelKey, shipmentStatusTone } from "@/config/shipping/shipment-status";
 import { storeOrdersService } from "@/services/store-orders-service";
 import type { ShipmentListRow } from "@/services/shipping-service";
-import type { ShippingMethodRow } from "@/config/master-data/entities";
+import type { ShippingCompanyOption } from "@/services/shipping-companies-service";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
@@ -48,7 +48,7 @@ export function ShipmentManageDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdated: () => void;
-  shippingCompanies: ShippingMethodRow[];
+  shippingCompanies: ShippingCompanyOption[];
 }) {
   const { t } = useLocale();
   const [companyId, setCompanyId] = useState("");

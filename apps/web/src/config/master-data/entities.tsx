@@ -165,6 +165,8 @@ export interface PaymentMethodRow {
   id: string;
   name: string;
   description: string | null;
+  accountId: string | null;
+  account: { id: string; code: string; name: string } | null;
   deletedAt: string | null;
 }
 
@@ -822,21 +824,37 @@ export const journalRowLabel = (row: JournalRow) => `${row.code} — ${row.name}
 export const paymentMethodsColumns: ColumnDef<PaymentMethodRow, unknown>[] = [
   textColumn("name", "masterData.fields.name", (r) => r.name),
   textColumn("description", "masterData.fields.description", (r) => r.description),
+  textColumn("account", "masterData.fields.account", (r) =>
+    r.account ? `${r.account.code} — ${r.account.name}` : null,
+  ),
   statusColumn<PaymentMethodRow>(),
 ];
 
 export const paymentMethodsFormFields: MasterDataFormField[] = [
   { name: "name", label: "masterData.fields.name", type: "text", required: true },
   { name: "description", label: "masterData.fields.description", type: "textarea" },
+  {
+    name: "accountId",
+    label: "masterData.fields.account",
+    type: "account",
+    required: true,
+    postingOnly: true,
+  },
 ];
 
 export const paymentMethodsSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional().or(z.literal("")),
+  accountId: z.string().uuid(),
 });
 
-export const paymentMethodsDefaultValues = { name: "", description: "" };
+export const paymentMethodsDefaultValues = { name: "", description: "", accountId: "" };
 export const paymentMethodsExportColumns = ["name"];
+export const paymentMethodsToFormValues = (row: PaymentMethodRow) => ({
+  name: row.name,
+  description: row.description ?? "",
+  accountId: row.accountId ?? "",
+});
 export const paymentMethodRowLabel = (row: PaymentMethodRow) => row.name;
 
 // ---------------------------------------------------------------------------

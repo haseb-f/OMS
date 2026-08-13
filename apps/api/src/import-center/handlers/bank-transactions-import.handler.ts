@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
 import { createHash } from 'crypto';
+import { CashFlowDirection, CashFlowOutgoingType } from '@prisma/client';
 import { BankTransactionsService } from '../../bank-transactions/bank-transactions.service';
 import { ImportTypeRegistryService } from '../import-type-registry.service';
 import { ReferenceDataRegistryService } from '../reference-data/reference-data-registry.service';
@@ -14,7 +15,7 @@ const FIELDS: ImportFieldDef[] = [
   {
     key: 'transactionId',
     labelKey: 'importCenter.fields.bankTransactionId',
-    label: 'Transaction ID',
+    label: 'External Transaction ID',
     required: false,
     type: 'string',
   },
@@ -32,6 +33,14 @@ const FIELDS: ImportFieldDef[] = [
     label: 'Value Date',
     required: false,
     type: 'date',
+  },
+  {
+    key: 'cashSourceCode',
+    labelKey: 'importCenter.fields.cashSource',
+    label: 'Cash Source',
+    required: false,
+    type: 'string',
+    referenceType: 'CASH_SOURCE',
   },
   {
     key: 'account',
@@ -105,6 +114,49 @@ const FIELDS: ImportFieldDef[] = [
     required: false,
     type: 'string',
   },
+  // --- Outgoing-only classification (spec section 12) — ignored for an
+  // Incoming row, never required there. ---
+  {
+    key: 'transactionType',
+    labelKey: 'importCenter.fields.cashFlowOutgoingType',
+    label: 'Transaction Type (Outgoing only)',
+    required: false,
+    type: 'string',
+    options: ['SUPPLIER_PAYMENT', 'EXPENSE'],
+  },
+  {
+    key: 'accountCode',
+    labelKey: 'importCenter.fields.expenseAccount',
+    label: 'Account (Expense — required when Transaction Type = EXPENSE)',
+    required: false,
+    type: 'string',
+    referenceType: 'CHART_OF_ACCOUNT',
+  },
+  {
+    key: 'partnerSupplierCode',
+    labelKey: 'importCenter.fields.partnerSupplier',
+    label:
+      'Partner/Supplier (required when Transaction Type = SUPPLIER_PAYMENT)',
+    required: false,
+    type: 'string',
+    referenceType: 'SUPPLIER',
+  },
+  {
+    key: 'costCenterCode',
+    labelKey: 'importCenter.fields.costCenter',
+    label: 'Cost Center',
+    required: false,
+    type: 'string',
+    referenceType: 'COST_CENTER',
+  },
+  {
+    key: 'projectCode',
+    labelKey: 'importCenter.fields.project',
+    label: 'Project',
+    required: false,
+    type: 'string',
+    referenceType: 'PROJECT',
+  },
   {
     key: 'notes',
     labelKey: 'importCenter.fields.notes',
@@ -115,29 +167,27 @@ const FIELDS: ImportFieldDef[] = [
 ];
 
 /**
- * Bank Statement / Cash Flow Import (Part 6/9/10; Data Synchronization) —
- * step one of Bank Transaction -> Find Matching Order -> Match Payment ->
- * Update Payment Status -> Create reconciliation record (the remaining
- * steps live in `BankTransactionsService`/`PaymentAutoMatchingService`,
- * triggered separately from the review screen, never automatically from
- * here). This is also the one handler behind the "Cash Flow" sync source
- * (banks, wallets, gateways, BNPL providers — never hardcoded): a Cash Flow
- * worksheet's provider label reaches every row via `options.context.provider`
- * (falls back into `bankName` only when the sheet itself has no Bank Name
- * column), and `options.context.importJobId` links the created/updated row
- * back to the sync run that produced it — see `ImportJob.rowDefaults`.
- * Manual CSV/XLSX bank-statement uploads never set `context`, so both paths
- * share this one handler without a parallel import system.
+ * Cash Flow Import (Bank Statement upload + Google Sheets Data
+ * Synchronization) — step one of Cash Flow Transaction -> Classify
+ * Incoming/Outgoing -> Reconcile/Voucher -> Posting Engine -> Journal Entry
+ * (the remaining steps live in `CashFlowReconciliationService`, triggered
+ * separately from the review screen, never automatically from here — spec
+ * section 24: "Importing a transaction ≠ approving it").
  *
- * Every bank exports differently — some give a single signed `amount`
- * column, others separate `debit`/`credit` columns — so both are accepted
- * and normalized to one signed `amount` here (credit positive, debit
- * negative), never assuming one shape. Deduplication never relies on row
- * position or a bank-supplied transaction ID (many exports have none): a
- * deterministic fingerprint of date+amount+reference+description+account+
- * currency is computed for every row and upserted by that
- * (`BankTransactionsService.upsertFromImport`), so a reimported statement
- * recognizes the same row even if it shifted to a different line.
+ * Two source channels share this one handler, never a parallel importer:
+ *
+ *   - Manual CSV/XLSX bank-statement upload — `options.context` is unset.
+ *     External Transaction ID and Cash Source mapping stay OPTIONAL (many
+ *     raw exports have neither), and `fingerprint` (below) remains the
+ *     dedup identity, exactly as before this module.
+ *   - Google Sheets Cash Flow sync (`SyncSourceConfig{sourceType:
+ *     CASH_FLOW}`) — `options.context.direction`/`.cashSourceHint` are set
+ *     by `SyncOrchestratorService` from the sync source's own
+ *     configuration (spec section 2: one Incoming and one Outgoing Google
+ *     Sheet, tabs = accounts/providers). Here, External Transaction ID
+ *     AND a resolved Cash Source are REQUIRED (spec sections 3/4) — this
+ *     is the one place that rule is enforced, never at the DB level, since
+ *     the two channels have different guarantees.
  */
 @Injectable()
 export class BankTransactionsImportHandler
@@ -164,8 +214,15 @@ export class BankTransactionsImportHandler
     _userId?: string,
     options?: ImportRowOptions,
   ): Promise<ImportRowResult> {
+    const isGoogleSheetsSync = options?.context?.source === 'GOOGLE_SHEETS';
     const provider = options?.context?.provider;
     const importJobId = options?.context?.importJobId;
+    // Set by `SyncOrchestratorService` from the sync source's own
+    // configured direction (spec section 2 — one Incoming and one Outgoing
+    // Google Sheet, never inferred/guessed for a Cash Flow sync row).
+    const contextDirection = options?.context?.direction as
+      CashFlowDirection | undefined;
+
     const transactionDate = parseDate(row.transactionDate, 'Transaction Date');
     const valueDate = row.valueDate
       ? parseDate(row.valueDate, 'Value Date')
@@ -186,6 +243,12 @@ export class BankTransactionsImportHandler
       );
     }
 
+    if (isGoogleSheetsSync && !row.transactionId?.trim()) {
+      throw new BadRequestException(
+        'External Transaction ID is required for a Cash Flow Google Sheets row.',
+      );
+    }
+
     const currencyId = await this.referenceData.resolveOptional(
       'CURRENCY',
       'code',
@@ -196,17 +259,85 @@ export class BankTransactionsImportHandler
     // The sheet's own Bank Name column wins when present (a manual
     // multi-bank statement upload, or a Cash Flow tab that happens to
     // include one); otherwise fall back to the worksheet's configured
-    // provider label (Cash Flow sync — see the handler doc comment).
+    // provider label.
     const bankName = row.bankName || provider || undefined;
+
+    const cashSourceId = await this.referenceData.resolveOptional(
+      'CASH_SOURCE',
+      'name',
+      row.cashSourceCode,
+      'Cash Source',
+    );
+    if (isGoogleSheetsSync && !cashSourceId) {
+      throw new BadRequestException(
+        'Cash Source is required for a Cash Flow Google Sheets row — map it to an existing Receiving Account, never a free-text bank name.',
+      );
+    }
+
+    const direction: CashFlowDirection | undefined =
+      contextDirection ??
+      (isGoogleSheetsSync
+        ? undefined
+        : amount >= 0
+          ? CashFlowDirection.INCOMING
+          : CashFlowDirection.OUTGOING);
+
+    const outgoingType = row.transactionType?.trim().toUpperCase() as
+      CashFlowOutgoingType | undefined;
+    if (
+      outgoingType &&
+      !Object.values(CashFlowOutgoingType).includes(outgoingType)
+    ) {
+      throw new BadRequestException(
+        `Transaction Type must be one of: ${Object.values(CashFlowOutgoingType).join(', ')}.`,
+      );
+    }
+
+    const expenseAccountId = await this.referenceData.resolveOptional(
+      'CHART_OF_ACCOUNT',
+      'code',
+      row.accountCode,
+      'Account',
+    );
+    if (outgoingType === CashFlowOutgoingType.EXPENSE && !expenseAccountId) {
+      throw new BadRequestException(
+        'Account (Expense) is required when Transaction Type is EXPENSE.',
+      );
+    }
+    const partnerSupplierId = await this.referenceData.resolveOptional(
+      'SUPPLIER',
+      'name',
+      row.partnerSupplierCode,
+      'Partner/Supplier',
+    );
+    if (
+      outgoingType === CashFlowOutgoingType.SUPPLIER_PAYMENT &&
+      !partnerSupplierId
+    ) {
+      throw new BadRequestException(
+        'Partner/Supplier is required when Transaction Type is SUPPLIER_PAYMENT.',
+      );
+    }
+    const costCenterId = await this.referenceData.resolveOptional(
+      'COST_CENTER',
+      'code',
+      row.costCenterCode,
+      'Cost Center',
+    );
+    const projectId = await this.referenceData.resolveOptional(
+      'PROJECT',
+      'code',
+      row.projectCode,
+      'Project',
+    );
 
     // Deliberately unchanged from the pre-Cash-Flow formula (date+amount+
     // reference+description+account+currency only) — folding `bankName`/
-    // `provider` in here would silently change the fingerprint of every
-    // already-imported bank transaction and duplicate it on the next
-    // re-sync. A Cash Flow provider with no natural `account` value should
-    // instead map a stable per-provider value (its own transaction/
-    // reference id, or the provider name itself) into `account` or
-    // `reference` when configuring that source's column mapping.
+    // `provider`/`transactionId` in here would silently change the
+    // fingerprint of every already-imported row. `transactionId`+
+    // `cashSourceId` is the REAL idempotency key when both are present
+    // (`BankTransactionsService.upsertFromImport`) — this fingerprint stays
+    // only as the fallback for a source with neither.
     const fingerprint = computeFingerprint({
       transactionDate,
       amount,
@@ -237,8 +368,19 @@ export class BankTransactionsImportHandler
       importJobId: importJobId || undefined,
       branch: row.branch || undefined,
       notes: row.notes || undefined,
+      direction,
+      cashSourceId,
+      outgoingType,
+      expenseAccountId,
+      partnerSupplierId,
+      costCenterId,
+      projectId,
     });
 
+    // A CONFLICT is still a successful import (the row was safely written/
+    // recognized) — it's surfaced to the user via `matchStatus: CONFLICT`
+    // on the row itself, never as an import error (spec section 20: "do
+    // not silently overwrite... mark it for review", not "fail the sync").
     return { id: result.id };
   }
 }

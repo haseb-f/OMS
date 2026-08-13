@@ -3,6 +3,7 @@ import { CustomerReceiptsController } from './receipts/customer-receipts.control
 import { CustomerReceiptActivitiesController } from './receipts/activities/customer-receipt-activities.controller';
 import { SupplierPaymentsController } from './payments/supplier-payments.controller';
 import { SupplierPaymentActivitiesController } from './payments/activities/supplier-payment-activities.controller';
+import { ExpensePaymentsController } from './expenses/expense-payments.controller';
 import { FinancialTransactionsService } from './financial-transactions.service';
 import { FinancialTransactionActivityService } from './activities/financial-transaction-activity.service';
 import { CustomersModule } from '../customers/customers.module';
@@ -29,6 +30,7 @@ import { PostingEngineModule } from '../accounting/posting-engine/posting-engine
     CustomerReceiptActivitiesController,
     SupplierPaymentsController,
     SupplierPaymentActivitiesController,
+    ExpensePaymentsController,
   ],
   providers: [
     FinancialTransactionsService,

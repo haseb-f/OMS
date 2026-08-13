@@ -61,6 +61,8 @@ export interface CreateSyncSourcePayload {
   label: string;
   spreadsheetUrl: string;
   columnMapping: Record<string, string>;
+  /** CASH_FLOW only — `{ direction: "INCOMING" | "OUTGOING" }` (Cash Flow spec section 2: one Incoming and one Outgoing Google Sheet, each tab = one cash source/direction pairing). */
+  configMetadata?: Record<string, unknown>;
 }
 
 export interface UpdateSyncSourcePayload {
@@ -68,6 +70,7 @@ export interface UpdateSyncSourcePayload {
   enabled?: boolean;
   spreadsheetUrl?: string;
   columnMapping?: Record<string, string>;
+  configMetadata?: Record<string, unknown>;
 }
 
 /**

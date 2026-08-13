@@ -201,6 +201,15 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
     actions: paymentActions('purchasing.payments'),
   },
   {
+    // Cash Flow module — the "Payment Voucher" for an outgoing transaction
+    // classified as an Expense (never a Supplier Payment). Distinct from
+    // `supplier-payments` since it's a separate business decision (no
+    // party, direct expense-account debit), not a variant of the same one.
+    key: 'expense-payments',
+    labelKey: 'permissions.modules.expensePayments',
+    actions: paymentActions('accounting.expense-payments'),
+  },
+  {
     key: 'journal-entries',
     labelKey: 'permissions.modules.journalEntries',
     actions: [
@@ -383,6 +392,7 @@ export const IMPLIED_SECTION_PERMISSION: Record<string, string> = {
   'purchasing.invoices': 'purchasing.view',
   'purchasing.returns': 'purchasing.view',
   'purchasing.payments': 'finance.view',
+  'accounting.expense-payments': 'finance.view',
   products: 'products.view',
   inventory: 'inventory.view',
   'inventory.opening-stock': 'inventory.view',

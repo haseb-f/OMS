@@ -77,6 +77,8 @@
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
 }
 
 /*
@@ -109,6 +111,15 @@
   --success-foreground: oklch(0.985 0 0);
   --warning: oklch(0.77 0.15 78);
   --warning-foreground: oklch(0.28 0.06 78);
+  /* Operational blue (ADR-0017 addendum) — a deliberately more saturated
+     blue than --secondary's restrained low-emphasis tint, reserved for
+     system-level/controlled operations (Data Synchronization) that must
+     read as distinct from both primary green (committed actions) and
+     ordinary secondary buttons. Same hue as --chart-2, so a sync action
+     reads as visually related to the sync/system iconography already used
+     elsewhere, never an arbitrary new color. */
+  --info: oklch(0.546 0.245 262.881);
+  --info-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.928 0.006 90);
   --input: oklch(0.928 0.006 90);
@@ -159,6 +170,8 @@
   --success-foreground: oklch(0.145 0 0);
   --warning: oklch(0.78 0.14 78);
   --warning-foreground: oklch(0.22 0.05 78);
+  --info: oklch(0.623 0.214 259.815);
+  --info-foreground: oklch(0.145 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);

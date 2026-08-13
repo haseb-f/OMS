@@ -7,6 +7,7 @@ import { CurrenciesService } from '../../currencies/currencies.service';
 import { UsersService } from '../../users/users.service';
 import { ProductsService } from '../../products/products.service';
 import { ImportTypeRegistryService } from '../import-type-registry.service';
+import { ReferenceDataRegistryService } from '../reference-data/reference-data-registry.service';
 import {
   resolveOptionalIdByField,
   resolveRequiredIdByField,
@@ -118,6 +119,7 @@ const FIELDS: ImportFieldDef[] = [
     label: 'Payment Method',
     required: false,
     type: 'string',
+    referenceType: 'PAYMENT_METHOD',
   },
   {
     key: 'receipt1',
@@ -153,6 +155,8 @@ const FIELDS: ImportFieldDef[] = [
     label: 'Employee',
     required: false,
     type: 'string',
+    referenceType: 'EMPLOYEE',
+    referenceMatchField: 'code',
   },
 ];
 
@@ -189,6 +193,7 @@ export class OrdersImportHandler implements ImportTypeHandler, OnModuleInit {
     private readonly productsService: ProductsService,
     private readonly registry: ImportTypeRegistryService,
     private readonly phoneNumberService: PhoneNumberService,
+    private readonly referenceData: ReferenceDataRegistryService,
   ) {}
 
   onModuleInit() {
@@ -237,6 +242,17 @@ export class OrdersImportHandler implements ImportTypeHandler, OnModuleInit {
       'Product',
     );
     const salesEmployeeId = await this.resolveAgent(row.agentEmail);
+    // Validates the label against real Payment Method master data (spec
+    // section 9) — still stored as free text via
+    // `recordImportedOrderDetails` below since `Lead` has no dedicated FK
+    // column for it, same "no dedicated column yet" scoping as Receipts/
+    // Notes on this same call.
+    await this.referenceData.resolveOptional(
+      'PAYMENT_METHOD',
+      'name',
+      row.paymentMethodLabel,
+      'Payment Method',
+    );
 
     // Validated here too (not just inside LeadsService.create()) so the
     // dry-run validation pass — which returns before create() is ever

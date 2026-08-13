@@ -15,6 +15,14 @@ const enterpriseButtonVariants = cva(
           "border-border bg-linear-to-b from-card to-card/95 text-foreground shadow-xs not-disabled:hover:bg-primary/5 not-disabled:hover:text-primary not-disabled:hover:shadow-sm not-disabled:hover:border-primary/40 aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:not-disabled:hover:bg-primary/10",
         secondary:
           "bg-linear-to-b from-secondary to-secondary/95 text-secondary-foreground border-black/10 dark:border-white/12 shadow-xs not-disabled:hover:shadow-sm not-disabled:hover:brightness-[1.03] not-disabled:hover:border-black/16 dark:not-disabled:hover:border-white/18 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+        // Operational blue — system-level/controlled operations (Data
+        // Synchronization) that must read as more consequential than an
+        // ordinary secondary button, never as loud/alarming as destructive.
+        // Hover deliberately darkens (brightness dip) rather than
+        // lightening, unlike every other variant here — a deeper blue reads
+        // as "engaged", matching the requested "slightly darker/deeper"
+        // hover feedback.
+        info: "bg-linear-to-b from-info to-info/95 text-info-foreground border-black/18 dark:border-white/18 shadow-xs not-disabled:hover:shadow-md not-disabled:hover:brightness-90 not-disabled:hover:border-black/25 dark:not-disabled:hover:border-white/25 aria-expanded:brightness-90",
         ghost:
           "not-disabled:hover:bg-primary/8 not-disabled:hover:text-primary not-disabled:hover:border-black/5 not-disabled:hover:shadow-xs dark:not-disabled:hover:border-white/10 aria-expanded:bg-muted aria-expanded:text-foreground dark:not-disabled:hover:bg-primary/15",
         destructive:

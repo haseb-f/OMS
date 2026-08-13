@@ -1,5 +1,10 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Prisma, ShipmentStatus, ShippingCostPayer } from '@prisma/client';
+import {
+  Prisma,
+  ShipmentStatus,
+  ShippingCostPayer,
+  StoreOrderSource,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 /**
@@ -254,6 +259,7 @@ export class StoreOrderShipmentsService {
     status?: ShipmentStatus;
     shippingCompanyId?: string;
     countryId?: string;
+    source?: StoreOrderSource;
     search?: string;
     dateFrom?: string;
     dateTo?: string;
@@ -264,13 +270,13 @@ export class StoreOrderShipmentsService {
       status: query.status,
       shippingCompanyId: query.shippingCompanyId,
     };
-    /// Both the free-text search and the Country filter (Part 2 of the
-    /// four-gaps task) resolve through the same `storeOrder.customer`
-    /// relation — a customer's Country is the shipment's Country, there is
-    /// no separate shipping-address concept in this pipeline yet — so they
-    /// combine into one `storeOrder` filter object rather than two
-    /// conflicting ones.
-    if (query.search || query.countryId) {
+    /// The free-text search, the Country filter (Part 2 of the four-gaps
+    /// task), and the Source filter all resolve through the same
+    /// `storeOrder` relation (Country via `storeOrder.customer` — there is
+    /// no separate shipping-address concept in this pipeline yet; Source is
+    /// the order's own `source` column) — so they combine into one
+    /// `storeOrder` filter object rather than several conflicting ones.
+    if (query.search || query.countryId || query.source) {
       where.storeOrder = {
         ...(query.search
           ? {
@@ -302,6 +308,7 @@ export class StoreOrderShipmentsService {
         ...(query.countryId
           ? { customer: { countryId: query.countryId } }
           : {}),
+        ...(query.source ? { source: query.source } : {}),
       };
     }
     if (query.dateFrom || query.dateTo) {
@@ -319,6 +326,7 @@ export class StoreOrderShipmentsService {
     status?: ShipmentStatus;
     shippingCompanyId?: string;
     countryId?: string;
+    source?: StoreOrderSource;
     search?: string;
     dateFrom?: string;
     dateTo?: string;
@@ -349,6 +357,7 @@ export class StoreOrderShipmentsService {
     status?: ShipmentStatus;
     shippingCompanyId?: string;
     countryId?: string;
+    source?: StoreOrderSource;
     search?: string;
     dateFrom?: string;
     dateTo?: string;

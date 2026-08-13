@@ -31,11 +31,13 @@ import type { FindFinancialTransactionsQueryDto } from './shared/find-financial-
 const NUMBERING_DOCUMENT_TYPE: Record<FinancialTransactionType, string> = {
   CUSTOMER_RECEIPT: 'CUSTOMER_RECEIPT',
   SUPPLIER_PAYMENT: 'SUPPLIER_PAYMENT',
+  EXPENSE_PAYMENT: 'EXPENSE_PAYMENT',
 };
 
 const TRANSACTION_INCLUDE = {
   customer: true,
   supplier: true,
+  expenseAccount: true,
   currency: true,
   paymentSource: true,
   receivingAccount: true,
@@ -54,6 +56,8 @@ const TRANSACTION_INCLUDE = {
 export interface FinancialTransactionCreateInput {
   customerId?: string;
   supplierId?: string;
+  /** EXPENSE_PAYMENT only — the account debited directly instead of resolving Accounts Payable. */
+  expenseAccountId?: string;
   currencyId?: string;
   /** TASK-051 Document Context Enrichment — optional cost attribution, never required. */
   costCenterId?: string;
@@ -129,6 +133,8 @@ export class FinancialTransactionsService {
               type === 'CUSTOMER_RECEIPT' ? dto.customerId : undefined,
             supplierId:
               type === 'SUPPLIER_PAYMENT' ? dto.supplierId : undefined,
+            expenseAccountId:
+              type === 'EXPENSE_PAYMENT' ? dto.expenseAccountId : undefined,
             currencyId: dto.currencyId,
             companyId: context.companyId ?? undefined,
             branchId: context.branchId ?? undefined,
@@ -263,6 +269,10 @@ export class FinancialTransactionsService {
             : undefined,
           paymentSourceId: dto.paymentSourceId,
           receivingAccountId: dto.receivingAccountId,
+          expenseAccountId:
+            existing.type === 'EXPENSE_PAYMENT'
+              ? dto.expenseAccountId
+              : undefined,
           amount: dto.amount,
           referenceNumber: dto.referenceNumber,
           notes: dto.notes,
@@ -592,7 +602,11 @@ export class FinancialTransactionsService {
 
   private async assertActiveParty(
     type: FinancialTransactionType,
-    dto: { customerId?: string; supplierId?: string },
+    dto: {
+      customerId?: string;
+      supplierId?: string;
+      expenseAccountId?: string;
+    },
   ): Promise<string> {
     if (type === 'CUSTOMER_RECEIPT') {
       if (!dto.customerId) {
@@ -602,6 +616,27 @@ export class FinancialTransactionsService {
       }
       await this.customersService.assertActiveCustomer(dto.customerId);
       return dto.customerId;
+    }
+    if (type === 'EXPENSE_PAYMENT') {
+      if (!dto.expenseAccountId) {
+        throw new BadRequestException(
+          'expenseAccountId is required for an Expense Payment Voucher.',
+        );
+      }
+      const account = await this.prisma.chartOfAccount.findFirst({
+        where: { id: dto.expenseAccountId, deletedAt: null },
+      });
+      if (!account) {
+        throw new BadRequestException('Expense account not found.');
+      }
+      if (!account.allowsPosting) {
+        throw new BadRequestException(
+          `"${account.name}" is a header account and cannot be posted to directly — choose a leaf expense account.`,
+        );
+      }
+      // No party (customer/supplier) — allocations never apply to an
+      // Expense Payment Voucher, so the returned id is never used.
+      return '';
     }
     if (!dto.supplierId) {
       throw new BadRequestException(
@@ -721,8 +756,8 @@ export class FinancialTransactionsService {
   }
 
   private label(type: FinancialTransactionType): string {
-    return type === 'CUSTOMER_RECEIPT'
-      ? 'Customer Receipt Voucher'
-      : 'Supplier Payment Voucher';
+    if (type === 'CUSTOMER_RECEIPT') return 'Customer Receipt Voucher';
+    if (type === 'EXPENSE_PAYMENT') return 'Expense Payment Voucher';
+    return 'Supplier Payment Voucher';
   }
 }

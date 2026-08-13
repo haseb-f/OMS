@@ -182,6 +182,7 @@ function CreateSourceDialog({
   const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
   const [fields, setFields] = useState<ImportFieldDef[]>([]);
   const [mapping, setMapping] = useState<Record<string, string>>({});
+  const [cashFlowDirection, setCashFlowDirection] = useState<"INCOMING" | "OUTGOING">("INCOMING");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -200,7 +201,13 @@ function CreateSourceDialog({
   const handleCreate = async () => {
     setSaving(true);
     try {
-      await syncService.createSource({ sourceType, label, spreadsheetUrl, columnMapping: mapping });
+      await syncService.createSource({
+        sourceType,
+        label,
+        spreadsheetUrl,
+        columnMapping: mapping,
+        ...(sourceType === "CASH_FLOW" ? { configMetadata: { direction: cashFlowDirection } } : {}),
+      });
       toast.success(t("importCenter.sync.sources.created"));
       setLabel("");
       setSpreadsheetUrl("");
@@ -249,6 +256,28 @@ function CreateSourceDialog({
               />
             </div>
           </div>
+
+          {sourceType === "CASH_FLOW" && (
+            <div className="flex flex-col gap-1.5">
+              <Label>{t("masterData.bankTransactions.fields.classification")}</Label>
+              <Select
+                value={cashFlowDirection}
+                onValueChange={(v) => setCashFlowDirection(v as "INCOMING" | "OUTGOING")}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="INCOMING">
+                    {t("masterData.bankTransactions.tabs.incoming")}
+                  </SelectItem>
+                  <SelectItem value="OUTGOING">
+                    {t("masterData.bankTransactions.tabs.outgoing")}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="flex flex-col gap-1.5">
             <Label>{t("importCenter.wizard.googleSheets.urlLabel")}</Label>

@@ -344,6 +344,28 @@ export class ReferenceDataSourcesService implements OnModuleInit {
             active: true,
           })),
       },
+      {
+        // Cash Flow module (spec section 3) — "every cash source must be
+        // linked to an existing account in the Chart of Accounts... never a
+        // free-text account name." Reuses `ReceivingAccount`, already "the
+        // real accounting destination" master-data entity, never a second
+        // CashSource table.
+        type: 'CASH_SOURCE',
+        label: 'Cash Source',
+        defaultMatchField: 'name',
+        list: async () =>
+          (
+            await prisma.receivingAccount.findMany({
+              where: { deletedAt: null },
+              select: { id: true, code: true, name: true, isActive: true },
+            })
+          ).map((r) => ({
+            id: r.id,
+            code: r.code,
+            name: r.name,
+            active: r.isActive,
+          })),
+      },
     ];
   }
 }

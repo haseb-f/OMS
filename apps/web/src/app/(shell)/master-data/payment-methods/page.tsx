@@ -8,6 +8,7 @@ import {
   paymentMethodsSchema,
   paymentMethodsDefaultValues,
   paymentMethodsExportColumns,
+  paymentMethodsToFormValues,
   paymentMethodRowLabel,
   type PaymentMethodRow,
 } from "@/config/master-data/entities";
@@ -27,6 +28,7 @@ export default function PaymentMethodsPage() {
       formFields={paymentMethodsFormFields}
       schema={paymentMethodsSchema}
       defaultValues={paymentMethodsDefaultValues}
+      toFormValues={paymentMethodsToFormValues}
       permissionPrefix="masterdata.payment-methods"
       rowLabel={paymentMethodRowLabel}
     />

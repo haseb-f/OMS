@@ -55,6 +55,14 @@ const FIELDS: ImportFieldDef[] = [
     type: 'string',
   },
   {
+    key: 'countryName',
+    labelKey: 'importCenter.fields.countryName',
+    label: 'Country',
+    required: false,
+    type: 'string',
+    referenceType: 'COUNTRY',
+  },
+  {
     key: 'productSku',
     labelKey: 'importCenter.fields.productSku',
     label: 'Product (SKU)',
@@ -95,6 +103,15 @@ const FIELDS: ImportFieldDef[] = [
     required: false,
     type: 'string',
     example: 'Salla',
+  },
+  {
+    key: 'agentEmail',
+    labelKey: 'importCenter.fields.agentEmail',
+    label: 'Employee',
+    required: false,
+    type: 'string',
+    referenceType: 'EMPLOYEE',
+    referenceMatchField: 'code',
   },
 ];
 
@@ -146,8 +163,14 @@ export class StoreOrdersImportHandler
     userId?: string,
     options?: ImportRowOptions,
   ): Promise<ImportRowResult> {
-    const { currencyId, productId, quantity, unitPrice } =
-      await this.validateRow(row);
+    const {
+      currencyId,
+      productId,
+      quantity,
+      unitPrice,
+      countryId,
+      employeeId,
+    } = await this.validateRow(row);
 
     if (!row.customerPhone?.trim()) {
       throw new BadRequestException('Customer Phone is required.');
@@ -164,7 +187,15 @@ export class StoreOrdersImportHandler
     if (options?.dryRun) return { id: 'dry-run' };
 
     const order = await this.storeOrdersService.create(
-      this.buildDto(row, currencyId, productId, quantity, unitPrice),
+      this.buildDto(
+        row,
+        currencyId,
+        productId,
+        quantity,
+        unitPrice,
+        countryId,
+        employeeId,
+      ),
       userId,
     );
     return { id: order.id };
@@ -175,10 +206,24 @@ export class StoreOrdersImportHandler
     row: Record<string, string>,
     userId?: string,
   ): Promise<ImportRowResult> {
-    const { currencyId, productId, quantity, unitPrice } =
-      await this.validateRow(row);
+    const {
+      currencyId,
+      productId,
+      quantity,
+      unitPrice,
+      countryId,
+      employeeId,
+    } = await this.validateRow(row);
     const order = await this.storeOrdersService.create(
-      this.buildDto(row, currencyId, productId, quantity, unitPrice),
+      this.buildDto(
+        row,
+        currencyId,
+        productId,
+        quantity,
+        unitPrice,
+        countryId,
+        employeeId,
+      ),
       userId,
     );
     return { id: order.id };
@@ -190,6 +235,8 @@ export class StoreOrdersImportHandler
     productId: string,
     quantity: number,
     unitPrice: number,
+    countryId: string | undefined,
+    employeeId: string | undefined,
   ) {
     return {
       externalOrderId: row.externalOrderId,
@@ -197,11 +244,13 @@ export class StoreOrdersImportHandler
         name: row.customerName,
         phone: row.customerPhone,
         email: row.customerEmail || undefined,
+        countryId,
       },
       orderDate: row.orderDate || undefined,
       source: StoreOrderSource.IMPORT,
       sourceChannel: row.sourceChannel || undefined,
       currencyId,
+      employeeId,
       items: [{ productId, quantity, unitPrice }],
     };
   }
@@ -246,7 +295,26 @@ export class StoreOrdersImportHandler
       row.productSku,
       'Product',
     );
+    const countryId = await this.referenceData.resolveOptional(
+      'COUNTRY',
+      'name',
+      row.countryName,
+      'Country',
+    );
+    const employeeId = await this.referenceData.resolveOptional(
+      'EMPLOYEE',
+      'code',
+      row.agentEmail,
+      'Employee',
+    );
 
-    return { currencyId, productId, quantity, unitPrice };
+    return {
+      currencyId,
+      productId,
+      quantity,
+      unitPrice,
+      countryId,
+      employeeId,
+    };
   }
 }

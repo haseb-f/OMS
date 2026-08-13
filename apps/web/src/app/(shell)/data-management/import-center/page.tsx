@@ -12,6 +12,7 @@ import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-ta
 import { ImportJobWizard } from "./import-job-wizard";
 import { SyncButton } from "@/components/shared/sync-button";
 import { SyncSourcesManager } from "./sync-sources-manager";
+import type { SyncSourceType } from "@/services/sync-service";
 import { importTypesService, type ImportTypeDefinition } from "@/services/import-types-service";
 import { importJobsService, type ImportJobRow } from "@/services/import-jobs-service";
 import { useUsersList } from "@/hooks/use-reference-data";
@@ -24,6 +25,34 @@ import { downloadBlob } from "@/lib/download";
 import { ApiError } from "@/services/api-client";
 import type { MessageKey } from "@/i18n/translate";
 import { PermissionGate } from "@/components/shared/permission-gate";
+
+/** One compact card per Data Synchronization source type — same `SyncButton` everywhere, just labeled so a user knows what each one actually syncs before clicking it. */
+const SYNC_CARDS: {
+  sourceType: SyncSourceType;
+  titleKey: MessageKey;
+  descriptionKey: MessageKey;
+}[] = [
+  {
+    sourceType: "STORE_ORDERS",
+    titleKey: "importCenter.sync.cards.storeOrders.title",
+    descriptionKey: "importCenter.sync.cards.storeOrders.description",
+  },
+  {
+    sourceType: "LEADS",
+    titleKey: "importCenter.sync.cards.leads.title",
+    descriptionKey: "importCenter.sync.cards.leads.description",
+  },
+  {
+    sourceType: "CASH_FLOW",
+    titleKey: "importCenter.sync.cards.cashFlow.title",
+    descriptionKey: "importCenter.sync.cards.cashFlow.description",
+  },
+  {
+    sourceType: "SHIPPING_UPDATES",
+    titleKey: "importCenter.sync.cards.shippingUpdates.title",
+    descriptionKey: "importCenter.sync.cards.shippingUpdates.description",
+  },
+];
 
 /**
  * Import Center dashboard (TASK-056 Part 1) — the single future entry point
@@ -250,11 +279,18 @@ function ImportCenterPageContent() {
             {t("importCenter.sync.sources.title")}
           </EnterpriseButton>
         </div>
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-muted/20 p-3">
-          <SyncButton sourceType="LEADS" onSynced={loadJobs} />
-          <SyncButton sourceType="STORE_ORDERS" onSynced={loadJobs} />
-          <SyncButton sourceType="CASH_FLOW" onSynced={loadJobs} />
-          <SyncButton sourceType="SHIPPING_UPDATES" onSynced={loadJobs} />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {SYNC_CARDS.map((card) => (
+            <EnterpriseCard key={card.sourceType} size="sm">
+              <EnterpriseCardContent className="flex flex-col gap-2.5">
+                <div className="flex flex-col gap-0.5">
+                  <h3 className="text-body font-semibold">{t(card.titleKey)}</h3>
+                  <p className="text-caption text-muted-foreground">{t(card.descriptionKey)}</p>
+                </div>
+                <SyncButton sourceType={card.sourceType} onSynced={loadJobs} />
+              </EnterpriseCardContent>
+            </EnterpriseCard>
+          ))}
         </div>
       </div>
       <SyncSourcesManager open={sourcesManagerOpen} onOpenChange={setSourcesManagerOpen} />

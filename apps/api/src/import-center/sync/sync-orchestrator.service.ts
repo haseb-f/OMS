@@ -159,12 +159,22 @@ export class SyncOrchestratorService {
   private rowDefaultsFor(source: {
     sourceType: SyncSourceType;
     label: string;
+    configMetadata?: unknown;
   }): Record<string, string> {
     if (source.sourceType === SyncSourceType.CASH_FLOW) {
+      // Cash Flow spec section 2 — "TWO Google Sheets: Incoming / Outgoing.
+      // Each can contain multiple tabs." One `SyncSourceConfig` row = one
+      // tab = one cash source; its configured direction (set on the source
+      // itself, never inferred/guessed per row) reaches every row of this
+      // run via `ImportJob.rowDefaults` -> `options.context.direction`.
+      const metadata = (source.configMetadata ?? {}) as {
+        direction?: 'INCOMING' | 'OUTGOING';
+      };
       return {
         source: 'GOOGLE_SHEETS',
         bankName: source.label,
         account: source.label,
+        ...(metadata.direction ? { direction: metadata.direction } : {}),
       };
     }
     return { source: 'GOOGLE_SHEETS' };
@@ -326,6 +336,8 @@ export class SyncOrchestratorService {
           result,
           (result.columnMapping ?? {}) as Record<string, string>,
         );
+      } else if (source.sourceType === SyncSourceType.CASH_FLOW) {
+        await this.writeBackCashFlow(source, result);
       }
 
       return summary;
@@ -393,6 +405,64 @@ export class SyncOrchestratorService {
           },
         });
       }
+    }
+
+    if (rows.length === 0) return;
+    await this.googleSheets.writeRowResults(
+      source.spreadsheetId,
+      rows,
+      source.worksheetGid ?? undefined,
+    );
+  }
+
+  /**
+   * Cash Flow write-back for a just-completed `run()` — spec section 19's
+   * minimum column set (External/System Transaction ID, Sync Status/
+   * Message, Reconciliation Status), traceable back from the sheet row to
+   * the `BankTransaction` and — once reconciled — its Payment/Financial
+   * Transaction/Journal Entry. Never touches the user's own source columns.
+   */
+  private async writeBackCashFlow(
+    source: { spreadsheetId: string; worksheetGid: string | null },
+    result: {
+      successRows: { rowNumber: number; id: string; noChange?: boolean }[];
+      errors: { rowNumber: number; errorMessage: string }[];
+    },
+  ) {
+    const bankTransactionIds = result.successRows.map((r) => r.id);
+    const transactions = bankTransactionIds.length
+      ? await this.prisma.bankTransaction.findMany({
+          where: { id: { in: bankTransactionIds } },
+          select: { id: true, transactionId: true, matchStatus: true },
+        })
+      : [];
+    const byId = new Map(transactions.map((t) => [t.id, t]));
+    const processedAt = new Date().toISOString();
+
+    const rows: { rowNumber: number; values: Record<string, string> }[] = [];
+    for (const { rowNumber, id, noChange } of result.successRows) {
+      const transaction = byId.get(id);
+      rows.push({
+        rowNumber,
+        values: {
+          'OMS Transaction ID': transaction?.transactionId ?? '',
+          'System Transaction ID': id,
+          'OMS Sync Status': noChange ? 'NO_CHANGE' : 'SYNCED',
+          'OMS Sync Message': noChange ? 'لا يوجد تغيير' : 'تمت المزامنة بنجاح',
+          'OMS Reconciliation Status': transaction?.matchStatus ?? 'UNMATCHED',
+          'OMS Processed At': processedAt,
+        },
+      });
+    }
+    for (const error of result.errors) {
+      rows.push({
+        rowNumber: error.rowNumber,
+        values: {
+          'OMS Sync Status': 'ERROR',
+          'OMS Sync Message': error.errorMessage,
+          'OMS Processed At': processedAt,
+        },
+      });
     }
 
     if (rows.length === 0) return;

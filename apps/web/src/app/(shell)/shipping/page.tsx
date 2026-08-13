@@ -34,16 +34,17 @@ import {
   type ShipmentListRow,
   type ShipmentStatusValue,
 } from "@/services/shipping-service";
-import { createMasterDataService } from "@/services/master-data-service";
-import type { ShippingMethodRow } from "@/config/master-data/entities";
+import {
+  shippingCompaniesService,
+  type ShippingCompanyOption,
+} from "@/services/shipping-companies-service";
+import type { StoreOrderSourceValue } from "@/services/store-orders-service";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { formatDate, toISODate } from "@/lib/date";
 import { ApiError } from "@/services/api-client";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { useCountries } from "@/hooks/use-reference-data";
-
-const shippingMethodsService = createMasterDataService<ShippingMethodRow>("/shipping-methods");
 
 const EMPTY_DATE_RANGE: DateRangeValue = { from: null, to: null };
 
@@ -61,7 +62,8 @@ function ShippingPageContent() {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [companyFilter, setCompanyFilter] = useState<string>("");
   const [countryFilter, setCountryFilter] = useState<string>("");
-  const [companies, setCompanies] = useState<ShippingMethodRow[]>([]);
+  const [sourceFilter, setSourceFilter] = useState<string>("");
+  const [companies, setCompanies] = useState<ShippingCompanyOption[]>([]);
   const countries = useCountries();
   const [dateRange, setDateRange] = useState<DateRangeValue>(EMPTY_DATE_RANGE);
   const [isLoading, setIsLoading] = useState(true);
@@ -70,9 +72,9 @@ function ShippingPageContent() {
   const [manageTarget, setManageTarget] = useState<ShipmentListRow | null>(null);
 
   useEffect(() => {
-    shippingMethodsService
-      .list({ pageSize: 200 })
-      .then((result) => setCompanies(result.items))
+    shippingCompaniesService
+      .list()
+      .then(setCompanies)
       .catch(() => setCompanies([]));
   }, []);
 
@@ -82,10 +84,11 @@ function ShippingPageContent() {
       status: (statusFilter || undefined) as ShipmentStatusValue | undefined,
       shippingCompanyId: companyFilter || undefined,
       countryId: countryFilter || undefined,
+      source: (sourceFilter || undefined) as StoreOrderSourceValue | undefined,
       dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
       dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
     }),
-    [search, statusFilter, companyFilter, countryFilter, dateRange],
+    [search, statusFilter, companyFilter, countryFilter, sourceFilter, dateRange],
   );
 
   const load = useCallback(async () => {
@@ -230,6 +233,22 @@ function ShippingPageContent() {
                     {country.name}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={sourceFilter || "__all__"}
+              onValueChange={(v) => {
+                setSourceFilter(v === "__all__" ? "" : v);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger size="sm" className="w-40">
+                <SelectValue placeholder={t("shipping.filters.source")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">{t("shipping.filters.allSources")}</SelectItem>
+                <SelectItem value="MANUAL">{t("storeOrders.source.MANUAL")}</SelectItem>
+                <SelectItem value="IMPORT">{t("storeOrders.source.IMPORT")}</SelectItem>
               </SelectContent>
             </Select>
             <EnterpriseDateRangePicker

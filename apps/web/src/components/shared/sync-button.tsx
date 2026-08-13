@@ -177,13 +177,13 @@ export function SyncButton({
         <TooltipTrigger asChild>
           <EnterpriseButton
             type="button"
-            variant="secondary"
+            variant="info"
             onClick={handleClick}
             disabled={loading}
             aria-label={t("importCenter.sync.button")}
-            className="h-auto gap-2.5 rounded-md border-secondary-foreground/15 px-3 py-2 ring-1 ring-secondary-foreground/10 not-disabled:hover:brightness-105"
+            className="h-auto gap-2.5 rounded-md px-3 py-2 ring-1 ring-info-foreground/15 transition-shadow"
           >
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-secondary-foreground/10">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-info-foreground/15">
               <CloudCog className={cn("size-4", loading && "animate-spin")} />
             </span>
             {loading ? t("importCenter.sync.loading") : t("importCenter.sync.button")}
