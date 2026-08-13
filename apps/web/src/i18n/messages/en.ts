@@ -3127,6 +3127,11 @@ const en = {
       statusPartial: "Partial",
       statusFailed: "Failed",
       statusNeverRun: "Never synced",
+      card: {
+        lastUpdate: "Last update",
+        by: "By",
+        never: "No sync has run yet",
+      },
       report: {
         title: "Sync Report",
         externalOrderId: "Order ID",

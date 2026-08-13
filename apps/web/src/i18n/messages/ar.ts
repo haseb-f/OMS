@@ -3093,6 +3093,11 @@ const ar = {
       statusPartial: "جزئية",
       statusFailed: "فشلت",
       statusNeverRun: "لم تتم المزامنة بعد",
+      card: {
+        lastUpdate: "آخر تحديث",
+        by: "بواسطة",
+        never: "لم تتم أي مزامنة بعد",
+      },
       report: {
         title: "تقرير المزامنة",
         externalOrderId: "رقم الطلب",

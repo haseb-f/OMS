@@ -6,7 +6,6 @@ import type { RowSelectionState } from "@tanstack/react-table";
 import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EnterpriseButton } from "@/components/ui/button";
-import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import { SyncButton } from "@/components/shared/sync-button";
 import {
   EnterpriseDateRangePicker,
@@ -192,8 +191,6 @@ function StoreOrdersPageContent() {
         subtitle={t("storeOrders.description")}
         actions={
           <>
-            <SyncButton sourceType="STORE_ORDERS" onSynced={load} />
-            <ModuleImportButtons importType="STORE_ORDERS" onImported={load} />
             {canCreate && (
               <EnterpriseButton
                 type="button"
@@ -204,6 +201,7 @@ function StoreOrdersPageContent() {
                 {t("storeOrders.createDialog.trigger")}
               </EnterpriseButton>
             )}
+            <SyncButton sourceType="STORE_ORDERS" onSynced={load} />
           </>
         }
         filters={

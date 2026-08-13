@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { RefreshCw, CloudCog, AlertTriangle } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { RefreshCw, CloudCog, AlertTriangle, Clock, User as UserIcon, Mail } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import {
@@ -18,6 +18,8 @@ import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
+import { formatDateTime } from "@/lib/date";
+import { cn } from "@/lib/utils";
 import {
   syncService,
   type SyncSourceType,
@@ -36,9 +38,12 @@ interface SourcePreview {
  * Import Center, Leads, Store Orders, and Cash Flow (which passes
  * `sourceType="CASH_FLOW"` and may resolve to several enabled sources, one
  * per provider worksheet — every one of them is previewed/committed here).
- * Deliberately visually distinct from `ModuleImportButtons`' outlined
- * Upload/Download pair: filled primary style, a dedicated cloud-sync icon,
- * and a preview-then-confirm dialog — never a one-click silent commit.
+ * Rendered as a compact "Sync Action Card" (secondary/blue brand accent,
+ * per ADR-0017) rather than a plain toolbar button — deliberately more
+ * visually prominent than a normal page action since it's a system-level
+ * operation, never a one-click silent commit (preview-then-confirm dialog
+ * unchanged below). Hovering it shows the real last-sync info from
+ * `SyncSourceConfig` — never fabricated or hardcoded.
  */
 export function SyncButton({
   sourceType,
@@ -56,14 +61,40 @@ export function SyncButton({
   const [items, setItems] = useState<SourcePreview[] | null>(null);
   const [open, setOpen] = useState(false);
   const [report, setReport] = useState<ShippingSyncRowReport[] | null>(null);
+  // Last-sync info for the hover card only — independent of the
+  // preview/confirm flow below, which still does its own fresh
+  // `listSources()` call right before previewing.
+  const [sources, setSources] = useState<SyncSource[] | null>(null);
+
+  const loadSources = useCallback(() => {
+    if (!canSync) return;
+    syncService
+      .listSources(sourceType)
+      .then(setSources)
+      .catch(() => setSources(null));
+  }, [sourceType, canSync]);
+
+  useEffect(() => {
+    loadSources();
+  }, [loadSources]);
+
+  const lastSyncSource = useMemo(() => {
+    if (!sources || sources.length === 0) return null;
+    return [...sources].sort((a, b) => {
+      if (!a.lastSyncedAt) return 1;
+      if (!b.lastSyncedAt) return -1;
+      return new Date(b.lastSyncedAt).getTime() - new Date(a.lastSyncedAt).getTime();
+    })[0];
+  }, [sources]);
 
   if (!canSync) return null;
 
   const handleClick = async () => {
     setLoading(true);
     try {
-      const sources = await syncService.listSources(sourceType);
-      const enabled = sources.filter((s) => s.enabled);
+      const fresh = await syncService.listSources(sourceType);
+      setSources(fresh);
+      const enabled = fresh.filter((s) => s.enabled);
       if (enabled.length === 0) {
         toast.error(t("importCenter.sync.noSource"), {
           description: t("importCenter.sync.configureHint"),
@@ -120,6 +151,7 @@ export function SyncButton({
         setOpen(false);
         setItems(null);
       }
+      loadSources(); // refresh the hover card's "آخر تحديث" info now that this run has completed
       onSynced?.();
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Sync failed.");
@@ -145,16 +177,54 @@ export function SyncButton({
         <TooltipTrigger asChild>
           <EnterpriseButton
             type="button"
-            size="sm"
-            className="gap-1.5"
+            variant="secondary"
             onClick={handleClick}
             disabled={loading}
+            aria-label={t("importCenter.sync.button")}
+            className="h-auto gap-2.5 rounded-md border-secondary-foreground/15 px-3 py-2 ring-1 ring-secondary-foreground/10 not-disabled:hover:brightness-105"
           >
-            <CloudCog className={loading ? "animate-spin" : undefined} />
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-secondary-foreground/10">
+              <CloudCog className={cn("size-4", loading && "animate-spin")} />
+            </span>
             {loading ? t("importCenter.sync.loading") : t("importCenter.sync.button")}
           </EnterpriseButton>
         </TooltipTrigger>
-        <TooltipContent>{t("importCenter.sync.buttonTooltip")}</TooltipContent>
+        <TooltipContent
+          side="bottom"
+          align="start"
+          className="w-72 max-w-[calc(100vw-2rem)] flex-col items-stretch gap-2 rounded-lg p-3 text-start"
+        >
+          {lastSyncSource?.lastSyncedAt ? (
+            <>
+              <div className="flex items-center gap-2">
+                <Clock className="size-3.5 shrink-0 opacity-70" />
+                <span>
+                  {t("importCenter.sync.card.lastUpdate")}:{" "}
+                  {formatDateTime(lastSyncSource.lastSyncedAt)}
+                </span>
+              </div>
+              {lastSyncSource.lastSyncUserName && (
+                <div className="flex items-center gap-2">
+                  <UserIcon className="size-3.5 shrink-0 opacity-70" />
+                  <span>
+                    {t("importCenter.sync.card.by")}: {lastSyncSource.lastSyncUserName}
+                  </span>
+                </div>
+              )}
+              {lastSyncSource.lastSyncUserEmail && (
+                <div className="flex items-center gap-2">
+                  <Mail className="size-3.5 shrink-0 opacity-70" />
+                  <span className="opacity-90">{lastSyncSource.lastSyncUserEmail}</span>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Clock className="size-3.5 shrink-0 opacity-70" />
+              <span>{t("importCenter.sync.card.never")}</span>
+            </div>
+          )}
+        </TooltipContent>
       </Tooltip>
 
       <Dialog

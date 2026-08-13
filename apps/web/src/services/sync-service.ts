@@ -16,6 +16,9 @@ export interface SyncSource {
   lastSyncedAt: string | null;
   lastSyncStatus: SyncRunStatus;
   lastSyncUserId: string | null;
+  /** Read-only display enrichment for the Sync Card's hover info — resolved server-side from `lastSyncUserId`, never a second identity source. */
+  lastSyncUserName: string | null;
+  lastSyncUserEmail: string | null;
   lastSyncSummary: { totalRows: number; importedCount: number; errorCount: number } | null;
   configMetadata: { columnMapping?: Record<string, string> } | null;
   createdAt: string;

@@ -27,13 +27,14 @@ export class SyncSourceConfigService {
   ) {}
 
   async findAll(sourceType?: string) {
-    return this.prisma.syncSourceConfig.findMany({
+    const sources = await this.prisma.syncSourceConfig.findMany({
       where: {
         deletedAt: null,
         ...(sourceType ? { sourceType: sourceType as never } : {}),
       },
       orderBy: [{ sourceType: 'asc' }, { label: 'asc' }],
     });
+    return this.attachLastSyncUser(sources);
   }
 
   async findOne(id: string) {
@@ -43,7 +44,50 @@ export class SyncSourceConfigService {
     if (!source) {
       throw new NotFoundException(`Sync source ${id} not found`);
     }
-    return source;
+    const [withUser] = await this.attachLastSyncUser([source]);
+    return withUser;
+  }
+
+  /**
+   * Read-only display enrichment for the Sync Card's "بواسطة" hover info —
+   * `lastSyncUserId` is a bare UUID column (no Prisma relation), so this
+   * batches a lookup against `User` instead of adding a schema relation for
+   * a single display field. Never touches `SyncOrchestratorService`'s
+   * commit path or any write — `lastSyncUserId` itself is still written
+   * exactly as before.
+   */
+  private async attachLastSyncUser<T extends { lastSyncUserId: string | null }>(
+    sources: T[],
+  ): Promise<
+    (T & {
+      lastSyncUserName: string | null;
+      lastSyncUserEmail: string | null;
+    })[]
+  > {
+    const userIds = [
+      ...new Set(
+        sources
+          .map((source) => source.lastSyncUserId)
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    const users = userIds.length
+      ? await this.prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, fullName: true, email: true },
+        })
+      : [];
+    const byId = new Map(users.map((user) => [user.id, user]));
+    return sources.map((source) => {
+      const user = source.lastSyncUserId
+        ? byId.get(source.lastSyncUserId)
+        : undefined;
+      return {
+        ...source,
+        lastSyncUserName: user?.fullName ?? null,
+        lastSyncUserEmail: user?.email ?? null,
+      };
+    });
   }
 
   async create(dto: CreateSyncSourceDto, userId?: string) {
