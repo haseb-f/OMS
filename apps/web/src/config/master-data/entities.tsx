@@ -750,6 +750,8 @@ export interface ChartOfAccountRow {
   level: number;
   /** False once this account has at least one child — a header account, never a direct journal-posting target (Part 13). */
   allowsPosting: boolean;
+  /** One of the 5 permanently-protected root categories (Assets/Liabilities/Equity/Revenue/Expenses) — never deletable, set only by the server. */
+  isSystemAccount: boolean;
   deletedAt: string | null;
 }
 

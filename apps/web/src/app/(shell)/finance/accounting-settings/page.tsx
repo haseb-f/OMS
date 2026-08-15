@@ -145,6 +145,7 @@ function toChartRow(ref: AccountRef | null): ChartOfAccountRow | null {
     allowReconciliation: false,
     level: 1,
     allowsPosting: true,
+    isSystemAccount: false,
     deletedAt: null,
   };
 }

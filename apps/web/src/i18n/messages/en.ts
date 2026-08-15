@@ -705,6 +705,12 @@ const en = {
       groupAccount: "Group Account",
       expandAll: "Expand All",
       collapseAll: "Collapse All",
+      deleteAction: "Delete",
+      confirmDeleteTitle: "Delete this account?",
+      confirmDeleteDescription:
+        "This permanently removes the account. Only possible when it has no references anywhere in the accounting system.",
+      deleteSuccess: "Account deleted.",
+      protectedTooltip: "This is a protected system account and cannot be deleted.",
     },
     bankTransactions: {
       title: "Cash Flow",
@@ -3064,6 +3070,7 @@ const en = {
       partnerSupplier: "Partner/Supplier",
       costCenter: "Cost Center",
       project: "Project",
+      shippingLabelUrl: "Shipping Label URL",
     },
     status: {
       DRAFT: "Draft",

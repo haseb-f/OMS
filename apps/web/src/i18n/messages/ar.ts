@@ -702,6 +702,12 @@ const ar = {
       groupAccount: "حساب تجميعي",
       expandAll: "توسيع الكل",
       collapseAll: "طي الكل",
+      deleteAction: "حذف",
+      confirmDeleteTitle: "حذف هذا الحساب؟",
+      confirmDeleteDescription:
+        "سيتم حذف الحساب نهائيًا. هذا ممكن فقط عندما لا يكون للحساب أي استخدام في النظام المحاسبي.",
+      deleteSuccess: "تم حذف الحساب.",
+      protectedTooltip: "هذا حساب نظام محمي ولا يمكن حذفه.",
     },
     bankTransactions: {
       title: "التدفق النقدي",
@@ -3028,6 +3034,7 @@ const ar = {
       partnerSupplier: "الشريك/المورد",
       costCenter: "مركز التكلفة",
       project: "المشروع",
+      shippingLabelUrl: "رابط ملصق الشحن",
     },
     status: {
       DRAFT: "مسودة",

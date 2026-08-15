@@ -251,8 +251,12 @@ export class GoogleSheetsService {
     const title = await this.resolveSheetTitle(spreadsheetId, gid);
     const headers = await this.getHeaders(spreadsheetId, gid);
     const columnLetters: Record<string, string> = {};
+    // First occurrence wins — a sheet with an accidental duplicate header
+    // (e.g. two "Sync Status" columns from an earlier, unrelated template)
+    // must still resolve deterministically to the same column every time,
+    // not silently drift to whichever occurrence happens to be scanned last.
     headers.forEach((header, index) => {
-      if (columnNames.includes(header)) {
+      if (columnNames.includes(header) && !(header in columnLetters)) {
         columnLetters[header] = columnIndexToLetter(index);
       }
     });

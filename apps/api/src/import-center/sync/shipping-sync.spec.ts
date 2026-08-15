@@ -39,6 +39,9 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
   let currencyCode: string;
   let productSku: string;
   let shippingCompanyName: string;
+  let employeeEmail: string;
+  let countryName: string;
+  let paymentMethodLabel: string;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -92,6 +95,28 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
     await prisma.shippingCompany.create({
       data: { name: shippingCompanyName },
     });
+
+    const employeeSuffix = randomUUID().slice(0, 8);
+    const employee = await prisma.user.create({
+      data: {
+        email: `sync-test-${employeeSuffix}@example.test`,
+        username: `sync-test-${employeeSuffix}`,
+        fullName: 'Sync Test Employee',
+        passwordHash: 'x',
+        isSuperAdmin: false,
+      },
+    });
+    employeeEmail = employee.email;
+
+    const country = await prisma.country.findFirstOrThrow({
+      where: { deletedAt: null, isActive: true, code: 'SA' },
+    });
+    countryName = country.name;
+
+    const paymentMethod = await prisma.paymentMethod.findFirstOrThrow({
+      where: { deletedAt: null },
+    });
+    paymentMethodLabel = paymentMethod.name;
   });
 
   afterAll(async () => {
@@ -135,6 +160,18 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
     await prisma.shippingCompany.deleteMany({
       where: { name: { startsWith: 'Sync Test Shipping Company' } },
     });
+
+    const users = await prisma.user.findMany({
+      where: { email: { startsWith: 'sync-test-' } },
+      select: { id: true },
+    });
+    await prisma.userPermission.deleteMany({
+      where: { userId: { in: users.map((u) => u.id) } },
+    });
+    await prisma.user.deleteMany({
+      where: { id: { in: users.map((u) => u.id) } },
+    });
+
     await prisma.product.deleteMany({ where: { sku: productSku } });
     await prisma.productCategory.deleteMany({ where: { id: categoryId } });
     await prisma.unit.deleteMany({ where: { id: unitId } });
@@ -145,15 +182,17 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
   function storeOrderRow(overrides: Partial<Record<string, string>> = {}) {
     return {
       externalOrderId: `SHIP-EXT-${randomUUID()}`,
-      orderDate: '',
+      orderDate: '2026-08-01',
       customerName: 'Sync Test Customer',
       customerPhone: `+9665${Math.floor(10000000 + Math.random() * 89999999)}`,
-      customerEmail: '',
+      countryName,
+      address: 'Test address',
       productSku,
       quantity: '1',
-      unitPrice: '100',
+      paidAmount: '100',
       currencyCode,
-      sourceChannel: 'GoogleSheets',
+      paymentMethodLabel,
+      agentEmail: employeeEmail,
       ...overrides,
     };
   }
@@ -546,12 +585,12 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
       ] as [string, { rowNumber: number; values: Record<string, string> }[]];
       const writtenByRow = new Map(call[1].map((r) => [r.rowNumber, r.values]));
       // Row 2 in the reordered sheet is B's row, row 3 is A's — the written
-      // "OMS Shipment ID" for each row must match that order's OWN shipment,
+      // "Shipment ID" for each row must match that order's OWN shipment,
       // never the other order's (which a row-number-based match would risk).
       const shipmentA = await shipmentsService.getCurrent(orderA.id);
       const shipmentB = await shipmentsService.getCurrent(orderB.id);
-      expect(writtenByRow.get(2)?.['OMS Shipment ID']).toBe(shipmentB!.id);
-      expect(writtenByRow.get(3)?.['OMS Shipment ID']).toBe(shipmentA!.id);
+      expect(writtenByRow.get(2)?.['Shipment ID']).toBe(shipmentB!.id);
+      expect(writtenByRow.get(3)?.['Shipment ID']).toBe(shipmentA!.id);
     });
 
     // ---------------------------------------------------------------------
@@ -579,6 +618,195 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
 
       const allAttempts = await shipmentsService.findAllForOrder(order.id);
       expect(allAttempts).toHaveLength(1);
+    });
+
+    // ---------------------------------------------------------------------
+    // Shared-sheet column isolation (spec scenarios 7-10): Store Orders Sync
+    // and Shipping Sync point at the SAME physical spreadsheet/tab — one
+    // `SyncSourceConfig` row per sourceType against the same spreadsheetId+
+    // gid, exactly like the real "Default Agent" sheet — with DISTINCT
+    // column subsets and DISTINCT write-back keys, proving neither sync type
+    // can read the other's input columns or clobber the other's result
+    // columns.
+    // ---------------------------------------------------------------------
+    describe('shared-sheet column isolation (Store Orders + Shipping on one sheet)', () => {
+      const SHARED_HEADERS = [
+        // Store Orders input (A:P equivalent)
+        'External Order ID',
+        'Order Date',
+        'Customer Name',
+        'Customer Phone',
+        'Country',
+        'Detailed Address',
+        'Product SKU',
+        'Quantity',
+        'Paid Amount',
+        'Currency',
+        'Payment Method',
+        'Employee Email',
+        // Shipping input (T:W equivalent) — lives on the SAME row/sheet
+        'Status',
+        'Tracking Number',
+        'Shipping Company',
+        'Notes',
+      ];
+
+      function toSharedCsv(rows: Record<string, string>[]): string {
+        const lines = [SHARED_HEADERS.join(',')];
+        for (const row of rows) {
+          lines.push(SHARED_HEADERS.map((h) => row[h] ?? '').join(','));
+        }
+        return lines.join('\n');
+      }
+
+      async function createStoreOrdersSource(rows: Record<string, string>[]) {
+        fakeSheets.rows = rows;
+        fakeSheets.getSheetAsCsv.mockImplementation(() =>
+          Promise.resolve(toSharedCsv(fakeSheets.rows)),
+        );
+        return sources.create({
+          sourceType: 'STORE_ORDERS',
+          label: `Sync Test Source ${randomUUID()}`,
+          spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${randomUUID()}/edit`,
+          columnMapping: {
+            externalOrderId: 'External Order ID',
+            orderDate: 'Order Date',
+            customerName: 'Customer Name',
+            customerPhone: 'Customer Phone',
+            countryName: 'Country',
+            address: 'Detailed Address',
+            productSku: 'Product SKU',
+            quantity: 'Quantity',
+            paidAmount: 'Paid Amount',
+            currencyCode: 'Currency',
+            paymentMethodLabel: 'Payment Method',
+            agentEmail: 'Employee Email',
+          },
+        });
+      }
+
+      async function createShippingSource(rows: Record<string, string>[]) {
+        fakeSheets.rows = rows;
+        fakeSheets.getSheetAsCsv.mockImplementation(() =>
+          Promise.resolve(toSharedCsv(fakeSheets.rows)),
+        );
+        return sources.create({
+          sourceType: 'SHIPPING_UPDATES',
+          label: `Sync Test Source ${randomUUID()}`,
+          spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${randomUUID()}/edit`,
+          columnMapping: {
+            externalOrderId: 'External Order ID',
+            status: 'Status',
+            trackingNumber: 'Tracking Number',
+            shippingCompanyName: 'Shipping Company',
+            notes: 'Notes',
+          },
+        });
+      }
+
+      function sharedRow(
+        overrides: Partial<Record<string, string>> = {},
+      ): Record<string, string> {
+        return {
+          'External Order ID': `SHARED-EXT-${randomUUID()}`,
+          'Order Date': '2026-08-01',
+          'Customer Name': 'Sync Test Customer',
+          'Customer Phone': `+9665${Math.floor(10000000 + Math.random() * 89999999)}`,
+          Country: countryName,
+          'Detailed Address': 'Test address',
+          'Product SKU': productSku,
+          Quantity: '1',
+          'Paid Amount': '100',
+          Currency: currencyCode,
+          'Payment Method': paymentMethodLabel,
+          'Employee Email': employeeEmail,
+          Status: '',
+          'Tracking Number': '',
+          'Shipping Company': '',
+          Notes: '',
+          ...overrides,
+        };
+      }
+
+      it('Store Orders Sync writes ONLY Sync Status/System Order ID/Error Message — never a Shipping key — even on a row that also carries shipping input columns', async () => {
+        const row = sharedRow();
+        const source = await createStoreOrdersSource([row]);
+
+        const preview = await orchestrator.preview(source.id);
+        const commitResult = await orchestrator.commit(
+          source.id,
+          preview.jobId,
+        );
+        expect(commitResult.importedCount).toBe(1);
+
+        const call = fakeSheets.writeRowResults.mock.calls[0] as [
+          string,
+          { rowNumber: number; values: Record<string, string> }[],
+        ];
+        const keys = Object.keys(call[1][0].values).sort();
+        expect(keys).toEqual(
+          ['Error Message', 'Sync Status', 'System Order ID'].sort(),
+        );
+        expect(keys).not.toContain('Shipping Sync Status');
+        expect(keys).not.toContain('Shipping Sync Message');
+        expect(keys).not.toContain('Shipment ID');
+      });
+
+      it('Shipping Sync reads only its own T:W-equivalent input columns — ignoring the Store Orders A:P data present on the same row — and writes ONLY its own result columns', async () => {
+        // A real accepted Store Order the shipping row will target —
+        // Shipping Sync must match an EXISTING order, never create one.
+        const order = await createAcceptedOrder();
+
+        const row = sharedRow({
+          'External Order ID': order.externalOrderId!,
+          // Deliberately blank/garbage Store-Orders-shaped input alongside
+          // the real shipping input — Shipping Sync's `columnMapping` never
+          // references these header names, so it must ignore them entirely
+          // rather than getting confused or blocked by their presence.
+          'Customer Name': '',
+          'Customer Phone': '',
+          Country: '',
+          'Detailed Address': '',
+          'Product SKU': '',
+          Quantity: '',
+          'Paid Amount': '',
+          Currency: '',
+          'Payment Method': '',
+          'Employee Email': '',
+          Status: 'LABEL_CREATED',
+          'Shipping Company': shippingCompanyName,
+        });
+        const source = await createShippingSource([row]);
+
+        const preview = await orchestrator.preview(source.id);
+        expect(preview.totalRows).toBe(1);
+        expect(preview.willImportCount).toBe(1);
+
+        const commitResult = await orchestrator.commit(
+          source.id,
+          preview.jobId,
+        );
+        expect(commitResult.importedCount).toBe(1);
+
+        const shipment = await shipmentsService.getCurrent(order.id);
+        expect(shipment?.status).toBe(ShipmentStatus.LABEL_CREATED);
+
+        const call = fakeSheets.writeRowResults.mock.calls[0] as [
+          string,
+          { rowNumber: number; values: Record<string, string> }[],
+        ];
+        const keys = Object.keys(call[1][0].values).sort();
+        expect(keys).toEqual(
+          [
+            'Shipment ID',
+            'Shipping Sync Message',
+            'Shipping Sync Status',
+          ].sort(),
+        );
+        expect(keys).not.toContain('Sync Status');
+        expect(keys).not.toContain('System Order ID');
+        expect(keys).not.toContain('Error Message');
+      });
     });
   });
 });

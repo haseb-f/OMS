@@ -17,6 +17,9 @@ const OPTIONAL_HEADER_ARGB = 'FF7F8C8D';
 const REQUIRED_ROW_ARGB = 'FFFBE2E1';
 const OPTIONAL_ROW_ARGB = 'FFF1F2F4';
 const GUIDE_HEADER_ARGB = 'FF2C3E50';
+/** Reserved sync write-back columns (e.g. Store Orders' "Sync Status") — a distinct, muted style from both Required (red) and Optional (grey) so they read as "not an input field" at a glance. */
+const RESULT_HEADER_ARGB = 'FF95A5A6';
+const RESULT_ROW_ARGB = 'FFECF0F1';
 const REFERENCE_SHEET_NAME = 'Reference Data';
 /** How many data rows get a dropdown/list validation — independent of how many values the dropdown's own source list holds (a "Reference Data" column can have far more than this). */
 const TEMPLATE_ROWS = 200;
@@ -56,7 +59,12 @@ export class ImportTemplateService {
       workbook,
       handler.fields,
     );
-    this.buildDataSheet(workbook, handler.fields, referenceColumns);
+    this.buildDataSheet(
+      workbook,
+      handler.fields,
+      referenceColumns,
+      handler.resultColumns ?? [],
+    );
     this.buildFieldGuideSheet(workbook, handler.fields, type);
 
     const arrayBuffer = await workbook.xlsx.writeBuffer();
@@ -86,15 +94,17 @@ export class ImportTemplateService {
   ): Promise<Map<string, string>> {
     const pairs = new Map<
       string,
-      { type: string; matchField: 'code' | 'name' }
+      { type: string; matchField: 'code' | 'name'; displayWithCode: boolean }
     >();
     for (const field of fields) {
       if (!field.referenceType) continue;
       const source = this.referenceData.get(field.referenceType);
       const matchField = field.referenceMatchField ?? source.defaultMatchField;
-      pairs.set(`${field.referenceType}:${matchField}`, {
+      const displayWithCode = !!field.referenceDisplayWithCode;
+      pairs.set(`${field.referenceType}:${matchField}:${displayWithCode}`, {
         type: field.referenceType,
         matchField,
+        displayWithCode,
       });
     }
 
@@ -106,14 +116,24 @@ export class ImportTemplateService {
     });
 
     let columnIndex = 1;
-    for (const [key, { type, matchField }] of pairs) {
+    for (const [key, { type, matchField, displayWithCode }] of pairs) {
       const source = this.referenceData.get(type);
       const records = await source.list();
+      // A "name (code)" composite (spec: friendly display, stable
+      // resolution) only ever applies to a record that actually has a
+      // code — one without falls back to its bare match-field value, same
+      // as every other reference column.
       const values = [
         ...new Set(
           records
             .filter((r) => r.active)
-            .map((r) => (matchField === 'code' ? r.code : r.name))
+            .map((r) => {
+              const base = matchField === 'code' ? r.code : r.name;
+              if (displayWithCode && r.code && base !== r.code) {
+                return `${base} (${r.code})`;
+              }
+              return base;
+            })
             .filter((v): v is string => Boolean(v)),
         ),
       ].sort((a, b) => a.localeCompare(b));
@@ -141,18 +161,41 @@ export class ImportTemplateService {
     workbook: Workbook,
     fields: ImportFieldDef[],
     referenceColumns: Map<string, string>,
+    resultColumns: string[],
   ) {
     const sheet = workbook.addWorksheet('Import Data', {
       views: [{ state: 'frozen', ySplit: 1 }],
     });
-    sheet.columns = fields.map((field) => ({
-      header: `${field.label}${field.required ? ' *' : ''}`,
-      key: field.key,
-      width: Math.max(18, field.label.length + 4),
-    }));
+    sheet.columns = [
+      ...fields.map((field) => ({
+        header: `${field.label}${field.required ? ' *' : ''}`,
+        key: field.key,
+        width: Math.max(18, field.label.length + 4),
+      })),
+      ...resultColumns.map((label) => ({
+        header: label,
+        key: `__result__${label}`,
+        width: Math.max(18, label.length + 4),
+      })),
+    ];
 
     const headerRow = sheet.getRow(1);
     headerRow.eachCell((cell, colNumber) => {
+      // A reserved result column (past the last real field) — the OMS
+      // sync write-back, never user input; styled distinctly (grey, not
+      // red/dark-grey) and never gets validation/a Field Guide row.
+      if (colNumber > fields.length) {
+        cell.font = { bold: true, italic: true, color: { argb: 'FF2C3E50' } };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: RESULT_HEADER_ARGB },
+        };
+        cell.alignment = { vertical: 'middle', horizontal: 'left' };
+        cell.note =
+          'Reserved — written by OMS after each sync (Sync Status / System Order ID / Error Message). Do not enter import data here.';
+        return;
+      }
       const field = fields[colNumber - 1];
       cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
       cell.fill = {
@@ -178,6 +221,21 @@ export class ImportTemplateService {
         .join('\n');
     });
 
+    // Reserved result columns get a light fill on every data row too, so
+    // the "do not type here" boundary is visible without opening the note.
+    if (resultColumns.length > 0) {
+      for (let rowNumber = 2; rowNumber <= TEMPLATE_ROWS; rowNumber++) {
+        for (let offset = 0; offset < resultColumns.length; offset++) {
+          const cell = sheet.getCell(rowNumber, fields.length + 1 + offset);
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: RESULT_ROW_ARGB },
+          };
+        }
+      }
+    }
+
     fields.forEach((field, index) => {
       const column = index + 1;
 
@@ -202,7 +260,7 @@ export class ImportTemplateService {
         const matchField =
           field.referenceMatchField ?? source.defaultMatchField;
         const range = referenceColumns.get(
-          `${field.referenceType}:${matchField}`,
+          `${field.referenceType}:${matchField}:${!!field.referenceDisplayWithCode}`,
         );
         if (!range) return;
         for (let rowNumber = 2; rowNumber <= TEMPLATE_ROWS; rowNumber++) {

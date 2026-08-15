@@ -1316,6 +1316,15 @@ model ChartOfAccount {
   /// resolution rejects any line whose account has this `false`.
   allowsPosting Boolean @default(true) @map("allows_posting")
 
+  /// Safe Account Deletion (2026-08-15) — the canonical, stable flag for
+  /// the 5 permanently-protected top-level categories (codes 1-5: Assets/
+  /// Liabilities/Equity/Revenue/Expenses). Set once, server-side, by
+  /// `ChartOfAccountsService.create()` when a NEW root account (no parent)
+  /// is created with one of those 5 codes — never inferred from name/code
+  /// anywhere else, never settable via Update. `archive()` rejects outright
+  /// whenever this is true, regardless of usage.
+  isSystemAccount Boolean @default(false) @map("is_system_account")
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   createdBy String?   @map("created_by") @db.Uuid

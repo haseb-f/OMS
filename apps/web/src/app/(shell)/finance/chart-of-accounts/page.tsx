@@ -18,6 +18,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { LoadingOverlay } from "@/components/shared/loading-overlay";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { AccountPicker } from "@/components/business/account-picker";
 import { StatusBadge } from "@/components/business/status-badge";
 import { createMasterDataService } from "@/services/master-data-service";
@@ -288,11 +289,11 @@ function ChartOfAccountsPageContent() {
     setIsMutating(true);
     try {
       await service.archive(archiveTarget.id);
-      toast.success(t("common.archive"));
+      toast.success(t("masterData.chartOfAccounts.deleteSuccess"));
       setArchiveTarget(null);
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to archive.");
+      toast.error(error instanceof ApiError ? error.message : "Failed to delete.");
     } finally {
       setIsMutating(false);
     }
@@ -436,14 +437,29 @@ function ChartOfAccountsPageContent() {
                 >
                   {t("common.edit")}
                 </EnterpriseButton>
-                <EnterpriseButton
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setArchiveTarget(node)}
-                >
-                  {t("common.archive")}
-                </EnterpriseButton>
+                {node.isSystemAccount ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <EnterpriseButton type="button" variant="ghost" size="sm" disabled>
+                          {t("masterData.chartOfAccounts.deleteAction")}
+                        </EnterpriseButton>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {t("masterData.chartOfAccounts.protectedTooltip")}
+                    </TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <EnterpriseButton
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setArchiveTarget(node)}
+                  >
+                    {t("masterData.chartOfAccounts.deleteAction")}
+                  </EnterpriseButton>
+                )}
               </>
             )}
             {isArchived && (
@@ -757,13 +773,13 @@ function ChartOfAccountsPageContent() {
       <ConfirmationDialog
         open={!!archiveTarget}
         onOpenChange={(open) => !open && setArchiveTarget(null)}
-        title={t("common.confirmArchiveTitle")}
+        title={t("masterData.chartOfAccounts.confirmDeleteTitle")}
         description={
           archiveTarget &&
-          `${archiveTarget.code} — ${archiveTarget.name} — ${t("common.confirmArchiveDescription")}`
+          `${archiveTarget.code} — ${archiveTarget.name} — ${t("masterData.chartOfAccounts.confirmDeleteDescription")}`
         }
         onConfirm={confirmArchive}
-        confirmLabel={t("common.archive")}
+        confirmLabel={t("masterData.chartOfAccounts.deleteAction")}
       />
 
       <ConfirmationDialog

@@ -95,3 +95,11 @@ temp/
 
 .vercel
 .env*
+
+# ==============================
+# Credentials (Google service-account keys, etc.) — never committed
+# ==============================
+secrets/
+apps/api/secrets/
+*.serviceaccount.json
+*-service-account*.json

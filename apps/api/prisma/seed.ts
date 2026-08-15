@@ -232,7 +232,15 @@ const currencies = [
 ];
 
 const countries = [
-  { code: 'SA', name: 'المملكة العربية السعودية' },
+  // 2026-08-16 root-cause fix: the formal/official Arabic name caused every
+  // real-world import (spreadsheets, Google Sheets) that naturally uses the
+  // common short name to be rejected as "not a recognized Country" — a
+  // fragile-display-name problem, not a missing-country problem. Corrected
+  // to match `i18n-iso-countries`' own Arabic translation for 'SA'
+  // (verified identical to what the curated EG/AE rows already use) —
+  // restoring the general library-driven convention rather than
+  // special-casing the import logic.
+  { code: 'SA', name: 'السعودية' },
   { code: 'EG', name: 'مصر' },
   { code: 'AE', name: 'الإمارات العربية المتحدة' },
 ];

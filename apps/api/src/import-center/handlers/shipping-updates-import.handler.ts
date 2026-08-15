@@ -89,6 +89,13 @@ const FIELDS: ImportFieldDef[] = [
     referenceType: 'SHIPPING_COMPANY',
   },
   {
+    key: 'labelUrl',
+    labelKey: 'importCenter.fields.shippingLabelUrl',
+    label: 'Shipping Label URL',
+    required: false,
+    type: 'string',
+  },
+  {
     key: 'notes',
     labelKey: 'importCenter.fields.notes',
     label: 'Notes',
@@ -241,10 +248,19 @@ export class ShippingUpdatesImportHandler
       throw new BadRequestException(TRACKING_REQUIRED_MESSAGE);
     }
 
+    const labelUrl = row.labelUrl?.trim() || undefined;
+    if (labelUrl) assertValidUrl(labelUrl);
     const notes = row.notes?.trim() || undefined;
     if (
       current &&
-      this.isNoChange(current, status, trackingNumber, shippingCompanyId, notes)
+      this.isNoChange(
+        current,
+        status,
+        trackingNumber,
+        shippingCompanyId,
+        labelUrl,
+        notes,
+      )
     ) {
       return { id: current.id, noChange: true };
     }
@@ -261,6 +277,7 @@ export class ShippingUpdatesImportHandler
       status,
       trackingNumber,
       shippingCompanyId,
+      labelUrl,
       notes,
       userId,
       source,
@@ -295,6 +312,8 @@ export class ShippingUpdatesImportHandler
     );
     const current = await this.shipmentsService.getCurrent(order.id);
     const trackingNumber = row.trackingNumber?.trim() || undefined;
+    const labelUrl = row.labelUrl?.trim() || undefined;
+    if (labelUrl) assertValidUrl(labelUrl);
     const notes = row.notes?.trim() || undefined;
 
     return this.applyUpdate(
@@ -303,6 +322,7 @@ export class ShippingUpdatesImportHandler
       status,
       trackingNumber,
       shippingCompanyId,
+      labelUrl,
       notes,
       userId,
       StoreOrderActivitySource.GOOGLE_SHEETS,
@@ -315,11 +335,13 @@ export class ShippingUpdatesImportHandler
       status: ShipmentStatus | null;
       trackingNumber: string | null;
       shippingCompanyId: string | null;
+      labelUrl: string | null;
       notes: string | null;
     },
     status: ShipmentStatus,
     trackingNumber: string | undefined,
     shippingCompanyId: string | undefined,
+    labelUrl: string | undefined,
     notes: string | undefined,
   ): boolean {
     if (current.status !== status) return false;
@@ -328,6 +350,7 @@ export class ShippingUpdatesImportHandler
     if (shippingCompanyId && shippingCompanyId !== current.shippingCompanyId) {
       return false;
     }
+    if (labelUrl && labelUrl !== current.labelUrl) return false;
     if (notes && notes !== current.notes) return false;
     return true;
   }
@@ -338,6 +361,7 @@ export class ShippingUpdatesImportHandler
     status: ShipmentStatus,
     trackingNumber: string | undefined,
     shippingCompanyId: string | undefined,
+    labelUrl: string | undefined,
     notes: string | undefined,
     userId: string | undefined,
     source: StoreOrderActivitySource,
@@ -383,6 +407,12 @@ export class ShippingUpdatesImportHandler
             data: { trackingNumber },
           });
         }
+        if (labelUrl) {
+          updated = await tx.shipment.update({
+            where: { id: updated.id },
+            data: { labelUrl },
+          });
+        }
         if (notes) {
           updated = await tx.shipment.update({
             where: { id: updated.id },
@@ -416,5 +446,13 @@ export class ShippingUpdatesImportHandler
     );
 
     return { id: shipment.id };
+  }
+}
+
+function assertValidUrl(value: string) {
+  try {
+    new URL(value);
+  } catch {
+    throw new BadRequestException(`"${value}" is not a valid URL.`);
   }
 }

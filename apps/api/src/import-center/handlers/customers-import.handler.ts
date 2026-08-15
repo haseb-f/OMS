@@ -38,6 +38,7 @@ const FIELDS: ImportFieldDef[] = [
     required: false,
     type: 'string',
     referenceType: 'COUNTRY',
+    referenceDisplayWithCode: true,
   },
   {
     key: 'phone',

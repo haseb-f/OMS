@@ -46,6 +46,9 @@ describe('Data Synchronization', () => {
   let productSku: string;
   let paymentSourceId: string;
   let receivingAccountId: string;
+  let employeeEmail: string;
+  let countryName: string;
+  let paymentMethodLabel: string;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -115,6 +118,28 @@ describe('Data Synchronization', () => {
       throw new Error('Expected at least one seeded active ReceivingAccount.');
     }
     receivingAccountId = receivingAccount.id;
+
+    const employeeSuffix = randomUUID().slice(0, 8);
+    const employee = await prisma.user.create({
+      data: {
+        email: `sync-test-${employeeSuffix}@example.test`,
+        username: `sync-test-${employeeSuffix}`,
+        fullName: 'Sync Test Employee',
+        passwordHash: 'x',
+        isSuperAdmin: false,
+      },
+    });
+    employeeEmail = employee.email;
+
+    const country = await prisma.country.findFirstOrThrow({
+      where: { deletedAt: null, isActive: true, code: 'SA' },
+    });
+    countryName = country.name;
+
+    const paymentMethod = await prisma.paymentMethod.findFirstOrThrow({
+      where: { deletedAt: null },
+    });
+    paymentMethodLabel = paymentMethod.name;
   });
 
   afterAll(async () => {
@@ -189,15 +214,17 @@ describe('Data Synchronization', () => {
   function storeOrderRow(overrides: Partial<Record<string, string>> = {}) {
     return {
       externalOrderId: `EXT-${randomUUID()}`,
-      orderDate: '',
+      orderDate: '2026-08-01',
       customerName: 'Sync Test Customer',
       customerPhone: `+9665${Math.floor(10000000 + Math.random() * 89999999)}`,
-      customerEmail: '',
+      countryName,
+      address: 'Test address',
       productSku,
       quantity: '1',
-      unitPrice: '100',
+      paidAmount: '100',
       currencyCode,
-      sourceChannel: 'GoogleSheets',
+      paymentMethodLabel,
+      agentEmail: employeeEmail,
       ...overrides,
     };
   }
@@ -339,8 +366,8 @@ describe('Data Synchronization', () => {
   // ---------------------------------------------------------------------
   // Reconciliation fixture: one Store Order shared by scenarios 7-9.
   // ---------------------------------------------------------------------
-  async function createReconciliationOrder(unitPrice: number) {
-    const row = storeOrderRow({ unitPrice: String(unitPrice) });
+  async function createReconciliationOrder(paidAmount: number) {
+    const row = storeOrderRow({ paidAmount: String(paidAmount) });
     const result = await storeOrdersHandler.importRow(row);
     return prisma.storeOrder.findUniqueOrThrow({ where: { id: result.id } });
   }
@@ -470,12 +497,17 @@ describe('Data Synchronization', () => {
 
     const HEADERS = [
       'External Order ID',
+      'Order Date',
       'Customer Name',
       'Customer Phone',
+      'Country',
+      'Detailed Address',
       'Product SKU',
       'Quantity',
-      'Unit Price',
+      'Paid Amount',
       'Currency',
+      'Payment Method',
+      'Employee Email',
     ];
 
     function toCsv(rows: Record<string, string>[]): string {
@@ -531,12 +563,17 @@ describe('Data Synchronization', () => {
         spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${randomUUID()}/edit`,
         columnMapping: {
           externalOrderId: 'External Order ID',
+          orderDate: 'Order Date',
           customerName: 'Customer Name',
           customerPhone: 'Customer Phone',
+          countryName: 'Country',
+          address: 'Detailed Address',
           productSku: 'Product SKU',
           quantity: 'Quantity',
-          unitPrice: 'Unit Price',
+          paidAmount: 'Paid Amount',
           currencyCode: 'Currency',
+          paymentMethodLabel: 'Payment Method',
+          agentEmail: 'Employee Email',
         },
       });
     }
@@ -544,12 +581,17 @@ describe('Data Synchronization', () => {
     it('records a successful sync as an ImportJob and updates the source Last Sync summary', async () => {
       const row = {
         'External Order ID': `EXT-${randomUUID()}`,
+        'Order Date': '2026-08-01',
         'Customer Name': 'Sheet Customer',
         'Customer Phone': `+9665${Math.floor(10000000 + Math.random() * 89999999)}`,
+        Country: countryName,
+        'Detailed Address': 'Test address',
         'Product SKU': productSku,
         Quantity: '2',
-        'Unit Price': '50',
+        'Paid Amount': '50',
         Currency: currencyCode,
+        'Payment Method': paymentMethodLabel,
+        'Employee Email': employeeEmail,
       };
       const source = await createSource([row]);
 
@@ -582,12 +624,17 @@ describe('Data Synchronization', () => {
     it('never writes back to the sheet before commit, and writes back only once the DB commit has actually succeeded', async () => {
       const row = {
         'External Order ID': `EXT-${randomUUID()}`,
+        'Order Date': '2026-08-01',
         'Customer Name': 'Sheet Customer 2',
         'Customer Phone': `+9665${Math.floor(10000000 + Math.random() * 89999999)}`,
+        Country: countryName,
+        'Detailed Address': 'Test address',
         'Product SKU': productSku,
         Quantity: '1',
-        'Unit Price': '75',
+        'Paid Amount': '75',
         Currency: currencyCode,
+        'Payment Method': paymentMethodLabel,
+        'Employee Email': employeeEmail,
       };
       const source = await createSource([row]);
 
@@ -602,8 +649,52 @@ describe('Data Synchronization', () => {
         { rowNumber: number; values: Record<string, string> }[],
       ];
       const writtenRows = call[1];
-      expect(writtenRows[0].values['OMS Import Status']).toBe('ACCEPTED');
-      expect(writtenRows[0].values['OMS Order ID']).toMatch(/.+/);
+      expect(Object.keys(writtenRows[0].values).sort()).toEqual(
+        ['Error Message', 'Sync Status', 'System Order ID'].sort(),
+      );
+      expect(writtenRows[0].values['Sync Status']).toBe('SUCCESS');
+      expect(writtenRows[0].values['System Order ID']).toMatch(/.+/);
+      expect(writtenRows[0].values['Error Message']).toBe('');
+    });
+
+    it('writes back exactly Sync Status/System Order ID/Error Message for a rejected row — no OMS Processed At, no order id', async () => {
+      const row = {
+        'External Order ID': `EXT-${randomUUID()}`,
+        'Order Date': '2026-08-01',
+        'Customer Name': 'Sheet Customer 3',
+        'Customer Phone': `+9665${Math.floor(10000000 + Math.random() * 89999999)}`,
+        Country: 'Not A Real Country',
+        'Detailed Address': 'Test address',
+        'Product SKU': productSku,
+        Quantity: '1',
+        'Paid Amount': '75',
+        Currency: currencyCode,
+        'Payment Method': paymentMethodLabel,
+        'Employee Email': employeeEmail,
+      };
+      const source = await createSource([row]);
+
+      const preview = await orchestrator.preview(source.id);
+      const commitResult = await orchestrator.commit(source.id, preview.jobId);
+      expect(commitResult.importedCount).toBe(0);
+      expect(commitResult.errorCount).toBe(1);
+
+      const call = fakeSheets.writeRowResults.mock.calls[0] as [
+        string,
+        { rowNumber: number; values: Record<string, string> }[],
+      ];
+      const values = call[1][0].values;
+      expect(Object.keys(values).sort()).toEqual(
+        ['Error Message', 'Sync Status', 'System Order ID'].sort(),
+      );
+      expect(values['Sync Status']).toBe('REJECTED');
+      expect(values['System Order ID']).toBe('');
+      expect(values['Error Message']).toContain('Not A Real Country');
+
+      const order = await prisma.storeOrder.findFirst({
+        where: { externalOrderId: row['External Order ID'] },
+      });
+      expect(order).toBeNull();
     });
   });
 });

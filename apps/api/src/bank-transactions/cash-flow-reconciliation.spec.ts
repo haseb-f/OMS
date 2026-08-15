@@ -53,6 +53,9 @@ describe('Cash Flow Reconciliation', () => {
   let supplierId: string;
   let sharedCustomerId: string;
   let testUserId: string;
+  let testUserEmail: string;
+  let countryName: string;
+  let paymentMethodLabel: string;
 
   beforeAll(async () => {
     moduleRef = await Test.createTestingModule({
@@ -157,12 +160,23 @@ describe('Cash Flow Reconciliation', () => {
       },
     });
     testUserId = user.id;
+    testUserEmail = user.email;
+
+    const country = await prisma.country.findFirstOrThrow({
+      where: { deletedAt: null, isActive: true, code: 'SA' },
+    });
+    countryName = country.name;
+
+    const paymentMethod = await prisma.paymentMethod.findFirstOrThrow({
+      where: { deletedAt: null },
+    });
+    paymentMethodLabel = paymentMethod.name;
 
     // One shared Customer (created via a real Store Order import so it goes
     // through the real CustomersService.findOrCreate) reused for both the
     // Store Order tests and the B2B Sales Invoice fixture below.
     const order = await storeOrdersHandler.importRow(
-      storeOrderRow({ unitPrice: '1000' }),
+      storeOrderRow({ paidAmount: '1000' }),
     );
     const created = await prisma.storeOrder.findUniqueOrThrow({
       where: { id: order.id },
@@ -265,15 +279,17 @@ describe('Cash Flow Reconciliation', () => {
   function storeOrderRow(overrides: Partial<Record<string, string>> = {}) {
     return {
       externalOrderId: `CF-EXT-${randomUUID()}`,
-      orderDate: '',
+      orderDate: '2026-08-01',
       customerName: 'Cash Flow Test Customer',
       customerPhone: `+9665${Math.floor(10000000 + Math.random() * 89999999)}`,
-      customerEmail: '',
+      countryName,
+      address: 'Test address',
       productSku,
       quantity: '1',
-      unitPrice: '1000',
+      paidAmount: '1000',
       currencyCode,
-      sourceChannel: 'GoogleSheets',
+      paymentMethodLabel,
+      agentEmail: testUserEmail,
       ...overrides,
     };
   }
@@ -400,7 +416,7 @@ describe('Cash Flow Reconciliation', () => {
   describe('incoming -> Store Orders', () => {
     it('reaches FULLY_PAID_RECONCILED on a single full-amount incoming transaction', async () => {
       const order = await storeOrdersHandler.importRow(
-        storeOrderRow({ unitPrice: '1000' }),
+        storeOrderRow({ paidAmount: '1000' }),
       );
       const txn = await importIncoming({ amount: 1000 });
       const userId = testUserId;
@@ -423,7 +439,7 @@ describe('Cash Flow Reconciliation', () => {
 
     it('reaches PARTIALLY_PAID on a partial-amount incoming transaction', async () => {
       const order = await storeOrdersHandler.importRow(
-        storeOrderRow({ unitPrice: '1000' }),
+        storeOrderRow({ paidAmount: '1000' }),
       );
       const txn = await importIncoming({ amount: 400 });
       const userId = testUserId;
@@ -445,7 +461,7 @@ describe('Cash Flow Reconciliation', () => {
 
     it('recognizes multiple incoming transactions belonging to the same Store Order', async () => {
       const order = await storeOrdersHandler.importRow(
-        storeOrderRow({ unitPrice: '1000' }),
+        storeOrderRow({ paidAmount: '1000' }),
       );
       const userId = testUserId;
 
@@ -497,7 +513,7 @@ describe('Cash Flow Reconciliation', () => {
 
     it('never lets an already-reconciled Bank Transaction be reconciled a second time', async () => {
       const order = await storeOrdersHandler.importRow(
-        storeOrderRow({ unitPrice: '1000' }),
+        storeOrderRow({ paidAmount: '1000' }),
       );
       const txn = await importIncoming({ amount: 1000 });
       await reconciliation.confirmStoreOrderPayment(

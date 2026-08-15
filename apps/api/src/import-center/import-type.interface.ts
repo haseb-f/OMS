@@ -40,6 +40,21 @@ export interface ImportFieldDef {
   referenceType?: string;
   /** Which `ReferenceRecord` field this column's values match against — defaults to the reference type's own `defaultMatchField` (e.g. Product defaults to SKU) when omitted. */
   referenceMatchField?: 'code' | 'name';
+  /**
+   * `referenceType` fields only — the generated dropdown shows
+   * `"name (code)"` instead of the bare match-field value whenever the
+   * record has a `code` (e.g. "السعودية (SA)"), so the employee never has
+   * to know or type the exact official/registered name. The stable `code`
+   * embedded in that suffix is what `ReferenceDataRegistryService` actually
+   * resolves against (see its trailing-`(CODE)` fallback) — a display-name
+   * mismatch (formal vs. common name, a future rename, ...) can never
+   * cause a false rejection for a value picked from a freshly-generated
+   * dropdown, even when `referenceMatchField` is `'name'`. Opt-in per
+   * field (never a blanket behavior change for every existing
+   * name-matched reference column) — set for Country specifically, since
+   * that's the field this was built to fix.
+   */
+  referenceDisplayWithCode?: boolean;
 }
 
 /** Row-level pre-flight validation options (Phase 1) — see `ImportTypeHandler.importRow`'s `dryRun` note. */
@@ -122,6 +137,17 @@ export interface ImportTypeHandler {
   readonly descriptionKey: string;
   readonly fields: ImportFieldDef[];
   readonly isAvailable: boolean;
+  /**
+   * Column headers reserved for the sync write-back result (e.g. Store
+   * Orders' "Sync Status" / "System Order ID" / "Error Message") — never
+   * user-input, never mapped by the Import Mapping UI, never validated.
+   * `ImportTemplateService` appends them, unstyled-as-data, immediately
+   * after `fields` on the generated "Import Data" sheet so a template
+   * built from scratch already reserves the exact columns
+   * `GoogleSheetsService.ensureResultColumns` will look for by name at
+   * sync time — optional; a handler without this is unaffected.
+   */
+  readonly resultColumns?: string[];
   importRow(
     row: Record<string, string>,
     userId?: string,

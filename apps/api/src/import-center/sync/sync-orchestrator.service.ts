@@ -344,7 +344,17 @@ export class SyncOrchestratorService {
     });
   }
 
-  /** Store Orders write-back for a just-completed `run()` — spec section 3's exact columns/values: ACCEPTED/OMS Order ID for every created order, NEEDS_REVIEW for a still-open needs-review row, REJECTED/message for every hard validation failure (e.g. a duplicate External Order ID). A row later confirmed/rejected from the Needs Review screen writes back separately — see `confirmRow`/`rejectRow` below. */
+  /**
+   * Store Orders write-back for a just-completed `run()` — exactly 3
+   * result columns (2026-08-15 revision): "Sync Status" / "System Order
+   * ID" / "Error Message" — SUCCESS with the real `internalOrderId` and no
+   * error text for every created order, NEEDS_REVIEW for a still-open
+   * needs-review row, REJECTED with the exact validation message and no
+   * order id for every hard validation failure (e.g. a duplicate External
+   * Order ID). No "processed at" column — dropped per spec. A row later
+   * confirmed/rejected from the Needs Review screen writes back separately
+   * — see `confirmRow`/`rejectRow` below, which use the same 3 columns.
+   */
   private async writeBackStoreOrders(
     source: { spreadsheetId: string; worksheetGid: string | null },
     result: {
@@ -367,17 +377,15 @@ export class SyncOrchestratorService {
     const internalOrderIdById = new Map(
       orders.map((o) => [o.id, o.internalOrderId]),
     );
-    const processedAt = new Date().toISOString();
 
     const rows: { rowNumber: number; values: Record<string, string> }[] = [];
     for (const { rowNumber, id } of result.successRows) {
       rows.push({
         rowNumber,
         values: {
-          'OMS Import Status': 'ACCEPTED',
-          'OMS Order ID': internalOrderIdById.get(id) ?? '',
-          'OMS Import Message': 'Imported successfully',
-          'OMS Processed At': processedAt,
+          'Sync Status': 'SUCCESS',
+          'System Order ID': internalOrderIdById.get(id) ?? '',
+          'Error Message': '',
         },
       });
     }
@@ -388,20 +396,20 @@ export class SyncOrchestratorService {
         rows.push({
           rowNumber: error.rowNumber,
           values: {
-            'OMS Import Status': 'NEEDS_REVIEW',
-            'OMS Import Message': error.errorMessage.slice(
+            'Sync Status': 'NEEDS_REVIEW',
+            'System Order ID': '',
+            'Error Message': error.errorMessage.slice(
               NEEDS_REVIEW_PREFIX.length,
             ),
-            'OMS Processed At': processedAt,
           },
         });
       } else {
         rows.push({
           rowNumber: error.rowNumber,
           values: {
-            'OMS Import Status': 'REJECTED',
-            'OMS Import Message': error.errorMessage,
-            'OMS Processed At': processedAt,
+            'Sync Status': 'REJECTED',
+            'System Order ID': '',
+            'Error Message': error.errorMessage,
           },
         });
       }
@@ -503,7 +511,6 @@ export class SyncOrchestratorService {
     const sheetRows: { rowNumber: number; values: Record<string, string> }[] =
       [];
     const report: ShippingSyncRowReport[] = [];
-    const syncedAt = new Date().toISOString();
     const externalOrderIdColumn = columnMapping.externalOrderId;
 
     for (const { rowNumber, id, noChange } of result.successRows) {
@@ -512,10 +519,9 @@ export class SyncOrchestratorService {
       sheetRows.push({
         rowNumber,
         values: {
-          'OMS Shipping Sync Status': status,
-          'OMS Shipping Sync Message': message,
-          'OMS Shipping Synced At': syncedAt,
-          'OMS Shipment ID': id,
+          'Shipping Sync Status': status,
+          'Shipping Sync Message': message,
+          'Shipment ID': id,
         },
       });
       report.push({
@@ -540,9 +546,9 @@ export class SyncOrchestratorService {
       sheetRows.push({
         rowNumber: error.rowNumber,
         values: {
-          'OMS Shipping Sync Status': status,
-          'OMS Shipping Sync Message': message,
-          'OMS Shipping Synced At': syncedAt,
+          'Shipping Sync Status': status,
+          'Shipping Sync Message': message,
+          'Shipment ID': '',
         },
       });
       const rawRow = error.rawRowData as Record<string, unknown> | null;
@@ -593,10 +599,9 @@ export class SyncOrchestratorService {
             {
               rowNumber: errorRow.rowNumber,
               values: {
-                'OMS Shipping Sync Status': 'UPDATED',
-                'OMS Shipping Sync Message': 'تم تحديث حالة الشحن',
-                'OMS Shipping Synced At': new Date().toISOString(),
-                'OMS Shipment ID': result.id,
+                'Shipping Sync Status': 'UPDATED',
+                'Shipping Sync Message': 'تم تحديث حالة الشحن',
+                'Shipment ID': result.id,
               },
             },
           ],
@@ -613,10 +618,9 @@ export class SyncOrchestratorService {
             {
               rowNumber: errorRow.rowNumber,
               values: {
-                'OMS Import Status': 'ACCEPTED',
-                'OMS Order ID': order?.internalOrderId ?? '',
-                'OMS Import Message': 'Imported successfully',
-                'OMS Processed At': new Date().toISOString(),
+                'Sync Status': 'SUCCESS',
+                'System Order ID': order?.internalOrderId ?? '',
+                'Error Message': '',
               },
             },
           ],
@@ -645,9 +649,9 @@ export class SyncOrchestratorService {
             {
               rowNumber: errorRow.rowNumber,
               values: {
-                'OMS Shipping Sync Status': 'REJECTED',
-                'OMS Shipping Sync Message': message,
-                'OMS Shipping Synced At': new Date().toISOString(),
+                'Shipping Sync Status': 'REJECTED',
+                'Shipping Sync Message': message,
+                'Shipment ID': '',
               },
             },
           ],
@@ -660,9 +664,9 @@ export class SyncOrchestratorService {
             {
               rowNumber: errorRow.rowNumber,
               values: {
-                'OMS Import Status': 'REJECTED',
-                'OMS Import Message': message,
-                'OMS Processed At': new Date().toISOString(),
+                'Sync Status': 'REJECTED',
+                'System Order ID': '',
+                'Error Message': message,
               },
             },
           ],

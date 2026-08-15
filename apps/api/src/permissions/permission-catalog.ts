@@ -227,7 +227,14 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
     key: 'chart-of-accounts',
     labelKey: 'permissions.modules.chartOfAccounts',
     actions: [
-      ...crud('accounting.chart-of-accounts', { export: true }),
+      // `delete: true` (Safe Account Deletion, 2026-08-15) — the
+      // controller's `archive()` endpoint already declared
+      // `@PermissionAction('delete')`, but no matching catalog entry
+      // existed, so `PermissionsGuard` failed closed for every
+      // non-super-admin user. This registers the permission that
+      // declaration always assumed existed — not a new capability, a
+      // fix so the existing declared gate actually works.
+      ...crud('accounting.chart-of-accounts', { export: true, delete: true }),
       // "manage" — the one action in the fixed vocabulary that fits
       // "highly-privileged admin overrides a system-generated account code"
       // (Part 12): every other employee with plain Create only ever gets

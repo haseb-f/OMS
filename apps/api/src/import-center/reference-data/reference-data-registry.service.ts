@@ -102,12 +102,30 @@ export class ReferenceDataRegistryService {
   ): Promise<string> {
     const source = this.get(type);
     const records = await this.listCached(type);
-    const match = records.find((record) => {
-      const candidate = matchField === 'code' ? record.code : record.name;
-      return (
-        candidate != null && candidate.toLowerCase() === trimmed.toLowerCase()
-      );
-    });
+    const exact = (candidate: string | null) =>
+      candidate != null && candidate.toLowerCase() === trimmed.toLowerCase();
+    let match = records.find((record) =>
+      exact(matchField === 'code' ? record.code : record.name),
+    );
+    // Stable-identity fallback (spec: "resolve using the stable identifier/
+    // code, not the display name") — a value shaped like "Name (CODE)"
+    // (the friendly form `ImportTemplateService` generates for a
+    // `referenceDisplayWithCode` field, e.g. "السعودية (SA)") always
+    // resolves by the embedded code, so a display-name mismatch — a
+    // formal/official name vs. the common one an employee actually
+    // recognizes, a future rename — can never cause a false rejection.
+    // Never fuzzy: the code inside the parentheses must still match
+    // exactly.
+    if (!match) {
+      const codeSuffix = /\(([^()]+)\)\s*$/.exec(trimmed)?.[1]?.trim();
+      if (codeSuffix) {
+        match = records.find(
+          (record) =>
+            record.code != null &&
+            record.code.toLowerCase() === codeSuffix.toLowerCase(),
+        );
+      }
+    }
     if (!match) {
       throw new BadRequestException({
         code: 'MASTER_DATA_NOT_FOUND',

@@ -56,6 +56,7 @@ const FIELDS: ImportFieldDef[] = [
     required: true,
     type: 'string',
     referenceType: 'COUNTRY',
+    referenceDisplayWithCode: true,
   },
   {
     key: 'mobileNumber',

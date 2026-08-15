@@ -217,9 +217,24 @@ export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount
       const code =
         codeOverride ??
         (await this.proposeNextCode(parentAccountId ?? null, accountType)).code;
+      // Safe Account Deletion (2026-08-15) — the canonical, stable flag for
+      // the 5 permanently-protected root categories: set once, here, never
+      // inferred anywhere else (never by name, never by a later code
+      // match) — a new root account only earns it by using the exact
+      // code the standard 1-5 convention assigns its own accountType.
+      const isSystemAccount =
+        !parentAccountId && code === ROOT_CODE_BY_ACCOUNT_TYPE[accountType];
+
       try {
         const created = await super.create(
-          { ...rest, accountType, parentAccountId, code, level },
+          {
+            ...rest,
+            accountType,
+            parentAccountId,
+            code,
+            level,
+            isSystemAccount,
+          },
           userId,
         );
 
@@ -323,5 +338,147 @@ export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount
       queue.push(...(childrenByParent.get(current) ?? []));
     }
     return descendants;
+  }
+
+  /**
+   * Safe Account Deletion — every existing accounting/financial reference
+   * to a Chart of Account, checked in ONE query via `_count` (never N+1).
+   * Deliberately over-inclusive: a "default account" mapping (Posting
+   * Settings, a Product Category/Customer Group/Supplier Group override, a
+   * Payment Method's linked account, ...) blocks deletion exactly like a
+   * real posted Journal Entry Line does — "zero balance" is never the
+   * bar, "zero references anywhere" is (spec: "Do NOT determine
+   * eligibility based only on current balance").
+   */
+  private async countUsageReferences(
+    id: string,
+  ): Promise<{ label: string; count: number }[]> {
+    const counted = await this.prisma.chartOfAccount.findUnique({
+      where: { id },
+      select: {
+        _count: {
+          select: {
+            childAccounts: true,
+            paymentSourcesDefault: true,
+            receivingAccounts: true,
+            journalEntryLines: true,
+            financialTransactionsExpense: true,
+            bankTransactionsExpense: true,
+            paymentMethods: true,
+            customersDefaultReceivable: true,
+            suppliersDefaultPayable: true,
+            suppliersDefaultExpense: true,
+            taxOutputFor: true,
+            taxInputFor: true,
+            postingSettingsSalesRevenue: true,
+            postingSettingsCogs: true,
+            postingSettingsInventory: true,
+            postingSettingsAr: true,
+            postingSettingsAp: true,
+            postingSettingsExpense: true,
+            postingSettingsSalesDiscount: true,
+            postingSettingsSalesReturn: true,
+            postingSettingsInventoryAdjustment: true,
+            postingSettingsPurchase: true,
+            postingSettingsPurchaseReturn: true,
+            postingSettingsCash: true,
+            postingSettingsBank: true,
+            postingSettingsVatOutput: true,
+            postingSettingsVatInput: true,
+            postingSettingsRoundDifference: true,
+            postingSettingsPurchaseDiscount: true,
+            postingSettingsExchangeDifference: true,
+            postingSettingsSuspense: true,
+            postingSettingsRetainedEarnings: true,
+            categoriesDefaultRevenue: true,
+            categoriesDefaultInventory: true,
+            categoriesDefaultCogs: true,
+            categoriesDefaultPurchase: true,
+            customerGroupsReceivable: true,
+            customerGroupsRevenue: true,
+            supplierGroupsPayable: true,
+            supplierGroupsPurchase: true,
+            journalsDefaultDebit: true,
+            journalsDefaultCredit: true,
+          },
+        },
+      },
+    });
+    if (!counted) return [];
+    const labels: Record<string, string> = {
+      childAccounts: 'حساب فرعي',
+      paymentSourcesDefault: 'مصدر دفع (حساب افتراضي)',
+      receivingAccounts: 'حساب استلام',
+      journalEntryLines: 'سطر قيد يومية',
+      financialTransactionsExpense: 'معاملة مالية (مصروف)',
+      bankTransactionsExpense: 'معاملة بنكية (مصروف)',
+      paymentMethods: 'طريقة دفع',
+      customersDefaultReceivable: 'عميل (حساب مدينون افتراضي)',
+      suppliersDefaultPayable: 'مورد (حساب دائنون افتراضي)',
+      suppliersDefaultExpense: 'مورد (حساب مصروفات افتراضي)',
+      taxOutputFor: 'ضريبة (حساب مخرجات)',
+      taxInputFor: 'ضريبة (حساب مدخلات)',
+      postingSettingsSalesRevenue: 'إعدادات الترحيل (إيرادات المبيعات)',
+      postingSettingsCogs: 'إعدادات الترحيل (تكلفة البضاعة المباعة)',
+      postingSettingsInventory: 'إعدادات الترحيل (المخزون)',
+      postingSettingsAr: 'إعدادات الترحيل (المدينون)',
+      postingSettingsAp: 'إعدادات الترحيل (الدائنون)',
+      postingSettingsExpense: 'إعدادات الترحيل (المصروفات)',
+      postingSettingsSalesDiscount: 'إعدادات الترحيل (خصم المبيعات)',
+      postingSettingsSalesReturn: 'إعدادات الترحيل (مرتجع المبيعات)',
+      postingSettingsInventoryAdjustment: 'إعدادات الترحيل (تسوية المخزون)',
+      postingSettingsPurchase: 'إعدادات الترحيل (المشتريات)',
+      postingSettingsPurchaseReturn: 'إعدادات الترحيل (مرتجع المشتريات)',
+      postingSettingsCash: 'إعدادات الترحيل (النقدية)',
+      postingSettingsBank: 'إعدادات الترحيل (البنك)',
+      postingSettingsVatOutput: 'إعدادات الترحيل (ضريبة المخرجات)',
+      postingSettingsVatInput: 'إعدادات الترحيل (ضريبة المدخلات)',
+      postingSettingsRoundDifference: 'إعدادات الترحيل (فروقات التقريب)',
+      postingSettingsPurchaseDiscount: 'إعدادات الترحيل (خصم المشتريات)',
+      postingSettingsExchangeDifference: 'إعدادات الترحيل (فروقات الصرف)',
+      postingSettingsSuspense: 'إعدادات الترحيل (حساب معلق)',
+      postingSettingsRetainedEarnings: 'إعدادات الترحيل (الأرباح المحتجزة)',
+      categoriesDefaultRevenue: 'فئة منتج (حساب إيرادات افتراضي)',
+      categoriesDefaultInventory: 'فئة منتج (حساب مخزون افتراضي)',
+      categoriesDefaultCogs: 'فئة منتج (حساب تكلفة افتراضي)',
+      categoriesDefaultPurchase: 'فئة منتج (حساب مشتريات افتراضي)',
+      customerGroupsReceivable: 'مجموعة عملاء (حساب مدينون افتراضي)',
+      customerGroupsRevenue: 'مجموعة عملاء (حساب إيرادات افتراضي)',
+      supplierGroupsPayable: 'مجموعة موردين (حساب دائنون افتراضي)',
+      supplierGroupsPurchase: 'مجموعة موردين (حساب مشتريات افتراضي)',
+      journalsDefaultDebit: 'دفتر يومية (حساب مدين افتراضي)',
+      journalsDefaultCredit: 'دفتر يومية (حساب دائن افتراضي)',
+    };
+    return Object.entries(counted._count)
+      .filter(([, count]) => count > 0)
+      .map(([key, count]) => ({ label: labels[key] ?? key, count }));
+  }
+
+  /**
+   * Business operation: Delete (spec "Safe Account Deletion") — a stricter
+   * gate in front of the same soft-delete `MasterDataCrudService.archive()`
+   * already performs (this codebase never hard-deletes reference data).
+   * Two hard blocks, checked before anything else runs:
+   * 1. The 5 protected root accounts (`isSystemAccount`) — never, for any
+   *    reason.
+   * 2. Any account referenced anywhere in the accounting system (see
+   *    `countUsageReferences`) — zero balance is irrelevant; zero
+   *    references is the only bar.
+   */
+  async archive(id: string, userId?: string): Promise<ChartOfAccount> {
+    const account = await this.findOne(id);
+    if (account.isSystemAccount) {
+      throw new BadRequestException(
+        'هذا الحساب من الحسابات الرئيسية المحمية في النظام ولا يمكن حذفه.',
+      );
+    }
+    const usage = await this.countUsageReferences(id);
+    if (usage.length > 0) {
+      const details = usage.map((u) => `${u.label} (${u.count})`).join('، ');
+      throw new BadRequestException(
+        `لا يمكن حذف هذا الحساب لأنه مستخدم في العمليات المحاسبية: ${details}.`,
+      );
+    }
+    return super.archive(id, userId);
   }
 }
