@@ -71,8 +71,11 @@ describe('ImportTemplateService — Master Data dropdowns', () => {
     expect(columnIndex).toBeGreaterThan(0);
     const cell = dataSheet.getCell(2, columnIndex);
     expect(cell.dataValidation?.type).toBe('list');
+    // Must be the single-quoted, valid-A1 form ('Reference Data'!$A$2:...) —
+    // "Reference Data" has a space, so an unquoted sheet reference is
+    // invalid Excel syntax that silently renders as an empty dropdown.
     expect(String(cell.dataValidation?.formulae?.[0] ?? '')).toContain(
-      'Reference Data',
+      "'Reference Data'!",
     );
     return workbook;
   }
@@ -94,7 +97,7 @@ describe('ImportTemplateService — Master Data dropdowns', () => {
     const cell = dataSheet!.getCell(2, currencyColumnIndex);
     expect(cell.dataValidation?.type).toBe('list');
     const formula = String(cell.dataValidation?.formulae?.[0] ?? '');
-    expect(formula).toContain('Reference Data');
+    expect(formula).toContain("'Reference Data'!");
 
     const referenceSheet = workbook.getWorksheet('Reference Data');
     expect(referenceSheet).toBeDefined();
@@ -173,7 +176,7 @@ describe('ImportTemplateService — Master Data dropdowns', () => {
     const cell = dataSheet!.getCell(2, paymentMethodColumnIndex);
     expect(cell.dataValidation?.type).toBe('list');
     expect(String(cell.dataValidation?.formulae?.[0] ?? '')).toContain(
-      'Reference Data',
+      "'Reference Data'!",
     );
   });
 

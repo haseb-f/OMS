@@ -147,9 +147,15 @@ export class ImportTemplateService {
       // validation — guarantee at least one populated row so the
       // dropdown formula below always resolves.
       const lastRow = Math.max(values.length, 1) + 1;
+      // Sheet-qualified A1 ranges require the sheet name single-quoted
+      // whenever it isn't a bare alphanumeric/underscore token — "Reference
+      // Data" has a space, so an unquoted `Reference Data!$A$2:$A$10` is
+      // invalid Excel syntax: Excel still renders the dropdown arrow (the
+      // dataValidation rule itself is well-formed XML) but silently treats
+      // the list source as empty, since it can't resolve the range.
       columnLetters.set(
         key,
-        `${REFERENCE_SHEET_NAME}!$${letter}$2:$${letter}$${lastRow}`,
+        `'${REFERENCE_SHEET_NAME}'!$${letter}$2:$${letter}$${lastRow}`,
       );
       columnIndex++;
     }
