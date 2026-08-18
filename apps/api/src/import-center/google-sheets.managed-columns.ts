@@ -3,59 +3,133 @@ export interface ManagedColumnInput {
   values: string[];
 }
 
+export interface ManagedColumnLayout {
+  /** 1-based sheet row that holds managed list headers. */
+  headerRow: number;
+  /** 1-based first row that may receive synchronized values. */
+  dataStartRow: number;
+  /** A1 letter of the first column that may hold a managed header. */
+  startColumn: string;
+}
+
 export interface ManagedColumnWrite {
   header: string;
   columnIndex: number;
-  /** Row 1 is the header; remaining cells are values then empty strings to clear stale managed cells. */
+  startRow: number;
+  /** Data cells only — never includes the header. Trailing empties clear stale values. */
   cells: string[];
+}
+
+export interface ManagedHeaderWrite {
+  header: string;
+  columnIndex: number;
+  row: number;
 }
 
 export interface ManagedColumnWritePlan {
   writes: ManagedColumnWrite[];
+  headerWrites: ManagedHeaderWrite[];
+  missingHeaders: string[];
 }
 
 function headerKey(value: string | undefined): string {
   return (value ?? '').trim();
 }
 
+export function columnLetterToIndex(letter: string): number {
+  const normalized = letter.trim().toUpperCase();
+  let index = 0;
+  for (const char of normalized) {
+    const code = char.charCodeAt(0);
+    if (code < 65 || code > 90) return 0;
+    index = index * 26 + (code - 64);
+  }
+  return Math.max(0, index - 1);
+}
+
+function nextEmptyColumn(
+  headerRow: string[],
+  occupied: Set<number>,
+  fromIndex: number,
+): number {
+  let index = fromIndex;
+  while (occupied.has(index) || headerKey(headerRow[index])) {
+    index += 1;
+  }
+  return index;
+}
+
 /**
- * Plans per-column writes for OMS-managed List Sheet headers.
+ * Plans per-column data writes for OMS-managed List Sheet headers.
  *
- * - Resolves columns by trimmed header name (first occurrence wins).
- * - Appends missing managed headers at the end of the header row — never
- *   inserts in the middle, never duplicates an existing header.
- * - Pads each managed column down to the current used-row count so stale
- *   managed values are cleared without touching unmanaged/future columns.
+ * - Resolves columns by trimmed header name in the configured header row
+ *   (first occurrence wins). Never scans or rewrites rows above it.
+ * - Never writes the header into the data range.
+ * - Never inserts a new row or shifts the existing layout.
+ * - If a managed header is missing, it is placed into the next empty cell
+ *   of the header row from `startColumn` — never overwriting a filled cell.
+ * - Pads each managed column from dataStartRow down to the current used-row
+ *   count so stale managed values are cleared without touching unmanaged
+ *   columns or rows above dataStartRow.
  */
 export function planManagedColumnWrites(
   existingGrid: string[][],
   columns: ManagedColumnInput[],
+  layout: ManagedColumnLayout,
 ): ManagedColumnWritePlan {
-  const headerRow = existingGrid[0] ?? [];
-  const usedRowCount = Math.max(1, existingGrid.length);
+  const headerRowIndex = Math.max(0, layout.headerRow - 1);
+  const dataStartRow = Math.max(layout.headerRow + 1, layout.dataStartRow);
+  const headerRow = [...(existingGrid[headerRowIndex] ?? [])];
+  const startColumnIndex = columnLetterToIndex(layout.startColumn);
+  const usedRowCount = Math.max(layout.headerRow, existingGrid.length);
   const indexByHeader = new Map<string, number>();
+  const occupied = new Set<number>();
   headerRow.forEach((cell, index) => {
+    if (index < startColumnIndex) return;
     const key = headerKey(cell);
-    if (key && !indexByHeader.has(key)) indexByHeader.set(key, index);
+    if (key && !indexByHeader.has(key)) {
+      indexByHeader.set(key, index);
+      occupied.add(index);
+    }
   });
 
-  let nextIndex = headerRow.length;
   const writes: ManagedColumnWrite[] = [];
+  const headerWrites: ManagedHeaderWrite[] = [];
+  const missingHeaders: string[] = [];
+  let nextIndex = startColumnIndex;
 
   for (const column of columns) {
     const header = headerKey(column.header);
     if (!header) continue;
     let columnIndex = indexByHeader.get(header);
     if (columnIndex === undefined) {
-      columnIndex = nextIndex;
+      columnIndex = nextEmptyColumn(headerRow, occupied, nextIndex);
+      headerRow[columnIndex] = header;
       indexByHeader.set(header, columnIndex);
-      nextIndex += 1;
+      occupied.add(columnIndex);
+      nextIndex = columnIndex + 1;
+      headerWrites.push({
+        header,
+        columnIndex,
+        row: layout.headerRow,
+      });
     }
-    const cells = [header, ...column.values];
-    const height = Math.max(usedRowCount, cells.length);
+
+    const lastManagedRow = Math.max(
+      dataStartRow - 1 + column.values.length,
+      usedRowCount,
+    );
+    const height = Math.max(0, lastManagedRow - dataStartRow + 1);
+    const cells = column.values.slice();
     while (cells.length < height) cells.push('');
-    writes.push({ header, columnIndex, cells });
+    if (cells.length === 0) continue;
+    writes.push({
+      header,
+      columnIndex,
+      startRow: dataStartRow,
+      cells,
+    });
   }
 
-  return { writes };
+  return { writes, headerWrites, missingHeaders };
 }

@@ -65,13 +65,20 @@ describe('ListSheetService', () => {
     expect(result.spreadsheetId).toBe(LIST_SHEET_SPREADSHEET_ID);
     expect(result.worksheetGid).toBe(LIST_SHEET_GID);
     expect(writeManagedColumns).toHaveBeenCalledTimes(1);
-    const [spreadsheetId, gid, columns] = writeManagedColumns.mock.calls[0] as [
+    const [spreadsheetId, gid, columns, layout] = writeManagedColumns.mock
+      .calls[0] as [
       string,
       string,
       { header: string; values: string[] }[],
+      { headerRow: number; dataStartRow: number; startColumn: string },
     ];
     expect(spreadsheetId).toBe(LIST_SHEET_SPREADSHEET_ID);
     expect(gid).toBe(LIST_SHEET_GID);
+    expect(layout).toEqual({
+      headerRow: 2,
+      dataStartRow: 3,
+      startColumn: 'A',
+    });
 
     const byHeader = Object.fromEntries(
       columns.map((column) => [column.header, column.values]),

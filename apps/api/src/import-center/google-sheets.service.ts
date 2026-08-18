@@ -4,7 +4,10 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { google, sheets_v4 } from 'googleapis';
-import { planManagedColumnWrites } from './google-sheets.managed-columns';
+import {
+  planManagedColumnWrites,
+  type ManagedColumnLayout,
+} from './google-sheets.managed-columns';
 
 export interface GoogleSheetMetadata {
   title: string;
@@ -402,15 +405,18 @@ export class GoogleSheetsService {
   }
 
   /**
-   * OMS → List Sheet: write only the named managed columns. Missing managed
-   * headers are appended at the end of the header row (never duplicated).
-   * Stale values in those columns are cleared. Unmanaged/future columns are
-   * never rewritten. Does not clear or recreate the worksheet.
+   * OMS → List Sheet: write only the named managed columns under the
+   * configured header row. Headers are resolved by name — never rewritten,
+   * never duplicated, never shifted. Stale values from dataStartRow down
+   * in those columns are cleared. Title/header rows above dataStartRow and
+   * unmanaged/future columns are never rewritten. Does not clear or
+   * recreate the worksheet.
    */
   async writeManagedColumns(
     spreadsheetId: string,
     gid: string,
     columns: { header: string; values: string[] }[],
+    layout: ManagedColumnLayout,
   ): Promise<void> {
     if (columns.length === 0) return;
     const title = await this.resolveSheetTitleByGid(spreadsheetId, gid);
@@ -425,17 +431,33 @@ export class GoogleSheetsService {
       throw this.mapError(error, 'write');
     }
 
-    const { writes } = planManagedColumnWrites(grid, columns);
-    if (writes.length === 0) return;
+    const { writes, headerWrites, missingHeaders } = planManagedColumnWrites(
+      grid,
+      columns,
+      layout,
+    );
+    if (missingHeaders.length > 0) {
+      throw new BadRequestException(
+        `List Sheet is missing required headers in row ${layout.headerRow}: ${missingHeaders.join(', ')}.`,
+      );
+    }
+    if (writes.length === 0 && headerWrites.length === 0) return;
 
     const quoted = quoteSheetTitle(title);
-    const data = writes.map((write) => {
-      const letter = columnIndexToLetter(write.columnIndex);
-      return {
-        range: `${quoted}!${letter}1:${letter}${write.cells.length}`,
-        values: write.cells.map((cell) => [cell]),
-      };
-    });
+    const data = [
+      ...headerWrites.map((write) => ({
+        range: `${quoted}!${columnIndexToLetter(write.columnIndex)}${write.row}`,
+        values: [[write.header]],
+      })),
+      ...writes.map((write) => {
+        const letter = columnIndexToLetter(write.columnIndex);
+        const endRow = write.startRow + write.cells.length - 1;
+        return {
+          range: `${quoted}!${letter}${write.startRow}:${letter}${endRow}`,
+          values: write.cells.map((cell) => [cell]),
+        };
+      }),
+    ];
 
     try {
       await this.sheetsClient().spreadsheets.values.batchUpdate({

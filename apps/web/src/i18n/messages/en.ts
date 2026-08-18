@@ -3290,9 +3290,7 @@ const en = {
         },
       },
       listSheet: {
-        button: "Sync OMS Data to List Sheet",
         direction: "OMS → Google Sheets",
-        loading: "Syncing…",
         success: "OMS data was synchronized to Google Sheets successfully.",
         partial: "Synchronization completed partially — not every list was updated.",
         partialDetail: "Could not update: {lists}",

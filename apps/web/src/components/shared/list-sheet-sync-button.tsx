@@ -108,9 +108,7 @@ export function ListSheetSyncButton({
 
   if (!canSync) return null;
 
-  const label = loading
-    ? t("importCenter.sync.listSheet.loading")
-    : t("importCenter.sync.listSheet.button");
+  const label = loading ? t("importCenter.sync.loading") : t("importCenter.sync.button");
 
   return (
     <EnterpriseButton
@@ -118,7 +116,7 @@ export function ListSheetSyncButton({
       variant="warning"
       onClick={handleClick}
       disabled={loading}
-      aria-label={t("importCenter.sync.listSheet.button")}
+      aria-label={t("importCenter.sync.button")}
       aria-busy={loading || undefined}
       aria-live="polite"
       data-sync-status={status}

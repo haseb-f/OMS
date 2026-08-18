@@ -3254,9 +3254,7 @@ const ar = {
         },
       },
       listSheet: {
-        button: "مزامنة بيانات OMS مع List Sheet",
         direction: "OMS → Google Sheets",
-        loading: "جارٍ المزامنة…",
         success: "تمت مزامنة بيانات OMS مع Google Sheets بنجاح.",
         partial: "اكتملت المزامنة جزئياً — لم تُحدَّث كل القوائم.",
         partialDetail: "تعذر تحديث: {lists}",

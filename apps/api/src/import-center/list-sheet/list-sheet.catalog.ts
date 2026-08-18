@@ -12,6 +12,17 @@ export const LIST_SHEET_SPREADSHEET_ID =
 export const LIST_SHEET_GID = '960493431';
 
 /**
+ * Official List Sheet layout — headers live in row 2 starting at column A;
+ * synchronized values start at row 3. Row 1 is owned by the sheet author
+ * and must never be written by this publisher.
+ */
+export const LIST_SHEET_LAYOUT = {
+  headerRow: 2,
+  dataStartRow: 3,
+  startColumn: 'A',
+} as const;
+
+/**
  * Arabic labels the Shipping Operations UI actually shows. Written to the
  * List Sheet instead of Prisma enum codes (`SHIPPED`, …) so a human filling
  * an import sheet picks the same value they see in OMS.

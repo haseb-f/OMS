@@ -4,6 +4,7 @@ import { ReferenceDataRegistryService } from '../reference-data/reference-data-r
 import {
   LIST_SHEET_COLUMNS,
   LIST_SHEET_GID,
+  LIST_SHEET_LAYOUT,
   LIST_SHEET_SPREADSHEET_ID,
   type ListSheetColumnDef,
   type ListSheetColumnKey,
@@ -103,6 +104,7 @@ export class ListSheetService {
         LIST_SHEET_SPREADSHEET_ID,
         LIST_SHEET_GID,
         columnsToWrite,
+        LIST_SHEET_LAYOUT,
       );
     } catch (error) {
       const message = this.toUserErrorMessage(error);
@@ -150,6 +152,9 @@ export class ListSheetService {
     }
     if (raw.includes('Access denied')) {
       return 'تعذر الوصول إلى ورقة List Sheet. تأكد من منح حساب التكامل صلاحية التعديل.';
+    }
+    if (raw.includes('missing required headers')) {
+      return 'تعذر العثور على أعمدة List Sheet المطلوبة.';
     }
     if (raw.includes('gid') || raw.includes('worksheet')) {
       return 'تعذر العثور على ورقة List Sheet المطلوبة.';
