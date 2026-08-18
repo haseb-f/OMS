@@ -10,25 +10,30 @@ import {
   Min,
 } from 'class-validator';
 import { ShipmentStatus, StoreOrderSource } from '@prisma/client';
-import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.decorator';
+import {
+  TransformEnumList,
+  IsOptionalUuidList,
+} from '../../../common/query/enum-list';
 
 /** Flat, cross-order shipment listing for the Shipping list page. */
 export class FindShipmentsQueryDto {
-  @IsEnum(ShipmentStatus)
+  @TransformEnumList()
+  @IsEnum(ShipmentStatus, { each: true })
   @IsOptional()
-  status?: ShipmentStatus;
+  status?: ShipmentStatus[];
 
-  @IsOptionalUuid()
-  shippingCompanyId?: string;
+  @IsOptionalUuidList()
+  shippingCompanyId?: string[];
 
   /** The order's Customer's Country (Part 2 of the four-gaps task) — there is no separate shipping-address concept in this pipeline yet. */
-  @IsOptionalUuid()
-  countryId?: string;
+  @IsOptionalUuidList()
+  countryId?: string[];
 
   /** The shipment's own Store Order's `source` (Manual vs Import) — same field the Store Orders list filters by. */
-  @IsEnum(StoreOrderSource)
+  @TransformEnumList()
+  @IsEnum(StoreOrderSource, { each: true })
   @IsOptional()
-  source?: StoreOrderSource;
+  source?: StoreOrderSource[];
 
   /** Matches the order's customer phone/mobile OR the order's externalOrderId. */
   @IsString()

@@ -4,15 +4,22 @@ import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 const toneClasses = {
-  green: "bg-green-50 text-green-700 dark:bg-green-500/15 dark:text-green-300",
-  blue: "bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300",
+  primary: "bg-primary-soft text-primary",
+  success: "bg-success-soft text-success",
+  info: "bg-info-soft text-info",
+  warning: "bg-warning-soft text-warning-foreground",
+  destructive: "bg-destructive-soft text-destructive",
+  muted: "bg-muted text-muted-foreground",
+  /** @deprecated Use `success` */
+  green: "bg-success-soft text-success",
+  /** @deprecated Use `info` */
+  blue: "bg-info-soft text-info",
+  /** @deprecated Use `muted` */
   gray: "bg-muted text-muted-foreground",
 } as const;
 
 /**
- * Top: icon in a soft colored circle. Center: the large number. Bottom:
- * label, with an optional trend/description row — shows "—" when no value
- * is supplied yet, never a fabricated number or trend.
+ * Compact operational metric tile — token-driven tones, no decorative hero sizing.
  */
 export function KpiCard({
   icon: Icon,
@@ -20,7 +27,7 @@ export function KpiCard({
   value,
   trend,
   description,
-  tone = "green",
+  tone = "primary",
   className,
 }: {
   icon: LucideIcon;
@@ -33,22 +40,22 @@ export function KpiCard({
 }) {
   return (
     <EnterpriseCard className={cn("h-full", className)}>
-      <EnterpriseCardContent className="flex h-full min-h-[168px] flex-col gap-4">
+      <EnterpriseCardContent className="flex h-full flex-col gap-2 p-3">
         <div
           className={cn(
-            "flex size-11 shrink-0 items-center justify-center rounded-full",
+            "flex size-8 shrink-0 items-center justify-center rounded-md",
             toneClasses[tone],
           )}
         >
-          <Icon className="size-5" />
+          <Icon className="size-4" />
         </div>
-        <div className="flex flex-1 flex-col justify-end gap-1">
-          <span className="text-display font-semibold tabular-nums tracking-tight">
+        <div className="flex flex-1 flex-col justify-end gap-0.5">
+          <span className="text-ui-title font-semibold tabular-nums tracking-tight">
             {value ?? "—"}
           </span>
           <span className="text-caption text-muted-foreground">{label}</span>
           {(trend ?? description) && (
-            <div className="mt-1 flex items-center gap-2 text-caption">
+            <div className="mt-0.5 flex items-center gap-2 text-caption">
               {trend && (
                 <span
                   className={cn(

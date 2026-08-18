@@ -2,13 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import {
   EnterpriseDataTable,
   exportColumnsFromKeys,
   exportRowsToCsv,
 } from "@/components/master-data/enterprise-data-table";
 import { getColumnDisplayValue } from "@/components/shared/data-table";
+import { MoneyValue } from "@/components/shared/money-value";
+import { SemanticValue } from "@/components/shared/semantic-value";
+import { StackedCell } from "@/components/shared/stacked-cell";
 import {
   EnterpriseCard,
   EnterpriseCardContent,
@@ -90,64 +93,76 @@ function InventoryStockPageContent() {
   const columns = useMemo<ColumnDef<StockCardRow, unknown>[]>(
     () => [
       {
-        id: "sku",
-        header: t("masterData.fields.code"),
-        meta: { titleKey: "masterData.fields.code" },
-        accessorFn: (row) => row.sku,
-        cell: (info) => (
-          <code dir="ltr" className="rounded bg-muted px-1.5 py-0.5 text-xs">
-            {info.getValue() as string}
-          </code>
+        id: "productName",
+        header: t("masterData.fields.name"),
+        meta: { titleKey: "masterData.fields.name", stacked: true, type: "name" },
+        accessorFn: (row) => row.productName,
+        cell: ({ row }) => (
+          <StackedCell
+            primary={row.original.productName}
+            secondary={
+              row.original.sku ? (
+                <SemanticValue kind="id">{row.original.sku}</SemanticValue>
+              ) : undefined
+            }
+          />
         ),
       },
       {
-        id: "productName",
-        header: t("masterData.fields.name"),
-        meta: { titleKey: "masterData.fields.name" },
-        accessorFn: (row) => row.productName,
-        cell: (info) => info.getValue() as string,
+        id: "sku",
+        header: t("masterData.fields.code"),
+        meta: { titleKey: "masterData.fields.code", defaultHidden: true },
+        accessorFn: (row) => row.sku,
+        cell: (info) => <SemanticValue kind="id">{info.getValue() as string}</SemanticValue>,
+      },
+      {
+        id: "available",
+        header: t("inventory.fields.available"),
+        meta: { titleKey: "inventory.fields.available", stacked: true, type: "number" },
+        accessorFn: (row) => row.available,
+        cell: ({ row }) => (
+          <StackedCell
+            primary={<span className="font-semibold">{row.original.available}</span>}
+            secondary={`${row.original.onHand} / ${row.original.reserved}`}
+          />
+        ),
       },
       {
         id: "onHand",
         header: t("inventory.fields.onHand"),
-        meta: { titleKey: "inventory.fields.onHand" },
+        meta: { titleKey: "inventory.fields.onHand", defaultHidden: true },
         accessorFn: (row) => row.onHand,
       },
       {
         id: "reserved",
         header: t("inventory.fields.reserved"),
-        meta: { titleKey: "inventory.fields.reserved" },
+        meta: { titleKey: "inventory.fields.reserved", defaultHidden: true },
         accessorFn: (row) => row.reserved,
       },
       {
-        id: "available",
-        header: t("inventory.fields.available"),
-        meta: { titleKey: "inventory.fields.available" },
-        accessorFn: (row) => row.available,
-        cell: (info) => <span className="font-semibold">{info.getValue() as number}</span>,
+        id: "stockValue",
+        header: t("inventory.fields.stockValue"),
+        meta: { titleKey: "inventory.fields.stockValue", type: "money" },
+        accessorFn: (row) => formatMoney(row.stockValue),
+        cell: ({ row }) =>
+          row.original.stockValue === null ? "—" : <MoneyValue value={row.original.stockValue} />,
       },
       {
         id: "averageCost",
         header: t("inventory.fields.averageCost"),
-        meta: { titleKey: "inventory.fields.averageCost" },
+        meta: { titleKey: "inventory.fields.averageCost", defaultHidden: true },
         accessorFn: (row) => formatMoney(row.averageCost),
       },
       {
         id: "lastCost",
         header: t("inventory.fields.lastCost"),
-        meta: { titleKey: "inventory.fields.lastCost" },
+        meta: { titleKey: "inventory.fields.lastCost", defaultHidden: true },
         accessorFn: (row) => formatMoney(row.lastCost),
-      },
-      {
-        id: "stockValue",
-        header: t("inventory.fields.stockValue"),
-        meta: { titleKey: "inventory.fields.stockValue" },
-        accessorFn: (row) => formatMoney(row.stockValue),
       },
       {
         id: "lastMovement",
         header: t("inventory.fields.lastMovement"),
-        meta: { titleKey: "inventory.fields.lastMovement" },
+        meta: { titleKey: "inventory.fields.lastMovement", defaultHidden: true },
         accessorFn: (row) =>
           row.lastMovement
             ? `${row.lastMovement.movementNumber} — ${formatDate(row.lastMovement.createdAt)}`
@@ -158,9 +173,7 @@ function InventoryStockPageContent() {
   );
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader title={t("nav.inventoryStock")} subtitle={t("inventory.stock.description")} />
-
+    <PageWorkspace title={t("nav.inventoryStock")} description={t("inventory.stock.description")}>
       <EnterpriseCard size="sm" className="hover:translate-y-0 hover:shadow-sm">
         <EnterpriseCardHeader>
           <EnterpriseCardTitle>{t("inventory.valuationMethod.title")}</EnterpriseCardTitle>
@@ -212,7 +225,7 @@ function InventoryStockPageContent() {
           )
         }
       />
-    </div>
+    </PageWorkspace>
   );
 }
 

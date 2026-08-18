@@ -4,6 +4,8 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { KeyRound, Lock, Pencil, ShieldAlert, Unlock } from "lucide-react";
 import { StatusBadge } from "@/components/business/status-badge";
 import { SalesDocumentRowActionsMenu, type SalesDocumentRowAction } from "@/components/sales";
+import { SemanticValue } from "@/components/shared/semantic-value";
+import { StackedCell } from "@/components/shared/stacked-cell";
 import { formatDateTime } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
 import type { UserRow } from "@/services/users-service";
@@ -71,41 +73,65 @@ export function buildUserColumns(handlers: UserRowHandlers): ColumnDef<UserRow, 
       id: "fullName",
       meta: { titleKey: "settings.users.fields.fullName" },
       accessorFn: (row) => row.fullName,
-      cell: (info) => <span className="font-medium">{info.getValue() as string}</span>,
+      cell: ({ row }) => (
+        <StackedCell
+          primary={row.original.fullName}
+          secondary={<SemanticValue kind="id">{row.original.username}</SemanticValue>}
+        />
+      ),
     },
     {
       id: "username",
-      meta: { titleKey: "settings.users.fields.username" },
+      meta: { titleKey: "settings.users.fields.username", defaultHidden: true },
       accessorFn: (row) => row.username,
-      cell: (info) => (
-        <code dir="ltr" className="rounded bg-muted px-1.5 py-0.5 text-xs">
-          {info.getValue() as string}
-        </code>
-      ),
+      cell: (info) => <SemanticValue kind="id">{info.getValue() as string}</SemanticValue>,
     },
     {
       id: "email",
       meta: { titleKey: "settings.users.fields.email" },
       accessorFn: (row) => row.email,
-      cell: (info) => (
-        <span dir="ltr" className="text-caption">
-          {info.getValue() as string}
-        </span>
+      cell: ({ row }) => (
+        <StackedCell
+          primary={
+            row.original.email ? (
+              <SemanticValue kind="email">{row.original.email}</SemanticValue>
+            ) : (
+              "—"
+            )
+          }
+          secondary={
+            row.original.mobile ? (
+              <SemanticValue kind="phone">{row.original.mobile}</SemanticValue>
+            ) : undefined
+          }
+        />
       ),
     },
     {
       id: "mobile",
-      meta: { titleKey: "settings.users.fields.mobile" },
+      meta: { titleKey: "settings.users.fields.mobile", defaultHidden: true },
       accessorFn: (row) => row.mobile ?? "—",
+      cell: ({ row }) =>
+        row.original.mobile ? (
+          <SemanticValue kind="phone">{row.original.mobile}</SemanticValue>
+        ) : (
+          "—"
+        ),
     },
     {
       id: "jobTitle",
       meta: { titleKey: "settings.users.fields.jobTitle" },
       accessorFn: (row) => row.jobTitle?.name ?? "—",
+      cell: ({ row }) => (
+        <StackedCell
+          primary={row.original.jobTitle?.name ?? "—"}
+          secondary={row.original.department ?? undefined}
+        />
+      ),
     },
     {
       id: "department",
-      meta: { titleKey: "settings.users.fields.department" },
+      meta: { titleKey: "settings.users.fields.department", defaultHidden: true },
       accessorFn: (row) => row.department ?? "—",
     },
     {

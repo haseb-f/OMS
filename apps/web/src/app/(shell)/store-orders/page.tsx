@@ -4,27 +4,22 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { RowSelectionState } from "@tanstack/react-table";
 import { Plus } from "lucide-react";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseButton } from "@/components/ui/button";
 import { SyncButton } from "@/components/shared/sync-button";
 import {
   EnterpriseDateRangePicker,
   type DateRangeValue,
 } from "@/components/shared/date-range-picker";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { MultiSelectFilter } from "@/components/shared/data-table";
 import {
   EnterpriseDataTable,
-  exportColumnsFromKeys,
   exportRowsToCsv,
 } from "@/components/master-data/enterprise-data-table";
 import { StoreOrdersBulkActions } from "@/components/store-orders/store-orders-bulk-actions";
 import { StoreOrderCreateDialog } from "@/components/store-orders/store-order-create-dialog";
+import { buildStoreOrderDetailRegions } from "@/components/store-orders/store-order-expanded-detail";
+import { StoreOrderMobileCard } from "@/components/store-orders/store-order-mobile-card";
 import {
   storeOrdersService,
   type StoreOrderPaymentStatusValue,
@@ -34,7 +29,9 @@ import {
 } from "@/services/store-orders-service";
 import {
   buildStoreOrderColumns,
+  storeOrderExportColumnList,
   storeOrderExportColumns,
+  storeOrderPrintRow,
 } from "@/config/store-orders/order-columns";
 import {
   PAYMENT_STATUS_LABEL_KEY,
@@ -47,7 +44,7 @@ import { useCompany } from "@/providers/company-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { toast } from "@/lib/toast";
-import { formatDate, toISODate } from "@/lib/date";
+import { toISODate } from "@/lib/date";
 import { siteConfig } from "@/config/site";
 import { ApiError } from "@/services/api-client";
 import { PermissionGate } from "@/components/shared/permission-gate";
@@ -69,14 +66,16 @@ function StoreOrdersPageContent() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("orderDate");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>("");
-  const [shippingStageFilter, setShippingStageFilter] = useState<string>("");
-  const [sourceFilter, setSourceFilter] = useState<string>("");
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<string[]>([]);
+  const [shippingStageFilter, setShippingStageFilter] = useState<string[]>([]);
+  const [sourceFilter, setSourceFilter] = useState<string[]>([]);
   const [dateRange, setDateRange] = useState<DateRangeValue>(EMPTY_DATE_RANGE);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [isSelectingAllMatching, setIsSelectingAllMatching] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createDialogSession, setCreateDialogSession] = useState(0);
   // Cross-page selection cache (mirrors sales/orders/page.tsx) — `items`
   // only ever holds the current page, so a row selected earlier keeps its
   // real data available for bulk print/export after paging away.
@@ -85,9 +84,9 @@ function StoreOrdersPageContent() {
   const listParams = useCallback(
     () => ({
       search: search || undefined,
-      paymentStatus: (paymentStatusFilter || undefined) as StoreOrderPaymentStatusValue | undefined,
-      shippingStage: (shippingStageFilter || undefined) as StoreOrderShippingStageValue | undefined,
-      source: (sourceFilter || undefined) as StoreOrderSourceValue | undefined,
+      paymentStatus: paymentStatusFilter as StoreOrderPaymentStatusValue[],
+      shippingStage: shippingStageFilter as StoreOrderShippingStageValue[],
+      source: sourceFilter as StoreOrderSourceValue[],
       dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
       dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
     }),
@@ -96,6 +95,7 @@ function StoreOrdersPageContent() {
 
   const load = useCallback(async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const result = await storeOrdersService.list({
         ...listParams(),
@@ -111,11 +111,11 @@ function StoreOrdersPageContent() {
         ...Object.fromEntries(result.items.map((item) => [item.id, item])),
       }));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to load store orders.");
+      setLoadError(error instanceof ApiError ? error.message : t("table.loadFailed"));
     } finally {
       setIsLoading(false);
     }
-  }, [listParams, page, pageSize, sortBy, sortOrder]);
+  }, [listParams, page, pageSize, sortBy, sortOrder, t]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -123,15 +123,7 @@ function StoreOrdersPageContent() {
   }, [load]);
 
   const toPrintRow = useCallback(
-    (item: StoreOrderRow): Record<string, string> => ({
-      internalOrderId: item.internalOrderId,
-      externalOrderId: item.externalOrderId ?? "",
-      customer: item.customer?.name ?? "",
-      orderDate: formatDate(item.orderDate),
-      paymentStatus: t(PAYMENT_STATUS_LABEL_KEY[item.paymentStatus]),
-      shippingStage: t(SHIPPING_STAGE_LABEL_KEY[item.shippingStage]),
-      total: item.total ?? "0",
-    }),
+    (item: StoreOrderRow): Record<string, string> => storeOrderPrintRow(item, t),
     [t],
   );
 
@@ -156,7 +148,7 @@ function StoreOrdersPageContent() {
         logoUrl: activeCompany?.logoUrl ?? null,
       },
       printedByName: user?.fullName ?? null,
-      columns: exportColumnsFromKeys(columns, storeOrderExportColumns, t),
+      columns: storeOrderExportColumnList(t),
       rows: selectedItems.map(toPrintRow),
     });
   };
@@ -185,96 +177,28 @@ function StoreOrdersPageContent() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t("storeOrders.title")}
-        subtitle={t("storeOrders.description")}
-        actions={
-          <>
-            {canCreate && (
-              <EnterpriseButton
-                type="button"
-                className="gap-1.5"
-                onClick={() => setCreateDialogOpen(true)}
-              >
-                <Plus className="size-3.5" />
-                {t("storeOrders.createDialog.trigger")}
-              </EnterpriseButton>
-            )}
-            <SyncButton sourceType="STORE_ORDERS" onSynced={load} />
-          </>
-        }
-        filters={
-          <>
-            <Select
-              value={paymentStatusFilter || "__all__"}
-              onValueChange={(v) => {
-                setPaymentStatusFilter(v === "__all__" ? "" : v);
-                setPage(1);
+    <PageWorkspace
+      title={t("storeOrders.title")}
+      description={t("storeOrders.description")}
+      actions={
+        <>
+          {canCreate && (
+            <EnterpriseButton
+              type="button"
+              className="gap-1.5"
+              onClick={() => {
+                setCreateDialogSession((session) => session + 1);
+                setCreateDialogOpen(true);
               }}
             >
-              <SelectTrigger size="sm" className="w-48">
-                <SelectValue placeholder={t("storeOrders.filters.paymentStatus")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">
-                  {t("storeOrders.filters.allPaymentStatuses")}
-                </SelectItem>
-                {PAYMENT_STATUS_VALUES.map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {t(PAYMENT_STATUS_LABEL_KEY[status])}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={shippingStageFilter || "__all__"}
-              onValueChange={(v) => {
-                setShippingStageFilter(v === "__all__" ? "" : v);
-                setPage(1);
-              }}
-            >
-              <SelectTrigger size="sm" className="w-48">
-                <SelectValue placeholder={t("storeOrders.filters.shippingStage")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">
-                  {t("storeOrders.filters.allShippingStages")}
-                </SelectItem>
-                {SHIPPING_STAGE_VALUES.map((stage) => (
-                  <SelectItem key={stage} value={stage}>
-                    {t(SHIPPING_STAGE_LABEL_KEY[stage])}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={sourceFilter || "__all__"}
-              onValueChange={(v) => {
-                setSourceFilter(v === "__all__" ? "" : v);
-                setPage(1);
-              }}
-            >
-              <SelectTrigger size="sm" className="w-36">
-                <SelectValue placeholder={t("storeOrders.filters.source")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">{t("storeOrders.filters.allSources")}</SelectItem>
-                <SelectItem value="MANUAL">{t("storeOrders.source.MANUAL")}</SelectItem>
-                <SelectItem value="IMPORT">{t("storeOrders.source.IMPORT")}</SelectItem>
-              </SelectContent>
-            </Select>
-            <EnterpriseDateRangePicker
-              value={dateRange}
-              onChange={(range) => {
-                setDateRange(range);
-                setPage(1);
-              }}
-            />
-          </>
-        }
-      />
-
+              <Plus className="size-4" />
+              {t("storeOrders.createDialog.trigger")}
+            </EnterpriseButton>
+          )}
+          <SyncButton sourceType="STORE_ORDERS" onSynced={load} />
+        </>
+      }
+    >
       <EnterpriseDataTable
         tableId="store-orders"
         printTitle={t("storeOrders.title")}
@@ -300,6 +224,88 @@ function StoreOrdersPageContent() {
           setPage(1);
         }}
         isLoading={isLoading}
+        error={loadError}
+        onRetry={load}
+        renderExpandedRegions={(row) =>
+          buildStoreOrderDetailRegions(row, t, () => router.push(`/store-orders/${row.id}`))
+        }
+        renderMobileRow={({ row, selected, onToggleSelected, expanded, onToggleExpanded }) => (
+          <StoreOrderMobileCard
+            order={row}
+            selected={selected}
+            onToggleSelected={onToggleSelected}
+            expanded={expanded}
+            onToggleExpanded={onToggleExpanded}
+            onView={(order) => router.push(`/store-orders/${order.id}`)}
+          />
+        )}
+        filterBar={
+          <>
+            <MultiSelectFilter
+              label={t("storeOrders.filters.paymentStatus")}
+              values={paymentStatusFilter}
+              onChange={(values) => {
+                setPaymentStatusFilter(values);
+                setPage(1);
+              }}
+              options={PAYMENT_STATUS_VALUES.map((status) => ({
+                value: status,
+                label: t(PAYMENT_STATUS_LABEL_KEY[status]),
+              }))}
+            />
+            <MultiSelectFilter
+              label={t("storeOrders.filters.shippingStage")}
+              values={shippingStageFilter}
+              onChange={(values) => {
+                setShippingStageFilter(values);
+                setPage(1);
+              }}
+              options={SHIPPING_STAGE_VALUES.map((stage) => ({
+                value: stage,
+                label: t(SHIPPING_STAGE_LABEL_KEY[stage]),
+              }))}
+            />
+            <MultiSelectFilter
+              label={t("storeOrders.filters.source")}
+              values={sourceFilter}
+              onChange={(values) => {
+                setSourceFilter(values);
+                setPage(1);
+              }}
+              options={[
+                { value: "MANUAL", label: t("storeOrders.source.MANUAL") },
+                { value: "IMPORT", label: t("storeOrders.source.IMPORT") },
+              ]}
+            />
+            <EnterpriseDateRangePicker
+              value={dateRange}
+              onChange={(range) => {
+                setDateRange(range);
+                setPage(1);
+              }}
+            />
+            {(paymentStatusFilter.length > 0 ||
+              shippingStageFilter.length > 0 ||
+              sourceFilter.length > 0 ||
+              dateRange.from ||
+              dateRange.to) && (
+              <EnterpriseButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setPaymentStatusFilter([]);
+                  setShippingStageFilter([]);
+                  setSourceFilter([]);
+                  setDateRange(EMPTY_DATE_RANGE);
+                  setPage(1);
+                }}
+              >
+                {t("table.clearFilters")}
+              </EnterpriseButton>
+            )}
+          </>
+        }
         rowSelection={rowSelection}
         onRowSelectionChange={setRowSelection}
         onSelectAllMatching={handleSelectAllMatching}
@@ -312,7 +318,7 @@ function StoreOrdersPageContent() {
           />
         }
         onRefresh={load}
-        exportColumns={exportColumnsFromKeys(columns, storeOrderExportColumns, t)}
+        exportColumns={storeOrderExportColumnList(t)}
         onExport={(selectedKeys) =>
           exportRowsToCsv(
             items.map((item) => toPrintRow(item)) as unknown as Record<string, unknown>[],
@@ -325,11 +331,12 @@ function StoreOrdersPageContent() {
       />
 
       <StoreOrderCreateDialog
+        key={createDialogSession}
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
         onCreated={() => void load()}
       />
-    </div>
+    </PageWorkspace>
   );
 }
 

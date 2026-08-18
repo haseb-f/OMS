@@ -17,7 +17,8 @@ import {
   MasterDataDelegate,
   MasterDataListResult,
 } from '../master-data/master-data-crud.service';
-import { MasterDataQueryDto } from '../master-data/dto/master-data-query.dto';
+import { FindCustomersQueryDto } from './dto/find-customers-query.dto';
+import { prismaEnumFilter } from '../common/query/enum-list';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
@@ -144,18 +145,22 @@ export class CustomersService extends MasterDataCrudService<
 
   /** List needs each row's computed receivables balance for the "Current Balance" column. */
   async findAll(
-    query: MasterDataQueryDto,
+    query: FindCustomersQueryDto,
   ): Promise<
     MasterDataListResult<CustomerWithBalance<Prisma.CustomerGetPayload<object>>>
   > {
     const result = await super.findAll(
       query,
-      {},
+      { source: prismaEnumFilter(query.source) },
       {
         include: { customerGroup: true, paymentTerm: true, country: true },
       },
     );
     return { ...result, items: await this.attachBalances(result.items) };
+  }
+
+  async findAllIds(query: FindCustomersQueryDto) {
+    return super.findAllIds(query, { source: prismaEnumFilter(query.source) });
   }
 
   async findOne(id: string) {

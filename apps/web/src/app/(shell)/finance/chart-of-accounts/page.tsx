@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EmptyState } from "@/components/shared/empty-state";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
@@ -405,11 +405,7 @@ function ChartOfAccountsPageContent() {
           <span className="text-caption text-muted-foreground">
             {t(ACCOUNT_TYPE_LABEL_KEY[node.accountType])}
           </span>
-          {isArchived && (
-            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-              {t("common.archived")}
-            </span>
-          )}
+          {isArchived && <StatusBadge label={t("common.archived")} tone="neutral" />}
           <StatusBadge
             label={
               node.allowsPosting
@@ -482,83 +478,81 @@ function ChartOfAccountsPageContent() {
   const displayedCode = editingAccount ? editingAccount.code : proposedCode;
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t("masterData.chartOfAccounts.title")}
-        subtitle={t("masterData.chartOfAccounts.description")}
-        actions={
-          <div className="flex items-center gap-2">
-            <ModuleImportButtons importType="CHART_OF_ACCOUNTS" onImported={load} />
-            <EnterpriseButton
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              onClick={handleExport}
-            >
-              <Download className="size-3.5" />
-              {t("table.export")}
-            </EnterpriseButton>
-            <EnterpriseButton
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              onClick={handlePrint}
-            >
-              <Printer className="size-3.5" />
-              {t("table.print")}
-            </EnterpriseButton>
-            <EnterpriseButton type="button" onClick={() => openCreate(null)}>
-              <Plus />
-              {t("masterData.chartOfAccounts.addAccount")}
-            </EnterpriseButton>
-          </div>
-        }
-        filters={
-          <>
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={t("masterData.chartOfAccounts.searchPlaceholder")}
-              className="w-56"
-            />
-            <Select
-              value={typeFilter || "__all__"}
-              onValueChange={(v) => setTypeFilter(v === "__all__" ? "" : v)}
-            >
-              <SelectTrigger size="sm" className="w-40">
-                <SelectValue placeholder={t("masterData.fields.accountType")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">
-                  {t("masterData.chartOfAccounts.filters.allTypes")}
+    <PageWorkspace
+      title={t("masterData.chartOfAccounts.title")}
+      description={t("masterData.chartOfAccounts.description")}
+      actions={
+        <div className="flex items-center gap-2">
+          <ModuleImportButtons importType="CHART_OF_ACCOUNTS" onImported={load} />
+          <EnterpriseButton
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={handleExport}
+          >
+            <Download className="size-3.5" />
+            {t("table.export")}
+          </EnterpriseButton>
+          <EnterpriseButton
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={handlePrint}
+          >
+            <Printer className="size-3.5" />
+            {t("table.print")}
+          </EnterpriseButton>
+          <EnterpriseButton type="button" onClick={() => openCreate(null)}>
+            <Plus />
+            {t("masterData.chartOfAccounts.addAccount")}
+          </EnterpriseButton>
+        </div>
+      }
+      filters={
+        <>
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={t("masterData.chartOfAccounts.searchPlaceholder")}
+            className="w-56"
+          />
+          <Select
+            value={typeFilter || "__all__"}
+            onValueChange={(v) => setTypeFilter(v === "__all__" ? "" : v)}
+          >
+            <SelectTrigger size="sm" className="w-40">
+              <SelectValue placeholder={t("masterData.fields.accountType")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">
+                {t("masterData.chartOfAccounts.filters.allTypes")}
+              </SelectItem>
+              {ACCOUNT_TYPES.map((type) => (
+                <SelectItem key={type} value={type}>
+                  {t(ACCOUNT_TYPE_LABEL_KEY[type])}
                 </SelectItem>
-                {ACCOUNT_TYPES.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {t(ACCOUNT_TYPE_LABEL_KEY[type])}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <EnterpriseButton type="button" variant="outline" size="sm" onClick={expandAll}>
-              {t("masterData.chartOfAccounts.expandAll")}
-            </EnterpriseButton>
-            <EnterpriseButton type="button" variant="outline" size="sm" onClick={collapseAll}>
-              {t("masterData.chartOfAccounts.collapseAll")}
-            </EnterpriseButton>
-            <EnterpriseButton
-              type="button"
-              variant={showArchived ? "secondary" : "outline"}
-              size="sm"
-              onClick={() => setShowArchived((value) => !value)}
-            >
-              {t("common.showArchived")}
-            </EnterpriseButton>
-          </>
-        }
-      />
-
+              ))}
+            </SelectContent>
+          </Select>
+          <EnterpriseButton type="button" variant="outline" size="sm" onClick={expandAll}>
+            {t("masterData.chartOfAccounts.expandAll")}
+          </EnterpriseButton>
+          <EnterpriseButton type="button" variant="outline" size="sm" onClick={collapseAll}>
+            {t("masterData.chartOfAccounts.collapseAll")}
+          </EnterpriseButton>
+          <EnterpriseButton
+            type="button"
+            variant={showArchived ? "secondary" : "outline"}
+            size="sm"
+            onClick={() => setShowArchived((value) => !value)}
+          >
+            {t("common.showArchived")}
+          </EnterpriseButton>
+        </>
+      }
+    >
       <div className="relative rounded-xl border shadow-sm">
         {isMutating && <LoadingOverlay />}
         <div className="min-h-40 p-2">
@@ -793,7 +787,7 @@ function ChartOfAccountsPageContent() {
         onConfirm={confirmRestore}
         confirmLabel={t("common.restore")}
       />
-    </div>
+    </PageWorkspace>
   );
 }
 

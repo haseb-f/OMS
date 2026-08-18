@@ -134,23 +134,24 @@ export function GeneralLedgerTab() {
   ];
 
   return (
-    <div className="flex flex-col gap-3">
-      <AccountingReportFilterBar
-        value={filters}
-        onChange={(next) => {
-          setFilters(next);
-          setPage(1);
-        }}
-        accountFilter={{
-          value: account,
-          onChange: (a) => {
-            setAccount(a);
-            setPage(1);
-          },
-        }}
-      />
-
+    <>
       <EnterpriseDataTable
+        filterBar={
+          <AccountingReportFilterBar
+            value={filters}
+            onChange={(next) => {
+              setFilters(next);
+              setPage(1);
+            }}
+            accountFilter={{
+              value: account,
+              onChange: (a) => {
+                setAccount(a);
+                setPage(1);
+              },
+            }}
+          />
+        }
         tableId="reports-finance-general-ledger"
         printTitle={t("reports.finance.generalLedger")}
         columns={columns}
@@ -263,6 +264,6 @@ export function GeneralLedgerTab() {
           </div>
         )}
       </EnterpriseModal>
-    </div>
+    </>
   );
 }

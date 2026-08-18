@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Printer, FileText } from "lucide-react";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
@@ -187,10 +187,10 @@ export default function SupplierProfilePage() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
+    <div className="flex flex-col gap-3">
+      <PageWorkspace
         title={supplier.name}
-        subtitle={supplier.supplierNumber}
+        description={supplier.supplierNumber}
         actions={
           <EnterpriseButton
             type="button"

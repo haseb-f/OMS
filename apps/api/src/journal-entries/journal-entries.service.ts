@@ -17,6 +17,7 @@ import { CreateJournalEntryDto } from './dto/create-journal-entry.dto';
 import { UpdateJournalEntryDto } from './dto/update-journal-entry.dto';
 import { FindJournalEntriesQueryDto } from './dto/find-journal-entries-query.dto';
 import { JournalEntryLineInputDto } from './dto/journal-entry-line-input.dto';
+import { prismaEnumFilter } from '../common/query/enum-list';
 
 const ENTRY_INCLUDE = {
   lines: {
@@ -122,8 +123,8 @@ export class JournalEntriesService {
   ): Prisma.JournalEntryWhereInput {
     const where: Prisma.JournalEntryWhereInput = {
       deletedAt: null,
-      status: query.status,
-      journalId: query.journalId,
+      status: prismaEnumFilter(query.status),
+      journalId: prismaEnumFilter(query.journalId),
       sourceType: query.sourceType,
       sourceId: query.sourceId,
     };

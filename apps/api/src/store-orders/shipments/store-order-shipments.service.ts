@@ -6,6 +6,8 @@ import {
   StoreOrderSource,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { prismaEnumFilter } from '../../common/query/enum-list';
+import { FindShipmentsQueryDto } from './dto/find-shipments-query.dto';
 
 /**
  * Store Orders shipping pipeline — copies the exact operational pattern of
@@ -256,19 +258,21 @@ export class StoreOrderShipmentsService {
 
   /** Flat, cross-order listing for the Shipping list page — Store Order shipments only (`storeOrderId` set), never the legacy SalesOrder pipeline's rows. */
   private buildFlatWhere(query: {
-    status?: ShipmentStatus;
-    shippingCompanyId?: string;
-    countryId?: string;
-    source?: StoreOrderSource;
+    status?: ShipmentStatus | ShipmentStatus[];
+    shippingCompanyId?: string | string[];
+    countryId?: string | string[];
+    source?: StoreOrderSource | StoreOrderSource[];
     search?: string;
     dateFrom?: string;
     dateTo?: string;
   }): Prisma.ShipmentWhereInput {
+    const countryFilter = prismaEnumFilter(query.countryId);
+    const sourceFilter = prismaEnumFilter(query.source);
     const where: Prisma.ShipmentWhereInput = {
       deletedAt: null,
       storeOrderId: { not: null },
-      status: query.status,
-      shippingCompanyId: query.shippingCompanyId,
+      status: prismaEnumFilter(query.status),
+      shippingCompanyId: prismaEnumFilter(query.shippingCompanyId),
     };
     /// The free-text search, the Country filter (Part 2 of the four-gaps
     /// task), and the Source filter all resolve through the same
@@ -276,7 +280,7 @@ export class StoreOrderShipmentsService {
     /// no separate shipping-address concept in this pipeline yet; Source is
     /// the order's own `source` column) — so they combine into one
     /// `storeOrder` filter object rather than several conflicting ones.
-    if (query.search || query.countryId || query.source) {
+    if (query.search || countryFilter || sourceFilter) {
       where.storeOrder = {
         ...(query.search
           ? {
@@ -305,10 +309,8 @@ export class StoreOrderShipmentsService {
               ],
             }
           : {}),
-        ...(query.countryId
-          ? { customer: { countryId: query.countryId } }
-          : {}),
-        ...(query.source ? { source: query.source } : {}),
+        ...(countryFilter ? { customer: { countryId: countryFilter } } : {}),
+        ...(sourceFilter ? { source: sourceFilter } : {}),
       };
     }
     if (query.dateFrom || query.dateTo) {
@@ -322,18 +324,7 @@ export class StoreOrderShipmentsService {
     return where;
   }
 
-  async findAllFlat(query: {
-    status?: ShipmentStatus;
-    shippingCompanyId?: string;
-    countryId?: string;
-    source?: StoreOrderSource;
-    search?: string;
-    dateFrom?: string;
-    dateTo?: string;
-    page?: number;
-    pageSize?: number;
-    sortOrder?: 'asc' | 'desc';
-  }) {
+  async findAllFlat(query: FindShipmentsQueryDto) {
     const where = this.buildFlatWhere(query);
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
@@ -353,15 +344,7 @@ export class StoreOrderShipmentsService {
     return { items, total, page, pageSize };
   }
 
-  async findAllFlatIds(query: {
-    status?: ShipmentStatus;
-    shippingCompanyId?: string;
-    countryId?: string;
-    source?: StoreOrderSource;
-    search?: string;
-    dateFrom?: string;
-    dateTo?: string;
-  }) {
+  async findAllFlatIds(query: FindShipmentsQueryDto) {
     const where = this.buildFlatWhere(query);
     const [rows, total] = await Promise.all([
       this.prisma.shipment.findMany({

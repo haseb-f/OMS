@@ -6,10 +6,10 @@ import { cn } from "@/lib/utils";
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
-    <div data-slot="table-container" className="relative w-full overflow-x-auto">
+    <div data-slot="table-container" className="relative min-w-0 w-full overflow-x-auto">
       <table
         data-slot="table"
-        className={cn("w-full caption-bottom text-sm", className)}
+        className={cn("w-full caption-bottom text-body", className)}
         {...props}
       />
     </div>
@@ -58,7 +58,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-10 px-2 text-start align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pe-0",
+        "h-9 px-3 text-start align-middle text-caption font-medium whitespace-nowrap text-muted-foreground",
         className,
       )}
       {...props}
@@ -70,20 +70,45 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
   return (
     <td
       data-slot="table-cell"
-      className={cn("p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pe-0", className)}
+      className={cn("px-3 py-2 align-middle whitespace-nowrap", className)}
       {...props}
     />
   );
 }
+
+/**
+ * Shared column inset — the only horizontal padding EDT headers and body
+ * cells should add. Applied identically to THEAD and TBODY. Utility
+ * columns are zero-inset so their control sits in the column box; data
+ * columns share one 12px inline padding (no extra first/last offset —
+ * that was shifting the first data column independently of the header).
+ */
+function tableColumnInsetClass(_index: number, _count: number, kind: "data" | "utility" = "data") {
+  return kind === "utility" ? "px-1" : "px-3";
+}
+
+/** Canonical in-cell content box — shrink-wraps to inline-start so LTR IDs share the header axis. */
+const tableCellContentClass = "inline-block w-max max-w-full min-w-0 truncate align-middle";
 
 function TableCaption({ className, ...props }: React.ComponentProps<"caption">) {
   return (
     <caption
       data-slot="table-caption"
-      className={cn("mt-4 text-sm text-muted-foreground", className)}
+      className={cn("mt-4 text-caption text-muted-foreground", className)}
       {...props}
     />
   );
 }
 
-export { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell, TableCaption };
+export {
+  Table,
+  TableHeader,
+  TableBody,
+  TableFooter,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableCaption,
+  tableColumnInsetClass,
+  tableCellContentClass,
+};

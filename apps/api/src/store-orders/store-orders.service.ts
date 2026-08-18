@@ -21,6 +21,7 @@ import {
   computeSalesLine,
 } from '../sales/shared/sales-totals.util';
 import { buildDateRangeFilter } from '../sales/shared/sales-list-query.util';
+import { prismaEnumFilter } from '../common/query/enum-list';
 import {
   StoreOrderActivityService,
   StoreOrderActivityType,
@@ -58,23 +59,37 @@ const ORDER_INCLUDE = {
 } satisfies Prisma.StoreOrderInclude;
 
 /**
- * Trimmed variant of ORDER_INCLUDE for `findAll`/list rows — the list table
- * (`order-columns.tsx`) only ever renders internalOrderId/externalOrderId/
- * customer name+phone/orderDate/paymentStatus/shippingStage/total, and bulk
- * print/export use the same fixed column set. Fetching every relation's
- * full row (all Payment/Invoice/Shipment/Product columns, on every page of
- * every list request) was pure over-fetch — only `items.quantity/unitPrice`
- * (for the derived `total`) and the single latest shipment (for the derived
- * `currentShippingStatus`) are actually read.
+ * Trimmed variant of ORDER_INCLUDE for `findAll`/list rows — enough for the
+ * two-line master row plus the expandable detail panel (line items, address,
+ * latest shipment), without pulling payments/receipts/invoices/history.
  */
 const ORDER_LIST_INCLUDE = {
-  customer: { select: { id: true, name: true, phone: true, mobile: true } },
+  customer: {
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      mobile: true,
+      email: true,
+      address: true,
+      city: true,
+    },
+  },
   currency: { select: { id: true, code: true, name: true, symbol: true } },
-  items: { select: { id: true, quantity: true, unitPrice: true } },
+  items: {
+    select: {
+      id: true,
+      productId: true,
+      quantity: true,
+      unitPrice: true,
+      product: { select: { id: true, name: true, sku: true } },
+    },
+  },
   shipments: {
     where: { deletedAt: null },
     orderBy: { attemptNumber: 'desc' as const },
     take: 1,
+    include: { shippingCompany: { select: { id: true, name: true } } },
   },
 } satisfies Prisma.StoreOrderInclude;
 
@@ -212,9 +227,9 @@ export class StoreOrdersService {
     const where: Prisma.StoreOrderWhereInput = {
       deletedAt: null,
       customerId: query.customerId,
-      paymentStatus: query.paymentStatus,
-      shippingStage: query.shippingStage,
-      source: query.source,
+      paymentStatus: prismaEnumFilter(query.paymentStatus),
+      shippingStage: prismaEnumFilter(query.shippingStage),
+      source: prismaEnumFilter(query.source),
     };
     if (query.phone) {
       where.customer = {

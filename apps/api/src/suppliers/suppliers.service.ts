@@ -23,6 +23,7 @@ import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
 import { FindSuppliersQueryDto } from './dto/find-suppliers-query.dto';
 import { FindOrCreateSupplierDto } from './dto/find-or-create-supplier.dto';
+import { prismaEnumFilter } from '../common/query/enum-list';
 
 const BALANCE_STATUSES: PurchaseDocumentStatus[] = [
   PurchaseDocumentStatus.CONFIRMED,
@@ -115,7 +116,7 @@ export class SuppliersService {
     const pageSize = query.pageSize ?? 20;
     const where: Prisma.SupplierWhereInput = {
       deletedAt: query.includeArchived ? undefined : null,
-      status: query.status,
+      status: prismaEnumFilter(query.status),
     };
 
     if (query.search) {

@@ -15,7 +15,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseModal, type EnterpriseModalSize } from "@/components/shared/enterprise-modal";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { LoadingOverlay } from "@/components/shared/loading-overlay";
@@ -126,7 +126,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   defaultValues: Record<string, unknown>;
   toFormValues?: (entity: TEntity) => Record<string, unknown>;
   permissionPrefix: string;
-  extraListParams?: Record<string, string | number | boolean | undefined>;
+  extraListParams?: Record<string, string | number | boolean | string[] | undefined>;
   rowLabel: (entity: TEntity) => string;
   /** Opt-in KPI strip above the table — no entity computes these yet, so it only renders when a caller supplies values. */
   stats?: { icon: LucideIcon; label: string; value?: string | number }[];
@@ -458,38 +458,23 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   const modalSize = pickModalSize(totalFieldCount);
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t(titleKey)}
-        subtitle={t(descriptionKey)}
-        actions={
-          <>
-            {extraActions}
-            {canCreate && !hideCreateButton && (
-              <EnterpriseButton type="button" onClick={openCreate}>
-                <Plus />
-                {t("masterData.actions.addNew")}
-              </EnterpriseButton>
-            )}
-          </>
-        }
-        filters={
-          <>
-            {extraFilters}
-            <EnterpriseButton
-              type="button"
-              variant={includeArchived ? "secondary" : "outline"}
-              size="sm"
-              onClick={() => setIncludeArchived((value) => !value)}
-            >
-              {t("common.showArchived")}
+    <PageWorkspace
+      title={t(titleKey)}
+      description={t(descriptionKey)}
+      actions={
+        <>
+          {extraActions}
+          {canCreate && !hideCreateButton && (
+            <EnterpriseButton type="button" onClick={openCreate}>
+              <Plus />
+              {t("masterData.actions.addNew")}
             </EnterpriseButton>
-          </>
-        }
-      />
-
+          )}
+        </>
+      }
+    >
       {stats && stats.length > 0 && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((stat) => (
             <KpiCard key={stat.label} icon={stat.icon} label={stat.label} value={stat.value} />
           ))}
@@ -499,6 +484,19 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
       <div className="relative">
         {isMutating && <LoadingOverlay />}
         <EnterpriseDataTable
+          filterBar={
+            <>
+              {extraFilters}
+              <EnterpriseButton
+                type="button"
+                variant={includeArchived ? "secondary" : "outline"}
+                size="sm"
+                onClick={() => setIncludeArchived((value) => !value)}
+              >
+                {t("common.showArchived")}
+              </EnterpriseButton>
+            </>
+          }
           tableId={tableId}
           printTitle={t(titleKey)}
           columns={tableColumns}
@@ -671,6 +669,6 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
           </div>
         </SheetContent>
       </Sheet>
-    </div>
+    </PageWorkspace>
   );
 }

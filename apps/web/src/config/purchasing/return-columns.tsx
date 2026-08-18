@@ -3,6 +3,9 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { Ban, Eye, Pencil, Printer, Archive } from "lucide-react";
 import { StatusBadge } from "@/components/business/status-badge";
+import { MoneyValue } from "@/components/shared/money-value";
+import { SemanticValue } from "@/components/shared/semantic-value";
+import { StackedCell } from "@/components/shared/stacked-cell";
 import { formatDate } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
 import type { PurchaseReturnRow } from "@/services/purchase-returns-service";
@@ -18,17 +21,6 @@ function StatusCell({ status }: { status: PurchaseReturnRow["status"] }) {
   const { t } = useLocale();
   return (
     <StatusBadge label={t(RETURN_STATUS_LABEL_KEY[status])} tone={RETURN_STATUS_TONE[status]} />
-  );
-}
-
-function MoneyCell({ value }: { value: string }) {
-  return (
-    <span dir="ltr">
-      {Number(value).toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}
-    </span>
   );
 }
 
@@ -85,46 +77,79 @@ export function buildReturnColumns(
   return [
     {
       id: "returnNumber",
-      meta: { titleKey: "purchasing.returns.fields.number" },
+      meta: { titleKey: "purchasing.returns.fields.number", stacked: true, type: "code" },
       accessorFn: (row) => row.returnNumber,
-      cell: (info) => (
-        <code dir="ltr" className="rounded bg-muted px-1.5 py-0.5 text-xs">
-          {info.getValue() as string}
-        </code>
+      cell: ({ row }) => (
+        <StackedCell
+          primary={
+            <SemanticValue kind="id" className="text-body font-medium">
+              {row.original.returnNumber}
+            </SemanticValue>
+          }
+          secondary={
+            row.original.referenceNumber ? (
+              <SemanticValue kind="id">{row.original.referenceNumber}</SemanticValue>
+            ) : undefined
+          }
+        />
       ),
     },
     {
       id: "supplier",
       meta: { titleKey: "purchasing.returns.fields.supplier" },
       accessorFn: (row) => row.supplier?.name ?? "—",
-      cell: (info) => <span className="font-medium">{info.getValue() as string}</span>,
+      cell: ({ row }) => (
+        <StackedCell
+          primary={row.original.supplier?.name ?? "—"}
+          secondary={
+            row.original.supplier?.phone ? (
+              <SemanticValue kind="phone">{row.original.supplier.phone}</SemanticValue>
+            ) : undefined
+          }
+        />
+      ),
     },
     {
       id: "referenceNumber",
-      meta: { titleKey: "purchasing.returns.fields.reference" },
+      meta: { titleKey: "purchasing.returns.fields.reference", defaultHidden: true },
       accessorFn: (row) => row.referenceNumber ?? "—",
       enableSorting: false,
-    },
-    {
-      id: "grandTotal",
-      meta: { titleKey: "purchasing.returns.fields.grandTotal" },
-      accessorFn: (row) => row.grandTotal,
-      cell: (info) => <MoneyCell value={info.getValue() as string} />,
     },
     {
       id: "status",
       meta: { titleKey: "purchasing.suppliers.fields.status" },
       enableSorting: false,
-      cell: ({ row }) => <StatusCell status={row.original.status} />,
+      cell: ({ row }) => (
+        <StackedCell
+          primary={<StatusCell status={row.original.status} />}
+          secondary={<MoneyValue value={row.original.grandTotal} />}
+        />
+      ),
+    },
+    {
+      id: "grandTotal",
+      meta: { titleKey: "purchasing.returns.fields.grandTotal", defaultHidden: true },
+      accessorFn: (row) => row.grandTotal,
+      cell: ({ row }) => <MoneyValue value={row.original.grandTotal} />,
     },
     {
       id: "createdAt",
       meta: { titleKey: "purchasing.returns.fields.date" },
       accessorFn: (row) => formatDate(row.createdAt),
+      cell: ({ row }) => (
+        <StackedCell
+          primary={formatDate(row.original.createdAt)}
+          secondary={
+            row.original.createdBy
+              ? (handlers.usersById[row.original.createdBy] ?? undefined)
+              : undefined
+          }
+        />
+      ),
     },
     {
       id: "createdBy",
-      meta: { titleKey: "purchasing.returns.fields.createdBy" },
+      meta: { titleKey: "purchasing.returns.fields.createdBy", defaultHidden: true },
       enableSorting: false,
       accessorFn: (row) => (row.createdBy ? (handlers.usersById[row.createdBy] ?? "—") : "—"),
     },

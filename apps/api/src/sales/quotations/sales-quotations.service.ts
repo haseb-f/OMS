@@ -24,6 +24,7 @@ import { UpdateSalesQuotationDto } from './dto/update-sales-quotation.dto';
 import { FindSalesQuotationsQueryDto } from './dto/find-sales-quotations-query.dto';
 import type { SalesLineItemInputDto } from '../shared/sales-line-item-input.dto';
 import { assertActiveProduct } from '../../products/assert-active-product.util';
+import { prismaEnumFilter } from '../../common/query/enum-list';
 
 @Injectable()
 export class SalesQuotationsService {
@@ -108,8 +109,8 @@ export class SalesQuotationsService {
   async findAll(query: FindSalesQuotationsQueryDto) {
     const where: Prisma.SalesQuotationWhereInput = {
       deletedAt: null,
-      customerId: query.customerId,
-      status: query.status,
+      customerId: prismaEnumFilter(query.customerId),
+      status: prismaEnumFilter(query.status),
     };
     if (query.search) {
       where.OR = [
@@ -126,7 +127,15 @@ export class SalesQuotationsService {
     const [items, total] = await Promise.all([
       this.prisma.salesQuotation.findMany({
         where,
-        include: { items: true, customer: true, currency: true },
+        include: {
+          items: {
+            include: {
+              product: { select: { id: true, name: true, sku: true } },
+            },
+          },
+          customer: true,
+          currency: true,
+        },
         orderBy: { [query.sortBy || 'createdAt']: query.sortOrder ?? 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,

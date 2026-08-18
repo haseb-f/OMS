@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Landmark, RefreshCw, Search } from "lucide-react";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EmptyState } from "@/components/shared/empty-state";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -167,29 +167,27 @@ function CashFlowPageContent() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t("masterData.bankTransactions.title")}
-        subtitle={t("masterData.bankTransactions.description")}
-        actions={
-          <div className="flex items-center gap-2">
-            <SyncButton sourceType="CASH_FLOW" onSynced={load} />
-            <ModuleImportButtons importType="BANK_TRANSACTIONS" onImported={load} />
-            {canManage && direction === "INCOMING" && (
-              <EnterpriseButton
-                type="button"
-                variant="outline"
-                onClick={handleRunMatching}
-                disabled={isRunningMatch}
-              >
-                <RefreshCw className={isRunningMatch ? "animate-spin" : undefined} />
-                {t("masterData.bankTransactions.runMatching")}
-              </EnterpriseButton>
-            )}
-          </div>
-        }
-      />
-
+    <PageWorkspace
+      title={t("masterData.bankTransactions.title")}
+      description={t("masterData.bankTransactions.description")}
+      actions={
+        <div className="flex items-center gap-2">
+          <SyncButton sourceType="CASH_FLOW" onSynced={load} />
+          <ModuleImportButtons importType="BANK_TRANSACTIONS" onImported={load} />
+          {canManage && direction === "INCOMING" && (
+            <EnterpriseButton
+              type="button"
+              variant="outline"
+              onClick={handleRunMatching}
+              disabled={isRunningMatch}
+            >
+              <RefreshCw className={isRunningMatch ? "animate-spin" : undefined} />
+              {t("masterData.bankTransactions.runMatching")}
+            </EnterpriseButton>
+          )}
+        </div>
+      }
+    >
       <Tabs
         value={direction}
         onValueChange={(value) => {
@@ -215,31 +213,31 @@ function CashFlowPageContent() {
                 icon={Landmark}
                 label={t("masterData.bankTransactions.summary.total")}
                 value={summary.incoming.total}
-                tone="blue"
+                tone="info"
               />
               <KpiCard
                 icon={Landmark}
                 label={t("masterData.bankTransactions.summary.matched")}
                 value={summary.incoming.matched}
-                tone="green"
+                tone="success"
               />
               <KpiCard
                 icon={Landmark}
                 label={t("masterData.bankTransactions.summary.unmatched")}
                 value={summary.incoming.unmatched}
-                tone="gray"
+                tone="muted"
               />
               <KpiCard
                 icon={Landmark}
                 label={t("masterData.bankTransactions.summary.storeOrderMatches")}
                 value={summary.incoming.storeOrderMatches}
-                tone="green"
+                tone="success"
               />
               <KpiCard
                 icon={Landmark}
                 label={t("masterData.bankTransactions.summary.b2bMatches")}
                 value={summary.incoming.b2bSalesInvoiceMatches}
-                tone="blue"
+                tone="info"
               />
             </>
           ) : (
@@ -248,31 +246,31 @@ function CashFlowPageContent() {
                 icon={Landmark}
                 label={t("masterData.bankTransactions.summary.total")}
                 value={summary.outgoing.total}
-                tone="blue"
+                tone="info"
               />
               <KpiCard
                 icon={Landmark}
                 label={t("masterData.bankTransactions.summary.supplierPayments")}
                 value={summary.outgoing.supplierPayments}
-                tone="green"
+                tone="success"
               />
               <KpiCard
                 icon={Landmark}
                 label={t("masterData.bankTransactions.summary.expenses")}
                 value={summary.outgoing.expenses}
-                tone="blue"
+                tone="info"
               />
               <KpiCard
                 icon={Landmark}
                 label={t("masterData.bankTransactions.summary.unclassified")}
                 value={summary.outgoing.unclassified}
-                tone="gray"
+                tone="muted"
               />
               <KpiCard
                 icon={Landmark}
                 label={t("masterData.bankTransactions.summary.posted")}
                 value={summary.outgoing.posted}
-                tone="green"
+                tone="success"
               />
             </>
           )}
@@ -399,7 +397,7 @@ function CashFlowPageContent() {
           }}
         />
       )}
-    </div>
+    </PageWorkspace>
   );
 }
 

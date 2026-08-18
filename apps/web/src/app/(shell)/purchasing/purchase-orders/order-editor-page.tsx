@@ -3,14 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRightCircle, Ban, CheckCircle2, Lock, Printer, Save } from "lucide-react";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { PurchasingDocumentEditor } from "@/components/purchasing/purchasing-document-editor";
@@ -45,6 +37,7 @@ import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
+import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import { ConvertToInvoiceDialog } from "./convert-to-invoice-dialog";
@@ -377,22 +370,10 @@ export function OrderEditorPage({ id }: { id: string | null }) {
   const canApprove = hasPermission("purchasing.orders.approve");
   const canCancel = hasPermission("purchasing.orders.cancel");
 
-  return (
-    <div className="flex flex-col gap-6">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/purchasing/purchase-orders">
-              {t("purchasing.orders.title")}
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>{order?.poNumber ?? t("purchasing.orders.addNew")}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
+  useBreadcrumbLabel(order?.poNumber ?? t("purchasing.orders.addNew"));
 
+  return (
+    <div className="flex flex-col gap-3">
       <RelatedDocuments
         groups={[
           {

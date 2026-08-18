@@ -2,18 +2,12 @@
 
 import Link from "next/link";
 import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
-import {
   EnterpriseCard,
   EnterpriseCardHeader,
   EnterpriseCardTitle,
   EnterpriseCardDescription,
 } from "@/components/ui/card";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import { useLocale } from "@/providers/locale-provider";
 import { iconRegistry, type IconName } from "@/navigation/icon-registry";
 import type { MessageKey } from "@/i18n/translate";
@@ -145,17 +139,7 @@ export default function MasterDataHomePage() {
   const { t } = useLocale();
 
   return (
-    <div className="flex flex-col gap-6">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbPage>{t("nav.masterData")}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-
-      <PageHeader title={t("masterData.hub.title")} subtitle={t("masterData.hub.description")} />
-
+    <PageWorkspace title={t("masterData.hub.title")} description={t("masterData.hub.description")}>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {masterDataEntities.map((entity) => {
           const Icon = iconRegistry[entity.icon];
@@ -176,6 +160,6 @@ export default function MasterDataHomePage() {
           );
         })}
       </div>
-    </div>
+    </PageWorkspace>
   );
 }

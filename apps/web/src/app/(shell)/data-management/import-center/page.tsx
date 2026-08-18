@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Download, UploadCloud } from "lucide-react";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
 import { EnterpriseBadge } from "@/components/ui/badge";
@@ -264,9 +264,7 @@ function ImportCenterPageContent() {
   );
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader title={t("importCenter.title")} subtitle={t("importCenter.description")} />
-
+    <PageWorkspace title={t("importCenter.title")} description={t("importCenter.description")}>
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h2 className="text-card-title font-semibold">{t("importCenter.sync.button")}</h2>
@@ -381,7 +379,7 @@ function ImportCenterPageContent() {
           onDone={loadJobs}
         />
       )}
-    </div>
+    </PageWorkspace>
   );
 }
 

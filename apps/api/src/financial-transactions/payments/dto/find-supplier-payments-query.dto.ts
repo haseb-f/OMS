@@ -1,7 +1,7 @@
 import { FindFinancialTransactionsQueryDto } from '../../shared/find-financial-transactions-query.dto';
-import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.decorator';
+import { IsOptionalUuidList } from '../../../common/query/enum-list';
 
 export class FindSupplierPaymentsQueryDto extends FindFinancialTransactionsQueryDto {
-  @IsOptionalUuid()
-  supplierId?: string;
+  @IsOptionalUuidList()
+  supplierId?: string[];
 }

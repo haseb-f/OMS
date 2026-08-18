@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
 import {
@@ -98,12 +98,10 @@ export default function YearClosingPage() {
   const canRun = canManage && selectedFiscalYear?.status === "CLOSED" && !existingClosing;
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t("nav.financeYearClosing")}
-        subtitle={t("accounting.yearClosing.description")}
-      />
-
+    <PageWorkspace
+      title={t("nav.financeYearClosing")}
+      description={t("accounting.yearClosing.description")}
+    >
       <EnterpriseCard>
         <EnterpriseCardContent className="flex flex-col gap-5 pt-5">
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -213,6 +211,6 @@ export default function YearClosingPage() {
           )}
         </EnterpriseCardContent>
       </EnterpriseCard>
-    </div>
+    </PageWorkspace>
   );
 }

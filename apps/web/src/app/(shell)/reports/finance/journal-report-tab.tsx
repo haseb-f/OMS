@@ -164,16 +164,17 @@ export function JournalReportTab() {
   ];
 
   return (
-    <div className="flex flex-col gap-3">
-      <AccountingReportFilterBar
-        value={filters}
-        onChange={(next) => {
-          setFilters(next);
-          setPage(1);
-        }}
-      />
-
+    <>
       <EnterpriseDataTable
+        filterBar={
+          <AccountingReportFilterBar
+            value={filters}
+            onChange={(next) => {
+              setFilters(next);
+              setPage(1);
+            }}
+          />
+        }
         tableId="reports-finance-journal-report"
         printTitle={t("reports.finance.journalReport")}
         columns={columns}
@@ -251,6 +252,6 @@ export function JournalReportTab() {
           </div>
         )}
       </EnterpriseModal>
-    </div>
+    </>
   );
 }

@@ -1,4 +1,5 @@
 import { apiClient } from "./api-client";
+import { buildQueryString } from "@/lib/query-string";
 
 export interface OpeningBalanceInput {
   productId: string;
@@ -103,14 +104,13 @@ export const inventoryService = {
       transferNumber: string;
       lines: { out: { id: string }; in: { id: string } }[];
     }>("/inventory/transfer", dto),
-  getMovements: (params: { productId?: string; warehouseId?: string; type?: string } = {}) => {
-    const search = new URLSearchParams();
-    for (const [key, value] of Object.entries(params)) {
-      if (value) search.set(key, value);
-    }
-    const qs = search.toString();
-    return apiClient.get<InventoryMovementRow[]>(`/inventory/movements${qs ? `?${qs}` : ""}`);
-  },
+  getMovements: (
+    params: {
+      productId?: string | string[];
+      warehouseId?: string | string[];
+      type?: string | string[];
+    } = {},
+  ) => apiClient.get<InventoryMovementRow[]>(`/inventory/movements${buildQueryString(params)}`),
   getStockCards: () => apiClient.get<StockCard[]>("/inventory/stock-cards"),
   getWarehouseBalances: () => apiClient.get<WarehouseBalanceRow[]>("/inventory/warehouse-balances"),
   getStockCard: (productId: string) =>

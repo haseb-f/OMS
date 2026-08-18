@@ -24,7 +24,7 @@ import { Separator } from "@/components/ui/separator";
 import { CompanySwitcher } from "./company-switcher";
 import { cn } from "@/lib/utils";
 import { EnterpriseBadge } from "@/components/ui/badge";
-import { LogoMark } from "@/assets/logo-mark";
+import { BrandMark } from "@/components/brand/brand-logo";
 import { siteConfig } from "@/config/site";
 import { navigationConfig } from "@/navigation/navigation.config";
 import { buildNavigationTree, filterByAccess } from "@/navigation/build-navigation-tree";
@@ -38,12 +38,13 @@ import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import type { MessageKey } from "@/i18n/translate";
 
-function NavIcon({ name }: { name?: IconName }) {
+function NavIcon({ name, compact = false }: { name?: IconName; compact?: boolean }) {
   // Every item needs an icon — in icon-collapsed mode a nav row shows only
   // the icon, so an icon-less item would otherwise clip to unreadable text.
-  if (!name) return <Circle />;
+  const className = compact ? "size-4" : "size-[18px]";
+  if (!name) return <Circle className={className} strokeWidth={1.75} />;
   const Icon = iconRegistry[name];
-  return <Icon />;
+  return <Icon className={className} strokeWidth={1.75} />;
 }
 
 export function AppSidebar() {
@@ -95,15 +96,15 @@ export function AppSidebar() {
   // explicitly flipping `side`, not just setting `dir` on the document.
   return (
     <Sidebar collapsible="icon" variant="floating" side={direction === "rtl" ? "right" : "left"}>
-      <SidebarHeader className="gap-2 pb-1.5">
-        <div className="flex items-center gap-2 px-2 py-1 group-data-[collapsible=icon]:justify-center">
-          <LogoMark className="size-7 shrink-0 text-primary" />
-          <span className="text-sm font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
+      <SidebarHeader className="gap-1.5 p-2 pb-1.5">
+        <div className="flex items-center gap-2 px-1 py-0.5 group-data-[collapsible=icon]:justify-center">
+          <BrandMark />
+          <span className="text-[13px] font-semibold tracking-[0.04em] text-sidebar-foreground group-data-[collapsible=icon]:hidden">
             {siteConfig.name}
           </span>
         </div>
         {/* The collapse toggle belongs to the Sidebar, directly below the logo — not the Topbar. */}
-        <div className="px-2">
+        <div className="px-1">
           <SidebarTrigger className="w-full justify-start gap-2 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:w-auto group-data-[collapsible=icon]:justify-center" />
         </div>
       </SidebarHeader>
@@ -174,7 +175,7 @@ function NavTreeItem({
           tooltip={title}
           className={cn(
             isActive &&
-              "bg-green-50 font-semibold text-foreground shadow-xs before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-green-600 hover:bg-green-50 dark:bg-green-500/15 dark:hover:bg-green-500/15",
+              "bg-primary-soft font-semibold text-foreground shadow-xs before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-primary hover:bg-primary-soft",
           )}
         >
           <Link href={item.route ?? "#"} onClick={onNavigate}>
@@ -214,12 +215,12 @@ function NavTreeItem({
               "group/trigger",
               containsActive &&
                 !open &&
-                "bg-green-50 font-semibold text-foreground before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-green-600 dark:bg-green-500/15",
+                "bg-primary-soft font-semibold text-foreground before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-primary",
             )}
           >
             <NavIcon name={item.icon} />
             <span className="group-data-[collapsible=icon]:hidden">{title}</span>
-            <ChevronRight className="ms-auto size-4 shrink-0 self-start transition-transform duration-(--duration-base) ease-(--ease-standard) group-data-[collapsible=icon]:hidden rtl:rotate-180 group-data-[state=open]/trigger:rotate-90 rtl:group-data-[state=open]/trigger:-rotate-90" />
+            <ChevronRight className="ms-auto size-3.5 shrink-0 transition-transform duration-(--duration-base) ease-(--ease-standard) group-data-[collapsible=icon]:hidden rtl:rotate-180 group-data-[state=open]/trigger:rotate-90 rtl:group-data-[state=open]/trigger:-rotate-90" />
           </SidebarMenuButton>
         </CollapsibleTrigger>
         <CollapsibleContent>
@@ -230,7 +231,7 @@ function NavTreeItem({
                 <SidebarMenuSubItem key={child.id}>
                   <SidebarMenuSubButton asChild isActive={currentId === child.id}>
                     <Link href={child.route ?? "#"} onClick={onNavigate} className="group/pin">
-                      <NavIcon name={child.icon} />
+                      <NavIcon name={child.icon} compact />
                       <span className="min-w-0 flex-1 truncate">{childTitle}</span>
                       <button
                         type="button"
@@ -239,7 +240,7 @@ function NavTreeItem({
                           event.stopPropagation();
                           onTogglePin(child.id);
                         }}
-                        className="shrink-0 self-start pt-1 opacity-0 group-hover/pin:opacity-100 hover:text-primary"
+                        className="shrink-0 opacity-0 group-hover/pin:opacity-100 hover:text-primary"
                         aria-label={
                           isPinned(child.id)
                             ? `${t("sidebar.unpin")} ${childTitle}`

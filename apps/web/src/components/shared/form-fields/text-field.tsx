@@ -23,6 +23,8 @@ export function TextFormField<
   label,
   description,
   disabled,
+  required,
+  optional,
   ...inputProps
 }: {
   control: Control<TFieldValues>;
@@ -30,6 +32,8 @@ export function TextFormField<
   label: string;
   description?: string;
   disabled?: boolean;
+  required?: boolean;
+  optional?: boolean;
 } & Omit<React.ComponentProps<typeof Input>, "name" | "disabled">) {
   return (
     <FormField
@@ -37,7 +41,9 @@ export function TextFormField<
       name={name}
       render={({ field }) => (
         <FormItem>
-          <FormLabel>{label}</FormLabel>
+          <FormLabel required={required} optional={optional}>
+            {label}
+          </FormLabel>
           <FormControl>
             <Input {...field} {...inputProps} disabled={disabled} />
           </FormControl>

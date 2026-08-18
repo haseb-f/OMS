@@ -61,7 +61,7 @@ export function EnterpriseTableViewOptions<TData>({ table }: { table: Table<TDat
                   moveColumn(column.id, -1);
                 }}
               >
-                <ArrowLeft className="size-3" />
+                <ArrowLeft className="size-3 rtl:rotate-180" />
               </button>
               <button
                 type="button"
@@ -72,7 +72,7 @@ export function EnterpriseTableViewOptions<TData>({ table }: { table: Table<TDat
                   moveColumn(column.id, 1);
                 }}
               >
-                <ArrowRight className="size-3" />
+                <ArrowRight className="size-3 rtl:rotate-180" />
               </button>
             </div>
           );

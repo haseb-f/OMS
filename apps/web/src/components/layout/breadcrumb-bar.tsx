@@ -33,9 +33,15 @@ export function BreadcrumbBar() {
   // at its list-page ANCESTOR, which must stay clickable — the page's own
   // label (once loaded) becomes the actual final, non-clickable crumb.
   const showDynamicCrumb = !isExactMatch && dynamicLabel;
+  // Section + default child often share a label ("Store Orders" / "طلبات المتجر").
+  // Keep the more specific leaf; don't render two identical consecutive crumbs.
+  const crumbs = breadcrumb.filter((item, index) => {
+    const next = breadcrumb[index + 1];
+    return !next || t(item.titleKey) !== t(next.titleKey);
+  });
 
   return (
-    <div className="px-6 py-2 text-caption">
+    <div className="px-6 py-1.5">
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
@@ -45,12 +51,12 @@ export function BreadcrumbBar() {
               </Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
-          {breadcrumb.map((item, index) => {
+          {crumbs.map((item, index) => {
             // The resolved trail's own last item is only the actual
             // current page when the route matched exactly — otherwise a
             // dynamic sub-page crumb follows it below, so this one must
             // stay clickable like any other ancestor.
-            const isFinalCrumb = index === breadcrumb.length - 1 && !showDynamicCrumb;
+            const isFinalCrumb = index === crumbs.length - 1 && !showDynamicCrumb;
             const title = t(item.titleKey);
             return (
               <Fragment key={item.id}>

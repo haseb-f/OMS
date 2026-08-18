@@ -11,14 +11,6 @@ import {
   Save,
   Send,
 } from "lucide-react";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import {
@@ -46,6 +38,7 @@ import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
+import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import { ConvertToInvoiceDialog } from "./convert-to-invoice-dialog";
@@ -345,20 +338,10 @@ export function OrderEditorPage({ id }: { id: string | null }) {
   const canConfirm = hasPermission("sales.orders.confirm");
   const canCancel = hasPermission("sales.orders.cancel");
 
-  return (
-    <div className="flex flex-col gap-6">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/sales/orders">{t("sales.orders.title")}</BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>{order?.orderNumber ?? t("sales.orders.addNew")}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
+  useBreadcrumbLabel(order?.orderNumber ?? t("sales.orders.addNew"));
 
+  return (
+    <div className="flex flex-col gap-3">
       <RelatedDocuments
         groups={[
           {

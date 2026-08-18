@@ -11,15 +11,13 @@ import { useLocale } from "@/providers/locale-provider";
 export function AccessDenied() {
   const { t } = useLocale();
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 py-24 text-center">
-      <div className="relative flex size-20 items-center justify-center rounded-full bg-destructive/10 ring-8 ring-destructive/5">
-        <ShieldAlert className="size-8 text-destructive" strokeWidth={1.5} />
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-16 text-center">
+      <div className="flex size-10 items-center justify-center rounded-md bg-destructive/10 text-destructive">
+        <ShieldAlert className="size-5" strokeWidth={1.75} />
       </div>
-      <div className="flex flex-col gap-1">
-        <p className="text-page-title font-semibold">{t("accessDenied.title")}</p>
-        <p className="max-w-sm text-caption text-muted-foreground">
-          {t("accessDenied.description")}
-        </p>
+      <div className="flex max-w-sm flex-col gap-1">
+        <p className="text-body font-semibold">{t("accessDenied.title")}</p>
+        <p className="text-caption text-muted-foreground">{t("accessDenied.description")}</p>
       </div>
     </div>
   );

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
 import { Copy, Eye, Pencil, Plus, Printer, Send, Undo2, Archive } from "lucide-react";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
@@ -13,23 +13,20 @@ import {
   type DateRangeValue,
 } from "@/components/shared/date-range-picker";
 import { StatusBadge } from "@/components/business/status-badge";
+import { MoneyValue } from "@/components/shared/money-value";
+import { SemanticValue } from "@/components/shared/semantic-value";
+import { StackedCell } from "@/components/shared/stacked-cell";
 import {
   SalesDocumentRowActionsMenu,
   SalesListBulkActions,
   type SalesDocumentRowAction,
 } from "@/components/sales";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   EnterpriseDataTable,
   exportColumnsFromKeys,
   exportRowsToCsv,
 } from "@/components/master-data/enterprise-data-table";
+import { MultiSelectFilter } from "@/components/shared/data-table";
 import {
   journalEntriesService,
   type JournalEntryRow,
@@ -58,17 +55,6 @@ import { PermissionGate } from "@/components/shared/permission-gate";
 const EMPTY_DATE_RANGE: DateRangeValue = { from: null, to: null };
 const journalsService = createMasterDataService<JournalRow>("/journals");
 
-function MoneyCell({ value }: { value: string }) {
-  return (
-    <span dir="ltr">
-      {Number(value).toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}
-    </span>
-  );
-}
-
 /** Accounting Foundation (TASK-044 Part 6) — mirrors `purchasing/payments/page.tsx`'s list-page shape (no party column instead of Supplier/Customer). */
 function JournalEntriesPageContent() {
   const { t } = useLocale();
@@ -84,8 +70,8 @@ function JournalEntriesPageContent() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [statusFilter, setStatusFilter] = useState<string>("");
-  const [journalFilter, setJournalFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [journalFilter, setJournalFilter] = useState<string[]>([]);
   const [dateRange, setDateRange] = useState<DateRangeValue>(EMPTY_DATE_RANGE);
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -113,8 +99,8 @@ function JournalEntriesPageContent() {
     try {
       const result = await journalEntriesService.list({
         search: search || undefined,
-        status: (statusFilter || undefined) as JournalEntryStatusValue | undefined,
-        journalId: journalFilter || undefined,
+        status: statusFilter as JournalEntryStatusValue[],
+        journalId: journalFilter,
         dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
         dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
         page,
@@ -228,10 +214,11 @@ function JournalEntriesPageContent() {
         id: "entryNumber",
         meta: { titleKey: "accounting.journalEntries.fields.number" },
         accessorFn: (row) => row.entryNumber,
-        cell: (info) => (
-          <code dir="ltr" className="rounded bg-muted px-1.5 py-0.5 text-xs">
-            {info.getValue() as string}
-          </code>
+        cell: ({ row }) => (
+          <StackedCell
+            primary={<SemanticValue kind="id">{row.original.entryNumber}</SemanticValue>}
+            secondary={formatDate(row.original.entryDate)}
+          />
         ),
       },
       {
@@ -239,10 +226,16 @@ function JournalEntriesPageContent() {
         meta: { titleKey: "accounting.journalEntries.fields.description" },
         accessorFn: (row) => row.description ?? "—",
         enableSorting: false,
+        cell: ({ row }) => (
+          <StackedCell
+            primary={row.original.description ?? "—"}
+            secondary={row.original.journal?.name ?? undefined}
+          />
+        ),
       },
       {
         id: "journal",
-        meta: { titleKey: "accounting.journalEntries.fields.journal" },
+        meta: { titleKey: "accounting.journalEntries.fields.journal", defaultHidden: true },
         enableSorting: false,
         accessorFn: (row) => row.journal?.name ?? "—",
       },
@@ -250,13 +243,13 @@ function JournalEntriesPageContent() {
         id: "totalDebit",
         meta: { titleKey: "accounting.journalEntries.fields.totalDebit" },
         accessorFn: (row) => row.totalDebit,
-        cell: (info) => <MoneyCell value={info.getValue() as string} />,
+        cell: (info) => <MoneyValue value={info.getValue() as string} />,
       },
       {
         id: "totalCredit",
         meta: { titleKey: "accounting.journalEntries.fields.totalCredit" },
         accessorFn: (row) => row.totalCredit,
-        cell: (info) => <MoneyCell value={info.getValue() as string} />,
+        cell: (info) => <MoneyValue value={info.getValue() as string} />,
       },
       {
         id: "status",
@@ -271,12 +264,12 @@ function JournalEntriesPageContent() {
       },
       {
         id: "entryDate",
-        meta: { titleKey: "accounting.journalEntries.fields.entryDate" },
+        meta: { titleKey: "accounting.journalEntries.fields.entryDate", defaultHidden: true },
         accessorFn: (row) => formatDate(row.entryDate),
       },
       {
         id: "createdBy",
-        meta: { titleKey: "accounting.journalEntries.fields.createdBy" },
+        meta: { titleKey: "accounting.journalEntries.fields.createdBy", defaultHidden: true },
         enableSorting: false,
         accessorFn: (row) => (row.createdBy ? (usersById[row.createdBy] ?? "—") : "—"),
       },
@@ -394,8 +387,8 @@ function JournalEntriesPageContent() {
     try {
       const result = await journalEntriesService.listIds({
         search: search || undefined,
-        status: (statusFilter || undefined) as JournalEntryStatusValue | undefined,
-        journalId: journalFilter || undefined,
+        status: statusFilter as JournalEntryStatusValue[],
+        journalId: journalFilter,
         dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
         dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
       });
@@ -426,68 +419,52 @@ function JournalEntriesPageContent() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t("accounting.journalEntries.title")}
-        subtitle={t("accounting.journalEntries.description")}
-        actions={
+    <PageWorkspace
+      title={t("accounting.journalEntries.title")}
+      description={t("accounting.journalEntries.description")}
+      actions={
+        <>
+          <ModuleImportButtons importType="MANUAL_JOURNAL_ENTRIES" onImported={load} />
+          {canCreate && (
+            <EnterpriseButton
+              type="button"
+              onClick={() => router.push("/finance/journal-entries/new")}
+            >
+              <Plus />
+              {t("accounting.journalEntries.addNew")}
+            </EnterpriseButton>
+          )}
+        </>
+      }
+    >
+      <EnterpriseDataTable
+        filterBar={
           <>
-            <ModuleImportButtons importType="MANUAL_JOURNAL_ENTRIES" onImported={load} />
-            {canCreate && (
-              <EnterpriseButton
-                type="button"
-                onClick={() => router.push("/finance/journal-entries/new")}
-              >
-                <Plus />
-                {t("accounting.journalEntries.addNew")}
-              </EnterpriseButton>
-            )}
-          </>
-        }
-        filters={
-          <>
-            <Select
-              value={statusFilter || "__all__"}
-              onValueChange={(v) => {
-                setStatusFilter(v === "__all__" ? "" : v);
+            <MultiSelectFilter
+              label={t("accounting.journalEntries.filters.status")}
+              values={statusFilter}
+              onChange={(values) => {
+                setStatusFilter(values);
                 setPage(1);
               }}
-            >
-              <SelectTrigger size="sm" className="w-40">
-                <SelectValue placeholder={t("accounting.journalEntries.filters.status")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">
-                  {t("accounting.journalEntries.filters.allStatuses")}
-                </SelectItem>
-                {JOURNAL_ENTRY_FILTERABLE_STATUSES.map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {t(JOURNAL_ENTRY_STATUS_LABEL_KEY[status])}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={journalFilter || "__all__"}
-              onValueChange={(v) => {
-                setJournalFilter(v === "__all__" ? "" : v);
+              options={JOURNAL_ENTRY_FILTERABLE_STATUSES.map((status) => ({
+                value: status,
+                label: t(JOURNAL_ENTRY_STATUS_LABEL_KEY[status]),
+              }))}
+            />
+            <MultiSelectFilter
+              label={t("accounting.journalEntries.filters.journal")}
+              values={journalFilter}
+              onChange={(values) => {
+                setJournalFilter(values);
                 setPage(1);
               }}
-            >
-              <SelectTrigger size="sm" className="w-40">
-                <SelectValue placeholder={t("accounting.journalEntries.filters.journal")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">
-                  {t("accounting.journalEntries.filters.allJournals")}
-                </SelectItem>
-                {journals.map((journal) => (
-                  <SelectItem key={journal.id} value={journal.id}>
-                    {journal.code} — {journal.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              options={journals.map((journal) => ({
+                value: journal.id,
+                label: `${journal.code} — ${journal.name}`,
+                searchText: `${journal.code} ${journal.name}`,
+              }))}
+            />
             <EnterpriseDateRangePicker
               value={dateRange}
               onChange={(range) => {
@@ -495,11 +472,27 @@ function JournalEntriesPageContent() {
                 setPage(1);
               }}
             />
+            {(statusFilter.length > 0 ||
+              journalFilter.length > 0 ||
+              dateRange.from ||
+              dateRange.to) && (
+              <EnterpriseButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setStatusFilter([]);
+                  setJournalFilter([]);
+                  setDateRange(EMPTY_DATE_RANGE);
+                  setPage(1);
+                }}
+              >
+                {t("table.clearFilters")}
+              </EnterpriseButton>
+            )}
           </>
         }
-      />
 
-      <EnterpriseDataTable
         tableId="finance-journal-entries"
         printTitle={t("accounting.journalEntries.title")}
         columns={columns}
@@ -598,7 +591,7 @@ function JournalEntriesPageContent() {
         cancelLabel={t("common.close")}
         onConfirm={handleBulkArchiveConfirmed}
       />
-    </div>
+    </PageWorkspace>
   );
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { Printer } from "lucide-react";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import {
   EnterpriseCard,
   EnterpriseCardContent,
@@ -115,57 +115,59 @@ export default function DocumentPreviewPage() {
   };
 
   return (
-    <div className="flex flex-col gap-8 pb-16">
-      <PageHeader title={t("documentEngine.title")} subtitle={t("documentEngine.subtitle")} />
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <EnterpriseCard>
-          <EnterpriseCardHeader>
-            <EnterpriseCardTitle>{t("documentEngine.supportedTypesTitle")}</EnterpriseCardTitle>
-          </EnterpriseCardHeader>
-          <EnterpriseCardContent className="flex flex-wrap gap-1.5">
-            {DOCUMENT_TYPES.map((docType) => (
-              <EnterpriseBadge key={docType} variant="secondary" className="font-normal">
-                {docType}
-              </EnterpriseBadge>
-            ))}
-          </EnterpriseCardContent>
-        </EnterpriseCard>
-        <EnterpriseCard>
-          <EnterpriseCardHeader>
-            <EnterpriseCardTitle>{t("documentEngine.printSettingsTitle")}</EnterpriseCardTitle>
-          </EnterpriseCardHeader>
-          <EnterpriseCardContent>
-            <p className="text-body text-muted-foreground">
-              {t("documentEngine.printSettingsBody")}
-            </p>
-          </EnterpriseCardContent>
-        </EnterpriseCard>
-        <EnterpriseCard>
-          <EnterpriseCardHeader>
-            <EnterpriseCardTitle>{t("documentEngine.brandingTitle")}</EnterpriseCardTitle>
-          </EnterpriseCardHeader>
-          <EnterpriseCardContent>
-            <p className="text-body text-muted-foreground">{t("documentEngine.brandingBody")}</p>
-          </EnterpriseCardContent>
-        </EnterpriseCard>
-      </div>
-
-      <section className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-section-title">{t("documentEngine.previewHeading")}</h2>
+    <PageWorkspace title={t("documentEngine.title")} description={t("documentEngine.subtitle")}>
+      <div className="flex flex-col gap-8 pb-16">
+        <div className="grid gap-4 lg:grid-cols-3">
+          <EnterpriseCard>
+            <EnterpriseCardHeader>
+              <EnterpriseCardTitle>{t("documentEngine.supportedTypesTitle")}</EnterpriseCardTitle>
+            </EnterpriseCardHeader>
+            <EnterpriseCardContent className="flex flex-wrap gap-1.5">
+              {DOCUMENT_TYPES.map((docType) => (
+                <EnterpriseBadge key={docType} variant="secondary" className="font-normal">
+                  {docType}
+                </EnterpriseBadge>
+              ))}
+            </EnterpriseCardContent>
+          </EnterpriseCard>
+          <EnterpriseCard>
+            <EnterpriseCardHeader>
+              <EnterpriseCardTitle>{t("documentEngine.printSettingsTitle")}</EnterpriseCardTitle>
+            </EnterpriseCardHeader>
+            <EnterpriseCardContent>
+              <p className="text-body text-muted-foreground">
+                {t("documentEngine.printSettingsBody")}
+              </p>
+            </EnterpriseCardContent>
+          </EnterpriseCard>
+          <EnterpriseCard>
+            <EnterpriseCardHeader>
+              <EnterpriseCardTitle>{t("documentEngine.brandingTitle")}</EnterpriseCardTitle>
+            </EnterpriseCardHeader>
+            <EnterpriseCardContent>
+              <p className="text-body text-muted-foreground">{t("documentEngine.brandingBody")}</p>
+            </EnterpriseCardContent>
+          </EnterpriseCard>
         </div>
 
-        <EnterpriseCard>
-          <EnterpriseCardContent className="flex flex-col items-start gap-3 py-8">
-            <p className="text-body text-muted-foreground">{t("documentEngine.printEngineBody")}</p>
-            <EnterpriseButton type="button" onClick={handlePrint}>
-              <Printer />
-              {t("documentEngine.printPreview")}
-            </EnterpriseButton>
-          </EnterpriseCardContent>
-        </EnterpriseCard>
-      </section>
-    </div>
+        <section className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-section-title">{t("documentEngine.previewHeading")}</h2>
+          </div>
+
+          <EnterpriseCard>
+            <EnterpriseCardContent className="flex flex-col items-start gap-3 py-8">
+              <p className="text-body text-muted-foreground">
+                {t("documentEngine.printEngineBody")}
+              </p>
+              <EnterpriseButton type="button" onClick={handlePrint}>
+                <Printer />
+                {t("documentEngine.printPreview")}
+              </EnterpriseButton>
+            </EnterpriseCardContent>
+          </EnterpriseCard>
+        </section>
+      </div>
+    </PageWorkspace>
   );
 }

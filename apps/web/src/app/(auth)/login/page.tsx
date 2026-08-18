@@ -4,16 +4,14 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { z } from "zod";
-import {
-  EnterpriseCard,
-  EnterpriseCardContent,
-  EnterpriseCardHeader,
-  EnterpriseCardTitle,
-  EnterpriseCardDescription,
-} from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Form, FormField, FormItem, FormControl, FormLabel } from "@/components/ui/form";
-import { TextFormField, SubmitButton, useZodForm } from "@/components/shared/form-fields";
+import {
+  TextFormField,
+  PasswordFormField,
+  SubmitButton,
+  useZodForm,
+} from "@/components/shared/form-fields";
 import { ApiError } from "@/services/api-client";
 import { useAuth } from "@/providers/auth-provider";
 import { useLocale } from "@/providers/locale-provider";
@@ -56,68 +54,83 @@ function LoginForm() {
     }
   });
 
+  const isSubmitting = form.formState.isSubmitting;
+
   return (
-    <EnterpriseCard>
-      <EnterpriseCardHeader>
-        <EnterpriseCardTitle>{t("auth.loginTitle")}</EnterpriseCardTitle>
-        <EnterpriseCardDescription>{t("auth.loginSubtitle")}</EnterpriseCardDescription>
-      </EnterpriseCardHeader>
-      <EnterpriseCardContent>
-        <Form {...form}>
-          <form onSubmit={onSubmit} className="flex flex-col gap-4">
-            <TextFormField
-              control={form.control}
-              name="email"
-              label={t("auth.email")}
-              type="email"
-              placeholder={t("auth.emailPlaceholder")}
-              autoComplete="email"
-            />
-            <TextFormField
-              control={form.control}
-              name="password"
-              label={t("auth.password")}
-              type="password"
-              placeholder={t("auth.passwordPlaceholder")}
-              autoComplete="current-password"
-            />
+    <div>
+      <header className="mb-8">
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">
+          {t("auth.loginTitle")}
+        </h1>
+        <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+          {t("auth.loginSubtitle")}
+        </p>
+      </header>
 
-            <div className="flex items-center justify-between">
-              <FormField
-                control={form.control}
-                name="rememberMe"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center gap-2 space-y-0">
-                    <FormControl>
-                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
-                    <FormLabel className="font-normal">{t("auth.rememberMe")}</FormLabel>
-                  </FormItem>
-                )}
-              />
-              <Link
-                href="/forgot-password"
-                className="text-caption font-medium text-primary hover:underline"
-              >
-                {t("auth.forgotPassword")}
-              </Link>
+      <Form {...form}>
+        <form
+          onSubmit={onSubmit}
+          aria-busy={isSubmitting}
+          className="oms-auth-form flex flex-col gap-4"
+        >
+          <TextFormField
+            control={form.control}
+            name="email"
+            label={t("auth.email")}
+            type="email"
+            placeholder={t("auth.emailPlaceholder")}
+            autoComplete="email"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            dir="ltr"
+          />
+          <PasswordFormField
+            control={form.control}
+            name="password"
+            label={t("auth.password")}
+            placeholder={t("auth.passwordPlaceholder")}
+            autoComplete="current-password"
+          />
+
+          <div className="flex items-center justify-between gap-3">
+            <FormField
+              control={form.control}
+              name="rememberMe"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                  <FormControl>
+                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                  <FormLabel className="text-sm font-normal">{t("auth.rememberMe")}</FormLabel>
+                </FormItem>
+              )}
+            />
+            <Link
+              href="/forgot-password"
+              className="text-caption font-medium text-brand-navy hover:underline dark:text-brand-teal"
+            >
+              {t("auth.forgotPassword")}
+            </Link>
+          </div>
+
+          {formError && (
+            <div
+              role="alert"
+              className="rounded-sm border border-destructive/20 bg-destructive/10 px-3 py-2 text-caption text-destructive"
+            >
+              {formError}
             </div>
+          )}
 
-            {formError && (
-              <div
-                role="alert"
-                className="rounded-lg border border-destructive/20 bg-destructive/10 px-3.5 py-2.5 text-caption text-destructive"
-              >
-                {formError}
-              </div>
-            )}
-
-            <SubmitButton isSubmitting={form.formState.isSubmitting} className="w-full">
-              {form.formState.isSubmitting ? t("auth.signingIn") : t("auth.signIn")}
-            </SubmitButton>
-          </form>
-        </Form>
-      </EnterpriseCardContent>
-    </EnterpriseCard>
+          <SubmitButton
+            isSubmitting={isSubmitting}
+            className="mt-1 w-full from-brand-navy to-brand-navy text-brand-navy-foreground hover:brightness-110 dark:from-brand-navy dark:to-brand-navy"
+          >
+            {isSubmitting ? t("auth.signingIn") : t("auth.signIn")}
+          </SubmitButton>
+        </form>
+      </Form>
+    </div>
   );
 }

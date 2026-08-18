@@ -15,16 +15,16 @@ import { useLocale } from "@/providers/locale-provider";
 export function EnterprisePagination<TData>({ table }: { table: Table<TData> }) {
   const { t } = useLocale();
   const selectedCount = table.getFilteredSelectedRowModel().rows.length;
-  const totalCount = table.getFilteredRowModel().rows.length;
+  const totalCount = table.options.rowCount ?? table.getFilteredRowModel().rows.length;
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="text-caption text-muted-foreground">
-        {table.getRowModel().rows.length > 0 && table.options.enableRowSelection
+        {table.options.enableRowSelection && selectedCount > 0
           ? `${selectedCount} / ${totalCount} ${t("table.rowsSelected")}`
-          : null}
+          : t("table.resultCount", { count: totalCount })}
       </div>
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
           <span className="text-caption text-muted-foreground">{t("table.rowsPerPage")}</span>
           <Select

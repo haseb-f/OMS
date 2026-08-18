@@ -9,14 +9,17 @@ import {
   OctagonXIcon,
   Loader2Icon,
 } from "lucide-react";
+import { useLocale } from "@/providers/locale-provider";
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme();
+  const { direction } = useLocale();
 
   return (
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
+      dir={direction}
       icons={{
         success: <CircleCheckIcon className="size-4" />,
         info: <InfoIcon className="size-4" />,

@@ -23,6 +23,7 @@ import { UpdatePurchaseQuotationDto } from './dto/update-purchase-quotation.dto'
 import { FindPurchaseQuotationsQueryDto } from './dto/find-purchase-quotations-query.dto';
 import type { PurchaseLineItemInputDto } from '../shared/purchase-line-item-input.dto';
 import { assertActiveProduct } from '../../products/assert-active-product.util';
+import { prismaEnumFilter } from '../../common/query/enum-list';
 
 @Injectable()
 export class PurchaseQuotationsService {
@@ -99,8 +100,8 @@ export class PurchaseQuotationsService {
   async findAll(query: FindPurchaseQuotationsQueryDto) {
     const where: Prisma.PurchaseQuotationWhereInput = {
       deletedAt: null,
-      supplierId: query.supplierId,
-      status: query.status,
+      supplierId: prismaEnumFilter(query.supplierId),
+      status: prismaEnumFilter(query.status),
     };
     if (query.search) {
       where.OR = [
@@ -117,7 +118,15 @@ export class PurchaseQuotationsService {
     const [items, total] = await Promise.all([
       this.prisma.purchaseQuotation.findMany({
         where,
-        include: { items: true, supplier: true, currency: true },
+        include: {
+          items: {
+            include: {
+              product: { select: { id: true, name: true, sku: true } },
+            },
+          },
+          supplier: true,
+          currency: true,
+        },
         orderBy: { [query.sortBy || 'createdAt']: query.sortOrder ?? 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,

@@ -12,8 +12,10 @@ import {
   type FieldValues,
 } from "react-hook-form";
 
+import { CircleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
+import { useLocale } from "@/providers/locale-provider";
 
 const Form = FormProvider;
 
@@ -71,22 +73,65 @@ function FormItem({ className, ...props }: React.ComponentProps<"div">) {
 
   return (
     <FormItemContext.Provider value={{ id }}>
-      <div data-slot="form-item" className={cn("grid gap-2", className)} {...props} />
+      <div data-slot="form-item" className={cn("grid gap-1.5", className)} {...props} />
     </FormItemContext.Provider>
   );
 }
 
-function FormLabel({ className, ...props }: React.ComponentProps<typeof Label>) {
-  const { error, formItemId } = useFormField();
+function FieldLabel({
+  className,
+  required,
+  optional,
+  error,
+  children,
+  ...props
+}: React.ComponentProps<typeof Label> & {
+  required?: boolean;
+  optional?: boolean;
+  error?: boolean;
+}) {
+  const { t } = useLocale();
 
   return (
     <Label
-      data-slot="form-label"
+      data-slot="field-label"
       data-error={!!error}
-      className={cn("data-[error=true]:text-destructive", className)}
-      htmlFor={formItemId}
+      className={cn("gap-1 text-caption font-medium data-[error=true]:text-destructive", className)}
       {...props}
-    />
+    >
+      {children}
+      {required ? (
+        <span className="text-muted-foreground" aria-hidden="true">
+          *
+        </span>
+      ) : optional ? (
+        <span className="font-normal text-muted-foreground">{t("common.optional")}</span>
+      ) : null}
+    </Label>
+  );
+}
+
+function FormLabel({
+  className,
+  required,
+  optional,
+  children,
+  ...props
+}: React.ComponentProps<typeof Label> & { required?: boolean; optional?: boolean }) {
+  const { error, formItemId } = useFormField();
+
+  return (
+    <FieldLabel
+      data-slot="form-label"
+      htmlFor={formItemId}
+      error={!!error}
+      required={required}
+      optional={optional}
+      className={className}
+      {...props}
+    >
+      {children}
+    </FieldLabel>
   );
 }
 
@@ -111,9 +156,27 @@ function FormDescription({ className, ...props }: React.ComponentProps<"p">) {
     <p
       data-slot="form-description"
       id={formDescriptionId}
-      className={cn("text-muted-foreground text-sm", className)}
+      className={cn("text-caption text-muted-foreground", className)}
       {...props}
     />
+  );
+}
+
+function FieldMessage({ className, children, ...props }: React.ComponentProps<"p">) {
+  if (!children) {
+    return null;
+  }
+
+  return (
+    <p
+      data-slot="field-message"
+      role="alert"
+      className={cn("flex items-start gap-1 text-caption font-medium text-destructive", className)}
+      {...props}
+    >
+      <CircleAlert className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+      <span>{children}</span>
+    </p>
   );
 }
 
@@ -126,14 +189,9 @@ function FormMessage({ className, ...props }: React.ComponentProps<"p">) {
   }
 
   return (
-    <p
-      data-slot="form-message"
-      id={formMessageId}
-      className={cn("text-destructive text-sm", className)}
-      {...props}
-    >
+    <FieldMessage data-slot="form-message" id={formMessageId} className={className} {...props}>
       {body}
-    </p>
+    </FieldMessage>
   );
 }
 
@@ -141,9 +199,11 @@ export {
   useFormField,
   Form,
   FormItem,
+  FieldLabel,
   FormLabel,
   FormControl,
   FormDescription,
+  FieldMessage,
   FormMessage,
   FormField,
 };

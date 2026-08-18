@@ -1,4 +1,5 @@
 import { apiClient } from "./api-client";
+import { buildQueryString } from "@/lib/query-string";
 
 export type JournalEntryStatusValue = "DRAFT" | "POSTED" | "REVERSED";
 
@@ -92,8 +93,8 @@ export interface SaveJournalEntryTemplatePayload {
 
 export interface JournalEntryListParams {
   search?: string;
-  status?: JournalEntryStatusValue;
-  journalId?: string;
+  status?: JournalEntryStatusValue | JournalEntryStatusValue[];
+  journalId?: string | string[];
   /** TASK-054 — Journal ↔ Source Document lookup (both required together). */
   sourceType?: string;
   sourceId?: string;
@@ -129,16 +130,6 @@ export interface JournalEntryActivityEntry {
   metadata: unknown;
   createdAt: string;
   createdBy: string | null;
-}
-
-function buildQueryString(params: Record<string, unknown>): string {
-  const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value === undefined || value === null || value === "") continue;
-    search.set(key, String(value));
-  }
-  const qs = search.toString();
-  return qs ? `?${qs}` : "";
 }
 
 /**

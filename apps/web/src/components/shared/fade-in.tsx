@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 import { duration, easing } from "@/theme/tokens";
 
@@ -27,6 +27,16 @@ export function FadeInStagger({
   children: ReactNode;
   className?: string;
 } & React.AriaAttributes) {
+  const reduceMotion = useReducedMotion();
+
+  if (reduceMotion) {
+    return (
+      <div className={className} {...ariaProps}>
+        {children}
+      </div>
+    );
+  }
+
   return (
     <motion.div
       initial="hidden"
@@ -41,5 +51,7 @@ export function FadeInStagger({
 }
 
 export function FadeInItem({ children }: { children: ReactNode }) {
+  const reduceMotion = useReducedMotion();
+  if (reduceMotion) return <>{children}</>;
   return <motion.div variants={itemVariants}>{children}</motion.div>;
 }

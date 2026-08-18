@@ -3,12 +3,15 @@ import { cn } from "@/lib/utils";
 
 export type StatusTone = "success" | "warning" | "destructive" | "info" | "neutral";
 
-const toneClasses: Record<StatusTone, string> = {
-  success: "bg-success/10 text-success border-success/20",
-  warning: "bg-warning/15 text-warning-foreground border-warning/30",
-  destructive: "bg-destructive/10 text-destructive border-destructive/20",
-  info: "bg-secondary text-secondary-foreground border-transparent",
-  neutral: "bg-muted text-muted-foreground border-transparent",
+const toneVariant: Record<
+  StatusTone,
+  "success" | "warning" | "destructive" | "info" | "secondary"
+> = {
+  success: "success",
+  warning: "warning",
+  destructive: "destructive",
+  info: "info",
+  neutral: "secondary",
 };
 
 /**
@@ -27,8 +30,9 @@ export function StatusBadge({
 }) {
   return (
     <EnterpriseBadge
-      variant="outline"
-      className={cn("border font-medium", toneClasses[tone], className)}
+      variant={toneVariant[tone]}
+      title={label}
+      className={cn("max-w-full min-w-0 shrink truncate", className)}
     >
       {label}
     </EnterpriseBadge>

@@ -11,16 +11,21 @@ import {
 } from 'class-validator';
 import { JournalEntryStatus } from '@prisma/client';
 import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
+import {
+  TransformEnumList,
+  IsOptionalUuidList,
+} from '../../common/query/enum-list';
 
 /** Mirrors FindFinancialTransactionsQueryDto's search/pagination shape. */
 export class FindJournalEntriesQueryDto {
-  @IsEnum(JournalEntryStatus)
+  @TransformEnumList()
+  @IsEnum(JournalEntryStatus, { each: true })
   @IsOptional()
-  status?: JournalEntryStatus;
+  status?: JournalEntryStatus[];
 
   /** TASK-053 — filter by which book of entry (Sales/Purchase/Cash/Bank/General Journal) the entry belongs to. */
-  @IsOptionalUuid()
-  journalId?: string;
+  @IsOptionalUuidList()
+  journalId?: string[];
 
   /** TASK-054 — Journal ↔ Source Document navigation: look up the entry a business document was auto-posted from (both required together). */
   @IsString()

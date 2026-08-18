@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { UserCheck } from "lucide-react";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
@@ -155,10 +155,10 @@ function LeadDetailContent() {
   }));
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
+    <div className="flex flex-col gap-3">
+      <PageWorkspace
         title={lead.leadNumber}
-        subtitle={lead.customerName}
+        description={lead.customerName}
         actions={
           <>
             {canEdit && lead.status === "NEW" && (

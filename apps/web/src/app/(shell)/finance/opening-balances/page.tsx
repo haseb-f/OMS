@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
 import {
@@ -147,13 +147,11 @@ function OpeningBalancesPageContent() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t("nav.financeOpeningBalances")}
-        subtitle={t("accounting.openingBalances.description")}
-        actions={<ModuleImportButtons importType="OPENING_BALANCES" />}
-      />
-
+    <PageWorkspace
+      title={t("nav.financeOpeningBalances")}
+      description={t("accounting.openingBalances.description")}
+      actions={<ModuleImportButtons importType="OPENING_BALANCES" />}
+    >
       <EnterpriseCard size="sm">
         <EnterpriseCardContent className="flex flex-col gap-3">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -234,7 +232,7 @@ function OpeningBalancesPageContent() {
           )}
         </EnterpriseCardContent>
       </EnterpriseCard>
-    </div>
+    </PageWorkspace>
   );
 }
 

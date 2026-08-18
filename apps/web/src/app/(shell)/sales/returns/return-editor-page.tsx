@@ -2,14 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Ban, CheckCircle2, PackagePlus, Printer, Save, Send } from "lucide-react";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { RelatedDocuments } from "@/components/shared/related-documents";
@@ -37,6 +29,7 @@ import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
+import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 
@@ -338,22 +331,10 @@ export function ReturnEditorPage({ id }: { id: string }) {
   const canCancel = hasPermission("sales.returns.cancel");
   const journalEntryLinks = useSourceJournalEntryLinks("SALES_RETURN", salesReturn?.id);
 
-  return (
-    <div className="flex flex-col gap-6">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/sales/returns">{t("sales.returns.title")}</BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>
-              {salesReturn?.returnNumber ?? t("sales.returns.addNew")}
-            </BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
+  useBreadcrumbLabel(salesReturn?.returnNumber ?? t("sales.returns.addNew"));
 
+  return (
+    <div className="flex flex-col gap-3">
       <RelatedDocuments
         groups={[
           {

@@ -12,14 +12,6 @@ import {
   Undo2,
   Banknote,
 } from "lucide-react";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import {
@@ -52,6 +44,7 @@ import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
+import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import { CreateReturnDialog } from "./create-return-dialog";
@@ -384,20 +377,10 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
   const canReceivePayment = hasPermission("sales.receipts.create");
   const journalEntryLinks = useSourceJournalEntryLinks("SALES_INVOICE", invoice?.id);
 
-  return (
-    <div className="flex flex-col gap-6">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/sales/invoices">{t("sales.invoices.title")}</BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>{invoice?.invoiceNumber ?? t("sales.invoices.addNew")}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
+  useBreadcrumbLabel(invoice?.invoiceNumber ?? t("sales.invoices.addNew"));
 
+  return (
+    <div className="flex flex-col gap-3">
       <RelatedDocuments
         groups={[
           {

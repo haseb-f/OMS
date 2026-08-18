@@ -20,11 +20,11 @@ export function AppShell({
   return (
     <SidebarProvider defaultOpen={defaultSidebarOpen}>
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset className="min-w-0 overflow-x-hidden">
         <TopBar />
         <BreadcrumbBar />
-        <main className="flex flex-1 justify-center">
-          <div className="flex w-full max-w-[1400px] flex-1 flex-col gap-4 px-4 pt-1 pb-8 sm:px-6 lg:px-8">
+        <main className="flex min-w-0 flex-1 justify-center overflow-x-hidden">
+          <div className="flex min-w-0 w-full max-w-[1400px] flex-1 flex-col gap-3 px-4 pt-2 pb-6 sm:px-6 lg:px-8">
             {children}
           </div>
         </main>

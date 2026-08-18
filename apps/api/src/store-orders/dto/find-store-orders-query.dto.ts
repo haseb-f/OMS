@@ -15,6 +15,7 @@ import {
   StoreOrderSource,
 } from '@prisma/client';
 import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
+import { TransformEnumList } from '../../common/query/enum-list';
 
 export class FindStoreOrdersQueryDto {
   @IsOptionalUuid()
@@ -25,17 +26,20 @@ export class FindStoreOrdersQueryDto {
   @IsOptional()
   phone?: string;
 
-  @IsEnum(StoreOrderPaymentStatus)
+  @TransformEnumList()
+  @IsEnum(StoreOrderPaymentStatus, { each: true })
   @IsOptional()
-  paymentStatus?: StoreOrderPaymentStatus;
+  paymentStatus?: StoreOrderPaymentStatus[];
 
-  @IsEnum(StoreOrderShippingStage)
+  @TransformEnumList()
+  @IsEnum(StoreOrderShippingStage, { each: true })
   @IsOptional()
-  shippingStage?: StoreOrderShippingStage;
+  shippingStage?: StoreOrderShippingStage[];
 
-  @IsEnum(StoreOrderSource)
+  @TransformEnumList()
+  @IsEnum(StoreOrderSource, { each: true })
   @IsOptional()
-  source?: StoreOrderSource;
+  source?: StoreOrderSource[];
 
   /** Matches internalOrderId, externalOrderId, or customer name (case-insensitive, partial). */
   @IsString()

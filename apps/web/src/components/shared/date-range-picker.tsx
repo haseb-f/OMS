@@ -145,6 +145,7 @@ export function EnterpriseDateRangePicker({
         <EnterpriseButton
           type="button"
           variant="outline"
+          size="sm"
           className={cn("justify-start font-normal", className)}
         >
           <CalendarIcon className="size-4 text-muted-foreground" />

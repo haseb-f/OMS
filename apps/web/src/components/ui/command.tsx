@@ -30,14 +30,9 @@ function Command({ className, ...props }: React.ComponentProps<typeof CommandPri
 
 /**
  * OMS Dropdown Design System — the ONE popover shell every searchable
- * picker (Customer/Supplier/Product/Warehouse/Account/...) renders its
- * `<Command>` inside. Radius (`rounded-xs`, 8px — the same "dropdown/select
- * menu" token the Status/Select dropdown uses, per ADR-0018) and shadow
- * (`shadow-md` + hairline ring, inherited from the base `PopoverContent`)
- * are owned here so every searchable dropdown reads as the same component
- * as a plain `<Select>`, never its own visual language. Width defaults to
- * the trigger's own width, capped at 340px. Never duplicate these classes
- * on a picker itself — add a new picker by reusing this component instead.
+ * picker renders its `<Command>` inside. Width is at least the trigger,
+ * grows with content, and caps at `max-w-md` so long Arabic labels stay
+ * readable without becoming a floating panel.
  */
 function CommandPopoverContent({
   className,
@@ -48,7 +43,7 @@ function CommandPopoverContent({
     <PopoverContent
       align={align}
       className={cn(
-        "w-(--radix-popover-trigger-width) max-w-[340px] rounded-xs p-0 shadow-md",
+        "w-auto min-w-(--radix-popover-trigger-width) max-w-md rounded-xs p-0 shadow-md",
         className,
       )}
       {...props}
@@ -95,7 +90,7 @@ function CommandInput({
         <CommandPrimitive.Input
           data-slot="command-input"
           className={cn(
-            "w-full text-caption outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
+            "w-full text-body outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
             className,
           )}
           {...props}
@@ -172,47 +167,63 @@ function CommandItem({
     <CommandPrimitive.Item
       data-slot="command-item"
       className={cn(
-        "group/command-item relative flex h-9 shrink-0 cursor-default items-center gap-2 rounded-xs px-2.5 text-caption outline-hidden select-none transition-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-accent data-selected:text-accent-foreground data-[checked=true]:bg-success/10 data-[checked=true]:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 data-selected:*:[svg]:text-accent-foreground",
+        "group/command-item relative flex min-h-9 shrink-0 cursor-default items-center gap-2 rounded-xs px-2.5 py-1.5 text-body outline-hidden select-none transition-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-accent data-selected:text-accent-foreground data-[checked=true]:bg-primary-soft data-[checked=true]:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 data-selected:*:[svg]:text-accent-foreground",
         className,
       )}
       {...props}
     >
       {children}
-      <CheckIcon className="ms-auto opacity-0 group-has-data-[slot=command-shortcut]/command-item:hidden group-data-[checked=true]/command-item:text-success group-data-[checked=true]/command-item:opacity-100" />
+      <CheckIcon className="ms-auto self-center opacity-0 group-has-data-[slot=command-shortcut]/command-item:hidden group-data-[checked=true]/command-item:text-primary group-data-[checked=true]/command-item:opacity-100" />
     </CommandPrimitive.Item>
   );
 }
 
 /**
- * OMS Dropdown Design System — the shared single-line row content every
- * picker uses inside its `<CommandItem>`. Every row is exactly one line
- * (`h-9`, fixed on `CommandItem` above) so no row is ever taller than
- * another, whether or not it has a subtitle: title and subtitle sit on the
- * SAME line (a muted, de-emphasized run after the title, separated by a
- * hairline divider), both truncating together with a single ellipsis at
- * the end — never a stacked two-line title/subtitle. Defined once here so
- * no picker hand-rolls its own font-size/truncate classes for result rows.
+ * Shared option content for every entity combobox. Default is stacked
+ * (title + metadata) so Product/Customer/Account options stay compact but
+ * readable. `layout="inline"` keeps a single truncated line when a picker
+ * genuinely has no secondary fact.
  */
 function CommandResultRow({
   icon,
   title,
   subtitle,
+  subtitleDir,
+  layout = "stacked",
 }: {
   icon?: React.ReactNode;
   title: React.ReactNode;
   subtitle?: React.ReactNode;
+  subtitleDir?: "ltr" | "rtl";
+  layout?: "stacked" | "inline";
 }) {
+  if (layout === "inline") {
+    return (
+      <>
+        {icon}
+        <span className="min-w-0 flex-1 truncate">
+          <span className="font-medium">{title}</span>
+          {subtitle && (
+            <span className="text-muted-foreground">
+              <span className="px-1.5 opacity-60">·</span>
+              <span dir={subtitleDir}>{subtitle}</span>
+            </span>
+          )}
+        </span>
+      </>
+    );
+  }
+
   return (
     <>
       {icon}
-      <span className="min-w-0 flex-1 truncate">
-        <span className="font-medium">{title}</span>
-        {subtitle && (
-          <span className="text-muted-foreground">
-            <span className="px-1.5 opacity-60">·</span>
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="truncate font-medium">{title}</span>
+        {subtitle ? (
+          <span dir={subtitleDir} className="truncate text-caption text-muted-foreground">
             {subtitle}
           </span>
-        )}
+        ) : null}
       </span>
     </>
   );

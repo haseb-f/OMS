@@ -18,25 +18,6 @@ import { useLocale } from "@/providers/locale-provider";
 
 type HeaderAlign = "start" | "center" | "end";
 
-const justifyClass: Record<HeaderAlign, string> = {
-  start: "justify-start",
-  center: "justify-center",
-  end: "justify-end",
-};
-
-const textAlignClass: Record<HeaderAlign, string> = {
-  start: "text-start",
-  center: "text-center",
-  end: "text-end",
-};
-
-/** Cancels the sort-trigger button's own horizontal padding on the side that would otherwise push it away from the column's true edge — center needs no correction since that padding is symmetric. */
-const edgeMarginClass: Record<HeaderAlign, string> = {
-  start: "-ms-2.5",
-  center: "",
-  end: "-me-2.5",
-};
-
 /** Sortable + hideable + pinnable + filterable column header — the standard TanStack Table pairing with shadcn, extended (TASK-060B Part 3) with pinning, multi-sort, and a per-column sticky filter popover. */
 export function EnterpriseTableColumnHeader<TData, TValue>({
   column,
@@ -62,46 +43,58 @@ export function EnterpriseTableColumnHeader<TData, TValue>({
   const showFilterAffordance = canFilter && column.getCanFilter();
 
   if (!column.getCanSort()) {
+    if (!showFilterAffordance) {
+      return <span className={cn("block min-w-0 w-full truncate", className)}>{title}</span>;
+    }
     return (
-      <div className={cn("flex items-center gap-1", justifyClass[align], className)}>
-        <span className={textAlignClass[align]}>{title}</span>
-        {showFilterAffordance && (
-          <ColumnFilterPopover
-            open={filterOpen}
-            onOpenChange={setFilterOpen}
-            value={filterValue}
-            onChange={(value) => column.setFilterValue(value || undefined)}
-            title={title}
-          />
-        )}
+      <div className={cn("flex min-w-0 w-full items-center gap-1", className)}>
+        <span className="min-w-0 flex-1 truncate">{title}</span>
+        <ColumnFilterPopover
+          open={filterOpen}
+          onOpenChange={setFilterOpen}
+          value={filterValue}
+          onChange={(value) => column.setFilterValue(value || undefined)}
+          title={title}
+        />
       </div>
     );
   }
 
   const isSorted = column.getIsSorted();
   const Icon = isSorted === "desc" ? ArrowDown : isSorted === "asc" ? ArrowUp : ChevronsUpDown;
+  const sortIcon = (
+    <Icon
+      className={cn(
+        "size-3.5 shrink-0 text-muted-foreground/60 transition-opacity duration-150 group-hover/sort:opacity-100",
+        !isSorted && "opacity-0 group-hover/sort:opacity-70",
+        isSorted && "text-foreground opacity-100",
+      )}
+    />
+  );
+  const pinIcon = isPinned ? <Pin className="size-3 shrink-0 text-muted-foreground/70" /> : null;
 
   return (
-    <div className={cn("group/sort flex items-center gap-0.5", justifyClass[align], className)}>
+    <div className={cn("group/sort min-w-0 w-full", className)}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <EnterpriseButton
             variant="ghost"
-            size="sm"
-            className={cn(
-              "h-8 gap-1.5 font-semibold tracking-wide text-muted-foreground data-[state=open]:bg-accent hover:text-foreground",
-              edgeMarginClass[align],
-            )}
+            size="inline"
+            className="flex min-w-0 w-full max-w-full items-center gap-0.5 justify-start overflow-hidden font-medium text-caption text-muted-foreground hover:bg-transparent hover:text-foreground hover:shadow-none data-[state=open]:bg-transparent data-[state=open]:text-foreground"
           >
-            <span>{title}</span>
-            {isPinned && <Pin className="size-3 text-muted-foreground/70" />}
-            <Icon
-              className={cn(
-                "size-3.5 text-muted-foreground/60 transition-opacity duration-150 group-hover/sort:opacity-100",
-                !isSorted && "opacity-0 group-hover/sort:opacity-70",
-                isSorted && "text-foreground opacity-100",
-              )}
-            />
+            {align === "end" ? (
+              <>
+                {sortIcon}
+                {pinIcon}
+                <span className="min-w-0 flex-1 truncate text-end">{title}</span>
+              </>
+            ) : (
+              <>
+                <span className="min-w-0 truncate">{title}</span>
+                {pinIcon}
+                {sortIcon}
+              </>
+            )}
           </EnterpriseButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">

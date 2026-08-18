@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/** Generic empty-state pattern — reused anywhere a list/panel has nothing to show yet (notifications, future data tables, etc.). */
+/** Shared empty / sparse-state pattern — compact, no decorative icon well. */
 export function EmptyState({
   icon: Icon,
   title,
@@ -17,15 +17,13 @@ export function EmptyState({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col items-center gap-4 px-4 py-14 text-center", className)}>
-      <div className="relative flex size-20 items-center justify-center rounded-full bg-linear-to-b from-muted to-muted/40 ring-8 ring-muted/30">
-        <Icon className="size-8 text-muted-foreground" strokeWidth={1.5} />
+    <div className={cn("flex flex-col items-center gap-3 px-4 py-8 text-center", className)}>
+      <div className="flex size-10 items-center justify-center rounded-md bg-muted text-muted-foreground">
+        <Icon className="size-5" strokeWidth={1.75} />
       </div>
-      <div className="flex flex-col gap-1">
+      <div className="flex max-w-sm flex-col gap-1">
         <p className="text-body font-semibold">{title}</p>
-        {description && (
-          <p className="max-w-sm text-caption text-muted-foreground">{description}</p>
-        )}
+        {description && <p className="text-caption text-muted-foreground">{description}</p>}
       </div>
       {action && <div className="mt-1">{action}</div>}
     </div>

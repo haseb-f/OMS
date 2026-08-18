@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { UploadCloud } from "lucide-react";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/business/status-badge";
@@ -126,27 +126,25 @@ function StoreOrdersImportContent() {
   );
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t("nav.storeOrdersImport")}
-        subtitle={t("storeOrders.import.description")}
-        actions={
-          typeDef ? (
-            <EnterpriseButton
-              type="button"
-              disabled={!canImport || !typeDef.isAvailable}
-              onClick={() => {
-                setWizardJobId(undefined);
-                setWizardOpen(true);
-              }}
-            >
-              <UploadCloud />
-              {t("importCenter.startImport")}
-            </EnterpriseButton>
-          ) : undefined
-        }
-      />
-
+    <PageWorkspace
+      title={t("nav.storeOrdersImport")}
+      description={t("storeOrders.import.description")}
+      actions={
+        typeDef ? (
+          <EnterpriseButton
+            type="button"
+            disabled={!canImport || !typeDef.isAvailable}
+            onClick={() => {
+              setWizardJobId(undefined);
+              setWizardOpen(true);
+            }}
+          >
+            <UploadCloud />
+            {t("importCenter.startImport")}
+          </EnterpriseButton>
+        ) : undefined
+      }
+    >
       {!typeDef ? (
         <EmptyState icon={UploadCloud} title={t("storeOrders.import.typeUnavailable")} />
       ) : (
@@ -171,7 +169,7 @@ function StoreOrdersImportContent() {
           onDone={loadJobs}
         />
       )}
-    </div>
+    </PageWorkspace>
   );
 }
 

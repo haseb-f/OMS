@@ -1,4 +1,5 @@
 import { apiClient } from "./api-client";
+import { buildQueryString } from "@/lib/query-string";
 import type { CustomerRow } from "./customers-service";
 import type { SupplierRow } from "./suppliers-service";
 
@@ -80,9 +81,9 @@ export interface FinancialTransactionFormPayload {
 
 export interface FinancialTransactionListParams {
   search?: string;
-  status?: FinancialTransactionStatusValue;
-  customerId?: string;
-  supplierId?: string;
+  status?: FinancialTransactionStatusValue | FinancialTransactionStatusValue[];
+  customerId?: string | string[];
+  supplierId?: string | string[];
   dateFrom?: string;
   dateTo?: string;
   page?: number;
@@ -107,16 +108,6 @@ export interface OpenInvoiceRow {
   allocatedTotal: number;
   remainingBalance: number;
   paymentStatus: InvoicePaymentStatusValue;
-}
-
-function buildQueryString(params: Record<string, unknown>): string {
-  const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value === undefined || value === null || value === "") continue;
-    search.set(key, String(value));
-  }
-  const qs = search.toString();
-  return qs ? `?${qs}` : "";
 }
 
 /**

@@ -37,6 +37,7 @@ import { UpdateSalesInvoiceDto } from './dto/update-sales-invoice.dto';
 import { FindSalesInvoicesQueryDto } from './dto/find-sales-invoices-query.dto';
 import type { SalesLineItemInputDto } from '../shared/sales-line-item-input.dto';
 import { assertActiveProduct } from '../../products/assert-active-product.util';
+import { prismaEnumFilter } from '../../common/query/enum-list';
 
 const ORDER_REFERENCE_TYPE = 'SALES_ORDER_DOC';
 const INVOICE_REFERENCE_TYPE = 'SALES_INVOICE';
@@ -159,8 +160,8 @@ export class SalesInvoicesService {
   async findAll(query: FindSalesInvoicesQueryDto) {
     const where: Prisma.SalesInvoiceWhereInput = {
       deletedAt: null,
-      customerId: query.customerId,
-      status: query.status,
+      customerId: prismaEnumFilter(query.customerId),
+      status: prismaEnumFilter(query.status),
     };
     if (query.search) {
       where.OR = [
@@ -177,7 +178,15 @@ export class SalesInvoicesService {
     const [items, total] = await Promise.all([
       this.prisma.salesInvoice.findMany({
         where,
-        include: { items: true, customer: true, currency: true },
+        include: {
+          items: {
+            include: {
+              product: { select: { id: true, name: true, sku: true } },
+            },
+          },
+          customer: true,
+          currency: true,
+        },
         orderBy: { [query.sortBy || 'createdAt']: query.sortOrder ?? 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,

@@ -2,6 +2,9 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { StatusBadge, type StatusTone } from "@/components/business/status-badge";
+import { MoneyValue } from "@/components/shared/money-value";
+import { SemanticValue } from "@/components/shared/semantic-value";
+import { StackedCell } from "@/components/shared/stacked-cell";
 import type { MessageKey } from "@/i18n/translate";
 import { useLocale } from "@/providers/locale-provider";
 import type { ProductRow, ProductStatus } from "@/services/products-service";
@@ -45,19 +48,24 @@ function ProductStatusCell({
 export const productsColumns: ColumnDef<ProductRow, unknown>[] = [
   {
     id: "sku",
-    meta: { titleKey: "products.table.sku" },
+    meta: { titleKey: "products.table.sku", type: "code" },
     accessorFn: (row) => row.sku,
-    cell: (info) => (
-      <code dir="ltr" className="rounded bg-muted px-1.5 py-0.5 text-xs">
-        {info.getValue() as string}
-      </code>
+    cell: ({ row }) => (
+      <SemanticValue kind="id" className="text-body font-medium">
+        {row.original.sku}
+      </SemanticValue>
     ),
   },
   {
     id: "name",
-    meta: { titleKey: "products.table.name" },
+    meta: { titleKey: "products.table.name", stacked: true, type: "name" },
     accessorFn: (row) => row.displayName || row.name,
-    cell: (info) => <span className="font-medium">{info.getValue() as string}</span>,
+    cell: ({ row }) => (
+      <StackedCell
+        primary={row.original.displayName || row.original.name}
+        secondary={row.original.category?.name ?? undefined}
+      />
+    ),
   },
   {
     id: "type",
@@ -67,7 +75,7 @@ export const productsColumns: ColumnDef<ProductRow, unknown>[] = [
   },
   {
     id: "category",
-    meta: { titleKey: "products.table.category" },
+    meta: { titleKey: "products.table.category", defaultHidden: true },
     accessorFn: (row) => row.category?.name ?? "—",
     enableSorting: false,
   },
@@ -75,10 +83,8 @@ export const productsColumns: ColumnDef<ProductRow, unknown>[] = [
     id: "salesPrice",
     meta: { titleKey: "products.table.salesPrice" },
     accessorFn: (row) => row.salesPrice,
-    cell: (info) => {
-      const value = info.getValue() as string | null;
-      return <span dir="ltr">{value ? Number(value).toLocaleString() : "—"}</span>;
-    },
+    cell: ({ row }) =>
+      row.original.salesPrice ? <MoneyValue value={row.original.salesPrice} /> : "—",
   },
   {
     id: "status",

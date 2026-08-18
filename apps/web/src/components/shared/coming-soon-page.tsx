@@ -1,7 +1,7 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
@@ -27,16 +27,14 @@ export function ComingSoonPage({
   const { t } = useLocale();
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader title={t(titleKey)} subtitle={descriptionKey ? t(descriptionKey) : undefined} />
-
-      <div className="rounded-2xl border border-dashed border-border py-6">
+    <PageWorkspace title={t(titleKey)} description={descriptionKey ? t(descriptionKey) : undefined}>
+      <div className="rounded-xl border border-dashed border-border py-6">
         <EmptyState
           icon={Icon}
           title={t("common.comingSoon")}
           description={t("common.comingSoonDescription")}
         />
       </div>
-    </div>
+    </PageWorkspace>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
   EnterpriseCard,
@@ -229,9 +229,9 @@ export default function AccountingSettingsPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader
+      <PageWorkspace
         title={t("accounting.settings.title")}
-        subtitle={t("accounting.settings.description")}
+        description={t("accounting.settings.description")}
         actions={
           <EnterpriseButton
             type="button"

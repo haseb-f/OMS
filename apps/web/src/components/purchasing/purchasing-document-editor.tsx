@@ -108,7 +108,7 @@ export function PurchasingDocumentEditor<TDocument>({
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
           <div className="flex items-center gap-3">
             <div>
-              <h1 className="text-page-title font-semibold">{config.title}</h1>
+              <h1 className="text-ui-title font-semibold">{config.title}</h1>
               <p dir="ltr" className="text-caption text-muted-foreground">
                 {state.documentNumber ?? `${config.numbering.docCodePreview ?? ""}-…`}
               </p>

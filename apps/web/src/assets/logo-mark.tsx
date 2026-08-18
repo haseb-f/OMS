@@ -1,10 +1,9 @@
 import type { SVGProps } from "react";
 
 /**
- * Original abstract OMS mark — a rounded square with a stacked-layer glyph
- * (three offset bars, evoking layered operations/records). Uses
- * `currentColor` so it inherits the surrounding text color and needs no
- * separate light/dark variant.
+ * @deprecated Use `BrandLogo` from `@/components/brand/brand-logo`.
+ * Official OMS identity is the Brand/ lockup (chevrons + wordmark), not this
+ * placeholder mark.
  */
 export function LogoMark(props: SVGProps<SVGSVGElement>) {
   return (

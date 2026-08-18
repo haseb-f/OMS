@@ -4,10 +4,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Plus, Star, Archive } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { StatusBadge } from "@/components/business/status-badge";
 import type { StatusTone } from "@/components/business/status-badge";
+import { StackedCell } from "@/components/shared/stacked-cell";
 import {
   EnterpriseDataTable,
   exportColumnsFromKeys,
@@ -84,33 +85,38 @@ export default function FiscalPeriodsPage() {
         meta: { titleKey: "accounting.fiscalYears.fields.name" },
         accessorFn: (row) => row.name,
         cell: (info) => (
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setOpenPeriodsFor(info.row.original)}
-              className="font-medium text-primary hover:underline"
-            >
-              {info.getValue() as string}
-            </button>
-            {info.row.original.isDefault && (
-              <Star
-                className="size-3.5 fill-warning text-warning"
-                aria-label={t("accounting.fiscalYears.defaultBadge")}
-              />
-            )}
-          </div>
+          <StackedCell
+            primary={
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setOpenPeriodsFor(info.row.original)}
+                  className="font-medium text-primary hover:underline"
+                >
+                  {info.getValue() as string}
+                </button>
+                {info.row.original.isDefault && (
+                  <Star
+                    className="size-3.5 fill-warning text-warning"
+                    aria-label={t("accounting.fiscalYears.defaultBadge")}
+                  />
+                )}
+              </div>
+            }
+            secondary={`${formatDate(info.row.original.startDate)} — ${formatDate(info.row.original.endDate)}`}
+          />
         ),
       },
       {
         id: "startDate",
         header: t("accounting.fiscalYears.fields.startDate"),
-        meta: { titleKey: "accounting.fiscalYears.fields.startDate" },
+        meta: { titleKey: "accounting.fiscalYears.fields.startDate", defaultHidden: true },
         accessorFn: (row) => formatDate(row.startDate),
       },
       {
         id: "endDate",
         header: t("accounting.fiscalYears.fields.endDate"),
-        meta: { titleKey: "accounting.fiscalYears.fields.endDate" },
+        meta: { titleKey: "accounting.fiscalYears.fields.endDate", defaultHidden: true },
         accessorFn: (row) => formatDate(row.endDate),
       },
       {
@@ -203,20 +209,18 @@ export default function FiscalPeriodsPage() {
   const exportKeys = ["name", "startDate", "endDate", "periods", "status"];
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t("nav.financeFiscalPeriods")}
-        subtitle={t("accounting.fiscalYears.description")}
-        actions={
-          canCreate && (
-            <EnterpriseButton type="button" onClick={() => setCreateOpen(true)}>
-              <Plus />
-              {t("accounting.fiscalYears.createTitle")}
-            </EnterpriseButton>
-          )
-        }
-      />
-
+    <PageWorkspace
+      title={t("nav.financeFiscalPeriods")}
+      description={t("accounting.fiscalYears.description")}
+      actions={
+        canCreate && (
+          <EnterpriseButton type="button" onClick={() => setCreateOpen(true)}>
+            <Plus />
+            {t("accounting.fiscalYears.createTitle")}
+          </EnterpriseButton>
+        )
+      }
+    >
       <EnterpriseDataTable
         tableId="finance-fiscal-years"
         printTitle={t("nav.financeFiscalPeriods")}
@@ -273,6 +277,6 @@ export default function FiscalPeriodsPage() {
           }
         }}
       />
-    </div>
+    </PageWorkspace>
   );
 }

@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
-import { Ban, Eye, Pencil, Plus, Printer, Archive, X } from "lucide-react";
-import { PageHeader } from "@/components/shared/page-header";
+import { Ban, Eye, Pencil, Plus, Printer, Archive } from "lucide-react";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
@@ -12,31 +12,27 @@ import {
   EnterpriseDateRangePicker,
   type DateRangeValue,
 } from "@/components/shared/date-range-picker";
-import { CustomerPicker } from "@/components/business/customer-picker";
 import { StatusBadge } from "@/components/business/status-badge";
+import { MoneyValue } from "@/components/shared/money-value";
+import { SemanticValue } from "@/components/shared/semantic-value";
+import { StackedCell } from "@/components/shared/stacked-cell";
 import {
   SalesDocumentRowActionsMenu,
   SalesListBulkActions,
   type SalesDocumentRowAction,
 } from "@/components/sales";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   EnterpriseDataTable,
   exportColumnsFromKeys,
   exportRowsToCsv,
 } from "@/components/master-data/enterprise-data-table";
+import { MultiSelectFilter, MultiEntityFilter } from "@/components/shared/data-table";
 import {
   customerReceiptsService,
   type FinancialTransactionRow,
 } from "@/services/customer-receipts-service";
 import type { FinancialTransactionStatusValue } from "@/services/financial-transactions-service";
-import type { CustomerRow } from "@/services/customers-service";
+import { customersService, type CustomerRow } from "@/services/customers-service";
 import { useUsersLookup } from "@/hooks/use-reference-data";
 import {
   TRANSACTION_ARCHIVABLE_STATUSES,
@@ -57,17 +53,6 @@ import { PermissionGate } from "@/components/shared/permission-gate";
 
 const EMPTY_DATE_RANGE: DateRangeValue = { from: null, to: null };
 
-function MoneyCell({ value }: { value: string }) {
-  return (
-    <span dir="ltr">
-      {Number(value).toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}
-    </span>
-  );
-}
-
 /** Fills the pre-provisioned `/sales/payments` nav stub — mirrors `sales/quotations/page.tsx` exactly. */
 function CustomerReceiptsPageContent() {
   const { t } = useLocale();
@@ -83,8 +68,8 @@ function CustomerReceiptsPageContent() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [statusFilter, setStatusFilter] = useState<string>("");
-  const [customerFilter, setCustomerFilter] = useState<CustomerRow | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [customerFilter, setCustomerFilter] = useState<CustomerRow[]>([]);
   const [dateRange, setDateRange] = useState<DateRangeValue>(EMPTY_DATE_RANGE);
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -98,8 +83,8 @@ function CustomerReceiptsPageContent() {
     try {
       const result = await customerReceiptsService.list({
         search: search || undefined,
-        status: (statusFilter || undefined) as FinancialTransactionStatusValue | undefined,
-        customerId: customerFilter?.id,
+        status: statusFilter as FinancialTransactionStatusValue[],
+        customerId: customerFilter.map((customer) => customer.id),
         dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
         dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
         page,
@@ -184,49 +169,64 @@ function CustomerReceiptsPageContent() {
         id: "transactionNumber",
         meta: { titleKey: "sales.receipts.fields.number" },
         accessorFn: (row) => row.transactionNumber,
-        cell: (info) => (
-          <code dir="ltr" className="rounded bg-muted px-1.5 py-0.5 text-xs">
-            {info.getValue() as string}
-          </code>
+        cell: ({ row }) => (
+          <StackedCell
+            primary={<SemanticValue kind="id">{row.original.transactionNumber}</SemanticValue>}
+            secondary={formatDate(row.original.createdAt)}
+          />
         ),
       },
       {
         id: "customer",
         meta: { titleKey: "sales.receipts.fields.customer" },
         accessorFn: (row) => row.customer?.name ?? "—",
-        cell: (info) => <span className="font-medium">{info.getValue() as string}</span>,
+        cell: ({ row }) => (
+          <StackedCell
+            primary={row.original.customer?.name ?? "—"}
+            secondary={
+              row.original.referenceNumber ? (
+                <SemanticValue kind="id">{row.original.referenceNumber}</SemanticValue>
+              ) : undefined
+            }
+          />
+        ),
       },
       {
         id: "referenceNumber",
-        meta: { titleKey: "sales.receipts.fields.reference" },
+        meta: { titleKey: "sales.receipts.fields.reference", defaultHidden: true },
         accessorFn: (row) => row.referenceNumber ?? "—",
         enableSorting: false,
-      },
-      {
-        id: "amount",
-        meta: { titleKey: "sales.receipts.fields.amount" },
-        accessorFn: (row) => row.amount,
-        cell: (info) => <MoneyCell value={info.getValue() as string} />,
       },
       {
         id: "status",
         meta: { titleKey: "purchasing.suppliers.fields.status" },
         enableSorting: false,
         cell: ({ row }) => (
-          <StatusBadge
-            label={t(TRANSACTION_STATUS_LABEL_KEY[row.original.status])}
-            tone={TRANSACTION_STATUS_TONE[row.original.status]}
+          <StackedCell
+            primary={
+              <StatusBadge
+                label={t(TRANSACTION_STATUS_LABEL_KEY[row.original.status])}
+                tone={TRANSACTION_STATUS_TONE[row.original.status]}
+              />
+            }
+            secondary={<MoneyValue value={row.original.amount} />}
           />
         ),
       },
       {
+        id: "amount",
+        meta: { titleKey: "sales.receipts.fields.amount", defaultHidden: true },
+        accessorFn: (row) => row.amount,
+        cell: (info) => <MoneyValue value={info.getValue() as string} />,
+      },
+      {
         id: "createdAt",
-        meta: { titleKey: "sales.receipts.fields.date" },
+        meta: { titleKey: "sales.receipts.fields.date", defaultHidden: true },
         accessorFn: (row) => formatDate(row.createdAt),
       },
       {
         id: "createdBy",
-        meta: { titleKey: "sales.receipts.fields.createdBy" },
+        meta: { titleKey: "sales.receipts.fields.createdBy", defaultHidden: true },
         enableSorting: false,
         accessorFn: (row) => (row.createdBy ? (usersById[row.createdBy] ?? "—") : "—"),
       },
@@ -345,65 +345,57 @@ function CustomerReceiptsPageContent() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t("sales.receipts.title")}
-        subtitle={t("sales.receipts.description")}
-        actions={
+    <PageWorkspace
+      title={t("sales.receipts.title")}
+      description={t("sales.receipts.description")}
+      actions={
+        <>
+          <ModuleImportButtons importType="CUSTOMER_RECEIPTS" onImported={load} />
+          {canCreate && (
+            <EnterpriseButton type="button" onClick={() => router.push("/sales/payments/new")}>
+              <Plus />
+              {t("sales.receipts.addNew")}
+            </EnterpriseButton>
+          )}
+        </>
+      }
+    >
+      <EnterpriseDataTable
+        filterBar={
           <>
-            <ModuleImportButtons importType="CUSTOMER_RECEIPTS" onImported={load} />
-            {canCreate && (
-              <EnterpriseButton type="button" onClick={() => router.push("/sales/payments/new")}>
-                <Plus />
-                {t("sales.receipts.addNew")}
-              </EnterpriseButton>
-            )}
-          </>
-        }
-        filters={
-          <>
-            <Select
-              value={statusFilter || "__all__"}
-              onValueChange={(v) => {
-                setStatusFilter(v === "__all__" ? "" : v);
+            <MultiSelectFilter
+              label={t("sales.receipts.filters.status")}
+              values={statusFilter}
+              onChange={(values) => {
+                setStatusFilter(values);
                 setPage(1);
               }}
-            >
-              <SelectTrigger size="sm" className="w-40">
-                <SelectValue placeholder={t("sales.receipts.filters.status")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">{t("sales.receipts.filters.allStatuses")}</SelectItem>
-                {TRANSACTION_FILTERABLE_STATUSES.map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {t(TRANSACTION_STATUS_LABEL_KEY[status])}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex items-center gap-1">
-              <CustomerPicker
-                value={customerFilter}
-                onChange={(customer) => {
-                  setCustomerFilter(customer);
-                  setPage(1);
-                }}
-              />
-              {customerFilter && (
-                <EnterpriseButton
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={t("sales.receipts.filters.allCustomers")}
-                  onClick={() => {
-                    setCustomerFilter(null);
-                    setPage(1);
-                  }}
-                >
-                  <X className="size-3.5" />
-                </EnterpriseButton>
-              )}
-            </div>
+              options={TRANSACTION_FILTERABLE_STATUSES.map((status) => ({
+                value: status,
+                label: t(TRANSACTION_STATUS_LABEL_KEY[status]),
+              }))}
+            />
+            <MultiEntityFilter
+              label={t("sales.receipts.fields.customer")}
+              values={customerFilter}
+              onChange={(customers) => {
+                setCustomerFilter(customers);
+                setPage(1);
+              }}
+              onSearch={async (search) => {
+                const result = await customersService.list({
+                  search: search || undefined,
+                  pageSize: 20,
+                });
+                return result.items;
+              }}
+              getId={(customer) => customer.id}
+              getTitle={(customer) => customer.name}
+              getSubtitle={(customer) =>
+                customer.phone || customer.mobile || customer.email || undefined
+              }
+              subtitleDir="ltr"
+            />
             <EnterpriseDateRangePicker
               value={dateRange}
               onChange={(range) => {
@@ -411,11 +403,27 @@ function CustomerReceiptsPageContent() {
                 setPage(1);
               }}
             />
+            {(statusFilter.length > 0 ||
+              customerFilter.length > 0 ||
+              dateRange.from ||
+              dateRange.to) && (
+              <EnterpriseButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setStatusFilter([]);
+                  setCustomerFilter([]);
+                  setDateRange(EMPTY_DATE_RANGE);
+                  setPage(1);
+                }}
+              >
+                {t("table.clearFilters")}
+              </EnterpriseButton>
+            )}
           </>
         }
-      />
 
-      <EnterpriseDataTable
         tableId="sales-receipts"
         printTitle={t("sales.receipts.title")}
         columns={columns}
@@ -502,7 +510,7 @@ function CustomerReceiptsPageContent() {
         cancelLabel={t("common.close")}
         onConfirm={handleBulkArchiveConfirmed}
       />
-    </div>
+    </PageWorkspace>
   );
 }
 

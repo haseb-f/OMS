@@ -45,14 +45,38 @@ export function formatDate(value: Date | string | null | undefined): string {
   return `${pad2(date.getDate())}-${MONTH_ABBR[date.getMonth()]}-${date.getFullYear()}`;
 }
 
-/** Date + time, same date format plus a 12-hour clock: "01-Jan-2026 02:30 PM". */
-export function formatDateTime(value: Date | string | null | undefined): string {
+/** 12-hour clock only: "02:30 PM". Returns "" for null/invalid input. */
+export function formatTime(value: Date | string | null | undefined): string {
   const date = toDate(value);
   if (!date) return "";
   const hours24 = date.getHours();
   const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
   const period = hours24 < 12 ? "AM" : "PM";
-  return `${formatDate(date)} ${pad2(hours12)}:${pad2(date.getMinutes())} ${period}`;
+  return `${pad2(hours12)}:${pad2(date.getMinutes())} ${period}`;
+}
+
+/**
+ * True when the value carries a real clock time. Date-only strings
+ * (`YYYY-MM-DD`) and midnight-UTC timestamps are treated as date-only so
+ * the UI never fabricates a local 03:00 AM from a date field.
+ */
+export function hasClockTime(value: Date | string | null | undefined): boolean {
+  if (value == null) return false;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return false;
+    if (/T00:00:00(\.\d+)?Z?$/i.test(trimmed)) return false;
+  }
+  const date = toDate(value);
+  if (!date) return false;
+  return date.getHours() !== 0 || date.getMinutes() !== 0 || date.getSeconds() !== 0;
+}
+
+/** Date + time, same date format plus a 12-hour clock: "01-Jan-2026 02:30 PM". */
+export function formatDateTime(value: Date | string | null | undefined): string {
+  const date = toDate(value);
+  if (!date) return "";
+  return `${formatDate(date)} ${formatTime(date)}`;
 }
 
 /** "01-Jan-2026 – 31-Jan-2026", or a single formatted date when both ends match. */

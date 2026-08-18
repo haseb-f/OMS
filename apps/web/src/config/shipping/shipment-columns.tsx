@@ -3,10 +3,13 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { Eye, Truck } from "lucide-react";
 import { StatusBadge } from "@/components/business/status-badge";
+import { RowActionsMenu } from "@/components/shared/data-table";
+import { SemanticValue } from "@/components/shared/semantic-value";
+import { StackedCell } from "@/components/shared/stacked-cell";
 import { EnterpriseBadge } from "@/components/ui/badge";
-import { EnterpriseButton } from "@/components/ui/button";
 import { formatDate } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
+import { useUserContext } from "@/providers/user-context";
 import type { ShipmentListRow } from "@/services/shipping-service";
 import { shipmentStatusLabelKey, shipmentStatusTone } from "./shipment-status";
 
@@ -24,29 +27,27 @@ export interface ShipmentRowHandlers {
 
 function ActionsCell({ row, handlers }: { row: ShipmentListRow; handlers: ShipmentRowHandlers }) {
   const { t } = useLocale();
+  const { hasPermission } = useUserContext();
   return (
-    <div className="flex items-center gap-1">
-      <EnterpriseButton
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label={t("shipping.manage.title")}
-        title={t("shipping.manage.title")}
-        onClick={() => handlers.onManage(row)}
-      >
-        <Truck className="size-3.5" />
-      </EnterpriseButton>
-      <EnterpriseButton
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label={t("shipping.open")}
-        title={t("shipping.open")}
-        onClick={() => handlers.onView(row)}
-      >
-        <Eye className="size-3.5" />
-      </EnterpriseButton>
-    </div>
+    <RowActionsMenu
+      label={t("common.actions")}
+      actions={[
+        {
+          key: "view",
+          label: t("common.view"),
+          icon: Eye,
+          hidden: !hasPermission("shipping.view"),
+          onSelect: () => handlers.onView(row),
+        },
+        {
+          key: "manage",
+          label: t("shipping.manage.title"),
+          icon: Truck,
+          hidden: !hasPermission("shipping.manage"),
+          onSelect: () => handlers.onManage(row),
+        },
+      ]}
+    />
   );
 }
 
@@ -56,17 +57,26 @@ export function buildShipmentColumns(
   return [
     {
       id: "internalOrderId",
-      meta: { titleKey: "shipping.fields.internalOrderId" },
+      meta: { titleKey: "shipping.fields.internalOrderId", stacked: true, type: "code" },
       accessorFn: (row) => row.storeOrder.internalOrderId,
-      cell: (info) => (
-        <code dir="ltr" className="rounded bg-muted px-1.5 py-0.5 text-xs">
-          {info.getValue() as string}
-        </code>
+      cell: ({ row }) => (
+        <StackedCell
+          primary={
+            <SemanticValue kind="id" className="text-body font-medium">
+              {row.original.storeOrder.internalOrderId}
+            </SemanticValue>
+          }
+          secondary={
+            row.original.storeOrder.externalOrderId ? (
+              <SemanticValue kind="id">{row.original.storeOrder.externalOrderId}</SemanticValue>
+            ) : undefined
+          }
+        />
       ),
     },
     {
       id: "externalOrderId",
-      meta: { titleKey: "shipping.fields.externalOrderId" },
+      meta: { titleKey: "shipping.fields.externalOrderId", defaultHidden: true },
       accessorFn: (row) => row.storeOrder.externalOrderId ?? "—",
       cell: (info) => (
         <span dir="ltr" className="text-caption">
@@ -76,27 +86,37 @@ export function buildShipmentColumns(
     },
     {
       id: "customer",
-      meta: { titleKey: "shipping.fields.customer" },
+      meta: { titleKey: "shipping.fields.customer", stacked: true, type: "name" },
       accessorFn: (row) => row.storeOrder.customer?.name ?? "—",
       cell: ({ row }) => (
-        <div className="flex flex-col">
-          <span className="font-medium">{row.original.storeOrder.customer?.name ?? "—"}</span>
-          {row.original.storeOrder.customer?.phone && (
-            <span dir="ltr" className="text-caption text-muted-foreground">
-              {row.original.storeOrder.customer.phone}
-            </span>
-          )}
-        </div>
+        <StackedCell
+          primary={row.original.storeOrder.customer?.name ?? "—"}
+          secondary={
+            row.original.storeOrder.customer?.phone ? (
+              <SemanticValue kind="phone">{row.original.storeOrder.customer.phone}</SemanticValue>
+            ) : undefined
+          }
+        />
       ),
     },
     {
       id: "shippingCompany",
-      meta: { titleKey: "shipping.fields.shippingCompany" },
+      meta: { titleKey: "shipping.fields.shippingCompany", stacked: true, type: "name" },
       accessorFn: (row) => row.shippingCompany?.name ?? "—",
+      cell: ({ row }) => (
+        <StackedCell
+          primary={row.original.shippingCompany?.name ?? "—"}
+          secondary={
+            row.original.trackingNumber ? (
+              <SemanticValue kind="id">{row.original.trackingNumber}</SemanticValue>
+            ) : undefined
+          }
+        />
+      ),
     },
     {
       id: "trackingNumber",
-      meta: { titleKey: "shipping.fields.trackingNumber" },
+      meta: { titleKey: "shipping.fields.trackingNumber", defaultHidden: true },
       accessorFn: (row) => row.trackingNumber ?? "—",
       cell: (info) => (
         <span dir="ltr" className="text-caption">

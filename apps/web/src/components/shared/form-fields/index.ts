@@ -1,5 +1,11 @@
 export { TextFormField } from "./text-field";
+export { PasswordFormField } from "./password-field";
 export { TextareaFormField } from "./textarea-field";
 export { SelectFormField } from "./select-field";
+export { NumberFormField } from "./number-field";
+export { DateFormField } from "./date-field";
+export { PhoneFormField } from "./phone-field";
+export { ComboboxFormField } from "./combobox-field";
+export { FileUrlField } from "./file-url-field";
 export { SubmitButton } from "./submit-button";
 export { useZodForm } from "./use-zod-form";

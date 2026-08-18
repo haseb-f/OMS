@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { RowSelectionState } from "@tanstack/react-table";
-import { Plus, X } from "lucide-react";
-import { PageHeader } from "@/components/shared/page-header";
+import { Plus } from "lucide-react";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
@@ -12,26 +12,25 @@ import {
   EnterpriseDateRangePicker,
   type DateRangeValue,
 } from "@/components/shared/date-range-picker";
-import { SupplierPicker } from "@/components/business/supplier-picker";
 import { SalesListBulkActions } from "@/components/sales";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   EnterpriseDataTable,
   exportColumnsFromKeys,
   exportRowsToCsv,
 } from "@/components/master-data/enterprise-data-table";
 import {
+  MultiSelectFilter,
+  MultiEntityFilter,
+  buildDocumentDetailRegions,
+  documentDetailLabels,
+  toDocumentLineItems,
+} from "@/components/shared/data-table";
+import {
   purchaseOrdersService,
   type PurchaseOrderStatusValue,
   type PurchaseOrderRow,
 } from "@/services/purchase-orders-service";
-import type { SupplierRow } from "@/services/suppliers-service";
+import { suppliersService, type SupplierRow } from "@/services/suppliers-service";
 import { useUsersLookup } from "@/hooks/use-reference-data";
 import { buildOrderColumns, orderExportColumns } from "@/config/purchasing/order-columns";
 import {
@@ -67,8 +66,8 @@ function PurchaseOrdersPageContent() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [statusFilter, setStatusFilter] = useState<string>("");
-  const [supplierFilter, setSupplierFilter] = useState<SupplierRow | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [supplierFilter, setSupplierFilter] = useState<SupplierRow[]>([]);
   const [dateRange, setDateRange] = useState<DateRangeValue>(EMPTY_DATE_RANGE);
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -82,8 +81,8 @@ function PurchaseOrdersPageContent() {
     try {
       const result = await purchaseOrdersService.list({
         search: search || undefined,
-        status: (statusFilter || undefined) as PurchaseOrderStatusValue | undefined,
-        supplierId: supplierFilter?.id,
+        status: statusFilter as PurchaseOrderStatusValue[],
+        supplierId: supplierFilter.map((supplier) => supplier.id),
         dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
         dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
         page,
@@ -257,70 +256,58 @@ function PurchaseOrdersPageContent() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t("purchasing.orders.title")}
-        subtitle={t("purchasing.orders.description")}
-        actions={
+    <PageWorkspace
+      title={t("purchasing.orders.title")}
+      description={t("purchasing.orders.description")}
+      actions={
+        <>
+          <ModuleImportButtons importType="PURCHASE_ORDERS" onImported={load} />
+          {canCreate && (
+            <EnterpriseButton
+              type="button"
+              onClick={() => router.push("/purchasing/purchase-orders/new")}
+            >
+              <Plus />
+              {t("purchasing.orders.addNew")}
+            </EnterpriseButton>
+          )}
+        </>
+      }
+    >
+      <EnterpriseDataTable
+        filterBar={
           <>
-            <ModuleImportButtons importType="PURCHASE_ORDERS" onImported={load} />
-            {canCreate && (
-              <EnterpriseButton
-                type="button"
-                onClick={() => router.push("/purchasing/purchase-orders/new")}
-              >
-                <Plus />
-                {t("purchasing.orders.addNew")}
-              </EnterpriseButton>
-            )}
-          </>
-        }
-        filters={
-          <>
-            <Select
-              value={statusFilter || "__all__"}
-              onValueChange={(v) => {
-                setStatusFilter(v === "__all__" ? "" : v);
+            <MultiSelectFilter
+              label={t("purchasing.orders.filters.status")}
+              values={statusFilter}
+              onChange={(values) => {
+                setStatusFilter(values);
                 setPage(1);
               }}
-            >
-              <SelectTrigger size="sm" className="w-40">
-                <SelectValue placeholder={t("purchasing.orders.filters.status")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">
-                  {t("purchasing.orders.filters.allStatuses")}
-                </SelectItem>
-                {ORDER_FILTERABLE_STATUSES.map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {t(ORDER_STATUS_LABEL_KEY[status])}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex items-center gap-1">
-              <SupplierPicker
-                value={supplierFilter}
-                onChange={(supplier) => {
-                  setSupplierFilter(supplier);
-                  setPage(1);
-                }}
-              />
-              {supplierFilter && (
-                <EnterpriseButton
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={t("purchasing.orders.filters.allSuppliers")}
-                  onClick={() => {
-                    setSupplierFilter(null);
-                    setPage(1);
-                  }}
-                >
-                  <X className="size-3.5" />
-                </EnterpriseButton>
-              )}
-            </div>
+              options={ORDER_FILTERABLE_STATUSES.map((status) => ({
+                value: status,
+                label: t(ORDER_STATUS_LABEL_KEY[status]),
+              }))}
+            />
+            <MultiEntityFilter
+              label={t("purchasing.orders.fields.supplier")}
+              values={supplierFilter}
+              onChange={(suppliers) => {
+                setSupplierFilter(suppliers);
+                setPage(1);
+              }}
+              onSearch={async (search) => {
+                const result = await suppliersService.list({
+                  search: search || undefined,
+                  pageSize: 20,
+                });
+                return result.items;
+              }}
+              getId={(supplier) => supplier.id}
+              getTitle={(supplier) => supplier.name}
+              getSubtitle={(supplier) => supplier.phone || supplier.email || undefined}
+              subtitleDir="ltr"
+            />
             <EnterpriseDateRangePicker
               value={dateRange}
               onChange={(range) => {
@@ -328,11 +315,27 @@ function PurchaseOrdersPageContent() {
                 setPage(1);
               }}
             />
+            {(statusFilter.length > 0 ||
+              supplierFilter.length > 0 ||
+              dateRange.from ||
+              dateRange.to) && (
+              <EnterpriseButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setStatusFilter([]);
+                  setSupplierFilter([]);
+                  setDateRange(EMPTY_DATE_RANGE);
+                  setPage(1);
+                }}
+              >
+                {t("table.clearFilters")}
+              </EnterpriseButton>
+            )}
           </>
         }
-      />
 
-      <EnterpriseDataTable
         tableId="purchasing-orders"
         printTitle={t("purchasing.orders.title")}
         columns={orderColumns}
@@ -382,6 +385,19 @@ function PurchaseOrdersPageContent() {
           )
         }
         emptyTitle={t("purchasing.orders.empty")}
+        renderExpandedRegions={(row) =>
+          buildDocumentDetailRegions({
+            documentColumnId: "poNumber",
+            partyColumnId: "supplier",
+            notesColumnId: "createdAt",
+            items: toDocumentLineItems(row.items ?? []),
+            currency: row.currency,
+            party: row.supplier,
+            notes: row.internalNotes,
+            labels: documentDetailLabels(t, "supplier"),
+            onShowMore: () => router.push(`/purchasing/purchase-orders/${row.id}`),
+          })
+        }
         getRowId={(row) => row.id}
       />
 
@@ -419,7 +435,7 @@ function PurchaseOrdersPageContent() {
         cancelLabel={t("common.close")}
         onConfirm={handleBulkArchiveConfirmed}
       />
-    </div>
+    </PageWorkspace>
   );
 }
 

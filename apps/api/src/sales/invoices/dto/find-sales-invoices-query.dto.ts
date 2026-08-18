@@ -10,15 +10,19 @@ import {
   Min,
 } from 'class-validator';
 import { SalesDocumentStatus } from '@prisma/client';
-import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.decorator';
+import {
+  TransformEnumList,
+  IsOptionalUuidList,
+} from '../../../common/query/enum-list';
 
 export class FindSalesInvoicesQueryDto {
-  @IsOptionalUuid()
-  customerId?: string;
+  @IsOptionalUuidList()
+  customerId?: string[];
 
-  @IsEnum(SalesDocumentStatus)
+  @TransformEnumList()
+  @IsEnum(SalesDocumentStatus, { each: true })
   @IsOptional()
-  status?: SalesDocumentStatus;
+  status?: SalesDocumentStatus[];
 
   /** Matches Invoice Number or Reference Number (case-insensitive, partial). */
   @IsString()

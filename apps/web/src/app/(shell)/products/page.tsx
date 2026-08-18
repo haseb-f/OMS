@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Package, Plus } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { StatusBadge } from "@/components/business/status-badge";
 import {
@@ -268,22 +268,23 @@ function ProductsPageContent() {
   );
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t("products.title")}
-        subtitle={t("products.description")}
-        actions={
-          <>
-            <ModuleImportButtons importType="PRODUCTS" onImported={load} />
-            {canCreate && (
-              <EnterpriseButton type="button" onClick={openCreate}>
-                <Plus />
-                {t("products.addNew")}
-              </EnterpriseButton>
-            )}
-          </>
-        }
-        filters={
+    <PageWorkspace
+      title={t("products.title")}
+      description={t("products.description")}
+      actions={
+        <>
+          <ModuleImportButtons importType="PRODUCTS" onImported={load} />
+          {canCreate && (
+            <EnterpriseButton type="button" onClick={openCreate}>
+              <Plus />
+              {t("products.addNew")}
+            </EnterpriseButton>
+          )}
+        </>
+      }
+    >
+      <EnterpriseDataTable
+        filterBar={
           <EnterpriseButton
             type="button"
             variant={includeArchived ? "secondary" : "outline"}
@@ -293,9 +294,7 @@ function ProductsPageContent() {
             {t("common.showArchived")}
           </EnterpriseButton>
         }
-      />
 
-      <EnterpriseDataTable
         tableId="products"
         printTitle={t("products.printTitle")}
         columns={tableColumns}
@@ -517,7 +516,7 @@ function ProductsPageContent() {
           )}
         </SheetContent>
       </Sheet>
-    </div>
+    </PageWorkspace>
   );
 }
 

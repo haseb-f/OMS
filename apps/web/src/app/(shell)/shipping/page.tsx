@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { RowSelectionState } from "@tanstack/react-table";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
+import { EnterpriseButton } from "@/components/ui/button";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import { SyncButton } from "@/components/shared/sync-button";
 import {
@@ -11,17 +12,11 @@ import {
   type DateRangeValue,
 } from "@/components/shared/date-range-picker";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   EnterpriseDataTable,
   exportColumnsFromKeys,
   exportRowsToCsv,
 } from "@/components/master-data/enterprise-data-table";
+import { MultiSelectFilter } from "@/components/shared/data-table";
 import { ShippingBulkActions } from "@/components/shipping/shipping-bulk-actions";
 import { ShipmentManageDialog } from "@/components/shipping/shipment-manage-dialog";
 import { buildShipmentColumns, shipmentExportColumns } from "@/config/shipping/shipment-columns";
@@ -59,10 +54,10 @@ function ShippingPageContent() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [statusFilter, setStatusFilter] = useState<string>("");
-  const [companyFilter, setCompanyFilter] = useState<string>("");
-  const [countryFilter, setCountryFilter] = useState<string>("");
-  const [sourceFilter, setSourceFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [companyFilter, setCompanyFilter] = useState<string[]>([]);
+  const [countryFilter, setCountryFilter] = useState<string[]>([]);
+  const [sourceFilter, setSourceFilter] = useState<string[]>([]);
   const [companies, setCompanies] = useState<ShippingCompanyOption[]>([]);
   const countries = useCountries();
   const [dateRange, setDateRange] = useState<DateRangeValue>(EMPTY_DATE_RANGE);
@@ -81,10 +76,10 @@ function ShippingPageContent() {
   const listParams = useCallback(
     () => ({
       search: search || undefined,
-      status: (statusFilter || undefined) as ShipmentStatusValue | undefined,
-      shippingCompanyId: companyFilter || undefined,
-      countryId: countryFilter || undefined,
-      source: (sourceFilter || undefined) as StoreOrderSourceValue | undefined,
+      status: statusFilter as ShipmentStatusValue[],
+      shippingCompanyId: companyFilter,
+      countryId: countryFilter,
+      source: sourceFilter as StoreOrderSourceValue[],
       dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
       dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
     }),
@@ -166,91 +161,67 @@ function ShippingPageContent() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t("shipping.title")}
-        subtitle={t("shipping.description")}
-        actions={
+    <PageWorkspace
+      title={t("shipping.title")}
+      description={t("shipping.description")}
+      actions={
+        <>
+          <ModuleImportButtons importType="SHIPPING_UPDATES" onImported={load} />
+          <SyncButton sourceType="SHIPPING_UPDATES" onSynced={load} />
+        </>
+      }
+    >
+      <EnterpriseDataTable
+        filterBar={
           <>
-            <ModuleImportButtons importType="SHIPPING_UPDATES" onImported={load} />
-            <SyncButton sourceType="SHIPPING_UPDATES" onSynced={load} />
-          </>
-        }
-        filters={
-          <>
-            <Select
-              value={statusFilter || "__all__"}
-              onValueChange={(v) => {
-                setStatusFilter(v === "__all__" ? "" : v);
+            <MultiSelectFilter
+              label={t("shipping.filters.status")}
+              values={statusFilter}
+              onChange={(values) => {
+                setStatusFilter(values);
                 setPage(1);
               }}
-            >
-              <SelectTrigger size="sm" className="w-48">
-                <SelectValue placeholder={t("shipping.filters.status")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">{t("shipping.filters.allStatuses")}</SelectItem>
-                {SHIPMENT_STATUS_VALUES.map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {t(SHIPMENT_STATUS_LABEL_KEY[status])}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={companyFilter || "__all__"}
-              onValueChange={(v) => {
-                setCompanyFilter(v === "__all__" ? "" : v);
+              options={SHIPMENT_STATUS_VALUES.map((status) => ({
+                value: status,
+                label: t(SHIPMENT_STATUS_LABEL_KEY[status]),
+              }))}
+            />
+            <MultiSelectFilter
+              label={t("shipping.filters.company")}
+              values={companyFilter}
+              onChange={(values) => {
+                setCompanyFilter(values);
                 setPage(1);
               }}
-            >
-              <SelectTrigger size="sm" className="w-48">
-                <SelectValue placeholder={t("shipping.filters.company")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">{t("shipping.filters.allCompanies")}</SelectItem>
-                {companies.map((company) => (
-                  <SelectItem key={company.id} value={company.id}>
-                    {company.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={countryFilter || "__all__"}
-              onValueChange={(v) => {
-                setCountryFilter(v === "__all__" ? "" : v);
+              options={companies.map((company) => ({
+                value: company.id,
+                label: company.name,
+              }))}
+            />
+            <MultiSelectFilter
+              label={t("shipping.filters.country")}
+              values={countryFilter}
+              onChange={(values) => {
+                setCountryFilter(values);
                 setPage(1);
               }}
-            >
-              <SelectTrigger size="sm" className="w-48">
-                <SelectValue placeholder={t("shipping.filters.country")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">{t("shipping.filters.allCountries")}</SelectItem>
-                {countries.map((country) => (
-                  <SelectItem key={country.id} value={country.id}>
-                    {country.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={sourceFilter || "__all__"}
-              onValueChange={(v) => {
-                setSourceFilter(v === "__all__" ? "" : v);
+              options={countries.map((country) => ({
+                value: country.id,
+                label: country.name,
+              }))}
+            />
+            <MultiSelectFilter
+              label={t("shipping.filters.source")}
+              values={sourceFilter}
+              onChange={(values) => {
+                setSourceFilter(values);
                 setPage(1);
               }}
-            >
-              <SelectTrigger size="sm" className="w-40">
-                <SelectValue placeholder={t("shipping.filters.source")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">{t("shipping.filters.allSources")}</SelectItem>
-                <SelectItem value="MANUAL">{t("storeOrders.source.MANUAL")}</SelectItem>
-                <SelectItem value="IMPORT">{t("storeOrders.source.IMPORT")}</SelectItem>
-              </SelectContent>
-            </Select>
+              options={[
+                { value: "MANUAL", label: t("storeOrders.source.MANUAL") },
+                { value: "IMPORT", label: t("storeOrders.source.IMPORT") },
+              ]}
+            />
             <EnterpriseDateRangePicker
               value={dateRange}
               onChange={(range) => {
@@ -258,11 +229,31 @@ function ShippingPageContent() {
                 setPage(1);
               }}
             />
+            {(statusFilter.length > 0 ||
+              companyFilter.length > 0 ||
+              countryFilter.length > 0 ||
+              sourceFilter.length > 0 ||
+              dateRange.from ||
+              dateRange.to) && (
+              <EnterpriseButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setStatusFilter([]);
+                  setCompanyFilter([]);
+                  setCountryFilter([]);
+                  setSourceFilter([]);
+                  setDateRange(EMPTY_DATE_RANGE);
+                  setPage(1);
+                }}
+              >
+                {t("table.clearFilters")}
+              </EnterpriseButton>
+            )}
           </>
         }
-      />
 
-      <EnterpriseDataTable
         tableId="shipping"
         printTitle={t("shipping.title")}
         columns={columns}
@@ -317,7 +308,7 @@ function ShippingPageContent() {
         onUpdated={load}
         shippingCompanies={companies}
       />
-    </div>
+    </PageWorkspace>
   );
 }
 

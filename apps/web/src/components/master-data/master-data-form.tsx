@@ -81,6 +81,9 @@ export interface MasterDataFormField {
 export interface MasterDataFormSection {
   title: string;
   columns?: 2 | 3;
+  optional?: boolean;
+  collapsible?: boolean;
+  defaultOpen?: boolean;
   fields: MasterDataFormField[];
 }
 
@@ -189,10 +192,7 @@ function FormFieldGrid<TFieldValues extends FieldValues>({
                 </FormItem>
               ) : (
                 <FormItem>
-                  <FormLabel>
-                    {t(field.label)}
-                    {field.required && <span className="text-destructive"> *</span>}
-                  </FormLabel>
+                  <FormLabel required={field.required}>{t(field.label)}</FormLabel>
                   <FormControl>
                     {field.type === "textarea" ? (
                       <Textarea
@@ -317,25 +317,35 @@ export function MasterDataForm<TFieldValues extends FieldValues>(
     form: UseFormReturn<TFieldValues>;
     /** Required when any field across the form is `"country"`/`"phone"`. */
     countries?: PhoneCountryOption[];
+    /** Skip FormProvider when a parent already wrapped the same `form`. */
+    unwrapped?: boolean;
   } & (
     | { fields: MasterDataFormField[]; sectionTitle: string; columns?: 2 | 3; sections?: never }
     | { sections: MasterDataFormSection[]; fields?: never; sectionTitle?: never; columns?: never }
   ),
 ) {
-  const { form, countries } = props;
+  const { form, countries, unwrapped } = props;
   const sections: MasterDataFormSection[] = props.sections ?? [
     { title: props.sectionTitle, columns: props.columns ?? 2, fields: props.fields },
   ];
 
-  return (
-    <Form {...form}>
-      <div className="flex flex-col gap-5">
-        {sections.map((section) => (
-          <ModalSection key={section.title} title={section.title} columns={section.columns ?? 2}>
-            <FormFieldGrid form={form} fields={section.fields} countries={countries} />
-          </ModalSection>
-        ))}
-      </div>
-    </Form>
+  const content = (
+    <div className="flex flex-col gap-5">
+      {sections.map((section) => (
+        <ModalSection
+          key={section.title}
+          title={section.title}
+          columns={section.columns ?? 2}
+          optional={section.optional}
+          collapsible={section.collapsible}
+          defaultOpen={section.defaultOpen}
+        >
+          <FormFieldGrid form={form} fields={section.fields} countries={countries} />
+        </ModalSection>
+      ))}
+    </div>
   );
+
+  if (unwrapped) return content;
+  return <Form {...form}>{content}</Form>;
 }

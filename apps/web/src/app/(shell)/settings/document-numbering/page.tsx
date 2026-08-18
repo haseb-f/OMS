@@ -17,7 +17,9 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
+import { SemanticValue } from "@/components/shared/semantic-value";
+import { StackedCell } from "@/components/shared/stacked-cell";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { ModalSection, ModalFieldFullWidth } from "@/components/shared/modal-section";
@@ -252,11 +254,16 @@ export default function SettingsDocumentNumberingPage() {
         id: "label",
         meta: { titleKey: "settings.documentNumbering.table.label" },
         accessorFn: (row) => row.label,
-        cell: (info) => <span className="font-medium">{info.getValue() as string}</span>,
+        cell: ({ row }) => (
+          <StackedCell
+            primary={row.original.label}
+            secondary={<SemanticValue kind="id">{row.original.documentType}</SemanticValue>}
+          />
+        ),
       },
       {
         id: "documentType",
-        meta: { titleKey: "settings.documentNumbering.table.documentType" },
+        meta: { titleKey: "settings.documentNumbering.table.documentType", defaultHidden: true },
         accessorFn: (row) => row.documentType,
         cell: (info) => (
           <code dir="ltr" className="rounded bg-muted px-1.5 py-0.5 text-xs">
@@ -290,12 +297,12 @@ export default function SettingsDocumentNumberingPage() {
       },
       {
         id: "padding",
-        meta: { titleKey: "settings.documentNumbering.table.padding" },
+        meta: { titleKey: "settings.documentNumbering.table.padding", defaultHidden: true },
         accessorFn: (row) => row.padding,
       },
       {
         id: "reset",
-        meta: { titleKey: "settings.documentNumbering.table.reset" },
+        meta: { titleKey: "settings.documentNumbering.table.reset", defaultHidden: true },
         enableSorting: false,
         cell: ({ row }) => {
           const rule = resetRuleTone(row.original);
@@ -367,20 +374,18 @@ export default function SettingsDocumentNumberingPage() {
   );
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t("settings.documentNumbering.title")}
-        subtitle={t("settings.documentNumbering.description")}
-        actions={
-          canManage && (
-            <EnterpriseButton type="button" onClick={openCreate}>
-              <Plus />
-              {t("settings.documentNumbering.addNew")}
-            </EnterpriseButton>
-          )
-        }
-      />
-
+    <PageWorkspace
+      title={t("settings.documentNumbering.title")}
+      description={t("settings.documentNumbering.description")}
+      actions={
+        canManage && (
+          <EnterpriseButton type="button" onClick={openCreate}>
+            <Plus />
+            {t("settings.documentNumbering.addNew")}
+          </EnterpriseButton>
+        )
+      }
+    >
       {!canManage && (
         <p className="text-caption text-muted-foreground">
           {t("settings.documentNumbering.readOnlyNotice")}
@@ -673,6 +678,6 @@ export default function SettingsDocumentNumberingPage() {
         confirmLabel={t("settings.documentNumbering.actions.resetNext")}
         destructive
       />
-    </div>
+    </PageWorkspace>
   );
 }

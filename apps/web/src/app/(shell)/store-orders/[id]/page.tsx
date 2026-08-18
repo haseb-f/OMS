@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { FileText, Link as LinkIcon, Receipt, Wallet } from "lucide-react";
 import { StoreOrderAddPaymentDialog } from "@/components/store-orders/store-order-add-payment-dialog";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { EmptyState } from "@/components/shared/empty-state";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -174,10 +174,10 @@ function StoreOrderDetailContent() {
   const canGenerateInvoice = order.paymentStatus === "FULLY_PAID_RECONCILED" && !invoice;
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
+    <div className="flex flex-col gap-3">
+      <PageWorkspace
         title={order.internalOrderId}
-        subtitle={
+        description={
           order.externalOrderId
             ? `${t("storeOrders.fields.externalOrderId")}: ${order.externalOrderId}`
             : undefined

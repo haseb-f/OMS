@@ -20,9 +20,9 @@
   /*
    * OMS Design Bible FINAL (ADR-0019) typography scale — Alexandria,
    * Arabic-first. Declared under @theme so Tailwind generates real
-   * `text-display`, `text-page-title`, etc. utilities, not just CSS
-   * variables. Six fixed sizes only: 40 / 30 / 22 / 18 / 15 / 13 — never a
-   * random size. SemiBold used generously (baked into each size below).
+   * Operational chrome adds `text-button` (14px) and `text-ui-title` (20px)
+   * so buttons and internal page headers stay proportional to 36px controls
+   * without shrinking body copy.
    */
   --text-display: 2.5rem; /* 40px */
   --text-display--line-height: 1.15;
@@ -38,8 +38,14 @@
   --text-card-title--font-weight: 600;
   --text-body: 0.9375rem; /* 15px */
   --text-body--line-height: 1.6;
+  --text-button: 0.875rem; /* 14px — buttons, tabs, compact chrome */
+  --text-button--line-height: 1.25;
+  --text-button--font-weight: 600;
   --text-caption: 0.8125rem; /* 13px */
   --text-caption--line-height: 1.4;
+  --text-ui-title: 1.25rem; /* 20px — internal page headers, not hero 30px */
+  --text-ui-title--line-height: 1.3;
+  --text-ui-title--font-weight: 600;
 }
 
 :root {

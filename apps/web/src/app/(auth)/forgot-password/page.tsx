@@ -4,13 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { z } from "zod";
 import { MailCheck } from "lucide-react";
-import {
-  EnterpriseCard,
-  EnterpriseCardContent,
-  EnterpriseCardHeader,
-  EnterpriseCardTitle,
-  EnterpriseCardDescription,
-} from "@/components/ui/card";
 import { Form } from "@/components/ui/form";
 import { TextFormField, SubmitButton, useZodForm } from "@/components/shared/form-fields";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -34,52 +27,63 @@ export default function ForgotPasswordPage() {
 
   if (sent) {
     return (
-      <EnterpriseCard>
-        <EnterpriseCardContent>
-          <EmptyState
-            icon={MailCheck}
-            title={t("auth.forgotSuccessTitle")}
-            description={t("auth.forgotSuccessDescription")}
-            action={
-              <EnterpriseButton asChild size="sm" variant="outline">
-                <Link href="/login">{t("auth.backToLogin")}</Link>
-              </EnterpriseButton>
-            }
-          />
-        </EnterpriseCardContent>
-      </EnterpriseCard>
+      <EmptyState
+        icon={MailCheck}
+        title={t("auth.forgotSuccessTitle")}
+        description={t("auth.forgotSuccessDescription")}
+        action={
+          <EnterpriseButton asChild size="sm" variant="outline">
+            <Link href="/login">{t("auth.backToLogin")}</Link>
+          </EnterpriseButton>
+        }
+      />
     );
   }
 
+  const isSubmitting = form.formState.isSubmitting;
+
   return (
-    <EnterpriseCard>
-      <EnterpriseCardHeader>
-        <EnterpriseCardTitle>{t("auth.forgotTitle")}</EnterpriseCardTitle>
-        <EnterpriseCardDescription>{t("auth.forgotSubtitle")}</EnterpriseCardDescription>
-      </EnterpriseCardHeader>
-      <EnterpriseCardContent>
-        <Form {...form}>
-          <form onSubmit={onSubmit} className="flex flex-col gap-4">
-            <TextFormField
-              control={form.control}
-              name="email"
-              label={t("auth.email")}
-              type="email"
-              placeholder={t("auth.emailPlaceholder")}
-              autoComplete="email"
-            />
-            <SubmitButton isSubmitting={form.formState.isSubmitting} className="w-full">
-              {form.formState.isSubmitting ? t("auth.sendingResetLink") : t("auth.sendResetLink")}
-            </SubmitButton>
-            <Link
-              href="/login"
-              className="text-center text-caption font-medium text-primary hover:underline"
-            >
-              {t("auth.backToLogin")}
-            </Link>
-          </form>
-        </Form>
-      </EnterpriseCardContent>
-    </EnterpriseCard>
+    <div>
+      <header className="mb-8">
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">
+          {t("auth.forgotTitle")}
+        </h1>
+        <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+          {t("auth.forgotSubtitle")}
+        </p>
+      </header>
+      <Form {...form}>
+        <form
+          onSubmit={onSubmit}
+          aria-busy={isSubmitting}
+          className="oms-auth-form flex flex-col gap-4"
+        >
+          <TextFormField
+            control={form.control}
+            name="email"
+            label={t("auth.email")}
+            type="email"
+            placeholder={t("auth.emailPlaceholder")}
+            autoComplete="email"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            dir="ltr"
+          />
+          <SubmitButton
+            isSubmitting={isSubmitting}
+            className="w-full from-brand-navy to-brand-navy text-brand-navy-foreground hover:brightness-110 dark:from-brand-navy dark:to-brand-navy"
+          >
+            {isSubmitting ? t("auth.sendingResetLink") : t("auth.sendResetLink")}
+          </SubmitButton>
+          <Link
+            href="/login"
+            className="text-center text-caption font-medium text-brand-navy hover:underline dark:text-brand-teal"
+          >
+            {t("auth.backToLogin")}
+          </Link>
+        </form>
+      </Form>
+    </div>
   );
 }

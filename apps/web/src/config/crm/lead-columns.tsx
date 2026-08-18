@@ -2,6 +2,8 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { StatusBadge, type StatusTone } from "@/components/business/status-badge";
+import { SemanticValue } from "@/components/shared/semantic-value";
+import { StackedCell } from "@/components/shared/stacked-cell";
 import { formatDate } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
@@ -44,21 +46,30 @@ export const leadColumns: ColumnDef<LeadRow, unknown>[] = [
     id: "leadNumber",
     meta: { titleKey: "crm.leads.fields.leadNumber" },
     accessorFn: (row) => row.leadNumber,
-    cell: (info) => (
-      <code dir="ltr" className="rounded bg-muted px-1.5 py-0.5 text-xs">
-        {info.getValue() as string}
-      </code>
+    cell: ({ row }) => (
+      <SemanticValue kind="id" className="text-body font-medium">
+        {row.original.leadNumber}
+      </SemanticValue>
     ),
   },
   {
     id: "customerName",
     meta: { titleKey: "crm.leads.fields.customerName" },
     accessorFn: (row) => row.customerName,
-    cell: (info) => <span className="font-medium">{info.getValue() as string}</span>,
+    cell: ({ row }) => (
+      <StackedCell
+        primary={row.original.customerName}
+        secondary={
+          row.original.mobileNumber ? (
+            <SemanticValue kind="phone">{row.original.mobileNumber}</SemanticValue>
+          ) : undefined
+        }
+      />
+    ),
   },
   {
     id: "mobileNumber",
-    meta: { titleKey: "crm.leads.fields.mobileNumber" },
+    meta: { titleKey: "crm.leads.fields.mobileNumber", defaultHidden: true },
     accessorFn: (row) => row.mobileNumber,
     cell: (info) => <span dir="ltr">{info.getValue() as string}</span>,
   },

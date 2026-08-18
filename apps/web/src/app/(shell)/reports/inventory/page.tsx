@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import {
   EnterpriseDataTable,
   exportColumnsFromKeys,
@@ -282,9 +282,10 @@ function ReportsInventoryPageContent() {
   );
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader title={t("nav.reportsInventory")} subtitle={t("reports.inventory.description")} />
-
+    <PageWorkspace
+      title={t("nav.reportsInventory")}
+      description={t("reports.inventory.description")}
+    >
       <Tabs defaultValue="movements">
         <TabsList variant="line" className="flex-wrap">
           <TabsTrigger value="movements">{t("reports.inventory.movements")}</TabsTrigger>
@@ -305,13 +306,13 @@ function ReportsInventoryPageContent() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="movements" className="flex flex-col gap-3">
-          <div className="flex justify-end">
-            <EnterpriseDateRangePicker value={movementRange} onChange={setMovementRange} />
-          </div>
+        <TabsContent value="movements">
           <EnterpriseDataTable
             tableId="reports-inventory-movements"
             printTitle={t("reports.inventory.movements")}
+            filterBar={
+              <EnterpriseDateRangePicker value={movementRange} onChange={setMovementRange} />
+            }
             columns={movementColumns}
             data={filteredMovements}
             isLoading={isLoading}
@@ -419,7 +420,7 @@ function ReportsInventoryPageContent() {
           />
         </TabsContent>
       </Tabs>
-    </div>
+    </PageWorkspace>
   );
 }
 

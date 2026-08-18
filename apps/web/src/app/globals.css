@@ -75,20 +75,30 @@
 
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
+  --color-success-soft: var(--success-soft);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-warning-soft: var(--warning-soft);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
+  --color-info-soft: var(--info-soft);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-active: var(--primary-active);
+  --color-primary-soft: var(--primary-soft);
+  --color-brand-navy: var(--brand-navy);
+  --color-brand-navy-foreground: var(--brand-navy-foreground);
+  --color-brand-blue: var(--brand-blue);
+  --color-brand-teal: var(--brand-teal);
+  --color-brand-canvas: var(--brand-canvas);
 }
 
 /*
- * OMS Brand — Primary Green, Secondary Blue, Neutral Gray (ADR-0017).
- * Primary green marks committed/primary actions and active state (buttons,
- * active nav item, focus ring, brand mark). Secondary blue is a restrained,
- * low-emphasis tint for secondary buttons and hover/interactive surfaces —
- * never as loud as primary, so the two-tier hierarchy stays legible.
- * Everything else (backgrounds, borders, muted text) stays pure neutral
- * gray, unchanged from the base Nova scale.
+ * OMS Brand — navy identity + semantic status (ADR-0017 refined).
+ * Primary actions, active navigation, focus, and selection use official
+ * brand navy so the product is recognizable without the logo.
+ * Success green is reserved for completed/paid/saved — never for primary
+ * buttons. Danger red is reserved for destructive/failed states.
  */
 :root {
   /* Pure white — the page disappears behind the content (ADR-0019). Cards
@@ -99,8 +109,11 @@
   --card-foreground: oklch(0.2 0.006 90);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.2 0.006 90);
-  --primary: oklch(0.508 0.118 165.612);
-  --primary-foreground: oklch(0.985 0 0);
+  --primary: #04203c;
+  --primary-foreground: #ffffff;
+  --primary-hover: color-mix(in oklab, var(--primary) 82%, white);
+  --primary-active: color-mix(in oklab, var(--primary) 78%, black);
+  --primary-soft: color-mix(in oklab, var(--primary) 8%, white);
   --secondary: oklch(0.955 0.014 255);
   --secondary-foreground: oklch(0.32 0.045 255);
   --muted: oklch(0.965 0.004 90);
@@ -109,24 +122,21 @@
   --accent-foreground: oklch(0.32 0.045 255);
   --success: oklch(0.55 0.13 165.6);
   --success-foreground: oklch(0.985 0 0);
+  --success-soft: color-mix(in oklab, var(--success) 14%, transparent);
   --warning: oklch(0.77 0.15 78);
   --warning-foreground: oklch(0.28 0.06 78);
-  /* Operational blue (ADR-0017 addendum) — a deliberately more saturated
-     blue than --secondary's restrained low-emphasis tint, reserved for
-     system-level/controlled operations (Data Synchronization) that must
-     read as distinct from both primary green (committed actions) and
-     ordinary secondary buttons. Same hue as --chart-2, so a sync action
-     reads as visually related to the sync/system iconography already used
-     elsewhere, never an arbitrary new color. */
-  --info: oklch(0.546 0.245 262.881);
-  --info-foreground: oklch(0.985 0 0);
+  --warning-soft: color-mix(in oklab, var(--warning) 18%, transparent);
+  --info: #3c78d0;
+  --info-foreground: #ffffff;
+  --info-soft: color-mix(in oklab, var(--info) 12%, transparent);
   --destructive: oklch(0.577 0.245 27.325);
+  --destructive-soft: color-mix(in oklab, var(--destructive) 12%, transparent);
   --border: oklch(0.928 0.006 90);
   --input: oklch(0.928 0.006 90);
-  --ring: oklch(0.508 0.118 165.612 / 0.45);
-  --chart-1: oklch(0.508 0.118 165.612);
-  --chart-2: oklch(0.546 0.245 262.881);
-  --chart-3: oklch(0.87 0 0);
+  --ring: color-mix(in oklab, var(--primary) 40%, transparent);
+  --chart-1: #04203c;
+  --chart-2: #3c78d0;
+  --chart-3: #3cb8c0;
   --chart-4: oklch(0.556 0 0);
   --chart-5: oklch(0.371 0 0);
   --radius: 1rem;
@@ -137,18 +147,27 @@
    * dark gray, never pure black — see .dark below). Both themes share the
    * exact same spacing/hierarchy; only these colors change. Layered
    * surfaces (never flat/"painted"): base < hover < expanded-group.
-   * Active-item green tint uses Tailwind's own green-50/green-500 palette
-   * directly in components, not a dedicated token (see app-sidebar.tsx).
+   * Active nav uses `--primary-soft` + `--primary` (see app-sidebar.tsx).
    */
   --sidebar: oklch(0.985 0.003 80);
   --sidebar-foreground: oklch(0.2 0.006 90);
-  --sidebar-primary: oklch(0.508 0.118 165.612);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
   --sidebar-accent: oklch(0.95 0.005 85);
   --sidebar-accent-foreground: oklch(0.2 0.006 90);
   --sidebar-expanded: oklch(0.93 0.006 85);
   --sidebar-border: oklch(0.897 0.006 85);
-  --sidebar-ring: oklch(0.508 0.118 165.612 / 0.45);
+  --sidebar-ring: var(--ring);
+
+  /*
+   * Official OMS brand palette — sampled from Brand/ identity assets
+   * (navy lockup, mid-blue chevron, teal chevron, off-white canvas).
+   */
+  --brand-navy: #04203c;
+  --brand-navy-foreground: #ffffff;
+  --brand-blue: #3c78d0;
+  --brand-teal: #3cb8c0;
+  --brand-canvas: #eef3f8;
 }
 
 .dark {
@@ -158,8 +177,11 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.696 0.17 162.48);
-  --primary-foreground: oklch(0.145 0 0);
+  --primary: #3c78d0;
+  --primary-foreground: #ffffff;
+  --primary-hover: color-mix(in oklab, var(--primary) 88%, white);
+  --primary-active: color-mix(in oklab, var(--primary) 80%, black);
+  --primary-soft: color-mix(in oklab, var(--primary) 18%, transparent);
   --secondary: oklch(0.28 0.025 255);
   --secondary-foreground: oklch(0.9 0.02 255);
   --muted: oklch(0.269 0 0);
@@ -168,16 +190,20 @@
   --accent-foreground: oklch(0.9 0.02 255);
   --success: oklch(0.696 0.17 162.48);
   --success-foreground: oklch(0.145 0 0);
+  --success-soft: color-mix(in oklab, var(--success) 18%, transparent);
   --warning: oklch(0.78 0.14 78);
   --warning-foreground: oklch(0.22 0.05 78);
-  --info: oklch(0.623 0.214 259.815);
+  --warning-soft: color-mix(in oklab, var(--warning) 20%, transparent);
+  --info: #3cb8c0;
   --info-foreground: oklch(0.145 0 0);
+  --info-soft: color-mix(in oklab, var(--info) 18%, transparent);
   --destructive: oklch(0.704 0.191 22.216);
+  --destructive-soft: color-mix(in oklab, var(--destructive) 18%, transparent);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.696 0.17 162.48 / 0.55);
-  --chart-1: oklch(0.696 0.17 162.48);
-  --chart-2: oklch(0.623 0.214 259.815);
+  --ring: color-mix(in oklab, var(--primary) 50%, transparent);
+  --chart-1: #3c78d0;
+  --chart-2: #3cb8c0;
   --chart-3: oklch(0.87 0 0);
   --chart-4: oklch(0.556 0 0);
   --chart-5: oklch(0.371 0 0);
@@ -185,13 +211,13 @@
   /* Sidebar dark surface — neutral dark gray, never pure black. */
   --sidebar: oklch(0.22 0.004 90);
   --sidebar-foreground: oklch(0.93 0 0);
-  --sidebar-primary: oklch(0.696 0.17 162.48);
-  --sidebar-primary-foreground: oklch(0.145 0 0);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
   --sidebar-accent: oklch(0.27 0.004 90);
   --sidebar-accent-foreground: oklch(0.96 0 0);
   --sidebar-expanded: oklch(0.3 0.004 90);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.696 0.17 162.48 / 0.55);
+  --sidebar-ring: var(--ring);
 }
 
 @layer base {
@@ -203,6 +229,28 @@
   }
   html {
     @apply font-sans;
+  }
+
+  /*
+   * Auth screens only — navy focus ring matching the official brand,
+   * without retinting every input in the application.
+   */
+  .oms-auth-form [data-slot="input"]:focus-visible {
+    border-color: var(--brand-navy);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand-navy) 20%, transparent);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html:focus-within {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 
   /* TASK-042: native number-input spinners sit inside the field's own end
@@ -242,6 +290,11 @@
   --normal-bg: var(--warning);
   --normal-text: var(--warning-foreground);
   --normal-border: var(--warning);
+}
+[data-sonner-toast][data-type="info"] {
+  --normal-bg: var(--info-soft);
+  --normal-text: var(--info);
+  --normal-border: var(--info);
 }
 
 /**

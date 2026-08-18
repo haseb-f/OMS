@@ -2,6 +2,9 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { StatusBadge, type StatusTone } from "@/components/business/status-badge";
+import { MoneyValue } from "@/components/shared/money-value";
+import { SemanticValue } from "@/components/shared/semantic-value";
+import { StackedCell } from "@/components/shared/stacked-cell";
 import { statusColumn } from "@/config/master-data/shared-columns";
 import { formatDate } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
@@ -29,40 +32,36 @@ function SourceCell({ source }: { source: CustomerSourceValue }) {
   );
 }
 
-function MoneyCell({ value }: { value: string | number | null }) {
-  if (value === null || value === undefined)
-    return <span className="text-muted-foreground">—</span>;
-  return (
-    <span dir="ltr">
-      {Number(value).toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}
-    </span>
-  );
-}
-
 /** The 12 data columns the task specifies — MasterDataPage appends the 13th ("Actions") automatically. */
 export const customerColumns: ColumnDef<CustomerRow, unknown>[] = [
   {
     id: "customerNumber",
-    meta: { titleKey: "sales.customers.fields.customerNumber" },
+    meta: { titleKey: "sales.customers.fields.customerNumber", type: "code" },
     accessorFn: (row) => row.customerNumber,
-    cell: (info) => (
-      <code dir="ltr" className="rounded bg-muted px-1.5 py-0.5 text-xs">
-        {info.getValue() as string}
-      </code>
+    cell: ({ row }) => (
+      <SemanticValue kind="id" className="text-body font-medium">
+        {row.original.customerNumber}
+      </SemanticValue>
     ),
   },
   {
     id: "name",
-    meta: { titleKey: "sales.customers.fields.name" },
+    meta: { titleKey: "sales.customers.fields.name", stacked: true, type: "name" },
     accessorFn: (row) => row.name,
-    cell: (info) => <span className="font-medium">{info.getValue() as string}</span>,
+    cell: ({ row }) => (
+      <StackedCell
+        primary={row.original.name}
+        secondary={
+          row.original.phone ? (
+            <SemanticValue kind="phone">{row.original.phone}</SemanticValue>
+          ) : undefined
+        }
+      />
+    ),
   },
   {
     id: "phone",
-    meta: { titleKey: "sales.customers.fields.phone" },
+    meta: { titleKey: "sales.customers.fields.phone", defaultHidden: true },
     accessorFn: (row) => row.phone ?? "—",
     cell: (info) => <span dir="ltr">{info.getValue() as string}</span>,
   },
@@ -71,16 +70,24 @@ export const customerColumns: ColumnDef<CustomerRow, unknown>[] = [
     meta: { titleKey: "sales.customers.fields.email" },
     accessorFn: (row) => row.email ?? "—",
     enableSorting: false,
+    cell: ({ row }) =>
+      row.original.email ? <SemanticValue kind="email">{row.original.email}</SemanticValue> : "—",
   },
   {
     id: "city",
     meta: { titleKey: "sales.customers.fields.city" },
     accessorFn: (row) => row.city ?? "—",
     enableSorting: false,
+    cell: ({ row }) => (
+      <StackedCell
+        primary={row.original.city ?? "—"}
+        secondary={row.original.country?.name ?? undefined}
+      />
+    ),
   },
   {
     id: "country",
-    meta: { titleKey: "sales.customers.fields.country" },
+    meta: { titleKey: "sales.customers.fields.country", defaultHidden: true },
     accessorFn: (row) => row.country?.name ?? "—",
     enableSorting: false,
   },
@@ -94,13 +101,18 @@ export const customerColumns: ColumnDef<CustomerRow, unknown>[] = [
     id: "creditLimit",
     meta: { titleKey: "sales.customers.fields.creditLimit" },
     accessorFn: (row) => row.creditLimit,
-    cell: (info) => <MoneyCell value={info.getValue() as string | null} />,
+    cell: ({ row }) =>
+      row.original.creditLimit == null ? (
+        <span className="text-muted-foreground">—</span>
+      ) : (
+        <MoneyValue value={row.original.creditLimit} />
+      ),
   },
   {
     id: "balance",
     meta: { titleKey: "sales.customers.fields.balance" },
     accessorFn: (row) => row.balance,
-    cell: (info) => <MoneyCell value={info.getValue() as number} />,
+    cell: ({ row }) => <MoneyValue value={row.original.balance} />,
   },
   statusColumn<CustomerRow>(),
   {

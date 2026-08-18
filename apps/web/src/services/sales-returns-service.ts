@@ -1,4 +1,5 @@
 import { apiClient } from "./api-client";
+import { buildQueryString } from "@/lib/query-string";
 import type { CustomerRow } from "./customers-service";
 import type { ProductRow } from "./products-service";
 import type { WarehouseRow, UnitRow, TaxRow } from "@/config/master-data/entities";
@@ -108,8 +109,8 @@ export interface SalesReturnableSummary {
 
 export interface SalesReturnListParams {
   search?: string;
-  status?: SalesDocumentStatusValue;
-  customerId?: string;
+  status?: SalesDocumentStatusValue | SalesDocumentStatusValue[];
+  customerId?: string | string[];
   /** ISO date-only strings ("2026-01-01") — filters by `createdAt`, the same column the list's Date column shows. */
   dateFrom?: string;
   dateTo?: string;
@@ -124,16 +125,6 @@ export interface SalesReturnListResult {
   total: number;
   page: number;
   pageSize: number;
-}
-
-function buildQueryString(params: Record<string, unknown>): string {
-  const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value === undefined || value === null || value === "") continue;
-    search.set(key, String(value));
-  }
-  const qs = search.toString();
-  return qs ? `?${qs}` : "";
 }
 
 /**

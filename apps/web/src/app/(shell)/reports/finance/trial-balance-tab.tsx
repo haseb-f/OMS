@@ -101,14 +101,6 @@ export function TrialBalanceTab() {
 
   return (
     <div className="flex flex-col gap-3">
-      <AccountingReportFilterBar
-        value={filters}
-        onChange={(next) => {
-          setFilters(next);
-          setPage(1);
-        }}
-      />
-
       <div className="flex items-center justify-end gap-4 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
         <span className="text-muted-foreground">{t("reports.finance.totals")}:</span>
         <span className="flex items-center gap-1">
@@ -123,6 +115,15 @@ export function TrialBalanceTab() {
       </div>
 
       <EnterpriseDataTable
+        filterBar={
+          <AccountingReportFilterBar
+            value={filters}
+            onChange={(next) => {
+              setFilters(next);
+              setPage(1);
+            }}
+          />
+        }
         tableId="reports-finance-trial-balance"
         printTitle={t("reports.finance.trialBalance")}
         columns={columns}

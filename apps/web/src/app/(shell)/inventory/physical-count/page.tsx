@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
 import { Plus } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import {
   EnterpriseDateRangePicker,
   type DateRangeValue,
@@ -15,6 +15,8 @@ import {
   exportRowsToCsv,
 } from "@/components/master-data/enterprise-data-table";
 import { getColumnDisplayValue } from "@/components/shared/data-table";
+import { SemanticValue } from "@/components/shared/semantic-value";
+import { StackedCell } from "@/components/shared/stacked-cell";
 import { StatusBadge } from "@/components/business/status-badge";
 import { SalesListBulkActions } from "@/components/sales";
 import { CreateCountDialog } from "./create-count-dialog";
@@ -76,15 +78,19 @@ function PhysicalCountPageContent() {
         header: t("inventory.physicalCount.countNumber"),
         meta: { titleKey: "inventory.physicalCount.countNumber" },
         accessorFn: (row) => row.countNumber,
-        cell: (info) => (
-          <button
-            type="button"
-            onClick={() => setOpenCountId(info.row.original.id)}
-            className="font-mono text-xs text-primary underline-offset-2 hover:underline"
-            dir="ltr"
-          >
-            {info.getValue() as string}
-          </button>
+        cell: ({ row }) => (
+          <StackedCell
+            primary={
+              <button
+                type="button"
+                onClick={() => setOpenCountId(row.original.id)}
+                className="font-medium text-primary underline-offset-2 hover:underline"
+              >
+                <SemanticValue kind="id">{row.original.countNumber}</SemanticValue>
+              </button>
+            }
+            secondary={formatDateTime(row.original.createdAt)}
+          />
         ),
       },
       {
@@ -92,6 +98,12 @@ function PhysicalCountPageContent() {
         header: t("masterData.fields.warehouse"),
         meta: { titleKey: "masterData.fields.warehouse" },
         accessorFn: (row) => `${row.warehouse.code} — ${row.warehouse.name}`,
+        cell: ({ row }) => (
+          <StackedCell
+            primary={`${row.original.warehouse.code} — ${row.original.warehouse.name}`}
+            secondary={String(row.original._count.lines)}
+          />
+        ),
       },
       {
         id: "status",
@@ -111,13 +123,13 @@ function PhysicalCountPageContent() {
       {
         id: "lines",
         header: t("inventory.physicalCount.lines"),
-        meta: { titleKey: "inventory.physicalCount.lines" },
+        meta: { titleKey: "inventory.physicalCount.lines", defaultHidden: true },
         accessorFn: (row) => row._count.lines,
       },
       {
         id: "createdAt",
         header: t("inventory.fields.date"),
-        meta: { titleKey: "inventory.fields.date" },
+        meta: { titleKey: "inventory.fields.date", defaultHidden: true },
         accessorFn: (row) => formatDateTime(row.createdAt),
       },
     ],
@@ -169,22 +181,21 @@ function PhysicalCountPageContent() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t("nav.inventoryPhysicalCount")}
-        subtitle={t("inventory.physicalCount.description")}
-        actions={
-          canCreate && (
-            <EnterpriseButton type="button" onClick={() => setCreateOpen(true)}>
-              <Plus />
-              {t("inventory.physicalCount.createTitle")}
-            </EnterpriseButton>
-          )
-        }
-        filters={<EnterpriseDateRangePicker value={dateRange} onChange={setDateRange} />}
-      />
-
+    <PageWorkspace
+      title={t("nav.inventoryPhysicalCount")}
+      description={t("inventory.physicalCount.description")}
+      actions={
+        canCreate && (
+          <EnterpriseButton type="button" onClick={() => setCreateOpen(true)}>
+            <Plus />
+            {t("inventory.physicalCount.createTitle")}
+          </EnterpriseButton>
+        )
+      }
+    >
       <EnterpriseDataTable
+        filterBar={<EnterpriseDateRangePicker value={dateRange} onChange={setDateRange} />}
+
         tableId="inventory-physical-count"
         printTitle={t("nav.inventoryPhysicalCount")}
         columns={columns}
@@ -228,7 +239,7 @@ function PhysicalCountPageContent() {
         onOpenChange={(open) => !open && setOpenCountId(null)}
         onChanged={load}
       />
-    </div>
+    </PageWorkspace>
   );
 }
 

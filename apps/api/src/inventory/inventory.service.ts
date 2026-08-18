@@ -34,6 +34,7 @@ import { PostSalesDeliveryDto } from './dto/post-sales-delivery.dto';
 import { PostSalesReturnDto } from './dto/post-sales-return.dto';
 import { PostPurchaseReceiptDto } from './dto/post-purchase-receipt.dto';
 import { PostPurchaseReturnDto } from './dto/post-purchase-return.dto';
+import { prismaEnumFilter } from '../common/query/enum-list';
 
 const RESERVATION_TYPES: InventoryMovementType[] = [
   InventoryMovementType.RESERVATION,
@@ -649,9 +650,9 @@ export class InventoryService {
   findAllMovements(query: FindMovementsQueryDto) {
     return this.prisma.inventoryMovement.findMany({
       where: {
-        productId: query.productId,
-        warehouseId: query.warehouseId,
-        type: query.type,
+        productId: prismaEnumFilter(query.productId),
+        warehouseId: prismaEnumFilter(query.warehouseId),
+        type: prismaEnumFilter(query.type),
       },
       orderBy: { createdAt: 'desc' },
       include: {

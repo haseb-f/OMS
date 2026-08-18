@@ -8,7 +8,7 @@ import {
   EnterpriseCardHeader,
   EnterpriseCardTitle,
 } from "@/components/ui/card";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EmptyState } from "@/components/shared/empty-state";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { navigationConfig } from "@/navigation/navigation.config";
@@ -35,18 +35,16 @@ export default function DashboardPage() {
   const pinnedItems = flatNavigation.filter((item) => pinnedIds.includes(item.id));
 
   return (
-    <div className="flex flex-col gap-8">
-      <PageHeader title={t("dashboard.welcomeTitle")} subtitle={t("dashboard.welcomeSubtitle")} />
-
-      <div aria-label={t("dashboard.kpiTitle")} className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiCard icon={Layers} label={t("nav.dashboard")} value={moduleCount} tone="green" />
-        <KpiCard icon={Pin} label={t("sidebar.pinned")} value={pinnedIds.length} tone="blue" />
-        <KpiCard icon={Clock} label={t("sidebar.recent")} value={recentIds.length} tone="gray" />
+    <PageWorkspace title={t("dashboard.welcomeTitle")} description={t("dashboard.welcomeSubtitle")}>
+      <div aria-label={t("dashboard.kpiTitle")} className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiCard icon={Layers} label={t("nav.dashboard")} value={moduleCount} tone="primary" />
+        <KpiCard icon={Pin} label={t("sidebar.pinned")} value={pinnedIds.length} tone="info" />
+        <KpiCard icon={Clock} label={t("sidebar.recent")} value={recentIds.length} tone="muted" />
         <KpiCard
           icon={Globe}
           label={t("topbar.changeLanguage")}
           value={locales.length}
-          tone="blue"
+          tone="info"
         />
       </div>
 
@@ -122,6 +120,6 @@ export default function DashboardPage() {
           </EnterpriseCardContent>
         </EnterpriseCard>
       </div>
-    </div>
+    </PageWorkspace>
   );
 }

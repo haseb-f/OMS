@@ -435,7 +435,7 @@ function SidebarMenu({ className, ...props }: React.ComponentProps<"ul">) {
     <ul
       data-slot="sidebar-menu"
       data-sidebar="menu"
-      className={cn("flex w-full min-w-0 flex-col gap-0", className)}
+      className={cn("flex w-full min-w-0 flex-col gap-px", className)}
       {...props}
     />
   );
@@ -456,12 +456,11 @@ const sidebarMenuButtonVariants = cva(
   // Readability beats a fixed height (ADR-0021): labels never truncate —
   // long Arabic titles simply wrap to a second line and the row grows to
   // fit (min-h, not h, and no overflow-hidden/truncate on expanded text).
-  // Height target 44px / max 48px (TASK-023A): min-h-11 (44px) floor with
-  // trimmed vertical padding — a single-line label still lands at 44px.
+  // Height target ~40px for a single-line label (compact, still tappable).
   // Hover changes background/text/icon color ONLY (TASK-042) — never
   // font-weight, which shifts glyph widths and reads as text "moving" on
   // hover. Active/selected state is the only thing allowed to bump weight.
-  "peer/menu-button group/menu-button relative flex w-full cursor-pointer items-center gap-3 rounded-md px-4 py-2 text-start text-body font-medium ring-sidebar-ring outline-hidden transition-[width,height,padding,background-color,color] duration-[170ms] ease-(--ease-standard) group-has-data-[sidebar=menu-action]/menu-item:pe-8 group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:overflow-hidden group-data-[collapsible=icon]:p-0! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground [&_svg]:size-[22px] [&_svg]:shrink-0 [&_svg]:transition-colors [&_svg]:duration-[170ms] hover:[&_svg]:text-primary",
+  "peer/menu-button group/menu-button relative flex w-full cursor-pointer items-center gap-2.5 rounded-md px-3 py-1.5 text-start text-sm font-medium ring-sidebar-ring outline-hidden transition-[width,height,padding,background-color,color] duration-[170ms] ease-(--ease-standard) group-has-data-[sidebar=menu-action]/menu-item:pe-8 group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:overflow-hidden group-data-[collapsible=icon]:p-0! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground [&_svg]:size-[18px] [&_svg]:shrink-0 [&_svg]:transition-colors [&_svg]:duration-[170ms] hover:[&_svg]:text-primary",
   {
     variants: {
       variant: {
@@ -470,9 +469,9 @@ const sidebarMenuButtonVariants = cva(
           "bg-background shadow-[0_0_0_1px_var(--sidebar-border)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-[0_0_0_1px_var(--sidebar-accent)]",
       },
       size: {
-        default: "min-h-11 text-body",
-        sm: "min-h-9 text-caption",
-        lg: "min-h-11 text-body group-data-[collapsible=icon]:p-0!",
+        default: "min-h-10 text-sm",
+        sm: "min-h-8 text-caption",
+        lg: "min-h-10 text-sm group-data-[collapsible=icon]:p-0!",
       },
     },
     defaultVariants: {
@@ -611,7 +610,7 @@ function SidebarMenuSub({ className, ...props }: React.ComponentProps<"ul">) {
       data-slot="sidebar-menu-sub"
       data-sidebar="menu-sub"
       className={cn(
-        "mx-3.5 flex min-w-0 translate-x-px rtl:-translate-x-px flex-col gap-1 border-s border-sidebar-border px-2.5 py-0.5 group-data-[collapsible=icon]:hidden",
+        "mx-3 flex min-w-0 translate-x-px rtl:-translate-x-px flex-col gap-0.5 border-s border-sidebar-border px-2 py-0.5 group-data-[collapsible=icon]:hidden",
         className,
       )}
       {...props}
@@ -650,10 +649,9 @@ function SidebarMenuSubButton({
       data-size={size}
       data-active={isActive}
       className={cn(
-        // Sub-items: ~13px/normal weight vs parent's ~15px/medium (TASK-042
-        // §7) — hover changes background/text/icon color only, never
-        // font-weight (same reasoning as the parent button above).
-        "relative flex min-h-9 min-w-0 -translate-x-px rtl:translate-x-px cursor-pointer items-center gap-2.5 rounded-md px-3 py-1.5 font-normal text-sidebar-foreground ring-sidebar-ring outline-hidden transition-[background-color,color] duration-[170ms] ease-(--ease-standard) group-data-[collapsible=icon]:hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[size=md]:text-body data-[size=sm]:text-caption data-active:bg-green-50 data-active:font-medium data-active:text-foreground data-active:before:absolute data-active:before:inset-y-1.5 data-active:before:start-0 data-active:before:w-[3px] data-active:before:rounded-full data-active:before:bg-green-600 dark:data-active:bg-green-500/15 [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-current [&>svg]:transition-colors [&>svg]:duration-[170ms] hover:[&>svg]:text-primary",
+        // Sub-items: caption/normal weight vs parent's 14px/medium —
+        // hover changes background/text/icon color only, never font-weight.
+        "relative flex min-h-8 min-w-0 -translate-x-px rtl:translate-x-px cursor-pointer items-center gap-2 rounded-md px-2.5 py-1 font-normal text-sidebar-foreground ring-sidebar-ring outline-hidden transition-[background-color,color] duration-[170ms] ease-(--ease-standard) group-data-[collapsible=icon]:hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[size=md]:text-sm data-[size=sm]:text-caption data-active:bg-primary-soft data-active:font-medium data-active:text-foreground data-active:before:absolute data-active:before:inset-y-1 data-active:before:start-0 data-active:before:w-[3px] data-active:before:rounded-full data-active:before:bg-primary dark:data-active:bg-primary-soft [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-current [&>svg]:transition-colors [&>svg]:duration-[170ms] hover:[&>svg]:text-primary",
         className,
       )}
       {...props}

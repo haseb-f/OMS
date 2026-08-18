@@ -21,7 +21,7 @@ import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { FindOrCreateCustomerDto } from './dto/find-or-create-customer.dto';
-import { MasterDataQueryDto } from '../master-data/dto/master-data-query.dto';
+import { FindCustomersQueryDto } from './dto/find-customers-query.dto';
 import { BulkIdsDto } from '../master-data/dto/bulk-ids.dto';
 
 /** Business operations: Create, Update, Archive, Restore, Search, Find-or-Create. */
@@ -56,12 +56,12 @@ export class CustomersController {
 
   /** "Select all matching filters" (Part 8) — bare IDs only, same filter/search as `findAll`. */
   @Get('ids')
-  findAllIds(@Query() query: MasterDataQueryDto) {
+  findAllIds(@Query() query: FindCustomersQueryDto) {
     return this.customersService.findAllIds(query);
   }
 
   @Get()
-  findAll(@Query() query: MasterDataQueryDto) {
+  findAll(@Query() query: FindCustomersQueryDto) {
     return this.customersService.findAll(query);
   }
 

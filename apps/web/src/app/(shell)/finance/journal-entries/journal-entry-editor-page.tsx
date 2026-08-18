@@ -3,14 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, Copy, FileStack, Printer, Save, Send, Trash2, Undo2 } from "lucide-react";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -61,6 +53,7 @@ import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
+import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { useCurrencies } from "@/hooks/use-reference-data";
 import { formatDateTime } from "@/lib/date";
 import { toast } from "@/lib/toast";
@@ -436,24 +429,10 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
 
   const isNewEntry = !id;
 
-  return (
-    <div className="flex flex-col gap-6">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/finance/journal-entries">
-              {t("accounting.journalEntries.title")}
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>
-              {entry?.entryNumber ?? t("accounting.journalEntries.addNew")}
-            </BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
+  useBreadcrumbLabel(entry?.entryNumber ?? t("accounting.journalEntries.addNew"));
 
+  return (
+    <div className="flex flex-col gap-3">
       <RelatedDocuments
         groups={[
           {
@@ -481,7 +460,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
               <div className="flex items-center gap-3">
                 <div>
-                  <h1 className="text-page-title font-semibold">
+                  <h1 className="text-ui-title font-semibold">
                     {t("accounting.journalEntries.editorTitle")}
                   </h1>
                   <p dir="ltr" className="text-caption text-muted-foreground">

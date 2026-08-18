@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { TriangleAlert } from "lucide-react";
+import { Loader2, TriangleAlert } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,6 +46,7 @@ export function ConfirmationDialog({
   destructive,
   tone,
   confirmDisabled,
+  isConfirming,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -62,32 +63,62 @@ export function ConfirmationDialog({
   tone?: ConfirmationTone;
   /** Keeps the confirm action inert until a caller-supplied condition is met (e.g. a required reason field) — every other caller omits this and keeps today's always-enabled behavior. */
   confirmDisabled?: boolean;
+  /** When set, the caller owns close-after-success. The action stays open and shows a spinner. */
+  isConfirming?: boolean;
 }) {
   const { t } = useLocale();
   const resolvedTone: ConfirmationTone = tone ?? (destructive ? "destructive" : "default");
+  const showAlertIcon = resolvedTone === "warning" || resolvedTone === "destructive";
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (isConfirming) return;
+        onOpenChange(next);
+      }}
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle className={cn(resolvedTone === "warning" && "flex items-center gap-2")}>
-            {resolvedTone === "warning" && <TriangleAlert className="size-5 text-warning" />}
+          <AlertDialogTitle className={cn(showAlertIcon && "flex items-center gap-2")}>
+            {showAlertIcon && (
+              <TriangleAlert
+                className={cn(
+                  "size-5",
+                  resolvedTone === "destructive" ? "text-destructive" : "text-warning",
+                )}
+              />
+            )}
             {title}
           </AlertDialogTitle>
           {description && <AlertDialogDescription>{description}</AlertDialogDescription>}
         </AlertDialogHeader>
         {extra}
         <AlertDialogFooter>
-          <AlertDialogCancel>{cancelLabel ?? t("common.cancel")}</AlertDialogCancel>
+          <AlertDialogCancel disabled={isConfirming}>
+            {cancelLabel ?? t("common.cancel")}
+          </AlertDialogCancel>
           <AlertDialogAction
-            onClick={onConfirm}
-            disabled={confirmDisabled}
+            disabled={confirmDisabled || isConfirming}
+            aria-busy={isConfirming || undefined}
             className={actionToneClasses[resolvedTone]}
+            onClick={(event) => {
+              if (isConfirming !== undefined) event.preventDefault();
+              onConfirm();
+            }}
           >
+            {isConfirming && <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />}
             {confirmLabel ?? t("common.confirm")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   );
+}
+
+/** Destructive specialization — delete, cancel order, bulk remove, irreversible status. */
+export function DeleteConfirmationDialog(
+  props: Omit<Parameters<typeof ConfirmationDialog>[0], "tone" | "destructive">,
+) {
+  return <ConfirmationDialog {...props} tone="destructive" />;
 }

@@ -15,6 +15,8 @@ declare module "@tanstack/react-table" {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- required by tanstack's ColumnMeta generic signature
   interface ColumnMeta<TData, TValue> {
     titleKey?: MessageKey;
+    /** Hidden until the user turns the column on via Columns. Still exported. */
+    defaultHidden?: boolean;
   }
 }
 

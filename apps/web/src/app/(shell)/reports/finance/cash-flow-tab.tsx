@@ -81,8 +81,6 @@ export function CashFlowTab() {
 
   return (
     <div className="flex flex-col gap-3">
-      <AccountingReportFilterBar value={filters} onChange={setFilters} />
-
       <p className="text-caption text-muted-foreground">{t("reports.finance.cashFlowHint")}</p>
 
       <div className="flex items-center justify-between rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-caption">
@@ -91,6 +89,7 @@ export function CashFlowTab() {
       </div>
 
       <EnterpriseDataTable
+        filterBar={<AccountingReportFilterBar value={filters} onChange={setFilters} />}
         tableId="reports-finance-cash-flow"
         printTitle={t("reports.finance.cashFlow")}
         columns={columns}

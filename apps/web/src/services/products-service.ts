@@ -1,4 +1,5 @@
 import { apiClient } from "./api-client";
+import { buildQueryString } from "@/lib/query-string";
 
 export type ProductType =
   | "PURCHASE_ONLY"
@@ -111,8 +112,8 @@ export interface ProductListParams {
   categoryId?: string;
   brandId?: string;
   taxId?: string;
-  status?: ProductStatus;
-  type?: ProductType;
+  status?: ProductStatus | ProductStatus[];
+  type?: ProductType | ProductType[];
 }
 
 interface ProductListResult {
@@ -120,16 +121,6 @@ interface ProductListResult {
   total: number;
   page: number;
   pageSize: number;
-}
-
-function buildQueryString(params: Record<string, unknown>): string {
-  const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value === undefined || value === null || value === "") continue;
-    search.set(key, String(value));
-  }
-  const qs = search.toString();
-  return qs ? `?${qs}` : "";
 }
 
 export const productsService = {

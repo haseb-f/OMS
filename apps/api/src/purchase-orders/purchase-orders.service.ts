@@ -27,6 +27,7 @@ import { round2 } from '../sales/shared/sales-totals.util';
 import { PurchaseOrderItemInputDto } from './dto/purchase-order-item-input.dto';
 import type { CompanyContext } from '../common/decorators/current-company-context.decorator';
 import { assertActiveProduct } from '../products/assert-active-product.util';
+import { prismaEnumFilter } from '../common/query/enum-list';
 
 const QUOTATION_ACTIVITY_TYPE = {
   QUOTATION_CONVERTED_TO_ORDER: 'QUOTATION_CONVERTED_TO_ORDER',
@@ -280,9 +281,9 @@ export class PurchaseOrdersService {
   async findAll(query: FindPurchaseOrdersQueryDto) {
     const where: Prisma.PurchaseOrderWhereInput = {
       deletedAt: null,
-      supplierId: query.supplierId,
-      status: query.status,
-      purchaseType: query.purchaseType,
+      supplierId: prismaEnumFilter(query.supplierId),
+      status: prismaEnumFilter(query.status),
+      purchaseType: prismaEnumFilter(query.purchaseType),
     };
 
     if (query.search) {

@@ -15,6 +15,7 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { FindProductsQueryDto } from './dto/find-products-query.dto';
 import { CreateProductAttachmentDto } from './dto/create-product-attachment.dto';
+import { prismaEnumFilter } from '../common/query/enum-list';
 
 /**
  * Product Business Behavior defaults (TASK-028) — each behavior has
@@ -157,11 +158,11 @@ export class ProductsService {
   async findAll(query: FindProductsQueryDto) {
     const where: Prisma.ProductWhereInput = {
       deletedAt: query.includeArchived ? undefined : null,
-      categoryId: query.categoryId,
-      brandId: query.brandId,
+      categoryId: prismaEnumFilter(query.categoryId),
+      brandId: prismaEnumFilter(query.brandId),
       taxId: query.taxId,
-      status: query.status,
-      type: query.type,
+      status: prismaEnumFilter(query.status),
+      type: prismaEnumFilter(query.type),
     };
 
     if (query.search) {

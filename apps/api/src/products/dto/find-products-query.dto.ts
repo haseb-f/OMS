@@ -11,6 +11,10 @@ import {
 } from 'class-validator';
 import { ProductStatus, ProductType } from '@prisma/client';
 import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
+import {
+  TransformEnumList,
+  IsOptionalUuidList,
+} from '../../common/query/enum-list';
 
 /**
  * Filtering by Category/Brand/Tax/Status/Type; search across SKU/Name/
@@ -21,22 +25,24 @@ import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorat
  * Table).
  */
 export class FindProductsQueryDto {
-  @IsOptionalUuid()
-  categoryId?: string;
+  @IsOptionalUuidList()
+  categoryId?: string[];
 
-  @IsOptionalUuid()
-  brandId?: string;
+  @IsOptionalUuidList()
+  brandId?: string[];
 
   @IsOptionalUuid()
   taxId?: string;
 
-  @IsEnum(ProductStatus)
+  @TransformEnumList()
+  @IsEnum(ProductStatus, { each: true })
   @IsOptional()
-  status?: ProductStatus;
+  status?: ProductStatus[];
 
-  @IsEnum(ProductType)
+  @TransformEnumList()
+  @IsEnum(ProductType, { each: true })
   @IsOptional()
-  type?: ProductType;
+  type?: ProductType[];
 
   @IsString()
   @IsOptional()

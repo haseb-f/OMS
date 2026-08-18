@@ -13,8 +13,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EmptyState } from "@/components/shared/empty-state";
+import { StatusBadge } from "@/components/business/status-badge";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { LoadingOverlay } from "@/components/shared/loading-overlay";
@@ -223,11 +224,7 @@ export default function WarehouseLocationsPage() {
           <code dir="ltr" className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
             {node.code}
           </code>
-          {isArchived && (
-            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-              {t("common.archived")}
-            </span>
-          )}
+          {isArchived && <StatusBadge label={t("common.archived")} tone="neutral" />}
           <div className="ms-auto flex items-center gap-1">
             {!isArchived && (
               <>
@@ -275,32 +272,30 @@ export default function WarehouseLocationsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t("masterData.warehouseLocations.title")}
-        subtitle={t("masterData.warehouseLocations.description")}
-        actions={
-          <EnterpriseButton type="button" onClick={() => openCreate(null)} disabled={!warehouseId}>
-            <Plus />
-            {t("masterData.warehouseLocations.addLocation")}
-          </EnterpriseButton>
-        }
-        filters={
-          <Select value={warehouseId} onValueChange={setWarehouseId}>
-            <SelectTrigger className="w-64">
-              <SelectValue placeholder={t("masterData.fields.warehouse")} />
-            </SelectTrigger>
-            <SelectContent>
-              {warehouses.map((warehouse) => (
-                <SelectItem key={warehouse.id} value={warehouse.id}>
-                  {warehouse.code} — {warehouse.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        }
-      />
-
+    <PageWorkspace
+      title={t("masterData.warehouseLocations.title")}
+      description={t("masterData.warehouseLocations.description")}
+      actions={
+        <EnterpriseButton type="button" onClick={() => openCreate(null)} disabled={!warehouseId}>
+          <Plus />
+          {t("masterData.warehouseLocations.addLocation")}
+        </EnterpriseButton>
+      }
+      filters={
+        <Select value={warehouseId} onValueChange={setWarehouseId}>
+          <SelectTrigger className="w-64">
+            <SelectValue placeholder={t("masterData.fields.warehouse")} />
+          </SelectTrigger>
+          <SelectContent>
+            {warehouses.map((warehouse) => (
+              <SelectItem key={warehouse.id} value={warehouse.id}>
+                {warehouse.code} — {warehouse.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      }
+    >
       <div className="relative rounded-xl border shadow-sm">
         {isMutating && <LoadingOverlay />}
         <div className="min-h-40 p-2">
@@ -402,6 +397,6 @@ export default function WarehouseLocationsPage() {
         onConfirm={confirmRestore}
         confirmLabel={t("common.restore")}
       />
-    </div>
+    </PageWorkspace>
   );
 }

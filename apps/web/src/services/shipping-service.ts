@@ -1,4 +1,5 @@
 import { apiClient } from "./api-client";
+import { buildQueryString } from "@/lib/query-string";
 import type { ShipmentStatusValue, StoreOrderSourceValue } from "./store-orders-service";
 
 export type { ShipmentStatusValue };
@@ -30,11 +31,11 @@ export interface ShipmentListRow {
 }
 
 export interface ShipmentListParams {
-  status?: ShipmentStatusValue;
-  shippingCompanyId?: string;
-  countryId?: string;
+  status?: ShipmentStatusValue | ShipmentStatusValue[];
+  shippingCompanyId?: string | string[];
+  countryId?: string | string[];
   /** The shipment's own Store Order's `source` (Manual vs Import) — same field/values as the Store Orders list filter. */
-  source?: StoreOrderSourceValue;
+  source?: StoreOrderSourceValue | StoreOrderSourceValue[];
   dateFrom?: string;
   dateTo?: string;
   search?: string;
@@ -59,16 +60,6 @@ export interface ShipmentIdsResult {
 export interface BulkShipmentUpdateResult {
   succeeded: string[];
   failed: { id: string; message: string }[];
-}
-
-function buildQueryString(params: Record<string, unknown>): string {
-  const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value === undefined || value === null || value === "") continue;
-    search.set(key, String(value));
-  }
-  const qs = search.toString();
-  return qs ? `?${qs}` : "";
 }
 
 /**

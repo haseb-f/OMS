@@ -74,7 +74,7 @@ export function EnterpriseDatePicker({
   };
 
   return (
-    <div className={cn("flex w-(--width-control-date) flex-col gap-1.5", className)}>
+    <div className={cn("flex flex-col gap-1.5", className ?? "w-(--width-control-date)")}>
       {/*
         `dir="ltr"` here (not just on the `Input`) is the actual fix: the
         displayed value is always fixed-format "DD-MMM-YYYY" (never

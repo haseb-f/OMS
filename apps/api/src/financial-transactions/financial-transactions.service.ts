@@ -27,6 +27,7 @@ import {
 } from './shared/invoice-payment.util';
 import type { AllocationInputDto } from './shared/allocation-input.dto';
 import type { FindFinancialTransactionsQueryDto } from './shared/find-financial-transactions-query.dto';
+import { prismaEnumFilter } from '../common/query/enum-list';
 
 const NUMBERING_DOCUMENT_TYPE: Record<FinancialTransactionType, string> = {
   CUSTOMER_RECEIPT: 'CUSTOMER_RECEIPT',
@@ -179,16 +180,16 @@ export class FinancialTransactionsService {
   async findAll(
     type: FinancialTransactionType,
     query: FindFinancialTransactionsQueryDto & {
-      customerId?: string;
-      supplierId?: string;
+      customerId?: string | string[];
+      supplierId?: string | string[];
     },
   ) {
     const where: Prisma.FinancialTransactionWhereInput = {
       type,
       deletedAt: null,
-      status: query.status,
-      customerId: query.customerId,
-      supplierId: query.supplierId,
+      status: prismaEnumFilter(query.status),
+      customerId: prismaEnumFilter(query.customerId),
+      supplierId: prismaEnumFilter(query.supplierId),
     };
     if (query.search) {
       where.OR = [

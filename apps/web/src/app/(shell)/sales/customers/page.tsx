@@ -6,14 +6,7 @@ import { UserCircle, Eye } from "lucide-react";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
 import type { MasterDataFormSection } from "@/components/master-data/master-data-form";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
-import type { RowAction } from "@/components/shared/data-table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { MultiSelectFilter, type RowAction } from "@/components/shared/data-table";
 import {
   customersService,
   type CustomerRow,
@@ -53,7 +46,7 @@ function CustomersPageContent() {
   const countries = useCountries();
   const [paymentTerms, setPaymentTerms] = useState<PaymentTermRow[]>([]);
   const [customerGroups, setCustomerGroups] = useState<CustomerGroupRow[]>([]);
-  const [sourceFilter, setSourceFilter] = useState<string>("");
+  const [sourceFilter, setSourceFilter] = useState<string[]>([]);
 
   useEffect(() => {
     paymentTermsService
@@ -169,24 +162,17 @@ function CustomersPageContent() {
       rowLabel={customerRowLabel}
       supportsSelectAllMatching
       extraActions={<ModuleImportButtons importType="CUSTOMERS" />}
-      extraListParams={sourceFilter ? { source: sourceFilter } : undefined}
+      extraListParams={sourceFilter.length ? { source: sourceFilter } : undefined}
       extraFilters={
-        <Select
-          value={sourceFilter || "__all__"}
-          onValueChange={(v) => setSourceFilter(v === "__all__" ? "" : v)}
-        >
-          <SelectTrigger size="sm" className="w-40">
-            <SelectValue placeholder={t("sales.customers.filters.source")} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all__">{t("sales.customers.filters.allSources")}</SelectItem>
-            {SOURCE_VALUES.map((source) => (
-              <SelectItem key={source} value={source}>
-                {t(`sales.customers.source.${source}`)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <MultiSelectFilter
+          label={t("sales.customers.filters.source")}
+          values={sourceFilter}
+          onChange={setSourceFilter}
+          options={SOURCE_VALUES.map((source) => ({
+            value: source,
+            label: t(`sales.customers.source.${source}`),
+          }))}
+        />
       }
       extraRowActions={(entity): RowAction[] => [
         {

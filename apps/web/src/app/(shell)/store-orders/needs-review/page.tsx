@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
 import { Check, ListChecks, X } from "lucide-react";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
@@ -327,50 +327,49 @@ function NeedsReviewContent() {
   );
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t("nav.storeOrdersNeedsReview")}
-        subtitle={t("storeOrders.needsReview.description")}
-        filters={
-          jobs.length > 0 ? (
-            <>
-              <Select value={selectedJobId} onValueChange={setSelectedJobId}>
-                <SelectTrigger size="sm" className="w-72">
-                  <SelectValue placeholder={t("storeOrders.needsReview.selectJob")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {jobs.map((job) => (
-                    <SelectItem key={job.id} value={job.id}>
-                      <span dir="ltr">{job.fileName || job.id}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                value={viewStatus}
-                onValueChange={(v) => setViewStatus(v as "NEEDS_REVIEW" | "REJECTED")}
-              >
-                <SelectTrigger size="sm" className="w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="NEEDS_REVIEW">
-                    {t("storeOrders.needsReview.viewNeedsReview")}
-                  </SelectItem>
-                  <SelectItem value="REJECTED">
-                    {t("storeOrders.needsReview.viewRejected")}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </>
-          ) : undefined
-        }
-      />
-
+    <PageWorkspace
+      title={t("nav.storeOrdersNeedsReview")}
+      description={t("storeOrders.needsReview.description")}
+    >
       {jobs.length === 0 ? (
         <EmptyState icon={ListChecks} title={t("storeOrders.needsReview.noJobs")} />
       ) : (
         <EnterpriseDataTable
+          filterBar={
+            jobs.length > 0 ? (
+              <>
+                <Select value={selectedJobId} onValueChange={setSelectedJobId}>
+                  <SelectTrigger size="sm" className="w-72">
+                    <SelectValue placeholder={t("storeOrders.needsReview.selectJob")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {jobs.map((job) => (
+                      <SelectItem key={job.id} value={job.id}>
+                        <span dir="ltr">{job.fileName || job.id}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={viewStatus}
+                  onValueChange={(v) => setViewStatus(v as "NEEDS_REVIEW" | "REJECTED")}
+                >
+                  <SelectTrigger size="sm" className="w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NEEDS_REVIEW">
+                      {t("storeOrders.needsReview.viewNeedsReview")}
+                    </SelectItem>
+                    <SelectItem value="REJECTED">
+                      {t("storeOrders.needsReview.viewRejected")}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </>
+            ) : undefined
+          }
+
           tableId="store-orders-needs-review"
           printTitle={t("nav.storeOrdersNeedsReview")}
           columns={columns}
@@ -457,7 +456,7 @@ function NeedsReviewContent() {
         onConfirm={handleBulkRejectConfirmed}
         confirmDisabled={!reasonIsValid}
       />
-    </div>
+    </PageWorkspace>
   );
 }
 

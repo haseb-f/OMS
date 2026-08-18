@@ -10,12 +10,14 @@ import {
   Min,
 } from 'class-validator';
 import { FinancialTransactionStatus } from '@prisma/client';
+import { TransformEnumList } from '../../common/query/enum-list';
 
 /** Shared search/pagination shape for both Customer Receipts and Supplier Payments — mirrors FindPurchaseQuotationsQueryDto. */
 export class FindFinancialTransactionsQueryDto {
-  @IsEnum(FinancialTransactionStatus)
+  @TransformEnumList()
+  @IsEnum(FinancialTransactionStatus, { each: true })
   @IsOptional()
-  status?: FinancialTransactionStatus;
+  status?: FinancialTransactionStatus[];
 
   /** Matches Transaction Number or Reference Number (case-insensitive, partial). */
   @IsString()

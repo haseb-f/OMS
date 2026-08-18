@@ -1,7 +1,7 @@
 "use client";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import { useLocale } from "@/providers/locale-provider";
 import { GeneralLedgerTab } from "./general-ledger-tab";
 import { TrialBalanceTab } from "./trial-balance-tab";
@@ -24,9 +24,7 @@ function ReportsFinancePageContent() {
   const { t } = useLocale();
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader title={t("nav.reportsFinance")} subtitle={t("reports.finance.description")} />
-
+    <PageWorkspace title={t("nav.reportsFinance")} description={t("reports.finance.description")}>
       <Tabs defaultValue="generalLedger">
         <TabsList variant="line" className="flex-wrap">
           <TabsTrigger value="generalLedger">{t("reports.finance.generalLedger")}</TabsTrigger>
@@ -62,7 +60,7 @@ function ReportsFinancePageContent() {
           <CashFlowTab />
         </TabsContent>
       </Tabs>
-    </div>
+    </PageWorkspace>
   );
 }
 

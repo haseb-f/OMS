@@ -25,6 +25,7 @@ import { UpdatePurchaseReturnDto } from './dto/update-purchase-return.dto';
 import { FindPurchaseReturnsQueryDto } from './dto/find-purchase-returns-query.dto';
 import type { PurchaseLineItemInputDto } from '../shared/purchase-line-item-input.dto';
 import { assertActiveProduct } from '../../products/assert-active-product.util';
+import { prismaEnumFilter } from '../../common/query/enum-list';
 
 const REFERENCE_TYPE = 'PURCHASE_RETURN';
 
@@ -130,8 +131,8 @@ export class PurchaseReturnsService {
   async findAll(query: FindPurchaseReturnsQueryDto) {
     const where: Prisma.PurchaseReturnWhereInput = {
       deletedAt: null,
-      supplierId: query.supplierId,
-      status: query.status,
+      supplierId: prismaEnumFilter(query.supplierId),
+      status: prismaEnumFilter(query.status),
     };
     if (query.search) {
       where.OR = [
@@ -148,7 +149,15 @@ export class PurchaseReturnsService {
     const [items, total] = await Promise.all([
       this.prisma.purchaseReturn.findMany({
         where,
-        include: { items: true, supplier: true, currency: true },
+        include: {
+          items: {
+            include: {
+              product: { select: { id: true, name: true, sku: true } },
+            },
+          },
+          supplier: true,
+          currency: true,
+        },
         orderBy: { [query.sortBy || 'createdAt']: query.sortOrder ?? 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,

@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
-import { Ban, Eye, Pencil, Plus, Printer, Archive, X } from "lucide-react";
-import { PageHeader } from "@/components/shared/page-header";
+import { Ban, Eye, Pencil, Plus, Printer, Archive } from "lucide-react";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
@@ -12,31 +12,27 @@ import {
   EnterpriseDateRangePicker,
   type DateRangeValue,
 } from "@/components/shared/date-range-picker";
-import { SupplierPicker } from "@/components/business/supplier-picker";
 import { StatusBadge } from "@/components/business/status-badge";
+import { MoneyValue } from "@/components/shared/money-value";
+import { SemanticValue } from "@/components/shared/semantic-value";
+import { StackedCell } from "@/components/shared/stacked-cell";
 import {
   SalesDocumentRowActionsMenu,
   SalesListBulkActions,
   type SalesDocumentRowAction,
 } from "@/components/sales";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   EnterpriseDataTable,
   exportColumnsFromKeys,
   exportRowsToCsv,
 } from "@/components/master-data/enterprise-data-table";
+import { MultiSelectFilter, MultiEntityFilter } from "@/components/shared/data-table";
 import {
   supplierPaymentsService,
   type FinancialTransactionRow,
 } from "@/services/supplier-payments-service";
 import type { FinancialTransactionStatusValue } from "@/services/financial-transactions-service";
-import type { SupplierRow } from "@/services/suppliers-service";
+import { suppliersService, type SupplierRow } from "@/services/suppliers-service";
 import { useUsersLookup } from "@/hooks/use-reference-data";
 import {
   TRANSACTION_ARCHIVABLE_STATUSES,
@@ -57,17 +53,6 @@ import { PermissionGate } from "@/components/shared/permission-gate";
 
 const EMPTY_DATE_RANGE: DateRangeValue = { from: null, to: null };
 
-function MoneyCell({ value }: { value: string }) {
-  return (
-    <span dir="ltr">
-      {Number(value).toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}
-    </span>
-  );
-}
-
 /** Mirrors `sales/payments/page.tsx` exactly. */
 function SupplierPaymentsPageContent() {
   const { t } = useLocale();
@@ -83,8 +68,8 @@ function SupplierPaymentsPageContent() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [statusFilter, setStatusFilter] = useState<string>("");
-  const [supplierFilter, setSupplierFilter] = useState<SupplierRow | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [supplierFilter, setSupplierFilter] = useState<SupplierRow[]>([]);
   const [dateRange, setDateRange] = useState<DateRangeValue>(EMPTY_DATE_RANGE);
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -98,8 +83,8 @@ function SupplierPaymentsPageContent() {
     try {
       const result = await supplierPaymentsService.list({
         search: search || undefined,
-        status: (statusFilter || undefined) as FinancialTransactionStatusValue | undefined,
-        supplierId: supplierFilter?.id,
+        status: statusFilter as FinancialTransactionStatusValue[],
+        supplierId: supplierFilter.map((supplier) => supplier.id),
         dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
         dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
         page,
@@ -184,49 +169,64 @@ function SupplierPaymentsPageContent() {
         id: "transactionNumber",
         meta: { titleKey: "purchasing.payments.fields.number" },
         accessorFn: (row) => row.transactionNumber,
-        cell: (info) => (
-          <code dir="ltr" className="rounded bg-muted px-1.5 py-0.5 text-xs">
-            {info.getValue() as string}
-          </code>
+        cell: ({ row }) => (
+          <StackedCell
+            primary={<SemanticValue kind="id">{row.original.transactionNumber}</SemanticValue>}
+            secondary={formatDate(row.original.createdAt)}
+          />
         ),
       },
       {
         id: "supplier",
         meta: { titleKey: "purchasing.payments.fields.supplier" },
         accessorFn: (row) => row.supplier?.name ?? "—",
-        cell: (info) => <span className="font-medium">{info.getValue() as string}</span>,
+        cell: ({ row }) => (
+          <StackedCell
+            primary={row.original.supplier?.name ?? "—"}
+            secondary={
+              row.original.referenceNumber ? (
+                <SemanticValue kind="id">{row.original.referenceNumber}</SemanticValue>
+              ) : undefined
+            }
+          />
+        ),
       },
       {
         id: "referenceNumber",
-        meta: { titleKey: "purchasing.payments.fields.reference" },
+        meta: { titleKey: "purchasing.payments.fields.reference", defaultHidden: true },
         accessorFn: (row) => row.referenceNumber ?? "—",
         enableSorting: false,
-      },
-      {
-        id: "amount",
-        meta: { titleKey: "purchasing.payments.fields.amount" },
-        accessorFn: (row) => row.amount,
-        cell: (info) => <MoneyCell value={info.getValue() as string} />,
       },
       {
         id: "status",
         meta: { titleKey: "purchasing.suppliers.fields.status" },
         enableSorting: false,
         cell: ({ row }) => (
-          <StatusBadge
-            label={t(TRANSACTION_STATUS_LABEL_KEY[row.original.status])}
-            tone={TRANSACTION_STATUS_TONE[row.original.status]}
+          <StackedCell
+            primary={
+              <StatusBadge
+                label={t(TRANSACTION_STATUS_LABEL_KEY[row.original.status])}
+                tone={TRANSACTION_STATUS_TONE[row.original.status]}
+              />
+            }
+            secondary={<MoneyValue value={row.original.amount} />}
           />
         ),
       },
       {
+        id: "amount",
+        meta: { titleKey: "purchasing.payments.fields.amount", defaultHidden: true },
+        accessorFn: (row) => row.amount,
+        cell: (info) => <MoneyValue value={info.getValue() as string} />,
+      },
+      {
         id: "createdAt",
-        meta: { titleKey: "purchasing.payments.fields.date" },
+        meta: { titleKey: "purchasing.payments.fields.date", defaultHidden: true },
         accessorFn: (row) => formatDate(row.createdAt),
       },
       {
         id: "createdBy",
-        meta: { titleKey: "purchasing.payments.fields.createdBy" },
+        meta: { titleKey: "purchasing.payments.fields.createdBy", defaultHidden: true },
         enableSorting: false,
         accessorFn: (row) => (row.createdBy ? (usersById[row.createdBy] ?? "—") : "—"),
       },
@@ -345,70 +345,55 @@ function SupplierPaymentsPageContent() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t("purchasing.payments.title")}
-        subtitle={t("purchasing.payments.description")}
-        actions={
+    <PageWorkspace
+      title={t("purchasing.payments.title")}
+      description={t("purchasing.payments.description")}
+      actions={
+        <>
+          <ModuleImportButtons importType="SUPPLIER_PAYMENTS" onImported={load} />
+          {canCreate && (
+            <EnterpriseButton type="button" onClick={() => router.push("/purchasing/payments/new")}>
+              <Plus />
+              {t("purchasing.payments.addNew")}
+            </EnterpriseButton>
+          )}
+        </>
+      }
+    >
+      <EnterpriseDataTable
+        filterBar={
           <>
-            <ModuleImportButtons importType="SUPPLIER_PAYMENTS" onImported={load} />
-            {canCreate && (
-              <EnterpriseButton
-                type="button"
-                onClick={() => router.push("/purchasing/payments/new")}
-              >
-                <Plus />
-                {t("purchasing.payments.addNew")}
-              </EnterpriseButton>
-            )}
-          </>
-        }
-        filters={
-          <>
-            <Select
-              value={statusFilter || "__all__"}
-              onValueChange={(v) => {
-                setStatusFilter(v === "__all__" ? "" : v);
+            <MultiSelectFilter
+              label={t("purchasing.payments.filters.status")}
+              values={statusFilter}
+              onChange={(values) => {
+                setStatusFilter(values);
                 setPage(1);
               }}
-            >
-              <SelectTrigger size="sm" className="w-40">
-                <SelectValue placeholder={t("purchasing.payments.filters.status")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">
-                  {t("purchasing.payments.filters.allStatuses")}
-                </SelectItem>
-                {TRANSACTION_FILTERABLE_STATUSES.map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {t(TRANSACTION_STATUS_LABEL_KEY[status])}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex items-center gap-1">
-              <SupplierPicker
-                value={supplierFilter}
-                onChange={(supplier) => {
-                  setSupplierFilter(supplier);
-                  setPage(1);
-                }}
-              />
-              {supplierFilter && (
-                <EnterpriseButton
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={t("purchasing.payments.filters.allSuppliers")}
-                  onClick={() => {
-                    setSupplierFilter(null);
-                    setPage(1);
-                  }}
-                >
-                  <X className="size-3.5" />
-                </EnterpriseButton>
-              )}
-            </div>
+              options={TRANSACTION_FILTERABLE_STATUSES.map((status) => ({
+                value: status,
+                label: t(TRANSACTION_STATUS_LABEL_KEY[status]),
+              }))}
+            />
+            <MultiEntityFilter
+              label={t("purchasing.payments.fields.supplier")}
+              values={supplierFilter}
+              onChange={(suppliers) => {
+                setSupplierFilter(suppliers);
+                setPage(1);
+              }}
+              onSearch={async (search) => {
+                const result = await suppliersService.list({
+                  search: search || undefined,
+                  pageSize: 20,
+                });
+                return result.items;
+              }}
+              getId={(supplier) => supplier.id}
+              getTitle={(supplier) => supplier.name}
+              getSubtitle={(supplier) => supplier.phone || supplier.email || undefined}
+              subtitleDir="ltr"
+            />
             <EnterpriseDateRangePicker
               value={dateRange}
               onChange={(range) => {
@@ -416,11 +401,27 @@ function SupplierPaymentsPageContent() {
                 setPage(1);
               }}
             />
+            {(statusFilter.length > 0 ||
+              supplierFilter.length > 0 ||
+              dateRange.from ||
+              dateRange.to) && (
+              <EnterpriseButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setStatusFilter([]);
+                  setSupplierFilter([]);
+                  setDateRange(EMPTY_DATE_RANGE);
+                  setPage(1);
+                }}
+              >
+                {t("table.clearFilters")}
+              </EnterpriseButton>
+            )}
           </>
         }
-      />
 
-      <EnterpriseDataTable
         tableId="purchasing-payments"
         printTitle={t("purchasing.payments.title")}
         columns={columns}
@@ -507,7 +508,7 @@ function SupplierPaymentsPageContent() {
         cancelLabel={t("common.close")}
         onConfirm={handleBulkArchiveConfirmed}
       />
-    </div>
+    </PageWorkspace>
   );
 }
 

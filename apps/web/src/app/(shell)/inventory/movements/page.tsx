@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
-import { ChevronDown, Plus, X } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,14 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import {
   EnterpriseDateRangePicker,
   type DateRangeValue,
@@ -27,11 +20,17 @@ import {
   exportColumnsFromKeys,
   exportRowsToCsv,
 } from "@/components/master-data/enterprise-data-table";
-import { getColumnDisplayValue } from "@/components/shared/data-table";
+import {
+  getColumnDisplayValue,
+  MultiEntityFilter,
+  MultiSelectFilter,
+} from "@/components/shared/data-table";
+import { SemanticValue } from "@/components/shared/semantic-value";
+import { StackedCell } from "@/components/shared/stacked-cell";
 import { StatusBadge } from "@/components/business/status-badge";
 import { SalesListBulkActions } from "@/components/sales";
-import { ProductPicker } from "@/components/business/product-picker";
-import { WarehousePicker } from "@/components/business/warehouse-picker";
+import { productsService } from "@/services/products-service";
+import { createMasterDataService } from "@/services/master-data-service";
 import { OpeningInventoryDialog } from "./opening-inventory-dialog";
 import { AdjustmentDialog } from "./adjustment-dialog";
 import { TransferDialog } from "./transfer-dialog";
@@ -51,6 +50,7 @@ import { PermissionGate } from "@/components/shared/permission-gate";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 
 const EMPTY_DATE_RANGE: DateRangeValue = { from: null, to: null };
+const warehousesService = createMasterDataService<WarehouseRow>("/warehouses");
 
 const POSITIVE_TYPES = new Set([
   "OPENING_BALANCE",
@@ -93,17 +93,17 @@ function InventoryMovementsPageContent() {
   const [transferOpen, setTransferOpen] = useState(false);
   const [dateRange, setDateRange] = useState<DateRangeValue>(EMPTY_DATE_RANGE);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
-  const [productFilter, setProductFilter] = useState<ProductRow | null>(null);
-  const [warehouseFilter, setWarehouseFilter] = useState<WarehouseRow | null>(null);
-  const [typeFilter, setTypeFilter] = useState<string>("");
+  const [productFilter, setProductFilter] = useState<ProductRow[]>([]);
+  const [warehouseFilter, setWarehouseFilter] = useState<WarehouseRow[]>([]);
+  const [typeFilter, setTypeFilter] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
       const items = await inventoryService.getMovements({
-        productId: productFilter?.id,
-        warehouseId: warehouseFilter?.id,
-        type: typeFilter || undefined,
+        productId: productFilter.map((product) => product.id),
+        warehouseId: warehouseFilter.map((warehouse) => warehouse.id),
+        type: typeFilter,
       });
       setRows(items);
     } catch (error) {
@@ -125,10 +125,11 @@ function InventoryMovementsPageContent() {
         header: t("inventory.fields.movementNumber"),
         meta: { titleKey: "inventory.fields.movementNumber" },
         accessorFn: (row) => row.movementNumber,
-        cell: (info) => (
-          <code dir="ltr" className="rounded bg-muted px-1.5 py-0.5 text-xs">
-            {info.getValue() as string}
-          </code>
+        cell: ({ row }) => (
+          <StackedCell
+            primary={<SemanticValue kind="id">{row.original.movementNumber}</SemanticValue>}
+            secondary={formatDateTime(row.original.createdAt)}
+          />
         ),
       },
       {
@@ -151,12 +152,25 @@ function InventoryMovementsPageContent() {
         header: t("inventory.fields.product"),
         meta: { titleKey: "inventory.fields.product" },
         accessorFn: (row) => row.product?.displayName || row.product?.name || row.productId,
-        cell: (info) => info.getValue() as string,
+        cell: ({ row }) => (
+          <StackedCell
+            primary={
+              row.original.product?.displayName ||
+              row.original.product?.name ||
+              row.original.productId
+            }
+            secondary={
+              row.original.warehouse
+                ? `${row.original.warehouse.code} — ${row.original.warehouse.name}`
+                : undefined
+            }
+          />
+        ),
       },
       {
         id: "warehouse",
         header: t("masterData.fields.warehouse"),
-        meta: { titleKey: "masterData.fields.warehouse" },
+        meta: { titleKey: "masterData.fields.warehouse", defaultHidden: true },
         accessorFn: (row) =>
           row.warehouse ? `${row.warehouse.code} — ${row.warehouse.name}` : row.warehouseId,
         cell: (info) => info.getValue() as string,
@@ -194,14 +208,14 @@ function InventoryMovementsPageContent() {
       {
         id: "quantityBefore",
         header: t("products.stockMovements.before"),
-        meta: { titleKey: "products.stockMovements.before" },
+        meta: { titleKey: "products.stockMovements.before", defaultHidden: true },
         accessorFn: (row) => row.quantityBefore,
         cell: (info) => info.getValue() as number,
       },
       {
         id: "quantityAfter",
         header: t("inventory.fields.balanceAfter"),
-        meta: { titleKey: "inventory.fields.balanceAfter" },
+        meta: { titleKey: "inventory.fields.balanceAfter", defaultHidden: true },
         accessorFn: (row) => row.quantityAfter,
         cell: (info) => info.getValue() as number,
       },
@@ -222,7 +236,7 @@ function InventoryMovementsPageContent() {
       {
         id: "runningCost",
         header: t("inventory.fields.runningCost"),
-        meta: { titleKey: "inventory.fields.runningCost" },
+        meta: { titleKey: "inventory.fields.runningCost", defaultHidden: true },
         accessorFn: (row) => (row.unitCost != null ? row.unitCost * row.quantityAfter : ""),
         cell: (info) => {
           const row = info.row.original;
@@ -236,21 +250,21 @@ function InventoryMovementsPageContent() {
       {
         id: "costCenter",
         header: t("products.fields.costCenter"),
-        meta: { titleKey: "products.fields.costCenter" },
+        meta: { titleKey: "products.fields.costCenter", defaultHidden: true },
         accessorFn: (row) => row.product?.analyticAccount?.name ?? "",
         cell: (info) => (info.getValue() as string) || "—",
       },
       {
         id: "createdByUser",
         header: t("products.fields.createdBy"),
-        meta: { titleKey: "products.fields.createdBy" },
+        meta: { titleKey: "products.fields.createdBy", defaultHidden: true },
         accessorFn: (row) => row.createdByUser?.fullName ?? "",
         cell: (info) => (info.getValue() as string) || "—",
       },
       {
         id: "createdAt",
         header: t("inventory.fields.date"),
-        meta: { titleKey: "inventory.fields.date" },
+        meta: { titleKey: "inventory.fields.date", defaultHidden: true },
         accessorFn: (row) => formatDateTime(row.createdAt),
         cell: (info) => info.getValue() as string,
       },
@@ -303,90 +317,106 @@ function InventoryMovementsPageContent() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t("nav.inventoryMovements")}
-        subtitle={t("inventory.movements.description")}
-        actions={
+    <PageWorkspace
+      title={t("nav.inventoryMovements")}
+      description={t("inventory.movements.description")}
+      actions={
+        <>
+          <ModuleImportButtons importType="OPENING_STOCK" onImported={load} />
+          <ModuleImportButtons importType="INVENTORY_ADJUSTMENTS" onImported={load} />
+          {canCreate && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <EnterpriseButton type="button">
+                  <Plus />
+                  {t("inventory.createMovement.title")}
+                  <ChevronDown className="size-3.5" />
+                </EnterpriseButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => setOpeningOpen(true)}>
+                  {t("inventory.openingInventory.title")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setAdjustmentOpen(true)}>
+                  {t("inventory.adjustment.title")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setTransferOpen(true)}>
+                  {t("inventory.transfer.title")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </>
+      }
+    >
+      <EnterpriseDataTable
+        filterBar={
           <>
-            <ModuleImportButtons importType="OPENING_STOCK" onImported={load} />
-            <ModuleImportButtons importType="INVENTORY_ADJUSTMENTS" onImported={load} />
-            {canCreate && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <EnterpriseButton type="button">
-                    <Plus />
-                    {t("inventory.createMovement.title")}
-                    <ChevronDown className="size-3.5" />
-                  </EnterpriseButton>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={() => setOpeningOpen(true)}>
-                    {t("inventory.openingInventory.title")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => setAdjustmentOpen(true)}>
-                    {t("inventory.adjustment.title")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => setTransferOpen(true)}>
-                    {t("inventory.transfer.title")}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+            <MultiEntityFilter
+              label={t("inventory.fields.product")}
+              values={productFilter}
+              onChange={setProductFilter}
+              onSearch={async (search) => {
+                const result = await productsService.list({
+                  search: search || undefined,
+                  pageSize: 20,
+                  status: "ACTIVE",
+                });
+                return result.items;
+              }}
+              getId={(product) => product.id}
+              getTitle={(product) => product.name}
+              getSubtitle={(product) => product.sku}
+              subtitleDir="ltr"
+            />
+            <MultiEntityFilter
+              label={t("inventory.fields.warehouse")}
+              values={warehouseFilter}
+              onChange={setWarehouseFilter}
+              onSearch={async (search) => {
+                const result = await warehousesService.list({
+                  search: search || undefined,
+                  pageSize: 20,
+                });
+                return result.items.filter((warehouse) => warehouse.isActive);
+              }}
+              getId={(warehouse) => warehouse.id}
+              getTitle={(warehouse) => warehouse.name}
+              getSubtitle={(warehouse) => warehouse.code}
+              subtitleDir="ltr"
+            />
+            <MultiSelectFilter
+              label={t("inventory.fields.type")}
+              values={typeFilter}
+              onChange={setTypeFilter}
+              options={MOVEMENT_TYPES.map((type) => ({
+                value: type,
+                label: t(`inventory.movementType.${type}` as MessageKey),
+              }))}
+            />
+            <EnterpriseDateRangePicker value={dateRange} onChange={setDateRange} />
+            {(productFilter.length > 0 ||
+              warehouseFilter.length > 0 ||
+              typeFilter.length > 0 ||
+              dateRange.from ||
+              dateRange.to) && (
+              <EnterpriseButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setProductFilter([]);
+                  setWarehouseFilter([]);
+                  setTypeFilter([]);
+                  setDateRange(EMPTY_DATE_RANGE);
+                }}
+              >
+                {t("table.clearFilters")}
+              </EnterpriseButton>
             )}
           </>
         }
-        filters={
-          <>
-            <div className="flex items-center gap-1">
-              <ProductPicker value={productFilter} onChange={setProductFilter} />
-              {productFilter && (
-                <EnterpriseButton
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={t("datePicker.clear")}
-                  onClick={() => setProductFilter(null)}
-                >
-                  <X className="size-3.5" />
-                </EnterpriseButton>
-              )}
-            </div>
-            <div className="flex items-center gap-1">
-              <WarehousePicker value={warehouseFilter} onChange={setWarehouseFilter} />
-              {warehouseFilter && (
-                <EnterpriseButton
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={t("datePicker.clear")}
-                  onClick={() => setWarehouseFilter(null)}
-                >
-                  <X className="size-3.5" />
-                </EnterpriseButton>
-              )}
-            </div>
-            <Select
-              value={typeFilter || "__all__"}
-              onValueChange={(v) => setTypeFilter(v === "__all__" ? "" : v)}
-            >
-              <SelectTrigger size="sm" className="w-44">
-                <SelectValue placeholder={t("inventory.fields.type")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">{t("inventory.filters.allTypes")}</SelectItem>
-                {MOVEMENT_TYPES.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {t(`inventory.movementType.${type}` as MessageKey)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <EnterpriseDateRangePicker value={dateRange} onChange={setDateRange} />
-          </>
-        }
-      />
 
-      <EnterpriseDataTable
         tableId="inventory-movements"
         printTitle={t("nav.inventoryMovements")}
         columns={columns}
@@ -419,7 +449,7 @@ function InventoryMovementsPageContent() {
       <OpeningInventoryDialog open={openingOpen} onOpenChange={setOpeningOpen} onCreated={load} />
       <AdjustmentDialog open={adjustmentOpen} onOpenChange={setAdjustmentOpen} onCreated={load} />
       <TransferDialog open={transferOpen} onOpenChange={setTransferOpen} onCreated={load} />
-    </div>
+    </PageWorkspace>
   );
 }
 

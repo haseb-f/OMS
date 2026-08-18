@@ -16,6 +16,10 @@ const bodyFont = IBM_Plex_Sans_Arabic({
 export const metadata: Metadata = {
   title: { default: siteConfig.fullName, template: `%s — ${siteConfig.name}` },
   description: siteConfig.description,
+  icons: {
+    icon: "/brand/oms-app-icon.png",
+    apple: "/brand/oms-app-icon.png",
+  },
 };
 
 export default function RootLayout({

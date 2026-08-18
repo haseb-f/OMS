@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Plus } from "lucide-react";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
@@ -81,18 +81,16 @@ function UsersPageContent() {
   });
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t("settings.users.title")}
-        subtitle={t("settings.users.description")}
-        actions={
-          <EnterpriseButton type="button" size="sm" className="gap-1.5" onClick={openCreate}>
-            <Plus className="size-3.5" />
-            {t("settings.users.newUser")}
-          </EnterpriseButton>
-        }
-      />
-
+    <PageWorkspace
+      title={t("settings.users.title")}
+      description={t("settings.users.description")}
+      actions={
+        <EnterpriseButton type="button" onClick={openCreate}>
+          <Plus />
+          {t("settings.users.newUser")}
+        </EnterpriseButton>
+      }
+    >
       <EnterpriseDataTable
         tableId="settings-users"
         columns={columns}
@@ -212,6 +210,6 @@ function UsersPageContent() {
           }
         }}
       />
-    </div>
+    </PageWorkspace>
   );
 }

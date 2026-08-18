@@ -5,15 +5,8 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { z } from "zod";
 import { CheckCircle2, KeyRound } from "lucide-react";
-import {
-  EnterpriseCard,
-  EnterpriseCardContent,
-  EnterpriseCardHeader,
-  EnterpriseCardTitle,
-  EnterpriseCardDescription,
-} from "@/components/ui/card";
 import { Form } from "@/components/ui/form";
-import { TextFormField, SubmitButton, useZodForm } from "@/components/shared/form-fields";
+import { PasswordFormField, SubmitButton, useZodForm } from "@/components/shared/form-fields";
 import { EmptyState } from "@/components/shared/empty-state";
 import { EnterpriseButton } from "@/components/ui/button";
 import { authService } from "@/services/auth-service";
@@ -62,79 +55,80 @@ function ResetPasswordForm() {
 
   if (!token) {
     return (
-      <EnterpriseCard>
-        <EnterpriseCardContent>
-          <EmptyState
-            icon={KeyRound}
-            title={t("auth.resetInvalidToken")}
-            description={t("auth.missingToken")}
-            action={
-              <EnterpriseButton asChild size="sm" variant="outline">
-                <Link href="/forgot-password">{t("auth.requestNewLink")}</Link>
-              </EnterpriseButton>
-            }
-          />
-        </EnterpriseCardContent>
-      </EnterpriseCard>
+      <EmptyState
+        icon={KeyRound}
+        title={t("auth.resetInvalidToken")}
+        description={t("auth.missingToken")}
+        action={
+          <EnterpriseButton asChild size="sm" variant="outline">
+            <Link href="/forgot-password">{t("auth.requestNewLink")}</Link>
+          </EnterpriseButton>
+        }
+      />
     );
   }
 
   if (done) {
     return (
-      <EnterpriseCard>
-        <EnterpriseCardContent>
-          <EmptyState
-            icon={CheckCircle2}
-            title={t("auth.resetSuccessTitle")}
-            description={t("auth.resetSuccessDescription")}
-            action={
-              <EnterpriseButton asChild size="sm">
-                <Link href="/login">{t("auth.backToLogin")}</Link>
-              </EnterpriseButton>
-            }
-          />
-        </EnterpriseCardContent>
-      </EnterpriseCard>
+      <EmptyState
+        icon={CheckCircle2}
+        title={t("auth.resetSuccessTitle")}
+        description={t("auth.resetSuccessDescription")}
+        action={
+          <EnterpriseButton asChild size="sm">
+            <Link href="/login">{t("auth.backToLogin")}</Link>
+          </EnterpriseButton>
+        }
+      />
     );
   }
 
+  const isSubmitting = form.formState.isSubmitting;
+
   return (
-    <EnterpriseCard>
-      <EnterpriseCardHeader>
-        <EnterpriseCardTitle>{t("auth.resetTitle")}</EnterpriseCardTitle>
-        <EnterpriseCardDescription>{t("auth.resetSubtitle")}</EnterpriseCardDescription>
-      </EnterpriseCardHeader>
-      <EnterpriseCardContent>
-        <Form {...form}>
-          <form onSubmit={onSubmit} className="flex flex-col gap-4">
-            <TextFormField
-              control={form.control}
-              name="newPassword"
-              label={t("auth.newPassword")}
-              type="password"
-              autoComplete="new-password"
-            />
-            <TextFormField
-              control={form.control}
-              name="confirmPassword"
-              label={t("auth.confirmPassword")}
-              type="password"
-              autoComplete="new-password"
-            />
-            {formError && (
-              <div
-                role="alert"
-                className="rounded-lg border border-destructive/20 bg-destructive/10 px-3.5 py-2.5 text-caption text-destructive"
-              >
-                {formError}
-              </div>
-            )}
-            <SubmitButton isSubmitting={form.formState.isSubmitting} className="w-full">
-              {form.formState.isSubmitting ? t("auth.resetSubmitting") : t("auth.resetSubmit")}
-            </SubmitButton>
-          </form>
-        </Form>
-      </EnterpriseCardContent>
-    </EnterpriseCard>
+    <div>
+      <header className="mb-8">
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">
+          {t("auth.resetTitle")}
+        </h1>
+        <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+          {t("auth.resetSubtitle")}
+        </p>
+      </header>
+      <Form {...form}>
+        <form
+          onSubmit={onSubmit}
+          aria-busy={isSubmitting}
+          className="oms-auth-form flex flex-col gap-4"
+        >
+          <PasswordFormField
+            control={form.control}
+            name="newPassword"
+            label={t("auth.newPassword")}
+            autoComplete="new-password"
+          />
+          <PasswordFormField
+            control={form.control}
+            name="confirmPassword"
+            label={t("auth.confirmPassword")}
+            autoComplete="new-password"
+          />
+          {formError && (
+            <div
+              role="alert"
+              className="rounded-sm border border-destructive/20 bg-destructive/10 px-3 py-2 text-caption text-destructive"
+            >
+              {formError}
+            </div>
+          )}
+          <SubmitButton
+            isSubmitting={isSubmitting}
+            className="w-full from-brand-navy to-brand-navy text-brand-navy-foreground hover:brightness-110 dark:from-brand-navy dark:to-brand-navy"
+          >
+            {isSubmitting ? t("auth.resetSubmitting") : t("auth.resetSubmit")}
+          </SubmitButton>
+        </form>
+      </Form>
+    </div>
   );
 }

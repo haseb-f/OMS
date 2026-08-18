@@ -28,6 +28,7 @@ import { ConvertOrderToInvoiceDto } from './dto/convert-order-to-invoice.dto';
 import type { SalesLineItemInputDto } from '../shared/sales-line-item-input.dto';
 import { SalesInvoicesService } from '../invoices/sales-invoices.service';
 import { assertActiveProduct } from '../../products/assert-active-product.util';
+import { prismaEnumFilter } from '../../common/query/enum-list';
 
 const REFERENCE_TYPE = 'SALES_ORDER_DOC';
 
@@ -180,8 +181,8 @@ export class SalesOrdersService {
   ): Prisma.SalesOrderDocumentWhereInput {
     const where: Prisma.SalesOrderDocumentWhereInput = {
       deletedAt: null,
-      customerId: query.customerId,
-      status: query.status,
+      customerId: prismaEnumFilter(query.customerId),
+      status: prismaEnumFilter(query.status),
     };
     if (query.search) {
       where.OR = [
@@ -202,7 +203,15 @@ export class SalesOrdersService {
     const [items, total] = await Promise.all([
       this.prisma.salesOrderDocument.findMany({
         where,
-        include: { items: true, customer: true, currency: true },
+        include: {
+          items: {
+            include: {
+              product: { select: { id: true, name: true, sku: true } },
+            },
+          },
+          customer: true,
+          currency: true,
+        },
         orderBy: { [query.sortBy || 'createdAt']: query.sortOrder ?? 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,

@@ -1,7 +1,7 @@
 "use client";
 
 import { Archive, Copy, Globe, Printer, ShoppingBag, Truck, UserRound } from "lucide-react";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageWorkspace } from "@/components/shared/page-workspace";
 import {
   EntityHeader,
   StatusBadge,
@@ -24,9 +24,9 @@ export default function BusinessComponentsPage() {
 
   return (
     <div className="flex flex-col gap-10 pb-16">
-      <PageHeader
+      <PageWorkspace
         title={t("businessComponents.title")}
-        subtitle={t("businessComponents.subtitle")}
+        description={t("businessComponents.subtitle")}
       />
 
       <Section title={t("businessComponents.entityHeader")}>

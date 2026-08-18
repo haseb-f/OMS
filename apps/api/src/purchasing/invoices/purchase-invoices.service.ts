@@ -37,6 +37,7 @@ import { UpdatePurchaseInvoiceDto } from './dto/update-purchase-invoice.dto';
 import { FindPurchaseInvoicesQueryDto } from './dto/find-purchase-invoices-query.dto';
 import type { PurchaseLineItemInputDto } from '../shared/purchase-line-item-input.dto';
 import { assertActiveProduct } from '../../products/assert-active-product.util';
+import { prismaEnumFilter } from '../../common/query/enum-list';
 
 const INVOICE_REFERENCE_TYPE = 'PURCHASE_INVOICE';
 
@@ -167,8 +168,8 @@ export class PurchaseInvoicesService {
   async findAll(query: FindPurchaseInvoicesQueryDto) {
     const where: Prisma.PurchaseInvoiceWhereInput = {
       deletedAt: null,
-      supplierId: query.supplierId,
-      status: query.status,
+      supplierId: prismaEnumFilter(query.supplierId),
+      status: prismaEnumFilter(query.status),
     };
     if (query.search) {
       where.OR = [
@@ -185,7 +186,15 @@ export class PurchaseInvoicesService {
     const [items, total] = await Promise.all([
       this.prisma.purchaseInvoice.findMany({
         where,
-        include: { items: true, supplier: true, currency: true },
+        include: {
+          items: {
+            include: {
+              product: { select: { id: true, name: true, sku: true } },
+            },
+          },
+          supplier: true,
+          currency: true,
+        },
         orderBy: { [query.sortBy || 'createdAt']: query.sortOrder ?? 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,

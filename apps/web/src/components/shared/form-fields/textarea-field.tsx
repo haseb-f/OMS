@@ -18,6 +18,8 @@ export function TextareaFormField<
   label,
   description,
   disabled,
+  required,
+  optional,
   ...textareaProps
 }: {
   control: Control<TFieldValues>;
@@ -25,6 +27,8 @@ export function TextareaFormField<
   label: string;
   description?: string;
   disabled?: boolean;
+  required?: boolean;
+  optional?: boolean;
 } & Omit<React.ComponentProps<typeof Textarea>, "name" | "disabled">) {
   return (
     <FormField
@@ -32,7 +36,9 @@ export function TextareaFormField<
       name={name}
       render={({ field }) => (
         <FormItem>
-          <FormLabel>{label}</FormLabel>
+          <FormLabel required={required} optional={optional}>
+            {label}
+          </FormLabel>
           <FormControl>
             <Textarea {...field} {...textareaProps} disabled={disabled} />
           </FormControl>

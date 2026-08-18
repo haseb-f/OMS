@@ -1,4 +1,5 @@
 import { apiClient } from "./api-client";
+import { buildQueryString } from "@/lib/query-string";
 
 export type StoreOrderSourceValue = "MANUAL" | "IMPORT";
 
@@ -16,6 +17,10 @@ export interface StoreOrderCustomerRef {
   id: string;
   name: string;
   phone: string | null;
+  mobile?: string | null;
+  email?: string | null;
+  address?: string | null;
+  city?: string | null;
 }
 
 export interface StoreOrderItemRow {
@@ -105,9 +110,9 @@ export interface StoreOrderRow {
 
 export interface StoreOrderListParams {
   search?: string;
-  paymentStatus?: StoreOrderPaymentStatusValue;
-  shippingStage?: StoreOrderShippingStageValue;
-  source?: StoreOrderSourceValue;
+  paymentStatus?: StoreOrderPaymentStatusValue | StoreOrderPaymentStatusValue[];
+  shippingStage?: StoreOrderShippingStageValue | StoreOrderShippingStageValue[];
+  source?: StoreOrderSourceValue | StoreOrderSourceValue[];
   dateFrom?: string;
   dateTo?: string;
   page?: number;
@@ -128,16 +133,6 @@ export interface StoreOrderIdsResult {
   total: number;
 }
 
-function buildQueryString(params: Record<string, unknown>): string {
-  const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value === undefined || value === null || value === "") continue;
-    search.set(key, String(value));
-  }
-  const qs = search.toString();
-  return qs ? `?${qs}` : "";
-}
-
 /**
  * Store Orders module client — a Store Order is explicitly NOT a Sales
  * Order or a CRM Lead (separate top-level nav, separate backend resource).
@@ -156,7 +151,14 @@ export const storeOrdersService = {
   get: (id: string) => apiClient.get<StoreOrderRow>(`/store-orders/${id}`),
   create: (dto: {
     externalOrderId?: string;
-    customer: { name: string; phone?: string; email?: string };
+    customer: {
+      name: string;
+      phone?: string;
+      email?: string;
+      countryId?: string;
+      city?: string;
+      address?: string;
+    };
     orderDate?: string;
     source?: StoreOrderSourceValue;
     sourceChannel?: string;

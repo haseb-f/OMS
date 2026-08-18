@@ -10,15 +10,19 @@ import {
   Min,
 } from 'class-validator';
 import { PurchaseDocumentStatus } from '@prisma/client';
-import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.decorator';
+import {
+  TransformEnumList,
+  IsOptionalUuidList,
+} from '../../../common/query/enum-list';
 
 export class FindPurchaseQuotationsQueryDto {
-  @IsOptionalUuid()
-  supplierId?: string;
+  @IsOptionalUuidList()
+  supplierId?: string[];
 
-  @IsEnum(PurchaseDocumentStatus)
+  @TransformEnumList()
+  @IsEnum(PurchaseDocumentStatus, { each: true })
   @IsOptional()
-  status?: PurchaseDocumentStatus;
+  status?: PurchaseDocumentStatus[];
 
   /** Matches Quotation Number or Reference Number (case-insensitive, partial). */
   @IsString()

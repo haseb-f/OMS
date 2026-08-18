@@ -1,68 +1,52 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { Eye } from "lucide-react";
-import { StatusBadge } from "@/components/business/status-badge";
-import { EnterpriseButton } from "@/components/ui/button";
-import { formatDate } from "@/lib/date";
-import { useLocale } from "@/providers/locale-provider";
+import { formatDate, formatTime, hasClockTime } from "@/lib/date";
+import { formatMoney, currencyCodeOf } from "@/lib/money";
+import type { ExportColumn } from "@/components/shared/export-dialog";
+import type { MessageKey } from "@/i18n/translate";
 import type { StoreOrderRow } from "@/services/store-orders-service";
+import { PAYMENT_STATUS_LABEL_KEY, SHIPPING_STAGE_LABEL_KEY } from "./status";
+import { Eye } from "lucide-react";
+import { RowActionsMenu } from "@/components/shared/data-table";
+import { useLocale } from "@/providers/locale-provider";
+import { useUserContext } from "@/providers/user-context";
 import {
-  PAYMENT_STATUS_LABEL_KEY,
-  PAYMENT_STATUS_TONE,
-  SHIPPING_STAGE_LABEL_KEY,
-  SHIPPING_STAGE_TONE,
-} from "./status";
-
-function PaymentStatusCell({ status }: { status: StoreOrderRow["paymentStatus"] }) {
-  const { t } = useLocale();
-  return (
-    <StatusBadge label={t(PAYMENT_STATUS_LABEL_KEY[status])} tone={PAYMENT_STATUS_TONE[status]} />
-  );
-}
-
-function ShippingStageCell({ stage }: { stage: StoreOrderRow["shippingStage"] }) {
-  const { t } = useLocale();
-  return (
-    <StatusBadge label={t(SHIPPING_STAGE_LABEL_KEY[stage])} tone={SHIPPING_STAGE_TONE[stage]} />
-  );
-}
-
-function MoneyCell({
-  value,
-  currency,
-}: {
-  value: string;
-  currency: string | { code: string } | null;
-}) {
-  const code = typeof currency === "string" ? currency : (currency?.code ?? "");
-  return (
-    <span dir="ltr">
-      {Number(value).toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}{" "}
-      {code}
-    </span>
-  );
-}
+  StoreOrderCustomerCell,
+  StoreOrderDateCell,
+  StoreOrderIdentityCell,
+  StoreOrderPaymentCell,
+  StoreOrderShippingCell,
+  customerPhone,
+  latestShipment,
+} from "@/components/store-orders/store-order-row-cells";
 
 export interface StoreOrderRowHandlers {
   onView: (row: StoreOrderRow) => void;
 }
 
-function ActionsCell({ row, handlers }: { row: StoreOrderRow; handlers: StoreOrderRowHandlers }) {
+function StoreOrderActionsCell({
+  order,
+  onView,
+}: {
+  order: StoreOrderRow;
+  onView: (row: StoreOrderRow) => void;
+}) {
   const { t } = useLocale();
+  const { hasPermission } = useUserContext();
   return (
-    <EnterpriseButton
-      type="button"
-      variant="ghost"
-      size="icon-sm"
-      aria-label={t("storeOrders.open")}
-      onClick={() => handlers.onView(row)}
-    >
-      <Eye className="size-3.5" />
-    </EnterpriseButton>
+    <RowActionsMenu
+      label={t("common.actions")}
+      actions={[
+        {
+          key: "view",
+          label: t("common.view"),
+          icon: Eye,
+          hidden: !hasPermission("store-orders.view"),
+          onSelect: () => onView(order),
+        },
+      ]}
+    />
   );
 }
 
@@ -72,80 +56,123 @@ export function buildStoreOrderColumns(
   return [
     {
       id: "internalOrderId",
-      meta: { titleKey: "storeOrders.fields.internalOrderId" },
-      accessorFn: (row) => row.internalOrderId,
-      cell: (info) => (
-        <code dir="ltr" className="rounded bg-muted px-1.5 py-0.5 text-xs">
-          {info.getValue() as string}
-        </code>
-      ),
-    },
-    {
-      id: "externalOrderId",
-      meta: { titleKey: "storeOrders.fields.externalOrderId" },
-      accessorFn: (row) => row.externalOrderId ?? "—",
-      cell: (info) => (
-        <span dir="ltr" className="text-caption">
-          {info.getValue() as string}
-        </span>
-      ),
+      meta: {
+        titleKey: "storeOrders.fields.order",
+        stacked: true,
+        type: "code",
+        importance: "critical",
+        minWidth: 148,
+        maxWidth: 220,
+        grow: 1.5,
+      },
+      accessorFn: (row) =>
+        row.externalOrderId ? `${row.internalOrderId} ${row.externalOrderId}` : row.internalOrderId,
+      cell: ({ row }) => <StoreOrderIdentityCell order={row.original} />,
     },
     {
       id: "customer",
-      meta: { titleKey: "storeOrders.fields.customer" },
-      accessorFn: (row) => row.customer?.name ?? "—",
-      cell: ({ row }) => (
-        <div className="flex flex-col">
-          <span className="font-medium">{row.original.customer?.name ?? "—"}</span>
-          {row.original.customer?.phone && (
-            <span dir="ltr" className="text-caption text-muted-foreground">
-              {row.original.customer.phone}
-            </span>
-          )}
-        </div>
-      ),
+      meta: {
+        titleKey: "storeOrders.fields.customer",
+        stacked: true,
+        type: "name",
+        importance: "critical",
+        minWidth: 180,
+        maxWidth: 320,
+      },
+      enableSorting: false,
+      accessorFn: (row) => {
+        const phone = customerPhone(row);
+        return phone ? `${row.customer?.name ?? "—"} ${phone}` : (row.customer?.name ?? "—");
+      },
+      cell: ({ row }) => <StoreOrderCustomerCell order={row.original} />,
     },
     {
       id: "orderDate",
-      meta: { titleKey: "storeOrders.fields.orderDate" },
-      accessorFn: (row) => formatDate(row.orderDate),
+      meta: {
+        titleKey: "storeOrders.fields.orderDate",
+        stacked: true,
+        type: "date",
+        importance: "high",
+        minWidth: 118,
+        maxWidth: 160,
+      },
+      accessorFn: (row) => {
+        const date = formatDate(row.orderDate);
+        return hasClockTime(row.orderDate) ? `${date} ${formatTime(row.orderDate)}` : date;
+      },
+      cell: ({ row }) => <StoreOrderDateCell order={row.original} />,
     },
     {
       id: "paymentStatus",
-      meta: { titleKey: "storeOrders.fields.paymentStatus" },
-      enableSorting: false,
-      cell: ({ row }) => <PaymentStatusCell status={row.original.paymentStatus} />,
+      meta: {
+        titleKey: "storeOrders.fields.payment",
+        stacked: true,
+        type: "status",
+        importance: "high",
+        minWidth: 148,
+        maxWidth: 220,
+        grow: 1.4,
+      },
+      accessorFn: (row) =>
+        `${row.paymentStatus} ${formatMoney(row.total ?? "0", currencyCodeOf(row.currency))}`,
+      cell: ({ row }) => <StoreOrderPaymentCell order={row.original} />,
     },
     {
       id: "shippingStage",
-      meta: { titleKey: "storeOrders.fields.shippingStage" },
-      enableSorting: false,
-      cell: ({ row }) => <ShippingStageCell stage={row.original.shippingStage} />,
-    },
-    {
-      id: "total",
-      meta: { titleKey: "storeOrders.fields.total" },
-      accessorFn: (row) => row.total ?? "0",
-      cell: ({ row }) => (
-        <MoneyCell value={row.original.total ?? "0"} currency={row.original.currency} />
-      ),
+      meta: {
+        titleKey: "storeOrders.fields.shipping",
+        stacked: true,
+        type: "status",
+        importance: "medium",
+        minWidth: 140,
+        maxWidth: 220,
+        grow: 1.4,
+      },
+      accessorFn: (row) => {
+        const tracking = latestShipment(row)?.trackingNumber;
+        return tracking ? `${row.shippingStage} ${tracking}` : row.shippingStage;
+      },
+      cell: ({ row }) => <StoreOrderShippingCell order={row.original} />,
     },
     {
       id: "__actions",
-      meta: { titleKey: "common.actions" },
+      meta: { titleKey: "common.actions", importance: "critical" },
       enableHiding: false,
       enableSorting: false,
-      cell: ({ row }) => <ActionsCell row={row.original} handlers={handlers} />,
+      cell: ({ row }) => <StoreOrderActionsCell order={row.original} onView={handlers.onView} />,
     },
   ];
 }
 
-export const storeOrderExportColumns = [
-  "internalOrderId",
-  "externalOrderId",
-  "customer",
-  "orderDate",
-  "paymentStatus",
-  "shippingStage",
-  "total",
+const EXPORT_FIELDS: { key: string; titleKey: MessageKey }[] = [
+  { key: "internalOrderId", titleKey: "storeOrders.fields.internalOrderId" },
+  { key: "externalOrderId", titleKey: "storeOrders.fields.externalOrderId" },
+  { key: "customer", titleKey: "storeOrders.fields.customer" },
+  { key: "phone", titleKey: "storeOrders.fields.phone" },
+  { key: "orderDate", titleKey: "storeOrders.fields.orderDate" },
+  { key: "paymentStatus", titleKey: "storeOrders.fields.paymentStatus" },
+  { key: "shippingStage", titleKey: "storeOrders.fields.shippingStage" },
+  { key: "total", titleKey: "storeOrders.fields.total" },
 ];
+
+export const storeOrderExportColumns = EXPORT_FIELDS.map((field) => field.key);
+
+export function storeOrderExportColumnList(t: (key: MessageKey) => string): ExportColumn[] {
+  return EXPORT_FIELDS.map((field) => ({ key: field.key, label: t(field.titleKey) }));
+}
+
+export function storeOrderPrintRow(
+  item: StoreOrderRow,
+  t: (key: MessageKey) => string,
+): Record<string, string> {
+  return {
+    internalOrderId: item.internalOrderId,
+    externalOrderId: item.externalOrderId ?? "",
+    customer: item.customer?.name ?? "",
+    phone: customerPhone(item) ?? "",
+    orderDate: formatDate(item.orderDate),
+    paymentStatus: t(PAYMENT_STATUS_LABEL_KEY[item.paymentStatus]),
+    shippingStage: t(SHIPPING_STAGE_LABEL_KEY[item.shippingStage]),
+    total: formatMoney(item.total ?? "0", currencyCodeOf(item.currency)),
+  };
+}

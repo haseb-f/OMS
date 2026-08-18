@@ -1,15 +1,19 @@
 import { IsEnum, IsOptional } from 'class-validator';
 import { InventoryMovementType } from '@prisma/client';
-import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
+import {
+  TransformEnumList,
+  IsOptionalUuidList,
+} from '../../common/query/enum-list';
 
 export class FindMovementsQueryDto {
-  @IsOptionalUuid()
-  productId?: string;
+  @IsOptionalUuidList()
+  productId?: string[];
 
-  @IsOptionalUuid()
-  warehouseId?: string;
+  @IsOptionalUuidList()
+  warehouseId?: string[];
 
-  @IsEnum(InventoryMovementType)
+  @TransformEnumList()
+  @IsEnum(InventoryMovementType, { each: true })
   @IsOptional()
-  type?: InventoryMovementType;
+  type?: InventoryMovementType[];
 }

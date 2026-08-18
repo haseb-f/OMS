@@ -5,25 +5,28 @@ import { toISODate } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
 
 /**
- * The manual "New Store Order" dialog's own schema — mirrors
- * `buildCustomerQuickCreateSchema` (`sales/customer-form.ts`): no Country
- * field here either, so the phone is validated international-format-only
- * (same fallback `OMSPhoneInput` itself uses without a country). Line items
- * are NOT part of this schema — they're a separate, non-RHF array the
- * dialog validates itself (same "external state + onChange" shape
- * `ProductLineItemsGrid` already uses elsewhere), since react-hook-form has
- * no existing repeated-row precedent in this codebase to reuse.
+ * Manual "New Store Order" schema. Phone stays international-format (same
+ * fallback OMSPhoneInput uses without a country) so existing validation is
+ * unchanged. Line items stay a separate non-RHF array the dialog validates
+ * itself — same shape ProductLineItemsGrid already uses.
  */
 export function buildStoreOrderCreateSchema(t: (key: MessageKey) => string) {
   return z
     .object({
       externalOrderId: z.string().optional().or(z.literal("")),
-      customerName: z.string().min(1),
-      customerPhone: z.string().min(1),
-      customerEmail: z.string().email().optional().or(z.literal("")),
+      customerName: z.string().min(1, t("common.required")),
+      customerPhone: z.string().min(1, t("phone.errors.EMPTY")),
+      customerEmail: z.string().email(t("auth.emailRequired")).optional().or(z.literal("")),
+      countryId: z.string().optional().or(z.literal("")),
+      city: z.string().optional().or(z.literal("")),
+      address: z.string().optional().or(z.literal("")),
       orderDate: z.string().optional().or(z.literal("")),
-      currencyId: z.string().min(1),
+      currencyId: z.string().min(1, t("common.required")),
       notes: z.string().optional().or(z.literal("")),
+      paymentAmount: z.number().optional(),
+      senderName: z.string().optional().or(z.literal("")),
+      receiptName: z.string().optional().or(z.literal("")),
+      receiptUrl: z.string().optional().or(z.literal("")),
     })
     .superRefine((values, ctx) => {
       if (!isPhoneValidForCountry(values.customerPhone, undefined)) {
@@ -42,9 +45,16 @@ export type StoreOrderCreateFormValues = {
   customerName: string;
   customerPhone: string;
   customerEmail?: string;
+  countryId?: string;
+  city?: string;
+  address?: string;
   orderDate?: string;
   currencyId: string;
   notes?: string;
+  paymentAmount?: number;
+  senderName?: string;
+  receiptName?: string;
+  receiptUrl?: string;
 };
 
 /** A function (not a static object) so every dialog open gets "today" fresh, not the module's load-time date. */
@@ -54,8 +64,15 @@ export function storeOrderCreateDefaultValues(): StoreOrderCreateFormValues {
     customerName: "",
     customerPhone: "",
     customerEmail: "",
+    countryId: "",
+    city: "",
+    address: "",
     orderDate: toISODate(new Date()),
     currencyId: "",
     notes: "",
+    paymentAmount: undefined,
+    senderName: "",
+    receiptName: "",
+    receiptUrl: "",
   };
 }

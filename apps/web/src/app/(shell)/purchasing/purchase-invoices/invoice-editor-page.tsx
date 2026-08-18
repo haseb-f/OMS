@@ -3,14 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Ban, CheckCircle2, PackageCheck, Printer, Save, Send, Undo2, Wallet } from "lucide-react";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { PurchasingDocumentEditor } from "@/components/purchasing/purchasing-document-editor";
@@ -45,6 +37,7 @@ import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
+import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import { CreateReturnDialog } from "./create-return-dialog";
@@ -377,24 +370,10 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
   const canRecordPayment = hasPermission("purchasing.payments.create");
   const journalEntryLinks = useSourceJournalEntryLinks("PURCHASE_INVOICE", invoice?.id);
 
-  return (
-    <div className="flex flex-col gap-6">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/purchasing/purchase-invoices">
-              {t("purchasing.invoices.title")}
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>
-              {invoice?.invoiceNumber ?? t("purchasing.invoices.addNew")}
-            </BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
+  useBreadcrumbLabel(invoice?.invoiceNumber ?? t("purchasing.invoices.addNew"));
 
+  return (
+    <div className="flex flex-col gap-3">
       <RelatedDocuments
         groups={[
           {
