@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Hash, Plus } from "lucide-react";
+import { Hash, Plus, Pencil, Ban, Check, RotateCcw } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,7 @@ import {
   EnterpriseDataTable,
   exportRowsToCsv,
 } from "@/components/master-data/enterprise-data-table";
+import { RowActionsMenu } from "@/components/shared/data-table";
 import {
   numberSeriesService,
   type NumberSeriesInput,
@@ -334,39 +335,40 @@ export default function SettingsDocumentNumberingPage() {
         meta: { titleKey: "common.actions" },
         enableHiding: false,
         enableSorting: false,
-        cell: ({ row }) =>
-          canManage ? (
-            <div className="flex items-center gap-1">
-              <EnterpriseButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => openEdit(row.original)}
-              >
-                {t("common.edit")}
-              </EnterpriseButton>
-              <EnterpriseButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => toggleActive(row.original)}
-              >
-                {t(
+        cell: ({ row }) => (
+          <RowActionsMenu
+            label={t("common.actions")}
+            actions={[
+              {
+                key: "edit",
+                label: t("common.edit"),
+                icon: Pencil,
+                hidden: !canManage,
+                onSelect: () => openEdit(row.original),
+              },
+              {
+                key: "toggle",
+                label: t(
                   row.original.active
                     ? "settings.documentNumbering.actions.disable"
                     : "settings.documentNumbering.actions.enable",
-                )}
-              </EnterpriseButton>
-              <EnterpriseButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setResetTarget(row.original)}
-              >
-                {t("settings.documentNumbering.actions.resetNext")}
-              </EnterpriseButton>
-            </div>
-          ) : null,
+                ),
+                icon: row.original.active ? Ban : Check,
+                hidden: !canManage,
+                destructive: row.original.active,
+                onSelect: () => void toggleActive(row.original),
+              },
+              {
+                key: "reset",
+                label: t("settings.documentNumbering.actions.resetNext"),
+                icon: RotateCcw,
+                hidden: !canManage,
+                separatorBefore: true,
+                onSelect: () => setResetTarget(row.original),
+              },
+            ]}
+          />
+        ),
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -27,7 +27,7 @@ function LeadStatusCell({ status }: { status: LeadStatusValue }) {
 function CustomerCell({ row }: { row: LeadRow }) {
   const { t } = useLocale();
   if (!row.customer) {
-    return <span className="text-muted-foreground">—</span>;
+    return null;
   }
   return (
     <span className="inline-flex items-center gap-1.5">

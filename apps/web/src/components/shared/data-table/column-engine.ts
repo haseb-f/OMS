@@ -73,6 +73,7 @@ interface ColumnLayoutMeta {
   align?: ColumnAlign;
   importance?: ColumnImportance;
   type?: ColumnType;
+  stacked?: boolean;
 }
 
 /** One preset per column type — the literal width engine from the spec (Actions/Checkbox fixed, Status/Date/Money/Codes compact, Names flexible, Descriptions maximum-flexible). */
@@ -87,9 +88,9 @@ const TYPE_PRESETS: Record<
   }
 > = {
   code: { grow: 1, minWidth: 96, maxWidth: 160, align: "start", importance: "medium" },
-  status: { grow: 1, minWidth: 90, maxWidth: 140, align: "start", importance: "medium" },
-  date: { grow: 1, minWidth: 100, maxWidth: 150, align: "start", importance: "medium" },
-  money: { grow: 1, minWidth: 148, maxWidth: 200, align: "end", importance: "medium" },
+  status: { grow: 1, minWidth: 90, maxWidth: 140, align: "start", importance: "high" },
+  date: { grow: 1, minWidth: 100, maxWidth: 150, align: "start", importance: "high" },
+  money: { grow: 1, minWidth: 148, maxWidth: 200, align: "end", importance: "high" },
   number: { grow: 1, minWidth: 90, maxWidth: 130, align: "end", importance: "medium" },
   name: { grow: 3, minWidth: 160, maxWidth: 320, align: "start", importance: "high" },
   description: { grow: 4, minWidth: 200, maxWidth: 560, align: "start", importance: "high" },
@@ -216,6 +217,10 @@ export function resolveColumnLayout(
   // `grow` (a 300px preference ≈ grow 3) so both can drive the same
   // percentage-of-flexible-space math below.
   const grow = meta?.grow ?? (meta?.preferredWidth ? meta.preferredWidth / 100 : preset.grow);
+  const stackedCompactType =
+    type === "code" || type === "status" || type === "date" || type === "money";
+  const importance =
+    meta?.importance ?? (meta?.stacked && stackedCompactType ? "high" : preset.importance);
   return {
     id,
     grow,
@@ -223,7 +228,7 @@ export function resolveColumnLayout(
     maxWidth: meta?.maxWidth ?? preset.maxWidth,
     fixedWidth: null,
     align: meta?.align ?? preset.align,
-    importance: meta?.importance ?? preset.importance,
+    importance,
     type,
   };
 }

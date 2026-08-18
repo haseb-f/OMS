@@ -46,21 +46,25 @@ export function StoreOrderCustomerCell({ order }: { order: StoreOrderRow }) {
   const phone = customerPhone(order);
   return (
     <StackedCell
-      primary={<TruncateText>{order.customer?.name ?? "—"}</TruncateText>}
+      primary={
+        order.customer?.name ? <TruncateText>{order.customer.name}</TruncateText> : undefined
+      }
       secondary={phone ? <SemanticValue kind="phone">{phone}</SemanticValue> : undefined}
     />
   );
 }
 
 export function StoreOrderDateCell({ order }: { order: StoreOrderRow }) {
-  const dateLabel = formatDate(order.orderDate) || "—";
+  const dateLabel = formatDate(order.orderDate);
   const timeLabel = hasClockTime(order.orderDate) ? formatTime(order.orderDate) : undefined;
   return (
     <StackedCell
       primary={
-        <span dir="ltr" className="tabular-nums">
-          {dateLabel}
-        </span>
+        dateLabel ? (
+          <span dir="ltr" className="tabular-nums">
+            {dateLabel}
+          </span>
+        ) : undefined
       }
       secondary={
         timeLabel ? (

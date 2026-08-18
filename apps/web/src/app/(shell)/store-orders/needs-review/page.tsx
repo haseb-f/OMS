@@ -17,7 +17,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
+import { RowActionsMenu } from "@/components/shared/data-table";
 import { PermissionGate } from "@/components/shared/permission-gate";
+import { useUserContext } from "@/providers/user-context";
 import {
   importJobsService,
   IMPORT_ROW_REJECTION_REASON_CODES,
@@ -100,6 +102,8 @@ function rawField(row: ImportJobRowRecord, key: string): string {
  */
 function NeedsReviewContent() {
   const { t } = useLocale();
+  const { hasPermission } = useUserContext();
+  const canManage = hasPermission("import-center.manage");
 
   const [jobs, setJobs] = useState<ImportJobRow[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<string>("");
@@ -295,35 +299,35 @@ function NeedsReviewContent() {
               header: t("common.actions"),
               meta: { titleKey: "common.actions" },
               enableSorting: false,
+              enableHiding: false,
               cell: (info: { row: { original: ImportJobRowRecord } }) => (
-                <div className="flex items-center gap-1.5">
-                  <EnterpriseButton
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5"
-                    onClick={() => handleConfirmRow(info.row.original)}
-                  >
-                    <Check className="size-3.5" />
-                    {t("storeOrders.needsReview.confirm")}
-                  </EnterpriseButton>
-                  <EnterpriseButton
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 text-destructive"
-                    onClick={() => setRejectTarget(info.row.original)}
-                  >
-                    <X className="size-3.5" />
-                    {t("storeOrders.needsReview.reject")}
-                  </EnterpriseButton>
-                </div>
+                <RowActionsMenu
+                  label={t("common.actions")}
+                  actions={[
+                    {
+                      key: "confirm",
+                      label: t("storeOrders.needsReview.confirm"),
+                      icon: Check,
+                      hidden: !canManage,
+                      onSelect: () => handleConfirmRow(info.row.original),
+                    },
+                    {
+                      key: "reject",
+                      label: t("storeOrders.needsReview.reject"),
+                      icon: X,
+                      hidden: !canManage,
+                      destructive: true,
+                      separatorBefore: true,
+                      onSelect: () => setRejectTarget(info.row.original),
+                    },
+                  ]}
+                />
               ),
             } satisfies ColumnDef<ImportJobRowRecord, unknown>,
           ]),
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, viewStatus],
+    [t, viewStatus, canManage],
   );
 
   return (

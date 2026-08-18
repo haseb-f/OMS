@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -17,6 +18,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../../auth/guards/jwt-auth.guard';
 import { SyncSourceConfigService } from './sync-source-config.service';
 import { SyncOrchestratorService } from './sync-orchestrator.service';
+import { ListSheetService } from '../list-sheet/list-sheet.service';
 import { CreateSyncSourceDto } from './dto/create-sync-source.dto';
 import { UpdateSyncSourceDto } from './dto/update-sync-source.dto';
 import { CommitSyncDto } from './dto/commit-sync.dto';
@@ -37,6 +39,7 @@ export class SyncController {
   constructor(
     private readonly sources: SyncSourceConfigService,
     private readonly orchestrator: SyncOrchestratorService,
+    private readonly listSheet: ListSheetService,
   ) {}
 
   @Get('sources')
@@ -88,7 +91,9 @@ export class SyncController {
     @Body() dto: CommitSyncDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.orchestrator.commit(id, dto.jobId, user.sub);
+    return this.orchestrator.commit(id, dto.jobId, user.sub, {
+      acceptRowNumbers: dto.acceptRowNumbers,
+    });
   }
 
   /** "قبول الطلب" on a sync-originated Needs Review row — same operation the generic Import Center Needs Review screen calls, plus sheet write-back. */
@@ -111,5 +116,17 @@ export class SyncController {
     @Body() dto: RejectImportRowDto,
   ) {
     return this.orchestrator.rejectRow(jobId, rowId, dto);
+  }
+
+  /**
+   * OMS → official Google List Sheet. Publishes current master/reference
+   * display values; never imports from the sheet. Uses `import-center.sync`
+   * like the four inbound Sync buttons.
+   */
+  @Post('list-sheet')
+  @HttpCode(200)
+  @PermissionAction('sync')
+  publishListSheet() {
+    return this.listSheet.publish();
   }
 }

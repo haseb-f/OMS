@@ -566,10 +566,20 @@ export function EnterpriseDataTable<TData>({
   const resolvedColumns = useMemo(() => Array.from(layoutById.values()), [layoutById]);
   const detailColumnAxes = useMemo(
     () =>
-      visibleLeafColumns.map((column) => ({
-        id: column.id,
-        hideClass: responsiveHideClass(layoutById.get(column.id)?.importance ?? "high"),
-      })),
+      visibleLeafColumns.map((column) => {
+        const layout = layoutById.get(column.id);
+        const utility =
+          layout?.type === "checkbox" ||
+          layout?.type === "expand" ||
+          layout?.type === "actions" ||
+          column.id === "__expand" ||
+          column.id === "select";
+        return {
+          id: column.id,
+          hideClass: responsiveHideClass(layout?.importance ?? "high"),
+          utility,
+        };
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [visibleLeafColumns.map((c) => c.id).join(","), layoutById],
   );
@@ -1090,7 +1100,7 @@ export function EnterpriseDataTable<TData>({
                               id={`table-detail-${row.id}`}
                               data-slot="table-detail-row"
                               dir={direction}
-                              className="flex flex-col bg-muted/25 hover:bg-transparent @3xl/enterprise-table:table-row"
+                              className="bg-muted/25 hover:bg-transparent"
                             >
                               {detailCells.map((detailCell) => {
                                 const startIndex = visibleLeafColumns.findIndex(
@@ -1103,7 +1113,6 @@ export function EnterpriseDataTable<TData>({
                                   layout?.type === "actions" ||
                                   detailCell.columnId === "__expand";
                                 const empty = detailCell.content == null;
-                                const stacksOnNarrow = !detailCell.hideClass.includes("hidden");
                                 return (
                                   <TableCell
                                     key={`${row.id}-detail-${detailCell.columnId}`}
@@ -1119,11 +1128,7 @@ export function EnterpriseDataTable<TData>({
                                       ),
                                       empty || isUtility ? "py-0" : "py-3",
                                       alignClass[layout?.align ?? "start"],
-                                      empty || isUtility
-                                        ? "hidden @3xl/enterprise-table:table-cell"
-                                        : stacksOnNarrow
-                                          ? "block w-full @3xl/enterprise-table:table-cell"
-                                          : detailCell.hideClass,
+                                      detailCell.hideClass,
                                     )}
                                     style={getPinStyle(detailCell.columnId)}
                                   >

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  TableDetailField,
   TableDetailLineItems,
   TableDetailSection,
   TableDetailStack,
@@ -23,11 +24,14 @@ export function buildStoreOrderDetailRegions(
 ): TableDetailRegion[] {
   const shipment = latestShipment(order);
   const address = formatPartyAddress(order.customer);
+  const email = order.customer?.email?.trim() || null;
+  const notes = order.notes?.trim() || null;
   const regions: TableDetailRegion[] = [];
 
   if (order.items.length > 0) {
     regions.push({
       startColumnId: "internalOrderId",
+      grow: "until-next-region",
       content: (
         <TableDetailSection title={t("storeOrders.createDialog.items.title")}>
           <TableDetailLineItems
@@ -48,34 +52,59 @@ export function buildStoreOrderDetailRegions(
     });
   }
 
-  if (address || order.customer?.email) {
+  if (address || email) {
     regions.push({
       startColumnId: "customer",
+      grow: "until-next-region",
       content: (
         <TableDetailSection title={t("storeOrders.detail.sections.customer")}>
-          {address ? (
-            <TruncateText lines={2} className="text-muted-foreground">
-              {address}
-            </TruncateText>
-          ) : null}
-          {order.customer?.email ? (
-            <p className={address ? "mt-1" : undefined}>
-              <SemanticValue kind="email">{order.customer.email}</SemanticValue>
-            </p>
-          ) : null}
+          <TableDetailField
+            primary={
+              address ? (
+                <TruncateText className="font-medium">{address}</TruncateText>
+              ) : email ? (
+                <SemanticValue kind="email">{email}</SemanticValue>
+              ) : undefined
+            }
+            secondary={
+              address && email ? <SemanticValue kind="email">{email}</SemanticValue> : undefined
+            }
+          />
         </TableDetailSection>
       ),
     });
   }
 
-  if (order.notes) {
+  if (notes) {
     regions.push({
-      startColumnId: "paymentStatus",
+      startColumnId: "orderDate",
+      grow: "until-next-region",
       content: (
         <TableDetailSection title={t("storeOrders.createDialog.sections.notes")}>
-          <TruncateText lines={2} className="text-muted-foreground">
-            {order.notes}
-          </TruncateText>
+          <TableDetailField primary={<TruncateText>{notes}</TruncateText>} />
+        </TableDetailSection>
+      ),
+    });
+  }
+
+  const payment = order.payments?.[0];
+  const paymentMethod = payment?.paymentSource?.name?.trim() || null;
+  const paymentReference =
+    payment?.referenceNumber?.trim() || payment?.paymentNumber?.trim() || null;
+  if (paymentMethod || paymentReference) {
+    regions.push({
+      startColumnId: "paymentStatus",
+      grow: "until-next-region",
+      content: (
+        <TableDetailSection title={t("storeOrders.detail.sections.payments")}>
+          <TableDetailField
+            primary={paymentMethod ?? paymentReference}
+            secondary={
+              paymentMethod && paymentReference ? (
+                <SemanticValue kind="id">{paymentReference}</SemanticValue>
+              ) : undefined
+            }
+          />
         </TableDetailSection>
       ),
     });
@@ -84,16 +113,17 @@ export function buildStoreOrderDetailRegions(
   const sourceLabel =
     order.source === "IMPORT" ? t("storeOrders.source.IMPORT") : t("storeOrders.source.MANUAL");
   const sourceText = order.sourceChannel ? `${sourceLabel} · ${order.sourceChannel}` : sourceLabel;
-  const carrier = shipment?.shippingCompany?.name;
+  const carrier = shipment?.shippingCompany?.name?.trim() || null;
 
   regions.push({
     startColumnId: "shippingStage",
+    grow: "until-next-region",
     content: (
       <TableDetailSection title={t("storeOrders.fields.source")}>
-        <p className="text-muted-foreground">{sourceText}</p>
-        {carrier ? (
-          <TruncateText className="mt-1 text-muted-foreground">{carrier}</TruncateText>
-        ) : null}
+        <TableDetailField
+          primary={sourceText}
+          secondary={carrier ? <TruncateText>{carrier}</TruncateText> : undefined}
+        />
       </TableDetailSection>
     ),
   });

@@ -1,5 +1,6 @@
 import { apiClient } from "./api-client";
 import type { ImportRowValidationError, ImportDuplicateGroup } from "./import-jobs-service";
+import type { SyncReviewRow, SyncReviewSourceMeta } from "@/components/shared/sync-review/types";
 
 export type SyncSourceType = "LEADS" | "STORE_ORDERS" | "CASH_FLOW" | "SHIPPING_UPDATES";
 export type SyncRunStatus = "NEVER_RUN" | "SUCCESS" | "PARTIAL" | "FAILED";
@@ -38,6 +39,9 @@ export interface SyncPreviewResult {
   errors: ImportRowValidationError[];
   needsReview: { rowNumber: number; reason: string }[];
   duplicateGroups: ImportDuplicateGroup[];
+  source?: SyncReviewSourceMeta;
+  previewedAt?: string;
+  rows?: SyncReviewRow[];
 }
 
 export interface ShippingSyncRowReport {
@@ -54,6 +58,31 @@ export interface SyncCommitResult {
   status: SyncRunStatus;
   /** SHIPPING_UPDATES only. */
   rows?: ShippingSyncRowReport[];
+}
+
+export type ListSheetColumnKey =
+  | "country"
+  | "product"
+  | "currency"
+  | "paymentMethod"
+  | "employeeEmail"
+  | "shippingStatus"
+  | "shippingCompany";
+
+export interface ListSheetListResult {
+  key: ListSheetColumnKey;
+  header: string;
+  status: "SUCCESS" | "FAILED";
+  count: number;
+  message?: string;
+}
+
+export interface ListSheetSyncResult {
+  status: "SUCCESS" | "PARTIAL" | "FAILED";
+  spreadsheetId: string;
+  worksheetGid: string;
+  syncedAt: string;
+  lists: ListSheetListResult[];
 }
 
 export interface CreateSyncSourcePayload {
@@ -95,6 +124,12 @@ export const syncService = {
   preview: (sourceId: string) =>
     apiClient.post<SyncPreviewResult>(`/import-center/sync/sources/${sourceId}/preview`),
   /** Step 2 — requires the exact `jobId` a just-run `preview()` returned. */
-  commit: (sourceId: string, jobId: string) =>
-    apiClient.post<SyncCommitResult>(`/import-center/sync/sources/${sourceId}/commit`, { jobId }),
+  commit: (sourceId: string, jobId: string, acceptRowNumbers?: number[]) =>
+    apiClient.post<SyncCommitResult>(`/import-center/sync/sources/${sourceId}/commit`, {
+      jobId,
+      ...(acceptRowNumbers === undefined ? {} : { acceptRowNumbers }),
+    }),
+
+  /** OMS → official Google List Sheet (master/reference dropdown values). */
+  publishListSheet: () => apiClient.post<ListSheetSyncResult>("/import-center/sync/list-sheet"),
 };

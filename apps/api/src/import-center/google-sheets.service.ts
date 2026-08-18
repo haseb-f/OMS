@@ -4,6 +4,7 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { google, sheets_v4 } from 'googleapis';
+import { planManagedColumnWrites } from './google-sheets.managed-columns';
 
 export interface GoogleSheetMetadata {
   title: string;
@@ -95,7 +96,7 @@ export class GoogleSheetsService {
     return google.drive({ version: 'v3', auth: this.getAuth() });
   }
 
-  private mapError(error: unknown): Error {
+  private mapError(error: unknown, access: 'read' | 'write' = 'read'): Error {
     const status =
       (error as { code?: number; status?: number })?.code ??
       (error as { code?: number; status?: number })?.status;
@@ -106,10 +107,16 @@ export class GoogleSheetsService {
     }
     if (status === 403) {
       return new BadRequestException(
-        "Access denied — share this spreadsheet with the integration's service-account email address (Viewer access).",
+        access === 'write'
+          ? "Access denied — share this spreadsheet with the integration's service-account email address (Editor access)."
+          : "Access denied — share this spreadsheet with the integration's service-account email address (Viewer access).",
       );
     }
-    return new BadRequestException('Could not read that Google Sheet.');
+    return new BadRequestException(
+      access === 'write'
+        ? 'Could not update that Google Sheet.'
+        : 'Could not read that Google Sheet.',
+    );
   }
 
   /** True if the service account's credentials are configured and Google accepts them — never throws. */
@@ -155,6 +162,27 @@ export class GoogleSheetsService {
       (sheet) => String(sheet.sheetId) === gid,
     );
     return (match ?? metadata.sheets[0]).title;
+  }
+
+  /**
+   * Strict gid lookup — unlike `resolveSheetTitle`, this never falls back
+   * to the first worksheet. Used by OMS → List Sheet so we cannot silently
+   * write a different tab.
+   */
+  async resolveSheetTitleByGid(
+    spreadsheetId: string,
+    gid: string,
+  ): Promise<string> {
+    const metadata = await this.getSpreadsheetMetadata(spreadsheetId);
+    const match = metadata.sheets.find(
+      (sheet) => String(sheet.sheetId) === gid,
+    );
+    if (!match) {
+      throw new BadRequestException(
+        `The configured worksheet (gid ${gid}) was not found in this spreadsheet.`,
+      );
+    }
+    return match.title;
   }
 
   /** The raw 2D grid of cell values — row 0 is assumed to be the header row by every other method here. */
@@ -370,6 +398,52 @@ export class GoogleSheetsService {
       });
     } catch (error) {
       throw this.mapError(error);
+    }
+  }
+
+  /**
+   * OMS → List Sheet: write only the named managed columns. Missing managed
+   * headers are appended at the end of the header row (never duplicated).
+   * Stale values in those columns are cleared. Unmanaged/future columns are
+   * never rewritten. Does not clear or recreate the worksheet.
+   */
+  async writeManagedColumns(
+    spreadsheetId: string,
+    gid: string,
+    columns: { header: string; values: string[] }[],
+  ): Promise<void> {
+    if (columns.length === 0) return;
+    const title = await this.resolveSheetTitleByGid(spreadsheetId, gid);
+    let grid: string[][];
+    try {
+      const res = await this.sheetsClient().spreadsheets.values.get({
+        spreadsheetId,
+        range: quoteSheetTitle(title),
+      });
+      grid = (res.data.values ?? []) as string[][];
+    } catch (error) {
+      throw this.mapError(error, 'write');
+    }
+
+    const { writes } = planManagedColumnWrites(grid, columns);
+    if (writes.length === 0) return;
+
+    const quoted = quoteSheetTitle(title);
+    const data = writes.map((write) => {
+      const letter = columnIndexToLetter(write.columnIndex);
+      return {
+        range: `${quoted}!${letter}1:${letter}${write.cells.length}`,
+        values: write.cells.map((cell) => [cell]),
+      };
+    });
+
+    try {
+      await this.sheetsClient().spreadsheets.values.batchUpdate({
+        spreadsheetId,
+        requestBody: { valueInputOption: 'RAW', data },
+      });
+    } catch (error) {
+      throw this.mapError(error, 'write');
     }
   }
 }

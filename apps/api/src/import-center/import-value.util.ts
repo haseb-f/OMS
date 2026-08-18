@@ -1,5 +1,29 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, HttpException } from '@nestjs/common';
 import { getReferenceCache } from './reference-data/reference-cache';
+
+export function extractImportErrorMessage(error: unknown): string {
+  if (error instanceof HttpException) {
+    const res = error.getResponse();
+    if (typeof res === 'string') return res;
+    if (typeof res === 'object' && res !== null) {
+      const body = res as { message?: unknown };
+      if (typeof body.message === 'string') return body.message;
+      if (Array.isArray(body.message)) {
+        return body.message
+          .filter((item) => typeof item === 'string')
+          .join('; ');
+      }
+    }
+    return error.message;
+  }
+  if (error instanceof Error) return error.message;
+  return 'Validation failed.';
+}
+
+export function extractExistingRecordId(message: string): string | null {
+  const match = message.match(/already exists \(([^)]+)\)/i);
+  return match?.[1]?.trim() || null;
+}
 
 interface SearchableService<T> {
   findAll(query: {

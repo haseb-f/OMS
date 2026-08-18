@@ -10,6 +10,7 @@ import {
   exportColumnsFromKeys,
   exportRowsToCsv,
 } from "@/components/master-data/enterprise-data-table";
+import { RowActionsMenu } from "@/components/shared/data-table";
 import {
   AccountingReportFilterBar,
   EMPTY_REPORT_FILTERS,
@@ -109,15 +110,17 @@ export function GeneralLedgerTab() {
         enableSorting: false,
         enableHiding: false,
         cell: ({ row }) => (
-          <EnterpriseButton
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label={t("reports.finance.viewMovements")}
-            onClick={() => setDetail(row.original)}
-          >
-            <Eye className="size-4" />
-          </EnterpriseButton>
+          <RowActionsMenu
+            label={t("common.actions")}
+            actions={[
+              {
+                key: "view",
+                label: t("reports.finance.viewMovements"),
+                icon: Eye,
+                onSelect: () => setDetail(row.original),
+              },
+            ]}
+          />
         ),
       },
     ],

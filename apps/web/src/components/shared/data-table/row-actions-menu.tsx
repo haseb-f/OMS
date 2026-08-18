@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { MoreVertical } from "lucide-react";
 import {
@@ -10,8 +10,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { IconActionButton } from "@/components/shared/icon-action-button";
-import { cn } from "@/lib/utils";
+import { EnterpriseButton } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export interface RowAction {
   key: string;
@@ -34,23 +34,35 @@ export interface RowAction {
  */
 export function RowActionsMenu({ actions, label }: { actions: RowAction[]; label: string }) {
   const visible = actions.filter((action) => !action.hidden);
+  const [open, setOpen] = useState(false);
   if (visible.length === 0) return null;
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <IconActionButton label={label}>
-          <MoreVertical className="size-4" />
-        </IconActionButton>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <EnterpriseButton
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={label}
+              aria-haspopup="menu"
+            >
+              <MoreVertical className="size-4" />
+            </EnterpriseButton>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        {!open ? <TooltipContent side="top">{label}</TooltipContent> : null}
+      </Tooltip>
+      <DropdownMenuContent align="end" className="w-max min-w-44">
         {visible.map((action) => (
           <Fragment key={action.key}>
             {action.separatorBefore && <DropdownMenuSeparator />}
             <DropdownMenuItem
               disabled={action.disabled}
+              variant={action.destructive ? "destructive" : "default"}
               onSelect={action.onSelect}
-              className={cn(action.destructive && "text-destructive focus:text-destructive")}
             >
               <action.icon className="size-4" />
               {action.label}

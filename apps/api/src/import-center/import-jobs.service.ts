@@ -10,7 +10,7 @@ import { parseCsv, type ParsedTable } from './csv-parser.util';
 import { parseXlsx } from './xlsx-parser.util';
 import { parseGoogleSheetsUrl } from './google-sheets.util';
 import { GoogleSheetsService } from './google-sheets.service';
-import { groupRowsByKey } from './import-value.util';
+import { groupRowsByKey, extractImportErrorMessage } from './import-value.util';
 import { runWithReferenceCache } from './reference-data/reference-cache';
 import {
   ImportRowNeedsReviewError,
@@ -427,8 +427,7 @@ export class ImportJobsService {
             }
             continue;
           }
-          const message =
-            error instanceof Error ? error.message : 'Validation failed.';
+          const message = extractImportErrorMessage(error);
           for (const { rowNumber } of groupRows) {
             errors.push({ rowNumber, columnName: null, message });
           }
@@ -449,8 +448,7 @@ export class ImportJobsService {
           errors.push({
             rowNumber,
             columnName: null,
-            message:
-              error instanceof Error ? error.message : 'Validation failed.',
+            message: extractImportErrorMessage(error),
           });
         }
       }
@@ -502,15 +500,63 @@ export class ImportJobsService {
    * (standard enterprise import UX: import what's valid, report what
    * isn't).
    */
-  async run(id: string, userId?: string) {
+  async run(
+    id: string,
+    userId?: string,
+    options?: { acceptRowNumbers?: number[] },
+  ) {
     // Same request-local Master-Data lookup cache `validate()` uses — a
     // `run()` immediately following a `validate()` on the same job still
     // gets its own fresh fetch (no cache is shared across calls), so
     // Master Data changed between preview and commit is always picked up.
-    return runWithReferenceCache(() => this.runInner(id, userId));
+    return runWithReferenceCache(() => this.runInner(id, userId, options));
   }
 
-  private async runInner(id: string, userId?: string) {
+  /**
+   * Mapped source rows for a sync review UI — the same projection
+   * `validate()`/`run()` already build, exposed without importing.
+   * Row numbers are Excel-style (header = 1, first data row = 2).
+   */
+  async listMappedRows(id: string): Promise<{
+    groupKey: string | null;
+    rows: Array<{
+      rowNumber: number;
+      mappedRow: Record<string, string>;
+      sourceRow: Record<string, string>;
+    }>;
+  }> {
+    const job = await this.findOne(id);
+    if (!job.columnMapping) {
+      throw new BadRequestException(
+        'No column mapping saved for this Import Job.',
+      );
+    }
+    const handler = this.registry.get(job.importType);
+    const table = await this.parseFile(job.fileName, job.fileContent);
+    const mapping = job.columnMapping as Record<string, string>;
+    const rows: Array<{
+      rowNumber: number;
+      mappedRow: Record<string, string>;
+      sourceRow: Record<string, string>;
+    }> = [];
+    for (let index = 0; index < table.rows.length; index++) {
+      const sourceRow = table.rows[index];
+      const rowNumber = index + 2;
+      const mappedRow: Record<string, string> = {};
+      for (const field of handler.fields) {
+        const column = mapping[field.key];
+        mappedRow[field.key] = column ? (sourceRow[column] ?? '') : '';
+      }
+      rows.push({ rowNumber, mappedRow, sourceRow });
+    }
+    return { groupKey: handler.groupKey ?? null, rows };
+  }
+
+  private async runInner(
+    id: string,
+    userId?: string,
+    options?: { acceptRowNumbers?: number[] },
+  ) {
     const job = await this.findOne(id);
     if (job.status !== ImportJobStatus.VALIDATING) {
       throw new BadRequestException(
@@ -528,6 +574,10 @@ export class ImportJobsService {
     const mapping = job.columnMapping as Record<string, string>;
     const rowDefaults =
       (job.rowDefaults as Record<string, string> | null) ?? undefined;
+    const accept =
+      options?.acceptRowNumbers === undefined
+        ? undefined
+        : new Set(options.acceptRowNumbers);
 
     await this.prisma.importJob.update({
       where: { id },
@@ -572,6 +622,9 @@ export class ImportJobsService {
     if (handler.groupKey && handler.importGroup) {
       const groups = groupRowsByKey(mappedRows, handler.groupKey);
       for (const groupRows of groups.values()) {
+        if (accept && !groupRows.every((row) => accept.has(row.rowNumber))) {
+          continue;
+        }
         try {
           const result = await handler.importGroup(
             groupRows.map((r) => r.mappedRow),
@@ -599,8 +652,7 @@ export class ImportJobsService {
             }
             continue;
           }
-          const errorMessage =
-            error instanceof Error ? error.message : 'Import failed.';
+          const errorMessage = extractImportErrorMessage(error);
           const suggestedFix = this.suggestFix(error);
           for (const { rowNumber, sourceRow } of groupRows) {
             errors.push({
@@ -616,6 +668,9 @@ export class ImportJobsService {
       }
     } else {
       for (const { rowNumber, mappedRow, sourceRow } of mappedRows) {
+        if (accept && !accept.has(rowNumber)) {
+          continue;
+        }
         try {
           const result = await handler.importRow(mappedRow, userId, {
             context: rowDefaults,
@@ -641,8 +696,7 @@ export class ImportJobsService {
             importJobId: id,
             rowNumber,
             columnName: null,
-            errorMessage:
-              error instanceof Error ? error.message : 'Import failed.',
+            errorMessage: extractImportErrorMessage(error),
             suggestedFix: this.suggestFix(error),
             rawRowData: sourceRow,
           });

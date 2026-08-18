@@ -8,6 +8,8 @@ import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { formatDate } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
+import { useUserContext } from "@/providers/user-context";
+import { documentRowAccess } from "@/components/shared/data-table";
 import type { PurchaseQuotationRow } from "@/services/purchase-quotations-service";
 import { SalesDocumentRowActionsMenu, type SalesDocumentRowAction } from "@/components/sales";
 import {
@@ -44,33 +46,43 @@ function ActionsCell({
   handlers: QuotationRowHandlers;
 }) {
   const { t } = useLocale();
+  const { hasPermission } = useUserContext();
+  const access = documentRowAccess(hasPermission, "purchasing.quotations");
   const isDraft = row.status === "DRAFT";
   const actions: SalesDocumentRowAction[] = [
     {
       key: "view",
       label: t("purchasing.quotations.open"),
       icon: Eye,
+      hidden: !access.canView,
       onSelect: () => handlers.onView(row),
     },
     {
       key: "edit",
       label: t("common.edit"),
       icon: Pencil,
-      hidden: !isDraft,
+      hidden: !isDraft || !access.canEdit,
       onSelect: () => handlers.onView(row),
     },
     {
       key: "duplicate",
       label: t("table.duplicate"),
       icon: Copy,
+      hidden: !access.canCreate,
       onSelect: () => handlers.onDuplicate(row),
     },
-    { key: "print", label: t("table.print"), icon: Printer, onSelect: () => handlers.onPrint(row) },
+    {
+      key: "print",
+      label: t("table.print"),
+      icon: Printer,
+      hidden: !access.canPrint,
+      onSelect: () => handlers.onPrint(row),
+    },
     {
       key: "cancel",
       label: t("purchasing.quotations.actions.cancel"),
       icon: Ban,
-      hidden: !QUOTATION_CANCELLABLE_STATUSES.includes(row.status),
+      hidden: !QUOTATION_CANCELLABLE_STATUSES.includes(row.status) || !access.canCancel,
       destructive: true,
       separatorBefore: true,
       onSelect: () => handlers.onCancel(row),
@@ -79,7 +91,7 @@ function ActionsCell({
       key: "archive",
       label: t("common.archive"),
       icon: Archive,
-      hidden: !QUOTATION_ARCHIVABLE_STATUSES.includes(row.status),
+      hidden: !QUOTATION_ARCHIVABLE_STATUSES.includes(row.status) || !access.canArchive,
       destructive: true,
       onSelect: () => handlers.onArchive(row),
     },

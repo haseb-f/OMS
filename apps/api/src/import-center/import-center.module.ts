@@ -67,6 +67,7 @@ import { StoreOrdersModule } from '../store-orders/store-orders.module';
 import { SyncSourceConfigService } from './sync/sync-source-config.service';
 import { SyncOrchestratorService } from './sync/sync-orchestrator.service';
 import { SyncController } from './sync/sync.controller';
+import { ListSheetService } from './list-sheet/list-sheet.service';
 import { ReferenceDataRegistryService } from './reference-data/reference-data-registry.service';
 import { ReferenceDataSourcesService } from './reference-data/reference-data-sources.service';
 import { ReferenceDataController } from './reference-data/reference-data.controller';
@@ -129,6 +130,7 @@ import { ReferenceDataController } from './reference-data/reference-data.control
     ImportTemplateService,
     SyncSourceConfigService,
     SyncOrchestratorService,
+    ListSheetService,
     ReferenceDataRegistryService,
     ReferenceDataSourcesService,
     CustomersImportHandler,

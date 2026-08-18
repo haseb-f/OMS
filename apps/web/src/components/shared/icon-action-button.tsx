@@ -13,23 +13,32 @@ export const IconActionButton = forwardRef<
     children: ReactNode;
     disabled?: boolean;
     variant?: "ghost" | "outline";
+    /** When the button is composed as another primitive's trigger (dropdown), skip the inner Tooltip. */
+    tooltip?: boolean;
   }
->(function IconActionButton({ label, onClick, children, disabled, variant = "ghost" }, ref) {
+>(function IconActionButton(
+  { label, onClick, children, disabled, variant = "ghost", tooltip = true },
+  ref,
+) {
+  const button = (
+    <EnterpriseButton
+      ref={ref}
+      type="button"
+      variant={variant}
+      size="icon-sm"
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      {children}
+    </EnterpriseButton>
+  );
+
+  if (!tooltip) return button;
+
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <EnterpriseButton
-          ref={ref}
-          type="button"
-          variant={variant}
-          size="icon-sm"
-          aria-label={label}
-          disabled={disabled}
-          onClick={onClick}
-        >
-          {children}
-        </EnterpriseButton>
-      </TooltipTrigger>
+      <TooltipTrigger asChild>{button}</TooltipTrigger>
       <TooltipContent side="top">{label}</TooltipContent>
     </Tooltip>
   );

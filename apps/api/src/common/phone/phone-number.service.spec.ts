@@ -105,6 +105,12 @@ describe('PhoneNumberService', () => {
       expect(withZero.e164).toBe(withoutZero.e164);
       expect(withZero.e164).toBe('+966501234567');
     });
+
+    it('still rejects a genuinely short Saudi number after normalization', () => {
+      const result = service.parse('050123', 'SA');
+      expect(result.isValid).toBe(false);
+      expect(result.e164).toBeNull();
+    });
   });
 
   describe('cross-region detection (Part 19 — "+" always wins)', () => {
@@ -128,6 +134,9 @@ describe('PhoneNumberService', () => {
         '00966501234567',
         '0501234567',
         '501234567',
+        '966501234567',
+        '050 123 4567',
+        '050-123-4567',
       ];
       const normalized = new Set(
         variants.map((v) => service.normalizeToE164(v, 'SA')),

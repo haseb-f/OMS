@@ -19,10 +19,12 @@ import { PermissionGate } from "@/components/shared/permission-gate";
 import { AssignLeadDialog } from "@/components/business/assign-lead-dialog";
 import { LeadOrderCreateDialog } from "@/components/business/lead-order-create-dialog";
 import { useCurrencies, useCountries } from "@/hooks/use-reference-data";
+import { useUserContext } from "@/providers/user-context";
 
 function CrmLeadsPageContent() {
   const { t } = useLocale();
   const router = useRouter();
+  const { hasPermission } = useUserContext();
 
   const currencies = useCurrencies();
   const countries = useCountries();
@@ -152,12 +154,14 @@ function CrmLeadsPageContent() {
             key: "view",
             label: t("crm.leads.view"),
             icon: Eye,
+            hidden: !hasPermission("crm.leads.view"),
             onSelect: () => router.push(`/crm/leads/${entity.id}`),
           },
           {
             key: "assign",
             label: t("crm.leads.assign"),
             icon: UserPlus,
+            hidden: !hasPermission("crm.leads.manage"),
             onSelect: () => setAssigningLead(entity),
           },
         ]}

@@ -281,37 +281,46 @@ function JournalEntriesPageContent() {
         cell: ({ row }) => {
           const item = row.original;
           const isDraft = item.status === "DRAFT";
+          const canView = hasPermission("accounting.journal-entries.view");
+          const canEdit = hasPermission("accounting.journal-entries.edit");
+          const canCreate = hasPermission("accounting.journal-entries.create");
+          const canPost = hasPermission("accounting.journal-entries.post");
+          const canReverse = hasPermission("accounting.journal-entries.reverse");
+          const canArchive = hasPermission("accounting.journal-entries.archive");
           const actions: SalesDocumentRowAction[] = [
             {
               key: "view",
               label: t("accounting.journalEntries.open"),
               icon: Eye,
+              hidden: !canView,
               onSelect: () => router.push(`/finance/journal-entries/${item.id}`),
             },
             {
               key: "edit",
               label: t("common.edit"),
               icon: Pencil,
-              hidden: !isDraft,
+              hidden: !isDraft || !canEdit,
               onSelect: () => router.push(`/finance/journal-entries/${item.id}`),
             },
             {
               key: "print",
               label: t("table.print"),
               icon: Printer,
+              hidden: !canView,
               onSelect: () => handlePrintRow(item),
             },
             {
               key: "duplicate",
               label: t("accounting.journalEntries.actions.duplicate"),
               icon: Copy,
+              hidden: !canCreate,
               onSelect: () => handleDuplicate(item),
             },
             {
               key: "post",
               label: t("accounting.journalEntries.actions.post"),
               icon: Send,
-              hidden: item.status !== "DRAFT",
+              hidden: item.status !== "DRAFT" || !canPost,
               separatorBefore: true,
               onSelect: () => setPostTarget(item),
             },
@@ -319,7 +328,7 @@ function JournalEntriesPageContent() {
               key: "reverse",
               label: t("accounting.journalEntries.actions.reverse"),
               icon: Undo2,
-              hidden: item.status !== "POSTED",
+              hidden: item.status !== "POSTED" || !canReverse,
               destructive: true,
               onSelect: () => setReverseTarget(item),
             },
@@ -327,7 +336,7 @@ function JournalEntriesPageContent() {
               key: "archive",
               label: t("common.archive"),
               icon: Archive,
-              hidden: !JOURNAL_ENTRY_ARCHIVABLE_STATUSES.includes(item.status),
+              hidden: !JOURNAL_ENTRY_ARCHIVABLE_STATUSES.includes(item.status) || !canArchive,
               destructive: true,
               onSelect: () => setArchiveTarget(item),
             },

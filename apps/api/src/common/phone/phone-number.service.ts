@@ -34,6 +34,18 @@ export interface PhoneParseResult {
 
 const SUPPORTED_REGIONS = new Set<string>(getCountries());
 
+/**
+ * Strip separators operators commonly type into spreadsheets, then turn a
+ * leading "00" international prefix into "+". Does not invent a country
+ * calling code — `parse()` still uses `defaultRegion` (or an embedded "+")
+ * to decide the actual region.
+ */
+export function preparePhoneInput(rawInput: string): string {
+  const stripped = rawInput.trim().replace(/[\s\-\u2010-\u2015().]/g, '');
+  if (stripped.startsWith('00')) return `+${stripped.slice(2)}`;
+  return stripped;
+}
+
 /** English messages, matching this API's existing `BadRequestException` convention — the frontend produces its own Arabic-first copy for the same `errorReason` codes. */
 export function phoneErrorMessage(reason: PhoneErrorReason | null): string {
   switch (reason) {
@@ -97,15 +109,18 @@ export class PhoneNumberService {
     const trimmed = rawInput?.trim();
     if (!trimmed) return empty;
 
+    const prepared = preparePhoneInput(trimmed);
     const region = this.isSupportedRegion(defaultRegion)
       ? defaultRegion
       : undefined;
-    const parsed = parsePhoneNumberFromString(trimmed, region);
+    const parsed =
+      parsePhoneNumberFromString(prepared, region) ??
+      this.parseInternationalWithoutPlus(prepared, region);
 
     if (!parsed) {
       return {
         ...empty,
-        errorReason: this.lengthErrorReason(trimmed, region) ?? 'NOT_A_NUMBER',
+        errorReason: this.lengthErrorReason(prepared, region) ?? 'NOT_A_NUMBER',
       };
     }
 
@@ -124,7 +139,7 @@ export class PhoneNumberService {
         type: null,
         regionMismatch,
         errorReason:
-          this.lengthErrorReason(trimmed, detectedRegion ?? region) ??
+          this.lengthErrorReason(prepared, detectedRegion ?? region) ??
           'INVALID_PATTERN',
       };
     }
@@ -139,6 +154,21 @@ export class PhoneNumberService {
       regionMismatch,
       errorReason: null,
     };
+  }
+
+  /**
+   * Spreadsheet values often omit "+" but include the country calling code
+   * (`966501234567`). Retry as an explicit international number only when
+   * the digits already start with a real calling code — never by prepending
+   * the selected region's code onto a local number.
+   */
+  private parseInternationalWithoutPlus(
+    prepared: string,
+    region?: CountryCode,
+  ) {
+    if (prepared.startsWith('+') || !/^\d{8,15}$/.test(prepared))
+      return undefined;
+    return parsePhoneNumberFromString(`+${prepared}`, region);
   }
 
   /** Convenience — E.164 string when valid, `null` otherwise. Never throws. */

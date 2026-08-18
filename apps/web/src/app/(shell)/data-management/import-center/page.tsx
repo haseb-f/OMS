@@ -2,15 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Download, UploadCloud } from "lucide-react";
+import { Download, UploadCloud, Eye } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/business/status-badge";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
+import { RowActionsMenu } from "@/components/shared/data-table";
 import { ImportJobWizard } from "./import-job-wizard";
 import { SyncButton } from "@/components/shared/sync-button";
+import { ListSheetSyncButton } from "@/components/shared/list-sheet-sync-button";
+import { SyncWorkspaceCard } from "@/components/shared/sync-workspace-card";
 import { SyncSourcesManager } from "./sync-sources-manager";
 import type { SyncSourceType } from "@/services/sync-service";
 import { importTypesService, type ImportTypeDefinition } from "@/services/import-types-service";
@@ -75,6 +78,7 @@ function ImportCenterPageContent() {
   const [wizardTypeDef, setWizardTypeDef] = useState<ImportTypeDefinition | null>(null);
   const [wizardJobId, setWizardJobId] = useState<string | undefined>(undefined);
   const [sourcesManagerOpen, setSourcesManagerOpen] = useState(false);
+  const [listSheetLastSyncedAt, setListSheetLastSyncedAt] = useState<string | null>(null);
 
   const loadJobs = useCallback(async () => {
     setIsLoadingJobs(true);
@@ -242,20 +246,22 @@ function ImportCenterPageContent() {
         cell: (info) => info.getValue() as string,
       },
       {
-        id: "actions",
-        header: t("common.actions"),
+        id: "__actions",
         meta: { titleKey: "common.actions" },
         enableSorting: false,
-        accessorFn: () => "",
+        enableHiding: false,
         cell: (info) => (
-          <EnterpriseButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => viewJob(info.row.original)}
-          >
-            {t("importCenter.viewJob")}
-          </EnterpriseButton>
+          <RowActionsMenu
+            label={t("common.actions")}
+            actions={[
+              {
+                key: "view",
+                label: t("importCenter.viewJob"),
+                icon: Eye,
+                onSelect: () => viewJob(info.row.original),
+              },
+            ]}
+          />
         ),
       },
     ],
@@ -277,18 +283,40 @@ function ImportCenterPageContent() {
             {t("importCenter.sync.sources.title")}
           </EnterpriseButton>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {SYNC_CARDS.map((card) => (
-            <EnterpriseCard key={card.sourceType} size="sm">
-              <EnterpriseCardContent className="flex flex-col gap-2.5">
-                <div className="flex flex-col gap-0.5">
-                  <h3 className="text-body font-semibold">{t(card.titleKey)}</h3>
-                  <p className="text-caption text-muted-foreground">{t(card.descriptionKey)}</p>
-                </div>
+            <SyncWorkspaceCard
+              key={card.sourceType}
+              title={t(card.titleKey)}
+              description={t(card.descriptionKey)}
+            >
+              <div className="[&_button]:w-full">
                 <SyncButton sourceType={card.sourceType} onSynced={loadJobs} />
-              </EnterpriseCardContent>
-            </EnterpriseCard>
+              </div>
+            </SyncWorkspaceCard>
           ))}
+          <SyncWorkspaceCard
+            variant="reference-sync"
+            title={t("importCenter.sync.cards.listSheet.title")}
+            description={t("importCenter.sync.cards.listSheet.description")}
+            direction={t("importCenter.sync.listSheet.direction")}
+            lastSyncLabel={
+              listSheetLastSyncedAt
+                ? t("importCenter.sync.listSheet.lastSync", {
+                    datetime: formatDateTime(listSheetLastSyncedAt),
+                  })
+                : t("importCenter.sync.listSheet.lastSyncNever")
+            }
+          >
+            <ListSheetSyncButton
+              onSynced={loadJobs}
+              onResult={(result) => {
+                if (result.status !== "FAILED") {
+                  setListSheetLastSyncedAt(result.syncedAt);
+                }
+              }}
+            />
+          </SyncWorkspaceCard>
         </div>
       </div>
       <SyncSourcesManager open={sourcesManagerOpen} onOpenChange={setSourcesManagerOpen} />

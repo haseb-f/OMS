@@ -37,6 +37,8 @@ export interface StoreOrderPaymentRow {
   amount: string;
   status: string;
   paymentDate: string;
+  referenceNumber?: string | null;
+  paymentSource?: { id?: string; name: string } | null;
 }
 
 export interface StoreOrderReceiptRow {

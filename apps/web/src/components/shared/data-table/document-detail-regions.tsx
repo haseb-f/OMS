@@ -4,7 +4,7 @@ import { TruncateText } from "@/components/shared/truncate-text";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import type { MessageKey } from "@/i18n/translate";
 import type { TableDetailLineItem } from "./table-detail-section";
-import { TableDetailLineItems, TableDetailSection } from "./table-detail-section";
+import { TableDetailField, TableDetailLineItems, TableDetailSection } from "./table-detail-section";
 import type { TableDetailRegion } from "./table-detail-regions";
 
 type Translate = (key: MessageKey, params?: Record<string, string | number>) => string;
@@ -79,11 +79,14 @@ export function buildDocumentDetailRegions({
 }): TableDetailRegion[] {
   const regions: TableDetailRegion[] = [];
   const address = formatPartyAddress(party);
+  const email = party?.email?.trim() || null;
+  const notesText = notes?.trim() || null;
 
   if (items.length > 0) {
     regions.push({
       startColumnId: documentColumnId,
       endColumnId: documentEndColumnId,
+      grow: "until-next-region",
       content: (
         <TableDetailSection title={labels.items}>
           <TableDetailLineItems
@@ -98,34 +101,36 @@ export function buildDocumentDetailRegions({
     });
   }
 
-  if (address || party?.email) {
+  if (address || email) {
     regions.push({
       startColumnId: partyColumnId,
+      grow: "until-next-region",
       content: (
         <TableDetailSection title={labels.party}>
-          {address ? (
-            <TruncateText lines={2} className="text-muted-foreground">
-              {address}
-            </TruncateText>
-          ) : null}
-          {party?.email ? (
-            <p className={address ? "mt-1" : undefined}>
-              <SemanticValue kind="email">{party.email}</SemanticValue>
-            </p>
-          ) : null}
+          <TableDetailField
+            primary={
+              address ? (
+                <TruncateText className="font-medium">{address}</TruncateText>
+              ) : email ? (
+                <SemanticValue kind="email">{email}</SemanticValue>
+              ) : undefined
+            }
+            secondary={
+              address && email ? <SemanticValue kind="email">{email}</SemanticValue> : undefined
+            }
+          />
         </TableDetailSection>
       ),
     });
   }
 
-  if (notes && notesColumnId) {
+  if (notesText && notesColumnId) {
     regions.push({
       startColumnId: notesColumnId,
+      grow: "until-next-region",
       content: (
         <TableDetailSection title={labels.notes}>
-          <TruncateText lines={2} className="text-muted-foreground">
-            {notes}
-          </TruncateText>
+          <TableDetailField primary={<TruncateText>{notesText}</TruncateText>} />
         </TableDetailSection>
       ),
     });

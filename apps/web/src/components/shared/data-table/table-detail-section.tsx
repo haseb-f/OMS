@@ -9,6 +9,12 @@ import { cn } from "@/lib/utils";
 
 const LINE_ITEM_PREVIEW = 4;
 
+function hasCompactValue(value: ReactNode): boolean {
+  if (value == null || value === false) return false;
+  if (typeof value === "string" && (value.trim() === "" || value.trim() === "—")) return false;
+  return true;
+}
+
 export function TableDetailSection({
   title,
   children,
@@ -23,6 +29,27 @@ export function TableDetailSection({
       <h3 className="mb-1.5 text-caption font-medium text-muted-foreground">{title}</h3>
       <div className="min-w-0 text-body">{children}</div>
     </section>
+  );
+}
+
+/** Compact primary + optional secondary — never a third data line, never a fake dash. */
+export function TableDetailField({
+  primary,
+  secondary,
+}: {
+  primary: ReactNode;
+  secondary?: ReactNode;
+}) {
+  if (!hasCompactValue(primary) && !hasCompactValue(secondary)) return null;
+  return (
+    <div data-slot="table-detail-field" className="min-w-0">
+      {hasCompactValue(primary) ? (
+        <div className="min-w-0 font-medium text-foreground">{primary}</div>
+      ) : null}
+      {hasCompactValue(secondary) ? (
+        <div className="mt-0.5 min-w-0 text-caption text-muted-foreground">{secondary}</div>
+      ) : null}
+    </div>
   );
 }
 
@@ -59,29 +86,27 @@ export function TableDetailLineItems({
   return (
     <ul className="flex flex-col gap-1.5">
       {visible.map((item) => {
-        const lineTotal = Number(item.unitPrice) * item.quantity;
+        const name = item.name?.trim() || null;
         return (
           <li key={item.id} className="min-w-0">
-            <div className="min-w-0">
-              {item.name ? (
-                <TruncateText className="font-medium text-foreground">{item.name}</TruncateText>
-              ) : item.fallbackId ? (
-                <SemanticValue kind="id" className="font-medium">
-                  {item.fallbackId}
-                </SemanticValue>
-              ) : null}
-            </div>
-            <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 text-caption text-muted-foreground">
-              <SemanticValue kind="number">× {item.quantity}</SemanticValue>
-              <MoneyValue value={item.unitPrice} currency={currency} className="font-normal" />
-              {Number.isFinite(lineTotal) ? (
-                <MoneyValue
-                  value={lineTotal}
-                  currency={currency}
-                  className="font-medium text-foreground"
-                />
-              ) : null}
-            </div>
+            <TableDetailField
+              primary={
+                name ? (
+                  <TruncateText className="font-medium text-foreground">{name}</TruncateText>
+                ) : item.fallbackId ? (
+                  <SemanticValue kind="id" className="font-medium">
+                    {item.fallbackId}
+                  </SemanticValue>
+                ) : null
+              }
+              secondary={
+                <span dir="ltr" className="inline-flex flex-wrap items-baseline gap-x-1">
+                  <SemanticValue kind="number">{item.quantity}</SemanticValue>
+                  <span> × </span>
+                  <MoneyValue value={item.unitPrice} currency={currency} className="font-normal" />
+                </span>
+              }
+            />
           </li>
         );
       })}

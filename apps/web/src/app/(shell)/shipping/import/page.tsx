@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { UploadCloud } from "lucide-react";
+import { UploadCloud, Eye } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/business/status-badge";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
+import { RowActionsMenu } from "@/components/shared/data-table";
 // Reuses the existing Import Center wizard shell — a new `SHIPPING_UPDATES`
 // type key (registered server-side) is threaded through it, same as Store
 // Orders' own import page; never a second/bespoke wizard.
@@ -102,23 +103,25 @@ function ShippingImportContent() {
         accessorFn: (row) => formatDateTime(row.createdAt),
       },
       {
-        id: "actions",
-        header: t("common.actions"),
+        id: "__actions",
         meta: { titleKey: "common.actions" },
         enableSorting: false,
-        accessorFn: () => "",
+        enableHiding: false,
         cell: (info) => (
-          <EnterpriseButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setWizardJobId(info.row.original.id);
-              setWizardOpen(true);
-            }}
-          >
-            {t("importCenter.viewJob")}
-          </EnterpriseButton>
+          <RowActionsMenu
+            label={t("common.actions")}
+            actions={[
+              {
+                key: "view",
+                label: t("importCenter.viewJob"),
+                icon: Eye,
+                onSelect: () => {
+                  setWizardJobId(info.row.original.id);
+                  setWizardOpen(true);
+                },
+              },
+            ]}
+          />
         ),
       },
     ],

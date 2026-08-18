@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
-import { Plus } from "lucide-react";
+import { Plus, Eye } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import {
@@ -14,7 +14,7 @@ import {
   exportColumnsFromKeys,
   exportRowsToCsv,
 } from "@/components/master-data/enterprise-data-table";
-import { getColumnDisplayValue } from "@/components/shared/data-table";
+import { getColumnDisplayValue, RowActionsMenu } from "@/components/shared/data-table";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { StatusBadge } from "@/components/business/status-badge";
@@ -80,15 +80,7 @@ function PhysicalCountPageContent() {
         accessorFn: (row) => row.countNumber,
         cell: ({ row }) => (
           <StackedCell
-            primary={
-              <button
-                type="button"
-                onClick={() => setOpenCountId(row.original.id)}
-                className="font-medium text-primary underline-offset-2 hover:underline"
-              >
-                <SemanticValue kind="id">{row.original.countNumber}</SemanticValue>
-              </button>
-            }
+            primary={<SemanticValue kind="id">{row.original.countNumber}</SemanticValue>}
             secondary={formatDateTime(row.original.createdAt)}
           />
         ),
@@ -132,6 +124,25 @@ function PhysicalCountPageContent() {
         meta: { titleKey: "inventory.fields.date", defaultHidden: true },
         accessorFn: (row) => formatDateTime(row.createdAt),
       },
+      {
+        id: "__actions",
+        meta: { titleKey: "common.actions" },
+        enableHiding: false,
+        enableSorting: false,
+        cell: ({ row }) => (
+          <RowActionsMenu
+            label={t("common.actions")}
+            actions={[
+              {
+                key: "view",
+                label: t("common.view"),
+                icon: Eye,
+                onSelect: () => setOpenCountId(row.original.id),
+              },
+            ]}
+          />
+        ),
+      },
     ],
     [t],
   );
@@ -150,7 +161,7 @@ function PhysicalCountPageContent() {
     });
   }, [rows, dateRange]);
 
-  const exportKeys = columns.map((column) => column.id!);
+  const exportKeys = columns.map((column) => column.id!).filter((id) => id !== "__actions");
   const toExportRow = (row: PhysicalCountListRow) =>
     Object.fromEntries(columns.map((c) => [c.id!, getColumnDisplayValue(c, row)]));
 

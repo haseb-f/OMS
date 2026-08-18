@@ -238,31 +238,38 @@ function CustomerReceiptsPageContent() {
         cell: ({ row }) => {
           const item = row.original;
           const isDraft = item.status === "DRAFT";
+          const canView = hasPermission("sales.receipts.view");
+          const canEdit = hasPermission("sales.receipts.edit");
+          const canPrint = hasPermission("sales.receipts.print");
+          const canCancel = hasPermission("sales.receipts.cancel");
+          const canArchive = hasPermission("sales.receipts.archive");
           const actions: SalesDocumentRowAction[] = [
             {
               key: "view",
               label: t("sales.receipts.open"),
               icon: Eye,
+              hidden: !canView,
               onSelect: () => router.push(`/sales/payments/${item.id}`),
             },
             {
               key: "edit",
               label: t("common.edit"),
               icon: Pencil,
-              hidden: !isDraft,
+              hidden: !isDraft || !canEdit,
               onSelect: () => router.push(`/sales/payments/${item.id}`),
             },
             {
               key: "print",
               label: t("table.print"),
               icon: Printer,
+              hidden: !canPrint,
               onSelect: () => handlePrintRow(item),
             },
             {
               key: "cancel",
               label: t("financialTransactions.actions.cancel"),
               icon: Ban,
-              hidden: item.status !== "CONFIRMED",
+              hidden: item.status !== "CONFIRMED" || !canCancel,
               destructive: true,
               separatorBefore: true,
               onSelect: () => setCancelTarget(item),
@@ -271,7 +278,7 @@ function CustomerReceiptsPageContent() {
               key: "archive",
               label: t("common.archive"),
               icon: Archive,
-              hidden: !TRANSACTION_ARCHIVABLE_STATUSES.includes(item.status),
+              hidden: !TRANSACTION_ARCHIVABLE_STATUSES.includes(item.status) || !canArchive,
               destructive: true,
               onSelect: () => setArchiveTarget(item),
             },

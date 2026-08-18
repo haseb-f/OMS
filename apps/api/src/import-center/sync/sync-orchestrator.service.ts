@@ -10,7 +10,9 @@ import { ImportJobsService } from '../import-jobs.service';
 import { GoogleSheetsService } from '../google-sheets.service';
 import { NEEDS_REVIEW_PREFIX } from '../import-type.interface';
 import { RejectImportRowDto } from '../dto/reject-import-row.dto';
+import { PhoneNumberService } from '../../common/phone/phone-number.service';
 import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
+import { buildSyncReviewRows, type SyncReviewRow } from './sync-review.util';
 
 const HANDLER_TYPE_BY_SOURCE: Record<SyncSourceType, string> = {
   LEADS: 'LEADS',
@@ -37,6 +39,14 @@ export interface SyncPreviewResult {
   errors: { rowNumber: number; columnName: string | null; message: string }[];
   needsReview: { rowNumber: number; reason: string }[];
   duplicateGroups: { field: string; value: string; rowNumbers: number[] }[];
+  source: {
+    type: 'GOOGLE_SHEETS';
+    label: string;
+    worksheetName: string | null;
+    spreadsheetId: string;
+  };
+  previewedAt: string;
+  rows: SyncReviewRow[];
 }
 
 export interface SyncCommitResult {
@@ -73,6 +83,7 @@ export class SyncOrchestratorService {
     private readonly importJobs: ImportJobsService,
     private readonly googleSheets: GoogleSheetsService,
     private readonly permissionsResolver: PermissionsResolverService,
+    private readonly phone: PhoneNumberService,
   ) {}
 
   private async getEnabledSource(sourceId: string, userId?: string) {
@@ -253,6 +264,21 @@ export class SyncOrchestratorService {
         (error) => !dbDuplicateRowNumbers.has(error.rowNumber),
       );
 
+      const [mapped, countries] = await Promise.all([
+        this.importJobs.listMappedRows(jobId),
+        this.prisma.country.findMany({
+          where: { deletedAt: null },
+          select: { name: true, nameEn: true, code: true },
+        }),
+      ]);
+      const countryCodeByName = new Map<string, string>();
+      for (const country of countries) {
+        countryCodeByName.set(country.name.toLowerCase(), country.code);
+        if (country.nameEn) {
+          countryCodeByName.set(country.nameEn.toLowerCase(), country.code);
+        }
+      }
+
       return {
         sourceId: source.id,
         jobId,
@@ -266,6 +292,23 @@ export class SyncOrchestratorService {
         errors: otherErrors,
         needsReview: result.needsReview,
         duplicateGroups: result.duplicateGroups,
+        source: {
+          type: 'GOOGLE_SHEETS' as const,
+          label: source.label,
+          worksheetName: source.worksheetName,
+          spreadsheetId: source.spreadsheetId,
+        },
+        previewedAt: new Date().toISOString(),
+        rows: buildSyncReviewRows({
+          jobId,
+          groupKey: mapped.groupKey,
+          mappedRows: mapped.rows,
+          errors: result.errors,
+          needsReview: result.needsReview,
+          duplicateGroups: result.duplicateGroups,
+          countryCodeByName,
+          phone: this.phone,
+        }),
       };
     });
   }
@@ -283,6 +326,7 @@ export class SyncOrchestratorService {
     sourceId: string,
     jobId: string,
     userId?: string,
+    options?: { acceptRowNumbers?: number[] },
   ): Promise<SyncCommitResult> {
     const source = await this.getEnabledSource(sourceId, userId);
     if (source.importJobId !== jobId) {
@@ -292,7 +336,7 @@ export class SyncOrchestratorService {
     }
 
     return this.withSyncLock(sourceId, async () => {
-      const result = await this.importJobs.run(jobId, userId);
+      const result = await this.importJobs.run(jobId, userId, options);
 
       // Google Sheets NO_CHANGE rows are reported as a distinct outcome
       // (spec section 15) but still count as a successful, no-op sync —

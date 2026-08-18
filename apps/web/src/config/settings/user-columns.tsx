@@ -8,6 +8,7 @@ import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { formatDateTime } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
+import { useUserContext } from "@/providers/user-context";
 import type { UserRow } from "@/services/users-service";
 
 export interface UserRowHandlers {
@@ -32,13 +33,21 @@ function StatusCell({ row }: { row: UserRow }) {
 
 function ActionsCell({ row, handlers }: { row: UserRow; handlers: UserRowHandlers }) {
   const { t } = useLocale();
+  const { hasPermission } = useUserContext();
+  const canManage = hasPermission("settings.manage");
   const actions: SalesDocumentRowAction[] = [
-    { key: "edit", label: t("common.edit"), icon: Pencil, onSelect: () => handlers.onEdit(row) },
+    {
+      key: "edit",
+      label: t("common.edit"),
+      icon: Pencil,
+      hidden: !canManage,
+      onSelect: () => handlers.onEdit(row),
+    },
     {
       key: "lock",
       label: t("settings.users.actions.lock"),
       icon: Lock,
-      hidden: row.isLocked,
+      hidden: row.isLocked || !canManage,
       separatorBefore: true,
       onSelect: () => handlers.onLock(row),
     },
@@ -46,7 +55,7 @@ function ActionsCell({ row, handlers }: { row: UserRow; handlers: UserRowHandler
       key: "unlock",
       label: t("settings.users.actions.unlock"),
       icon: Unlock,
-      hidden: !row.isLocked,
+      hidden: !row.isLocked || !canManage,
       separatorBefore: true,
       onSelect: () => handlers.onUnlock(row),
     },
@@ -54,13 +63,14 @@ function ActionsCell({ row, handlers }: { row: UserRow; handlers: UserRowHandler
       key: "resetPassword",
       label: t("settings.users.actions.resetPassword"),
       icon: KeyRound,
+      hidden: !canManage,
       onSelect: () => handlers.onResetPassword(row),
     },
     {
       key: "forcePasswordChange",
       label: t("settings.users.actions.forcePasswordChange"),
       icon: ShieldAlert,
-      hidden: row.mustChangePassword,
+      hidden: row.mustChangePassword || !canManage,
       onSelect: () => handlers.onForcePasswordChange(row),
     },
   ];

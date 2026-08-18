@@ -71,11 +71,13 @@ export function parsePhone(
   const trimmed = rawInput?.trim();
   if (!trimmed) return empty;
 
+  const prepared = preparePhoneInput(trimmed);
   const region = isSupportedRegion(defaultRegion) ? defaultRegion : undefined;
-  const parsed = parsePhoneNumberFromString(trimmed, region);
+  const parsed =
+    parsePhoneNumberFromString(prepared, region) ?? parseInternationalWithoutPlus(prepared, region);
 
   if (!parsed) {
-    return { ...empty, errorReason: lengthErrorReason(trimmed, region) ?? "NOT_A_NUMBER" };
+    return { ...empty, errorReason: lengthErrorReason(prepared, region) ?? "NOT_A_NUMBER" };
   }
 
   const isValid = parsed.isValid();
@@ -91,7 +93,7 @@ export function parsePhone(
       detectedRegion,
       type: null,
       regionMismatch,
-      errorReason: lengthErrorReason(trimmed, detectedRegion ?? region) ?? "INVALID_PATTERN",
+      errorReason: lengthErrorReason(prepared, detectedRegion ?? region) ?? "INVALID_PATTERN",
     };
   }
 
@@ -105,6 +107,11 @@ export function parsePhone(
     regionMismatch,
     errorReason: null,
   };
+}
+
+function parseInternationalWithoutPlus(prepared: string, region?: CountryCode) {
+  if (prepared.startsWith("+") || !/^\d{8,15}$/.test(prepared)) return undefined;
+  return parsePhoneNumberFromString(`+${prepared}`, region);
 }
 
 export function normalizeToE164(
@@ -127,6 +134,13 @@ function lengthErrorReason(rawInput: string, region?: string): PhoneErrorReason 
 }
 
 const SUPPORTED_REGIONS = new Set<string>(getCountries());
+
+/** Strip spreadsheet separators; turn a leading "00" into "+". Never invents a calling code. */
+export function preparePhoneInput(rawInput: string): string {
+  const stripped = rawInput.trim().replace(/[\s\-\u2010-\u2015().]/g, "");
+  if (stripped.startsWith("00")) return `+${stripped.slice(2)}`;
+  return stripped;
+}
 
 export function isSupportedRegion(
   regionCode: string | null | undefined,

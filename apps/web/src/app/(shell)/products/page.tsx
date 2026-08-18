@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Package, Plus } from "lucide-react";
+import { Package, Plus, Eye, Pencil, Copy, Archive as ArchiveIcon, RotateCcw } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
@@ -18,6 +18,7 @@ import {
   exportColumnsFromKeys,
   exportRowsToCsv,
 } from "@/components/master-data/enterprise-data-table";
+import { RowActionsMenu } from "@/components/shared/data-table";
 import { productsColumns, productsExportColumns } from "@/config/products/columns";
 import { ProductModal } from "./product-modal";
 import { ProductCreateDialog } from "./product-create-dialog";
@@ -209,56 +210,48 @@ function ProductsPageContent() {
             const product = row.original;
             const isArchived = !!product.deletedAt;
             return (
-              <div className="flex items-center gap-1">
-                <EnterpriseButton
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setPreviewProduct(product)}
-                >
-                  {t("products.quickPreview")}
-                </EnterpriseButton>
-                {canEdit && !isArchived && (
-                  <EnterpriseButton
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => openEdit(product)}
-                  >
-                    {t("common.edit")}
-                  </EnterpriseButton>
-                )}
-                {canCreate && !isArchived && (
-                  <EnterpriseButton
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => openDuplicate(product)}
-                  >
-                    {t("products.actions.duplicate")}
-                  </EnterpriseButton>
-                )}
-                {canArchive && !isArchived && (
-                  <EnterpriseButton
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setArchiveTarget(product)}
-                  >
-                    {t("common.archive")}
-                  </EnterpriseButton>
-                )}
-                {canArchive && isArchived && (
-                  <EnterpriseButton
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setRestoreTarget(product)}
-                  >
-                    {t("common.restore")}
-                  </EnterpriseButton>
-                )}
-              </div>
+              <RowActionsMenu
+                label={t("common.actions")}
+                actions={[
+                  {
+                    key: "preview",
+                    label: t("products.quickPreview"),
+                    icon: Eye,
+                    onSelect: () => setPreviewProduct(product),
+                  },
+                  {
+                    key: "edit",
+                    label: t("common.edit"),
+                    icon: Pencil,
+                    hidden: !canEdit || isArchived,
+                    onSelect: () => openEdit(product),
+                  },
+                  {
+                    key: "duplicate",
+                    label: t("products.actions.duplicate"),
+                    icon: Copy,
+                    hidden: !canCreate || isArchived,
+                    onSelect: () => openDuplicate(product),
+                  },
+                  {
+                    key: "archive",
+                    label: t("common.archive"),
+                    icon: ArchiveIcon,
+                    hidden: !canArchive || isArchived,
+                    destructive: true,
+                    separatorBefore: true,
+                    onSelect: () => setArchiveTarget(product),
+                  },
+                  {
+                    key: "restore",
+                    label: t("common.restore"),
+                    icon: RotateCcw,
+                    hidden: !canArchive || !isArchived,
+                    separatorBefore: true,
+                    onSelect: () => setRestoreTarget(product),
+                  },
+                ]}
+              />
             );
           },
         },

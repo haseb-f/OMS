@@ -238,31 +238,38 @@ function SupplierPaymentsPageContent() {
         cell: ({ row }) => {
           const item = row.original;
           const isDraft = item.status === "DRAFT";
+          const canView = hasPermission("purchasing.payments.view");
+          const canEdit = hasPermission("purchasing.payments.edit");
+          const canPrint = hasPermission("purchasing.payments.print");
+          const canCancel = hasPermission("purchasing.payments.cancel");
+          const canArchive = hasPermission("purchasing.payments.archive");
           const actions: SalesDocumentRowAction[] = [
             {
               key: "view",
               label: t("purchasing.payments.open"),
               icon: Eye,
+              hidden: !canView,
               onSelect: () => router.push(`/purchasing/payments/${item.id}`),
             },
             {
               key: "edit",
               label: t("common.edit"),
               icon: Pencil,
-              hidden: !isDraft,
+              hidden: !isDraft || !canEdit,
               onSelect: () => router.push(`/purchasing/payments/${item.id}`),
             },
             {
               key: "print",
               label: t("table.print"),
               icon: Printer,
+              hidden: !canPrint,
               onSelect: () => handlePrintRow(item),
             },
             {
               key: "cancel",
               label: t("financialTransactions.actions.cancel"),
               icon: Ban,
-              hidden: item.status !== "CONFIRMED",
+              hidden: item.status !== "CONFIRMED" || !canCancel,
               destructive: true,
               separatorBefore: true,
               onSelect: () => setCancelTarget(item),
@@ -271,7 +278,7 @@ function SupplierPaymentsPageContent() {
               key: "archive",
               label: t("common.archive"),
               icon: Archive,
-              hidden: !TRANSACTION_ARCHIVABLE_STATUSES.includes(item.status),
+              hidden: !TRANSACTION_ARCHIVABLE_STATUSES.includes(item.status) || !canArchive,
               destructive: true,
               onSelect: () => setArchiveTarget(item),
             },

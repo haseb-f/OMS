@@ -8,6 +8,8 @@ import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { formatDate } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
+import { useUserContext } from "@/providers/user-context";
+import { documentRowAccess } from "@/components/shared/data-table";
 import type { PurchaseReturnRow } from "@/services/purchase-returns-service";
 import { SalesDocumentRowActionsMenu, type SalesDocumentRowAction } from "@/components/sales";
 import {
@@ -34,27 +36,36 @@ export interface ReturnRowHandlers {
 
 function ActionsCell({ row, handlers }: { row: PurchaseReturnRow; handlers: ReturnRowHandlers }) {
   const { t } = useLocale();
+  const { hasPermission } = useUserContext();
+  const access = documentRowAccess(hasPermission, "purchasing.returns");
   const isDraft = row.status === "DRAFT";
   const actions: SalesDocumentRowAction[] = [
     {
       key: "view",
       label: t("purchasing.returns.open"),
       icon: Eye,
+      hidden: !access.canView,
       onSelect: () => handlers.onView(row),
     },
     {
       key: "edit",
       label: t("common.edit"),
       icon: Pencil,
-      hidden: !isDraft,
+      hidden: !isDraft || !access.canEdit,
       onSelect: () => handlers.onView(row),
     },
-    { key: "print", label: t("table.print"), icon: Printer, onSelect: () => handlers.onPrint(row) },
+    {
+      key: "print",
+      label: t("table.print"),
+      icon: Printer,
+      hidden: !access.canPrint,
+      onSelect: () => handlers.onPrint(row),
+    },
     {
       key: "cancel",
       label: t("purchasing.returns.actions.cancel"),
       icon: Ban,
-      hidden: !RETURN_CANCELLABLE_STATUSES.includes(row.status),
+      hidden: !RETURN_CANCELLABLE_STATUSES.includes(row.status) || !access.canCancel,
       destructive: true,
       separatorBefore: true,
       onSelect: () => handlers.onCancel(row),
@@ -63,7 +74,7 @@ function ActionsCell({ row, handlers }: { row: PurchaseReturnRow; handlers: Retu
       key: "archive",
       label: t("common.archive"),
       icon: Archive,
-      hidden: !RETURN_ARCHIVABLE_STATUSES.includes(row.status),
+      hidden: !RETURN_ARCHIVABLE_STATUSES.includes(row.status) || !access.canArchive,
       destructive: true,
       onSelect: () => handlers.onArchive(row),
     },

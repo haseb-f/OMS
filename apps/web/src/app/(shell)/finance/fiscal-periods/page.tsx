@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Plus, Star, Archive } from "lucide-react";
+import { Plus, Star, Archive, CalendarRange, Lock, Unlock } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
@@ -14,7 +14,7 @@ import {
   exportColumnsFromKeys,
   exportRowsToCsv,
 } from "@/components/master-data/enterprise-data-table";
-import { getColumnDisplayValue } from "@/components/shared/data-table";
+import { getColumnDisplayValue, RowActionsMenu } from "@/components/shared/data-table";
 import { CreateFiscalYearDialog } from "./create-fiscal-year-dialog";
 import { PeriodsDialog } from "./periods-dialog";
 import {
@@ -88,13 +88,7 @@ export default function FiscalPeriodsPage() {
           <StackedCell
             primary={
               <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setOpenPeriodsFor(info.row.original)}
-                  className="font-medium text-primary hover:underline"
-                >
-                  {info.getValue() as string}
-                </button>
+                <span className="font-medium">{info.getValue() as string}</span>
                 {info.row.original.isDefault && (
                   <Star
                     className="size-3.5 fill-warning text-warning"
@@ -169,36 +163,43 @@ export default function FiscalPeriodsPage() {
             }
           };
           return (
-            <div className="flex items-center justify-end gap-1.5">
-              {canCreate && !fiscalYear.isDefault && (
-                <EnterpriseButton
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleSetDefault}
-                >
-                  {t("accounting.fiscalYears.actions.setDefault")}
-                </EnterpriseButton>
-              )}
-              {canCreate && (
-                <EnterpriseButton type="button" variant="outline" size="sm" onClick={handleToggle}>
-                  {fiscalYear.status === "OPEN"
-                    ? t("accounting.fiscalYears.actions.close")
-                    : t("accounting.fiscalYears.actions.reopen")}
-                </EnterpriseButton>
-              )}
-              {canCreate && (
-                <EnterpriseButton
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={t("common.archive")}
-                  onClick={() => setArchiveTarget(fiscalYear)}
-                >
-                  <Archive className="size-3.5" />
-                </EnterpriseButton>
-              )}
-            </div>
+            <RowActionsMenu
+              label={t("common.actions")}
+              actions={[
+                {
+                  key: "periods",
+                  label: t("common.view"),
+                  icon: CalendarRange,
+                  onSelect: () => setOpenPeriodsFor(fiscalYear),
+                },
+                {
+                  key: "setDefault",
+                  label: t("accounting.fiscalYears.actions.setDefault"),
+                  icon: Star,
+                  hidden: !canCreate || fiscalYear.isDefault,
+                  onSelect: () => void handleSetDefault(),
+                },
+                {
+                  key: "toggle",
+                  label:
+                    fiscalYear.status === "OPEN"
+                      ? t("accounting.fiscalYears.actions.close")
+                      : t("accounting.fiscalYears.actions.reopen"),
+                  icon: fiscalYear.status === "OPEN" ? Lock : Unlock,
+                  hidden: !canCreate,
+                  onSelect: () => void handleToggle(),
+                },
+                {
+                  key: "archive",
+                  label: t("common.archive"),
+                  icon: Archive,
+                  hidden: !canCreate,
+                  destructive: true,
+                  separatorBefore: true,
+                  onSelect: () => setArchiveTarget(fiscalYear),
+                },
+              ]}
+            />
           );
         },
       },

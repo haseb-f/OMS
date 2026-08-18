@@ -91,6 +91,20 @@ const ORDER_LIST_INCLUDE = {
     take: 1,
     include: { shippingCompany: { select: { id: true, name: true } } },
   },
+  payments: {
+    where: { deletedAt: null },
+    orderBy: { paymentDate: 'desc' as const },
+    take: 1,
+    select: {
+      id: true,
+      paymentNumber: true,
+      amount: true,
+      status: true,
+      paymentDate: true,
+      referenceNumber: true,
+      paymentSource: { select: { id: true, name: true } },
+    },
+  },
 } satisfies Prisma.StoreOrderInclude;
 
 /**
