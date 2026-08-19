@@ -188,6 +188,13 @@ export interface ShippingMethodRow {
   deletedAt: string | null;
 }
 
+export interface ShippingCompanyRow {
+  id: string;
+  name: string;
+  description: string | null;
+  deletedAt: string | null;
+}
+
 export interface CustomerGroupRow {
   id: string;
   code: string;
@@ -927,6 +934,30 @@ export const shippingMethodsDefaultValues = {
 };
 export const shippingMethodsExportColumns = ["name", "type"];
 export const shippingMethodRowLabel = (row: ShippingMethodRow) => row.name;
+
+// ---------------------------------------------------------------------------
+// Shipping Companies
+// ---------------------------------------------------------------------------
+
+export const shippingCompaniesColumns: ColumnDef<ShippingCompanyRow, unknown>[] = [
+  textColumn("name", "masterData.fields.name", (r) => r.name),
+  textColumn("description", "masterData.fields.description", (r) => r.description),
+  statusColumn<ShippingCompanyRow>(),
+];
+
+export const shippingCompaniesFormFields: MasterDataFormField[] = [
+  { name: "name", label: "masterData.fields.name", type: "text", required: true },
+  { name: "description", label: "masterData.fields.description", type: "textarea" },
+];
+
+export const shippingCompaniesSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional().or(z.literal("")),
+});
+
+export const shippingCompaniesDefaultValues = { name: "", description: "" };
+export const shippingCompaniesExportColumns = ["name"];
+export const shippingCompanyRowLabel = (row: ShippingCompanyRow) => row.name;
 
 // ---------------------------------------------------------------------------
 // Customer Groups
