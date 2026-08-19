@@ -381,9 +381,11 @@ export const DEFAULT_NEW_USER_PERMISSIONS: string[] = [];
  * are rows in the Permission Matrix, so granting only a granular permission
  * (e.g. "Sales Invoices → View") would leave its section invisible. This
  * map auto-bundles the matching coarse permission whenever a granular one
- * from that section is granted — applied once, in `UsersService.setPermissions`,
- * never duplicated at the guard/resolver layer (those only ever check the
- * exact granular permission a route declares).
+ * from that section is granted. Expansion runs in `UsersService.setPermissions`
+ * (so the grant is persisted) and again in `PermissionsResolverService`
+ * (so `/auth/me` still exposes the section key when an older row set never
+ * stored it). Guards continue to check the exact granular permission a route
+ * declares.
  */
 export const IMPLIED_SECTION_PERMISSION: Record<
   string,

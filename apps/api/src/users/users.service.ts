@@ -255,12 +255,26 @@ export class UsersService {
     return { granted: rows.map((row) => row.permission.name) };
   }
 
-  /** Replaces the user's entire permission set (Part 3/11 — the matrix always saves the full checked list). Unknown/retired names are silently ignored rather than rejected, so a stale client payload can never 500. Implied coarse section permissions (see `withImpliedSectionPermissions`) are bundled in automatically, so a matrix grant never leaves its own sidebar section invisible. */
+  /** Replaces the user's entire permission set (Part 3/11 — the matrix always saves the full checked list). Unknown/retired names are silently ignored rather than rejected, so a stale client payload can never 500. Implied coarse section permissions (see `withImpliedSectionPermissions`) are bundled in automatically. Missing `Permission` rows for those implied names are created rather than dropped, so a matrix grant never leaves its own sidebar section invisible. */
   async setPermissions(id: string, dto: SetUserPermissionsDto) {
     await this.findOne(id);
     const validNames = withImpliedSectionPermissions(
       dto.permissionNames.filter((name) => ALL_PERMISSION_NAMES.includes(name)),
     );
+    const existing = await this.prisma.permission.findMany({
+      where: { name: { in: validNames } },
+      select: { id: true, name: true },
+    });
+    const existingNames = new Set(
+      existing.map((permission) => permission.name),
+    );
+    const missingNames = validNames.filter((name) => !existingNames.has(name));
+    if (missingNames.length > 0) {
+      await this.prisma.permission.createMany({
+        data: missingNames.map((name) => ({ name })),
+        skipDuplicates: true,
+      });
+    }
     const permissions = await this.prisma.permission.findMany({
       where: { name: { in: validNames } },
       select: { id: true },

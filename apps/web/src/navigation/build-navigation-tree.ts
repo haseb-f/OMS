@@ -46,13 +46,16 @@ function sortByOrder(items: NavigationItem[]): NavigationItem[] {
  * Permission filtering (ADR-0022 Part 4) — an item with no `permissions`
  * list is always visible (e.g. Dashboard); otherwise the user must hold
  * every listed permission. Filter the flat list with this BEFORE calling
- * `buildNavigationTree`, so a hidden parent's children never orphan into
- * the tree.
+ * `buildNavigationTree`, so unauthorized children never orphan into the tree.
+ *
+ * Section parents (`sales`, `crm`, `finance`, …) still declare a coarse
+ * `*.view` gate for documentation, but those keys are not grantable in the
+ * Permission Matrix. A parent is therefore kept when *any descendant* is
+ * authorized — `store-orders.view` must reveal Sales → Store Orders even
+ * when `sales.view` is absent from `/auth/me`. Sibling children stay hidden.
  *
  * SYSTEM_ADMIN bypass — `isSuperAdmin` shows every item regardless of its
- * `permissions` list, including sections whose coarse `*.view` gate (e.g.
- * `crm.view`, `finance.view`) has no corresponding Permission Matrix row to
- * grant through the normal UI.
+ * `permissions` list.
  *
  * Auth-aware wrapper: while bootstrap is still loading (or failed for a
  * non-401 reason), permissions are unknown — not empty. Treating that as
@@ -74,21 +77,43 @@ export function filterByAccess(
   userPermissions: string[],
   isSuperAdmin = false,
 ): NavigationItem[] {
-  const hasAccess = (item: NavigationItem) =>
-    isSuperAdmin ||
+  if (isSuperAdmin) return items;
+
+  const hasOwnAccess = (item: NavigationItem) =>
     !item.permissions?.length ||
     item.permissions.every((permission) => userPermissions.includes(permission));
 
-  const visibleIds = new Set(items.filter(hasAccess).map((item) => item.id));
-  // A child is only kept if its parent chain is fully visible too.
-  const isReachable = (item: NavigationItem): boolean => {
-    if (!visibleIds.has(item.id)) return false;
-    if (!item.parent) return true;
-    const parent = items.find((candidate) => candidate.id === item.parent);
-    return parent ? isReachable(parent) : true;
-  };
+  const byId = new Map(items.map((item) => [item.id, item]));
+  const visibleIds = new Set<string>();
 
-  return items.filter((item) => hasAccess(item) && isReachable(item));
+  // Seeds are items the user is actually authorized for: an explicit grant,
+  // or an ungated root (Dashboard / Products). Ungated *children* must not
+  // seed their parent — otherwise Finance/Settings appear for every user
+  // because a few nested routes were authored without a permission list.
+  for (const item of items) {
+    if (!hasOwnAccess(item)) continue;
+    const isSeed = Boolean(item.permissions?.length) || !item.parent;
+    if (!isSeed) continue;
+    let current: NavigationItem | undefined = item;
+    while (current) {
+      visibleIds.add(current.id);
+      current = current.parent ? byId.get(current.parent) : undefined;
+    }
+  }
+
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const item of items) {
+      if (visibleIds.has(item.id) || !hasOwnAccess(item)) continue;
+      if (item.parent && visibleIds.has(item.parent)) {
+        visibleIds.add(item.id);
+        grew = true;
+      }
+    }
+  }
+
+  return items.filter((item) => visibleIds.has(item.id));
 }
 
 /** Flattens a tree back into a list — used for search-within-sidebar and breadcrumb lookup. */

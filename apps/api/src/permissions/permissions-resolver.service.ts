@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { withImpliedSectionPermissions } from './permission-catalog';
 
 interface CacheEntry {
   isSuperAdmin: boolean;
@@ -23,9 +24,11 @@ const CACHE_TTL_MS = 60_000;
  * SYSTEM_ADMIN bypass — `User.isSuperAdmin` is resolved alongside the
  * grant list and short-circuits `hasPermission()` to always `true`. This
  * covers every caller of `hasPermission()` (the guard, and the couple of
- * ad-hoc business checks like "can view all leads") from one place, without
- * changing what `getPermissions()` returns — audit/UI screens still see the
- * user's real, individually-granted permissions.
+ * ad-hoc business checks like "can view all leads") from one place.
+ * `getPermissions()` still returns the user's stored grants, expanded with
+ * implied coarse section keys (`sales.view`, `crm.view`, …) from the same
+ * catalog map used at grant time, so `/auth/me` cannot omit a sidebar
+ * section gate that the Permission Matrix cannot tick directly.
  */
 @Injectable()
 export class PermissionsResolverService {
@@ -51,7 +54,9 @@ export class PermissionsResolverService {
     ]);
     const entry: CacheEntry = {
       isSuperAdmin: user?.isSuperAdmin ?? false,
-      permissions: new Set(rows.map((row) => row.permission.name)),
+      permissions: new Set(
+        withImpliedSectionPermissions(rows.map((row) => row.permission.name)),
+      ),
       expiresAt: Date.now() + CACHE_TTL_MS,
     };
     this.cache.set(userId, entry);
