@@ -68,7 +68,7 @@ function ShippingPageContent() {
 
   useEffect(() => {
     shippingCompaniesService
-      .list()
+      .listOptions()
       .then(setCompanies)
       .catch(() => setCompanies([]));
   }, []);

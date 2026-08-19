@@ -42,7 +42,7 @@ function ActionsCell({ row, handlers }: { row: PurchaseReturnRow; handlers: Retu
   const actions: SalesDocumentRowAction[] = [
     {
       key: "view",
-      label: t("purchasing.returns.open"),
+      label: t("common.view"),
       icon: Eye,
       hidden: !access.canView,
       onSelect: () => handlers.onView(row),

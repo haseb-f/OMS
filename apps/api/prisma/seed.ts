@@ -47,12 +47,16 @@ const masterDataEntities = [
   'analytic-plans',
   'analytic-accounts',
   'payment-methods',
+  'payment-terms',
   'shipping-methods',
+  'shipping-companies',
   'customer-groups',
   'supplier-groups',
   'countries',
   'cities',
   'languages',
+  'warehouse-locations',
+  'unit-conversions',
   // TASK-048 — Cost Centers/Projects direct entry points.
   'cost-centers',
   'projects',
@@ -258,6 +262,7 @@ const shippingMethods = [
 /// new rows are created (ShippingMethod is name-unique, so re-running the
 /// seed can't just "update in place" the way code-keyed entities do).
 const obsoleteShippingMethodNames = ['Internal Delivery', 'Shipping Company'];
+const shippingCompanies = ['SMSA', 'Aramex', 'DHL', 'FedEx'];
 
 const paymentSources = [
   { name: 'Bank Transfer' },
@@ -492,6 +497,16 @@ async function main() {
         where: { name: method.name },
         update: method,
         create: method,
+      }),
+    ),
+  );
+
+  await Promise.all(
+    shippingCompanies.map((name) =>
+      prisma.shippingCompany.upsert({
+        where: { name },
+        update: {},
+        create: { name },
       }),
     ),
   );

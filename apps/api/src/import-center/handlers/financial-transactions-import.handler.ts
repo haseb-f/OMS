@@ -14,6 +14,10 @@ import {
   resolveRequiredIdByField,
 } from '../import-value.util';
 import { parseOptionalNumber } from './document-line.util';
+import {
+  FINANCIAL_TRANSACTION_TYPE_SHEET_LABELS,
+  resolveFinancialTransactionType,
+} from '../../financial-transactions/financial-transaction-type.catalog';
 import type {
   ImportFieldDef,
   ImportRowOptions,
@@ -70,6 +74,14 @@ function fields(partyLabelKey: string, partyLabel: string): ImportFieldDef[] {
       example: 'Leave blank for an unallocated / advance amount',
     },
     {
+      key: 'transactionType',
+      labelKey: 'importCenter.fields.financialTransactionType',
+      label: 'Financial Transaction Type',
+      required: false,
+      type: 'string',
+      example: 'تحصيل من عميل',
+    },
+    {
       key: 'allocatedAmount',
       labelKey: 'importCenter.fields.allocatedAmount',
       label: 'Allocated Amount',
@@ -86,6 +98,24 @@ function fields(partyLabelKey: string, partyLabel: string): ImportFieldDef[] {
  * amount to an invoice (rows with no `invoiceNumber` are unallocated —
  * Advance Payment / Overpayment, matching the Matching Engine's own rules).
  */
+function assertTransactionType(
+  raw: string | undefined,
+  expected: 'CUSTOMER_RECEIPT' | 'SUPPLIER_PAYMENT',
+) {
+  if (!raw?.trim()) return;
+  const resolved = resolveFinancialTransactionType(raw);
+  if (!resolved) {
+    throw new BadRequestException(
+      `Financial Transaction Type must match an OMS type (code or Arabic label).`,
+    );
+  }
+  if (resolved !== expected) {
+    throw new BadRequestException(
+      `Financial Transaction Type must be ${FINANCIAL_TRANSACTION_TYPE_SHEET_LABELS[expected] ?? expected}.`,
+    );
+  }
+}
+
 async function buildAndCreate(
   service: FinancialTransactionsService,
   type: 'CUSTOMER_RECEIPT' | 'SUPPLIER_PAYMENT',
@@ -180,6 +210,7 @@ export class CustomerReceiptsImportHandler
     options?: ImportRowOptions,
   ): Promise<ImportRowResult> {
     const first = rows[0];
+    assertTransactionType(first.transactionType, 'CUSTOMER_RECEIPT');
     const customerId = await resolveRequiredIdByField(
       this.customersService,
       'name',
@@ -244,6 +275,7 @@ export class SupplierPaymentsImportHandler
     options?: ImportRowOptions,
   ): Promise<ImportRowResult> {
     const first = rows[0];
+    assertTransactionType(first.transactionType, 'SUPPLIER_PAYMENT');
     const supplierId = await resolveRequiredIdByField(
       this.suppliersService,
       'name',

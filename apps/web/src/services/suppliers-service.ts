@@ -17,7 +17,9 @@ export interface SupplierRow {
   commercialRegistration: string | null;
   currencyId: string | null;
   currency: { id: string; code: string; name: string } | null;
-  /** No closed set of values was specified — free-text (ADR-0015). */
+  supplierGroupId: string | null;
+  supplierGroup: { id: string; code: string; name: string } | null;
+  /** Selected from Payment Terms master data; persisted as the term name. */
   paymentTerm: string | null;
   creditLimit: string | null;
   countryId: string | null;
@@ -45,6 +47,7 @@ export interface SupplierFormPayload {
   taxNumber?: string;
   commercialRegistration?: string;
   currencyId?: string;
+  supplierGroupId?: string;
   paymentTerm?: string;
   creditLimit?: number;
   countryId?: string;

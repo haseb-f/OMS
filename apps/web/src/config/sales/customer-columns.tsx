@@ -92,6 +92,12 @@ export const customerColumns: ColumnDef<CustomerRow, unknown>[] = [
     enableSorting: false,
   },
   {
+    id: "customerGroup",
+    meta: { titleKey: "sales.customers.fields.customerGroup" },
+    accessorFn: (row) => row.customerGroup?.name ?? "—",
+    enableSorting: false,
+  },
+  {
     id: "paymentTerm",
     meta: { titleKey: "sales.customers.fields.paymentTerm" },
     accessorFn: (row) => row.paymentTerm?.name ?? "—",

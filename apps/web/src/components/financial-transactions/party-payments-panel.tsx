@@ -10,16 +10,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  EnterpriseCard,
-  EnterpriseCardContent,
-  EnterpriseCardHeader,
-  EnterpriseCardTitle,
-} from "@/components/ui/card";
 import { EnterpriseButton } from "@/components/ui/button";
 import { StatusBadge } from "@/components/business/status-badge";
-import { SummaryCard } from "@/components/business/summary-card";
 import { EmptyState } from "@/components/shared/empty-state";
+import { DetailField, DetailFieldGrid, DetailSection } from "@/components/shared/detail-workspace";
 import { OpenInvoicesTable } from "@/components/financial-transactions/open-invoices-table";
 import {
   TRANSACTION_STATUS_LABEL_KEY,
@@ -74,7 +68,7 @@ export function PartyPaymentsPanel({
     .reduce((sum, txn) => sum + Number(txn.amount), 0);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-2.5">
       {onCreateNew && createLabel && (
         <div className="flex justify-end">
           <EnterpriseButton type="button" size="sm" className="gap-1.5" onClick={onCreateNew}>
@@ -83,96 +77,68 @@ export function PartyPaymentsPanel({
           </EnterpriseButton>
         </div>
       )}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <SummaryCard
-          title={outstandingLabel}
-          rows={[
-            { label: outstandingLabel, value: formatMoney(outstandingBalance), emphasis: true },
-          ]}
-        />
-        <SummaryCard
-          title={paidLabel}
-          rows={[{ label: paidLabel, value: formatMoney(paidAmount), emphasis: true }]}
-        />
-        <SummaryCard
-          title={t("financialTransactions.allocationSummary.openInvoices")}
-          rows={[
-            {
-              label: t("financialTransactions.allocationSummary.openInvoices"),
-              value: openInvoices.length,
-              emphasis: true,
-            },
-          ]}
-        />
-      </div>
+      <DetailSection>
+        <DetailFieldGrid columns={3}>
+          <DetailField label={outstandingLabel} value={formatMoney(outstandingBalance)} />
+          <DetailField label={paidLabel} value={formatMoney(paidAmount)} />
+          <DetailField
+            label={t("financialTransactions.allocationSummary.openInvoices")}
+            value={String(openInvoices.length)}
+          />
+        </DetailFieldGrid>
+      </DetailSection>
 
-      <EnterpriseCard>
-        <EnterpriseCardHeader>
-          <EnterpriseCardTitle>{historyTitle}</EnterpriseCardTitle>
-        </EnterpriseCardHeader>
-        <EnterpriseCardContent>
-          {isLoadingTransactions ? (
-            <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
-          ) : transactions.length === 0 ? (
-            <EmptyState icon={FileText} title={t("common.noResults")} />
-          ) : (
-            <div className="overflow-x-auto rounded-md border border-border/70">
-              <Table className="w-full table-fixed border-separate border-spacing-0">
-                <TableHeader className="bg-muted/50">
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead>{t("financialTransactions.allocationGrid.invoice")}</TableHead>
-                    <TableHead className="w-32">
-                      {t("financialTransactions.openInvoices.date")}
-                    </TableHead>
-                    <TableHead className="w-32 text-end">
-                      {t("financialTransactions.summary.amount")}
-                    </TableHead>
-                    <TableHead className="w-36">{t("common.status")}</TableHead>
+      <DetailSection title={historyTitle}>
+        {isLoadingTransactions ? (
+          <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
+        ) : transactions.length === 0 ? (
+          <EmptyState icon={FileText} title={t("common.noResults")} />
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("financialTransactions.allocationGrid.invoice")}</TableHead>
+                  <TableHead>{t("financialTransactions.openInvoices.date")}</TableHead>
+                  <TableHead className="text-end">
+                    {t("financialTransactions.summary.amount")}
+                  </TableHead>
+                  <TableHead>{t("common.status")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {transactions.map((txn) => (
+                  <TableRow key={txn.id}>
+                    <TableCell>
+                      <Link
+                        href={documentHref(txn.id)}
+                        className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs hover:underline"
+                        dir="ltr"
+                      >
+                        {txn.transactionNumber}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{formatDate(txn.transactionDate)}</TableCell>
+                    <TableCell className="text-end" dir="ltr">
+                      {formatMoney(Number(txn.amount))}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge
+                        label={t(TRANSACTION_STATUS_LABEL_KEY[txn.status])}
+                        tone={TRANSACTION_STATUS_TONE[txn.status]}
+                      />
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {transactions.map((txn) => (
-                    <TableRow key={txn.id}>
-                      <TableCell className="align-middle">
-                        <Link
-                          href={documentHref(txn.id)}
-                          className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs hover:underline"
-                          dir="ltr"
-                        >
-                          {txn.transactionNumber}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="align-middle">
-                        {formatDate(txn.transactionDate)}
-                      </TableCell>
-                      <TableCell className="align-middle text-end" dir="ltr">
-                        {formatMoney(Number(txn.amount))}
-                      </TableCell>
-                      <TableCell className="align-middle">
-                        <StatusBadge
-                          label={t(TRANSACTION_STATUS_LABEL_KEY[txn.status])}
-                          tone={TRANSACTION_STATUS_TONE[txn.status]}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </EnterpriseCardContent>
-      </EnterpriseCard>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </DetailSection>
 
-      <EnterpriseCard>
-        <EnterpriseCardHeader>
-          <EnterpriseCardTitle>
-            {t("financialTransactions.allocationSummary.openInvoices")}
-          </EnterpriseCardTitle>
-        </EnterpriseCardHeader>
-        <EnterpriseCardContent>
-          <OpenInvoicesTable invoices={openInvoices} isLoading={isLoadingOpenInvoices} readOnly />
-        </EnterpriseCardContent>
-      </EnterpriseCard>
+      <DetailSection title={t("financialTransactions.allocationSummary.openInvoices")}>
+        <OpenInvoicesTable invoices={openInvoices} isLoading={isLoadingOpenInvoices} readOnly />
+      </DetailSection>
     </div>
   );
 }

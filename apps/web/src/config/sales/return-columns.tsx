@@ -43,7 +43,7 @@ function ActionsCell({ row, handlers }: { row: SalesReturnRow; handlers: ReturnR
   const actions: SalesDocumentRowAction[] = [
     {
       key: "view",
-      label: t("sales.returns.open"),
+      label: t("common.view"),
       icon: Eye,
       hidden: !access.canView,
       onSelect: () => handlers.onView(row),

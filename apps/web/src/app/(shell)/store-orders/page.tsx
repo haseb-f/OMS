@@ -6,6 +6,7 @@ import type { RowSelectionState } from "@tanstack/react-table";
 import { Plus } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseButton } from "@/components/ui/button";
+import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { SyncButton } from "@/components/shared/sync-button";
 import {
   EnterpriseDateRangePicker,
@@ -76,6 +77,8 @@ function StoreOrdersPageContent() {
   const [isSelectingAllMatching, setIsSelectingAllMatching] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createDialogSession, setCreateDialogSession] = useState(0);
+  const [archiveTarget, setArchiveTarget] = useState<StoreOrderRow | null>(null);
+  const [isArchiving, setIsArchiving] = useState(false);
   // Cross-page selection cache (mirrors sales/orders/page.tsx) — `items`
   // only ever holds the current page, so a row selected earlier keeps its
   // real data available for bulk print/export after paging away.
@@ -131,6 +134,8 @@ function StoreOrdersPageContent() {
     () =>
       buildStoreOrderColumns({
         onView: (row) => router.push(`/store-orders/${row.id}`),
+        onEdit: (row) => router.push(`/store-orders/${row.id}`),
+        onArchive: (row) => setArchiveTarget(row),
       }),
     [router],
   );
@@ -160,6 +165,21 @@ function StoreOrdersPageContent() {
       storeOrderExportColumns,
       "store-orders-selected.csv",
     );
+  };
+
+  const handleArchive = async () => {
+    if (!archiveTarget) return;
+    setIsArchiving(true);
+    try {
+      await storeOrdersService.archive(archiveTarget.id);
+      toast.success(t("common.archive"));
+      setArchiveTarget(null);
+      void load();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+    } finally {
+      setIsArchiving(false);
+    }
   };
 
   const handleSelectAllMatching = async () => {
@@ -237,6 +257,8 @@ function StoreOrdersPageContent() {
             expanded={expanded}
             onToggleExpanded={onToggleExpanded}
             onView={(order) => router.push(`/store-orders/${order.id}`)}
+            onEdit={(order) => router.push(`/store-orders/${order.id}`)}
+            onArchive={(order) => setArchiveTarget(order)}
           />
         )}
         filterBar={
@@ -335,6 +357,20 @@ function StoreOrdersPageContent() {
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
         onCreated={() => void load()}
+      />
+
+      <ConfirmationDialog
+        open={!!archiveTarget}
+        onOpenChange={(open) => {
+          if (!open) setArchiveTarget(null);
+        }}
+        tone="destructive"
+        title={t("common.confirmArchiveTitle")}
+        description={t("common.confirmArchiveDescription")}
+        confirmLabel={t("common.archive")}
+        cancelLabel={t("common.cancel")}
+        isConfirming={isArchiving}
+        onConfirm={() => void handleArchive()}
       />
     </PageWorkspace>
   );

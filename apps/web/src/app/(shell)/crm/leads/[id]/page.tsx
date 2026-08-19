@@ -2,25 +2,25 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { UserCheck } from "lucide-react";
-import { PageWorkspace } from "@/components/shared/page-workspace";
+import { Archive, CheckCircle2, FileText, UserCheck } from "lucide-react";
+import {
+  DetailField,
+  DetailFieldGrid,
+  DetailSection,
+  DetailWorkspace,
+  BackButton,
+} from "@/components/shared/detail-workspace";
+import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { RowActionsMenu } from "@/components/shared/data-table";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { EnterpriseButton } from "@/components/ui/button";
-import {
-  EnterpriseCard,
-  EnterpriseCardContent,
-  EnterpriseCardHeader,
-  EnterpriseCardTitle,
-} from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import { StatusBadge, type StatusTone } from "@/components/business/status-badge";
-import { PartyCard } from "@/components/business/party-card";
 import { EntityTabs } from "@/components/business/entity-tabs";
+import { StatusBadge, type StatusTone } from "@/components/business/status-badge";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
 import { AssignLeadDialog } from "@/components/business/assign-lead-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PermissionGate } from "@/components/shared/permission-gate";
-import { FileText } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import {
   leadsService,
   type LeadRow,
@@ -43,15 +43,6 @@ const STATUS_TONE: Record<LeadStatusValue, StatusTone> = {
   ARCHIVED: "neutral",
 };
 
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4 border-b border-border/60 py-2 last:border-b-0">
-      <dt className="text-caption text-muted-foreground">{label}</dt>
-      <dd className="text-sm font-medium">{value || "—"}</dd>
-    </div>
-  );
-}
-
 function LeadDetailContent() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -67,9 +58,11 @@ function LeadDetailContent() {
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
 
   const canEdit = hasPermission("crm.leads.edit");
   const canManage = hasPermission("crm.leads.manage");
+  const canArchive = hasPermission("crm.leads.archive");
 
   useBreadcrumbLabel(lead?.leadNumber ?? null);
 
@@ -140,10 +133,20 @@ function LeadDetailContent() {
   };
 
   if (isLoading) {
-    return <div className="p-8 text-caption text-muted-foreground">{t("common.loading")}</div>;
+    return (
+      <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-2">
+        <BackButton href="/crm/leads" />
+        <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
+      </div>
+    );
   }
   if (!lead) {
-    return <EmptyState icon={FileText} title={t("common.noResults")} />;
+    return (
+      <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-2">
+        <BackButton href="/crm/leads" />
+        <EmptyState icon={FileText} title={t("common.noResults")} />
+      </div>
+    );
   }
 
   const timelineEntries: TimelineEntry[] = (activities ?? []).map((entry) => ({
@@ -155,168 +158,149 @@ function LeadDetailContent() {
   }));
 
   return (
-    <div className="flex flex-col gap-3">
-      <PageWorkspace
-        title={lead.leadNumber}
-        description={lead.customerName}
-        actions={
-          <>
-            {canEdit && lead.status === "NEW" && (
-              <EnterpriseButton
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={isTransitioning}
-                onClick={() => runTransition(() => leadsService.startFollowUp(lead.id))}
-              >
-                {t("crm.leads.actions.startFollowUp")}
-              </EnterpriseButton>
-            )}
-            {canEdit && lead.status !== "PAID" && lead.status !== "ARCHIVED" && (
-              <EnterpriseButton
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={isTransitioning}
-                onClick={() => runTransition(() => leadsService.markPaid(lead.id))}
-              >
-                {t("crm.leads.actions.markPaid")}
-              </EnterpriseButton>
-            )}
-            {canEdit && lead.status !== "ARCHIVED" && (
-              <EnterpriseButton
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={isTransitioning}
-                onClick={() => runTransition(() => leadsService.archiveLead(lead.id))}
-              >
-                {t("crm.leads.actions.archive")}
-              </EnterpriseButton>
-            )}
-            {canManage && (
-              <EnterpriseButton
-                type="button"
-                size="sm"
-                className="gap-1.5"
-                onClick={() => setAssignOpen(true)}
-              >
-                <UserCheck className="size-3.5" />
-                {t("crm.leads.actions.reassign")}
-              </EnterpriseButton>
-            )}
-          </>
-        }
-      />
-
-      <PartyCard
-        name={lead.customerName}
-        code={lead.mobileNumber}
-        contact={
-          lead.customer
-            ? `${t("crm.leads.fields.customer")}: ${lead.customer.customerNumber} — ${lead.customer.name}`
-            : t("crm.leads.noCustomerLinked")
-        }
-        status={t(`crm.leads.status.${lead.status}` as MessageKey)}
-        statusTone={STATUS_TONE[lead.status]}
-        className={lead.customer ? "cursor-pointer transition-colors hover:bg-muted/40" : undefined}
-      />
-      {lead.customer && (
-        <EnterpriseButton
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="-mt-4 w-fit"
-          onClick={() => router.push(`/sales/customers/${lead.customer!.id}`)}
-        >
-          {t("sales.customers.viewProfile")}
-        </EnterpriseButton>
-      )}
-      {lead.possibleDuplicate && (
-        <StatusBadge tone="warning" label={t("crm.leads.possibleDuplicate")} />
-      )}
-
+    <DetailWorkspace
+      backHref="/crm/leads"
+      title={lead.leadNumber}
+      status={
+        <>
+          <StatusBadge
+            label={t(`crm.leads.status.${lead.status}` as MessageKey)}
+            tone={STATUS_TONE[lead.status]}
+          />
+          {lead.possibleDuplicate ? (
+            <StatusBadge tone="warning" label={t("crm.leads.possibleDuplicate")} />
+          ) : null}
+        </>
+      }
+      actions={
+        <RowActionsMenu
+          label={t("common.actions")}
+          actions={[
+            {
+              key: "follow-up",
+              label: t("crm.leads.actions.startFollowUp"),
+              icon: CheckCircle2,
+              hidden: !canEdit || lead.status !== "NEW",
+              disabled: isTransitioning,
+              onSelect: () => void runTransition(() => leadsService.startFollowUp(lead.id)),
+            },
+            {
+              key: "mark-paid",
+              label: t("crm.leads.actions.markPaid"),
+              icon: CheckCircle2,
+              hidden: !canEdit || lead.status === "PAID" || lead.status === "ARCHIVED",
+              disabled: isTransitioning,
+              onSelect: () => void runTransition(() => leadsService.markPaid(lead.id)),
+            },
+            {
+              key: "assign",
+              label: t("crm.leads.actions.reassign"),
+              icon: UserCheck,
+              hidden: !canManage,
+              onSelect: () => setAssignOpen(true),
+            },
+            {
+              key: "archive",
+              label: t("crm.leads.actions.archive"),
+              icon: Archive,
+              hidden: !canArchive || lead.status === "ARCHIVED",
+              disabled: isTransitioning,
+              destructive: true,
+              separatorBefore: true,
+              onSelect: () => setArchiveOpen(true),
+            },
+          ]}
+        />
+      }
+    >
       <EntityTabs
         tabs={[
           {
             value: "general",
             label: t("crm.leads.sections.general"),
             content: (
-              <EnterpriseCard>
-                <EnterpriseCardHeader>
-                  <EnterpriseCardTitle>{t("crm.leads.sections.general")}</EnterpriseCardTitle>
-                </EnterpriseCardHeader>
-                <EnterpriseCardContent>
-                  <dl className="flex flex-col">
-                    <InfoRow label={t("crm.leads.fields.customerName")} value={lead.customerName} />
-                    <InfoRow label={t("crm.leads.fields.mobileNumber")} value={lead.mobileNumber} />
-                    <InfoRow
-                      label={t("crm.leads.fields.country")}
-                      value={lead.country?.name ?? ""}
-                    />
-                    <InfoRow label={t("crm.leads.fields.city")} value={lead.city ?? ""} />
-                    <InfoRow label={t("crm.leads.fields.address")} value={lead.address ?? ""} />
-                    <InfoRow
-                      label={t("crm.leads.fields.product")}
-                      value={lead.product?.displayName ?? lead.product?.name ?? ""}
-                    />
-                    <InfoRow label={t("crm.leads.fields.quantity")} value={String(lead.quantity)} />
-                    <InfoRow
-                      label={t("crm.leads.fields.currency")}
-                      value={lead.currency ? `${lead.currency.code} — ${lead.currency.name}` : ""}
-                    />
-                    <InfoRow
-                      label={t("crm.leads.fields.externalOrderId")}
-                      value={lead.externalOrderId ?? ""}
-                    />
-                    <InfoRow
-                      label={t("crm.leads.fields.source")}
-                      value={t(`crm.leads.source.${lead.source}` as MessageKey)}
-                    />
-                    <InfoRow
-                      label={t("crm.leads.fields.createdAt")}
-                      value={formatDate(lead.createdAt)}
-                    />
-                  </dl>
-                </EnterpriseCardContent>
-              </EnterpriseCard>
+              <DetailSection>
+                <DetailFieldGrid>
+                  <DetailField
+                    label={t("crm.leads.fields.mobileNumber")}
+                    value={lead.mobileNumber}
+                  />
+                  <DetailField label={t("crm.leads.fields.country")} value={lead.country?.name} />
+                  <DetailField label={t("crm.leads.fields.city")} value={lead.city} />
+                  <DetailField label={t("crm.leads.fields.address")} value={lead.address} />
+                  <DetailField
+                    label={t("crm.leads.fields.product")}
+                    value={lead.product?.displayName ?? lead.product?.name}
+                  />
+                  <DetailField
+                    label={t("crm.leads.fields.quantity")}
+                    value={String(lead.quantity)}
+                  />
+                  <DetailField
+                    label={t("crm.leads.fields.currency")}
+                    value={
+                      lead.currency ? `${lead.currency.code} — ${lead.currency.name}` : undefined
+                    }
+                  />
+                  <DetailField
+                    label={t("crm.leads.fields.externalOrderId")}
+                    value={lead.externalOrderId}
+                  />
+                  <DetailField
+                    label={t("crm.leads.fields.source")}
+                    value={t(`crm.leads.source.${lead.source}` as MessageKey)}
+                  />
+                  <DetailField
+                    label={t("crm.leads.fields.createdAt")}
+                    value={formatDate(lead.createdAt)}
+                  />
+                  <DetailField
+                    label={t("crm.leads.fields.customer")}
+                    value={
+                      lead.customer ? (
+                        <EnterpriseButton
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto justify-start p-0 text-body font-medium"
+                          onClick={() => router.push(`/sales/customers/${lead.customer!.id}`)}
+                        >
+                          {lead.customer.customerNumber} — {lead.customer.name}
+                        </EnterpriseButton>
+                      ) : (
+                        t("crm.leads.noCustomerLinked")
+                      )
+                    }
+                  />
+                </DetailFieldGrid>
+              </DetailSection>
             ),
           },
           {
             value: "assignment",
             label: t("crm.leads.sections.assignment"),
             content: (
-              <EnterpriseCard>
-                <EnterpriseCardHeader>
-                  <EnterpriseCardTitle>{t("crm.leads.sections.assignment")}</EnterpriseCardTitle>
-                </EnterpriseCardHeader>
-                <EnterpriseCardContent className="flex flex-col gap-3">
-                  <InfoRow
-                    label={t("crm.leads.fields.assignedTo")}
-                    value={
-                      lead.salesEmployee
-                        ? `${lead.salesEmployee.fullName} — ${lead.salesEmployee.email}`
-                        : ""
-                    }
-                  />
-                  {assignments === null ? (
-                    <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
-                  ) : assignments.length > 0 ? (
-                    <div className="flex flex-col gap-2 pt-2">
-                      {assignments.map((assignment) => (
-                        <div
-                          key={assignment.id}
-                          className="flex items-center justify-between border-b border-border/60 pb-2 text-sm last:border-b-0"
-                        >
-                          <span className="text-muted-foreground">
-                            {formatDateTime(assignment.assignedAt)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                </EnterpriseCardContent>
-              </EnterpriseCard>
+              <DetailSection>
+                <DetailField
+                  label={t("crm.leads.fields.assignedTo")}
+                  value={
+                    lead.salesEmployee
+                      ? `${lead.salesEmployee.fullName} — ${lead.salesEmployee.email}`
+                      : undefined
+                  }
+                />
+                {assignments === null ? (
+                  <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
+                ) : assignments.length > 0 ? (
+                  <div className="flex flex-col gap-2">
+                    {assignments.map((assignment) => (
+                      <p key={assignment.id} className="text-caption text-muted-foreground">
+                        {formatDateTime(assignment.assignedAt)}
+                      </p>
+                    ))}
+                  </div>
+                ) : null}
+              </DetailSection>
             ),
           },
           {
@@ -335,44 +319,42 @@ function LeadDetailContent() {
             value: "notes",
             label: t("crm.leads.sections.notes"),
             content: (
-              <EnterpriseCard>
-                <EnterpriseCardContent className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-2">
-                    <Textarea
-                      value={noteDraft}
-                      onChange={(event) => setNoteDraft(event.target.value)}
-                      placeholder={t("crm.leads.notesPanel.placeholder")}
-                    />
-                    <EnterpriseButton
-                      type="button"
-                      size="sm"
-                      className="w-fit"
-                      disabled={isSavingNote || !noteDraft.trim()}
-                      onClick={submitNote}
-                    >
-                      {t("crm.leads.actions.addNote")}
-                    </EnterpriseButton>
-                  </div>
-                  <div className="flex flex-col gap-3">
-                    {notes === null ? (
-                      <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
-                    ) : notes.length === 0 ? (
-                      <p className="text-caption text-muted-foreground">
-                        {t("crm.leads.notesPanel.empty")}
-                      </p>
-                    ) : (
-                      notes.map((note) => (
-                        <div key={note.id} className="rounded-lg border border-border/60 p-3">
-                          <p className="whitespace-pre-wrap text-sm">{note.text}</p>
-                          <p className="pt-1 text-caption text-muted-foreground">
-                            {formatDateTime(note.createdAt)}
-                          </p>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </EnterpriseCardContent>
-              </EnterpriseCard>
+              <DetailSection>
+                <div className="flex flex-col gap-2">
+                  <Textarea
+                    value={noteDraft}
+                    onChange={(event) => setNoteDraft(event.target.value)}
+                    placeholder={t("crm.leads.notesPanel.placeholder")}
+                  />
+                  <EnterpriseButton
+                    type="button"
+                    size="sm"
+                    className="w-fit"
+                    disabled={isSavingNote || !noteDraft.trim()}
+                    onClick={submitNote}
+                  >
+                    {t("crm.leads.actions.addNote")}
+                  </EnterpriseButton>
+                </div>
+                <div className="flex flex-col gap-3">
+                  {notes === null ? (
+                    <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
+                  ) : notes.length === 0 ? (
+                    <p className="text-caption text-muted-foreground">
+                      {t("crm.leads.notesPanel.empty")}
+                    </p>
+                  ) : (
+                    notes.map((note) => (
+                      <div key={note.id} className="border-t border-border/60 pt-3">
+                        <p className="whitespace-pre-wrap text-sm">{note.text}</p>
+                        <p className="pt-1 text-caption text-muted-foreground">
+                          {formatDateTime(note.createdAt)}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </DetailSection>
             ),
           },
         ]}
@@ -387,7 +369,22 @@ function LeadDetailContent() {
           reloadSidePanels();
         }}
       />
-    </div>
+
+      <ConfirmationDialog
+        open={archiveOpen}
+        onOpenChange={setArchiveOpen}
+        tone="destructive"
+        title={t("common.confirmArchiveTitle")}
+        description={t("common.confirmArchiveDescription")}
+        confirmLabel={t("crm.leads.actions.archive")}
+        cancelLabel={t("common.cancel")}
+        isConfirming={isTransitioning}
+        onConfirm={() => {
+          setArchiveOpen(false);
+          void runTransition(() => leadsService.archiveLead(lead.id));
+        }}
+      />
+    </DetailWorkspace>
   );
 }
 

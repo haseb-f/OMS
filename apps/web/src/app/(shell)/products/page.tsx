@@ -54,6 +54,7 @@ function ProductsPageContent() {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
   const canCreate = hasPermission("products.create");
+  const canView = hasPermission("products.view");
   const canEdit = hasPermission("products.edit");
   const canArchive = hasPermission("products.archive");
 
@@ -215,8 +216,9 @@ function ProductsPageContent() {
                 actions={[
                   {
                     key: "preview",
-                    label: t("products.quickPreview"),
+                    label: t("common.view"),
                     icon: Eye,
+                    hidden: !canView,
                     onSelect: () => setPreviewProduct(product),
                   },
                   {
@@ -257,7 +259,7 @@ function ProductsPageContent() {
         },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ] as any,
-    [canEdit, canCreate, canArchive, t],
+    [canView, canEdit, canCreate, canArchive, t],
   );
 
   return (

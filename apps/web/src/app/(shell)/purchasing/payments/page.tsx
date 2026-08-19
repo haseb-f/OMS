@@ -246,7 +246,7 @@ function SupplierPaymentsPageContent() {
           const actions: SalesDocumentRowAction[] = [
             {
               key: "view",
-              label: t("purchasing.payments.open"),
+              label: t("common.view"),
               icon: Eye,
               hidden: !canView,
               onSelect: () => router.push(`/purchasing/payments/${item.id}`),

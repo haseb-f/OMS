@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Truck, Eye } from "lucide-react";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
@@ -17,6 +17,11 @@ import { buildSupplierSchema, supplierDefaultValues } from "@/config/purchasing/
 import { useLocale } from "@/providers/locale-provider";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { useCurrencies, useCountries } from "@/hooks/use-reference-data";
+import { createMasterDataService } from "@/services/master-data-service";
+import type { PaymentTermRow, SupplierGroupRow } from "@/config/master-data/entities";
+
+const paymentTermsService = createMasterDataService<PaymentTermRow>("/payment-terms");
+const supplierGroupsService = createMasterDataService<SupplierGroupRow>("/supplier-groups");
 
 /** Mirrors `sales/customers/page.tsx` (TASK-048) — Supplier's list/create/edit/archive/restore reuse `MasterDataPage`, same as Customer. */
 function SuppliersPageContent() {
@@ -25,6 +30,19 @@ function SuppliersPageContent() {
 
   const currencies = useCurrencies();
   const countries = useCountries();
+  const [paymentTerms, setPaymentTerms] = useState<PaymentTermRow[]>([]);
+  const [supplierGroups, setSupplierGroups] = useState<SupplierGroupRow[]>([]);
+
+  useEffect(() => {
+    paymentTermsService
+      .list({ pageSize: 200 })
+      .then((result) => setPaymentTerms(result.items))
+      .catch(() => setPaymentTerms([]));
+    supplierGroupsService
+      .list({ pageSize: 200 })
+      .then((result) => setSupplierGroups(result.items))
+      .catch(() => setSupplierGroups([]));
+  }, []);
 
   const formSections = useMemo<MasterDataFormSection[]>(
     () => [
@@ -72,12 +90,23 @@ function SuppliersPageContent() {
             type: "text",
           },
           {
+            name: "supplierGroupId",
+            label: "purchasing.suppliers.fields.supplierGroup",
+            type: "select",
+            options: supplierGroups.map((group) => ({ value: group.id, label: group.name })),
+          },
+          {
             name: "currencyId",
             label: "purchasing.suppliers.fields.currency",
             type: "select",
             options: currencies.map((c) => ({ value: c.id, label: `${c.code} — ${c.name}` })),
           },
-          { name: "paymentTerm", label: "purchasing.suppliers.fields.paymentTerm", type: "text" },
+          {
+            name: "paymentTerm",
+            label: "purchasing.suppliers.fields.paymentTerm",
+            type: "select",
+            options: paymentTerms.map((term) => ({ value: term.name, label: term.name })),
+          },
           { name: "creditLimit", label: "purchasing.suppliers.fields.creditLimit", type: "number" },
         ],
       },
@@ -100,7 +129,7 @@ function SuppliersPageContent() {
         fields: [{ name: "notes", label: "purchasing.suppliers.fields.notes", type: "textarea" }],
       },
     ],
-    [t, currencies, countries],
+    [t, currencies, paymentTerms, supplierGroups],
   );
 
   const supplierSchema = useMemo(() => buildSupplierSchema(countries, t), [countries, t]);
@@ -125,7 +154,7 @@ function SuppliersPageContent() {
       extraRowActions={(entity): RowAction[] => [
         {
           key: "view-profile",
-          label: t("purchasing.suppliers.viewProfile"),
+          label: t("common.view"),
           icon: Eye,
           onSelect: () => router.push(`/purchasing/suppliers/${entity.id}`),
         },

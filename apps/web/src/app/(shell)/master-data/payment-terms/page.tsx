@@ -19,7 +19,7 @@ export default function PaymentTermsPage() {
     <MasterDataPage
       titleKey="masterData.paymentTerms.title"
       descriptionKey="masterData.paymentTerms.description"
-      breadcrumbKeys={["nav.masterData", "masterData.paymentTerms.title"]}
+      breadcrumbKeys={["nav.finance", "masterData.paymentTerms.title"]}
       tableId="payment-terms"
       service={service}
       columns={paymentTermsColumns}
@@ -27,7 +27,7 @@ export default function PaymentTermsPage() {
       formFields={paymentTermsFormFields}
       schema={paymentTermsSchema}
       defaultValues={paymentTermsDefaultValues}
-      permissionPrefix="masterdata.paymentterms"
+      permissionPrefix="masterdata.payment-terms"
       rowLabel={paymentTermRowLabel}
     />
   );

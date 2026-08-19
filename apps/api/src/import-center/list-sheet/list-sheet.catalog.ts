@@ -1,4 +1,9 @@
 import type { ReferenceRecord } from '../reference-data/reference-data.types';
+import { SHIPPING_STATUS_SHEET_LABELS } from '../../shipping/shipping-status.catalog';
+import { FINANCIAL_TRANSACTION_TYPE_SHEET_LABELS } from '../../financial-transactions/financial-transaction-type.catalog';
+
+export { SHIPPING_STATUS_SHEET_LABELS } from '../../shipping/shipping-status.catalog';
+export { FINANCIAL_TRANSACTION_TYPE_SHEET_LABELS } from '../../financial-transactions/financial-transaction-type.catalog';
 
 /**
  * Official OMS List Sheet — the one Google Spreadsheet that holds
@@ -22,21 +27,6 @@ export const LIST_SHEET_LAYOUT = {
   startColumn: 'A',
 } as const;
 
-/**
- * Arabic labels the Shipping Operations UI actually shows. Written to the
- * List Sheet instead of Prisma enum codes (`SHIPPED`, …) so a human filling
- * an import sheet picks the same value they see in OMS.
- */
-export const SHIPPING_STATUS_SHEET_LABELS: Record<string, string> = {
-  READY_FOR_SHIPPING: 'جاهز للشحن',
-  LABEL_CREATED: 'تم إنشاء البوليصة',
-  SHIPPED: 'تم الشحن',
-  OUT_FOR_DELIVERY: 'قيد التوصيل',
-  DELIVERED: 'تم التسليم',
-  DELIVERY_FAILED: 'فشل التسليم',
-  NEEDS_RESHIPMENT: 'بحاجة لإعادة شحن',
-};
-
 export type ListSheetColumnKey =
   | 'country'
   | 'product'
@@ -44,7 +34,8 @@ export type ListSheetColumnKey =
   | 'paymentMethod'
   | 'employeeEmail'
   | 'shippingStatus'
-  | 'shippingCompany';
+  | 'shippingCompany'
+  | 'financialTransactionType';
 
 export type ListSheetColumnSource =
   | {
@@ -128,6 +119,14 @@ export const LIST_SHEET_COLUMNS: readonly ListSheetColumnDef[] = [
       kind: 'reference',
       type: 'SHIPPING_COMPANY',
       valueOf: (record) => record.name,
+    },
+  },
+  {
+    key: 'financialTransactionType',
+    header: 'Financial Transaction Type',
+    source: {
+      kind: 'static',
+      values: Object.values(FINANCIAL_TRANSACTION_TYPE_SHEET_LABELS),
     },
   },
 ];

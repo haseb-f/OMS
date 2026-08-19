@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Download, UploadCloud, Eye } from "lucide-react";
+import { Ban, Download, UploadCloud, Eye } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { EnterpriseBadge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/business/status-badge";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
 import { RowActionsMenu } from "@/components/shared/data-table";
+import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { ImportJobWizard } from "./import-job-wizard";
 import { SyncButton } from "@/components/shared/sync-button";
 import { ListSheetSyncButton } from "@/components/shared/list-sheet-sync-button";
@@ -17,7 +18,11 @@ import { SyncWorkspaceCard } from "@/components/shared/sync-workspace-card";
 import { SyncSourcesManager } from "./sync-sources-manager";
 import type { SyncSourceType } from "@/services/sync-service";
 import { importTypesService, type ImportTypeDefinition } from "@/services/import-types-service";
-import { importJobsService, type ImportJobRow } from "@/services/import-jobs-service";
+import {
+  importJobsService,
+  isImportJobCancellable,
+  type ImportJobRow,
+} from "@/services/import-jobs-service";
 import { useUsersList } from "@/hooks/use-reference-data";
 import { IMPORT_JOB_STATUS_LABEL_KEY, IMPORT_JOB_STATUS_TONE } from "@/config/import-center/status";
 import { useLocale } from "@/providers/locale-provider";
@@ -78,6 +83,8 @@ function ImportCenterPageContent() {
   const [wizardTypeDef, setWizardTypeDef] = useState<ImportTypeDefinition | null>(null);
   const [wizardJobId, setWizardJobId] = useState<string | undefined>(undefined);
   const [sourcesManagerOpen, setSourcesManagerOpen] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<ImportJobRow | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const loadJobs = useCallback(async () => {
     setIsLoadingJobs(true);
@@ -259,13 +266,22 @@ function ImportCenterPageContent() {
                 icon: Eye,
                 onSelect: () => viewJob(info.row.original),
               },
+              {
+                key: "cancel",
+                label: t("importCenter.cancelJob"),
+                icon: Ban,
+                hidden: !canManage || !isImportJobCancellable(info.row.original.status),
+                destructive: true,
+                separatorBefore: true,
+                onSelect: () => setCancelTarget(info.row.original),
+              },
             ]}
           />
         ),
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, typeByKey, userById],
+    [t, typeByKey, userById, canManage],
   );
 
   return (
@@ -389,6 +405,33 @@ function ImportCenterPageContent() {
           onDone={loadJobs}
         />
       )}
+
+      <ConfirmationDialog
+        open={!!cancelTarget}
+        onOpenChange={(open) => {
+          if (!open) setCancelTarget(null);
+        }}
+        tone="destructive"
+        title={t("importCenter.confirmCancelJobTitle")}
+        description={t("importCenter.confirmCancelJobDescription")}
+        confirmLabel={t("importCenter.cancelJob")}
+        cancelLabel={t("common.cancel")}
+        isConfirming={isCancelling}
+        onConfirm={async () => {
+          if (!cancelTarget) return;
+          setIsCancelling(true);
+          try {
+            await importJobsService.cancel(cancelTarget.id);
+            toast.success(t("importCenter.cancelJob"));
+            setCancelTarget(null);
+            await loadJobs();
+          } catch (error) {
+            toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+          } finally {
+            setIsCancelling(false);
+          }
+        }}
+      />
     </PageWorkspace>
   );
 }

@@ -16,23 +16,21 @@ import {
   type ImportRowResult,
   type ImportTypeHandler,
 } from '../import-type.interface';
+import {
+  IMPORTABLE_SHIPPING_STATUS_CODES,
+  IMPORTABLE_SHIPPING_STATUS_LABELS,
+  resolveImportableShippingStatus,
+} from '../../shipping/shipping-status.catalog';
 
 /**
  * The 6 usable Store Order ShipmentStatus values — the two legacy RETURN_*
  * values never appear in this handler's import surface (rule: "never use
- * the two legacy RETURN_* values"). Exported so both the Excel Template's
- * `options` dropdown AND `ReferenceDataSourcesService`'s `SHIPPING_STATUS`
- * reference type (for the Google Sheets reference worksheet) read from
- * this ONE array — never a second, independently-maintained status list.
+ * the two legacy RETURN_* values"). Derived from the canonical shipping
+ * status catalog so Excel dropdowns, List Sheet labels, and validation
+ * never drift apart.
  */
-export const ALLOWED_STATUSES: ShipmentStatus[] = [
-  ShipmentStatus.LABEL_CREATED,
-  ShipmentStatus.SHIPPED,
-  ShipmentStatus.OUT_FOR_DELIVERY,
-  ShipmentStatus.DELIVERED,
-  ShipmentStatus.DELIVERY_FAILED,
-  ShipmentStatus.NEEDS_RESHIPMENT,
-];
+export const ALLOWED_STATUSES: ShipmentStatus[] =
+  IMPORTABLE_SHIPPING_STATUS_CODES;
 
 /** Statuses that indicate "a fresh shipping attempt is starting" — triggers RESHIP when the order's current shipment is already terminal. */
 const RESHIP_TRIGGER_STATUSES: ShipmentStatus[] = [
@@ -69,9 +67,9 @@ const FIELDS: ImportFieldDef[] = [
     label: 'Status',
     required: true,
     type: 'string',
-    options: ALLOWED_STATUSES,
+    options: [...IMPORTABLE_SHIPPING_STATUS_LABELS],
     referenceType: 'SHIPPING_STATUS',
-    example: 'SHIPPED',
+    example: 'تم الشحن',
   },
   {
     key: 'trackingNumber',
@@ -213,10 +211,10 @@ export class ShippingUpdatesImportHandler
       });
     }
 
-    const status = row.status?.trim().toUpperCase() as ShipmentStatus;
-    if (!ALLOWED_STATUSES.includes(status)) {
+    const status = resolveImportableShippingStatus(row.status);
+    if (!status) {
       throw new BadRequestException(
-        `Status must be one of: ${ALLOWED_STATUSES.join(', ')}.`,
+        `Status must be one of: ${IMPORTABLE_SHIPPING_STATUS_LABELS.join(', ')}.`,
       );
     }
 

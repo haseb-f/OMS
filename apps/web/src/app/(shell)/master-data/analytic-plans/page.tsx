@@ -19,7 +19,7 @@ export default function AnalyticPlansPage() {
     <MasterDataPage
       titleKey="masterData.analyticPlans.title"
       descriptionKey="masterData.analyticPlans.description"
-      breadcrumbKeys={["nav.masterData", "masterData.analyticPlans.title"]}
+      breadcrumbKeys={["nav.finance", "masterData.analyticPlans.title"]}
       tableId="analytic-plans"
       service={service}
       columns={analyticPlansColumns}

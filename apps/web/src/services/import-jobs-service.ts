@@ -10,6 +10,16 @@ export type ImportJobStatus =
   | "FAILED"
   | "CANCELLED";
 
+export const IMPORT_JOB_CANCELLABLE_STATUSES: ImportJobStatus[] = [
+  "DRAFT",
+  "MAPPING",
+  "VALIDATING",
+];
+
+export function isImportJobCancellable(status: ImportJobStatus) {
+  return IMPORT_JOB_CANCELLABLE_STATUSES.includes(status);
+}
+
 export interface ImportJobErrorRow {
   id: string;
   rowNumber: number;

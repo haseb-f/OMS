@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Ban, CheckCircle2, PackagePlus, Printer, Save, Send } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { EditorWorkspace } from "@/components/shared/detail-workspace";
 import { RelatedDocuments } from "@/components/shared/related-documents";
 import { useSourceJournalEntryLinks } from "@/hooks/use-source-journal-entry";
 import {
@@ -334,7 +335,7 @@ export function ReturnEditorPage({ id }: { id: string }) {
   useBreadcrumbLabel(salesReturn?.returnNumber ?? t("sales.returns.addNew"));
 
   return (
-    <div className="flex flex-col gap-3">
+    <EditorWorkspace backHref="/sales/returns">
       <RelatedDocuments
         groups={[
           {
@@ -392,6 +393,6 @@ export function ReturnEditorPage({ id }: { id: string }) {
           );
         }}
       />
-    </div>
+    </EditorWorkspace>
   );
 }

@@ -2005,7 +2005,7 @@ const en = {
         currency: "Currency",
         notes: "Notes",
         paymentAmount: "Amount Paid",
-        paymentSource: "Payment Method",
+        paymentSource: "Payment Source",
         receivingAccount: "Receiving Account",
         senderName: "Sender Name",
         receiptName: "File name",
@@ -2050,6 +2050,7 @@ const en = {
       total: "Total",
       source: "Source",
       sourceChannel: "Source Channel",
+      employee: "Employee",
       product: "Product",
       quantity: "Qty",
       unitPrice: "Unit price",
@@ -2082,15 +2083,17 @@ const en = {
     },
     detail: {
       sections: {
-        customer: "Customer Info",
-        orderInfo: "Order Info",
-        payments: "Payment Info",
-        reconciliation: "Reconciliation Status",
-        invoice: "Invoice / Accounting Status",
-        shippingSummary: "Shipping Summary",
+        orderSummary: "Order",
+        customer: "Customer",
+        items: "Items",
+        payments: "Payment",
+        invoice: "Invoice",
+        shipping: "Shipping",
+        shippingSummary: "Shipping",
         shipmentHistory: "Shipment History",
         receipts: "Receipts",
-        activity: "Activity / Audit History",
+        notes: "Notes",
+        activity: "Activity",
       },
       items: {
         product: "Product",
@@ -2102,6 +2105,8 @@ const en = {
         number: "Payment #",
         date: "Date",
         amount: "Amount",
+        paid: "Paid",
+        remaining: "Remaining",
         add: "Add Payment",
         addTitle: "Add Payment",
         addDescription:
@@ -2617,6 +2622,15 @@ const en = {
     },
   },
   financialTransactions: {
+    types: {
+      CUSTOMER_RECEIPT: "Customer collection",
+      SUPPLIER_PAYMENT: "Supplier payment",
+      EXPENSE_PAYMENT: "Operating expense",
+    },
+    direction: {
+      in: "Receipt",
+      out: "Payment",
+    },
     status: {
       draft: "Draft",
       confirmed: "Confirmed",
@@ -2635,9 +2649,10 @@ const en = {
       remaining: "Remaining Amount",
     },
     fields: {
+      type: "Transaction Type",
       transactionDate: "Date",
       amount: "Amount",
-      paymentSource: "Payment Method",
+      paymentSource: "Payment Source",
       receivingAccount: "Receiving Account",
       referenceNumber: "Reference Number",
     },
@@ -2970,6 +2985,9 @@ const en = {
     fieldsCount: "{count} fields",
     requiredFieldsCount: "{count} required",
     viewJob: "View",
+    cancelJob: "Cancel",
+    confirmCancelJobTitle: "Cancel this import job?",
+    confirmCancelJobDescription: "The job will stop before any remaining rows are imported.",
     types: {
       leads: {
         label: "Leads",
@@ -3094,6 +3112,7 @@ const en = {
       amount: "Amount",
       invoiceNumber: "Invoice Number",
       allocatedAmount: "Allocated Amount",
+      financialTransactionType: "Financial Transaction Type",
       entryDate: "Entry Date",
       accountCode: "Account Code",
       debit: "Debit",
@@ -3318,7 +3337,7 @@ const en = {
         lastSync: "Last sync: {datetime}",
         lastSyncNever: "Last sync: not yet",
         summary:
-          "Countries {countries} · Products {products} · Currencies {currencies} · Payment methods {paymentMethods} · Employees {employees} · Shipping statuses {shippingStatuses} · Shipping companies {shippingCompanies} · {datetime}",
+          "Countries {countries} · Products {products} · Currencies {currencies} · Payment methods {paymentMethods} · Employees {employees} · Shipping statuses {shippingStatuses} · Shipping companies {shippingCompanies} · Transaction types {financialTransactionTypes} · {datetime}",
         lists: {
           country: "Countries",
           product: "Products",
@@ -3327,6 +3346,7 @@ const en = {
           employeeEmail: "Employees",
           shippingStatus: "Shipping statuses",
           shippingCompany: "Shipping companies",
+          financialTransactionType: "Financial transaction types",
         },
         errors: {
           generic: "Could not synchronize OMS data to Google Sheets. Try again.",

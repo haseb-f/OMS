@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRightCircle, Ban, CheckCircle2, Printer, Save, Send } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { EditorWorkspace } from "@/components/shared/detail-workspace";
 import {
   SalesDocumentEditor,
   createEmptyLine,
@@ -338,7 +339,7 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
   useBreadcrumbLabel(quotation?.quotationNumber ?? t("sales.quotations.addNew"));
 
   return (
-    <div className="flex flex-col gap-3">
+    <EditorWorkspace backHref="/sales/quotations">
       <SalesDocumentEditor
         config={{
           ...config,
@@ -382,6 +383,6 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
           onConverted={(order) => router.push(`/sales/orders/${order.id}`)}
         />
       )}
-    </div>
+    </EditorWorkspace>
   );
 }

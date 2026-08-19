@@ -177,7 +177,7 @@ function CustomersPageContent() {
       extraRowActions={(entity): RowAction[] => [
         {
           key: "view-profile",
-          label: t("sales.customers.viewProfile"),
+          label: t("common.view"),
           icon: Eye,
           onSelect: () => router.push(`/sales/customers/${entity.id}`),
         },

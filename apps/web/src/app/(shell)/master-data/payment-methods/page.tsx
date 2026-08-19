@@ -20,7 +20,7 @@ export default function PaymentMethodsPage() {
     <MasterDataPage
       titleKey="masterData.paymentMethods.title"
       descriptionKey="masterData.paymentMethods.description"
-      breadcrumbKeys={["nav.masterData", "masterData.paymentMethods.title"]}
+      breadcrumbKeys={["nav.finance", "masterData.paymentMethods.title"]}
       tableId="payment-methods"
       service={service}
       columns={paymentMethodsColumns}

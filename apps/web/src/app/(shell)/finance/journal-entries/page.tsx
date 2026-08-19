@@ -290,7 +290,7 @@ function JournalEntriesPageContent() {
           const actions: SalesDocumentRowAction[] = [
             {
               key: "view",
-              label: t("accounting.journalEntries.open"),
+              label: t("common.view"),
               icon: Eye,
               hidden: !canView,
               onSelect: () => router.push(`/finance/journal-entries/${item.id}`),

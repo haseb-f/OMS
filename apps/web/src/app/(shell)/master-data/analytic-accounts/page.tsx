@@ -57,7 +57,7 @@ export default function AnalyticAccountsPage() {
     <MasterDataPage
       titleKey="masterData.analyticAccounts.title"
       descriptionKey="masterData.analyticAccounts.description"
-      breadcrumbKeys={["nav.masterData", "masterData.analyticAccounts.title"]}
+      breadcrumbKeys={["nav.finance", "masterData.analyticAccounts.title"]}
       tableId="analytic-accounts"
       service={service}
       columns={analyticAccountsColumns}

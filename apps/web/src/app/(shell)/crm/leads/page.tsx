@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Contact, Eye, Plus, UserPlus } from "lucide-react";
+import { Contact, Archive, Eye, Plus, UserPlus } from "lucide-react";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
 import type { MasterDataFormSection } from "@/components/master-data/master-data-form";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
@@ -16,10 +16,13 @@ import { leadColumns, leadExportColumns, leadRowLabel } from "@/config/crm/lead-
 import { buildLeadSchema, leadDefaultValues } from "@/config/crm/lead-form";
 import { useLocale } from "@/providers/locale-provider";
 import { PermissionGate } from "@/components/shared/permission-gate";
+import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { AssignLeadDialog } from "@/components/business/assign-lead-dialog";
 import { LeadOrderCreateDialog } from "@/components/business/lead-order-create-dialog";
 import { useCurrencies, useCountries } from "@/hooks/use-reference-data";
 import { useUserContext } from "@/providers/user-context";
+import { toast } from "@/lib/toast";
+import { ApiError } from "@/services/api-client";
 
 function CrmLeadsPageContent() {
   const { t } = useLocale();
@@ -30,6 +33,8 @@ function CrmLeadsPageContent() {
   const countries = useCountries();
   const [products, setProducts] = useState<{ id: string; displayName: string; sku: string }[]>([]);
   const [assigningLead, setAssigningLead] = useState<LeadRow | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<LeadRow | null>(null);
+  const [isArchiving, setIsArchiving] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
 
@@ -152,7 +157,7 @@ function CrmLeadsPageContent() {
         extraRowActions={(entity): RowAction[] => [
           {
             key: "view",
-            label: t("crm.leads.view"),
+            label: t("common.view"),
             icon: Eye,
             hidden: !hasPermission("crm.leads.view"),
             onSelect: () => router.push(`/crm/leads/${entity.id}`),
@@ -163,6 +168,15 @@ function CrmLeadsPageContent() {
             icon: UserPlus,
             hidden: !hasPermission("crm.leads.manage"),
             onSelect: () => setAssigningLead(entity),
+          },
+          {
+            key: "archive",
+            label: t("common.archive"),
+            icon: Archive,
+            hidden: !hasPermission("crm.leads.archive") || entity.status === "ARCHIVED",
+            destructive: true,
+            separatorBefore: true,
+            onSelect: () => setArchiveTarget(entity),
           },
         ]}
       />
@@ -177,6 +191,32 @@ function CrmLeadsPageContent() {
         icon={Contact}
         countries={countries}
         onCreated={() => setRefreshToken((n) => n + 1)}
+      />
+      <ConfirmationDialog
+        open={!!archiveTarget}
+        onOpenChange={(open) => {
+          if (!open) setArchiveTarget(null);
+        }}
+        tone="destructive"
+        title={t("common.confirmArchiveTitle")}
+        description={t("common.confirmArchiveDescription")}
+        confirmLabel={t("common.archive")}
+        cancelLabel={t("common.cancel")}
+        isConfirming={isArchiving}
+        onConfirm={async () => {
+          if (!archiveTarget) return;
+          setIsArchiving(true);
+          try {
+            await leadsService.archiveLead(archiveTarget.id);
+            toast.success(t("common.archive"));
+            setArchiveTarget(null);
+            setRefreshToken((n) => n + 1);
+          } catch (error) {
+            toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+          } finally {
+            setIsArchiving(false);
+          }
+        }}
       />
     </>
   );

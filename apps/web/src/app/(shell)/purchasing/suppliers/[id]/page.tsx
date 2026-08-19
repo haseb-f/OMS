@@ -2,17 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Printer, FileText } from "lucide-react";
-import { PageWorkspace } from "@/components/shared/page-workspace";
-import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
-import { EnterpriseButton } from "@/components/ui/button";
+import { Archive, FileText, Pencil, Printer } from "lucide-react";
 import {
-  EnterpriseCard,
-  EnterpriseCardContent,
-  EnterpriseCardHeader,
-  EnterpriseCardTitle,
-} from "@/components/ui/card";
-import { SupplierCard } from "@/components/business/party-card";
+  DetailField,
+  DetailFieldGrid,
+  DetailSection,
+  DetailWorkspace,
+  BackButton,
+} from "@/components/shared/detail-workspace";
+import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { RowActionsMenu } from "@/components/shared/data-table";
+import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { EntityTabs } from "@/components/business/entity-tabs";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -24,25 +24,19 @@ import {
   type OpenInvoiceRow,
 } from "@/services/supplier-payments-service";
 import type { MasterDataActivityEntry } from "@/services/master-data-service";
+import { StatusBadge } from "@/components/business/status-badge";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { formatDate, formatDateTime } from "@/lib/date";
 import type { DocumentData } from "@/types/document-engine";
+import { ApiError } from "@/services/api-client";
+import { toast } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
 
 function formatMoney(value: number) {
   return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4 border-b border-border/60 py-2 last:border-b-0">
-      <dt className="text-caption text-muted-foreground">{label}</dt>
-      <dd className="text-sm font-medium">{value || "—"}</dd>
-    </div>
-  );
 }
 
 /** Mirrors `sales/customers/[id]/page.tsx` (TASK-048) — bespoke Profile page, not `MasterDataPage`'s built-in quick-preview sheet. */
@@ -61,6 +55,10 @@ export default function SupplierProfilePage() {
   const [isLoadingPayments, setIsLoadingPayments] = useState(true);
   const [openInvoices, setOpenInvoices] = useState<OpenInvoiceRow[]>([]);
   const [isLoadingOpenInvoices, setIsLoadingOpenInvoices] = useState(true);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
+  const canEdit = hasPermission("purchasing.suppliers.edit");
+  const canArchive = hasPermission("purchasing.suppliers.archive");
 
   useBreadcrumbLabel(supplier?.name ?? null);
 
@@ -103,10 +101,20 @@ export default function SupplierProfilePage() {
   }, [params.id]);
 
   if (isLoading) {
-    return <div className="p-8 text-caption text-muted-foreground">{t("common.loading")}</div>;
+    return (
+      <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-2">
+        <BackButton href="/purchasing/suppliers" />
+        <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
+      </div>
+    );
   }
   if (!supplier) {
-    return <EmptyState icon={FileText} title={t("common.noResults")} />;
+    return (
+      <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-2">
+        <BackButton href="/purchasing/suppliers" />
+        <EmptyState icon={FileText} title={t("common.noResults")} />
+      </div>
+    );
   }
 
   const creditLimit = supplier.creditLimit ? Number(supplier.creditLimit) : null;
@@ -186,142 +194,155 @@ export default function SupplierProfilePage() {
     });
   };
 
+  const handleArchive = async () => {
+    setIsArchiving(true);
+    try {
+      await suppliersService.archive(supplier.id);
+      toast.success(t("common.archive"));
+      setArchiveOpen(false);
+      router.push("/purchasing/suppliers");
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+    } finally {
+      setIsArchiving(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col gap-3">
-      <PageWorkspace
-        title={supplier.name}
-        description={supplier.supplierNumber}
-        actions={
-          <EnterpriseButton
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={handlePrint}
-          >
-            <Printer className="size-3.5" />
-            {t("purchasing.suppliers.profile.print")}
-          </EnterpriseButton>
-        }
-      />
-
-      <SupplierCard
-        name={supplier.name}
-        code={supplier.supplierNumber}
-        contact={[supplier.phone, supplier.email].filter(Boolean).join(" · ")}
-        status={t(`common.${supplier.status === "ACTIVE" ? "active" : "archived"}` as MessageKey)}
-        statusTone={supplier.status === "ACTIVE" ? "success" : "neutral"}
-      />
-
+    <DetailWorkspace
+      backHref="/purchasing/suppliers"
+      title={supplier.name}
+      subtitle={supplier.supplierNumber}
+      status={
+        <StatusBadge
+          label={t(`common.${supplier.status === "ACTIVE" ? "active" : "archived"}` as MessageKey)}
+          tone={supplier.status === "ACTIVE" ? "success" : "neutral"}
+        />
+      }
+      actions={
+        <RowActionsMenu
+          label={t("common.actions")}
+          actions={[
+            {
+              key: "print",
+              label: t("purchasing.suppliers.profile.print"),
+              icon: Printer,
+              onSelect: handlePrint,
+            },
+            {
+              key: "edit",
+              label: t("common.edit"),
+              icon: Pencil,
+              hidden: !canEdit || !!supplier.deletedAt,
+              onSelect: () => router.push(`/purchasing/suppliers?edit=${supplier.id}`),
+            },
+            {
+              key: "archive",
+              label: t("common.archive"),
+              icon: Archive,
+              hidden: !canArchive || !!supplier.deletedAt,
+              destructive: true,
+              separatorBefore: true,
+              onSelect: () => setArchiveOpen(true),
+            },
+          ]}
+        />
+      }
+    >
       <EntityTabs
         tabs={[
           {
             value: "general",
             label: t("purchasing.suppliers.profile.sectionsTab.general"),
             content: (
-              <EnterpriseCard>
-                <EnterpriseCardHeader>
-                  <EnterpriseCardTitle>
-                    {t("purchasing.suppliers.sections.general")}
-                  </EnterpriseCardTitle>
-                </EnterpriseCardHeader>
-                <EnterpriseCardContent>
-                  <dl className="flex flex-col">
-                    <InfoRow label={t("purchasing.suppliers.fields.code")} value={supplier.code} />
-                    <InfoRow label={t("purchasing.suppliers.fields.name")} value={supplier.name} />
-                    <InfoRow
-                      label={t("purchasing.suppliers.fields.commercialName")}
-                      value={supplier.commercialName ?? ""}
-                    />
-                    <InfoRow
-                      label={t("purchasing.suppliers.fields.createdAt")}
-                      value={formatDate(supplier.createdAt)}
-                    />
-                  </dl>
-                </EnterpriseCardContent>
-              </EnterpriseCard>
+              <DetailSection>
+                <DetailFieldGrid>
+                  <DetailField
+                    label={t("purchasing.suppliers.fields.code")}
+                    value={supplier.code}
+                  />
+                  <DetailField
+                    label={t("purchasing.suppliers.fields.commercialName")}
+                    value={supplier.commercialName}
+                  />
+                  <DetailField
+                    label={t("purchasing.suppliers.fields.createdAt")}
+                    value={formatDate(supplier.createdAt)}
+                  />
+                </DetailFieldGrid>
+              </DetailSection>
             ),
           },
           {
             value: "commercial",
             label: t("purchasing.suppliers.profile.sectionsTab.commercial"),
             content: (
-              <EnterpriseCard>
-                <EnterpriseCardHeader>
-                  <EnterpriseCardTitle>
-                    {t("purchasing.suppliers.sections.commercial")}
-                  </EnterpriseCardTitle>
-                </EnterpriseCardHeader>
-                <EnterpriseCardContent>
-                  <dl className="flex flex-col">
-                    <InfoRow
-                      label={t("purchasing.suppliers.fields.taxNumber")}
-                      value={supplier.taxNumber ?? ""}
-                    />
-                    <InfoRow
-                      label={t("purchasing.suppliers.fields.commercialRegistration")}
-                      value={supplier.commercialRegistration ?? ""}
-                    />
-                    <InfoRow
-                      label={t("purchasing.suppliers.fields.currency")}
-                      value={supplier.currency?.name ?? ""}
-                    />
-                    <InfoRow
-                      label={t("purchasing.suppliers.fields.paymentTerm")}
-                      value={supplier.paymentTerm ?? ""}
-                    />
-                    <InfoRow
-                      label={t("purchasing.suppliers.fields.creditLimit")}
-                      value={creditLimit !== null ? formatMoney(creditLimit) : ""}
-                    />
-                  </dl>
-                </EnterpriseCardContent>
-              </EnterpriseCard>
+              <DetailSection>
+                <DetailFieldGrid>
+                  <DetailField
+                    label={t("purchasing.suppliers.fields.taxNumber")}
+                    value={supplier.taxNumber}
+                  />
+                  <DetailField
+                    label={t("purchasing.suppliers.fields.commercialRegistration")}
+                    value={supplier.commercialRegistration}
+                  />
+                  <DetailField
+                    label={t("purchasing.suppliers.fields.currency")}
+                    value={supplier.currency?.name}
+                  />
+                  <DetailField
+                    label={t("purchasing.suppliers.fields.paymentTerm")}
+                    value={supplier.paymentTerm}
+                  />
+                  <DetailField
+                    label={t("purchasing.suppliers.fields.creditLimit")}
+                    value={creditLimit !== null ? formatMoney(creditLimit) : undefined}
+                  />
+                  <DetailField
+                    label={t("purchasing.suppliers.fields.supplierGroup")}
+                    value={supplier.supplierGroup?.name}
+                  />
+                </DetailFieldGrid>
+              </DetailSection>
             ),
           },
           {
             value: "addresses",
             label: t("purchasing.suppliers.profile.sectionsTab.addresses"),
             content: (
-              <EnterpriseCard>
-                <EnterpriseCardHeader>
-                  <EnterpriseCardTitle>
-                    {t("purchasing.suppliers.sections.addresses")}
-                  </EnterpriseCardTitle>
-                </EnterpriseCardHeader>
-                <EnterpriseCardContent>
-                  <dl className="flex flex-col">
-                    <InfoRow
-                      label={t("purchasing.suppliers.fields.country")}
-                      value={supplier.country?.name ?? ""}
-                    />
-                    <InfoRow
-                      label={t("purchasing.suppliers.fields.city")}
-                      value={supplier.city ?? ""}
-                    />
-                    <InfoRow
-                      label={t("purchasing.suppliers.fields.address")}
-                      value={supplier.address ?? ""}
-                    />
-                    <InfoRow
-                      label={t("purchasing.suppliers.fields.phone")}
-                      value={supplier.phone ?? ""}
-                    />
-                    <InfoRow
-                      label={t("purchasing.suppliers.fields.mobile")}
-                      value={supplier.mobile ?? ""}
-                    />
-                    <InfoRow
-                      label={t("purchasing.suppliers.fields.email")}
-                      value={supplier.email ?? ""}
-                    />
-                    <InfoRow
-                      label={t("purchasing.suppliers.fields.website")}
-                      value={supplier.website ?? ""}
-                    />
-                  </dl>
-                </EnterpriseCardContent>
-              </EnterpriseCard>
+              <DetailSection>
+                <DetailFieldGrid>
+                  <DetailField
+                    label={t("purchasing.suppliers.fields.country")}
+                    value={supplier.country?.name}
+                  />
+                  <DetailField
+                    label={t("purchasing.suppliers.fields.city")}
+                    value={supplier.city}
+                  />
+                  <DetailField
+                    label={t("purchasing.suppliers.fields.address")}
+                    value={supplier.address}
+                  />
+                  <DetailField
+                    label={t("purchasing.suppliers.fields.phone")}
+                    value={supplier.phone}
+                  />
+                  <DetailField
+                    label={t("purchasing.suppliers.fields.mobile")}
+                    value={supplier.mobile}
+                  />
+                  <DetailField
+                    label={t("purchasing.suppliers.fields.email")}
+                    value={supplier.email}
+                  />
+                  <DetailField
+                    label={t("purchasing.suppliers.fields.website")}
+                    value={supplier.website}
+                  />
+                </DetailFieldGrid>
+              </DetailSection>
             ),
           },
           {
@@ -339,12 +360,12 @@ export default function SupplierProfilePage() {
           {
             value: "notes",
             label: t("purchasing.suppliers.profile.sectionsTab.notes"),
-            content: (
-              <EnterpriseCard>
-                <EnterpriseCardContent>
-                  <p className="whitespace-pre-wrap text-body">{supplier.notes || "—"}</p>
-                </EnterpriseCardContent>
-              </EnterpriseCard>
+            content: supplier.notes ? (
+              <DetailSection>
+                <p className="whitespace-pre-wrap text-body">{supplier.notes}</p>
+              </DetailSection>
+            ) : (
+              <p className="text-caption text-muted-foreground">{t("common.noDataAvailable")}</p>
             ),
           },
           {
@@ -371,6 +392,18 @@ export default function SupplierProfilePage() {
           },
         ]}
       />
-    </div>
+
+      <ConfirmationDialog
+        open={archiveOpen}
+        onOpenChange={setArchiveOpen}
+        tone="destructive"
+        title={t("common.confirmArchiveTitle")}
+        description={t("common.confirmArchiveDescription")}
+        confirmLabel={t("common.archive")}
+        cancelLabel={t("common.cancel")}
+        isConfirming={isArchiving}
+        onConfirm={() => void handleArchive()}
+      />
+    </DetailWorkspace>
   );
 }

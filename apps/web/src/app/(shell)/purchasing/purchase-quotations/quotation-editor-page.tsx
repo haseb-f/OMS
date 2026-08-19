@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRightCircle, Ban, CheckCircle2, Printer, Save, Send } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { EditorWorkspace } from "@/components/shared/detail-workspace";
 import { PurchasingDocumentEditor } from "@/components/purchasing/purchasing-document-editor";
 import {
   createEmptyLine,
@@ -354,7 +355,7 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
   useBreadcrumbLabel(quotation?.quotationNumber ?? t("purchasing.quotations.addNew"));
 
   return (
-    <div className="flex flex-col gap-3">
+    <EditorWorkspace backHref="/purchasing/purchase-quotations">
       <PurchasingDocumentEditor
         config={{
           ...config,
@@ -399,6 +400,6 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
         cancelLabel={t("common.close")}
         onConfirm={handleConvertConfirmed}
       />
-    </div>
+    </EditorWorkspace>
   );
 }

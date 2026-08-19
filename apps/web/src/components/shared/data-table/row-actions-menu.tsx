@@ -10,8 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { EnterpriseButton } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { IconActionButton } from "@/components/shared/icon-action-button";
 
 export interface RowAction {
   key: string;
@@ -39,22 +38,11 @@ export function RowActionsMenu({ actions, label }: { actions: RowAction[]; label
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <EnterpriseButton
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={label}
-              aria-haspopup="menu"
-            >
-              <MoreVertical className="size-4" />
-            </EnterpriseButton>
-          </DropdownMenuTrigger>
-        </TooltipTrigger>
-        {!open ? <TooltipContent side="top">{label}</TooltipContent> : null}
-      </Tooltip>
+      <DropdownMenuTrigger asChild>
+        <IconActionButton label={label} tooltip={!open}>
+          <MoreVertical className="size-4" />
+        </IconActionButton>
+      </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-max min-w-44">
         {visible.map((action) => (
           <Fragment key={action.key}>

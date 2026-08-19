@@ -151,6 +151,9 @@ export const storeOrdersService = {
       `/store-orders/ids${buildQueryString(params as Record<string, unknown>)}`,
     ),
   get: (id: string) => apiClient.get<StoreOrderRow>(`/store-orders/${id}`),
+  update: (id: string, dto: { notes?: string; employeeId?: string; sourceChannel?: string }) =>
+    apiClient.patch<StoreOrderRow>(`/store-orders/${id}`, dto),
+  archive: (id: string) => apiClient.post<StoreOrderRow>(`/store-orders/${id}/archive`),
   create: (dto: {
     externalOrderId?: string;
     customer: {

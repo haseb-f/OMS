@@ -1,40 +1,27 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { ShippingCompany } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateShippingCompanyDto } from './dto/create-shipping-company.dto';
-import { UpdateShippingCompanyDto } from './dto/update-shipping-company.dto';
+import { MasterDataActivityLogService } from '../master-data/master-data-activity-log.service';
+import {
+  MasterDataCrudService,
+  MasterDataDelegate,
+} from '../master-data/master-data-crud.service';
 
 @Injectable()
-export class ShippingCompaniesService {
-  constructor(private readonly prisma: PrismaService) {}
+export class ShippingCompaniesService extends MasterDataCrudService<ShippingCompany> {
+  protected readonly entityType = 'SHIPPING_COMPANY';
+  protected readonly entityLabel = 'Shipping Company';
+  protected readonly searchFields = ['name', 'description'];
 
-  create(dto: CreateShippingCompanyDto) {
-    return this.prisma.shippingCompany.create({ data: dto });
+  constructor(
+    prisma: PrismaService,
+    activityLog: MasterDataActivityLogService,
+  ) {
+    super(prisma, activityLog);
   }
 
-  findAll() {
-    return this.prisma.shippingCompany.findMany({ where: { deletedAt: null } });
-  }
-
-  async findOne(id: string) {
-    const shippingCompany = await this.prisma.shippingCompany.findFirst({
-      where: { id, deletedAt: null },
-    });
-    if (!shippingCompany) {
-      throw new NotFoundException(`Shipping company ${id} not found`);
-    }
-    return shippingCompany;
-  }
-
-  async update(id: string, dto: UpdateShippingCompanyDto) {
-    await this.findOne(id);
-    return this.prisma.shippingCompany.update({ where: { id }, data: dto });
-  }
-
-  async remove(id: string) {
-    await this.findOne(id);
-    return this.prisma.shippingCompany.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+  protected get delegate(): MasterDataDelegate<ShippingCompany> {
+    return this.prisma
+      .shippingCompany as unknown as MasterDataDelegate<ShippingCompany>;
   }
 }

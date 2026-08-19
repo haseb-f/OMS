@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, MapPin, Plus } from "lucide-react";
+import { Archive, ChevronDown, ChevronRight, MapPin, Pencil, Plus, RotateCcw } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,6 +25,9 @@ import type { WarehouseLocationRow, WarehouseRow } from "@/config/master-data/en
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
+import { PermissionGate } from "@/components/shared/permission-gate";
+import { RowActionsMenu } from "@/components/shared/data-table";
+import { useUserContext } from "@/providers/user-context";
 
 const warehousesService = createMasterDataService<WarehouseRow>("/warehouses");
 
@@ -55,8 +58,12 @@ interface FormState {
 
 const emptyForm: FormState = { name: "", description: "", isActive: true };
 
-export default function WarehouseLocationsPage() {
+function WarehouseLocationsPageContent() {
   const { t } = useLocale();
+  const { hasPermission } = useUserContext();
+  const canCreate = hasPermission("masterdata.warehouse-locations.create");
+  const canEdit = hasPermission("masterdata.warehouse-locations.edit");
+  const canArchive = hasPermission("masterdata.warehouse-locations.archive");
   const [warehouses, setWarehouses] = useState<WarehouseRow[]>([]);
   const [warehouseId, setWarehouseId] = useState<string>("");
   const [locations, setLocations] = useState<WarehouseLocationRow[]>([]);
@@ -225,45 +232,42 @@ export default function WarehouseLocationsPage() {
             {node.code}
           </code>
           {isArchived && <StatusBadge label={t("common.archived")} tone="neutral" />}
-          <div className="ms-auto flex items-center gap-1">
-            {!isArchived && (
-              <>
-                <EnterpriseButton
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => openCreate(node)}
-                >
-                  {t("masterData.warehouseLocations.addChild")}
-                </EnterpriseButton>
-                <EnterpriseButton
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => openEdit(node)}
-                >
-                  {t("common.edit")}
-                </EnterpriseButton>
-                <EnterpriseButton
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setArchiveTarget(node)}
-                >
-                  {t("common.archive")}
-                </EnterpriseButton>
-              </>
-            )}
-            {isArchived && (
-              <EnterpriseButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setRestoreTarget(node)}
-              >
-                {t("common.restore")}
-              </EnterpriseButton>
-            )}
+          <div className="ms-auto">
+            <RowActionsMenu
+              label={t("common.actions")}
+              actions={[
+                {
+                  key: "edit",
+                  label: t("common.edit"),
+                  icon: Pencil,
+                  hidden: isArchived || !canEdit,
+                  onSelect: () => openEdit(node),
+                },
+                {
+                  key: "add-child",
+                  label: t("masterData.warehouseLocations.addChild"),
+                  icon: Plus,
+                  hidden: isArchived || !canCreate,
+                  onSelect: () => openCreate(node),
+                },
+                {
+                  key: "archive",
+                  label: t("common.archive"),
+                  icon: Archive,
+                  hidden: isArchived || !canArchive,
+                  destructive: true,
+                  separatorBefore: true,
+                  onSelect: () => setArchiveTarget(node),
+                },
+                {
+                  key: "restore",
+                  label: t("common.restore"),
+                  icon: RotateCcw,
+                  hidden: !isArchived || !canArchive,
+                  onSelect: () => setRestoreTarget(node),
+                },
+              ]}
+            />
           </div>
         </div>
         {!isCollapsed && node.children.map((child) => renderNode(child, depth + 1))}
@@ -276,7 +280,11 @@ export default function WarehouseLocationsPage() {
       title={t("masterData.warehouseLocations.title")}
       description={t("masterData.warehouseLocations.description")}
       actions={
-        <EnterpriseButton type="button" onClick={() => openCreate(null)} disabled={!warehouseId}>
+        <EnterpriseButton
+          type="button"
+          onClick={() => openCreate(null)}
+          disabled={!warehouseId || !canCreate}
+        >
           <Plus />
           {t("masterData.warehouseLocations.addLocation")}
         </EnterpriseButton>
@@ -398,5 +406,13 @@ export default function WarehouseLocationsPage() {
         confirmLabel={t("common.restore")}
       />
     </PageWorkspace>
+  );
+}
+
+export default function WarehouseLocationsPage() {
+  return (
+    <PermissionGate permission="masterdata.warehouse-locations.view">
+      <WarehouseLocationsPageContent />
+    </PermissionGate>
   );
 }

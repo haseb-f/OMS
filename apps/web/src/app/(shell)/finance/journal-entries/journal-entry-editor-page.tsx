@@ -17,6 +17,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { EditorWorkspace } from "@/components/shared/detail-workspace";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { RelatedDocuments } from "@/components/shared/related-documents";
 import { StatusBadge } from "@/components/business/status-badge";
@@ -432,7 +433,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
   useBreadcrumbLabel(entry?.entryNumber ?? t("accounting.journalEntries.addNew"));
 
   return (
-    <div className="flex flex-col gap-3">
+    <EditorWorkspace backHref="/finance/journal-entries">
       <RelatedDocuments
         groups={[
           {
@@ -907,6 +908,6 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
           </div>
         </div>
       </EnterpriseModal>
-    </div>
+    </EditorWorkspace>
   );
 }

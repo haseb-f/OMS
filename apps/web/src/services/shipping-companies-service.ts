@@ -1,4 +1,4 @@
-import { apiClient } from "./api-client";
+import { createMasterDataService } from "./master-data-service";
 
 export interface ShippingCompanyOption {
   id: string;
@@ -6,13 +6,15 @@ export interface ShippingCompanyOption {
 }
 
 /**
- * Read accessor for the Shipping Company reference data that
- * `Shipment.shippingCompanyId` actually points at (`/shipping-companies`) —
- * not to be confused with `/shipping-methods`, an unrelated master-data
- * entity. The Shipping page's filter and its "assign company" dialog are
- * the only two consumers today; no full CRUD master-data screen exists yet
- * for this entity, so this stays a minimal list-only accessor.
+ * Shipping Company reference data that `Shipment.shippingCompanyId` points
+ * at (`/shipping-companies`) — not `/shipping-methods`.
  */
+const crud = createMasterDataService<ShippingCompanyOption>("/shipping-companies");
+
 export const shippingCompaniesService = {
-  list: () => apiClient.get<ShippingCompanyOption[]>("/shipping-companies"),
+  ...crud,
+  listOptions: async (): Promise<ShippingCompanyOption[]> => {
+    const result = await crud.list({ pageSize: 500 });
+    return result.items.map((item) => ({ id: item.id, name: item.name }));
+  },
 };

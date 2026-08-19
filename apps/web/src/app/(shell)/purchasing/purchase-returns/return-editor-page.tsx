@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Ban, CheckCircle2, PackageMinus, Printer, Save, Send } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { EditorWorkspace } from "@/components/shared/detail-workspace";
 import { RelatedDocuments } from "@/components/shared/related-documents";
 import { useSourceJournalEntryLinks } from "@/hooks/use-source-journal-entry";
 import { PurchasingDocumentEditor } from "@/components/purchasing/purchasing-document-editor";
@@ -338,7 +339,7 @@ export function ReturnEditorPage({ id }: { id: string }) {
   useBreadcrumbLabel(purchaseReturn?.returnNumber ?? t("purchasing.returns.addNew"));
 
   return (
-    <div className="flex flex-col gap-3">
+    <EditorWorkspace backHref="/purchasing/purchase-returns">
       <RelatedDocuments
         groups={[
           {
@@ -396,6 +397,6 @@ export function ReturnEditorPage({ id }: { id: string }) {
           );
         }}
       />
-    </div>
+    </EditorWorkspace>
   );
 }

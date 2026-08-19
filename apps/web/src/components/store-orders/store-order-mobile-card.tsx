@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, Eye } from "lucide-react";
+import { Archive, ChevronRight, Eye, Pencil } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EnterpriseButton } from "@/components/ui/button";
 import { RowActionsMenu } from "@/components/shared/data-table";
@@ -25,6 +25,8 @@ export function StoreOrderMobileCard({
   expanded,
   onToggleExpanded,
   onView,
+  onEdit,
+  onArchive,
 }: {
   order: StoreOrderRow;
   selected: boolean;
@@ -32,6 +34,8 @@ export function StoreOrderMobileCard({
   expanded: boolean;
   onToggleExpanded: () => void;
   onView: (row: StoreOrderRow) => void;
+  onEdit?: (row: StoreOrderRow) => void;
+  onArchive?: (row: StoreOrderRow) => void;
 }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
@@ -78,6 +82,22 @@ export function StoreOrderMobileCard({
                   icon: Eye,
                   hidden: !hasPermission("store-orders.view"),
                   onSelect: () => onView(order),
+                },
+                {
+                  key: "edit",
+                  label: t("common.edit"),
+                  icon: Pencil,
+                  hidden: !onEdit || !hasPermission("store-orders.edit"),
+                  onSelect: () => onEdit?.(order),
+                },
+                {
+                  key: "archive",
+                  label: t("common.archive"),
+                  icon: Archive,
+                  hidden: !onArchive || !hasPermission("store-orders.archive"),
+                  destructive: true,
+                  separatorBefore: true,
+                  onSelect: () => onArchive?.(order),
                 },
               ]}
             />

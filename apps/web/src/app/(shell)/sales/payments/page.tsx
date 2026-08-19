@@ -246,7 +246,7 @@ function CustomerReceiptsPageContent() {
           const actions: SalesDocumentRowAction[] = [
             {
               key: "view",
-              label: t("sales.receipts.open"),
+              label: t("common.view"),
               icon: Eye,
               hidden: !canView,
               onSelect: () => router.push(`/sales/payments/${item.id}`),

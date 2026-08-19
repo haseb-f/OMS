@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
 import type { LucideIcon } from "lucide-react";
 import { Copy, Eye, History, Pencil, Archive as ArchiveIcon, RotateCcw, Plus } from "lucide-react";
@@ -65,6 +66,7 @@ interface MasterDataService<TEntity> {
   ) => Promise<{ succeeded: string[]; failed: { id: string; message: string }[] }>;
   restore: (id: string) => Promise<TEntity>;
   activity: (id: string) => Promise<MasterDataActivityEntry[]>;
+  get?: (id: string) => Promise<TEntity>;
 }
 
 /** Picks the modal size automatically from how many fields the form has — never a tiny dialog, never an oversized one for a 2-field form. */
@@ -157,6 +159,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
 
   const canCreate = hasPermission(`${permissionPrefix}.create`);
   const canEdit = hasPermission(`${permissionPrefix}.edit`);
+  const canView = hasPermission(`${permissionPrefix}.view`);
   const canArchive = !disableArchiveRestore && hasPermission(`${permissionPrefix}.archive`);
 
   const [items, setItems] = useState<TEntity[]>([]);
@@ -274,6 +277,37 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
     setDuplicateSource(entity);
     setModalOpen(true);
   }, []);
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const consumedEditId = useRef<string | null>(null);
+
+  useEffect(() => {
+    const editId = searchParams.get("edit");
+    if (!editId || !canEdit || consumedEditId.current === editId) return;
+
+    const openFromEntity = (entity: TEntity) => {
+      consumedEditId.current = editId;
+      openEdit(entity);
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("edit");
+      const next = params.toString();
+      router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
+    };
+
+    const fromList = items.find((item) => item.id === editId);
+    if (fromList) {
+      openFromEntity(fromList);
+      return;
+    }
+    if (!service.get) return;
+    void service
+      .get(editId)
+      .then(openFromEntity)
+      .catch(() => undefined);
+  }, [searchParams, items, canEdit, service, openEdit, router, pathname]);
+
   const closeModal = (open: boolean) => {
     setModalOpen(open);
     if (!open) setDuplicateSource(null);
@@ -391,19 +425,30 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
       cell: ({ row }) => {
         const entity = row.original;
         const isArchived = !!entity.deletedAt;
+        const extras = extraRowActions?.(entity) ?? [];
+        const isViewAction = (action: RowAction) =>
+          action.key === "view" || action.key === "view-profile";
+        const isDestructiveAction = (action: RowAction) =>
+          Boolean(action.destructive) ||
+          action.key === "archive" ||
+          action.key === "delete" ||
+          action.key === "restore";
+        const hasExternalView = extras.some(isViewAction);
+        const viewExtras = extras.filter(isViewAction);
+        const otherExtras = extras.filter(
+          (action) => !isViewAction(action) && !isDestructiveAction(action),
+        );
+        const destructiveExtras = extras.filter(
+          (action) => !isViewAction(action) && isDestructiveAction(action),
+        );
         const actions: RowAction[] = [
-          ...(extraRowActions?.(entity) ?? []),
+          ...viewExtras,
           {
             key: "quick-preview",
-            label: t("masterData.actions.quickPreview"),
+            label: t("common.view"),
             icon: Eye,
+            hidden: !canView || hasExternalView,
             onSelect: () => setPreviewEntity(entity),
-          },
-          {
-            key: "view-activity",
-            label: t("masterData.actions.viewActivity"),
-            icon: History,
-            onSelect: () => setActivityEntity(entity),
           },
           {
             key: "edit",
@@ -419,6 +464,17 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
             onSelect: () => openDuplicate(entity),
             hidden: !canCreate || isArchived,
           },
+          ...otherExtras,
+          {
+            key: "view-activity",
+            label: t("masterData.actions.viewActivity"),
+            icon: History,
+            onSelect: () => setActivityEntity(entity),
+          },
+          ...destructiveExtras.map((action, index) => ({
+            ...action,
+            separatorBefore: index === 0 || action.separatorBefore,
+          })),
           {
             key: "archive",
             label: t("common.archive"),
@@ -426,7 +482,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
             onSelect: () => setArchiveTarget(entity),
             hidden: !canArchive || isArchived,
             destructive: true,
-            separatorBefore: true,
+            separatorBefore: destructiveExtras.length === 0,
           },
           {
             key: "restore",
@@ -440,7 +496,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
         return <RowActionsMenu actions={actions} label={t("common.actions")} />;
       },
     }),
-    [canEdit, canArchive, canCreate, t, openEdit, openDuplicate, extraRowActions],
+    [canEdit, canArchive, canCreate, canView, t, openEdit, openDuplicate, extraRowActions],
   );
 
   const tableColumns = useMemo(() => [...columns, actionsColumn], [columns, actionsColumn]);

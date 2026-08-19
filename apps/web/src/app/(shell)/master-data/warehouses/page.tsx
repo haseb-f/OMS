@@ -55,7 +55,7 @@ export default function WarehousesPage() {
     <MasterDataPage
       titleKey="masterData.warehouses.title"
       descriptionKey="masterData.warehouses.description"
-      breadcrumbKeys={["nav.masterData", "masterData.warehouses.title"]}
+      breadcrumbKeys={["nav.products", "masterData.warehouses.title"]}
       tableId="warehouses"
       service={service}
       columns={warehousesColumns}

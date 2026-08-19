@@ -1990,7 +1990,7 @@ const ar = {
         currency: "العملة",
         notes: "ملاحظات",
         paymentAmount: "المبلغ المدفوع",
-        paymentSource: "طريقة الدفع",
+        paymentSource: "مصدر الدفع",
         receivingAccount: "حساب الاستلام",
         senderName: "اسم المُرسل",
         receiptName: "اسم الملف",
@@ -2034,6 +2034,7 @@ const ar = {
       total: "الإجمالي",
       source: "المصدر",
       sourceChannel: "قناة المصدر",
+      employee: "الموظف",
       product: "المنتج",
       quantity: "الكمية",
       unitPrice: "سعر الوحدة",
@@ -2065,15 +2066,17 @@ const ar = {
     },
     detail: {
       sections: {
-        customer: "معلومات العميل",
-        orderInfo: "معلومات الطلب",
-        payments: "معلومات الدفع",
-        reconciliation: "حالة التسوية",
-        invoice: "حالة الفاتورة / المحاسبة",
-        shippingSummary: "ملخص الشحن",
+        orderSummary: "الطلب",
+        customer: "العميل",
+        items: "الأصناف",
+        payments: "الدفع",
+        invoice: "الفاتورة",
+        shipping: "الشحن",
+        shippingSummary: "الشحن",
         shipmentHistory: "سجل الشحنات",
         receipts: "الإيصالات",
-        activity: "سجل النشاط والتدقيق",
+        notes: "الملاحظات",
+        activity: "النشاط",
       },
       items: {
         product: "المنتج",
@@ -2085,6 +2088,8 @@ const ar = {
         number: "رقم الدفعة",
         date: "التاريخ",
         amount: "المبلغ",
+        paid: "المدفوع",
+        remaining: "المتبقي",
         add: "إضافة دفعة",
         addTitle: "إضافة دفعة",
         addDescription: "تسجيل دفعة عادية على هذا الطلب وإعادة تقييم حالة التسوية.",
@@ -2592,6 +2597,15 @@ const ar = {
     },
   },
   financialTransactions: {
+    types: {
+      CUSTOMER_RECEIPT: "تحصيل من عميل",
+      SUPPLIER_PAYMENT: "سداد مورد",
+      EXPENSE_PAYMENT: "مصروف تشغيلي",
+    },
+    direction: {
+      in: "قبض",
+      out: "صرف",
+    },
     status: {
       draft: "مسودة",
       confirmed: "مؤكد",
@@ -2610,9 +2624,10 @@ const ar = {
       remaining: "المبلغ المتبقي",
     },
     fields: {
+      type: "نوع الحركة",
       transactionDate: "التاريخ",
       amount: "المبلغ",
-      paymentSource: "طريقة الدفع",
+      paymentSource: "مصدر الدفع",
       receivingAccount: "حساب الاستلام",
       referenceNumber: "الرقم المرجعي",
     },
@@ -2940,6 +2955,9 @@ const ar = {
     fieldsCount: "{count} حقل",
     requiredFieldsCount: "{count} مطلوب",
     viewJob: "عرض",
+    cancelJob: "إلغاء",
+    confirmCancelJobTitle: "إلغاء مهمة الاستيراد؟",
+    confirmCancelJobDescription: "ستتوقف المهمة قبل استيراد الصفوف المتبقية.",
     types: {
       leads: {
         label: "العملاء المحتملون",
@@ -3057,6 +3075,7 @@ const ar = {
       amount: "المبلغ",
       invoiceNumber: "رقم الفاتورة",
       allocatedAmount: "المبلغ المخصص",
+      financialTransactionType: "نوع الحركة المالية",
       entryDate: "تاريخ القيد",
       accountCode: "رمز الحساب",
       debit: "مدين",
@@ -3282,7 +3301,7 @@ const ar = {
         lastSync: "آخر مزامنة: {datetime}",
         lastSyncNever: "آخر مزامنة: لم تتم بعد",
         summary:
-          "الدول {countries} · المنتجات {products} · العملات {currencies} · طرق الدفع {paymentMethods} · الموظفون {employees} · حالات الشحن {shippingStatuses} · شركات الشحن {shippingCompanies} · {datetime}",
+          "الدول {countries} · المنتجات {products} · العملات {currencies} · طرق الدفع {paymentMethods} · الموظفون {employees} · حالات الشحن {shippingStatuses} · شركات الشحن {shippingCompanies} · أنواع الحركات {financialTransactionTypes} · {datetime}",
         lists: {
           country: "الدول",
           product: "المنتجات",
@@ -3291,6 +3310,7 @@ const ar = {
           employeeEmail: "الموظفون",
           shippingStatus: "حالات الشحن",
           shippingCompany: "شركات الشحن",
+          financialTransactionType: "أنواع الحركات المالية",
         },
         errors: {
           generic: "تعذر مزامنة بيانات OMS مع Google Sheets. حاول مرة أخرى.",

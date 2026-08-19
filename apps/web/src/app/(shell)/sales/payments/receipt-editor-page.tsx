@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Ban, CheckCircle2, Printer, Save, Trash2 } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { EditorWorkspace } from "@/components/shared/detail-workspace";
 import { RelatedDocuments } from "@/components/shared/related-documents";
 import { useSourceJournalEntryLinks } from "@/hooks/use-source-journal-entry";
 import { CustomerPicker } from "@/components/business/customer-picker";
@@ -387,6 +388,8 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
     () => ({
       title: t("sales.receipts.editorTitle"),
       partyLabel: t("sales.receipts.partyLabel"),
+      transactionType: "CUSTOMER_RECEIPT",
+      direction: "IN",
       docCodePreview: "CR",
       permissions: {
         create: "sales.receipts.create",
@@ -495,7 +498,7 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
   useBreadcrumbLabel(receipt?.transactionNumber ?? t("sales.receipts.addNew"));
 
   return (
-    <div className="flex flex-col gap-3">
+    <EditorWorkspace backHref="/sales/payments">
       <RelatedDocuments
         groups={[
           {
@@ -582,6 +585,6 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
           await handleDelete();
         }}
       />
-    </div>
+    </EditorWorkspace>
   );
 }

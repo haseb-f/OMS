@@ -2,23 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Printer } from "lucide-react";
-import { PageWorkspace } from "@/components/shared/page-workspace";
-import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
-import { EnterpriseButton } from "@/components/ui/button";
+import { Archive, FileText, Pencil, Printer } from "lucide-react";
 import {
-  EnterpriseCard,
-  EnterpriseCardContent,
-  EnterpriseCardHeader,
-  EnterpriseCardTitle,
-} from "@/components/ui/card";
-import { CustomerCard } from "@/components/business/party-card";
+  DetailField,
+  DetailFieldGrid,
+  DetailSection,
+  DetailWorkspace,
+  BackButton,
+} from "@/components/shared/detail-workspace";
+import { RowActionsMenu } from "@/components/shared/data-table";
+import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { EntityTabs } from "@/components/business/entity-tabs";
-import { SummaryCard } from "@/components/business/summary-card";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
 import { ComingSoon } from "@/components/shared/coming-soon";
 import { EmptyState } from "@/components/shared/empty-state";
-import { FileText } from "lucide-react";
 import { PartyPaymentsPanel } from "@/components/financial-transactions/party-payments-panel";
 import { customersService, type CustomerRow } from "@/services/customers-service";
 import {
@@ -35,6 +33,8 @@ import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { formatDate, formatDateTime } from "@/lib/date";
 import type { DocumentData } from "@/types/document-engine";
+import { ApiError } from "@/services/api-client";
+import { toast } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
 
 const LEAD_STATUS_TONE: Record<LeadRow["status"], StatusTone> = {
@@ -46,15 +46,6 @@ const LEAD_STATUS_TONE: Record<LeadRow["status"], StatusTone> = {
 
 function formatMoney(value: number) {
   return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4 border-b border-border/60 py-2 last:border-b-0">
-      <dt className="text-caption text-muted-foreground">{label}</dt>
-      <dd className="text-sm font-medium">{value || "—"}</dd>
-    </div>
-  );
 }
 
 export default function CustomerProfilePage() {
@@ -74,6 +65,11 @@ export default function CustomerProfilePage() {
   const [isLoadingOpenInvoices, setIsLoadingOpenInvoices] = useState(true);
   const [orders, setOrders] = useState<LeadRow[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
+
+  const canEdit = hasPermission("sales.customers.edit");
+  const canArchive = hasPermission("sales.customers.archive");
 
   useBreadcrumbLabel(customer?.name ?? null);
 
@@ -126,10 +122,20 @@ export default function CustomerProfilePage() {
   }, [params.id]);
 
   if (isLoading) {
-    return <div className="p-8 text-caption text-muted-foreground">{t("common.loading")}</div>;
+    return (
+      <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-2">
+        <BackButton href="/sales/customers" />
+        <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
+      </div>
+    );
   }
   if (!customer) {
-    return <EmptyState icon={FileText} title={t("common.noResults")} />;
+    return (
+      <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-2">
+        <BackButton href="/sales/customers" />
+        <EmptyState icon={FileText} title={t("common.noResults")} />
+      </div>
+    );
   }
 
   const creditLimit = customer.creditLimit ? Number(customer.creditLimit) : null;
@@ -206,155 +212,149 @@ export default function CustomerProfilePage() {
 
   const comingSoon = <ComingSoon />;
 
+  const handleArchive = async () => {
+    setIsArchiving(true);
+    try {
+      await customersService.archive(customer.id);
+      toast.success(t("common.archive"));
+      setArchiveOpen(false);
+      router.push("/sales/customers");
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+    } finally {
+      setIsArchiving(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col gap-3">
-      <PageWorkspace
-        title={customer.name}
-        description={customer.customerNumber}
-        actions={
-          <EnterpriseButton
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={handlePrint}
-          >
-            <Printer className="size-3.5" />
-            {t("sales.customers.profile.print")}
-          </EnterpriseButton>
-        }
-      />
-
-      <CustomerCard
-        name={customer.name}
-        code={customer.customerNumber}
-        contact={[customer.phone, customer.email].filter(Boolean).join(" · ")}
-        status={t(`common.${customer.status === "ACTIVE" ? "active" : "archived"}` as MessageKey)}
-        statusTone={customer.status === "ACTIVE" ? "success" : "neutral"}
-      />
-
+    <DetailWorkspace
+      backHref="/sales/customers"
+      title={customer.name}
+      subtitle={customer.customerNumber}
+      status={
+        <StatusBadge
+          label={t(`common.${customer.status === "ACTIVE" ? "active" : "archived"}` as MessageKey)}
+          tone={customer.status === "ACTIVE" ? "success" : "neutral"}
+        />
+      }
+      actions={
+        <RowActionsMenu
+          label={t("common.actions")}
+          actions={[
+            {
+              key: "print",
+              label: t("sales.customers.profile.print"),
+              icon: Printer,
+              onSelect: handlePrint,
+            },
+            {
+              key: "edit",
+              label: t("common.edit"),
+              icon: Pencil,
+              hidden: !canEdit || !!customer.deletedAt,
+              onSelect: () => router.push(`/sales/customers?edit=${customer.id}`),
+            },
+            {
+              key: "archive",
+              label: t("common.archive"),
+              icon: Archive,
+              hidden: !canArchive || !!customer.deletedAt,
+              destructive: true,
+              separatorBefore: true,
+              onSelect: () => setArchiveOpen(true),
+            },
+          ]}
+        />
+      }
+    >
       <EntityTabs
         tabs={[
           {
             value: "general",
             label: t("sales.customers.profile.sectionsTab.general"),
             content: (
-              <EnterpriseCard>
-                <EnterpriseCardHeader>
-                  <EnterpriseCardTitle>{t("sales.customers.sections.general")}</EnterpriseCardTitle>
-                </EnterpriseCardHeader>
-                <EnterpriseCardContent>
-                  <dl className="flex flex-col">
-                    <InfoRow label={t("sales.customers.fields.name")} value={customer.name} />
-                    <InfoRow
-                      label={t("sales.customers.fields.commercialName")}
-                      value={customer.commercialName ?? ""}
-                    />
-                    <InfoRow
-                      label={t("sales.customers.fields.customerGroup")}
-                      value={customer.customerGroup?.name ?? ""}
-                    />
-                    <InfoRow
-                      label={t("sales.customers.fields.source")}
-                      value={t(`sales.customers.source.${customer.source}` as MessageKey)}
-                    />
-                    <InfoRow
-                      label={t("sales.customers.fields.createdAt")}
-                      value={formatDate(customer.createdAt)}
-                    />
-                  </dl>
-                </EnterpriseCardContent>
-              </EnterpriseCard>
+              <DetailSection>
+                <DetailFieldGrid>
+                  <DetailField
+                    label={t("sales.customers.fields.commercialName")}
+                    value={customer.commercialName}
+                  />
+                  <DetailField
+                    label={t("sales.customers.fields.customerGroup")}
+                    value={customer.customerGroup?.name}
+                  />
+                  <DetailField
+                    label={t("sales.customers.fields.source")}
+                    value={t(`sales.customers.source.${customer.source}` as MessageKey)}
+                  />
+                  <DetailField
+                    label={t("sales.customers.fields.createdAt")}
+                    value={formatDate(customer.createdAt)}
+                  />
+                </DetailFieldGrid>
+              </DetailSection>
             ),
           },
           {
             value: "commercial",
             label: t("sales.customers.profile.sectionsTab.commercial"),
             content: (
-              <EnterpriseCard>
-                <EnterpriseCardHeader>
-                  <EnterpriseCardTitle>
-                    {t("sales.customers.sections.commercial")}
-                  </EnterpriseCardTitle>
-                </EnterpriseCardHeader>
-                <EnterpriseCardContent>
-                  <dl className="flex flex-col">
-                    <InfoRow
-                      label={t("sales.customers.fields.taxNumber")}
-                      value={customer.taxNumber ?? ""}
-                    />
-                    <InfoRow
-                      label={t("sales.customers.fields.commercialRegistration")}
-                      value={customer.commercialRegistration ?? ""}
-                    />
-                    <InfoRow
-                      label={t("sales.customers.fields.paymentTerm")}
-                      value={customer.paymentTerm?.name ?? ""}
-                    />
-                    <InfoRow
-                      label={t("sales.customers.fields.creditLimit")}
-                      value={creditLimit !== null ? formatMoney(creditLimit) : ""}
-                    />
-                  </dl>
-                </EnterpriseCardContent>
-              </EnterpriseCard>
+              <DetailSection>
+                <DetailFieldGrid>
+                  <DetailField
+                    label={t("sales.customers.fields.taxNumber")}
+                    value={customer.taxNumber}
+                  />
+                  <DetailField
+                    label={t("sales.customers.fields.commercialRegistration")}
+                    value={customer.commercialRegistration}
+                  />
+                  <DetailField
+                    label={t("sales.customers.fields.paymentTerm")}
+                    value={customer.paymentTerm?.name}
+                  />
+                  <DetailField
+                    label={t("sales.customers.fields.creditLimit")}
+                    value={creditLimit !== null ? formatMoney(creditLimit) : undefined}
+                  />
+                </DetailFieldGrid>
+              </DetailSection>
             ),
           },
           {
             value: "addresses",
             label: t("sales.customers.profile.sectionsTab.addresses"),
             content: (
-              <EnterpriseCard>
-                <EnterpriseCardHeader>
-                  <EnterpriseCardTitle>
-                    {t("sales.customers.sections.addresses")}
-                  </EnterpriseCardTitle>
-                </EnterpriseCardHeader>
-                <EnterpriseCardContent>
-                  <dl className="flex flex-col">
-                    <InfoRow
-                      label={t("sales.customers.fields.country")}
-                      value={customer.country?.name ?? ""}
-                    />
-                    <InfoRow label={t("sales.customers.fields.city")} value={customer.city ?? ""} />
-                    <InfoRow
-                      label={t("sales.customers.fields.address")}
-                      value={customer.address ?? ""}
-                    />
-                  </dl>
-                </EnterpriseCardContent>
-              </EnterpriseCard>
+              <DetailSection>
+                <DetailFieldGrid>
+                  <DetailField
+                    label={t("sales.customers.fields.country")}
+                    value={customer.country?.name}
+                  />
+                  <DetailField label={t("sales.customers.fields.city")} value={customer.city} />
+                  <DetailField
+                    label={t("sales.customers.fields.address")}
+                    value={customer.address}
+                  />
+                </DetailFieldGrid>
+              </DetailSection>
             ),
           },
           {
             value: "contacts",
             label: t("sales.customers.profile.sectionsTab.contacts"),
             content: (
-              <EnterpriseCard>
-                <EnterpriseCardHeader>
-                  <EnterpriseCardTitle>{t("sales.customers.sections.contact")}</EnterpriseCardTitle>
-                </EnterpriseCardHeader>
-                <EnterpriseCardContent>
-                  <dl className="flex flex-col">
-                    <InfoRow
-                      label={t("sales.customers.fields.phone")}
-                      value={customer.phone ?? ""}
-                    />
-                    <InfoRow
-                      label={t("sales.customers.fields.mobile")}
-                      value={customer.mobile ?? ""}
-                    />
-                    <InfoRow
-                      label={t("sales.customers.fields.email")}
-                      value={customer.email ?? ""}
-                    />
-                    <InfoRow
-                      label={t("sales.customers.fields.website")}
-                      value={customer.website ?? ""}
-                    />
-                  </dl>
-                </EnterpriseCardContent>
-              </EnterpriseCard>
+              <DetailSection>
+                <DetailFieldGrid>
+                  <DetailField label={t("sales.customers.fields.phone")} value={customer.phone} />
+                  <DetailField label={t("sales.customers.fields.mobile")} value={customer.mobile} />
+                  <DetailField label={t("sales.customers.fields.email")} value={customer.email} />
+                  <DetailField
+                    label={t("sales.customers.fields.website")}
+                    value={customer.website}
+                  />
+                </DetailFieldGrid>
+              </DetailSection>
             ),
           },
           {
@@ -373,35 +373,33 @@ export default function CustomerProfilePage() {
             value: "statistics",
             label: t("sales.customers.profile.sectionsTab.statistics"),
             content: (
-              <SummaryCard
-                title={t("sales.customers.profile.sectionsTab.statistics")}
-                rows={[
-                  {
-                    label: t("sales.customers.profile.statistics.balance"),
-                    value: formatMoney(customer.balance),
-                  },
-                  {
-                    label: t("sales.customers.profile.statistics.creditLimit"),
-                    value: creditLimit !== null ? formatMoney(creditLimit) : "—",
-                  },
-                  {
-                    label: t("sales.customers.profile.statistics.creditAvailable"),
-                    value: creditAvailable !== null ? formatMoney(creditAvailable) : "—",
-                    emphasis: true,
-                  },
-                ]}
-              />
+              <DetailSection>
+                <DetailFieldGrid columns={3}>
+                  <DetailField
+                    label={t("sales.customers.profile.statistics.balance")}
+                    value={formatMoney(customer.balance)}
+                  />
+                  <DetailField
+                    label={t("sales.customers.profile.statistics.creditLimit")}
+                    value={creditLimit !== null ? formatMoney(creditLimit) : undefined}
+                  />
+                  <DetailField
+                    label={t("sales.customers.profile.statistics.creditAvailable")}
+                    value={creditAvailable !== null ? formatMoney(creditAvailable) : undefined}
+                  />
+                </DetailFieldGrid>
+              </DetailSection>
             ),
           },
           {
             value: "notes",
             label: t("sales.customers.profile.sectionsTab.notes"),
-            content: (
-              <EnterpriseCard>
-                <EnterpriseCardContent>
-                  <p className="whitespace-pre-wrap text-body">{customer.notes || "—"}</p>
-                </EnterpriseCardContent>
-              </EnterpriseCard>
+            content: customer.notes ? (
+              <DetailSection>
+                <p className="whitespace-pre-wrap text-body">{customer.notes}</p>
+              </DetailSection>
+            ) : (
+              <p className="text-caption text-muted-foreground">{t("common.noDataAvailable")}</p>
             ),
           },
           {
@@ -418,48 +416,44 @@ export default function CustomerProfilePage() {
             value: "orders",
             label: t("sales.customers.profile.sectionsTab.orders"),
             content: (
-              <EnterpriseCard>
-                <EnterpriseCardHeader>
-                  <EnterpriseCardTitle>{t("crm.leads.customerOrders.title")}</EnterpriseCardTitle>
-                </EnterpriseCardHeader>
-                <EnterpriseCardContent>
-                  {isLoadingOrders ? (
-                    <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
-                  ) : orders.length === 0 ? (
-                    <p className="text-caption text-muted-foreground">
-                      {t("crm.leads.customerOrders.empty")}
-                    </p>
-                  ) : (
-                    <div className="flex flex-col">
-                      {orders.map((order) => (
-                        <button
-                          key={order.id}
-                          type="button"
-                          onClick={() => router.push(`/crm/leads/${order.id}`)}
-                          className="flex items-center justify-between gap-4 border-b border-border/60 py-3 text-start last:border-b-0 hover:bg-muted/40"
-                        >
-                          <div className="flex flex-col gap-0.5">
-                            <span className="text-sm font-medium">{order.leadNumber}</span>
+              <DetailSection>
+                {isLoadingOrders ? (
+                  <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
+                ) : orders.length === 0 ? (
+                  <p className="text-caption text-muted-foreground">
+                    {t("crm.leads.customerOrders.empty")}
+                  </p>
+                ) : (
+                  <div className="flex flex-col">
+                    {orders.map((order) => (
+                      <button
+                        key={order.id}
+                        type="button"
+                        onClick={() => router.push(`/crm/leads/${order.id}`)}
+                        className="flex items-center justify-between gap-4 border-b border-border/60 py-3 text-start last:border-b-0 hover:bg-muted/40"
+                      >
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-sm font-medium">{order.leadNumber}</span>
+                          <span className="text-caption text-muted-foreground">
+                            {formatDate(order.createdAt)} · {order.quantity}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {order.salesEmployee?.fullName ? (
                             <span className="text-caption text-muted-foreground">
-                              {formatDate(order.createdAt)} · {t("crm.leads.fields.quantity")}:{" "}
-                              {order.quantity}
+                              {order.salesEmployee.fullName}
                             </span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-caption text-muted-foreground">
-                              {order.salesEmployee?.fullName ?? "—"}
-                            </span>
-                            <StatusBadge
-                              tone={LEAD_STATUS_TONE[order.status]}
-                              label={t(`crm.leads.status.${order.status}` as MessageKey)}
-                            />
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </EnterpriseCardContent>
-              </EnterpriseCard>
+                          ) : null}
+                          <StatusBadge
+                            tone={LEAD_STATUS_TONE[order.status]}
+                            label={t(`crm.leads.status.${order.status}` as MessageKey)}
+                          />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </DetailSection>
             ),
           },
           {
@@ -496,6 +490,18 @@ export default function CustomerProfilePage() {
           },
         ]}
       />
-    </div>
+
+      <ConfirmationDialog
+        open={archiveOpen}
+        onOpenChange={setArchiveOpen}
+        tone="destructive"
+        title={t("common.confirmArchiveTitle")}
+        description={t("common.confirmArchiveDescription")}
+        confirmLabel={t("common.archive")}
+        cancelLabel={t("common.cancel")}
+        isConfirming={isArchiving}
+        onConfirm={() => void handleArchive()}
+      />
+    </DetailWorkspace>
   );
 }

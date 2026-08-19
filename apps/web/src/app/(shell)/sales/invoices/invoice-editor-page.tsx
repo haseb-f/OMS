@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { EditorWorkspace } from "@/components/shared/detail-workspace";
 import {
   SalesDocumentEditor,
   createEmptyLine,
@@ -380,7 +381,7 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
   useBreadcrumbLabel(invoice?.invoiceNumber ?? t("sales.invoices.addNew"));
 
   return (
-    <div className="flex flex-col gap-3">
+    <EditorWorkspace backHref="/sales/invoices">
       <RelatedDocuments
         groups={[
           {
@@ -481,6 +482,6 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
           onCreated={(salesReturn) => router.push(`/sales/returns/${salesReturn.id}`)}
         />
       )}
-    </div>
+    </EditorWorkspace>
   );
 }

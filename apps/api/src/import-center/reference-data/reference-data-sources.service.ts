@@ -2,7 +2,7 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { CustomerStatus, ProductStatus, SupplierStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ReferenceDataRegistryService } from './reference-data-registry.service';
-import { ALLOWED_STATUSES as SHIPPING_ALLOWED_STATUSES } from '../handlers/shipping-updates-import.handler';
+import { SHIPPING_STATUS_CATALOG } from '../../shipping/shipping-status.catalog';
 import type {
   ReferenceDataSource,
   ReferenceRecord,
@@ -273,12 +273,14 @@ export class ReferenceDataSourcesService implements OnModuleInit {
         // status validation already use.
         list: () =>
           Promise.resolve(
-            SHIPPING_ALLOWED_STATUSES.map((status) => ({
-              id: status,
-              code: status,
-              name: status,
-              active: true,
-            })),
+            SHIPPING_STATUS_CATALOG.filter((status) => status.importable).map(
+              (status) => ({
+                id: status.code,
+                code: status.code,
+                name: status.label,
+                active: true,
+              }),
+            ),
           ),
       },
       {

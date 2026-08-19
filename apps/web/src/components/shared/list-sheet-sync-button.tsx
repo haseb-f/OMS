@@ -28,6 +28,7 @@ const LIST_LABEL_KEY: Record<ListSheetColumnKey, MessageKey> = {
   employeeEmail: "importCenter.sync.listSheet.lists.employeeEmail",
   shippingStatus: "importCenter.sync.listSheet.lists.shippingStatus",
   shippingCompany: "importCenter.sync.listSheet.lists.shippingCompany",
+  financialTransactionType: "importCenter.sync.listSheet.lists.financialTransactionType",
 };
 
 function listSheetErrorMessage(error: unknown, fallback: string): string {
@@ -91,6 +92,7 @@ export function ListSheetSyncButton({
             employees: countOf(result, "employeeEmail"),
             shippingStatuses: countOf(result, "shippingStatus"),
             shippingCompanies: countOf(result, "shippingCompany"),
+            financialTransactionTypes: countOf(result, "financialTransactionType"),
             datetime: formatDateTime(result.syncedAt),
           }),
         });

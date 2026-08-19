@@ -2,19 +2,24 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { UploadCloud, Eye } from "lucide-react";
+import { Ban, UploadCloud, Eye } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/business/status-badge";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
 import { RowActionsMenu } from "@/components/shared/data-table";
+import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 // The Store Orders import reuses the existing Import Center wizard shell
 // unmodified — only a new `STORE_ORDERS` type key (registered server-side)
 // is threaded through it, never a second/bespoke wizard implementation.
 import { ImportJobWizard } from "@/app/(shell)/data-management/import-center/import-job-wizard";
 import { importTypesService, type ImportTypeDefinition } from "@/services/import-types-service";
-import { importJobsService, type ImportJobRow } from "@/services/import-jobs-service";
+import {
+  importJobsService,
+  isImportJobCancellable,
+  type ImportJobRow,
+} from "@/services/import-jobs-service";
 import { IMPORT_JOB_STATUS_LABEL_KEY, IMPORT_JOB_STATUS_TONE } from "@/config/import-center/status";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { useLocale } from "@/providers/locale-provider";
@@ -35,6 +40,8 @@ function StoreOrdersImportContent() {
   const [isLoadingJobs, setIsLoadingJobs] = useState(true);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardJobId, setWizardJobId] = useState<string | undefined>(undefined);
+  const [cancelTarget, setCancelTarget] = useState<ImportJobRow | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const loadJobs = useCallback(async () => {
     setIsLoadingJobs(true);
@@ -120,12 +127,21 @@ function StoreOrdersImportContent() {
                   setWizardOpen(true);
                 },
               },
+              {
+                key: "cancel",
+                label: t("importCenter.cancelJob"),
+                icon: Ban,
+                hidden: !canImport || !isImportJobCancellable(info.row.original.status),
+                destructive: true,
+                separatorBefore: true,
+                onSelect: () => setCancelTarget(info.row.original),
+              },
             ]}
           />
         ),
       },
     ],
-    [t],
+    [t, canImport],
   );
 
   return (
@@ -172,6 +188,33 @@ function StoreOrdersImportContent() {
           onDone={loadJobs}
         />
       )}
+
+      <ConfirmationDialog
+        open={!!cancelTarget}
+        onOpenChange={(open) => {
+          if (!open) setCancelTarget(null);
+        }}
+        tone="destructive"
+        title={t("importCenter.confirmCancelJobTitle")}
+        description={t("importCenter.confirmCancelJobDescription")}
+        confirmLabel={t("importCenter.cancelJob")}
+        cancelLabel={t("common.cancel")}
+        isConfirming={isCancelling}
+        onConfirm={async () => {
+          if (!cancelTarget) return;
+          setIsCancelling(true);
+          try {
+            await importJobsService.cancel(cancelTarget.id);
+            toast.success(t("importCenter.cancelJob"));
+            setCancelTarget(null);
+            await loadJobs();
+          } catch (error) {
+            toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+          } finally {
+            setIsCancelling(false);
+          }
+        }}
+      />
     </PageWorkspace>
   );
 }

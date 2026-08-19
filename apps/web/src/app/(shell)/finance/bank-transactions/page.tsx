@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Landmark, RefreshCw, Search } from "lucide-react";
+import { Landmark, RefreshCw, Search, Tag, CheckCircle2 } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EmptyState } from "@/components/shared/empty-state";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
@@ -30,6 +30,7 @@ import { StatusBadge, type StatusTone } from "@/components/business/status-badge
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import { SyncButton } from "@/components/shared/sync-button";
 import { PermissionGate } from "@/components/shared/permission-gate";
+import { RowActionsMenu } from "@/components/shared/data-table";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { toast } from "@/lib/toast";
@@ -344,28 +345,25 @@ function CashFlowPageContent() {
                       </span>
                     ) : (
                       canManage && (
-                        <div className="flex gap-1.5">
-                          {direction === "OUTGOING" && !row.outgoingType && (
-                            <EnterpriseButton
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setClassifyTarget(row)}
-                            >
-                              {t("masterData.bankTransactions.classify")}
-                            </EnterpriseButton>
-                          )}
-                          {(direction === "INCOMING" || row.outgoingType) && (
-                            <EnterpriseButton
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setReconcileTarget(row)}
-                            >
-                              {t("masterData.bankTransactions.reconcile")}
-                            </EnterpriseButton>
-                          )}
-                        </div>
+                        <RowActionsMenu
+                          label={t("common.actions")}
+                          actions={[
+                            {
+                              key: "classify",
+                              label: t("masterData.bankTransactions.classify"),
+                              icon: Tag,
+                              hidden: !(direction === "OUTGOING" && !row.outgoingType),
+                              onSelect: () => setClassifyTarget(row),
+                            },
+                            {
+                              key: "reconcile",
+                              label: t("masterData.bankTransactions.reconcile"),
+                              icon: CheckCircle2,
+                              hidden: !(direction === "INCOMING" || !!row.outgoingType),
+                              onSelect: () => setReconcileTarget(row),
+                            },
+                          ]}
+                        />
                       )
                     )}
                   </TableCell>

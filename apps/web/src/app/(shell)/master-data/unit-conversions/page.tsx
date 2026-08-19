@@ -54,7 +54,7 @@ export default function UnitConversionsPage() {
     <MasterDataPage
       titleKey="masterData.unitConversions.title"
       descriptionKey="masterData.unitConversions.description"
-      breadcrumbKeys={["nav.masterData", "masterData.unitConversions.title"]}
+      breadcrumbKeys={["nav.products", "masterData.unitConversions.title"]}
       tableId="unit-conversions"
       service={service}
       columns={unitConversionsColumns}

@@ -6,6 +6,10 @@ import type {
   FinancialTransactionStatusValue,
 } from "@/services/financial-transactions-service";
 import type { AllocationGridLine } from "./allocation-grid";
+import type {
+  FinancialTransactionDirection,
+  FinancialTransactionTypeCode,
+} from "@/config/financial-transactions/transaction-type";
 
 /**
  * Financial Transactions & Matching Engine (TASK-043) — the Configuration
@@ -42,6 +46,8 @@ export interface TransactionStatusOption {
 export interface FinancialTransactionEditorConfig {
   title: string;
   partyLabel: string;
+  transactionType: FinancialTransactionTypeCode;
+  direction: FinancialTransactionDirection;
   docCodePreview?: string;
   permissions: { create: string; edit: string; confirm: string; cancel: string };
   statusOptions: TransactionStatusOption[];

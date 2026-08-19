@@ -7,7 +7,7 @@ import type { ExportColumn } from "@/components/shared/export-dialog";
 import type { MessageKey } from "@/i18n/translate";
 import type { StoreOrderRow } from "@/services/store-orders-service";
 import { PAYMENT_STATUS_LABEL_KEY, SHIPPING_STAGE_LABEL_KEY } from "./status";
-import { Eye } from "lucide-react";
+import { Archive, Eye, Pencil } from "lucide-react";
 import { RowActionsMenu } from "@/components/shared/data-table";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
@@ -23,14 +23,20 @@ import {
 
 export interface StoreOrderRowHandlers {
   onView: (row: StoreOrderRow) => void;
+  onEdit?: (row: StoreOrderRow) => void;
+  onArchive?: (row: StoreOrderRow) => void;
 }
 
 function StoreOrderActionsCell({
   order,
   onView,
+  onEdit,
+  onArchive,
 }: {
   order: StoreOrderRow;
   onView: (row: StoreOrderRow) => void;
+  onEdit?: (row: StoreOrderRow) => void;
+  onArchive?: (row: StoreOrderRow) => void;
 }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
@@ -44,6 +50,22 @@ function StoreOrderActionsCell({
           icon: Eye,
           hidden: !hasPermission("store-orders.view"),
           onSelect: () => onView(order),
+        },
+        {
+          key: "edit",
+          label: t("common.edit"),
+          icon: Pencil,
+          hidden: !onEdit || !hasPermission("store-orders.edit"),
+          onSelect: () => onEdit?.(order),
+        },
+        {
+          key: "archive",
+          label: t("common.archive"),
+          icon: Archive,
+          hidden: !onArchive || !hasPermission("store-orders.archive"),
+          destructive: true,
+          separatorBefore: true,
+          onSelect: () => onArchive?.(order),
         },
       ]}
     />
@@ -139,7 +161,14 @@ export function buildStoreOrderColumns(
       meta: { titleKey: "common.actions", importance: "critical" },
       enableHiding: false,
       enableSorting: false,
-      cell: ({ row }) => <StoreOrderActionsCell order={row.original} onView={handlers.onView} />,
+      cell: ({ row }) => (
+        <StoreOrderActionsCell
+          order={row.original}
+          onView={handlers.onView}
+          onEdit={handlers.onEdit}
+          onArchive={handlers.onArchive}
+        />
+      ),
     },
   ];
 }

@@ -68,6 +68,12 @@ export const supplierColumns: ColumnDef<SupplierRow, unknown>[] = [
     enableSorting: false,
   },
   {
+    id: "supplierGroup",
+    meta: { titleKey: "purchasing.suppliers.fields.supplierGroup" },
+    accessorFn: (row) => row.supplierGroup?.name ?? "—",
+    enableSorting: false,
+  },
+  {
     id: "paymentTerm",
     meta: { titleKey: "purchasing.suppliers.fields.paymentTerm" },
     accessorFn: (row) => row.paymentTerm ?? "—",

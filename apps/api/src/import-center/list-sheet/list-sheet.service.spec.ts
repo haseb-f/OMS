@@ -95,6 +95,18 @@ describe('ListSheetService', () => {
     expect(byHeader['Shipping Status']).not.toEqual(
       expect.arrayContaining(['SHIPPED', 'READY_FOR_SHIPPING']),
     );
+    expect(byHeader['Financial Transaction Type']).toEqual([
+      'تحصيل من عميل',
+      'سداد مورد',
+      'مصروف تشغيلي',
+    ]);
+    expect(byHeader['Financial Transaction Type']).not.toEqual(
+      expect.arrayContaining([
+        'CUSTOMER_RECEIPT',
+        'SUPPLIER_PAYMENT',
+        'EXPENSE_PAYMENT',
+      ]),
+    );
     expect(JSON.stringify(columns)).not.toContain('uuid-should-not-appear');
     expect(JSON.stringify(columns)).not.toContain('gone@example.com');
     expect(service.status().lastSyncedAt).toBe(result.syncedAt);

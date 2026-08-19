@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { EditorWorkspace } from "@/components/shared/detail-workspace";
 import {
   SalesDocumentEditor,
   createEmptyLine,
@@ -341,7 +342,7 @@ export function OrderEditorPage({ id }: { id: string | null }) {
   useBreadcrumbLabel(order?.orderNumber ?? t("sales.orders.addNew"));
 
   return (
-    <div className="flex flex-col gap-3">
+    <EditorWorkspace backHref="/sales/orders">
       <RelatedDocuments
         groups={[
           {
@@ -414,6 +415,6 @@ export function OrderEditorPage({ id }: { id: string | null }) {
           onConverted={(invoice) => router.push(`/sales/invoices/${invoice.id}`)}
         />
       )}
-    </div>
+    </EditorWorkspace>
   );
 }

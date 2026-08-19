@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Ban, CheckCircle2, Printer, Save, Trash2 } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { EditorWorkspace } from "@/components/shared/detail-workspace";
 import { RelatedDocuments } from "@/components/shared/related-documents";
 import { useSourceJournalEntryLinks } from "@/hooks/use-source-journal-entry";
 import { SupplierPicker } from "@/components/business/supplier-picker";
@@ -387,6 +388,8 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
     () => ({
       title: t("purchasing.payments.editorTitle"),
       partyLabel: t("purchasing.payments.partyLabel"),
+      transactionType: "SUPPLIER_PAYMENT",
+      direction: "OUT",
       docCodePreview: "SP",
       permissions: {
         create: "purchasing.payments.create",
@@ -495,7 +498,7 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
   useBreadcrumbLabel(payment?.transactionNumber ?? t("purchasing.payments.addNew"));
 
   return (
-    <div className="flex flex-col gap-3">
+    <EditorWorkspace backHref="/purchasing/payments">
       <RelatedDocuments
         groups={[
           {
@@ -582,6 +585,6 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
           await handleDelete();
         }}
       />
-    </div>
+    </EditorWorkspace>
   );
 }

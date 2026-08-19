@@ -23,6 +23,12 @@ import { apiClient } from "@/services/api-client";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { formatDateTime } from "@/lib/date";
+import {
+  FINANCIAL_TRANSACTION_TYPE_LABEL_KEY,
+  typesForDirection,
+} from "@/config/financial-transactions/transaction-type";
+import { financialTransactionTypesService } from "@/services/financial-transaction-types-service";
+import type { FinancialTransactionTypeRow } from "@/services/financial-transaction-types-service";
 import type {
   FinancialTransactionEditorConfig,
   FinancialTransactionEditorHandlers,
@@ -84,6 +90,14 @@ export function FinancialTransactionEditor({
   const { hasPermission } = useUserContext();
   const [paymentSources, setPaymentSources] = useState<LookupRow[]>([]);
   const [receivingAccounts, setReceivingAccounts] = useState<LookupRow[]>([]);
+  const [transactionTypes, setTransactionTypes] = useState<FinancialTransactionTypeRow[]>(() =>
+    typesForDirection(config.direction).map((type) => ({
+      code: type.code,
+      label: type.code,
+      direction: type.direction,
+      isSystem: true,
+    })),
+  );
 
   useEffect(() => {
     paymentSourcesService
@@ -94,7 +108,20 @@ export function FinancialTransactionEditor({
       .list()
       .then(setReceivingAccounts)
       .catch(() => setReceivingAccounts([]));
-  }, []);
+    financialTransactionTypesService
+      .list(config.direction)
+      .then(setTransactionTypes)
+      .catch(() =>
+        setTransactionTypes(
+          typesForDirection(config.direction).map((type) => ({
+            code: type.code,
+            label: type.code,
+            direction: type.direction,
+            isSystem: true,
+          })),
+        ),
+      );
+  }, [config.direction]);
 
   const currentStatusOption = config.statusOptions.find((option) => option.value === state.status);
   const visibleActions = config.workflowActions.filter(
@@ -160,6 +187,23 @@ export function FinancialTransactionEditor({
 
         {/* Main form — compact grid, default-visible fields only */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-caption text-muted-foreground">
+              {t("financialTransactions.fields.type")}
+            </label>
+            <Select value={config.transactionType} disabled>
+              <SelectTrigger size="sm" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {transactionTypes.map((type) => (
+                  <SelectItem key={type.code} value={type.code}>
+                    {t(FINANCIAL_TRANSACTION_TYPE_LABEL_KEY[type.code])}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex flex-col gap-1">
             <label className="text-caption text-muted-foreground">{config.partyLabel}</label>
             {renderPartyPicker({ disabled: !canEdit })}

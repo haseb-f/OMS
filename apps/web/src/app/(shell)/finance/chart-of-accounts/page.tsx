@@ -1,7 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, Download, FileText, Printer, Plus } from "lucide-react";
+import {
+  Archive,
+  ChevronDown,
+  ChevronRight,
+  Download,
+  FileText,
+  Pencil,
+  Plus,
+  Printer,
+  RotateCcw,
+} from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,7 +28,6 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { LoadingOverlay } from "@/components/shared/loading-overlay";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { AccountPicker } from "@/components/business/account-picker";
 import { StatusBadge } from "@/components/business/status-badge";
 import { createMasterDataService } from "@/services/master-data-service";
@@ -35,6 +44,7 @@ import { exportRowsToCsv } from "@/components/master-data/enterprise-data-table"
 import { siteConfig } from "@/config/site";
 import type { MessageKey } from "@/i18n/translate";
 import { PermissionGate } from "@/components/shared/permission-gate";
+import { RowActionsMenu } from "@/components/shared/data-table";
 
 const service = createMasterDataService<ChartOfAccountRow>("/chart-of-accounts");
 
@@ -112,6 +122,9 @@ function ChartOfAccountsPageContent() {
   const { activeCompany } = useCompany();
   const { user, hasPermission } = useUserContext();
   const canOverrideCode = hasPermission("accounting.chart-of-accounts.override-code");
+  const canCreate = hasPermission("accounting.chart-of-accounts.create");
+  const canEdit = hasPermission("accounting.chart-of-accounts.edit");
+  const canDelete = hasPermission("accounting.chart-of-accounts.delete");
 
   const [accounts, setAccounts] = useState<ChartOfAccountRow[]>([]);
   const currencies = useCurrencies();
@@ -414,60 +427,43 @@ function ChartOfAccountsPageContent() {
             }
             tone={node.allowsPosting ? "success" : "neutral"}
           />
-          <div className="ms-auto flex items-center gap-1">
-            {!isArchived && (
-              <>
-                <EnterpriseButton
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => openCreate(node)}
-                >
-                  {t("masterData.chartOfAccounts.addChild")}
-                </EnterpriseButton>
-                <EnterpriseButton
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => openEdit(node)}
-                >
-                  {t("common.edit")}
-                </EnterpriseButton>
-                {node.isSystemAccount ? (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span>
-                        <EnterpriseButton type="button" variant="ghost" size="sm" disabled>
-                          {t("masterData.chartOfAccounts.deleteAction")}
-                        </EnterpriseButton>
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {t("masterData.chartOfAccounts.protectedTooltip")}
-                    </TooltipContent>
-                  </Tooltip>
-                ) : (
-                  <EnterpriseButton
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setArchiveTarget(node)}
-                  >
-                    {t("masterData.chartOfAccounts.deleteAction")}
-                  </EnterpriseButton>
-                )}
-              </>
-            )}
-            {isArchived && (
-              <EnterpriseButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setRestoreTarget(node)}
-              >
-                {t("common.restore")}
-              </EnterpriseButton>
-            )}
+          <div className="ms-auto">
+            <RowActionsMenu
+              label={t("common.actions")}
+              actions={[
+                {
+                  key: "edit",
+                  label: t("common.edit"),
+                  icon: Pencil,
+                  hidden: isArchived || !canEdit,
+                  onSelect: () => openEdit(node),
+                },
+                {
+                  key: "add-child",
+                  label: t("masterData.chartOfAccounts.addChild"),
+                  icon: Plus,
+                  hidden: isArchived || !canCreate,
+                  onSelect: () => openCreate(node),
+                },
+                {
+                  key: "archive",
+                  label: t("masterData.chartOfAccounts.deleteAction"),
+                  icon: Archive,
+                  hidden: isArchived || !canDelete || node.isSystemAccount,
+                  disabled: node.isSystemAccount,
+                  destructive: true,
+                  separatorBefore: true,
+                  onSelect: () => setArchiveTarget(node),
+                },
+                {
+                  key: "restore",
+                  label: t("common.restore"),
+                  icon: RotateCcw,
+                  hidden: !isArchived || !canDelete,
+                  onSelect: () => setRestoreTarget(node),
+                },
+              ]}
+            />
           </div>
         </div>
         {!isCollapsed && node.children.map((child) => renderNode(child, depth + 1))}

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRightCircle, Ban, CheckCircle2, Lock, Printer, Save } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { EditorWorkspace } from "@/components/shared/detail-workspace";
 import { PurchasingDocumentEditor } from "@/components/purchasing/purchasing-document-editor";
 import {
   createEmptyLine,
@@ -373,7 +374,7 @@ export function OrderEditorPage({ id }: { id: string | null }) {
   useBreadcrumbLabel(order?.poNumber ?? t("purchasing.orders.addNew"));
 
   return (
-    <div className="flex flex-col gap-3">
+    <EditorWorkspace backHref="/purchasing/purchase-orders">
       <RelatedDocuments
         groups={[
           {
@@ -462,6 +463,6 @@ export function OrderEditorPage({ id }: { id: string | null }) {
           onConverted={(invoice) => router.push(`/purchasing/purchase-invoices/${invoice.id}`)}
         />
       )}
-    </div>
+    </EditorWorkspace>
   );
 }
