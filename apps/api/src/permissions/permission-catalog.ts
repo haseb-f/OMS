@@ -28,7 +28,55 @@ export interface PermissionActionDef {
 export interface PermissionModuleDef {
   key: string;
   labelKey: string;
+  /** Matrix/sidebar business section this row belongs to. Absent = a standalone matrix row. Never a grantable permission of its own. */
+  sectionKey?: string;
+  sectionLabelKey?: string;
   actions: PermissionActionDef[];
+}
+
+export interface PermissionCatalogGroup {
+  sectionKey: string | null;
+  sectionLabelKey: string | null;
+  modules: PermissionModuleDef[];
+}
+
+const SALES_SECTION = {
+  sectionKey: 'sales',
+  sectionLabelKey: 'permissions.sections.sales',
+} as const;
+
+/** Groups catalog rows for the Permission Matrix: Sales children render under المبيعات, standalone modules stay as top-level rows. */
+export function groupPermissionCatalog(
+  modules: PermissionModuleDef[] = PERMISSION_CATALOG,
+): PermissionCatalogGroup[] {
+  const bySection = new Map<string, PermissionModuleDef[]>();
+  for (const module of modules) {
+    if (!module.sectionKey) continue;
+    const rows = bySection.get(module.sectionKey) ?? [];
+    rows.push(module);
+    bySection.set(module.sectionKey, rows);
+  }
+
+  const groups: PermissionCatalogGroup[] = [];
+  const seenSections = new Set<string>();
+  for (const module of modules) {
+    if (!module.sectionKey) {
+      groups.push({
+        sectionKey: null,
+        sectionLabelKey: null,
+        modules: [module],
+      });
+      continue;
+    }
+    if (seenSections.has(module.sectionKey)) continue;
+    seenSections.add(module.sectionKey);
+    groups.push({
+      sectionKey: module.sectionKey,
+      sectionLabelKey: module.sectionLabelKey ?? null,
+      modules: bySection.get(module.sectionKey) ?? [module],
+    });
+  }
+  return groups;
 }
 
 function crud(
@@ -103,6 +151,7 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
   {
     key: 'customers',
     labelKey: 'permissions.modules.customers',
+    ...SALES_SECTION,
     actions: [
       { action: 'view', name: 'sales.customers.view' },
       { action: 'create', name: 'sales.customers.create' },
@@ -153,21 +202,43 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
   {
     key: 'sales-quotations',
     labelKey: 'permissions.modules.salesQuotations',
+    ...SALES_SECTION,
     actions: documentActions('sales.quotations'),
   },
   {
     key: 'sales-orders',
     labelKey: 'permissions.modules.salesOrders',
+    ...SALES_SECTION,
     actions: documentActions('sales.orders', { confirm: true }),
+  },
+  {
+    // Store Orders is a Sales operation (storefront/marketplace pipeline),
+    // nested under المبيعات in both the sidebar and the Permission Matrix.
+    // Action names stay `store-orders.*` so existing grants keep working.
+    key: 'store-orders',
+    labelKey: 'permissions.modules.storeOrders',
+    ...SALES_SECTION,
+    actions: [
+      { action: 'view', name: 'store-orders.view' },
+      { action: 'create', name: 'store-orders.create' },
+      { action: 'edit', name: 'store-orders.edit' },
+      { action: 'cancel', name: 'store-orders.cancel' },
+      { action: 'delete', name: 'store-orders.archive' },
+      { action: 'print', name: 'store-orders.print' },
+      { action: 'export', name: 'store-orders.export' },
+      { action: 'manage', name: 'store-orders.manage' },
+    ],
   },
   {
     key: 'sales-invoices',
     labelKey: 'permissions.modules.salesInvoices',
+    ...SALES_SECTION,
     actions: documentActions('sales.invoices', { confirm: true }),
   },
   {
     key: 'sales-returns',
     labelKey: 'permissions.modules.salesReturns',
+    ...SALES_SECTION,
     actions: documentActions('sales.returns', { confirm: true }),
   },
   {
@@ -317,31 +388,6 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
     ],
   },
   {
-    // Store Orders + Shipping Operations — the independent storefront/
-    // marketplace order pipeline (never the Leads->SalesOrder pipeline,
-    // never the B2B Sales pipeline). A top-level sidebar section of its
-    // own (`navigation.config.ts`'s `store-orders` section), not nested
-    // under `sales` — so its own `.view` action IS the section's gate,
-    // unlike most other modules below whose section-view is a *different*,
-    // coarser permission (see `IMPLIED_SECTION_PERMISSION`).
-    key: 'store-orders',
-    labelKey: 'permissions.modules.storeOrders',
-    actions: [
-      { action: 'view', name: 'store-orders.view' },
-      { action: 'create', name: 'store-orders.create' },
-      { action: 'edit', name: 'store-orders.edit' },
-      { action: 'cancel', name: 'store-orders.cancel' },
-      // "Delete" — soft-delete-only (Archive IS Delete), same convention as
-      // every other document type in this catalog.
-      { action: 'delete', name: 'store-orders.archive' },
-      { action: 'print', name: 'store-orders.print' },
-      { action: 'export', name: 'store-orders.export' },
-      // "manage" = view every Store Order, not just assigned-to-self — same
-      // "authorized manager" capability as `crm.leads.manage`.
-      { action: 'manage', name: 'store-orders.manage' },
-    ],
-  },
-  {
     // Shipping Operations list/board — its own module (`shipping` sidebar
     // item, `GET /shipping`), separate from `store-orders` since a user can
     // be granted warehouse/shipping-desk access without full Store Order
@@ -416,12 +462,9 @@ export const IMPLIED_SECTION_PERMISSION: Record<
   'reports.inventory': 'reports.view',
   'import-center': 'datamanagement.view',
   settings: 'settings.view',
-  // Both are already top-level sidebar sections gated on this exact same
-  // granular permission (`navigation.config.ts`'s `store-orders`/`shipping`
-  // entries) — bundling it here just means granting any one
-  // `store-orders.*`/`shipping.*` permission also grants that module's own
-  // `.view`, so the section reliably appears without a separate explicit
-  // view grant, same as every other module in this map.
+  // Store Orders is nested under Sales in navigation and the matrix;
+  // granting any `store-orders.*` action still implies `store-orders.view`
+  // and the ungrantable Sales section gate so the parent sidebar item appears.
   'store-orders': ['store-orders.view', 'sales.view'],
   shipping: 'shipping.view',
 };

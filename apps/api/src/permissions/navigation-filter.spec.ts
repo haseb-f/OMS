@@ -88,6 +88,45 @@ describe('filterByAccess', () => {
     expect(ids).toEqual(['dashboard']);
   });
 
+  it('shows Sales without Store Orders when only customers.view is granted', () => {
+    const ids = filterByAccess(navigationConfig, ['sales.customers.view']).map(
+      (item) => item.id,
+    );
+    expect(ids).toEqual(
+      expect.arrayContaining([
+        'dashboard',
+        'sales',
+        'sales-customers',
+        'master-data-customer-groups',
+      ]),
+    );
+    expect(ids).not.toContain('store-orders-list');
+    expect(ids).not.toContain('sales-quotations');
+  });
+
+  it('places Store Orders under Sales after Orders and before Invoices', () => {
+    const salesChildren = navigationConfig
+      .filter((item) => item.parent === 'sales')
+      .sort((left, right) => (left.order ?? 0) - (right.order ?? 0))
+      .map((item) => item.id);
+    expect(salesChildren).toEqual([
+      'sales-customers',
+      'master-data-customer-groups',
+      'sales-quotations',
+      'sales-orders',
+      'store-orders-list',
+      'store-orders-import',
+      'store-orders-needs-review',
+      'sales-invoices',
+      'sales-returns',
+    ]);
+    expect(
+      navigationConfig.some(
+        (item) => item.id === 'store-orders' && !item.parent,
+      ),
+    ).toBe(false);
+  });
+
   it('reveals Store Orders from the real navigation config without sales.view', () => {
     const ids = filterByAccess(navigationConfig, ['store-orders.view']).map(
       (item) => item.id,

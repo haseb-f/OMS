@@ -1,5 +1,7 @@
 import {
   ALL_PERMISSION_NAMES,
+  PERMISSION_CATALOG,
+  groupPermissionCatalog,
   withImpliedSectionPermissions,
 } from './permission-catalog';
 
@@ -27,5 +29,53 @@ describe('withImpliedSectionPermissions', () => {
 
   it('leaves an empty grant list empty', () => {
     expect(withImpliedSectionPermissions([])).toEqual([]);
+  });
+});
+
+describe('Sales catalog grouping', () => {
+  it('categorizes Store Orders under Sales with unchanged action names', () => {
+    const storeOrders = PERMISSION_CATALOG.find(
+      (module) => module.key === 'store-orders',
+    );
+    expect(storeOrders?.sectionKey).toBe('sales');
+    expect(storeOrders?.sectionLabelKey).toBe('permissions.sections.sales');
+    expect(storeOrders?.actions.map((action) => action.name)).toEqual(
+      expect.arrayContaining([
+        'store-orders.view',
+        'store-orders.create',
+        'store-orders.edit',
+        'store-orders.archive',
+      ]),
+    );
+  });
+
+  it('exposes Store Orders inside the Sales Permission Matrix group', () => {
+    const groups = groupPermissionCatalog();
+    const sales = groups.find((group) => group.sectionKey === 'sales');
+    expect(sales?.sectionLabelKey).toBe('permissions.sections.sales');
+    expect(sales?.modules.map((module) => module.key)).toEqual([
+      'customers',
+      'sales-quotations',
+      'sales-orders',
+      'store-orders',
+      'sales-invoices',
+      'sales-returns',
+    ]);
+    expect(
+      groups.some(
+        (group) =>
+          group.sectionKey === null &&
+          group.modules.some((module) => module.key === 'store-orders'),
+      ),
+    ).toBe(false);
+  });
+
+  it('does not treat sales.view as a grantable matrix row', () => {
+    expect(ALL_PERMISSION_NAMES).not.toContain('sales.view');
+    expect(
+      PERMISSION_CATALOG.some((module) =>
+        module.actions.some((action) => action.name === 'sales.view'),
+      ),
+    ).toBe(false);
   });
 });

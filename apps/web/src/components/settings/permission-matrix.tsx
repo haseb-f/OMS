@@ -5,7 +5,11 @@ import { ChevronDown, ChevronsDownUp, ChevronsUpDown, Search } from "lucide-reac
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { EnterpriseButton } from "@/components/ui/button";
-import { permissionsService, type PermissionModuleDef } from "@/services/permissions-service";
+import {
+  permissionsService,
+  type PermissionCatalogGroup,
+  type PermissionModuleDef,
+} from "@/services/permissions-service";
 import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
 import { cn } from "@/lib/utils";
@@ -45,30 +49,41 @@ export function PermissionMatrix({
   disabled?: boolean;
 }) {
   const { t } = useLocale();
-  const [modules, setModules] = useState<PermissionModuleDef[] | null>(null);
+  const [groups, setGroups] = useState<PermissionCatalogGroup[] | null>(null);
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     permissionsService
       .getCatalog()
-      .then(setModules)
-      .catch(() => setModules([]));
+      .then(setGroups)
+      .catch(() => setGroups([]));
   }, []);
+
+  const allModules = useMemo(() => groups?.flatMap((group) => group.modules) ?? [], [groups]);
 
   const granted = useMemo(() => new Set(value), [value]);
 
-  const filteredModules = useMemo(() => {
-    if (!modules) return [];
+  const filteredGroups = useMemo(() => {
+    if (!groups) return [];
     const query = search.trim().toLowerCase();
-    if (!query) return modules;
-    return modules.filter(
-      (module) =>
-        t(module.labelKey as MessageKey)
-          .toLowerCase()
-          .includes(query) || module.key.toLowerCase().includes(query),
-    );
-  }, [modules, search, t]);
+    if (!query) return groups;
+    return groups
+      .map((group) => {
+        const sectionLabel = group.sectionLabelKey
+          ? t(group.sectionLabelKey as MessageKey).toLowerCase()
+          : "";
+        if (sectionLabel.includes(query)) return group;
+        const modules = group.modules.filter(
+          (module) =>
+            t(module.labelKey as MessageKey)
+              .toLowerCase()
+              .includes(query) || module.key.toLowerCase().includes(query),
+        );
+        return modules.length > 0 ? { ...group, modules } : null;
+      })
+      .filter((group): group is PermissionCatalogGroup => group !== null);
+  }, [groups, search, t]);
 
   const toggleExpanded = (key: string) => {
     setExpanded((current) => {
@@ -79,7 +94,7 @@ export function PermissionMatrix({
     });
   };
 
-  const expandAll = () => setExpanded(new Set((modules ?? []).map((m) => m.key)));
+  const expandAll = () => setExpanded(new Set(allModules.map((m) => m.key)));
   const collapseAll = () => setExpanded(new Set());
 
   const setPermission = (name: string, checked: boolean) => {
@@ -149,68 +164,92 @@ export function PermissionMatrix({
           <span className="w-16 text-end">{t("permissions.columnGranted")}</span>
         </div>
 
-        {modules === null ? (
+        {groups === null ? (
           <div className="p-6 text-center text-caption text-muted-foreground">
             {t("common.loading")}
           </div>
-        ) : filteredModules.length === 0 ? (
+        ) : filteredGroups.length === 0 ? (
           <div className="p-6 text-center text-caption text-muted-foreground">
             {t("permissions.noResults")}
           </div>
         ) : (
-          filteredModules.map((module) => {
-            const grantedCount = module.actions.filter((a) => granted.has(a.name)).length;
-            const isAllGranted = grantedCount === module.actions.length;
-            const isSomeGranted = grantedCount > 0 && !isAllGranted;
-            const isExpanded = expanded.has(module.key);
-
+          filteredGroups.map((group) => {
+            const sectionLabel = group.sectionLabelKey
+              ? t(group.sectionLabelKey as MessageKey)
+              : null;
             return (
-              <div key={module.key} className="border-b border-border/50 last:border-b-0">
-                <div className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/30">
-                  <Checkbox
-                    checked={isAllGranted ? true : isSomeGranted ? "indeterminate" : false}
-                    disabled={disabled}
-                    onCheckedChange={(checked) => toggleModule(module, !!checked)}
-                  />
-                  <button
-                    type="button"
-                    className="flex flex-1 items-center gap-1.5 text-start text-body"
-                    onClick={() => toggleExpanded(module.key)}
-                  >
-                    <ChevronDown
-                      className={cn(
-                        "size-3.5 shrink-0 text-muted-foreground transition-transform",
-                        isExpanded && "rotate-180",
-                      )}
-                    />
-                    {t(module.labelKey as MessageKey)}
-                  </button>
-                  <span
-                    className={cn(
-                      "w-16 shrink-0 text-end text-caption tabular-nums",
-                      grantedCount > 0 ? "text-foreground" : "text-muted-foreground",
-                    )}
-                  >
-                    {grantedCount}/{module.actions.length}
-                  </span>
-                </div>
-                {isExpanded && (
-                  <div className="flex flex-wrap gap-x-5 gap-y-2 border-t border-border/40 bg-muted/20 px-3 py-2 ps-10">
-                    {module.actions.map((action) => (
-                      <label
-                        key={action.name}
-                        className="flex items-center gap-1.5 text-caption select-none"
-                      >
-                        <Checkbox
-                          checked={granted.has(action.name)}
-                          disabled={disabled}
-                          onCheckedChange={(checked) => setPermission(action.name, !!checked)}
-                        />
-                        {t(ACTION_LABEL_KEY[action.action] ?? action.action)}
-                      </label>
-                    ))}
+              <div key={group.sectionKey ?? group.modules[0]?.key}>
+                {sectionLabel && (
+                  <div className="bg-muted/50 px-3 py-1.5 text-caption font-medium text-muted-foreground">
+                    {sectionLabel}
                   </div>
                 )}
+                {group.modules.map((module) => {
+                  const grantedCount = module.actions.filter((a) => granted.has(a.name)).length;
+                  const isAllGranted = grantedCount === module.actions.length;
+                  const isSomeGranted = grantedCount > 0 && !isAllGranted;
+                  const isExpanded = expanded.has(module.key);
+
+                  return (
+                    <div key={module.key} className="border-b border-border/50 last:border-b-0">
+                      <div
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-1.5 hover:bg-muted/30",
+                          sectionLabel && "ps-6",
+                        )}
+                      >
+                        <Checkbox
+                          checked={isAllGranted ? true : isSomeGranted ? "indeterminate" : false}
+                          disabled={disabled}
+                          onCheckedChange={(checked) => toggleModule(module, !!checked)}
+                        />
+                        <button
+                          type="button"
+                          className="flex flex-1 items-center gap-1.5 text-start text-body"
+                          onClick={() => toggleExpanded(module.key)}
+                        >
+                          <ChevronDown
+                            className={cn(
+                              "size-3.5 shrink-0 text-muted-foreground transition-transform",
+                              isExpanded && "rotate-180",
+                            )}
+                          />
+                          {t(module.labelKey as MessageKey)}
+                        </button>
+                        <span
+                          className={cn(
+                            "w-16 shrink-0 text-end text-caption tabular-nums",
+                            grantedCount > 0 ? "text-foreground" : "text-muted-foreground",
+                          )}
+                        >
+                          {grantedCount}/{module.actions.length}
+                        </span>
+                      </div>
+                      {isExpanded && (
+                        <div
+                          className={cn(
+                            "flex flex-wrap gap-x-5 gap-y-2 border-t border-border/40 bg-muted/20 px-3 py-2 ps-10",
+                            sectionLabel && "ps-14",
+                          )}
+                        >
+                          {module.actions.map((action) => (
+                            <label
+                              key={action.name}
+                              className="flex items-center gap-1.5 text-caption select-none"
+                            >
+                              <Checkbox
+                                checked={granted.has(action.name)}
+                                disabled={disabled}
+                                onCheckedChange={(checked) => setPermission(action.name, !!checked)}
+                              />
+                              {t(ACTION_LABEL_KEY[action.action] ?? action.action)}
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             );
           })

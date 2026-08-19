@@ -163,6 +163,9 @@ const en = {
     columnModule: "Module",
     columnGranted: "Granted",
     noResults: "No modules match your search.",
+    sections: {
+      sales: "Sales",
+    },
     actions: {
       view: "View",
       create: "Create",
@@ -205,6 +208,8 @@ const en = {
       inventoryReports: "Inventory Reports",
       importCenter: "Import Center",
       settings: "Settings",
+      storeOrders: "Store Orders",
+      shipping: "Shipping",
     },
   },
   nav: {

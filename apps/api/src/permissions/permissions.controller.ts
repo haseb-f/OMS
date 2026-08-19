@@ -3,7 +3,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { PermissionModule } from '../auth/decorators/permission-module.decorator';
 import { PermissionAction } from '../auth/decorators/permission-action.decorator';
-import { PERMISSION_CATALOG } from './permission-catalog';
+import { groupPermissionCatalog } from './permission-catalog';
 
 /**
  * TASK-060 — read-only: the Permission Matrix UI's entire data source.
@@ -18,6 +18,6 @@ export class PermissionsController {
   @Get('catalog')
   @PermissionAction('manage')
   getCatalog() {
-    return PERMISSION_CATALOG;
+    return groupPermissionCatalog();
   }
 }

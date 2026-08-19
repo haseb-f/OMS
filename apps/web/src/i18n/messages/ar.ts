@@ -162,6 +162,9 @@ const ar = {
     columnModule: "الوحدة",
     columnGranted: "الممنوحة",
     noResults: "لا توجد وحدات مطابقة لبحثك.",
+    sections: {
+      sales: "المبيعات",
+    },
     actions: {
       view: "عرض",
       create: "إنشاء",
@@ -204,6 +207,8 @@ const ar = {
       inventoryReports: "تقارير المخزون",
       importCenter: "مركز الاستيراد",
       settings: "الإعدادات",
+      storeOrders: "طلبات المتجر",
+      shipping: "الشحن",
     },
   },
   nav: {
