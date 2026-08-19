@@ -6,6 +6,7 @@ import {
 import { google, sheets_v4 } from 'googleapis';
 import {
   planManagedColumnWrites,
+  resolveResultColumnIndexes,
   type ManagedColumnLayout,
 } from './google-sheets.managed-columns';
 
@@ -105,20 +106,20 @@ export class GoogleSheetsService {
       (error as { code?: number; status?: number })?.status;
     if (status === 404) {
       return new BadRequestException(
-        'That spreadsheet was not found — check the URL.',
+        'لم يتم العثور على جدول البيانات — تحقق من الرابط.',
       );
     }
     if (status === 403) {
       return new BadRequestException(
         access === 'write'
-          ? "Access denied — share this spreadsheet with the integration's service-account email address (Editor access)."
-          : "Access denied — share this spreadsheet with the integration's service-account email address (Viewer access).",
+          ? 'تم رفض الوصول — شارك جدول البيانات مع بريد حساب الخدمة بصلاحية محرر.'
+          : 'تم رفض الوصول — شارك جدول البيانات مع بريد حساب الخدمة بصلاحية عرض.',
       );
     }
     return new BadRequestException(
       access === 'write'
-        ? 'Could not update that Google Sheet.'
-        : 'Could not read that Google Sheet.',
+        ? 'تعذر تحديث جدول بيانات Google. لم يتم تغيير حالة المزامنة في الشيت.'
+        : 'تعذر قراءة جدول بيانات Google.',
     );
   }
 
@@ -281,17 +282,14 @@ export class GoogleSheetsService {
   ): Promise<Record<string, string>> {
     const title = await this.resolveSheetTitle(spreadsheetId, gid);
     const headers = await this.getHeaders(spreadsheetId, gid);
+    const { columnIndexByName, missing } = resolveResultColumnIndexes(
+      headers,
+      columnNames,
+    );
     const columnLetters: Record<string, string> = {};
-    // First occurrence wins — a sheet with an accidental duplicate header
-    // (e.g. two "Sync Status" columns from an earlier, unrelated template)
-    // must still resolve deterministically to the same column every time,
-    // not silently drift to whichever occurrence happens to be scanned last.
-    headers.forEach((header, index) => {
-      if (columnNames.includes(header) && !(header in columnLetters)) {
-        columnLetters[header] = columnIndexToLetter(index);
-      }
-    });
-    const missing = columnNames.filter((name) => !(name in columnLetters));
+    for (const [name, index] of Object.entries(columnIndexByName)) {
+      columnLetters[name] = columnIndexToLetter(index);
+    }
     if (missing.length > 0) {
       const startIndex = headers.length;
       try {
@@ -302,7 +300,7 @@ export class GoogleSheetsService {
           requestBody: { values: [missing] },
         });
       } catch (error) {
-        throw this.mapError(error);
+        throw this.mapError(error, 'write');
       }
       missing.forEach((name, offset) => {
         columnLetters[name] = columnIndexToLetter(startIndex + offset);
@@ -347,7 +345,7 @@ export class GoogleSheetsService {
         requestBody: { valueInputOption: 'RAW', data },
       });
     } catch (error) {
-      throw this.mapError(error);
+      throw this.mapError(error, 'write');
     }
   }
 

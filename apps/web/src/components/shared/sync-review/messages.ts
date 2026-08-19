@@ -1,5 +1,5 @@
 import type { MessageKey } from "@/i18n/translate";
-import type { SyncReviewIssue, SyncReviewStatus } from "./types";
+import type { SyncReviewIssue, SyncReviewLifecycle, SyncReviewStatus } from "./types";
 
 const FIELD_LABEL: Record<string, MessageKey> = {
   customerPhone: "importCenter.fields.mobileNumber",
@@ -27,8 +27,20 @@ const STATUS_LABEL: Record<SyncReviewStatus, MessageKey> = {
   DUPLICATE: "importCenter.sync.review.statusDuplicate",
 };
 
+const LIFECYCLE_LABEL: Record<SyncReviewLifecycle, MessageKey> = {
+  NEW: "importCenter.sync.review.lifecycleNew",
+  RETRY: "importCenter.sync.review.lifecycleRetry",
+  IMPORTED: "importCenter.sync.review.lifecycleImported",
+  UNCHANGED_FAILURE: "importCenter.sync.review.lifecycleSkipped",
+  ORPHAN_LINK: "importCenter.sync.review.lifecycleError",
+};
+
 export function syncStatusLabelKey(status: SyncReviewStatus): MessageKey {
   return STATUS_LABEL[status];
+}
+
+export function syncLifecycleLabelKey(lifecycle: SyncReviewLifecycle): MessageKey {
+  return LIFECYCLE_LABEL[lifecycle];
 }
 
 export function syncFieldLabelKey(field: string | null): MessageKey | null {

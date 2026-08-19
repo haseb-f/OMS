@@ -2,7 +2,7 @@
 
 import { useMemo, type ReactNode } from "react";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
-import { Check, X } from "lucide-react";
+import { Check, RotateCcw, X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
@@ -13,7 +13,7 @@ import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
 import { humanizeSyncIssue } from "./messages";
 import { SyncRowDetails } from "./sync-row-details";
-import { SyncStatusBadge } from "./sync-status-badge";
+import { SyncRowStatusBadge } from "./sync-status-badge";
 import {
   defaultDecision,
   isImportable,
@@ -74,19 +74,14 @@ function SyncReviewMobileCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <StackedCell
-              primary={
-                <>
-                  {t("importCenter.sync.review.colRow")}{" "}
-                  <SemanticValue kind="number">{row.rowNumber}</SemanticValue>
-                </>
-              }
+              primary={<SemanticValue kind="number">{row.rowNumber}</SemanticValue>}
               secondary={
                 identityPrimary(row) ? (
                   <SemanticValue kind="id">{identityPrimary(row)}</SemanticValue>
                 ) : undefined
               }
             />
-            <SyncStatusBadge status={row.status} />
+            <SyncRowStatusBadge row={row} />
           </div>
           {row.values.customerName || row.normalizedPhone || row.originalPhone ? (
             <div className="mt-1">
@@ -141,6 +136,7 @@ export function SyncReviewTable({
   rowSelection,
   onRowSelectionChange,
   onDecision,
+  onRetry,
   bulkActions,
 }: {
   rows: SyncReviewRow[];
@@ -148,6 +144,7 @@ export function SyncReviewTable({
   rowSelection: RowSelectionState;
   onRowSelectionChange: (next: RowSelectionState) => void;
   onDecision: (rowIds: string[], decision: SyncReviewDecision) => void;
+  onRetry?: (rowNumbers: number[]) => void;
   bulkActions?: ReactNode;
 }) {
   const { t } = useLocale();
@@ -217,12 +214,33 @@ export function SyncReviewTable({
         ),
       },
       {
+        id: "product",
+        meta: {
+          titleKey: "importCenter.sync.review.colProduct",
+          importance: "medium",
+          minWidth: 120,
+        },
+        accessorFn: (row) => row.values.productSku ?? "",
+        cell: ({ row }) => row.original.values.productSku || null,
+      },
+      {
+        id: "country",
+        meta: {
+          titleKey: "importCenter.sync.review.country",
+          importance: "medium",
+          minWidth: 110,
+        },
+        accessorFn: (row) => row.countryName ?? row.values.countryName ?? "",
+        cell: ({ row }) => row.original.countryName ?? row.original.values.countryName ?? null,
+      },
+      {
         id: "phone",
         meta: {
           titleKey: "importCenter.sync.review.colPhone",
           stacked: true,
           importance: "medium",
           minWidth: 140,
+          defaultHidden: true,
         },
         accessorFn: (row) => row.originalPhone ?? "",
         cell: ({ row }) => (
@@ -251,7 +269,7 @@ export function SyncReviewTable({
           minWidth: 108,
         },
         accessorFn: (row) => row.status,
-        cell: ({ row }) => <SyncStatusBadge status={row.original.status} />,
+        cell: ({ row }) => <SyncRowStatusBadge row={row.original} />,
       },
       {
         id: "issue",
@@ -266,24 +284,8 @@ export function SyncReviewTable({
         cell: ({ row }) => {
           const issues = row.original.issues;
           if (issues.length === 0) return null;
-          if (issues.length > 1) {
-            return (
-              <StackedCell
-                primary={t("importCenter.sync.review.errorsInRow", { count: issues.length })}
-                secondary={t("importCenter.sync.review.actionView")}
-              />
-            );
-          }
-          return (
-            <StackedCell
-              primary={humanizeSyncIssue(issues[0], t)}
-              secondary={
-                issues[0].originalValue
-                  ? `${t("importCenter.sync.review.value")}: ${issues[0].originalValue}`
-                  : undefined
-              }
-            />
-          );
+          const unique = [...new Set(issues.map((issue) => humanizeSyncIssue(issue, t)))];
+          return <StackedCell primary={unique.join("؛ ")} />;
         },
       },
       {
@@ -312,6 +314,13 @@ export function SyncReviewTable({
                   onSelect: () => onDecision([item.id], "ACCEPT"),
                 },
                 {
+                  key: "retry",
+                  label: t("importCenter.sync.review.actionRetry"),
+                  icon: RotateCcw,
+                  hidden: !onRetry || !item.retryable,
+                  onSelect: () => onRetry?.(item.rowNumbers),
+                },
+                {
                   key: "reject",
                   label:
                     item.status === "DUPLICATE"
@@ -328,7 +337,7 @@ export function SyncReviewTable({
         },
       },
     ],
-    [decisions, onDecision, t],
+    [decisions, onDecision, onRetry, t],
   );
 
   return (

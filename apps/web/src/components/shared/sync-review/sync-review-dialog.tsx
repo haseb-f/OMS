@@ -79,7 +79,10 @@ export function SyncReviewDialog({
   onConfirm: (
     commits: Array<{ sourceId: string; jobId: string; acceptRowNumbers: number[] }>,
   ) => Promise<void> | void;
-  onRevalidate: () => Promise<void> | void;
+  onRevalidate: (options?: {
+    retryRowNumbers?: number[];
+    retryAllFailed?: boolean;
+  }) => Promise<void> | void;
 }) {
   const { t } = useLocale();
   const [step, setStep] = useState<"review" | "confirm">("review");
@@ -104,7 +107,13 @@ export function SyncReviewDialog({
   const decisions = decisionsBySource[active?.source.id ?? ""] ?? {};
   const rowSelection = selectionBySource[active?.source.id ?? ""] ?? {};
   const filteredRows =
-    statusFilter === "ALL" ? rows : rows.filter((row) => row.status === statusFilter);
+    statusFilter === "ALL"
+      ? rows
+      : statusFilter === "RETRY"
+        ? rows.filter((row) => row.lifecycle === "RETRY")
+        : statusFilter === "NEW"
+          ? rows.filter((row) => row.lifecycle === "NEW")
+          : rows.filter((row) => row.status === statusFilter);
 
   const selectedIds = Object.entries(rowSelection)
     .filter(([, selected]) => selected)
@@ -166,6 +175,18 @@ export function SyncReviewDialog({
     if (exportRows.length === 0) return;
     const keys = [...new Set(exportRows.flatMap((row) => Object.keys(row)))];
     exportRowsToCsv(exportRows, keys, t("importCenter.sync.review.downloadFileName"));
+  };
+
+  const handleRetry = async (options?: {
+    retryRowNumbers?: number[];
+    retryAllFailed?: boolean;
+  }) => {
+    setRevalidating(true);
+    try {
+      await onRevalidate(options);
+    } finally {
+      setRevalidating(false);
+    }
   };
 
   const handleComplete = async () => {
@@ -326,13 +347,25 @@ export function SyncReviewDialog({
                 rows={rows}
                 decisions={decisions}
               />
-              <SyncSummary rows={rows} filter={statusFilter} onFilterChange={setStatusFilter} />
+              {active.preview.writebackError ? (
+                <p className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-caption text-destructive">
+                  {active.preview.writebackError}
+                </p>
+              ) : null}
+              <SyncSummary
+                rows={rows}
+                filter={statusFilter}
+                onFilterChange={setStatusFilter}
+                incremental={active.preview.incremental}
+              />
               <SyncErrorDigest rows={rows} onShowErrors={() => setStatusFilter("ERROR")} />
               <div className="flex flex-wrap items-center gap-1.5">
                 <SyncBulkActions
                   selectedCount={selectedRows.length}
                   importableSelectedCount={importableSelected.length}
                   errorCount={rows.filter((row) => row.status === "ERROR").length}
+                  retryableSelectedCount={selectedRows.filter((row) => row.retryable).length}
+                  retryableCount={rows.filter((row) => row.retryable).length}
                   filter={statusFilter}
                   onAcceptSelected={() =>
                     setDecision(
@@ -348,6 +381,16 @@ export function SyncReviewDialog({
                   }
                   onRejectSelected={() => setDecision(selectedIds, "REJECT")}
                   onDownloadErrors={downloadErrors}
+                  onRetrySelected={() => {
+                    const numbers = selectedRows
+                      .filter((row) => row.retryable)
+                      .flatMap((row) => row.rowNumbers);
+                    if (numbers.length === 0) return;
+                    void handleRetry({ retryRowNumbers: numbers });
+                  }}
+                  onRetryEligible={() => {
+                    void handleRetry({ retryAllFailed: true });
+                  }}
                   onSelectCurrentStatus={() => {
                     const next: RowSelectionState = {};
                     for (const row of filteredRows) next[row.id] = true;
@@ -361,7 +404,15 @@ export function SyncReviewDialog({
                 rowSelection={rowSelection}
                 onRowSelectionChange={setActiveSelection}
                 onDecision={setDecision}
+                onRetry={(rowNumbers) => {
+                  void handleRetry({ retryRowNumbers: rowNumbers });
+                }}
               />
+              {active.preview.incremental?.nothingToSync ? (
+                <p className="text-center text-body text-muted-foreground">
+                  {t("importCenter.sync.review.nothingToSync")}
+                </p>
+              ) : null}
             </>
           ) : null}
         </div>

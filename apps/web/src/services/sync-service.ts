@@ -26,6 +26,16 @@ export interface SyncSource {
   updatedAt: string;
 }
 
+export interface SyncPreviewIncremental {
+  newCount: number;
+  retryCount: number;
+  errorCount: number;
+  readyCount: number;
+  importedSkippedCount: number;
+  unchangedSkippedCount: number;
+  nothingToSync: boolean;
+}
+
 export interface SyncPreviewResult {
   sourceId: string;
   jobId: string;
@@ -42,6 +52,8 @@ export interface SyncPreviewResult {
   source?: SyncReviewSourceMeta;
   previewedAt?: string;
   rows?: SyncReviewRow[];
+  incremental?: SyncPreviewIncremental;
+  writebackError?: string | null;
 }
 
 export interface ShippingSyncRowReport {
@@ -58,6 +70,7 @@ export interface SyncCommitResult {
   status: SyncRunStatus;
   /** SHIPPING_UPDATES only. */
   rows?: ShippingSyncRowReport[];
+  writebackError?: string | null;
 }
 
 export type ListSheetColumnKey =
@@ -120,9 +133,12 @@ export const syncService = {
     apiClient.patch<SyncSource>(`/import-center/sync/sources/${id}`, dto),
   archiveSource: (id: string) => apiClient.delete<SyncSource>(`/import-center/sync/sources/${id}`),
 
-  /** Step 1 — fetch + validate, writes nothing. */
-  preview: (sourceId: string) =>
-    apiClient.post<SyncPreviewResult>(`/import-center/sync/sources/${sourceId}/preview`),
+  /** Step 1 — fetch + validate. Store Orders also writes row-level errors back to the sheet. */
+  preview: (sourceId: string, options?: { retryRowNumbers?: number[]; retryAllFailed?: boolean }) =>
+    apiClient.post<SyncPreviewResult>(
+      `/import-center/sync/sources/${sourceId}/preview`,
+      options ?? {},
+    ),
   /** Step 2 — requires the exact `jobId` a just-run `preview()` returned. */
   commit: (sourceId: string, jobId: string, acceptRowNumbers?: number[]) =>
     apiClient.post<SyncCommitResult>(`/import-center/sync/sources/${sourceId}/commit`, {

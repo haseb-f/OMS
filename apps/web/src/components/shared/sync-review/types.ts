@@ -1,6 +1,8 @@
 export type SyncReviewStatus = "READY" | "WARNING" | "ERROR" | "DUPLICATE";
+export type SyncReviewLifecycle =
+  "NEW" | "RETRY" | "IMPORTED" | "UNCHANGED_FAILURE" | "ORPHAN_LINK";
 export type SyncReviewDecision = "ACCEPT" | "REJECT";
-export type SyncReviewStatusFilter = SyncReviewStatus | "ALL";
+export type SyncReviewStatusFilter = SyncReviewStatus | "ALL" | "RETRY" | "NEW";
 
 export interface SyncReviewIssue {
   field: string | null;
@@ -22,6 +24,9 @@ export interface SyncReviewRow {
   countryName: string | null;
   issues: SyncReviewIssue[];
   existingRecordId: string | null;
+  lifecycle?: SyncReviewLifecycle;
+  changed?: boolean;
+  retryable?: boolean;
 }
 
 export interface SyncReviewSourceMeta {

@@ -351,6 +351,7 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
       where: { id: result.id },
     });
     expect(order.paymentStatus).toBe(StoreOrderPaymentStatus.PAYMENT_PENDING);
+    expect(order.shippingStage).toBe('NOT_READY');
   });
 
   it('rejects an unrecognized Payment Method and creates nothing', async () => {

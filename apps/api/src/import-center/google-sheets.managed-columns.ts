@@ -36,6 +36,30 @@ function headerKey(value: string | undefined): string {
   return (value ?? '').trim();
 }
 
+/**
+ * Maps OMS-managed result column names to 0-based indexes in the header
+ * row. First trimmed match wins. Headers with surrounding whitespace still
+ * resolve — never create a duplicate "Sync Status" column because the
+ * existing one had a trailing space.
+ */
+export function resolveResultColumnIndexes(
+  headers: string[],
+  columnNames: string[],
+): { columnIndexByName: Record<string, number>; missing: string[] } {
+  const columnIndexByName: Record<string, number> = {};
+  headers.forEach((header, index) => {
+    const key = headerKey(header);
+    if (!key || !columnNames.includes(key) || key in columnIndexByName) {
+      return;
+    }
+    columnIndexByName[key] = index;
+  });
+  return {
+    columnIndexByName,
+    missing: columnNames.filter((name) => !(name in columnIndexByName)),
+  };
+}
+
 export function columnLetterToIndex(letter: string): number {
   const normalized = letter.trim().toUpperCase();
   let index = 0;

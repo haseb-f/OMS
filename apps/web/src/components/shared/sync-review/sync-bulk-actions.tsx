@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Download, X } from "lucide-react";
+import { Check, Download, RotateCcw, X } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { useLocale } from "@/providers/locale-provider";
 import type { SyncReviewStatusFilter } from "./types";
@@ -9,22 +9,30 @@ export function SyncBulkActions({
   selectedCount,
   importableSelectedCount,
   errorCount,
+  retryableSelectedCount,
+  retryableCount,
   filter,
   onAcceptSelected,
   onAcceptReady,
   onRejectSelected,
   onDownloadErrors,
   onSelectCurrentStatus,
+  onRetrySelected,
+  onRetryEligible,
 }: {
   selectedCount: number;
   importableSelectedCount: number;
   errorCount: number;
+  retryableSelectedCount?: number;
+  retryableCount?: number;
   filter: SyncReviewStatusFilter;
   onAcceptSelected: () => void;
   onAcceptReady: () => void;
   onRejectSelected: () => void;
   onDownloadErrors: () => void;
   onSelectCurrentStatus: () => void;
+  onRetrySelected?: () => void;
+  onRetryEligible?: () => void;
 }) {
   const { t } = useLocale();
 
@@ -69,6 +77,24 @@ export function SyncBulkActions({
         <EnterpriseButton type="button" variant="outline" size="sm" onClick={onDownloadErrors}>
           <Download />
           {t("importCenter.sync.review.bulkDownloadErrors")}
+        </EnterpriseButton>
+      ) : null}
+      {onRetrySelected ? (
+        <EnterpriseButton
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={(retryableSelectedCount ?? 0) === 0}
+          onClick={onRetrySelected}
+        >
+          <RotateCcw />
+          {t("importCenter.sync.review.bulkRetrySelected")}
+        </EnterpriseButton>
+      ) : null}
+      {onRetryEligible && (retryableCount ?? 0) > 0 ? (
+        <EnterpriseButton type="button" variant="outline" size="sm" onClick={onRetryEligible}>
+          <RotateCcw />
+          {t("importCenter.sync.review.bulkRetryEligible")}
         </EnterpriseButton>
       ) : null}
     </div>

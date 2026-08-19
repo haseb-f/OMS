@@ -3,8 +3,8 @@
 import type { StatusTone } from "@/components/business/status-badge";
 import { StatusBadge } from "@/components/business/status-badge";
 import { useLocale } from "@/providers/locale-provider";
-import { syncStatusLabelKey } from "./messages";
-import type { SyncReviewStatus } from "./types";
+import { syncLifecycleLabelKey, syncStatusLabelKey } from "./messages";
+import type { SyncReviewLifecycle, SyncReviewRow, SyncReviewStatus } from "./types";
 
 const TONE: Record<SyncReviewStatus, StatusTone> = {
   READY: "success",
@@ -13,9 +13,37 @@ const TONE: Record<SyncReviewStatus, StatusTone> = {
   DUPLICATE: "info",
 };
 
-export function SyncStatusBadge({ status }: { status: SyncReviewStatus }) {
+const LIFECYCLE_TONE: Record<SyncReviewLifecycle, StatusTone> = {
+  NEW: "info",
+  RETRY: "warning",
+  IMPORTED: "success",
+  UNCHANGED_FAILURE: "neutral",
+  ORPHAN_LINK: "destructive",
+};
+
+export function SyncStatusBadge({
+  status,
+  lifecycle,
+}: {
+  status: SyncReviewStatus;
+  lifecycle?: SyncReviewLifecycle;
+}) {
   const { t } = useLocale();
+  if (lifecycle && (status === "READY" || lifecycle === "RETRY")) {
+    return (
+      <StatusBadge
+        label={t(
+          syncLifecycleLabelKey(lifecycle === "RETRY" && status !== "READY" ? "RETRY" : lifecycle),
+        )}
+        tone={status === "ERROR" ? "destructive" : LIFECYCLE_TONE[lifecycle]}
+      />
+    );
+  }
   return <StatusBadge label={t(syncStatusLabelKey(status))} tone={TONE[status]} />;
+}
+
+export function SyncRowStatusBadge({ row }: { row: SyncReviewRow }) {
+  return <SyncStatusBadge status={row.status} lifecycle={row.lifecycle} />;
 }
 
 export function syncStatusTone(status: SyncReviewStatus): StatusTone {

@@ -162,11 +162,31 @@ describe('Data Synchronization', () => {
     });
     await prisma.importJob.deleteMany({ where: { id: { in: syncJobIds } } });
 
+    const leftoverItems = await prisma.storeOrderItem.findMany({
+      where: { product: { sku: productSku } },
+      select: { storeOrderId: true },
+    });
+    const leftoverOrderIds = leftoverItems.map((item) => item.storeOrderId);
+    if (leftoverOrderIds.length > 0) {
+      await prisma.payment.deleteMany({
+        where: { storeOrderId: { in: leftoverOrderIds } },
+      });
+      await prisma.storeOrderActivity.deleteMany({
+        where: { storeOrderId: { in: leftoverOrderIds } },
+      });
+      await prisma.storeOrderItem.deleteMany({
+        where: { storeOrderId: { in: leftoverOrderIds } },
+      });
+      await prisma.storeOrder.deleteMany({
+        where: { id: { in: leftoverOrderIds } },
+      });
+    }
+
     const customers = await prisma.customer.findMany({
       where: {
         OR: [
           { name: { startsWith: 'Sync Test Customer' } },
-          { name: { in: ['Sheet Customer', 'Sheet Customer 2'] } },
+          { name: { startsWith: 'Sheet Customer' } },
         ],
       },
       select: { id: true },
@@ -403,6 +423,7 @@ describe('Data Synchronization', () => {
     expect(updated.paymentStatus).toBe(
       StoreOrderPaymentStatus.FULLY_PAID_RECONCILED,
     );
+    expect(updated.shippingStage).toBe('READY_FOR_SHIPPING');
   });
 
   // ---------------------------------------------------------------------
@@ -430,6 +451,7 @@ describe('Data Synchronization', () => {
       where: { id: order.id },
     });
     expect(updated.paymentStatus).toBe(StoreOrderPaymentStatus.PAYMENT_PENDING);
+    expect(updated.shippingStage).toBe('NOT_READY');
 
     const stillListed = await prisma.storeOrder.findUnique({
       where: { id: order.id },
@@ -508,6 +530,9 @@ describe('Data Synchronization', () => {
       'Currency',
       'Payment Method',
       'Employee Email',
+      'Sync Status',
+      'System Order ID',
+      'Error Message',
     ];
 
     function toCsv(rows: Record<string, string>[]): string {
@@ -528,6 +553,19 @@ describe('Data Synchronization', () => {
         writeRowResults: jest.fn(),
         ensureResultColumns: jest.fn(),
       };
+      fakeSheets.writeRowResults.mockImplementation(
+        (
+          _id: string,
+          written: { rowNumber: number; values: Record<string, string> }[],
+        ) => {
+          for (const row of written) {
+            const index = row.rowNumber - 2;
+            if (!fakeSheets.rows[index]) continue;
+            Object.assign(fakeSheets.rows[index], row.values);
+          }
+          return Promise.resolve();
+        },
+      );
       fakeSheets.getSheetAsCsv.mockImplementation(() =>
         Promise.resolve(toCsv(fakeSheets.rows)),
       );
@@ -652,7 +690,7 @@ describe('Data Synchronization', () => {
       expect(Object.keys(writtenRows[0].values).sort()).toEqual(
         ['Error Message', 'Sync Status', 'System Order ID'].sort(),
       );
-      expect(writtenRows[0].values['Sync Status']).toBe('SUCCESS');
+      expect(writtenRows[0].values['Sync Status']).toBe('تم الاستيراد');
       expect(writtenRows[0].values['System Order ID']).toMatch(/.+/);
       expect(writtenRows[0].values['Error Message']).toBe('');
     });
@@ -675,26 +713,169 @@ describe('Data Synchronization', () => {
       const source = await createSource([row]);
 
       const preview = await orchestrator.preview(source.id);
-      const commitResult = await orchestrator.commit(source.id, preview.jobId);
-      expect(commitResult.importedCount).toBe(0);
-      expect(commitResult.errorCount).toBe(1);
-
-      const call = fakeSheets.writeRowResults.mock.calls[0] as [
+      expect(preview.errorCount).toBe(1);
+      expect(fakeSheets.writeRowResults).toHaveBeenCalled();
+      const previewCall = fakeSheets.writeRowResults.mock.calls[0] as [
         string,
         { rowNumber: number; values: Record<string, string> }[],
       ];
-      const values = call[1][0].values;
-      expect(Object.keys(values).sort()).toEqual(
-        ['Error Message', 'Sync Status', 'System Order ID'].sort(),
+      expect(previewCall[1][0].values['Sync Status']).toBe('خطأ');
+      expect(previewCall[1][0].values['System Order ID']).toBe('');
+      expect(previewCall[1][0].values['Error Message']).toContain(
+        'الدولة غير معروفة',
       );
-      expect(values['Sync Status']).toBe('REJECTED');
-      expect(values['System Order ID']).toBe('');
-      expect(values['Error Message']).toContain('Not A Real Country');
+
+      const commitResult = await orchestrator.commit(
+        source.id,
+        preview.jobId,
+        undefined,
+        {
+          acceptRowNumbers: [],
+        },
+      );
+      expect(commitResult.importedCount).toBe(0);
 
       const order = await prisma.storeOrder.findFirst({
         where: { externalOrderId: row['External Order ID'] },
       });
       expect(order).toBeNull();
+    });
+
+    function validSheetRow(overrides: Record<string, string> = {}) {
+      return {
+        'External Order ID': `EXT-${randomUUID()}`,
+        'Order Date': '2026-08-01',
+        'Customer Name': 'Sheet Customer',
+        'Customer Phone': `+9665${Math.floor(10000000 + Math.random() * 89999999)}`,
+        Country: countryName,
+        'Detailed Address': 'Test address',
+        'Product SKU': productSku,
+        Quantity: '1',
+        'Paid Amount': '75',
+        Currency: currencyCode,
+        'Payment Method': paymentMethodLabel,
+        'Employee Email': employeeEmail,
+        ...overrides,
+      };
+    }
+
+    it('TEST 1 — imported order starts PAYMENT_PENDING / NOT_READY with OMS number written back', async () => {
+      const row = validSheetRow({ 'Customer Name': 'Sheet Customer Inc' });
+      const source = await createSource([row]);
+      const preview = await orchestrator.preview(source.id);
+      expect(preview.incremental?.newCount).toBe(1);
+      expect(fakeSheets.writeRowResults).not.toHaveBeenCalled();
+
+      const commitResult = await orchestrator.commit(
+        source.id,
+        preview.jobId,
+        undefined,
+        { acceptRowNumbers: preview.rows.flatMap((r) => r.rowNumbers) },
+      );
+      expect(commitResult.importedCount).toBe(1);
+      const order = await prisma.storeOrder.findFirstOrThrow({
+        where: { externalOrderId: row['External Order ID'] },
+      });
+      expect(order.paymentStatus).toBe(StoreOrderPaymentStatus.PAYMENT_PENDING);
+      expect(order.shippingStage).toBe('NOT_READY');
+      expect(fakeSheets.rows[0]['Sync Status']).toBe('تم الاستيراد');
+      expect(fakeSheets.rows[0]['System Order ID']).toBe(order.internalOrderId);
+      expect(fakeSheets.rows[0]['Error Message']).toBe('');
+    });
+
+    it('TEST 4/5/6 — second identical sync skips imported rows and creates no duplicates', async () => {
+      const row = validSheetRow({
+        'Customer Name': 'Sheet Customer Idempotent',
+      });
+      const source = await createSource([row]);
+      const first = await orchestrator.preview(source.id);
+      await orchestrator.commit(source.id, first.jobId, undefined, {
+        acceptRowNumbers: first.rows.flatMap((r) => r.rowNumbers),
+      });
+
+      const second = await orchestrator.preview(source.id);
+      expect(second.incremental?.nothingToSync).toBe(true);
+      expect(second.incremental?.importedSkippedCount).toBe(1);
+      expect(second.rows).toHaveLength(0);
+      expect(second.willImportCount).toBe(0);
+
+      await orchestrator.commit(source.id, second.jobId, undefined, {
+        acceptRowNumbers: [],
+      });
+      const orders = await prisma.storeOrder.findMany({
+        where: { externalOrderId: row['External Order ID'] },
+      });
+      expect(orders).toHaveLength(1);
+    });
+
+    it('TEST 3/4 — unchanged failures are skipped; a corrected row is retried and imported', async () => {
+      const row = validSheetRow({
+        'Customer Name': 'Sheet Customer Retry',
+        Country: 'Not A Real Country',
+      });
+      const source = await createSource([row]);
+      const failed = await orchestrator.preview(source.id);
+      expect(failed.errorCount).toBe(1);
+      expect(failed.rows[0]?.lifecycle).toBe('NEW');
+
+      const unchanged = await orchestrator.preview(source.id);
+      expect(unchanged.incremental?.unchangedSkippedCount).toBe(1);
+      expect(unchanged.rows).toHaveLength(0);
+
+      fakeSheets.rows[0].Country = countryName;
+      const retried = await orchestrator.preview(source.id);
+      expect(retried.rows).toHaveLength(1);
+      expect(retried.rows[0]?.lifecycle).toBe('RETRY');
+      expect(retried.rows[0]?.status).toBe('READY');
+
+      await orchestrator.commit(source.id, retried.jobId, undefined, {
+        acceptRowNumbers: retried.rows.flatMap((r) => r.rowNumbers),
+      });
+      const order = await prisma.storeOrder.findFirstOrThrow({
+        where: { externalOrderId: row['External Order ID'] },
+      });
+      expect(fakeSheets.rows[0]['Sync Status']).toBe('تم الاستيراد');
+      expect(fakeSheets.rows[0]['System Order ID']).toBe(order.internalOrderId);
+      expect(fakeSheets.rows[0]['Error Message']).toBe('');
+    });
+
+    it('TEST 7 — grouped Arabic errors are written once without repeating values', async () => {
+      const row = validSheetRow({
+        Country: 'Not A Real Country',
+        'Customer Phone': '00',
+      });
+      const source = await createSource([row]);
+      await orchestrator.preview(source.id);
+      const written = fakeSheets.rows[0]['Error Message'];
+      expect(written).toMatch(/رقم الجوال|الدولة/);
+      const phoneMatches = written.match(/رقم الجوال/g) ?? [];
+      expect(phoneMatches.length).toBeLessThanOrEqual(1);
+    });
+
+    it('TEST 11 — Google write failure after import keeps the OMS order and returns an actionable error', async () => {
+      const row = validSheetRow({
+        'Customer Name': 'Sheet Customer Write Fail',
+      });
+      const source = await createSource([row]);
+      const preview = await orchestrator.preview(source.id);
+      fakeSheets.writeRowResults.mockRejectedValueOnce(
+        new BadRequestException(
+          'تعذر تحديث جدول بيانات Google. لم يتم تغيير حالة المزامنة في الشيت.',
+        ),
+      );
+      const commitResult = await orchestrator.commit(
+        source.id,
+        preview.jobId,
+        undefined,
+        { acceptRowNumbers: preview.rows.flatMap((r) => r.rowNumbers) },
+      );
+      expect(commitResult.writebackError).toBeTruthy();
+      expect(commitResult.status).toBe('PARTIAL');
+      const order = await prisma.storeOrder.findFirst({
+        where: { externalOrderId: row['External Order ID'] },
+      });
+      expect(order).not.toBeNull();
+      expect(fakeSheets.rows[0]['Sync Status'] ?? '').not.toBe('تم الاستيراد');
     });
   });
 });

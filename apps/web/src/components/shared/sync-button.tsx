@@ -64,24 +64,30 @@ export function SyncButton({
     })[0];
   }, [sources]);
 
-  const runPreview = useCallback(async () => {
-    const fresh = await syncService.listSources(sourceType);
-    setSources(fresh);
-    const enabled = fresh.filter((source) => source.enabled);
-    if (enabled.length === 0) {
-      toast.error(t("importCenter.sync.noSource"), {
-        description: t("importCenter.sync.configureHint"),
-      });
-      return false;
-    }
-    const previews = await Promise.all(
-      enabled.map(async (source) => ({ source, preview: await syncService.preview(source.id) })),
-    );
-    setItems(previews);
-    setReport(null);
-    setOpen(true);
-    return true;
-  }, [sourceType, t]);
+  const runPreview = useCallback(
+    async (options?: { retryRowNumbers?: number[]; retryAllFailed?: boolean }) => {
+      const fresh = await syncService.listSources(sourceType);
+      setSources(fresh);
+      const enabled = fresh.filter((source) => source.enabled);
+      if (enabled.length === 0) {
+        toast.error(t("importCenter.sync.noSource"), {
+          description: t("importCenter.sync.configureHint"),
+        });
+        return false;
+      }
+      const previews = await Promise.all(
+        enabled.map(async (source) => ({
+          source,
+          preview: await syncService.preview(source.id, options),
+        })),
+      );
+      setItems(previews);
+      setReport(null);
+      setOpen(true);
+      return true;
+    },
+    [sourceType, t],
+  );
 
   if (!canSync) return null;
 
@@ -106,6 +112,10 @@ export function SyncButton({
           syncService.commit(commit.sourceId, commit.jobId, commit.acceptRowNumbers),
         ),
       );
+      const writebackError = results.find((result) => result.writebackError)?.writebackError;
+      if (writebackError) {
+        toast.error(writebackError);
+      }
       const totals = results.reduce(
         (acc, result) => ({
           total: acc.total + result.totalRows,
@@ -216,8 +226,8 @@ export function SyncButton({
         committing={committing}
         report={report}
         onConfirm={handleConfirm}
-        onRevalidate={async () => {
-          await runPreview();
+        onRevalidate={async (options) => {
+          await runPreview(options);
         }}
       />
     </>

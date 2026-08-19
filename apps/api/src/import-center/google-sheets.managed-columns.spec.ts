@@ -1,4 +1,7 @@
-import { planManagedColumnWrites } from './google-sheets.managed-columns';
+import {
+  planManagedColumnWrites,
+  resolveResultColumnIndexes,
+} from './google-sheets.managed-columns';
 
 const LIST_LAYOUT = {
   headerRow: 2,
@@ -108,6 +111,20 @@ describe('planManagedColumnWrites', () => {
     expect(plan.headerWrites).toEqual([]);
     expect(plan.writes[0].columnIndex).toBe(0);
     expect(plan.writes[0].cells).toEqual(['Egypt']);
+  });
+
+  it('resolves managed result columns by trimmed header name', () => {
+    const plan = resolveResultColumnIndexes(
+      [
+        'External Order ID',
+        ' Sync Status ',
+        'System Order ID',
+        'Error Message',
+      ],
+      ['Sync Status', 'System Order ID', 'Error Message'],
+    );
+    expect(plan.columnIndexByName['Sync Status']).toBe(1);
+    expect(plan.missing).toEqual([]);
   });
 
   it('matches trimmed header names in the configured header row', () => {

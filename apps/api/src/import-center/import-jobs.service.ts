@@ -311,17 +311,22 @@ export class ImportJobsService {
    * uses, never a parallel reimplementation. Read-only: never changes the
    * job's status, safe to call repeatedly (e.g. after fixing the mapping).
    */
-  async validate(id: string, userId?: string): Promise<ImportValidationResult> {
+  async validate(
+    id: string,
+    userId?: string,
+    options?: { skipRowNumbers?: number[] },
+  ): Promise<ImportValidationResult> {
     // Scopes one request-local Master-Data lookup cache for this entire
     // validation pass (see `reference-cache.ts`) — every row's
     // `resolveRequiredIdByField`/reference-type lookup shares one fetch per
     // referenced entity instead of one query per row.
-    return runWithReferenceCache(() => this.validateInner(id, userId));
+    return runWithReferenceCache(() => this.validateInner(id, userId, options));
   }
 
   private async validateInner(
     id: string,
     userId?: string,
+    options?: { skipRowNumbers?: number[] },
   ): Promise<ImportValidationResult> {
     const job = await this.findOne(id);
     if (
@@ -344,6 +349,7 @@ export class ImportJobsService {
     const uniqueFields = handler.fields.filter(
       (field) => field.uniqueWithinFile,
     );
+    const skip = new Set(options?.skipRowNumbers ?? []);
 
     const errors: ImportRowValidationError[] = [];
     const mappedRows: {
@@ -361,6 +367,7 @@ export class ImportJobsService {
         mappedRow[field.key] = column ? (sourceRow[column] ?? '') : '';
       }
       mappedRows.push({ rowNumber, mappedRow });
+      if (skip.has(rowNumber)) continue;
 
       for (const field of handler.fields) {
         if (field.required && !mappedRow[field.key]?.trim()) {
@@ -414,6 +421,7 @@ export class ImportJobsService {
     if (handler.groupKey && handler.importGroup) {
       const groups = groupRowsByKey(mappedRows, handler.groupKey);
       for (const groupRows of groups.values()) {
+        if (groupRows.every((row) => skip.has(row.rowNumber))) continue;
         try {
           await handler.importGroup(
             groupRows.map((r) => r.mappedRow),
@@ -435,6 +443,7 @@ export class ImportJobsService {
       }
     } else {
       for (const { rowNumber, mappedRow } of mappedRows) {
+        if (skip.has(rowNumber)) continue;
         try {
           await handler.importRow(mappedRow, userId, {
             dryRun: true,

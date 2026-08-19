@@ -8,6 +8,10 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { prismaEnumFilter } from '../../common/query/enum-list';
 import { FindShipmentsQueryDto } from './dto/find-shipments-query.dto';
+import {
+  canTransitionShipmentStatus,
+  shipmentTransitionError,
+} from './store-order-shipment-transitions';
 
 /**
  * Store Orders shipping pipeline — copies the exact operational pattern of
@@ -80,6 +84,15 @@ export class StoreOrderShipmentsService {
     return this.createShipment(storeOrderId, true, tx);
   }
 
+  private assertTransition(
+    from: ShipmentStatus | null | undefined,
+    to: ShipmentStatus,
+  ) {
+    if (!canTransitionShipmentStatus(from, to)) {
+      throw new BadRequestException(shipmentTransitionError(from, to));
+    }
+  }
+
   async assignShippingCompany(
     storeOrderId: string,
     shippingCompanyId: string,
@@ -122,6 +135,7 @@ export class StoreOrderShipmentsService {
     tx: Prisma.TransactionClient | PrismaService = this.prisma,
   ) {
     const { shipment } = await this.getOrCreateCurrent(storeOrderId, tx);
+    this.assertTransition(shipment.status, ShipmentStatus.LABEL_CREATED);
     return tx.shipment.update({
       where: { id: shipment.id },
       data: { labelUrl, status: ShipmentStatus.LABEL_CREATED },
@@ -133,6 +147,7 @@ export class StoreOrderShipmentsService {
     tx: Prisma.TransactionClient | PrismaService = this.prisma,
   ) {
     const { shipment } = await this.getOrCreateCurrent(storeOrderId, tx);
+    this.assertTransition(shipment.status, ShipmentStatus.SHIPPED);
     return tx.shipment.update({
       where: { id: shipment.id },
       data: { status: ShipmentStatus.SHIPPED },
@@ -144,6 +159,7 @@ export class StoreOrderShipmentsService {
     tx: Prisma.TransactionClient | PrismaService = this.prisma,
   ) {
     const { shipment } = await this.getOrCreateCurrent(storeOrderId, tx);
+    this.assertTransition(shipment.status, ShipmentStatus.OUT_FOR_DELIVERY);
     return tx.shipment.update({
       where: { id: shipment.id },
       data: { status: ShipmentStatus.OUT_FOR_DELIVERY },
@@ -155,6 +171,7 @@ export class StoreOrderShipmentsService {
     tx: Prisma.TransactionClient | PrismaService = this.prisma,
   ) {
     const { shipment } = await this.getOrCreateCurrent(storeOrderId, tx);
+    this.assertTransition(shipment.status, ShipmentStatus.DELIVERED);
     return tx.shipment.update({
       where: { id: shipment.id },
       data: { status: ShipmentStatus.DELIVERED },
@@ -166,6 +183,7 @@ export class StoreOrderShipmentsService {
     tx: Prisma.TransactionClient | PrismaService = this.prisma,
   ) {
     const { shipment } = await this.getOrCreateCurrent(storeOrderId, tx);
+    this.assertTransition(shipment.status, ShipmentStatus.DELIVERY_FAILED);
     return tx.shipment.update({
       where: { id: shipment.id },
       data: { status: ShipmentStatus.DELIVERY_FAILED },

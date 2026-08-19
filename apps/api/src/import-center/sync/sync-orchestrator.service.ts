@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { SyncSourceType, SyncRunStatus } from '@prisma/client';
+import { Prisma, SyncSourceType, SyncRunStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ImportJobsService } from '../import-jobs.service';
 import { GoogleSheetsService } from '../google-sheets.service';
@@ -13,6 +13,17 @@ import { RejectImportRowDto } from '../dto/reject-import-row.dto';
 import { PhoneNumberService } from '../../common/phone/phone-number.service';
 import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 import { buildSyncReviewRows, type SyncReviewRow } from './sync-review.util';
+import {
+  groupRowsByKey,
+  extractImportErrorMessage,
+} from '../import-value.util';
+import {
+  classifyStoreOrderGroups,
+  fingerprintStorageKey,
+  storeOrderWritebackValues,
+  type ClassifiedStoreOrderGroup,
+  type StoreOrderRowHashMap,
+} from './store-orders-sync.lifecycle';
 
 const HANDLER_TYPE_BY_SOURCE: Record<SyncSourceType, string> = {
   LEADS: 'LEADS',
@@ -25,6 +36,16 @@ const HANDLER_TYPE_BY_SOURCE: Record<SyncSourceType, string> = {
 const EXTRA_PERMISSION_BY_SOURCE: Partial<Record<SyncSourceType, string>> = {
   SHIPPING_UPDATES: 'shipping.manage',
 };
+
+export interface SyncPreviewIncremental {
+  newCount: number;
+  retryCount: number;
+  errorCount: number;
+  readyCount: number;
+  importedSkippedCount: number;
+  unchangedSkippedCount: number;
+  nothingToSync: boolean;
+}
 
 export interface SyncPreviewResult {
   sourceId: string;
@@ -47,6 +68,8 @@ export interface SyncPreviewResult {
   };
   previewedAt: string;
   rows: SyncReviewRow[];
+  incremental?: SyncPreviewIncremental;
+  writebackError?: string | null;
 }
 
 export interface SyncCommitResult {
@@ -56,6 +79,7 @@ export interface SyncCommitResult {
   status: SyncRunStatus;
   /** SHIPPING_UPDATES only (spec section 13's per-row report). */
   rows?: ShippingSyncRowReport[];
+  writebackError?: string | null;
 }
 
 /** Per-row detail for a SHIPPING_UPDATES commit (spec section 13's report table) — populated only for that source type. */
@@ -237,80 +261,362 @@ export class SyncOrchestratorService {
    * "latest data" every time — never a stale cached read) and remembers it
    * as this source's "most recent run" for `commit()` to verify against.
    */
-  async preview(sourceId: string, userId?: string): Promise<SyncPreviewResult> {
+  async preview(
+    sourceId: string,
+    userId?: string,
+    options?: { retryRowNumbers?: number[]; retryAllFailed?: boolean },
+  ): Promise<SyncPreviewResult> {
     const source = await this.getEnabledSource(sourceId, userId);
     return this.withSyncLock(sourceId, async () => {
       const jobId = await this.createRunJob(source, userId);
-      const result = await this.importJobs.validate(jobId, userId);
 
+      if (source.sourceType === SyncSourceType.STORE_ORDERS) {
+        return this.previewStoreOrders(source, jobId, userId, options);
+      }
+
+      const result = await this.importJobs.validate(jobId, userId);
       await this.prisma.syncSourceConfig.update({
         where: { id: source.id },
         data: { importJobId: jobId },
       });
+      return this.buildGenericPreview(source, jobId, result);
+    });
+  }
 
-      // A hard duplicate/not-found against the database (e.g. Store
-      // Orders' External Order ID rule, or Shipping Updates' "no Store
-      // Order found") surfaces from `validate()` as a normal per-row error
-      // (see the respective handler), not a `duplicateGroup` (those are
-      // intra-file only) — split it back out here so the preview's "مكرر"
-      // count reflects both kinds, per spec.
-      const dbDuplicates = result.errors.filter((error) =>
-        /already exists/i.test(error.message),
-      );
-      const dbDuplicateRowNumbers = new Set(
-        dbDuplicates.map((e) => e.rowNumber),
-      );
-      const otherErrors = result.errors.filter(
-        (error) => !dbDuplicateRowNumbers.has(error.rowNumber),
-      );
+  private async previewStoreOrders(
+    source: {
+      id: string;
+      label: string;
+      spreadsheetId: string;
+      worksheetName: string | null;
+      worksheetGid: string | null;
+      configMetadata: unknown;
+    },
+    jobId: string,
+    userId?: string,
+    options?: { retryRowNumbers?: number[]; retryAllFailed?: boolean },
+  ): Promise<SyncPreviewResult> {
+    const mapped = await this.importJobs.listMappedRows(jobId);
+    const groups = mapped.groupKey
+      ? [...groupRowsByKey(mapped.rows, mapped.groupKey).values()]
+      : mapped.rows.map((row) => [row]);
+    const classified = await this.classifyStoreOrderMappedRows(
+      source,
+      groups,
+      options,
+    );
+    const skipRowNumbers = classified
+      .filter((row) => !row.runValidation)
+      .flatMap((row) => row.rowNumbers);
 
-      const [mapped, countries] = await Promise.all([
-        this.importJobs.listMappedRows(jobId),
-        this.prisma.country.findMany({
-          where: { deletedAt: null },
-          select: { name: true, nameEn: true, code: true },
-        }),
-      ]);
-      const countryCodeByName = new Map<string, string>();
-      for (const country of countries) {
-        countryCodeByName.set(country.name.toLowerCase(), country.code);
-        if (country.nameEn) {
-          countryCodeByName.set(country.nameEn.toLowerCase(), country.code);
+    const result = await this.importJobs.validate(jobId, userId, {
+      skipRowNumbers,
+    });
+
+    for (const group of classified.filter(
+      (row) => row.lifecycle === 'ORPHAN_LINK',
+    )) {
+      for (const rowNumber of group.rowNumbers) {
+        result.errors.push({
+          rowNumber,
+          columnName: 'System Order ID',
+          message: 'A Store Order linked in the sheet was not found in OMS.',
+        });
+      }
+    }
+
+    await this.prisma.syncSourceConfig.update({
+      where: { id: source.id },
+      data: { importJobId: jobId },
+    });
+
+    const preview = await this.buildGenericPreview(source, jobId, result);
+    const classifiedByRow = new Map<number, ClassifiedStoreOrderGroup>();
+    for (const group of classified) {
+      for (const rowNumber of group.rowNumbers) {
+        classifiedByRow.set(rowNumber, group);
+      }
+    }
+
+    const reviewRowNumbers = new Set(
+      classified
+        .filter((row) => row.includeInReview)
+        .flatMap((row) => row.rowNumbers),
+    );
+    preview.rows = preview.rows
+      .filter((row) => reviewRowNumbers.has(row.rowNumber))
+      .map((row) => {
+        const group = classifiedByRow.get(row.rowNumber);
+        return {
+          ...row,
+          lifecycle: group?.lifecycle ?? 'NEW',
+          changed: group?.changed ?? false,
+          retryable: group?.retryable ?? false,
+        };
+      });
+
+    const readyCount = preview.rows.filter(
+      (row) => row.status === 'READY',
+    ).length;
+    const warningCount = preview.rows.filter(
+      (row) => row.status === 'WARNING',
+    ).length;
+    const incremental = {
+      newCount: classified.filter((row) => row.lifecycle === 'NEW').length,
+      retryCount: classified.filter((row) => row.lifecycle === 'RETRY').length,
+      errorCount: preview.rows.filter((row) => row.status === 'ERROR').length,
+      readyCount: readyCount + warningCount,
+      importedSkippedCount: classified.filter(
+        (row) => row.lifecycle === 'IMPORTED',
+      ).length,
+      unchangedSkippedCount: classified.filter(
+        (row) => row.lifecycle === 'UNCHANGED_FAILURE',
+      ).length,
+      nothingToSync: preview.rows.length === 0,
+    };
+    preview.incremental = incremental;
+    preview.newCount = incremental.newCount;
+    preview.willImportCount = incremental.readyCount;
+    preview.errorCount = incremental.errorCount;
+    preview.needsReviewCount = warningCount;
+    preview.errors = preview.errors.filter((error) =>
+      reviewRowNumbers.has(error.rowNumber),
+    );
+    preview.needsReview = preview.needsReview.filter((row) =>
+      reviewRowNumbers.has(row.rowNumber),
+    );
+
+    preview.writebackError = await this.writeStoreOrderPreviewOutcomes(
+      source,
+      preview.rows,
+      classified,
+    );
+    await this.persistStoreOrderHashes(source, classified, preview.rows);
+
+    return preview;
+  }
+
+  private async classifyStoreOrderMappedRows(
+    source: { configMetadata: unknown },
+    groups: Array<
+      Array<{
+        rowNumber: number;
+        mappedRow: Record<string, string>;
+        sourceRow?: Record<string, string>;
+      }>
+    >,
+    options?: { retryRowNumbers?: number[]; retryAllFailed?: boolean },
+  ): Promise<ClassifiedStoreOrderGroup[]> {
+    const metadata = (source.configMetadata ?? {}) as {
+      storeOrderRowHashes?: StoreOrderRowHashMap;
+    };
+    const externalIds = [
+      ...new Set(
+        groups
+          .map((group) => group[0]?.mappedRow.externalOrderId?.trim())
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    const existing = externalIds.length
+      ? await this.prisma.storeOrder.findMany({
+          where: { externalOrderId: { in: externalIds }, deletedAt: null },
+          select: { externalOrderId: true, internalOrderId: true },
+        })
+      : [];
+    const existingByExternalId = new Map(
+      existing
+        .filter((order) => order.externalOrderId)
+        .map((order) => [
+          order.externalOrderId as string,
+          { internalOrderId: order.internalOrderId },
+        ]),
+    );
+    return classifyStoreOrderGroups({
+      groups: groups.map((group) => ({
+        rowNumbers: group.map((row) => row.rowNumber),
+        mappedRows: group.map((row) => row.mappedRow),
+        sourceRow: group[0]?.sourceRow ?? {},
+      })),
+      existingByExternalId,
+      previous: metadata.storeOrderRowHashes ?? {},
+      retryRowNumbers: options?.retryRowNumbers,
+      retryAllFailed: options?.retryAllFailed,
+    });
+  }
+
+  private async writeStoreOrderPreviewOutcomes(
+    source: { spreadsheetId: string; worksheetGid: string | null },
+    rows: SyncReviewRow[],
+    classified: ClassifiedStoreOrderGroup[],
+  ): Promise<string | null> {
+    const writes: { rowNumber: number; values: Record<string, string> }[] = [];
+    for (const row of rows) {
+      if (row.status === 'ERROR' || row.status === 'DUPLICATE') {
+        const values = storeOrderWritebackValues({
+          status: 'error',
+          issues: row.issues,
+        });
+        for (const rowNumber of row.rowNumbers) {
+          writes.push({ rowNumber, values });
+        }
+      } else if (row.status === 'WARNING') {
+        const values = storeOrderWritebackValues({
+          status: 'needsReview',
+          issues: row.issues,
+        });
+        for (const rowNumber of row.rowNumbers) {
+          writes.push({ rowNumber, values });
         }
       }
+    }
+    for (const group of classified.filter(
+      (row) => row.needsSheetNumberWriteback,
+    )) {
+      const values = storeOrderWritebackValues({
+        status: 'imported',
+        internalOrderId: group.existingInternalOrderId ?? undefined,
+      });
+      for (const rowNumber of group.rowNumbers) {
+        writes.push({ rowNumber, values });
+      }
+    }
+    if (writes.length === 0) return null;
+    try {
+      await this.googleSheets.writeRowResults(
+        source.spreadsheetId,
+        writes,
+        source.worksheetGid ?? undefined,
+      );
+      return null;
+    } catch (error) {
+      return extractImportErrorMessage(error);
+    }
+  }
 
-      return {
-        sourceId: source.id,
+  private async persistStoreOrderHashes(
+    source: { id: string; configMetadata: unknown },
+    classified: ClassifiedStoreOrderGroup[],
+    reviewRows: SyncReviewRow[],
+  ) {
+    const metadata = (source.configMetadata ?? {}) as Record<string, unknown>;
+    const hashes: StoreOrderRowHashMap = {
+      ...((metadata.storeOrderRowHashes as StoreOrderRowHashMap | undefined) ??
+        {}),
+    };
+    const reviewByRow = new Map(
+      reviewRows.map((row) => [row.rowNumber, row] as const),
+    );
+    for (const group of classified) {
+      const key = fingerprintStorageKey(
+        group.externalOrderId,
+        group.rowNumbers[0] ?? 0,
+      );
+      if (group.lifecycle === 'IMPORTED') {
+        hashes[key] = {
+          hash: group.hash,
+          status: 'IMPORTED',
+          internalOrderId: group.existingInternalOrderId ?? undefined,
+        };
+        continue;
+      }
+      if (group.lifecycle === 'UNCHANGED_FAILURE') continue;
+      const review = reviewByRow.get(group.rowNumbers[0] ?? -1);
+      if (!review) continue;
+      if (review.status === 'READY') continue;
+      hashes[key] = {
+        hash: group.hash,
+        status: review.status === 'WARNING' ? 'NEEDS_REVIEW' : 'ERROR',
+      };
+    }
+    await this.prisma.syncSourceConfig.update({
+      where: { id: source.id },
+      data: {
+        configMetadata: {
+          ...metadata,
+          storeOrderRowHashes: hashes,
+        } as unknown as Prisma.InputJsonValue,
+      },
+    });
+  }
+
+  private async buildGenericPreview(
+    source: {
+      id: string;
+      label: string;
+      worksheetName: string | null;
+      spreadsheetId: string;
+    },
+    jobId: string,
+    result: {
+      totalRows: number;
+      errors: {
+        rowNumber: number;
+        columnName: string | null;
+        message: string;
+      }[];
+      needsReview: { rowNumber: number; reason: string }[];
+      duplicateGroups: { field: string; value: string; rowNumbers: number[] }[];
+      summary: {
+        newCount: number;
+        duplicateCount: number;
+        needsReviewCount: number;
+      };
+    },
+  ): Promise<SyncPreviewResult> {
+    const dbDuplicates = result.errors.filter((error) =>
+      /already exists/i.test(error.message),
+    );
+    const dbDuplicateRowNumbers = new Set(dbDuplicates.map((e) => e.rowNumber));
+    const otherErrors = result.errors.filter(
+      (error) => !dbDuplicateRowNumbers.has(error.rowNumber),
+    );
+
+    const [mapped, countries] = await Promise.all([
+      this.importJobs.listMappedRows(jobId),
+      this.prisma.country.findMany({
+        where: { deletedAt: null },
+        select: { name: true, nameEn: true, code: true },
+      }),
+    ]);
+    const countryCodeByName = new Map<string, string>();
+    for (const country of countries) {
+      countryCodeByName.set(country.name.toLowerCase(), country.code);
+      if (country.nameEn) {
+        countryCodeByName.set(country.nameEn.toLowerCase(), country.code);
+      }
+    }
+
+    return {
+      sourceId: source.id,
+      jobId,
+      totalRows: result.totalRows,
+      newCount: result.summary.newCount,
+      willImportCount: result.summary.newCount,
+      duplicateCount: result.summary.duplicateCount + dbDuplicates.length,
+      needsReviewCount: result.summary.needsReviewCount,
+      rejectedCount: 0,
+      errorCount: otherErrors.length,
+      errors: otherErrors,
+      needsReview: result.needsReview,
+      duplicateGroups: result.duplicateGroups,
+      source: {
+        type: 'GOOGLE_SHEETS' as const,
+        label: source.label,
+        worksheetName: source.worksheetName,
+        spreadsheetId: source.spreadsheetId,
+      },
+      previewedAt: new Date().toISOString(),
+      rows: buildSyncReviewRows({
         jobId,
-        totalRows: result.totalRows,
-        newCount: result.summary.newCount,
-        willImportCount: result.summary.newCount,
-        duplicateCount: result.summary.duplicateCount + dbDuplicates.length,
-        needsReviewCount: result.summary.needsReviewCount,
-        rejectedCount: 0,
-        errorCount: otherErrors.length,
-        errors: otherErrors,
+        groupKey: mapped.groupKey,
+        mappedRows: mapped.rows,
+        errors: result.errors,
         needsReview: result.needsReview,
         duplicateGroups: result.duplicateGroups,
-        source: {
-          type: 'GOOGLE_SHEETS' as const,
-          label: source.label,
-          worksheetName: source.worksheetName,
-          spreadsheetId: source.spreadsheetId,
-        },
-        previewedAt: new Date().toISOString(),
-        rows: buildSyncReviewRows({
-          jobId,
-          groupKey: mapped.groupKey,
-          mappedRows: mapped.rows,
-          errors: result.errors,
-          needsReview: result.needsReview,
-          duplicateGroups: result.duplicateGroups,
-          countryCodeByName,
-          phone: this.phone,
-        }),
-      };
-    });
+        countryCodeByName,
+        phone: this.phone,
+      }),
+    };
   }
 
   /**
@@ -372,8 +678,18 @@ export class SyncOrchestratorService {
         },
       });
 
+      let writebackError: string | null = null;
       if (source.sourceType === SyncSourceType.STORE_ORDERS) {
-        await this.writeBackStoreOrders(source, result);
+        try {
+          await this.writeBackStoreOrders(source, result);
+          await this.markStoreOrdersImported(source, result.successRows);
+        } catch (error) {
+          writebackError = extractImportErrorMessage(error);
+          summary.status =
+            summary.importedCount > 0
+              ? SyncRunStatus.PARTIAL
+              : SyncRunStatus.FAILED;
+        }
       } else if (source.sourceType === SyncSourceType.SHIPPING_UPDATES) {
         summary.rows = await this.writeBackShippingUpdates(
           source,
@@ -384,20 +700,23 @@ export class SyncOrchestratorService {
         await this.writeBackCashFlow(source, result);
       }
 
+      if (writebackError) {
+        summary.writebackError = writebackError;
+        await this.prisma.syncSourceConfig.update({
+          where: { id: source.id },
+          data: { lastSyncStatus: summary.status },
+        });
+      }
+
       return summary;
     });
   }
 
   /**
-   * Store Orders write-back for a just-completed `run()` — exactly 3
-   * result columns (2026-08-15 revision): "Sync Status" / "System Order
-   * ID" / "Error Message" — SUCCESS with the real `internalOrderId` and no
-   * error text for every created order, NEEDS_REVIEW for a still-open
-   * needs-review row, REJECTED with the exact validation message and no
-   * order id for every hard validation failure (e.g. a duplicate External
-   * Order ID). No "processed at" column — dropped per spec. A row later
-   * confirmed/rejected from the Needs Review screen writes back separately
-   * — see `confirmRow`/`rejectRow` below, which use the same 3 columns.
+   * Store Orders write-back — existing managed columns only:
+   * Sync Status / System Order ID / Error Message.
+   * Preview already wrote validation errors; commit writes success (and any
+   * additional run-time errors) to the exact source row.
    */
   private async writeBackStoreOrders(
     source: { spreadsheetId: string; worksheetGid: string | null },
@@ -426,37 +745,24 @@ export class SyncOrchestratorService {
     for (const { rowNumber, id } of result.successRows) {
       rows.push({
         rowNumber,
-        values: {
-          'Sync Status': 'SUCCESS',
-          'System Order ID': internalOrderIdById.get(id) ?? '',
-          'Error Message': '',
-        },
+        values: storeOrderWritebackValues({
+          status: 'imported',
+          internalOrderId: internalOrderIdById.get(id),
+        }),
       });
     }
     for (const error of result.errors) {
       const isNeedsReview = error.errorMessage.startsWith(NEEDS_REVIEW_PREFIX);
-      if (isNeedsReview) {
-        // Freshly created by this same `run()` — never rejected yet.
-        rows.push({
-          rowNumber: error.rowNumber,
-          values: {
-            'Sync Status': 'NEEDS_REVIEW',
-            'System Order ID': '',
-            'Error Message': error.errorMessage.slice(
-              NEEDS_REVIEW_PREFIX.length,
-            ),
-          },
-        });
-      } else {
-        rows.push({
-          rowNumber: error.rowNumber,
-          values: {
-            'Sync Status': 'REJECTED',
-            'System Order ID': '',
-            'Error Message': error.errorMessage,
-          },
-        });
-      }
+      const message = isNeedsReview
+        ? error.errorMessage.slice(NEEDS_REVIEW_PREFIX.length)
+        : error.errorMessage;
+      rows.push({
+        rowNumber: error.rowNumber,
+        values: storeOrderWritebackValues({
+          status: isNeedsReview ? 'needsReview' : 'error',
+          issues: [{ message }],
+        }),
+      });
     }
 
     if (rows.length === 0) return;
@@ -465,6 +771,42 @@ export class SyncOrchestratorService {
       rows,
       source.worksheetGid ?? undefined,
     );
+  }
+
+  private async markStoreOrdersImported(
+    source: { id: string; configMetadata: unknown },
+    successRows: { rowNumber: number; id: string }[],
+  ) {
+    if (successRows.length === 0) return;
+    const orders = await this.prisma.storeOrder.findMany({
+      where: { id: { in: successRows.map((row) => row.id) } },
+      select: { id: true, externalOrderId: true, internalOrderId: true },
+    });
+    const byId = new Map(orders.map((order) => [order.id, order]));
+    const metadata = (source.configMetadata ?? {}) as Record<string, unknown>;
+    const hashes: StoreOrderRowHashMap = {
+      ...((metadata.storeOrderRowHashes as StoreOrderRowHashMap | undefined) ??
+        {}),
+    };
+    for (const row of successRows) {
+      const order = byId.get(row.id);
+      if (!order?.externalOrderId) continue;
+      const previous = hashes[order.externalOrderId];
+      hashes[order.externalOrderId] = {
+        hash: previous?.hash ?? '',
+        status: 'IMPORTED',
+        internalOrderId: order.internalOrderId,
+      };
+    }
+    await this.prisma.syncSourceConfig.update({
+      where: { id: source.id },
+      data: {
+        configMetadata: {
+          ...metadata,
+          storeOrderRowHashes: hashes,
+        } as unknown as Prisma.InputJsonValue,
+      },
+    });
   }
 
   /**
@@ -661,11 +1003,10 @@ export class SyncOrchestratorService {
           [
             {
               rowNumber: errorRow.rowNumber,
-              values: {
-                'Sync Status': 'SUCCESS',
-                'System Order ID': order?.internalOrderId ?? '',
-                'Error Message': '',
-              },
+              values: storeOrderWritebackValues({
+                status: 'imported',
+                internalOrderId: order?.internalOrderId,
+              }),
             },
           ],
           source.worksheetGid ?? undefined,
@@ -707,11 +1048,10 @@ export class SyncOrchestratorService {
           [
             {
               rowNumber: errorRow.rowNumber,
-              values: {
-                'Sync Status': 'REJECTED',
-                'System Order ID': '',
-                'Error Message': message,
-              },
+              values: storeOrderWritebackValues({
+                status: 'error',
+                issues: [{ message }],
+              }),
             },
           ],
           source.worksheetGid ?? undefined,

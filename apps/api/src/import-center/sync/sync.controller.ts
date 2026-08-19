@@ -22,6 +22,7 @@ import { ListSheetService } from '../list-sheet/list-sheet.service';
 import { CreateSyncSourceDto } from './dto/create-sync-source.dto';
 import { UpdateSyncSourceDto } from './dto/update-sync-source.dto';
 import { CommitSyncDto } from './dto/commit-sync.dto';
+import { PreviewSyncDto } from './dto/preview-sync.dto';
 import { RejectImportRowDto } from '../dto/reject-import-row.dto';
 
 /**
@@ -76,11 +77,18 @@ export class SyncController {
     return this.sources.archive(id, user.sub);
   }
 
-  /** "مزامنة البيانات" step 1 — fetch + validate, never commits. */
+  /** "مزامنة البيانات" step 1 — fetch + validate; Store Orders also writes row-level errors back to the sheet. */
   @Post('sources/:id/preview')
   @PermissionAction('sync')
-  preview(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
-    return this.orchestrator.preview(id, user.sub);
+  preview(
+    @Param('id') id: string,
+    @Body() dto: PreviewSyncDto = {},
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.orchestrator.preview(id, user.sub, {
+      retryRowNumbers: dto.retryRowNumbers,
+      retryAllFailed: dto.retryAllFailed,
+    });
   }
 
   /** "مزامنة البيانات" step 2 — requires an explicit `jobId` from a just-run preview. */

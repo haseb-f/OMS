@@ -7,8 +7,8 @@ import {
   TableDetailStack,
 } from "@/components/shared/data-table";
 import { useLocale } from "@/providers/locale-provider";
-import { humanizeSyncIssue, syncFieldLabelKey } from "./messages";
-import type { SyncReviewRow } from "./types";
+import { humanizeSyncIssue, syncFieldLabelKey, syncIssueField } from "./messages";
+import type { SyncReviewIssue, SyncReviewRow } from "./types";
 
 function DetailValue({ value, kind }: { value: string | null | undefined; kind?: "phone" | "id" }) {
   if (!value) return <span className="text-muted-foreground">—</span>;
@@ -18,13 +18,28 @@ function DetailValue({ value, kind }: { value: string | null | undefined; kind?:
   return <span className="min-w-0 break-words">{value}</span>;
 }
 
+function groupIssuesByField(issues: SyncReviewIssue[]): Map<string, SyncReviewIssue[]> {
+  const groups = new Map<string, SyncReviewIssue[]>();
+  for (const issue of issues) {
+    const field = syncIssueField(issue) ?? "_";
+    const list = groups.get(field) ?? [];
+    list.push(issue);
+    groups.set(field, list);
+  }
+  return groups;
+}
+
+function isPhoneShownInPhoneSection(row: SyncReviewRow, value: string | null | undefined): boolean {
+  if (!value) return false;
+  return value === row.originalPhone || value === row.normalizedPhone;
+}
+
 export function SyncRowDetails({ row }: { row: SyncReviewRow }) {
   const { t } = useLocale();
   const errorIssues = row.issues.filter((issue) => issue.code !== "NEEDS_REVIEW");
   const warningIssues = row.issues.filter((issue) => issue.code === "NEEDS_REVIEW");
-  const phoneIssue = row.issues.find(
-    (issue) => issue.originalValue != null || issue.normalizedValue != null,
-  );
+  const groupedErrors = groupIssuesByField(errorIssues);
+  const phoneAlreadyVisible = Boolean(row.originalPhone || row.normalizedPhone);
 
   return (
     <TableDetailStack>
@@ -76,23 +91,35 @@ export function SyncRowDetails({ row }: { row: SyncReviewRow }) {
       {errorIssues.length > 0 ? (
         <TableDetailSection title={t("importCenter.sync.review.validationErrors")}>
           <ul className="flex flex-col gap-2">
-            {errorIssues.map((issue, index) => {
-              const fieldKey = syncFieldLabelKey(issue.field);
+            {[...groupedErrors.entries()].map(([field, issues]) => {
+              const fieldKey = syncFieldLabelKey(field === "_" ? null : field);
+              const fieldLabel = fieldKey ? t(fieldKey) : field === "_" ? null : field;
+              const sample = issues.find((issue) => issue.originalValue || issue.normalizedValue);
+              const sampleValue = sample?.originalValue ?? sample?.normalizedValue ?? null;
+              const showValue =
+                sampleValue &&
+                !(phoneAlreadyVisible && isPhoneShownInPhoneSection(row, sampleValue));
+
               return (
-                <li key={`${issue.code}-${index}`} className="min-w-0">
-                  <TableDetailField
-                    primary={humanizeSyncIssue(issue, t)}
-                    secondary={issue.field ? (fieldKey ? t(fieldKey) : issue.field) : undefined}
-                  />
-                  {(issue.originalValue || issue.normalizedValue) && (
-                    <p className="mt-0.5 text-caption text-muted-foreground">
-                      {t("importCenter.sync.review.value")}:{" "}
-                      <DetailValue
-                        value={issue.originalValue ?? phoneIssue?.originalValue}
-                        kind="phone"
-                      />
+                <li key={field} className="min-w-0">
+                  {fieldLabel ? (
+                    <p className="text-caption font-medium text-foreground">{fieldLabel}</p>
+                  ) : null}
+                  {showValue ? (
+                    <p className="text-caption text-muted-foreground">
+                      <DetailValue value={sampleValue} kind="phone" />
                     </p>
-                  )}
+                  ) : null}
+                  <ul className="mt-0.5 flex flex-col gap-0.5">
+                    {issues.map((issue, index) => (
+                      <li
+                        key={`${issue.code}-${index}`}
+                        className="text-caption text-muted-foreground"
+                      >
+                        {humanizeSyncIssue(issue, t)}
+                      </li>
+                    ))}
+                  </ul>
                 </li>
               );
             })}

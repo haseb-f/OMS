@@ -6,6 +6,8 @@ import type {
 } from '../import-jobs.service';
 
 export type SyncReviewStatus = 'READY' | 'WARNING' | 'ERROR' | 'DUPLICATE';
+export type SyncReviewLifecycle =
+  'NEW' | 'RETRY' | 'IMPORTED' | 'UNCHANGED_FAILURE' | 'ORPHAN_LINK';
 
 export interface SyncReviewIssue {
   field: string | null;
@@ -27,6 +29,9 @@ export interface SyncReviewRow {
   countryName: string | null;
   issues: SyncReviewIssue[];
   existingRecordId: string | null;
+  lifecycle?: SyncReviewLifecycle;
+  changed?: boolean;
+  retryable?: boolean;
 }
 
 const PHONE_KEYS = ['customerPhone', 'mobileNumber', 'phone'] as const;
