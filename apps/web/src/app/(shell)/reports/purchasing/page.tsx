@@ -8,7 +8,6 @@ export default function ReportsPurchasingPage() {
     <ComingSoonPage
       titleKey="nav.reportsPurchasing"
       descriptionKey="reports.categories.purchasing"
-      breadcrumbKeys={["nav.reports", "nav.reportsPurchasing"]}
       icon={ShoppingBag}
     />
   );

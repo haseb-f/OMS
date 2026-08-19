@@ -87,14 +87,14 @@ export function EnterpriseModal({
               requestClose();
             }}
             className={cn(
-              "fixed top-1/2 start-1/2 z-50 flex max-h-[85vh] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 rtl:translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border border-border/60 bg-popover text-popover-foreground shadow-xl duration-(--duration-base) outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+              "fixed top-1/2 start-1/2 z-50 flex max-h-[85vh] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 rtl:translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg duration-(--duration-base) outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
               sizeClasses[size],
             )}
           >
-            <div className="flex shrink-0 items-start justify-between gap-4 p-6">
+            <div className="flex shrink-0 items-start justify-between gap-4 p-5">
               <div className="flex items-start gap-3">
                 {Icon && (
-                  <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                     <Icon className="size-5" />
                   </div>
                 )}
@@ -103,7 +103,7 @@ export function EnterpriseModal({
                     {title}
                   </DialogPrimitive.Title>
                   {description && (
-                    <DialogPrimitive.Description className="text-sm text-muted-foreground">
+                    <DialogPrimitive.Description className="text-caption text-muted-foreground">
                       {description}
                     </DialogPrimitive.Description>
                   )}
@@ -122,11 +122,11 @@ export function EnterpriseModal({
 
             <Separator />
 
-            <div className="flex-1 overflow-y-auto p-6">{children}</div>
+            <div className="flex-1 overflow-y-auto p-5">{children}</div>
 
             <Separator />
 
-            <div className="flex shrink-0 flex-col-reverse gap-2 bg-muted/40 p-4 sm:flex-row sm:justify-end">
+            <div className="flex shrink-0 flex-col-reverse gap-2 bg-muted/40 px-5 py-3 sm:flex-row sm:justify-end">
               {typeof footer === "function" ? footer(requestClose) : footer}
             </div>
           </DialogPrimitive.Content>

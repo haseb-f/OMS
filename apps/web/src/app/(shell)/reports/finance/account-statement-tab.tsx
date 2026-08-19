@@ -14,6 +14,7 @@ import {
   EMPTY_REPORT_FILTERS,
   type ReportFilterValue,
 } from "@/components/accounting/report-filter-bar";
+import { FilterSurface } from "@/components/shared/data-table/list-surface";
 import {
   accountingReportsService,
   type AccountLedger,
@@ -119,11 +120,13 @@ export function AccountStatementTab() {
 
   return (
     <div className="flex flex-col gap-3">
-      <AccountingReportFilterBar
-        value={filters}
-        onChange={setFilters}
-        accountFilter={{ value: account, onChange: setAccount, required: true }}
-      />
+      <FilterSurface>
+        <AccountingReportFilterBar
+          value={filters}
+          onChange={setFilters}
+          accountFilter={{ value: account, onChange: setAccount, required: true }}
+        />
+      </FilterSurface>
 
       {!account ? (
         <EmptyState

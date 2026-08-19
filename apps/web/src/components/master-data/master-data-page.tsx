@@ -39,6 +39,7 @@ import {
   type RowAction,
 } from "@/components/shared/data-table";
 import type { MasterDataActivityEntry, MasterDataListParams } from "@/services/master-data-service";
+import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { toast } from "@/lib/toast";
@@ -112,7 +113,6 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
 }: {
   titleKey: MessageKey;
   descriptionKey: MessageKey;
-  breadcrumbKeys: MessageKey[];
   tableId: string;
   icon?: LucideIcon;
   service: MasterDataService<TEntity>;
@@ -164,12 +164,12 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
 
   const [items, setItems] = useState<TEntity[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-  const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState<string>(defaultSortBy);
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-  const [includeArchived, setIncludeArchived] = useState(false);
+  const [page, setPage] = usePathRestorableState("page", 1);
+  const [pageSize, setPageSize] = usePathRestorableState("pageSize", 20);
+  const [search, setSearch] = usePathRestorableState("search", "");
+  const [sortBy, setSortBy] = usePathRestorableState("sortBy", defaultSortBy);
+  const [sortOrder, setSortOrder] = usePathRestorableState<"asc" | "desc">("sortOrder", "asc");
+  const [includeArchived, setIncludeArchived] = usePathRestorableState("includeArchived", false);
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [isSelectingAllMatching, setIsSelectingAllMatching] = useState(false);
@@ -693,7 +693,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
               {columns.map((column) => (
                 <div
                   key={column.id}
-                  className="flex items-center justify-between gap-4 border-b border-border/60 pb-2"
+                  className="flex items-center justify-between gap-4 border-b border-border pb-2"
                 >
                   <dt className="text-caption text-muted-foreground">
                     {column.meta?.titleKey ? t(column.meta.titleKey) : (column.id ?? "")}

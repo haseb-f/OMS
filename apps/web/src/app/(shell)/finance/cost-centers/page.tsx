@@ -19,7 +19,6 @@ export default function CostCentersPage() {
     <MasterDataPage
       titleKey="masterData.costCenters.title"
       descriptionKey="masterData.costCenters.description"
-      breadcrumbKeys={["nav.finance", "nav.financeCostCenters"]}
       tableId="cost-centers"
       service={service}
       columns={costCentersColumns}

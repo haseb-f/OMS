@@ -88,8 +88,8 @@ const shadowSwatches = [
 const spacingSwatches = [8, 12, 16, 24, 32];
 
 const colorSwatches = [
-  { label: "Primary (Green)", className: "bg-primary" },
-  { label: "Secondary (Blue)", className: "bg-secondary" },
+  { label: "Primary (Navy)", className: "bg-primary" },
+  { label: "Secondary", className: "bg-secondary" },
   { label: "Success", className: "bg-success" },
   { label: "Warning", className: "bg-warning" },
   { label: "Destructive", className: "bg-destructive" },

@@ -33,7 +33,7 @@ export function SyncSourceContext({
   const duplicates = rows.filter((row) => row.status === "DUPLICATE").length;
 
   return (
-    <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 rounded-lg border border-border/60 bg-muted/20 p-3 text-caption sm:grid-cols-4">
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 rounded-lg border border-border bg-muted/20 p-3 text-caption sm:grid-cols-4">
       <div>
         <dt className="text-muted-foreground">{t("importCenter.sync.review.source")}</dt>
         <dd className="font-medium">{t("importCenter.sync.review.sourceGoogleSheets")}</dd>

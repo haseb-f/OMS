@@ -348,7 +348,7 @@ export function StoreOrderCreateDialog({
 
           <ModalSection title={t("storeOrders.createDialog.items.title")} columns={2}>
             <div className="col-span-full flex flex-col gap-3">
-              <div className="overflow-x-auto rounded-md border border-border/60">
+              <div className="overflow-x-auto rounded-md border border-border">
                 <Table>
                   <TableHeader>
                     <TableRow>

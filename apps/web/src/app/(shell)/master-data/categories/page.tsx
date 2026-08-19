@@ -93,7 +93,6 @@ export default function CategoriesPage() {
     <MasterDataPage
       titleKey="masterData.categories.title"
       descriptionKey="masterData.categories.description"
-      breadcrumbKeys={["nav.products", "masterData.categories.title"]}
       tableId="categories"
       service={service}
       columns={categoriesColumns}

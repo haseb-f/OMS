@@ -582,7 +582,7 @@ export function ImportJobWizard({
               </div>
             )}
 
-            <div className="flex flex-wrap items-end gap-2 border-t border-border/60 pt-4">
+            <div className="flex flex-wrap items-end gap-2 border-t border-border pt-4">
               <div className="flex flex-1 flex-col gap-2">
                 <Label>{t("importCenter.wizard.mapping.templateName")}</Label>
                 <Input
@@ -668,7 +668,7 @@ export function ImportJobWizard({
                     : t("importCenter.wizard.validation.failed", { count: validation.errorCount })}
                 </p>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  <div className="rounded-md border border-border/60 bg-card p-2 text-center">
+                  <div className="rounded-md border border-border bg-card p-2 text-center">
                     <p className="text-card-title font-semibold">{validation.summary.totalRows}</p>
                     <p className="text-xs text-muted-foreground">
                       {t("importCenter.wizard.preview.summaryTotal")}
@@ -707,7 +707,7 @@ export function ImportJobWizard({
                   </p>
                 )}
                 {validation.errorCount > 0 && (
-                  <div className="max-h-56 overflow-y-auto rounded-md border border-border/60 bg-card">
+                  <div className="max-h-56 overflow-y-auto rounded-md border border-border bg-card">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -731,7 +731,7 @@ export function ImportJobWizard({
               </div>
             ) : null}
 
-            <div className="overflow-x-auto rounded-md border border-border/60">
+            <div className="overflow-x-auto rounded-md border border-border">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -779,7 +779,7 @@ export function ImportJobWizard({
             </div>
 
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <div className="rounded-md border border-border/60 p-3">
+              <div className="rounded-md border border-border p-3">
                 <p className="text-caption text-muted-foreground">
                   {t("importCenter.wizard.results.totalRows")}
                 </p>
@@ -797,7 +797,7 @@ export function ImportJobWizard({
                 </p>
                 <p className="text-card-title font-semibold text-destructive">{job.errorCount}</p>
               </div>
-              <div className="rounded-md border border-border/60 p-3">
+              <div className="rounded-md border border-border p-3">
                 <p className="text-caption text-muted-foreground">
                   {t("importCenter.wizard.results.duration")}
                 </p>
@@ -829,7 +829,7 @@ export function ImportJobWizard({
                   {t("importCenter.wizard.results.noErrors")}
                 </p>
               ) : (
-                <div className="max-h-80 overflow-y-auto rounded-md border border-border/60">
+                <div className="max-h-80 overflow-y-auto rounded-md border border-border">
                   <Table>
                     <TableHeader>
                       <TableRow>

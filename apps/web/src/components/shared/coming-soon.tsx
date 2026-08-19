@@ -9,7 +9,7 @@ export function ComingSoon() {
   const { t } = useLocale();
 
   return (
-    <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border/70 bg-card/40">
+    <div className="flex flex-1 items-center justify-center rounded-sm border border-dashed border-border bg-card/40">
       <EmptyState
         icon={Construction}
         title={t("common.comingSoon")}

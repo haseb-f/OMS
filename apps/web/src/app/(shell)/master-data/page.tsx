@@ -61,7 +61,7 @@ export default function MasterDataHomePage() {
               <EnterpriseCard size="sm" clickable className="h-full">
                 <EnterpriseCardHeader>
                   <div className="flex items-center gap-3">
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                       <Icon className="size-5" />
                     </span>
                     <EnterpriseCardTitle>{t(entity.titleKey)}</EnterpriseCardTitle>

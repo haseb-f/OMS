@@ -61,7 +61,6 @@ export default function CustomerGroupsPage() {
     <MasterDataPage
       titleKey="masterData.customerGroups.title"
       descriptionKey="masterData.customerGroups.description"
-      breadcrumbKeys={["nav.sales", "masterData.customerGroups.title"]}
       tableId="customer-groups"
       service={service}
       columns={customerGroupsColumns}

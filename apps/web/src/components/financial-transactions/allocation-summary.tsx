@@ -19,7 +19,7 @@ export function AllocationSummary({
   const { t } = useLocale();
 
   return (
-    <div className="flex flex-wrap items-center gap-4 rounded-md border border-border/70 bg-muted/30 px-4 py-3">
+    <div className="flex flex-wrap items-center gap-4 rounded-md border border-border bg-muted/30 px-4 py-3">
       <div className="flex flex-col">
         <span className="text-caption text-muted-foreground">
           {t("financialTransactions.allocationSummary.openInvoices")}

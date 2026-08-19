@@ -339,7 +339,7 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
   useBreadcrumbLabel(quotation?.quotationNumber ?? t("sales.quotations.addNew"));
 
   return (
-    <EditorWorkspace backHref="/sales/quotations">
+    <EditorWorkspace>
       <SalesDocumentEditor
         config={{
           ...config,

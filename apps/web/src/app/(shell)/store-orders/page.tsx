@@ -40,6 +40,7 @@ import {
   SHIPPING_STAGE_LABEL_KEY,
   SHIPPING_STAGE_VALUES,
 } from "@/config/store-orders/status";
+import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
 import { useLocale } from "@/providers/locale-provider";
@@ -62,15 +63,24 @@ function StoreOrdersPageContent() {
 
   const [items, setItems] = useState<StoreOrderRow[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-  const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState("orderDate");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [paymentStatusFilter, setPaymentStatusFilter] = useState<string[]>([]);
-  const [shippingStageFilter, setShippingStageFilter] = useState<string[]>([]);
-  const [sourceFilter, setSourceFilter] = useState<string[]>([]);
-  const [dateRange, setDateRange] = useState<DateRangeValue>(EMPTY_DATE_RANGE);
+  const [page, setPage] = usePathRestorableState("page", 1);
+  const [pageSize, setPageSize] = usePathRestorableState("pageSize", 20);
+  const [search, setSearch] = usePathRestorableState("search", "");
+  const [sortBy, setSortBy] = usePathRestorableState("sortBy", "orderDate");
+  const [sortOrder, setSortOrder] = usePathRestorableState<"asc" | "desc">("sortOrder", "desc");
+  const [paymentStatusFilter, setPaymentStatusFilter] = usePathRestorableState<string[]>(
+    "paymentStatus",
+    [],
+  );
+  const [shippingStageFilter, setShippingStageFilter] = usePathRestorableState<string[]>(
+    "shippingStage",
+    [],
+  );
+  const [sourceFilter, setSourceFilter] = usePathRestorableState<string[]>("source", []);
+  const [dateRange, setDateRange] = usePathRestorableState<DateRangeValue>(
+    "dateRange",
+    EMPTY_DATE_RANGE,
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});

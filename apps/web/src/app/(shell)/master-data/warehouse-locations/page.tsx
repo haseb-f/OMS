@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageWorkspace } from "@/components/shared/page-workspace";
+import { ListSurface, ListToolbar } from "@/components/shared/data-table/list-surface";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/business/status-badge";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
@@ -289,23 +290,23 @@ function WarehouseLocationsPageContent() {
           {t("masterData.warehouseLocations.addLocation")}
         </EnterpriseButton>
       }
-      filters={
-        <Select value={warehouseId} onValueChange={setWarehouseId}>
-          <SelectTrigger className="w-64">
-            <SelectValue placeholder={t("masterData.fields.warehouse")} />
-          </SelectTrigger>
-          <SelectContent>
-            {warehouses.map((warehouse) => (
-              <SelectItem key={warehouse.id} value={warehouse.id}>
-                {warehouse.code} — {warehouse.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      }
     >
-      <div className="relative rounded-xl border shadow-sm">
+      <ListSurface>
         {isMutating && <LoadingOverlay />}
+        <ListToolbar>
+          <Select value={warehouseId} onValueChange={setWarehouseId}>
+            <SelectTrigger size="sm" className="w-64">
+              <SelectValue placeholder={t("masterData.fields.warehouse")} />
+            </SelectTrigger>
+            <SelectContent>
+              {warehouses.map((warehouse) => (
+                <SelectItem key={warehouse.id} value={warehouse.id}>
+                  {warehouse.code} — {warehouse.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </ListToolbar>
         <div className="min-h-40 p-2">
           {isLoading ? (
             <div className="flex h-32 items-center justify-center text-caption text-muted-foreground">
@@ -323,7 +324,7 @@ function WarehouseLocationsPageContent() {
             tree.map((node) => renderNode(node, 0))
           )}
         </div>
-      </div>
+      </ListSurface>
 
       <EnterpriseModal
         open={modalOpen}

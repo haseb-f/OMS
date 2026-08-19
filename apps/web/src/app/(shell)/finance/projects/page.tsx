@@ -19,7 +19,6 @@ export default function ProjectsPage() {
     <MasterDataPage
       titleKey="masterData.projects.title"
       descriptionKey="masterData.projects.description"
-      breadcrumbKeys={["nav.finance", "nav.financeProjects"]}
       tableId="projects"
       service={service}
       columns={projectsColumns}

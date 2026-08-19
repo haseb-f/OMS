@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Landmark, RefreshCw, Search, Tag, CheckCircle2 } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ListSurface, ListToolbar } from "@/components/shared/data-table/list-surface";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
 import { LoadingOverlay } from "@/components/shared/loading-overlay";
@@ -278,22 +279,21 @@ function CashFlowPageContent() {
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2">
-        {statusTabs.map((status) => (
-          <EnterpriseButton
-            key={status}
-            type="button"
-            variant={statusFilter === status ? "secondary" : "outline"}
-            size="sm"
-            onClick={() => setStatusFilter(status)}
-          >
-            {t(STATUS_LABEL_KEY[status])} ({counts[status]})
-          </EnterpriseButton>
-        ))}
-      </div>
-
-      <div className="relative rounded-xl border shadow-sm">
+      <ListSurface>
         {isLoading && <LoadingOverlay />}
+        <ListToolbar>
+          {statusTabs.map((status) => (
+            <EnterpriseButton
+              key={status}
+              type="button"
+              variant={statusFilter === status ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter(status)}
+            >
+              {t(STATUS_LABEL_KEY[status])} ({counts[status]})
+            </EnterpriseButton>
+          ))}
+        </ListToolbar>
         {items.length === 0 && !isLoading ? (
           <EmptyState icon={Landmark} title={t("masterData.bankTransactions.empty")} />
         ) : (
@@ -372,7 +372,7 @@ function CashFlowPageContent() {
             </TableBody>
           </Table>
         )}
-      </div>
+      </ListSurface>
 
       {classifyTarget && (
         <ClassifyDialog
@@ -864,7 +864,7 @@ function EntitySearchPicker({
         </p>
       )}
       {query.trim() && (
-        <div className="flex max-h-40 flex-col gap-1 overflow-y-auto rounded-md border border-border/60 p-1">
+        <div className="flex max-h-40 flex-col gap-1 overflow-y-auto rounded-md border border-border p-1">
           {loading ? (
             <p className="p-2 text-caption text-muted-foreground">{t("common.loading")}</p>
           ) : results.length === 0 ? (

@@ -1,17 +1,15 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
-import { EnterpriseButton } from "@/components/ui/button";
 import {
   EnterpriseCard,
   EnterpriseCardContent,
   EnterpriseCardHeader,
   EnterpriseCardTitle,
 } from "@/components/ui/card";
-import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
+
+export { BackButton } from "@/components/shared/back-button";
 
 function hasDetailValue(value: ReactNode): boolean {
   if (value == null || value === false) return false;
@@ -20,47 +18,12 @@ function hasDetailValue(value: ReactNode): boolean {
 }
 
 /**
- * RTL-first back control. The arrow uses logical rotation (`rtl:rotate-180`)
- * so it always points toward the previous page. Prefers in-app history so
- * list filters/pagination survive; falls back to `href` on a cold load.
- */
-export function BackButton({ href, label }: { href?: string; label?: string }) {
-  const router = useRouter();
-  const { t } = useLocale();
-
-  const handleClick = () => {
-    if (typeof window !== "undefined" && window.history.length > 1) {
-      router.back();
-      return;
-    }
-    if (href) {
-      router.push(href);
-      return;
-    }
-    router.back();
-  };
-
-  return (
-    <EnterpriseButton
-      type="button"
-      variant="ghost"
-      size="sm"
-      className="w-fit gap-1.5"
-      onClick={handleClick}
-    >
-      <ArrowLeft className="size-4 rtl:rotate-180" />
-      {label ?? t("common.back")}
-    </EnterpriseButton>
-  );
-}
-
-/**
  * Compact operational detail workspace — identity header + centered content.
  * Lists stay full-width via `PageWorkspace`; this is for entity/document
- * detail and edit screens only.
+ * detail and edit screens only. Back lives in `BreadcrumbBar`, one control
+ * for the whole app, so no screen renders its own.
  */
 export function DetailWorkspace({
-  backHref,
   title,
   subtitle,
   status,
@@ -69,7 +32,6 @@ export function DetailWorkspace({
   width = "default",
   className,
 }: {
-  backHref?: string;
   title: ReactNode;
   subtitle?: ReactNode;
   status?: ReactNode;
@@ -87,11 +49,12 @@ export function DetailWorkspace({
         className,
       )}
     >
-      <BackButton href={backHref} />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <div className="min-w-0">
-            <h1 className="text-ui-title font-semibold tracking-tight">{title}</h1>
+            <h1 className="text-ui-title font-semibold tracking-tight" dir="auto">
+              {title}
+            </h1>
             {hasDetailValue(subtitle) ? (
               <p className="text-caption text-muted-foreground">{subtitle}</p>
             ) : null}
@@ -107,20 +70,52 @@ export function DetailWorkspace({
   );
 }
 
-/** Wide centered shell for document editors — Back + existing editor card. */
+/** Wide centered shell for document editors. Back lives in `BreadcrumbBar`. */
 export function EditorWorkspace({
-  backHref,
   children,
   className,
 }: {
-  backHref?: string;
   children: ReactNode;
   className?: string;
 }) {
   return (
-    <div className={cn("mx-auto flex w-full max-w-6xl flex-col gap-2", className)}>
-      <BackButton href={backHref} />
-      {children}
+    <div className={cn("mx-auto flex w-full max-w-6xl flex-col gap-2", className)}>{children}</div>
+  );
+}
+
+/**
+ * Identity + toolbar row for a document editor, sitting at the top of the
+ * editor card. Every editor (sales, purchasing, financial transactions,
+ * journal entries) shows the same three things — what the document is, its
+ * number, and its state — so they share one row rather than four copies that
+ * drift apart. `documentNumber` is forced LTR: document codes stay
+ * left-to-right even in the Arabic interface.
+ */
+export function EditorHeader({
+  title,
+  documentNumber,
+  status,
+  actions,
+}: {
+  title: ReactNode;
+  documentNumber?: ReactNode;
+  status?: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="min-w-0">
+          <h1 className="text-ui-title font-semibold tracking-tight">{title}</h1>
+          {hasDetailValue(documentNumber) ? (
+            <p dir="ltr" className="truncate text-caption text-muted-foreground">
+              {documentNumber}
+            </p>
+          ) : null}
+        </div>
+        {status}
+      </div>
+      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
     </div>
   );
 }

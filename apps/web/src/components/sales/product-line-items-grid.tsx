@@ -191,7 +191,7 @@ export function ProductLineItemsGrid({
     1; // actions
 
   return (
-    <div ref={containerRef} className="overflow-x-auto rounded-md border border-border/70">
+    <div ref={containerRef} className="overflow-x-auto rounded-md border border-border">
       <Table className="w-full table-fixed border-separate border-spacing-0 min-w-[960px]">
         <TableHeader className="bg-muted/50">
           <TableRow className="hover:bg-transparent">
@@ -426,7 +426,7 @@ export function ProductLineItemsGrid({
           })}
         </TableBody>
       </Table>
-      <div className="border-t border-border/70 p-2">
+      <div className="border-t border-border p-2">
         <EnterpriseButton
           type="button"
           variant="ghost"

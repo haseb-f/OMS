@@ -58,7 +58,6 @@ export default function FixedAssetsPage() {
     <MasterDataPage
       titleKey="masterData.fixedAssets.title"
       descriptionKey="masterData.fixedAssets.description"
-      breadcrumbKeys={["nav.finance", "nav.financeFixedAssets"]}
       tableId="fixed-assets"
       service={service}
       columns={fixedAssetsColumns}

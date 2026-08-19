@@ -138,7 +138,6 @@ function SuppliersPageContent() {
     <MasterDataPage<SupplierRow>
       titleKey="purchasing.suppliers.title"
       descriptionKey="purchasing.suppliers.description"
-      breadcrumbKeys={["nav.purchasing", "purchasing.suppliers.title"]}
       tableId="purchasing-suppliers"
       icon={Truck}
       service={suppliersService}

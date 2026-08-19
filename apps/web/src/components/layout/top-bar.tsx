@@ -16,7 +16,7 @@ import { ProfileMenu } from "./profile-menu";
  */
 export function TopBar() {
   return (
-    <header className="sticky top-0 z-(--z-topbar) flex h-16 shrink-0 items-center gap-3 border-b border-border bg-card px-6 shadow-sm">
+    <header className="sticky top-0 z-(--z-topbar) flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card px-4 sm:px-6">
       <div className="max-w-md flex-1">
         <CommandPalette />
       </div>

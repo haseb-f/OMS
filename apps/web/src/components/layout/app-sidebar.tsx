@@ -58,16 +58,44 @@ export function AppSidebar() {
   // Permission filtering waits until auth is resolved: an empty permission
   // set during `loading` is unknown, not a denial (same contract as
   // `PermissionGate`). Collapse/expand still comes from SidebarProvider.
-  const navigationTree = useMemo(
+  const authorizedItems = useMemo(
     () =>
-      buildNavigationTree(
-        filterNavigationByAuth(navigationConfig, permissions, {
-          isSuperAdmin,
-          accessReady: status === "authenticated",
-        }),
-      ),
+      filterNavigationByAuth(navigationConfig, permissions, {
+        isSuperAdmin,
+        accessReady: status === "authenticated",
+      }),
     [permissions, isSuperAdmin, status],
   );
+
+  // Until `/auth/me` resolves, `accessReady` is false and the line above
+  // yields the FULL config — which used to render every module and then
+  // visibly shrink to the permitted subset a moment later. Replaying the
+  // module set this browser was last authorized for removes that jump while
+  // keeping the sidebar populated from the first paint. It is presentation
+  // only: `PermissionGate` still guards every route, so a stale cache can
+  // never grant access to anything.
+  const [lastAuthorizedIds, setLastAuthorizedIds] = useLocalStorage<string[] | null>(
+    STORAGE_KEYS.sidebarAuthorizedItems,
+    null,
+  );
+
+  const navigationTree = useMemo(() => {
+    if (status === "authenticated" || !lastAuthorizedIds?.length) {
+      return buildNavigationTree(authorizedItems);
+    }
+    const allowed = new Set(lastAuthorizedIds);
+    return buildNavigationTree(authorizedItems.filter((item) => allowed.has(item.id)));
+  }, [authorizedItems, lastAuthorizedIds, status]);
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    const ids = authorizedItems.map((item) => item.id);
+    setLastAuthorizedIds((previous) =>
+      previous?.length === ids.length && previous.every((id, index) => id === ids[index])
+        ? previous
+        : ids,
+    );
+  }, [status, authorizedItems, setLastAuthorizedIds]);
 
   // Strict accordion (ADR-0022, permanent): at most one module expanded at
   // a time. Expanding a module collapses whatever else was open; clicking
@@ -213,7 +241,7 @@ function NavTreeItem({
       <SidebarMenuItem
         className={cn(
           open &&
-            "rounded-xl bg-sidebar-expanded py-1 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:py-0",
+            "rounded-md bg-sidebar-expanded py-1 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:py-0",
         )}
       >
         <CollapsibleTrigger asChild>

@@ -8,7 +8,6 @@ export default function ReportsExpensesPage() {
     <ComingSoonPage
       titleKey="nav.reportsExpenses"
       descriptionKey="reports.categories.expenses"
-      breadcrumbKeys={["nav.reports", "nav.reportsExpenses"]}
       icon={Calculator}
     />
   );

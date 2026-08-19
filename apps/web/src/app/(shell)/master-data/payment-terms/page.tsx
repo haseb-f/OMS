@@ -19,7 +19,6 @@ export default function PaymentTermsPage() {
     <MasterDataPage
       titleKey="masterData.paymentTerms.title"
       descriptionKey="masterData.paymentTerms.description"
-      breadcrumbKeys={["nav.finance", "masterData.paymentTerms.title"]}
       tableId="payment-terms"
       service={service}
       columns={paymentTermsColumns}

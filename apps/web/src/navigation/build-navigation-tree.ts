@@ -131,6 +131,30 @@ export function findNavigationAncestorByRoute(
   );
 }
 
+/**
+ * The closest registered parent list for a nested/detail pathname — e.g.
+ * `/store-orders/STO-1` and `/store-orders/import` both resolve to
+ * `/store-orders`. Used as the Back button fallback when in-app history
+ * is not usable. Never returns `"/"` so a cold load does not dump the
+ * user on the dashboard.
+ */
+export function findNavigationParentRoute(
+  items: NavigationItem[],
+  pathname: string,
+): string | undefined {
+  const candidates = flattenNavigationTree(items).filter(
+    (item) =>
+      item.route &&
+      item.route !== "/" &&
+      pathname !== item.route &&
+      pathname.startsWith(`${item.route}/`),
+  );
+  if (candidates.length === 0) return undefined;
+  return candidates.reduce((longest, candidate) =>
+    (candidate.route?.length ?? 0) > (longest.route?.length ?? 0) ? candidate : longest,
+  ).route;
+}
+
 /** Walks up `parent` ids to build the breadcrumb trail (root-first) for the matched item. */
 export function getNavigationBreadcrumb(
   flatItems: NavigationItem[],

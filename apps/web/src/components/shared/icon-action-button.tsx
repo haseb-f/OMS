@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, type ReactNode } from "react";
+import { forwardRef, type MouseEventHandler, type ReactNode } from "react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -10,14 +10,27 @@ export const IconActionButton = forwardRef<
   {
     label: string;
     onClick?: () => void;
+    onMouseDown?: MouseEventHandler<HTMLButtonElement>;
     children: ReactNode;
     disabled?: boolean;
     variant?: "ghost" | "outline";
+    pressed?: boolean;
+    className?: string;
     /** When the button is composed as another primitive's trigger (dropdown), skip the inner Tooltip. */
     tooltip?: boolean;
   }
 >(function IconActionButton(
-  { label, onClick, children, disabled, variant = "ghost", tooltip = true },
+  {
+    label,
+    onClick,
+    onMouseDown,
+    children,
+    disabled,
+    variant = "ghost",
+    pressed,
+    className,
+    tooltip = true,
+  },
   ref,
 ) {
   const button = (
@@ -27,7 +40,10 @@ export const IconActionButton = forwardRef<
       variant={variant}
       size="icon-sm"
       aria-label={label}
+      aria-pressed={pressed}
       disabled={disabled}
+      className={className}
+      onMouseDown={onMouseDown}
       onClick={onClick}
     >
       {children}

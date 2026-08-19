@@ -71,7 +71,7 @@ export function ModalSection({
 
   if (!collapsible) {
     return (
-      <EnterpriseCard size="sm" className={cn("hover:translate-y-0 hover:shadow-sm", className)}>
+      <EnterpriseCard size="sm" className={className}>
         {heading}
         {body}
       </EnterpriseCard>
@@ -80,7 +80,7 @@ export function ModalSection({
 
   return (
     <Collapsible defaultOpen={defaultOpen} className="group/section">
-      <EnterpriseCard size="sm" className={cn("hover:translate-y-0 hover:shadow-sm", className)}>
+      <EnterpriseCard size="sm" className={className}>
         <CollapsibleTrigger className="w-full cursor-pointer text-start outline-none">
           {heading}
         </CollapsibleTrigger>

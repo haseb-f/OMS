@@ -19,7 +19,6 @@ export default function UnitsPage() {
     <MasterDataPage
       titleKey="masterData.units.title"
       descriptionKey="masterData.units.description"
-      breadcrumbKeys={["nav.products", "masterData.units.title"]}
       tableId="units"
       service={service}
       columns={unitsColumns}

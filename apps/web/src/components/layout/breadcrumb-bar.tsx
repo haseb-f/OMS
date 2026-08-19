@@ -2,85 +2,104 @@
 
 import Link from "next/link";
 import { Fragment } from "react";
-import { Home } from "lucide-react";
 import {
   Breadcrumb,
+  BreadcrumbEllipsis,
   BreadcrumbItem,
   BreadcrumbLink,
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { BackButton } from "@/components/shared/back-button";
 import { useCurrentNavigation } from "@/hooks/use-current-navigation";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbValue } from "@/providers/breadcrumb-provider";
+import { cn } from "@/lib/utils";
 
 /**
- * A dedicated Breadcrumb layer between the TopBar and each page's own
- * header. The root crumb is a Home icon, not the "OMS" wordmark — the logo
- * belongs only to the Sidebar, never repeated inside pages (ADR-0019). The
- * ONE place breadcrumb navigation is rendered — no page builds its own;
- * a dynamic detail page (a Lead, a Customer, ...) only ever supplies the
- * trailing crumb's text via `useBreadcrumbLabel`, never the whole trail.
+ * The ONE place breadcrumb + Back navigation is rendered. Pages never build
+ * their own trail; a dynamic detail page only supplies the trailing crumb
+ * via `useBreadcrumbLabel`. Back prefers in-app history so list state
+ * survives, and falls back to the closest registered parent list.
  */
 export function BreadcrumbBar() {
-  const { breadcrumb, isExactMatch } = useCurrentNavigation();
+  const { breadcrumb, parentRoute, isExactMatch } = useCurrentNavigation();
   const { t } = useLocale();
   const dynamicLabel = useBreadcrumbValue();
 
-  if (breadcrumb.length === 0) return null;
-  // On a dynamic sub-page (isExactMatch === false) the resolved trail ends
-  // at its list-page ANCESTOR, which must stay clickable — the page's own
-  // label (once loaded) becomes the actual final, non-clickable crumb.
-  const showDynamicCrumb = !isExactMatch && dynamicLabel;
-  // Section + default child often share a label ("Store Orders" / "طلبات المتجر").
-  // Keep the more specific leaf; don't render two identical consecutive crumbs.
+  const showDynamicCrumb = !isExactMatch;
   const crumbs = breadcrumb.filter((item, index) => {
+    if (item.route === "/") return false;
     const next = breadcrumb[index + 1];
     return !next || t(item.titleKey) !== t(next.titleKey);
   });
+  const totalAfterHome = crumbs.length + (showDynamicCrumb ? 1 : 0);
+  const collapseMobile = totalAfterHome > 2;
+
+  if (totalAfterHome === 0 && !parentRoute) {
+    return (
+      <div className="flex min-w-0 items-center px-6 py-1.5">
+        <Breadcrumb>
+          <BreadcrumbList className="flex-nowrap">
+            <BreadcrumbItem>
+              <BreadcrumbPage>{t("common.home")}</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+      </div>
+    );
+  }
 
   return (
-    <div className="px-6 py-1.5">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
+    <div className="flex min-w-0 items-center gap-2 overflow-hidden px-6 py-1.5">
+      {parentRoute ? <BackButton href={parentRoute} /> : null}
+      <Breadcrumb className="min-w-0 flex-1 overflow-hidden">
+        <BreadcrumbList className="flex-nowrap overflow-hidden">
+          <BreadcrumbItem className="shrink-0">
             <BreadcrumbLink asChild>
-              <Link href="/" aria-label={t("nav.dashboard")}>
-                <Home className="size-3.5" />
-              </Link>
+              <Link href="/">{t("common.home")}</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
+          {collapseMobile ? (
+            <>
+              <BreadcrumbSeparator className="md:hidden" />
+              <BreadcrumbItem className="md:hidden">
+                <BreadcrumbEllipsis />
+              </BreadcrumbItem>
+            </>
+          ) : null}
           {crumbs.map((item, index) => {
-            // The resolved trail's own last item is only the actual
-            // current page when the route matched exactly — otherwise a
-            // dynamic sub-page crumb follows it below, so this one must
-            // stay clickable like any other ancestor.
             const isFinalCrumb = index === crumbs.length - 1 && !showDynamicCrumb;
+            const hideOnMobile = collapseMobile && (showDynamicCrumb || index < crumbs.length - 1);
             const title = t(item.titleKey);
             return (
               <Fragment key={item.id}>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
+                <BreadcrumbSeparator className={hideOnMobile ? "max-md:hidden" : undefined} />
+                <BreadcrumbItem className={cn("min-w-0", hideOnMobile && "max-md:hidden")}>
                   {isFinalCrumb || !item.route ? (
-                    <BreadcrumbPage>{title}</BreadcrumbPage>
+                    <BreadcrumbPage className="truncate">{title}</BreadcrumbPage>
                   ) : (
                     <BreadcrumbLink asChild>
-                      <Link href={item.route}>{title}</Link>
+                      <Link href={item.route} className="truncate">
+                        {title}
+                      </Link>
                     </BreadcrumbLink>
                   )}
                 </BreadcrumbItem>
               </Fragment>
             );
           })}
-          {showDynamicCrumb && (
+          {showDynamicCrumb ? (
             <Fragment>
               <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage>{dynamicLabel}</BreadcrumbPage>
+              <BreadcrumbItem className="min-w-0">
+                <BreadcrumbPage className="truncate" dir="ltr">
+                  {dynamicLabel ?? "\u00a0"}
+                </BreadcrumbPage>
               </BreadcrumbItem>
             </Fragment>
-          )}
+          ) : null}
         </BreadcrumbList>
       </Breadcrumb>
     </div>

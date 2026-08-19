@@ -174,7 +174,7 @@ function InventoryStockPageContent() {
 
   return (
     <PageWorkspace title={t("nav.inventoryStock")} description={t("inventory.stock.description")}>
-      <EnterpriseCard size="sm" className="hover:translate-y-0 hover:shadow-sm">
+      <EnterpriseCard size="sm">
         <EnterpriseCardHeader>
           <EnterpriseCardTitle>{t("inventory.valuationMethod.title")}</EnterpriseCardTitle>
         </EnterpriseCardHeader>

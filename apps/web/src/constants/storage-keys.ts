@@ -4,6 +4,10 @@ export const STORAGE_KEYS = {
   // module at a time) — the previous key held a string[], not a single
   // id, so a new key avoids misreading that legacy shape.
   sidebarExpandedSection: "oms.sidebar.expandedModule",
+  // Navigation ids this browser was last authorized for. Read while
+  // `/auth/me` is still in flight so the sidebar renders its real module set
+  // immediately instead of flashing the full config and then shrinking.
+  sidebarAuthorizedItems: "oms.sidebar.authorizedItems",
   sidebarPinnedModules: "oms.sidebar.pinnedModules",
   sidebarRecentPages: "oms.sidebar.recentPages",
   locale: "oms.locale",

@@ -298,7 +298,7 @@ function ImportCenterPageContent() {
             {t("importCenter.sync.sources.title")}
           </EnterpriseButton>
         </div>
-        <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {SYNC_CARDS.map((card) => (
             <SyncWorkspaceCard
               key={card.sourceType}

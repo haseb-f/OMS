@@ -63,7 +63,7 @@ function SyncReviewMobileCard({
         : null;
 
   return (
-    <div className={cn("border-b border-border/70 last:border-b-0", selected && "bg-primary/5")}>
+    <div className={cn("border-b border-border last:border-b-0", selected && "bg-primary/5")}>
       <div className="flex items-start gap-2 px-3 py-2.5">
         <Checkbox
           checked={selected}
@@ -120,7 +120,7 @@ function SyncReviewMobileCard({
             ) : null}
           </div>
           {expanded ? (
-            <div className="mt-2 border-t border-border/60 pt-2">
+            <div className="mt-2 border-t border-border pt-2">
               <SyncRowDetails row={row} />
             </div>
           ) : null}

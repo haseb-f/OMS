@@ -17,7 +17,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
-import { EditorWorkspace } from "@/components/shared/detail-workspace";
+import { EditorHeader, EditorWorkspace } from "@/components/shared/detail-workspace";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { RelatedDocuments } from "@/components/shared/related-documents";
 import { StatusBadge } from "@/components/business/status-badge";
@@ -433,7 +433,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
   useBreadcrumbLabel(entry?.entryNumber ?? t("accounting.journalEntries.addNew"));
 
   return (
-    <EditorWorkspace backHref="/finance/journal-entries">
+    <EditorWorkspace>
       <RelatedDocuments
         groups={[
           {
@@ -457,140 +457,135 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
       ) : (
         <EnterpriseCard size="sm">
           <EnterpriseCardContent className="flex flex-col gap-4">
-            {/* Header + Toolbar — one row */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
-              <div className="flex items-center gap-3">
-                <div>
-                  <h1 className="text-ui-title font-semibold">
-                    {t("accounting.journalEntries.editorTitle")}
-                  </h1>
-                  <p dir="ltr" className="text-caption text-muted-foreground">
-                    {entry?.entryNumber ?? "JV-…"}
-                  </p>
-                </div>
-                {statusOption && (
+            <EditorHeader
+              title={t("accounting.journalEntries.editorTitle")}
+              documentNumber={entry?.entryNumber ?? "JV-…"}
+              status={
+                statusOption ? (
                   <StatusBadge label={statusOption.label} tone={statusOption.tone} />
-                )}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {isNewEntry && templates.length > 0 && (
-                  <Select value="" onValueChange={handleApplyTemplate}>
-                    <SelectTrigger size="sm" className="w-auto min-w-[10rem]">
-                      <SelectValue
-                        placeholder={t("accounting.journalEntries.actions.newFromTemplate")}
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {templates.map((template) => (
-                        <SelectItem key={template.id} value={template.id}>
-                          {template.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                {canEdit && lines.length > 0 && (
-                  <EnterpriseButton
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5"
-                    onClick={() => setSaveTemplateOpen(true)}
-                  >
-                    <FileStack className="size-3.5" />
-                    {t("accounting.journalEntries.actions.saveAsTemplate")}
-                  </EnterpriseButton>
-                )}
-                {canEdit && (
-                  <EnterpriseButton
-                    type="button"
-                    size="sm"
-                    className="gap-1.5"
-                    disabled={isSaving || isTransitioning}
-                    onClick={handleSave}
-                  >
-                    <Save className="size-3.5" />
-                    {t("common.save")}
-                  </EnterpriseButton>
-                )}
-                {entry?.status === "DRAFT" && canPost && (
-                  <EnterpriseButton
-                    type="button"
-                    variant="default"
-                    size="sm"
-                    className="gap-1.5"
-                    disabled={isTransitioning}
-                    onClick={() => setPostTarget(true)}
-                  >
-                    <Send className="size-3.5" />
-                    {t("accounting.journalEntries.actions.post")}
-                  </EnterpriseButton>
-                )}
-                {entry?.status === "POSTED" && canReverse && (
-                  <EnterpriseButton
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    className="gap-1.5"
-                    disabled={isTransitioning}
-                    onClick={() => setReverseTarget(true)}
-                  >
-                    <Undo2 className="size-3.5" />
-                    {t("accounting.journalEntries.actions.reverse")}
-                  </EnterpriseButton>
-                )}
-                {entry?.status === "DRAFT" && canArchive && (
-                  <EnterpriseButton
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1.5"
-                    disabled={isTransitioning}
-                    onClick={() => setArchiveTarget(true)}
-                  >
-                    {t("common.archive")}
-                  </EnterpriseButton>
-                )}
-                {entry?.status === "DRAFT" && canDelete && (
-                  <EnterpriseButton
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    className="gap-1.5"
-                    disabled={isTransitioning}
-                    onClick={() => setDeleteTarget(true)}
-                  >
-                    <Trash2 className="size-3.5" />
-                    {t("common.delete")}
-                  </EnterpriseButton>
-                )}
-                {entry && (
-                  <EnterpriseButton
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5"
-                    disabled={isDuplicating}
-                    onClick={handleDuplicate}
-                  >
-                    <Copy className="size-3.5" />
-                    {t("accounting.journalEntries.actions.duplicate")}
-                  </EnterpriseButton>
-                )}
-                {entry && (
-                  <EnterpriseButton
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5"
-                    onClick={handlePrint}
-                  >
-                    <Printer className="size-3.5" />
-                    {t("table.print")}
-                  </EnterpriseButton>
-                )}
-              </div>
-            </div>
+                ) : null
+              }
+              actions={
+                <>
+                  {isNewEntry && templates.length > 0 && (
+                    <Select value="" onValueChange={handleApplyTemplate}>
+                      <SelectTrigger size="sm" className="w-auto min-w-[10rem]">
+                        <SelectValue
+                          placeholder={t("accounting.journalEntries.actions.newFromTemplate")}
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {templates.map((template) => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {canEdit && lines.length > 0 && (
+                    <EnterpriseButton
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() => setSaveTemplateOpen(true)}
+                    >
+                      <FileStack className="size-3.5" />
+                      {t("accounting.journalEntries.actions.saveAsTemplate")}
+                    </EnterpriseButton>
+                  )}
+                  {canEdit && (
+                    <EnterpriseButton
+                      type="button"
+                      size="sm"
+                      className="gap-1.5"
+                      disabled={isSaving || isTransitioning}
+                      onClick={handleSave}
+                    >
+                      <Save className="size-3.5" />
+                      {t("common.save")}
+                    </EnterpriseButton>
+                  )}
+                  {entry?.status === "DRAFT" && canPost && (
+                    <EnterpriseButton
+                      type="button"
+                      variant="default"
+                      size="sm"
+                      className="gap-1.5"
+                      disabled={isTransitioning}
+                      onClick={() => setPostTarget(true)}
+                    >
+                      <Send className="size-3.5" />
+                      {t("accounting.journalEntries.actions.post")}
+                    </EnterpriseButton>
+                  )}
+                  {entry?.status === "POSTED" && canReverse && (
+                    <EnterpriseButton
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="gap-1.5"
+                      disabled={isTransitioning}
+                      onClick={() => setReverseTarget(true)}
+                    >
+                      <Undo2 className="size-3.5" />
+                      {t("accounting.journalEntries.actions.reverse")}
+                    </EnterpriseButton>
+                  )}
+                  {entry?.status === "DRAFT" && canArchive && (
+                    <EnterpriseButton
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1.5"
+                      disabled={isTransitioning}
+                      onClick={() => setArchiveTarget(true)}
+                    >
+                      {t("common.archive")}
+                    </EnterpriseButton>
+                  )}
+                  {entry?.status === "DRAFT" && canDelete && (
+                    <EnterpriseButton
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="gap-1.5"
+                      disabled={isTransitioning}
+                      onClick={() => setDeleteTarget(true)}
+                    >
+                      <Trash2 className="size-3.5" />
+                      {t("common.delete")}
+                    </EnterpriseButton>
+                  )}
+                  {entry && (
+                    <EnterpriseButton
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      disabled={isDuplicating}
+                      onClick={handleDuplicate}
+                    >
+                      <Copy className="size-3.5" />
+                      {t("accounting.journalEntries.actions.duplicate")}
+                    </EnterpriseButton>
+                  )}
+                  {entry && (
+                    <EnterpriseButton
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={handlePrint}
+                    >
+                      <Printer className="size-3.5" />
+                      {t("table.print")}
+                    </EnterpriseButton>
+                  )}
+                </>
+              }
+            />
 
             {/* Main form — compact grid */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -750,7 +745,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
                     {t("sales.editor.sections.moreDetails")}
                   </EnterpriseButton>
                 </CollapsibleTrigger>
-                <CollapsibleContent className="flex flex-col gap-3 border-t border-border/60 pt-4">
+                <CollapsibleContent className="flex flex-col gap-3 border-t border-border pt-4">
                   {entry.reversalOfEntry && (
                     <p className="text-caption text-muted-foreground">
                       {t("accounting.journalEntries.fields.reversalOf")}:{" "}

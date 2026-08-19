@@ -35,6 +35,7 @@ import type {
   AnalyticAccountRow,
   WarehouseRow,
 } from "@/config/master-data/entities";
+import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { toast } from "@/lib/toast";
@@ -60,12 +61,12 @@ function ProductsPageContent() {
 
   const [items, setItems] = useState<ProductRow[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-  const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState("createdAt");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [includeArchived, setIncludeArchived] = useState(false);
+  const [page, setPage] = usePathRestorableState("page", 1);
+  const [pageSize, setPageSize] = usePathRestorableState("pageSize", 20);
+  const [search, setSearch] = usePathRestorableState("search", "");
+  const [sortBy, setSortBy] = usePathRestorableState("sortBy", "createdAt");
+  const [sortOrder, setSortOrder] = usePathRestorableState<"asc" | "desc">("sortOrder", "desc");
+  const [includeArchived, setIncludeArchived] = usePathRestorableState("includeArchived", false);
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState({});
 

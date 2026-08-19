@@ -23,7 +23,7 @@ export function PaymentSummary({
 
   if (isLoading) {
     return (
-      <div className="flex justify-end border-t border-border/60 pt-3">
+      <div className="flex justify-end border-t border-border pt-3">
         <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
       </div>
     );
@@ -38,7 +38,7 @@ export function PaymentSummary({
   ];
 
   return (
-    <div className="flex flex-col items-end gap-1.5 border-t border-border/60 pt-3">
+    <div className="flex flex-col items-end gap-1.5 border-t border-border pt-3">
       <div className="flex w-full max-w-xs flex-col gap-1">
         {rows.map((row) => (
           <div

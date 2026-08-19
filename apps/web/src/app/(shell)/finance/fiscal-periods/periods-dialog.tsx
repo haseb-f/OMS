@@ -117,7 +117,7 @@ export function PeriodsDialog({
     >
       <div className="flex flex-col gap-2.5">
         {selected.size > 0 && (
-          <div className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-caption">
+          <div className="flex items-center gap-2 rounded-md border border-border bg-muted/20 px-3 py-2 text-caption">
             <span className="text-muted-foreground">
               {t("accounting.periods.bulk.selected", { count: selected.size })}
             </span>
@@ -141,7 +141,7 @@ export function PeriodsDialog({
             </EnterpriseButton>
           </div>
         )}
-        <div className="overflow-x-auto rounded-md border border-border/70">
+        <div className="overflow-x-auto rounded-md border border-border">
           <Table className="w-full">
             <TableHeader className="bg-muted/50">
               <TableRow className="hover:bg-transparent">

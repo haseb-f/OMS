@@ -19,7 +19,6 @@ export default function CurrenciesPage() {
     <MasterDataPage
       titleKey="masterData.currencies.title"
       descriptionKey="masterData.currencies.description"
-      breadcrumbKeys={["nav.finance", "masterData.currencies.title"]}
       tableId="currencies"
       service={service}
       columns={currenciesColumns}

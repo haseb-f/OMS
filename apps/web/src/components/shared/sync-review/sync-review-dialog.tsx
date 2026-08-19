@@ -286,7 +286,7 @@ export function SyncReviewDialog({
       }
     >
       {report ? (
-        <div className="max-h-96 overflow-y-auto rounded-lg border border-border/60">
+        <div className="max-h-96 overflow-y-auto rounded-lg border border-border">
           <table className="w-full text-xs">
             <thead className="sticky top-0 bg-muted/50 text-muted-foreground">
               <tr>
@@ -303,7 +303,7 @@ export function SyncReviewDialog({
             </thead>
             <tbody>
               {report.map((row, idx) => (
-                <tr key={`${row.externalOrderId}-${idx}`} className="border-t border-border/60">
+                <tr key={`${row.externalOrderId}-${idx}`} className="border-t border-border">
                   <td className="p-2 font-medium">{row.externalOrderId}</td>
                   <td className="p-2">
                     <EnterpriseBadge variant={reportResultVariant(row.result)}>

@@ -38,7 +38,6 @@ export default function CitiesPage() {
     <MasterDataPage
       titleKey="masterData.cities.title"
       descriptionKey="masterData.cities.description"
-      breadcrumbKeys={["nav.masterData", "masterData.cities.title"]}
       tableId="cities"
       service={service}
       columns={citiesColumns}

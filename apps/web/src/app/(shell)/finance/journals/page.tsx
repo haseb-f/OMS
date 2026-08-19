@@ -92,7 +92,6 @@ export default function JournalsPage() {
     <MasterDataPage
       titleKey="masterData.journals.title"
       descriptionKey="masterData.journals.description"
-      breadcrumbKeys={["nav.finance", "masterData.journals.title"]}
       tableId="journals"
       service={service}
       columns={journalsColumns}

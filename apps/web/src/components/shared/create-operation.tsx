@@ -37,7 +37,7 @@ export function CreateOperationTotals({
 }) {
   if (rows?.length) {
     return (
-      <div className="flex flex-col gap-1.5 rounded-md border border-border/70 bg-muted/40 px-3 py-2">
+      <div className="flex flex-col gap-1.5 rounded-md border border-border bg-muted/40 px-3 py-2">
         {rows.map((row) => (
           <div key={row.label} className="flex items-baseline justify-between gap-3">
             <span
@@ -59,7 +59,7 @@ export function CreateOperationTotals({
   }
 
   return (
-    <div className="flex items-center justify-between gap-3 rounded-md border border-border/70 bg-muted/40 px-3 py-2">
+    <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/40 px-3 py-2">
       <span className="text-caption text-muted-foreground">{label}</span>
       <div className="text-body font-semibold">{children}</div>
     </div>

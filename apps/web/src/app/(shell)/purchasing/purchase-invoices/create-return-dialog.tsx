@@ -139,7 +139,7 @@ export function CreateReturnDialog({
           return (
             <div
               key={item.id}
-              className="flex flex-wrap items-center gap-3 rounded-md border border-border/60 p-3"
+              className="flex flex-wrap items-center gap-3 rounded-md border border-border p-3"
             >
               <Checkbox
                 checked={!fullyReturned && (included[item.id] ?? false)}

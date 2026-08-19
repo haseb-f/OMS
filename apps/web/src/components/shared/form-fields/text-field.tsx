@@ -45,7 +45,12 @@ export function TextFormField<
             {label}
           </FormLabel>
           <FormControl>
-            <Input {...field} {...inputProps} disabled={disabled} />
+            <Input
+              {...field}
+              {...inputProps}
+              dir={inputProps.dir ?? (inputProps.type === "email" ? "ltr" : undefined)}
+              disabled={disabled}
+            />
           </FormControl>
           {description && <FormDescription>{description}</FormDescription>}
           <FormMessage />

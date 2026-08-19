@@ -50,7 +50,14 @@ export function RowActionsMenu({ actions, label }: { actions: RowAction[]; label
             <DropdownMenuItem
               disabled={action.disabled}
               variant={action.destructive ? "destructive" : "default"}
-              onSelect={action.onSelect}
+              onSelect={(event) => {
+                // Closing the menu and opening a Dialog/AlertDialog on the same
+                // pointer event dismisses the dialog immediately. Defer the
+                // action until the dropdown has released pointer capture.
+                event.preventDefault();
+                setOpen(false);
+                window.setTimeout(() => action.onSelect(), 50);
+              }}
             >
               <action.icon className="size-4" />
               {action.label}

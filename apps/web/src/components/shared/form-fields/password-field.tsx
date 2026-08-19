@@ -13,13 +13,14 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { IconActionButton } from "@/components/shared/icon-action-button";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/providers/locale-provider";
 
 /**
- * Password input with an RTL-safe visibility toggle. Default is hidden.
- * The control is `type="button"` so it never submits the form or mutates the value.
+ * Password input with an LTR value (cursor and characters) and an RTL label.
+ * The visibility toggle sits in a local `dir="ltr"` wrapper so padding-end
+ * and the icon stay on the same side in an RTL page — matching DatePicker.
  */
 export function PasswordFormField<
   TFieldValues extends FieldValues,
@@ -50,34 +51,31 @@ export function PasswordFormField<
       render={({ field }) => (
         <FormItem>
           <FormLabel>{label}</FormLabel>
-          <div className="relative">
+          <div className="relative" dir="ltr">
             <FormControl>
               <Input
                 {...field}
                 {...inputProps}
+                dir="ltr"
                 type={visible ? "text" : "password"}
                 disabled={disabled}
                 spellCheck={false}
+                autoCorrect="off"
+                autoCapitalize="none"
                 className={cn("pe-10", className)}
               />
             </FormControl>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  tabIndex={0}
-                  aria-label={toggleLabel}
-                  aria-pressed={visible}
-                  disabled={disabled}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => setVisible((current) => !current)}
-                  className="absolute end-1.5 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground transition-colors duration-[170ms] ease-(--ease-standard) hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
-                >
-                  {visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="top">{toggleLabel}</TooltipContent>
-            </Tooltip>
+            <div className="absolute inset-y-0 end-0 flex items-center pe-1">
+              <IconActionButton
+                label={toggleLabel}
+                disabled={disabled}
+                pressed={visible}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => setVisible((current) => !current)}
+              >
+                {visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </IconActionButton>
+            </div>
           </div>
           {description && <FormDescription>{description}</FormDescription>}
           <FormMessage />

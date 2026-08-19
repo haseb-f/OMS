@@ -33,7 +33,7 @@ export function RelatedDocuments({ groups }: { groups: RelatedDocumentGroup[] })
   if (nonEmpty.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap items-start gap-x-6 gap-y-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-caption">
+    <div className="flex flex-wrap items-start gap-x-6 gap-y-2 rounded-md border border-border bg-muted/20 px-3 py-2 text-caption">
       {nonEmpty.map((group) => (
         <div key={group.labelKey} className="flex flex-wrap items-center gap-1.5">
           <span className="text-muted-foreground">{t(group.labelKey)}:</span>

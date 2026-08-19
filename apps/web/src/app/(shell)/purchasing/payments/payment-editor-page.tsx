@@ -498,7 +498,7 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
   useBreadcrumbLabel(payment?.transactionNumber ?? t("purchasing.payments.addNew"));
 
   return (
-    <EditorWorkspace backHref="/purchasing/payments">
+    <EditorWorkspace>
       <RelatedDocuments
         groups={[
           {

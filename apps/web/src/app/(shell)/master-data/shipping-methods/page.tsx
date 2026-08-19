@@ -42,7 +42,6 @@ export default function ShippingMethodsPage() {
     <MasterDataPage
       titleKey="masterData.shippingMethods.title"
       descriptionKey="masterData.shippingMethods.description"
-      breadcrumbKeys={["nav.shipping", "masterData.shippingMethods.title"]}
       tableId="shipping-methods"
       service={service}
       columns={shippingMethodsColumns}

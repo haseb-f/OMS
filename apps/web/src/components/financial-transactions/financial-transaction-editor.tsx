@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
+import { EditorHeader } from "@/components/shared/detail-workspace";
 import { StatusBadge } from "@/components/business/status-badge";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
 import { AllocationGrid } from "./allocation-grid";
@@ -150,40 +151,37 @@ export function FinancialTransactionEditor({
   return (
     <EnterpriseCard size="sm">
       <EnterpriseCardContent className="flex flex-col gap-4">
-        {/* Header + Toolbar — one row */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
-          <div className="flex items-center gap-3">
-            <div>
-              <h1 className="text-ui-title font-semibold">{config.title}</h1>
-              <p dir="ltr" className="text-caption text-muted-foreground">
-                {state.documentNumber ?? `${config.docCodePreview ?? ""}-…`}
-              </p>
-            </div>
-            {currentStatusOption && (
+        <EditorHeader
+          title={config.title}
+          documentNumber={state.documentNumber ?? `${config.docCodePreview ?? ""}-…`}
+          status={
+            currentStatusOption ? (
               <StatusBadge label={currentStatusOption.label} tone={currentStatusOption.tone} />
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {config.toolbarExtra}
-            {visibleActions.map((action) => {
-              const Icon = action.icon;
-              return (
-                <EnterpriseButton
-                  key={action.key}
-                  type="button"
-                  variant={action.variant ?? "ghost"}
-                  size="sm"
-                  className="gap-1.5"
-                  disabled={isBusy}
-                  onClick={() => action.onAction({ document: state.document })}
-                >
-                  {Icon && <Icon className="size-3.5" />}
-                  {action.label}
-                </EnterpriseButton>
-              );
-            })}
-          </div>
-        </div>
+            ) : null
+          }
+          actions={
+            <>
+              {config.toolbarExtra}
+              {visibleActions.map((action) => {
+                const Icon = action.icon;
+                return (
+                  <EnterpriseButton
+                    key={action.key}
+                    type="button"
+                    variant={action.variant ?? "ghost"}
+                    size="sm"
+                    className="gap-1.5"
+                    disabled={isBusy}
+                    onClick={() => action.onAction({ document: state.document })}
+                  >
+                    {Icon && <Icon className="size-3.5" />}
+                    {action.label}
+                  </EnterpriseButton>
+                );
+              })}
+            </>
+          }
+        />
 
         {/* Main form — compact grid, default-visible fields only */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -336,7 +334,7 @@ export function FinancialTransactionEditor({
               {t("sales.editor.sections.moreDetails")}
             </EnterpriseButton>
           </CollapsibleTrigger>
-          <CollapsibleContent className="flex flex-col gap-4 border-t border-border/60 pt-4">
+          <CollapsibleContent className="flex flex-col gap-4 border-t border-border pt-4">
             <div>
               <p className="mb-1 text-caption font-medium text-muted-foreground">
                 {t("sales.editor.sidebar.activity")}

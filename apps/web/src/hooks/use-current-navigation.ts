@@ -6,6 +6,7 @@ import { navigationConfig } from "@/navigation/navigation.config";
 import {
   findNavigationItemByRoute,
   findNavigationAncestorByRoute,
+  findNavigationParentRoute,
   getNavigationBreadcrumb,
 } from "@/navigation/build-navigation-tree";
 
@@ -25,6 +26,7 @@ export function useCurrentNavigation() {
     const exact = findNavigationItemByRoute(navigationConfig, pathname);
     const current = exact ?? findNavigationAncestorByRoute(navigationConfig, pathname);
     const breadcrumb = current ? getNavigationBreadcrumb(navigationConfig, current) : [];
-    return { pathname, current, breadcrumb, isExactMatch: Boolean(exact) };
+    const parentRoute = findNavigationParentRoute(navigationConfig, pathname);
+    return { pathname, current, breadcrumb, parentRoute, isExactMatch: Boolean(exact) };
   }, [pathname]);
 }

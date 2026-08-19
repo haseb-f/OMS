@@ -148,7 +148,6 @@ function CustomersPageContent() {
     <MasterDataPage<CustomerRow>
       titleKey="sales.customers.title"
       descriptionKey="sales.customers.description"
-      breadcrumbKeys={["nav.sales", "sales.customers.title"]}
       tableId="sales-customers"
       icon={UserCircle}
       service={customersService}

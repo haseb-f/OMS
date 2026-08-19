@@ -19,7 +19,6 @@ export default function BrandsPage() {
     <MasterDataPage
       titleKey="masterData.brands.title"
       descriptionKey="masterData.brands.description"
-      breadcrumbKeys={["nav.products", "masterData.brands.title"]}
       tableId="brands"
       service={service}
       columns={brandsColumns}

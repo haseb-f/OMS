@@ -26,7 +26,7 @@ export function EntityHeader({
     <div className={cn("flex flex-wrap items-start justify-between gap-4", className)}>
       <div className="flex items-start gap-3">
         {Icon && (
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground">
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
             <Icon className="size-5" />
           </div>
         )}

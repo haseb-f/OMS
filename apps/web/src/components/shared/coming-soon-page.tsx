@@ -21,14 +21,13 @@ export function ComingSoonPage({
 }: {
   titleKey: MessageKey;
   descriptionKey?: MessageKey;
-  breadcrumbKeys: MessageKey[];
   icon: LucideIcon;
 }) {
   const { t } = useLocale();
 
   return (
     <PageWorkspace title={t(titleKey)} description={descriptionKey ? t(descriptionKey) : undefined}>
-      <div className="rounded-xl border border-dashed border-border py-6">
+      <div className="rounded-sm border border-dashed border-border py-6">
         <EmptyState
           icon={Icon}
           title={t("common.comingSoon")}

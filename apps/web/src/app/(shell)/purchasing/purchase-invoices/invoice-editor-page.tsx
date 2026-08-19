@@ -374,7 +374,7 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
   useBreadcrumbLabel(invoice?.invoiceNumber ?? t("purchasing.invoices.addNew"));
 
   return (
-    <EditorWorkspace backHref="/purchasing/purchase-invoices">
+    <EditorWorkspace>
       <RelatedDocuments
         groups={[
           {

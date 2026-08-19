@@ -1,7 +1,19 @@
+import { EnterpriseBadge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { CurrencyDisplay } from "./currency-display";
 
-/** A pill-shaped amount, tinted green for incoming/positive and red for outgoing/negative. */
+const TONE_VARIANT = {
+  positive: "success",
+  negative: "destructive",
+  neutral: "secondary",
+} as const;
+
+/**
+ * A tinted amount — green for incoming/positive, red for outgoing/negative.
+ * Renders through `EnterpriseBadge` so tone colors, height, radius, and type
+ * scale come from the one badge system rather than a parallel set of pill
+ * classes that drifts every time the badge tokens change.
+ */
 export function MoneyBadge({
   amount,
   currency,
@@ -13,21 +25,9 @@ export function MoneyBadge({
   tone?: "positive" | "negative" | "neutral";
   className?: string;
 }) {
-  const toneClasses = {
-    positive: "bg-success/10 text-success",
-    negative: "bg-destructive/10 text-destructive",
-    neutral: "bg-muted text-foreground",
-  } as const;
-
   return (
-    <span
-      className={cn(
-        "inline-flex h-6 items-center rounded-full px-2.5 text-caption font-semibold",
-        toneClasses[tone],
-        className,
-      )}
-    >
+    <EnterpriseBadge variant={TONE_VARIANT[tone]} className={cn("font-semibold", className)}>
       <CurrencyDisplay amount={amount} currency={currency} />
-    </span>
+    </EnterpriseBadge>
   );
 }

@@ -12,6 +12,7 @@ import {
   EMPTY_REPORT_FILTERS,
   type ReportFilterValue,
 } from "@/components/accounting/report-filter-bar";
+import { FilterSurface } from "@/components/shared/data-table/list-surface";
 import {
   accountingReportsService,
   type IncomeStatementResult,
@@ -86,7 +87,9 @@ export function IncomeStatementTab() {
 
   return (
     <div className="flex flex-col gap-3">
-      <AccountingReportFilterBar value={filters} onChange={setFilters} />
+      <FilterSurface>
+        <AccountingReportFilterBar value={filters} onChange={setFilters} />
+      </FilterSurface>
 
       <div className="flex flex-col gap-1.5">
         <h3 className="text-body font-semibold">{t("reports.finance.fields.revenue")}</h3>

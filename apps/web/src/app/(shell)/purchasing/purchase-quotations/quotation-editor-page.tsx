@@ -355,7 +355,7 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
   useBreadcrumbLabel(quotation?.quotationNumber ?? t("purchasing.quotations.addNew"));
 
   return (
-    <EditorWorkspace backHref="/purchasing/purchase-quotations">
+    <EditorWorkspace>
       <PurchasingDocumentEditor
         config={{
           ...config,

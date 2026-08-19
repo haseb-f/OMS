@@ -41,6 +41,7 @@ import {
   TRANSACTION_STATUS_TONE,
 } from "@/config/financial-transactions/status";
 import { buildPaymentPrintPayload } from "@/config/purchasing/payment-print";
+import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
 import { useLocale } from "@/providers/locale-provider";
@@ -63,14 +64,17 @@ function SupplierPaymentsPageContent() {
 
   const [items, setItems] = useState<FinancialTransactionRow[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-  const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState("createdAt");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [statusFilter, setStatusFilter] = useState<string[]>([]);
-  const [supplierFilter, setSupplierFilter] = useState<SupplierRow[]>([]);
-  const [dateRange, setDateRange] = useState<DateRangeValue>(EMPTY_DATE_RANGE);
+  const [page, setPage] = usePathRestorableState("page", 1);
+  const [pageSize, setPageSize] = usePathRestorableState("pageSize", 20);
+  const [search, setSearch] = usePathRestorableState("search", "");
+  const [sortBy, setSortBy] = usePathRestorableState("sortBy", "createdAt");
+  const [sortOrder, setSortOrder] = usePathRestorableState<"asc" | "desc">("sortOrder", "desc");
+  const [statusFilter, setStatusFilter] = usePathRestorableState<string[]>("status", []);
+  const [supplierFilter, setSupplierFilter] = usePathRestorableState<SupplierRow[]>("supplier", []);
+  const [dateRange, setDateRange] = usePathRestorableState<DateRangeValue>(
+    "dateRange",
+    EMPTY_DATE_RANGE,
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const usersById = useUsersLookup();

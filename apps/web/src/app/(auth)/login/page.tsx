@@ -33,7 +33,12 @@ function LoginForm() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const schema = z.object({
-    email: z.string().min(1, t("auth.emailRequired")).email(t("auth.emailRequired")),
+    email: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .min(1, t("auth.emailRequired"))
+      .email(t("auth.emailRequired")),
     password: z.string().min(1, t("auth.passwordRequired")),
     rememberMe: z.boolean(),
   });
@@ -46,11 +51,11 @@ function LoginForm() {
       await login(values.email, values.password, values.rememberMe);
       router.push(searchParams.get("next") ?? "/");
     } catch (error) {
-      setFormError(
-        error instanceof ApiError && error.status === 401
-          ? t("auth.invalidCredentials")
-          : t("auth.genericError"),
-      );
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        setFormError(error.message);
+        return;
+      }
+      setFormError(t("auth.genericError"));
     }
   });
 

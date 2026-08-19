@@ -162,29 +162,31 @@ export function SyncButton({
     }
   };
 
+  const actionButton = (
+    <EnterpriseButton
+      type="button"
+      variant="info"
+      onClick={handleClick}
+      disabled={loading}
+      aria-label={t("importCenter.sync.button")}
+      className={cn(
+        layout === "workspace"
+          ? SYNC_ACTION_BUTTON_CLASS
+          : "h-auto min-h-(--control-height-md) gap-2 rounded-md px-3 py-1.5 text-[length:var(--text-button)]",
+        "ring-1 ring-info-foreground/15 transition-shadow",
+      )}
+    >
+      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-info-foreground/15">
+        <CloudCog className={cn("size-3.5", loading && "animate-spin")} />
+      </span>
+      {loading ? t("importCenter.sync.loading") : t("importCenter.sync.button")}
+    </EnterpriseButton>
+  );
+
   return (
     <>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <EnterpriseButton
-            type="button"
-            variant="info"
-            onClick={handleClick}
-            disabled={loading}
-            aria-label={t("importCenter.sync.button")}
-            className={cn(
-              layout === "workspace"
-                ? SYNC_ACTION_BUTTON_CLASS
-                : "h-auto min-h-(--control-height-md) gap-2 rounded-md px-3 py-1.5 text-[length:var(--text-button)]",
-              "ring-1 ring-info-foreground/15 transition-shadow",
-            )}
-          >
-            <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-info-foreground/15">
-              <CloudCog className={cn("size-3.5", loading && "animate-spin")} />
-            </span>
-            {loading ? t("importCenter.sync.loading") : t("importCenter.sync.button")}
-          </EnterpriseButton>
-        </TooltipTrigger>
+        <TooltipTrigger asChild>{actionButton}</TooltipTrigger>
         <TooltipContent
           side="bottom"
           align="start"

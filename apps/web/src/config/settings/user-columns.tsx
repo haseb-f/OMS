@@ -1,12 +1,13 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { KeyRound, Lock, Pencil, ShieldAlert, Unlock } from "lucide-react";
+import { Archive, KeyRound, Lock, Pencil, ShieldAlert, Unlock } from "lucide-react";
 import { StatusBadge } from "@/components/business/status-badge";
-import { SalesDocumentRowActionsMenu, type SalesDocumentRowAction } from "@/components/sales";
+import { RowActionsMenu, type RowAction } from "@/components/shared/data-table";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { formatDateTime } from "@/lib/date";
+import { useAuth } from "@/providers/auth-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import type { UserRow } from "@/services/users-service";
@@ -17,6 +18,7 @@ export interface UserRowHandlers {
   onUnlock: (row: UserRow) => void;
   onResetPassword: (row: UserRow) => void;
   onForcePasswordChange: (row: UserRow) => void;
+  onArchive: (row: UserRow) => void;
 }
 
 function StatusCell({ row }: { row: UserRow }) {
@@ -34,8 +36,10 @@ function StatusCell({ row }: { row: UserRow }) {
 function ActionsCell({ row, handlers }: { row: UserRow; handlers: UserRowHandlers }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
+  const { user } = useAuth();
   const canManage = hasPermission("settings.manage");
-  const actions: SalesDocumentRowAction[] = [
+  const isSelf = user?.id === row.id;
+  const actions: RowAction[] = [
     {
       key: "edit",
       label: t("common.edit"),
@@ -73,8 +77,17 @@ function ActionsCell({ row, handlers }: { row: UserRow; handlers: UserRowHandler
       hidden: row.mustChangePassword || !canManage,
       onSelect: () => handlers.onForcePasswordChange(row),
     },
+    {
+      key: "archive",
+      label: t("common.archive"),
+      icon: Archive,
+      hidden: !canManage || isSelf,
+      destructive: true,
+      separatorBefore: true,
+      onSelect: () => handlers.onArchive(row),
+    },
   ];
-  return <SalesDocumentRowActionsMenu actions={actions} label={t("common.actions")} />;
+  return <RowActionsMenu actions={actions} label={t("common.actions")} />;
 }
 
 export function buildUserColumns(handlers: UserRowHandlers): ColumnDef<UserRow, unknown>[] {
@@ -163,6 +176,7 @@ export function buildUserColumns(handlers: UserRowHandlers): ColumnDef<UserRow, 
       id: "__actions",
       meta: { titleKey: "common.actions" },
       enableHiding: false,
+      enableSorting: false,
       cell: ({ row }) => <ActionsCell row={row.original} handlers={handlers} />,
     },
   ];

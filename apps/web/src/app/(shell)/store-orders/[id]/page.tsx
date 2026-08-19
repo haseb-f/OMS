@@ -9,7 +9,6 @@ import {
   DetailFieldGrid,
   DetailSection,
   DetailWorkspace,
-  BackButton,
 } from "@/components/shared/detail-workspace";
 import { RowActionsMenu } from "@/components/shared/data-table";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -42,6 +41,7 @@ import {
   SHIPPING_STAGE_LABEL_KEY,
   SHIPPING_STAGE_TONE,
   isReadyForShipping,
+  paymentRecordStatusBadge,
 } from "@/config/store-orders/status";
 import { shipmentStatusLabelKey, shipmentStatusTone } from "@/config/shipping/shipment-status";
 import { useLocale } from "@/providers/locale-provider";
@@ -167,7 +167,6 @@ function StoreOrderDetailContent() {
   if (isLoading) {
     return (
       <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-2">
-        <BackButton href="/store-orders" />
         <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
       </div>
     );
@@ -175,7 +174,6 @@ function StoreOrderDetailContent() {
   if (!order) {
     return (
       <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-2">
-        <BackButton href="/store-orders" />
         <EmptyState icon={FileText} title={t("common.noResults")} />
       </div>
     );
@@ -202,7 +200,6 @@ function StoreOrderDetailContent() {
 
   return (
     <DetailWorkspace
-      backHref="/store-orders"
       title={
         <SemanticValue kind="id" className="text-ui-title font-semibold">
           {order.internalOrderId}
@@ -373,18 +370,30 @@ function StoreOrderDetailContent() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {order.payments.map((payment) => (
-                  <TableRow key={payment.id}>
-                    <TableCell>
-                      <SemanticValue kind="id">{payment.paymentNumber}</SemanticValue>
-                    </TableCell>
-                    <TableCell>{formatDate(payment.paymentDate)}</TableCell>
-                    <TableCell className="text-end">
-                      <MoneyValue value={payment.amount} currency={order.currency} />
-                    </TableCell>
-                    <TableCell>{payment.status}</TableCell>
-                  </TableRow>
-                ))}
+                {order.payments.map((payment) => {
+                  const paymentStatus = paymentRecordStatusBadge(payment.status);
+                  return (
+                    <TableRow key={payment.id}>
+                      <TableCell>
+                        <SemanticValue kind="id">{payment.paymentNumber}</SemanticValue>
+                      </TableCell>
+                      <TableCell>{formatDate(payment.paymentDate)}</TableCell>
+                      <TableCell className="text-end">
+                        <MoneyValue value={payment.amount} currency={order.currency} />
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge
+                          label={
+                            paymentStatus.labelKey
+                              ? t(paymentStatus.labelKey)
+                              : paymentStatus.fallback
+                          }
+                          tone={paymentStatus.tone}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
@@ -554,7 +563,7 @@ function StoreOrderDetailContent() {
             <AuditTimeline entries={timelineEntries} />
           )}
           {canEdit ? (
-            <div className="flex flex-col gap-2 border-t border-border/60 pt-3">
+            <div className="flex flex-col gap-2 border-t border-border pt-3">
               <Label>{t("storeOrders.detail.notes.addLabel")}</Label>
               <Textarea
                 value={noteText}

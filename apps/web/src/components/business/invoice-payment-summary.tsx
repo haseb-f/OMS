@@ -57,7 +57,7 @@ export function InvoicePaymentSummary({
     grandTotal > 0 ? Math.min(100, Math.round((allocatedTotal / grandTotal) * 100)) : 0;
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border/60 p-3">
+    <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
       <div className="flex items-center justify-between">
         <span className="text-caption font-medium text-muted-foreground">
           {t("financialTransactions.paymentSummary.title")}

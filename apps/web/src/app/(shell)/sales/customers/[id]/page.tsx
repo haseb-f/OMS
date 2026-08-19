@@ -8,7 +8,6 @@ import {
   DetailFieldGrid,
   DetailSection,
   DetailWorkspace,
-  BackButton,
 } from "@/components/shared/detail-workspace";
 import { RowActionsMenu } from "@/components/shared/data-table";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
@@ -124,7 +123,6 @@ export default function CustomerProfilePage() {
   if (isLoading) {
     return (
       <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-2">
-        <BackButton href="/sales/customers" />
         <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
       </div>
     );
@@ -132,7 +130,6 @@ export default function CustomerProfilePage() {
   if (!customer) {
     return (
       <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-2">
-        <BackButton href="/sales/customers" />
         <EmptyState icon={FileText} title={t("common.noResults")} />
       </div>
     );
@@ -228,7 +225,6 @@ export default function CustomerProfilePage() {
 
   return (
     <DetailWorkspace
-      backHref="/sales/customers"
       title={customer.name}
       subtitle={customer.customerNumber}
       status={
@@ -430,7 +426,7 @@ export default function CustomerProfilePage() {
                         key={order.id}
                         type="button"
                         onClick={() => router.push(`/crm/leads/${order.id}`)}
-                        className="flex items-center justify-between gap-4 border-b border-border/60 py-3 text-start last:border-b-0 hover:bg-muted/40"
+                        className="flex items-center justify-between gap-4 border-b border-border py-3 text-start last:border-b-0 hover:bg-muted/40"
                       >
                         <div className="flex flex-col gap-0.5">
                           <span className="text-sm font-medium">{order.leadNumber}</span>

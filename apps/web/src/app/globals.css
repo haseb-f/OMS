@@ -41,37 +41,43 @@
   --color-foreground: var(--foreground);
   --color-background: var(--background);
   /*
-   * OMS Design Bible (ADR-0018, Enterprise Refinement) — the radius scale is
-   * a closed set of values, sized down to read as Enterprise ERP (Odoo/
-   * Dynamics/Fiori/Linear/Stripe), never as a mobile app: 8 / 10 / 12 / 14px.
-   * No component may introduce a value outside this set — badges (999px
-   * pill) and avatars (full circle) are the only intentional exceptions, via
+   * OMS Design Bible (ADR-0018, ADR-0022 density pass) — the radius scale is
+   * a closed set, tightened to read as a dense operational console rather
+   * than a consumer app: 6 / 8 / 12 / 16px. Small surfaces and controls stay
+   * near-square; only true containers and floating layers round off. No
+   * component may introduce a value outside this set — badges (999px pill)
+   * and avatars (full circle) are the only intentional exceptions, via
    * `rounded-full`, not a scale step.
-   * --radius-xs  8px  — inputs, dropdown/select menus
-   * --radius-sm 10px  — buttons, tables
-   * --radius-md 12px  — cards, panels (also backs --radius-2xl)
-   * --radius-lg 14px  — dialogs/modals, drawers, floating containers
-   *                     (also backs --radius-xl / --radius-3xl)
+   * --radius-xs  6px  — inputs, dropdown/select menus, badges, tooltips
+   * --radius-sm  8px  — buttons, table containers, toolbars
+   * --radius-md 12px  — cards, panels (also backs --radius-xl / --radius-2xl)
+   * --radius-lg 12px  — dialogs/modals, drawers, floating containers
+   * --radius-3xl 16px — full-screen surfaces only
    */
-  --radius-xs: 8px;
-  --radius-sm: 10px;
+  --radius-xs: 6px;
+  --radius-sm: 8px;
   --radius-md: 12px;
-  --radius-lg: 14px;
-  --radius-xl: 14px;
+  --radius-lg: 12px;
+  --radius-xl: 12px;
   --radius-2xl: 12px;
-  --radius-3xl: 14px;
+  --radius-3xl: 16px;
 
-  /* Shadow scale — soft, neutral-tinted elevation only, never dark/black. */
-  --shadow-xs: 0 1px 2px 0 oklch(0.22 0.02 255 / 0.04);
-  --shadow-sm:
-    0 2px 6px -1px oklch(0.22 0.02 255 / 0.05), 0 1px 2px -1px oklch(0.22 0.02 255 / 0.04);
+  /*
+   * Shadow scale — soft, neutral-tinted elevation only, never dark/black.
+   * On-page surfaces (cards, tables, toolbars) are drawn with a 1px border
+   * and no shadow; elevation is reserved for genuinely floating layers
+   * (menus, popovers, dialogs), which is what separates a dense console
+   * from a page of stacked panels.
+   */
+  --shadow-xs: 0 1px 1px 0 oklch(0.22 0.02 255 / 0.03);
+  --shadow-sm: 0 1px 2px 0 oklch(0.22 0.02 255 / 0.05);
   --shadow-md:
-    0 8px 16px -4px oklch(0.22 0.02 255 / 0.06), 0 2px 6px -2px oklch(0.22 0.02 255 / 0.04);
+    0 4px 10px -3px oklch(0.22 0.02 255 / 0.07), 0 1px 3px -1px oklch(0.22 0.02 255 / 0.04);
   --shadow-lg:
-    0 16px 32px -8px oklch(0.22 0.02 255 / 0.08), 0 4px 10px -4px oklch(0.22 0.02 255 / 0.05);
+    0 12px 24px -6px oklch(0.22 0.02 255 / 0.1), 0 3px 8px -3px oklch(0.22 0.02 255 / 0.05);
   --shadow-xl:
-    0 24px 48px -12px oklch(0.22 0.02 255 / 0.1), 0 8px 20px -6px oklch(0.22 0.02 255 / 0.06);
-  --shadow-2xl: 0 32px 64px -16px oklch(0.22 0.02 255 / 0.12);
+    0 20px 40px -10px oklch(0.22 0.02 255 / 0.12), 0 6px 16px -6px oklch(0.22 0.02 255 / 0.06);
+  --shadow-2xl: 0 28px 56px -14px oklch(0.22 0.02 255 / 0.14);
 
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);

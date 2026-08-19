@@ -498,7 +498,7 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
   useBreadcrumbLabel(receipt?.transactionNumber ?? t("sales.receipts.addNew"));
 
   return (
-    <EditorWorkspace backHref="/sales/payments">
+    <EditorWorkspace>
       <RelatedDocuments
         groups={[
           {

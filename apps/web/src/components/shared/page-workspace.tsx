@@ -8,14 +8,14 @@ import { cn } from "@/lib/utils";
  * → Main workspace (table, form, operational content)
  * → Secondary (metrics, activity, supporting panels)
  *
- * Filters belong with the workspace that owns them (e.g. the table card),
- * not as a floating strip under the title. Breadcrumbs live in the shell.
+ * Filters belong to the workspace that owns them — `filterBar` on
+ * `EnterpriseDataTable`, or `ListToolbar` for the few lists that cannot be a
+ * flat table. Breadcrumbs and Back live in the shell.
  */
 export function PageWorkspace({
   title,
   description,
   actions,
-  filters,
   children,
   secondary,
   className,
@@ -23,15 +23,13 @@ export function PageWorkspace({
   title: string;
   description?: string;
   actions?: ReactNode;
-  /** Prefer `filterBar` on EnterpriseDataTable. Use this only when the page has no table. */
-  filters?: ReactNode;
   children?: ReactNode;
   secondary?: ReactNode;
   className?: string;
 }) {
   return (
     <div className={cn("flex flex-col gap-3", className)}>
-      <PageHeader title={title} subtitle={description} actions={actions} filters={filters} />
+      <PageHeader title={title} subtitle={description} actions={actions} />
       {children ? <div className="min-w-0">{children}</div> : null}
       {secondary ? <aside className="min-w-0">{secondary}</aside> : null}
     </div>

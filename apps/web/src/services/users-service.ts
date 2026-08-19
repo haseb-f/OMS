@@ -24,12 +24,15 @@ export interface UserFormPayload {
   username?: string;
   fullName?: string;
   password?: string;
+  generatePassword?: boolean;
   mobile?: string;
   department?: string;
   jobTitleId?: string;
   branchId?: string;
   isActive?: boolean;
 }
+
+export type UserMutationResult = UserRow & { temporaryPassword?: string };
 
 export interface UserPermissionsResult {
   granted: string[];
@@ -45,13 +48,13 @@ export const usersService = {
   list: (search?: string) =>
     apiClient.get<UserRow[]>(`/users${search ? `?search=${encodeURIComponent(search)}` : ""}`),
   get: (id: string) => apiClient.get<UserRow>(`/users/${id}`),
-  create: (dto: UserFormPayload) => apiClient.post<UserRow>("/users", dto),
+  create: (dto: UserFormPayload) => apiClient.post<UserMutationResult>("/users", dto),
   update: (id: string, dto: UserFormPayload) => apiClient.patch<UserRow>(`/users/${id}`, dto),
   remove: (id: string) => apiClient.delete<UserRow>(`/users/${id}`),
   lock: (id: string) => apiClient.post<UserRow>(`/users/${id}/lock`),
   unlock: (id: string) => apiClient.post<UserRow>(`/users/${id}/unlock`),
-  resetPassword: (id: string, newPassword: string) =>
-    apiClient.post<UserRow>(`/users/${id}/reset-password`, { newPassword }),
+  resetPassword: (id: string) =>
+    apiClient.post<UserMutationResult>(`/users/${id}/reset-password`, {}),
   forcePasswordChange: (id: string) =>
     apiClient.post<UserRow>(`/users/${id}/force-password-change`),
   getPermissions: (id: string) => apiClient.get<UserPermissionsResult>(`/users/${id}/permissions`),

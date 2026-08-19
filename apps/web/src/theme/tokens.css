@@ -24,26 +24,28 @@
    * so buttons and internal page headers stay proportional to 36px controls
    * without shrinking body copy.
    */
-  --text-display: 2.5rem; /* 40px */
+  --text-display: 2rem; /* 32px */
   --text-display--line-height: 1.15;
   --text-display--font-weight: 600;
-  --text-page-title: 1.875rem; /* 30px */
+  --text-page-title: 1.5rem; /* 24px */
   --text-page-title--line-height: 1.25;
   --text-page-title--font-weight: 600;
-  --text-section-title: 1.375rem; /* 22px */
+  --text-section-title: 1.25rem; /* 20px */
   --text-section-title--line-height: 1.35;
   --text-section-title--font-weight: 600;
-  --text-card-title: 1.125rem; /* 18px */
+  --text-card-title: 1rem; /* 16px */
   --text-card-title--line-height: 1.4;
   --text-card-title--font-weight: 600;
-  --text-body: 0.9375rem; /* 15px */
-  --text-body--line-height: 1.6;
+  --text-body: 0.875rem; /* 14px — the workhorse size for dense operational UI */
+  --text-body--line-height: 1.5;
   --text-button: 0.875rem; /* 14px — buttons, tabs, compact chrome */
   --text-button--line-height: 1.25;
   --text-button--font-weight: 600;
-  --text-caption: 0.8125rem; /* 13px */
+  --text-caption: 0.8125rem; /* 13px — secondary lines, table headers, help text */
   --text-caption--line-height: 1.4;
-  --text-ui-title: 1.25rem; /* 20px — internal page headers, not hero 30px */
+  --text-micro: 0.75rem; /* 12px — tertiary metadata in busy views only */
+  --text-micro--line-height: 1.35;
+  --text-ui-title: 1.25rem; /* 20px — internal page headers, not hero 24px */
   --text-ui-title--line-height: 1.3;
   --text-ui-title--font-weight: 600;
 }

@@ -108,7 +108,7 @@ export function SyncSourcesManager({
             </EnterpriseButton>
           </div>
 
-          <div className="max-h-80 overflow-y-auto rounded-lg border border-border/60">
+          <div className="max-h-80 overflow-y-auto rounded-lg border border-border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -290,7 +290,7 @@ function CreateSourceDialog({
 
           <div className="flex flex-col gap-2">
             <Label>{t("importCenter.wizard.mapping.title")}</Label>
-            <div className="flex max-h-64 flex-col gap-1.5 overflow-y-auto rounded-lg border border-border/60 p-2">
+            <div className="flex max-h-64 flex-col gap-1.5 overflow-y-auto rounded-lg border border-border p-2">
               {fields.map((field) => (
                 <div key={field.key} className="flex items-center gap-2">
                   <span className="w-40 shrink-0 truncate text-caption">

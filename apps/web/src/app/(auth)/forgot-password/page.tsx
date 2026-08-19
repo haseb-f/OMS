@@ -16,7 +16,12 @@ export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false);
 
   const schema = z.object({
-    email: z.string().min(1, t("auth.emailRequired")).email(t("auth.emailRequired")),
+    email: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .min(1, t("auth.emailRequired"))
+      .email(t("auth.emailRequired")),
   });
   const form = useZodForm(schema, { defaultValues: { email: "" } });
 

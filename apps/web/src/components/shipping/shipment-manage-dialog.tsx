@@ -132,7 +132,7 @@ export function ShipmentManageDialog({
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2">
             <span className="text-caption text-muted-foreground">
               {t("shipping.manage.currentStatus")}
             </span>

@@ -50,6 +50,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
+import { ListFooter, ListSurface, ListToolbar } from "@/components/shared/data-table/list-surface";
 import { ExportDialog, type ExportColumn } from "@/components/shared/export-dialog";
 import { ImportDialog } from "@/components/shared/import-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -69,6 +70,7 @@ import {
 } from "@/components/shared/data-table";
 import { useLocale } from "@/providers/locale-provider";
 import { useLocalStorage } from "@/hooks/use-local-storage";
+import { useRestorableState } from "@/hooks/use-restorable-state";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
@@ -248,16 +250,23 @@ export function EnterpriseDataTable<TData>({
   );
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
-  const [expanded, setExpanded] = useState<ExpandedState>({});
+  const [expanded, setExpanded] = useRestorableState<ExpandedState>(
+    `oms.table.${tableId}.session.expanded`,
+    {},
+  );
   const canExpandRows = Boolean(renderExpandedRegions);
 
   const isServerMode = page !== undefined && onPageChange !== undefined;
 
   // Client-mode-only state — never read/written when a caller drives the
   // table in server mode, since that caller owns this state itself. Sort
-  // and page size are persisted (page index isn't — the data set the index
-  // points at can differ run to run, so restarting at page 1 is correct).
-  const [internalPageIndex, setInternalPageIndex] = useState(0);
+  // and page size are persisted in localStorage; search, page index, and
+  // expanded rows use the in-memory session cache so list → detail → Back
+  // restores them without surviving a full reload.
+  const [internalPageIndex, setInternalPageIndex] = useRestorableState(
+    `oms.table.${tableId}.session.pageIndex`,
+    0,
+  );
   const [internalPageSize, setInternalPageSize] = useLocalStorage<number>(
     `oms.table.${tableId}.pageSize`,
     pageSize,
@@ -266,7 +275,10 @@ export function EnterpriseDataTable<TData>({
     `oms.table.${tableId}.sorting`,
     [],
   );
-  const [internalSearch, setInternalSearch] = useState("");
+  const [internalSearch, setInternalSearch] = useRestorableState(
+    `oms.table.${tableId}.session.search`,
+    "",
+  );
   const [internalRowSelection, setInternalRowSelection] = useState<RowSelectionState>({});
 
   // Column resize drag tracking — a custom pixel-width override layered on
@@ -547,7 +559,7 @@ export function EnterpriseDataTable<TData>({
     isServerMode && (totalCount ?? 0) > 0 && selectedCount >= (totalCount ?? 0);
   // Compact: two-line grouping with tighter padding. Comfortable: the same
   // hierarchy with more vertical rhythm. Neither density shrinks type.
-  const cellPaddingClass = density === "compact" ? "py-2.5" : "py-3.5";
+  const cellPaddingClass = density === "compact" ? "py-2" : "py-3";
   const cellTextClass = "text-body";
 
   // Smart Column Engine (TASK-035 FINAL) — resolve every currently-visible
@@ -721,9 +733,9 @@ export function EnterpriseDataTable<TData>({
           drives the responsive column-hide engine off the card's own
           available width, not the viewport, since a fixed-width sidebar
           means those two diverge. */}
-      <div className="@container/enterprise-table flex min-w-0 flex-col overflow-hidden rounded-md border border-border/70 bg-card shadow-xs">
+      <ListSurface className="@container/enterprise-table">
         {filterBar ? (
-          <div className="flex flex-wrap items-center gap-2 border-b border-border/70 px-4 py-2 sm:px-5">
+          <ListToolbar>
             <Input
               value={effectiveSearch}
               onChange={(event) => handleSearchChange(event.target.value)}
@@ -731,9 +743,9 @@ export function EnterpriseDataTable<TData>({
               className="h-(--control-height-sm) max-w-(--width-control-search)"
             />
             {filterBar}
-          </div>
+          </ListToolbar>
         ) : null}
-        <div className="flex flex-wrap items-center gap-2 border-b border-border/70 px-4 py-2 sm:px-5">
+        <ListToolbar>
           {!filterBar && (
             <Input
               value={effectiveSearch}
@@ -831,16 +843,13 @@ export function EnterpriseDataTable<TData>({
               <TooltipContent side="top">{t("table.restoreDefaultLayout")}</TooltipContent>
             </Tooltip>
           </div>
-        </div>
+        </ListToolbar>
 
         {renderMobileRow && (
           <div className="max-h-[70vh] overflow-auto @3xl/enterprise-table:hidden">
             {isLoading ? (
               Array.from({ length: 4 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="flex flex-col gap-2 border-b border-border/70 px-4 py-3"
-                >
+                <div key={index} className="flex flex-col gap-2 border-b border-border px-4 py-3">
                   <Skeleton className="h-4 w-2/3" />
                   <Skeleton className="h-3 w-1/3" />
                   <Skeleton className="h-4 w-1/2" />
@@ -897,7 +906,7 @@ export function EnterpriseDataTable<TData>({
                 );
               })}
             </colgroup>
-            <TableHeader className="sticky top-0 z-10 bg-muted/50 shadow-[0_1px_0_0_var(--border)]">
+            <TableHeader className="sticky top-0 z-10 bg-muted/60 shadow-[0_1px_0_0_var(--border)]">
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id} className="hover:bg-transparent">
                   {headerGroup.headers.map((header, index) => {
@@ -1147,10 +1156,10 @@ export function EnterpriseDataTable<TData>({
           </Table>
         </div>
 
-        <div className="border-t border-border/70 px-5 py-2.5">
+        <ListFooter>
           <EnterprisePagination table={table} />
-        </div>
-      </div>
+        </ListFooter>
+      </ListSurface>
 
       {exportColumns && onExport && (
         <ExportDialog

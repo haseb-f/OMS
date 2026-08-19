@@ -8,7 +8,6 @@ export default function ReportsAnalyticsPage() {
     <ComingSoonPage
       titleKey="nav.reportsAnalytics"
       descriptionKey="reports.categories.analytics"
-      breadcrumbKeys={["nav.reports", "nav.reportsAnalytics"]}
       icon={Layers}
     />
   );

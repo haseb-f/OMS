@@ -8,7 +8,6 @@ import {
   DetailFieldGrid,
   DetailSection,
   DetailWorkspace,
-  BackButton,
 } from "@/components/shared/detail-workspace";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { RowActionsMenu } from "@/components/shared/data-table";
@@ -103,7 +102,6 @@ export default function SupplierProfilePage() {
   if (isLoading) {
     return (
       <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-2">
-        <BackButton href="/purchasing/suppliers" />
         <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
       </div>
     );
@@ -111,7 +109,6 @@ export default function SupplierProfilePage() {
   if (!supplier) {
     return (
       <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-2">
-        <BackButton href="/purchasing/suppliers" />
         <EmptyState icon={FileText} title={t("common.noResults")} />
       </div>
     );
@@ -210,7 +207,6 @@ export default function SupplierProfilePage() {
 
   return (
     <DetailWorkspace
-      backHref="/purchasing/suppliers"
       title={supplier.name}
       subtitle={supplier.supplierNumber}
       status={

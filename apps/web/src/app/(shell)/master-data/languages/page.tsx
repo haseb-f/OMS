@@ -41,7 +41,6 @@ export default function LanguagesPage() {
     <MasterDataPage
       titleKey="masterData.languages.title"
       descriptionKey="masterData.languages.description"
-      breadcrumbKeys={["nav.masterData", "masterData.languages.title"]}
       tableId="languages"
       service={service}
       columns={languagesColumns}

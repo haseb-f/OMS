@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageWorkspace } from "@/components/shared/page-workspace";
+import { ListSurface, ListToolbar } from "@/components/shared/data-table/list-surface";
 import { EmptyState } from "@/components/shared/empty-state";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
@@ -506,13 +507,15 @@ function ChartOfAccountsPageContent() {
           </EnterpriseButton>
         </div>
       }
-      filters={
-        <>
+    >
+      <ListSurface>
+        {isMutating && <LoadingOverlay />}
+        <ListToolbar>
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder={t("masterData.chartOfAccounts.searchPlaceholder")}
-            className="w-56"
+            className="h-(--control-height-sm) max-w-(--width-control-search)"
           />
           <Select
             value={typeFilter || "__all__"}
@@ -532,12 +535,6 @@ function ChartOfAccountsPageContent() {
               ))}
             </SelectContent>
           </Select>
-          <EnterpriseButton type="button" variant="outline" size="sm" onClick={expandAll}>
-            {t("masterData.chartOfAccounts.expandAll")}
-          </EnterpriseButton>
-          <EnterpriseButton type="button" variant="outline" size="sm" onClick={collapseAll}>
-            {t("masterData.chartOfAccounts.collapseAll")}
-          </EnterpriseButton>
           <EnterpriseButton
             type="button"
             variant={showArchived ? "secondary" : "outline"}
@@ -546,11 +543,15 @@ function ChartOfAccountsPageContent() {
           >
             {t("common.showArchived")}
           </EnterpriseButton>
-        </>
-      }
-    >
-      <div className="relative rounded-xl border shadow-sm">
-        {isMutating && <LoadingOverlay />}
+          <div className="ms-auto flex flex-wrap items-center gap-2">
+            <EnterpriseButton type="button" variant="outline" size="sm" onClick={expandAll}>
+              {t("masterData.chartOfAccounts.expandAll")}
+            </EnterpriseButton>
+            <EnterpriseButton type="button" variant="outline" size="sm" onClick={collapseAll}>
+              {t("masterData.chartOfAccounts.collapseAll")}
+            </EnterpriseButton>
+          </div>
+        </ListToolbar>
         <div className="min-h-40 p-2">
           {isLoading ? (
             <div className="flex h-32 items-center justify-center text-caption text-muted-foreground">
@@ -562,7 +563,7 @@ function ChartOfAccountsPageContent() {
             tree.map((node) => renderNode(node, 0))
           )}
         </div>
-      </div>
+      </ListSurface>
 
       <EnterpriseModal
         open={modalOpen}

@@ -12,6 +12,7 @@ import {
   EMPTY_REPORT_FILTERS,
   type ReportFilterValue,
 } from "@/components/accounting/report-filter-bar";
+import { FilterSurface } from "@/components/shared/data-table/list-surface";
 import {
   accountingReportsService,
   type BalanceSheetResult,
@@ -91,7 +92,9 @@ export function BalanceSheetTab() {
 
   return (
     <div className="flex flex-col gap-3">
-      <AccountingReportFilterBar value={filters} onChange={setFilters} />
+      <FilterSurface>
+        <AccountingReportFilterBar value={filters} onChange={setFilters} />
+      </FilterSurface>
 
       <p className="text-caption text-muted-foreground">
         {t("reports.finance.asOfDate")}: <span dir="ltr">{formatDate(result.asOfDate)}</span>
@@ -147,7 +150,7 @@ export function BalanceSheetTab() {
             exportRowsToCsv(toExportRows(columns, result.equity), keys, "balance-sheet-equity.csv")
           }
         />
-        <div className="flex items-center justify-between rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-caption">
+        <div className="flex items-center justify-between rounded-md border border-border bg-muted/20 px-3 py-2 text-caption">
           <span className="text-muted-foreground">
             {t("reports.finance.fields.currentEarnings")}
           </span>

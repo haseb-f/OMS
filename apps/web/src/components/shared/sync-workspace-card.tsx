@@ -9,7 +9,7 @@ import type { MessageKey } from "@/i18n/translate";
 
 /** Shared geometry for every Import Center synchronization button. */
 export const SYNC_ACTION_BUTTON_CLASS =
-  "h-(--control-height-md) w-full justify-center gap-2 rounded-md px-3 text-[length:var(--text-button)]";
+  "h-(--control-height-md) w-full min-w-0 max-w-full shrink-0 justify-center gap-2 overflow-hidden rounded-md px-3 text-[length:var(--text-button)] whitespace-nowrap";
 
 export function formatSyncLastSyncValue(
   lastSyncedAt: string | null | undefined,
@@ -18,8 +18,6 @@ export function formatSyncLastSyncValue(
   if (!lastSyncedAt) return t("importCenter.sync.statusNeverRunShort");
   const then = new Date(lastSyncedAt).getTime();
   if (Number.isNaN(then)) return t("importCenter.sync.statusNeverRunShort");
-  const minutes = Math.max(1, Math.round((Date.now() - then) / 60_000));
-  if (minutes < 60) return t("importCenter.sync.lastSyncMinutesAgo", { minutes });
   return formatDateTime(lastSyncedAt);
 }
 
@@ -56,14 +54,18 @@ export function SyncWorkspaceCard({
     <EnterpriseCard
       size="sm"
       className={cn(
-        "[--card-spacing:--spacing(3)] min-w-0 shadow-sm",
-        isReference && "border-warning/30 bg-warning-soft/40 ring-warning/20",
+        "h-full min-w-0 [--card-spacing:--spacing(3)]",
+        isReference && "border-warning/35 bg-warning-soft/40",
       )}
     >
-      <EnterpriseCardContent className="flex flex-col gap-2">
-        <h3 className="text-body font-semibold leading-snug text-start">{title}</h3>
-        <p className="text-caption leading-snug text-muted-foreground text-start">{description}</p>
-        {children}
+      <EnterpriseCardContent className="flex h-full min-h-0 flex-1 flex-col gap-2">
+        <h3 className="line-clamp-2 text-body font-semibold leading-snug text-start">{title}</h3>
+        <p className="line-clamp-2 text-caption leading-snug text-muted-foreground text-start">
+          {description}
+        </p>
+        <div className="mt-auto flex w-full min-w-0 flex-col gap-2 [&_[data-slot=button]]:h-(--control-height-md) [&_[data-slot=button]]:w-full [&_[data-slot=button]]:min-w-0 [&_[data-slot=button]]:max-w-full">
+          {children}
+        </div>
       </EnterpriseCardContent>
     </EnterpriseCard>
   );

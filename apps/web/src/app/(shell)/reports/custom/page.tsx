@@ -8,7 +8,6 @@ export default function ReportsCustomPage() {
     <ComingSoonPage
       titleKey="nav.reportsCustom"
       descriptionKey="reports.categories.custom"
-      breadcrumbKeys={["nav.reports", "nav.reportsCustom"]}
       icon={FileText}
     />
   );

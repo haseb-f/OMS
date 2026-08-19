@@ -19,7 +19,6 @@ export default function CountriesPage() {
     <MasterDataPage
       titleKey="masterData.countries.title"
       descriptionKey="masterData.countries.description"
-      breadcrumbKeys={["nav.masterData", "masterData.countries.title"]}
       tableId="countries"
       service={service}
       columns={countriesColumns}

@@ -8,7 +8,6 @@ export default function ReportsCrmPage() {
     <ComingSoonPage
       titleKey="nav.reportsCrm"
       descriptionKey="reports.categories.crm"
-      breadcrumbKeys={["nav.reports", "nav.reportsCrm"]}
       icon={Contact}
     />
   );

@@ -31,7 +31,10 @@ export type ErrorCode =
   | "SERVER_ERROR"
   | "DATABASE_ERROR"
   | "DEPENDENCY_ERROR"
-  | "NETWORK_ERROR";
+  | "NETWORK_ERROR"
+  | "INVALID_CREDENTIALS"
+  | "ACCOUNT_DISABLED"
+  | "ACCOUNT_LOCKED";
 
 export interface ErrorFieldDetail {
   field: string;
@@ -113,6 +116,9 @@ function friendlyMessage(
   const label = primaryField
     ? (dict.errors.fields as Record<string, string | undefined>)[primaryField]
     : undefined;
+  if (code === "DUPLICATE" && primaryField === "email") {
+    return translate(dict, "errors.DUPLICATE_EMAIL");
+  }
   if (label && (code === "VALIDATION_ERROR" || code === "DUPLICATE")) {
     return translate(dict, `errors.${code}_FIELD` as MessageKey, { field: label });
   }

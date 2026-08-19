@@ -335,7 +335,7 @@ export function ReturnEditorPage({ id }: { id: string }) {
   useBreadcrumbLabel(salesReturn?.returnNumber ?? t("sales.returns.addNew"));
 
   return (
-    <EditorWorkspace backHref="/sales/returns">
+    <EditorWorkspace>
       <RelatedDocuments
         groups={[
           {

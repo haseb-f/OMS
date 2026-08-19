@@ -34,6 +34,7 @@ const en = {
     close: "Close",
     actions: "Actions",
     back: "Back",
+    home: "Home",
     view: "View",
     status: "Status",
     createdAt: "Created",
@@ -93,6 +94,10 @@ const en = {
       "This value is already used by another record. Enter a different value and try again.",
     DUPLICATE_FIELD:
       'The value in "{field}" is already used by another record. Enter a different value and try again.',
+    DUPLICATE_EMAIL: "This email is already in use.",
+    INVALID_CREDENTIALS: "Incorrect email or password.",
+    ACCOUNT_DISABLED: "This user is inactive.",
+    ACCOUNT_LOCKED: "This account is locked. Contact an administrator.",
     PERMISSION_ERROR:
       "You don't have permission to do this. Contact your system administrator if you need access.",
     NOT_FOUND:
@@ -141,6 +146,7 @@ const en = {
       mobile: "Mobile",
       sku: "SKU",
       username: "Username",
+      password: "Password",
       salesPrice: "Sales Price",
       purchasePrice: "Purchase Price",
       weight: "Weight & Dimensions",
@@ -1084,7 +1090,9 @@ const en = {
       toasts: {
         locked: "User locked.",
         unlocked: "User unlocked.",
-        passwordReset: "Password reset. Temporary password: {password}",
+        created: "User created.",
+        saved: "User saved.",
+        archived: "User archived.",
         forcePasswordChangeSet: "User must change their password on next login.",
       },
       confirmLockTitle: "Lock this user?",
@@ -1093,6 +1101,15 @@ const en = {
       confirmResetPasswordDescription:
         "A new temporary password will be generated and the user will be required to change it on next login.",
       confirmForcePasswordChangeTitle: "Force a password change on next login?",
+      confirmArchiveTitle: "Archive this user?",
+      passwordDialog: {
+        title: "Password created successfully",
+        description: "Save or copy the password now to use it at sign-in.",
+        copy: "Copy",
+        copied: "Copied",
+        copyTooltip: "Copy password",
+        copyFailed: "Couldn't copy the password. Copy it manually.",
+      },
       editor: {
         newTitle: "New User",
         sectionDetails: "Details",
@@ -1101,6 +1118,7 @@ const en = {
         selectUser: "Select User",
         loadPermissions: "Load Permissions",
         permissionsLoaded: "Permissions loaded — review and save.",
+        generatePassword: "Generate password automatically",
         validationRequired: "Full Name, Username, and Email are required.",
         validationPassword: "Password must be at least 8 characters.",
       },
@@ -2107,6 +2125,12 @@ const en = {
         amount: "Amount",
         paid: "Paid",
         remaining: "Remaining",
+        recordStatus: {
+          PENDING: "Pending",
+          MATCHED: "Matched",
+          VERIFIED: "Verified",
+          REJECTED: "Rejected",
+        },
         add: "Add Payment",
         addTitle: "Add Payment",
         addDescription:

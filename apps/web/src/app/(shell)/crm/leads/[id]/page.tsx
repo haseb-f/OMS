@@ -8,7 +8,6 @@ import {
   DetailFieldGrid,
   DetailSection,
   DetailWorkspace,
-  BackButton,
 } from "@/components/shared/detail-workspace";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { RowActionsMenu } from "@/components/shared/data-table";
@@ -135,7 +134,6 @@ function LeadDetailContent() {
   if (isLoading) {
     return (
       <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-2">
-        <BackButton href="/crm/leads" />
         <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
       </div>
     );
@@ -143,7 +141,6 @@ function LeadDetailContent() {
   if (!lead) {
     return (
       <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-2">
-        <BackButton href="/crm/leads" />
         <EmptyState icon={FileText} title={t("common.noResults")} />
       </div>
     );
@@ -159,7 +156,6 @@ function LeadDetailContent() {
 
   return (
     <DetailWorkspace
-      backHref="/crm/leads"
       title={lead.leadNumber}
       status={
         <>
@@ -345,7 +341,7 @@ function LeadDetailContent() {
                     </p>
                   ) : (
                     notes.map((note) => (
-                      <div key={note.id} className="border-t border-border/60 pt-3">
+                      <div key={note.id} className="border-t border-border pt-3">
                         <p className="whitespace-pre-wrap text-sm">{note.text}</p>
                         <p className="pt-1 text-caption text-muted-foreground">
                           {formatDateTime(note.createdAt)}

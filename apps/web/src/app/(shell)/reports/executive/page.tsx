@@ -8,7 +8,6 @@ export default function ReportsExecutivePage() {
     <ComingSoonPage
       titleKey="nav.reportsExecutive"
       descriptionKey="reports.categories.executive"
-      breadcrumbKeys={["nav.reports", "nav.reportsExecutive"]}
       icon={BarChart3}
     />
   );

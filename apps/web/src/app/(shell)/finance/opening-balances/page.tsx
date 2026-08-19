@@ -189,7 +189,7 @@ function OpeningBalancesPageContent() {
           {isLoadingExisting ? (
             <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
           ) : existingEntry ? (
-            <div className="flex flex-col gap-3 rounded-md border border-border/60 bg-muted/20 p-4">
+            <div className="flex flex-col gap-3 rounded-md border border-border bg-muted/20 p-4">
               <div className="flex items-center gap-2">
                 <StatusBadge
                   label={t(JOURNAL_ENTRY_STATUS_LABEL_KEY[existingEntry.status])}

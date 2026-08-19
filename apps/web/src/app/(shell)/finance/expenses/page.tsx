@@ -78,7 +78,6 @@ export default function ExpensesPage() {
     <MasterDataPage
       titleKey="masterData.expenses.title"
       descriptionKey="masterData.expenses.description"
-      breadcrumbKeys={["nav.finance", "nav.financeExpenses"]}
       tableId="expenses"
       defaultSortBy="date"
       service={service}

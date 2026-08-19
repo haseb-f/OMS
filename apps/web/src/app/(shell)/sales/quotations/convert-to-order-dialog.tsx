@@ -89,7 +89,7 @@ export function ConvertToOrderDialog({
     >
       <div className="flex flex-col gap-4">
         {quotation.items.map((item) => (
-          <div key={item.id} className="flex flex-col gap-2 rounded-md border border-border/60 p-3">
+          <div key={item.id} className="flex flex-col gap-2 rounded-md border border-border p-3">
             <p className="text-sm font-medium">
               {item.product?.displayName || item.product?.name || "—"}
             </p>

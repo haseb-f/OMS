@@ -62,14 +62,14 @@ export function AllocationGrid({
 
   if (lines.length === 0) {
     return (
-      <div className="rounded-md border border-dashed border-border/70 p-6 text-center text-caption text-muted-foreground">
+      <div className="rounded-md border border-dashed border-border p-6 text-center text-caption text-muted-foreground">
         {t("financialTransactions.allocationGrid.empty")}
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-md border border-border/70">
+    <div className="overflow-x-auto rounded-md border border-border">
       <Table className="w-full table-fixed border-separate border-spacing-0">
         <TableHeader className="bg-muted/50">
           <TableRow className="hover:bg-transparent">

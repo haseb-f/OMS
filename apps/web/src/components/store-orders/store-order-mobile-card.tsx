@@ -41,7 +41,7 @@ export function StoreOrderMobileCard({
   const { hasPermission } = useUserContext();
 
   return (
-    <div className={cn("border-b border-border/70 last:border-b-0", selected && "bg-primary/5")}>
+    <div className={cn("border-b border-border last:border-b-0", selected && "bg-primary/5")}>
       <div className="flex items-start gap-2 px-4 py-3">
         <Checkbox
           checked={selected}
@@ -107,7 +107,7 @@ export function StoreOrderMobileCard({
       {expanded && (
         <div
           id={`table-detail-${order.id}`}
-          className="border-t border-border/60 bg-muted/25 px-4 py-3"
+          className="border-t border-border bg-muted/25 px-4 py-3"
         >
           <StoreOrderDetailStack order={order} t={t} onShowMore={() => onView(order)} />
         </div>

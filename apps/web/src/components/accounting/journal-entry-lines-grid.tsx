@@ -133,7 +133,7 @@ export function JournalEntryLinesGrid({
 
   return (
     <div ref={containerRef} className="flex flex-col gap-3">
-      <div className="overflow-x-auto rounded-md border border-border/70">
+      <div className="overflow-x-auto rounded-md border border-border">
         <Table className="w-full table-fixed border-separate border-spacing-0">
           <TableHeader className="bg-muted/50">
             <TableRow className="hover:bg-transparent">

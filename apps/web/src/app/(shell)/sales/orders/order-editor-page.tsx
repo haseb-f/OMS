@@ -342,7 +342,7 @@ export function OrderEditorPage({ id }: { id: string | null }) {
   useBreadcrumbLabel(order?.orderNumber ?? t("sales.orders.addNew"));
 
   return (
-    <EditorWorkspace backHref="/sales/orders">
+    <EditorWorkspace>
       <RelatedDocuments
         groups={[
           {

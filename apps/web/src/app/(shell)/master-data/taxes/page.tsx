@@ -61,7 +61,6 @@ export default function TaxesPage() {
     <MasterDataPage
       titleKey="masterData.taxes.title"
       descriptionKey="masterData.taxes.description"
-      breadcrumbKeys={["nav.finance", "masterData.taxes.title"]}
       tableId="taxes"
       service={service}
       columns={taxesColumns}

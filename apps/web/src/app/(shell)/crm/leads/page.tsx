@@ -107,7 +107,6 @@ function CrmLeadsPageContent() {
         key={refreshToken}
         titleKey="crm.leads.title"
         descriptionKey="crm.leads.description"
-        breadcrumbKeys={["nav.crm", "nav.crmLeads"]}
         tableId="crm-leads"
         icon={Contact}
         service={{

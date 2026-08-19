@@ -3,32 +3,30 @@ import { cn } from "@/lib/utils";
 
 /**
  * Page heading only: title, optional subtitle, primary actions.
- * Filters belong with the workspace that owns them (table card, report bar),
- * not as a floating strip under the title — see `PageWorkspace`.
+ *
+ * Filters deliberately have no slot here. They belong to the workspace that
+ * owns them — `ListToolbar` at the top of the list card — so that clearing a
+ * filter visibly affects the surface it sits on, and so a page never grows a
+ * second, differently-styled control strip floating under the title.
  */
 export function PageHeader({
   title,
   subtitle,
   actions,
-  filters,
   className,
 }: {
   title: string;
   subtitle?: string;
   actions?: ReactNode;
-  filters?: ReactNode;
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col gap-2", className)}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-col justify-center gap-0.5">
-          <h1 className="text-ui-title font-semibold tracking-tight">{title}</h1>
-          {subtitle && <p className="text-caption text-muted-foreground">{subtitle}</p>}
-        </div>
-        {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+    <div className={cn("flex flex-wrap items-start justify-between gap-3", className)}>
+      <div className="flex min-w-0 flex-col justify-center gap-0.5">
+        <h1 className="text-ui-title font-semibold tracking-tight">{title}</h1>
+        {subtitle && <p className="text-caption text-muted-foreground">{subtitle}</p>}
       </div>
-      {filters && <div className="flex flex-wrap items-center gap-2">{filters}</div>}
+      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
     </div>
   );
 }

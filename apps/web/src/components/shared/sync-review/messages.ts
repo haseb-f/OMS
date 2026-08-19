@@ -50,8 +50,8 @@ export function syncFieldLabelKey(field: string | null): MessageKey | null {
 
 export function syncIssueField(issue: SyncReviewIssue): string | null {
   if (issue.field) return issue.field;
-  if (/country/i.test(issue.message)) return "Country";
-  if (/product/i.test(issue.message)) return "Product";
+  if (/country|دول/i.test(issue.message)) return "Country";
+  if (/product|منتج/i.test(issue.message)) return "Product";
   if (/city/i.test(issue.message)) return "City";
   if (/phone|mobile/i.test(issue.message)) return "Phone";
   return null;
@@ -61,6 +61,13 @@ export function humanizeSyncIssue(
   issue: SyncReviewIssue,
   t: (key: MessageKey, params?: Record<string, string | number>) => string,
 ): string {
+  if (
+    issue.code === "MASTER_DATA_NOT_FOUND" ||
+    issue.code === "MASTER_DATA_AMBIGUOUS" ||
+    issue.code === "MASTER_DATA_INACTIVE"
+  ) {
+    return issue.message;
+  }
   if (/not a recognized Country/i.test(issue.message)) {
     return t("importCenter.sync.review.reasons.unrecognizedCountry");
   }

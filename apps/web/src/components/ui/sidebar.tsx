@@ -456,7 +456,8 @@ const sidebarMenuButtonVariants = cva(
   // Readability beats a fixed height (ADR-0021): labels never truncate —
   // long Arabic titles simply wrap to a second line and the row grows to
   // fit (min-h, not h, and no overflow-hidden/truncate on expanded text).
-  // Height target ~40px for a single-line label (compact, still tappable).
+  // Height target 36px for a single-line label — the same box the collapsed
+  // icon mode uses (size-9), so expanding/collapsing never shifts row rhythm.
   // Hover changes background/text/icon color ONLY (TASK-042) — never
   // font-weight, which shifts glyph widths and reads as text "moving" on
   // hover. Active/selected state is the only thing allowed to bump weight.
@@ -469,9 +470,9 @@ const sidebarMenuButtonVariants = cva(
           "bg-background shadow-[0_0_0_1px_var(--sidebar-border)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-[0_0_0_1px_var(--sidebar-accent)]",
       },
       size: {
-        default: "min-h-10 text-sm",
+        default: "min-h-9 text-sm",
         sm: "min-h-8 text-caption",
-        lg: "min-h-10 text-sm group-data-[collapsible=icon]:p-0!",
+        lg: "min-h-9 text-sm group-data-[collapsible=icon]:p-0!",
       },
     },
     defaultVariants: {

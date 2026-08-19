@@ -39,6 +39,7 @@ import {
   INVOICE_STATUS_LABEL_KEY,
 } from "@/config/sales/invoice-status";
 import { buildInvoicePrintPayload } from "@/config/sales/invoice-print";
+import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
 import { useLocale } from "@/providers/locale-provider";
@@ -60,14 +61,17 @@ function SalesInvoicesPageContent() {
 
   const [items, setItems] = useState<SalesInvoiceRow[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-  const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState("createdAt");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [statusFilter, setStatusFilter] = useState<string[]>([]);
-  const [customerFilter, setCustomerFilter] = useState<CustomerRow[]>([]);
-  const [dateRange, setDateRange] = useState<DateRangeValue>(EMPTY_DATE_RANGE);
+  const [page, setPage] = usePathRestorableState("page", 1);
+  const [pageSize, setPageSize] = usePathRestorableState("pageSize", 20);
+  const [search, setSearch] = usePathRestorableState("search", "");
+  const [sortBy, setSortBy] = usePathRestorableState("sortBy", "createdAt");
+  const [sortOrder, setSortOrder] = usePathRestorableState<"asc" | "desc">("sortOrder", "desc");
+  const [statusFilter, setStatusFilter] = usePathRestorableState<string[]>("status", []);
+  const [customerFilter, setCustomerFilter] = usePathRestorableState<CustomerRow[]>("customer", []);
+  const [dateRange, setDateRange] = usePathRestorableState<DateRangeValue>(
+    "dateRange",
+    EMPTY_DATE_RANGE,
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const usersById = useUsersLookup();
