@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
@@ -37,6 +38,8 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
 
   let productSkuA: string;
   let productSkuB: string;
+  let productDisplayNameA: string;
+  let productDisplayNameB: string;
   let currencyCode: string;
   let countryName: string;
   let paymentMethodLabel: string;
@@ -44,6 +47,8 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
   let paymentSourceId: string;
   let receivingAccountId: string;
   let currencyId: string;
+  let categoryId: string;
+  let unitId: string;
 
   beforeAll(async () => {
     moduleRef = await Test.createTestingModule({
@@ -70,17 +75,21 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
     const unit = await prisma.unit.create({
       data: { name: `SO Import Test Unit ${randomUUID()}` },
     });
+    categoryId = category.id;
+    unitId = unit.id;
 
     const suffix = randomUUID().slice(0, 8);
     productSkuA = `SOTEST-A-${suffix}`;
     productSkuB = `SOTEST-B-${suffix}`;
+    productDisplayNameA = `SO Import Test Product A ${suffix}`;
+    productDisplayNameB = `SO Import Test Product B ${suffix}`;
     // No `price`/`cost` field is set on either Product — none exists on the
     // model (ADR-0011) — proving the import never depends on one.
     await prisma.product.create({
       data: {
-        name: 'SO Import Test Product A',
-        internalName: 'SO Import Test Product A',
-        displayName: 'SO Import Test Product A',
+        name: productDisplayNameA,
+        internalName: productDisplayNameA,
+        displayName: productDisplayNameA,
         sku: productSkuA,
         categoryId: category.id,
         unitId: unit.id,
@@ -92,9 +101,9 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
     });
     await prisma.product.create({
       data: {
-        name: 'SO Import Test Product B',
-        internalName: 'SO Import Test Product B',
-        displayName: 'SO Import Test Product B',
+        name: productDisplayNameB,
+        internalName: productDisplayNameB,
+        displayName: productDisplayNameB,
         sku: productSkuB,
         categoryId: category.id,
         unitId: unit.id,
@@ -185,7 +194,7 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
     await prisma.customer.deleteMany({ where: { id: { in: customerIds } } });
 
     await prisma.product.deleteMany({
-      where: { sku: { in: [productSkuA, productSkuB] } },
+      where: { sku: { startsWith: 'SOTEST-' } },
     });
     const users = await prisma.user.findMany({
       where: { email: { startsWith: 'so-import-test-' } },
@@ -208,7 +217,7 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
       customerPhone: phone,
       countryName,
       address: '123 Test Street',
-      productSku: productSkuA,
+      productSku: productDisplayNameA,
       quantity: '2',
       paidAmount: '700',
       currencyCode,
@@ -299,13 +308,13 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
     const externalOrderId = `SOTEST-EXT-${randomUUID()}`;
     const rowA = baseRow({
       externalOrderId,
-      productSku: productSkuA,
+      productSku: productDisplayNameA,
       quantity: '2',
       paidAmount: '700',
     });
     const rowB = baseRow({
       externalOrderId,
-      productSku: productSkuB,
+      productSku: productDisplayNameB,
       quantity: '1',
       paidAmount: '300',
     });
@@ -518,12 +527,12 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
     const rowA = baseRow({
       externalOrderId,
       customerPhone: first.customerPhone,
-      productSku: productSkuA,
+      productSku: productDisplayNameA,
     });
     const rowB = baseRow({
       externalOrderId,
       customerPhone: first.customerPhone,
-      productSku: productSkuB,
+      productSku: productDisplayNameB,
     });
     await expect(handler.importGroup([rowA, rowB])).rejects.toThrow(
       BadRequestException,
@@ -535,6 +544,107 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
       where: { externalOrderId },
     });
     expect(order).toBeNull();
+  });
+
+  it('resolves Product by List Sheet display name, including Arabic and surrounding whitespace', async () => {
+    const suffix = randomUUID().slice(0, 8);
+    const displayName = `منتج اختبار ${suffix}`;
+    const sku = `SOTEST-AR-${suffix}`;
+    const product = await prisma.product.create({
+      data: {
+        name: displayName,
+        internalName: displayName,
+        displayName,
+        sku,
+        categoryId,
+        unitId,
+        type: ProductType.SERVICE,
+        isPurchasable: false,
+        isSellable: true,
+        isInventoryItem: false,
+      },
+    });
+
+    const row = baseRow({ productSku: `  ${displayName}  ` });
+    const result = await handler.importRow(row);
+    const items = await prisma.storeOrderItem.findMany({
+      where: { storeOrderId: result.id },
+    });
+    expect(items).toHaveLength(1);
+    expect(items[0].productId).toBe(product.id);
+  });
+
+  it('rejects an unknown product with an Arabic master-data error, without creating a product', async () => {
+    const before = await prisma.product.count();
+    try {
+      await handler.importRow(
+        baseRow({ productSku: 'منتج غير موجود إطلاقاً' }),
+      );
+      throw new Error('expected import to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(BadRequestException);
+      expect((error as BadRequestException).getResponse()).toMatchObject({
+        code: 'MASTER_DATA_NOT_FOUND',
+        message:
+          'المنتج «منتج غير موجود إطلاقاً» غير موجود في المنتجات الأساسية.',
+      });
+    }
+    expect(await prisma.product.count()).toBe(before);
+  });
+
+  it('does not silently treat SKU as the Product display name', async () => {
+    try {
+      await handler.importRow(baseRow({ productSku: productSkuA }));
+      throw new Error('expected import to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(BadRequestException);
+      expect((error as BadRequestException).getResponse()).toMatchObject({
+        code: 'MASTER_DATA_NOT_FOUND',
+      });
+    }
+  });
+
+  it('rejects an ambiguous product display name', async () => {
+    const suffix = randomUUID().slice(0, 8);
+    const sharedName = `منتج مكرر ${suffix}`;
+    await prisma.product.create({
+      data: {
+        name: sharedName,
+        internalName: sharedName,
+        displayName: sharedName,
+        sku: `SOTEST-DUP-A-${suffix}`,
+        categoryId,
+        unitId,
+        type: ProductType.SERVICE,
+        isPurchasable: false,
+        isSellable: true,
+        isInventoryItem: false,
+      },
+    });
+    await prisma.product.create({
+      data: {
+        name: sharedName,
+        internalName: sharedName,
+        displayName: `  ${sharedName} `,
+        sku: `SOTEST-DUP-B-${suffix}`,
+        categoryId,
+        unitId,
+        type: ProductType.SERVICE,
+        isPurchasable: false,
+        isSellable: true,
+        isInventoryItem: false,
+      },
+    });
+    try {
+      await handler.importRow(baseRow({ productSku: sharedName }));
+      throw new Error('expected import to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(BadRequestException);
+      expect((error as BadRequestException).getResponse()).toMatchObject({
+        code: 'MASTER_DATA_AMBIGUOUS',
+        message: `يوجد أكثر من منتج مطابق للقيمة «${sharedName}». يرجى اختيار المنتج الصحيح من البيانات الأساسية.`,
+      });
+    }
   });
 
   it('generateInvoice uses the actual imported line amounts once the order is really reconciled', async () => {

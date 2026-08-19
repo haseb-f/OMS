@@ -75,7 +75,7 @@ export class UsersController {
   @HttpCode(200)
   @PermissionAction('manage')
   resetPassword(@Param('id') id: string, @Body() dto: ResetPasswordDto) {
-    return this.usersService.resetPassword(id, dto);
+    return this.usersService.resetPassword(id, dto ?? {});
   }
 
   @Post(':id/force-password-change')

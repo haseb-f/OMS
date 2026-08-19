@@ -1,4 +1,7 @@
-import { normalizeListValues } from './list-sheet.normalize';
+import {
+  normalizeListValues,
+  normalizeReferenceValue,
+} from './list-sheet.normalize';
 
 describe('normalizeListValues', () => {
   it('trims, collapses whitespace, drops empties, and deduplicates', () => {
@@ -26,5 +29,11 @@ describe('normalizeListValues', () => {
       'employee@example.com',
       'SAR',
     ]);
+  });
+});
+
+describe('normalizeReferenceValue', () => {
+  it('trims and collapses whitespace without changing Arabic letters', () => {
+    expect(normalizeReferenceValue('  منتج   اختبار  ')).toBe('منتج اختبار');
   });
 });

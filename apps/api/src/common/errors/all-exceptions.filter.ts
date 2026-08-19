@@ -8,6 +8,7 @@ import {
 import { Prisma } from '@prisma/client';
 import type { Request, Response } from 'express';
 import type { ErrorCode, ErrorResponseBody } from './error-response.types';
+import { uniqueFieldFromPrismaError } from './prisma-unique-field';
 
 /**
  * The one place a thrown error becomes an HTTP response. Every technical
@@ -83,10 +84,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
   } {
     switch (error.code) {
       case 'P2002': {
-        const target = Array.isArray(error.meta?.target)
-          ? (error.meta.target as string[])
-          : [];
-        const field = target[0] ?? 'value';
+        const field = uniqueFieldFromPrismaError(error.meta);
         return {
           statusCode: 400,
           body: {

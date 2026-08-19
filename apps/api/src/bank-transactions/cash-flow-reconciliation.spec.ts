@@ -46,6 +46,10 @@ describe('Cash Flow Reconciliation', () => {
   let currencyId: string;
   let currencyCode: string;
   let productSku: string;
+  // Store Orders resolve the Product column by display name, never by SKU —
+  // the name has to be unique per run or a leftover product from an earlier
+  // run makes the lookup ambiguous.
+  let productName: string;
   let paymentSourceId: string;
   let cashSourceId: string; // ReceivingAccount
   let expenseAccountId: string; // ChartOfAccount (EXPENSE)
@@ -95,11 +99,12 @@ describe('Cash Flow Reconciliation', () => {
     currencyCode = currency.code;
 
     productSku = `CASHFLOW-TEST-${randomUUID().slice(0, 8)}`;
+    productName = `Cash Flow Test Product ${productSku}`;
     await prisma.product.create({
       data: {
-        name: 'Cash Flow Test Product',
-        internalName: 'Cash Flow Test Product',
-        displayName: 'Cash Flow Test Product',
+        name: productName,
+        internalName: productName,
+        displayName: productName,
         sku: productSku,
         categoryId,
         unitId,
@@ -243,16 +248,24 @@ describe('Cash Flow Reconciliation', () => {
     });
     await prisma.purchaseInvoice.deleteMany({ where: { supplierId } });
 
+    // Sweep by receiving account as well as by store order: the supplier
+    // payment and expense voucher scenarios create Payments with no
+    // storeOrderId, and those still reference the ReceivingAccount deleted
+    // below, which otherwise fails on `payments_receiving_account_id_fkey`.
     const payments = await prisma.payment.findMany({
-      where: { storeOrderId: { in: orderIds } },
+      where: {
+        OR: [
+          { storeOrderId: { in: orderIds } },
+          { receivingAccountId: cashSourceId },
+        ],
+      },
       select: { id: true },
     });
+    const paymentIds = payments.map((p) => p.id);
     await prisma.paymentActivity.deleteMany({
-      where: { paymentId: { in: payments.map((p) => p.id) } },
+      where: { paymentId: { in: paymentIds } },
     });
-    await prisma.payment.deleteMany({
-      where: { storeOrderId: { in: orderIds } },
-    });
+    await prisma.payment.deleteMany({ where: { id: { in: paymentIds } } });
     await prisma.storeOrderActivity.deleteMany({
       where: { storeOrderId: { in: orderIds } },
     });
@@ -284,7 +297,7 @@ describe('Cash Flow Reconciliation', () => {
       customerPhone: `+9665${Math.floor(10000000 + Math.random() * 89999999)}`,
       countryName,
       address: 'Test address',
-      productSku,
+      productSku: productName,
       quantity: '1',
       paidAmount: '1000',
       currencyCode,

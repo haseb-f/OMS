@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsEmail,
@@ -5,13 +6,20 @@ import {
   IsOptional,
   IsString,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
+import {
+  toNormalizedEmail,
+  toNormalizedUsername,
+} from '../../auth/password.util';
 
 export class CreateUserDto {
+  @Transform(({ value }: { value: unknown }) => toNormalizedEmail(value))
   @IsEmail()
   email!: string;
 
+  @Transform(({ value }: { value: unknown }) => toNormalizedUsername(value))
   @IsString()
   @IsNotEmpty()
   username!: string;
@@ -20,9 +28,15 @@ export class CreateUserDto {
   @IsNotEmpty()
   fullName!: string;
 
+  /** When true, the server generates a temporary password and returns it once. */
+  @IsBoolean()
+  @IsOptional()
+  generatePassword?: boolean;
+
+  @ValidateIf((dto: CreateUserDto) => dto.generatePassword !== true)
   @IsString()
   @MinLength(8)
-  password!: string;
+  password?: string;
 
   @IsString()
   @IsOptional()

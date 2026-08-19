@@ -385,7 +385,10 @@ export const DEFAULT_NEW_USER_PERMISSIONS: string[] = [];
  * never duplicated at the guard/resolver layer (those only ever check the
  * exact granular permission a route declares).
  */
-export const IMPLIED_SECTION_PERMISSION: Record<string, string> = {
+export const IMPLIED_SECTION_PERMISSION: Record<
+  string,
+  string | readonly string[]
+> = {
   'sales.customers': 'sales.view',
   'crm.leads': 'crm.view',
   'sales.quotations': 'sales.view',
@@ -417,7 +420,7 @@ export const IMPLIED_SECTION_PERMISSION: Record<string, string> = {
   // `store-orders.*`/`shipping.*` permission also grants that module's own
   // `.view`, so the section reliably appears without a separate explicit
   // view grant, same as every other module in this map.
-  'store-orders': 'store-orders.view',
+  'store-orders': ['store-orders.view', 'sales.view'],
   shipping: 'shipping.view',
 };
 
@@ -427,7 +430,9 @@ export function withImpliedSectionPermissions(names: string[]): string[] {
   for (const name of names) {
     const modulePrefix = name.slice(0, name.lastIndexOf('.'));
     const implied = IMPLIED_SECTION_PERMISSION[modulePrefix];
-    if (implied) expanded.add(implied);
+    if (!implied) continue;
+    if (typeof implied === 'string') expanded.add(implied);
+    else for (const permission of implied) expanded.add(permission);
   }
   return [...expanded];
 }

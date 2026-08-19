@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsEmail,
@@ -5,8 +6,10 @@ import {
   IsString,
   MinLength,
 } from 'class-validator';
+import { toNormalizedEmail } from '../password.util';
 
 export class LoginDto {
+  @Transform(({ value }: { value: unknown }) => toNormalizedEmail(value))
   @IsEmail()
   email!: string;
 

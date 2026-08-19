@@ -8,6 +8,13 @@ import type {
   ReferenceRecord,
 } from './reference-data.types';
 import { getReferenceCache } from './reference-cache';
+import {
+  matchCodeSuffix,
+  matchReferenceRecords,
+  masterDataAmbiguousMessage,
+  masterDataInactiveMessage,
+  masterDataNotFoundMessage,
+} from './match-reference-records';
 
 /**
  * Register-at-boot plug-in registry for Master Data reference types — the
@@ -62,12 +69,9 @@ export class ReferenceDataRegistryService {
 
   /**
    * Resolves a spreadsheet/CSV display value (a code or name) to the
-   * record's id — the Master-Data-aware replacement for
-   * `resolveRequiredIdByField`. Never guesses/fuzzy-matches (spec: "The
-   * import must NOT guess") and never auto-creates the referenced record
-   * (spec: "MASTER DATA MUST EXIST FIRST") — an unrecognized value and an
-   * existing-but-inactive one get distinct, actionable error codes so the
-   * import report/UI can tell them apart (spec section 7 vs 8).
+   * record's id. Uses the same whitespace normalization as List Sheet
+   * publishing. Never guesses/fuzzy-matches, never auto-creates, never
+   * requires a UUID. Ambiguous display names fail loudly.
    */
   async resolveRequired(
     type: string,
@@ -97,46 +101,42 @@ export class ReferenceDataRegistryService {
   private async resolveValue(
     type: string,
     matchField: 'code' | 'name',
-    trimmed: string,
+    rawValue: string,
     label: string,
   ): Promise<string> {
     const source = this.get(type);
     const records = await this.listCached(type);
-    const exact = (candidate: string | null) =>
-      candidate != null && candidate.toLowerCase() === trimmed.toLowerCase();
-    let match = records.find((record) =>
-      exact(matchField === 'code' ? record.code : record.name),
-    );
-    // Stable-identity fallback (spec: "resolve using the stable identifier/
-    // code, not the display name") — a value shaped like "Name (CODE)"
-    // (the friendly form `ImportTemplateService` generates for a
-    // `referenceDisplayWithCode` field, e.g. "السعودية (SA)") always
-    // resolves by the embedded code, so a display-name mismatch — a
-    // formal/official name vs. the common one an employee actually
-    // recognizes, a future rename — can never cause a false rejection.
-    // Never fuzzy: the code inside the parentheses must still match
-    // exactly.
-    if (!match) {
-      const codeSuffix = /\(([^()]+)\)\s*$/.exec(trimmed)?.[1]?.trim();
-      if (codeSuffix) {
-        match = records.find(
-          (record) =>
-            record.code != null &&
-            record.code.toLowerCase() === codeSuffix.toLowerCase(),
-        );
-      }
+    let matches = matchReferenceRecords(records, matchField, rawValue);
+    // Documented `Name (CODE)` suffix only — not a silent SKU/name swap.
+    if (matches.length === 0) {
+      matches = matchCodeSuffix(records, rawValue);
     }
+    if (matches.length === 0) {
+      throw new BadRequestException({
+        code: 'MASTER_DATA_NOT_FOUND',
+        message: masterDataNotFoundMessage(type, rawValue),
+        field: label,
+      });
+    }
+    if (matches.length > 1) {
+      throw new BadRequestException({
+        code: 'MASTER_DATA_AMBIGUOUS',
+        message: masterDataAmbiguousMessage(type, rawValue),
+        field: label,
+      });
+    }
+    const match = matches[0];
     if (!match) {
       throw new BadRequestException({
         code: 'MASTER_DATA_NOT_FOUND',
-        message: `${label} "${trimmed}" is not a recognized ${source.label} — choose an existing ${source.label.toLowerCase()} instead of typing a new one.`,
+        message: masterDataNotFoundMessage(type, rawValue),
         field: label,
       });
     }
     if (!match.active) {
       throw new BadRequestException({
         code: 'MASTER_DATA_INACTIVE',
-        message: `${label} "${trimmed}" exists but is not active — choose an active ${source.label.toLowerCase()}, or activate it first.`,
+        message: masterDataInactiveMessage(source.label, rawValue),
         field: label,
       });
     }

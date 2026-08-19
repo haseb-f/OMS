@@ -84,6 +84,18 @@ function arabicReason(issue: SheetErrorIssue): string {
     return 'رقم الجوال مطلوب';
   }
   if (
+    /المنتج «.+» غير موجود في المنتجات الأساسية|not a recognized Product/i.test(
+      message,
+    )
+  ) {
+    return message.includes('المنتج')
+      ? message
+      : 'المنتج غير موجود في المنتجات الأساسية';
+  }
+  if (/يوجد أكثر من منتج مطابق/i.test(message)) {
+    return message;
+  }
+  if (
     /not a recognized Country|not found/i.test(message) &&
     /country/i.test(message)
   ) {

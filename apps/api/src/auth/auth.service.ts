@@ -1,13 +1,15 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
+import { hashPassword, normalizeEmail, verifyPassword } from './password.util';
 import { LoginDto } from './dto/login.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 
@@ -15,6 +17,8 @@ const RESET_TOKEN_TTL_MINUTES = 30;
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
@@ -22,25 +26,34 @@ export class AuthService {
   ) {}
 
   async login(dto: LoginDto) {
+    const email = normalizeEmail(dto.email);
     const user = await this.prisma.user.findFirst({
-      where: { email: dto.email, deletedAt: null },
+      where: {
+        deletedAt: null,
+        email: { equals: email, mode: 'insensitive' },
+      },
     });
 
-    if (!user || !user.isActive) {
-      throw new UnauthorizedException('Invalid email or password');
-    }
-    if (user.isLocked) {
-      throw new UnauthorizedException(
-        'This account is locked. Contact an administrator.',
-      );
+    const passwordMatches =
+      !!user && (await verifyPassword(dto.password, user.passwordHash));
+    if (!user || !passwordMatches) {
+      throw new UnauthorizedException({
+        code: 'INVALID_CREDENTIALS',
+        message: 'Invalid email or password.',
+      });
     }
 
-    const passwordMatches = await bcrypt.compare(
-      dto.password,
-      user.passwordHash,
-    );
-    if (!passwordMatches) {
-      throw new UnauthorizedException('Invalid email or password');
+    if (!user.isActive) {
+      throw new ForbiddenException({
+        code: 'ACCOUNT_DISABLED',
+        message: 'This account is inactive.',
+      });
+    }
+    if (user.isLocked) {
+      throw new ForbiddenException({
+        code: 'ACCOUNT_LOCKED',
+        message: 'This account is locked.',
+      });
     }
 
     await this.prisma.user.update({
@@ -67,8 +80,13 @@ export class AuthService {
 
   /** Always returns a generic response — never reveals whether the email exists. */
   async forgotPassword(email: string) {
+    const normalized = normalizeEmail(email);
     const user = await this.prisma.user.findFirst({
-      where: { email, deletedAt: null, isActive: true },
+      where: {
+        deletedAt: null,
+        isActive: true,
+        email: { equals: normalized, mode: 'insensitive' },
+      },
     });
 
     if (user) {
@@ -86,12 +104,9 @@ export class AuthService {
         },
       });
 
-      const resetUrl = `${process.env.WEB_APP_URL ?? 'http://localhost:3001'}/reset-password?token=${rawToken}`;
-      // Local development only: no email transport is wired up yet, so the
-      // reset link is logged instead of sent. A future notifications module
-      // replaces this line with a real email send.
-
-      console.log(`[auth] Password reset link for ${email}: ${resetUrl}`);
+      // Local development only: no email transport is wired up yet. Do not
+      // log the raw token or the recipient address.
+      this.logger.log('Password reset token created');
     }
 
     return {
@@ -114,12 +129,12 @@ export class AuthService {
       throw new BadRequestException('Invalid or expired reset token');
     }
 
-    const passwordHash = await bcrypt.hash(dto.newPassword, 10);
+    const passwordHash = await hashPassword(dto.newPassword);
 
     await this.prisma.$transaction([
       this.prisma.user.update({
         where: { id: resetToken.userId },
-        data: { passwordHash },
+        data: { passwordHash, mustChangePassword: false },
       }),
       this.prisma.passwordResetToken.update({
         where: { id: resetToken.id },

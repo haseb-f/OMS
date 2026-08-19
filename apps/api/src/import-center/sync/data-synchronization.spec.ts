@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
@@ -32,6 +33,22 @@ import { SyncSourceConfigService } from './sync-source-config.service';
  * is faked (scenarios 11/12), since no real spreadsheet/network is available
  * in CI — everything downstream of "here are the sheet's rows" is real.
  */
+/**
+ * Own label namespace per run. This suite and `shipping-sync.spec.ts` both
+ * create Sync Sources and both sweep them by label prefix in `afterAll`; when
+ * Jest runs them in parallel against the shared dev database, a shared prefix
+ * meant one suite's cleanup deleted the other suite's live config mid-test.
+ */
+const SOURCE_LABEL_PREFIX = `Sync Test Source DS-${randomUUID()}`;
+
+/**
+ * Same reasoning for the users this suite creates: both sync suites used to
+ * create `sync-test-*` accounts and delete every one of them in `afterAll`,
+ * so whichever finished first removed the other's still-referenced employee
+ * and mid-run rows then failed to resolve Employee Email.
+ */
+const USER_EMAIL_PREFIX = 'sync-test-ds-';
+
 describe('Data Synchronization', () => {
   let prisma: PrismaService;
   let storeOrdersHandler: StoreOrdersImportHandler;
@@ -43,6 +60,7 @@ describe('Data Synchronization', () => {
   let unitId: string;
   let currencyId: string;
   let currencyCode: string;
+  let productDisplayName: string;
   let productSku: string;
   let paymentSourceId: string;
   let receivingAccountId: string;
@@ -82,17 +100,24 @@ describe('Data Synchronization', () => {
     });
     unitId = unit.id;
 
-    const currency = await prisma.currency.findFirst();
+    // Shared master data is picked oldest-first so this suite always binds to
+    // a seeded record. An unordered findFirst could latch onto a transient
+    // fixture another suite creates and deletes while running in parallel,
+    // which then made rows fail to resolve mid-run.
+    const currency = await prisma.currency.findFirst({
+      orderBy: { createdAt: 'asc' },
+    });
     if (!currency) throw new Error('Expected at least one seeded Currency.');
     currencyId = currency.id;
     currencyCode = currency.code;
 
     productSku = `SYNC-TEST-${randomUUID().slice(0, 8)}`;
+    productDisplayName = `Sync Test Product ${productSku}`;
     const product = await prisma.product.create({
       data: {
-        name: 'Sync Test Product',
-        internalName: 'Sync Test Product',
-        displayName: 'Sync Test Product',
+        name: productDisplayName,
+        internalName: productDisplayName,
+        displayName: productDisplayName,
         sku: productSku,
         categoryId,
         unitId,
@@ -106,6 +131,7 @@ describe('Data Synchronization', () => {
 
     const paymentSource = await prisma.paymentSource.findFirst({
       where: { isActive: true },
+      orderBy: { createdAt: 'asc' },
     });
     if (!paymentSource)
       throw new Error('Expected at least one seeded active PaymentSource.');
@@ -113,6 +139,7 @@ describe('Data Synchronization', () => {
 
     const receivingAccount = await prisma.receivingAccount.findFirst({
       where: { isActive: true },
+      orderBy: { createdAt: 'asc' },
     });
     if (!receivingAccount) {
       throw new Error('Expected at least one seeded active ReceivingAccount.');
@@ -122,8 +149,8 @@ describe('Data Synchronization', () => {
     const employeeSuffix = randomUUID().slice(0, 8);
     const employee = await prisma.user.create({
       data: {
-        email: `sync-test-${employeeSuffix}@example.test`,
-        username: `sync-test-${employeeSuffix}`,
+        email: `${USER_EMAIL_PREFIX}${employeeSuffix}@example.test`,
+        username: `${USER_EMAIL_PREFIX}${employeeSuffix}`,
         fullName: 'Sync Test Employee',
         passwordHash: 'x',
         isSuperAdmin: false,
@@ -138,6 +165,7 @@ describe('Data Synchronization', () => {
 
     const paymentMethod = await prisma.paymentMethod.findFirstOrThrow({
       where: { deletedAt: null },
+      orderBy: { createdAt: 'asc' },
     });
     paymentMethodLabel = paymentMethod.name;
   });
@@ -148,7 +176,7 @@ describe('Data Synchronization', () => {
     // suite runs against the real local dev database, never a throwaway
     // one, and must not leave rows an operator would see in the app.
     const syncSources = await prisma.syncSourceConfig.findMany({
-      where: { label: { startsWith: 'Sync Test Source' } },
+      where: { label: { startsWith: SOURCE_LABEL_PREFIX } },
       select: { id: true, importJobId: true },
     });
     const syncJobIds = syncSources
@@ -214,7 +242,7 @@ describe('Data Synchronization', () => {
     });
 
     const users = await prisma.user.findMany({
-      where: { email: { startsWith: 'sync-test-' } },
+      where: { email: { startsWith: USER_EMAIL_PREFIX } },
       select: { id: true },
     });
     await prisma.userPermission.deleteMany({
@@ -239,7 +267,7 @@ describe('Data Synchronization', () => {
       customerPhone: `+9665${Math.floor(10000000 + Math.random() * 89999999)}`,
       countryName,
       address: 'Test address',
-      productSku,
+      productSku: productDisplayName,
       quantity: '1',
       paidAmount: '100',
       currencyCode,
@@ -466,8 +494,8 @@ describe('Data Synchronization', () => {
     const suffix = randomUUID().slice(0, 8);
     const user = await prisma.user.create({
       data: {
-        email: `sync-test-${suffix}@example.test`,
-        username: `sync-test-${suffix}`,
+        email: `${USER_EMAIL_PREFIX}${suffix}@example.test`,
+        username: `${USER_EMAIL_PREFIX}${suffix}`,
         fullName: 'Sync Tester',
         passwordHash: 'x',
         isSuperAdmin: false,
@@ -597,7 +625,7 @@ describe('Data Synchronization', () => {
       fakeSheets.rows = rows;
       return sources.create({
         sourceType: 'STORE_ORDERS',
-        label: `Sync Test Source ${randomUUID()}`,
+        label: `${SOURCE_LABEL_PREFIX} ${randomUUID()}`,
         spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${randomUUID()}/edit`,
         columnMapping: {
           externalOrderId: 'External Order ID',
@@ -624,7 +652,7 @@ describe('Data Synchronization', () => {
         'Customer Phone': `+9665${Math.floor(10000000 + Math.random() * 89999999)}`,
         Country: countryName,
         'Detailed Address': 'Test address',
-        'Product SKU': productSku,
+        'Product SKU': productDisplayName,
         Quantity: '2',
         'Paid Amount': '50',
         Currency: currencyCode,
@@ -667,7 +695,7 @@ describe('Data Synchronization', () => {
         'Customer Phone': `+9665${Math.floor(10000000 + Math.random() * 89999999)}`,
         Country: countryName,
         'Detailed Address': 'Test address',
-        'Product SKU': productSku,
+        'Product SKU': productDisplayName,
         Quantity: '1',
         'Paid Amount': '75',
         Currency: currencyCode,
@@ -703,7 +731,7 @@ describe('Data Synchronization', () => {
         'Customer Phone': `+9665${Math.floor(10000000 + Math.random() * 89999999)}`,
         Country: 'Not A Real Country',
         'Detailed Address': 'Test address',
-        'Product SKU': productSku,
+        'Product SKU': productDisplayName,
         Quantity: '1',
         'Paid Amount': '75',
         Currency: currencyCode,
@@ -722,7 +750,7 @@ describe('Data Synchronization', () => {
       expect(previewCall[1][0].values['Sync Status']).toBe('خطأ');
       expect(previewCall[1][0].values['System Order ID']).toBe('');
       expect(previewCall[1][0].values['Error Message']).toContain(
-        'الدولة غير معروفة',
+        'الدولة «Not A Real Country» غير موجودة في البيانات الأساسية.',
       );
 
       const commitResult = await orchestrator.commit(
@@ -749,7 +777,7 @@ describe('Data Synchronization', () => {
         'Customer Phone': `+9665${Math.floor(10000000 + Math.random() * 89999999)}`,
         Country: countryName,
         'Detailed Address': 'Test address',
-        'Product SKU': productSku,
+        'Product SKU': productDisplayName,
         Quantity: '1',
         'Paid Amount': '75',
         Currency: currencyCode,

@@ -11,7 +11,10 @@ export type ErrorCode =
   | 'DUPLICATE'
   | 'SERVER_ERROR'
   | 'DATABASE_ERROR'
-  | 'DEPENDENCY_ERROR';
+  | 'DEPENDENCY_ERROR'
+  | 'INVALID_CREDENTIALS'
+  | 'ACCOUNT_DISABLED'
+  | 'ACCOUNT_LOCKED';
 
 export interface ErrorFieldDetail {
   field: string;

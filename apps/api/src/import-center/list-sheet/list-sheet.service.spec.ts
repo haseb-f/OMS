@@ -4,8 +4,10 @@ import { GoogleSheetsService } from '../google-sheets.service';
 import { ReferenceDataRegistryService } from '../reference-data/reference-data-registry.service';
 import type { ReferenceRecord } from '../reference-data/reference-data.types';
 import {
+  LIST_SHEET_COLUMNS,
   LIST_SHEET_GID,
   LIST_SHEET_SPREADSHEET_ID,
+  listSheetReferenceMatch,
 } from './list-sheet.catalog';
 import { ListSheetService } from './list-sheet.service';
 
@@ -110,6 +112,47 @@ describe('ListSheetService', () => {
     expect(JSON.stringify(columns)).not.toContain('uuid-should-not-appear');
     expect(JSON.stringify(columns)).not.toContain('gone@example.com');
     expect(service.status().lastSyncedAt).toBe(result.syncedAt);
+  });
+
+  it('uses display names for Product and the same match fields Store Orders import resolves against', () => {
+    expect(listSheetReferenceMatch('product')).toEqual({
+      type: 'PRODUCT',
+      matchField: 'name',
+    });
+    expect(listSheetReferenceMatch('country')).toEqual({
+      type: 'COUNTRY',
+      matchField: 'name',
+    });
+    expect(listSheetReferenceMatch('currency')).toEqual({
+      type: 'CURRENCY',
+      matchField: 'code',
+    });
+    expect(listSheetReferenceMatch('paymentMethod')).toEqual({
+      type: 'PAYMENT_METHOD',
+      matchField: 'name',
+    });
+    expect(listSheetReferenceMatch('employeeEmail')).toEqual({
+      type: 'EMPLOYEE',
+      matchField: 'code',
+    });
+    expect(listSheetReferenceMatch('shippingCompany')).toEqual({
+      type: 'SHIPPING_COMPANY',
+      matchField: 'name',
+    });
+    const productColumn = LIST_SHEET_COLUMNS.find(
+      (column) => column.key === 'product',
+    );
+    expect(productColumn?.source.kind).toBe('reference');
+    if (productColumn?.source.kind === 'reference') {
+      expect(
+        productColumn.source.valueOf({
+          id: 'uuid-must-not-publish',
+          code: 'SKU-9',
+          name: 'منتج اختبار',
+          active: true,
+        }),
+      ).toBe('منتج اختبار');
+    }
   });
 
   it('reports PARTIAL when one list fails to load and still writes the others', async () => {

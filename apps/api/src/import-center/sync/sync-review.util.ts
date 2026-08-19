@@ -63,6 +63,11 @@ function isDuplicateMessage(message: string): boolean {
 
 function issueCode(message: string, columnName: string | null): string {
   if (isDuplicateMessage(message)) return 'DUPLICATE';
+  if (/غير موجود في (المنتجات|البيانات) الأساسية/.test(message)) {
+    return 'MASTER_DATA_NOT_FOUND';
+  }
+  if (/يوجد أكثر من .+ مطابق/.test(message)) return 'MASTER_DATA_AMBIGUOUS';
+  if (/موجودة لكنها غير نشطة/.test(message)) return 'MASTER_DATA_INACTIVE';
   if (/is required/i.test(message)) return 'REQUIRED';
   if (/too short/i.test(message)) return 'PHONE_TOO_SHORT';
   if (/too long/i.test(message)) return 'PHONE_TOO_LONG';

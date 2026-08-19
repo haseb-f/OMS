@@ -41,6 +41,7 @@ export type ListSheetColumnSource =
   | {
       kind: 'reference';
       type: string;
+      matchField: 'code' | 'name';
       valueOf: (record: ReferenceRecord) => string | null | undefined;
     }
   | {
@@ -65,6 +66,7 @@ export const LIST_SHEET_COLUMNS: readonly ListSheetColumnDef[] = [
     source: {
       kind: 'reference',
       type: 'COUNTRY',
+      matchField: 'name',
       valueOf: (record) => record.name,
     },
   },
@@ -74,6 +76,7 @@ export const LIST_SHEET_COLUMNS: readonly ListSheetColumnDef[] = [
     source: {
       kind: 'reference',
       type: 'PRODUCT',
+      matchField: 'name',
       valueOf: (record) => record.name,
     },
   },
@@ -83,6 +86,7 @@ export const LIST_SHEET_COLUMNS: readonly ListSheetColumnDef[] = [
     source: {
       kind: 'reference',
       type: 'CURRENCY',
+      matchField: 'code',
       valueOf: (record) => record.code,
     },
   },
@@ -92,6 +96,7 @@ export const LIST_SHEET_COLUMNS: readonly ListSheetColumnDef[] = [
     source: {
       kind: 'reference',
       type: 'PAYMENT_METHOD',
+      matchField: 'name',
       valueOf: (record) => record.name,
     },
   },
@@ -101,6 +106,7 @@ export const LIST_SHEET_COLUMNS: readonly ListSheetColumnDef[] = [
     source: {
       kind: 'reference',
       type: 'EMPLOYEE',
+      matchField: 'code',
       valueOf: (record) => record.code,
     },
   },
@@ -118,6 +124,7 @@ export const LIST_SHEET_COLUMNS: readonly ListSheetColumnDef[] = [
     source: {
       kind: 'reference',
       type: 'SHIPPING_COMPANY',
+      matchField: 'name',
       valueOf: (record) => record.name,
     },
   },
@@ -130,3 +137,12 @@ export const LIST_SHEET_COLUMNS: readonly ListSheetColumnDef[] = [
     },
   },
 ];
+
+/** List Sheet display value → resolver match field. Store Orders must use this, never SKU/UUID. */
+export function listSheetReferenceMatch(
+  key: ListSheetColumnKey,
+): { type: string; matchField: 'code' | 'name' } | undefined {
+  const column = LIST_SHEET_COLUMNS.find((item) => item.key === key);
+  if (!column || column.source.kind !== 'reference') return undefined;
+  return { type: column.source.type, matchField: column.source.matchField };
+}

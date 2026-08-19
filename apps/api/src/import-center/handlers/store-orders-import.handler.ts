@@ -11,6 +11,10 @@ import {
 import { ImportTypeRegistryService } from '../import-type-registry.service';
 import { ReferenceDataRegistryService } from '../reference-data/reference-data-registry.service';
 import {
+  listSheetReferenceMatch,
+  type ListSheetColumnKey,
+} from '../list-sheet/list-sheet.catalog';
+import {
   ImportRowNeedsReviewError,
   type ImportFieldDef,
   type ImportRowOptions,
@@ -73,8 +77,9 @@ const FIELDS: ImportFieldDef[] = [
     label: 'Product',
     required: true,
     type: 'string',
-    example: 'PRD-000123',
+    example: 'منتج اختبار',
     referenceType: 'PRODUCT',
+    referenceMatchField: 'name',
   },
   {
     key: 'quantity',
@@ -402,9 +407,8 @@ export class StoreOrdersImportHandler
 
     const orderDate = parseDate(first.orderDate, 'Order Date');
 
-    const countryId = await this.referenceData.resolveRequired(
-      'COUNTRY',
-      'name',
+    const countryId = await this.resolveListSheetValue(
+      'country',
       first.countryName,
       'Country',
     );
@@ -423,22 +427,19 @@ export class StoreOrdersImportHandler
       throw new BadRequestException(phoneErrorMessage(phoneCheck.errorReason));
     }
     const normalizedPhone = phoneCheck.e164;
-    const currencyId = await this.referenceData.resolveRequired(
-      'CURRENCY',
-      'code',
+    const currencyId = await this.resolveListSheetValue(
+      'currency',
       first.currencyCode,
       'Currency',
     );
-    const paymentMethodId = await this.referenceData.resolveRequired(
-      'PAYMENT_METHOD',
-      'name',
+    const paymentMethodId = await this.resolveListSheetValue(
+      'paymentMethod',
       first.paymentMethodLabel,
       'Payment Method',
     );
     void paymentMethodId; // resolved only to validate — Payment Method has no FK column on StoreOrder (see class doc comment).
-    const employeeId = await this.referenceData.resolveRequired(
-      'EMPLOYEE',
-      'code',
+    const employeeId = await this.resolveListSheetValue(
+      'employeeEmail',
       first.agentEmail,
       'Employee Email',
     );
@@ -450,9 +451,8 @@ export class StoreOrdersImportHandler
     let totalPaidAmount = 0;
     const items: LineItem[] = [];
     for (const row of rows) {
-      const productId = await this.referenceData.resolveRequired(
-        'PRODUCT',
-        'code',
+      const productId = await this.resolveListSheetValue(
+        'product',
         row.productSku,
         'Product',
       );
@@ -488,6 +488,27 @@ export class StoreOrdersImportHandler
       items,
       totalPaidAmount,
     };
+  }
+
+  /**
+   * Resolves a Google Sheets cell using the same display field List Sheet
+   * publishes — Product name, Country name, Currency code, etc.
+   */
+  private resolveListSheetValue(
+    key: ListSheetColumnKey,
+    value: string | undefined,
+    label: string,
+  ): Promise<string> {
+    const match = listSheetReferenceMatch(key);
+    if (!match) {
+      throw new BadRequestException(`${label} is not a List Sheet reference.`);
+    }
+    return this.referenceData.resolveRequired(
+      match.type,
+      match.matchField,
+      value,
+      label,
+    );
   }
 }
 

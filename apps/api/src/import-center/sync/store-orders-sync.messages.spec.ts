@@ -32,4 +32,21 @@ describe('formatStoreOrderSheetError', () => {
     ]);
     expect(message).toBe('رقم الجوال أقصر من المطلوب للدولة');
   });
+
+  it('keeps a Product master-data error once, in Arabic, without repeating the value', () => {
+    const message = formatStoreOrderSheetError([
+      {
+        field: 'Product',
+        message: 'المنتج «منتج اختبار» غير موجود في المنتجات الأساسية.',
+      },
+      {
+        field: 'Product',
+        message: 'المنتج «منتج اختبار» غير موجود في المنتجات الأساسية.',
+      },
+    ]);
+    expect(message).toBe(
+      'المنتج «منتج اختبار» غير موجود في المنتجات الأساسية.',
+    );
+    expect(message.match(/منتج اختبار/g)).toHaveLength(1);
+  });
 });

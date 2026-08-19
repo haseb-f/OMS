@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { uniqueFieldFromPrismaError } from '../common/errors/prisma-unique-field';
 import { MasterDataActivityLogService } from './master-data-activity-log.service';
 import { MasterDataQueryDto } from './dto/master-data-query.dto';
 
@@ -242,10 +243,7 @@ export abstract class MasterDataCrudService<
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === 'P2002'
     ) {
-      const target = Array.isArray(error.meta?.target)
-        ? (error.meta.target as string[])
-        : [];
-      const field = target[0] ?? 'value';
+      const field = uniqueFieldFromPrismaError(error.meta);
       return new BadRequestException({
         code: 'DUPLICATE',
         message: `${this.entityLabel} with this ${field} already exists.`,

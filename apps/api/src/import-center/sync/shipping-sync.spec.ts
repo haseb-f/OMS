@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
@@ -28,6 +29,17 @@ import { SyncSourceConfigService } from './sync-source-config.service';
  * which go through the orchestrator) since no real spreadsheet is available
  * in CI.
  */
+/**
+ * Own label namespace per run — see the matching constant in
+ * `data-synchronization.spec.ts`. Both suites sweep Sync Sources by label
+ * prefix, so sharing one prefix let a parallel run's cleanup delete this
+ * suite's live config mid-test.
+ */
+const SOURCE_LABEL_PREFIX = `Sync Test Source SH-${randomUUID()}`;
+
+/** Own user namespace — see the matching constant in `data-synchronization.spec.ts`. */
+const USER_EMAIL_PREFIX = 'sync-test-sh-';
+
 describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
   let prisma: PrismaService;
   let storeOrdersHandler: StoreOrdersImportHandler;
@@ -38,6 +50,7 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
   let unitId: string;
   let currencyCode: string;
   let productSku: string;
+  let productDisplayName: string;
   let shippingCompanyName: string;
   let employeeEmail: string;
   let countryName: string;
@@ -76,11 +89,12 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
     currencyCode = currency.code;
 
     productSku = `SHIP-SYNC-TEST-${randomUUID().slice(0, 8)}`;
+    productDisplayName = `Shipping Sync Test Product ${productSku}`;
     await prisma.product.create({
       data: {
-        name: 'Shipping Sync Test Product',
-        internalName: 'Shipping Sync Test Product',
-        displayName: 'Shipping Sync Test Product',
+        name: productDisplayName,
+        internalName: productDisplayName,
+        displayName: productDisplayName,
         sku: productSku,
         categoryId,
         unitId,
@@ -99,8 +113,8 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
     const employeeSuffix = randomUUID().slice(0, 8);
     const employee = await prisma.user.create({
       data: {
-        email: `sync-test-${employeeSuffix}@example.test`,
-        username: `sync-test-${employeeSuffix}`,
+        email: `${USER_EMAIL_PREFIX}${employeeSuffix}@example.test`,
+        username: `${USER_EMAIL_PREFIX}${employeeSuffix}`,
         fullName: 'Sync Test Employee',
         passwordHash: 'x',
         isSuperAdmin: false,
@@ -121,7 +135,7 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
 
   afterAll(async () => {
     const syncSources = await prisma.syncSourceConfig.findMany({
-      where: { label: { startsWith: 'Sync Test Source' } },
+      where: { label: { startsWith: SOURCE_LABEL_PREFIX } },
       select: { id: true, importJobId: true },
     });
     const syncJobIds = syncSources
@@ -162,7 +176,7 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
     });
 
     const users = await prisma.user.findMany({
-      where: { email: { startsWith: 'sync-test-' } },
+      where: { email: { startsWith: USER_EMAIL_PREFIX } },
       select: { id: true },
     });
     await prisma.userPermission.deleteMany({
@@ -187,7 +201,7 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
       customerPhone: `+9665${Math.floor(10000000 + Math.random() * 89999999)}`,
       countryName,
       address: 'Test address',
-      productSku,
+      productSku: productDisplayName,
       quantity: '1',
       paidAmount: '100',
       currencyCode,
@@ -454,7 +468,7 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
       fakeSheets.rows = rows;
       return sources.create({
         sourceType: 'SHIPPING_UPDATES',
-        label: `Sync Test Source ${randomUUID()}`,
+        label: `${SOURCE_LABEL_PREFIX} ${randomUUID()}`,
         spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${randomUUID()}/edit`,
         columnMapping: {
           externalOrderId: 'External Order ID',
@@ -666,7 +680,7 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
         );
         return sources.create({
           sourceType: 'STORE_ORDERS',
-          label: `Sync Test Source ${randomUUID()}`,
+          label: `${SOURCE_LABEL_PREFIX} ${randomUUID()}`,
           spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${randomUUID()}/edit`,
           columnMapping: {
             externalOrderId: 'External Order ID',
@@ -692,7 +706,7 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
         );
         return sources.create({
           sourceType: 'SHIPPING_UPDATES',
-          label: `Sync Test Source ${randomUUID()}`,
+          label: `${SOURCE_LABEL_PREFIX} ${randomUUID()}`,
           spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${randomUUID()}/edit`,
           columnMapping: {
             externalOrderId: 'External Order ID',
@@ -714,7 +728,7 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
           'Customer Phone': `+9665${Math.floor(10000000 + Math.random() * 89999999)}`,
           Country: countryName,
           'Detailed Address': 'Test address',
-          'Product SKU': productSku,
+          'Product SKU': productDisplayName,
           Quantity: '1',
           'Paid Amount': '100',
           Currency: currencyCode,

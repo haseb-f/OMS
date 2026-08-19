@@ -4,8 +4,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
+import { uniqueFieldFromPrismaError } from '../common/errors/prisma-unique-field';
 import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
 import {
   PhoneNumberService,
@@ -15,6 +15,12 @@ import {
   ALL_PERMISSION_NAMES,
   withImpliedSectionPermissions,
 } from '../permissions/permission-catalog';
+import {
+  generateTemporaryPassword,
+  hashPassword,
+  normalizeEmail,
+  normalizeUsername,
+} from '../auth/password.util';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -39,6 +45,14 @@ const PUBLIC_USER_SELECT = {
   branchId: true,
   branch: { select: { id: true, name: true, code: true } },
 } satisfies Prisma.UserSelect;
+
+export type PublicUser = Prisma.UserGetPayload<{
+  select: typeof PUBLIC_USER_SELECT;
+}>;
+
+export type UserWithTemporaryPassword = PublicUser & {
+  temporaryPassword: string;
+};
 
 /**
  * TASK-060 — Users & Permissions. Every permission grant/revoke here goes
@@ -74,18 +88,40 @@ export class UsersService {
     return result.e164;
   }
 
-  async create(dto: CreateUserDto) {
-    const { password, mobile, ...rest } = dto;
-    const passwordHash = await bcrypt.hash(password, 10);
+  async create(
+    dto: CreateUserDto,
+  ): Promise<PublicUser | UserWithTemporaryPassword> {
+    const { password, generatePassword, mobile, email, username } = dto;
+    const shouldGenerate = generatePassword === true;
+    const temporaryPassword = shouldGenerate
+      ? generateTemporaryPassword()
+      : undefined;
+    const plainPassword = shouldGenerate ? temporaryPassword : password;
+    if (!plainPassword || plainPassword.length < 8) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: 'Password must be at least 8 characters.',
+        fields: [{ field: 'password', constraints: ['minLength'] }],
+      });
+    }
+    const passwordHash = await hashPassword(plainPassword);
     try {
-      return await this.prisma.user.create({
+      const user = await this.prisma.user.create({
         data: {
-          ...rest,
-          mobile: mobile ? this.normalizeUserMobile(mobile) : mobile,
+          email: normalizeEmail(email),
+          username: normalizeUsername(username),
+          fullName: dto.fullName,
           passwordHash,
+          mobile: mobile ? this.normalizeUserMobile(mobile) : mobile,
+          department: dto.department,
+          jobTitleId: dto.jobTitleId,
+          branchId: dto.branchId,
+          isActive: dto.isActive,
+          mustChangePassword: shouldGenerate,
         },
         select: PUBLIC_USER_SELECT,
       });
+      return temporaryPassword ? { ...user, temporaryPassword } : user;
     } catch (error) {
       throw this.mapUniqueError(error);
     }
@@ -120,7 +156,13 @@ export class UsersService {
 
   async update(id: string, dto: UpdateUserDto) {
     await this.findOne(id);
-    const data = { ...dto };
+    const data: Prisma.UserUncheckedUpdateInput = { ...dto };
+    if (dto.email !== undefined) {
+      data.email = normalizeEmail(dto.email);
+    }
+    if (dto.username !== undefined) {
+      data.username = normalizeUsername(dto.username);
+    }
     if (dto.mobile) {
       data.mobile = this.normalizeUserMobile(dto.mobile);
     }
@@ -169,15 +211,28 @@ export class UsersService {
     return updated;
   }
 
-  /** Admin sets a new password directly — always also flags "must change on next login" so the admin-chosen password is never the user's permanent one. */
-  async resetPassword(id: string, dto: ResetPasswordDto) {
+  /**
+   * Admin reset — hashes server-side (never stores plaintext) and returns
+   * the temporary password exactly once. JWT is stateless so existing tokens
+   * cannot be revoked without a schema change; the new hash is used on the
+   * next login.
+   */
+  async resetPassword(
+    id: string,
+    dto: ResetPasswordDto = {},
+  ): Promise<UserWithTemporaryPassword> {
     await this.findOne(id);
-    const passwordHash = await bcrypt.hash(dto.newPassword, 10);
-    return this.prisma.user.update({
+    const temporaryPassword =
+      dto.newPassword && dto.newPassword.length >= 8
+        ? dto.newPassword
+        : generateTemporaryPassword();
+    const passwordHash = await hashPassword(temporaryPassword);
+    const user = await this.prisma.user.update({
       where: { id },
       data: { passwordHash, mustChangePassword: true },
       select: PUBLIC_USER_SELECT,
     });
+    return { ...user, temporaryPassword };
   }
 
   /** "Force Password Change" — flags the account without touching the current password (distinct from Reset Password, which sets a new one). */
@@ -243,11 +298,12 @@ export class UsersService {
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === 'P2002'
     ) {
-      const field =
-        (error.meta?.target as string[] | undefined)?.[0] ?? 'field';
-      return new BadRequestException(
-        `A user with this ${field} already exists.`,
-      );
+      const field = uniqueFieldFromPrismaError(error.meta);
+      return new BadRequestException({
+        code: 'DUPLICATE',
+        message: `A record with this ${field} already exists.`,
+        fields: [{ field, constraints: ['unique'] }],
+      });
     }
     return error;
   }
