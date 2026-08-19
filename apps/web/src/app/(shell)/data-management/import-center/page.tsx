@@ -78,7 +78,6 @@ function ImportCenterPageContent() {
   const [wizardTypeDef, setWizardTypeDef] = useState<ImportTypeDefinition | null>(null);
   const [wizardJobId, setWizardJobId] = useState<string | undefined>(undefined);
   const [sourcesManagerOpen, setSourcesManagerOpen] = useState(false);
-  const [listSheetLastSyncedAt, setListSheetLastSyncedAt] = useState<string | null>(null);
 
   const loadJobs = useCallback(async () => {
     setIsLoadingJobs(true);
@@ -283,39 +282,22 @@ function ImportCenterPageContent() {
             {t("importCenter.sync.sources.title")}
           </EnterpriseButton>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {SYNC_CARDS.map((card) => (
             <SyncWorkspaceCard
               key={card.sourceType}
               title={t(card.titleKey)}
               description={t(card.descriptionKey)}
             >
-              <div className="[&_button]:w-full">
-                <SyncButton sourceType={card.sourceType} onSynced={loadJobs} />
-              </div>
+              <SyncButton sourceType={card.sourceType} onSynced={loadJobs} layout="workspace" />
             </SyncWorkspaceCard>
           ))}
           <SyncWorkspaceCard
             variant="reference-sync"
             title={t("importCenter.sync.cards.listSheet.title")}
             description={t("importCenter.sync.cards.listSheet.description")}
-            direction={t("importCenter.sync.listSheet.direction")}
-            lastSyncLabel={
-              listSheetLastSyncedAt
-                ? t("importCenter.sync.listSheet.lastSync", {
-                    datetime: formatDateTime(listSheetLastSyncedAt),
-                  })
-                : t("importCenter.sync.listSheet.lastSyncNever")
-            }
           >
-            <ListSheetSyncButton
-              onSynced={loadJobs}
-              onResult={(result) => {
-                if (result.status !== "FAILED") {
-                  setListSheetLastSyncedAt(result.syncedAt);
-                }
-              }}
-            />
+            <ListSheetSyncButton onSynced={loadJobs} />
           </SyncWorkspaceCard>
         </div>
       </div>

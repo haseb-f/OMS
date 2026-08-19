@@ -27,7 +27,7 @@ import { EnterpriseBadge } from "@/components/ui/badge";
 import { BrandMark } from "@/components/brand/brand-logo";
 import { siteConfig } from "@/config/site";
 import { navigationConfig } from "@/navigation/navigation.config";
-import { buildNavigationTree, filterByAccess } from "@/navigation/build-navigation-tree";
+import { buildNavigationTree, filterNavigationByAuth } from "@/navigation/build-navigation-tree";
 import { iconRegistry, type IconName } from "@/navigation/icon-registry";
 import type { NavigationItem } from "@/types/navigation";
 import { useCurrentNavigation } from "@/hooks/use-current-navigation";
@@ -50,14 +50,23 @@ function NavIcon({ name, compact = false }: { name?: IconName; compact?: boolean
 export function AppSidebar() {
   const { t, direction } = useLocale();
   const { current } = useCurrentNavigation();
-  const { permissions, isSuperAdmin } = useUserContext();
+  const { permissions, isSuperAdmin, status } = useUserContext();
 
   // Sidebar must display only modules the user has permission to access
   // (ADR-0022 Part 4) — hidden modules never reach the render tree at all.
   // A super admin sees every module regardless of individual grants.
+  // Permission filtering waits until auth is resolved: an empty permission
+  // set during `loading` is unknown, not a denial (same contract as
+  // `PermissionGate`). Collapse/expand still comes from SidebarProvider.
   const navigationTree = useMemo(
-    () => buildNavigationTree(filterByAccess(navigationConfig, permissions, isSuperAdmin)),
-    [permissions, isSuperAdmin],
+    () =>
+      buildNavigationTree(
+        filterNavigationByAuth(navigationConfig, permissions, {
+          isSuperAdmin,
+          accessReady: status === "authenticated",
+        }),
+      ),
+    [permissions, isSuperAdmin, status],
   );
 
   // Strict accordion (ADR-0022, permanent): at most one module expanded at

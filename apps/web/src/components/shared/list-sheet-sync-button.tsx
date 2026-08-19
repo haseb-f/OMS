@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CloudUpload } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { useUserContext } from "@/providers/user-context";
@@ -9,6 +9,10 @@ import { toast } from "@/lib/toast";
 import { formatDateTime } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/services/api-client";
+import {
+  SYNC_ACTION_BUTTON_CLASS,
+  SyncLastSyncLabel,
+} from "@/components/shared/sync-workspace-card";
 import {
   syncService,
   type ListSheetColumnKey,
@@ -56,7 +60,16 @@ export function ListSheetSyncButton({
   const canSync = hasPermission("import-center.sync");
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<"idle" | "success" | "partial" | "error">("idle");
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const inFlightRef = useRef(false);
+
+  useEffect(() => {
+    if (!canSync) return;
+    syncService
+      .getListSheetStatus()
+      .then((result) => setLastSyncedAt(result.lastSyncedAt))
+      .catch(() => setLastSyncedAt(null));
+  }, [canSync]);
 
   const handleClick = useCallback(async () => {
     if (inFlightRef.current) return;
@@ -68,6 +81,7 @@ export function ListSheetSyncButton({
       onResult?.(result);
       if (result.status === "SUCCESS") {
         setStatus("success");
+        setLastSyncedAt(result.syncedAt);
         toast.success(t("importCenter.sync.listSheet.success"), {
           description: t("importCenter.sync.listSheet.summary", {
             countries: countOf(result, "country"),
@@ -82,6 +96,7 @@ export function ListSheetSyncButton({
         });
       } else if (result.status === "PARTIAL") {
         setStatus("partial");
+        setLastSyncedAt(result.syncedAt);
         const failed = result.lists
           .filter((list) => list.status === "FAILED")
           .map((list) => t(LIST_LABEL_KEY[list.key]))
@@ -111,21 +126,27 @@ export function ListSheetSyncButton({
   const label = loading ? t("importCenter.sync.loading") : t("importCenter.sync.button");
 
   return (
-    <EnterpriseButton
-      type="button"
-      variant="warning"
-      onClick={handleClick}
-      disabled={loading}
-      aria-label={t("importCenter.sync.button")}
-      aria-busy={loading || undefined}
-      aria-live="polite"
-      data-sync-status={status}
-      className="h-auto min-h-(--control-height-md) w-full gap-2 rounded-md px-3 py-1.5 text-[length:var(--text-button)] ring-1 ring-warning-foreground/15 transition-shadow"
-    >
-      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-warning-foreground/15">
-        <CloudUpload className={cn("size-3.5", loading && "animate-spin")} />
-      </span>
-      {label}
-    </EnterpriseButton>
+    <>
+      <EnterpriseButton
+        type="button"
+        variant="warning"
+        onClick={handleClick}
+        disabled={loading}
+        aria-label={t("importCenter.sync.button")}
+        aria-busy={loading || undefined}
+        aria-live="polite"
+        data-sync-status={status}
+        className={cn(
+          SYNC_ACTION_BUTTON_CLASS,
+          "ring-1 ring-warning-foreground/15 transition-shadow",
+        )}
+      >
+        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-warning-foreground/15">
+          <CloudUpload className={cn("size-3.5", loading && "animate-spin")} />
+        </span>
+        {label}
+      </EnterpriseButton>
+      <SyncLastSyncLabel lastSyncedAt={lastSyncedAt} />
+    </>
   );
 }

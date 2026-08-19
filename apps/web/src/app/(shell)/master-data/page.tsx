@@ -13,13 +13,10 @@ import { iconRegistry, type IconName } from "@/navigation/icon-registry";
 import type { MessageKey } from "@/i18n/translate";
 
 /**
- * Master Data Home — the landing page for the standalone Master Data module
- * (TASK-024 Part 3): one card per entity, each linking straight to that
- * entity's own Enterprise DataTable + Enterprise Modal page. The Sidebar
- * already lists all 14 as direct children of "Master Data" for one-click
- * access; this hub exists for the "Master Data" breadcrumb root and for
- * anyone landing here directly to see the whole reference-data surface at
- * a glance.
+ * Master Data Home — leftover geographic/language reference data. Domain
+ * master data (warehouses, payment methods, groups) is listed under its
+ * owning sidebar section. Shipping statuses, methods, and companies live
+ * under Shipping, not here.
  */
 const masterDataEntities: {
   key: string;
@@ -28,27 +25,6 @@ const masterDataEntities: {
   icon: IconName;
   href: string;
 }[] = [
-  {
-    key: "warehouses",
-    titleKey: "masterData.warehouses.title",
-    descriptionKey: "masterData.warehouses.description",
-    icon: "warehouse",
-    href: "/master-data/warehouses",
-  },
-  {
-    key: "analytic-plans",
-    titleKey: "masterData.analyticPlans.title",
-    descriptionKey: "masterData.analyticPlans.description",
-    icon: "folder-kanban",
-    href: "/master-data/analytic-plans",
-  },
-  {
-    key: "analytic-accounts",
-    titleKey: "masterData.analyticAccounts.title",
-    descriptionKey: "masterData.analyticAccounts.description",
-    icon: "git-branch",
-    href: "/master-data/analytic-accounts",
-  },
   {
     key: "countries",
     titleKey: "masterData.countries.title",
@@ -64,74 +40,11 @@ const masterDataEntities: {
     href: "/master-data/cities",
   },
   {
-    key: "currencies",
-    titleKey: "masterData.currencies.title",
-    descriptionKey: "masterData.currencies.description",
-    icon: "coins",
-    href: "/master-data/currencies",
-  },
-  {
     key: "languages",
     titleKey: "masterData.languages.title",
     descriptionKey: "masterData.languages.description",
     icon: "languages",
     href: "/master-data/languages",
-  },
-  {
-    key: "taxes",
-    titleKey: "masterData.taxes.title",
-    descriptionKey: "masterData.taxes.description",
-    icon: "percent",
-    href: "/master-data/taxes",
-  },
-  {
-    key: "units",
-    titleKey: "masterData.units.title",
-    descriptionKey: "masterData.units.description",
-    icon: "ruler",
-    href: "/master-data/units",
-  },
-  {
-    key: "categories",
-    titleKey: "masterData.categories.title",
-    descriptionKey: "masterData.categories.description",
-    icon: "tags",
-    href: "/master-data/categories",
-  },
-  {
-    key: "brands",
-    titleKey: "masterData.brands.title",
-    descriptionKey: "masterData.brands.description",
-    icon: "award",
-    href: "/master-data/brands",
-  },
-  {
-    key: "payment-methods",
-    titleKey: "masterData.paymentMethods.title",
-    descriptionKey: "masterData.paymentMethods.description",
-    icon: "banknote",
-    href: "/master-data/payment-methods",
-  },
-  {
-    key: "shipping-methods",
-    titleKey: "masterData.shippingMethods.title",
-    descriptionKey: "masterData.shippingMethods.description",
-    icon: "ship",
-    href: "/master-data/shipping-methods",
-  },
-  {
-    key: "customer-groups",
-    titleKey: "masterData.customerGroups.title",
-    descriptionKey: "masterData.customerGroups.description",
-    icon: "users-round",
-    href: "/master-data/customer-groups",
-  },
-  {
-    key: "supplier-groups",
-    titleKey: "masterData.supplierGroups.title",
-    descriptionKey: "masterData.supplierGroups.description",
-    icon: "users-round",
-    href: "/master-data/supplier-groups",
   },
 ];
 

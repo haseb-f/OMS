@@ -39,6 +39,7 @@ export interface ListSheetSyncResult {
 export class ListSheetService {
   private readonly logger = new Logger(ListSheetService.name);
   private inFlight: Promise<ListSheetSyncResult> | null = null;
+  private lastSyncedAt: string | null = null;
 
   constructor(
     private readonly registry: ReferenceDataRegistryService,
@@ -57,6 +58,10 @@ export class ListSheetService {
       this.inFlight = null;
     });
     return this.inFlight;
+  }
+
+  status(): { lastSyncedAt: string | null } {
+    return { lastSyncedAt: this.lastSyncedAt };
   }
 
   private async run(): Promise<ListSheetSyncResult> {
@@ -122,7 +127,7 @@ export class ListSheetService {
     }
 
     const failedCount = lists.filter((list) => list.status === 'FAILED').length;
-    return {
+    const result: ListSheetSyncResult = {
       status:
         failedCount === 0
           ? 'SUCCESS'
@@ -134,6 +139,10 @@ export class ListSheetService {
       syncedAt: new Date().toISOString(),
       lists,
     };
+    if (result.status !== 'FAILED') {
+      this.lastSyncedAt = result.syncedAt;
+    }
+    return result;
   }
 
   private async loadValues(def: ListSheetColumnDef): Promise<string[]> {

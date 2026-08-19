@@ -12,6 +12,10 @@ import { ApiError } from "@/services/api-client";
 import { formatDateTime } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import {
+  SYNC_ACTION_BUTTON_CLASS,
+  SyncLastSyncLabel,
+} from "@/components/shared/sync-workspace-card";
+import {
   syncService,
   type SyncSourceType,
   type SyncSource,
@@ -28,9 +32,12 @@ import type { SyncReviewSourcePreview } from "@/components/shared/sync-review/sy
 export function SyncButton({
   sourceType,
   onSynced,
+  layout = "toolbar",
 }: {
   sourceType: SyncSourceType;
   onSynced?: () => void;
+  /** `workspace` is the Import Center card layout (full-width button + last-sync line). */
+  layout?: "toolbar" | "workspace";
 }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
@@ -165,7 +172,12 @@ export function SyncButton({
             onClick={handleClick}
             disabled={loading}
             aria-label={t("importCenter.sync.button")}
-            className="h-auto min-h-(--control-height-md) gap-2 rounded-md px-3 py-1.5 text-[length:var(--text-button)] ring-1 ring-info-foreground/15 transition-shadow"
+            className={cn(
+              layout === "workspace"
+                ? SYNC_ACTION_BUTTON_CLASS
+                : "h-auto min-h-(--control-height-md) gap-2 rounded-md px-3 py-1.5 text-[length:var(--text-button)]",
+              "ring-1 ring-info-foreground/15 transition-shadow",
+            )}
           >
             <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-info-foreground/15">
               <CloudCog className={cn("size-3.5", loading && "animate-spin")} />
@@ -210,6 +222,9 @@ export function SyncButton({
           )}
         </TooltipContent>
       </Tooltip>
+      {layout === "workspace" ? (
+        <SyncLastSyncLabel lastSyncedAt={lastSyncSource?.lastSyncedAt} />
+      ) : null}
 
       <SyncReviewDialog
         key={items?.map((item) => item.preview.jobId).join("|") ?? "closed"}

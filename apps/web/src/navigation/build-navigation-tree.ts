@@ -20,14 +20,22 @@ export function buildNavigationTree(items: NavigationItem[]): NavigationItem[] {
   const attachChildren = (item: NavigationItem): NavigationItem => {
     const children = byParent.get(item.id);
     if (!children) return item;
-    return {
-      ...item,
-      children: sortByOrder(children).map(attachChildren),
-    };
+    const nested = sortByOrder(children)
+      .map(attachChildren)
+      .filter((child) => Boolean(child.route || child.children?.length));
+    if (!nested.length) return item;
+    return { ...item, children: nested };
   };
 
   const roots = byParent.get(undefined) ?? [];
-  return sortByOrder(roots).map(attachChildren);
+  return sortByOrder(roots).map(attachChildren).filter(hasVisibleContent);
+}
+
+function hasVisibleContent(item: NavigationItem): boolean {
+  if (item.children?.length) {
+    return item.children.some(hasVisibleContent);
+  }
+  return Boolean(item.route);
 }
 
 function sortByOrder(items: NavigationItem[]): NavigationItem[] {
@@ -45,7 +53,22 @@ function sortByOrder(items: NavigationItem[]): NavigationItem[] {
  * `permissions` list, including sections whose coarse `*.view` gate (e.g.
  * `crm.view`, `finance.view`) has no corresponding Permission Matrix row to
  * grant through the normal UI.
+ *
+ * Auth-aware wrapper: while bootstrap is still loading (or failed for a
+ * non-401 reason), permissions are unknown — not empty. Treating that as
+ * "no access" would hide every gated module and leave only Dashboard until
+ * a later re-render. Unknown state therefore returns the unfiltered list;
+ * filtering starts only after `accessReady` is true.
  */
+export function filterNavigationByAuth(
+  items: NavigationItem[],
+  userPermissions: string[],
+  options: { isSuperAdmin?: boolean; accessReady?: boolean } = {},
+): NavigationItem[] {
+  if (!options.accessReady) return items;
+  return filterByAccess(items, userPermissions, options.isSuperAdmin);
+}
+
 export function filterByAccess(
   items: NavigationItem[],
   userPermissions: string[],

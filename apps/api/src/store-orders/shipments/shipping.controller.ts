@@ -13,6 +13,7 @@ import { PermissionModule } from '../../auth/decorators/permission-module.decora
 import { PermissionAction } from '../../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../../auth/guards/jwt-auth.guard';
+import { SHIPPING_STATUS_CATALOG } from '../../shipping/shipping-status.catalog';
 import { StoreOrderShipmentsService } from './store-order-shipments.service';
 import { StoreOrderShipmentOperationsService } from './store-order-shipment-operations.service';
 import { FindShipmentsQueryDto } from './dto/find-shipments-query.dto';
@@ -31,6 +32,18 @@ export class ShippingController {
   @Get()
   findAll(@Query() query: FindShipmentsQueryDto) {
     return this.shipmentsService.findAllFlat(query);
+  }
+
+  /** Canonical shipping-status vocabulary — closed catalog, not a CRUD table. */
+  @Get('statuses')
+  listStatuses() {
+    return SHIPPING_STATUS_CATALOG.map((status) => ({
+      code: status.code,
+      label: status.label,
+      isDefault: status.isDefault,
+      isSystem: status.isSystem,
+      importable: status.importable,
+    }));
   }
 
   /** "Select all matching filters" — bare IDs only, same filter/search as `findAll`. */

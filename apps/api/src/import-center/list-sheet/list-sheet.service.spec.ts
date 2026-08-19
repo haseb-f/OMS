@@ -97,6 +97,7 @@ describe('ListSheetService', () => {
     );
     expect(JSON.stringify(columns)).not.toContain('uuid-should-not-appear');
     expect(JSON.stringify(columns)).not.toContain('gone@example.com');
+    expect(service.status().lastSyncedAt).toBe(result.syncedAt);
   });
 
   it('reports PARTIAL when one list fails to load and still writes the others', async () => {

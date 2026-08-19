@@ -148,4 +148,6 @@ export const syncService = {
 
   /** OMS → official Google List Sheet (master/reference dropdown values). */
   publishListSheet: () => apiClient.post<ListSheetSyncResult>("/import-center/sync/list-sheet"),
+  getListSheetStatus: () =>
+    apiClient.get<{ lastSyncedAt: string | null }>("/import-center/sync/list-sheet"),
 };

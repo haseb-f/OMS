@@ -131,6 +131,12 @@ export class SyncController {
    * display values; never imports from the sheet. Uses `import-center.sync`
    * like the four inbound Sync buttons.
    */
+  @Get('list-sheet')
+  @PermissionAction('sync')
+  listSheetStatus() {
+    return this.listSheet.status();
+  }
+
   @Post('list-sheet')
   @HttpCode(200)
   @PermissionAction('sync')
