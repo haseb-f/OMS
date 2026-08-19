@@ -34,6 +34,15 @@ declare module "@tanstack/react-table" {
     importance?: ColumnImportance;
     /** Escape hatch for the rare column id the type inference can't classify correctly (e.g. a column mixing a code and a date into one string). */
     type?: ColumnType;
+    /**
+     * Marks the column that identifies the record. When the table is given a
+     * `getRowHref`, this cell — and only this cell — becomes the link to the
+     * record, so navigation stays out of the checkbox, expand and actions
+     * columns that share the row.
+     */
+    identity?: boolean;
+    /** Prose columns (error reasons, notes) that must wrap rather than truncate. */
+    wrap?: boolean;
   }
 }
 

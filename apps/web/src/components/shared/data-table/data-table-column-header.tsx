@@ -80,7 +80,7 @@ export function EnterpriseTableColumnHeader<TData, TValue>({
           <EnterpriseButton
             variant="ghost"
             size="inline"
-            className="flex min-w-0 w-full max-w-full items-center gap-0.5 justify-start overflow-hidden font-medium text-caption text-muted-foreground hover:bg-transparent hover:text-foreground hover:shadow-none data-[state=open]:bg-transparent data-[state=open]:text-foreground"
+            className="flex min-w-0 w-full max-w-full items-center gap-0.5 justify-start font-medium text-caption leading-normal text-muted-foreground hover:bg-transparent hover:text-foreground hover:shadow-none data-[state=open]:bg-transparent data-[state=open]:text-foreground"
           >
             {align === "end" ? (
               <>

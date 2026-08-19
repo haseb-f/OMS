@@ -97,7 +97,12 @@ export function buildInvoiceColumns(
   return [
     {
       id: "invoiceNumber",
-      meta: { titleKey: "sales.invoices.fields.number", stacked: true, type: "code" },
+      meta: {
+        titleKey: "sales.invoices.fields.number",
+        stacked: true,
+        type: "code",
+        identity: true,
+      },
       accessorFn: (row) => row.invoiceNumber,
       cell: ({ row }) => (
         <StackedCell

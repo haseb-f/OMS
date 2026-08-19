@@ -171,7 +171,7 @@ function SupplierPaymentsPageContent() {
     () => [
       {
         id: "transactionNumber",
-        meta: { titleKey: "purchasing.payments.fields.number" },
+        meta: { titleKey: "purchasing.payments.fields.number", identity: true },
         accessorFn: (row) => row.transactionNumber,
         cell: ({ row }) => (
           <StackedCell
@@ -483,6 +483,7 @@ function SupplierPaymentsPageContent() {
         }
         emptyTitle={t("purchasing.payments.empty")}
         getRowId={(row) => row.id}
+        getRowHref={(row) => `/purchasing/payments/${row.id}`}
       />
 
       <ConfirmationDialog

@@ -303,6 +303,7 @@ function ShippingPageContent() {
         }
         emptyTitle={t("shipping.empty")}
         getRowId={(row) => row.id}
+        getRowHref={(row) => `/store-orders/${row.storeOrderId}`}
       />
 
       <ShipmentManageDialog

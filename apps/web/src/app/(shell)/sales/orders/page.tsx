@@ -438,6 +438,7 @@ function SalesOrdersPageContent() {
           })
         }
         getRowId={(row) => row.id}
+        getRowHref={(row) => `/sales/orders/${row.id}`}
       />
 
       <ConfirmationDialog

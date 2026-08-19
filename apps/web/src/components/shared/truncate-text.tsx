@@ -21,7 +21,7 @@ export function TruncateText({
       <TooltipTrigger asChild>
         <span
           className={cn(
-            "inline-block w-max max-w-full min-w-0",
+            "inline-block w-max max-w-full min-w-0 leading-normal",
             lines === 1 ? "truncate" : "line-clamp-2 break-words",
             className,
           )}

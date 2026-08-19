@@ -216,7 +216,7 @@ function JournalEntriesPageContent() {
     () => [
       {
         id: "entryNumber",
-        meta: { titleKey: "accounting.journalEntries.fields.number" },
+        meta: { titleKey: "accounting.journalEntries.fields.number", identity: true },
         accessorFn: (row) => row.entryNumber,
         cell: ({ row }) => (
           <StackedCell
@@ -558,6 +558,7 @@ function JournalEntriesPageContent() {
         }
         emptyTitle={t("accounting.journalEntries.empty")}
         getRowId={(row) => row.id}
+        getRowHref={(row) => `/finance/journal-entries/${row.id}`}
       />
 
       <ConfirmationDialog

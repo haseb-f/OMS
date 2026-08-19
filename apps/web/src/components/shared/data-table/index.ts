@@ -3,6 +3,12 @@ export { EnterprisePagination } from "./data-table-pagination";
 export { EnterpriseTableViewOptions } from "./data-table-view-options";
 export { createSelectionColumn } from "./data-table-selection-column";
 export { RowActionsMenu, type RowAction } from "./row-actions-menu";
+export { RowIdentityLink } from "./row-identity-link";
+export {
+  CompactDetailTable,
+  type CompactDetailColumn,
+  type CompactDetailAlign,
+} from "./compact-detail-table";
 export { documentRowAccess } from "./document-row-access";
 export { MultiSelectFilter, type MultiSelectFilterOption } from "./multi-select-filter";
 export { MultiEntityFilter } from "./multi-entity-filter";

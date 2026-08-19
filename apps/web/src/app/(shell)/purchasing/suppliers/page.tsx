@@ -149,6 +149,7 @@ function SuppliersPageContent() {
       defaultValues={supplierDefaultValues}
       permissionPrefix="purchasing.suppliers"
       rowLabel={supplierRowLabel}
+      getRowHref={(row) => `/purchasing/suppliers/${row.id}`}
       extraActions={<ModuleImportButtons importType="SUPPLIERS" />}
       extraRowActions={(entity): RowAction[] => [
         {

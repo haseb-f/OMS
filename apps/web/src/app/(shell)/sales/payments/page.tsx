@@ -171,7 +171,7 @@ function CustomerReceiptsPageContent() {
     () => [
       {
         id: "transactionNumber",
-        meta: { titleKey: "sales.receipts.fields.number" },
+        meta: { titleKey: "sales.receipts.fields.number", identity: true },
         accessorFn: (row) => row.transactionNumber,
         cell: ({ row }) => (
           <StackedCell
@@ -485,6 +485,7 @@ function CustomerReceiptsPageContent() {
         }
         emptyTitle={t("sales.receipts.empty")}
         getRowId={(row) => row.id}
+        getRowHref={(row) => `/sales/payments/${row.id}`}
       />
 
       <ConfirmationDialog

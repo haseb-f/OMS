@@ -44,7 +44,7 @@ function CustomerCell({ row }: { row: LeadRow }) {
 export const leadColumns: ColumnDef<LeadRow, unknown>[] = [
   {
     id: "leadNumber",
-    meta: { titleKey: "crm.leads.fields.leadNumber" },
+    meta: { titleKey: "crm.leads.fields.leadNumber", identity: true },
     accessorFn: (row) => row.leadNumber,
     cell: ({ row }) => (
       <SemanticValue kind="id" className="text-body font-medium">

@@ -107,7 +107,12 @@ export function buildQuotationColumns(
   return [
     {
       id: "quotationNumber",
-      meta: { titleKey: "sales.quotations.fields.number", stacked: true, type: "code" },
+      meta: {
+        titleKey: "sales.quotations.fields.number",
+        stacked: true,
+        type: "code",
+        identity: true,
+      },
       accessorFn: (row) => row.quotationNumber,
       cell: ({ row }) => (
         <StackedCell

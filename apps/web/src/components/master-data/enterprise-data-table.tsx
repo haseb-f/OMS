@@ -38,16 +38,12 @@ import {
   TableRow,
   tableColumnInsetClass,
   tableCellContentClass,
+  tableCellWrapClass,
 } from "@/components/ui/table";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { IconActionButton } from "@/components/shared/icon-action-button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { ListFooter, ListSurface, ListToolbar } from "@/components/shared/data-table/list-surface";
@@ -66,6 +62,9 @@ import {
   responsiveHideClass,
   layoutDetailRegions,
   hasTableDetailContent,
+  RowActionsMenu,
+  RowIdentityLink,
+  type RowAction,
   type TableDetailRegion,
 } from "@/components/shared/data-table";
 import { useLocale } from "@/providers/locale-provider";
@@ -163,6 +162,7 @@ export function EnterpriseDataTable<TData>({
   renderExpandedRegions,
   filterBar,
   renderMobileRow,
+  getRowHref,
 }: {
   columns: ColumnDef<TData, unknown>[];
   data: TData[];
@@ -216,6 +216,14 @@ export function EnterpriseDataTable<TData>({
   filterBar?: ReactNode;
   /** Narrow-container list; table remains the desktop workspace. */
   renderMobileRow?: (args: MobileRowRenderArgs<TData>) => ReactNode;
+  /**
+   * Detail route for a row. Opt-in: tables for entities with no detail route
+   * simply omit it. When present, the column marked `meta.identity` becomes a
+   * real link, so opening a record is one click on the thing that names it
+   * rather than a trip through the actions menu — and middle-click, Ctrl+click
+   * and "copy link" all behave like navigation is expected to.
+   */
+  getRowHref?: (row: TData) => string | null | undefined;
 }) {
   const { t, direction } = useLocale();
   const { printList } = usePrintEngine();
@@ -559,7 +567,9 @@ export function EnterpriseDataTable<TData>({
     isServerMode && (totalCount ?? 0) > 0 && selectedCount >= (totalCount ?? 0);
   // Compact: two-line grouping with tighter padding. Comfortable: the same
   // hierarchy with more vertical rhythm. Neither density shrinks type.
-  const cellPaddingClass = density === "compact" ? "py-2" : "py-3";
+  // Padding is the only density lever. Line height belongs to the type scale
+  // and stays there, so tightening a row can never clip Arabic.
+  const cellPaddingClass = density === "compact" ? "py-1.5" : "py-2.5";
   const cellTextClass = "text-body";
 
   // Smart Column Engine (TASK-035 FINAL) — resolve every currently-visible
@@ -682,6 +692,49 @@ export function EnterpriseDataTable<TData>({
     });
   };
 
+  // The table's own utilities, behind the shared overflow menu. These are
+  // occasional controls; keeping them out of the strip leaves the filters
+  // that actually drive the list as the only labelled things in it.
+  const tableOptions: RowAction[] = [
+    { key: "print", label: t("table.print"), icon: Printer, onSelect: handlePrint },
+    {
+      key: "import",
+      label: t("common.import"),
+      icon: Upload,
+      hidden: !onImport,
+      onSelect: () => setImportDialogOpen(true),
+    },
+    {
+      key: "export",
+      label: t("table.export"),
+      icon: Download,
+      hidden: !(exportColumns && exportColumns.length > 0 && onExport),
+      onSelect: () => setExportDialogOpen(true),
+    },
+    {
+      key: "density-comfortable",
+      label: t("table.densityComfortable"),
+      icon: Rows3,
+      separatorBefore: true,
+      checked: density === "comfortable",
+      onSelect: () => setDensity("comfortable"),
+    },
+    {
+      key: "density-compact",
+      label: t("table.densityCompact"),
+      icon: Rows3,
+      checked: density === "compact",
+      onSelect: () => setDensity("compact"),
+    },
+    {
+      key: "reset-layout",
+      label: t("table.restoreDefaultLayout"),
+      icon: RotateCcw,
+      separatorBefore: true,
+      onSelect: resetLayout,
+    },
+  ];
+
   return (
     <div className="flex min-w-0 flex-col gap-3" id={`table-${tableId}`}>
       {selectedCount > 0 && bulkActions && (
@@ -734,114 +787,35 @@ export function EnterpriseDataTable<TData>({
           available width, not the viewport, since a fixed-width sidebar
           means those two diverge. */}
       <ListSurface className="@container/enterprise-table">
-        {filterBar ? (
-          <ListToolbar>
-            <Input
-              value={effectiveSearch}
-              onChange={(event) => handleSearchChange(event.target.value)}
-              placeholder={t("table.filterPlaceholder")}
-              className="h-(--control-height-sm) max-w-(--width-control-search)"
-            />
-            {filterBar}
-          </ListToolbar>
-        ) : null}
+        {/* One strip: what narrows the list on the inline-start, what acts on
+            it at the end. Search and filters used to sit on a second row above
+            this one, which stacked two dividers directly on top of the sticky
+            header and read as a single indistinct band. */}
         <ListToolbar>
-          {!filterBar && (
-            <Input
-              value={effectiveSearch}
-              onChange={(event) => handleSearchChange(event.target.value)}
-              placeholder={t("table.filterPlaceholder")}
-              className="h-(--control-height-sm) max-w-(--width-control-search)"
-            />
-          )}
-          <div className="ms-auto flex flex-wrap items-center gap-2">
+          <Input
+            value={effectiveSearch}
+            onChange={(event) => handleSearchChange(event.target.value)}
+            placeholder={t("table.filterPlaceholder")}
+            className="h-(--control-height-sm) max-w-(--width-control-search)"
+          />
+          {filterBar}
+          <div className="ms-auto flex items-center gap-1">
             {onRefresh && (
-              <EnterpriseButton
-                type="button"
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
+              <IconActionButton
+                label={t("table.refresh")}
                 disabled={isLoading}
                 aria-busy={isLoading || undefined}
                 onClick={onRefresh}
               >
                 <RefreshCw
-                  className={cn("size-3.5", isLoading && "animate-spin motion-reduce:animate-none")}
+                  className={cn("size-4", isLoading && "animate-spin motion-reduce:animate-none")}
                 />
-                {t("table.refresh")}
-              </EnterpriseButton>
+              </IconActionButton>
             )}
-            <EnterpriseButton
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              onClick={handlePrint}
-            >
-              <Printer className="size-3.5" />
-              {t("table.print")}
-            </EnterpriseButton>
-            {onImport && (
-              <EnterpriseButton
-                type="button"
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
-                onClick={() => setImportDialogOpen(true)}
-              >
-                <Upload className="size-3.5" />
-                {t("common.import")}
-              </EnterpriseButton>
-            )}
-            {exportColumns && exportColumns.length > 0 && onExport && (
-              <EnterpriseButton
-                type="button"
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
-                onClick={() => setExportDialogOpen(true)}
-              >
-                <Download className="size-3.5" />
-                {t("table.export")}
-              </EnterpriseButton>
-            )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <EnterpriseButton type="button" variant="outline" size="sm" className="gap-1.5">
-                  <Rows3 className="size-3.5" />
-                  {t("table.density")}
-                </EnterpriseButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onSelect={() => setDensity("comfortable")}
-                  className={density === "comfortable" ? "bg-muted" : undefined}
-                >
-                  {t("table.densityComfortable")}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={() => setDensity("compact")}
-                  className={density === "compact" ? "bg-muted" : undefined}
-                >
-                  {t("table.densityCompact")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
             <EnterpriseTableViewOptions table={table} />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <EnterpriseButton
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={t("table.restoreDefaultLayout")}
-                  onClick={resetLayout}
-                >
-                  <RotateCcw className="size-3.5" />
-                </EnterpriseButton>
-              </TooltipTrigger>
-              <TooltipContent side="top">{t("table.restoreDefaultLayout")}</TooltipContent>
-            </Tooltip>
+            {/* Print/import/export/density/reset are all occasional: as five
+                labelled buttons they outweighed the filters they sat beside. */}
+            <RowActionsMenu label={t("table.options")} actions={tableOptions} />
           </div>
         </ListToolbar>
 
@@ -906,7 +880,10 @@ export function EnterpriseDataTable<TData>({
                 );
               })}
             </colgroup>
-            <TableHeader className="sticky top-0 z-10 bg-muted/60 shadow-[0_1px_0_0_var(--border)]">
+            {/* A solid fill plus a full-strength bottom rule: the header sits
+                directly under the toolbar, and a translucent tint against the
+                card read as one continuous band rather than a column axis. */}
+            <TableHeader className="sticky top-0 z-10 bg-muted shadow-[inset_0_-1px_0_0_var(--border)]">
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id} className="hover:bg-transparent">
                   {headerGroup.headers.map((header, index) => {
@@ -924,7 +901,7 @@ export function EnterpriseDataTable<TData>({
                           headerRefs.current[header.id] = el;
                         }}
                         className={cn(
-                          "relative min-w-0 overflow-hidden px-0",
+                          "relative min-w-0 px-0",
                           tableColumnInsetClass(
                             index,
                             headerGroup.headers.length,
@@ -987,7 +964,7 @@ export function EnterpriseDataTable<TData>({
                           key={column.id}
                           data-column-id={column.id}
                           className={cn(
-                            "align-middle min-w-0 overflow-hidden px-0",
+                            "align-middle min-w-0 px-0",
                             tableColumnInsetClass(
                               index,
                               visibleLeafColumns.length,
@@ -1036,10 +1013,22 @@ export function EnterpriseDataTable<TData>({
                     >
                       {row.getVisibleCells().map((cell, index) => {
                         const layout = layoutById.get(cell.column.id);
-                        const content = flexRender(cell.column.columnDef.cell, cell.getContext());
+                        const rendered = flexRender(cell.column.columnDef.cell, cell.getContext());
+                        // Only the identity column navigates. The row itself
+                        // stays inert so the checkbox, chevron and actions menu
+                        // sharing it keep unambiguous hit areas.
+                        const identityHref = cell.column.columnDef.meta?.identity
+                          ? (getRowHref?.(row.original) ?? null)
+                          : null;
+                        const content = identityHref ? (
+                          <RowIdentityLink href={identityHref}>{rendered}</RowIdentityLink>
+                        ) : (
+                          rendered
+                        );
+                        const isWrapped = Boolean(cell.column.columnDef.meta?.wrap);
                         const isStacked =
                           Boolean(cell.column.columnDef.meta?.stacked) ||
-                          isStackedCellNode(content);
+                          isStackedCellNode(rendered);
                         const isUtility =
                           layout?.type === "checkbox" ||
                           layout?.type === "expand" ||
@@ -1053,7 +1042,7 @@ export function EnterpriseDataTable<TData>({
                             key={cell.id}
                             data-column-id={cell.column.id}
                             className={cn(
-                              "align-middle min-w-0 overflow-hidden px-0",
+                              "align-middle min-w-0 px-0",
                               tableColumnInsetClass(
                                 index,
                                 row.getVisibleCells().length,
@@ -1063,7 +1052,7 @@ export function EnterpriseDataTable<TData>({
                               cellTextClass,
                               alignClass[layout?.align ?? "start"],
                               responsiveHideClass(layout?.importance ?? "high"),
-                              isStacked && "whitespace-normal",
+                              (isStacked || isWrapped) && "whitespace-normal",
                             )}
                             style={{
                               minWidth: layout?.minWidth ?? undefined,
@@ -1075,7 +1064,13 @@ export function EnterpriseDataTable<TData>({
                           >
                             {isUtility || isStacked ? (
                               content
+                            ) : isWrapped ? (
+                              <div className={tableCellWrapClass}>{content}</div>
                             ) : (
+                              // Single-line operational values clip on the
+                              // inline axis and recover the full text in the
+                              // tooltip — the only place truncation is applied
+                              // by default.
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <div
@@ -1129,7 +1124,7 @@ export function EnterpriseDataTable<TData>({
                                     data-empty={empty ? "true" : undefined}
                                     colSpan={detailCell.colSpan}
                                     className={cn(
-                                      "align-top whitespace-normal overflow-hidden px-0",
+                                      "align-top whitespace-normal px-0",
                                       tableColumnInsetClass(
                                         startIndex,
                                         total,

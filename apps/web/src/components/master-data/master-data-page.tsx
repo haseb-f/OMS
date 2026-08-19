@@ -110,6 +110,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   disableArchiveRestore = false,
   supportsSelectAllMatching = false,
   hideCreateButton = false,
+  getRowHref,
 }: {
   titleKey: MessageKey;
   descriptionKey: MessageKey;
@@ -153,6 +154,8 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   supportsSelectAllMatching?: boolean;
   /** Suppresses the internal "+ New" button — for a page that renders its own create trigger/dialog instead (e.g. Leads' dual-mode Lead/Order create dialog) while still using this component for list/edit/archive. */
   hideCreateButton?: boolean;
+  /** Opt-in detail route for a row — only for an entity that has a real detail page (Customers, Suppliers, Leads); forwarded to the table, where it turns the `meta.identity` column into a link. */
+  getRowHref?: (row: TEntity) => string | null | undefined;
 }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
@@ -596,6 +599,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
             )
           }
           onRefresh={load}
+          getRowHref={getRowHref}
           exportColumns={exportColumnsFromKeys(columns, exportColumnKeys, t)}
           onExport={(selectedKeys) =>
             exportRowsToCsv(

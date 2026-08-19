@@ -159,6 +159,7 @@ function CustomersPageContent() {
       defaultValues={customerDefaultValues}
       permissionPrefix="sales.customers"
       rowLabel={customerRowLabel}
+      getRowHref={(row) => `/sales/customers/${row.id}`}
       supportsSelectAllMatching
       extraActions={<ModuleImportButtons importType="CUSTOMERS" />}
       extraListParams={sourceFilter.length ? { source: sourceFilter } : undefined}

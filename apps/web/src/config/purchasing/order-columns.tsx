@@ -98,7 +98,12 @@ export function buildOrderColumns(
   return [
     {
       id: "poNumber",
-      meta: { titleKey: "purchasing.orders.fields.number", stacked: true, type: "code" },
+      meta: {
+        titleKey: "purchasing.orders.fields.number",
+        stacked: true,
+        type: "code",
+        identity: true,
+      },
       accessorFn: (row) => row.poNumber,
       cell: ({ row }) => (
         <StackedCell

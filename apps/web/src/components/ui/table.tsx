@@ -58,7 +58,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-8 px-3 text-start align-middle text-caption font-medium whitespace-nowrap text-muted-foreground",
+        "h-9 px-3 text-start align-middle text-caption font-medium whitespace-nowrap text-muted-foreground",
         className,
       )}
       {...props}
@@ -87,8 +87,17 @@ function tableColumnInsetClass(_index: number, _count: number, kind: "data" | "u
   return kind === "utility" ? "px-1" : "px-3";
 }
 
-/** Canonical in-cell content box — shrink-wraps to inline-start so LTR IDs share the header axis. */
-const tableCellContentClass = "inline-block w-max max-w-full min-w-0 truncate align-middle";
+/**
+ * Canonical in-cell content box — shrink-wraps to inline-start so LTR IDs
+ * share the header axis. Overflow is clipped on the inline axis only: the
+ * line box keeps the type scale's height so a clipped cell loses trailing
+ * characters, never the top of an Arabic glyph.
+ */
+const tableCellContentClass =
+  "inline-block w-max max-w-full min-w-0 truncate leading-normal align-middle";
+
+/** Cells that carry prose (error reasons, notes) wrap instead of truncating — a clipped reason is unreadable. */
+const tableCellWrapClass = "block w-full min-w-0 whitespace-normal break-words leading-normal";
 
 function TableCaption({ className, ...props }: React.ComponentProps<"caption">) {
   return (
@@ -111,4 +120,5 @@ export {
   TableCaption,
   tableColumnInsetClass,
   tableCellContentClass,
+  tableCellWrapClass,
 };

@@ -42,9 +42,12 @@
   --text-button--line-height: 1.25;
   --text-button--font-weight: 600;
   --text-caption: 0.8125rem; /* 13px — secondary lines, table headers, help text */
-  --text-caption--line-height: 1.4;
+  /* Arabic ascenders and diacritics overflow a box tighter than ~1.5, and the
+     dense surfaces these sizes appear on clip overflow to truncate. Anything
+     lower reappears as shaved glyph tops in table cells. */
+  --text-caption--line-height: 1.5;
   --text-micro: 0.75rem; /* 12px — tertiary metadata in busy views only */
-  --text-micro--line-height: 1.35;
+  --text-micro--line-height: 1.45;
   --text-ui-title: 1.25rem; /* 20px — internal page headers, not hero 24px */
   --text-ui-title--line-height: 1.3;
   --text-ui-title--font-weight: 600;

@@ -399,6 +399,7 @@ function QuotationsPageContent() {
           })
         }
         getRowId={(row) => row.id}
+        getRowHref={(row) => `/sales/quotations/${row.id}`}
       />
 
       <ConfirmationDialog

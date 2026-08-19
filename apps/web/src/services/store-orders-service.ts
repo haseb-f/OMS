@@ -95,6 +95,7 @@ export interface StoreOrderRow {
   source: StoreOrderSourceValue;
   sourceChannel: string | null;
   employeeId: string | null;
+  employee?: { id: string; fullName: string } | null;
   paymentStatus: StoreOrderPaymentStatusValue;
   shippingStage: StoreOrderShippingStageValue;
   currency: { id: string; code: string; name: string; symbol: string | null } | null;

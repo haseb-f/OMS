@@ -36,7 +36,7 @@ function SourceCell({ source }: { source: CustomerSourceValue }) {
 export const customerColumns: ColumnDef<CustomerRow, unknown>[] = [
   {
     id: "customerNumber",
-    meta: { titleKey: "sales.customers.fields.customerNumber", type: "code" },
+    meta: { titleKey: "sales.customers.fields.customerNumber", type: "code", identity: true },
     accessorFn: (row) => row.customerNumber,
     cell: ({ row }) => (
       <SemanticValue kind="id" className="text-body font-medium">

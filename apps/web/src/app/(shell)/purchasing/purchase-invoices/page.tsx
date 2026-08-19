@@ -408,6 +408,7 @@ function PurchaseInvoicesPageContent() {
           })
         }
         getRowId={(row) => row.id}
+        getRowHref={(row) => `/purchasing/purchase-invoices/${row.id}`}
       />
 
       <ConfirmationDialog

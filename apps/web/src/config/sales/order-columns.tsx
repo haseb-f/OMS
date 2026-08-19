@@ -92,7 +92,7 @@ export function buildOrderColumns(handlers: OrderRowHandlers): ColumnDef<SalesOr
   return [
     {
       id: "orderNumber",
-      meta: { titleKey: "sales.orders.fields.number", stacked: true, type: "code" },
+      meta: { titleKey: "sales.orders.fields.number", stacked: true, type: "code", identity: true },
       accessorFn: (row) => row.orderNumber,
       cell: ({ row }) => (
         <StackedCell

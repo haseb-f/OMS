@@ -397,6 +397,7 @@ function SalesInvoicesPageContent() {
           })
         }
         getRowId={(row) => row.id}
+        getRowHref={(row) => `/sales/invoices/${row.id}`}
       />
 
       <ConfirmationDialog

@@ -404,6 +404,7 @@ function PurchaseQuotationsPageContent() {
           })
         }
         getRowId={(row) => row.id}
+        getRowHref={(row) => `/purchasing/purchase-quotations/${row.id}`}
       />
 
       <ConfirmationDialog

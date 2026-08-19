@@ -10,7 +10,7 @@ import {
   DetailSection,
   DetailWorkspace,
 } from "@/components/shared/detail-workspace";
-import { RowActionsMenu } from "@/components/shared/data-table";
+import { CompactDetailTable, RowActionsMenu } from "@/components/shared/data-table";
 import { EmptyState } from "@/components/shared/empty-state";
 import { MoneyValue } from "@/components/shared/money-value";
 import { SemanticValue } from "@/components/shared/semantic-value";
@@ -19,14 +19,7 @@ import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
+import { TableCell } from "@/components/ui/table";
 import { StatusBadge } from "@/components/business/status-badge";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
 import { PermissionGate } from "@/components/shared/permission-gate";
@@ -205,11 +198,6 @@ function StoreOrderDetailContent() {
           {order.internalOrderId}
         </SemanticValue>
       }
-      subtitle={
-        order.externalOrderId ? (
-          <SemanticValue kind="id">{order.externalOrderId}</SemanticValue>
-        ) : undefined
-      }
       status={
         <>
           <StatusBadge
@@ -254,11 +242,47 @@ function StoreOrderDetailContent() {
         />
       }
     >
+      {order.customer?.name || phone ? (
+        <DetailSection title={t("storeOrders.detail.sections.customer")}>
+          <DetailFieldGrid columns={3}>
+            <DetailField label={t("storeOrders.fields.customer")} value={order.customer?.name} />
+            <DetailField
+              label={t("storeOrders.fields.phone")}
+              value={phone ? <SemanticValue kind="phone">{phone}</SemanticValue> : undefined}
+            />
+            <DetailField
+              label={t("storeOrders.createDialog.fields.customerEmail")}
+              value={
+                order.customer?.email ? (
+                  <SemanticValue kind="email">{order.customer.email}</SemanticValue>
+                ) : undefined
+              }
+            />
+            <DetailField
+              label={t("storeOrders.createDialog.fields.address")}
+              value={
+                order.customer?.address || order.customer?.city
+                  ? [order.customer.address, order.customer.city].filter(Boolean).join("، ")
+                  : undefined
+              }
+            />
+          </DetailFieldGrid>
+        </DetailSection>
+      ) : null}
+
       <DetailSection title={t("storeOrders.detail.sections.orderSummary")}>
         <DetailFieldGrid columns={3}>
           <DetailField
             label={t("storeOrders.fields.orderDate")}
             value={formatDate(order.orderDate)}
+          />
+          <DetailField
+            label={t("storeOrders.fields.externalOrderId")}
+            value={
+              order.externalOrderId ? (
+                <SemanticValue kind="id">{order.externalOrderId}</SemanticValue>
+              ) : undefined
+            }
           />
           <DetailField
             label={t("storeOrders.fields.source")}
@@ -269,77 +293,61 @@ function StoreOrderDetailContent() {
             }
           />
           <DetailField
-            label={t("storeOrders.fields.total")}
-            value={<MoneyValue value={order.total ?? "0"} currency={order.currency} />}
+            label={t("storeOrders.fields.currency")}
+            value={order.currency?.code ?? order.currency?.name}
           />
+          <DetailField label={t("storeOrders.fields.employee")} value={order.employee?.fullName} />
         </DetailFieldGrid>
       </DetailSection>
 
-      <DetailSection title={t("storeOrders.detail.sections.customer")}>
-        <DetailFieldGrid columns={3}>
-          <DetailField label={t("storeOrders.fields.customer")} value={order.customer?.name} />
-          <DetailField
-            label={t("storeOrders.fields.phone")}
-            value={phone ? <SemanticValue kind="phone">{phone}</SemanticValue> : undefined}
+      {order.items.length > 0 ? (
+        <DetailSection title={t("storeOrders.detail.sections.items")}>
+          <CompactDetailTable
+            columns={[
+              {
+                id: "product",
+                header: t("storeOrders.detail.items.product"),
+                cell: (item) => item.product?.name ?? item.productId,
+              },
+              {
+                id: "quantity",
+                header: t("storeOrders.detail.items.quantity"),
+                align: "end",
+                cell: (item) => <SemanticValue kind="number">{item.quantity}</SemanticValue>,
+              },
+              {
+                id: "unitPrice",
+                header: t("storeOrders.detail.items.unitPrice"),
+                align: "end",
+                cell: (item) => <MoneyValue value={item.unitPrice} currency={order.currency} />,
+              },
+              {
+                id: "total",
+                header: t("storeOrders.fields.total"),
+                align: "end",
+                cell: (item) => (
+                  <MoneyValue
+                    value={Number(item.unitPrice) * item.quantity}
+                    currency={order.currency}
+                  />
+                ),
+              },
+            ]}
+            rows={order.items}
+            rowKey={(item) => item.id}
+            footer={
+              <>
+                <TableCell colSpan={3} className="px-2 py-1.5 text-end font-medium">
+                  {t("storeOrders.fields.total")}
+                </TableCell>
+                <TableCell className="px-2 py-1.5 text-end">
+                  <MoneyValue value={order.total ?? "0"} currency={order.currency} />
+                </TableCell>
+              </>
+            }
           />
-          {order.customer?.email ? (
-            <DetailField
-              label={t("storeOrders.createDialog.fields.customerEmail")}
-              value={<SemanticValue kind="email">{order.customer.email}</SemanticValue>}
-            />
-          ) : null}
-          {order.customer?.address || order.customer?.city ? (
-            <DetailField
-              label={t("storeOrders.createDialog.fields.address")}
-              value={[order.customer.address, order.customer.city].filter(Boolean).join("، ")}
-            />
-          ) : null}
-        </DetailFieldGrid>
-      </DetailSection>
-
-      <DetailSection title={t("storeOrders.detail.sections.items")}>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("storeOrders.detail.items.product")}</TableHead>
-                <TableHead className="text-end">{t("storeOrders.detail.items.quantity")}</TableHead>
-                <TableHead className="text-end">
-                  {t("storeOrders.detail.items.unitPrice")}
-                </TableHead>
-                <TableHead className="text-end">{t("storeOrders.fields.total")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {order.items.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground">
-                    {t("common.noResults")}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                order.items.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell>{item.product?.name ?? item.productId}</TableCell>
-                    <TableCell className="text-end">
-                      <SemanticValue kind="number">{item.quantity}</SemanticValue>
-                    </TableCell>
-                    <TableCell className="text-end">
-                      <MoneyValue value={item.unitPrice} currency={order.currency} />
-                    </TableCell>
-                    <TableCell className="text-end">
-                      <MoneyValue
-                        value={Number(item.unitPrice) * item.quantity}
-                        currency={order.currency}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </DetailSection>
+        </DetailSection>
+      ) : null}
 
       <DetailSection title={t("storeOrders.detail.sections.payments")}>
         <DetailFieldGrid columns={3}>
@@ -357,46 +365,43 @@ function StoreOrderDetailContent() {
           />
         </DetailFieldGrid>
         {order.payments && order.payments.length > 0 ? (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("storeOrders.detail.payments.number")}</TableHead>
-                  <TableHead>{t("storeOrders.detail.payments.date")}</TableHead>
-                  <TableHead className="text-end">
-                    {t("storeOrders.detail.payments.amount")}
-                  </TableHead>
-                  <TableHead>{t("common.status")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {order.payments.map((payment) => {
+          <CompactDetailTable
+            columns={[
+              {
+                id: "number",
+                header: t("storeOrders.detail.payments.number"),
+                cell: (payment) => <SemanticValue kind="id">{payment.paymentNumber}</SemanticValue>,
+              },
+              {
+                id: "date",
+                header: t("storeOrders.detail.payments.date"),
+                cell: (payment) => formatDate(payment.paymentDate),
+              },
+              {
+                id: "amount",
+                header: t("storeOrders.detail.payments.amount"),
+                align: "end",
+                cell: (payment) => <MoneyValue value={payment.amount} currency={order.currency} />,
+              },
+              {
+                id: "status",
+                header: t("common.status"),
+                cell: (payment) => {
                   const paymentStatus = paymentRecordStatusBadge(payment.status);
                   return (
-                    <TableRow key={payment.id}>
-                      <TableCell>
-                        <SemanticValue kind="id">{payment.paymentNumber}</SemanticValue>
-                      </TableCell>
-                      <TableCell>{formatDate(payment.paymentDate)}</TableCell>
-                      <TableCell className="text-end">
-                        <MoneyValue value={payment.amount} currency={order.currency} />
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge
-                          label={
-                            paymentStatus.labelKey
-                              ? t(paymentStatus.labelKey)
-                              : paymentStatus.fallback
-                          }
-                          tone={paymentStatus.tone}
-                        />
-                      </TableCell>
-                    </TableRow>
+                    <StatusBadge
+                      label={
+                        paymentStatus.labelKey ? t(paymentStatus.labelKey) : paymentStatus.fallback
+                      }
+                      tone={paymentStatus.tone}
+                    />
                   );
-                })}
-              </TableBody>
-            </Table>
-          </div>
+                },
+              },
+            ]}
+            rows={order.payments}
+            rowKey={(payment) => payment.id}
+          />
         ) : null}
       </DetailSection>
 
@@ -449,44 +454,47 @@ function StoreOrderDetailContent() {
             />
           </DetailFieldGrid>
           {order.shipments && order.shipments.length > 1 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("storeOrders.detail.shipmentHistory.attempt")}</TableHead>
-                    <TableHead>{t("shipping.fields.shippingCompany")}</TableHead>
-                    <TableHead>{t("shipping.fields.trackingNumber")}</TableHead>
-                    <TableHead>{t("shipping.fields.status")}</TableHead>
-                    <TableHead>{t("common.createdAt")}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {order.shipments
-                    .slice()
-                    .sort((a, b) => a.attemptNumber - b.attemptNumber)
-                    .map((shipment) => (
-                      <TableRow key={shipment.id}>
-                        <TableCell>
-                          <SemanticValue kind="number">#{shipment.attemptNumber}</SemanticValue>
-                        </TableCell>
-                        <TableCell>{shipment.shippingCompany?.name}</TableCell>
-                        <TableCell>
-                          {shipment.trackingNumber ? (
-                            <SemanticValue kind="id">{shipment.trackingNumber}</SemanticValue>
-                          ) : null}
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge
-                            label={t(shipmentStatusLabelKey(shipment.status))}
-                            tone={shipmentStatusTone(shipment.status)}
-                          />
-                        </TableCell>
-                        <TableCell>{formatDate(shipment.createdAt)}</TableCell>
-                      </TableRow>
-                    ))}
-                </TableBody>
-              </Table>
-            </div>
+            <CompactDetailTable
+              columns={[
+                {
+                  id: "attempt",
+                  header: t("storeOrders.detail.shipmentHistory.attempt"),
+                  cell: (shipment) => (
+                    <SemanticValue kind="number">#{shipment.attemptNumber}</SemanticValue>
+                  ),
+                },
+                {
+                  id: "company",
+                  header: t("shipping.fields.shippingCompany"),
+                  cell: (shipment) => shipment.shippingCompany?.name,
+                },
+                {
+                  id: "tracking",
+                  header: t("shipping.fields.trackingNumber"),
+                  cell: (shipment) =>
+                    shipment.trackingNumber ? (
+                      <SemanticValue kind="id">{shipment.trackingNumber}</SemanticValue>
+                    ) : null,
+                },
+                {
+                  id: "status",
+                  header: t("shipping.fields.status"),
+                  cell: (shipment) => (
+                    <StatusBadge
+                      label={t(shipmentStatusLabelKey(shipment.status))}
+                      tone={shipmentStatusTone(shipment.status)}
+                    />
+                  ),
+                },
+                {
+                  id: "createdAt",
+                  header: t("common.createdAt"),
+                  cell: (shipment) => formatDate(shipment.createdAt),
+                },
+              ]}
+              rows={[...order.shipments].sort((a, b) => a.attemptNumber - b.attemptNumber)}
+              rowKey={(shipment) => shipment.id}
+            />
           ) : null}
         </DetailSection>
       ) : null}

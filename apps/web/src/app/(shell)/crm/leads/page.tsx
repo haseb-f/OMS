@@ -133,6 +133,7 @@ function CrmLeadsPageContent() {
         defaultValues={leadDefaultValues}
         permissionPrefix="crm.leads"
         rowLabel={leadRowLabel}
+        getRowHref={(row) => `/crm/leads/${row.id}`}
         defaultSortBy="createdAt"
         disableArchiveRestore
         hideCreateButton

@@ -391,6 +391,7 @@ function SalesReturnsPageContent() {
           })
         }
         getRowId={(row) => row.id}
+        getRowHref={(row) => `/sales/returns/${row.id}`}
       />
 
       <ConfirmationDialog

@@ -12,7 +12,7 @@ import type { SupplierRow } from "@/services/suppliers-service";
 export const supplierColumns: ColumnDef<SupplierRow, unknown>[] = [
   {
     id: "supplierNumber",
-    meta: { titleKey: "purchasing.suppliers.fields.supplierNumber", type: "code" },
+    meta: { titleKey: "purchasing.suppliers.fields.supplierNumber", type: "code", identity: true },
     accessorFn: (row) => row.supplierNumber,
     cell: ({ row }) => (
       <SemanticValue kind="id" className="text-body font-medium">

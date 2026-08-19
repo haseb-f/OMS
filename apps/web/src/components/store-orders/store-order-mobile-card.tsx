@@ -3,7 +3,7 @@
 import { Archive, ChevronRight, Eye, Pencil } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EnterpriseButton } from "@/components/ui/button";
-import { RowActionsMenu } from "@/components/shared/data-table";
+import { RowActionsMenu, RowIdentityLink } from "@/components/shared/data-table";
 import { StoreOrderDetailStack } from "@/components/store-orders/store-order-expanded-detail";
 import { useUserContext } from "@/providers/user-context";
 import {
@@ -67,7 +67,9 @@ export function StoreOrderMobileCard({
           />
         </EnterpriseButton>
         <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-4 gap-y-2.5">
-          <StoreOrderIdentityCell order={order} />
+          <RowIdentityLink href={`/store-orders/${order.id}`}>
+            <StoreOrderIdentityCell order={order} />
+          </RowIdentityLink>
           <StoreOrderCustomerCell order={order} />
           <StoreOrderDateCell order={order} />
           <StoreOrderPaymentCell order={order} />

@@ -360,6 +360,7 @@ function StoreOrdersPageContent() {
         }
         emptyTitle={t("storeOrders.empty")}
         getRowId={(row) => row.id}
+        getRowHref={(row) => `/store-orders/${row.id}`}
       />
 
       <StoreOrderCreateDialog

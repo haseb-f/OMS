@@ -357,6 +357,7 @@ function PurchaseReturnsPageContent() {
           })
         }
         getRowId={(row) => row.id}
+        getRowHref={(row) => `/purchasing/purchase-returns/${row.id}`}
       />
 
       <ConfirmationDialog

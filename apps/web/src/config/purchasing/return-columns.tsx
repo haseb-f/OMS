@@ -88,7 +88,12 @@ export function buildReturnColumns(
   return [
     {
       id: "returnNumber",
-      meta: { titleKey: "purchasing.returns.fields.number", stacked: true, type: "code" },
+      meta: {
+        titleKey: "purchasing.returns.fields.number",
+        stacked: true,
+        type: "code",
+        identity: true,
+      },
       accessorFn: (row) => row.returnNumber,
       cell: ({ row }) => (
         <StackedCell

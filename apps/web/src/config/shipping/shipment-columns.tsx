@@ -57,7 +57,13 @@ export function buildShipmentColumns(
   return [
     {
       id: "internalOrderId",
-      meta: { titleKey: "shipping.fields.internalOrderId", stacked: true, type: "code" },
+      meta: {
+        titleKey: "shipping.fields.internalOrderId",
+        stacked: true,
+        type: "code",
+        identity: true,
+        importance: "critical",
+      },
       accessorFn: (row) => row.storeOrder.internalOrderId,
       cell: ({ row }) => (
         <StackedCell

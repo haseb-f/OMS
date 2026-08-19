@@ -82,6 +82,7 @@ export function buildStoreOrderColumns(
         titleKey: "storeOrders.fields.order",
         stacked: true,
         type: "code",
+        identity: true,
         importance: "critical",
         minWidth: 148,
         maxWidth: 220,
