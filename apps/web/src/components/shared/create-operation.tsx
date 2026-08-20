@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
  * - Full page — invoices, journal entries, multi-section workflows
  *
  * Layout inside a create surface:
- * Context → Main data → Related data → Notes/attachments → Totals → Actions
+ * Context → Main data → Related data → Notes/attachments → Summary → Actions
  */
 export function CreateOperationLayout({
   children,
@@ -22,7 +22,42 @@ export function CreateOperationLayout({
   children: ReactNode;
   className?: string;
 }) {
-  return <div className={cn("flex flex-col gap-5", className)}>{children}</div>;
+  return <div className={cn("flex flex-col gap-3", className)}>{children}</div>;
+}
+
+function isSummaryValueEmpty(value: ReactNode): boolean {
+  return value === null || value === undefined || value === "";
+}
+
+/**
+ * Compact live summary generated from the current form/editor state.
+ * Key-value grid — not a second form, not a giant totals card.
+ */
+export function CreateOperationSummary({
+  title,
+  rows,
+  className,
+}: {
+  title: string;
+  rows: { label: string; value: ReactNode }[];
+  className?: string;
+}) {
+  const visible = rows.filter((row) => !isSummaryValueEmpty(row.value));
+  if (visible.length === 0) return null;
+
+  return (
+    <section className={cn("rounded-md border border-border bg-muted/30 px-3 py-2", className)}>
+      <h3 className="mb-1.5 text-caption font-semibold">{title}</h3>
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
+        {visible.map((row) => (
+          <div key={row.label} className="flex items-baseline justify-between gap-3">
+            <dt className="text-caption text-muted-foreground">{row.label}</dt>
+            <dd className="text-caption font-medium text-end">{row.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
 }
 
 /** Review / totals block. The last emphasized row is the operational total. */
@@ -37,19 +72,21 @@ export function CreateOperationTotals({
 }) {
   if (rows?.length) {
     return (
-      <div className="flex flex-col gap-1.5 rounded-md border border-border bg-muted/40 px-3 py-2">
+      <div className="flex flex-col gap-1 rounded-md border border-border bg-muted/30 px-3 py-2">
         {rows.map((row) => (
           <div key={row.label} className="flex items-baseline justify-between gap-3">
             <span
               className={
                 row.emphasis === "strong"
-                  ? "text-body font-semibold"
+                  ? "text-caption font-semibold"
                   : "text-caption text-muted-foreground"
               }
             >
               {row.label}
             </span>
-            <div className={row.emphasis === "strong" ? "text-body font-semibold" : "text-caption"}>
+            <div
+              className={row.emphasis === "strong" ? "text-caption font-semibold" : "text-caption"}
+            >
               {row.value}
             </div>
           </div>
@@ -59,9 +96,9 @@ export function CreateOperationTotals({
   }
 
   return (
-    <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/40 px-3 py-2">
+    <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/30 px-3 py-2">
       <span className="text-caption text-muted-foreground">{label}</span>
-      <div className="text-body font-semibold">{children}</div>
+      <div className="text-caption font-semibold">{children}</div>
     </div>
   );
 }
@@ -87,6 +124,7 @@ export function CreateOperationFooter({
       <EnterpriseButton
         type="button"
         variant="ghost"
+        size="sm"
         onClick={requestClose}
         disabled={isSubmitting}
       >
@@ -94,6 +132,7 @@ export function CreateOperationFooter({
       </EnterpriseButton>
       <SubmitButton
         type="button"
+        size="sm"
         isSubmitting={isSubmitting}
         disabled={submitDisabled}
         onClick={onSubmit}

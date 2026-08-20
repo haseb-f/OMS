@@ -73,7 +73,7 @@ export function CustomerPicker({
         searchPlaceholder={t("sales.customers.picker.placeholder")}
         emptyText={t("sales.customers.picker.noResults")}
         disabled={disabled}
-        icon={<UserCircle className="size-4 shrink-0 text-muted-foreground" />}
+        icon={<UserCircle className="size-3.5 shrink-0 text-muted-foreground" />}
         triggerClassName={cn("max-w-(--width-picker-customer)", className)}
         groups={
           recentIds.length > 0 && recentCustomers.length

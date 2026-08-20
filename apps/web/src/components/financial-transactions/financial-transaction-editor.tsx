@@ -23,7 +23,7 @@ import { PaymentSummary } from "./payment-summary";
 import { apiClient } from "@/services/api-client";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
-import { formatDateTime } from "@/lib/date";
+import { formatDateTime, formatDate } from "@/lib/date";
 import {
   FINANCIAL_TRANSACTION_TYPE_LABEL_KEY,
   typesForDirection,
@@ -150,7 +150,7 @@ export function FinancialTransactionEditor({
 
   return (
     <EnterpriseCard size="sm">
-      <EnterpriseCardContent className="flex flex-col gap-4">
+      <EnterpriseCardContent className="flex flex-col gap-3">
         <EditorHeader
           title={config.title}
           documentNumber={state.documentNumber ?? `${config.docCodePreview ?? ""}-…`}
@@ -306,7 +306,20 @@ export function FinancialTransactionEditor({
         </div>
 
         {/* Summary — compact, right-aligned, inside the same card */}
-        <PaymentSummary amount={state.amount} allocatedTotal={allocatedTotal} />
+        <PaymentSummary
+          amount={state.amount}
+          allocatedTotal={allocatedTotal}
+          extraRows={[
+            {
+              label: t("financialTransactions.fields.type"),
+              value: t(FINANCIAL_TRANSACTION_TYPE_LABEL_KEY[config.transactionType]),
+            },
+            {
+              label: t("financialTransactions.fields.transactionDate"),
+              value: state.transactionDate ? formatDate(state.transactionDate) : "—",
+            },
+          ]}
+        />
 
         {/* Notes */}
         <div className="flex flex-col gap-1">

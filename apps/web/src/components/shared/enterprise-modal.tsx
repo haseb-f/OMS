@@ -23,9 +23,9 @@ import { XIcon } from "lucide-react";
 export type EnterpriseModalSize = "md" | "lg" | "xl";
 
 const sizeClasses: Record<EnterpriseModalSize, string> = {
-  md: "sm:max-w-2xl",
-  lg: "sm:max-w-4xl",
-  xl: "sm:max-w-6xl",
+  md: "sm:max-w-xl",
+  lg: "sm:max-w-3xl",
+  xl: "sm:max-w-5xl",
 };
 
 /**
@@ -91,15 +91,15 @@ export function EnterpriseModal({
               sizeClasses[size],
             )}
           >
-            <div className="flex shrink-0 items-start justify-between gap-4 p-5">
-              <div className="flex items-start gap-3">
+            <div className="flex shrink-0 items-start justify-between gap-3 px-4 py-3">
+              <div className="flex items-start gap-2.5">
                 {Icon && (
-                  <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                    <Icon className="size-5" />
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                    <Icon className="size-4" />
                   </div>
                 )}
-                <div className="flex flex-col gap-1">
-                  <DialogPrimitive.Title className="font-heading text-card-title leading-snug">
+                <div className="flex flex-col gap-0.5">
+                  <DialogPrimitive.Title className="font-heading text-body font-semibold leading-snug">
                     {title}
                   </DialogPrimitive.Title>
                   {description && (
@@ -122,11 +122,11 @@ export function EnterpriseModal({
 
             <Separator />
 
-            <div className="flex-1 overflow-y-auto p-5">{children}</div>
+            <div className="flex-1 overflow-y-auto px-4 py-3">{children}</div>
 
             <Separator />
 
-            <div className="flex shrink-0 flex-col-reverse gap-2 bg-muted/40 px-5 py-3 sm:flex-row sm:justify-end">
+            <div className="flex shrink-0 flex-col-reverse gap-2 bg-muted/40 px-4 py-2 sm:flex-row sm:justify-end">
               {typeof footer === "function" ? footer(requestClose) : footer}
             </div>
           </DialogPrimitive.Content>

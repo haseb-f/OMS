@@ -86,7 +86,7 @@ function CommandInput({
 }: React.ComponentProps<typeof CommandPrimitive.Input>) {
   return (
     <div data-slot="command-input-wrapper" className="sticky top-0 z-10 bg-popover p-1 pb-1">
-      <InputGroup className="h-(--control-height-md)! rounded-xs! border-input/30 bg-input/30 shadow-none! *:data-[slot=input-group-addon]:ps-2.5!">
+      <InputGroup className="h-(--control-height-sm)! rounded-xs! border-input/30 bg-input/30 shadow-none! *:data-[slot=input-group-addon]:ps-2.5!">
         <CommandPrimitive.Input
           data-slot="command-input"
           className={cn(
@@ -123,7 +123,7 @@ function CommandEmpty({
   return (
     <CommandPrimitive.Empty
       data-slot="command-empty"
-      className={cn("py-5 text-center text-caption text-muted-foreground", className)}
+      className={cn("py-3 text-center text-caption text-muted-foreground", className)}
       {...props}
     />
   );
@@ -137,7 +137,7 @@ function CommandGroup({
     <CommandPrimitive.Group
       data-slot="command-group"
       className={cn(
-        "overflow-hidden p-1.5 text-foreground **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1 **:[[cmdk-group-heading]]:text-caption **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-muted-foreground",
+        "overflow-hidden p-1 text-foreground **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1 **:[[cmdk-group-heading]]:text-caption **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-muted-foreground",
         className,
       )}
       {...props}
@@ -167,7 +167,7 @@ function CommandItem({
     <CommandPrimitive.Item
       data-slot="command-item"
       className={cn(
-        "group/command-item relative flex min-h-9 shrink-0 cursor-default items-center gap-2 rounded-xs px-2.5 py-1.5 text-body outline-hidden select-none transition-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-accent data-selected:text-accent-foreground data-[checked=true]:bg-primary-soft data-[checked=true]:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 data-selected:*:[svg]:text-accent-foreground",
+        "group/command-item relative flex min-h-8 shrink-0 cursor-default items-center gap-2 rounded-xs px-2.5 py-1 text-body outline-hidden select-none transition-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-accent data-selected:text-accent-foreground data-[checked=true]:bg-primary-soft data-[checked=true]:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 data-selected:*:[svg]:text-accent-foreground",
         className,
       )}
       {...props}

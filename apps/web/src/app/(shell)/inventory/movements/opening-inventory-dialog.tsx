@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
-import { EnterpriseButton } from "@/components/ui/button";
+import { ModalSection } from "@/components/shared/modal-section";
+import {
+  CreateOperationFooter,
+  CreateOperationLayout,
+  CreateOperationSummary,
+} from "@/components/shared/create-operation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -98,27 +103,20 @@ export function OpeningInventoryDialog({
       title={t("inventory.openingInventory.title")}
       description={t("inventory.openingInventory.description")}
       footer={(requestClose) => (
-        <>
-          <EnterpriseButton
-            type="button"
-            variant="ghost"
-            onClick={requestClose}
-            disabled={isSubmitting}
-          >
-            {t("common.cancel")}
-          </EnterpriseButton>
-          <EnterpriseButton type="button" onClick={submit} disabled={isSubmitting || !isValid}>
-            {t("common.save")}
-          </EnterpriseButton>
-        </>
+        <CreateOperationFooter
+          requestClose={requestClose}
+          onSubmit={() => void submit()}
+          isSubmitting={isSubmitting}
+          submitDisabled={!isValid}
+        />
       )}
     >
-      <div className="flex flex-col gap-3">
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-1.5">
+      <CreateOperationLayout>
+        <ModalSection title={t("inventory.openingInventory.title")} columns={2}>
+          <div className="flex flex-col gap-1">
             <Label>{t("inventory.fields.product")}</Label>
             <Select value={productId || undefined} onValueChange={setProductId}>
-              <SelectTrigger size="sm" className="w-full">
+              <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -130,10 +128,10 @@ export function OpeningInventoryDialog({
               </SelectContent>
             </Select>
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1">
             <Label>{t("masterData.fields.warehouse")}</Label>
             <Select value={warehouseId || undefined} onValueChange={setWarehouseId}>
-              <SelectTrigger size="sm" className="w-full">
+              <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -145,13 +143,9 @@ export function OpeningInventoryDialog({
               </SelectContent>
             </Select>
           </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1">
             <Label>{t("products.openingBalance.quantity")}</Label>
             <Input
-              inputSize="sm"
               type="number"
               dir="ltr"
               min={1}
@@ -160,10 +154,9 @@ export function OpeningInventoryDialog({
               onChange={(event) => setQuantity(event.target.value)}
             />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1">
             <Label>{t("products.openingBalance.averageCost")}</Label>
             <Input
-              inputSize="sm"
               type="number"
               dir="ltr"
               min={0}
@@ -172,13 +165,32 @@ export function OpeningInventoryDialog({
               onChange={(event) => setUnitCost(event.target.value)}
             />
           </div>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label>{t("products.openingBalance.notes")}</Label>
-          <Input inputSize="sm" value={notes} onChange={(event) => setNotes(event.target.value)} />
-        </div>
-      </div>
+          <div className="col-span-full flex flex-col gap-1">
+            <Label>{t("products.openingBalance.notes")}</Label>
+            <Input value={notes} onChange={(event) => setNotes(event.target.value)} />
+          </div>
+        </ModalSection>
+        <CreateOperationSummary
+          title={t("common.summary")}
+          rows={[
+            {
+              label: t("inventory.fields.product"),
+              value:
+                products.find((product) => product.id === productId)?.displayName ||
+                products.find((product) => product.id === productId)?.name ||
+                "—",
+            },
+            {
+              label: t("masterData.fields.warehouse"),
+              value: warehouses.find((warehouse) => warehouse.id === warehouseId)?.name ?? "—",
+            },
+            {
+              label: t("products.openingBalance.quantity"),
+              value: <span dir="ltr">{quantity || "—"}</span>,
+            },
+          ]}
+        />
+      </CreateOperationLayout>
     </EnterpriseModal>
   );
 }

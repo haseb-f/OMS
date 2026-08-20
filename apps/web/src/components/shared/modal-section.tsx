@@ -2,22 +2,19 @@
 
 import type { ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
-import {
-  EnterpriseCard,
-  EnterpriseCardContent,
-  EnterpriseCardHeader,
-  EnterpriseCardTitle,
-} from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
 
+const columnClass: Record<2 | 3 | 4, string> = {
+  2: "md:grid-cols-2",
+  3: "md:grid-cols-2 xl:grid-cols-3",
+  4: "md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+};
+
 /**
- * One logical group inside an `EnterpriseModal` form (General Information,
- * Contact Information, Financial Information, Notes, ...) — every field
- * grid inside an Enterprise Modal lives in one of these, never loose in the
- * modal body. `columns` controls the desktop grid (2 for `md`/`lg` modals,
- * 3 for `xl`) — always 1 column on mobile.
+ * Compact section inside an `EnterpriseModal` or create workspace.
+ * Groups fields with a light border — never a nested EnterpriseCard.
  */
 export function ModalSection({
   title,
@@ -31,7 +28,7 @@ export function ModalSection({
 }: {
   title: string;
   description?: string;
-  columns?: 2 | 3;
+  columns?: 2 | 3 | 4;
   optional?: boolean;
   collapsible?: boolean;
   defaultOpen?: boolean;
@@ -40,23 +37,16 @@ export function ModalSection({
 }) {
   const { t } = useLocale();
   const body = (
-    <EnterpriseCardContent>
-      {description && <p className="mb-4 text-caption text-muted-foreground">{description}</p>}
-      <div
-        className={cn(
-          "grid grid-cols-1 gap-x-4 gap-y-5",
-          columns === 3 ? "md:grid-cols-2 xl:grid-cols-3" : "md:grid-cols-2",
-        )}
-      >
-        {children}
-      </div>
-    </EnterpriseCardContent>
+    <div className="px-3 pb-3">
+      {description && <p className="mb-2 text-caption text-muted-foreground">{description}</p>}
+      <div className={cn("grid grid-cols-1 gap-x-3 gap-y-3", columnClass[columns])}>{children}</div>
+    </div>
   );
 
   const heading = (
-    <EnterpriseCardHeader className="flex flex-row items-center justify-between gap-2">
+    <div className="flex items-center justify-between gap-2 px-3 py-2">
       <div className="flex min-w-0 items-baseline gap-2">
-        <EnterpriseCardTitle>{title}</EnterpriseCardTitle>
+        <h3 className="text-body font-semibold leading-snug">{title}</h3>
         {optional && (
           <span className="text-caption font-normal text-muted-foreground">
             {t("common.optional")}
@@ -66,31 +56,63 @@ export function ModalSection({
       {collapsible && (
         <ChevronRight className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-(--duration-base) ease-(--ease-standard) group-data-[state=closed]/section:rtl:rotate-180 group-data-[state=open]/section:rotate-90" />
       )}
-    </EnterpriseCardHeader>
+    </div>
   );
+
+  const shell = cn("rounded-md border border-border bg-card", className);
 
   if (!collapsible) {
     return (
-      <EnterpriseCard size="sm" className={className}>
+      <section className={shell}>
         {heading}
         {body}
-      </EnterpriseCard>
+      </section>
     );
   }
 
   return (
     <Collapsible defaultOpen={defaultOpen} className="group/section">
-      <EnterpriseCard size="sm" className={className}>
+      <section className={shell}>
         <CollapsibleTrigger className="w-full cursor-pointer text-start outline-none">
           {heading}
         </CollapsibleTrigger>
         <CollapsibleContent>{body}</CollapsibleContent>
-      </EnterpriseCard>
+      </section>
     </Collapsible>
   );
 }
 
-/** Makes a field span every column in its section's grid — for a description/textarea/notes field. */
-export function ModalFieldFullWidth({ children }: { children: ReactNode }) {
-  return <div className="col-span-full">{children}</div>;
+/** Makes a field span every column in its section's grid — for address/notes. */
+export function ModalFieldFullWidth({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return <div className={cn("col-span-full", className)}>{children}</div>;
+}
+
+/** Span 2–3 columns on desktop without forcing full width. */
+export function ModalFieldSpan({
+  span = 1,
+  children,
+  className,
+}: {
+  span?: 1 | 2 | 3 | "full";
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        span === "full" && "col-span-full",
+        span === 2 && "md:col-span-2",
+        span === 3 && "md:col-span-2 xl:col-span-3",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
 }

@@ -55,6 +55,7 @@ const ar = {
     remove: "إزالة",
     selectAll: "تحديد الكل",
     deselectAll: "إلغاء تحديد الكل",
+    summary: "الملخص",
   },
   accessDenied: {
     title: "الوصول مرفوض",
@@ -2025,6 +2026,12 @@ const ar = {
         total: "الإجمالي",
         paid: "المدفوع",
         balance: "المتبقي",
+      },
+      summary: {
+        title: "ملخص الطلب",
+        product: "المنتج",
+        quantity: "الكمية",
+        paymentAwaitingMatch: "في انتظار المطابقة",
       },
       items: {
         title: "بنود الطلب",

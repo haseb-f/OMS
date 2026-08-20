@@ -76,11 +76,13 @@ export interface MasterDataFormField {
     label: MessageKey;
     onCreate: (selectNewId: (id: string) => void) => void;
   };
+  /** Desktop grid span. Address/notes should be `"full"`. */
+  span?: 1 | 2 | "full";
 }
 
 export interface MasterDataFormSection {
   title: string;
-  columns?: 2 | 3;
+  columns?: 2 | 3 | 4;
   optional?: boolean;
   collapsible?: boolean;
   defaultOpen?: boolean;
@@ -287,8 +289,12 @@ function FormFieldGrid<TFieldValues extends FieldValues>({
             }
           />
         );
-        return field.type === "textarea" ? (
+        return field.type === "textarea" || field.span === "full" ? (
           <ModalFieldFullWidth key={field.name}>{fieldNode}</ModalFieldFullWidth>
+        ) : field.span === 2 ? (
+          <div key={field.name} className="md:col-span-2">
+            {fieldNode}
+          </div>
         ) : (
           <div key={field.name}>{fieldNode}</div>
         );
@@ -320,7 +326,7 @@ export function MasterDataForm<TFieldValues extends FieldValues>(
     /** Skip FormProvider when a parent already wrapped the same `form`. */
     unwrapped?: boolean;
   } & (
-    | { fields: MasterDataFormField[]; sectionTitle: string; columns?: 2 | 3; sections?: never }
+    | { fields: MasterDataFormField[]; sectionTitle: string; columns?: 2 | 3 | 4; sections?: never }
     | { sections: MasterDataFormSection[]; fields?: never; sectionTitle?: never; columns?: never }
   ),
 ) {
@@ -330,7 +336,7 @@ export function MasterDataForm<TFieldValues extends FieldValues>(
   ];
 
   const content = (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-3">
       {sections.map((section) => (
         <ModalSection
           key={section.title}

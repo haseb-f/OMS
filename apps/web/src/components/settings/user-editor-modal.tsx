@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { UserCog } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
+import { ModalSection } from "@/components/shared/modal-section";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -230,164 +231,156 @@ export function UserEditorModal({
           {t("common.loading")}
         </div>
       ) : (
-        <div className="flex flex-col gap-5">
-          <div>
-            <h3 className="mb-2 text-card-title font-heading">
-              {t("settings.users.editor.sectionDetails")}
-            </h3>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="flex flex-col gap-1">
-                <label className="text-caption text-muted-foreground">
-                  {t("settings.users.fields.fullName")} <span className="text-destructive">*</span>
-                </label>
-                <Input
-                  inputSize="sm"
-                  value={form.fullName}
-                  onChange={(event) => setForm((c) => ({ ...c, fullName: event.target.value }))}
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-caption text-muted-foreground">
-                  {t("settings.users.fields.username")} <span className="text-destructive">*</span>
-                </label>
-                <Input
-                  inputSize="sm"
-                  dir="ltr"
-                  value={form.username}
-                  onChange={(event) => setForm((c) => ({ ...c, username: event.target.value }))}
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-caption text-muted-foreground">
-                  {t("settings.users.fields.email")} <span className="text-destructive">*</span>
-                </label>
-                <Input
-                  inputSize="sm"
-                  dir="ltr"
-                  type="email"
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  value={form.email}
-                  onChange={(event) => setForm((c) => ({ ...c, email: event.target.value }))}
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-caption text-muted-foreground">
-                  {t("settings.users.fields.mobile")}
-                </label>
-                <OMSPhoneInput
-                  value={form.mobile}
-                  onChange={(value) => setForm((c) => ({ ...c, mobile: value }))}
-                  countryCode={null}
-                />
-              </div>
-              {!user && (
-                <div className="flex flex-col gap-1 sm:col-span-2">
-                  <label className="text-caption text-muted-foreground">
-                    {t("settings.users.fields.password")}
-                    {!form.generatePassword && <span className="text-destructive"> *</span>}
-                  </label>
-                  {!form.generatePassword && (
-                    <Input
-                      inputSize="sm"
-                      dir="ltr"
-                      type="password"
-                      autoComplete="new-password"
-                      value={form.password}
-                      onChange={(event) => setForm((c) => ({ ...c, password: event.target.value }))}
-                    />
-                  )}
-                  <label className="flex items-center gap-2 pt-1">
-                    <Checkbox
-                      checked={form.generatePassword}
-                      onCheckedChange={(checked) =>
-                        setForm((c) => ({
-                          ...c,
-                          generatePassword: !!checked,
-                          password: checked ? "" : c.password,
-                        }))
-                      }
-                    />
-                    <span className="text-caption font-medium">
-                      {t("settings.users.editor.generatePassword")}
-                    </span>
-                  </label>
-                </div>
-              )}
-              <div className="flex flex-col gap-1">
-                <label className="text-caption text-muted-foreground">
-                  {t("settings.users.fields.jobTitle")}
-                </label>
-                <Select
-                  value={form.jobTitleId || "__none__"}
-                  onValueChange={(v) =>
-                    setForm((c) => ({ ...c, jobTitleId: v === "__none__" ? "" : v }))
-                  }
-                >
-                  <SelectTrigger size="sm" className="w-full">
-                    <SelectValue placeholder={t("settings.users.fields.jobTitle")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">{t("common.none")}</SelectItem>
-                    {jobTitles.map((title) => (
-                      <SelectItem key={title.id} value={title.id}>
-                        {title.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-caption text-muted-foreground">
-                  {t("settings.users.fields.department")}
-                </label>
-                <Input
-                  inputSize="sm"
-                  value={form.department}
-                  onChange={(event) => setForm((c) => ({ ...c, department: event.target.value }))}
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-caption text-muted-foreground">
-                  {t("settings.users.fields.branch")}
-                </label>
-                <Select
-                  value={form.branchId || "__none__"}
-                  onValueChange={(v) =>
-                    setForm((c) => ({ ...c, branchId: v === "__none__" ? "" : v }))
-                  }
-                >
-                  <SelectTrigger size="sm" className="w-full">
-                    <SelectValue placeholder={t("settings.users.fields.branch")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">{t("common.none")}</SelectItem>
-                    {branches.map((branch) => (
-                      <SelectItem key={branch.id} value={branch.id}>
-                        {branch.companyName} — {branch.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-2 self-end pb-1.5">
-                <Checkbox
-                  checked={form.isActive}
-                  onCheckedChange={(checked) => setForm((c) => ({ ...c, isActive: !!checked }))}
-                />
-                <label className="text-caption font-medium">
-                  {t("settings.users.fields.active")}
-                </label>
-              </div>
+        <div className="flex flex-col gap-3">
+          <ModalSection title={t("settings.users.editor.sectionDetails")} columns={3}>
+            <div className="flex flex-col gap-1">
+              <label className="text-caption text-muted-foreground">
+                {t("settings.users.fields.fullName")} <span className="text-destructive">*</span>
+              </label>
+              <Input
+                inputSize="sm"
+                value={form.fullName}
+                onChange={(event) => setForm((c) => ({ ...c, fullName: event.target.value }))}
+              />
             </div>
-          </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-caption text-muted-foreground">
+                {t("settings.users.fields.username")} <span className="text-destructive">*</span>
+              </label>
+              <Input
+                inputSize="sm"
+                dir="ltr"
+                value={form.username}
+                onChange={(event) => setForm((c) => ({ ...c, username: event.target.value }))}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-caption text-muted-foreground">
+                {t("settings.users.fields.email")} <span className="text-destructive">*</span>
+              </label>
+              <Input
+                inputSize="sm"
+                dir="ltr"
+                type="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                value={form.email}
+                onChange={(event) => setForm((c) => ({ ...c, email: event.target.value }))}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-caption text-muted-foreground">
+                {t("settings.users.fields.mobile")}
+              </label>
+              <OMSPhoneInput
+                value={form.mobile}
+                onChange={(value) => setForm((c) => ({ ...c, mobile: value }))}
+                countryCode={null}
+              />
+            </div>
+            {!user && (
+              <div className="flex flex-col gap-1 sm:col-span-2">
+                <label className="text-caption text-muted-foreground">
+                  {t("settings.users.fields.password")}
+                  {!form.generatePassword && <span className="text-destructive"> *</span>}
+                </label>
+                {!form.generatePassword && (
+                  <Input
+                    inputSize="sm"
+                    dir="ltr"
+                    type="password"
+                    autoComplete="new-password"
+                    value={form.password}
+                    onChange={(event) => setForm((c) => ({ ...c, password: event.target.value }))}
+                  />
+                )}
+                <label className="flex items-center gap-2 pt-1">
+                  <Checkbox
+                    checked={form.generatePassword}
+                    onCheckedChange={(checked) =>
+                      setForm((c) => ({
+                        ...c,
+                        generatePassword: !!checked,
+                        password: checked ? "" : c.password,
+                      }))
+                    }
+                  />
+                  <span className="text-caption font-medium">
+                    {t("settings.users.editor.generatePassword")}
+                  </span>
+                </label>
+              </div>
+            )}
+            <div className="flex flex-col gap-1">
+              <label className="text-caption text-muted-foreground">
+                {t("settings.users.fields.jobTitle")}
+              </label>
+              <Select
+                value={form.jobTitleId || "__none__"}
+                onValueChange={(v) =>
+                  setForm((c) => ({ ...c, jobTitleId: v === "__none__" ? "" : v }))
+                }
+              >
+                <SelectTrigger size="sm" className="w-full">
+                  <SelectValue placeholder={t("settings.users.fields.jobTitle")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">{t("common.none")}</SelectItem>
+                  {jobTitles.map((title) => (
+                    <SelectItem key={title.id} value={title.id}>
+                      {title.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-caption text-muted-foreground">
+                {t("settings.users.fields.department")}
+              </label>
+              <Input
+                inputSize="sm"
+                value={form.department}
+                onChange={(event) => setForm((c) => ({ ...c, department: event.target.value }))}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-caption text-muted-foreground">
+                {t("settings.users.fields.branch")}
+              </label>
+              <Select
+                value={form.branchId || "__none__"}
+                onValueChange={(v) =>
+                  setForm((c) => ({ ...c, branchId: v === "__none__" ? "" : v }))
+                }
+              >
+                <SelectTrigger size="sm" className="w-full">
+                  <SelectValue placeholder={t("settings.users.fields.branch")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">{t("common.none")}</SelectItem>
+                  {branches.map((branch) => (
+                    <SelectItem key={branch.id} value={branch.id}>
+                      {branch.companyName} — {branch.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2 self-end pb-1">
+              <Checkbox
+                checked={form.isActive}
+                onCheckedChange={(checked) => setForm((c) => ({ ...c, isActive: !!checked }))}
+              />
+              <label className="text-caption font-medium">
+                {t("settings.users.fields.active")}
+              </label>
+            </div>
+          </ModalSection>
 
           {otherUsers.length > 0 && (
-            <div>
-              <h3 className="mb-2 text-card-title font-heading">
-                {t("settings.users.editor.copyPermissionsFrom")}
-              </h3>
-              <div className="flex items-center gap-2">
+            <ModalSection title={t("settings.users.editor.copyPermissionsFrom")} columns={2}>
+              <div className="col-span-full flex items-center gap-2">
                 <Select value={copySourceId} onValueChange={setCopySourceId}>
                   <SelectTrigger size="sm" className="w-64">
                     <SelectValue placeholder={t("settings.users.editor.selectUser")} />
@@ -410,15 +403,14 @@ export function UserEditorModal({
                   {t("settings.users.editor.loadPermissions")}
                 </EnterpriseButton>
               </div>
-            </div>
+            </ModalSection>
           )}
 
-          <div>
-            <h3 className="mb-2 text-card-title font-heading">
-              {t("settings.users.editor.sectionPermissions")}
-            </h3>
-            <PermissionMatrix value={permissions} onChange={setPermissions} />
-          </div>
+          <ModalSection title={t("settings.users.editor.sectionPermissions")} columns={2}>
+            <div className="col-span-full">
+              <PermissionMatrix value={permissions} onChange={setPermissions} />
+            </div>
+          </ModalSection>
         </div>
       )}
     </EnterpriseModal>

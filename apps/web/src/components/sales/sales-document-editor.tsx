@@ -114,7 +114,7 @@ export function SalesDocumentEditor<TDocument>({
 
   return (
     <EnterpriseCard size="sm">
-      <EnterpriseCardContent className="flex flex-col gap-4">
+      <EnterpriseCardContent className="flex flex-col gap-3">
         <EditorHeader
           title={config.title}
           documentNumber={state.documentNumber ?? `${config.numbering.docCodePreview ?? ""}-…`}

@@ -72,7 +72,7 @@ export function SupplierPicker({
         searchPlaceholder={t("purchasing.suppliers.picker.placeholder")}
         emptyText={t("purchasing.suppliers.picker.noResults")}
         disabled={disabled}
-        icon={<Truck className="size-4 shrink-0 text-muted-foreground" />}
+        icon={<Truck className="size-3.5 shrink-0 text-muted-foreground" />}
         triggerClassName="max-w-(--width-picker-customer)"
         groups={
           recentIds.length > 0 && recentSuppliers.length

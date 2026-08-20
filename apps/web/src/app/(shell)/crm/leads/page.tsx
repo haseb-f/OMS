@@ -51,7 +51,7 @@ function CrmLeadsPageContent() {
     () => [
       {
         title: t("crm.leads.sections.general"),
-        columns: 2,
+        columns: 3,
         fields: [
           {
             name: "customerName",
@@ -73,7 +73,12 @@ function CrmLeadsPageContent() {
             countryFieldName: "countryId",
           },
           { name: "city", label: "crm.leads.fields.city", type: "text" },
-          { name: "address", label: "crm.leads.fields.address", type: "text" },
+          {
+            name: "address",
+            label: "crm.leads.fields.address",
+            type: "text",
+            span: "full",
+          },
           {
             name: "productId",
             label: "crm.leads.fields.product",

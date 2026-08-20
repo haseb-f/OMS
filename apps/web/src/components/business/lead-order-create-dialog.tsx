@@ -78,7 +78,7 @@ export function LeadOrderCreateDialog({
   const sections = useMemo<MasterDataFormSection[]>(() => {
     const base: MasterDataFormSection = {
       title: t("crm.leads.sections.general"),
-      columns: 2,
+      columns: 3,
       fields: [
         {
           name: "customerName",

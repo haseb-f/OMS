@@ -55,6 +55,7 @@ const en = {
     remove: "Remove",
     selectAll: "Select all",
     deselectAll: "Deselect all",
+    summary: "Summary",
   },
   accessDenied: {
     title: "Access Denied",
@@ -2040,6 +2041,12 @@ const en = {
         total: "Total",
         paid: "Paid",
         balance: "Balance",
+      },
+      summary: {
+        title: "Order summary",
+        product: "Product",
+        quantity: "Quantity",
+        paymentAwaitingMatch: "Awaiting match",
       },
       items: {
         title: "Line Items",

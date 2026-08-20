@@ -37,7 +37,7 @@ export function WarehousePicker({
       searchPlaceholder={t("sales.editor.grid.warehouseSearchPlaceholder")}
       emptyText={t("sales.customers.picker.noResults")}
       disabled={disabled}
-      icon={<WarehouseIcon className="size-4 shrink-0 text-muted-foreground" />}
+      icon={<WarehouseIcon className="size-3.5 shrink-0 text-muted-foreground" />}
       triggerClassName="max-w-(--width-picker-warehouse)"
     />
   );

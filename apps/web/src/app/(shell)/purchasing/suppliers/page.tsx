@@ -48,7 +48,7 @@ function SuppliersPageContent() {
     () => [
       {
         title: t("purchasing.suppliers.sections.general"),
-        columns: 2,
+        columns: 3,
         fields: [
           { name: "code", label: "purchasing.suppliers.fields.code", type: "text" },
           { name: "name", label: "purchasing.suppliers.fields.name", type: "text", required: true },
@@ -61,7 +61,7 @@ function SuppliersPageContent() {
       },
       {
         title: t("purchasing.suppliers.sections.contact"),
-        columns: 2,
+        columns: 3,
         fields: [
           {
             name: "phone",
@@ -81,7 +81,7 @@ function SuppliersPageContent() {
       },
       {
         title: t("purchasing.suppliers.sections.commercial"),
-        columns: 2,
+        columns: 3,
         fields: [
           { name: "taxNumber", label: "purchasing.suppliers.fields.taxNumber", type: "text" },
           {
@@ -112,7 +112,7 @@ function SuppliersPageContent() {
       },
       {
         title: t("purchasing.suppliers.sections.addresses"),
-        columns: 2,
+        columns: 3,
         fields: [
           {
             name: "countryId",
@@ -120,7 +120,12 @@ function SuppliersPageContent() {
             type: "country",
           },
           { name: "city", label: "purchasing.suppliers.fields.city", type: "text" },
-          { name: "address", label: "purchasing.suppliers.fields.address", type: "text" },
+          {
+            name: "address",
+            label: "purchasing.suppliers.fields.address",
+            type: "text",
+            span: "full",
+          },
         ],
       },
       {

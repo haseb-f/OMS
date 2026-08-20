@@ -64,7 +64,7 @@ export function AccountPicker({
       emptyText={t("accounting.settings.picker.noResults")}
       disabled={disabled}
       allowClear
-      icon={<Landmark className="size-4 shrink-0 text-muted-foreground" />}
+      icon={<Landmark className="size-3.5 shrink-0 text-muted-foreground" />}
     />
   );
 }

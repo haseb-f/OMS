@@ -120,7 +120,7 @@ export function ProductCreateDialog({
       )}
     >
       <Form {...form}>
-        <ModalSection title={t("products.createDialog.title")} columns={2}>
+        <ModalSection title={t("products.createDialog.title")} columns={3}>
           <FormField
             control={form.control}
             name="name"

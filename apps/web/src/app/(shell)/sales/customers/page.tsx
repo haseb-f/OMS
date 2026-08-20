@@ -63,7 +63,7 @@ function CustomersPageContent() {
     () => [
       {
         title: t("sales.customers.sections.general"),
-        columns: 2,
+        columns: 3,
         fields: [
           { name: "name", label: "sales.customers.fields.name", type: "text", required: true },
           { name: "commercialName", label: "sales.customers.fields.commercialName", type: "text" },
@@ -77,7 +77,7 @@ function CustomersPageContent() {
       },
       {
         title: t("sales.customers.sections.contact"),
-        columns: 2,
+        columns: 3,
         fields: [
           {
             name: "phone",
@@ -97,7 +97,7 @@ function CustomersPageContent() {
       },
       {
         title: t("sales.customers.sections.commercial"),
-        columns: 2,
+        columns: 3,
         fields: [
           { name: "taxNumber", label: "sales.customers.fields.taxNumber", type: "text" },
           {
@@ -122,7 +122,7 @@ function CustomersPageContent() {
       },
       {
         title: t("sales.customers.sections.addresses"),
-        columns: 2,
+        columns: 3,
         fields: [
           {
             name: "countryId",
@@ -130,7 +130,7 @@ function CustomersPageContent() {
             type: "country",
           },
           { name: "city", label: "sales.customers.fields.city", type: "text" },
-          { name: "address", label: "sales.customers.fields.address", type: "text" },
+          { name: "address", label: "sales.customers.fields.address", type: "text", span: "full" },
         ],
       },
       {

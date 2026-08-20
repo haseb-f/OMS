@@ -382,7 +382,7 @@ export function ProductModal({
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="general" className="flex flex-col gap-5">
+            <TabsContent value="general" className="flex flex-col gap-3">
               {savedProduct && (
                 <div className="flex flex-wrap items-center gap-4 rounded-lg border border-dashed border-border bg-muted/40 p-3 text-caption text-muted-foreground">
                   <span>
@@ -781,7 +781,7 @@ export function ProductModal({
               </ModalSection>
             </TabsContent>
 
-            <TabsContent value="sales" className="flex flex-col gap-5">
+            <TabsContent value="sales" className="flex flex-col gap-3">
               <ModalSection title={t("products.tabs.sales")} columns={2}>
                 <FormField
                   control={form.control}
@@ -859,7 +859,7 @@ export function ProductModal({
               </ModalSection>
             </TabsContent>
 
-            <TabsContent value="purchasing" className="flex flex-col gap-5">
+            <TabsContent value="purchasing" className="flex flex-col gap-3">
               <ModalSection title={t("products.tabs.purchasing")} columns={2}>
                 <FormField
                   control={form.control}
@@ -935,7 +935,7 @@ export function ProductModal({
               </ModalSection>
             </TabsContent>
 
-            <TabsContent value="inventory" className="flex flex-col gap-5">
+            <TabsContent value="inventory" className="flex flex-col gap-3">
               {savedProduct && (
                 <InventoryStockSummary
                   product={savedProduct}
@@ -1191,7 +1191,7 @@ export function ProductModal({
               </ModalSection>
             </TabsContent>
 
-            <TabsContent value="cost" className="flex flex-col gap-5">
+            <TabsContent value="cost" className="flex flex-col gap-3">
               <ModalSection title={t("products.tabs.cost")} columns={3}>
                 <FormField
                   control={form.control}

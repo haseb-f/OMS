@@ -2,15 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { Wallet } from "lucide-react";
+import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { EnterpriseButton } from "@/components/ui/button";
+  CreateOperationFooter,
+  CreateOperationLayout,
+  CreateOperationSummary,
+} from "@/components/shared/create-operation";
+import { ModalSection } from "@/components/shared/modal-section";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -137,19 +135,30 @@ export function StoreOrderAddPaymentDialog({
     }
   };
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Wallet className="size-4" />
-            {t("storeOrders.detail.payments.addTitle")}
-          </DialogTitle>
-          <DialogDescription>{t("storeOrders.detail.payments.addDescription")}</DialogDescription>
-        </DialogHeader>
+  const paymentSourceName =
+    paymentSources.find((source) => source.id === paymentSourceId)?.name ?? "—";
+  const currencyCode = currencies.find((currency) => currency.id === currencyId)?.code ?? "";
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="flex flex-col gap-1.5">
+  return (
+    <EnterpriseModal
+      open={open}
+      onOpenChange={onOpenChange}
+      size="md"
+      icon={Wallet}
+      title={t("storeOrders.detail.payments.addTitle")}
+      description={t("storeOrders.detail.payments.addDescription")}
+      footer={(requestClose) => (
+        <CreateOperationFooter
+          requestClose={requestClose}
+          onSubmit={() => void handleSave()}
+          isSubmitting={isSaving}
+          submitDisabled={!isValid}
+        />
+      )}
+    >
+      <CreateOperationLayout>
+        <ModalSection title={t("storeOrders.createDialog.sections.payment")} columns={2}>
+          <div className="flex flex-col gap-1">
             <Label>
               {t("storeOrders.detail.payments.amount")} <span className="text-destructive">*</span>
             </Label>
@@ -162,7 +171,7 @@ export function StoreOrderAddPaymentDialog({
               onChange={(e) => setAmount(e.target.value)}
             />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1">
             <Label>{t("storeOrders.detail.payments.currency")}</Label>
             <Select value={currencyId} onValueChange={setCurrencyId}>
               <SelectTrigger className="w-full">
@@ -177,8 +186,7 @@ export function StoreOrderAddPaymentDialog({
               </SelectContent>
             </Select>
           </div>
-
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1">
             <Label>
               {t("storeOrders.detail.payments.method")} <span className="text-destructive">*</span>
             </Label>
@@ -195,7 +203,7 @@ export function StoreOrderAddPaymentDialog({
               </SelectContent>
             </Select>
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1">
             <Label>
               {t("storeOrders.detail.payments.receivingAccount")}{" "}
               <span className="text-destructive">*</span>
@@ -213,8 +221,7 @@ export function StoreOrderAddPaymentDialog({
               </SelectContent>
             </Select>
           </div>
-
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1">
             <Label>
               {t("storeOrders.detail.payments.date")} <span className="text-destructive">*</span>
             </Label>
@@ -224,7 +231,7 @@ export function StoreOrderAddPaymentDialog({
               onChange={(e) => setPaymentDate(e.target.value)}
             />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1">
             <Label>{t("storeOrders.detail.payments.reference")}</Label>
             <Input
               dir="ltr"
@@ -232,20 +239,17 @@ export function StoreOrderAddPaymentDialog({
               onChange={(e) => setReferenceNumber(e.target.value)}
             />
           </div>
-
-          <div className="col-span-2 flex flex-col gap-1.5">
+          <div className="col-span-full flex flex-col gap-1">
             <Label>
               {t("storeOrders.detail.payments.sender")} <span className="text-destructive">*</span>
             </Label>
             <Input value={senderName} onChange={(e) => setSenderName(e.target.value)} />
           </div>
-
-          <div className="col-span-2 flex flex-col gap-1.5">
+          <div className="col-span-full flex flex-col gap-1">
             <Label>{t("storeOrders.detail.payments.notes")}</Label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </div>
-
-          <div className="col-span-2 flex flex-col gap-1.5">
+          <div className="col-span-full flex flex-col gap-1">
             <Label>{t("storeOrders.detail.payments.receipt")}</Label>
             <Input
               dir="ltr"
@@ -254,17 +258,24 @@ export function StoreOrderAddPaymentDialog({
               placeholder="https://…"
             />
           </div>
-        </div>
-
-        <DialogFooter>
-          <EnterpriseButton type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            {t("common.cancel")}
-          </EnterpriseButton>
-          <EnterpriseButton type="button" onClick={handleSave} disabled={isSaving || !isValid}>
-            {t("common.save")}
-          </EnterpriseButton>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </ModalSection>
+        <CreateOperationSummary
+          title={t("common.summary")}
+          rows={[
+            { label: t("storeOrders.fields.customer"), value: customerName || "—" },
+            {
+              label: t("storeOrders.detail.payments.amount"),
+              value: (
+                <span dir="ltr">
+                  {amountValue > 0 ? `${amountValue} ${currencyCode}`.trim() : "—"}
+                </span>
+              ),
+            },
+            { label: t("storeOrders.detail.payments.method"), value: paymentSourceName },
+            { label: t("storeOrders.detail.payments.date"), value: paymentDate || "—" },
+          ]}
+        />
+      </CreateOperationLayout>
+    </EnterpriseModal>
   );
 }

@@ -6,11 +6,15 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Banknote, Globe, Plus, Trash2 } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
-import { ModalFieldFullWidth, ModalSection } from "@/components/shared/modal-section";
+import {
+  ModalFieldFullWidth,
+  ModalFieldSpan,
+  ModalSection,
+} from "@/components/shared/modal-section";
 import {
   CreateOperationFooter,
   CreateOperationLayout,
-  CreateOperationTotals,
+  CreateOperationSummary,
 } from "@/components/shared/create-operation";
 import { MoneyValue } from "@/components/shared/money-value";
 import {
@@ -118,6 +122,7 @@ export function StoreOrderCreateDialog({
   const paymentAmount = useWatch({ control: form.control, name: "paymentAmount" });
   const receiptName = useWatch({ control: form.control, name: "receiptName" });
   const receiptUrl = useWatch({ control: form.control, name: "receiptUrl" });
+  const customerName = useWatch({ control: form.control, name: "customerName" });
   const countryCode = countries.find((country) => country.id === countryId)?.code ?? null;
   const defaultCurrencyId =
     currencies.find((currency) => currency.code === "SAR")?.id ?? currencies[0]?.id ?? "";
@@ -133,7 +138,10 @@ export function StoreOrderCreateDialog({
 
   const itemsTotal = lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0);
   const paidAmount = typeof paymentAmount === "number" && paymentAmount > 0 ? paymentAmount : 0;
-  const balance = itemsTotal - paidAmount;
+  const namedLines = lines.filter((line) => line.product);
+  const summaryProduct =
+    namedLines.map((line) => line.product!.displayName || line.product!.name).join(" · ") || "—";
+  const summaryQuantity = namedLines.reduce((sum, line) => sum + line.quantity, 0);
 
   const applyCustomer = (customer: CustomerRow) => {
     setSelectedCustomer(customer);
@@ -241,7 +249,7 @@ export function StoreOrderCreateDialog({
     <EnterpriseModal
       open={open}
       onOpenChange={onOpenChange}
-      size="xl"
+      size="lg"
       title={t("storeOrders.createDialog.title")}
       description={t("storeOrders.createDialog.description")}
       isDirty={isDirty}
@@ -256,9 +264,9 @@ export function StoreOrderCreateDialog({
     >
       <Form {...form}>
         <CreateOperationLayout>
-          <ModalSection title={t("storeOrders.createDialog.sections.customer")} columns={2}>
-            <ModalFieldFullWidth>
-              <div className="flex flex-col gap-1.5">
+          <ModalSection title={t("storeOrders.createDialog.sections.customer")} columns={3}>
+            <ModalFieldSpan span={2}>
+              <div className="flex flex-col gap-1">
                 <FieldLabel>{t("storeOrders.createDialog.fields.customer")}</FieldLabel>
                 <CustomerPicker
                   value={selectedCustomer}
@@ -266,7 +274,7 @@ export function StoreOrderCreateDialog({
                   className="max-w-none"
                 />
               </div>
-            </ModalFieldFullWidth>
+            </ModalFieldSpan>
             <TextFormField
               control={form.control}
               name="customerName"
@@ -292,7 +300,7 @@ export function StoreOrderCreateDialog({
               getSearchText={(country) => `${country.name} ${country.code}`}
               subtitleDir="ltr"
               allowClear
-              icon={<Globe className="size-4 shrink-0 text-muted-foreground" />}
+              icon={<Globe className="size-3.5 shrink-0 text-muted-foreground" />}
             />
             <TextFormField
               control={form.control}
@@ -318,7 +326,7 @@ export function StoreOrderCreateDialog({
             </ModalFieldFullWidth>
           </ModalSection>
 
-          <ModalSection title={t("storeOrders.createDialog.sections.orderInfo")} columns={2}>
+          <ModalSection title={t("storeOrders.createDialog.sections.orderInfo")} columns={3}>
             <TextFormField
               control={form.control}
               name="externalOrderId"
@@ -342,12 +350,12 @@ export function StoreOrderCreateDialog({
               getSubtitle={(currency) => currency.name}
               getSearchText={(currency) => `${currency.code} ${currency.name}`}
               subtitleDir="ltr"
-              icon={<Banknote className="size-4 shrink-0 text-muted-foreground" />}
+              icon={<Banknote className="size-3.5 shrink-0 text-muted-foreground" />}
             />
           </ModalSection>
 
           <ModalSection title={t("storeOrders.createDialog.items.title")} columns={2}>
-            <div className="col-span-full flex flex-col gap-3">
+            <div className="col-span-full flex flex-col gap-2">
               <div className="overflow-x-auto rounded-md border border-border">
                 <Table>
                   <TableHeader>
@@ -451,7 +459,7 @@ export function StoreOrderCreateDialog({
             optional
             collapsible
             defaultOpen={false}
-            columns={2}
+            columns={3}
           >
             <NumberFormField
               control={form.control}
@@ -461,7 +469,7 @@ export function StoreOrderCreateDialog({
               min={0}
               step="0.01"
             />
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1">
               <FieldLabel>{t("storeOrders.createDialog.fields.paymentSource")}</FieldLabel>
               <EntityCombobox
                 items={paymentSources}
@@ -473,7 +481,7 @@ export function StoreOrderCreateDialog({
                 placeholder={t("common.select")}
               />
             </div>
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1">
               <FieldLabel>{t("storeOrders.createDialog.fields.receivingAccount")}</FieldLabel>
               <AccountPicker value={receivingAccount} onChange={setReceivingAccount} postingOnly />
             </div>
@@ -533,10 +541,23 @@ export function StoreOrderCreateDialog({
             </ModalFieldFullWidth>
           </ModalSection>
 
-          <CreateOperationTotals
+          <CreateOperationSummary
+            title={t("storeOrders.createDialog.summary.title")}
             rows={[
               {
-                label: t("storeOrders.createDialog.totals.subtotal"),
+                label: t("storeOrders.createDialog.fields.customer"),
+                value: customerName?.trim() || "—",
+              },
+              {
+                label: t("storeOrders.createDialog.summary.product"),
+                value: summaryProduct,
+              },
+              {
+                label: t("storeOrders.createDialog.summary.quantity"),
+                value: <span dir="ltr">{summaryQuantity || "—"}</span>,
+              },
+              {
+                label: t("storeOrders.createDialog.totals.total"),
                 value: <MoneyValue value={itemsTotal} currency={currencyCode} />,
               },
               ...(paidAmount > 0
@@ -545,16 +566,14 @@ export function StoreOrderCreateDialog({
                       label: t("storeOrders.createDialog.totals.paid"),
                       value: <MoneyValue value={paidAmount} currency={currencyCode} />,
                     },
-                    {
-                      label: t("storeOrders.createDialog.totals.balance"),
-                      value: <MoneyValue value={balance} currency={currencyCode} />,
-                    },
                   ]
                 : []),
               {
-                label: t("storeOrders.createDialog.totals.total"),
-                value: <MoneyValue value={itemsTotal} currency={currencyCode} />,
-                emphasis: "strong" as const,
+                label: t("storeOrders.fields.payment"),
+                value:
+                  paidAmount > 0
+                    ? t("storeOrders.createDialog.summary.paymentAwaitingMatch")
+                    : t("storeOrders.paymentStatus.PAYMENT_PENDING"),
               },
             ]}
           />

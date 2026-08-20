@@ -23,7 +23,7 @@ export function NumberFormField<
   min,
   max,
   step,
-  inputSize = "md",
+  inputSize = "compact-md",
 }: {
   control: Control<TFieldValues>;
   name: TName;

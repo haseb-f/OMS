@@ -49,7 +49,7 @@ export function ProductPicker({
       searchPlaceholder={t("sales.editor.grid.productSearchPlaceholder")}
       emptyText={t("sales.customers.picker.noResults")}
       disabled={disabled}
-      icon={<Package className="size-4 shrink-0 text-muted-foreground" />}
+      icon={<Package className="size-3.5 shrink-0 text-muted-foreground" />}
       triggerClassName={cn("max-w-(--width-picker-product)", className)}
     />
   );

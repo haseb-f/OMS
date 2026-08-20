@@ -468,7 +468,7 @@ export default function SettingsDocumentNumberingPage() {
         )}
       >
         <Form {...form}>
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-3">
             <ModalSection title={t("common.generalInformation")} columns={2}>
               <FormField
                 control={form.control}

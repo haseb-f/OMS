@@ -135,7 +135,7 @@ export function CreateCountDialog({
         </>
       )}
     >
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-2">
           <Label>{t("masterData.fields.warehouse")}</Label>
           <Select value={warehouseId || undefined} onValueChange={setWarehouseId}>

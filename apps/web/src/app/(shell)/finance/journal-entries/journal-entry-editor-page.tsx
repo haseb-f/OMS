@@ -56,7 +56,9 @@ import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { useCurrencies } from "@/hooks/use-reference-data";
-import { formatDateTime } from "@/lib/date";
+import { formatDate, formatDateTime } from "@/lib/date";
+import { CreateOperationSummary } from "@/components/shared/create-operation";
+import { MoneyValue } from "@/components/shared/money-value";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 
@@ -456,7 +458,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
         <div className="p-8 text-caption text-muted-foreground">{t("common.loading")}</div>
       ) : (
         <EnterpriseCard size="sm">
-          <EnterpriseCardContent className="flex flex-col gap-4">
+          <EnterpriseCardContent className="flex flex-col gap-3">
             <EditorHeader
               title={t("accounting.journalEntries.editorTitle")}
               documentNumber={entry?.entryNumber ?? "JV-…"}
@@ -731,6 +733,41 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
                 disabled={!canEdit}
               />
             </div>
+
+            <CreateOperationSummary
+              title={t("common.summary")}
+              rows={[
+                {
+                  label: t("accounting.journalEntries.fields.entryDate"),
+                  value: entryDate ? formatDate(entryDate) : "—",
+                },
+                {
+                  label: t("accounting.journalEntries.fields.journal"),
+                  value: journals.find((journal) => journal.id === journalId)?.name ?? "—",
+                },
+                {
+                  label: t("accounting.journalEntries.fields.partner"),
+                  value:
+                    partnerType === "customer"
+                      ? (partnerCustomer?.name ?? "—")
+                      : partnerType === "supplier"
+                        ? (partnerSupplier?.name ?? "—")
+                        : t("accounting.journalEntries.fields.noPartner"),
+                },
+                {
+                  label: t("accounting.journalEntries.fields.currency"),
+                  value: currency?.code ?? "—",
+                },
+                {
+                  label: t("accounting.journalEntries.fields.totalDebit"),
+                  value: <MoneyValue value={totalDebit} currency={currency?.code ?? ""} />,
+                },
+                {
+                  label: t("accounting.journalEntries.fields.totalCredit"),
+                  value: <MoneyValue value={totalCredit} currency={currency?.code ?? ""} />,
+                },
+              ]}
+            />
 
             {entry && (
               <Collapsible>

@@ -27,7 +27,7 @@ const inputVariants = cva(
       },
     },
     defaultVariants: {
-      inputSize: "md",
+      inputSize: "compact-md",
     },
   },
 );

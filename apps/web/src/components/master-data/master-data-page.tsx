@@ -72,8 +72,8 @@ interface MasterDataService<TEntity> {
 
 /** Picks the modal size automatically from how many fields the form has — never a tiny dialog, never an oversized one for a 2-field form. */
 function pickModalSize(fieldCount: number): EnterpriseModalSize {
-  if (fieldCount > 8) return "xl";
-  if (fieldCount > 4) return "lg";
+  if (fieldCount > 12) return "xl";
+  if (fieldCount > 6) return "lg";
   return "md";
 }
 

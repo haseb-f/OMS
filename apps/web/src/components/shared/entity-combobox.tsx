@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronsUpDown, Loader2, X } from "lucide-react";
+import { ChevronDown, Loader2, X } from "lucide-react";
 import { Popover, PopoverTrigger } from "@/components/ui/popover";
 import {
   Command,
@@ -143,18 +143,22 @@ export function EntityCombobox<T>({
             aria-autocomplete="list"
             aria-invalid={error || undefined}
             disabled={disabled}
-            className={cn("w-full justify-between font-normal", triggerClassName)}
+            size="sm"
+            className={cn(
+              "h-(--control-height-sm) w-full justify-between text-body font-normal",
+              triggerClassName,
+            )}
           >
             <span className="flex min-w-0 items-center gap-2">
               {icon}
-              <span className="min-w-0 truncate">
+              <span className="min-w-0 truncate text-start">
                 {value ? getTitle(value) : (placeholder ?? t("common.select"))}
               </span>
             </span>
             {isLoading ? (
               <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground motion-reduce:animate-none" />
             ) : (
-              <ChevronsUpDown className="size-3.5 shrink-0 opacity-50" />
+              <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
             )}
           </EnterpriseButton>
         </PopoverTrigger>
@@ -180,7 +184,7 @@ export function EntityCombobox<T>({
           />
           <CommandList aria-busy={isLoading || undefined}>
             {isLoading ? (
-              <div className="px-2.5 py-4 text-center text-caption text-muted-foreground">
+              <div className="px-2.5 py-2.5 text-center text-caption text-muted-foreground">
                 {t("common.loading")}
               </div>
             ) : (
