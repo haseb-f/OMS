@@ -1,101 +1,125 @@
 import { ShipmentStatus } from '@prisma/client';
 
 /**
- * Canonical shipping-status vocabulary for OMS.
- *
- * `Shipment.status` remains a closed Prisma enum (workflow state machine).
- * This catalog is the ONE place Arabic display labels, List Sheet values,
- * import validation, and the Shipping Statuses master-data page read from.
- * Do not add a second hardcoded list.
+ * Closed display-color tokens for shipping statuses — the same StatusTone
+ * vocabulary `StatusBadge` already uses. Arbitrary CSS colors are rejected.
  */
-export const SHIPPING_STATUS_CATALOG = [
+export const SHIPPING_STATUS_COLORS = [
+  'neutral',
+  'info',
+  'warning',
+  'success',
+  'destructive',
+] as const;
+
+export type ShippingStatusColor = (typeof SHIPPING_STATUS_COLORS)[number];
+
+export const DEFAULT_SHIPPING_STATUS_CODE = 'READY_FOR_SHIPPING';
+export const DEFAULT_SHIPPING_STATUS_LABEL = 'جاهز للشحن';
+
+/**
+ * Seeded system rows only — written once by migration/`seed.ts`.
+ * Runtime List Sheet, import, and UI read `ShippingStatus` from the
+ * database. Do not treat this array as a live catalog.
+ */
+export const INITIAL_SHIPPING_STATUSES = [
   {
-    code: 'READY_FOR_SHIPPING',
-    label: 'جاهز للشحن',
-    /** UI / List Sheet only — not a persisted ShipmentStatus value. */
-    importable: false,
+    code: DEFAULT_SHIPPING_STATUS_CODE,
+    name: DEFAULT_SHIPPING_STATUS_LABEL,
+    color: 'neutral',
     isDefault: true,
     isSystem: true,
+    isImportable: false,
+    sortOrder: 0,
   },
   {
     code: 'LABEL_CREATED',
-    label: 'تم إنشاء البوليصة',
-    importable: true,
+    name: 'تم إنشاء البوليصة',
+    color: 'info',
     isDefault: false,
     isSystem: true,
+    isImportable: true,
+    sortOrder: 1,
   },
   {
     code: 'SHIPPED',
-    label: 'تم الشحن',
-    importable: true,
+    name: 'تم الشحن',
+    color: 'info',
     isDefault: false,
     isSystem: true,
+    isImportable: true,
+    sortOrder: 2,
   },
   {
     code: 'OUT_FOR_DELIVERY',
-    label: 'قيد التوصيل',
-    importable: true,
+    name: 'قيد التوصيل',
+    color: 'warning',
     isDefault: false,
     isSystem: true,
+    isImportable: true,
+    sortOrder: 3,
   },
   {
     code: 'DELIVERED',
-    label: 'تم التسليم',
-    importable: true,
+    name: 'تم التسليم',
+    color: 'success',
     isDefault: false,
     isSystem: true,
+    isImportable: true,
+    sortOrder: 4,
   },
   {
     code: 'DELIVERY_FAILED',
-    label: 'فشل التسليم',
-    importable: true,
+    name: 'فشل التسليم',
+    color: 'destructive',
     isDefault: false,
     isSystem: true,
+    isImportable: true,
+    sortOrder: 5,
   },
   {
     code: 'NEEDS_RESHIPMENT',
-    label: 'بحاجة لإعادة شحن',
-    importable: true,
+    name: 'بحاجة لإعادة شحن',
+    color: 'warning',
     isDefault: false,
     isSystem: true,
+    isImportable: true,
+    sortOrder: 6,
   },
 ] as const;
 
-export const DEFAULT_SHIPPING_STATUS_CODE = SHIPPING_STATUS_CATALOG[0].code;
-export const DEFAULT_SHIPPING_STATUS_LABEL = SHIPPING_STATUS_CATALOG[0].label;
+/** Shipment.status enum values the operational state machine still walks. */
+export const OPERATIONAL_SHIPMENT_STATUS_CODES: ShipmentStatus[] = [
+  ShipmentStatus.LABEL_CREATED,
+  ShipmentStatus.SHIPPED,
+  ShipmentStatus.OUT_FOR_DELIVERY,
+  ShipmentStatus.DELIVERED,
+  ShipmentStatus.DELIVERY_FAILED,
+  ShipmentStatus.NEEDS_RESHIPMENT,
+];
 
-export type ShippingStatusCode =
-  (typeof SHIPPING_STATUS_CATALOG)[number]['code'];
+export function isShippingStatusColor(
+  value: string,
+): value is ShippingStatusColor {
+  return (SHIPPING_STATUS_COLORS as readonly string[]).includes(value);
+}
 
-export const SHIPPING_STATUS_SHEET_LABELS: Record<string, string> =
-  Object.fromEntries(
-    SHIPPING_STATUS_CATALOG.map((status) => [status.code, status.label]),
-  );
+export function isOperationalShipmentStatus(
+  code: string,
+): code is ShipmentStatus {
+  return (OPERATIONAL_SHIPMENT_STATUS_CODES as string[]).includes(code);
+}
 
-export const IMPORTABLE_SHIPPING_STATUS_CODES: ShipmentStatus[] =
-  SHIPPING_STATUS_CATALOG.filter((status) => status.importable).map(
-    (status) => status.code as ShipmentStatus,
-  );
-
-export const IMPORTABLE_SHIPPING_STATUS_LABELS = SHIPPING_STATUS_CATALOG.filter(
-  (status) => status.importable,
-).map((status) => status.label);
-
-/**
- * Accepts an enum code (`SHIPPED`) or the canonical Arabic label (`تم الشحن`).
- * Returns the enum code, or null when the value is unknown / not importable.
- */
-export function resolveImportableShippingStatus(
-  raw: string | undefined,
-): ShipmentStatus | null {
+export function matchShippingStatusRecord<
+  T extends { code: string; name: string; isImportable?: boolean },
+>(records: T[], raw: string | undefined, importableOnly = false): T | null {
   const value = raw?.trim();
   if (!value) return null;
   const upper = value.toUpperCase();
-  for (const status of SHIPPING_STATUS_CATALOG) {
-    if (!status.importable) continue;
-    if (status.code === upper || status.label === value) {
-      return status.code;
-    }
-  }
-  return null;
+  return (
+    records.find((status) => {
+      if (importableOnly && status.isImportable === false) return false;
+      return status.code === upper || status.name === value;
+    }) ?? null
+  );
 }

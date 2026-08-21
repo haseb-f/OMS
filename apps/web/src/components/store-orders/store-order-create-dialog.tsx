@@ -23,6 +23,7 @@ import {
   FileUrlField,
   NumberFormField,
   PhoneFormField,
+  SelectFormField,
   TextareaFormField,
   TextFormField,
 } from "@/components/shared/form-fields";
@@ -58,6 +59,7 @@ import { useCountries, useCurrencies } from "@/hooks/use-reference-data";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import { toISODate } from "@/lib/date";
+import { PAYMENT_TYPE_LABEL_KEY } from "@/config/store-orders/status";
 
 interface StoreOrderCreateLine {
   id: string;
@@ -123,6 +125,7 @@ export function StoreOrderCreateDialog({
   const receiptName = useWatch({ control: form.control, name: "receiptName" });
   const receiptUrl = useWatch({ control: form.control, name: "receiptUrl" });
   const customerName = useWatch({ control: form.control, name: "customerName" });
+  const paymentType = useWatch({ control: form.control, name: "paymentType" });
   const countryCode = countries.find((country) => country.id === countryId)?.code ?? null;
   const defaultCurrencyId =
     currencies.find((currency) => currency.code === "SAR")?.id ?? currencies[0]?.id ?? "";
@@ -206,6 +209,7 @@ export function StoreOrderCreateDialog({
         orderDate: values.orderDate || undefined,
         source: "MANUAL",
         currencyId: values.currencyId,
+        paymentType: values.paymentType,
         notes: values.notes || undefined,
         items: validLines.map((line) => ({
           productId: line.product!.id,
@@ -351,6 +355,18 @@ export function StoreOrderCreateDialog({
               getSearchText={(currency) => `${currency.code} ${currency.name}`}
               subtitleDir="ltr"
               icon={<Banknote className="size-3.5 shrink-0 text-muted-foreground" />}
+            />
+            <SelectFormField
+              control={form.control}
+              name="paymentType"
+              label={t("storeOrders.fields.paymentType")}
+              options={[
+                { value: "PREPAID", label: t("storeOrders.paymentType.PREPAID") },
+                {
+                  value: "CASH_ON_DELIVERY",
+                  label: t("storeOrders.paymentType.CASH_ON_DELIVERY"),
+                },
+              ]}
             />
           </ModalSection>
 
@@ -569,11 +585,17 @@ export function StoreOrderCreateDialog({
                   ]
                 : []),
               {
+                label: t("storeOrders.fields.paymentType"),
+                value: t(PAYMENT_TYPE_LABEL_KEY[paymentType ?? "PREPAID"]),
+              },
+              {
                 label: t("storeOrders.fields.payment"),
                 value:
                   paidAmount > 0
                     ? t("storeOrders.createDialog.summary.paymentAwaitingMatch")
-                    : t("storeOrders.paymentStatus.PAYMENT_PENDING"),
+                    : paymentType === "CASH_ON_DELIVERY"
+                      ? t("storeOrders.paymentStatus.AWAITING_COLLECTION")
+                      : t("storeOrders.paymentStatus.AWAITING_RECONCILIATION"),
               },
             ]}
           />

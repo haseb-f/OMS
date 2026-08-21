@@ -12,6 +12,7 @@ import {
   canTransitionShipmentStatus,
   shipmentTransitionError,
 } from './store-order-shipment-transitions';
+import { isOperationalShipmentStatus } from '../../shipping/shipping-status.catalog';
 
 /**
  * Store Orders shipping pipeline — copies the exact operational pattern of
@@ -138,7 +139,9 @@ export class StoreOrderShipmentsService {
     this.assertTransition(shipment.status, ShipmentStatus.LABEL_CREATED);
     return tx.shipment.update({
       where: { id: shipment.id },
-      data: { labelUrl, status: ShipmentStatus.LABEL_CREATED },
+      data: await this.catalogStatusData(tx, ShipmentStatus.LABEL_CREATED, {
+        labelUrl,
+      }),
     });
   }
 
@@ -150,7 +153,7 @@ export class StoreOrderShipmentsService {
     this.assertTransition(shipment.status, ShipmentStatus.SHIPPED);
     return tx.shipment.update({
       where: { id: shipment.id },
-      data: { status: ShipmentStatus.SHIPPED },
+      data: await this.catalogStatusData(tx, ShipmentStatus.SHIPPED),
     });
   }
 
@@ -162,7 +165,7 @@ export class StoreOrderShipmentsService {
     this.assertTransition(shipment.status, ShipmentStatus.OUT_FOR_DELIVERY);
     return tx.shipment.update({
       where: { id: shipment.id },
-      data: { status: ShipmentStatus.OUT_FOR_DELIVERY },
+      data: await this.catalogStatusData(tx, ShipmentStatus.OUT_FOR_DELIVERY),
     });
   }
 
@@ -174,7 +177,7 @@ export class StoreOrderShipmentsService {
     this.assertTransition(shipment.status, ShipmentStatus.DELIVERED);
     return tx.shipment.update({
       where: { id: shipment.id },
-      data: { status: ShipmentStatus.DELIVERED },
+      data: await this.catalogStatusData(tx, ShipmentStatus.DELIVERED),
     });
   }
 
@@ -186,7 +189,7 @@ export class StoreOrderShipmentsService {
     this.assertTransition(shipment.status, ShipmentStatus.DELIVERY_FAILED);
     return tx.shipment.update({
       where: { id: shipment.id },
-      data: { status: ShipmentStatus.DELIVERY_FAILED },
+      data: await this.catalogStatusData(tx, ShipmentStatus.DELIVERY_FAILED),
     });
   }
 
@@ -207,7 +210,7 @@ export class StoreOrderShipmentsService {
     }
     return tx.shipment.update({
       where: { id: current.id },
-      data: { status: ShipmentStatus.NEEDS_RESHIPMENT },
+      data: await this.catalogStatusData(tx, ShipmentStatus.NEEDS_RESHIPMENT),
     });
   }
 
@@ -271,7 +274,49 @@ export class StoreOrderShipmentsService {
       );
     }
     const { shipment } = await this.getOrCreateCurrent(storeOrderId, tx);
-    return tx.shipment.update({ where: { id: shipment.id }, data: { status } });
+    return tx.shipment.update({
+      where: { id: shipment.id },
+      data: await this.catalogStatusData(tx, status),
+    });
+  }
+
+  /**
+   * Apply a dynamic catalog status (Google Sheets / import). Operational
+   * enum codes still walk `setStatus`; administrator-created statuses only
+   * stamp `shippingStatusId`.
+   */
+  async applyCatalogStatus(
+    storeOrderId: string,
+    shippingStatusId: string,
+    code: string,
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ) {
+    if (isOperationalShipmentStatus(code)) {
+      return this.setStatus(storeOrderId, code, tx);
+    }
+    const { shipment } = await this.getOrCreateCurrent(storeOrderId, tx);
+    return tx.shipment.update({
+      where: { id: shipment.id },
+      data: { shippingStatus: { connect: { id: shippingStatusId } } },
+    });
+  }
+
+  private async catalogStatusData(
+    tx: Prisma.TransactionClient | PrismaService,
+    status: ShipmentStatus,
+    extra: Prisma.ShipmentUpdateInput = {},
+  ): Promise<Prisma.ShipmentUpdateInput> {
+    const catalog = await tx.shippingStatus.findFirst({
+      where: { code: status, deletedAt: null },
+      select: { id: true },
+    });
+    return {
+      ...extra,
+      status,
+      shippingStatus: catalog?.id
+        ? { connect: { id: catalog.id } }
+        : { disconnect: true },
+    };
   }
 
   /** Flat, cross-order listing for the Shipping list page — Store Order shipments only (`storeOrderId` set), never the legacy SalesOrder pipeline's rows. */
@@ -351,6 +396,9 @@ export class StoreOrderShipmentsService {
         where,
         include: {
           shippingCompany: true,
+          shippingStatus: {
+            select: { id: true, code: true, name: true, color: true },
+          },
           storeOrder: { include: { customer: { include: { country: true } } } },
         },
         orderBy: { createdAt: query.sortOrder ?? 'desc' },

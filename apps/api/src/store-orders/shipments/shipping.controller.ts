@@ -13,7 +13,7 @@ import { PermissionModule } from '../../auth/decorators/permission-module.decora
 import { PermissionAction } from '../../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../../auth/guards/jwt-auth.guard';
-import { SHIPPING_STATUS_CATALOG } from '../../shipping/shipping-status.catalog';
+import { PrismaService } from '../../prisma/prisma.service';
 import { StoreOrderShipmentsService } from './store-order-shipments.service';
 import { StoreOrderShipmentOperationsService } from './store-order-shipment-operations.service';
 import { FindShipmentsQueryDto } from './dto/find-shipments-query.dto';
@@ -27,6 +27,7 @@ export class ShippingController {
   constructor(
     private readonly shipmentsService: StoreOrderShipmentsService,
     private readonly operations: StoreOrderShipmentOperationsService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Get()
@@ -34,15 +35,21 @@ export class ShippingController {
     return this.shipmentsService.findAllFlat(query);
   }
 
-  /** Canonical shipping-status vocabulary — closed catalog, not a CRUD table. */
+  /** Dynamic shipping-status catalog — database is the source of truth. */
   @Get('statuses')
-  listStatuses() {
-    return SHIPPING_STATUS_CATALOG.map((status) => ({
+  async listStatuses() {
+    const statuses = await this.prisma.shippingStatus.findMany({
+      where: { deletedAt: null },
+      orderBy: { sortOrder: 'asc' },
+    });
+    return statuses.map((status) => ({
+      id: status.id,
       code: status.code,
-      label: status.label,
+      label: status.name,
+      color: status.color,
       isDefault: status.isDefault,
       isSystem: status.isSystem,
-      importable: status.importable,
+      importable: status.isImportable,
     }));
   }
 

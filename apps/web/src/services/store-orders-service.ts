@@ -11,6 +11,8 @@ export type StoreOrderPaymentStatusValue =
   | "UNMATCHED"
   | "PAYMENT_REVIEW";
 
+export type StoreOrderPaymentTypeValue = "PREPAID" | "CASH_ON_DELIVERY";
+
 export type StoreOrderShippingStageValue = "NOT_READY" | "READY_FOR_SHIPPING";
 
 export interface StoreOrderCustomerRef {
@@ -58,6 +60,7 @@ export interface StoreOrderShipmentRow {
   trackingNumber: string | null;
   labelUrl: string | null;
   status: ShipmentStatusValue;
+  shippingStatus?: { id: string; code: string; name: string; color: string } | null;
   labelCreatedAt: string | null;
   shippedAt: string | null;
   outForDeliveryAt: string | null;
@@ -97,7 +100,9 @@ export interface StoreOrderRow {
   employeeId: string | null;
   employee?: { id: string; fullName: string } | null;
   paymentStatus: StoreOrderPaymentStatusValue;
+  paymentType: StoreOrderPaymentTypeValue;
   shippingStage: StoreOrderShippingStageValue;
+  shippingStatus?: { id: string; code: string; name: string; color: string } | null;
   currency: { id: string; code: string; name: string; symbol: string | null } | null;
   currencyId: string;
   notes: string | null;
@@ -170,6 +175,7 @@ export const storeOrdersService = {
     sourceChannel?: string;
     employeeId?: string;
     currencyId: string;
+    paymentType?: StoreOrderPaymentTypeValue;
     notes?: string;
     items: { productId: string; quantity: number; unitPrice: number }[];
     payment?: {

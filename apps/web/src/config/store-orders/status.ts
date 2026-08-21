@@ -1,6 +1,7 @@
 import type { StatusTone } from "@/components/business/status-badge";
 import type {
   StoreOrderPaymentStatusValue,
+  StoreOrderPaymentTypeValue,
   StoreOrderShippingStageValue,
 } from "@/services/store-orders-service";
 import type { MessageKey } from "@/i18n/translate";
@@ -31,6 +32,13 @@ export const PAYMENT_STATUS_VALUES: StoreOrderPaymentStatusValue[] = [
   "UNMATCHED",
   "PAYMENT_REVIEW",
 ];
+
+export const PAYMENT_TYPE_LABEL_KEY: Record<StoreOrderPaymentTypeValue, MessageKey> = {
+  PREPAID: "storeOrders.paymentType.PREPAID",
+  CASH_ON_DELIVERY: "storeOrders.paymentType.CASH_ON_DELIVERY",
+};
+
+export const PAYMENT_TYPE_VALUES: StoreOrderPaymentTypeValue[] = ["PREPAID", "CASH_ON_DELIVERY"];
 
 /**
  * Status of an individual Payment record attached to an order (Prisma
@@ -91,6 +99,19 @@ export const SHIPPING_STAGE_VALUES: StoreOrderShippingStageValue[] = [
   "NOT_READY",
   "READY_FOR_SHIPPING",
 ];
+
+/** Payment Type is not financial confirmation — pending prepaid awaits match; COD awaits collection. */
+export function financialStatusLabelKey(
+  paymentStatus: StoreOrderPaymentStatusValue,
+  paymentType?: StoreOrderPaymentTypeValue | null,
+): MessageKey {
+  if (paymentStatus === "PAYMENT_PENDING") {
+    return paymentType === "CASH_ON_DELIVERY"
+      ? "storeOrders.paymentStatus.AWAITING_COLLECTION"
+      : "storeOrders.paymentStatus.AWAITING_RECONCILIATION";
+  }
+  return PAYMENT_STATUS_LABEL_KEY[paymentStatus];
+}
 
 /** "Ready for Shipping" is only reachable once payment is fully reconciled — every Shipping entry point/action gates on this, never just the stage flag alone. */
 export function isReadyForShipping(paymentStatus: StoreOrderPaymentStatusValue): boolean {

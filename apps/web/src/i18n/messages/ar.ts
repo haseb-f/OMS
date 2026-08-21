@@ -603,6 +603,7 @@ const ar = {
       manager: "المدير",
       defaultAnalyticAccount: "الحساب التحليلي الافتراضي",
       days: "عدد الأيام",
+      color: "اللون",
       accountType: "نوع الحساب",
       accountTypeAsset: "أصول",
       accountTypeLiability: "التزامات",
@@ -617,6 +618,13 @@ const ar = {
       branch: "الفرع",
       allowReconciliation: "السماح بالمطابقة",
       account: "الحساب المرتبط",
+    },
+    colors: {
+      neutral: "رمادي",
+      info: "أزرق",
+      warning: "برتقالي",
+      success: "أخضر",
+      destructive: "أحمر",
     },
     hub: {
       title: "البيانات الأساسية",
@@ -860,7 +868,7 @@ const ar = {
     shippingStatuses: {
       title: "حالات الشحن",
       description:
-        "حالات دورة الشحن المعتمدة في النظام — تُستخدم في الشحنات وطلبات المتجر والاستيراد ومزامنة Google Sheets.",
+        "حالات دورة الشحن — تُدار من البيانات الأساسية وتُستخدم في الشحنات وطلبات المتجر ومزامنة Google Sheets.",
       role: "النوع",
       default: "افتراضي",
       system: "نظامي",
@@ -2061,6 +2069,7 @@ const ar = {
       payment: "الدفع",
       shipping: "الشحن",
       paymentStatus: "حالة الدفع",
+      paymentType: "نوع الدفع",
       shippingStage: "مرحلة الشحن",
       total: "الإجمالي",
       source: "المصدر",
@@ -2078,6 +2087,8 @@ const ar = {
     },
     paymentStatus: {
       PAYMENT_PENDING: "بانتظار الدفع",
+      AWAITING_RECONCILIATION: "بانتظار المطابقة",
+      AWAITING_COLLECTION: "بانتظار التحصيل",
       PARTIALLY_PAID: "مدفوع جزئياً",
       FULLY_PAID_RECONCILED: "مدفوع بالكامل (مُسوّى)",
       OVERPAID: "مدفوع بالزيادة",
@@ -2091,6 +2102,10 @@ const ar = {
         UNMATCHED: "تم العثور على دفعة لكن تعذّرت مطابقتها تلقائياً مع هذا الطلب.",
         PAYMENT_REVIEW: "مطابقة دفع هذا الطلب تحتاج مراجعة يدوية.",
       },
+    },
+    paymentType: {
+      PREPAID: "دفع مسبق",
+      CASH_ON_DELIVERY: "الدفع عند الاستلام",
     },
     shippingStage: {
       NOT_READY: "غير جاهز",
@@ -3138,6 +3153,7 @@ const ar = {
       orderDate: "تاريخ الطلب",
       paidAmount: "المبلغ المدفوع",
       paymentMethodLabel: "طريقة الدفع",
+      paymentType: "نوع الدفع",
       receipt1: "إيصال 1",
       receipt2: "إيصال 2",
       receipt3: "إيصال 3",
@@ -3339,7 +3355,7 @@ const ar = {
         lastSync: "آخر مزامنة: {datetime}",
         lastSyncNever: "آخر مزامنة: لم تتم بعد",
         summary:
-          "الدول {countries} · المنتجات {products} · العملات {currencies} · طرق الدفع {paymentMethods} · الموظفون {employees} · حالات الشحن {shippingStatuses} · شركات الشحن {shippingCompanies} · أنواع الحركات {financialTransactionTypes} · {datetime}",
+          "الدول {countries} · المنتجات {products} · العملات {currencies} · طرق الدفع {paymentMethods} · الموظفون {employees} · حالات الشحن {shippingStatuses} · شركات الشحن {shippingCompanies} · أنواع الدفع {paymentTypes} · أنواع الحركات {financialTransactionTypes} · {datetime}",
         lists: {
           country: "الدول",
           product: "المنتجات",
@@ -3348,6 +3364,7 @@ const ar = {
           employeeEmail: "الموظفون",
           shippingStatus: "حالات الشحن",
           shippingCompany: "شركات الشحن",
+          paymentType: "أنواع الدفع",
           financialTransactionType: "أنواع الحركات المالية",
         },
         errors: {

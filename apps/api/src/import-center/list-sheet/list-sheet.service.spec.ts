@@ -36,6 +36,7 @@ describe('ListSheetService', () => {
       record('Inactive', { code: 'gone@example.com', active: false }),
     ],
     SHIPPING_COMPANY: [record('SMSA')],
+    SHIPPING_STATUS: [record('جاهز للشحن'), record('تم الشحن')],
   };
 
   beforeEach(async () => {
@@ -97,6 +98,9 @@ describe('ListSheetService', () => {
     expect(byHeader['Shipping Status']).not.toEqual(
       expect.arrayContaining(['SHIPPED', 'READY_FOR_SHIPPING']),
     );
+    expect(byHeader['Payment Type']).toEqual(
+      expect.arrayContaining(['دفع مسبق', 'الدفع عند الاستلام']),
+    );
     expect(byHeader['Financial Transaction Type']).toEqual([
       'تحصيل من عميل',
       'سداد مورد',
@@ -137,6 +141,10 @@ describe('ListSheetService', () => {
     });
     expect(listSheetReferenceMatch('shippingCompany')).toEqual({
       type: 'SHIPPING_COMPANY',
+      matchField: 'name',
+    });
+    expect(listSheetReferenceMatch('shippingStatus')).toEqual({
+      type: 'SHIPPING_STATUS',
       matchField: 'name',
     });
     const productColumn = LIST_SHEET_COLUMNS.find(

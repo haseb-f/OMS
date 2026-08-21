@@ -83,6 +83,7 @@ export type ListSheetColumnKey =
   | "employeeEmail"
   | "shippingStatus"
   | "shippingCompany"
+  | "paymentType"
   | "financialTransactionType";
 
 export interface ListSheetListResult {

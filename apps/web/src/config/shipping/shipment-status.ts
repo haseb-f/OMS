@@ -89,6 +89,19 @@ export function shipmentStatusTone(status: ShipmentStatusValue | null): StatusTo
   return status ? SHIPMENT_STATUS_TONE[status] : SHIPMENT_STATUS_TONE[DEFAULT_SHIPPING_STATUS];
 }
 
+export function catalogStatusTone(color: string | null | undefined): StatusTone {
+  if (
+    color === "success" ||
+    color === "warning" ||
+    color === "destructive" ||
+    color === "info" ||
+    color === "neutral"
+  ) {
+    return color;
+  }
+  return "neutral";
+}
+
 export const SHIPMENT_STATUS_VALUES: ShipmentStatusValue[] = SHIPPING_STATUS_CATALOG.map(
   (status) => status.code,
 );

@@ -17,9 +17,9 @@ import {
   type ImportTypeHandler,
 } from '../import-type.interface';
 import {
-  IMPORTABLE_SHIPPING_STATUS_CODES,
-  IMPORTABLE_SHIPPING_STATUS_LABELS,
-  resolveImportableShippingStatus,
+  isOperationalShipmentStatus,
+  matchShippingStatusRecord,
+  OPERATIONAL_SHIPMENT_STATUS_CODES,
 } from '../../shipping/shipping-status.catalog';
 
 /**
@@ -30,7 +30,7 @@ import {
  * never drift apart.
  */
 export const ALLOWED_STATUSES: ShipmentStatus[] =
-  IMPORTABLE_SHIPPING_STATUS_CODES;
+  OPERATIONAL_SHIPMENT_STATUS_CODES;
 
 /** Statuses that indicate "a fresh shipping attempt is starting" — triggers RESHIP when the order's current shipment is already terminal. */
 const RESHIP_TRIGGER_STATUSES: ShipmentStatus[] = [
@@ -67,7 +67,7 @@ const FIELDS: ImportFieldDef[] = [
     label: 'Status',
     required: true,
     type: 'string',
-    options: [...IMPORTABLE_SHIPPING_STATUS_LABELS],
+    options: [],
     referenceType: 'SHIPPING_STATUS',
     example: 'تم الشحن',
   },
@@ -157,6 +157,33 @@ export class ShippingUpdatesImportHandler
 
   onModuleInit() {
     this.registry.register(this);
+    void this.refreshStatusOptions();
+  }
+
+  private async refreshStatusOptions() {
+    const statuses = await this.prisma.shippingStatus.findMany({
+      where: { deletedAt: null, isImportable: true },
+      orderBy: { sortOrder: 'asc' },
+      select: { name: true },
+    });
+    const field = this.fields.find((item) => item.key === 'status');
+    if (field) field.options = statuses.map((status) => status.name);
+  }
+
+  private async resolveCatalogStatus(raw: string | undefined) {
+    const statuses = await this.prisma.shippingStatus.findMany({
+      where: { deletedAt: null },
+    });
+    const matched = matchShippingStatusRecord(statuses, raw, true);
+    if (!matched) {
+      const labels = statuses
+        .filter((status) => status.isImportable)
+        .map((status) => status.name);
+      throw new BadRequestException(
+        `Status must be one of: ${labels.join(', ')}.`,
+      );
+    }
+    return matched;
   }
 
   /** Performance (spec section 21) — one batched `findMany` for the whole file/sheet instead of one `findFirst` per row. */
@@ -211,12 +238,7 @@ export class ShippingUpdatesImportHandler
       });
     }
 
-    const status = resolveImportableShippingStatus(row.status);
-    if (!status) {
-      throw new BadRequestException(
-        `Status must be one of: ${IMPORTABLE_SHIPPING_STATUS_LABELS.join(', ')}.`,
-      );
-    }
+    const catalogStatus = await this.resolveCatalogStatus(row.status);
 
     const shippingCompanyId = await this.referenceData.resolveOptional(
       'SHIPPING_COMPANY',
@@ -239,7 +261,7 @@ export class ShippingUpdatesImportHandler
 
     const trackingNumber = row.trackingNumber?.trim() || undefined;
     if (
-      status === ShipmentStatus.DELIVERED &&
+      catalogStatus.code === ShipmentStatus.DELIVERED &&
       !trackingNumber &&
       !current?.trackingNumber
     ) {
@@ -253,7 +275,7 @@ export class ShippingUpdatesImportHandler
       current &&
       this.isNoChange(
         current,
-        status,
+        catalogStatus,
         trackingNumber,
         shippingCompanyId,
         labelUrl,
@@ -272,7 +294,7 @@ export class ShippingUpdatesImportHandler
     return this.applyUpdate(
       order,
       current,
-      status,
+      catalogStatus,
       trackingNumber,
       shippingCompanyId,
       labelUrl,
@@ -301,7 +323,7 @@ export class ShippingUpdatesImportHandler
         `No Store Order found for External Order ID "${row.externalOrderId}".`,
       );
     }
-    const status = row.status?.trim().toUpperCase() as ShipmentStatus;
+    const catalogStatus = await this.resolveCatalogStatus(row.status);
     const shippingCompanyId = await this.referenceData.resolveOptional(
       'SHIPPING_COMPANY',
       'name',
@@ -317,7 +339,7 @@ export class ShippingUpdatesImportHandler
     return this.applyUpdate(
       order,
       current,
-      status,
+      catalogStatus,
       trackingNumber,
       shippingCompanyId,
       labelUrl,
@@ -331,18 +353,27 @@ export class ShippingUpdatesImportHandler
   private isNoChange(
     current: {
       status: ShipmentStatus | null;
+      shippingStatusId?: string | null;
       trackingNumber: string | null;
       shippingCompanyId: string | null;
       labelUrl: string | null;
       notes: string | null;
     },
-    status: ShipmentStatus,
+    catalogStatus: { id: string; code: string },
     trackingNumber: string | undefined,
     shippingCompanyId: string | undefined,
     labelUrl: string | undefined,
     notes: string | undefined,
   ): boolean {
-    if (current.status !== status) return false;
+    if (
+      current.shippingStatusId &&
+      current.shippingStatusId !== catalogStatus.id
+    ) {
+      return false;
+    }
+    if (!current.shippingStatusId && current.status !== catalogStatus.code) {
+      return false;
+    }
     if (trackingNumber && trackingNumber !== current.trackingNumber)
       return false;
     if (shippingCompanyId && shippingCompanyId !== current.shippingCompanyId) {
@@ -356,7 +387,7 @@ export class ShippingUpdatesImportHandler
   private async applyUpdate(
     order: { id: string },
     current: { id: string; status: ShipmentStatus | null } | null,
-    status: ShipmentStatus,
+    catalogStatus: { id: string; code: string; name: string },
     trackingNumber: string | undefined,
     shippingCompanyId: string | undefined,
     labelUrl: string | undefined,
@@ -364,8 +395,11 @@ export class ShippingUpdatesImportHandler
     userId: string | undefined,
     source: StoreOrderActivitySource,
   ): Promise<ImportRowResult> {
+    const operational = isOperationalShipmentStatus(catalogStatus.code)
+      ? catalogStatus.code
+      : null;
     if (
-      status === ShipmentStatus.NEEDS_RESHIPMENT &&
+      operational === ShipmentStatus.NEEDS_RESHIPMENT &&
       current?.status !== ShipmentStatus.DELIVERY_FAILED
     ) {
       throw new BadRequestException(INVALID_RESHIP_TRANSITION_MESSAGE);
@@ -376,7 +410,9 @@ export class ShippingUpdatesImportHandler
         current.status === ShipmentStatus.NEEDS_RESHIPMENT);
     const action: 'CREATE_SHIPMENT' | 'UPDATE_SHIPMENT' | 'RESHIP' = !current
       ? 'CREATE_SHIPMENT'
-      : isTerminalAwaitingReship && RESHIP_TRIGGER_STATUSES.includes(status)
+      : operational &&
+          isTerminalAwaitingReship &&
+          RESHIP_TRIGGER_STATUSES.includes(operational)
         ? 'RESHIP'
         : 'UPDATE_SHIPMENT';
 
@@ -388,9 +424,10 @@ export class ShippingUpdatesImportHandler
           }
           await this.shipmentsService.createReshipment(order.id, tx);
         }
-        let updated = await this.shipmentsService.setStatus(
+        let updated = await this.shipmentsService.applyCatalogStatus(
           order.id,
-          status,
+          catalogStatus.id,
+          catalogStatus.code,
           tx,
         );
         if (shippingCompanyId) {
@@ -433,7 +470,7 @@ export class ShippingUpdatesImportHandler
         await this.activityService.log(
           order.id,
           `IMPORT_${action}`,
-          `Shipping update synced (${action}): status set to ${status}`,
+          `Shipping update synced (${action}): status set to ${catalogStatus.name}`,
           userId,
           tx,
           source,

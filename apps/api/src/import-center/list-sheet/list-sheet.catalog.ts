@@ -1,9 +1,9 @@
 import type { ReferenceRecord } from '../reference-data/reference-data.types';
-import { SHIPPING_STATUS_SHEET_LABELS } from '../../shipping/shipping-status.catalog';
 import { FINANCIAL_TRANSACTION_TYPE_SHEET_LABELS } from '../../financial-transactions/financial-transaction-type.catalog';
+import { PAYMENT_TYPE_SHEET_LABELS } from '../../store-orders/payment-type.catalog';
 
-export { SHIPPING_STATUS_SHEET_LABELS } from '../../shipping/shipping-status.catalog';
 export { FINANCIAL_TRANSACTION_TYPE_SHEET_LABELS } from '../../financial-transactions/financial-transaction-type.catalog';
+export { PAYMENT_TYPE_SHEET_LABELS } from '../../store-orders/payment-type.catalog';
 
 /**
  * Official OMS List Sheet — the one Google Spreadsheet that holds
@@ -35,6 +35,7 @@ export type ListSheetColumnKey =
   | 'employeeEmail'
   | 'shippingStatus'
   | 'shippingCompany'
+  | 'paymentType'
   | 'financialTransactionType';
 
 export type ListSheetColumnSource =
@@ -114,8 +115,10 @@ export const LIST_SHEET_COLUMNS: readonly ListSheetColumnDef[] = [
     key: 'shippingStatus',
     header: 'Shipping Status',
     source: {
-      kind: 'static',
-      values: Object.values(SHIPPING_STATUS_SHEET_LABELS),
+      kind: 'reference',
+      type: 'SHIPPING_STATUS',
+      matchField: 'name',
+      valueOf: (record) => record.name,
     },
   },
   {
@@ -126,6 +129,14 @@ export const LIST_SHEET_COLUMNS: readonly ListSheetColumnDef[] = [
       type: 'SHIPPING_COMPANY',
       matchField: 'name',
       valueOf: (record) => record.name,
+    },
+  },
+  {
+    key: 'paymentType',
+    header: 'Payment Type',
+    source: {
+      kind: 'static',
+      values: Object.values(PAYMENT_TYPE_SHEET_LABELS),
     },
   },
   {

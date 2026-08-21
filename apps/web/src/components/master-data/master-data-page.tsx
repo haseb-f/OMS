@@ -111,6 +111,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   supportsSelectAllMatching = false,
   hideCreateButton = false,
   getRowHref,
+  isRowProtected,
 }: {
   titleKey: MessageKey;
   descriptionKey: MessageKey;
@@ -156,6 +157,11 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   hideCreateButton?: boolean;
   /** Opt-in detail route for a row — only for an entity that has a real detail page (Customers, Suppliers, Leads); forwarded to the table, where it turns the `meta.identity` column into a link. */
   getRowHref?: (row: TEntity) => string | null | undefined;
+  /**
+   * Business-rule protection (e.g. the default shipping status) — hides
+   * Archive only. Uses the existing RowActionsMenu; does not change menu geometry.
+   */
+  isRowProtected?: (entity: TEntity) => boolean;
 }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
@@ -483,7 +489,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
             label: t("common.archive"),
             icon: ArchiveIcon,
             onSelect: () => setArchiveTarget(entity),
-            hidden: !canArchive || isArchived,
+            hidden: !canArchive || isArchived || Boolean(isRowProtected?.(entity)),
             destructive: true,
             separatorBefore: destructiveExtras.length === 0,
           },
@@ -499,7 +505,17 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
         return <RowActionsMenu actions={actions} label={t("common.actions")} />;
       },
     }),
-    [canEdit, canArchive, canCreate, canView, t, openEdit, openDuplicate, extraRowActions],
+    [
+      canEdit,
+      canArchive,
+      canCreate,
+      canView,
+      t,
+      openEdit,
+      openDuplicate,
+      extraRowActions,
+      isRowProtected,
+    ],
   );
 
   const tableColumns = useMemo(() => [...columns, actionsColumn], [columns, actionsColumn]);

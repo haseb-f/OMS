@@ -29,14 +29,19 @@ import {
   type StoreOrderRow,
 } from "@/services/store-orders-service";
 import {
-  PAYMENT_STATUS_LABEL_KEY,
   PAYMENT_STATUS_TONE,
+  PAYMENT_TYPE_LABEL_KEY,
   SHIPPING_STAGE_LABEL_KEY,
   SHIPPING_STAGE_TONE,
+  financialStatusLabelKey,
   isReadyForShipping,
   paymentRecordStatusBadge,
 } from "@/config/store-orders/status";
-import { shipmentStatusLabelKey, shipmentStatusTone } from "@/config/shipping/shipment-status";
+import {
+  catalogStatusTone,
+  shipmentStatusLabelKey,
+  shipmentStatusTone,
+} from "@/config/shipping/shipment-status";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { toast } from "@/lib/toast";
@@ -201,12 +206,24 @@ function StoreOrderDetailContent() {
       status={
         <>
           <StatusBadge
-            label={t(PAYMENT_STATUS_LABEL_KEY[order.paymentStatus])}
+            label={t(financialStatusLabelKey(order.paymentStatus, order.paymentType))}
             tone={PAYMENT_STATUS_TONE[order.paymentStatus]}
           />
           <StatusBadge
-            label={t(SHIPPING_STAGE_LABEL_KEY[order.shippingStage])}
-            tone={SHIPPING_STAGE_TONE[order.shippingStage]}
+            label={
+              order.paymentType
+                ? t(PAYMENT_TYPE_LABEL_KEY[order.paymentType])
+                : t("storeOrders.paymentType.PREPAID")
+            }
+            tone="neutral"
+          />
+          <StatusBadge
+            label={order.shippingStatus?.name ?? t(SHIPPING_STAGE_LABEL_KEY[order.shippingStage])}
+            tone={
+              order.shippingStatus
+                ? catalogStatusTone(order.shippingStatus.color)
+                : SHIPPING_STAGE_TONE[order.shippingStage]
+            }
           />
         </>
       }
@@ -297,6 +314,43 @@ function StoreOrderDetailContent() {
             value={order.currency?.code ?? order.currency?.name}
           />
           <DetailField label={t("storeOrders.fields.employee")} value={order.employee?.fullName} />
+          <DetailField
+            label={t("storeOrders.fields.shippingStage")}
+            value={
+              <StatusBadge
+                label={
+                  order.shippingStatus?.name ?? t(SHIPPING_STAGE_LABEL_KEY[order.shippingStage])
+                }
+                tone={
+                  order.shippingStatus
+                    ? catalogStatusTone(order.shippingStatus.color)
+                    : SHIPPING_STAGE_TONE[order.shippingStage]
+                }
+              />
+            }
+          />
+          <DetailField
+            label={t("storeOrders.fields.paymentType")}
+            value={
+              <StatusBadge
+                label={
+                  order.paymentType
+                    ? t(PAYMENT_TYPE_LABEL_KEY[order.paymentType])
+                    : t("storeOrders.paymentType.PREPAID")
+                }
+                tone="neutral"
+              />
+            }
+          />
+          <DetailField
+            label={t("storeOrders.fields.paymentStatus")}
+            value={
+              <StatusBadge
+                label={t(financialStatusLabelKey(order.paymentStatus, order.paymentType))}
+                tone={PAYMENT_STATUS_TONE[order.paymentStatus]}
+              />
+            }
+          />
         </DetailFieldGrid>
       </DetailSection>
 
@@ -436,8 +490,20 @@ function StoreOrderDetailContent() {
               value={
                 latestShipmentRow ? (
                   <StatusBadge
-                    label={t(shipmentStatusLabelKey(latestShipmentRow.status))}
-                    tone={shipmentStatusTone(latestShipmentRow.status)}
+                    label={
+                      latestShipmentRow.shippingStatus?.name ??
+                      t(shipmentStatusLabelKey(latestShipmentRow.status))
+                    }
+                    tone={
+                      latestShipmentRow.shippingStatus
+                        ? catalogStatusTone(latestShipmentRow.shippingStatus.color)
+                        : shipmentStatusTone(latestShipmentRow.status)
+                    }
+                  />
+                ) : order.shippingStatus ? (
+                  <StatusBadge
+                    label={order.shippingStatus.name}
+                    tone={catalogStatusTone(order.shippingStatus.color)}
                   />
                 ) : undefined
               }

@@ -1,8 +1,11 @@
 import { z } from "zod";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { MasterDataFormField } from "@/components/master-data/master-data-form";
+import { StatusBadge } from "@/components/business/status-badge";
+import { StackedCell } from "@/components/shared/stacked-cell";
 import { statusColumn, textColumn } from "./shared-columns";
 import { formatDate } from "@/lib/date";
+import { useLocale } from "@/providers/locale-provider";
 
 // ---------------------------------------------------------------------------
 // Entity shapes — the subset of each Prisma model the Master Data UI reads.
@@ -958,6 +961,65 @@ export const shippingCompaniesSchema = z.object({
 export const shippingCompaniesDefaultValues = { name: "", description: "" };
 export const shippingCompaniesExportColumns = ["name"];
 export const shippingCompanyRowLabel = (row: ShippingCompanyRow) => row.name;
+
+export interface ShippingStatusRow {
+  id: string;
+  code: string;
+  name: string;
+  color: string;
+  isSystem: boolean;
+  isDefault: boolean;
+  isImportable: boolean;
+  sortOrder: number;
+  deletedAt: string | null;
+}
+
+function ShippingStatusNameCell({ row }: { row: ShippingStatusRow }) {
+  const { t } = useLocale();
+  const tone =
+    row.color === "success" ||
+    row.color === "warning" ||
+    row.color === "destructive" ||
+    row.color === "info" ||
+    row.color === "neutral"
+      ? row.color
+      : "neutral";
+  return (
+    <StackedCell
+      primary={<StatusBadge label={row.name} tone={tone} />}
+      secondary={
+        row.isDefault
+          ? t("masterData.shippingStatuses.default")
+          : row.isSystem
+            ? t("masterData.shippingStatuses.system")
+            : undefined
+      }
+    />
+  );
+}
+
+export const shippingStatusesColumns: ColumnDef<ShippingStatusRow, unknown>[] = [
+  {
+    id: "name",
+    meta: { titleKey: "masterData.fields.name" },
+    accessorFn: (row) => row.name,
+    cell: ({ row }) => <ShippingStatusNameCell row={row.original} />,
+  },
+  statusColumn<ShippingStatusRow>(),
+];
+
+export const shippingStatusesStaticFields: MasterDataFormField[] = [
+  { name: "name", label: "masterData.fields.name", type: "text", required: true },
+];
+
+export const shippingStatusesSchema = z.object({
+  name: z.string().min(1),
+  color: z.enum(["neutral", "info", "warning", "success", "destructive"]),
+});
+
+export const shippingStatusesDefaultValues = { name: "", color: "neutral" as const };
+export const shippingStatusesExportColumns = ["name", "color"];
+export const shippingStatusRowLabel = (row: ShippingStatusRow) => row.name;
 
 // ---------------------------------------------------------------------------
 // Customer Groups

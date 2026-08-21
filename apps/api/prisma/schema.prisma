@@ -742,6 +742,33 @@ model ShippingCompany {
   @@map("shipping_companies")
 }
 
+/// Dynamic shipping-status catalog — names, colors, and List Sheet values.
+/// `Shipment.status` remains the operational state machine for seeded system
+/// codes; this table is the source of truth for display, import resolution,
+/// and administrator-created statuses. `جاهز للشحن` is the protected default.
+model ShippingStatus {
+  id           String  @id @default(uuid()) @db.Uuid
+  code         String  @unique
+  name         String  @unique
+  /// Closed StatusTone token: success | warning | destructive | info | neutral
+  color        String  @default("neutral")
+  isSystem     Boolean @default(false) @map("is_system")
+  isDefault    Boolean @default(false) @map("is_default")
+  isImportable Boolean @default(true) @map("is_importable")
+  sortOrder    Int     @default(0) @map("sort_order")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  shipments Shipment[]
+
+  @@index([deletedAt])
+  @@map("shipping_statuses")
+}
+
 // ---------------------------------------------------------------------------
 // CRM — Phase 1: Lead Management Foundation. Every sale starts as a Lead; this
 // is intentionally simple (not a marketing CRM) — receive, distribute, and
@@ -1090,6 +1117,12 @@ model Shipment {
   /// Reference Data, never free text — decision #2.
   shippingCompanyId String?          @map("shipping_company_id") @db.Uuid
   shippingCompany   ShippingCompany? @relation(fields: [shippingCompanyId], references: [id])
+
+  /// Dynamic catalog row for display / Google Sheets. Kept in sync with
+  /// `status` for seeded operational codes; custom administrator statuses
+  /// are stored here even when they have no ShipmentStatus enum value.
+  shippingStatusId String?         @map("shipping_status_id") @db.Uuid
+  shippingStatus   ShippingStatus? @relation(fields: [shippingStatusId], references: [id])
 
   trackingNumber String? @map("tracking_number")
 
@@ -2754,6 +2787,14 @@ enum StoreOrderPaymentStatus {
   PAYMENT_REVIEW
 }
 
+/// Fixed system catalog — not master data. How the order is expected to be
+/// paid, distinct from `paymentStatus` (Finance/Reconciliation) and from
+/// shipping status. Do not add values without a new decision.
+enum StoreOrderPaymentType {
+  PREPAID
+  CASH_ON_DELIVERY
+}
+
 /// Order-level shipping gate before any Shipment row exists. Once a
 /// Shipment is created, the order's effective shipping state is read from
 /// its current (latest, non-superseded) Shipment.status instead — this enum
@@ -2790,6 +2831,8 @@ model StoreOrder {
   employee   User?   @relation("StoreOrderEmployee", fields: [employeeId], references: [id])
 
   paymentStatus StoreOrderPaymentStatus @default(PAYMENT_PENDING) @map("payment_status")
+  /// Fixed catalog (PREPAID / CASH_ON_DELIVERY) — not financial confirmation.
+  paymentType   StoreOrderPaymentType   @default(PREPAID) @map("payment_type")
   shippingStage StoreOrderShippingStage @default(NOT_READY) @map("shipping_stage")
 
   currencyId String   @map("currency_id") @db.Uuid

@@ -9,11 +9,12 @@ import { formatDate, formatTime, hasClockTime } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
 import type { StoreOrderRow } from "@/services/store-orders-service";
 import {
-  PAYMENT_STATUS_LABEL_KEY,
   PAYMENT_STATUS_TONE,
   SHIPPING_STAGE_LABEL_KEY,
   SHIPPING_STAGE_TONE,
+  financialStatusLabelKey,
 } from "@/config/store-orders/status";
+import { catalogStatusTone } from "@/config/shipping/shipment-status";
 
 export function customerPhone(row: StoreOrderRow): string | null {
   return row.customer?.phone || row.customer?.mobile || null;
@@ -83,7 +84,7 @@ export function StoreOrderPaymentCell({ order }: { order: StoreOrderRow }) {
     <StackedCell
       primary={
         <StatusBadge
-          label={t(PAYMENT_STATUS_LABEL_KEY[order.paymentStatus])}
+          label={t(financialStatusLabelKey(order.paymentStatus, order.paymentType))}
           tone={PAYMENT_STATUS_TONE[order.paymentStatus]}
         />
       }
@@ -97,12 +98,15 @@ export function StoreOrderPaymentCell({ order }: { order: StoreOrderRow }) {
 export function StoreOrderShippingCell({ order }: { order: StoreOrderRow }) {
   const { t } = useLocale();
   const tracking = latestShipment(order)?.trackingNumber;
+  const catalog = order.shippingStatus;
   return (
     <StackedCell
       primary={
         <StatusBadge
-          label={t(SHIPPING_STAGE_LABEL_KEY[order.shippingStage])}
-          tone={SHIPPING_STAGE_TONE[order.shippingStage]}
+          label={catalog?.name ?? t(SHIPPING_STAGE_LABEL_KEY[order.shippingStage])}
+          tone={
+            catalog ? catalogStatusTone(catalog.color) : SHIPPING_STAGE_TONE[order.shippingStage]
+          }
         />
       }
       secondary={

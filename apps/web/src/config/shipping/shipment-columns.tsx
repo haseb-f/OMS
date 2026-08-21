@@ -11,12 +11,16 @@ import { formatDate } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import type { ShipmentListRow } from "@/services/shipping-service";
-import { shipmentStatusLabelKey, shipmentStatusTone } from "./shipment-status";
+import { shipmentStatusLabelKey, shipmentStatusTone, catalogStatusTone } from "./shipment-status";
 
-function StatusCell({ status }: { status: ShipmentListRow["status"] }) {
+function StatusCell({ row }: { row: ShipmentListRow }) {
   const { t } = useLocale();
+  const catalog = row.shippingStatus;
   return (
-    <StatusBadge label={t(shipmentStatusLabelKey(status))} tone={shipmentStatusTone(status)} />
+    <StatusBadge
+      label={catalog?.name ?? t(shipmentStatusLabelKey(row.status))}
+      tone={catalog ? catalogStatusTone(catalog.color) : shipmentStatusTone(row.status)}
+    />
   );
 }
 
@@ -136,7 +140,7 @@ export function buildShipmentColumns(
       enableSorting: false,
       cell: ({ row }) => (
         <div className="flex items-center gap-1.5">
-          <StatusCell status={row.original.status} />
+          <StatusCell row={row.original} />
           {row.original.attemptNumber > 1 && (
             <EnterpriseBadge variant="outline" className="text-xs">
               #{row.original.attemptNumber}

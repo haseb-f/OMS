@@ -23,6 +23,7 @@ import { WarehouseLocationsModule } from './warehouse-locations/warehouse-locati
 import { UnitConversionsModule } from './unit-conversions/unit-conversions.module';
 import { LeadsModule } from './leads/leads.module';
 import { ShippingCompaniesModule } from './shipping-companies/shipping-companies.module';
+import { ShippingStatusesModule } from './shipping-statuses/shipping-statuses.module';
 import { SalesOrdersModule } from './sales-orders/sales-orders.module';
 import { PaymentSourcesModule } from './payment-sources/payment-sources.module';
 import { PaymentsModule } from './payments/payments.module';
@@ -90,6 +91,7 @@ import { StoreOrdersModule } from './store-orders/store-orders.module';
     UnitConversionsModule,
     LeadsModule,
     ShippingCompaniesModule,
+    ShippingStatusesModule,
     SalesOrdersModule,
     ChartOfAccountsModule,
     ReceivingAccountsModule,

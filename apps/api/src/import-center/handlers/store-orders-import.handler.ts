@@ -5,6 +5,10 @@ import { CustomersService } from '../../customers/customers.service';
 import { CountriesService } from '../../countries/countries.service';
 import { StoreOrdersService } from '../../store-orders/store-orders.service';
 import {
+  PAYMENT_TYPE_SHEET_LABELS,
+  resolvePaymentType,
+} from '../../store-orders/payment-type.catalog';
+import {
   PhoneNumberService,
   phoneErrorMessage,
 } from '../../common/phone/phone-number.service';
@@ -113,6 +117,15 @@ const FIELDS: ImportFieldDef[] = [
     required: true,
     type: 'string',
     referenceType: 'PAYMENT_METHOD',
+  },
+  {
+    key: 'paymentType',
+    labelKey: 'importCenter.fields.paymentType',
+    label: 'Payment Type',
+    required: false,
+    type: 'string',
+    options: Object.values(PAYMENT_TYPE_SHEET_LABELS),
+    example: 'الدفع عند الاستلام',
   },
   {
     key: 'receipt1',
@@ -379,6 +392,7 @@ export class StoreOrdersImportHandler
       source: StoreOrderSource.IMPORT,
       currencyId,
       employeeId,
+      paymentType: resolvePaymentType(first.paymentType) ?? undefined,
       notes: first.notes || undefined,
       items,
     };
@@ -462,6 +476,11 @@ export class StoreOrdersImportHandler
       'Payment Method',
     );
     void paymentMethodId; // resolved only to validate — Payment Method has no FK column on StoreOrder (see class doc comment).
+    if (first.paymentType?.trim() && !resolvePaymentType(first.paymentType)) {
+      throw new BadRequestException(
+        `Payment Type must be one of: ${Object.values(PAYMENT_TYPE_SHEET_LABELS).join(', ')}.`,
+      );
+    }
     const employeeId = await this.resolveListSheetValue(
       'employeeEmail',
       first.agentEmail,

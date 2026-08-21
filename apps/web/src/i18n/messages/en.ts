@@ -605,6 +605,7 @@ const en = {
       manager: "Manager",
       defaultAnalyticAccount: "Default Analytic Account",
       days: "Days",
+      color: "Color",
       accountType: "Account Type",
       accountTypeAsset: "Asset",
       accountTypeLiability: "Liability",
@@ -619,6 +620,13 @@ const en = {
       branch: "Branch",
       allowReconciliation: "Allow Reconciliation",
       account: "Linked Account",
+    },
+    colors: {
+      neutral: "Gray",
+      info: "Blue",
+      warning: "Orange",
+      success: "Green",
+      destructive: "Red",
     },
     hub: {
       title: "Master Data",
@@ -863,7 +871,7 @@ const en = {
     shippingStatuses: {
       title: "Shipping Statuses",
       description:
-        "The shipping lifecycle statuses used in shipments, store orders, imports, and Google Sheets sync.",
+        "The shipping lifecycle statuses — managed as master data and used in shipments, store orders, imports, and Google Sheets sync.",
       role: "Role",
       default: "Default",
       system: "System",
@@ -2077,6 +2085,7 @@ const en = {
       payment: "Payment",
       shipping: "Shipping",
       paymentStatus: "Payment Status",
+      paymentType: "Payment Type",
       shippingStage: "Shipping Stage",
       total: "Total",
       source: "Source",
@@ -2094,6 +2103,8 @@ const en = {
     },
     paymentStatus: {
       PAYMENT_PENDING: "Payment Pending",
+      AWAITING_RECONCILIATION: "Awaiting Reconciliation",
+      AWAITING_COLLECTION: "Awaiting Collection",
       PARTIALLY_PAID: "Partially Paid",
       FULLY_PAID_RECONCILED: "Fully Paid (Reconciled)",
       OVERPAID: "Overpaid",
@@ -2108,6 +2119,10 @@ const en = {
         UNMATCHED: "A payment was found but could not be automatically matched to this order.",
         PAYMENT_REVIEW: "This order's payment matching needs manual review.",
       },
+    },
+    paymentType: {
+      PREPAID: "Prepaid",
+      CASH_ON_DELIVERY: "Cash on Delivery",
     },
     shippingStage: {
       NOT_READY: "Not Ready",
@@ -3175,6 +3190,7 @@ const en = {
       orderDate: "Order Date",
       paidAmount: "Paid Amount",
       paymentMethodLabel: "Payment Method",
+      paymentType: "Payment Type",
       receipt1: "Receipt 1",
       receipt2: "Receipt 2",
       receipt3: "Receipt 3",
@@ -3375,7 +3391,7 @@ const en = {
         lastSync: "Last sync: {datetime}",
         lastSyncNever: "Last sync: not yet",
         summary:
-          "Countries {countries} · Products {products} · Currencies {currencies} · Payment methods {paymentMethods} · Employees {employees} · Shipping statuses {shippingStatuses} · Shipping companies {shippingCompanies} · Transaction types {financialTransactionTypes} · {datetime}",
+          "Countries {countries} · Products {products} · Currencies {currencies} · Payment methods {paymentMethods} · Employees {employees} · Shipping statuses {shippingStatuses} · Shipping companies {shippingCompanies} · Payment types {paymentTypes} · Transaction types {financialTransactionTypes} · {datetime}",
         lists: {
           country: "Countries",
           product: "Products",
@@ -3384,6 +3400,7 @@ const en = {
           employeeEmail: "Employees",
           shippingStatus: "Shipping statuses",
           shippingCompany: "Shipping companies",
+          paymentType: "Payment types",
           financialTransactionType: "Financial transaction types",
         },
         errors: {

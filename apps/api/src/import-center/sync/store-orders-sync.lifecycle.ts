@@ -55,6 +55,7 @@ export const STORE_ORDER_SOURCE_FIELD_KEYS = [
   'paidAmount',
   'currencyCode',
   'paymentMethodLabel',
+  'paymentType',
   'receipt1',
   'receipt2',
   'receipt3',

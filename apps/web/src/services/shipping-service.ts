@@ -24,6 +24,7 @@ export interface ShipmentListRow {
   trackingNumber: string | null;
   labelUrl: string | null;
   status: ShipmentStatusValue;
+  shippingStatus?: { id: string; code: string; name: string; color: string } | null;
   shippingCost: string | null;
   shippedAt: string | null;
   deliveredAt: string | null;

@@ -10,6 +10,7 @@ import {
   SalesDocumentStatus,
   ShipmentStatus,
   StoreOrderPaymentStatus,
+  StoreOrderPaymentType,
   StoreOrderShippingStage,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -47,6 +48,12 @@ const ORDER_INCLUDE = {
   shipments: {
     where: { deletedAt: null },
     orderBy: { attemptNumber: 'desc' as const },
+    include: {
+      shippingCompany: { select: { id: true, name: true } },
+      shippingStatus: {
+        select: { id: true, code: true, name: true, color: true },
+      },
+    },
   },
   invoices: {
     where: { deletedAt: null },
@@ -89,7 +96,12 @@ const ORDER_LIST_INCLUDE = {
     where: { deletedAt: null },
     orderBy: { attemptNumber: 'desc' as const },
     take: 1,
-    include: { shippingCompany: { select: { id: true, name: true } } },
+    include: {
+      shippingCompany: { select: { id: true, name: true } },
+      shippingStatus: {
+        select: { id: true, code: true, name: true, color: true },
+      },
+    },
   },
   payments: {
     where: { deletedAt: null },
@@ -161,6 +173,12 @@ export class StoreOrdersService {
     const internalOrderId =
       await this.numberingEngine.generateNumber('STORE_ORDER');
 
+    const paymentType = dto.paymentType ?? StoreOrderPaymentType.PREPAID;
+    const shippingStage =
+      paymentType === StoreOrderPaymentType.CASH_ON_DELIVERY
+        ? StoreOrderShippingStage.READY_FOR_SHIPPING
+        : StoreOrderShippingStage.NOT_READY;
+
     try {
       const order = await this.prisma.$transaction(async (tx) => {
         const created = await tx.storeOrder.create({
@@ -173,6 +191,8 @@ export class StoreOrdersService {
             sourceChannel: dto.sourceChannel,
             employeeId: dto.employeeId,
             currencyId: dto.currencyId,
+            paymentType,
+            shippingStage,
             notes: dto.notes,
             createdBy: userId,
             updatedBy: userId,
@@ -288,6 +308,7 @@ export class StoreOrdersService {
             orderDate: dto.orderDate ? new Date(dto.orderDate) : undefined,
             employeeId: dto.employeeId,
             currencyId: dto.currencyId,
+            paymentType: dto.paymentType ?? StoreOrderPaymentType.PREPAID,
             notes: dto.notes,
             updatedBy: userId,
             items: {
@@ -380,7 +401,9 @@ export class StoreOrdersService {
     ]);
 
     return {
-      items: items.map((item) => this.attachCurrentShippingStatus(item)),
+      items: await Promise.all(
+        items.map((item) => this.attachCurrentShippingStatus(item)),
+      ),
       total,
       page,
       pageSize,
@@ -425,25 +448,60 @@ export class StoreOrdersService {
   }
 
   /**
-   * Order-level "current shipping status" (rule 10) — always derived, never
-   * stored: the latest non-superseded Shipment's own status when one
-   * exists, otherwise the order's own pre-shipment `shippingStage`.
+   * Order-level current shipping status — catalog row when a shipment exists,
+   * otherwise the protected default (`جاهز للشحن`) once the order is ready,
+   * otherwise the pre-shipment stage.
    */
-  private attachCurrentShippingStatus<
+  private async attachCurrentShippingStatus<
     T extends {
       shippingStage: StoreOrderShippingStage;
-      shipments: { status: ShipmentStatus | null }[];
+      shipments: {
+        status: ShipmentStatus | null;
+        shippingStatus?: {
+          id: string;
+          code: string;
+          name: string;
+          color: string;
+        } | null;
+      }[];
       items: { quantity: number; unitPrice: Prisma.Decimal }[];
     },
   >(order: T) {
     const latestShipment = order.shipments[0];
+    const catalogStatus =
+      latestShipment?.shippingStatus ??
+      (order.shippingStage === StoreOrderShippingStage.READY_FOR_SHIPPING
+        ? await this.findDefaultShippingStatus()
+        : null);
     const currentShippingStatus: ShipmentStatus | StoreOrderShippingStage =
       latestShipment?.status ?? order.shippingStage;
     const total = order.items.reduce(
       (sum, item) => sum + item.quantity * Number(item.unitPrice),
       0,
     );
-    return { ...order, currentShippingStatus, total: total.toFixed(2) };
+    return {
+      ...order,
+      currentShippingStatus,
+      shippingStatus: catalogStatus,
+      total: total.toFixed(2),
+    };
+  }
+
+  private defaultShippingStatusCache: {
+    id: string;
+    code: string;
+    name: string;
+    color: string;
+  } | null = null;
+
+  private async findDefaultShippingStatus() {
+    if (this.defaultShippingStatusCache) return this.defaultShippingStatusCache;
+    const status = await this.prisma.shippingStatus.findFirst({
+      where: { isDefault: true, deletedAt: null },
+      select: { id: true, code: true, name: true, color: true },
+    });
+    if (status) this.defaultShippingStatusCache = status;
+    return status;
   }
 
   async update(id: string, dto: UpdateStoreOrderDto, userId?: string) {

@@ -277,7 +277,7 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
       ].sort(),
     );
     expect(optional).toEqual(
-      ['receipt1', 'receipt2', 'receipt3', 'notes'].sort(),
+      ['receipt1', 'receipt2', 'receipt3', 'notes', 'paymentType'].sort(),
     );
   });
 

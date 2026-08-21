@@ -1,106 +1,60 @@
 "use client";
 
 import { useMemo } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
-import { PageWorkspace } from "@/components/shared/page-workspace";
-import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
-import { StatusBadge } from "@/components/business/status-badge";
-import { EnterpriseBadge } from "@/components/ui/badge";
-import { PermissionGate } from "@/components/shared/permission-gate";
+import { MasterDataPage } from "@/components/master-data/master-data-page";
+import { createMasterDataService } from "@/services/master-data-service";
+import type { MasterDataFormField } from "@/components/master-data/master-data-form";
 import {
-  DEFAULT_SHIPPING_STATUS,
-  SHIPMENT_STATUS_LABEL_KEY,
-  SHIPMENT_STATUS_TONE,
-  SHIPPING_STATUS_CATALOG,
-} from "@/config/shipping/shipment-status";
-import type { ShipmentStatusValue } from "@/services/shipping-service";
+  shippingStatusesColumns,
+  shippingStatusesStaticFields,
+  shippingStatusesSchema,
+  shippingStatusesDefaultValues,
+  shippingStatusesExportColumns,
+  shippingStatusRowLabel,
+  type ShippingStatusRow,
+} from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
 
-interface ShippingStatusRow {
-  id: ShipmentStatusValue;
-  code: ShipmentStatusValue;
-  isDefault: boolean;
-  isSystem: boolean;
-}
+const service = createMasterDataService<ShippingStatusRow>("/shipping-statuses");
 
-function ShippingStatusesPageContent() {
+export default function ShippingStatusesPage() {
   const { t } = useLocale();
-  const rows: ShippingStatusRow[] = SHIPPING_STATUS_CATALOG.map((status) => ({
-    id: status.code,
-    code: status.code,
-    isDefault: status.isDefault,
-    isSystem: status.isSystem,
-  }));
 
-  const columns = useMemo<ColumnDef<ShippingStatusRow, unknown>[]>(
+  const formFields = useMemo<MasterDataFormField[]>(
     () => [
+      shippingStatusesStaticFields[0],
       {
-        id: "code",
-        meta: { titleKey: "masterData.fields.code" },
-        accessorFn: (row) => row.code,
-      },
-      {
-        id: "name",
-        meta: { titleKey: "masterData.fields.name" },
-        accessorFn: (row) => t(SHIPMENT_STATUS_LABEL_KEY[row.code]),
-        cell: ({ row }) => (
-          <StatusBadge
-            label={t(SHIPMENT_STATUS_LABEL_KEY[row.original.code])}
-            tone={SHIPMENT_STATUS_TONE[row.original.code]}
-          />
-        ),
-      },
-      {
-        id: "role",
-        meta: { titleKey: "masterData.shippingStatuses.role" },
-        accessorFn: (row) =>
-          row.isDefault
-            ? t("masterData.shippingStatuses.default")
-            : t("masterData.shippingStatuses.system"),
-        cell: ({ row }) => (
-          <div className="flex flex-wrap gap-1.5">
-            {row.original.isDefault ? (
-              <EnterpriseBadge variant="default">
-                {t("masterData.shippingStatuses.default")}
-              </EnterpriseBadge>
-            ) : null}
-            {row.original.isSystem ? (
-              <EnterpriseBadge variant="outline">
-                {t("masterData.shippingStatuses.system")}
-              </EnterpriseBadge>
-            ) : null}
-          </div>
-        ),
+        name: "color",
+        label: "masterData.fields.color",
+        type: "select",
+        required: true,
+        options: [
+          { value: "neutral", label: t("masterData.colors.neutral") },
+          { value: "info", label: t("masterData.colors.info") },
+          { value: "warning", label: t("masterData.colors.warning") },
+          { value: "success", label: t("masterData.colors.success") },
+          { value: "destructive", label: t("masterData.colors.destructive") },
+        ],
       },
     ],
     [t],
   );
 
   return (
-    <PageWorkspace
-      title={t("masterData.shippingStatuses.title")}
-      description={t("masterData.shippingStatuses.description")}
-    >
-      <EnterpriseDataTable
-        tableId="shipping-statuses"
-        columns={columns}
-        data={rows}
-        isLoading={false}
-        emptyTitle={t("common.noResults")}
-      />
-      <p className="text-caption text-muted-foreground">
-        {t("masterData.shippingStatuses.protectedHint", {
-          status: t(SHIPMENT_STATUS_LABEL_KEY[DEFAULT_SHIPPING_STATUS]),
-        })}
-      </p>
-    </PageWorkspace>
-  );
-}
-
-export default function ShippingStatusesPage() {
-  return (
-    <PermissionGate permission="shipping.view">
-      <ShippingStatusesPageContent />
-    </PermissionGate>
+    <MasterDataPage
+      titleKey="masterData.shippingStatuses.title"
+      descriptionKey="masterData.shippingStatuses.description"
+      tableId="shipping-statuses"
+      service={service}
+      columns={shippingStatusesColumns}
+      exportColumnKeys={shippingStatusesExportColumns}
+      formFields={formFields}
+      schema={shippingStatusesSchema}
+      defaultValues={shippingStatusesDefaultValues}
+      permissionPrefix="masterdata.shipping-statuses"
+      rowLabel={shippingStatusRowLabel}
+      defaultSortBy="sortOrder"
+      isRowProtected={(row) => row.isDefault}
+    />
   );
 }

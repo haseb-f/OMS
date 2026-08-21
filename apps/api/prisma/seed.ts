@@ -8,6 +8,7 @@ import {
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcryptjs';
 import { ALL_PERMISSION_NAMES } from '../src/permissions/permission-catalog';
+import { INITIAL_SHIPPING_STATUSES } from '../src/shipping/shipping-status.catalog';
 import { seedCountries } from './scripts/seed-countries';
 
 const prisma = new PrismaClient({
@@ -50,6 +51,7 @@ const masterDataEntities = [
   'payment-terms',
   'shipping-methods',
   'shipping-companies',
+  'shipping-statuses',
   'customer-groups',
   'supplier-groups',
   'countries',
@@ -507,6 +509,29 @@ async function main() {
         where: { name },
         update: {},
         create: { name },
+      }),
+    ),
+  );
+
+  await Promise.all(
+    INITIAL_SHIPPING_STATUSES.map((status) =>
+      prisma.shippingStatus.upsert({
+        where: { code: status.code },
+        update: {
+          isSystem: status.isSystem,
+          isDefault: status.isDefault,
+          isImportable: status.isImportable,
+          sortOrder: status.sortOrder,
+        },
+        create: {
+          code: status.code,
+          name: status.name,
+          color: status.color,
+          isSystem: status.isSystem,
+          isDefault: status.isDefault,
+          isImportable: status.isImportable,
+          sortOrder: status.sortOrder,
+        },
       }),
     ),
   );
