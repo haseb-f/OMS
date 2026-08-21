@@ -49,6 +49,19 @@ import { RowActionsMenu } from "@/components/shared/data-table";
 
 const service = createMasterDataService<ChartOfAccountRow>("/chart-of-accounts");
 
+type CoaExportRow = {
+  code: string;
+  name: string;
+  accountType: string;
+  parentAccountCode: string;
+  accountKind: string;
+  currencyCode: string;
+  allowReconciliation: string;
+  description: string;
+};
+
+const exportChartOfAccounts = () => apiClient.get<CoaExportRow[]>("/chart-of-accounts/export");
+
 const ACCOUNT_TYPES = ["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE"] as const;
 
 const ACCOUNT_TYPE_LABEL_KEY: Record<(typeof ACCOUNT_TYPES)[number], MessageKey> = {
@@ -351,12 +364,39 @@ function ChartOfAccountsPageContent() {
       ...flattenForExport(node.children),
     ]);
 
-  const handleExport = () => {
-    exportRowsToCsv(
-      flattenForExport(tree),
-      ["code", "name", "accountType", "currency", "status"],
-      "chart-of-accounts.csv",
-    );
+  const handleExport = async () => {
+    try {
+      const rows = await exportChartOfAccounts();
+      exportRowsToCsv(
+        rows.map((row) => ({
+          code: row.code,
+          name: row.name,
+          accountType: row.accountType,
+          parentAccountCode: row.parentAccountCode,
+          accountKind: row.accountKind,
+          currencyCode: row.currencyCode,
+          allowReconciliation: row.allowReconciliation,
+          description: row.description,
+        })),
+        [
+          "code",
+          "name",
+          "accountType",
+          "parentAccountCode",
+          "accountKind",
+          "currencyCode",
+          "allowReconciliation",
+          "description",
+        ],
+        "chart-of-accounts.csv",
+      );
+    } catch {
+      exportRowsToCsv(
+        flattenForExport(tree),
+        ["code", "name", "accountType", "currency", "status"],
+        "chart-of-accounts.csv",
+      );
+    }
   };
 
   const handlePrint = () => {

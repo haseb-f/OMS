@@ -46,10 +46,9 @@ export function AccountPicker({
           search: search || undefined,
           pageSize: 20,
           ...(accountType ? { accountType } : {}),
+          ...(postingOnly ? { postingOnly: true } : {}),
         });
-        return result.items.filter(
-          (item) => !excluded.has(item.id) && (!postingOnly || item.allowsPosting),
-        );
+        return result.items.filter((item) => !excluded.has(item.id));
       }}
       getId={(account) => account.id}
       getTitle={(account) => account.name}

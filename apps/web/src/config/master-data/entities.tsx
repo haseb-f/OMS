@@ -194,6 +194,7 @@ export interface ShippingMethodRow {
 export interface ShippingCompanyRow {
   id: string;
   name: string;
+  type: "INTERNAL_DELIVERY" | "EXTERNAL_COMPANY";
   description: string | null;
   deletedAt: string | null;
 }
@@ -944,22 +945,28 @@ export const shippingMethodRowLabel = (row: ShippingMethodRow) => row.name;
 
 export const shippingCompaniesColumns: ColumnDef<ShippingCompanyRow, unknown>[] = [
   textColumn("name", "masterData.fields.name", (r) => r.name),
+  textColumn("type", "masterData.fields.type", (r) => r.type),
   textColumn("description", "masterData.fields.description", (r) => r.description),
   statusColumn<ShippingCompanyRow>(),
 ];
 
-export const shippingCompaniesFormFields: MasterDataFormField[] = [
+export const shippingCompaniesStaticFields: MasterDataFormField[] = [
   { name: "name", label: "masterData.fields.name", type: "text", required: true },
   { name: "description", label: "masterData.fields.description", type: "textarea" },
 ];
 
 export const shippingCompaniesSchema = z.object({
   name: z.string().min(1),
+  type: z.enum(["INTERNAL_DELIVERY", "EXTERNAL_COMPANY"]),
   description: z.string().optional().or(z.literal("")),
 });
 
-export const shippingCompaniesDefaultValues = { name: "", description: "" };
-export const shippingCompaniesExportColumns = ["name"];
+export const shippingCompaniesDefaultValues = {
+  name: "",
+  type: "EXTERNAL_COMPANY" as const,
+  description: "",
+};
+export const shippingCompaniesExportColumns = ["name", "type"];
 export const shippingCompanyRowLabel = (row: ShippingCompanyRow) => row.name;
 
 export interface ShippingStatusRow {

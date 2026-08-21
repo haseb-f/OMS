@@ -49,7 +49,6 @@ const masterDataEntities = [
   'analytic-accounts',
   'payment-methods',
   'payment-terms',
-  'shipping-methods',
   'shipping-companies',
   'shipping-statuses',
   'customer-groups',
@@ -251,20 +250,14 @@ const countries = [
   { code: 'AE', name: 'الإمارات العربية المتحدة' },
 ];
 
-// TASK-024 Part 6 demo data — one internal delivery method plus the named
-// external carriers a Saudi merchant actually ships with.
-const shippingMethods = [
+// Shipping Companies only — Shipping Methods retired (type lives on company).
+const shippingCompanies = [
   { name: 'توصيل داخلي', type: ShippingMethodType.INTERNAL_DELIVERY },
   { name: 'SMSA', type: ShippingMethodType.EXTERNAL_COMPANY },
   { name: 'Aramex', type: ShippingMethodType.EXTERNAL_COMPANY },
   { name: 'DHL', type: ShippingMethodType.EXTERNAL_COMPANY },
   { name: 'FedEx', type: ShippingMethodType.EXTERNAL_COMPANY },
 ];
-/// Old English demo rows this reseed replaces — deleted by name before the
-/// new rows are created (ShippingMethod is name-unique, so re-running the
-/// seed can't just "update in place" the way code-keyed entities do).
-const obsoleteShippingMethodNames = ['Internal Delivery', 'Shipping Company'];
-const shippingCompanies = ['SMSA', 'Aramex', 'DHL', 'FedEx'];
 
 const paymentSources = [
   { name: 'Bank Transfer' },
@@ -488,30 +481,21 @@ async function main() {
     });
   }
 
-  // Name-unique — a reseed can't "update in place" onto a renamed row, so
-  // the old English demo rows are removed first (TASK-024 Part 6: Arabic demo data).
-  await prisma.shippingMethod.deleteMany({
-    where: { name: { in: obsoleteShippingMethodNames } },
-  });
   await Promise.all(
-    shippingMethods.map((method) =>
-      prisma.shippingMethod.upsert({
-        where: { name: method.name },
-        update: method,
-        create: method,
+    shippingCompanies.map((company) =>
+      prisma.shippingCompany.upsert({
+        where: { name: company.name },
+        update: { type: company.type },
+        create: company,
       }),
     ),
   );
 
-  await Promise.all(
-    shippingCompanies.map((name) =>
-      prisma.shippingCompany.upsert({
-        where: { name },
-        update: {},
-        create: { name },
-      }),
-    ),
-  );
+  // Soft-archive any leftover ShippingMethod rows (table kept for rollback).
+  await prisma.shippingMethod.updateMany({
+    where: { deletedAt: null },
+    data: { deletedAt: new Date() },
+  });
 
   await Promise.all(
     INITIAL_SHIPPING_STATUSES.map((status) =>
@@ -644,13 +628,63 @@ async function main() {
     ),
   );
 
-  // --- Accounting Posting Engine (TASK-046) -----------------------------
+  // --- Chart of Accounts: five protected roots, then operational leaves ---
+  const systemRoots = [
+    { code: '1', name: 'الأصول', accountType: AccountType.ASSET },
+    { code: '2', name: 'الالتزامات', accountType: AccountType.LIABILITY },
+    { code: '3', name: 'حقوق الملكية', accountType: AccountType.EQUITY },
+    { code: '4', name: 'الإيرادات', accountType: AccountType.REVENUE },
+    { code: '5', name: 'المصروفات', accountType: AccountType.EXPENSE },
+  ];
+  await Promise.all(
+    systemRoots.map((root) =>
+      prisma.chartOfAccount.upsert({
+        where: { code: root.code },
+        update: {
+          name: root.name,
+          accountType: root.accountType,
+          parentAccountId: null,
+          level: 1,
+          allowsPosting: false,
+          isSystemAccount: true,
+        },
+        create: {
+          ...root,
+          parentAccountId: null,
+          level: 1,
+          allowsPosting: false,
+          isSystemAccount: true,
+        },
+      }),
+    ),
+  );
+  const rootsByType = Object.fromEntries(
+    (
+      await prisma.chartOfAccount.findMany({
+        where: { code: { in: systemRoots.map((r) => r.code) } },
+      })
+    ).map((root) => [root.accountType, root.id]),
+  );
+
   await Promise.all(
     postingChartOfAccounts.map((account) =>
       prisma.chartOfAccount.upsert({
         where: { code: account.code },
-        update: account,
-        create: account,
+        update: {
+          name: account.name,
+          accountType: account.accountType,
+          parentAccountId: rootsByType[account.accountType],
+          level: 2,
+          allowsPosting: true,
+          isSystemAccount: false,
+        },
+        create: {
+          ...account,
+          parentAccountId: rootsByType[account.accountType],
+          level: 2,
+          allowsPosting: true,
+          isSystemAccount: false,
+        },
       }),
     ),
   );

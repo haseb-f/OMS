@@ -3152,6 +3152,7 @@ const en = {
       parentWarehouseName: "Parent Warehouse",
       accountType: "Account Type",
       parentAccountCode: "Parent Account Code",
+      accountKind: "Account Kind",
       currencyCode: "Currency Code",
       allowReconciliation: "Allow Reconciliation",
       rate: "Rate (%)",

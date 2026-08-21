@@ -45,6 +45,12 @@ export class ChartOfAccountsController {
     return this.chartOfAccountsService.findAll(query);
   }
 
+  @Get('export')
+  @PermissionAction('export')
+  exportRows() {
+    return this.chartOfAccountsService.exportRows();
+  }
+
   /**
    * The proposed next code for a NEW ROOT account of `?accountType=` (Part
    * 14) — read-only, never mutates anything. Declared before `:id` so a
@@ -55,6 +61,12 @@ export class ChartOfAccountsController {
   @Get('next-code')
   nextRootCode(@Query('accountType') accountType: AccountType) {
     return this.chartOfAccountsService.proposeNextCode(null, accountType);
+  }
+
+  @Post('repair-hierarchy')
+  @PermissionAction('edit')
+  repairHierarchy() {
+    return this.chartOfAccountsService.repairHierarchy();
   }
 
   @Get(':id')

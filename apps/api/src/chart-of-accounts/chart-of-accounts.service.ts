@@ -20,6 +20,13 @@ import {
   ROOT_CODE_BY_ACCOUNT_TYPE,
   suffixDigitWidthForParentLevel,
 } from './code-generation.constants';
+import {
+  ACCOUNT_KIND,
+  MAX_ACCOUNT_LEVEL,
+  ROOT_ACCOUNT_NAMES,
+  isSystemRootCode,
+  type AccountKind,
+} from './coa.constants';
 
 const INCLUDE_RELATIONS = { parentAccount: true, currency: true } as const;
 const OVERRIDE_PERMISSION = 'accounting.chart-of-accounts.override-code';
@@ -58,8 +65,11 @@ export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount
   findAll(
     query: FindChartOfAccountsQueryDto,
   ): Promise<MasterDataListResult<ChartOfAccount>> {
-    const { accountType, ...rest } = query;
-    return super.findAll(rest, accountType ? { accountType } : {}, {
+    const { accountType, postingOnly, ...rest } = query;
+    const extra: Record<string, unknown> = {};
+    if (accountType) extra.accountType = accountType;
+    if (postingOnly) extra.allowsPosting = true;
+    return super.findAll(rest, extra, {
       include: INCLUDE_RELATIONS,
     });
   }
@@ -93,7 +103,8 @@ export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount
         'accountType is required to propose a root account code.',
       );
     }
-    return this.proposeRootCode(accountType);
+    const root = await this.ensureSystemRoot(accountType);
+    return this.proposeChildCode(root.id);
   }
 
   private async proposeChildCode(
@@ -183,11 +194,35 @@ export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount
   }
 
   async create(dto: CreateChartOfAccountDto, userId?: string) {
-    const { codeOverride, parentAccountId, accountType, ...rest } = dto;
+    const {
+      codeOverride,
+      parentAccountId: requestedParentId,
+      accountType,
+      allowsPosting,
+      ...rest
+    } = dto;
+
+    if (codeOverride) {
+      await this.assertOverridePermission(userId);
+    }
+
+    const creatingSystemRoot =
+      !!codeOverride &&
+      isSystemRootCode(codeOverride, accountType) &&
+      !requestedParentId;
 
     let parent: ChartOfAccount | null = null;
-    if (parentAccountId) {
+    let parentAccountId = requestedParentId;
+    if (creatingSystemRoot) {
+      parentAccountId = undefined;
+    } else if (parentAccountId) {
       parent = await this.findOne(parentAccountId);
+    } else {
+      parent = await this.ensureSystemRoot(accountType);
+      parentAccountId = parent.id;
+    }
+
+    if (parent) {
       if (parent.accountType !== accountType) {
         throw new BadRequestException({
           code: 'VALIDATION_ERROR',
@@ -197,33 +232,24 @@ export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount
           ],
         });
       }
+      await this.assertCanAddChild(parent.id);
+      if (parent.level + 1 > MAX_ACCOUNT_LEVEL) {
+        throw new BadRequestException(
+          `An account cannot be nested deeper than ${MAX_ACCOUNT_LEVEL} levels.`,
+        );
+      }
     }
+
     const level = parent ? parent.level + 1 : 1;
+    await this.assertUniqueName(rest.name, parentAccountId ?? null);
 
-    if (codeOverride) {
-      await this.assertOverridePermission(userId);
-    }
-
-    // Two employees creating sibling accounts at the same moment could both
-    // compute the same proposed code before either write lands — the `code`
-    // unique constraint catches that at the database level, and this loop
-    // recomputes and retries once rather than surfacing a raw conflict
-    // (Part 10's concurrency-safety requirement). An explicit `codeOverride`
-    // never retries — silently swapping an admin's chosen code for a
-    // different one would be worse than just failing.
     const MAX_ATTEMPTS = codeOverride ? 1 : 3;
     let lastError: unknown;
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       const code =
         codeOverride ??
         (await this.proposeNextCode(parentAccountId ?? null, accountType)).code;
-      // Safe Account Deletion (2026-08-15) — the canonical, stable flag for
-      // the 5 permanently-protected root categories: set once, here, never
-      // inferred anywhere else (never by name, never by a later code
-      // match) — a new root account only earns it by using the exact
-      // code the standard 1-5 convention assigns its own accountType.
-      const isSystemAccount =
-        !parentAccountId && code === ROOT_CODE_BY_ACCOUNT_TYPE[accountType];
+      const isSystemAccount = creatingSystemRoot;
 
       try {
         const created = await super.create(
@@ -234,17 +260,12 @@ export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount
             code,
             level,
             isSystemAccount,
+            allowsPosting: isSystemAccount ? false : (allowsPosting ?? true),
           },
           userId,
         );
 
         if (parentAccountId) {
-          // A header account stops accepting direct postings the moment it
-          // gets its first child (Part 13, leaf-only posting) — a best-
-          // effort follow-up write, not inside the create transaction: this
-          // flag is a posting-eligibility guard, not financial data itself,
-          // and is always safely re-derivable/correctable if this step were
-          // ever interrupted.
           await this.prisma.chartOfAccount.update({
             where: { id: parentAccountId },
             data: { allowsPosting: false },
@@ -261,31 +282,103 @@ export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount
   }
 
   async update(id: string, dto: UpdateChartOfAccountDto, userId?: string) {
-    const { codeOverride, parentAccountId, ...rest } = dto;
+    const { codeOverride, parentAccountId, allowsPosting, ...rest } = dto;
+    const current = await this.findOne(id);
+    const journalLines = await this.prisma.journalEntryLine.count({
+      where: { accountId: id },
+    });
+    const usedForPosting = journalLines > 0;
     const data: Record<string, unknown> = { ...rest };
 
     if (codeOverride !== undefined) {
+      if (usedForPosting || current.isSystemAccount) {
+        throw new BadRequestException(
+          'Account code cannot be changed after the account has been used or for a system root.',
+        );
+      }
       await this.assertOverridePermission(userId);
       data.code = codeOverride;
     }
 
-    if (parentAccountId) {
-      const parent = await this.findOne(parentAccountId);
-      await this.assertNoCycle(id, parentAccountId);
-      if (dto.accountType && dto.accountType !== parent.accountType) {
-        throw new BadRequestException({
-          code: 'VALIDATION_ERROR',
-          message: `A ${dto.accountType} account cannot be created under a ${parent.accountType} parent — an account's type must match its parent's.`,
-          fields: [
-            { field: 'accountType', constraints: ['must_match_parent'] },
-          ],
-        });
+    if (rest.accountType && rest.accountType !== current.accountType) {
+      if (usedForPosting || current.isSystemAccount) {
+        throw new BadRequestException(
+          'Account type cannot be changed after the account has been used or for a system root.',
+        );
       }
-      data.parentAccountId = parentAccountId;
-      data.level = parent.level + 1;
     }
 
-    return super.update(id, data, userId);
+    if (
+      allowsPosting !== undefined &&
+      allowsPosting !== current.allowsPosting
+    ) {
+      if (usedForPosting || current.isSystemAccount) {
+        throw new BadRequestException(
+          'Posting eligibility cannot be changed after the account has been used or for a system root.',
+        );
+      }
+      const childCount = await this.prisma.chartOfAccount.count({
+        where: { parentAccountId: id, deletedAt: null },
+      });
+      if (allowsPosting && childCount > 0) {
+        throw new BadRequestException(
+          'An account with children cannot accept direct postings.',
+        );
+      }
+      data.allowsPosting = allowsPosting;
+    }
+
+    const oldParentId = current.parentAccountId;
+    let nextParentId = oldParentId;
+
+    if (parentAccountId !== undefined) {
+      if (usedForPosting || current.isSystemAccount) {
+        throw new BadRequestException(
+          'Parent account cannot be changed after the account has been used or for a system root.',
+        );
+      }
+      if (parentAccountId) {
+        const parent = await this.findOne(parentAccountId);
+        await this.assertNoCycle(id, parentAccountId);
+        const nextType = rest.accountType ?? current.accountType;
+        if (nextType !== parent.accountType) {
+          throw new BadRequestException({
+            code: 'VALIDATION_ERROR',
+            message: `A ${nextType} account cannot be created under a ${parent.accountType} parent — an account's type must match its parent's.`,
+            fields: [
+              { field: 'accountType', constraints: ['must_match_parent'] },
+            ],
+          });
+        }
+        await this.assertCanAddChild(parent.id);
+        if (parent.level + 1 > MAX_ACCOUNT_LEVEL) {
+          throw new BadRequestException(
+            `An account cannot be nested deeper than ${MAX_ACCOUNT_LEVEL} levels.`,
+          );
+        }
+        data.parentAccountId = parentAccountId;
+        data.level = parent.level + 1;
+        nextParentId = parentAccountId;
+      } else {
+        const root = await this.ensureSystemRoot(current.accountType);
+        data.parentAccountId = root.id;
+        data.level = root.level + 1;
+        nextParentId = root.id;
+      }
+    }
+
+    const nextName = typeof rest.name === 'string' ? rest.name : current.name;
+    await this.assertUniqueName(nextName, nextParentId, id);
+
+    const updated = await super.update(id, data, userId);
+
+    if (oldParentId !== nextParentId) {
+      if (oldParentId) await this.recomputeAllowsPosting(oldParentId);
+      if (nextParentId) await this.recomputeAllowsPosting(nextParentId);
+      await this.recomputeDescendantLevels(id);
+    }
+
+    return updated;
   }
 
   /**
@@ -479,6 +572,255 @@ export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount
         `لا يمكن حذف هذا الحساب لأنه مستخدم في العمليات المحاسبية: ${details}.`,
       );
     }
-    return super.archive(id, userId);
+    const archived = await super.archive(id, userId);
+    if (account.parentAccountId) {
+      await this.recomputeAllowsPosting(account.parentAccountId);
+    }
+    return archived;
+  }
+
+  /**
+   * Ensures the protected system root (codes 1–5) exists for `accountType`.
+   * Idempotent — used by create/import/repair so every leaf hangs under the
+   * five-root tree rather than becoming an arbitrary orphan root.
+   */
+  async ensureSystemRoot(accountType: AccountType): Promise<ChartOfAccount> {
+    const code = ROOT_CODE_BY_ACCOUNT_TYPE[accountType];
+    const existing = await this.prisma.chartOfAccount.findFirst({
+      where: { code, deletedAt: null },
+    });
+    if (existing) {
+      if (
+        !existing.isSystemAccount ||
+        existing.allowsPosting ||
+        existing.parentAccountId ||
+        existing.accountType !== accountType
+      ) {
+        return this.prisma.chartOfAccount.update({
+          where: { id: existing.id },
+          data: {
+            isSystemAccount: true,
+            allowsPosting: false,
+            parentAccountId: null,
+            level: 1,
+            accountType,
+            name: existing.name || ROOT_ACCOUNT_NAMES[accountType],
+          },
+        });
+      }
+      return existing;
+    }
+    return this.prisma.chartOfAccount.create({
+      data: {
+        code,
+        name: ROOT_ACCOUNT_NAMES[accountType],
+        accountType,
+        parentAccountId: null,
+        level: 1,
+        allowsPosting: false,
+        isSystemAccount: true,
+      },
+    });
+  }
+
+  async ensureAllSystemRoots(): Promise<ChartOfAccount[]> {
+    const roots: ChartOfAccount[] = [];
+    for (const accountType of Object.values(AccountType)) {
+      roots.push(await this.ensureSystemRoot(accountType));
+    }
+    return roots;
+  }
+
+  /**
+   * A parent that already has journal lines cannot gain children — that would
+   * turn a used posting account into an aggregation header.
+   */
+  private async assertCanAddChild(parentId: string): Promise<void> {
+    const journalLines = await this.prisma.journalEntryLine.count({
+      where: { accountId: parentId },
+    });
+    if (journalLines > 0) {
+      throw new BadRequestException(
+        'Cannot add a child under an account that already has journal entry lines — remap those lines first.',
+      );
+    }
+  }
+
+  private async assertUniqueName(
+    name: string,
+    parentAccountId: string | null,
+    excludeId?: string,
+  ): Promise<void> {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const siblings = await this.prisma.chartOfAccount.findMany({
+      where: {
+        parentAccountId,
+        deletedAt: null,
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+      select: { id: true, name: true },
+    });
+    const clash = siblings.find(
+      (row) => row.name.trim().toLowerCase() === trimmed.toLowerCase(),
+    );
+    if (clash) {
+      throw new BadRequestException(
+        `Account name "${trimmed}" is already used under the same parent.`,
+      );
+    }
+  }
+
+  async recomputeAllowsPosting(accountId: string): Promise<void> {
+    const account = await this.prisma.chartOfAccount.findFirst({
+      where: { id: accountId, deletedAt: null },
+      select: { id: true, isSystemAccount: true },
+    });
+    if (!account) return;
+    const childCount = await this.prisma.chartOfAccount.count({
+      where: { parentAccountId: accountId, deletedAt: null },
+    });
+    await this.prisma.chartOfAccount.update({
+      where: { id: accountId },
+      data: {
+        allowsPosting: account.isSystemAccount ? false : childCount === 0,
+      },
+    });
+  }
+
+  private async recomputeDescendantLevels(rootId: string): Promise<void> {
+    const all = await this.prisma.chartOfAccount.findMany({
+      where: { deletedAt: null },
+      select: { id: true, parentAccountId: true, level: true },
+    });
+    const byId = new Map(all.map((row) => [row.id, row]));
+    const childrenByParent = new Map<string, string[]>();
+    for (const row of all) {
+      if (!row.parentAccountId) continue;
+      const list = childrenByParent.get(row.parentAccountId) ?? [];
+      list.push(row.id);
+      childrenByParent.set(row.parentAccountId, list);
+    }
+    const queue = [...(childrenByParent.get(rootId) ?? [])];
+    while (queue.length > 0) {
+      const id = queue.shift()!;
+      const node = byId.get(id);
+      if (!node?.parentAccountId) continue;
+      const parent = byId.get(node.parentAccountId);
+      if (!parent) continue;
+      const nextLevel = parent.level + 1;
+      if (node.level !== nextLevel) {
+        await this.prisma.chartOfAccount.update({
+          where: { id },
+          data: { level: nextLevel },
+        });
+        node.level = nextLevel;
+      }
+      queue.push(...(childrenByParent.get(id) ?? []));
+    }
+  }
+
+  /**
+   * Upsert system roots, reparent orphan non-system roots under the matching
+   * classification root, recompute levels and allowsPosting. Never changes IDs.
+   */
+  async repairHierarchy(): Promise<{
+    rootsEnsured: number;
+    reparented: number;
+    flagsRecomputed: number;
+  }> {
+    const roots = await this.ensureAllSystemRoots();
+    const rootIdByType = new Map(roots.map((root) => [root.accountType, root]));
+    const orphans = await this.prisma.chartOfAccount.findMany({
+      where: {
+        deletedAt: null,
+        parentAccountId: null,
+        isSystemAccount: false,
+      },
+    });
+    let reparented = 0;
+    for (const orphan of orphans) {
+      const root = rootIdByType.get(orphan.accountType);
+      if (!root) continue;
+      await this.prisma.chartOfAccount.update({
+        where: { id: orphan.id },
+        data: { parentAccountId: root.id, level: 2 },
+      });
+      reparented += 1;
+    }
+
+    const all = await this.prisma.chartOfAccount.findMany({
+      where: { deletedAt: null },
+      select: {
+        id: true,
+        parentAccountId: true,
+        isSystemAccount: true,
+        level: true,
+      },
+    });
+    const byId = new Map(all.map((row) => [row.id, row]));
+    const childrenByParent = new Map<string, string[]>();
+    for (const row of all) {
+      if (!row.parentAccountId) continue;
+      const list = childrenByParent.get(row.parentAccountId) ?? [];
+      list.push(row.id);
+      childrenByParent.set(row.parentAccountId, list);
+    }
+
+    let flagsRecomputed = 0;
+    for (const row of all) {
+      let level = 1;
+      let cursor: string | null = row.parentAccountId;
+      const seen = new Set<string>();
+      while (cursor && !seen.has(cursor)) {
+        seen.add(cursor);
+        level += 1;
+        cursor = byId.get(cursor)?.parentAccountId ?? null;
+      }
+      const childCount = childrenByParent.get(row.id)?.length ?? 0;
+      const allowsPosting = row.isSystemAccount ? false : childCount === 0;
+      await this.prisma.chartOfAccount.update({
+        where: { id: row.id },
+        data: { level, allowsPosting },
+      });
+      flagsRecomputed += 1;
+    }
+
+    return {
+      rootsEnsured: roots.length,
+      reparented,
+      flagsRecomputed,
+    };
+  }
+
+  async exportRows(): Promise<
+    {
+      code: string;
+      name: string;
+      accountType: AccountType;
+      parentAccountCode: string;
+      accountKind: AccountKind;
+      currencyCode: string;
+      allowReconciliation: string;
+      description: string;
+    }[]
+  > {
+    const accounts = await this.prisma.chartOfAccount.findMany({
+      where: { deletedAt: null },
+      include: { currency: true, parentAccount: true },
+      orderBy: [{ level: 'asc' }, { code: 'asc' }],
+    });
+    return accounts.map((account) => ({
+      code: account.code,
+      name: account.name,
+      accountType: account.accountType,
+      parentAccountCode: account.parentAccount?.code ?? '',
+      accountKind: account.allowsPosting
+        ? ACCOUNT_KIND.POSTING
+        : ACCOUNT_KIND.AGGREGATION,
+      currencyCode: account.currency?.code ?? '',
+      allowReconciliation: account.allowReconciliation ? 'TRUE' : 'FALSE',
+      description: account.description ?? '',
+    }));
   }
 }

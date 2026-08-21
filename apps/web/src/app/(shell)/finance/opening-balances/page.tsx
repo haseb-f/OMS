@@ -70,7 +70,7 @@ function OpeningBalancesPageContent() {
       .then(setFiscalYears)
       .catch(() => setFiscalYears([]));
     accountsService
-      .list({ pageSize: 500 })
+      .list({ pageSize: 500, postingOnly: true })
       .then((result) =>
         setAccounts(result.items.map((a) => ({ id: a.id, code: a.code, name: a.name }))),
       )

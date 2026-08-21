@@ -175,21 +175,12 @@ export const navigationConfig: NavigationItem[] = [
     permissions: ["shipping.view"],
   },
   {
-    id: "master-data-shipping-methods",
-    titleKey: "masterData.shippingMethods.title",
-    parent: "shipping",
-    route: "/master-data/shipping-methods",
-    icon: "ship",
-    order: 3,
-    permissions: ["shipping.view"],
-  },
-  {
     id: "master-data-shipping-companies",
     titleKey: "masterData.shippingCompanies.title",
     parent: "shipping",
     route: "/master-data/shipping-companies",
     icon: "truck",
-    order: 4,
+    order: 3,
     permissions: ["shipping.view"],
   },
 

@@ -181,7 +181,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
 
   useEffect(() => {
     accountsService
-      .list({ pageSize: 200 })
+      .list({ pageSize: 200, postingOnly: true })
       .then((result) =>
         setAccounts(result.items.map((a) => ({ id: a.id, code: a.code, name: a.name }))),
       )

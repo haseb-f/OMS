@@ -49,4 +49,12 @@ export class CreateChartOfAccountDto {
   @IsBoolean()
   @IsOptional()
   allowReconciliation?: boolean;
+
+  /**
+   * Import-only: AGGREGATION rows with no children yet. Manual creates omit
+   * this and default to a posting leaf (true until a child is added).
+   */
+  @IsBoolean()
+  @IsOptional()
+  allowsPosting?: boolean;
 }

@@ -727,8 +727,10 @@ model WarehouseLocation {
 /// Reference Data — Sales Orders Phase 2, decision #2: Shipping Company must be a
 /// reference-data entity, never free text.
 model ShippingCompany {
-  id          String  @id @default(uuid()) @db.Uuid
-  name        String  @unique
+  id          String              @id @default(uuid()) @db.Uuid
+  name        String              @unique
+  /// INTERNAL_DELIVERY vs EXTERNAL_COMPANY — absorbed from ShippingMethod.
+  type        ShippingMethodType  @default(EXTERNAL_COMPANY)
   description String?
 
   createdAt DateTime  @default(now()) @map("created_at")

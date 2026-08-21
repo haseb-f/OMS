@@ -2,6 +2,12 @@ import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
 import { AccountType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ChartOfAccountsService } from '../../chart-of-accounts/chart-of-accounts.service';
+import {
+  ACCOUNT_KIND,
+  parseAccountKind,
+} from '../../chart-of-accounts/coa.constants';
+import { validateCoaImportGraph } from '../../chart-of-accounts/coa-graph';
+import { ROOT_CODE_BY_ACCOUNT_TYPE } from '../../chart-of-accounts/code-generation.constants';
 import { CurrenciesService } from '../../currencies/currencies.service';
 import { ImportTypeRegistryService } from '../import-type-registry.service';
 import { parseBoolean, resolveOptionalIdByField } from '../import-value.util';
@@ -50,6 +56,15 @@ const FIELDS: ImportFieldDef[] = [
     referenceMatchField: 'code',
   },
   {
+    key: 'accountKind',
+    labelKey: 'importCenter.fields.accountKind',
+    label: 'Account Kind',
+    required: true,
+    type: 'string',
+    example: 'POSTING',
+    options: [ACCOUNT_KIND.POSTING, ACCOUNT_KIND.AGGREGATION],
+  },
+  {
     key: 'currencyCode',
     labelKey: 'importCenter.fields.currencyCode',
     label: 'Currency Code',
@@ -79,44 +94,8 @@ const FIELDS: ImportFieldDef[] = [
 const CODE_TO_ROW_KEY = 'ChartOfAccountsImport:codeToRow';
 const EXISTING_BY_CODE_KEY = 'ChartOfAccountsImport:existingByCode';
 const CREATED_BY_CODE_KEY = 'ChartOfAccountsImport:createdByCode';
+const GRAPH_VALIDATED_KEY = 'ChartOfAccountsImport:graphValidated';
 
-/**
- * Chart of Accounts Import — Parent Account Code hierarchy fix
- * (2026-08-15). Root cause of the original bug: the generic per-run
- * Master-Data cache (`import-value.util.ts`'s `fetchAllItems`, backing
- * `resolveOptionalIdByField`) snapshots `ChartOfAccountsService.findAll()`
- * ONCE per import run and never refreshes — so a child row whose parent was
- * created moments earlier IN THE SAME RUN (the overwhelming majority of
- * rows in any real multi-level file) could never be found, and got
- * silently truncated across repeated re-imports. Fixed here by resolving
- * `parentAccountCode` through a dedicated, per-run, INCREMENTALLY-UPDATED
- * map instead — never through the generic cache (`currencyCode` still
- * uses it unchanged, since Currency rows are never created mid-run).
- *
- * Algorithm (spec's Phase 1-4), implemented via the existing
- * `preloadRows`/`importRow` extension points — no second import engine, no
- * `groupKey`/grouped-rows mechanism, nothing added to `ImportJobsService`:
- *
- * Phase 1/2 — `preloadRows()` reads every row in the file once, builds
- * `code -> row` (the WHOLE file, so a forward reference to a not-yet-
- * processed row is resolvable) and `code -> existing DB id` (one query, no
- * N+1) into the job-scoped cache (`reference-cache.ts` — the exact same
- * `AsyncLocalStorage` scoping `ImportJobsService.validate()`/`run()`
- * already wrap every row in, so this state never leaks across two
- * different import jobs).
- *
- * Phase 3/4 — `importRow()` resolves a parent by trying, in order: (a)
- * already created earlier in this run, (b) already existing in the
- * database, (c) defined elsewhere in this file but not yet created — in
- * which case it's created FIRST, recursively (so parent-after-child in the
- * file works identically to parent-before-child), and only then does the
- * current row get created with that real `parentAccountId`. A code found
- * in none of the three throws a clear, actionable rejection — never a
- * guess, never a fallback parent. A row the engine later revisits (because
- * it was already created as a side effect of resolving an earlier row's
- * parent) is detected via the same map and returns the existing id without
- * re-creating anything.
- */
 @Injectable()
 export class ChartOfAccountsImportHandler
   implements ImportTypeHandler, OnModuleInit
@@ -138,10 +117,11 @@ export class ChartOfAccountsImportHandler
     this.registry.register(this);
   }
 
-  /** Phase 1/2 — one read of the whole file + one existing-accounts query, cached for every row's parent resolution in this run. */
   async preloadRows(rows: Record<string, string>[]): Promise<void> {
     const cache = getReferenceCache();
-    if (!cache) return; // no active job context (e.g. a direct unit-test call) — importRow falls back to live per-call resolution below.
+    if (!cache) return;
+
+    await this.chartOfAccountsService.ensureAllSystemRoots();
 
     const codeToRow = new Map<string, Record<string, string>>();
     for (const row of rows) {
@@ -152,14 +132,45 @@ export class ChartOfAccountsImportHandler
 
     const existing = await this.prisma.chartOfAccount.findMany({
       where: { deletedAt: null },
-      select: { id: true, code: true },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        accountType: true,
+        level: true,
+        parentAccount: { select: { code: true } },
+      },
     });
     cache.set(
       EXISTING_BY_CODE_KEY,
       new Map(existing.map((a) => [a.code, a.id])),
     );
-
     cache.set(CREATED_BY_CODE_KEY, new Map<string, string>());
+
+    const graphErrors = validateCoaImportGraph(
+      [...codeToRow.values()].map((row) => ({
+        code: row.code ?? '',
+        name: row.name ?? '',
+        accountType: row.accountType ?? '',
+        parentAccountCode: row.parentAccountCode ?? '',
+        accountKind: row.accountKind ?? '',
+      })),
+      existing.map((row) => ({
+        code: row.code,
+        name: row.name,
+        accountType: row.accountType,
+        parentCode: row.parentAccount?.code ?? null,
+        level: row.level,
+      })),
+    );
+    if (graphErrors.length > 0) {
+      throw new BadRequestException(
+        graphErrors
+          .map((error) => `${error.code || '—'}: ${error.message}`)
+          .join(' | '),
+      );
+    }
+    cache.set(GRAPH_VALIDATED_KEY, true);
   }
 
   async importRow(
@@ -177,11 +188,8 @@ export class ChartOfAccountsImportHandler
       (cache?.get(CREATED_BY_CODE_KEY) as Map<string, string> | undefined) ??
       new Map<string, string>();
     if (!cache) {
-      // Fallback path (no job context): this single row is the entire
-      // known file — a forward reference elsewhere in a real file can't
-      // be resolved here, only an already-existing DB account can.
       const codeToRow = new Map([[code, row]]);
-      return this.createAccountForCode(
+      return this.upsertAccountForCode(
         code,
         codeToRow,
         createdByCode,
@@ -198,7 +206,7 @@ export class ChartOfAccountsImportHandler
       (cache.get(CODE_TO_ROW_KEY) as
         Map<string, Record<string, string>> | undefined) ??
       new Map([[code, row]]);
-    return this.createAccountForCode(
+    return this.upsertAccountForCode(
       code,
       codeToRow,
       createdByCode,
@@ -208,8 +216,7 @@ export class ChartOfAccountsImportHandler
     );
   }
 
-  /** Resolves (creating on demand if needed) the account for `code`, recursing into its own parent first — the actual Phase 3/4 dependency-safe creation. `resolving` detects a circular Parent Account Code chain. */
-  private async createAccountForCode(
+  private async upsertAccountForCode(
     code: string,
     codeToRow: Map<string, Record<string, string>>,
     createdByCode: Map<string, string>,
@@ -244,6 +251,13 @@ export class ChartOfAccountsImportHandler
       );
     }
 
+    const kind = parseAccountKind(row.accountKind);
+    if (!kind) {
+      throw new BadRequestException(
+        `Account Kind is required — expected ${ACCOUNT_KIND.POSTING} or ${ACCOUNT_KIND.AGGREGATION}.`,
+      );
+    }
+
     const parentAccountId = await this.resolveParentId(
       row.parentAccountCode,
       codeToRow,
@@ -251,6 +265,8 @@ export class ChartOfAccountsImportHandler
       resolving,
       userId,
       options,
+      accountType as AccountType,
+      code,
     );
     const currencyId = await resolveOptionalIdByField(
       this.currenciesService,
@@ -259,22 +275,39 @@ export class ChartOfAccountsImportHandler
       'Currency Code',
     );
 
+    const cache = getReferenceCache();
+    const existingByCode = cache?.get(EXISTING_BY_CODE_KEY) as
+      Map<string, string> | undefined;
+    const existingId = existingByCode?.get(code);
+
     if (options?.dryRun) {
-      // Simulated id, unique per code — so a later row in the SAME dry-run
-      // pass that references this code as its own parent still resolves
-      // consistently, without ever writing to the database.
-      const simulatedId = `dry-run:${code}`;
+      const simulatedId = existingId ?? `dry-run:${code}`;
       createdByCode.set(code, simulatedId);
       resolving.delete(code);
       return { id: simulatedId };
     }
 
+    if (existingId) {
+      const updated = await this.chartOfAccountsService.update(
+        existingId,
+        {
+          name: row.name,
+          accountType: accountType as AccountType,
+          parentAccountId,
+          currencyId,
+          allowReconciliation: parseBoolean(row.allowReconciliation),
+          description: row.description || undefined,
+          allowsPosting: kind === ACCOUNT_KIND.POSTING,
+        },
+        userId,
+      );
+      createdByCode.set(code, updated.id);
+      resolving.delete(code);
+      return { id: updated.id };
+    }
+
     const account = await this.chartOfAccountsService.create(
       {
-        // Bulk-importing a chart of accounts is itself a privileged setup
-        // operation (Part 12) — every imported row's explicit code goes
-        // through the same `codeOverride` gate a manual override would,
-        // never a silent bypass just because it came from a spreadsheet.
         codeOverride: code,
         name: row.name,
         accountType: accountType as AccountType,
@@ -282,32 +315,35 @@ export class ChartOfAccountsImportHandler
         currencyId,
         allowReconciliation: parseBoolean(row.allowReconciliation),
         description: row.description || undefined,
+        allowsPosting: kind === ACCOUNT_KIND.POSTING,
       },
       userId,
     );
     createdByCode.set(code, account.id);
+    if (existingByCode) existingByCode.set(code, account.id);
     resolving.delete(code);
     return { id: account.id };
   }
 
-  /**
-   * Parent Account Code is the single authoritative source (spec) —
-   * resolved in this exact order, never inferred any other way: already
-   * created earlier in this run, already existing in the database, or
-   * defined elsewhere in this same file (created now, recursively). A code
-   * matching none of the three is a hard rejection, never a silent
-   * fallback.
-   */
   private async resolveParentId(
     parentAccountCode: string | undefined,
     codeToRow: Map<string, Record<string, string>>,
     createdByCode: Map<string, string>,
     resolving: Set<string>,
-    userId?: string,
-    options?: ImportRowOptions,
+    userId: string | undefined,
+    options: ImportRowOptions | undefined,
+    accountType: AccountType,
+    childCode: string,
   ): Promise<string | undefined> {
     const trimmed = parentAccountCode?.trim();
-    if (!trimmed) return undefined;
+    if (!trimmed) {
+      if (childCode === ROOT_CODE_BY_ACCOUNT_TYPE[accountType]) {
+        return undefined;
+      }
+      const root =
+        await this.chartOfAccountsService.ensureSystemRoot(accountType);
+      return root.id;
+    }
 
     const createdId = createdByCode.get(trimmed);
     if (createdId) return createdId;
@@ -319,7 +355,7 @@ export class ChartOfAccountsImportHandler
     if (existingId) return existingId;
 
     if (codeToRow.has(trimmed)) {
-      const result = await this.createAccountForCode(
+      const result = await this.upsertAccountForCode(
         trimmed,
         codeToRow,
         createdByCode,
@@ -330,8 +366,6 @@ export class ChartOfAccountsImportHandler
       return result.id;
     }
 
-    // No preload (fallback path) — one live, always-current lookup rather
-    // than trusting a possibly-stale generic cache.
     if (!cache) {
       const found = await this.prisma.chartOfAccount.findFirst({
         where: { code: trimmed, deletedAt: null },

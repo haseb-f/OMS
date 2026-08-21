@@ -3115,6 +3115,7 @@ const ar = {
       parentWarehouseName: "المستودع الأصل",
       accountType: "نوع الحساب",
       parentAccountCode: "رمز الحساب الأصل",
+      accountKind: "نوع الحساب (ترحيل/تجميعي)",
       currencyCode: "رمز العملة",
       allowReconciliation: "السماح بالتسوية",
       rate: "النسبة (%)",

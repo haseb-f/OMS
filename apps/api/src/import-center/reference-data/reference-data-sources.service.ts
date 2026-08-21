@@ -194,18 +194,6 @@ export class ReferenceDataSourcesService implements OnModuleInit {
           ).map((r) => ({ id: r.id, code: null, name: r.name, active: true })),
       },
       {
-        type: 'SHIPPING_METHOD',
-        label: 'Shipping Method',
-        defaultMatchField: 'name',
-        list: async () =>
-          (
-            await prisma.shippingMethod.findMany({
-              where: { deletedAt: null },
-              select: { id: true, name: true },
-            })
-          ).map((r) => ({ id: r.id, code: null, name: r.name, active: true })),
-      },
-      {
         type: 'COST_CENTER',
         label: 'Cost Center',
         defaultMatchField: 'code',
