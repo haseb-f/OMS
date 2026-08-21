@@ -22,6 +22,7 @@ import {
 } from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
+import { ResetChartToFiveRootsDto } from './dto/reset-chart-to-five-roots.dto';
 
 /** Master Data — Chart of Accounts. Business operations: Create, Update, Archive, Restore, Search. */
 @Controller('chart-of-accounts')
@@ -49,6 +50,30 @@ export class ChartOfAccountsController {
   @PermissionAction('export')
   exportRows() {
     return this.chartOfAccountsService.exportRows();
+  }
+
+  /**
+   * Read-only inventory for resetting the chart to roots 1–5.
+   * Never mutates. Declared before `:id` routes.
+   */
+  @Get('reset-to-five-roots/preview')
+  @PermissionAction('manage')
+  previewResetToFiveRoots() {
+    return this.chartOfAccountsService.previewResetToFiveRoots();
+  }
+
+  /**
+   * Dry-run by default. Apply only when body.confirm is exactly
+   * RESET_CHART_TO_FIVE_ROOTS and dryRun is false. Refuses when any
+   * non-root account has journal/config dependencies.
+   */
+  @Post('reset-to-five-roots')
+  @PermissionAction('manage')
+  resetToFiveRoots(@Body() dto: ResetChartToFiveRootsDto) {
+    return this.chartOfAccountsService.resetToFiveRoots({
+      confirm: dto.confirm,
+      dryRun: dto.dryRun,
+    });
   }
 
   /**

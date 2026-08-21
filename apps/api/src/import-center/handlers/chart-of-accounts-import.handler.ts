@@ -26,7 +26,7 @@ const FIELDS: ImportFieldDef[] = [
     label: 'Code',
     required: true,
     type: 'string',
-    example: '1100',
+    example: '11101',
     uniqueWithinFile: true,
   },
   {
@@ -35,7 +35,7 @@ const FIELDS: ImportFieldDef[] = [
     label: 'Name',
     required: true,
     type: 'string',
-    example: 'Accounts Receivable',
+    example: 'الصندوق',
   },
   {
     key: 'accountType',
@@ -52,6 +52,7 @@ const FIELDS: ImportFieldDef[] = [
     label: 'Parent Account Code',
     required: false,
     type: 'string',
+    example: '111',
     referenceType: 'CHART_OF_ACCOUNT',
     referenceMatchField: 'code',
   },

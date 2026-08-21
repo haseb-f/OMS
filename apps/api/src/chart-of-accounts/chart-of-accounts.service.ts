@@ -27,9 +27,11 @@ import {
   isSystemRootCode,
   type AccountKind,
 } from './coa.constants';
+import { RESET_CHART_CONFIRM_TOKEN } from './dto/reset-chart-to-five-roots.dto';
 
 const INCLUDE_RELATIONS = { parentAccount: true, currency: true } as const;
 const OVERRIDE_PERMISSION = 'accounting.chart-of-accounts.override-code';
+const SYSTEM_ROOT_CODES = ['1', '2', '3', '4', '5'] as const;
 
 /**
  * A real Chart of Accounts — code/name/type/hierarchy (TASK-044 Part 6) —
@@ -445,7 +447,7 @@ export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount
    */
   private async countUsageReferences(
     id: string,
-  ): Promise<{ label: string; count: number }[]> {
+  ): Promise<{ key: string; label: string; count: number }[]> {
     const counted = await this.prisma.chartOfAccount.findUnique({
       where: { id },
       select: {
@@ -544,7 +546,11 @@ export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount
     };
     return Object.entries(counted._count)
       .filter(([, count]) => count > 0)
-      .map(([key, count]) => ({ label: labels[key] ?? key, count }));
+      .map(([key, count]) => ({
+        key,
+        label: labels[key] ?? key,
+        count,
+      }));
   }
 
   /**
@@ -721,33 +727,18 @@ export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount
   }
 
   /**
-   * Upsert system roots, reparent orphan non-system roots under the matching
-   * classification root, recompute levels and allowsPosting. Never changes IDs.
+   * Ensures the five protected roots exist and recomputes level /
+   * allowsPosting for the *existing* tree. Does NOT reparent orphans —
+   * that previous behavior is replaced by `resetToFiveRoots` (wipe to
+   * roots only, then Excel import).
    */
   async repairHierarchy(): Promise<{
     rootsEnsured: number;
     reparented: number;
     flagsRecomputed: number;
+    note: string;
   }> {
     const roots = await this.ensureAllSystemRoots();
-    const rootIdByType = new Map(roots.map((root) => [root.accountType, root]));
-    const orphans = await this.prisma.chartOfAccount.findMany({
-      where: {
-        deletedAt: null,
-        parentAccountId: null,
-        isSystemAccount: false,
-      },
-    });
-    let reparented = 0;
-    for (const orphan of orphans) {
-      const root = rootIdByType.get(orphan.accountType);
-      if (!root) continue;
-      await this.prisma.chartOfAccount.update({
-        where: { id: orphan.id },
-        data: { parentAccountId: root.id, level: 2 },
-      });
-      reparented += 1;
-    }
 
     const all = await this.prisma.chartOfAccount.findMany({
       where: { deletedAt: null },
@@ -788,8 +779,151 @@ export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount
 
     return {
       rootsEnsured: roots.length,
-      reparented,
+      reparented: 0,
       flagsRecomputed,
+      note: 'Reparenting is disabled. Use POST /chart-of-accounts/reset-to-five-roots (with confirm) to remove non-root accounts, then Excel-import a new chart.',
+    };
+  }
+
+  /**
+   * Inventory + optional apply: leave only protected roots 1–5.
+   * Hard-deletes unused non-root accounts (codes freed for re-import).
+   * Refuses apply when any non-root has journal lines or config FKs.
+   * Never deletes journal entries / transactions / history rows.
+   */
+  async previewResetToFiveRoots(): Promise<ResetToFiveRootsResult> {
+    const plan = await this.buildResetToFiveRootsPlan();
+    return {
+      ...plan,
+      applied: false,
+      message: `${plan.message} (preview only — no changes applied.)`,
+    };
+  }
+
+  async resetToFiveRoots(options: {
+    confirm?: string;
+    dryRun?: boolean | string;
+  }): Promise<ResetToFiveRootsResult> {
+    const wantApply =
+      options.confirm === RESET_CHART_CONFIRM_TOKEN &&
+      options.dryRun !== true &&
+      options.dryRun !== 'true';
+
+    const plan = await this.buildResetToFiveRootsPlan();
+
+    if (!wantApply) {
+      return {
+        ...plan,
+        applied: false,
+        message:
+          options.confirm && options.confirm !== RESET_CHART_CONFIRM_TOKEN
+            ? `Confirmation token mismatch — expected "${RESET_CHART_CONFIRM_TOKEN}". No changes applied.`
+            : 'Dry-run only — no changes applied. POST with confirm=RESET_CHART_TO_FIVE_ROOTS and dryRun=false to apply.',
+      };
+    }
+
+    if (plan.blocked.length > 0) {
+      throw new BadRequestException({
+        code: 'COA_RESET_BLOCKED',
+        message: `Cannot reset Chart of Accounts: ${plan.blocked.length} non-root account(s) still have dependencies. Clear or remap those references first. Journal entries and transactions are never deleted.`,
+        blocked: plan.blocked,
+      });
+    }
+
+    const removable = plan.removable;
+    await this.prisma.$transaction(async (tx) => {
+      // Deepest accounts first so parent FKs among CoA rows do not block.
+      const ordered = [...removable].sort((a, b) => b.level - a.level);
+      for (const account of ordered) {
+        await tx.chartOfAccount.delete({ where: { id: account.id } });
+      }
+      for (const root of await tx.chartOfAccount.findMany({
+        where: { code: { in: [...SYSTEM_ROOT_CODES] }, deletedAt: null },
+      })) {
+        await tx.chartOfAccount.update({
+          where: { id: root.id },
+          data: {
+            parentAccountId: null,
+            level: 1,
+            allowsPosting: false,
+            isSystemAccount: true,
+            name: ROOT_ACCOUNT_NAMES[root.accountType],
+          },
+        });
+      }
+    });
+
+    const after = await this.buildResetToFiveRootsPlan();
+    return {
+      ...after,
+      applied: true,
+      removedCount: removable.length,
+      message: `Removed ${removable.length} non-root account(s). Active chart now contains only roots 1–5.`,
+    };
+  }
+
+  private async buildResetToFiveRootsPlan(): Promise<ResetToFiveRootsPlan> {
+    await this.ensureAllSystemRoots();
+    const accounts = await this.prisma.chartOfAccount.findMany({
+      where: { code: { notIn: [...SYSTEM_ROOT_CODES] } },
+      include: { parentAccount: { select: { code: true, name: true } } },
+      orderBy: { code: 'asc' },
+    });
+
+    const removable: ResetAccountInventoryRow[] = [];
+    const blocked: ResetAccountInventoryRow[] = [];
+
+    for (const account of accounts) {
+      const usage = await this.countUsageReferences(account.id);
+      // Parent/child links among accounts being removed are not blockers.
+      const external = usage.filter((u) => u.key !== 'childAccounts');
+      const row: ResetAccountInventoryRow = {
+        id: account.id,
+        code: account.code,
+        name: account.name,
+        accountType: account.accountType,
+        parentCode: account.parentAccount?.code ?? null,
+        parentName: account.parentAccount?.name ?? null,
+        level: account.level,
+        allowsPosting: account.allowsPosting,
+        isSystemAccount: account.isSystemAccount,
+        alreadyArchived: account.deletedAt != null,
+        journalLineCount:
+          external.find((u) => u.key === 'journalEntryLines')?.count ?? 0,
+        dependencies: external.map((u) => ({
+          type: u.key,
+          label: u.label,
+          count: u.count,
+        })),
+      };
+      if (external.length === 0) removable.push(row);
+      else blocked.push(row);
+    }
+
+    const roots = await this.prisma.chartOfAccount.findMany({
+      where: { code: { in: [...SYSTEM_ROOT_CODES] }, deletedAt: null },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        accountType: true,
+        isSystemAccount: true,
+        allowsPosting: true,
+      },
+      orderBy: { code: 'asc' },
+    });
+
+    return {
+      canApply: blocked.length === 0,
+      roots,
+      removable,
+      blocked,
+      removableCount: removable.length,
+      blockedCount: blocked.length,
+      message:
+        blocked.length === 0
+          ? `${removable.length} non-root account(s) are safe to hard-delete. Roots 1–5 will be preserved.`
+          : `${blocked.length} account(s) block reset. Remap/clear their dependencies before applying. ${removable.length} other account(s) are safe.`,
     };
   }
 
@@ -824,3 +958,40 @@ export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount
     }));
   }
 }
+
+export interface ResetAccountInventoryRow {
+  id: string;
+  code: string;
+  name: string;
+  accountType: AccountType;
+  parentCode: string | null;
+  parentName: string | null;
+  level: number;
+  allowsPosting: boolean;
+  isSystemAccount: boolean;
+  alreadyArchived: boolean;
+  journalLineCount: number;
+  dependencies: { type: string; label: string; count: number }[];
+}
+
+export interface ResetToFiveRootsPlan {
+  canApply: boolean;
+  roots: {
+    id: string;
+    code: string;
+    name: string;
+    accountType: AccountType;
+    isSystemAccount: boolean;
+    allowsPosting: boolean;
+  }[];
+  removable: ResetAccountInventoryRow[];
+  blocked: ResetAccountInventoryRow[];
+  removableCount: number;
+  blockedCount: number;
+  message: string;
+}
+
+export type ResetToFiveRootsResult = ResetToFiveRootsPlan & {
+  applied: boolean;
+  removedCount?: number;
+};

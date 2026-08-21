@@ -410,6 +410,36 @@ export class ImportTemplateService {
         },
       };
     }
+
+    if (type === 'CHART_OF_ACCOUNTS') {
+      const start = sheet.rowCount + 2;
+      sheet.getCell(`A${start}`).value =
+        'أمثلة التسلسل الهرمي (Hierarchy examples) — الجذور 1–5 بدون أصل وتكون AGGREGATION فقط';
+      sheet.getCell(`A${start}`).font = { bold: true };
+      const exampleHeader = sheet.getRow(start + 1);
+      exampleHeader.values = [
+        'Code',
+        'Name',
+        'Account Type',
+        'Parent Account Code',
+        'Account Kind',
+      ];
+      exampleHeader.font = { bold: true };
+      const examples = [
+        ['1', 'الأصول', 'ASSET', '', 'AGGREGATION'],
+        ['11', 'الأصول المتداولة', 'ASSET', '1', 'AGGREGATION'],
+        ['111', 'النقدية والبنوك', 'ASSET', '11', 'AGGREGATION'],
+        ['11101', 'الصندوق', 'ASSET', '111', 'POSTING'],
+        ['2', 'الالتزامات', 'LIABILITY', '', 'AGGREGATION'],
+        ['4', 'الإيرادات', 'REVENUE', '', 'AGGREGATION'],
+        ['5', 'المصروفات', 'EXPENSE', '', 'AGGREGATION'],
+      ];
+      for (const [i, example] of examples.entries()) {
+        sheet.getRow(start + 2 + i).values = example;
+      }
+      sheet.getCell(`A${start + 2 + examples.length + 1}`).value =
+        'Rules: only codes 1–5 may omit Parent; leaf accounts = POSTING; parents/groups = AGGREGATION; no extra roots; full-file graph validation before apply.';
+    }
   }
 }
 

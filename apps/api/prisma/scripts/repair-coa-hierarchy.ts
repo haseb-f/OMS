@@ -1,3 +1,14 @@
+/**
+ * DEPRECATED for reparenting.
+ *
+ * This script previously reparented orphan accounts under roots 1–5.
+ * That behavior is no longer the business goal — use the API
+ * `GET/POST /chart-of-accounts/reset-to-five-roots` instead (dry-run first),
+ * then Excel-import a new chart under the five roots.
+ *
+ * This file now only upserts the five protected roots and recomputes
+ * level / allowsPosting for the existing tree. It does NOT reparent.
+ */
 import 'dotenv/config';
 import { AccountType, PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -37,29 +48,6 @@ async function main() {
     });
   }
 
-  const roots = await prisma.chartOfAccount.findMany({
-    where: { code: { in: ROOTS.map((r) => r.code) } },
-  });
-  const byType = Object.fromEntries(roots.map((r) => [r.accountType, r]));
-
-  const orphans = await prisma.chartOfAccount.findMany({
-    where: {
-      deletedAt: null,
-      parentAccountId: null,
-      isSystemAccount: false,
-    },
-  });
-  let reparented = 0;
-  for (const orphan of orphans) {
-    const root = byType[orphan.accountType];
-    if (!root) continue;
-    await prisma.chartOfAccount.update({
-      where: { id: orphan.id },
-      data: { parentAccountId: root.id, level: 2 },
-    });
-    reparented += 1;
-  }
-
   const all = await prisma.chartOfAccount.findMany({
     where: { deletedAt: null },
     select: { id: true, parentAccountId: true, isSystemAccount: true },
@@ -92,20 +80,12 @@ async function main() {
     });
   }
 
-  const sample = await prisma.chartOfAccount.findMany({
-    where: {
-      code: { in: ['1', '2', '3', '4', '5', 'AR', 'AP', 'INV', 'REV'] },
-    },
-    select: {
-      code: true,
-      level: true,
-      allowsPosting: true,
-      isSystemAccount: true,
-      parentAccount: { select: { code: true } },
-    },
-    orderBy: { code: 'asc' },
-  });
-  console.log(JSON.stringify({ reparented, sample }, null, 2));
+  console.log(
+    JSON.stringify({
+      note: 'Reparenting disabled. Use API reset-to-five-roots for wipe-to-roots.',
+      rootsEnsured: 5,
+    }),
+  );
 }
 
 main()
