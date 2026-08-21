@@ -822,5 +822,199 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
         expect(keys).not.toContain('Error Message');
       });
     });
+
+    describe('reuses the Store Orders Google Sheets source', () => {
+      const REUSE_HEADERS = [
+        'External Order ID',
+        'Order Date',
+        'Customer Name',
+        'Customer Phone',
+        'Country',
+        'Detailed Address',
+        'Product SKU',
+        'Quantity',
+        'Paid Amount',
+        'Currency',
+        'Payment Method',
+        'Employee Email',
+        'Sync Status',
+        'System Order ID',
+        'Error Message',
+        'Status',
+        'Tracking Number',
+        'Shipping Company',
+        'Shipping Label URL',
+      ];
+
+      function toReuseCsv(rows: Record<string, string>[]): string {
+        const lines = [REUSE_HEADERS.join(',')];
+        for (const row of rows) {
+          lines.push(REUSE_HEADERS.map((h) => row[h] ?? '').join(','));
+        }
+        return lines.join('\n');
+      }
+
+      function reuseRow(
+        overrides: Partial<Record<string, string>> = {},
+      ): Record<string, string> {
+        return {
+          'External Order ID': `REUSE-EXT-${randomUUID()}`,
+          'Order Date': '2026-08-01',
+          'Customer Name': 'Sync Test Customer',
+          'Customer Phone': `+9665${Math.floor(10000000 + Math.random() * 89999999)}`,
+          Country: countryName,
+          'Detailed Address': 'Test address',
+          'Product SKU': productDisplayName,
+          Quantity: '1',
+          'Paid Amount': '100',
+          Currency: currencyCode,
+          'Payment Method': paymentMethodLabel,
+          'Employee Email': employeeEmail,
+          'Sync Status': 'تم الاستيراد',
+          'System Order ID': '',
+          'Error Message': '',
+          Status: '',
+          'Tracking Number': '',
+          'Shipping Company': '',
+          'Shipping Label URL': '',
+          ...overrides,
+        };
+      }
+
+      async function createStoreOrdersOnly(rows: Record<string, string>[]) {
+        fakeSheets.rows = rows;
+        fakeSheets.getSheetAsCsv.mockImplementation(() =>
+          Promise.resolve(toReuseCsv(fakeSheets.rows)),
+        );
+        return sources.create({
+          sourceType: 'STORE_ORDERS',
+          label: `${SOURCE_LABEL_PREFIX} ${randomUUID()}`,
+          spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${randomUUID()}/edit`,
+          columnMapping: {
+            externalOrderId: 'External Order ID',
+            orderDate: 'Order Date',
+            customerName: 'Customer Name',
+            customerPhone: 'Customer Phone',
+            countryName: 'Country',
+            address: 'Detailed Address',
+            productSku: 'Product SKU',
+            quantity: 'Quantity',
+            paidAmount: 'Paid Amount',
+            currencyCode: 'Currency',
+            paymentMethodLabel: 'Payment Method',
+            agentEmail: 'Employee Email',
+          },
+        });
+      }
+
+      it('lists the Store Orders source for Shipping Sync without a SHIPPING_UPDATES config', async () => {
+        const source = await createStoreOrdersOnly([reuseRow()]);
+        const listed = await sources.findAll('SHIPPING_UPDATES');
+        expect(listed.some((item) => item.id === source.id)).toBe(true);
+        expect(
+          listed.every(
+            (item) =>
+              item.sourceType !== 'SHIPPING_UPDATES' || item.id !== source.id,
+          ),
+        ).toBe(true);
+      });
+
+      it('skips empty T:W and does not write shipping results or Q:R:S', async () => {
+        const order = await createAcceptedOrder();
+        const source = await createStoreOrdersOnly([
+          reuseRow({
+            'External Order ID': order.externalOrderId!,
+            'System Order ID': order.internalOrderId,
+          }),
+        ]);
+
+        const preview = await orchestrator.preview(source.id, undefined, {
+          runAs: 'SHIPPING_UPDATES',
+        });
+        expect(preview.willImportCount).toBe(0);
+
+        const commitResult = await orchestrator.commit(
+          source.id,
+          preview.jobId,
+          undefined,
+          { runAs: 'SHIPPING_UPDATES' },
+        );
+        expect(commitResult.importedCount).toBe(0);
+        expect(fakeSheets.writeRowResults).not.toHaveBeenCalled();
+      });
+
+      it('reads T:W from the Store Orders source and writes only X+ shipping results', async () => {
+        const order = await createAcceptedOrder();
+        const qrsBefore = {
+          'Sync Status': 'تم الاستيراد',
+          'System Order ID': order.internalOrderId,
+          'Error Message': 'keep-qrs',
+        };
+        const twBefore = {
+          Status: 'LABEL_CREATED',
+          'Tracking Number': 'TRK-KEEP',
+          'Shipping Company': shippingCompanyName,
+          'Shipping Label URL': 'https://label.example/awb',
+        };
+        const source = await createStoreOrdersOnly([
+          reuseRow({
+            'External Order ID': order.externalOrderId!,
+            ...qrsBefore,
+            ...twBefore,
+          }),
+        ]);
+
+        const preview = await orchestrator.preview(source.id, undefined, {
+          runAs: 'SHIPPING_UPDATES',
+        });
+        expect(preview.willImportCount).toBe(1);
+
+        const commitResult = await orchestrator.commit(
+          source.id,
+          preview.jobId,
+          undefined,
+          { runAs: 'SHIPPING_UPDATES' },
+        );
+        expect(commitResult.importedCount).toBe(1);
+
+        const shipment = await shipmentsService.getCurrent(order.id);
+        expect(shipment?.status).toBe(ShipmentStatus.LABEL_CREATED);
+        expect(shipment?.trackingNumber).toBe('TRK-KEEP');
+
+        const call = fakeSheets.writeRowResults.mock.calls[0] as [
+          string,
+          { rowNumber: number; values: Record<string, string> }[],
+          string | undefined,
+          { minStartColumn?: string } | undefined,
+        ];
+        const keys = Object.keys(call[1][0].values).sort();
+        expect(keys).toEqual(
+          [
+            'Shipment ID',
+            'Shipping Sync Message',
+            'Shipping Sync Status',
+          ].sort(),
+        );
+        expect(keys).not.toContain('Sync Status');
+        expect(keys).not.toContain('System Order ID');
+        expect(keys).not.toContain('Error Message');
+        expect(keys).not.toContain('Status');
+        expect(keys).not.toContain('Tracking Number');
+        expect(call[3]).toEqual({ minStartColumn: 'X' });
+        expect(fakeSheets.rows[0]['Sync Status']).toBe(
+          qrsBefore['Sync Status'],
+        );
+        expect(fakeSheets.rows[0]['System Order ID']).toBe(
+          qrsBefore['System Order ID'],
+        );
+        expect(fakeSheets.rows[0]['Error Message']).toBe(
+          qrsBefore['Error Message'],
+        );
+        expect(fakeSheets.rows[0].Status).toBe(twBefore.Status);
+        expect(fakeSheets.rows[0]['Tracking Number']).toBe(
+          twBefore['Tracking Number'],
+        );
+      });
+    });
   });
 });

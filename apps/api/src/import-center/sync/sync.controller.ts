@@ -88,6 +88,7 @@ export class SyncController {
     return this.orchestrator.preview(id, user.sub, {
       retryRowNumbers: dto.retryRowNumbers,
       retryAllFailed: dto.retryAllFailed,
+      runAs: dto.runAs,
     });
   }
 
@@ -101,6 +102,7 @@ export class SyncController {
   ) {
     return this.orchestrator.commit(id, dto.jobId, user.sub, {
       acceptRowNumbers: dto.acceptRowNumbers,
+      runAs: dto.runAs,
     });
   }
 

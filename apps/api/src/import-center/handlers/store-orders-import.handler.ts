@@ -126,6 +126,7 @@ const FIELDS: ImportFieldDef[] = [
     type: 'string',
     options: Object.values(PAYMENT_TYPE_SHEET_LABELS),
     example: 'الدفع عند الاستلام',
+    omitFromTemplate: true,
   },
   {
     key: 'receipt1',

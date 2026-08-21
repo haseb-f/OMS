@@ -29,6 +29,14 @@ import {
   type DeletedStoreOrderGroup,
   type StoreOrderRowHashMap,
 } from './store-orders-sync.lifecycle';
+import {
+  SHIPPING_RESULT_COLUMNS,
+  STORE_ORDERS_SHEET_LAYOUT,
+  isEmptyShippingInput,
+  readShippingSyncMetadata,
+  shippingColumnMappingFromStoreOrders,
+  withShippingSyncMetadata,
+} from './store-orders-sheet.columns';
 
 const HANDLER_TYPE_BY_SOURCE: Record<SyncSourceType, string> = {
   LEADS: 'LEADS',
@@ -40,6 +48,19 @@ const HANDLER_TYPE_BY_SOURCE: Record<SyncSourceType, string> = {
 /** Two-way Store Orders / Shipping workflow (spec section 27) — triggering a sync at all needs `import-center.sync`, but a SHIPPING_UPDATES commit specifically ALSO needs the same permission the manual/bulk shipping channels require, so access to the Sync operation can never grant a capability those channels gate. */
 const EXTRA_PERMISSION_BY_SOURCE: Partial<Record<SyncSourceType, string>> = {
   SHIPPING_UPDATES: 'shipping.manage',
+};
+
+type ShippingRunAs = 'SHIPPING_UPDATES';
+
+type SyncRunOptions = {
+  retryRowNumbers?: number[];
+  retryAllFailed?: boolean;
+  runAs?: ShippingRunAs;
+};
+
+type SyncCommitOptions = {
+  acceptRowNumbers?: number[];
+  runAs?: ShippingRunAs;
 };
 
 export interface SyncPreviewIncremental {
@@ -118,7 +139,11 @@ export class SyncOrchestratorService {
     private readonly storeOrders: StoreOrdersService,
   ) {}
 
-  private async getEnabledSource(sourceId: string, userId?: string) {
+  private async getEnabledSource(
+    sourceId: string,
+    userId?: string,
+    runAs?: ShippingRunAs,
+  ) {
     const source = await this.prisma.syncSourceConfig.findFirst({
       where: { id: sourceId, deletedAt: null },
     });
@@ -130,10 +155,8 @@ export class SyncOrchestratorService {
         `"${source.label}" is disabled — enable it before syncing.`,
       );
     }
-    // Spec section 27 — a channel-specific extra permission, checked in
-    // addition to (never instead of) the `import-center.sync` the
-    // controller already enforces on every route.
-    const extraPermission = EXTRA_PERMISSION_BY_SOURCE[source.sourceType];
+    const effectiveType = this.effectiveSourceType(source.sourceType, runAs);
+    const extraPermission = EXTRA_PERMISSION_BY_SOURCE[effectiveType];
     if (extraPermission && userId) {
       const allowed = await this.permissionsResolver.hasPermission(
         userId,
@@ -146,6 +169,31 @@ export class SyncOrchestratorService {
       }
     }
     return source;
+  }
+
+  private effectiveSourceType(
+    sourceType: SyncSourceType,
+    runAs?: ShippingRunAs,
+  ): SyncSourceType {
+    if (!runAs) return sourceType;
+    if (
+      sourceType !== SyncSourceType.STORE_ORDERS &&
+      sourceType !== SyncSourceType.SHIPPING_UPDATES
+    ) {
+      throw new BadRequestException(
+        'Shipping Sync can only run against the Store Orders Google Sheets source.',
+      );
+    }
+    return SyncSourceType.SHIPPING_UPDATES;
+  }
+
+  private reusesStoreOrdersSource(
+    sourceType: SyncSourceType,
+    runAs?: ShippingRunAs,
+  ): boolean {
+    return (
+      runAs === 'SHIPPING_UPDATES' && sourceType === SyncSourceType.STORE_ORDERS
+    );
   }
 
   /** Concurrency guard (spec section 16) — one `preview()`/`commit()` at a time per source, mirroring `ImportJob.isSyncing`'s existing per-job advisory lock one level up. */
@@ -234,19 +282,25 @@ export class SyncOrchestratorService {
       configMetadata: unknown;
     },
     userId?: string,
+    overrides?: {
+      handlerType?: string;
+      columnMapping?: Record<string, string>;
+    },
   ) {
     const metadata = (source.configMetadata ?? {}) as {
       columnMapping?: Record<string, string>;
     };
-    const columnMapping = metadata.columnMapping;
+    const columnMapping = overrides?.columnMapping ?? metadata.columnMapping;
     if (!columnMapping || Object.keys(columnMapping).length === 0) {
       throw new BadRequestException(
         `"${source.label}" has no saved column mapping — edit the source and map its columns before syncing.`,
       );
     }
 
+    const handlerType =
+      overrides?.handlerType ?? HANDLER_TYPE_BY_SOURCE[source.sourceType];
     const job = await this.importJobs.create(
-      { importType: HANDLER_TYPE_BY_SOURCE[source.sourceType] },
+      { importType: handlerType },
       userId,
     );
     await this.importJobs.uploadFromGoogleSheets(
@@ -257,7 +311,14 @@ export class SyncOrchestratorService {
 
     await this.prisma.importJob.update({
       where: { id: job.id },
-      data: { rowDefaults: this.rowDefaultsFor(source) },
+      data: {
+        rowDefaults: this.rowDefaultsFor({
+          ...source,
+          sourceType: overrides?.handlerType
+            ? SyncSourceType.SHIPPING_UPDATES
+            : source.sourceType,
+        }),
+      },
     });
     return job.id;
   }
@@ -272,10 +333,18 @@ export class SyncOrchestratorService {
   async preview(
     sourceId: string,
     userId?: string,
-    options?: { retryRowNumbers?: number[]; retryAllFailed?: boolean },
+    options?: SyncRunOptions,
   ): Promise<SyncPreviewResult> {
-    const source = await this.getEnabledSource(sourceId, userId);
+    const source = await this.getEnabledSource(
+      sourceId,
+      userId,
+      options?.runAs,
+    );
     return this.withSyncLock(sourceId, async () => {
+      if (this.reusesStoreOrdersSource(source.sourceType, options?.runAs)) {
+        return this.previewShippingOnStoreOrdersSource(source, userId);
+      }
+
       const jobId = await this.createRunJob(source, userId);
 
       if (source.sourceType === SyncSourceType.STORE_ORDERS) {
@@ -289,6 +358,57 @@ export class SyncOrchestratorService {
       });
       return this.buildGenericPreview(source, jobId, result);
     });
+  }
+
+  private async previewShippingOnStoreOrdersSource(
+    source: {
+      id: string;
+      sourceType: SyncSourceType;
+      label: string;
+      spreadsheetId: string;
+      worksheetGid: string | null;
+      worksheetName: string | null;
+      configMetadata: unknown;
+    },
+    userId?: string,
+  ): Promise<SyncPreviewResult> {
+    const metadata = (source.configMetadata ?? {}) as {
+      columnMapping?: Record<string, string>;
+    };
+    const jobId = await this.createRunJob(source, userId, {
+      handlerType: HANDLER_TYPE_BY_SOURCE[SyncSourceType.SHIPPING_UPDATES],
+      columnMapping: shippingColumnMappingFromStoreOrders(
+        metadata.columnMapping ?? {},
+      ),
+    });
+    const mapped = await this.importJobs.listMappedRows(jobId);
+    const skipRowNumbers = mapped.rows
+      .filter((row) => isEmptyShippingInput(row.mappedRow))
+      .map((row) => row.rowNumber);
+    const result = await this.importJobs.validate(jobId, userId, {
+      skipRowNumbers,
+    });
+    await this.prisma.syncSourceConfig.update({
+      where: { id: source.id },
+      data: {
+        configMetadata: withShippingSyncMetadata(source.configMetadata, {
+          importJobId: jobId,
+          skipRowNumbers,
+        }) as unknown as Prisma.InputJsonValue,
+      },
+    });
+    const preview = await this.buildGenericPreview(source, jobId, result);
+    const skipped = new Set(skipRowNumbers);
+    preview.rows = preview.rows.filter(
+      (row) => !row.rowNumbers.every((rowNumber) => skipped.has(rowNumber)),
+    );
+    preview.totalRows = Math.max(0, preview.totalRows - skipRowNumbers.length);
+    preview.newCount = Math.max(0, preview.newCount - skipRowNumbers.length);
+    preview.willImportCount = Math.max(
+      0,
+      preview.willImportCount - skipRowNumbers.length,
+    );
+    return preview;
   }
 
   private async previewStoreOrders(
@@ -723,10 +843,21 @@ export class SyncOrchestratorService {
     sourceId: string,
     jobId: string,
     userId?: string,
-    options?: { acceptRowNumbers?: number[] },
+    options?: SyncCommitOptions,
   ): Promise<SyncCommitResult> {
-    const source = await this.getEnabledSource(sourceId, userId);
-    if (source.importJobId !== jobId) {
+    const source = await this.getEnabledSource(
+      sourceId,
+      userId,
+      options?.runAs,
+    );
+    const shippingOnStoreOrders = this.reusesStoreOrdersSource(
+      source.sourceType,
+      options?.runAs,
+    );
+    const expectedJobId = shippingOnStoreOrders
+      ? readShippingSyncMetadata(source.configMetadata).importJobId
+      : source.importJobId;
+    if (expectedJobId !== jobId) {
       throw new BadRequestException(
         'This preview is no longer current — run Sync again before committing.',
       );
@@ -734,7 +865,15 @@ export class SyncOrchestratorService {
 
     return this.withSyncLock(sourceId, async () => {
       let acceptRowNumbers = options?.acceptRowNumbers;
-      if (
+      if (acceptRowNumbers === undefined && shippingOnStoreOrders) {
+        const skip = new Set(
+          readShippingSyncMetadata(source.configMetadata).skipRowNumbers ?? [],
+        );
+        const mapped = await this.importJobs.listMappedRows(jobId);
+        acceptRowNumbers = mapped.rows
+          .map((row) => row.rowNumber)
+          .filter((rowNumber) => !skip.has(rowNumber));
+      } else if (
         acceptRowNumbers === undefined &&
         source.sourceType === SyncSourceType.STORE_ORDERS
       ) {
@@ -753,18 +892,14 @@ export class SyncOrchestratorService {
       const acceptedDeletedRows = new Set(
         (acceptRowNumbers ?? []).filter(isDeletedSyncRowNumber),
       );
+      const shouldBoundAcceptRows =
+        options?.acceptRowNumbers !== undefined ||
+        source.sourceType === SyncSourceType.STORE_ORDERS;
       const result = await this.importJobs.run(jobId, userId, {
         ...options,
-        acceptRowNumbers:
-          options?.acceptRowNumbers === undefined &&
-          source.sourceType !== SyncSourceType.STORE_ORDERS
-            ? undefined
-            : acceptedSheetRows,
+        acceptRowNumbers: shouldBoundAcceptRows ? acceptedSheetRows : undefined,
       });
 
-      // Google Sheets NO_CHANGE rows are reported as a distinct outcome
-      // (spec section 15) but still count as a successful, no-op sync —
-      // never an error.
       const noChangeCount = result.successRows.filter(
         (row) => row.noChange,
       ).length;
@@ -781,23 +916,56 @@ export class SyncOrchestratorService {
               : SyncRunStatus.SUCCESS,
       };
 
-      await this.prisma.syncSourceConfig.update({
-        where: { id: source.id },
-        data: {
-          lastSyncedAt: new Date(),
-          lastSyncStatus: summary.status,
-          lastSyncUserId: userId ?? null,
-          lastSyncSummary: {
-            totalRows: summary.totalRows,
-            importedCount: summary.importedCount,
-            noChangeCount,
-            errorCount: summary.errorCount,
+      const lastSyncSummary = {
+        totalRows: summary.totalRows,
+        importedCount: summary.importedCount,
+        noChangeCount,
+        errorCount: summary.errorCount,
+      };
+
+      if (shippingOnStoreOrders) {
+        await this.prisma.syncSourceConfig.update({
+          where: { id: source.id },
+          data: {
+            configMetadata: withShippingSyncMetadata(source.configMetadata, {
+              lastSyncedAt: new Date().toISOString(),
+              lastSyncStatus: summary.status,
+              lastSyncUserId: userId ?? null,
+              lastSyncSummary,
+            }) as unknown as Prisma.InputJsonValue,
           },
-        },
-      });
+        });
+      } else {
+        await this.prisma.syncSourceConfig.update({
+          where: { id: source.id },
+          data: {
+            lastSyncedAt: new Date(),
+            lastSyncStatus: summary.status,
+            lastSyncUserId: userId ?? null,
+            lastSyncSummary,
+          },
+        });
+      }
 
       let writebackError: string | null = null;
-      if (source.sourceType === SyncSourceType.STORE_ORDERS) {
+      const writeShipping =
+        shippingOnStoreOrders ||
+        source.sourceType === SyncSourceType.SHIPPING_UPDATES;
+      if (shippingOnStoreOrders) {
+        try {
+          summary.rows = await this.writeBackShippingUpdates(
+            source,
+            result,
+            (result.columnMapping ?? {}) as Record<string, string>,
+          );
+        } catch (error) {
+          writebackError = extractImportErrorMessage(error);
+          summary.status =
+            summary.importedCount > 0
+              ? SyncRunStatus.PARTIAL
+              : SyncRunStatus.FAILED;
+        }
+      } else if (source.sourceType === SyncSourceType.STORE_ORDERS) {
         try {
           await this.writeBackStoreOrders(source, result);
           await this.markStoreOrdersImported(source, jobId, result.successRows);
@@ -813,7 +981,7 @@ export class SyncOrchestratorService {
               ? SyncRunStatus.PARTIAL
               : SyncRunStatus.FAILED;
         }
-      } else if (source.sourceType === SyncSourceType.SHIPPING_UPDATES) {
+      } else if (writeShipping) {
         summary.rows = await this.writeBackShippingUpdates(
           source,
           result,
@@ -825,10 +993,21 @@ export class SyncOrchestratorService {
 
       if (writebackError) {
         summary.writebackError = writebackError;
-        await this.prisma.syncSourceConfig.update({
-          where: { id: source.id },
-          data: { lastSyncStatus: summary.status },
-        });
+        if (shippingOnStoreOrders) {
+          await this.prisma.syncSourceConfig.update({
+            where: { id: source.id },
+            data: {
+              configMetadata: withShippingSyncMetadata(source.configMetadata, {
+                lastSyncStatus: summary.status,
+              }) as unknown as Prisma.InputJsonValue,
+            },
+          });
+        } else {
+          await this.prisma.syncSourceConfig.update({
+            where: { id: source.id },
+            data: { lastSyncStatus: summary.status },
+          });
+        }
       }
 
       return summary;
@@ -1060,7 +1239,11 @@ export class SyncOrchestratorService {
 
   /** Shipping Updates write-back for a just-completed `run()` — spec section 14's exact columns, and returns the per-row report spec section 13 wants surfaced to the caller. */
   private async writeBackShippingUpdates(
-    source: { spreadsheetId: string; worksheetGid: string | null },
+    source: {
+      spreadsheetId: string;
+      worksheetGid: string | null;
+      sourceType?: SyncSourceType;
+    },
     result: {
       successRows: { rowNumber: number; id: string; noChange?: boolean }[];
       errors: {
@@ -1096,9 +1279,9 @@ export class SyncOrchestratorService {
       sheetRows.push({
         rowNumber,
         values: {
-          'Shipping Sync Status': status,
-          'Shipping Sync Message': message,
-          'Shipment ID': id,
+          [SHIPPING_RESULT_COLUMNS.syncStatus]: status,
+          [SHIPPING_RESULT_COLUMNS.syncMessage]: message,
+          [SHIPPING_RESULT_COLUMNS.shipmentId]: id,
         },
       });
       report.push({
@@ -1123,9 +1306,9 @@ export class SyncOrchestratorService {
       sheetRows.push({
         rowNumber: error.rowNumber,
         values: {
-          'Shipping Sync Status': status,
-          'Shipping Sync Message': message,
-          'Shipment ID': '',
+          [SHIPPING_RESULT_COLUMNS.syncStatus]: status,
+          [SHIPPING_RESULT_COLUMNS.syncMessage]: message,
+          [SHIPPING_RESULT_COLUMNS.shipmentId]: '',
         },
       });
       const rawRow = error.rawRowData as Record<string, unknown> | null;
@@ -1147,6 +1330,12 @@ export class SyncOrchestratorService {
         source.spreadsheetId,
         sheetRows,
         source.worksheetGid ?? undefined,
+        source.sourceType === SyncSourceType.STORE_ORDERS
+          ? {
+              minStartColumn:
+                STORE_ORDERS_SHEET_LAYOUT.shippingResultStartColumn,
+            }
+          : undefined,
       );
     }
     return report;
@@ -1155,8 +1344,37 @@ export class SyncOrchestratorService {
   /** Finds the sync source (if any) a Needs-Review job's rows should write back to — null for a plain manual upload/import, or when a later sync cycle has since moved the source's "most recent job" pointer elsewhere. Matches ANY source type — Store Orders' phone-match review and Shipping Updates' conflict review both flow through here. */
   private async findSourceForJob(jobId: string) {
     return this.prisma.syncSourceConfig.findFirst({
-      where: { importJobId: jobId, deletedAt: null },
+      where: {
+        deletedAt: null,
+        OR: [
+          { importJobId: jobId },
+          {
+            configMetadata: {
+              path: ['shippingSync', 'importJobId'],
+              equals: jobId,
+            },
+          },
+        ],
+      },
     });
+  }
+
+  private async isShippingJob(jobId: string): Promise<boolean> {
+    const job = await this.prisma.importJob.findUnique({
+      where: { id: jobId },
+      select: { importType: true },
+    });
+    return job?.importType === 'SHIPPING_UPDATES';
+  }
+
+  private shippingRowWriteOptions(source: {
+    sourceType: SyncSourceType;
+  }): { minStartColumn: string } | undefined {
+    return source.sourceType === SyncSourceType.STORE_ORDERS
+      ? {
+          minStartColumn: STORE_ORDERS_SHEET_LAYOUT.shippingResultStartColumn,
+        }
+      : undefined;
   }
 
   /** Confirm a Needs-Review row ("قبول الطلب" / a Shipping conflict override) — delegates to the same `ImportJobsService.confirmRow` the generic Needs Review screen uses, then writes the outcome back to the sheet in the correct column set for this source's type. */
@@ -1169,20 +1387,24 @@ export class SyncOrchestratorService {
     const result = await this.importJobs.confirmRow(jobId, rowId, userId);
 
     if (source && errorRow) {
-      if (source.sourceType === SyncSourceType.SHIPPING_UPDATES) {
+      if (
+        source.sourceType === SyncSourceType.SHIPPING_UPDATES ||
+        (await this.isShippingJob(jobId))
+      ) {
         await this.googleSheets.writeRowResults(
           source.spreadsheetId,
           [
             {
               rowNumber: errorRow.rowNumber,
               values: {
-                'Shipping Sync Status': 'UPDATED',
-                'Shipping Sync Message': 'تم تحديث حالة الشحن',
-                'Shipment ID': result.id,
+                [SHIPPING_RESULT_COLUMNS.syncStatus]: 'UPDATED',
+                [SHIPPING_RESULT_COLUMNS.syncMessage]: 'تم تحديث حالة الشحن',
+                [SHIPPING_RESULT_COLUMNS.shipmentId]: result.id,
               },
             },
           ],
           source.worksheetGid ?? undefined,
+          this.shippingRowWriteOptions(source),
         );
       } else {
         const order = await this.prisma.storeOrder.findUnique({
@@ -1218,20 +1440,24 @@ export class SyncOrchestratorService {
 
     if (source && errorRow) {
       const message = dto.note ?? dto.reasonCode;
-      if (source.sourceType === SyncSourceType.SHIPPING_UPDATES) {
+      if (
+        source.sourceType === SyncSourceType.SHIPPING_UPDATES ||
+        (await this.isShippingJob(jobId))
+      ) {
         await this.googleSheets.writeRowResults(
           source.spreadsheetId,
           [
             {
               rowNumber: errorRow.rowNumber,
               values: {
-                'Shipping Sync Status': 'REJECTED',
-                'Shipping Sync Message': message,
-                'Shipment ID': '',
+                [SHIPPING_RESULT_COLUMNS.syncStatus]: 'REJECTED',
+                [SHIPPING_RESULT_COLUMNS.syncMessage]: message,
+                [SHIPPING_RESULT_COLUMNS.shipmentId]: '',
               },
             },
           ],
           source.worksheetGid ?? undefined,
+          this.shippingRowWriteOptions(source),
         );
       } else {
         await this.googleSheets.writeRowResults(

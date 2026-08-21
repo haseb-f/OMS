@@ -6,6 +6,7 @@ import {
 import { google, sheets_v4 } from 'googleapis';
 import {
   planManagedColumnWrites,
+  planMissingResultColumnIndexes,
   resolveResultColumnIndexes,
   type ManagedColumnLayout,
 } from './google-sheets.managed-columns';
@@ -279,6 +280,7 @@ export class GoogleSheetsService {
     spreadsheetId: string,
     columnNames: string[],
     gid?: string,
+    options?: { minStartColumn?: string },
   ): Promise<Record<string, string>> {
     const title = await this.resolveSheetTitle(spreadsheetId, gid);
     const headers = await this.getHeaders(spreadsheetId, gid);
@@ -290,21 +292,29 @@ export class GoogleSheetsService {
     for (const [name, index] of Object.entries(columnIndexByName)) {
       columnLetters[name] = columnIndexToLetter(index);
     }
-    if (missing.length > 0) {
-      const startIndex = headers.length;
-      try {
-        await this.sheetsClient().spreadsheets.values.update({
-          spreadsheetId,
-          range: `${quoteSheetTitle(title)}!${columnIndexToLetter(startIndex)}1`,
+    if (missing.length === 0) return columnLetters;
+
+    const planned = planMissingResultColumnIndexes(
+      headers,
+      missing,
+      options?.minStartColumn,
+    );
+    try {
+      await this.sheetsClient().spreadsheets.values.batchUpdate({
+        spreadsheetId,
+        requestBody: {
           valueInputOption: 'RAW',
-          requestBody: { values: [missing] },
-        });
-      } catch (error) {
-        throw this.mapError(error, 'write');
-      }
-      missing.forEach((name, offset) => {
-        columnLetters[name] = columnIndexToLetter(startIndex + offset);
+          data: missing.map((name) => ({
+            range: `${quoteSheetTitle(title)}!${columnIndexToLetter(planned[name])}1`,
+            values: [[name]],
+          })),
+        },
       });
+    } catch (error) {
+      throw this.mapError(error, 'write');
+    }
+    for (const [name, index] of Object.entries(planned)) {
+      columnLetters[name] = columnIndexToLetter(index);
     }
     return columnLetters;
   }
@@ -322,6 +332,7 @@ export class GoogleSheetsService {
     spreadsheetId: string,
     rows: { rowNumber: number; values: Record<string, string> }[],
     gid?: string,
+    options?: { minStartColumn?: string },
   ): Promise<void> {
     if (rows.length === 0) return;
     const columnNames = [
@@ -331,6 +342,7 @@ export class GoogleSheetsService {
       spreadsheetId,
       columnNames,
       gid,
+      options,
     );
     const title = await this.resolveSheetTitle(spreadsheetId, gid);
     const data = rows.flatMap((row) =>

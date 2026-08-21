@@ -255,12 +255,22 @@ describe('ImportTemplateService — Master Data dropdowns', () => {
     expect(headerValues[17]).toBe('Sync Status');
     expect(headerValues[18]).toBe('System Order ID');
     expect(headerValues[19]).toBe('Error Message');
-    expect(headerValues[20]).toBeUndefined();
+    expect(headerValues[20]).toBe('Status');
+    expect(headerValues[21]).toBe('Tracking Number');
+    expect(headerValues[22]).toBe('Shipping Company');
+    expect(headerValues[23]).toBe('Shipping Label URL');
+    expect(headerValues[24]).toBe('Shipping Sync Status');
+    expect(headerValues[25]).toBe('Shipping Sync Message');
+    expect(headerValues[26]).toBe('Shipment ID');
+    expect(headerValues[27]).toBeUndefined();
 
     // Confirmed against the real column letters, not just array position.
     expect(dataSheet.getColumn(17).letter).toBe('Q');
     expect(dataSheet.getColumn(18).letter).toBe('R');
     expect(dataSheet.getColumn(19).letter).toBe('S');
+    expect(dataSheet.getColumn(20).letter).toBe('T');
+    expect(dataSheet.getColumn(23).letter).toBe('W');
+    expect(dataSheet.getColumn(24).letter).toBe('X');
   });
 
   it('Store Orders template — the reserved result columns have no dropdown/validation and are absent from the Field Guide', async () => {
@@ -268,7 +278,7 @@ describe('ImportTemplateService — Master Data dropdowns', () => {
     const workbook = new Workbook();
     await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
     const dataSheet = workbook.getWorksheet('Import Data')!;
-    for (const column of [17, 18, 19]) {
+    for (const column of [17, 18, 19, 24, 25, 26]) {
       expect(dataSheet.getCell(2, column).dataValidation).toBeUndefined();
     }
 
@@ -282,6 +292,8 @@ describe('ImportTemplateService — Master Data dropdowns', () => {
     expect(guideColumnNames.has('Sync Status')).toBe(false);
     expect(guideColumnNames.has('System Order ID')).toBe(false);
     expect(guideColumnNames.has('Error Message')).toBe(false);
+    expect(guideColumnNames.has('Shipping Sync Status')).toBe(false);
+    expect(guideColumnNames.has('Payment Type')).toBe(false);
   });
 
   it('a freshly downloaded template reflects a Country created after the previous download', async () => {

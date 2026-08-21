@@ -71,21 +71,35 @@ export function SyncButton({
     })[0];
   }, [sources]);
 
+  const shippingRunAs =
+    sourceType === "SHIPPING_UPDATES" ? ("SHIPPING_UPDATES" as const) : undefined;
+
   const runPreview = useCallback(
     async (options?: { retryRowNumbers?: number[]; retryAllFailed?: boolean }) => {
       const fresh = await syncService.listSources(sourceType);
       setSources(fresh);
       const enabled = fresh.filter((source) => source.enabled);
       if (enabled.length === 0) {
-        toast.error(t("importCenter.sync.noSource"), {
-          description: t("importCenter.sync.configureHint"),
-        });
+        toast.error(
+          sourceType === "SHIPPING_UPDATES"
+            ? t("importCenter.sync.noSourceShipping")
+            : t("importCenter.sync.noSource"),
+          {
+            description:
+              sourceType === "SHIPPING_UPDATES"
+                ? t("importCenter.sync.configureHintShipping")
+                : t("importCenter.sync.configureHint"),
+          },
+        );
         return false;
       }
       const previews = await Promise.all(
         enabled.map(async (source) => ({
           source,
-          preview: await syncService.preview(source.id, options),
+          preview: await syncService.preview(source.id, {
+            ...options,
+            ...(shippingRunAs ? { runAs: shippingRunAs } : {}),
+          }),
         })),
       );
       setItems(previews);
@@ -93,7 +107,7 @@ export function SyncButton({
       setOpen(true);
       return true;
     },
-    [sourceType, t],
+    [sourceType, t, shippingRunAs],
   );
 
   if (!canSync) return null;
@@ -116,7 +130,7 @@ export function SyncButton({
     try {
       const results = await Promise.all(
         commits.map((commit) =>
-          syncService.commit(commit.sourceId, commit.jobId, commit.acceptRowNumbers),
+          syncService.commit(commit.sourceId, commit.jobId, commit.acceptRowNumbers, shippingRunAs),
         ),
       );
       const writebackError = results.find((result) => result.writebackError)?.writebackError;

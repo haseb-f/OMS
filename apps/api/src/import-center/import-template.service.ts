@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { createHash } from 'crypto';
-import { Workbook } from 'exceljs';
+import { Workbook, type Cell, type Worksheet } from 'exceljs';
 import { ImportTypeRegistryService } from './import-type-registry.service';
 import { ReferenceDataRegistryService } from './reference-data/reference-data-registry.service';
 import type { ImportFieldDef, ImportFieldType } from './import-type.interface';
+import {
+  SHIPPING_INPUT_COLUMN_NAMES,
+  SHIPPING_RESULT_COLUMN_NAMES,
+} from './sync/store-orders-sheet.columns';
 
 const FORMAT_HINT: Record<ImportFieldType, string> = {
   string: 'Text',
@@ -59,13 +63,22 @@ export class ImportTemplateService {
       workbook,
       handler.fields,
     );
+    const templateFields = handler.fields.filter(
+      (field) => !field.omitFromTemplate,
+    );
+    const trailingInputColumns =
+      handler.type === 'STORE_ORDERS' ? [...SHIPPING_INPUT_COLUMN_NAMES] : [];
+    const trailingResultColumns =
+      handler.type === 'STORE_ORDERS' ? [...SHIPPING_RESULT_COLUMN_NAMES] : [];
     this.buildDataSheet(
       workbook,
-      handler.fields,
+      templateFields,
       referenceColumns,
       handler.resultColumns ?? [],
+      trailingInputColumns,
+      trailingResultColumns,
     );
-    this.buildFieldGuideSheet(workbook, handler.fields, type);
+    this.buildFieldGuideSheet(workbook, templateFields, type);
 
     const arrayBuffer = await workbook.xlsx.writeBuffer();
     const fileName = `${type.toLowerCase().replace(/_/g, '-')}-import-template.xlsx`;
@@ -168,10 +181,16 @@ export class ImportTemplateService {
     fields: ImportFieldDef[],
     referenceColumns: Map<string, string>,
     resultColumns: string[],
+    trailingInputColumns: string[] = [],
+    trailingResultColumns: string[] = [],
   ) {
     const sheet = workbook.addWorksheet('Import Data', {
       views: [{ state: 'frozen', ySplit: 1 }],
     });
+    const resultStart = fields.length + 1;
+    const trailingInputStart = resultStart + resultColumns.length;
+    const trailingResultStart =
+      trailingInputStart + trailingInputColumns.length;
     sheet.columns = [
       ...fields.map((field) => ({
         header: `${field.label}${field.required ? ' *' : ''}`,
@@ -183,23 +202,51 @@ export class ImportTemplateService {
         key: `__result__${label}`,
         width: Math.max(18, label.length + 4),
       })),
+      ...trailingInputColumns.map((label) => ({
+        header: label,
+        key: `__shipping_input__${label}`,
+        width: Math.max(18, label.length + 4),
+      })),
+      ...trailingResultColumns.map((label) => ({
+        header: label,
+        key: `__shipping_result__${label}`,
+        width: Math.max(18, label.length + 4),
+      })),
     ];
 
     const headerRow = sheet.getRow(1);
     headerRow.eachCell((cell, colNumber) => {
-      // A reserved result column (past the last real field) — the OMS
-      // sync write-back, never user input; styled distinctly (grey, not
-      // red/dark-grey) and never gets validation/a Field Guide row.
-      if (colNumber > fields.length) {
-        cell.font = { bold: true, italic: true, color: { argb: 'FF2C3E50' } };
+      if (
+        colNumber >= trailingResultStart &&
+        trailingResultColumns.length > 0
+      ) {
+        this.styleResultHeader(
+          cell,
+          'Reserved — written by OMS after Shipping Sync. Do not enter employee shipping data here.',
+        );
+        return;
+      }
+      if (
+        colNumber >= trailingInputStart &&
+        trailingInputColumns.length > 0 &&
+        colNumber < trailingResultStart
+      ) {
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
         cell.fill = {
           type: 'pattern',
           pattern: 'solid',
-          fgColor: { argb: RESULT_HEADER_ARGB },
+          fgColor: { argb: OPTIONAL_HEADER_ARGB },
         };
         cell.alignment = { vertical: 'middle', horizontal: 'left' };
         cell.note =
-          'Reserved — written by OMS after each sync (Sync Status / System Order ID / Error Message). Do not enter import data here.';
+          'Employee shipping input — filled after Store Orders Sync. Shipping Sync reads these cells and never overwrites them.';
+        return;
+      }
+      if (colNumber >= resultStart) {
+        this.styleResultHeader(
+          cell,
+          'Reserved — written by OMS after each Store Orders sync (Sync Status / System Order ID / Error Message). Do not enter import data here.',
+        );
         return;
       }
       const field = fields[colNumber - 1];
@@ -227,20 +274,12 @@ export class ImportTemplateService {
         .join('\n');
     });
 
-    // Reserved result columns get a light fill on every data row too, so
-    // the "do not type here" boundary is visible without opening the note.
-    if (resultColumns.length > 0) {
-      for (let rowNumber = 2; rowNumber <= TEMPLATE_ROWS; rowNumber++) {
-        for (let offset = 0; offset < resultColumns.length; offset++) {
-          const cell = sheet.getCell(rowNumber, fields.length + 1 + offset);
-          cell.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: RESULT_ROW_ARGB },
-          };
-        }
-      }
-    }
+    this.fillResultRows(sheet, resultStart, resultColumns.length);
+    this.fillResultRows(
+      sheet,
+      trailingResultStart,
+      trailingResultColumns.length,
+    );
 
     fields.forEach((field, index) => {
       const column = index + 1;
@@ -281,6 +320,31 @@ export class ImportTemplateService {
         }
       }
     });
+  }
+
+  private styleResultHeader(cell: Cell, note: string) {
+    cell.font = { bold: true, italic: true, color: { argb: 'FF2C3E50' } };
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: RESULT_HEADER_ARGB },
+    };
+    cell.alignment = { vertical: 'middle', horizontal: 'left' };
+    cell.note = note;
+  }
+
+  private fillResultRows(sheet: Worksheet, startColumn: number, count: number) {
+    if (count === 0) return;
+    for (let rowNumber = 2; rowNumber <= TEMPLATE_ROWS; rowNumber++) {
+      for (let offset = 0; offset < count; offset++) {
+        const cell = sheet.getCell(rowNumber, startColumn + offset);
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: RESULT_ROW_ARGB },
+        };
+      }
+    }
   }
 
   private buildFieldGuideSheet(

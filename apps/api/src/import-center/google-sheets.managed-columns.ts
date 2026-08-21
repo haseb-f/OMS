@@ -60,6 +60,36 @@ export function resolveResultColumnIndexes(
   };
 }
 
+/**
+ * Places missing result headers without moving existing named columns.
+ * `minStartColumn` keeps a later section (e.g. Shipping Sync X+) from
+ * landing in an earlier reserved block (employee T:W) when those cells
+ * have no header yet.
+ */
+export function planMissingResultColumnIndexes(
+  headers: string[],
+  missingNames: string[],
+  minStartColumn?: string,
+): Record<string, number> {
+  const occupied = new Set<number>();
+  headers.forEach((header, index) => {
+    if (headerKey(header)) occupied.add(index);
+  });
+  let nextIndex = minStartColumn
+    ? columnLetterToIndex(minStartColumn)
+    : headers.length;
+  const planned: Record<string, number> = {};
+  for (const name of missingNames) {
+    while (occupied.has(nextIndex) || headerKey(headers[nextIndex])) {
+      nextIndex += 1;
+    }
+    planned[name] = nextIndex;
+    occupied.add(nextIndex);
+    nextIndex += 1;
+  }
+  return planned;
+}
+
 export function columnLetterToIndex(letter: string): number {
   const normalized = letter.trim().toUpperCase();
   let index = 0;

@@ -3325,7 +3325,10 @@ const en = {
         "Reads the latest data from Google Sheets and applies validation and duplicate-detection rules before anything is entered into the system.",
       loading: "Syncing…",
       noSource: "No sync source is configured for this module yet.",
+      noSourceShipping: "The Store Orders Google Sheets source is not configured yet.",
       configureHint: "Configure a sync source in Import Center to enable this.",
+      configureHintShipping:
+        "Configure the Store Orders Google Sheets source — Shipping Sync uses that same source.",
       disabledSource: "This sync source is disabled.",
       previewTitle: "Sync Preview — {label}",
       previewDescription: "Review what will change before committing anything.",
@@ -3374,8 +3377,7 @@ const en = {
         },
         shippingUpdates: {
           title: "Sync Shipping Updates",
-          description:
-            "Sync shipping status, shipping company, tracking number, and label from Google Sheets.",
+          description: "Uses the same Google Sheets source as Store Orders synchronization.",
         },
         listSheet: {
           title: "Sync OMS Data to List Sheet",

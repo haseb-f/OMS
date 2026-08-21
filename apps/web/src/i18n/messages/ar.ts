@@ -3289,7 +3289,10 @@ const ar = {
         "تقوم هذه العملية بقراءة آخر البيانات من Google Sheets وتطبيق قواعد التحقق ومنع التكرار قبل إدخالها للنظام.",
       loading: "جارٍ المزامنة…",
       noSource: "لم يتم إعداد مصدر مزامنة لهذه الوحدة بعد.",
+      noSourceShipping: "لم يتم إعداد مصدر Google Sheets لمزامنة طلبات المتجر بعد.",
       configureHint: "قم بإعداد مصدر مزامنة من مركز الاستيراد لتفعيل هذا الإجراء.",
+      configureHintShipping:
+        "إعداد مصدر مزامنة طلبات المتجر يكفي — مزامنة الشحن تستخدم نفس المصدر.",
       disabledSource: "مصدر المزامنة هذا معطّل.",
       previewTitle: "معاينة المزامنة — {label}",
       previewDescription: "راجع ما سيتغيّر قبل تأكيد أي إجراء.",
@@ -3339,7 +3342,7 @@ const ar = {
         },
         shippingUpdates: {
           title: "مزامنة تحديثات الشحن",
-          description: "مزامنة حالات الشحن وشركة الشحن ورقم التتبع وبوليصة الشحن من Google Sheets.",
+          description: "تستخدم نفس مصدر Google Sheets الخاص بمزامنة طلبات المتجر.",
         },
         listSheet: {
           title: "مزامنة بيانات OMS مع List Sheet",

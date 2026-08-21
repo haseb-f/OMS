@@ -138,16 +138,29 @@ export const syncService = {
   archiveSource: (id: string) => apiClient.delete<SyncSource>(`/import-center/sync/sources/${id}`),
 
   /** Step 1 — fetch + validate. Store Orders also writes row-level errors back to the sheet. */
-  preview: (sourceId: string, options?: { retryRowNumbers?: number[]; retryAllFailed?: boolean }) =>
+  preview: (
+    sourceId: string,
+    options?: {
+      retryRowNumbers?: number[];
+      retryAllFailed?: boolean;
+      runAs?: "SHIPPING_UPDATES";
+    },
+  ) =>
     apiClient.post<SyncPreviewResult>(
       `/import-center/sync/sources/${sourceId}/preview`,
       options ?? {},
     ),
   /** Step 2 — requires the exact `jobId` a just-run `preview()` returned. */
-  commit: (sourceId: string, jobId: string, acceptRowNumbers?: number[]) =>
+  commit: (
+    sourceId: string,
+    jobId: string,
+    acceptRowNumbers?: number[],
+    runAs?: "SHIPPING_UPDATES",
+  ) =>
     apiClient.post<SyncCommitResult>(`/import-center/sync/sources/${sourceId}/commit`, {
       jobId,
       ...(acceptRowNumbers === undefined ? {} : { acceptRowNumbers }),
+      ...(runAs ? { runAs } : {}),
     }),
 
   /** OMS → official Google List Sheet (master/reference dropdown values). */

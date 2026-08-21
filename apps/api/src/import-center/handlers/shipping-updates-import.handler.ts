@@ -21,6 +21,7 @@ import {
   matchShippingStatusRecord,
   OPERATIONAL_SHIPMENT_STATUS_CODES,
 } from '../../shipping/shipping-status.catalog';
+import { SHIPPING_RESULT_COLUMN_NAMES } from '../sync/store-orders-sheet.columns';
 
 /**
  * The 6 usable Store Order ShipmentStatus values — the two legacy RETURN_*
@@ -146,6 +147,7 @@ export class ShippingUpdatesImportHandler
   readonly descriptionKey = 'importCenter.types.shippingUpdates.description';
   readonly fields = FIELDS;
   readonly isAvailable = true;
+  readonly resultColumns = [...SHIPPING_RESULT_COLUMN_NAMES];
 
   constructor(
     private readonly prisma: PrismaService,

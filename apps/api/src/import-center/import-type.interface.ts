@@ -55,6 +55,12 @@ export interface ImportFieldDef {
    * that's the field this was built to fix.
    */
   referenceDisplayWithCode?: boolean;
+  /**
+   * Keep the field in mapping/import, but do not occupy a sequential
+   * template column. Used so optional named columns (e.g. Payment Type)
+   * cannot shift the reserved Q:R:S result block.
+   */
+  omitFromTemplate?: boolean;
 }
 
 /** Row-level pre-flight validation options (Phase 1) — see `ImportTypeHandler.importRow`'s `dryRun` note. */

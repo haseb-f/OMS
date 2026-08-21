@@ -241,9 +241,6 @@ function CreateSourceDialog({
                   <SelectItem value="CASH_FLOW">
                     {t("masterData.bankTransactions.title")}
                   </SelectItem>
-                  <SelectItem value="SHIPPING_UPDATES">
-                    {t("importCenter.types.shippingUpdates.label")}
-                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>

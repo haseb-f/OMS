@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -23,4 +24,9 @@ export class CommitSyncDto {
   @Type(() => Number)
   @IsInt({ each: true })
   acceptRowNumbers?: number[];
+
+  /** Same `runAs` the matching preview used — required when Shipping Sync reuses a Store Orders source. */
+  @IsOptional()
+  @IsIn(['SHIPPING_UPDATES'])
+  runAs?: 'SHIPPING_UPDATES';
 }

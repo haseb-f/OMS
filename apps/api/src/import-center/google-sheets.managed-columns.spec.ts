@@ -1,5 +1,6 @@
 import {
   planManagedColumnWrites,
+  planMissingResultColumnIndexes,
   resolveResultColumnIndexes,
 } from './google-sheets.managed-columns';
 
@@ -136,5 +137,39 @@ describe('planManagedColumnWrites', () => {
     expect(plan.writes[0].columnIndex).toBe(0);
     expect(plan.writes[0].startRow).toBe(3);
     expect(plan.headerWrites).toEqual([]);
+  });
+
+  it('places missing shipping result headers at X even when T:W have no headers', () => {
+    const headers = [
+      'External Order ID',
+      ...Array.from({ length: 15 }, (_, i) => `Src ${i}`),
+      'Sync Status',
+      'System Order ID',
+      'Error Message',
+    ];
+    expect(headers).toHaveLength(19);
+    const planned = planMissingResultColumnIndexes(
+      headers,
+      ['Shipping Sync Status', 'Shipping Sync Message', 'Shipment ID'],
+      'X',
+    );
+    expect(planned['Shipping Sync Status']).toBe(23);
+    expect(planned['Shipping Sync Message']).toBe(24);
+    expect(planned['Shipment ID']).toBe(25);
+  });
+
+  it('reuses an existing named shipping result column instead of moving it', () => {
+    const resolved = resolveResultColumnIndexes(
+      ['A', 'Shipping Sync Status'],
+      ['Shipping Sync Status', 'Shipping Sync Message'],
+    );
+    expect(resolved.columnIndexByName['Shipping Sync Status']).toBe(1);
+    const planned = planMissingResultColumnIndexes(
+      ['A', 'Shipping Sync Status'],
+      resolved.missing,
+      'X',
+    );
+    expect(planned['Shipping Sync Message']).toBe(23);
+    expect(planned['Shipping Sync Status']).toBeUndefined();
   });
 });

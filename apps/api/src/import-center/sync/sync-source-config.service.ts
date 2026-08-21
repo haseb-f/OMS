@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, SyncRunStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { GoogleSheetsService } from '../google-sheets.service';
 import { parseGoogleSheetsUrl } from '../google-sheets.util';
@@ -27,6 +27,9 @@ export class SyncSourceConfigService {
   ) {}
 
   async findAll(sourceType?: string) {
+    if (sourceType === 'SHIPPING_UPDATES') {
+      return this.findShippingSyncSources();
+    }
     const sources = await this.prisma.syncSourceConfig.findMany({
       where: {
         deletedAt: null,
@@ -35,6 +38,62 @@ export class SyncSourceConfigService {
       orderBy: [{ sourceType: 'asc' }, { label: 'asc' }],
     });
     return this.attachLastSyncUser(sources);
+  }
+
+  /**
+   * Shipping Sync uses the Store Orders Google Sheets source. A leftover
+   * `SHIPPING_UPDATES` config is returned only when it does not share a
+   * spreadsheet with a Store Orders source — never a second source the
+   * administrator must configure.
+   */
+  private async findShippingSyncSources() {
+    const [storeOrders, shipping] = await Promise.all([
+      this.prisma.syncSourceConfig.findMany({
+        where: { deletedAt: null, sourceType: 'STORE_ORDERS' },
+        orderBy: { label: 'asc' },
+      }),
+      this.prisma.syncSourceConfig.findMany({
+        where: { deletedAt: null, sourceType: 'SHIPPING_UPDATES' },
+        orderBy: { label: 'asc' },
+      }),
+    ]);
+    const storeKeys = new Set(
+      storeOrders.map(
+        (source) => `${source.spreadsheetId}:${source.worksheetGid ?? ''}`,
+      ),
+    );
+    const orphanShipping = shipping.filter(
+      (source) =>
+        !storeKeys.has(`${source.spreadsheetId}:${source.worksheetGid ?? ''}`),
+    );
+    const reused = storeOrders.map((source) => {
+      const shippingMeta = (
+        (source.configMetadata ?? {}) as {
+          shippingSync?: {
+            lastSyncedAt?: string;
+            lastSyncStatus?: string;
+            lastSyncUserId?: string | null;
+            lastSyncSummary?: {
+              totalRows: number;
+              importedCount: number;
+              errorCount: number;
+            };
+          };
+        }
+      ).shippingSync;
+      return {
+        ...source,
+        lastSyncedAt: shippingMeta?.lastSyncedAt
+          ? new Date(shippingMeta.lastSyncedAt)
+          : null,
+        lastSyncStatus:
+          (shippingMeta?.lastSyncStatus as SyncRunStatus | undefined) ??
+          SyncRunStatus.NEVER_RUN,
+        lastSyncUserId: shippingMeta?.lastSyncUserId ?? null,
+        lastSyncSummary: shippingMeta?.lastSyncSummary ?? null,
+      };
+    });
+    return this.attachLastSyncUser([...reused, ...orphanShipping]);
   }
 
   async findOne(id: string) {
