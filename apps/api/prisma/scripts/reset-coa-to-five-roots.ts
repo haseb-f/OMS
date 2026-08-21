@@ -93,7 +93,11 @@ async function main() {
   const removable: typeof nonRoots = [];
   const blocked: { code: string; name: string; deps: string }[] = [];
   for (const row of nonRoots) {
-    const deps = await usageExternal(row.id);
+    // Parent/child links among accounts being removed are not blockers
+    // (same as ChartOfAccountsService.buildResetToFiveRootsPlan).
+    const deps = (await usageExternal(row.id)).filter(
+      (d) => d.key !== 'childAccounts',
+    );
     if (deps.length === 0) removable.push(row);
     else
       blocked.push({
@@ -129,25 +133,28 @@ async function main() {
     throw new Error(`Blocked by ${blocked.length} account(s)`);
   }
 
-  await prisma.$transaction(async (tx) => {
-    for (const row of removable) {
-      await tx.chartOfAccount.delete({ where: { id: row.id } });
-    }
-    for (const root of await tx.chartOfAccount.findMany({
-      where: { code: { in: [...ROOTS] }, deletedAt: null },
-    })) {
-      await tx.chartOfAccount.update({
-        where: { id: root.id },
-        data: {
-          parentAccountId: null,
-          level: 1,
-          allowsPosting: false,
-          isSystemAccount: true,
-          name: ROOT_NAMES[root.accountType] ?? root.name,
-        },
-      });
-    }
-  });
+  await prisma.$transaction(
+    async (tx) => {
+      for (const row of removable) {
+        await tx.chartOfAccount.delete({ where: { id: row.id } });
+      }
+      for (const root of await tx.chartOfAccount.findMany({
+        where: { code: { in: [...ROOTS] }, deletedAt: null },
+      })) {
+        await tx.chartOfAccount.update({
+          where: { id: root.id },
+          data: {
+            parentAccountId: null,
+            level: 1,
+            allowsPosting: false,
+            isSystemAccount: true,
+            name: ROOT_NAMES[root.accountType] ?? root.name,
+          },
+        });
+      }
+    },
+    { timeout: 120_000, maxWait: 30_000 },
+  );
 
   const remaining = await prisma.chartOfAccount.findMany({
     where: { deletedAt: null },

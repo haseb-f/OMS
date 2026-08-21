@@ -831,27 +831,30 @@ export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount
     }
 
     const removable = plan.removable;
-    await this.prisma.$transaction(async (tx) => {
-      // Deepest accounts first so parent FKs among CoA rows do not block.
-      const ordered = [...removable].sort((a, b) => b.level - a.level);
-      for (const account of ordered) {
-        await tx.chartOfAccount.delete({ where: { id: account.id } });
-      }
-      for (const root of await tx.chartOfAccount.findMany({
-        where: { code: { in: [...SYSTEM_ROOT_CODES] }, deletedAt: null },
-      })) {
-        await tx.chartOfAccount.update({
-          where: { id: root.id },
-          data: {
-            parentAccountId: null,
-            level: 1,
-            allowsPosting: false,
-            isSystemAccount: true,
-            name: ROOT_ACCOUNT_NAMES[root.accountType],
-          },
-        });
-      }
-    });
+    await this.prisma.$transaction(
+      async (tx) => {
+        // Deepest accounts first so parent FKs among CoA rows do not block.
+        const ordered = [...removable].sort((a, b) => b.level - a.level);
+        for (const account of ordered) {
+          await tx.chartOfAccount.delete({ where: { id: account.id } });
+        }
+        for (const root of await tx.chartOfAccount.findMany({
+          where: { code: { in: [...SYSTEM_ROOT_CODES] }, deletedAt: null },
+        })) {
+          await tx.chartOfAccount.update({
+            where: { id: root.id },
+            data: {
+              parentAccountId: null,
+              level: 1,
+              allowsPosting: false,
+              isSystemAccount: true,
+              name: ROOT_ACCOUNT_NAMES[root.accountType],
+            },
+          });
+        }
+      },
+      { timeout: 120_000, maxWait: 30_000 },
+    );
 
     const after = await this.buildResetToFiveRootsPlan();
     return {
