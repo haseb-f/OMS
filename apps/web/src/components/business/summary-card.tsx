@@ -23,18 +23,18 @@ export function SummaryCard({
   className?: string;
 }) {
   return (
-    <EnterpriseCard className={className}>
-      <EnterpriseCardHeader>
+    <EnterpriseCard size="sm" className={className}>
+      <EnterpriseCardHeader className="border-b border-border/70 pb-2">
         <EnterpriseCardTitle>{title}</EnterpriseCardTitle>
       </EnterpriseCardHeader>
-      <EnterpriseCardContent className="flex flex-col gap-2.5">
+      <EnterpriseCardContent className="flex flex-col gap-2">
         {rows.map((row, index) => (
           <div
             key={index}
             className={
               row.emphasis
-                ? "flex items-center justify-between border-t border-border pt-2.5 text-body font-semibold"
-                : "flex items-center justify-between text-body text-muted-foreground"
+                ? "flex items-center justify-between gap-3 border-t border-border pt-2 text-body font-semibold"
+                : "flex items-center justify-between gap-3 text-body text-muted-foreground"
             }
           >
             <span>{row.label}</span>

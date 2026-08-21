@@ -18,7 +18,7 @@ function EnterpriseCard({
         // resting shadow. Elevation is reserved for genuinely floating layers
         // (menus, popovers, dialogs) so a page of cards reads as one dense
         // console rather than a stack of raised panels.
-        "group/card flex flex-col gap-4 overflow-hidden rounded-md border border-border bg-card py-(--card-spacing) text-body text-card-foreground transition-colors duration-[170ms] ease-(--ease-standard) [--card-spacing:--spacing(5)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-3 data-[size=sm]:[--card-spacing:--spacing(4)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 data-[clickable=true]:cursor-pointer data-[clickable=true]:hover:border-foreground/20 data-[clickable=true]:hover:bg-muted/30 *:[img:first-child]:rounded-t-md *:[img:last-child]:rounded-b-md",
+        "group/card flex flex-col gap-3 overflow-hidden rounded-md border border-border bg-card py-(--card-spacing) text-body text-card-foreground transition-colors duration-[170ms] ease-(--ease-standard) [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-2 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 data-[clickable=true]:cursor-pointer data-[clickable=true]:hover:border-foreground/20 data-[clickable=true]:hover:bg-muted/30 *:[img:first-child]:rounded-t-md *:[img:last-child]:rounded-b-md",
         className,
       )}
       {...props}
@@ -83,7 +83,7 @@ function EnterpriseCardFooter({ className, ...props }: React.ComponentProps<"div
     <div
       data-slot="card-footer"
       className={cn(
-        "flex items-center rounded-b-md border-t bg-muted/40 px-(--card-spacing) py-3",
+        "flex items-center rounded-b-md border-t bg-muted/40 px-(--card-spacing) py-2",
         className,
       )}
       {...props}

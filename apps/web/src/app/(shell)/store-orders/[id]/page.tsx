@@ -8,6 +8,7 @@ import {
   DetailField,
   DetailFieldGrid,
   DetailSection,
+  DetailSummaryBar,
   DetailWorkspace,
 } from "@/components/shared/detail-workspace";
 import { CompactDetailTable, RowActionsMenu } from "@/components/shared/data-table";
@@ -259,14 +260,36 @@ function StoreOrderDetailContent() {
         />
       }
     >
-      {order.customer?.name || phone ? (
+      <DetailSummaryBar>
+        <DetailField
+          label={t("storeOrders.fields.customer")}
+          value={order.customer?.name ?? undefined}
+        />
+        <DetailField
+          label={t("storeOrders.fields.phone")}
+          value={phone ? <SemanticValue kind="phone">{phone}</SemanticValue> : undefined}
+        />
+        <DetailField
+          label={t("storeOrders.fields.orderDate")}
+          value={formatDate(order.orderDate)}
+        />
+        <DetailField
+          label={t("storeOrders.fields.total")}
+          value={<MoneyValue value={order.total ?? "0"} currency={order.currency} />}
+        />
+        <DetailField
+          label={t("storeOrders.detail.payments.paid")}
+          value={<MoneyValue value={paidAmount} currency={order.currency} />}
+        />
+        <DetailField
+          label={t("storeOrders.detail.payments.remaining")}
+          value={<MoneyValue value={remainingAmount} currency={order.currency} />}
+        />
+      </DetailSummaryBar>
+
+      {order.customer?.email || order.customer?.address || order.customer?.city ? (
         <DetailSection title={t("storeOrders.detail.sections.customer")}>
           <DetailFieldGrid columns={3}>
-            <DetailField label={t("storeOrders.fields.customer")} value={order.customer?.name} />
-            <DetailField
-              label={t("storeOrders.fields.phone")}
-              value={phone ? <SemanticValue kind="phone">{phone}</SemanticValue> : undefined}
-            />
             <DetailField
               label={t("storeOrders.createDialog.fields.customerEmail")}
               value={
@@ -290,10 +313,6 @@ function StoreOrderDetailContent() {
       <DetailSection title={t("storeOrders.detail.sections.orderSummary")}>
         <DetailFieldGrid columns={3}>
           <DetailField
-            label={t("storeOrders.fields.orderDate")}
-            value={formatDate(order.orderDate)}
-          />
-          <DetailField
             label={t("storeOrders.fields.externalOrderId")}
             value={
               order.externalOrderId ? (
@@ -314,43 +333,6 @@ function StoreOrderDetailContent() {
             value={order.currency?.code ?? order.currency?.name}
           />
           <DetailField label={t("storeOrders.fields.employee")} value={order.employee?.fullName} />
-          <DetailField
-            label={t("storeOrders.fields.shippingStage")}
-            value={
-              <StatusBadge
-                label={
-                  order.shippingStatus?.name ?? t(SHIPPING_STAGE_LABEL_KEY[order.shippingStage])
-                }
-                tone={
-                  order.shippingStatus
-                    ? catalogStatusTone(order.shippingStatus.color)
-                    : SHIPPING_STAGE_TONE[order.shippingStage]
-                }
-              />
-            }
-          />
-          <DetailField
-            label={t("storeOrders.fields.paymentType")}
-            value={
-              <StatusBadge
-                label={
-                  order.paymentType
-                    ? t(PAYMENT_TYPE_LABEL_KEY[order.paymentType])
-                    : t("storeOrders.paymentType.PREPAID")
-                }
-                tone="neutral"
-              />
-            }
-          />
-          <DetailField
-            label={t("storeOrders.fields.paymentStatus")}
-            value={
-              <StatusBadge
-                label={t(financialStatusLabelKey(order.paymentStatus, order.paymentType))}
-                tone={PAYMENT_STATUS_TONE[order.paymentStatus]}
-              />
-            }
-          />
         </DetailFieldGrid>
       </DetailSection>
 

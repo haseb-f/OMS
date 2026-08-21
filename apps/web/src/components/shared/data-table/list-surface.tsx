@@ -17,7 +17,9 @@ export function ListSurface({ children, className }: { children: ReactNode; clas
   return (
     <div
       className={cn(
-        "relative flex min-w-0 flex-col overflow-hidden rounded-sm border border-border bg-card",
+        // Contained data area: stronger edge than page chrome so tables read
+        // as one card (toolbar + grid + footer), not floating rows on bg.
+        "relative flex min-w-0 flex-col overflow-hidden rounded-md border border-border bg-card shadow-[0_1px_0_0_color-mix(in_oklab,var(--border)_80%,transparent)] ring-1 ring-border/60",
         className,
       )}
     >
@@ -31,7 +33,7 @@ export function ListToolbar({ children, className }: { children: ReactNode; clas
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center gap-2 border-b border-border px-4 py-2 sm:px-5",
+        "flex flex-wrap items-center gap-2 border-b border-border bg-muted/30 px-3 py-2 sm:px-4",
         className,
       )}
     >
@@ -42,7 +44,11 @@ export function ListToolbar({ children, className }: { children: ReactNode; clas
 
 /** Summary/pagination strip pinned to the bottom of a `ListSurface`. */
 export function ListFooter({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("border-t border-border px-5 py-2", className)}>{children}</div>;
+  return (
+    <div className={cn("border-t border-border bg-muted/20 px-3 py-2 sm:px-4", className)}>
+      {children}
+    </div>
+  );
 }
 
 /**
@@ -63,7 +69,7 @@ export function FilterSurface({
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center gap-2 rounded-sm border border-border bg-card px-4 py-2 sm:px-5",
+        "flex flex-wrap items-center gap-2 rounded-md border border-border bg-card px-3 py-2 shadow-[0_1px_0_0_color-mix(in_oklab,var(--border)_80%,transparent)] ring-1 ring-border/60 sm:px-4",
         className,
       )}
     >

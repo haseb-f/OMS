@@ -140,8 +140,8 @@ export function AppSidebar() {
             {siteConfig.name}
           </span>
         </div>
-        {/* The collapse toggle belongs to the Sidebar, directly below the logo — not the Topbar. */}
-        <div className="px-1">
+        {/* Desktop collapse toggle. Mobile open/close lives on TopBar + Sheet. */}
+        <div className="hidden px-1 md:block">
           <SidebarTrigger className="w-full justify-start gap-2 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:w-auto group-data-[collapsible=icon]:justify-center" />
         </div>
       </SidebarHeader>

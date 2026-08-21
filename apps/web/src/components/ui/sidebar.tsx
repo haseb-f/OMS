@@ -182,7 +182,7 @@ function Sidebar({
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
-          className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+          className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground"
           style={
             {
               "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
@@ -267,7 +267,7 @@ function SidebarTrigger({
       {...props}
     >
       <PanelLeftIcon className="rtl:rotate-180" />
-      <span className="sr-only">Toggle Sidebar</span>
+      {!props["aria-label"] ? <span className="sr-only">Toggle Sidebar</span> : null}
     </EnterpriseButton>
   );
 }

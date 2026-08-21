@@ -339,6 +339,7 @@ const en = {
     changeTheme: "Change theme",
     changeLanguage: "Change language",
     profileMenu: "Open profile menu",
+    openNavigation: "Open navigation",
     profile: "Profile",
     accountSettings: "Account Settings",
     logout: "Log out",

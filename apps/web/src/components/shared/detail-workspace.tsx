@@ -135,13 +135,37 @@ export function DetailSection({
   return (
     <EnterpriseCard size="sm" className={className}>
       {title || actions ? (
-        <EnterpriseCardHeader className="flex flex-row items-center justify-between gap-3">
+        <EnterpriseCardHeader className="flex flex-row items-center justify-between gap-2 border-b border-border/70 pb-2">
           {title ? <EnterpriseCardTitle>{title}</EnterpriseCardTitle> : <span />}
           {actions}
         </EnterpriseCardHeader>
       ) : null}
-      <EnterpriseCardContent className="flex flex-col gap-2.5">{children}</EnterpriseCardContent>
+      <EnterpriseCardContent className="flex flex-col gap-2">{children}</EnterpriseCardContent>
     </EnterpriseCard>
+  );
+}
+
+/**
+ * Scannable key-facts strip under a detail header — status totals, party,
+ * payment/shipping state. Prefer this over a full-height card for a few
+ * metrics so the page does not open with empty card chrome.
+ */
+export function DetailSummaryBar({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "grid grid-cols-2 gap-x-3 gap-y-2 rounded-md border border-border bg-card p-3 shadow-[0_1px_0_0_color-mix(in_oklab,var(--border)_80%,transparent)] ring-1 ring-border/60 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6",
+        className,
+      )}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -151,7 +175,9 @@ export function DetailField({ label, value }: { label: string; value: ReactNode 
   return (
     <div className="min-w-0">
       <dt className="text-caption text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 text-body font-medium text-foreground">{value}</dd>
+      <dd className="mt-0.5 break-words text-body font-medium text-foreground [overflow-wrap:anywhere]">
+        {value}
+      </dd>
     </div>
   );
 }
@@ -166,7 +192,7 @@ export function DetailFieldGrid({
   return (
     <dl
       className={cn(
-        "grid grid-cols-1 gap-x-6 gap-y-2.5 sm:grid-cols-2",
+        "grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2",
         columns === 3 && "lg:grid-cols-3",
         columns === 4 && "lg:grid-cols-4",
       )}

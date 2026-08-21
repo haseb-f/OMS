@@ -39,15 +39,15 @@ export function KpiCard({
   className?: string;
 }) {
   return (
-    <EnterpriseCard className={cn("h-full", className)}>
-      <EnterpriseCardContent className="flex h-full flex-col gap-2 p-3">
+    <EnterpriseCard size="sm" className={cn("h-full", className)}>
+      <EnterpriseCardContent className="flex h-full flex-col gap-1.5">
         <div
           className={cn(
-            "flex size-8 shrink-0 items-center justify-center rounded-md",
+            "flex size-7 shrink-0 items-center justify-center rounded-md",
             toneClasses[tone],
           )}
         >
-          <Icon className="size-4" />
+          <Icon className="size-3.5" />
         </div>
         <div className="flex flex-1 flex-col justify-end gap-0.5">
           <span className="text-ui-title font-semibold tabular-nums tracking-tight">

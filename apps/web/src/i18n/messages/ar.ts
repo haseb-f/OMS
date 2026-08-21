@@ -338,6 +338,7 @@ const ar = {
     changeTheme: "تغيير المظهر",
     changeLanguage: "تغيير اللغة",
     profileMenu: "فتح قائمة الملف الشخصي",
+    openNavigation: "فتح التنقل",
     profile: "الملف الشخصي",
     accountSettings: "إعدادات الحساب",
     logout: "تسجيل الخروج",

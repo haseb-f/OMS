@@ -47,55 +47,57 @@ export function CompactDetailTable<T>({
   className?: string;
 }) {
   return (
-    <Table className={cn("w-full", className)}>
-      <TableHeader>
-        <TableRow className="hover:bg-transparent">
-          {columns.map((column) => (
-            <TableHead
-              key={column.id}
-              className={cn(
-                "h-8 bg-muted/50 px-2 font-medium",
-                column.align === "end" && "text-end",
-              )}
-            >
-              {column.header}
-            </TableHead>
-          ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.length === 0 ? (
+    <div className={cn("overflow-hidden rounded-md border border-border bg-card", className)}>
+      <Table className="w-full">
+        <TableHeader>
           <TableRow className="hover:bg-transparent">
-            <TableCell
-              colSpan={columns.length}
-              className="px-2 py-3 text-center text-caption leading-normal text-muted-foreground"
-            >
-              {empty}
-            </TableCell>
+            {columns.map((column) => (
+              <TableHead
+                key={column.id}
+                className={cn(
+                  "h-8 bg-muted px-2 font-medium text-foreground",
+                  column.align === "end" && "text-end",
+                )}
+              >
+                {column.header}
+              </TableHead>
+            ))}
           </TableRow>
-        ) : (
-          rows.map((row) => (
-            <TableRow key={rowKey(row)}>
-              {columns.map((column) => (
-                <TableCell
-                  key={column.id}
-                  className={cn(
-                    "min-w-0 px-2 py-1.5 leading-normal",
-                    column.align === "end" && "text-end tabular-nums",
-                  )}
-                >
-                  {column.cell(row)}
-                </TableCell>
-              ))}
+        </TableHeader>
+        <TableBody>
+          {rows.length === 0 ? (
+            <TableRow className="hover:bg-transparent">
+              <TableCell
+                colSpan={columns.length}
+                className="px-2 py-3 text-center text-caption leading-normal text-muted-foreground"
+              >
+                {empty}
+              </TableCell>
             </TableRow>
-          ))
-        )}
-      </TableBody>
-      {footer ? (
-        <TableFooter>
-          <TableRow className="hover:bg-transparent">{footer}</TableRow>
-        </TableFooter>
-      ) : null}
-    </Table>
+          ) : (
+            rows.map((row) => (
+              <TableRow key={rowKey(row)}>
+                {columns.map((column) => (
+                  <TableCell
+                    key={column.id}
+                    className={cn(
+                      "min-w-0 px-2 py-1.5 leading-normal",
+                      column.align === "end" && "text-end tabular-nums",
+                    )}
+                  >
+                    {column.cell(row)}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+        {footer ? (
+          <TableFooter>
+            <TableRow className="hover:bg-transparent">{footer}</TableRow>
+          </TableFooter>
+        ) : null}
+      </Table>
+    </div>
   );
 }
