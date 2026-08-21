@@ -12,16 +12,21 @@ import { NEEDS_REVIEW_PREFIX } from '../import-type.interface';
 import { RejectImportRowDto } from '../dto/reject-import-row.dto';
 import { PhoneNumberService } from '../../common/phone/phone-number.service';
 import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
+import { StoreOrdersService } from '../../store-orders/store-orders.service';
 import { buildSyncReviewRows, type SyncReviewRow } from './sync-review.util';
 import {
   groupRowsByKey,
   extractImportErrorMessage,
 } from '../import-value.util';
 import {
+  classifyDeletedStoreOrderGroups,
   classifyStoreOrderGroups,
+  fingerprintMappedRows,
   fingerprintStorageKey,
+  isDeletedSyncRowNumber,
   storeOrderWritebackValues,
   type ClassifiedStoreOrderGroup,
+  type DeletedStoreOrderGroup,
   type StoreOrderRowHashMap,
 } from './store-orders-sync.lifecycle';
 
@@ -44,6 +49,8 @@ export interface SyncPreviewIncremental {
   readyCount: number;
   importedSkippedCount: number;
   unchangedSkippedCount: number;
+  modifiedCount: number;
+  deletedCount: number;
   nothingToSync: boolean;
 }
 
@@ -108,6 +115,7 @@ export class SyncOrchestratorService {
     private readonly googleSheets: GoogleSheetsService,
     private readonly permissionsResolver: PermissionsResolverService,
     private readonly phone: PhoneNumberService,
+    private readonly storeOrders: StoreOrdersService,
   ) {}
 
   private async getEnabledSource(sourceId: string, userId?: string) {
@@ -325,6 +333,25 @@ export class SyncOrchestratorService {
       }
     }
 
+    const deleted = classifyDeletedStoreOrderGroups({
+      currentKeys: classified.map((group) =>
+        fingerprintStorageKey(group.externalOrderId, group.rowNumbers[0] ?? 0),
+      ),
+      previous:
+        (
+          (source.configMetadata ?? {}) as {
+            storeOrderRowHashes?: StoreOrderRowHashMap;
+          }
+        ).storeOrderRowHashes ?? {},
+    });
+    for (const group of deleted) {
+      result.needsReview.push({
+        rowNumber: group.sentinelRowNumber,
+        reason:
+          'Source row was removed from Google Sheets — confirm to archive the Store Order.',
+      });
+    }
+
     await this.prisma.syncSourceConfig.update({
       where: { id: source.id },
       data: { importJobId: jobId },
@@ -352,8 +379,12 @@ export class SyncOrchestratorService {
           lifecycle: group?.lifecycle ?? 'NEW',
           changed: group?.changed ?? false,
           retryable: group?.retryable ?? false,
+          existingRecordId:
+            row.existingRecordId ?? group?.existingInternalOrderId ?? null,
         };
       });
+
+    preview.rows.push(...this.buildDeletedReviewRows(jobId, deleted));
 
     const readyCount = preview.rows.filter(
       (row) => row.status === 'READY',
@@ -372,6 +403,9 @@ export class SyncOrchestratorService {
       unchangedSkippedCount: classified.filter(
         (row) => row.lifecycle === 'UNCHANGED_FAILURE',
       ).length,
+      modifiedCount: classified.filter((row) => row.lifecycle === 'MODIFIED')
+        .length,
+      deletedCount: deleted.length,
       nothingToSync: preview.rows.length === 0,
     };
     preview.incremental = incremental;
@@ -391,7 +425,12 @@ export class SyncOrchestratorService {
       preview.rows,
       classified,
     );
-    await this.persistStoreOrderHashes(source, classified, preview.rows);
+    await this.persistStoreOrderHashes(
+      source,
+      classified,
+      preview.rows,
+      deleted,
+    );
 
     return preview;
   }
@@ -451,6 +490,11 @@ export class SyncOrchestratorService {
   ): Promise<string | null> {
     const writes: { rowNumber: number; values: Record<string, string> }[] = [];
     for (const row of rows) {
+      if (
+        row.rowNumbers.every((rowNumber) => isDeletedSyncRowNumber(rowNumber))
+      ) {
+        continue;
+      }
       if (row.status === 'ERROR' || row.status === 'DUPLICATE') {
         const values = storeOrderWritebackValues({
           status: 'error',
@@ -497,6 +541,7 @@ export class SyncOrchestratorService {
     source: { id: string; configMetadata: unknown },
     classified: ClassifiedStoreOrderGroup[],
     reviewRows: SyncReviewRow[],
+    deleted: DeletedStoreOrderGroup[],
   ) {
     const metadata = (source.configMetadata ?? {}) as Record<string, unknown>;
     const hashes: StoreOrderRowHashMap = {
@@ -512,11 +557,16 @@ export class SyncOrchestratorService {
         group.rowNumbers[0] ?? 0,
       );
       if (group.lifecycle === 'IMPORTED') {
-        hashes[key] = {
-          hash: group.hash,
-          status: 'IMPORTED',
-          internalOrderId: group.existingInternalOrderId ?? undefined,
-        };
+        if (!hashes[key]?.hash?.trim()) {
+          hashes[key] = {
+            hash: group.hash,
+            status: 'IMPORTED',
+            internalOrderId: group.existingInternalOrderId ?? undefined,
+          };
+        }
+        continue;
+      }
+      if (group.lifecycle === 'MODIFIED' || group.lifecycle === 'DELETED') {
         continue;
       }
       if (group.lifecycle === 'UNCHANGED_FAILURE') continue;
@@ -534,9 +584,50 @@ export class SyncOrchestratorService {
         configMetadata: {
           ...metadata,
           storeOrderRowHashes: hashes,
+          pendingStoreOrderDeletions: deleted.map((group) => ({
+            key: group.key,
+            externalOrderId: group.externalOrderId,
+            internalOrderId: group.internalOrderId,
+            sentinelRowNumber: group.sentinelRowNumber,
+          })),
+          storeOrderSkipRowNumbers: classified
+            .filter((group) => !group.includeInReview)
+            .flatMap((group) => group.rowNumbers),
         } as unknown as Prisma.InputJsonValue,
       },
     });
+  }
+
+  private buildDeletedReviewRows(
+    jobId: string,
+    deleted: DeletedStoreOrderGroup[],
+  ): SyncReviewRow[] {
+    return deleted.map((group) => ({
+      id: `${jobId}:deleted:${group.key}`,
+      rowNumber: group.sentinelRowNumber,
+      rowNumbers: [group.sentinelRowNumber],
+      status: 'WARNING' as const,
+      values: {
+        externalOrderId: group.externalOrderId,
+        internalOrderId: group.internalOrderId,
+      },
+      sourceRow: {},
+      originalPhone: null,
+      normalizedPhone: null,
+      countryName: null,
+      issues: [
+        {
+          field: 'externalOrderId',
+          code: 'NEEDS_REVIEW',
+          message:
+            'Source row was removed from Google Sheets — confirm to archive the Store Order.',
+        },
+      ],
+      existingRecordId: group.internalOrderId,
+      lifecycle: 'DELETED',
+      changed: true,
+      retryable: false,
+    }));
   }
 
   private async buildGenericPreview(
@@ -642,7 +733,34 @@ export class SyncOrchestratorService {
     }
 
     return this.withSyncLock(sourceId, async () => {
-      const result = await this.importJobs.run(jobId, userId, options);
+      let acceptRowNumbers = options?.acceptRowNumbers;
+      if (
+        acceptRowNumbers === undefined &&
+        source.sourceType === SyncSourceType.STORE_ORDERS
+      ) {
+        const metadata = (source.configMetadata ?? {}) as {
+          storeOrderSkipRowNumbers?: number[];
+        };
+        const skip = new Set(metadata.storeOrderSkipRowNumbers ?? []);
+        const mapped = await this.importJobs.listMappedRows(jobId);
+        acceptRowNumbers = mapped.rows
+          .map((row) => row.rowNumber)
+          .filter((rowNumber) => !skip.has(rowNumber));
+      }
+      const acceptedSheetRows = (acceptRowNumbers ?? []).filter(
+        (rowNumber) => !isDeletedSyncRowNumber(rowNumber),
+      );
+      const acceptedDeletedRows = new Set(
+        (acceptRowNumbers ?? []).filter(isDeletedSyncRowNumber),
+      );
+      const result = await this.importJobs.run(jobId, userId, {
+        ...options,
+        acceptRowNumbers:
+          options?.acceptRowNumbers === undefined &&
+          source.sourceType !== SyncSourceType.STORE_ORDERS
+            ? undefined
+            : acceptedSheetRows,
+      });
 
       // Google Sheets NO_CHANGE rows are reported as a distinct outcome
       // (spec section 15) but still count as a successful, no-op sync —
@@ -682,7 +800,12 @@ export class SyncOrchestratorService {
       if (source.sourceType === SyncSourceType.STORE_ORDERS) {
         try {
           await this.writeBackStoreOrders(source, result);
-          await this.markStoreOrdersImported(source, result.successRows);
+          await this.markStoreOrdersImported(source, jobId, result.successRows);
+          await this.applyStoreOrderDeletions(
+            source,
+            acceptedDeletedRows,
+            options?.acceptRowNumbers !== undefined,
+          );
         } catch (error) {
           writebackError = extractImportErrorMessage(error);
           summary.status =
@@ -775,6 +898,7 @@ export class SyncOrchestratorService {
 
   private async markStoreOrdersImported(
     source: { id: string; configMetadata: unknown },
+    jobId: string,
     successRows: { rowNumber: number; id: string }[],
   ) {
     if (successRows.length === 0) return;
@@ -783,7 +907,24 @@ export class SyncOrchestratorService {
       select: { id: true, externalOrderId: true, internalOrderId: true },
     });
     const byId = new Map(orders.map((order) => [order.id, order]));
-    const metadata = (source.configMetadata ?? {}) as Record<string, unknown>;
+    const mapped = await this.importJobs.listMappedRows(jobId);
+    const groups = mapped.groupKey
+      ? [...groupRowsByKey(mapped.rows, mapped.groupKey).values()]
+      : mapped.rows.map((row) => [row]);
+    const hashByExternalId = new Map<string, string>();
+    for (const group of groups) {
+      const externalOrderId = group[0]?.mappedRow.externalOrderId?.trim();
+      if (!externalOrderId) continue;
+      hashByExternalId.set(
+        externalOrderId,
+        fingerprintMappedRows(group.map((row) => row.mappedRow)),
+      );
+    }
+    const latest = await this.prisma.syncSourceConfig.findUniqueOrThrow({
+      where: { id: source.id },
+      select: { configMetadata: true },
+    });
+    const metadata = (latest.configMetadata ?? {}) as Record<string, unknown>;
     const hashes: StoreOrderRowHashMap = {
       ...((metadata.storeOrderRowHashes as StoreOrderRowHashMap | undefined) ??
         {}),
@@ -791,9 +932,8 @@ export class SyncOrchestratorService {
     for (const row of successRows) {
       const order = byId.get(row.id);
       if (!order?.externalOrderId) continue;
-      const previous = hashes[order.externalOrderId];
       hashes[order.externalOrderId] = {
-        hash: previous?.hash ?? '',
+        hash: hashByExternalId.get(order.externalOrderId) ?? '',
         status: 'IMPORTED',
         internalOrderId: order.internalOrderId,
       };
@@ -804,6 +944,57 @@ export class SyncOrchestratorService {
         configMetadata: {
           ...metadata,
           storeOrderRowHashes: hashes,
+        } as unknown as Prisma.InputJsonValue,
+      },
+    });
+  }
+
+  private async applyStoreOrderDeletions(
+    source: { id: string; configMetadata: unknown },
+    acceptedDeletedRows: Set<number>,
+    decisionsWereSent: boolean,
+  ) {
+    const latest = await this.prisma.syncSourceConfig.findUniqueOrThrow({
+      where: { id: source.id },
+      select: { configMetadata: true },
+    });
+    const metadata = (latest.configMetadata ?? {}) as Record<string, unknown>;
+    const pending = (metadata.pendingStoreOrderDeletions ?? []) as Array<{
+      key: string;
+      internalOrderId: string;
+      sentinelRowNumber: number;
+    }>;
+    if (pending.length === 0) return;
+
+    const hashes: StoreOrderRowHashMap = {
+      ...((metadata.storeOrderRowHashes as StoreOrderRowHashMap | undefined) ??
+        {}),
+    };
+    for (const group of pending) {
+      const accepted =
+        decisionsWereSent && acceptedDeletedRows.has(group.sentinelRowNumber);
+      if (accepted) {
+        const order = await this.prisma.storeOrder.findFirst({
+          where: {
+            internalOrderId: group.internalOrderId,
+            deletedAt: null,
+          },
+          select: { id: true },
+        });
+        if (order) {
+          await this.storeOrders.archive(order.id);
+        }
+      }
+      delete hashes[group.key];
+    }
+
+    await this.prisma.syncSourceConfig.update({
+      where: { id: source.id },
+      data: {
+        configMetadata: {
+          ...metadata,
+          storeOrderRowHashes: hashes,
+          pendingStoreOrderDeletions: [],
         } as unknown as Prisma.InputJsonValue,
       },
     });

@@ -7,7 +7,13 @@ import type {
 
 export type SyncReviewStatus = 'READY' | 'WARNING' | 'ERROR' | 'DUPLICATE';
 export type SyncReviewLifecycle =
-  'NEW' | 'RETRY' | 'IMPORTED' | 'UNCHANGED_FAILURE' | 'ORPHAN_LINK';
+  | 'NEW'
+  | 'RETRY'
+  | 'IMPORTED'
+  | 'UNCHANGED_FAILURE'
+  | 'ORPHAN_LINK'
+  | 'MODIFIED'
+  | 'DELETED';
 
 export interface SyncReviewIssue {
   field: string | null;

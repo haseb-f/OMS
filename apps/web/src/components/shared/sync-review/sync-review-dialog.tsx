@@ -57,7 +57,7 @@ function reportResultVariant(
 function decisionsFromPreview(preview: SyncPreviewResult): Record<string, SyncReviewDecision> {
   const next: Record<string, SyncReviewDecision> = {};
   for (const row of preview.rows ?? []) {
-    next[row.id] = defaultDecision(row.status);
+    next[row.id] = defaultDecision(row);
   }
   return next;
 }
@@ -133,7 +133,7 @@ export function SyncReviewDialog({
   const isDirty = Object.values(decisionsBySource).some((map) =>
     Object.entries(map).some(([id, decision]) => {
       const row = allRows.find((item) => item.id === id);
-      return row ? decision !== defaultDecision(row.status) : false;
+      return row ? decision !== defaultDecision(row) : false;
     }),
   );
 
@@ -195,7 +195,7 @@ export function SyncReviewDialog({
       const sourceDecisions =
         decisionsBySource[item.source.id] ?? decisionsFromPreview(item.preview);
       const acceptRowNumbers = (item.preview.rows ?? []).flatMap((row) => {
-        const decision = sourceDecisions[row.id] ?? defaultDecision(row.status);
+        const decision = sourceDecisions[row.id] ?? defaultDecision(row);
         if (decision !== "ACCEPT" || !isImportable(row.status)) return [];
         return row.rowNumbers;
       });

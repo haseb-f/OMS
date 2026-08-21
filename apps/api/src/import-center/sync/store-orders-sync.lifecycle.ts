@@ -63,7 +63,16 @@ export const STORE_ORDER_SOURCE_FIELD_KEYS = [
 ] as const;
 
 export type StoreOrderSyncLifecycle =
-  'NEW' | 'RETRY' | 'IMPORTED' | 'UNCHANGED_FAILURE' | 'ORPHAN_LINK';
+  | 'NEW'
+  | 'RETRY'
+  | 'IMPORTED'
+  | 'UNCHANGED_FAILURE'
+  | 'ORPHAN_LINK'
+  | 'MODIFIED'
+  | 'DELETED';
+
+/** Sentinel row numbers for source rows that disappeared from the sheet. */
+export const STORE_ORDER_DELETED_ROW_BASE = 10_000_000;
 
 export interface StoreOrderRowFingerprintState {
   hash: string;
@@ -169,15 +178,17 @@ export function classifyStoreOrderGroups(
       group.rowNumbers.some((rowNumber) => retryRows.has(rowNumber));
 
     if (dbOrder) {
+      const previousHash = previous?.hash?.trim();
+      const changed = Boolean(previousHash) && previousHash !== hash;
       classified.push({
         rowNumbers: group.rowNumbers,
         externalOrderId,
         hash,
-        lifecycle: 'IMPORTED',
-        runValidation: false,
-        includeInReview: false,
-        changed: false,
-        retryable: false,
+        lifecycle: changed ? 'MODIFIED' : 'IMPORTED',
+        runValidation: changed,
+        includeInReview: changed,
+        changed,
+        retryable: changed,
         existingInternalOrderId: dbOrder.internalOrderId,
         needsSheetNumberWriteback: sheetOrderId !== dbOrder.internalOrderId,
       });
@@ -279,4 +290,43 @@ export function fingerprintStorageKey(
   rowNumber: number,
 ): string {
   return identityKey(externalOrderId, [rowNumber]);
+}
+
+export function isDeletedSyncRowNumber(rowNumber: number): boolean {
+  return rowNumber >= STORE_ORDER_DELETED_ROW_BASE;
+}
+
+export interface DeletedStoreOrderGroup {
+  key: string;
+  externalOrderId: string;
+  internalOrderId: string;
+  hash: string;
+  sentinelRowNumber: number;
+}
+
+/**
+ * Previously accepted identities that are no longer present in the sheet.
+ * Uses the stored fingerprint map — never a second identity scheme.
+ */
+export function classifyDeletedStoreOrderGroups(args: {
+  currentKeys: Iterable<string>;
+  previous: StoreOrderRowHashMap;
+}): DeletedStoreOrderGroup[] {
+  const current = new Set(
+    [...args.currentKeys].map((key) => key.trim()).filter(Boolean),
+  );
+  const deleted: DeletedStoreOrderGroup[] = [];
+  for (const [key, state] of Object.entries(args.previous)) {
+    if (state.status !== 'IMPORTED') continue;
+    if (!state.internalOrderId) continue;
+    if (current.has(key)) continue;
+    deleted.push({
+      key,
+      externalOrderId: key.startsWith('__row_') ? '' : key,
+      internalOrderId: state.internalOrderId,
+      hash: state.hash,
+      sentinelRowNumber: STORE_ORDER_DELETED_ROW_BASE + deleted.length,
+    });
+  }
+  return deleted;
 }

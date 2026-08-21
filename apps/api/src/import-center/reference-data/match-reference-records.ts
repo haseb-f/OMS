@@ -78,6 +78,8 @@ export function masterDataAmbiguousMessage(
       return `يوجد أكثر من طريقة دفع مطابقة للقيمة «${display}». يرجى اختيار القيمة الصحيحة من البيانات الأساسية.`;
     case 'EMPLOYEE':
       return `يوجد أكثر من موظف مطابق للقيمة «${display}». يرجى اختيار القيمة الصحيحة من البيانات الأساسية.`;
+    case 'CUSTOMER':
+      return `يوجد أكثر من عميل مطابق للقيمة «${display}». يرجى اختيار العميل الصحيح من البيانات الأساسية.`;
     case 'SHIPPING_COMPANY':
       return `يوجد أكثر من شركة شحن مطابقة للقيمة «${display}». يرجى اختيار القيمة الصحيحة من البيانات الأساسية.`;
     case 'SHIPPING_STATUS':

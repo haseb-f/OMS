@@ -1,6 +1,6 @@
 export type SyncReviewStatus = "READY" | "WARNING" | "ERROR" | "DUPLICATE";
 export type SyncReviewLifecycle =
-  "NEW" | "RETRY" | "IMPORTED" | "UNCHANGED_FAILURE" | "ORPHAN_LINK";
+  "NEW" | "RETRY" | "IMPORTED" | "UNCHANGED_FAILURE" | "ORPHAN_LINK" | "MODIFIED" | "DELETED";
 export type SyncReviewDecision = "ACCEPT" | "REJECT";
 export type SyncReviewStatusFilter = SyncReviewStatus | "ALL" | "RETRY" | "NEW";
 
@@ -36,8 +36,11 @@ export interface SyncReviewSourceMeta {
   spreadsheetId: string;
 }
 
-export function defaultDecision(status: SyncReviewStatus): SyncReviewDecision {
-  return status === "READY" || status === "WARNING" ? "ACCEPT" : "REJECT";
+export function defaultDecision(
+  row: Pick<SyncReviewRow, "status" | "lifecycle">,
+): SyncReviewDecision {
+  if (row.lifecycle === "DELETED") return "REJECT";
+  return row.status === "READY" || row.status === "WARNING" ? "ACCEPT" : "REJECT";
 }
 
 export function isImportable(status: SyncReviewStatus): boolean {

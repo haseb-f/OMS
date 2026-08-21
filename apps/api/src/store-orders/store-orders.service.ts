@@ -225,6 +225,102 @@ export class StoreOrdersService {
     }
   }
 
+  /**
+   * Google Sheets incremental reconcile — applies a later source revision to
+   * an already-imported Store Order. Identity (`externalOrderId` /
+   * `internalOrderId`) is never rewritten. Line items / customer / amounts
+   * stay frozen once payment, shipping, or invoicing has started, matching
+   * the existing post-create immutability of those fields.
+   */
+  async applyImportedSource(
+    id: string,
+    dto: CreateStoreOrderDto,
+    userId?: string,
+  ) {
+    const order = await this.prisma.storeOrder.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        invoices: {
+          where: { deletedAt: null },
+          select: { id: true },
+        },
+        shipments: {
+          where: { deletedAt: null },
+          select: { id: true },
+        },
+        payments: {
+          where: { deletedAt: null },
+          select: { id: true },
+        },
+      },
+    });
+    if (!order) {
+      throw new NotFoundException(`Store Order ${id} not found`);
+    }
+    if (
+      order.paymentStatus !== StoreOrderPaymentStatus.PAYMENT_PENDING ||
+      order.shippingStage !== StoreOrderShippingStage.NOT_READY ||
+      order.invoices.length > 0 ||
+      order.shipments.length > 0 ||
+      order.payments.length > 0
+    ) {
+      throw new BadRequestException(
+        'This Store Order can no longer be updated from Google Sheets because payment, shipping, or invoicing has already started.',
+      );
+    }
+
+    for (const item of dto.items) {
+      await this.assertActiveProduct(item.productId);
+    }
+
+    const { customer } = await this.customersService.findOrCreate(
+      dto.customer,
+      userId,
+    );
+
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.storeOrderItem.deleteMany({ where: { storeOrderId: id } });
+        await tx.storeOrder.update({
+          where: { id },
+          data: {
+            customerId: customer.id,
+            orderDate: dto.orderDate ? new Date(dto.orderDate) : undefined,
+            employeeId: dto.employeeId,
+            currencyId: dto.currencyId,
+            notes: dto.notes,
+            updatedBy: userId,
+            items: {
+              create: dto.items.map((item) => ({
+                productId: item.productId,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+              })),
+            },
+          },
+        });
+        await this.activityService.log(
+          id,
+          StoreOrderActivityType.ORDER_UPDATED,
+          'Store Order updated from Google Sheets source',
+          userId,
+          tx,
+        );
+      });
+      return this.findOne(id);
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2003'
+      ) {
+        throw new BadRequestException(
+          'Invalid product, employee, or currency reference.',
+        );
+      }
+      throw error;
+    }
+  }
+
   private buildFindWhere(
     query: Pick<
       FindStoreOrdersQueryDto,

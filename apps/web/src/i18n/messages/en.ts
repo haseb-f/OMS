@@ -3439,6 +3439,8 @@ const en = {
         lifecycleImported: "Imported",
         lifecycleSkipped: "Ignored",
         lifecycleError: "Error",
+        lifecycleModified: "Modified",
+        lifecycleDeleted: "Deleted",
         nothingToSync: "No new data to synchronize.",
         original: "Original",
         normalized: "Normalized",
@@ -3500,7 +3502,11 @@ const en = {
           duplicateOrder: "This order already exists in the system.",
           duplicateInFile: "This value is duplicated in the source file.",
           needsReviewCustomer:
-            "An existing customer was found by mobile number — confirm to attach.",
+            "An existing customer was found by mobile number — the new order will be linked to that customer.",
+          sourceDeleted:
+            "The source row was removed from Google Sheets. Confirm to archive the Store Order.",
+          sourceLocked:
+            "This Store Order can no longer be updated from Google Sheets because payment, shipping, or invoicing has already started.",
           required: "{field} is required.",
           correctThenRevalidate: "Correct the source data, then revalidate.",
         },

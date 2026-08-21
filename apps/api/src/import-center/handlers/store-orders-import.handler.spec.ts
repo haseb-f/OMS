@@ -17,7 +17,6 @@ import { ImportCenterModule } from '../import-center.module';
 import { StoreOrdersModule } from '../../store-orders/store-orders.module';
 import { StoreOrdersService } from '../../store-orders/store-orders.service';
 import { StoreOrderPaymentSyncService } from '../../store-orders/store-order-payment-sync.service';
-import { ImportRowNeedsReviewError } from '../import-type.interface';
 import { StoreOrdersImportHandler } from './store-orders-import.handler';
 
 /**
@@ -510,18 +509,34 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
     await expect(handler.importRow(row)).rejects.toThrow(BadRequestException);
   });
 
-  it('still triggers Needs Review for a single-line order matching an existing customer by phone (regression, unchanged)', async () => {
+  it('reuses an existing customer for a new External Order ID instead of treating it as a duplicate order', async () => {
     const first = baseRow();
-    await handler.importRow(first);
+    const firstResult = await handler.importRow(first);
+    const firstOrder = await prisma.storeOrder.findUniqueOrThrow({
+      where: { id: firstResult.id },
+    });
+
     const secondRow = baseRow({ customerPhone: first.customerPhone });
-    await expect(handler.importRow(secondRow)).rejects.toThrow(
-      ImportRowNeedsReviewError,
-    );
+    const secondResult = await handler.importRow(secondRow);
+    const secondOrder = await prisma.storeOrder.findUniqueOrThrow({
+      where: { id: secondResult.id },
+    });
+
+    expect(secondOrder.customerId).toBe(firstOrder.customerId);
+    expect(secondOrder.externalOrderId).toBe(secondRow.externalOrderId);
+    expect(secondOrder.externalOrderId).not.toBe(first.externalOrderId);
+    const customers = await prisma.customer.findMany({
+      where: { id: firstOrder.customerId },
+    });
+    expect(customers).toHaveLength(1);
   });
 
-  it('fails loudly (not a silent split) for a multi-line order matching an existing customer by phone', async () => {
+  it('imports a multi-line new order against an existing customer', async () => {
     const first = baseRow();
-    await handler.importRow(first);
+    const firstResult = await handler.importRow(first);
+    const firstOrder = await prisma.storeOrder.findUniqueOrThrow({
+      where: { id: firstResult.id },
+    });
 
     const externalOrderId = `SOTEST-EXT-${randomUUID()}`;
     const rowA = baseRow({
@@ -534,16 +549,63 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
       customerPhone: first.customerPhone,
       productSku: productDisplayNameB,
     });
-    await expect(handler.importGroup([rowA, rowB])).rejects.toThrow(
-      BadRequestException,
-    );
-    await expect(handler.importGroup([rowA, rowB])).rejects.not.toThrow(
-      ImportRowNeedsReviewError,
-    );
+    const result = await handler.importGroup([rowA, rowB]);
+    const order = await prisma.storeOrder.findUniqueOrThrow({
+      where: { id: result.id },
+    });
+    expect(order.customerId).toBe(firstOrder.customerId);
+    const items = await prisma.storeOrderItem.findMany({
+      where: { storeOrderId: order.id },
+    });
+    expect(items).toHaveLength(2);
+  });
+
+  it('rejects an ambiguous phone match as master-data ambiguity, without creating an order', async () => {
+    const sharedPhone = `+9665${Math.floor(10000000 + Math.random() * 89999999)}`;
+    const country = await prisma.country.findFirstOrThrow({
+      where: { deletedAt: null, isActive: true, code: 'SA' },
+    });
+    await prisma.customer.create({
+      data: {
+        customerNumber: `SOTEST-C-${randomUUID().slice(0, 8)}`,
+        name: 'SO Import Test Customer Ambiguous A',
+        phone: sharedPhone,
+        countryId: country.id,
+      },
+    });
+    await prisma.customer.create({
+      data: {
+        customerNumber: `SOTEST-C-${randomUUID().slice(0, 8)}`,
+        name: 'SO Import Test Customer Ambiguous B',
+        phone: sharedPhone,
+        countryId: country.id,
+      },
+    });
+
+    const row = baseRow({ customerPhone: sharedPhone });
+    try {
+      await handler.importRow(row);
+      throw new Error('expected import to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(BadRequestException);
+      expect((error as BadRequestException).getResponse()).toMatchObject({
+        code: 'MASTER_DATA_AMBIGUOUS',
+      });
+    }
     const order = await prisma.storeOrder.findFirst({
-      where: { externalOrderId },
+      where: { externalOrderId: row.externalOrderId },
     });
     expect(order).toBeNull();
+  });
+
+  it('still rejects a repeated External Order ID on a manual import', async () => {
+    const row = baseRow();
+    await handler.importRow(row);
+    await expect(handler.importRow(row)).rejects.toThrow(BadRequestException);
+    const orders = await prisma.storeOrder.findMany({
+      where: { externalOrderId: row.externalOrderId, deletedAt: null },
+    });
+    expect(orders).toHaveLength(1);
   });
 
   it('resolves Product by List Sheet display name, including Arabic and surrounding whitespace', async () => {

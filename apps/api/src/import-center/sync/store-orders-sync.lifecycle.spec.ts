@@ -1,9 +1,11 @@
 import { createHash } from 'crypto';
 import {
+  classifyDeletedStoreOrderGroups,
   classifyStoreOrderGroups,
   fingerprintMappedRows,
   sheetCell,
   storeOrderWritebackValues,
+  STORE_ORDER_DELETED_ROW_BASE,
   STORE_ORDER_RESULT_COLUMNS,
   STORE_ORDER_SHEET_STATUS,
 } from './store-orders-sync.lifecycle';
@@ -69,6 +71,117 @@ describe('store-orders-sync.lifecycle', () => {
     expect(row.runValidation).toBe(false);
     expect(row.includeInReview).toBe(false);
     expect(row.needsSheetNumberWriteback).toBe(false);
+  });
+
+  it('does not treat OMS-managed output columns as a source change', () => {
+    const source = sourceFields();
+    const before = fingerprintMappedRows([source]);
+    const after = fingerprintMappedRows([
+      { ...source, syncStatus: 'تم الاستيراد', systemOrderId: 'STO-1' },
+    ]);
+    expect(after).toBe(before);
+
+    const [row] = classifyStoreOrderGroups({
+      groups: [
+        {
+          rowNumbers: [2],
+          mappedRows: [source],
+          sourceRow: {
+            'Sync Status': STORE_ORDER_SHEET_STATUS.imported,
+            'System Order ID': 'STO-2026-000123',
+            'Error Message': '',
+          },
+        },
+      ],
+      existingByExternalId: new Map([
+        ['12345', { internalOrderId: 'STO-2026-000123' }],
+      ]),
+      previous: {
+        '12345': {
+          hash: before,
+          status: 'IMPORTED',
+          internalOrderId: 'STO-2026-000123',
+        },
+      },
+    });
+    expect(row.lifecycle).toBe('IMPORTED');
+    expect(row.includeInReview).toBe(false);
+  });
+
+  it('returns a previously imported row to review when source fields change', () => {
+    const original = sourceFields({ paidAmount: '99' });
+    const [row] = classifyStoreOrderGroups({
+      groups: [
+        {
+          rowNumbers: [2],
+          mappedRows: [sourceFields({ paidAmount: '150' })],
+          sourceRow: {
+            'Sync Status': STORE_ORDER_SHEET_STATUS.imported,
+            'System Order ID': 'STO-2026-000123',
+          },
+        },
+      ],
+      existingByExternalId: new Map([
+        ['12345', { internalOrderId: 'STO-2026-000123' }],
+      ]),
+      previous: {
+        '12345': {
+          hash: fingerprintMappedRows([original]),
+          status: 'IMPORTED',
+          internalOrderId: 'STO-2026-000123',
+        },
+      },
+    });
+    expect(row.lifecycle).toBe('MODIFIED');
+    expect(row.changed).toBe(true);
+    expect(row.runValidation).toBe(true);
+    expect(row.includeInReview).toBe(true);
+  });
+
+  it('does not treat a missing previous hash as a modification', () => {
+    const [row] = classifyStoreOrderGroups({
+      groups: [
+        {
+          rowNumbers: [2],
+          mappedRows: [sourceFields()],
+          sourceRow: {
+            'Sync Status': STORE_ORDER_SHEET_STATUS.imported,
+            'System Order ID': 'STO-2026-000123',
+          },
+        },
+      ],
+      existingByExternalId: new Map([
+        ['12345', { internalOrderId: 'STO-2026-000123' }],
+      ]),
+      previous: {
+        '12345': { hash: '', status: 'IMPORTED', internalOrderId: 'STO-1' },
+      },
+    });
+    expect(row.lifecycle).toBe('IMPORTED');
+    expect(row.includeInReview).toBe(false);
+  });
+
+  it('surfaces a previously imported identity that disappeared from the sheet', () => {
+    const deleted = classifyDeletedStoreOrderGroups({
+      currentKeys: ['KEEP-1'],
+      previous: {
+        '12345': {
+          hash: 'abc',
+          status: 'IMPORTED',
+          internalOrderId: 'STO-2026-000123',
+        },
+        'KEEP-1': {
+          hash: 'def',
+          status: 'IMPORTED',
+          internalOrderId: 'STO-2026-000124',
+        },
+        failed: { hash: 'ghi', status: 'ERROR' },
+      },
+    });
+    expect(deleted).toHaveLength(1);
+    expect(deleted[0].externalOrderId).toBe('12345');
+    expect(deleted[0].internalOrderId).toBe('STO-2026-000123');
+    expect(deleted[0].sentinelRowNumber).toBe(STORE_ORDER_DELETED_ROW_BASE);
   });
 
   it('writes back the OMS number when the DB order exists but the sheet is blank', () => {

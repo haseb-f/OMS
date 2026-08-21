@@ -19,6 +19,8 @@ const LIFECYCLE_TONE: Record<SyncReviewLifecycle, StatusTone> = {
   IMPORTED: "success",
   UNCHANGED_FAILURE: "neutral",
   ORPHAN_LINK: "destructive",
+  MODIFIED: "warning",
+  DELETED: "warning",
 };
 
 export function SyncStatusBadge({
@@ -29,7 +31,13 @@ export function SyncStatusBadge({
   lifecycle?: SyncReviewLifecycle;
 }) {
   const { t } = useLocale();
-  if (lifecycle && (status === "READY" || lifecycle === "RETRY")) {
+  if (
+    lifecycle &&
+    (status === "READY" ||
+      lifecycle === "RETRY" ||
+      lifecycle === "MODIFIED" ||
+      lifecycle === "DELETED")
+  ) {
     return (
       <StatusBadge
         label={t(

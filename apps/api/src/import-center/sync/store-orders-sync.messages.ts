@@ -108,7 +108,13 @@ function arabicReason(issue: SheetErrorIssue): string {
     return 'قيمة مكررة في الملف';
   }
   if (/existing customer found by phone/i.test(message)) {
-    return 'يوجد عميل بنفس رقم الجوال — يحتاج مراجعة';
+    return 'يوجد عميل بنفس رقم الجوال — سيتم ربط الطلب به';
+  }
+  if (/can no longer be updated from Google Sheets/i.test(message)) {
+    return 'لا يمكن تطبيق تعديل المصدر لأن الطلب دخل مرحلة الدفع أو الشحن أو الفوترة';
+  }
+  if (/removed from Google Sheets/i.test(message)) {
+    return 'حُذف الصف من Google Sheets — أكّد لأرشفة طلب المتجر';
   }
   if (/is required/i.test(message)) {
     const field = fieldLabel(issue.field) ?? inferField(message);

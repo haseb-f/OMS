@@ -17,7 +17,7 @@ export function SyncResultSummary({
 }) {
   const { t } = useLocale();
   const accepted = rows.filter((row) => {
-    const decision = decisions[row.id] ?? defaultDecision(row.status);
+    const decision = decisions[row.id] ?? defaultDecision(row);
     return decision === "ACCEPT" && isImportable(row.status);
   });
   const ready = accepted.filter((row) => row.status === "READY").length;

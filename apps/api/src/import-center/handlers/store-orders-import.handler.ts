@@ -14,8 +14,8 @@ import {
   listSheetReferenceMatch,
   type ListSheetColumnKey,
 } from '../list-sheet/list-sheet.catalog';
+import { masterDataAmbiguousMessage } from '../reference-data/match-reference-records';
 import {
-  ImportRowNeedsReviewError,
   type ImportFieldDef,
   type ImportRowOptions,
   type ImportRowResult,
@@ -189,16 +189,17 @@ interface LineItem {
  * same "never post from raw imported rows" rule that module already
  * follows.
  *
- * Phone matching (rule 2, unchanged) is the one genuinely ambiguous case:
- * when `CustomersService.lookupByPhone` already finds an existing
- * Customer, this handler NEVER silently attaches to it during the
- * automated pass — instead it throws `ImportRowNeedsReviewError` so the
- * row surfaces on the Import Center's Needs Review screen. This is only
- * safe for a single-line order: the review/confirm engine
- * (`ImportJobsService.confirmRow`) resolves ONE row at a time with no
- * visibility into sibling rows of the same group, so a multi-line order
- * whose customer needs review fails with a clear, actionable error instead
- * of risking one Order being silently split across several confirm calls.
+ * Phone matching reuses `CustomersService.lookupAllByPhone` /
+ * `findOrCreate` (never a second matching engine). A unique existing
+ * customer is NOT a duplicate order: the new Store Order is created and
+ * linked to that Customer. Multiple customers on the same normalized phone
+ * stay a master-data ambiguity (existing `MASTER_DATA_AMBIGUOUS` path).
+ *
+ * Google Sheets sync may later present the same External Order ID with
+ * changed source fields. That path reconciles through
+ * `StoreOrdersService.applyImportedSource` — it never mints a second
+ * `internalOrderId` and never bypasses duplicate protection on a manual
+ * Import Center upload.
  */
 @Injectable()
 export class StoreOrdersImportHandler
@@ -250,19 +251,49 @@ export class StoreOrdersImportHandler
       orderDate,
       items,
       totalPaidAmount,
+      existingOrder,
     } = await this.validateGroup(rows);
 
-    const existingCustomer =
-      await this.customersService.lookupByPhone(normalizedPhone);
-    if (existingCustomer) {
-      if (rows.length > 1) {
-        throw new BadRequestException(
-          `Existing customer found by phone (${existingCustomer.customerNumber} — ${existingCustomer.name}) on a multi-line order (External Order ID ${first.externalOrderId}) — attach the customer manually, since a multi-line order can't be split across individual review confirmations.`,
-        );
+    const phoneMatches =
+      await this.customersService.lookupAllByPhone(normalizedPhone);
+    if (phoneMatches.length > 1) {
+      throw new BadRequestException({
+        code: 'MASTER_DATA_AMBIGUOUS',
+        message: masterDataAmbiguousMessage('CUSTOMER', normalizedPhone),
+        field: 'Phone',
+      });
+    }
+
+    if (existingOrder) {
+      if (options?.context?.source !== 'GOOGLE_SHEETS') {
+        throw new BadRequestException({
+          code: 'DUPLICATE',
+          message: `A Store Order with external order id "${first.externalOrderId}" already exists (${existingOrder.internalOrderId}).`,
+          fields: [{ field: 'externalOrderId', constraints: ['unique'] }],
+        });
       }
-      throw new ImportRowNeedsReviewError(
-        `Existing customer found by phone (${existingCustomer.customerNumber} — ${existingCustomer.name}) — confirm to attach.`,
+      if (options?.dryRun) return { id: existingOrder.id };
+      const order = await this.storeOrdersService.applyImportedSource(
+        existingOrder.id,
+        this.buildDto(
+          first,
+          currencyId,
+          employeeId,
+          countryId,
+          normalizedPhone,
+          orderDate,
+          items,
+        ),
+        userId,
       );
+      await this.recordImportedExtras(
+        order.id,
+        first,
+        paymentMethodLabel,
+        totalPaidAmount,
+        userId,
+      );
+      return { id: order.id };
     }
 
     if (options?.dryRun) return { id: 'dry-run' };
@@ -387,13 +418,6 @@ export class StoreOrdersImportHandler
     const existingOrder = await this.prisma.storeOrder.findFirst({
       where: { externalOrderId: first.externalOrderId, deletedAt: null },
     });
-    if (existingOrder) {
-      throw new BadRequestException({
-        code: 'DUPLICATE',
-        message: `A Store Order with external order id "${first.externalOrderId}" already exists (${existingOrder.internalOrderId}).`,
-        fields: [{ field: 'externalOrderId', constraints: ['unique'] }],
-      });
-    }
 
     if (!first.customerName?.trim()) {
       throw new BadRequestException('Customer Name is required.');
@@ -487,6 +511,7 @@ export class StoreOrdersImportHandler
       orderDate,
       items,
       totalPaidAmount,
+      existingOrder,
     };
   }
 

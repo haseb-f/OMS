@@ -18,7 +18,6 @@ import { PermissionsResolverService } from '../../permissions/permissions-resolv
 import { PermissionsCoreModule } from '../../permissions/permissions-core.module';
 import { PhoneModule } from '../../common/phone/phone.module';
 import { AuthModule } from '../../auth/auth.module';
-import { ImportRowNeedsReviewError } from '../import-type.interface';
 import { GoogleSheetsService } from '../google-sheets.service';
 import { SyncOrchestratorService } from './sync-orchestrator.service';
 import { SyncSourceConfigService } from './sync-source-config.service';
@@ -296,73 +295,62 @@ describe('Data Synchronization', () => {
   });
 
   // ---------------------------------------------------------------------
-  // 2. New External Order ID + existing phone -> Needs Review.
+  // 2. New External Order ID + existing phone -> reuse customer, new order.
   // ---------------------------------------------------------------------
-  it('flags a new External Order ID with an already-known phone as Needs Review, never auto-creating', async () => {
+  it('creates a new Store Order for an existing customer and a new External Order ID', async () => {
     const sharedPhone = `+9665${Math.floor(10000000 + Math.random() * 89999999)}`;
     const firstRow = storeOrderRow({ customerPhone: sharedPhone });
-    await storeOrdersHandler.importRow(firstRow);
+    const first = await storeOrdersHandler.importRow(firstRow);
+    const firstOrder = await prisma.storeOrder.findUniqueOrThrow({
+      where: { id: first.id },
+    });
 
     const secondRow = storeOrderRow({ customerPhone: sharedPhone });
-    await expect(storeOrdersHandler.importRow(secondRow)).rejects.toThrow(
-      ImportRowNeedsReviewError,
-    );
-
-    const orders = await prisma.storeOrder.findMany({
-      where: { externalOrderId: secondRow.externalOrderId },
+    const second = await storeOrdersHandler.importRow(secondRow);
+    const secondOrder = await prisma.storeOrder.findUniqueOrThrow({
+      where: { id: second.id },
     });
-    expect(orders).toHaveLength(0);
+
+    expect(secondOrder.customerId).toBe(firstOrder.customerId);
+    expect(secondOrder.externalOrderId).toBe(secondRow.externalOrderId);
+    const customers = await prisma.customer.count({
+      where: { id: firstOrder.customerId },
+    });
+    expect(customers).toBe(1);
+    const orders = await prisma.storeOrder.findMany({
+      where: { customerId: firstOrder.customerId, deletedAt: null },
+    });
+    expect(orders.length).toBeGreaterThanOrEqual(2);
   });
 
   // ---------------------------------------------------------------------
-  // 3. Accept a duplicate-phone order -> creates a new order.
+  // 3. Existing customer with multiple previous orders + new external order.
   // ---------------------------------------------------------------------
-  it('creates a new Store Order once a duplicate-phone needs-review row is confirmed', async () => {
+  it('reuses the same customer when they already have multiple Store Orders', async () => {
     const sharedPhone = `+9665${Math.floor(10000000 + Math.random() * 89999999)}`;
+    const first = await storeOrdersHandler.importRow(
+      storeOrderRow({ customerPhone: sharedPhone }),
+    );
     await storeOrdersHandler.importRow(
       storeOrderRow({ customerPhone: sharedPhone }),
     );
-
-    const reviewRow = storeOrderRow({ customerPhone: sharedPhone });
-    await expect(storeOrdersHandler.importRow(reviewRow)).rejects.toThrow(
-      ImportRowNeedsReviewError,
-    );
-
-    const result = await storeOrdersHandler.resolveNeedsReview(reviewRow);
-    expect(result.id).toBeTruthy();
-
-    const order = await prisma.storeOrder.findUnique({
-      where: { id: result.id },
+    const firstOrder = await prisma.storeOrder.findUniqueOrThrow({
+      where: { id: first.id },
     });
-    expect(order?.externalOrderId).toBe(reviewRow.externalOrderId);
-
-    const customerOrders = await prisma.storeOrder.findMany({
-      where: { customer: { phone: sharedPhone } },
+    const beforeCustomers = await prisma.customer.count({
+      where: { id: firstOrder.customerId },
     });
-    expect(customerOrders.length).toBeGreaterThanOrEqual(2);
-  });
 
-  // ---------------------------------------------------------------------
-  // 4. Reject a duplicate-phone order -> no order created.
-  // ---------------------------------------------------------------------
-  it('never creates a Store Order for a needs-review row that is rejected instead of confirmed', async () => {
-    const sharedPhone = `+9665${Math.floor(10000000 + Math.random() * 89999999)}`;
-    await storeOrdersHandler.importRow(
+    const third = await storeOrdersHandler.importRow(
       storeOrderRow({ customerPhone: sharedPhone }),
     );
-
-    const reviewRow = storeOrderRow({ customerPhone: sharedPhone });
-    await expect(storeOrdersHandler.importRow(reviewRow)).rejects.toThrow(
-      ImportRowNeedsReviewError,
-    );
-
-    // Rejecting is simply "never call resolveNeedsReview" — the row is
-    // never written by any path (see `ImportJobsService.rejectRow`, which
-    // only ever updates the `ImportJobError` row, never the target service).
-    const orders = await prisma.storeOrder.findMany({
-      where: { externalOrderId: reviewRow.externalOrderId },
+    const thirdOrder = await prisma.storeOrder.findUniqueOrThrow({
+      where: { id: third.id },
     });
-    expect(orders).toHaveLength(0);
+    expect(thirdOrder.customerId).toBe(firstOrder.customerId);
+    expect(
+      await prisma.customer.count({ where: { id: firstOrder.customerId } }),
+    ).toBe(beforeCustomers);
   });
 
   function cashFlowRow(overrides: Partial<Record<string, string>> = {}) {
@@ -834,6 +822,226 @@ describe('Data Synchronization', () => {
         where: { externalOrderId: row['External Order ID'] },
       });
       expect(orders).toHaveLength(1);
+    });
+
+    it('existing customer + new external order is READY, reuses the customer, and stays importable', async () => {
+      const phone = `+9665${Math.floor(10000000 + Math.random() * 89999999)}`;
+      const firstRow = validSheetRow({
+        'Customer Name': 'Sheet Customer Existing',
+        'Customer Phone': phone,
+      });
+      const firstSource = await createSource([firstRow]);
+      const firstPreview = await orchestrator.preview(firstSource.id);
+      expect(firstPreview.rows[0]?.status).toBe('READY');
+      await orchestrator.commit(firstSource.id, firstPreview.jobId, undefined, {
+        acceptRowNumbers: firstPreview.rows.flatMap((r) => r.rowNumbers),
+      });
+      const firstOrder = await prisma.storeOrder.findFirstOrThrow({
+        where: { externalOrderId: firstRow['External Order ID'] },
+      });
+      const customerCountBefore = await prisma.customer.count({
+        where: { id: firstOrder.customerId },
+      });
+
+      const secondRow = validSheetRow({
+        'External Order ID': 'NEW-ORDER-001',
+        'Customer Name': 'Sheet Customer Existing',
+        'Customer Phone': phone,
+      });
+      const secondSource = await createSource([secondRow]);
+      const preview = await orchestrator.preview(secondSource.id);
+      expect(preview.rows).toHaveLength(1);
+      expect(preview.rows[0]?.status).toBe('READY');
+      expect(
+        preview.rows[0]?.issues.some((issue) => issue.code === 'DUPLICATE'),
+      ).toBe(false);
+
+      const commitResult = await orchestrator.commit(
+        secondSource.id,
+        preview.jobId,
+        undefined,
+        { acceptRowNumbers: preview.rows.flatMap((r) => r.rowNumbers) },
+      );
+      expect(commitResult.importedCount).toBe(1);
+      const secondOrder = await prisma.storeOrder.findFirstOrThrow({
+        where: { externalOrderId: 'NEW-ORDER-001' },
+      });
+      expect(secondOrder.customerId).toBe(firstOrder.customerId);
+      expect(
+        await prisma.customer.count({ where: { id: firstOrder.customerId } }),
+      ).toBe(customerCountBefore);
+      expect(
+        await prisma.storeOrder.count({
+          where: {
+            externalOrderId: firstRow['External Order ID'],
+            deletedAt: null,
+          },
+        }),
+      ).toBe(1);
+    });
+
+    it('returns a modified imported row to review and applies the source change', async () => {
+      const row = validSheetRow({
+        'Customer Name': 'Sheet Customer Modified',
+        'Paid Amount': '75',
+      });
+      const source = await createSource([row]);
+      const first = await orchestrator.preview(source.id);
+      await orchestrator.commit(source.id, first.jobId, undefined, {
+        acceptRowNumbers: first.rows.flatMap((r) => r.rowNumbers),
+      });
+
+      fakeSheets.rows[0]['Paid Amount'] = '140';
+      fakeSheets.rows[0]['Customer Name'] = 'Sheet Customer Modified 2';
+      const changed = await orchestrator.preview(source.id);
+      expect(changed.incremental?.modifiedCount).toBe(1);
+      expect(changed.rows).toHaveLength(1);
+      expect(changed.rows[0]?.lifecycle).toBe('MODIFIED');
+      expect(changed.rows[0]?.status).toBe('READY');
+
+      await orchestrator.commit(source.id, changed.jobId, undefined, {
+        acceptRowNumbers: changed.rows.flatMap((r) => r.rowNumbers),
+      });
+      const order = await prisma.storeOrder.findFirstOrThrow({
+        where: { externalOrderId: row['External Order ID'] },
+        include: { items: true, customer: true },
+      });
+      expect(Number(order.items[0].unitPrice)).toBe(140);
+    });
+
+    it('does not create a false modification when only OMS-managed output columns change', async () => {
+      const row = validSheetRow({
+        'Customer Name': 'Sheet Customer Managed Columns',
+      });
+      const source = await createSource([row]);
+      const first = await orchestrator.preview(source.id);
+      await orchestrator.commit(source.id, first.jobId, undefined, {
+        acceptRowNumbers: first.rows.flatMap((r) => r.rowNumbers),
+      });
+
+      fakeSheets.rows[0]['Sync Status'] = 'SUCCESS';
+      fakeSheets.rows[0]['Error Message'] = 'stale';
+      const preview = await orchestrator.preview(source.id);
+      expect(preview.incremental?.nothingToSync).toBe(true);
+      expect(preview.incremental?.importedSkippedCount).toBe(1);
+      expect(preview.rows).toHaveLength(0);
+    });
+
+    it('returns a product change on an imported row to review', async () => {
+      const row = validSheetRow({
+        'Customer Name': 'Sheet Customer Product Change',
+      });
+      const source = await createSource([row]);
+      const first = await orchestrator.preview(source.id);
+      await orchestrator.commit(source.id, first.jobId, undefined, {
+        acceptRowNumbers: first.rows.flatMap((r) => r.rowNumbers),
+      });
+
+      const otherName = `Sheet Product ${randomUUID().slice(0, 8)}`;
+      await prisma.product.create({
+        data: {
+          name: otherName,
+          internalName: otherName,
+          displayName: otherName,
+          sku: `SYNC-PROD-${randomUUID().slice(0, 8)}`,
+          categoryId,
+          unitId,
+          type: ProductType.SERVICE,
+          isPurchasable: false,
+          isSellable: true,
+          isInventoryItem: false,
+        },
+      });
+      fakeSheets.rows[0]['Product SKU'] = otherName;
+      const preview = await orchestrator.preview(source.id);
+      expect(preview.rows).toHaveLength(1);
+      expect(preview.rows[0]?.lifecycle).toBe('MODIFIED');
+      expect(preview.rows[0]?.status).toBe('READY');
+      await prisma.product.deleteMany({ where: { displayName: otherName } });
+    });
+
+    it('surfaces a deleted source row for review without silently dropping the OMS order', async () => {
+      const kept = validSheetRow({ 'Customer Name': 'Sheet Customer Kept' });
+      const removed = validSheetRow({
+        'Customer Name': 'Sheet Customer Removed',
+      });
+      const source = await createSource([kept, removed]);
+      const first = await orchestrator.preview(source.id);
+      await orchestrator.commit(source.id, first.jobId, undefined, {
+        acceptRowNumbers: first.rows.flatMap((r) => r.rowNumbers),
+      });
+      const removedOrder = await prisma.storeOrder.findFirstOrThrow({
+        where: { externalOrderId: removed['External Order ID'] },
+      });
+
+      fakeSheets.rows = [fakeSheets.rows[0]];
+      const preview = await orchestrator.preview(source.id);
+      const deleted = preview.rows.filter((row) => row.lifecycle === 'DELETED');
+      expect(deleted).toHaveLength(1);
+      expect(deleted[0]?.status).toBe('WARNING');
+      expect(deleted[0]?.existingRecordId).toBe(removedOrder.internalOrderId);
+
+      await orchestrator.commit(source.id, preview.jobId, undefined, {
+        acceptRowNumbers: [],
+      });
+      const stillThere = await prisma.storeOrder.findFirst({
+        where: {
+          externalOrderId: removed['External Order ID'],
+          deletedAt: null,
+        },
+      });
+      expect(stillThere).not.toBeNull();
+
+      const again = await orchestrator.preview(source.id);
+      const deletedAgain = again.rows.filter(
+        (row) => row.lifecycle === 'DELETED',
+      );
+      expect(deletedAgain).toHaveLength(0);
+    });
+
+    it('archives the OMS Store Order when a deleted source row is accepted', async () => {
+      const row = validSheetRow({ 'Customer Name': 'Sheet Customer Archive' });
+      const source = await createSource([row]);
+      const first = await orchestrator.preview(source.id);
+      await orchestrator.commit(source.id, first.jobId, undefined, {
+        acceptRowNumbers: first.rows.flatMap((r) => r.rowNumbers),
+      });
+
+      const placeholder = validSheetRow({
+        'Customer Name': 'Sheet Customer Placeholder',
+      });
+      fakeSheets.rows = [placeholder];
+      const preview = await orchestrator.preview(source.id);
+      const deleted = preview.rows.filter(
+        (item) => item.lifecycle === 'DELETED',
+      );
+      expect(deleted).toHaveLength(1);
+
+      await orchestrator.commit(source.id, preview.jobId, undefined, {
+        acceptRowNumbers: deleted.flatMap((item) => item.rowNumbers),
+      });
+      const archived = await prisma.storeOrder.findFirst({
+        where: { externalOrderId: row['External Order ID'] },
+      });
+      expect(archived?.deletedAt).not.toBeNull();
+    });
+
+    it('treats a customer identity change on an imported row as a modification', async () => {
+      const row = validSheetRow({
+        'Customer Name': 'Sheet Customer Identity',
+      });
+      const source = await createSource([row]);
+      const first = await orchestrator.preview(source.id);
+      await orchestrator.commit(source.id, first.jobId, undefined, {
+        acceptRowNumbers: first.rows.flatMap((r) => r.rowNumbers),
+      });
+
+      fakeSheets.rows[0]['Customer Phone'] =
+        `+9665${Math.floor(10000000 + Math.random() * 89999999)}`;
+      fakeSheets.rows[0]['Customer Name'] = 'Sheet Customer Identity 2';
+      const preview = await orchestrator.preview(source.id);
+      expect(preview.rows[0]?.lifecycle).toBe('MODIFIED');
+      expect(preview.rows[0]?.status).toBe('READY');
     });
 
     it('TEST 3/4 — unchanged failures are skipped; a corrected row is retried and imported', async () => {

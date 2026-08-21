@@ -33,6 +33,8 @@ const LIFECYCLE_LABEL: Record<SyncReviewLifecycle, MessageKey> = {
   IMPORTED: "importCenter.sync.review.lifecycleImported",
   UNCHANGED_FAILURE: "importCenter.sync.review.lifecycleSkipped",
   ORPHAN_LINK: "importCenter.sync.review.lifecycleError",
+  MODIFIED: "importCenter.sync.review.lifecycleModified",
+  DELETED: "importCenter.sync.review.lifecycleDeleted",
 };
 
 export function syncStatusLabelKey(status: SyncReviewStatus): MessageKey {
@@ -97,6 +99,12 @@ export function humanizeSyncIssue(
   }
   if (/duplicate /i.test(issue.message)) {
     return t("importCenter.sync.review.reasons.duplicateInFile");
+  }
+  if (/removed from Google Sheets/i.test(issue.message)) {
+    return t("importCenter.sync.review.reasons.sourceDeleted");
+  }
+  if (/can no longer be updated from Google Sheets/i.test(issue.message)) {
+    return t("importCenter.sync.review.reasons.sourceLocked");
   }
   if (issue.code === "NEEDS_REVIEW" || /existing customer found by phone/i.test(issue.message)) {
     return t("importCenter.sync.review.reasons.needsReviewCustomer");

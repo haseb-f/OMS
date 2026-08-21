@@ -298,7 +298,7 @@ export function SyncReviewTable({
         enableSorting: false,
         cell: ({ row }) => {
           const item = row.original;
-          const decision = decisions[item.id] ?? defaultDecision(item.status);
+          const decision = decisions[item.id] ?? defaultDecision(item);
           return (
             <RowActionsMenu
               label={t("common.actions")}
@@ -365,7 +365,7 @@ export function SyncReviewTable({
           onToggleSelected={onToggleSelected}
           expanded={expanded}
           onToggleExpanded={onToggleExpanded}
-          decision={decisions[row.id] ?? defaultDecision(row.status)}
+          decision={decisions[row.id] ?? defaultDecision(row)}
           onAccept={() => onDecision([row.id], "ACCEPT")}
           onReject={() => onDecision([row.id], "REJECT")}
         />

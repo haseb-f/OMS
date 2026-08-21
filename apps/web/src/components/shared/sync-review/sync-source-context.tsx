@@ -26,7 +26,7 @@ export function SyncSourceContext({
 }) {
   const { t } = useLocale();
   const accepted = rows.filter((row) => {
-    const decision = decisions[row.id] ?? defaultDecision(row.status);
+    const decision = decisions[row.id] ?? defaultDecision(row);
     return decision === "ACCEPT" && isImportable(row.status);
   }).length;
   const rejected = rows.length - accepted;

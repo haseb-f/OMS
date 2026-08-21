@@ -143,6 +143,15 @@ export class CustomersService extends MasterDataCrudService<
     return this.findDuplicate([phone]);
   }
 
+  /**
+   * Same matching engine as `lookupByPhone` / `findDuplicate`, returning every
+   * non-archived phone match. Used by Store Orders import to distinguish a
+   * unique existing customer (reuse) from an ambiguous phone collision.
+   */
+  async lookupAllByPhone(phone: string) {
+    return this.findPhoneMatches([phone]);
+  }
+
   /** List needs each row's computed receivables balance for the "Current Balance" column. */
   async findAll(
     query: FindCustomersQueryDto,
@@ -235,9 +244,8 @@ export class CustomersService extends MasterDataCrudService<
    * since either column may hold the number a Lead/import knows the
    * customer by.
    */
-  private async findDuplicate(
+  private async findPhoneMatches(
     phones: (string | undefined | null)[],
-    email?: string,
     excludingId?: string,
   ) {
     const normalizedPhones = [
@@ -247,26 +255,33 @@ export class CustomersService extends MasterDataCrudService<
           .filter((p): p is string => !!p),
       ),
     ];
+    if (normalizedPhones.length === 0) return [];
 
-    if (normalizedPhones.length > 0) {
-      const candidates = await this.prisma.customer.findMany({
-        where: {
-          deletedAt: null,
-          OR: [{ phone: { not: null } }, { mobile: { not: null } }],
-          ...(excludingId ? { id: { not: excludingId } } : {}),
-        },
-      });
-      const phoneMatch = candidates.find((c) => {
-        const candidatePhones = [
-          this.phoneNumberService.normalizeToE164(c.phone),
-          this.phoneNumberService.normalizeToE164(c.mobile),
-        ];
-        return candidatePhones.some(
-          (p) => p !== null && normalizedPhones.includes(p),
-        );
-      });
-      if (phoneMatch) return phoneMatch;
-    }
+    const candidates = await this.prisma.customer.findMany({
+      where: {
+        deletedAt: null,
+        OR: [{ phone: { not: null } }, { mobile: { not: null } }],
+        ...(excludingId ? { id: { not: excludingId } } : {}),
+      },
+    });
+    return candidates.filter((customer) => {
+      const candidatePhones = [
+        this.phoneNumberService.normalizeToE164(customer.phone),
+        this.phoneNumberService.normalizeToE164(customer.mobile),
+      ];
+      return candidatePhones.some(
+        (value) => value !== null && normalizedPhones.includes(value),
+      );
+    });
+  }
+
+  private async findDuplicate(
+    phones: (string | undefined | null)[],
+    email?: string,
+    excludingId?: string,
+  ) {
+    const phoneMatches = await this.findPhoneMatches(phones, excludingId);
+    if (phoneMatches[0]) return phoneMatches[0];
 
     if (email) {
       const emailMatch = await this.prisma.customer.findFirst({

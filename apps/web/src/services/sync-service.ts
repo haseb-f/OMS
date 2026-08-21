@@ -33,6 +33,8 @@ export interface SyncPreviewIncremental {
   readyCount: number;
   importedSkippedCount: number;
   unchangedSkippedCount: number;
+  modifiedCount?: number;
+  deletedCount?: number;
   nothingToSync: boolean;
 }
 
