@@ -163,7 +163,10 @@ export function groupRowsByKey<T extends { mappedRow: Record<string, string> }>(
   let blankIndex = 0;
   for (const row of rows) {
     const raw = row.mappedRow[groupKey]?.trim();
-    const id = raw ? raw : `__blank_${blankIndex++}__`;
+    // Case-fold so External Order ID variants in one sheet stay one group.
+    const id = raw
+      ? raw.toLocaleLowerCase('en-US')
+      : `__blank_${blankIndex++}__`;
     const bucket = groups.get(id) ?? [];
     bucket.push(row);
     groups.set(id, bucket);

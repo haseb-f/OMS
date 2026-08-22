@@ -22,6 +22,8 @@ export const STORE_ORDER_SHEET_STATUS = {
   imported: 'تم الاستيراد',
   error: 'خطأ',
   needsReview: 'بانتظار المراجعة',
+  rejectedExternalExists: 'مرفوض - رقم الطلب الخارجي موجود مسبقًا',
+  rejectedPhoneSkip: 'مرفوض - لم يُستورد لوجود طلب سابق لنفس رقم الجوال',
 } as const;
 
 const IMPORTED_STATUSES = new Set([
@@ -33,6 +35,7 @@ const IMPORTED_STATUSES = new Set([
 
 const FAILED_STATUSES = new Set([
   STORE_ORDER_SHEET_STATUS.error,
+  STORE_ORDER_SHEET_STATUS.rejectedPhoneSkip,
   'ERROR',
   'REJECTED',
   'FAILED',
@@ -63,13 +66,24 @@ export const STORE_ORDER_SOURCE_FIELD_KEYS = [
   'agentEmail',
 ] as const;
 
+/**
+ * Canonical External Order ID for grouping, lookup, and persistence.
+ * Trim + Unicode case-fold (lowercase) — same key everywhere.
+ */
+export function normalizeExternalOrderId(
+  value: string | null | undefined,
+): string {
+  return (value ?? '').trim().toLocaleLowerCase('en-US');
+}
+
 export type StoreOrderSyncLifecycle =
   | 'NEW'
   | 'RETRY'
   | 'IMPORTED'
   | 'UNCHANGED_FAILURE'
   | 'ORPHAN_LINK'
-  | 'MODIFIED'
+  | 'EXTERNAL_DUP'
+  | 'PHONE_MATCH'
   | 'DELETED';
 
 /** Sentinel row numbers for source rows that disappeared from the sheet. */
@@ -86,9 +100,18 @@ export type StoreOrderRowHashMap = Record<
   StoreOrderRowFingerprintState
 >;
 
+export interface PriorOrderSummary {
+  internalOrderId: string;
+  externalOrderId: string | null;
+  orderDate: string | null;
+}
+
 export interface ClassifiedStoreOrderGroup {
   rowNumbers: number[];
+  /** Normalized external order id (empty when blank). */
   externalOrderId: string;
+  /** Original sheet value (trimmed), for Arabic messages. */
+  displayExternalOrderId: string;
   hash: string;
   lifecycle: StoreOrderSyncLifecycle;
   /** Run handler validation / import on this group. */
@@ -98,8 +121,11 @@ export interface ClassifiedStoreOrderGroup {
   changed: boolean;
   retryable: boolean;
   existingInternalOrderId: string | null;
+  priorOrder?: PriorOrderSummary | null;
   /** Sheet is missing/mismatching the real OMS number — write it back, do not re-import. */
   needsSheetNumberWriteback: boolean;
+  /** ORPHAN_LINK only — System Order ID present on the sheet but missing in OMS. */
+  staleSheetSystemOrderId?: string | null;
 }
 
 export interface ClassifyStoreOrderRowsArgs {
@@ -109,6 +135,10 @@ export interface ClassifyStoreOrderRowsArgs {
     sourceRow: Record<string, string>;
   }>;
   existingByExternalId: Map<string, { internalOrderId: string }>;
+  /** Normalized phone → most recent prior Store Order (any external id). */
+  priorOrderByPhone?: Map<string, PriorOrderSummary>;
+  /** rowNumber → normalized E.164 phone from the mapped group. */
+  phoneByGroupRow?: Map<number, string | null>;
   previous: StoreOrderRowHashMap;
   retryRowNumbers?: number[];
   retryAllFailed?: boolean;
@@ -130,7 +160,12 @@ export function fingerprintMappedRows(
   mappedRows: Record<string, string>[],
 ): string {
   const payload = mappedRows.map((row) =>
-    STORE_ORDER_SOURCE_FIELD_KEYS.map((key) => (row[key] ?? '').trim()),
+    STORE_ORDER_SOURCE_FIELD_KEYS.map((key) => {
+      const raw = row[key] ?? '';
+      return key === 'externalOrderId'
+        ? normalizeExternalOrderId(raw)
+        : raw.trim();
+    }),
   );
   return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 }
@@ -147,8 +182,23 @@ export function isNeedsReviewSheetStatus(value: string): boolean {
   return NEEDS_REVIEW_STATUSES.has(value.trim());
 }
 
+/** Sheet Q/R markers that mean "do not process again". */
+export function isSheetSuccessfullyImported(
+  sourceRow: Record<string, string>,
+): boolean {
+  const sheetOrderId = sheetCell(
+    sourceRow,
+    STORE_ORDER_RESULT_COLUMNS.systemOrderId,
+  );
+  const sheetStatus = sheetCell(
+    sourceRow,
+    STORE_ORDER_RESULT_COLUMNS.syncStatus,
+  );
+  return Boolean(sheetOrderId) || isImportedSheetStatus(sheetStatus);
+}
+
 function identityKey(externalOrderId: string, rowNumbers: number[]): string {
-  const id = externalOrderId.trim();
+  const id = normalizeExternalOrderId(externalOrderId);
   return id || `__row_${rowNumbers[0] ?? 0}`;
 }
 
@@ -159,7 +209,10 @@ export function classifyStoreOrderGroups(
   const classified: ClassifiedStoreOrderGroup[] = [];
 
   for (const group of args.groups) {
-    const externalOrderId = (group.mappedRows[0]?.externalOrderId ?? '').trim();
+    const displayExternalOrderId = (
+      group.mappedRows[0]?.externalOrderId ?? ''
+    ).trim();
+    const externalOrderId = normalizeExternalOrderId(displayExternalOrderId);
     const key = identityKey(externalOrderId, group.rowNumbers);
     const hash = fingerprintMappedRows(group.mappedRows);
     const sheetOrderId = sheetCell(
@@ -177,37 +230,65 @@ export function classifyStoreOrderGroups(
     const explicitRetry =
       args.retryAllFailed === true ||
       group.rowNumbers.some((rowNumber) => retryRows.has(rowNumber));
+    const primaryRow = group.rowNumbers[0] ?? -1;
+    const phone = args.phoneByGroupRow?.get(primaryRow) ?? null;
+    const priorOrder =
+      phone && args.priorOrderByPhone
+        ? (args.priorOrderByPhone.get(phone) ?? null)
+        : null;
 
-    if (dbOrder) {
-      const previousHash = previous?.hash?.trim();
-      const changed = Boolean(previousHash) && previousHash !== hash;
+    // 1) Sheet success markers win — never reprocess.
+    if (isSheetSuccessfullyImported(group.sourceRow)) {
       classified.push({
         rowNumbers: group.rowNumbers,
         externalOrderId,
+        displayExternalOrderId,
         hash,
-        lifecycle: changed ? 'MODIFIED' : 'IMPORTED',
-        runValidation: changed,
-        includeInReview: changed,
-        changed,
-        retryable: changed,
-        existingInternalOrderId: dbOrder.internalOrderId,
-        needsSheetNumberWriteback: sheetOrderId !== dbOrder.internalOrderId,
+        lifecycle: 'IMPORTED',
+        runValidation: false,
+        includeInReview: false,
+        changed: false,
+        retryable: false,
+        existingInternalOrderId:
+          dbOrder?.internalOrderId ?? (sheetOrderId || null),
+        needsSheetNumberWriteback: false,
       });
       continue;
     }
 
+    // 2) Exact external id already in OMS — auto-reject, never update.
+    if (dbOrder) {
+      classified.push({
+        rowNumbers: group.rowNumbers,
+        externalOrderId,
+        displayExternalOrderId,
+        hash,
+        lifecycle: 'EXTERNAL_DUP',
+        runValidation: false,
+        includeInReview: false,
+        changed: false,
+        retryable: false,
+        existingInternalOrderId: dbOrder.internalOrderId,
+        needsSheetNumberWriteback: true,
+      });
+      continue;
+    }
+
+    // 3) Sheet claims an OMS id that we cannot find.
     if (sheetOrderId && isImportedSheetStatus(sheetStatus)) {
       classified.push({
         rowNumbers: group.rowNumbers,
         externalOrderId,
+        displayExternalOrderId,
         hash,
         lifecycle: 'ORPHAN_LINK',
         runValidation: false,
         includeInReview: true,
         changed: false,
-        retryable: false,
+        retryable: true,
         existingInternalOrderId: null,
         needsSheetNumberWriteback: false,
+        staleSheetSystemOrderId: sheetOrderId,
       });
       continue;
     }
@@ -220,11 +301,31 @@ export function classifyStoreOrderGroups(
     const previousHash = previous?.hash;
     const changed = !previousHash || previousHash !== hash;
 
+    // 4) New external id + existing customer phone → review (default skip).
+    if (priorOrder && externalOrderId) {
+      classified.push({
+        rowNumbers: group.rowNumbers,
+        externalOrderId,
+        displayExternalOrderId,
+        hash,
+        lifecycle: 'PHONE_MATCH',
+        runValidation: true,
+        includeInReview: true,
+        changed: true,
+        retryable: previouslyFailed,
+        existingInternalOrderId: priorOrder.internalOrderId,
+        priorOrder,
+        needsSheetNumberWriteback: false,
+      });
+      continue;
+    }
+
     if (previouslyFailed) {
       const retry = explicitRetry || changed;
       classified.push({
         rowNumbers: group.rowNumbers,
         externalOrderId,
+        displayExternalOrderId,
         hash,
         lifecycle: retry ? 'RETRY' : 'UNCHANGED_FAILURE',
         runValidation: retry,
@@ -240,6 +341,7 @@ export function classifyStoreOrderGroups(
     classified.push({
       rowNumbers: group.rowNumbers,
       externalOrderId,
+      displayExternalOrderId,
       hash,
       lifecycle: 'NEW',
       runValidation: true,
@@ -252,6 +354,29 @@ export function classifyStoreOrderGroups(
   }
 
   return classified;
+}
+
+export function externalDupWritebackValues(args: {
+  displayExternalOrderId: string;
+  existingInternalOrderId: string;
+}): Record<string, string> {
+  return {
+    [STORE_ORDER_RESULT_COLUMNS.syncStatus]:
+      STORE_ORDER_SHEET_STATUS.rejectedExternalExists,
+    [STORE_ORDER_RESULT_COLUMNS.systemOrderId]: args.existingInternalOrderId,
+    [STORE_ORDER_RESULT_COLUMNS.errorMessage]: `رقم الطلب الخارجي [${args.displayExternalOrderId}] مرتبط بالفعل بالطلب [${args.existingInternalOrderId}].`,
+  };
+}
+
+export function phoneSkipWritebackValues(args: {
+  priorInternalOrderId: string;
+}): Record<string, string> {
+  return {
+    [STORE_ORDER_RESULT_COLUMNS.syncStatus]:
+      STORE_ORDER_SHEET_STATUS.rejectedPhoneSkip,
+    [STORE_ORDER_RESULT_COLUMNS.systemOrderId]: '',
+    [STORE_ORDER_RESULT_COLUMNS.errorMessage]: `لم يُستورد الطلب لأن رقم الجوال مرتبط بطلب سابق [${args.priorInternalOrderId}]. يمكن إعادة المحاولة بعد التصحيح أو القبول الصريح كطلب جديد.`,
+  };
 }
 
 export function storeOrderWritebackValues(args: {
@@ -331,3 +456,6 @@ export function classifyDeletedStoreOrderGroups(args: {
   }
   return deleted;
 }
+
+/** Badge / channel stamp for phone-match orders the user explicitly accepted. */
+export const REPEAT_CUSTOMER_ORDER_LABEL = 'مكرر';

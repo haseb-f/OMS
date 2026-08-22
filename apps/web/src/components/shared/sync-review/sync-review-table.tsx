@@ -104,11 +104,13 @@ function SyncReviewMobileCard({
             <EnterpriseButton type="button" variant="ghost" size="xs" onClick={onToggleExpanded}>
               {expanded ? t("common.collapse") : t("importCenter.sync.review.actionView")}
             </EnterpriseButton>
-            {isImportable(row.status) && decision !== "ACCEPT" ? (
+            {isImportable(row.status, row.lifecycle) && decision !== "ACCEPT" ? (
               <EnterpriseButton type="button" variant="outline" size="xs" onClick={onAccept}>
-                {row.status === "WARNING"
-                  ? t("importCenter.sync.review.actionAcceptWarning")
-                  : t("importCenter.sync.review.actionAccept")}
+                {row.lifecycle === "PHONE_MATCH"
+                  ? t("importCenter.sync.review.actionAcceptAsNewOrder")
+                  : row.status === "WARNING"
+                    ? t("importCenter.sync.review.actionAcceptWarning")
+                    : t("importCenter.sync.review.actionAccept")}
               </EnterpriseButton>
             ) : null}
             {decision !== "REJECT" ? (
@@ -306,11 +308,13 @@ export function SyncReviewTable({
                 {
                   key: "accept",
                   label:
-                    item.status === "WARNING"
-                      ? t("importCenter.sync.review.actionAcceptWarning")
-                      : t("importCenter.sync.review.actionAccept"),
+                    item.lifecycle === "PHONE_MATCH"
+                      ? t("importCenter.sync.review.actionAcceptAsNewOrder")
+                      : item.status === "WARNING"
+                        ? t("importCenter.sync.review.actionAcceptWarning")
+                        : t("importCenter.sync.review.actionAccept"),
                   icon: Check,
-                  hidden: !isImportable(item.status) || decision === "ACCEPT",
+                  hidden: !isImportable(item.status, item.lifecycle) || decision === "ACCEPT",
                   onSelect: () => onDecision([item.id], "ACCEPT"),
                 },
                 {

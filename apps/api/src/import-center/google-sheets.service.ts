@@ -320,6 +320,37 @@ export class GoogleSheetsService {
   }
 
   /**
+   * Renames a header cell in row 1 by exact trimmed match. Preserves all
+   * data cells in that column. Used to migrate legacy `Status` →
+   * `Shipping Status` without creating an empty duplicate column.
+   */
+  async renameHeader(
+    spreadsheetId: string,
+    fromHeader: string,
+    toHeader: string,
+    gid?: string,
+  ): Promise<boolean> {
+    const from = fromHeader.trim();
+    const to = toHeader.trim();
+    if (!from || !to || from === to) return false;
+    const title = await this.resolveSheetTitle(spreadsheetId, gid);
+    const headers = await this.getHeaders(spreadsheetId, gid);
+    const index = headers.findIndex((header) => (header ?? '').trim() === from);
+    if (index < 0) return false;
+    try {
+      await this.sheetsClient().spreadsheets.values.update({
+        spreadsheetId,
+        range: `${quoteSheetTitle(title)}!${columnIndexToLetter(index)}1`,
+        valueInputOption: 'RAW',
+        requestBody: { values: [[to]] },
+      });
+    } catch (error) {
+      throw this.mapError(error, 'write');
+    }
+    return true;
+  }
+
+  /**
    * Writes each row's result values into its own dedicated OMS column(s)
    * (auto-created via `ensureResultColumns`) at `rowNumber` (1-indexed
    * sheet row — header is row 1, first data row is row 2, the same

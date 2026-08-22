@@ -411,11 +411,13 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
       resolveSheetTitle: jest.Mock;
       writeRowResults: jest.Mock;
       ensureResultColumns: jest.Mock;
+      getHeaders: jest.Mock;
+      renameHeader: jest.Mock;
     };
 
     const HEADERS = [
       'External Order ID',
-      'Status',
+      'Shipping Status',
       'Tracking Number',
       'Shipping Company',
       'Notes',
@@ -435,7 +437,29 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
         getSpreadsheetMetadata: jest.fn(),
         resolveSheetTitle: jest.fn().mockResolvedValue('Sheet1'),
         writeRowResults: jest.fn(),
-        ensureResultColumns: jest.fn(),
+        ensureResultColumns: jest.fn(async (_id: string, names: string[]) => {
+          for (const name of names) {
+            for (const row of fakeSheets.rows) {
+              if (!(name in row)) row[name] = '';
+            }
+          }
+          return Object.fromEntries(
+            names.map((name, index) => [name, `COL${index}`]),
+          );
+        }),
+        getHeaders: jest.fn(async () => {
+          if (fakeSheets.rows[0]) return Object.keys(fakeSheets.rows[0]);
+          return [...HEADERS];
+        }),
+        renameHeader: jest.fn(async (_id: string, from: string, to: string) => {
+          for (const row of fakeSheets.rows) {
+            if (from in row && !(to in row)) {
+              row[to] = row[from];
+              delete row[from];
+            }
+          }
+          return true;
+        }),
       };
       fakeSheets.getSheetAsCsv.mockImplementation(() =>
         Promise.resolve(toCsv(fakeSheets.rows)),
@@ -472,7 +496,7 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
         spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${randomUUID()}/edit`,
         columnMapping: {
           externalOrderId: 'External Order ID',
-          status: 'Status',
+          status: 'Shipping Status',
           trackingNumber: 'Tracking Number',
           shippingCompanyName: 'Shipping Company',
           notes: 'Notes',
@@ -491,7 +515,7 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
     ): Record<string, string> {
       return {
         'External Order ID': externalOrderId,
-        Status: options.status ?? '',
+        'Shipping Status': options.status ?? '',
         'Tracking Number': options.trackingNumber ?? '',
         'Shipping Company': options.shippingCompany ?? '',
         Notes: options.notes ?? '',
@@ -659,7 +683,7 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
         'Payment Method',
         'Employee Email',
         // Shipping input (T:W equivalent) — lives on the SAME row/sheet
-        'Status',
+        'Shipping Status',
         'Tracking Number',
         'Shipping Company',
         'Notes',
@@ -710,7 +734,7 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
           spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${randomUUID()}/edit`,
           columnMapping: {
             externalOrderId: 'External Order ID',
-            status: 'Status',
+            status: 'Shipping Status',
             trackingNumber: 'Tracking Number',
             shippingCompanyName: 'Shipping Company',
             notes: 'Notes',
@@ -734,7 +758,7 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
           Currency: currencyCode,
           'Payment Method': paymentMethodLabel,
           'Employee Email': employeeEmail,
-          Status: '',
+          'Shipping Status': '',
           'Tracking Number': '',
           'Shipping Company': '',
           Notes: '',
@@ -787,7 +811,7 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
           Currency: '',
           'Payment Method': '',
           'Employee Email': '',
-          Status: 'LABEL_CREATED',
+          'Shipping Status': 'LABEL_CREATED',
           'Shipping Company': shippingCompanyName,
         });
         const source = await createShippingSource([row]);
@@ -840,7 +864,7 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
         'Sync Status',
         'System Order ID',
         'Error Message',
-        'Status',
+        'Shipping Status',
         'Tracking Number',
         'Shipping Company',
         'Shipping Label URL',
@@ -873,7 +897,7 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
           'Sync Status': 'تم الاستيراد',
           'System Order ID': '',
           'Error Message': '',
-          Status: '',
+          'Shipping Status': '',
           'Tracking Number': '',
           'Shipping Company': '',
           'Shipping Label URL': '',
@@ -943,6 +967,28 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
         expect(fakeSheets.writeRowResults).not.toHaveBeenCalled();
       });
 
+      it('accepts Shipping Status in column T without requiring legacy Status mapping', async () => {
+        const order = await createAcceptedOrder();
+        const source = await createStoreOrdersOnly([
+          reuseRow({
+            'External Order ID': order.externalOrderId!,
+            'System Order ID': order.internalOrderId,
+            'Shipping Status': 'LABEL_CREATED',
+            'Tracking Number': 'TRK-MAP',
+            'Shipping Company': shippingCompanyName,
+          }),
+        ]);
+
+        await expect(
+          orchestrator.preview(source.id, undefined, {
+            runAs: 'SHIPPING_UPDATES',
+          }),
+        ).resolves.toMatchObject({
+          willImportCount: 1,
+        });
+        expect(fakeSheets.renameHeader).not.toHaveBeenCalled();
+      });
+
       it('reads T:W from the Store Orders source and writes only X+ shipping results', async () => {
         const order = await createAcceptedOrder();
         const qrsBefore = {
@@ -951,7 +997,7 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
           'Error Message': 'keep-qrs',
         };
         const twBefore = {
-          Status: 'LABEL_CREATED',
+          'Shipping Status': 'LABEL_CREATED',
           'Tracking Number': 'TRK-KEEP',
           'Shipping Company': shippingCompanyName,
           'Shipping Label URL': 'https://label.example/awb',
@@ -998,7 +1044,7 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
         expect(keys).not.toContain('Sync Status');
         expect(keys).not.toContain('System Order ID');
         expect(keys).not.toContain('Error Message');
-        expect(keys).not.toContain('Status');
+        expect(keys).not.toContain('Shipping Status');
         expect(keys).not.toContain('Tracking Number');
         expect(call[3]).toEqual({ minStartColumn: 'X' });
         expect(fakeSheets.rows[0]['Sync Status']).toBe(
@@ -1010,7 +1056,9 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
         expect(fakeSheets.rows[0]['Error Message']).toBe(
           qrsBefore['Error Message'],
         );
-        expect(fakeSheets.rows[0].Status).toBe(twBefore.Status);
+        expect(fakeSheets.rows[0]['Shipping Status']).toBe(
+          twBefore['Shipping Status'],
+        );
         expect(fakeSheets.rows[0]['Tracking Number']).toBe(
           twBefore['Tracking Number'],
         );

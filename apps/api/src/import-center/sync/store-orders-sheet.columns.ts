@@ -25,16 +25,24 @@ export const STORE_ORDERS_SHEET_LAYOUT = {
 } as const;
 
 /**
- * Employee shipping input — T:W. Existing Shipping Updates field labels.
+ * Employee shipping input — T:W.
  * `Notes` is already column O of the Store Orders source block, so W is
  * the existing unique fourth shipping field (`Shipping Label URL`).
+ * Legacy sheets may still use header `Status`; mapping accepts both.
  */
 export const SHIPPING_INPUT_COLUMNS = {
-  status: 'Status',
+  status: 'Shipping Status',
   trackingNumber: 'Tracking Number',
   shippingCompany: 'Shipping Company',
   labelUrl: 'Shipping Label URL',
 } as const;
+
+/** Accepted aliases for column T (normalized trim, case-insensitive). */
+export const SHIPPING_STATUS_HEADER_ALIASES = [
+  'Shipping Status',
+  'Status',
+  'حالة الشحن',
+] as const;
 
 export const SHIPPING_INPUT_COLUMN_NAMES = [
   SHIPPING_INPUT_COLUMNS.status,
@@ -72,13 +80,85 @@ export interface ShippingSyncMetadata {
   };
 }
 
+/**
+ * Resolve the live sheet header for Shipping Status (T), preferring the
+ * canonical name and falling back to known aliases without inventing data.
+ */
+export function resolveShippingStatusHeader(headers: string[]): string {
+  const normalized = new Map(
+    headers
+      .map(
+        (header) =>
+          [
+            (header ?? '').trim().toLocaleLowerCase('en-US'),
+            header.trim(),
+          ] as const,
+      )
+      .filter(([key]) => key.length > 0),
+  );
+  for (const alias of SHIPPING_STATUS_HEADER_ALIASES) {
+    const hit = normalized.get(alias.toLocaleLowerCase('en-US'));
+    if (hit) return hit;
+  }
+  return SHIPPING_INPUT_COLUMNS.status;
+}
+
+function headerIndexCi(headers: string[], name: string): number {
+  const key = name.trim().toLocaleLowerCase('en-US');
+  return headers.findIndex(
+    (header) => (header ?? '').trim().toLocaleLowerCase('en-US') === key,
+  );
+}
+
+function hasShippingStatusAlias(headers: string[]): boolean {
+  return SHIPPING_STATUS_HEADER_ALIASES.some(
+    (alias) => headerIndexCi(headers, alias) >= 0,
+  );
+}
+
+/**
+ * When a legacy English `Status` header is the only status column, rename
+ * it in place to `Shipping Status` (cell values stay). Never invent a
+ * second empty status column beside a filled legacy header.
+ */
+export function shippingStatusHeaderRename(
+  headers: string[],
+): { from: string; to: string } | null {
+  if (headerIndexCi(headers, SHIPPING_INPUT_COLUMNS.status) >= 0) return null;
+  const legacyIdx = headerIndexCi(headers, 'Status');
+  if (legacyIdx < 0) return null;
+  const from = (headers[legacyIdx] ?? '').trim();
+  if (!from) return null;
+  return { from, to: SHIPPING_INPUT_COLUMNS.status };
+}
+
+/**
+ * Shipping input headers still missing after alias-aware status resolution.
+ * Call after any in-place `Status` → `Shipping Status` rename.
+ */
+export function missingShippingInputColumnNames(headers: string[]): string[] {
+  const missing: string[] = [];
+  if (!hasShippingStatusAlias(headers)) {
+    missing.push(SHIPPING_INPUT_COLUMNS.status);
+  }
+  for (const name of [
+    SHIPPING_INPUT_COLUMNS.trackingNumber,
+    SHIPPING_INPUT_COLUMNS.shippingCompany,
+    SHIPPING_INPUT_COLUMNS.labelUrl,
+  ]) {
+    if (headerIndexCi(headers, name) < 0) missing.push(name);
+  }
+  return missing;
+}
+
 /** `{ handlerFieldKey: sheet header }` for Shipping Sync on the shared sheet. */
 export function shippingColumnMappingFromStoreOrders(
   storeOrderMapping: Record<string, string>,
+  headers: string[] = [],
 ): Record<string, string> {
   return {
     externalOrderId: storeOrderMapping.externalOrderId ?? 'External Order ID',
-    status: SHIPPING_INPUT_COLUMNS.status,
+    status: resolveShippingStatusHeader(headers),
     trackingNumber: SHIPPING_INPUT_COLUMNS.trackingNumber,
     shippingCompanyName: SHIPPING_INPUT_COLUMNS.shippingCompany,
     labelUrl: SHIPPING_INPUT_COLUMNS.labelUrl,

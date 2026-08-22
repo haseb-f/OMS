@@ -21,20 +21,27 @@ import {
 import {
   classifyDeletedStoreOrderGroups,
   classifyStoreOrderGroups,
+  externalDupWritebackValues,
   fingerprintMappedRows,
   fingerprintStorageKey,
   isDeletedSyncRowNumber,
+  normalizeExternalOrderId,
+  phoneSkipWritebackValues,
   storeOrderWritebackValues,
+  STORE_ORDER_RESULT_COLUMNS,
   type ClassifiedStoreOrderGroup,
   type DeletedStoreOrderGroup,
+  type PriorOrderSummary,
   type StoreOrderRowHashMap,
 } from './store-orders-sync.lifecycle';
 import {
   SHIPPING_RESULT_COLUMNS,
   STORE_ORDERS_SHEET_LAYOUT,
   isEmptyShippingInput,
+  missingShippingInputColumnNames,
   readShippingSyncMetadata,
   shippingColumnMappingFromStoreOrders,
+  shippingStatusHeaderRename,
   withShippingSyncMetadata,
 } from './store-orders-sheet.columns';
 
@@ -70,6 +77,9 @@ export interface SyncPreviewIncremental {
   readyCount: number;
   importedSkippedCount: number;
   unchangedSkippedCount: number;
+  externalDupCount: number;
+  phoneMatchCount: number;
+  totalScanned: number;
   modifiedCount: number;
   deletedCount: number;
   nothingToSync: boolean;
@@ -375,10 +385,44 @@ export class SyncOrchestratorService {
     const metadata = (source.configMetadata ?? {}) as {
       columnMapping?: Record<string, string>;
     };
+    // Ensure T:W employee input headers exist without orphaning a legacy
+    // `Status` column: rename in place when needed, then append only truly
+    // missing headers (never wipe cell values).
+    let headers = await this.googleSheets.getHeaders(
+      source.spreadsheetId,
+      source.worksheetGid ?? undefined,
+    );
+    const rename = shippingStatusHeaderRename(headers);
+    if (rename) {
+      await this.googleSheets.renameHeader(
+        source.spreadsheetId,
+        rename.from,
+        rename.to,
+        source.worksheetGid ?? undefined,
+      );
+      headers = await this.googleSheets.getHeaders(
+        source.spreadsheetId,
+        source.worksheetGid ?? undefined,
+      );
+    }
+    const missingShippingHeaders = missingShippingInputColumnNames(headers);
+    if (missingShippingHeaders.length > 0) {
+      await this.googleSheets.ensureResultColumns(
+        source.spreadsheetId,
+        missingShippingHeaders,
+        source.worksheetGid ?? undefined,
+        { minStartColumn: STORE_ORDERS_SHEET_LAYOUT.shippingInputStartColumn },
+      );
+      headers = await this.googleSheets.getHeaders(
+        source.spreadsheetId,
+        source.worksheetGid ?? undefined,
+      );
+    }
     const jobId = await this.createRunJob(source, userId, {
       handlerType: HANDLER_TYPE_BY_SOURCE[SyncSourceType.SHIPPING_UPDATES],
       columnMapping: shippingColumnMappingFromStoreOrders(
         metadata.columnMapping ?? {},
+        headers,
       ),
     });
     const mapped = await this.importJobs.listMappedRows(jobId);
@@ -445,10 +489,12 @@ export class SyncOrchestratorService {
       (row) => row.lifecycle === 'ORPHAN_LINK',
     )) {
       for (const rowNumber of group.rowNumbers) {
+        const staleId = group.staleSheetSystemOrderId?.trim() || '—';
+        const externalId = group.displayExternalOrderId || '—';
         result.errors.push({
           rowNumber,
           columnName: 'System Order ID',
-          message: 'A Store Order linked in the sheet was not found in OMS.',
+          message: `الصف ${rowNumber}: رقم الطلب في النظام «${staleId}» غير موجود في OMS (الرقم الخارجي: ${externalId}). امسح نتائج المزامنة (Q:R:S) ثم أعد المزامنة — لا يُنشأ طلب جديد طالما بقي رقم النظام القديم.`,
         });
       }
     }
@@ -494,13 +540,48 @@ export class SyncOrchestratorService {
       .filter((row) => reviewRowNumbers.has(row.rowNumber))
       .map((row) => {
         const group = classifiedByRow.get(row.rowNumber);
+        const prior = group?.priorOrder;
+        const issues = [...row.issues];
+        if (group?.lifecycle === 'PHONE_MATCH' && prior) {
+          if (!issues.some((issue) => issue.code === 'PHONE_MATCH')) {
+            issues.push({
+              field: 'customerPhone',
+              code: 'PHONE_MATCH',
+              message: `طلب سابق لنفس رقم الجوال: ${prior.internalOrderId}${
+                prior.externalOrderId ? ` / ${prior.externalOrderId}` : ''
+              }${prior.orderDate ? ` (${prior.orderDate})` : ''}`,
+            });
+          }
+        }
+        if (group?.lifecycle === 'ORPHAN_LINK') {
+          const staleId = group.staleSheetSystemOrderId?.trim() || '—';
+          const externalId = group.displayExternalOrderId || '—';
+          if (!issues.some((issue) => issue.code === 'ORPHAN_LINK')) {
+            issues.push({
+              field: 'System Order ID',
+              code: 'ORPHAN_LINK',
+              message: `رقم الطلب في النظام «${staleId}» غير موجود في OMS. الرقم الخارجي: ${externalId}. الإجراء الموصى به: إعادة تعيين نتائج المزامنة (Q:R:S) ثم إعادة المحاولة.`,
+              originalValue: staleId === '—' ? null : staleId,
+            });
+          }
+        }
         return {
           ...row,
+          issues,
+          status:
+            group?.lifecycle === 'PHONE_MATCH'
+              ? ('DUPLICATE' as const)
+              : group?.lifecycle === 'ORPHAN_LINK'
+                ? ('ERROR' as const)
+                : row.status,
           lifecycle: group?.lifecycle ?? 'NEW',
           changed: group?.changed ?? false,
           retryable: group?.retryable ?? false,
           existingRecordId:
-            row.existingRecordId ?? group?.existingInternalOrderId ?? null,
+            row.existingRecordId ??
+            group?.existingInternalOrderId ??
+            prior?.internalOrderId ??
+            null,
         };
       });
 
@@ -513,6 +594,7 @@ export class SyncOrchestratorService {
       (row) => row.status === 'WARNING',
     ).length;
     const incremental = {
+      totalScanned: classified.length,
       newCount: classified.filter((row) => row.lifecycle === 'NEW').length,
       retryCount: classified.filter((row) => row.lifecycle === 'RETRY').length,
       errorCount: preview.rows.filter((row) => row.status === 'ERROR').length,
@@ -523,8 +605,13 @@ export class SyncOrchestratorService {
       unchangedSkippedCount: classified.filter(
         (row) => row.lifecycle === 'UNCHANGED_FAILURE',
       ).length,
-      modifiedCount: classified.filter((row) => row.lifecycle === 'MODIFIED')
-        .length,
+      externalDupCount: classified.filter(
+        (row) => row.lifecycle === 'EXTERNAL_DUP',
+      ).length,
+      phoneMatchCount: classified.filter(
+        (row) => row.lifecycle === 'PHONE_MATCH',
+      ).length,
+      modifiedCount: 0,
       deletedCount: deleted.length,
       nothingToSync: preview.rows.length === 0,
     };
@@ -532,7 +619,9 @@ export class SyncOrchestratorService {
     preview.newCount = incremental.newCount;
     preview.willImportCount = incremental.readyCount;
     preview.errorCount = incremental.errorCount;
-    preview.needsReviewCount = warningCount;
+    preview.duplicateCount =
+      incremental.externalDupCount + incremental.phoneMatchCount;
+    preview.needsReviewCount = warningCount + incremental.phoneMatchCount;
     preview.errors = preview.errors.filter((error) =>
       reviewRowNumbers.has(error.rowNumber),
     );
@@ -572,13 +661,20 @@ export class SyncOrchestratorService {
     const externalIds = [
       ...new Set(
         groups
-          .map((group) => group[0]?.mappedRow.externalOrderId?.trim())
+          .map((group) =>
+            normalizeExternalOrderId(group[0]?.mappedRow.externalOrderId),
+          )
           .filter((id): id is string => !!id),
       ),
     ];
     const existing = externalIds.length
       ? await this.prisma.storeOrder.findMany({
-          where: { externalOrderId: { in: externalIds }, deletedAt: null },
+          where: {
+            deletedAt: null,
+            OR: externalIds.map((id) => ({
+              externalOrderId: { equals: id, mode: 'insensitive' as const },
+            })),
+          },
           select: { externalOrderId: true, internalOrderId: true },
         })
       : [];
@@ -586,17 +682,88 @@ export class SyncOrchestratorService {
       existing
         .filter((order) => order.externalOrderId)
         .map((order) => [
-          order.externalOrderId as string,
+          normalizeExternalOrderId(order.externalOrderId),
           { internalOrderId: order.internalOrderId },
         ]),
     );
+
+    const phoneByGroupRow = new Map<number, string | null>();
+    const phones = new Set<string>();
+    for (const group of groups) {
+      const primary = group[0];
+      if (!primary) continue;
+      const rawPhone = primary.mappedRow.customerPhone?.trim() ?? '';
+      const countryName = primary.mappedRow.countryName?.trim() ?? '';
+      let e164: string | null = null;
+      if (rawPhone) {
+        const country = countryName
+          ? await this.prisma.country.findFirst({
+              where: {
+                OR: [
+                  { name: { equals: countryName, mode: 'insensitive' } },
+                  { nameEn: { equals: countryName, mode: 'insensitive' } },
+                ],
+                deletedAt: null,
+              },
+              select: { code: true },
+            })
+          : null;
+        const parsed = this.phone.parse(rawPhone, country?.code ?? undefined);
+        e164 = parsed?.isValid ? (parsed.e164 ?? null) : null;
+      }
+      phoneByGroupRow.set(primary.rowNumber, e164);
+      if (e164) phones.add(e164);
+    }
+
+    const priorOrderByPhone = new Map<string, PriorOrderSummary>();
+    if (phones.size > 0) {
+      const customers = await this.prisma.customer.findMany({
+        where: { phone: { in: [...phones] }, deletedAt: null },
+        select: { id: true, phone: true },
+      });
+      const customerIds = customers.map((c) => c.id);
+      if (customerIds.length > 0) {
+        const orders = await this.prisma.storeOrder.findMany({
+          where: { customerId: { in: customerIds }, deletedAt: null },
+          orderBy: { orderDate: 'desc' },
+          select: {
+            customerId: true,
+            internalOrderId: true,
+            externalOrderId: true,
+            orderDate: true,
+          },
+        });
+        const phoneByCustomerId = new Map(
+          customers.map((c) => [c.id, c.phone] as const),
+        );
+        for (const order of orders) {
+          const phone = phoneByCustomerId.get(order.customerId);
+          if (!phone || priorOrderByPhone.has(phone)) continue;
+          priorOrderByPhone.set(phone, {
+            internalOrderId: order.internalOrderId,
+            externalOrderId: order.externalOrderId,
+            orderDate: order.orderDate
+              ? order.orderDate.toISOString().slice(0, 10)
+              : null,
+          });
+        }
+      }
+    }
+
     return classifyStoreOrderGroups({
       groups: groups.map((group) => ({
         rowNumbers: group.map((row) => row.rowNumber),
-        mappedRows: group.map((row) => row.mappedRow),
+        mappedRows: group.map((row) => ({
+          ...row.mappedRow,
+          externalOrderId: normalizeExternalOrderId(
+            row.mappedRow.externalOrderId,
+          ),
+        })),
         sourceRow: group[0]?.sourceRow ?? {},
       })),
       existingByExternalId,
+      priorOrderByPhone,
+      phoneByGroupRow,
       previous: metadata.storeOrderRowHashes ?? {},
       retryRowNumbers: options?.retryRowNumbers,
       retryAllFailed: options?.retryAllFailed,
@@ -613,6 +780,10 @@ export class SyncOrchestratorService {
       if (
         row.rowNumbers.every((rowNumber) => isDeletedSyncRowNumber(rowNumber))
       ) {
+        continue;
+      }
+      if (row.lifecycle === 'PHONE_MATCH') {
+        // Preview only — leave sheet eligible until commit accept/reject.
         continue;
       }
       if (row.status === 'ERROR' || row.status === 'DUPLICATE') {
@@ -634,11 +805,12 @@ export class SyncOrchestratorService {
       }
     }
     for (const group of classified.filter(
-      (row) => row.needsSheetNumberWriteback,
+      (row) => row.lifecycle === 'EXTERNAL_DUP',
     )) {
-      const values = storeOrderWritebackValues({
-        status: 'imported',
-        internalOrderId: group.existingInternalOrderId ?? undefined,
+      const values = externalDupWritebackValues({
+        displayExternalOrderId:
+          group.displayExternalOrderId || group.externalOrderId,
+        existingInternalOrderId: group.existingInternalOrderId ?? '',
       });
       for (const rowNumber of group.rowNumbers) {
         writes.push({ rowNumber, values });
@@ -676,7 +848,10 @@ export class SyncOrchestratorService {
         group.externalOrderId,
         group.rowNumbers[0] ?? 0,
       );
-      if (group.lifecycle === 'IMPORTED') {
+      if (
+        group.lifecycle === 'IMPORTED' ||
+        group.lifecycle === 'EXTERNAL_DUP'
+      ) {
         if (!hashes[key]?.hash?.trim()) {
           hashes[key] = {
             hash: group.hash,
@@ -686,7 +861,7 @@ export class SyncOrchestratorService {
         }
         continue;
       }
-      if (group.lifecycle === 'MODIFIED' || group.lifecycle === 'DELETED') {
+      if (group.lifecycle === 'DELETED') {
         continue;
       }
       if (group.lifecycle === 'UNCHANGED_FAILURE') continue;
@@ -713,6 +888,17 @@ export class SyncOrchestratorService {
           storeOrderSkipRowNumbers: classified
             .filter((group) => !group.includeInReview)
             .flatMap((group) => group.rowNumbers),
+          storeOrderPhoneMatchRowNumbers: classified
+            .filter((group) => group.lifecycle === 'PHONE_MATCH')
+            .flatMap((group) => group.rowNumbers),
+          storeOrderPhoneMatchPriors: Object.fromEntries(
+            classified
+              .filter(
+                (group) =>
+                  group.lifecycle === 'PHONE_MATCH' && group.priorOrder,
+              )
+              .map((group) => [String(group.rowNumbers[0]), group.priorOrder]),
+          ),
         } as unknown as Prisma.InputJsonValue,
       },
     });
@@ -898,6 +1084,11 @@ export class SyncOrchestratorService {
       const result = await this.importJobs.run(jobId, userId, {
         ...options,
         acceptRowNumbers: shouldBoundAcceptRows ? acceptedSheetRows : undefined,
+        contextOverrides:
+          source.sourceType === SyncSourceType.STORE_ORDERS &&
+          !shippingOnStoreOrders
+            ? { allowRepeatCustomer: 'true' }
+            : undefined,
       });
 
       const noChangeCount = result.successRows.filter(
@@ -968,6 +1159,11 @@ export class SyncOrchestratorService {
       } else if (source.sourceType === SyncSourceType.STORE_ORDERS) {
         try {
           await this.writeBackStoreOrders(source, result);
+          await this.writeRejectedPhoneMatchRows(
+            source,
+            acceptedSheetRows,
+            options?.acceptRowNumbers !== undefined,
+          );
           await this.markStoreOrdersImported(source, jobId, result.successRows);
           await this.applyStoreOrderDeletions(
             source,
@@ -1020,6 +1216,50 @@ export class SyncOrchestratorService {
    * Preview already wrote validation errors; commit writes success (and any
    * additional run-time errors) to the exact source row.
    */
+  /**
+   * Phone-match rows default to Reject. On commit, any phone-match row that
+   * was not explicitly accepted gets an Arabic skip write-back (no OMS order).
+   */
+  private async writeRejectedPhoneMatchRows(
+    source: {
+      id: string;
+      spreadsheetId: string;
+      worksheetGid: string | null;
+      configMetadata: unknown;
+    },
+    acceptedSheetRows: number[],
+    decisionsWereSent: boolean,
+  ) {
+    if (!decisionsWereSent) return;
+    const metadata = (source.configMetadata ?? {}) as {
+      storeOrderPhoneMatchRowNumbers?: number[];
+      storeOrderPhoneMatchPriors?: Record<
+        string,
+        { internalOrderId: string } | undefined
+      >;
+    };
+    const phoneMatchRows = metadata.storeOrderPhoneMatchRowNumbers ?? [];
+    if (phoneMatchRows.length === 0) return;
+    const accepted = new Set(acceptedSheetRows);
+    const writes = phoneMatchRows
+      .filter((rowNumber) => !accepted.has(rowNumber))
+      .map((rowNumber) => {
+        const prior =
+          metadata.storeOrderPhoneMatchPriors?.[String(rowNumber)]
+            ?.internalOrderId ?? '';
+        return {
+          rowNumber,
+          values: phoneSkipWritebackValues({ priorInternalOrderId: prior }),
+        };
+      });
+    if (writes.length === 0) return;
+    await this.googleSheets.writeRowResults(
+      source.spreadsheetId,
+      writes,
+      source.worksheetGid ?? undefined,
+    );
+  }
+
   private async writeBackStoreOrders(
     source: { spreadsheetId: string; worksheetGid: string | null },
     result: {
@@ -1294,7 +1534,9 @@ export class SyncOrchestratorService {
 
     for (const error of result.errors) {
       const isNeedsReview = error.errorMessage.startsWith(NEEDS_REVIEW_PREFIX);
-      const isNotFound = /No Store Order found/i.test(error.errorMessage);
+      const isNotFound =
+        /No Store Order found/i.test(error.errorMessage) ||
+        error.errorMessage.includes('لا يوجد طلب متجر');
       const status: ShippingSyncRowReport['result'] = isNeedsReview
         ? 'NEEDS_REVIEW'
         : isNotFound
@@ -1476,5 +1718,47 @@ export class SyncOrchestratorService {
       }
     }
     return result;
+  }
+
+  /**
+   * Clears only OMS Store Orders result columns Q:R:S for the given sheet
+   * rows. Never touches customer/order input or shipping T:W / X:Z.
+   * After reset, rows become eligible for normal validation on the next preview.
+   */
+  async clearStoreOrderSyncResults(
+    sourceId: string,
+    rowNumbers: number[],
+    userId?: string,
+  ): Promise<{ clearedRowNumbers: number[] }> {
+    const source = await this.getEnabledSource(sourceId, userId);
+    if (source.sourceType !== SyncSourceType.STORE_ORDERS) {
+      throw new BadRequestException(
+        'Clearing sync result columns is only supported for Store Orders sources.',
+      );
+    }
+    const uniqueRows = [
+      ...new Set(
+        rowNumbers.filter(
+          (rowNumber) => Number.isInteger(rowNumber) && rowNumber >= 2,
+        ),
+      ),
+    ];
+    if (uniqueRows.length === 0) {
+      throw new BadRequestException(
+        'Select at least one sheet data row to reset.',
+      );
+    }
+    const values = {
+      [STORE_ORDER_RESULT_COLUMNS.syncStatus]: '',
+      [STORE_ORDER_RESULT_COLUMNS.systemOrderId]: '',
+      [STORE_ORDER_RESULT_COLUMNS.errorMessage]: '',
+    };
+    await this.googleSheets.writeRowResults(
+      source.spreadsheetId,
+      uniqueRows.map((rowNumber) => ({ rowNumber, values })),
+      source.worksheetGid ?? undefined,
+      { minStartColumn: STORE_ORDERS_SHEET_LAYOUT.storeOrderResultStartColumn },
+    );
+    return { clearedRowNumbers: uniqueRows };
   }
 }

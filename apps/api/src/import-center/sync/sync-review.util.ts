@@ -12,7 +12,8 @@ export type SyncReviewLifecycle =
   | 'IMPORTED'
   | 'UNCHANGED_FAILURE'
   | 'ORPHAN_LINK'
-  | 'MODIFIED'
+  | 'EXTERNAL_DUP'
+  | 'PHONE_MATCH'
   | 'DELETED';
 
 export interface SyncReviewIssue {

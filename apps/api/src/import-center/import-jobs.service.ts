@@ -282,7 +282,11 @@ export class ImportJobsService {
       .filter((field) => field.required)
       .filter((field) => {
         const column = dto.columnMapping[field.key];
-        return !column || !table.headers.includes(column);
+        if (!column) return true;
+        const needle = column.trim().toLocaleLowerCase('en-US');
+        return !table.headers.some(
+          (header) => header.trim().toLocaleLowerCase('en-US') === needle,
+        );
       });
     if (missing.length > 0) {
       throw new BadRequestException(
@@ -512,7 +516,10 @@ export class ImportJobsService {
   async run(
     id: string,
     userId?: string,
-    options?: { acceptRowNumbers?: number[] },
+    options?: {
+      acceptRowNumbers?: number[];
+      contextOverrides?: Record<string, string>;
+    },
   ) {
     // Same request-local Master-Data lookup cache `validate()` uses — a
     // `run()` immediately following a `validate()` on the same job still
@@ -564,7 +571,10 @@ export class ImportJobsService {
   private async runInner(
     id: string,
     userId?: string,
-    options?: { acceptRowNumbers?: number[] },
+    options?: {
+      acceptRowNumbers?: number[];
+      contextOverrides?: Record<string, string>;
+    },
   ) {
     const job = await this.findOne(id);
     if (job.status !== ImportJobStatus.VALIDATING) {
@@ -581,8 +591,10 @@ export class ImportJobsService {
     const handler = this.registry.get(job.importType);
     const table = await this.parseFile(job.fileName, job.fileContent);
     const mapping = job.columnMapping as Record<string, string>;
-    const rowDefaults =
-      (job.rowDefaults as Record<string, string> | null) ?? undefined;
+    const rowDefaults = {
+      ...((job.rowDefaults as Record<string, string> | null) ?? {}),
+      ...(options?.contextOverrides ?? {}),
+    };
     const accept =
       options?.acceptRowNumbers === undefined
         ? undefined

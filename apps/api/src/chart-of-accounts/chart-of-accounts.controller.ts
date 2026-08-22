@@ -23,6 +23,7 @@ import {
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 import { ResetChartToFiveRootsDto } from './dto/reset-chart-to-five-roots.dto';
+import { BulkIdsDto } from '../master-data/dto/bulk-ids.dto';
 
 /** Master Data — Chart of Accounts. Business operations: Create, Update, Archive, Restore, Search. */
 @Controller('chart-of-accounts')
@@ -74,6 +75,13 @@ export class ChartOfAccountsController {
       confirm: dto.confirm,
       dryRun: dto.dryRun,
     });
+  }
+
+  /** Soft-archive eligible unused leaf accounts. Roots 1–5 always blocked. */
+  @Post('bulk-archive')
+  @PermissionAction('delete')
+  bulkArchive(@Body() dto: BulkIdsDto, @CurrentUser() user: JwtPayload) {
+    return this.chartOfAccountsService.bulkArchive(dto.ids, user.sub);
   }
 
   /**

@@ -741,7 +741,7 @@ export function EnterpriseDataTable<TData>({
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border border-border bg-muted/40 px-3 py-2">
           <span className="text-caption font-medium">
             {isAllMatchingSelected
-              ? t("table.allMatchingSelected", { count: selectedCount })
+              ? t("table.allFilteredSelected", { count: selectedCount })
               : `${selectedCount} ${t("table.rowsSelected")}`}
           </span>
 
@@ -765,6 +765,24 @@ export function EnterpriseDataTable<TData>({
                   : t("table.selectAllMatching", { count: totalCount ?? 0 })}
               </EnterpriseButton>
             )}
+
+          {isAllMatchingSelected ? (
+            <EnterpriseButton
+              type="button"
+              variant="link"
+              size="sm"
+              className="h-auto p-0"
+              onClick={() => {
+                const next: RowSelectionState = {};
+                for (const row of table.getRowModel().rows) {
+                  next[row.id] = true;
+                }
+                handleRowSelectionChange(next);
+              }}
+            >
+              {t("table.usePageSelection")}
+            </EnterpriseButton>
+          ) : null}
 
           <EnterpriseButton
             type="button"

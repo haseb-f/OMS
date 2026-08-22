@@ -19,7 +19,8 @@ const LIFECYCLE_TONE: Record<SyncReviewLifecycle, StatusTone> = {
   IMPORTED: "success",
   UNCHANGED_FAILURE: "neutral",
   ORPHAN_LINK: "destructive",
-  MODIFIED: "warning",
+  EXTERNAL_DUP: "destructive",
+  PHONE_MATCH: "warning",
   DELETED: "warning",
 };
 
@@ -35,7 +36,7 @@ export function SyncStatusBadge({
     lifecycle &&
     (status === "READY" ||
       lifecycle === "RETRY" ||
-      lifecycle === "MODIFIED" ||
+      lifecycle === "PHONE_MATCH" ||
       lifecycle === "DELETED")
   ) {
     return (

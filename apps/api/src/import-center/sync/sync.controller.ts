@@ -23,6 +23,7 @@ import { CreateSyncSourceDto } from './dto/create-sync-source.dto';
 import { UpdateSyncSourceDto } from './dto/update-sync-source.dto';
 import { CommitSyncDto } from './dto/commit-sync.dto';
 import { PreviewSyncDto } from './dto/preview-sync.dto';
+import { ClearStoreOrderSyncResultsDto } from './dto/clear-store-order-sync-results.dto';
 import { RejectImportRowDto } from '../dto/reject-import-row.dto';
 
 /**
@@ -126,6 +127,21 @@ export class SyncController {
     @Body() dto: RejectImportRowDto,
   ) {
     return this.orchestrator.rejectRow(jobId, rowId, dto);
+  }
+
+  /** Clears Q:R:S only for selected Store Orders sheet rows (stale System Order ID recovery). */
+  @Post('sources/:id/clear-result-columns')
+  @PermissionAction('sync')
+  clearStoreOrderResultColumns(
+    @Param('id') id: string,
+    @Body() dto: ClearStoreOrderSyncResultsDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.orchestrator.clearStoreOrderSyncResults(
+      id,
+      dto.rowNumbers,
+      user.sub,
+    );
   }
 
   /**

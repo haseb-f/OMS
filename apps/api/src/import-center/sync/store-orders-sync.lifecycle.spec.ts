@@ -2,7 +2,11 @@ import { createHash } from 'crypto';
 import {
   classifyDeletedStoreOrderGroups,
   classifyStoreOrderGroups,
+  externalDupWritebackValues,
   fingerprintMappedRows,
+  isSheetSuccessfullyImported,
+  normalizeExternalOrderId,
+  phoneSkipWritebackValues,
   sheetCell,
   storeOrderWritebackValues,
   STORE_ORDER_DELETED_ROW_BASE,
@@ -31,6 +35,10 @@ const sourceFields = (overrides: Record<string, string> = {}) => ({
 });
 
 describe('store-orders-sync.lifecycle', () => {
+  it('normalizes external order ids with trim + lowercase', () => {
+    expect(normalizeExternalOrderId('  AbC-1 ')).toBe('abc-1');
+  });
+
   it('reads trimmed managed column names from the source row', () => {
     expect(
       sheetCell(
@@ -50,7 +58,40 @@ describe('store-orders-sync.lifecycle', () => {
     expect(createHash('sha256').update(before).digest('hex')).toHaveLength(64);
   });
 
-  it('skips an already imported row that has an OMS order number', () => {
+  it('treats case variants of external id as the same fingerprint identity', () => {
+    const a = fingerprintMappedRows([sourceFields({ externalOrderId: 'ABC' })]);
+    const b = fingerprintMappedRows([sourceFields({ externalOrderId: 'abc' })]);
+    expect(a).toBe(b);
+  });
+
+  it('skips an already imported row when System Order ID is present', () => {
+    expect(
+      isSheetSuccessfullyImported({
+        'System Order ID': 'STO-2026-000123',
+        'Sync Status': '',
+      }),
+    ).toBe(true);
+
+    const [row] = classifyStoreOrderGroups({
+      groups: [
+        {
+          rowNumbers: [2],
+          mappedRows: [sourceFields()],
+          sourceRow: {
+            'Sync Status': '',
+            'System Order ID': 'STO-2026-000123',
+          },
+        },
+      ],
+      existingByExternalId: new Map(),
+      previous: {},
+    });
+    expect(row.lifecycle).toBe('IMPORTED');
+    expect(row.runValidation).toBe(false);
+    expect(row.includeInReview).toBe(false);
+  });
+
+  it('skips successful sync status even without re-running validation', () => {
     const [row] = classifyStoreOrderGroups({
       groups: [
         {
@@ -69,209 +110,116 @@ describe('store-orders-sync.lifecycle', () => {
     });
     expect(row.lifecycle).toBe('IMPORTED');
     expect(row.runValidation).toBe(false);
-    expect(row.includeInReview).toBe(false);
-    expect(row.needsSheetNumberWriteback).toBe(false);
   });
 
-  it('does not treat OMS-managed output columns as a source change', () => {
-    const source = sourceFields();
-    const before = fingerprintMappedRows([source]);
-    const after = fingerprintMappedRows([
-      { ...source, syncStatus: 'تم الاستيراد', systemOrderId: 'STO-1' },
-    ]);
-    expect(after).toBe(before);
-
+  it('auto-rejects existing external order id without update or review', () => {
     const [row] = classifyStoreOrderGroups({
       groups: [
         {
           rowNumbers: [2],
-          mappedRows: [source],
-          sourceRow: {
-            'Sync Status': STORE_ORDER_SHEET_STATUS.imported,
-            'System Order ID': 'STO-2026-000123',
-            'Error Message': '',
-          },
+          mappedRows: [sourceFields({ externalOrderId: 'ABC-1' })],
+          sourceRow: {},
         },
       ],
-      existingByExternalId: new Map([
-        ['12345', { internalOrderId: 'STO-2026-000123' }],
-      ]),
-      previous: {
-        '12345': {
-          hash: before,
-          status: 'IMPORTED',
-          internalOrderId: 'STO-2026-000123',
-        },
-      },
+      existingByExternalId: new Map([['abc-1', { internalOrderId: 'STO-9' }]]),
+      previous: {},
     });
-    expect(row.lifecycle).toBe('IMPORTED');
+    expect(row.lifecycle).toBe('EXTERNAL_DUP');
+    expect(row.runValidation).toBe(false);
     expect(row.includeInReview).toBe(false);
+    expect(row.existingInternalOrderId).toBe('STO-9');
+    expect(
+      externalDupWritebackValues({
+        displayExternalOrderId: 'ABC-1',
+        existingInternalOrderId: 'STO-9',
+      })['Sync Status'],
+    ).toBe(STORE_ORDER_SHEET_STATUS.rejectedExternalExists);
   });
 
-  it('returns a previously imported row to review when source fields change', () => {
-    const original = sourceFields({ paidAmount: '99' });
+  it('marks phone-match rows for review (not auto-create)', () => {
     const [row] = classifyStoreOrderGroups({
       groups: [
         {
-          rowNumbers: [2],
-          mappedRows: [sourceFields({ paidAmount: '150' })],
+          rowNumbers: [5],
+          mappedRows: [sourceFields({ externalOrderId: 'NEW-99' })],
+          sourceRow: {},
+        },
+      ],
+      existingByExternalId: new Map(),
+      phoneByGroupRow: new Map([[5, '+966512345678']]),
+      priorOrderByPhone: new Map([
+        [
+          '+966512345678',
+          {
+            internalOrderId: 'STO-OLD',
+            externalOrderId: 'OLD-1',
+            orderDate: '2026-01-01',
+          },
+        ],
+      ]),
+      previous: {},
+    });
+    expect(row.lifecycle).toBe('PHONE_MATCH');
+    expect(row.includeInReview).toBe(true);
+    expect(row.priorOrder?.internalOrderId).toBe('STO-OLD');
+    expect(
+      phoneSkipWritebackValues({ priorInternalOrderId: 'STO-OLD' })[
+        'Sync Status'
+      ],
+    ).toBe(STORE_ORDER_SHEET_STATUS.rejectedPhoneSkip);
+  });
+
+  it('allows retry of a failed row with no System Order ID after correction', () => {
+    const [row] = classifyStoreOrderGroups({
+      groups: [
+        {
+          rowNumbers: [3],
+          mappedRows: [sourceFields({ countryName: 'السعودية' })],
           sourceRow: {
-            'Sync Status': STORE_ORDER_SHEET_STATUS.imported,
-            'System Order ID': 'STO-2026-000123',
+            'Sync Status': STORE_ORDER_SHEET_STATUS.error,
+            'System Order ID': '',
+            'Error Message': 'old',
           },
         },
       ],
-      existingByExternalId: new Map([
-        ['12345', { internalOrderId: 'STO-2026-000123' }],
-      ]),
+      existingByExternalId: new Map(),
       previous: {
-        '12345': {
-          hash: fingerprintMappedRows([original]),
-          status: 'IMPORTED',
-          internalOrderId: 'STO-2026-000123',
-        },
+        '12345': { hash: 'old-hash', status: 'ERROR' },
       },
     });
-    expect(row.lifecycle).toBe('MODIFIED');
-    expect(row.changed).toBe(true);
+    expect(row.lifecycle).toBe('RETRY');
     expect(row.runValidation).toBe(true);
     expect(row.includeInReview).toBe(true);
   });
 
-  it('does not treat a missing previous hash as a modification', () => {
-    const [row] = classifyStoreOrderGroups({
-      groups: [
-        {
-          rowNumbers: [2],
-          mappedRows: [sourceFields()],
-          sourceRow: {
-            'Sync Status': STORE_ORDER_SHEET_STATUS.imported,
-            'System Order ID': 'STO-2026-000123',
-          },
-        },
-      ],
-      existingByExternalId: new Map([
-        ['12345', { internalOrderId: 'STO-2026-000123' }],
-      ]),
-      previous: {
-        '12345': { hash: '', status: 'IMPORTED', internalOrderId: 'STO-1' },
-      },
-    });
-    expect(row.lifecycle).toBe('IMPORTED');
-    expect(row.includeInReview).toBe(false);
-  });
-
-  it('surfaces a previously imported identity that disappeared from the sheet', () => {
-    const deleted = classifyDeletedStoreOrderGroups({
-      currentKeys: ['KEEP-1'],
-      previous: {
-        '12345': {
-          hash: 'abc',
-          status: 'IMPORTED',
-          internalOrderId: 'STO-2026-000123',
-        },
-        'KEEP-1': {
-          hash: 'def',
-          status: 'IMPORTED',
-          internalOrderId: 'STO-2026-000124',
-        },
-        failed: { hash: 'ghi', status: 'ERROR' },
-      },
-    });
-    expect(deleted).toHaveLength(1);
-    expect(deleted[0].externalOrderId).toBe('12345');
-    expect(deleted[0].internalOrderId).toBe('STO-2026-000123');
-    expect(deleted[0].sentinelRowNumber).toBe(STORE_ORDER_DELETED_ROW_BASE);
-  });
-
-  it('writes back the OMS number when the DB order exists but the sheet is blank', () => {
+  it('does not reprocess unchanged failed rows without retry', () => {
+    const hash = fingerprintMappedRows([sourceFields()]);
     const [row] = classifyStoreOrderGroups({
       groups: [
         {
           rowNumbers: [3],
           mappedRows: [sourceFields()],
-          sourceRow: {},
+          sourceRow: {
+            'Sync Status': STORE_ORDER_SHEET_STATUS.error,
+            'System Order ID': '',
+          },
         },
       ],
-      existingByExternalId: new Map([
-        ['12345', { internalOrderId: 'STO-2026-000123' }],
-      ]),
-      previous: {},
+      existingByExternalId: new Map(),
+      previous: {
+        '12345': { hash, status: 'ERROR' },
+      },
     });
-    expect(row.lifecycle).toBe('IMPORTED');
+    expect(row.lifecycle).toBe('UNCHANGED_FAILURE');
     expect(row.runValidation).toBe(false);
-    expect(row.needsSheetNumberWriteback).toBe(true);
   });
 
-  it('retries a previously failed row only after the source fields change', () => {
-    const failedHash = fingerprintMappedRows([
-      sourceFields({ countryName: 'X' }),
-    ]);
-    const unchanged = classifyStoreOrderGroups({
-      groups: [
-        {
-          rowNumbers: [25],
-          mappedRows: [sourceFields({ countryName: 'X' })],
-          sourceRow: {
-            'Sync Status': STORE_ORDER_SHEET_STATUS.error,
-            'Error Message': 'الدولة غير معروفة',
-          },
-        },
-      ],
-      existingByExternalId: new Map(),
-      previous: {
-        '12345': { hash: failedHash, status: 'ERROR' },
-      },
-    });
-    expect(unchanged[0].lifecycle).toBe('UNCHANGED_FAILURE');
-    expect(unchanged[0].runValidation).toBe(false);
-    expect(unchanged[0].includeInReview).toBe(false);
-
-    const changed = classifyStoreOrderGroups({
-      groups: [
-        {
-          rowNumbers: [25],
-          mappedRows: [sourceFields({ countryName: 'السعودية' })],
-          sourceRow: {
-            'Sync Status': STORE_ORDER_SHEET_STATUS.error,
-            'Error Message': 'الدولة غير معروفة',
-          },
-        },
-      ],
-      existingByExternalId: new Map(),
-      previous: {
-        '12345': { hash: failedHash, status: 'ERROR' },
-      },
-    });
-    expect(changed[0].lifecycle).toBe('RETRY');
-    expect(changed[0].changed).toBe(true);
-    expect(changed[0].runValidation).toBe(true);
-  });
-
-  it('retries an unchanged failure when the operator explicitly requests it', () => {
-    const failedHash = fingerprintMappedRows([sourceFields()]);
-    const [row] = classifyStoreOrderGroups({
-      groups: [
-        {
-          rowNumbers: [25],
-          mappedRows: [sourceFields()],
-          sourceRow: { 'Sync Status': 'REJECTED' },
-        },
-      ],
-      existingByExternalId: new Map(),
-      previous: { '12345': { hash: failedHash, status: 'ERROR' } },
-      retryRowNumbers: [25],
-    });
-    expect(row.lifecycle).toBe('RETRY');
-    expect(row.runValidation).toBe(true);
-  });
-
-  it('treats a new row as actionable', () => {
+  it('classifies empty result rows as NEW', () => {
     const [row] = classifyStoreOrderGroups({
       groups: [
         {
           rowNumbers: [2],
-          mappedRows: [sourceFields({ externalOrderId: 'NEW-1' })],
+          mappedRows: [sourceFields({ externalOrderId: 'brand-new' })],
           sourceRow: {},
         },
       ],
@@ -280,29 +228,33 @@ describe('store-orders-sync.lifecycle', () => {
     });
     expect(row.lifecycle).toBe('NEW');
     expect(row.runValidation).toBe(true);
-    expect(row.includeInReview).toBe(true);
   });
 
-  it('writes Arabic status values into the existing managed columns only', () => {
+  it('writes imported / error Arabic statuses', () => {
     expect(
       storeOrderWritebackValues({
         status: 'imported',
-        internalOrderId: 'STO-2026-000123',
-      }),
-    ).toEqual({
-      'Sync Status': 'تم الاستيراد',
-      'System Order ID': 'STO-2026-000123',
-      'Error Message': '',
-    });
+        internalOrderId: 'STO-1',
+      })['Sync Status'],
+    ).toBe(STORE_ORDER_SHEET_STATUS.imported);
     expect(
       storeOrderWritebackValues({
         status: 'error',
-        issues: [{ message: 'Country "X" is not a recognized Country.' }],
-      }),
-    ).toEqual({
-      'Sync Status': 'خطأ',
-      'System Order ID': '',
-      'Error Message': 'الدولة غير معروفة',
+        issues: [{ message: 'x' }],
+      })['Sync Status'],
+    ).toBe(STORE_ORDER_SHEET_STATUS.error);
+  });
+
+  it('detects deleted previously-imported identities', () => {
+    const deleted = classifyDeletedStoreOrderGroups({
+      currentKeys: ['keep'],
+      previous: {
+        keep: { hash: 'a', status: 'IMPORTED', internalOrderId: 'STO-1' },
+        gone: { hash: 'b', status: 'IMPORTED', internalOrderId: 'STO-2' },
+      },
     });
+    expect(deleted).toHaveLength(1);
+    expect(deleted[0].internalOrderId).toBe('STO-2');
+    expect(deleted[0].sentinelRowNumber).toBe(STORE_ORDER_DELETED_ROW_BASE);
   });
 });

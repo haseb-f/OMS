@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Download, RotateCcw, X } from "lucide-react";
+import { Check, Download, Eraser, RotateCcw, X } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { useLocale } from "@/providers/locale-provider";
 import type { SyncReviewStatusFilter } from "./types";
@@ -19,6 +19,8 @@ export function SyncBulkActions({
   onSelectCurrentStatus,
   onRetrySelected,
   onRetryEligible,
+  orphanSelectedCount,
+  onClearOrphanResults,
 }: {
   selectedCount: number;
   importableSelectedCount: number;
@@ -33,6 +35,8 @@ export function SyncBulkActions({
   onSelectCurrentStatus: () => void;
   onRetrySelected?: () => void;
   onRetryEligible?: () => void;
+  orphanSelectedCount?: number;
+  onClearOrphanResults?: () => void;
 }) {
   const { t } = useLocale();
 
@@ -73,6 +77,12 @@ export function SyncBulkActions({
         <X />
         {t("importCenter.sync.review.bulkRejectSelected")}
       </EnterpriseButton>
+      {onClearOrphanResults && (orphanSelectedCount ?? 0) > 0 ? (
+        <EnterpriseButton type="button" variant="outline" size="sm" onClick={onClearOrphanResults}>
+          <Eraser />
+          {t("importCenter.sync.review.bulkClearOrphanResults")}
+        </EnterpriseButton>
+      ) : null}
       {errorCount > 0 ? (
         <EnterpriseButton type="button" variant="outline" size="sm" onClick={onDownloadErrors}>
           <Download />

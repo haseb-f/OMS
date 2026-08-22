@@ -27,7 +27,7 @@ export function SyncSourceContext({
   const { t } = useLocale();
   const accepted = rows.filter((row) => {
     const decision = decisions[row.id] ?? defaultDecision(row);
-    return decision === "ACCEPT" && isImportable(row.status);
+    return decision === "ACCEPT" && isImportable(row.status, row.lifecycle);
   }).length;
   const rejected = rows.length - accepted;
   const duplicates = rows.filter((row) => row.status === "DUPLICATE").length;

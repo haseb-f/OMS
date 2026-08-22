@@ -65,7 +65,7 @@ const FIELDS: ImportFieldDef[] = [
   {
     key: 'status',
     labelKey: 'importCenter.fields.shipmentStatus',
-    label: 'Status',
+    label: 'Shipping Status',
     required: true,
     type: 'string',
     options: [],
@@ -182,7 +182,7 @@ export class ShippingUpdatesImportHandler
         .filter((status) => status.isImportable)
         .map((status) => status.name);
       throw new BadRequestException(
-        `Status must be one of: ${labels.join(', ')}.`,
+        `حالة الشحن غير معرّفة. القيم المسموحة: ${labels.join('، ') || '—'}.`,
       );
     }
     return matched;
@@ -230,13 +230,13 @@ export class ShippingUpdatesImportHandler
     options?: ImportRowOptions,
   ): Promise<ImportRowResult> {
     if (!row.externalOrderId?.trim()) {
-      throw new BadRequestException('External Order ID is required.');
+      throw new BadRequestException('رقم الطلب الخارجي مطلوب.');
     }
     const order = await this.findOrder(row.externalOrderId.trim());
     if (!order) {
       throw new BadRequestException({
         code: 'NOT_FOUND',
-        message: `No Store Order found for External Order ID "${row.externalOrderId}".`,
+        message: `لا يوجد طلب متجر لرقم الطلب الخارجي «${row.externalOrderId}».`,
       });
     }
 
@@ -317,12 +317,12 @@ export class ShippingUpdatesImportHandler
     userId?: string,
   ): Promise<ImportRowResult> {
     if (!row.externalOrderId?.trim()) {
-      throw new BadRequestException('External Order ID is required.');
+      throw new BadRequestException('رقم الطلب الخارجي مطلوب.');
     }
     const order = await this.findOrder(row.externalOrderId.trim());
     if (!order) {
       throw new BadRequestException(
-        `No Store Order found for External Order ID "${row.externalOrderId}".`,
+        `لا يوجد طلب متجر لرقم الطلب الخارجي «${row.externalOrderId}».`,
       );
     }
     const catalogStatus = await this.resolveCatalogStatus(row.status);

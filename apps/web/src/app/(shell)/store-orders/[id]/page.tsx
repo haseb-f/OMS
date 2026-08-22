@@ -200,9 +200,12 @@ function StoreOrderDetailContent() {
   return (
     <DetailWorkspace
       title={
-        <SemanticValue kind="id" className="text-ui-title font-semibold">
-          {order.internalOrderId}
-        </SemanticValue>
+        <span className="inline-flex items-center gap-2">
+          <SemanticValue kind="id" className="text-ui-title font-semibold">
+            {order.internalOrderId}
+          </SemanticValue>
+          {order.sourceChannel === "مكرر" ? <StatusBadge label="مكرر" tone="warning" /> : null}
+        </span>
       }
       status={
         <>

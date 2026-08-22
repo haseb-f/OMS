@@ -160,6 +160,9 @@ function ChartOfAccountsPageContent() {
   const [archiveTarget, setArchiveTarget] = useState<ChartOfAccountRow | null>(null);
   const [restoreTarget, setRestoreTarget] = useState<ChartOfAccountRow | null>(null);
   const [isMutating, setIsMutating] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [includeDescendantsPrompt, setIncludeDescendantsPrompt] = useState<TreeNode | null>(null);
+  const [bulkArchiveOpen, setBulkArchiveOpen] = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -419,6 +422,77 @@ function ChartOfAccountsPageContent() {
     });
   };
 
+  const collectDescendantIds = (node: TreeNode): string[] => {
+    const ids = [node.id];
+    for (const child of node.children) ids.push(...collectDescendantIds(child));
+    return ids;
+  };
+
+  const toggleSelectAccount = (node: TreeNode, checked: boolean) => {
+    if (node.children.length > 0 && checked) {
+      setIncludeDescendantsPrompt(node);
+      return;
+    }
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(node.id);
+      else next.delete(node.id);
+      return next;
+    });
+  };
+
+  const applyParentSelection = (includeDescendants: boolean) => {
+    const node = includeDescendantsPrompt;
+    if (!node) return;
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const ids = includeDescendants ? collectDescendantIds(node) : [node.id];
+      for (const id of ids) next.add(id);
+      return next;
+    });
+    setIncludeDescendantsPrompt(null);
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const selectVisibleMatching = () => {
+    const next = new Set<string>();
+    const walk = (nodes: TreeNode[]) => {
+      for (const node of nodes) {
+        if (!matchIds || matchIds.has(node.id)) next.add(node.id);
+        if (!collapsed.has(node.id)) walk(node.children);
+      }
+    };
+    walk(tree);
+    setSelectedIds(next);
+  };
+
+  const handleBulkArchive = async () => {
+    if (selectedIds.size === 0) return;
+    setIsMutating(true);
+    try {
+      const result = await apiClient.post<{
+        successIds: string[];
+        skipped: { id: string; reason: string }[];
+        blocked: { id: string; reason: string }[];
+      }>("/chart-of-accounts/bulk-archive", { ids: [...selectedIds] });
+      const blocked = result.blocked.length + result.skipped.length;
+      toast.success(
+        t("masterData.chartOfAccounts.bulkArchiveResult", {
+          success: result.successIds.length,
+          blocked,
+        }),
+      );
+      clearSelection();
+      setBulkArchiveOpen(false);
+      await load();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Failed to archive accounts.");
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
   const expandAll = () => setCollapsed(new Set());
   const collapseAll = () => {
     const withChildren = accounts.filter((a) => accounts.some((b) => b.parentAccountId === a.id));
@@ -451,6 +525,12 @@ function ChartOfAccountsPageContent() {
           ) : (
             <span className="size-5 shrink-0" />
           )}
+          <Checkbox
+            checked={selectedIds.has(node.id)}
+            onCheckedChange={(value) => toggleSelectAccount(node, value === true)}
+            aria-label={t("table.selectRow")}
+            className="shrink-0"
+          />
           <FileText className="size-3.5 shrink-0 text-muted-foreground" />
           <code dir="ltr" className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
             {node.code}
@@ -592,6 +672,64 @@ function ChartOfAccountsPageContent() {
             </EnterpriseButton>
           </div>
         </ListToolbar>
+        {selectedIds.size > 0 ? (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border bg-muted/30 px-3 py-2">
+            <span className="text-caption font-medium">
+              {t("masterData.chartOfAccounts.selectionCount", { count: selectedIds.size })}
+            </span>
+            <EnterpriseButton
+              type="button"
+              variant="link"
+              size="sm"
+              className="h-auto p-0"
+              onClick={selectVisibleMatching}
+            >
+              {t("masterData.chartOfAccounts.selectVisible")}
+            </EnterpriseButton>
+            <EnterpriseButton
+              type="button"
+              variant="link"
+              size="sm"
+              className="h-auto p-0 text-muted-foreground"
+              onClick={clearSelection}
+            >
+              {t("table.clearSelection")}
+            </EnterpriseButton>
+            <div className="ms-auto flex flex-wrap items-center gap-2">
+              <EnterpriseButton
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const rows = accounts.filter((account) => selectedIds.has(account.id));
+                  exportRowsToCsv(
+                    rows.map((account) => ({
+                      code: account.code,
+                      name: account.name,
+                      accountType: account.accountType,
+                    })),
+                    ["code", "name", "accountType"],
+                    "chart-of-accounts-selected",
+                  );
+                }}
+              >
+                <Download className="size-3.5" />
+                {t("table.export")}
+              </EnterpriseButton>
+              {canDelete ? (
+                <EnterpriseButton
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setBulkArchiveOpen(true)}
+                >
+                  <Archive className="size-3.5" />
+                  {t("masterData.chartOfAccounts.bulkArchive")}
+                </EnterpriseButton>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
         <div className="min-h-40 p-2">
           {isLoading ? (
             <div className="flex h-32 items-center justify-center text-caption text-muted-foreground">
@@ -811,6 +949,39 @@ function ChartOfAccountsPageContent() {
         }
         onConfirm={confirmArchive}
         confirmLabel={t("masterData.chartOfAccounts.deleteAction")}
+      />
+
+      <ConfirmationDialog
+        open={bulkArchiveOpen}
+        onOpenChange={setBulkArchiveOpen}
+        title={t("masterData.chartOfAccounts.bulkArchiveConfirmTitle")}
+        description={t("masterData.chartOfAccounts.bulkArchiveConfirmDescription", {
+          count: selectedIds.size,
+        })}
+        tone="destructive"
+        isConfirming={isMutating}
+        onConfirm={() => void handleBulkArchive()}
+        confirmLabel={t("masterData.chartOfAccounts.bulkArchive")}
+      />
+
+      <ConfirmationDialog
+        open={!!includeDescendantsPrompt}
+        onOpenChange={(open) => {
+          if (!open && includeDescendantsPrompt) {
+            applyParentSelection(false);
+          }
+        }}
+        title={t("masterData.chartOfAccounts.includeDescendantsTitle")}
+        description={
+          includeDescendantsPrompt
+            ? t("masterData.chartOfAccounts.includeDescendantsDescription", {
+                name: includeDescendantsPrompt.name,
+              })
+            : undefined
+        }
+        confirmLabel={t("masterData.chartOfAccounts.includeDescendantsYes")}
+        cancelLabel={t("masterData.chartOfAccounts.includeDescendantsNo")}
+        onConfirm={() => applyParentSelection(true)}
       />
 
       <ConfirmationDialog

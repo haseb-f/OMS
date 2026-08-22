@@ -586,6 +586,80 @@ export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount
   }
 
   /**
+   * Soft-archives eligible CoA leaves only. Roots 1–5 and accounts with
+   * journal/config dependencies are blocked with Arabic reasons — never
+   * hard-deleted here.
+   */
+  async bulkArchive(
+    ids: string[],
+    userId?: string,
+  ): Promise<{
+    successIds: string[];
+    skipped: { id: string; reason: string }[];
+    blocked: { id: string; reason: string }[];
+  }> {
+    const unique = [...new Set(ids)];
+    const successIds: string[] = [];
+    const skipped: { id: string; reason: string }[] = [];
+    const blocked: { id: string; reason: string }[] = [];
+
+    for (const id of unique) {
+      try {
+        const account = await this.prisma.chartOfAccount.findFirst({
+          where: { id, deletedAt: null },
+        });
+        if (!account) {
+          skipped.push({ id, reason: 'الحساب غير موجود أو مؤرشف مسبقاً.' });
+          continue;
+        }
+        if (
+          account.isSystemAccount ||
+          (SYSTEM_ROOT_CODES as readonly string[]).includes(account.code)
+        ) {
+          blocked.push({
+            id,
+            reason: 'الحسابات الرئيسية 1–5 محمية ولا يمكن أرشفتها جماعياً.',
+          });
+          continue;
+        }
+        const childCount = await this.prisma.chartOfAccount.count({
+          where: { parentAccountId: id, deletedAt: null },
+        });
+        if (childCount > 0) {
+          blocked.push({
+            id,
+            reason: 'لا يمكن أرشفة حساب له حسابات فرعية — أرشف الأوراق أولاً.',
+          });
+          continue;
+        }
+        const usage = await this.countUsageReferences(id);
+        if (usage.length > 0) {
+          const details = usage
+            .map((u) => `${u.label} (${u.count})`)
+            .join('، ');
+          blocked.push({
+            id,
+            reason: `مستخدم في العمليات المحاسبية: ${details}.`,
+          });
+          continue;
+        }
+        await this.archive(id, userId);
+        successIds.push(id);
+      } catch (error) {
+        blocked.push({
+          id,
+          reason:
+            error instanceof BadRequestException
+              ? String(error.message)
+              : 'تعذر أرشفة الحساب.',
+        });
+      }
+    }
+
+    return { successIds, skipped, blocked };
+  }
+
+  /**
    * Ensures the protected system root (codes 1–5) exists for `accountType`.
    * Idempotent — used by create/import/repair so every leaf hangs under the
    * five-root tree rather than becoming an arbitrary orphan root.

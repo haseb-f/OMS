@@ -255,7 +255,7 @@ describe('ImportTemplateService — Master Data dropdowns', () => {
     expect(headerValues[17]).toBe('Sync Status');
     expect(headerValues[18]).toBe('System Order ID');
     expect(headerValues[19]).toBe('Error Message');
-    expect(headerValues[20]).toBe('Status');
+    expect(headerValues[20]).toBe('Shipping Status');
     expect(headerValues[21]).toBe('Tracking Number');
     expect(headerValues[22]).toBe('Shipping Company');
     expect(headerValues[23]).toBe('Shipping Label URL');

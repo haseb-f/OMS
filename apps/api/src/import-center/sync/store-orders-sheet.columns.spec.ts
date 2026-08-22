@@ -5,7 +5,10 @@ import {
   STORE_ORDER_RESULT_COLUMN_NAMES,
   STORE_ORDERS_SHEET_LAYOUT,
   isEmptyShippingInput,
+  missingShippingInputColumnNames,
+  resolveShippingStatusHeader,
   shippingColumnMappingFromStoreOrders,
+  shippingStatusHeaderRename,
 } from './store-orders-sheet.columns';
 
 describe('Store Orders shared Google Sheet columns', () => {
@@ -25,7 +28,7 @@ describe('Store Orders shared Google Sheet columns', () => {
     expect(columnLetterToIndex('T')).toBe(19);
     expect(columnLetterToIndex('W')).toBe(22);
     expect(SHIPPING_INPUT_COLUMN_NAMES).toEqual([
-      'Status',
+      'Shipping Status',
       'Tracking Number',
       'Shipping Company',
       'Shipping Label URL',
@@ -42,17 +45,69 @@ describe('Store Orders shared Google Sheet columns', () => {
     ]);
   });
 
-  it('maps shipping fields from the Store Orders source without creating a second source', () => {
-    const mapping = shippingColumnMappingFromStoreOrders({
-      externalOrderId: 'External Order ID',
-      customerName: 'Customer Name',
-    });
+  it('maps shipping fields preferring Shipping Status over legacy Status', () => {
+    const mapping = shippingColumnMappingFromStoreOrders(
+      {
+        externalOrderId: 'External Order ID',
+        customerName: 'Customer Name',
+      },
+      ['External Order ID', 'Shipping Status', 'Tracking Number'],
+    );
     expect(mapping.externalOrderId).toBe('External Order ID');
-    expect(mapping.status).toBe('Status');
+    expect(mapping.status).toBe('Shipping Status');
     expect(mapping.trackingNumber).toBe('Tracking Number');
     expect(mapping.shippingCompanyName).toBe('Shipping Company');
     expect(mapping.labelUrl).toBe('Shipping Label URL');
     expect(mapping).not.toHaveProperty('customerName');
+  });
+
+  it('accepts legacy Status header as a Shipping Status alias', () => {
+    expect(resolveShippingStatusHeader(['Status', 'Tracking Number'])).toBe(
+      'Status',
+    );
+    expect(resolveShippingStatusHeader(['Shipping Status', 'Status'])).toBe(
+      'Shipping Status',
+    );
+  });
+
+  it('renames legacy Status in place and does not treat it as missing', () => {
+    expect(shippingStatusHeaderRename(['Status', 'Tracking Number'])).toEqual({
+      from: 'Status',
+      to: 'Shipping Status',
+    });
+    expect(
+      shippingStatusHeaderRename(['Shipping Status', 'Tracking Number']),
+    ).toBeNull();
+    expect(missingShippingInputColumnNames(['Status'])).toEqual([
+      'Tracking Number',
+      'Shipping Company',
+      'Shipping Label URL',
+    ]);
+    expect(
+      missingShippingInputColumnNames([
+        'Shipping Status',
+        'Tracking Number',
+        'Shipping Company',
+        'Shipping Label URL',
+      ]),
+    ).toEqual([]);
+  });
+
+  it('maps status to Shipping Status so setMapping never requires legacy Status', () => {
+    const headers = [
+      'External Order ID',
+      'Shipping Status',
+      'Tracking Number',
+      'Shipping Company',
+      'Shipping Label URL',
+    ];
+    const mapping = shippingColumnMappingFromStoreOrders(
+      { externalOrderId: 'External Order ID' },
+      headers,
+    );
+    expect(mapping.status).toBe('Shipping Status');
+    expect(mapping.status).not.toBe('Status');
+    expect(headers).toContain(mapping.status);
   });
 
   it('treats empty T:W as nothing to shipping-sync', () => {

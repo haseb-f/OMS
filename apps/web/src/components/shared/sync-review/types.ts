@@ -1,6 +1,13 @@
 export type SyncReviewStatus = "READY" | "WARNING" | "ERROR" | "DUPLICATE";
 export type SyncReviewLifecycle =
-  "NEW" | "RETRY" | "IMPORTED" | "UNCHANGED_FAILURE" | "ORPHAN_LINK" | "MODIFIED" | "DELETED";
+  | "NEW"
+  | "RETRY"
+  | "IMPORTED"
+  | "UNCHANGED_FAILURE"
+  | "ORPHAN_LINK"
+  | "EXTERNAL_DUP"
+  | "PHONE_MATCH"
+  | "DELETED";
 export type SyncReviewDecision = "ACCEPT" | "REJECT";
 export type SyncReviewStatusFilter = SyncReviewStatus | "ALL" | "RETRY" | "NEW";
 
@@ -40,10 +47,12 @@ export function defaultDecision(
   row: Pick<SyncReviewRow, "status" | "lifecycle">,
 ): SyncReviewDecision {
   if (row.lifecycle === "DELETED") return "REJECT";
+  if (row.lifecycle === "PHONE_MATCH") return "REJECT";
   return row.status === "READY" || row.status === "WARNING" ? "ACCEPT" : "REJECT";
 }
 
-export function isImportable(status: SyncReviewStatus): boolean {
+export function isImportable(status: SyncReviewStatus, lifecycle?: SyncReviewLifecycle): boolean {
+  if (lifecycle === "PHONE_MATCH") return true;
   return status === "READY" || status === "WARNING";
 }
 

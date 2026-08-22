@@ -148,8 +148,12 @@ export class StoreOrdersService {
    */
   async create(dto: CreateStoreOrderDto, userId?: string) {
     if (dto.externalOrderId) {
+      const normalized = dto.externalOrderId.trim().toLocaleLowerCase('en-US');
       const existing = await this.prisma.storeOrder.findFirst({
-        where: { externalOrderId: dto.externalOrderId, deletedAt: null },
+        where: {
+          externalOrderId: { equals: normalized, mode: 'insensitive' },
+          deletedAt: null,
+        },
       });
       if (existing) {
         throw new BadRequestException({
@@ -159,6 +163,7 @@ export class StoreOrdersService {
           internalOrderId: existing.internalOrderId,
         });
       }
+      dto.externalOrderId = normalized;
     }
 
     for (const item of dto.items) {

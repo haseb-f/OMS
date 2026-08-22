@@ -163,6 +163,13 @@ export const syncService = {
       ...(runAs ? { runAs } : {}),
     }),
 
+  /** Clears OMS-only Q:R:S result columns for selected Store Orders sheet rows. */
+  clearStoreOrderResultColumns: (sourceId: string, rowNumbers: number[]) =>
+    apiClient.post<{ clearedRowNumbers: number[] }>(
+      `/import-center/sync/sources/${sourceId}/clear-result-columns`,
+      { rowNumbers },
+    ),
+
   /** OMS → official Google List Sheet (master/reference dropdown values). */
   publishListSheet: () => apiClient.post<ListSheetSyncResult>("/import-center/sync/list-sheet"),
   getListSheetStatus: () =>

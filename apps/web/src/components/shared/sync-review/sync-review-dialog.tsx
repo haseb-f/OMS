@@ -4,13 +4,21 @@ import { useMemo, useState } from "react";
 import type { RowSelectionState } from "@tanstack/react-table";
 import { CloudCog, RefreshCw } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
+import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { exportRowsToCsv } from "@/components/master-data/enterprise-data-table";
 import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
-import type { ShippingSyncRowReport, SyncPreviewResult, SyncSource } from "@/services/sync-service";
+import {
+  syncService,
+  type ShippingSyncRowReport,
+  type SyncPreviewResult,
+  type SyncSource,
+} from "@/services/sync-service";
+import { toast } from "@/lib/toast";
+import { ApiError } from "@/services/api-client";
 import { humanizeSyncIssue } from "./messages";
 import { SyncBulkActions } from "./sync-bulk-actions";
 import { SyncErrorDigest } from "./sync-error-digest";
@@ -101,6 +109,8 @@ export function SyncReviewDialog({
   const [selectionBySource, setSelectionBySource] = useState<Record<string, RowSelectionState>>({});
   const [statusFilter, setStatusFilter] = useState<SyncReviewStatusFilter>("ALL");
   const [revalidating, setRevalidating] = useState(false);
+  const [clearOrphanOpen, setClearOrphanOpen] = useState(false);
+  const [clearingOrphans, setClearingOrphans] = useState(false);
 
   const active = items?.find((item) => item.source.id === activeSourceId) ?? items?.[0] ?? null;
   const rows = active?.preview.rows ?? [];
@@ -119,7 +129,8 @@ export function SyncReviewDialog({
     .filter(([, selected]) => selected)
     .map(([id]) => id);
   const selectedRows = rows.filter((row) => selectedIds.includes(row.id));
-  const importableSelected = selectedRows.filter((row) => isImportable(row.status));
+  const orphanSelected = selectedRows.filter((row) => row.lifecycle === "ORPHAN_LINK");
+  const importableSelected = selectedRows.filter((row) => isImportable(row.status, row.lifecycle));
 
   const allRows = items?.flatMap((item) => item.preview.rows ?? []) ?? [];
   const allDecisions = useMemo(() => {
@@ -148,7 +159,7 @@ export function SyncReviewDialog({
       const sourceDecisions = { ...(current[active.source.id] ?? {}) };
       for (const id of rowIds) {
         const row = rows.find((item) => item.id === id);
-        if (decision === "ACCEPT" && row && !isImportable(row.status)) continue;
+        if (decision === "ACCEPT" && row && !isImportable(row.status, row.lifecycle)) continue;
         sourceDecisions[id] = decision;
       }
       return { ...current, [active.source.id]: sourceDecisions };
@@ -189,6 +200,25 @@ export function SyncReviewDialog({
     }
   };
 
+  const handleClearOrphanResults = async () => {
+    if (!active || orphanSelected.length === 0) return;
+    setClearingOrphans(true);
+    try {
+      const rowNumbers = [...new Set(orphanSelected.flatMap((row) => row.rowNumbers))];
+      await syncService.clearStoreOrderResultColumns(active.source.id, rowNumbers);
+      toast.success(t("importCenter.sync.review.clearOrphanSuccess", { count: rowNumbers.length }));
+      setClearOrphanOpen(false);
+      setActiveSelection({});
+      await onRevalidate({ retryRowNumbers: rowNumbers });
+    } catch (error) {
+      toast.error(
+        error instanceof ApiError ? error.message : t("importCenter.sync.review.clearOrphanFailed"),
+      );
+    } finally {
+      setClearingOrphans(false);
+    }
+  };
+
   const handleComplete = async () => {
     if (!items) return;
     const commits = items.map((item) => {
@@ -196,7 +226,7 @@ export function SyncReviewDialog({
         decisionsBySource[item.source.id] ?? decisionsFromPreview(item.preview);
       const acceptRowNumbers = (item.preview.rows ?? []).flatMap((row) => {
         const decision = sourceDecisions[row.id] ?? defaultDecision(row);
-        if (decision !== "ACCEPT" || !isImportable(row.status)) return [];
+        if (decision !== "ACCEPT" || !isImportable(row.status, row.lifecycle)) return [];
         return row.rowNumbers;
       });
       return { sourceId: item.source.id, jobId: item.preview.jobId, acceptRowNumbers };
@@ -213,210 +243,226 @@ export function SyncReviewDialog({
         });
 
   return (
-    <EnterpriseModal
-      open={open}
-      onOpenChange={(next) => {
-        if (committing) return;
-        onOpenChange(next);
-      }}
-      size="xl"
-      icon={CloudCog}
-      title={title}
-      description={
-        report || step === "confirm" ? undefined : t("importCenter.sync.review.description")
-      }
-      isDirty={isDirty && !report}
-      footer={(requestClose) =>
-        report ? (
-          <EnterpriseButton type="button" onClick={() => onOpenChange(false)}>
-            {t("importCenter.sync.report.close")}
-          </EnterpriseButton>
-        ) : step === "confirm" ? (
-          <>
-            <EnterpriseButton
-              type="button"
-              variant="outline"
-              onClick={() => setStep("review")}
-              disabled={committing}
-            >
-              {t("importCenter.sync.cancel")}
+    <>
+      <EnterpriseModal
+        open={open}
+        onOpenChange={(next) => {
+          if (committing) return;
+          onOpenChange(next);
+        }}
+        size="xl"
+        icon={CloudCog}
+        title={title}
+        description={
+          report || step === "confirm" ? undefined : t("importCenter.sync.review.description")
+        }
+        isDirty={isDirty && !report}
+        footer={(requestClose) =>
+          report ? (
+            <EnterpriseButton type="button" onClick={() => onOpenChange(false)}>
+              {t("importCenter.sync.report.close")}
             </EnterpriseButton>
-            <EnterpriseButton type="button" onClick={handleComplete} disabled={committing}>
-              <RefreshCw className={committing ? "animate-spin" : undefined} />
-              {committing
-                ? t("importCenter.sync.confirming")
-                : t("importCenter.sync.review.confirmPrimary")}
-            </EnterpriseButton>
-          </>
-        ) : (
-          <>
-            <EnterpriseButton
-              type="button"
-              variant="outline"
-              onClick={requestClose}
-              disabled={committing}
-            >
-              {t("importCenter.sync.cancel")}
-            </EnterpriseButton>
-            <EnterpriseButton
-              type="button"
-              variant="outline"
-              disabled={revalidating || committing}
-              onClick={async () => {
-                setRevalidating(true);
-                try {
-                  await onRevalidate();
-                } finally {
-                  setRevalidating(false);
-                }
-              }}
-            >
-              <RefreshCw className={revalidating ? "animate-spin" : undefined} />
-              {t("importCenter.sync.review.revalidate")}
-            </EnterpriseButton>
-            <EnterpriseButton
-              type="button"
-              disabled={committing}
-              onClick={() => setStep("confirm")}
-            >
-              {t("importCenter.sync.review.completeSync")}
-            </EnterpriseButton>
-          </>
-        )
-      }
-    >
-      {report ? (
-        <div className="max-h-96 overflow-y-auto rounded-lg border border-border">
-          <table className="w-full text-xs">
-            <thead className="sticky top-0 bg-muted/50 text-muted-foreground">
-              <tr>
-                <th className="p-2 text-start font-medium">
-                  {t("importCenter.sync.report.externalOrderId")}
-                </th>
-                <th className="p-2 text-start font-medium">
-                  {t("importCenter.sync.report.result")}
-                </th>
-                <th className="p-2 text-start font-medium">
-                  {t("importCenter.sync.report.message")}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {report.map((row, idx) => (
-                <tr key={`${row.externalOrderId}-${idx}`} className="border-t border-border">
-                  <td className="p-2 font-medium">{row.externalOrderId}</td>
-                  <td className="p-2">
-                    <EnterpriseBadge variant={reportResultVariant(row.result)}>
-                      {t(REPORT_RESULT_LABEL_KEY[row.result])}
-                    </EnterpriseBadge>
-                  </td>
-                  <td className="p-2 text-muted-foreground">{row.message}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : step === "confirm" ? (
-        <SyncResultSummary rows={allRows} decisions={allDecisions} />
-      ) : (
-        <div className="flex flex-col gap-4">
-          {items && items.length > 1 ? (
-            <Tabs
-              value={active?.source.id}
-              onValueChange={(value) => {
-                setActiveSourceId(value);
-                setStatusFilter("ALL");
-              }}
-            >
-              <TabsList variant="line" className="max-w-full overflow-x-auto">
-                {items.map((item) => (
-                  <TabsTrigger key={item.source.id} value={item.source.id}>
-                    {item.source.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-          ) : null}
-
-          {active ? (
+          ) : step === "confirm" ? (
             <>
-              <SyncSourceContext
-                source={active.preview.source}
-                previewedAt={active.preview.previewedAt}
-                rowsReceived={active.preview.totalRows}
-                rows={rows}
-                decisions={decisions}
-              />
-              {active.preview.writebackError ? (
-                <p className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-caption text-destructive">
-                  {active.preview.writebackError}
-                </p>
-              ) : null}
-              <SyncSummary
-                rows={rows}
-                filter={statusFilter}
-                onFilterChange={setStatusFilter}
-                incremental={active.preview.incremental}
-              />
-              <SyncErrorDigest rows={rows} onShowErrors={() => setStatusFilter("ERROR")} />
-              <div className="flex flex-wrap items-center gap-1.5">
-                <SyncBulkActions
-                  selectedCount={selectedRows.length}
-                  importableSelectedCount={importableSelected.length}
-                  errorCount={rows.filter((row) => row.status === "ERROR").length}
-                  retryableSelectedCount={selectedRows.filter((row) => row.retryable).length}
-                  retryableCount={rows.filter((row) => row.retryable).length}
+              <EnterpriseButton
+                type="button"
+                variant="outline"
+                onClick={() => setStep("review")}
+                disabled={committing}
+              >
+                {t("importCenter.sync.cancel")}
+              </EnterpriseButton>
+              <EnterpriseButton type="button" onClick={handleComplete} disabled={committing}>
+                <RefreshCw className={committing ? "animate-spin" : undefined} />
+                {committing
+                  ? t("importCenter.sync.confirming")
+                  : t("importCenter.sync.review.confirmPrimary")}
+              </EnterpriseButton>
+            </>
+          ) : (
+            <>
+              <EnterpriseButton
+                type="button"
+                variant="outline"
+                onClick={requestClose}
+                disabled={committing}
+              >
+                {t("importCenter.sync.cancel")}
+              </EnterpriseButton>
+              <EnterpriseButton
+                type="button"
+                variant="outline"
+                disabled={revalidating || committing}
+                onClick={async () => {
+                  setRevalidating(true);
+                  try {
+                    await onRevalidate();
+                  } finally {
+                    setRevalidating(false);
+                  }
+                }}
+              >
+                <RefreshCw className={revalidating ? "animate-spin" : undefined} />
+                {t("importCenter.sync.review.revalidate")}
+              </EnterpriseButton>
+              <EnterpriseButton
+                type="button"
+                disabled={committing}
+                onClick={() => setStep("confirm")}
+              >
+                {t("importCenter.sync.review.completeSync")}
+              </EnterpriseButton>
+            </>
+          )
+        }
+      >
+        {report ? (
+          <div className="max-h-96 overflow-y-auto rounded-lg border border-border">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-muted/50 text-muted-foreground">
+                <tr>
+                  <th className="p-2 text-start font-medium">
+                    {t("importCenter.sync.report.externalOrderId")}
+                  </th>
+                  <th className="p-2 text-start font-medium">
+                    {t("importCenter.sync.report.result")}
+                  </th>
+                  <th className="p-2 text-start font-medium">
+                    {t("importCenter.sync.report.message")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.map((row, idx) => (
+                  <tr key={`${row.externalOrderId}-${idx}`} className="border-t border-border">
+                    <td className="p-2 font-medium">{row.externalOrderId}</td>
+                    <td className="p-2">
+                      <EnterpriseBadge variant={reportResultVariant(row.result)}>
+                        {t(REPORT_RESULT_LABEL_KEY[row.result])}
+                      </EnterpriseBadge>
+                    </td>
+                    <td className="p-2 text-muted-foreground">{row.message}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : step === "confirm" ? (
+          <SyncResultSummary rows={allRows} decisions={allDecisions} />
+        ) : (
+          <div className="flex flex-col gap-4">
+            {items && items.length > 1 ? (
+              <Tabs
+                value={active?.source.id}
+                onValueChange={(value) => {
+                  setActiveSourceId(value);
+                  setStatusFilter("ALL");
+                }}
+              >
+                <TabsList variant="line" className="max-w-full overflow-x-auto">
+                  {items.map((item) => (
+                    <TabsTrigger key={item.source.id} value={item.source.id}>
+                      {item.source.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            ) : null}
+
+            {active ? (
+              <>
+                <SyncSourceContext
+                  source={active.preview.source}
+                  previewedAt={active.preview.previewedAt}
+                  rowsReceived={active.preview.totalRows}
+                  rows={rows}
+                  decisions={decisions}
+                />
+                {active.preview.writebackError ? (
+                  <p className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-caption text-destructive">
+                    {active.preview.writebackError}
+                  </p>
+                ) : null}
+                <SyncSummary
+                  rows={rows}
                   filter={statusFilter}
-                  onAcceptSelected={() =>
-                    setDecision(
-                      importableSelected.map((row) => row.id),
-                      "ACCEPT",
-                    )
-                  }
-                  onAcceptReady={() =>
-                    setDecision(
-                      rows.filter((row) => row.status === "READY").map((row) => row.id),
-                      "ACCEPT",
-                    )
-                  }
-                  onRejectSelected={() => setDecision(selectedIds, "REJECT")}
-                  onDownloadErrors={downloadErrors}
-                  onRetrySelected={() => {
-                    const numbers = selectedRows
-                      .filter((row) => row.retryable)
-                      .flatMap((row) => row.rowNumbers);
-                    if (numbers.length === 0) return;
-                    void handleRetry({ retryRowNumbers: numbers });
-                  }}
-                  onRetryEligible={() => {
-                    void handleRetry({ retryAllFailed: true });
-                  }}
-                  onSelectCurrentStatus={() => {
-                    const next: RowSelectionState = {};
-                    for (const row of filteredRows) next[row.id] = true;
-                    setActiveSelection(next);
+                  onFilterChange={setStatusFilter}
+                  incremental={active.preview.incremental}
+                />
+                <SyncErrorDigest rows={rows} onShowErrors={() => setStatusFilter("ERROR")} />
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <SyncBulkActions
+                    selectedCount={selectedRows.length}
+                    importableSelectedCount={importableSelected.length}
+                    errorCount={rows.filter((row) => row.status === "ERROR").length}
+                    retryableSelectedCount={selectedRows.filter((row) => row.retryable).length}
+                    retryableCount={rows.filter((row) => row.retryable).length}
+                    filter={statusFilter}
+                    onAcceptSelected={() =>
+                      setDecision(
+                        importableSelected.map((row) => row.id),
+                        "ACCEPT",
+                      )
+                    }
+                    onAcceptReady={() =>
+                      setDecision(
+                        rows.filter((row) => row.status === "READY").map((row) => row.id),
+                        "ACCEPT",
+                      )
+                    }
+                    onRejectSelected={() => setDecision(selectedIds, "REJECT")}
+                    onDownloadErrors={downloadErrors}
+                    onRetrySelected={() => {
+                      const numbers = selectedRows
+                        .filter((row) => row.retryable)
+                        .flatMap((row) => row.rowNumbers);
+                      if (numbers.length === 0) return;
+                      void handleRetry({ retryRowNumbers: numbers });
+                    }}
+                    onRetryEligible={() => {
+                      void handleRetry({ retryAllFailed: true });
+                    }}
+                    onSelectCurrentStatus={() => {
+                      const next: RowSelectionState = {};
+                      for (const row of filteredRows) next[row.id] = true;
+                      setActiveSelection(next);
+                    }}
+                    orphanSelectedCount={orphanSelected.length}
+                    onClearOrphanResults={() => setClearOrphanOpen(true)}
+                  />
+                </div>
+                <SyncReviewTable
+                  rows={filteredRows}
+                  decisions={decisions}
+                  rowSelection={rowSelection}
+                  onRowSelectionChange={setActiveSelection}
+                  onDecision={setDecision}
+                  onRetry={(rowNumbers) => {
+                    void handleRetry({ retryRowNumbers: rowNumbers });
                   }}
                 />
-              </div>
-              <SyncReviewTable
-                rows={filteredRows}
-                decisions={decisions}
-                rowSelection={rowSelection}
-                onRowSelectionChange={setActiveSelection}
-                onDecision={setDecision}
-                onRetry={(rowNumbers) => {
-                  void handleRetry({ retryRowNumbers: rowNumbers });
-                }}
-              />
-              {active.preview.incremental?.nothingToSync ? (
-                <p className="text-center text-body text-muted-foreground">
-                  {t("importCenter.sync.review.nothingToSync")}
-                </p>
-              ) : null}
-            </>
-          ) : null}
-        </div>
-      )}
-    </EnterpriseModal>
+                {active.preview.incremental?.nothingToSync ? (
+                  <p className="text-center text-body text-muted-foreground">
+                    {t("importCenter.sync.review.nothingToSync")}
+                  </p>
+                ) : null}
+              </>
+            ) : null}
+          </div>
+        )}
+      </EnterpriseModal>
+      <ConfirmationDialog
+        open={clearOrphanOpen}
+        onOpenChange={setClearOrphanOpen}
+        title={t("importCenter.sync.review.clearOrphanTitle")}
+        description={t("importCenter.sync.review.clearOrphanDescription", {
+          count: orphanSelected.length,
+        })}
+        confirmLabel={t("importCenter.sync.review.clearOrphanConfirm")}
+        tone="warning"
+        isConfirming={clearingOrphans}
+        onConfirm={() => void handleClearOrphanResults()}
+      />
+    </>
   );
 }

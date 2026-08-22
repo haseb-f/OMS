@@ -33,7 +33,8 @@ const LIFECYCLE_LABEL: Record<SyncReviewLifecycle, MessageKey> = {
   IMPORTED: "importCenter.sync.review.lifecycleImported",
   UNCHANGED_FAILURE: "importCenter.sync.review.lifecycleSkipped",
   ORPHAN_LINK: "importCenter.sync.review.lifecycleError",
-  MODIFIED: "importCenter.sync.review.lifecycleModified",
+  EXTERNAL_DUP: "importCenter.sync.review.lifecycleExternalDup",
+  PHONE_MATCH: "importCenter.sync.review.lifecyclePhoneMatch",
   DELETED: "importCenter.sync.review.lifecycleDeleted",
 };
 

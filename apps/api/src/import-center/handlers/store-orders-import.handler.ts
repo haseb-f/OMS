@@ -24,7 +24,12 @@ import {
   type ImportRowOptions,
   type ImportRowResult,
   type ImportTypeHandler,
+  ImportRowNeedsReviewError,
 } from '../import-type.interface';
+import {
+  normalizeExternalOrderId,
+  REPEAT_CUSTOMER_ORDER_LABEL,
+} from '../sync/store-orders-sync.lifecycle';
 
 const FIELDS: ImportFieldDef[] = [
   {
@@ -204,16 +209,14 @@ interface LineItem {
  * follows.
  *
  * Phone matching reuses `CustomersService.lookupAllByPhone` /
- * `findOrCreate` (never a second matching engine). A unique existing
- * customer is NOT a duplicate order: the new Store Order is created and
- * linked to that Customer. Multiple customers on the same normalized phone
- * stay a master-data ambiguity (existing `MASTER_DATA_AMBIGUOUS` path).
+ * `findOrCreate` (never a second matching engine). Google Sheets sync
+ * treats a new External Order ID on an existing customer phone as a
+ * phone-match review (default skip); explicit accept creates the order
+ * with the `مكرر` channel badge. Manual Import Center uploads still
+ * create the order when the phone matches a unique customer.
  *
- * Google Sheets sync may later present the same External Order ID with
- * changed source fields. That path reconciles through
- * `StoreOrdersService.applyImportedSource` — it never mints a second
- * `internalOrderId` and never bypasses duplicate protection on a manual
- * Import Center upload.
+ * An External Order ID that already exists is always rejected — Sheets
+ * sync never updates an existing order via re-import.
  */
 @Injectable()
 export class StoreOrdersImportHandler
@@ -279,38 +282,40 @@ export class StoreOrdersImportHandler
     }
 
     if (existingOrder) {
-      if (options?.context?.source !== 'GOOGLE_SHEETS') {
-        throw new BadRequestException({
-          code: 'DUPLICATE',
-          message: `A Store Order with external order id "${first.externalOrderId}" already exists (${existingOrder.internalOrderId}).`,
-          fields: [{ field: 'externalOrderId', constraints: ['unique'] }],
-        });
+      throw new BadRequestException({
+        code: 'DUPLICATE',
+        message: `A Store Order with external order id "${first.externalOrderId}" already exists (${existingOrder.internalOrderId}).`,
+        fields: [{ field: 'externalOrderId', constraints: ['unique'] }],
+        internalOrderId: existingOrder.internalOrderId,
+      });
+    }
+
+    const isGoogleSheets = options?.context?.source === 'GOOGLE_SHEETS';
+    const allowRepeatCustomer =
+      options?.context?.allowRepeatCustomer === 'true' ||
+      options?.context?.allowRepeatCustomer === '1';
+
+    if (isGoogleSheets && !allowRepeatCustomer) {
+      const prior = await this.findPriorOrderForPhone(normalizedPhone);
+      if (prior) {
+        const priorExternal = prior.externalOrderId
+          ? ` (خارجي: ${prior.externalOrderId})`
+          : '';
+        const priorDate = prior.orderDate
+          ? ` بتاريخ ${prior.orderDate.toISOString().slice(0, 10)}`
+          : '';
+        throw new ImportRowNeedsReviewError(
+          `رقم الجوال مرتبط بطلب سابق ${prior.internalOrderId}${priorExternal}${priorDate}. اقبل كطلب جديد صراحةً أو ارفض الصف.`,
+        );
       }
-      if (options?.dryRun) return { id: existingOrder.id };
-      const order = await this.storeOrdersService.applyImportedSource(
-        existingOrder.id,
-        this.buildDto(
-          first,
-          currencyId,
-          employeeId,
-          countryId,
-          normalizedPhone,
-          orderDate,
-          items,
-        ),
-        userId,
-      );
-      await this.recordImportedExtras(
-        order.id,
-        first,
-        paymentMethodLabel,
-        totalPaidAmount,
-        userId,
-      );
-      return { id: order.id };
     }
 
     if (options?.dryRun) return { id: 'dry-run' };
+
+    const repeatCustomer =
+      isGoogleSheets &&
+      allowRepeatCustomer &&
+      Boolean(await this.findPriorOrderForPhone(normalizedPhone));
 
     const order = await this.storeOrdersService.create(
       this.buildDto(
@@ -321,6 +326,7 @@ export class StoreOrdersImportHandler
         normalizedPhone,
         orderDate,
         items,
+        repeatCustomer ? REPEAT_CUSTOMER_ORDER_LABEL : undefined,
       ),
       userId,
     );
@@ -359,6 +365,7 @@ export class StoreOrdersImportHandler
         normalizedPhone,
         orderDate,
         items,
+        REPEAT_CUSTOMER_ORDER_LABEL,
       ),
       userId,
     );
@@ -372,6 +379,21 @@ export class StoreOrdersImportHandler
     return { id: order.id };
   }
 
+  private async findPriorOrderForPhone(normalizedPhone: string) {
+    const phoneMatches =
+      await this.customersService.lookupAllByPhone(normalizedPhone);
+    if (phoneMatches.length !== 1) return null;
+    return this.prisma.storeOrder.findFirst({
+      where: { customerId: phoneMatches[0].id, deletedAt: null },
+      orderBy: { orderDate: 'desc' },
+      select: {
+        internalOrderId: true,
+        externalOrderId: true,
+        orderDate: true,
+      },
+    });
+  }
+
   private buildDto(
     first: Record<string, string>,
     currencyId: string,
@@ -380,9 +402,10 @@ export class StoreOrdersImportHandler
     normalizedPhone: string,
     orderDate: string,
     items: LineItem[],
+    sourceChannel?: string,
   ) {
     return {
-      externalOrderId: first.externalOrderId,
+      externalOrderId: normalizeExternalOrderId(first.externalOrderId),
       customer: {
         name: first.customerName,
         phone: normalizedPhone,
@@ -391,6 +414,7 @@ export class StoreOrdersImportHandler
       },
       orderDate,
       source: StoreOrderSource.IMPORT,
+      sourceChannel,
       currencyId,
       employeeId,
       paymentType: resolvePaymentType(first.paymentType) ?? undefined,
@@ -398,7 +422,6 @@ export class StoreOrdersImportHandler
       items,
     };
   }
-
   /** Payment Method + the order's real total (`SUM(Paid Amount)`) recorded as an audit-trail note — informational only, never a real Payment (see class doc comment). */
   private async recordImportedExtras(
     orderId: string,
@@ -430,8 +453,15 @@ export class StoreOrdersImportHandler
     if (!first.externalOrderId?.trim()) {
       throw new BadRequestException('External Order ID is required.');
     }
+    const normalizedExternalId = normalizeExternalOrderId(
+      first.externalOrderId,
+    );
+    first.externalOrderId = normalizedExternalId;
     const existingOrder = await this.prisma.storeOrder.findFirst({
-      where: { externalOrderId: first.externalOrderId, deletedAt: null },
+      where: {
+        externalOrderId: { equals: normalizedExternalId, mode: 'insensitive' },
+        deletedAt: null,
+      },
     });
 
     if (!first.customerName?.trim()) {
