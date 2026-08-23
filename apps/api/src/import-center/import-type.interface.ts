@@ -100,6 +100,16 @@ export interface ImportRowResult {
    * success (the pre-existing behavior, unchanged).
    */
   noChange?: boolean;
+  /**
+   * Final-Shipment Sync Rules — set by `ShippingUpdatesImportHandler` when
+   * the row's CURRENT record is already in a terminal `syncBehavior: FINAL`
+   * status: no field was revalidated, nothing was written, no activity was
+   * logged. Distinct from `noChange` (which means the incoming values were
+   * compared and matched) — a skipped-final row's incoming values were
+   * never even looked at. Absent for every other handler, same
+   * unchanged-by-default contract as `noChange`.
+   */
+  skippedFinal?: boolean;
 }
 
 /**

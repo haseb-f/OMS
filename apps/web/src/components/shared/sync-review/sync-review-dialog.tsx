@@ -44,6 +44,8 @@ const REPORT_RESULT_LABEL_KEY: Record<ShippingSyncRowReport["result"], MessageKe
   REJECTED: "importCenter.sync.report.resultRejected",
   NOT_FOUND: "importCenter.sync.report.resultNotFound",
   NEEDS_REVIEW: "importCenter.sync.report.resultNeedsReview",
+  FINAL: "importCenter.sync.report.resultFinal",
+  SKIPPED_FINAL: "importCenter.sync.report.resultSkippedFinal",
 };
 
 function reportResultVariant(
@@ -51,8 +53,10 @@ function reportResultVariant(
 ): "default" | "secondary" | "outline" | "destructive" {
   switch (result) {
     case "UPDATED":
+    case "FINAL":
       return "default";
     case "NO_CHANGE":
+    case "SKIPPED_FINAL":
       return "outline";
     case "NEEDS_REVIEW":
       return "secondary";
@@ -111,6 +115,10 @@ export function SyncReviewDialog({
   const [revalidating, setRevalidating] = useState(false);
   const [clearOrphanOpen, setClearOrphanOpen] = useState(false);
   const [clearingOrphans, setClearingOrphans] = useState(false);
+  // Final-Shipment Sync Rules — skipped-final rows are folded into one
+  // concise count instead of flooding the report; this reveals them again
+  // for audit ("عرض الشحنات المنتهية").
+  const [showSkippedFinal, setShowSkippedFinal] = useState(false);
 
   const active = items?.find((item) => item.source.id === activeSourceId) ?? items?.[0] ?? null;
   const rows = active?.preview.rows ?? [];
@@ -317,35 +325,65 @@ export function SyncReviewDialog({
         }
       >
         {report ? (
-          <div className="max-h-96 overflow-y-auto rounded-lg border border-border">
-            <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-muted/50 text-muted-foreground">
-                <tr>
-                  <th className="p-2 text-start font-medium">
-                    {t("importCenter.sync.report.externalOrderId")}
-                  </th>
-                  <th className="p-2 text-start font-medium">
-                    {t("importCenter.sync.report.result")}
-                  </th>
-                  <th className="p-2 text-start font-medium">
-                    {t("importCenter.sync.report.message")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.map((row, idx) => (
-                  <tr key={`${row.externalOrderId}-${idx}`} className="border-t border-border">
-                    <td className="p-2 font-medium">{row.externalOrderId}</td>
-                    <td className="p-2">
-                      <EnterpriseBadge variant={reportResultVariant(row.result)}>
-                        {t(REPORT_RESULT_LABEL_KEY[row.result])}
-                      </EnterpriseBadge>
-                    </td>
-                    <td className="p-2 text-muted-foreground">{row.message}</td>
+          <div className="flex flex-col gap-2">
+            {(() => {
+              const skippedFinalCount = report.filter(
+                (row) => row.result === "SKIPPED_FINAL",
+              ).length;
+              if (skippedFinalCount === 0) return null;
+              return (
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2 text-caption">
+                  <span className="text-muted-foreground">
+                    {t("importCenter.sync.report.skippedFinalSummary").replace(
+                      "{count}",
+                      String(skippedFinalCount),
+                    )}
+                  </span>
+                  <EnterpriseButton
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowSkippedFinal((value) => !value)}
+                  >
+                    {showSkippedFinal
+                      ? t("importCenter.sync.report.hideSkippedFinal")
+                      : t("importCenter.sync.report.showSkippedFinal")}
+                  </EnterpriseButton>
+                </div>
+              );
+            })()}
+            <div className="max-h-96 overflow-y-auto rounded-lg border border-border">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 bg-muted/50 text-muted-foreground">
+                  <tr>
+                    <th className="p-2 text-start font-medium">
+                      {t("importCenter.sync.report.externalOrderId")}
+                    </th>
+                    <th className="p-2 text-start font-medium">
+                      {t("importCenter.sync.report.result")}
+                    </th>
+                    <th className="p-2 text-start font-medium">
+                      {t("importCenter.sync.report.message")}
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {report
+                    .filter((row) => showSkippedFinal || row.result !== "SKIPPED_FINAL")
+                    .map((row, idx) => (
+                      <tr key={`${row.externalOrderId}-${idx}`} className="border-t border-border">
+                        <td className="p-2 font-medium">{row.externalOrderId}</td>
+                        <td className="p-2">
+                          <EnterpriseBadge variant={reportResultVariant(row.result)}>
+                            {t(REPORT_RESULT_LABEL_KEY[row.result])}
+                          </EnterpriseBadge>
+                        </td>
+                        <td className="p-2 text-muted-foreground">{row.message}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         ) : step === "confirm" ? (
           <SyncResultSummary rows={allRows} decisions={allDecisions} />

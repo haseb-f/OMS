@@ -515,6 +515,7 @@ async function main() {
           isDefault: status.isDefault,
           isImportable: status.isImportable,
           sortOrder: status.sortOrder,
+          syncBehavior: status.syncBehavior,
         },
       }),
     ),

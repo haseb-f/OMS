@@ -56,6 +56,12 @@ export class ShippingStatusesController {
     return this.shippingStatusesService.update(id, dto, user.sub);
   }
 
+  /** Safe default-replacement flow — see `ShippingStatusesService.setDefault`. */
+  @Post(':id/set-default')
+  setDefault(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.shippingStatusesService.setDefault(id, user.sub);
+  }
+
   @Post(':id/archive')
   archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.shippingStatusesService.archive(id, user.sub);

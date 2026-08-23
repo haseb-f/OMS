@@ -897,6 +897,16 @@ const en = {
       system: "System",
       protectedHint:
         'The default status "{status}" is a system status — it cannot be deleted, and it is the initial status for any order ready to ship.',
+      setDefault: "Set as Default",
+      setDefaultSuccess: "Default shipping status updated.",
+      setDefaultError: "Could not change the default shipping status.",
+      syncBehavior: {
+        label: "Sync Behavior",
+        underSync: "Under Sync",
+        final: "Final",
+        helperText:
+          "Under Sync: the shipment stays eligible for future Shipping Sync checks and updates. Final: the shipment is considered complete — the system will not re-sync it or show it in repeated update reports.",
+      },
     },
     customerGroups: {
       title: "Customer Groups",
@@ -2343,6 +2353,13 @@ const en = {
       labelAttachHint: "Paste the label/AWB file URL to attach it to this shipment.",
       labelReplaceHint: "Paste a new URL to replace the current label.",
       saved: "Shipment updated.",
+      changeStatus: "Shipping Status",
+      finalHint:
+        "This shipment is in a Final status — it is excluded from future Shipping Sync runs. Choose an Under Sync status to reopen it.",
+      reopenConfirmTitle: "Reopen this shipment?",
+      reopenConfirmDescription:
+        "This shipment is currently Final. Moving it to an Under Sync status will make it eligible for future Shipping Sync runs again.",
+      reopenConfirmAction: "Reopen Shipment",
     },
     status: {
       READY_FOR_SHIPPING: "Ready for Shipping",
@@ -3477,6 +3494,11 @@ const en = {
         resultRejected: "Rejected",
         resultNotFound: "Not Found",
         resultNeedsReview: "Needs Review",
+        resultFinal: "Final",
+        resultSkippedFinal: "Skipped (Final)",
+        skippedFinalSummary: "{count} final shipments were skipped.",
+        showSkippedFinal: "Show final shipments",
+        hideSkippedFinal: "Hide final shipments",
       },
       review: {
         title: "Sync Review — {label}",

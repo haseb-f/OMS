@@ -21,9 +21,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { shipmentStatusLabelKey, shipmentStatusTone } from "@/config/shipping/shipment-status";
+import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import {
+  shipmentStatusLabelKey,
+  shipmentStatusTone,
+  catalogStatusTone,
+} from "@/config/shipping/shipment-status";
 import { storeOrdersService } from "@/services/store-orders-service";
-import type { ShipmentListRow } from "@/services/shipping-service";
+import {
+  shippingService,
+  type ShipmentListRow,
+  type ShippingStatusCatalogEntry,
+} from "@/services/shipping-service";
 import type { ShippingCompanyOption } from "@/services/shipping-companies-service";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
@@ -36,6 +45,13 @@ import { ApiError } from "@/services/api-client";
  * existing per-order shipment endpoints (`storeOrdersService.shipments.*`)
  * keyed by the row's own `storeOrderId`/`id` — no new backend storage, no
  * second document-storage system for the label.
+ *
+ * The Shipping Status select is the "direct change to any status" capability
+ * (Shipping Status Configuration + Final-Shipment Sync Rules) — no forced
+ * sequence, so it lists every active catalog status rather than a
+ * transition-constrained subset. Moving a FINAL shipment back to an
+ * UNDER_SYNC status ("reopening" it) asks for confirmation first, since
+ * that makes it eligible for Shipping Sync again.
  */
 export function ShipmentManageDialog({
   shipment,
@@ -54,7 +70,10 @@ export function ShipmentManageDialog({
   const [companyId, setCompanyId] = useState("");
   const [trackingNumber, setTrackingNumber] = useState("");
   const [labelUrl, setLabelUrl] = useState("");
+  const [shippingStatusId, setShippingStatusId] = useState("");
+  const [statuses, setStatuses] = useState<ShippingStatusCatalogEntry[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [pendingReopenConfirm, setPendingReopenConfirm] = useState(false);
 
   useEffect(() => {
     if (shipment) {
@@ -62,15 +81,37 @@ export function ShipmentManageDialog({
       setCompanyId(shipment.shippingCompanyId ?? "");
       setTrackingNumber(shipment.trackingNumber ?? "");
       setLabelUrl("");
+      setShippingStatusId(shipment.shippingStatus?.id ?? "");
     }
   }, [shipment]);
 
+  useEffect(() => {
+    if (!open) return;
+    shippingService
+      .statuses()
+      .then(setStatuses)
+      .catch(() => setStatuses([]));
+  }, [open]);
+
   if (!shipment) return null;
 
-  const handleSave = async () => {
+  const currentIsFinal = shipment.shippingStatus?.syncBehavior === "FINAL";
+  const selectedStatus = statuses.find((s) => s.id === shippingStatusId);
+  const isReopening =
+    currentIsFinal &&
+    !!selectedStatus &&
+    selectedStatus.syncBehavior === "UNDER_SYNC" &&
+    selectedStatus.id !== shipment.shippingStatus?.id;
+
+  const applyChanges = async () => {
     setIsSaving(true);
     try {
       const calls: Promise<unknown>[] = [];
+      if (shippingStatusId && shippingStatusId !== (shipment.shippingStatus?.id ?? "")) {
+        calls.push(
+          storeOrdersService.shipments.setShippingStatus(shipment.storeOrderId, shippingStatusId),
+        );
+      }
       if (companyId && companyId !== (shipment.shippingCompanyId ?? "")) {
         calls.push(
           storeOrdersService.shipments.setShippingCompany(
@@ -111,6 +152,14 @@ export function ShipmentManageDialog({
     }
   };
 
+  const handleSave = () => {
+    if (isReopening) {
+      setPendingReopenConfirm(true);
+      return;
+    }
+    void applyChanges();
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
@@ -137,9 +186,32 @@ export function ShipmentManageDialog({
               {t("shipping.manage.currentStatus")}
             </span>
             <StatusBadge
-              label={t(shipmentStatusLabelKey(shipment.status))}
-              tone={shipmentStatusTone(shipment.status)}
+              label={shipment.shippingStatus?.name ?? t(shipmentStatusLabelKey(shipment.status))}
+              tone={
+                shipment.shippingStatus
+                  ? catalogStatusTone(shipment.shippingStatus.color)
+                  : shipmentStatusTone(shipment.status)
+              }
             />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label>{t("shipping.manage.changeStatus")}</Label>
+            <Select value={shippingStatusId || "__none__"} onValueChange={setShippingStatusId}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={t("shipping.manage.changeStatus")} />
+              </SelectTrigger>
+              <SelectContent>
+                {statuses.map((status) => (
+                  <SelectItem key={status.id} value={status.id}>
+                    {status.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {currentIsFinal && (
+              <p className="text-caption text-muted-foreground">{t("shipping.manage.finalHint")}</p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -208,6 +280,20 @@ export function ShipmentManageDialog({
           </EnterpriseButton>
         </DialogFooter>
       </DialogContent>
+
+      <ConfirmationDialog
+        open={pendingReopenConfirm}
+        onOpenChange={setPendingReopenConfirm}
+        title={t("shipping.manage.reopenConfirmTitle")}
+        description={t("shipping.manage.reopenConfirmDescription")}
+        tone="warning"
+        confirmLabel={t("shipping.manage.reopenConfirmAction")}
+        isConfirming={isSaving}
+        onConfirm={() => {
+          setPendingReopenConfirm(false);
+          void applyChanges();
+        }}
+      />
     </Dialog>
   );
 }

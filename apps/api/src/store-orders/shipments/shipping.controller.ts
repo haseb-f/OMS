@@ -50,6 +50,7 @@ export class ShippingController {
       isDefault: status.isDefault,
       isSystem: status.isSystem,
       importable: status.isImportable,
+      syncBehavior: status.syncBehavior,
     }));
   }
 

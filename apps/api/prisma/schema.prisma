@@ -744,20 +744,44 @@ model ShippingCompany {
   @@map("shipping_companies")
 }
 
+/// Shipping Status Configuration + Final-Shipment Sync Rules — whether a
+/// Shipment carrying this status is still a live candidate for future
+/// Shipping Sync runs (`UNDER_SYNC`) or permanently done (`FINAL`, e.g. تم
+/// التسليم / تم الإرجاع). `ShippingUpdatesImportHandler` reads this on the
+/// CURRENT shipment before touching anything else — a FINAL shipment is
+/// skipped outright, never revalidated/rewritten, until a human manually
+/// moves it back to an UNDER_SYNC status.
+enum ShippingSyncBehavior {
+  UNDER_SYNC
+  FINAL
+}
+
 /// Dynamic shipping-status catalog — names, colors, and List Sheet values.
 /// `Shipment.status` remains the operational state machine for seeded system
 /// codes; this table is the source of truth for display, import resolution,
 /// and administrator-created statuses. `جاهز للشحن` is the protected default.
 model ShippingStatus {
-  id           String  @id @default(uuid()) @db.Uuid
-  code         String  @unique
-  name         String  @unique
+  id   String @id @default(uuid()) @db.Uuid
+  code String @unique
+  /// Not `@unique` here — uniqueness is enforced only among ACTIVE
+  /// (non-archived) rows via a partial unique index added in a raw-SQL
+  /// migration (same pattern as ProductCategory.name), so a name freed up
+  /// by archiving can be reused. See migration
+  /// `shipping_status_sync_behavior_and_active_uniques`.
+  name String
   /// Closed StatusTone token: success | warning | destructive | info | neutral
   color        String  @default("neutral")
   isSystem     Boolean @default(false) @map("is_system")
+  /// Exactly one ACTIVE row may be true — enforced here at the service layer
+  /// (reject a second default, name the existing one) AND at the database
+  /// level via a partial unique index (same migration as `name` above), so
+  /// two concurrent "set as default" requests can never both win.
   isDefault    Boolean @default(false) @map("is_default")
   isImportable Boolean @default(true) @map("is_importable")
   sortOrder    Int     @default(0) @map("sort_order")
+
+  /// Shipping Status Configuration + Final-Shipment Sync Rules.
+  syncBehavior ShippingSyncBehavior @default(UNDER_SYNC) @map("sync_behavior")
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")

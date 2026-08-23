@@ -63,7 +63,13 @@ export interface StoreOrderShipmentRow {
   trackingNumber: string | null;
   labelUrl: string | null;
   status: ShipmentStatusValue;
-  shippingStatus?: { id: string; code: string; name: string; color: string } | null;
+  shippingStatus?: {
+    id: string;
+    code: string;
+    name: string;
+    color: string;
+    syncBehavior?: "UNDER_SYNC" | "FINAL";
+  } | null;
   labelCreatedAt: string | null;
   shippedAt: string | null;
   outForDeliveryAt: string | null;
@@ -252,6 +258,12 @@ export const storeOrdersService = {
       ),
     reship: (storeOrderId: string) =>
       apiClient.post<StoreOrderShipmentRow>(`/store-orders/${storeOrderId}/shipments/reship`),
+    /** Direct "change to any status" operation — no forced sequence, no rigid transition matrix. Also the way a FINAL shipment is manually reopened back to UNDER_SYNC. */
+    setShippingStatus: (storeOrderId: string, shippingStatusId: string) =>
+      apiClient.post<StoreOrderShipmentRow>(
+        `/store-orders/${storeOrderId}/shipments/shipping-status`,
+        { shippingStatusId },
+      ),
     setShippingCost: (storeOrderId: string, shipmentId: string, shippingCost: number) =>
       apiClient.post<StoreOrderShipmentRow>(
         `/store-orders/${storeOrderId}/shipments/shipping-cost`,

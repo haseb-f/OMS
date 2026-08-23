@@ -894,6 +894,16 @@ const ar = {
       system: "نظامي",
       protectedHint:
         'الحالة الافتراضية "{status}" حالة نظامية — لا يمكن حذفها، وهي الحالة الأولى لأي طلب جاهز للشحن.',
+      setDefault: "تعيين كافتراضية",
+      setDefaultSuccess: "تم تحديث الحالة الافتراضية للشحن.",
+      setDefaultError: "تعذّر تغيير الحالة الافتراضية للشحن.",
+      syncBehavior: {
+        label: "سلوك المزامنة",
+        underSync: "تحت المزامنة",
+        final: "منتهية",
+        helperText:
+          "تحت المزامنة: تظل الشحنة قابلة للفحص والتحديث في مزامنة الشحن القادمة. منتهية: تُعتبر الشحنة مكتملة — لا يعيد النظام مزامنتها أو إظهارها في تقارير التحديث المتكررة.",
+      },
     },
     customerGroups: {
       title: "مجموعات العملاء",
@@ -2320,6 +2330,13 @@ const ar = {
       labelAttachHint: "الصق رابط ملف البوليصة/AWB لإرفاقه بهذه الشحنة.",
       labelReplaceHint: "الصق رابطًا جديدًا لاستبدال البوليصة الحالية.",
       saved: "تم تحديث الشحنة.",
+      changeStatus: "حالة الشحن",
+      finalHint:
+        "هذه الشحنة في حالة نهائية — مستبعدة من عمليات مزامنة الشحن القادمة. اختر حالة «تحت المزامنة» لإعادة فتحها.",
+      reopenConfirmTitle: "إعادة فتح هذه الشحنة؟",
+      reopenConfirmDescription:
+        "هذه الشحنة حاليًا في حالة نهائية. نقلها إلى حالة «تحت المزامنة» سيجعلها مؤهلة لمزامنة الشحن القادمة مجددًا.",
+      reopenConfirmAction: "إعادة فتح الشحنة",
     },
     status: {
       READY_FOR_SHIPPING: "جاهز للشحن",
@@ -3440,6 +3457,11 @@ const ar = {
         resultRejected: "مرفوض",
         resultNotFound: "غير موجود",
         resultNeedsReview: "يحتاج مراجعة",
+        resultFinal: "منتهية",
+        resultSkippedFinal: "تم تجاوزها (منتهية)",
+        skippedFinalSummary: "تم تجاوز {count} شحنة منتهية.",
+        showSkippedFinal: "عرض الشحنات المنتهية",
+        hideSkippedFinal: "إخفاء الشحنات المنتهية",
       },
       review: {
         title: "مراجعة المزامنة — {label}",

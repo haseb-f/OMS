@@ -18,6 +18,7 @@ import { AssignShippingCompanyDto } from './dto/assign-shipping-company.dto';
 import { AddTrackingNumberDto } from './dto/add-tracking-number.dto';
 import { SetLabelDto } from './dto/set-label.dto';
 import { AddShippingCostDto } from './dto/add-shipping-cost.dto';
+import { SetShippingStatusDto } from './dto/set-shipping-status.dto';
 import {
   AddShipmentNotesDto,
   resolveShipmentNotes,
@@ -119,6 +120,22 @@ export class StoreOrderShipmentsController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.operations.markDeliveryFailed(storeOrderId, user.sub);
+  }
+
+  /** Direct "change to any status" operation — see `StoreOrderShipmentOperationsService.setShippingStatus`. */
+  @Post('shipping-status')
+  @HttpCode(200)
+  @PermissionAction('edit')
+  setShippingStatus(
+    @Param('storeOrderId') storeOrderId: string,
+    @Body() dto: SetShippingStatusDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.operations.setShippingStatus(
+      storeOrderId,
+      dto.shippingStatusId,
+      user.sub,
+    );
   }
 
   @Post('needs-reshipment')

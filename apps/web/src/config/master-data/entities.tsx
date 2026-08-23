@@ -969,6 +969,8 @@ export const shippingCompaniesDefaultValues = {
 export const shippingCompaniesExportColumns = ["name", "type"];
 export const shippingCompanyRowLabel = (row: ShippingCompanyRow) => row.name;
 
+export type ShippingSyncBehavior = "UNDER_SYNC" | "FINAL";
+
 export interface ShippingStatusRow {
   id: string;
   code: string;
@@ -978,6 +980,7 @@ export interface ShippingStatusRow {
   isDefault: boolean;
   isImportable: boolean;
   sortOrder: number;
+  syncBehavior: ShippingSyncBehavior;
   deletedAt: string | null;
 }
 
@@ -991,16 +994,29 @@ function ShippingStatusNameCell({ row }: { row: ShippingStatusRow }) {
     row.color === "neutral"
       ? row.color
       : "neutral";
+  const badges = [
+    row.isDefault ? t("masterData.shippingStatuses.default") : null,
+    row.isSystem ? t("masterData.shippingStatuses.system") : null,
+  ].filter(Boolean);
   return (
     <StackedCell
       primary={<StatusBadge label={row.name} tone={tone} />}
-      secondary={
-        row.isDefault
-          ? t("masterData.shippingStatuses.default")
-          : row.isSystem
-            ? t("masterData.shippingStatuses.system")
-            : undefined
-      }
+      secondary={badges.length ? badges.join(" · ") : undefined}
+    />
+  );
+}
+
+function ShippingSyncBehaviorCell({ row }: { row: ShippingStatusRow }) {
+  const { t } = useLocale();
+  const isFinal = row.syncBehavior === "FINAL";
+  return (
+    <StatusBadge
+      label={t(
+        isFinal
+          ? "masterData.shippingStatuses.syncBehavior.final"
+          : "masterData.shippingStatuses.syncBehavior.underSync",
+      )}
+      tone={isFinal ? "success" : "info"}
     />
   );
 }
@@ -1012,6 +1028,12 @@ export const shippingStatusesColumns: ColumnDef<ShippingStatusRow, unknown>[] = 
     accessorFn: (row) => row.name,
     cell: ({ row }) => <ShippingStatusNameCell row={row.original} />,
   },
+  {
+    id: "syncBehavior",
+    meta: { titleKey: "masterData.shippingStatuses.syncBehavior.label" },
+    accessorFn: (row) => row.syncBehavior,
+    cell: ({ row }) => <ShippingSyncBehaviorCell row={row.original} />,
+  },
   statusColumn<ShippingStatusRow>(),
 ];
 
@@ -1022,10 +1044,17 @@ export const shippingStatusesStaticFields: MasterDataFormField[] = [
 export const shippingStatusesSchema = z.object({
   name: z.string().min(1),
   color: z.enum(["neutral", "info", "warning", "success", "destructive"]),
+  syncBehavior: z.enum(["UNDER_SYNC", "FINAL"]),
+  isDefault: z.boolean().optional(),
 });
 
-export const shippingStatusesDefaultValues = { name: "", color: "neutral" as const };
-export const shippingStatusesExportColumns = ["name", "color"];
+export const shippingStatusesDefaultValues = {
+  name: "",
+  color: "neutral" as const,
+  syncBehavior: "UNDER_SYNC" as const,
+  isDefault: false,
+};
+export const shippingStatusesExportColumns = ["name", "color", "syncBehavior"];
 export const shippingStatusRowLabel = (row: ShippingStatusRow) => row.name;
 
 // ---------------------------------------------------------------------------

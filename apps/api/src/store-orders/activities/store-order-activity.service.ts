@@ -32,6 +32,12 @@ export const StoreOrderActivityType = {
   SHIPPING_COST_ADDED: 'SHIPPING_COST_ADDED',
   RECEIPT_ATTACHED: 'RECEIPT_ATTACHED',
   RECEIPT_REMOVED: 'RECEIPT_REMOVED',
+  /** Direct "change to any status" operation — Shipping Status Configuration + Final-Shipment Sync Rules. */
+  SHIPMENT_STATUS_CHANGED: 'SHIPMENT_STATUS_CHANGED',
+  /** The direct status change landed on a `syncBehavior: FINAL` status. */
+  SHIPMENT_FINALIZED: 'SHIPMENT_FINALIZED',
+  /** The direct status change moved a shipment OFF a `syncBehavior: FINAL` status back onto `UNDER_SYNC` — re-eligible for Shipping Sync. */
+  SHIPMENT_REOPENED: 'SHIPMENT_REOPENED',
 } as const;
 
 @Injectable()

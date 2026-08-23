@@ -225,6 +225,60 @@ export class StoreOrderShipmentOperationsService {
     });
   }
 
+  /**
+   * Direct "change to any status" operation — Shipping Status Configuration
+   * + Final-Shipment Sync Rules: no forced sequence, no rigid transition
+   * matrix (deliberately bypasses `canTransitionShipmentStatus`, the named
+   * quick-action buttons' own guard — that matrix stays intact for THOSE
+   * buttons, this is a separate, explicitly permissive capability). Logs
+   * distinctly depending on the before/after `syncBehavior`: reopening a
+   * FINAL shipment back to UNDER_SYNC, finalizing one, or a plain change.
+   */
+  async setShippingStatus(
+    storeOrderId: string,
+    shippingStatusId: string,
+    userId?: string,
+    source: StoreOrderActivitySource = MANUAL,
+  ) {
+    await this.assertOrderExists(storeOrderId);
+    return this.prisma.$transaction(async (tx) => {
+      const target = await tx.shippingStatus.findFirst({
+        where: { id: shippingStatusId, deletedAt: null },
+      });
+      if (!target) {
+        throw new BadRequestException(
+          'Shipping status not found or is not active.',
+        );
+      }
+      const before = await this.shipmentsService.getCurrent(storeOrderId, tx);
+      const beforeBehavior = before?.shippingStatus?.syncBehavior ?? null;
+      const beforeLabel = before?.shippingStatus?.name ?? before?.status ?? '—';
+
+      const shipment = await this.shipmentsService.applyCatalogStatus(
+        storeOrderId,
+        target.id,
+        target.code,
+        tx,
+      );
+
+      const type =
+        beforeBehavior === 'FINAL' && target.syncBehavior === 'UNDER_SYNC'
+          ? StoreOrderActivityType.SHIPMENT_REOPENED
+          : target.syncBehavior === 'FINAL'
+            ? StoreOrderActivityType.SHIPMENT_FINALIZED
+            : StoreOrderActivityType.SHIPMENT_STATUS_CHANGED;
+      await this.activityService.log(
+        storeOrderId,
+        type,
+        `Shipping status changed: ${beforeLabel} → ${target.name}`,
+        userId,
+        tx,
+        source,
+      );
+      return shipment;
+    });
+  }
+
   async markNeedsReshipment(
     storeOrderId: string,
     userId?: string,

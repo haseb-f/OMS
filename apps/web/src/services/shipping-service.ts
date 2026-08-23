@@ -24,7 +24,7 @@ export interface ShipmentListRow {
   trackingNumber: string | null;
   labelUrl: string | null;
   status: ShipmentStatusValue;
-  shippingStatus?: { id: string; code: string; name: string; color: string } | null;
+  shippingStatus?: ShippingStatusOption | null;
   shippingCost: string | null;
   shippedAt: string | null;
   deliveredAt: string | null;
@@ -63,6 +63,27 @@ export interface BulkShipmentUpdateResult {
   failed: { id: string; message: string }[];
 }
 
+/** Dynamic shipping-status catalog row as embedded on a Shipment (`shipment.shippingStatus`) — `{id, code, name, color}`. */
+export interface ShippingStatusOption {
+  id: string;
+  code: string;
+  name: string;
+  color: string;
+  syncBehavior?: "UNDER_SYNC" | "FINAL";
+}
+
+/** `GET /shipping/statuses` catalog list row — note `label`, not `name` (kept distinct from `ShippingStatusOption` above). */
+export interface ShippingStatusCatalogEntry {
+  id: string;
+  code: string;
+  label: string;
+  color: string;
+  isDefault: boolean;
+  isSystem: boolean;
+  importable: boolean;
+  syncBehavior: "UNDER_SYNC" | "FINAL";
+}
+
 /**
  * Flat, cross-order Shipping list — every `Shipment` row across every Store
  * Order, independent of `store-orders-service`'s per-order shipment
@@ -81,4 +102,6 @@ export const shippingService = {
     ),
   bulkUpdate: (ids: string[], status: ShipmentStatusValue) =>
     apiClient.post<BulkShipmentUpdateResult>("/shipping/bulk-update", { ids, status }),
+  /** Dynamic shipping-status catalog — database is the source of truth, used to populate the direct "change to any status" picker. */
+  statuses: () => apiClient.get<ShippingStatusCatalogEntry[]>("/shipping/statuses"),
 };

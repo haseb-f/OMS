@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { CustomersModule } from '../customers/customers.module';
 import { NumberingModule } from '../numbering/numbering.module';
 import { PostingEngineModule } from '../accounting/posting-engine/posting-engine.module';
+import { ObjectStorageModule } from '../common/storage/object-storage.module';
 import { StoreOrdersController } from './store-orders.controller';
 import { StoreOrdersService } from './store-orders.service';
 import { StoreOrderActivityService } from './activities/store-order-activity.service';
@@ -13,7 +14,12 @@ import { StoreOrderShipmentsController } from './shipments/store-order-shipments
 import { ShippingController } from './shipments/shipping.controller';
 
 @Module({
-  imports: [CustomersModule, NumberingModule, PostingEngineModule],
+  imports: [
+    CustomersModule,
+    NumberingModule,
+    PostingEngineModule,
+    ObjectStorageModule,
+  ],
   controllers: [
     StoreOrdersController,
     StoreOrderActivitiesController,

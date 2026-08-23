@@ -117,15 +117,36 @@ export interface SyncCommitResult {
   status: SyncRunStatus;
   /** SHIPPING_UPDATES only (spec section 13's per-row report). */
   rows?: ShippingSyncRowReport[];
+  /** SHIPPING_UPDATES only — count of `rows` with `result: 'SKIPPED_FINAL'`, for the "تم تجاوز N شحنة منتهية" summary line instead of flooding the report with one row each. */
+  skippedFinalCount?: number;
   writebackError?: string | null;
 }
 
 /** Per-row detail for a SHIPPING_UPDATES commit (spec section 13's report table) — populated only for that source type. */
 export interface ShippingSyncRowReport {
   externalOrderId: string;
-  result: 'UPDATED' | 'NO_CHANGE' | 'REJECTED' | 'NOT_FOUND' | 'NEEDS_REVIEW';
+  result:
+    | 'UPDATED'
+    | 'NO_CHANGE'
+    | 'REJECTED'
+    | 'NOT_FOUND'
+    | 'NEEDS_REVIEW'
+    /** The incoming row just moved this shipment into a FINAL syncBehavior status for the first time. */
+    | 'FINAL'
+    /** The shipment was already FINAL — skipped outright, no revalidation, no write. */
+    | 'SKIPPED_FINAL';
   shipmentId: string | null;
   message: string;
+}
+
+/** Final-Shipment Sync Rules write-back text — the ticket's own literal example. */
+const FINAL_SYNC_STATUS_LABEL = 'تمت المزامنة — حالة نهائية';
+const SKIPPED_FINAL_SYNC_STATUS_LABEL = 'تم تجاوز — حالة نهائية';
+function finalSyncMessage(statusName: string): string {
+  return `تم إغلاق مزامنة هذه الشحنة لأنها في حالة «${statusName}».`;
+}
+function skippedFinalSyncMessage(statusName: string): string {
+  return `تم تجاوز هذه الشحنة لأنها بالفعل في حالة نهائية «${statusName}».`;
 }
 
 /**
@@ -1094,11 +1115,15 @@ export class SyncOrchestratorService {
       const noChangeCount = result.successRows.filter(
         (row) => row.noChange,
       ).length;
+      const skippedFinalCount = result.successRows.filter(
+        (row) => row.skippedFinal,
+      ).length;
 
       const summary: SyncCommitResult = {
         totalRows: result.totalRows,
         importedCount: result.successCount,
         errorCount: result.errorCount,
+        skippedFinalCount,
         status:
           result.successCount === 0 && result.errorCount > 0
             ? SyncRunStatus.FAILED
@@ -1111,6 +1136,7 @@ export class SyncOrchestratorService {
         totalRows: summary.totalRows,
         importedCount: summary.importedCount,
         noChangeCount,
+        skippedFinalCount,
         errorCount: summary.errorCount,
       };
 
@@ -1485,7 +1511,12 @@ export class SyncOrchestratorService {
       sourceType?: SyncSourceType;
     },
     result: {
-      successRows: { rowNumber: number; id: string; noChange?: boolean }[];
+      successRows: {
+        rowNumber: number;
+        id: string;
+        noChange?: boolean;
+        skippedFinal?: boolean;
+      }[];
       errors: {
         rowNumber: number;
         errorMessage: string;
@@ -1501,31 +1532,54 @@ export class SyncOrchestratorService {
           select: {
             id: true,
             storeOrder: { select: { externalOrderId: true } },
+            shippingStatus: { select: { name: true, syncBehavior: true } },
           },
         })
       : [];
-    const externalOrderIdByShipmentId = new Map(
-      shipments.map((s) => [s.id, s.storeOrder?.externalOrderId ?? '']),
-    );
+    const shipmentInfoById = new Map(shipments.map((s) => [s.id, s]));
 
     const sheetRows: { rowNumber: number; values: Record<string, string> }[] =
       [];
     const report: ShippingSyncRowReport[] = [];
     const externalOrderIdColumn = columnMapping.externalOrderId;
 
-    for (const { rowNumber, id, noChange } of result.successRows) {
-      const status = noChange ? 'NO_CHANGE' : 'UPDATED';
-      const message = noChange ? 'لا يوجد تغيير' : 'تم تحديث حالة الشحن';
+    for (const {
+      rowNumber,
+      id,
+      noChange,
+      skippedFinal,
+    } of result.successRows) {
+      const info = shipmentInfoById.get(id);
+      const isFinal = info?.shippingStatus?.syncBehavior === 'FINAL';
+      const statusName = info?.shippingStatus?.name ?? '';
+
+      let status: ShippingSyncRowReport['result'];
+      let message: string;
+      if (skippedFinal) {
+        status = 'SKIPPED_FINAL';
+        message = skippedFinalSyncMessage(statusName);
+      } else if (isFinal) {
+        status = 'FINAL';
+        message = finalSyncMessage(statusName);
+      } else {
+        status = noChange ? 'NO_CHANGE' : 'UPDATED';
+        message = noChange ? 'لا يوجد تغيير' : 'تم تحديث حالة الشحن';
+      }
+      const sheetStatus = skippedFinal
+        ? SKIPPED_FINAL_SYNC_STATUS_LABEL
+        : isFinal
+          ? FINAL_SYNC_STATUS_LABEL
+          : status;
       sheetRows.push({
         rowNumber,
         values: {
-          [SHIPPING_RESULT_COLUMNS.syncStatus]: status,
+          [SHIPPING_RESULT_COLUMNS.syncStatus]: sheetStatus,
           [SHIPPING_RESULT_COLUMNS.syncMessage]: message,
           [SHIPPING_RESULT_COLUMNS.shipmentId]: id,
         },
       });
       report.push({
-        externalOrderId: externalOrderIdByShipmentId.get(id) ?? '',
+        externalOrderId: info?.storeOrder?.externalOrderId ?? '',
         result: status,
         shipmentId: id,
         message,

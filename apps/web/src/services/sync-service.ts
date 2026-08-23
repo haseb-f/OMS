@@ -60,7 +60,8 @@ export interface SyncPreviewResult {
 
 export interface ShippingSyncRowReport {
   externalOrderId: string;
-  result: "UPDATED" | "NO_CHANGE" | "REJECTED" | "NOT_FOUND" | "NEEDS_REVIEW";
+  result:
+    "UPDATED" | "NO_CHANGE" | "REJECTED" | "NOT_FOUND" | "NEEDS_REVIEW" | "FINAL" | "SKIPPED_FINAL";
   shipmentId: string | null;
   message: string;
 }
@@ -72,6 +73,8 @@ export interface SyncCommitResult {
   status: SyncRunStatus;
   /** SHIPPING_UPDATES only. */
   rows?: ShippingSyncRowReport[];
+  /** SHIPPING_UPDATES only — count of `rows` with `result: "SKIPPED_FINAL"`. */
+  skippedFinalCount?: number;
   writebackError?: string | null;
 }
 

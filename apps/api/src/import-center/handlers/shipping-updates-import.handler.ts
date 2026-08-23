@@ -328,12 +328,48 @@ export class ShippingUpdatesImportHandler
     });
   }
 
+  /**
+   * Final-Shipment Sync Rules — true when the CURRENT shipment's status has
+   * `syncBehavior = FINAL` (e.g. تم التسليم / تم الإرجاع). Prefers the
+   * dynamic catalog link (`shippingStatus`, always populated for shipments
+   * touched after this feature shipped); falls back to a lookup by the
+   * legacy `status` enum code for older rows so a pre-existing shipment's
+   * finality is never silently missed.
+   */
+  private async isCurrentFinal(
+    current: {
+      status: ShipmentStatus | null;
+      shippingStatus?: { syncBehavior: string } | null;
+    } | null,
+  ): Promise<boolean> {
+    if (!current) return false;
+    if (current.shippingStatus) {
+      return current.shippingStatus.syncBehavior === 'FINAL';
+    }
+    if (!current.status) return false;
+    const catalog = await this.prisma.shippingStatus.findFirst({
+      where: { code: current.status, deletedAt: null },
+      select: { syncBehavior: true },
+    });
+    return catalog?.syncBehavior === 'FINAL';
+  }
+
   async importRow(
     row: Record<string, string>,
     userId?: string,
     options?: ImportRowOptions,
   ): Promise<ImportRowResult> {
     const order = await this.resolveOrder(row);
+
+    // Final-Shipment Sync Rules — a shipment already in a FINAL syncBehavior
+    // status is skipped OUTRIGHT: no field revalidation (tracking/company/
+    // status), no write, no activity entry, no conflict re-check. Checked
+    // BEFORE resolving/validating the incoming row at all, so garbage in T
+    // can never block or error a row that is already done.
+    const current = await this.shipmentsService.getCurrent(order.id);
+    if (await this.isCurrentFinal(current)) {
+      return { id: current!.id, skippedFinal: true };
+    }
 
     const catalogStatus = await this.resolveCatalogStatus(row.status);
 
@@ -343,8 +379,6 @@ export class ShippingUpdatesImportHandler
       row.shippingCompanyName,
       'Shipping Company',
     );
-
-    const current = await this.shipmentsService.getCurrent(order.id);
 
     // Conflict detection (spec section 26) — a manual/bulk change since our
     // own last successful sync always wins a human's attention, never a

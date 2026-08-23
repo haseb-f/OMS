@@ -87,4 +87,124 @@ describe('ShippingStatusesService', () => {
       }),
     ).rejects.toThrow(BadRequestException);
   });
+
+  // -------------------------------------------------------------------
+  // Shipping Status Configuration + Final-Shipment Sync Rules.
+  // -------------------------------------------------------------------
+
+  it('backfills DELIVERED (تم التسليم) as the one documented FINAL example — every other seeded status stays UNDER_SYNC', async () => {
+    const statuses = await prisma.shippingStatus.findMany({
+      where: { isSystem: true, deletedAt: null },
+    });
+    const byCode = new Map(statuses.map((s) => [s.code, s]));
+    expect(byCode.get('DELIVERED')?.syncBehavior).toBe('FINAL');
+    for (const status of statuses) {
+      if (status.code === 'DELIVERED') continue;
+      expect(status.syncBehavior).toBe('UNDER_SYNC');
+    }
+  });
+
+  it('backfill produces exactly one active default status', async () => {
+    const defaults = await prisma.shippingStatus.findMany({
+      where: { isDefault: true, deletedAt: null },
+    });
+    expect(defaults).toHaveLength(1);
+    expect(defaults[0].code).toBe(DEFAULT_SHIPPING_STATUS_CODE);
+  });
+
+  it('rejects an invalid sync behavior value', async () => {
+    await expect(
+      service.create({
+        name: `سلوك خاطئ ${randomUUID().slice(0, 6)}`,
+        syncBehavior: 'NOT_A_VALUE',
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('creates a status with FINAL sync behavior and allows editing it back to UNDER_SYNC', async () => {
+    const name = `منتهية ${randomUUID().slice(0, 8)}`;
+    const created = await service.create({ name, syncBehavior: 'FINAL' });
+    createdIds.push(created.id);
+    expect(created.syncBehavior).toBe('FINAL');
+
+    const updated = await service.update(created.id, {
+      syncBehavior: 'UNDER_SYNC',
+    });
+    expect(updated.syncBehavior).toBe('UNDER_SYNC');
+  });
+
+  it('rejects creating a second default status and names the existing default in Arabic', async () => {
+    await expect(
+      service.create({
+        name: `افتراضي جديد ${randomUUID().slice(0, 6)}`,
+        isDefault: true,
+      }),
+    ).rejects.toThrow(/الحالة الافتراضية الحالية/);
+  });
+
+  it('rejects editing a non-default status to default while another default exists', async () => {
+    const name = `قيد التجهيز ${randomUUID().slice(0, 8)}`;
+    const created = await service.create({ name, color: 'info' });
+    createdIds.push(created.id);
+
+    await expect(
+      service.update(created.id, { isDefault: true }),
+    ).rejects.toThrow(/الحالة الافتراضية الحالية/);
+    const reloaded = await prisma.shippingStatus.findUniqueOrThrow({
+      where: { id: created.id },
+    });
+    expect(reloaded.isDefault).toBe(false);
+  });
+
+  it('rejects unsetting the default status directly — must use the safe replacement flow', async () => {
+    const def = await service.findDefault();
+    await expect(service.update(def.id, { isDefault: false })).rejects.toThrow(
+      BadRequestException,
+    );
+    const stillDefault = await prisma.shippingStatus.findUniqueOrThrow({
+      where: { id: def.id },
+    });
+    expect(stillDefault.isDefault).toBe(true);
+  });
+
+  it('safely replaces the default status atomically via setDefault, then restores the original', async () => {
+    const originalDefault = await service.findDefault();
+    const name = `افتراضي مؤقت ${randomUUID().slice(0, 8)}`;
+    const created = await service.create({ name, color: 'info' });
+    createdIds.push(created.id);
+
+    const promoted = await service.setDefault(created.id);
+    expect(promoted.isDefault).toBe(true);
+
+    const previousReloaded = await prisma.shippingStatus.findUniqueOrThrow({
+      where: { id: originalDefault.id },
+    });
+    expect(previousReloaded.isDefault).toBe(false);
+    const defaultsAfterPromote = await prisma.shippingStatus.findMany({
+      where: { isDefault: true, deletedAt: null },
+    });
+    expect(defaultsAfterPromote).toHaveLength(1);
+    expect(defaultsAfterPromote[0].id).toBe(created.id);
+
+    // Restore — other suites rely on جاهز للشحن remaining the default.
+    const restored = await service.setDefault(originalDefault.id);
+    expect(restored.isDefault).toBe(true);
+    const defaultsAfterRestore = await prisma.shippingStatus.findMany({
+      where: { isDefault: true, deletedAt: null },
+    });
+    expect(defaultsAfterRestore).toHaveLength(1);
+    expect(defaultsAfterRestore[0].id).toBe(originalDefault.id);
+  });
+
+  it('scopes name uniqueness to active statuses — an archived name can be reused', async () => {
+    const name = `قابل لإعادة الاستخدام ${randomUUID().slice(0, 8)}`;
+    const first = await service.create({ name });
+    createdIds.push(first.id);
+    await service.archive(first.id);
+
+    const second = await service.create({ name });
+    createdIds.push(second.id);
+    expect(second.id).not.toBe(first.id);
+    expect(second.name).toBe(name);
+  });
 });

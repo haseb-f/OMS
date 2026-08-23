@@ -43,6 +43,9 @@ export class StoreOrderShipmentsService {
     return tx.shipment.findFirst({
       where: { storeOrderId, deletedAt: null },
       orderBy: { attemptNumber: 'desc' },
+      include: {
+        shippingStatus: { select: { name: true, syncBehavior: true } },
+      },
     });
   }
 
@@ -249,7 +252,18 @@ export class StoreOrderShipmentsService {
     return this.prisma.shipment.findMany({
       where: { storeOrderId, deletedAt: null },
       orderBy: { attemptNumber: 'asc' },
-      include: { shippingCompany: true },
+      include: {
+        shippingCompany: true,
+        shippingStatus: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            color: true,
+            syncBehavior: true,
+          },
+        },
+      },
     });
   }
 
@@ -397,7 +411,13 @@ export class StoreOrderShipmentsService {
         include: {
           shippingCompany: true,
           shippingStatus: {
-            select: { id: true, code: true, name: true, color: true },
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              color: true,
+              syncBehavior: true,
+            },
           },
           storeOrder: { include: { customer: { include: { country: true } } } },
         },

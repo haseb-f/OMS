@@ -76,6 +76,7 @@ export interface ShippingSyncMetadata {
     totalRows: number;
     importedCount: number;
     noChangeCount?: number;
+    skippedFinalCount?: number;
     errorCount: number;
   };
 }

@@ -614,8 +614,12 @@ export class ImportJobsService {
     // count). `noChange` mirrors `ImportRowResult.noChange` — a handler
     // that detected nothing needed to change for this row. Every other
     // caller ignores both fields.
-    const successRows: { rowNumber: number; id: string; noChange?: boolean }[] =
-      [];
+    const successRows: {
+      rowNumber: number;
+      id: string;
+      noChange?: boolean;
+      skippedFinal?: boolean;
+    }[] = [];
 
     const mappedRows: {
       rowNumber: number;
@@ -701,6 +705,7 @@ export class ImportJobsService {
             rowNumber,
             id: result.id,
             noChange: result.noChange,
+            skippedFinal: result.skippedFinal,
           });
         } catch (error) {
           if (error instanceof ImportRowNeedsReviewError) {

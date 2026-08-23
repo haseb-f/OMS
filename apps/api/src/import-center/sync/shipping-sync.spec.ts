@@ -10,6 +10,7 @@ import { StoreOrdersModule } from '../../store-orders/store-orders.module';
 import { StoreOrdersImportHandler } from '../handlers/store-orders-import.handler';
 import { ShippingUpdatesImportHandler } from '../handlers/shipping-updates-import.handler';
 import { StoreOrderShipmentsService } from '../../store-orders/shipments/store-order-shipments.service';
+import { StoreOrderShipmentOperationsService } from '../../store-orders/shipments/store-order-shipment-operations.service';
 import { PermissionsCoreModule } from '../../permissions/permissions-core.module';
 import { PhoneModule } from '../../common/phone/phone.module';
 import { AuthModule } from '../../auth/auth.module';
@@ -46,6 +47,7 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
   let storeOrdersHandler: StoreOrdersImportHandler;
   let shippingHandler: ShippingUpdatesImportHandler;
   let shipmentsService: StoreOrderShipmentsService;
+  let operations: StoreOrderShipmentOperationsService;
 
   let categoryId: string;
   let unitId: string;
@@ -75,6 +77,7 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
     storeOrdersHandler = moduleRef.get(StoreOrdersImportHandler);
     shippingHandler = moduleRef.get(ShippingUpdatesImportHandler);
     shipmentsService = moduleRef.get(StoreOrderShipmentsService);
+    operations = moduleRef.get(StoreOrderShipmentOperationsService);
 
     const category = await prisma.productCategory.create({
       data: { name: `Sync Test Category ${randomUUID()}` },
@@ -372,12 +375,14 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
   // H. Reship -> a NEW Shipment row, the old one preserved (never mutated).
   // ---------------------------------------------------------------------
   it('creates a new Shipment on reship while preserving the original attempt', async () => {
+    // Starts at SHIPPED, not DELIVERED — DELIVERED is now the seeded FINAL
+    // example (Shipping Status Configuration + Final-Shipment Sync Rules),
+    // so a shipment that reaches it is skipped by every later sync row
+    // (see the FINAL-status describe block below). Reship only requires
+    // NEEDS_RESHIPMENT, never DELIVERED, so this stays entirely UNDER_SYNC.
     const order = await createAcceptedOrder();
     await shippingHandler.importRow(
-      shippingRow(order.externalOrderId!, {
-        status: 'DELIVERED',
-        trackingNumber: `TRK-${randomUUID().slice(0, 8)}`,
-      }),
+      shippingRow(order.externalOrderId!, { status: 'SHIPPED' }),
     );
     await shippingHandler.importRow(
       shippingRow(order.externalOrderId!, { status: 'DELIVERY_FAILED' }),
@@ -396,6 +401,166 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
     expect(allAttempts[1].id).toBe(reshipResult.id);
     expect(allAttempts[1].status).toBe(ShipmentStatus.LABEL_CREATED);
     expect(allAttempts[1].isReship).toBe(true);
+  });
+
+  // ---------------------------------------------------------------------
+  // Final-Shipment Sync Rules — Shipping Status Configuration.
+  // ---------------------------------------------------------------------
+  describe('Final-Shipment Sync Rules', () => {
+    async function statusIdByCode(code: string): Promise<string> {
+      const status = await prisma.shippingStatus.findFirstOrThrow({
+        where: { code, deletedAt: null },
+      });
+      return status.id;
+    }
+
+    it('applies an incoming FINAL status once, then skips it on the next sync run', async () => {
+      const order = await createAcceptedOrder();
+      const first = await shippingHandler.importRow(
+        shippingRow(order.externalOrderId!, {
+          status: 'DELIVERED',
+          trackingNumber: `TRK-${randomUUID().slice(0, 8)}`,
+        }),
+      );
+      expect(first.noChange).toBeFalsy();
+      expect(first.skippedFinal).toBeFalsy();
+      const shipment = await prisma.shipment.findUniqueOrThrow({
+        where: { id: first.id },
+      });
+      expect(shipment.status).toBe(ShipmentStatus.DELIVERED);
+
+      const second = await shippingHandler.importRow(
+        shippingRow(order.externalOrderId!, {
+          status: 'DELIVERED',
+          trackingNumber: `TRK-${randomUUID().slice(0, 8)}`,
+        }),
+      );
+      expect(second.skippedFinal).toBe(true);
+      expect(second.id).toBe(first.id);
+    });
+
+    it('skips an existing FINAL shipment before validating the incoming row fields at all', async () => {
+      const order = await createAcceptedOrder();
+      await shippingHandler.importRow(
+        shippingRow(order.externalOrderId!, {
+          status: 'DELIVERED',
+          trackingNumber: `TRK-${randomUUID().slice(0, 8)}`,
+        }),
+      );
+      const before = await shipmentsService.getCurrent(order.id);
+
+      // Garbage that would normally throw (unknown status text, unknown
+      // shipping company) — must never be reached once current is FINAL.
+      const result = await shippingHandler.importRow(
+        shippingRow(order.externalOrderId!, {
+          status: 'حالة غير معرفة إطلاقًا',
+          shippingCompanyName: `Nonexistent Co ${randomUUID()}`,
+        }),
+      );
+      expect(result.skippedFinal).toBe(true);
+      expect(result.id).toBe(before!.id);
+
+      const after = await shipmentsService.getCurrent(order.id);
+      expect(after?.status).toBe(ShipmentStatus.DELIVERED);
+      expect(after?.updatedAt.getTime()).toBe(before!.updatedAt.getTime());
+    });
+
+    it('keeps an UNDER_SYNC shipment eligible for repeated updates across syncs', async () => {
+      const order = await createAcceptedOrder();
+      await shippingHandler.importRow(
+        shippingRow(order.externalOrderId!, { status: 'LABEL_CREATED' }),
+      );
+      const second = await shippingHandler.importRow(
+        shippingRow(order.externalOrderId!, { status: 'SHIPPED' }),
+      );
+      expect(second.skippedFinal).toBeFalsy();
+      const third = await shippingHandler.importRow(
+        shippingRow(order.externalOrderId!, { status: 'OUT_FOR_DELIVERY' }),
+      );
+      expect(third.skippedFinal).toBeFalsy();
+
+      const shipment = await shipmentsService.getCurrent(order.id);
+      expect(shipment?.status).toBe(ShipmentStatus.OUT_FOR_DELIVERY);
+    });
+
+    it('lets a permitted user directly change a shipment to any status — no forced sequence, no rigid transition matrix', async () => {
+      const order = await createAcceptedOrder();
+      await shippingHandler.importRow(
+        shippingRow(order.externalOrderId!, { status: 'LABEL_CREATED' }),
+      );
+      // Straight to DELIVERED — never walked through SHIPPED/OUT_FOR_DELIVERY.
+      const deliveredId = await statusIdByCode('DELIVERED');
+      const jumped = await operations.setShippingStatus(order.id, deliveredId);
+      expect(jumped.status).toBe(ShipmentStatus.DELIVERED);
+    });
+
+    it('reopening a FINAL shipment back to UNDER_SYNC logs SHIPMENT_REOPENED and makes it eligible for sync again', async () => {
+      const order = await createAcceptedOrder();
+      await shippingHandler.importRow(
+        shippingRow(order.externalOrderId!, {
+          status: 'DELIVERED',
+          trackingNumber: `TRK-${randomUUID().slice(0, 8)}`,
+        }),
+      );
+
+      const skipped = await shippingHandler.importRow(
+        shippingRow(order.externalOrderId!, { status: 'DELIVERY_FAILED' }),
+      );
+      expect(skipped.skippedFinal).toBe(true);
+
+      const deliveryFailedId = await statusIdByCode('DELIVERY_FAILED');
+      const reopened = await operations.setShippingStatus(
+        order.id,
+        deliveryFailedId,
+      );
+      expect(reopened.status).toBe(ShipmentStatus.DELIVERY_FAILED);
+
+      const reopenedActivity = await prisma.storeOrderActivity.findMany({
+        where: { storeOrderId: order.id, action: 'SHIPMENT_REOPENED' },
+      });
+      expect(reopenedActivity).toHaveLength(1);
+
+      // Now eligible for sync again — no longer silently skipped as final.
+      // The reopen itself (a manual write) is newer than the shipment's
+      // last successful sync stamp, so the very next sync row correctly
+      // raises the existing conflict-review gate rather than the
+      // final-status skip — proving it re-entered the normal UNDER_SYNC
+      // flow, not that it stayed final.
+      const resumeRow = shippingRow(order.externalOrderId!, {
+        status: 'NEEDS_RESHIPMENT',
+      });
+      await expect(shippingHandler.importRow(resumeRow)).rejects.toThrow(
+        'تم تعديل الشحنة في النظام بعد آخر مزامنة',
+      );
+
+      // Human confirms the review — the row applies exactly like any other
+      // UNDER_SYNC update from here on.
+      const resumed = await shippingHandler.resolveNeedsReview(resumeRow);
+      expect(resumed.skippedFinal).toBeFalsy();
+      const shipment = await shipmentsService.getCurrent(order.id);
+      expect(shipment?.status).toBe(ShipmentStatus.NEEDS_RESHIPMENT);
+    });
+
+    it('logs SHIPMENT_FINALIZED when a direct change lands on FINAL, distinct from SHIPMENT_REOPENED leaving one', async () => {
+      const order = await createAcceptedOrder();
+      await shippingHandler.importRow(
+        shippingRow(order.externalOrderId!, { status: 'LABEL_CREATED' }),
+      );
+
+      const deliveredId = await statusIdByCode('DELIVERED');
+      await operations.setShippingStatus(order.id, deliveredId);
+      const finalizedActivity = await prisma.storeOrderActivity.findMany({
+        where: { storeOrderId: order.id, action: 'SHIPMENT_FINALIZED' },
+      });
+      expect(finalizedActivity).toHaveLength(1);
+
+      const shippedId = await statusIdByCode('SHIPPED');
+      await operations.setShippingStatus(order.id, shippedId);
+      const reopenedActivity = await prisma.storeOrderActivity.findMany({
+        where: { storeOrderId: order.id, action: 'SHIPMENT_REOPENED' },
+      });
+      expect(reopenedActivity).toHaveLength(1);
+    });
   });
 
   // ---------------------------------------------------------------------
@@ -1289,6 +1454,55 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
 
         const allAttempts = await shipmentsService.findAllForOrder(order.id);
         expect(allAttempts).toHaveLength(1);
+      });
+
+      // ---------------------------------------------------------------------
+      // Final-Shipment Sync Rules — Reporting: a skipped-final row is a
+      // concise, non-error result and writes only X:Y:Z, never Q:R:S/T:W.
+      // ---------------------------------------------------------------------
+      it('classifies a repeat sync of an already-FINAL shipment as SKIPPED_FINAL, not an error, and writes only X:Y:Z', async () => {
+        const order = await createAcceptedOrder();
+        await shippingHandler.importRow(
+          shippingRow(order.externalOrderId!, {
+            status: 'DELIVERED',
+            trackingNumber: `TRK-${randomUUID().slice(0, 8)}`,
+          }),
+        );
+
+        const source = await createStoreOrdersOnly([
+          reuseRow({
+            'External Order ID': order.externalOrderId!,
+            'System Order ID': order.internalOrderId,
+            'Shipping Status': 'تم التسليم',
+          }),
+        ]);
+        const preview = await orchestrator.preview(source.id, undefined, {
+          runAs: 'SHIPPING_UPDATES',
+        });
+        const commitResult = await orchestrator.commit(
+          source.id,
+          preview.jobId,
+          undefined,
+          { runAs: 'SHIPPING_UPDATES' },
+        );
+        expect(commitResult.errorCount).toBe(0);
+        expect(commitResult.skippedFinalCount).toBe(1);
+
+        const rows = commitResult.rows as ShippingSyncRowReport[];
+        expect(rows[0].result).toBe('SKIPPED_FINAL');
+
+        const call = fakeSheets.writeRowResults.mock.calls[0] as [
+          string,
+          { rowNumber: number; values: Record<string, string> }[],
+        ];
+        const keys = Object.keys(call[1][0].values).sort();
+        expect(keys).toEqual(
+          [
+            'Shipment ID',
+            'Shipping Sync Message',
+            'Shipping Sync Status',
+          ].sort(),
+        );
       });
     });
   });
