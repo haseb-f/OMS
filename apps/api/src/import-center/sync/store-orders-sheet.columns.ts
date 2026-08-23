@@ -158,6 +158,10 @@ export function shippingColumnMappingFromStoreOrders(
 ): Record<string, string> {
   return {
     externalOrderId: storeOrderMapping.externalOrderId ?? 'External Order ID',
+    // System Order ID (column R) — the primary resolution key. Written by
+    // Store Orders Sync itself, so it is always present on the same sheet
+    // and must be resolved BEFORE falling back to External Order ID.
+    systemOrderId: STORE_ORDER_RESULT_COLUMNS.systemOrderId,
     status: resolveShippingStatusHeader(headers),
     trackingNumber: SHIPPING_INPUT_COLUMNS.trackingNumber,
     shippingCompanyName: SHIPPING_INPUT_COLUMNS.shippingCompany,

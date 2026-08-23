@@ -14,6 +14,7 @@ import { PermissionsCoreModule } from '../../permissions/permissions-core.module
 import { PhoneModule } from '../../common/phone/phone.module';
 import { AuthModule } from '../../auth/auth.module';
 import { GoogleSheetsService } from '../google-sheets.service';
+import { ObjectStorageModule } from '../../common/storage/object-storage.module';
 import {
   SyncOrchestratorService,
   type ShippingSyncRowReport,
@@ -65,6 +66,7 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
         AuthModule,
         ImportCenterModule,
         StoreOrdersModule,
+        ObjectStorageModule,
       ],
     }).compile();
     await moduleRef.init();
@@ -473,6 +475,7 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
           AuthModule,
           ImportCenterModule,
           StoreOrdersModule,
+          ObjectStorageModule,
         ],
       })
         .overrideProvider(GoogleSheetsService)
@@ -1062,6 +1065,230 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
         expect(fakeSheets.rows[0]['Tracking Number']).toBe(
           twBefore['Tracking Number'],
         );
+      });
+
+      // ---------------------------------------------------------------------
+      // System Order ID (column R) MUST be the primary resolution key — see
+      // the "URGENT PRODUCTION FIX" shipping sync spec: R populated + a
+      // successful Store Order Sync (Q) must resolve/update even when an
+      // External Order ID lookup would have failed on its own.
+      // ---------------------------------------------------------------------
+      it('resolves and updates shipping by System Order ID even when the External Order ID lookup would fail', async () => {
+        const order = await createAcceptedOrder();
+        const source = await createStoreOrdersOnly([
+          reuseRow({
+            // Deliberately WRONG/unmatchable External Order ID — proves
+            // resolution never falls back to it once System Order ID (R)
+            // is populated.
+            'External Order ID': `DFUOR-${randomUUID()}`,
+            'Sync Status': 'تم الاستيراد',
+            'System Order ID': order.internalOrderId,
+            'Shipping Status': 'LABEL_CREATED',
+            'Shipping Company': shippingCompanyName,
+          }),
+        ]);
+
+        const preview = await orchestrator.preview(source.id, undefined, {
+          runAs: 'SHIPPING_UPDATES',
+        });
+        expect(preview.willImportCount).toBe(1);
+
+        const commitResult = await orchestrator.commit(
+          source.id,
+          preview.jobId,
+          undefined,
+          { runAs: 'SHIPPING_UPDATES' },
+        );
+        expect(commitResult.importedCount).toBe(1);
+        expect(commitResult.errorCount).toBe(0);
+
+        const shipment = await shipmentsService.getCurrent(order.id);
+        expect(shipment?.status).toBe(ShipmentStatus.LABEL_CREATED);
+        expect(shipment?.storeOrderId).toBe(order.id);
+      });
+
+      it('still syncs shipping for a successful Store Order row carrying a historical Error Message in column S', async () => {
+        const order = await createAcceptedOrder();
+        const source = await createStoreOrdersOnly([
+          reuseRow({
+            'External Order ID': order.externalOrderId!,
+            'Sync Status': 'تم الاستيراد',
+            'System Order ID': order.internalOrderId,
+            // A stale message left over from an earlier, unrelated failure —
+            // must never block Shipping Sync once Q/R represent a
+            // successfully linked OMS order.
+            'Error Message': 'خطأ قديم غير ذي صلة',
+            'Shipping Status': 'SHIPPED',
+            'Shipping Company': shippingCompanyName,
+          }),
+        ]);
+
+        const commitResult = await orchestrator.commit(
+          source.id,
+          (
+            await orchestrator.preview(source.id, undefined, {
+              runAs: 'SHIPPING_UPDATES',
+            })
+          ).jobId,
+          undefined,
+          { runAs: 'SHIPPING_UPDATES' },
+        );
+        expect(commitResult.importedCount).toBe(1);
+
+        const shipment = await shipmentsService.getCurrent(order.id);
+        expect(shipment?.status).toBe(ShipmentStatus.SHIPPED);
+      });
+
+      it('falls back to normalized External Order ID when System Order ID (R) is empty', async () => {
+        const order = await createAcceptedOrder();
+        const source = await createStoreOrdersOnly([
+          reuseRow({
+            // Uppercased on purpose — StoreOrder.externalOrderId is stored
+            // normalized (trim + lowercase); the fallback lookup must
+            // normalize too, not exact-match the raw sheet value.
+            'External Order ID': order.externalOrderId!.toUpperCase(),
+            'Sync Status': 'تم الاستيراد',
+            'System Order ID': '',
+            'Shipping Status': 'OUT_FOR_DELIVERY',
+            'Shipping Company': shippingCompanyName,
+          }),
+        ]);
+
+        const preview = await orchestrator.preview(source.id, undefined, {
+          runAs: 'SHIPPING_UPDATES',
+        });
+        expect(preview.willImportCount).toBe(1);
+
+        const commitResult = await orchestrator.commit(
+          source.id,
+          preview.jobId,
+          undefined,
+          { runAs: 'SHIPPING_UPDATES' },
+        );
+        expect(commitResult.importedCount).toBe(1);
+
+        const shipment = await shipmentsService.getCurrent(order.id);
+        expect(shipment?.status).toBe(ShipmentStatus.OUT_FOR_DELIVERY);
+      });
+
+      it('produces a clear Arabic error for a stale/invalid System Order ID and never creates an order or falls back', async () => {
+        // A real order whose External Order ID WOULD resolve, proving the
+        // stale R never silently falls back to it.
+        const decoyOrder = await createAcceptedOrder();
+        const staleSystemOrderId = `STO-STALE-${randomUUID()}`;
+        const source = await createStoreOrdersOnly([
+          reuseRow({
+            'External Order ID': decoyOrder.externalOrderId!,
+            'Sync Status': 'تم الاستيراد',
+            'System Order ID': staleSystemOrderId,
+            'Shipping Status': 'SHIPPED',
+            'Shipping Company': shippingCompanyName,
+          }),
+        ]);
+
+        const preview = await orchestrator.preview(source.id, undefined, {
+          runAs: 'SHIPPING_UPDATES',
+        });
+        const commitResult = await orchestrator.commit(
+          source.id,
+          preview.jobId,
+          undefined,
+          { runAs: 'SHIPPING_UPDATES' },
+        );
+        expect(commitResult.importedCount).toBe(0);
+        expect(commitResult.errorCount).toBe(1);
+
+        const rows = commitResult.rows as ShippingSyncRowReport[];
+        expect(rows[0].message).toContain('تعذر العثور على طلب OMS');
+        expect(rows[0].message).toContain(staleSystemOrderId);
+
+        // Never fell back to the decoy order's External Order ID.
+        const decoyShipment = await shipmentsService.getCurrent(decoyOrder.id);
+        expect(decoyShipment).toBeNull();
+      });
+
+      it('lets a failed shipping row retry after the sheet is corrected', async () => {
+        const order = await createAcceptedOrder();
+        const staleSystemOrderId = `STO-STALE-${randomUUID()}`;
+        const source = await createStoreOrdersOnly([
+          reuseRow({
+            'External Order ID': order.externalOrderId!,
+            'Sync Status': 'تم الاستيراد',
+            'System Order ID': staleSystemOrderId,
+            'Shipping Status': 'SHIPPED',
+            'Shipping Company': shippingCompanyName,
+          }),
+        ]);
+
+        const firstPreview = await orchestrator.preview(source.id, undefined, {
+          runAs: 'SHIPPING_UPDATES',
+        });
+        const firstCommit = await orchestrator.commit(
+          source.id,
+          firstPreview.jobId,
+          undefined,
+          { runAs: 'SHIPPING_UPDATES' },
+        );
+        expect(firstCommit.errorCount).toBe(1);
+        expect(await shipmentsService.getCurrent(order.id)).toBeNull();
+
+        // Employee corrects System Order ID to the real value and reruns.
+        fakeSheets.rows[0]['System Order ID'] = order.internalOrderId;
+        const secondPreview = await orchestrator.preview(source.id, undefined, {
+          runAs: 'SHIPPING_UPDATES',
+        });
+        const secondCommit = await orchestrator.commit(
+          source.id,
+          secondPreview.jobId,
+          undefined,
+          { runAs: 'SHIPPING_UPDATES' },
+        );
+        expect(secondCommit.importedCount).toBe(1);
+        expect(secondCommit.errorCount).toBe(0);
+
+        const shipment = await shipmentsService.getCurrent(order.id);
+        expect(shipment?.status).toBe(ShipmentStatus.SHIPPED);
+      });
+
+      it('is idempotent on rerun for an already-synced row resolved by System Order ID — no duplicate Shipment', async () => {
+        const order = await createAcceptedOrder();
+        const source = await createStoreOrdersOnly([
+          reuseRow({
+            'External Order ID': order.externalOrderId!,
+            'Sync Status': 'تم الاستيراد',
+            'System Order ID': order.internalOrderId,
+            'Shipping Status': 'SHIPPED',
+            'Shipping Company': shippingCompanyName,
+          }),
+        ]);
+
+        const firstPreview = await orchestrator.preview(source.id, undefined, {
+          runAs: 'SHIPPING_UPDATES',
+        });
+        const firstCommit = await orchestrator.commit(
+          source.id,
+          firstPreview.jobId,
+          undefined,
+          { runAs: 'SHIPPING_UPDATES' },
+        );
+        expect(firstCommit.importedCount).toBe(1);
+        const firstShipment = await shipmentsService.getCurrent(order.id);
+
+        const secondPreview = await orchestrator.preview(source.id, undefined, {
+          runAs: 'SHIPPING_UPDATES',
+        });
+        const secondCommit = await orchestrator.commit(
+          source.id,
+          secondPreview.jobId,
+          undefined,
+          { runAs: 'SHIPPING_UPDATES' },
+        );
+        const rows = secondCommit.rows as ShippingSyncRowReport[];
+        expect(rows[0].result).toBe('NO_CHANGE');
+        expect(rows[0].shipmentId).toBe(firstShipment!.id);
+
+        const allAttempts = await shipmentsService.findAllForOrder(order.id);
+        expect(allAttempts).toHaveLength(1);
       });
     });
   });

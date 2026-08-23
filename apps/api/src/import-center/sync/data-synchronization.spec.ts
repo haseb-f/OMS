@@ -11,6 +11,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { ImportCenterModule } from '../import-center.module';
 import { StoreOrdersModule } from '../../store-orders/store-orders.module';
+import { ObjectStorageModule } from '../../common/storage/object-storage.module';
 import { StoreOrdersImportHandler } from '../handlers/store-orders-import.handler';
 import { BankTransactionsImportHandler } from '../handlers/bank-transactions-import.handler';
 import { StoreOrderPaymentSyncService } from '../../store-orders/store-order-payment-sync.service';
@@ -86,6 +87,7 @@ describe('Data Synchronization', () => {
         AuthModule,
         ImportCenterModule,
         StoreOrdersModule,
+        ObjectStorageModule,
       ],
     }).compile();
     // `.compile()` alone never runs `OnModuleInit` — `.init()` triggers the
@@ -610,6 +612,7 @@ describe('Data Synchronization', () => {
           AuthModule,
           ImportCenterModule,
           StoreOrdersModule,
+          ObjectStorageModule,
         ],
       })
         .overrideProvider(GoogleSheetsService)

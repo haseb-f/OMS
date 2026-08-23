@@ -1536,7 +1536,9 @@ export class SyncOrchestratorService {
       const isNeedsReview = error.errorMessage.startsWith(NEEDS_REVIEW_PREFIX);
       const isNotFound =
         /No Store Order found/i.test(error.errorMessage) ||
-        error.errorMessage.includes('لا يوجد طلب متجر');
+        error.errorMessage.includes('لا يوجد طلب متجر') ||
+        error.errorMessage.includes('تعذر العثور على طلب OMS') ||
+        error.errorMessage.includes('لا يمكن مزامنة الشحن');
       const status: ShippingSyncRowReport['result'] = isNeedsReview
         ? 'NEEDS_REVIEW'
         : isNotFound

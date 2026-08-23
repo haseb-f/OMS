@@ -22,6 +22,7 @@ import {
   OPERATIONAL_SHIPMENT_STATUS_CODES,
 } from '../../shipping/shipping-status.catalog';
 import { SHIPPING_RESULT_COLUMN_NAMES } from '../sync/store-orders-sheet.columns';
+import { normalizeExternalOrderId } from '../sync/store-orders-sync.lifecycle';
 
 /**
  * The 6 usable Store Order ShipmentStatus values — the two legacy RETURN_*
@@ -52,15 +53,42 @@ const INVALID_RESHIP_TRANSITION_MESSAGE =
 
 /** `preloadRows`'s batched Store Order lookup, keyed once per import/sync run — see `ImportTypeHandler.preloadRows`'s doc comment. */
 const STORE_ORDER_CACHE_KEY = 'shipping-updates:store-orders-by-external-id';
+/** Companion cache — System Order ID (`StoreOrder.internalOrderId`) is the PRIMARY resolution key; see `resolveOrder`. */
+const STORE_ORDER_BY_INTERNAL_ID_CACHE_KEY =
+  'shipping-updates:store-orders-by-internal-id';
+
+/** Data Synchronization spec — "R populated but not resolvable" (never a silent fallback, never a new order). */
+function systemOrderIdNotFoundMessage(systemOrderId: string): string {
+  return `تعذر العثور على طلب OMS المرتبط بهذا الصف.\nرقم طلب OMS في عمود System Order ID: [${systemOrderId}].\nتحقق من الرقم أو أعد مزامنة طلبات المتجر أولًا.`;
+}
+
+/** Data Synchronization spec — neither R nor a usable External Order ID is present on the row. */
+const NO_USABLE_IDENTIFIER_MESSAGE =
+  'لا يمكن مزامنة الشحن لأن الصف لا يحتوي على رقم طلب OMS صالح أو رقم طلب خارجي صالح.';
 
 const FIELDS: ImportFieldDef[] = [
   {
     key: 'externalOrderId',
     labelKey: 'importCenter.fields.externalOrderId',
     label: 'External Order ID',
-    required: true,
+    // Not `required` at the generic-validation level: a row resolved by
+    // System Order ID (see `systemOrderId` below) never needs it. Handler-
+    // level `resolveOrder` still enforces "at least one identifier".
+    required: false,
     type: 'string',
     example: 'SH-100234',
+  },
+  {
+    key: 'systemOrderId',
+    labelKey: 'importCenter.fields.systemOrderId',
+    label: 'System Order ID',
+    // PRIMARY resolution key (Store Order Sync's own write-back, column R
+    // on the shared sheet) — resolved BEFORE External Order ID whenever
+    // present. Optional because a plain CSV shipping-updates import never
+    // has this column.
+    required: false,
+    type: 'string',
+    example: 'STO-2026-000009',
   },
   {
     key: 'status',
@@ -107,9 +135,12 @@ const FIELDS: ImportFieldDef[] = [
  * Shipping Updates Import — the ONE place a Shipment gets updated from an
  * external row (a CSV/XLSX upload through Import Center, or now a Google
  * Sheets Data Synchronization row via `SyncSourceConfig{sourceType:
- * SHIPPING_UPDATES}` — see `SyncOrchestratorService`). Looks the Store
- * Order up by `externalOrderId` ONLY — never a spreadsheet row number,
- * never phone (rule 2) — then decides the action per row:
+ * SHIPPING_UPDATES}` — see `SyncOrchestratorService`). Resolves the Store
+ * Order via `resolveOrder`: System Order ID (column R, Store Order Sync's
+ * own write-back) FIRST when present — never falling back to External
+ * Order ID once R is populated — then External Order ID only when R is
+ * blank. Never a spreadsheet row number, never phone (rule 2). Then
+ * decides the action per row:
  *
  *   - no Shipment yet + a shippable status        -> CREATE_SHIPMENT
  *   - current Shipment is open + an update         -> UPDATE_SHIPMENT
@@ -192,35 +223,108 @@ export class ShippingUpdatesImportHandler
   async preloadRows(rows: Record<string, string>[]): Promise<void> {
     const cache = getReferenceCache();
     if (!cache) return;
-    const externalOrderIds = [
+    const systemOrderIds = [
       ...new Set(
         rows
-          .map((row) => row.externalOrderId?.trim())
+          .map((row) => row.systemOrderId?.trim())
           .filter((value): value is string => Boolean(value)),
       ),
     ];
-    const orders = externalOrderIds.length
-      ? await this.prisma.storeOrder.findMany({
-          where: { externalOrderId: { in: externalOrderIds }, deletedAt: null },
-        })
-      : [];
+    const externalOrderIds = [
+      ...new Set(
+        rows
+          .map((row) => normalizeExternalOrderId(row.externalOrderId))
+          .filter((value): value is string => Boolean(value)),
+      ),
+    ];
+    const orders =
+      systemOrderIds.length || externalOrderIds.length
+        ? await this.prisma.storeOrder.findMany({
+            where: {
+              deletedAt: null,
+              OR: [
+                ...(systemOrderIds.length
+                  ? [{ internalOrderId: { in: systemOrderIds } }]
+                  : []),
+                ...(externalOrderIds.length
+                  ? [{ externalOrderId: { in: externalOrderIds } }]
+                  : []),
+              ],
+            },
+          })
+        : [];
+    const byInternalId = new Map(
+      orders.map((order) => [order.internalOrderId, order]),
+    );
     const byExternalId = new Map(
       orders
         .filter((order) => order.externalOrderId)
         .map((order) => [order.externalOrderId as string, order]),
     );
+    cache.set(STORE_ORDER_BY_INTERNAL_ID_CACHE_KEY, byInternalId);
     cache.set(STORE_ORDER_CACHE_KEY, byExternalId);
   }
 
-  private async findOrder(externalOrderId: string): Promise<StoreOrder | null> {
+  private async findByInternalId(
+    internalOrderId: string,
+  ): Promise<StoreOrder | null> {
     const cache = getReferenceCache();
-    const cached = cache?.get(STORE_ORDER_CACHE_KEY) as
+    const cached = cache?.get(STORE_ORDER_BY_INTERNAL_ID_CACHE_KEY) as
       Map<string, StoreOrder> | undefined;
-    if (cached) return cached.get(externalOrderId) ?? null;
+    if (cached) return cached.get(internalOrderId) ?? null;
     // No preload happened (e.g. a direct call outside ImportJobsService,
     // like a unit test) — fall back to a live, correct-either-way query.
     return this.prisma.storeOrder.findFirst({
-      where: { externalOrderId, deletedAt: null },
+      where: { internalOrderId, deletedAt: null },
+    });
+  }
+
+  private async findByExternalId(
+    externalOrderId: string,
+  ): Promise<StoreOrder | null> {
+    const normalized = normalizeExternalOrderId(externalOrderId);
+    if (!normalized) return null;
+    const cache = getReferenceCache();
+    const cached = cache?.get(STORE_ORDER_CACHE_KEY) as
+      Map<string, StoreOrder> | undefined;
+    if (cached) return cached.get(normalized) ?? null;
+    return this.prisma.storeOrder.findFirst({
+      where: { externalOrderId: normalized, deletedAt: null },
+    });
+  }
+
+  /**
+   * Required Resolution Flow (Shipping Sync urgent fix):
+   *   1. System Order ID (column R) present -> resolve by it EXCLUSIVELY.
+   *      Found: use it, never touch External Order ID. Not found: a clear
+   *      Arabic error, no order created, no fallback to External Order ID.
+   *   2. System Order ID absent -> fall back to normalized External Order ID.
+   *   3. Neither present -> a clear Arabic "no usable identifier" error.
+   */
+  private async resolveOrder(row: Record<string, string>): Promise<StoreOrder> {
+    const systemOrderId = row.systemOrderId?.trim();
+    if (systemOrderId) {
+      const order = await this.findByInternalId(systemOrderId);
+      if (order) return order;
+      throw new BadRequestException({
+        code: 'SYSTEM_ORDER_ID_NOT_FOUND',
+        message: systemOrderIdNotFoundMessage(systemOrderId),
+      });
+    }
+
+    const externalOrderId = row.externalOrderId?.trim();
+    if (externalOrderId) {
+      const order = await this.findByExternalId(externalOrderId);
+      if (order) return order;
+      throw new BadRequestException({
+        code: 'NOT_FOUND',
+        message: `لا يوجد طلب متجر لرقم الطلب الخارجي «${externalOrderId}».`,
+      });
+    }
+
+    throw new BadRequestException({
+      code: 'MISSING_IDENTIFIER',
+      message: NO_USABLE_IDENTIFIER_MESSAGE,
     });
   }
 
@@ -229,16 +333,7 @@ export class ShippingUpdatesImportHandler
     userId?: string,
     options?: ImportRowOptions,
   ): Promise<ImportRowResult> {
-    if (!row.externalOrderId?.trim()) {
-      throw new BadRequestException('رقم الطلب الخارجي مطلوب.');
-    }
-    const order = await this.findOrder(row.externalOrderId.trim());
-    if (!order) {
-      throw new BadRequestException({
-        code: 'NOT_FOUND',
-        message: `لا يوجد طلب متجر لرقم الطلب الخارجي «${row.externalOrderId}».`,
-      });
-    }
+    const order = await this.resolveOrder(row);
 
     const catalogStatus = await this.resolveCatalogStatus(row.status);
 
@@ -316,15 +411,7 @@ export class ShippingUpdatesImportHandler
     row: Record<string, string>,
     userId?: string,
   ): Promise<ImportRowResult> {
-    if (!row.externalOrderId?.trim()) {
-      throw new BadRequestException('رقم الطلب الخارجي مطلوب.');
-    }
-    const order = await this.findOrder(row.externalOrderId.trim());
-    if (!order) {
-      throw new BadRequestException(
-        `لا يوجد طلب متجر لرقم الطلب الخارجي «${row.externalOrderId}».`,
-      );
-    }
+    const order = await this.resolveOrder(row);
     const catalogStatus = await this.resolveCatalogStatus(row.status);
     const shippingCompanyId = await this.referenceData.resolveOptional(
       'SHIPPING_COMPANY',
