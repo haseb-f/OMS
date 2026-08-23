@@ -1,4 +1,5 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
+import { emptyToUndefined } from '../../common/transforms/empty-to-undefined';
 import {
   ArrayMinSize,
   IsArray,
@@ -55,6 +56,7 @@ export class CreateStoreOrderDto {
   @IsOptional()
   paymentType?: StoreOrderPaymentType;
 
+  @Transform(emptyToUndefined)
   @IsString()
   @IsOptional()
   notes?: string;

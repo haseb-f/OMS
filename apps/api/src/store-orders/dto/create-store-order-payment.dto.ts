@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsDateString,
   IsNotEmpty,
@@ -6,6 +7,7 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
+import { emptyToUndefined } from '../../common/transforms/empty-to-undefined';
 
 /**
  * Same shape as `CreatePaymentDto` minus `leadId`/`storeOrderId` — the
@@ -37,15 +39,19 @@ export class CreateStoreOrderPaymentDto {
   @IsUUID()
   receivingAccountId!: string;
 
+  @Transform(emptyToUndefined)
   @IsString()
-  @IsNotEmpty()
   @IsOptional()
   referenceNumber?: string;
 
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
   @IsNotEmpty()
   senderName!: string;
 
+  @Transform(emptyToUndefined)
   @IsString()
   @IsOptional()
   bankAccount?: string;

@@ -20,6 +20,7 @@ import { MoneyValue } from "@/components/shared/money-value";
 import {
   ComboboxFormField,
   DateFormField,
+  FileDropField,
   FileUrlField,
   NumberFormField,
   PhoneFormField,
@@ -93,6 +94,7 @@ export function StoreOrderCreateDialog({
   const [receivingAccount, setReceivingAccount] = useState<ChartOfAccountRow | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [receiptError, setReceiptError] = useState<string | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   const schema = useMemo(() => buildStoreOrderCreateSchema(t), [t]);
 
@@ -103,6 +105,7 @@ export function StoreOrderCreateDialog({
 
   useEffect(() => {
     if (!open) return;
+    setPendingFiles([]);
     let cancelled = false;
     paymentSourcesService
       .list()
@@ -230,15 +233,23 @@ export function StoreOrderCreateDialog({
           : {}),
       });
 
-      if (hasReceiptName && hasReceiptUrl) {
-        try {
+      const uploadedKeys: string[] = [];
+      try {
+        for (const file of pendingFiles) {
+          const receipt = await storeOrdersService.receipts.upload(created.id, file);
+          uploadedKeys.push(receipt.id);
+        }
+        if (hasReceiptName && hasReceiptUrl) {
           await storeOrdersService.receipts.attach(created.id, {
             fileName: values.receiptName!.trim(),
             fileUrl: values.receiptUrl!.trim(),
           });
-        } catch (error) {
-          toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
         }
+      } catch (error) {
+        for (const receiptId of uploadedKeys) {
+          await storeOrdersService.receipts.archive(created.id, receiptId).catch(() => undefined);
+        }
+        toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
       }
 
       toast.success(t("storeOrders.createDialog.success"));
@@ -537,23 +548,26 @@ export function StoreOrderCreateDialog({
             columns={2}
           >
             <ModalFieldFullWidth>
-              <FileUrlField
-                fileName={receiptName ?? ""}
-                fileUrl={receiptUrl ?? ""}
-                onFileNameChange={(value) =>
-                  form.setValue("receiptName", value, { shouldDirty: true })
-                }
-                onFileUrlChange={(value) =>
-                  form.setValue("receiptUrl", value, { shouldDirty: true })
-                }
-                onClear={() => {
-                  form.setValue("receiptName", "", { shouldDirty: true });
-                  form.setValue("receiptUrl", "", { shouldDirty: true });
-                }}
-                namePlaceholder={t("storeOrders.createDialog.fields.receiptName")}
-                urlPlaceholder={t("storeOrders.createDialog.fields.receiptUrl")}
-                error={receiptError}
-              />
+              <div className="flex flex-col gap-3">
+                <FileDropField files={pendingFiles} onFilesChange={setPendingFiles} />
+                <FileUrlField
+                  fileName={receiptName ?? ""}
+                  fileUrl={receiptUrl ?? ""}
+                  onFileNameChange={(value) =>
+                    form.setValue("receiptName", value, { shouldDirty: true })
+                  }
+                  onFileUrlChange={(value) =>
+                    form.setValue("receiptUrl", value, { shouldDirty: true })
+                  }
+                  onClear={() => {
+                    form.setValue("receiptName", "", { shouldDirty: true });
+                    form.setValue("receiptUrl", "", { shouldDirty: true });
+                  }}
+                  namePlaceholder={t("storeOrders.createDialog.fields.receiptName")}
+                  urlPlaceholder={t("storeOrders.createDialog.fields.receiptUrl")}
+                  error={receiptError}
+                />
+              </div>
             </ModalFieldFullWidth>
           </ModalSection>
 

@@ -1,5 +1,7 @@
+import { Transform } from 'class-transformer';
 import { IsOptional, IsString } from 'class-validator';
 import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
+import { emptyToUndefined } from '../../common/transforms/empty-to-undefined';
 
 /**
  * Deliberately narrow — `items`/`customerId`/`externalOrderId` are never
@@ -7,6 +9,7 @@ import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorat
  * identity). Only operational metadata can change post-creation.
  */
 export class UpdateStoreOrderDto {
+  @Transform(emptyToUndefined)
   @IsString()
   @IsOptional()
   notes?: string;
@@ -14,6 +17,7 @@ export class UpdateStoreOrderDto {
   @IsOptionalUuid()
   employeeId?: string;
 
+  @Transform(emptyToUndefined)
   @IsString()
   @IsOptional()
   sourceChannel?: string;

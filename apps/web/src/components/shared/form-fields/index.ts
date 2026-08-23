@@ -7,5 +7,6 @@ export { DateFormField } from "./date-field";
 export { PhoneFormField } from "./phone-field";
 export { ComboboxFormField } from "./combobox-field";
 export { FileUrlField } from "./file-url-field";
+export { FileDropField } from "./file-drop-field";
 export { SubmitButton } from "./submit-button";
 export { useZodForm } from "./use-zod-form";

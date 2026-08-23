@@ -18,7 +18,10 @@ import { AssignShippingCompanyDto } from './dto/assign-shipping-company.dto';
 import { AddTrackingNumberDto } from './dto/add-tracking-number.dto';
 import { SetLabelDto } from './dto/set-label.dto';
 import { AddShippingCostDto } from './dto/add-shipping-cost.dto';
-import { AddShipmentNotesDto } from './dto/add-shipment-notes.dto';
+import {
+  AddShipmentNotesDto,
+  resolveShipmentNotes,
+} from './dto/add-shipment-notes.dto';
 
 /**
  * Per-order shipment operations — copies the exact operational shape of
@@ -145,7 +148,16 @@ export class StoreOrderShipmentsController {
     @Body() dto: AddShippingCostDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.operations.addShippingCost(storeOrderId, dto, user.sub);
+    return this.operations.addShippingCost(
+      storeOrderId,
+      {
+        baseShippingCost: dto.baseShippingCost ?? dto.shippingCost,
+        additionalShippingCost: dto.additionalShippingCost,
+        costPaidBy: dto.costPaidBy ?? 'CUSTOMER',
+        notes: dto.notes,
+      },
+      user.sub,
+    );
   }
 
   @Post('notes')
@@ -155,6 +167,10 @@ export class StoreOrderShipmentsController {
     @Body() dto: AddShipmentNotesDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.operations.addNotes(storeOrderId, dto.notes, user.sub);
+    return this.operations.addNotes(
+      storeOrderId,
+      resolveShipmentNotes(dto),
+      user.sub,
+    );
   }
 }

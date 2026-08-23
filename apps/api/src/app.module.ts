@@ -7,6 +7,7 @@ import { JobTitlesModule } from './job-titles/job-titles.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { PermissionsCoreModule } from './permissions/permissions-core.module';
 import { PhoneModule } from './common/phone/phone.module';
+import { ObjectStorageModule } from './common/storage/object-storage.module';
 import { CurrenciesModule } from './currencies/currencies.module';
 import { CountriesModule } from './countries/countries.module';
 import { ProjectsModule } from './projects/projects.module';
@@ -72,6 +73,7 @@ import { StoreOrdersModule } from './store-orders/store-orders.module';
     PrismaModule,
     PermissionsCoreModule,
     PhoneModule,
+    ObjectStorageModule,
     AuthModule,
     UsersModule,
     JobTitlesModule,

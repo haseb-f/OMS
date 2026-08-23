@@ -201,3 +201,126 @@ export function DetailFieldGrid({
     </dl>
   );
 }
+
+/**
+ * Sticky identity + metrics + actions strip for record-detail workspaces.
+ * Metrics stay in the header so lower sections do not repeat Level-1 facts.
+ */
+export function RecordHighlightsHeader({
+  identity,
+  status,
+  metrics,
+  primaryActions,
+  moreActions,
+  className,
+}: {
+  identity: ReactNode;
+  status?: ReactNode;
+  metrics?: ReactNode;
+  primaryActions?: ReactNode;
+  moreActions?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "lg:sticky lg:top-0 lg:z-20 flex flex-col gap-2 rounded-md border border-border bg-card px-3 py-2 shadow-[0_1px_0_0_color-mix(in_oklab,var(--border)_80%,transparent)]",
+        className,
+      )}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          {identity}
+          {status}
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+          {primaryActions}
+          {moreActions}
+        </div>
+      </div>
+      {metrics ? (
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1 border-t border-border/70 pt-2 sm:grid-cols-3 lg:grid-cols-5">
+          {metrics}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** Wider main column + compact context sidebar; stacks on tablet/mobile. */
+export function DetailSplitLayout({
+  main,
+  sidebar,
+  className,
+}: {
+  main: ReactNode;
+  sidebar: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "grid grid-cols-1 gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]",
+        className,
+      )}
+    >
+      <div className="flex min-w-0 flex-col gap-2">{main}</div>
+      <aside className="flex min-w-0 flex-col gap-2 lg:sticky lg:top-[4.75rem] lg:self-start">
+        {sidebar}
+      </aside>
+    </div>
+  );
+}
+
+/** Compact labelled group — divider rows instead of a card per field. */
+export function DetailGroup({
+  title,
+  actions,
+  children,
+  className,
+}: {
+  title?: string;
+  actions?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={cn("rounded-md border border-border bg-card", className)}>
+      {title || actions ? (
+        <div className="flex items-center justify-between gap-2 border-b border-border/70 px-3 py-1.5">
+          {title ? (
+            <h2 className="text-caption font-semibold tracking-tight">{title}</h2>
+          ) : (
+            <span />
+          )}
+          {actions}
+        </div>
+      ) : null}
+      <div className="divide-y divide-border/60 px-3">{children}</div>
+    </section>
+  );
+}
+
+/** One compact horizontal label/value row. Hidden when empty. */
+export function DetailFieldRow({
+  label,
+  value,
+  ltr,
+}: {
+  label: string;
+  value: ReactNode;
+  ltr?: boolean;
+}) {
+  if (!hasDetailValue(value)) return null;
+  return (
+    <div className="flex items-baseline justify-between gap-3 py-1.5">
+      <div className="shrink-0 text-caption text-muted-foreground">{label}</div>
+      <div
+        dir={ltr ? "ltr" : undefined}
+        className="min-w-0 text-end text-body font-medium text-foreground [overflow-wrap:anywhere]"
+      >
+        {value}
+      </div>
+    </div>
+  );
+}

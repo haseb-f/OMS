@@ -31,6 +31,7 @@ export const StoreOrderActivityType = {
   RESHIPPED: 'RESHIPPED',
   SHIPPING_COST_ADDED: 'SHIPPING_COST_ADDED',
   RECEIPT_ATTACHED: 'RECEIPT_ATTACHED',
+  RECEIPT_REMOVED: 'RECEIPT_REMOVED',
 } as const;
 
 @Injectable()

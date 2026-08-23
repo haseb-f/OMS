@@ -2881,13 +2881,9 @@ model StoreOrderItem {
   @@map("store_order_items")
 }
 
-/// Mirrors the established "paste a URL" attachment pattern (PaymentAttachment
-/// / SalesOrderAttachment) — no real file-upload pipeline exists anywhere in
-/// this app yet. driveFileId/driveFileUrl are prep-only placeholders for a
-/// future Google Drive write integration (today's Drive access is
-/// read-only), not consumed by any code path yet. A filename may carry a
-/// normalized phone as a non-authoritative matching signal only — never
-/// treated as proof of identity by itself.
+/// Order attachments: uploaded files (storageKey set) or legacy URL-only
+/// rows (fileUrl is an external URL, storageKey is null). driveFileId/
+/// driveFileUrl remain unused placeholders.
 model StoreOrderReceipt {
   id String @id @default(uuid()) @db.Uuid
 
@@ -2900,6 +2896,8 @@ model StoreOrderReceipt {
   fileUrl  String  @map("file_url")
   fileName String? @map("file_name")
   mimeType String? @map("mime_type")
+  fileSizeBytes Int? @map("file_size_bytes")
+  storageKey    String? @map("storage_key")
 
   driveFileId  String? @map("drive_file_id")
   driveFileUrl String? @map("drive_file_url")
@@ -2907,6 +2905,7 @@ model StoreOrderReceipt {
   uploadedById String?  @map("uploaded_by_id") @db.Uuid
   uploadedBy   User?    @relation(fields: [uploadedById], references: [id])
   uploadedAt   DateTime @default(now()) @map("uploaded_at")
+  deletedAt    DateTime? @map("deleted_at")
 
   @@map("store_order_receipts")
 }

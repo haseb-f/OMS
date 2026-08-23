@@ -46,7 +46,10 @@ export interface StoreOrderPaymentRow {
 export interface StoreOrderReceiptRow {
   id: string;
   fileUrl: string;
-  fileName: string;
+  fileName: string | null;
+  mimeType?: string | null;
+  fileSizeBytes?: number | null;
+  source?: "UPLOAD" | "URL";
   createdAt: string;
   createdBy: string | null;
 }
@@ -191,7 +194,7 @@ export const storeOrdersService = {
     };
   }) => apiClient.post<StoreOrderRow>("/store-orders", dto),
   addNote: (id: string, note: string) =>
-    apiClient.post<StoreOrderRow>(`/store-orders/${id}/notes`, { note }),
+    apiClient.post<StoreOrderRow>(`/store-orders/${id}/notes`, { text: note }),
   /** Manual "Add Payment" (Part 4 of the four-gaps task) — a normal `Payment` row, same shape the optional first-payment-on-create path already uses; recomputes `paymentStatus`/`shippingStage` server-side exactly like every other payment write. */
   addPayment: (
     id: string,
@@ -252,12 +255,12 @@ export const storeOrdersService = {
     setShippingCost: (storeOrderId: string, shipmentId: string, shippingCost: number) =>
       apiClient.post<StoreOrderShipmentRow>(
         `/store-orders/${storeOrderId}/shipments/shipping-cost`,
-        { shipmentId, shippingCost },
+        { shipmentId, baseShippingCost: shippingCost, costPaidBy: "CUSTOMER" },
       ),
     addNote: (storeOrderId: string, shipmentId: string, note: string) =>
       apiClient.post<StoreOrderShipmentRow>(`/store-orders/${storeOrderId}/shipments/notes`, {
         shipmentId,
-        note,
+        notes: note,
       }),
   },
 
@@ -268,5 +271,17 @@ export const storeOrdersService = {
       storeOrderId: string,
       dto: { fileUrl: string; fileName: string; paymentId?: string },
     ) => apiClient.post<StoreOrderReceiptRow>(`/store-orders/${storeOrderId}/receipts`, dto),
+    upload: (storeOrderId: string, file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      return apiClient.postForm<StoreOrderReceiptRow>(
+        `/store-orders/${storeOrderId}/receipts/upload`,
+        form,
+      );
+    },
+    download: (storeOrderId: string, receiptId: string) =>
+      apiClient.getBlob(`/store-orders/${storeOrderId}/receipts/${receiptId}/file`),
+    archive: (storeOrderId: string, receiptId: string) =>
+      apiClient.post<{ id: string }>(`/store-orders/${storeOrderId}/receipts/${receiptId}/archive`),
   },
 };

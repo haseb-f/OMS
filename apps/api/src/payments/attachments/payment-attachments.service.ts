@@ -12,7 +12,16 @@ export class PaymentAttachmentsService {
     dto: CreatePaymentAttachmentDto,
     tx: Prisma.TransactionClient | PrismaService = this.prisma,
   ) {
-    return tx.paymentAttachment.create({ data: { paymentId, ...dto } });
+    return tx.paymentAttachment.create({
+      data: {
+        paymentId,
+        uploadedById: dto.uploadedById as string,
+        fileUrl: dto.fileUrl,
+        fileName: dto.fileName,
+        attachmentType: dto.attachmentType ?? 'RECEIPT',
+        description: dto.description,
+      },
+    });
   }
 
   findAllForPayment(paymentId: string) {

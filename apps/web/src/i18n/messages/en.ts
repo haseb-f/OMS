@@ -56,6 +56,7 @@ const en = {
     selectAll: "Select all",
     deselectAll: "Deselect all",
     summary: "Summary",
+    moreActions: "More actions",
   },
   accessDenied: {
     title: "Access Denied",
@@ -148,6 +149,10 @@ const en = {
       sku: "SKU",
       username: "Username",
       password: "Password",
+      text: "Note",
+      note: "Note",
+      notes: "Note",
+      file: "Attachment",
       salesPrice: "Sales Price",
       purchasePrice: "Purchase Price",
       weight: "Weight & Dimensions",
@@ -2144,6 +2149,12 @@ const en = {
       READY_FOR_SHIPPING: "Ready for Shipping",
     },
     detail: {
+      tabs: {
+        overview: "Overview",
+        details: "Details",
+        activity: "Activity",
+        attachments: "Attachments",
+      },
       sections: {
         orderSummary: "Order",
         customer: "Customer",
@@ -2156,6 +2167,7 @@ const en = {
         receipts: "Receipts",
         notes: "Notes",
         activity: "Activity",
+        assignment: "Assignment",
       },
       items: {
         product: "Product",
@@ -2208,15 +2220,44 @@ const en = {
         empty: "No receipts attached yet.",
         fileName: "File Name",
         fileNamePlaceholder: "e.g. receipt-1.pdf",
-        url: "File URL",
+        url: "File URL (legacy)",
         attach: "Attach",
         attached: "Receipt attached.",
+        attachFailed: "Could not attach the file.",
+        removed: "Attachment removed.",
+        removeFailed: "Could not remove the attachment.",
+        downloadFailed: "Could not open the attachment.",
+        dropHint: "Drop JPG, PNG, WEBP, or PDF files here, or choose files.",
+        chooseFiles: "Choose files",
+        uploading: "Uploading {name}…",
+        confirmRemoveTitle: "Remove this attachment?",
+        confirmRemoveDescription:
+          "The file will be removed from this order. This cannot be undone.",
+        errors: {
+          empty: "The selected file is empty.",
+          type: "Only JPG, PNG, WEBP, and PDF files are allowed.",
+          size: "The file is larger than 10 MB.",
+        },
       },
       notes: {
         addLabel: "Add a note",
         placeholder: "Write a note…",
         save: "Save Note",
         added: "Note added.",
+        empty: "Enter a note before saving.",
+        saveFailed: "Could not save the note.",
+      },
+      paymentDerivedHint:
+        "Payment status is calculated from recorded payments and cannot be set manually.",
+      activity: {
+        showMore: "Show {count} more",
+      },
+      edit: {
+        saved: "Changes saved.",
+        assignmentTitle: "Assign employee",
+        customerTitle: "Edit contact and address",
+        notesTitle: "Edit internal notes",
+        shippingTitle: "Edit shipping",
       },
     },
     import: {

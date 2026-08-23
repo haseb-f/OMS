@@ -13,7 +13,11 @@ export class PaymentNotesService {
     tx: Prisma.TransactionClient | PrismaService = this.prisma,
   ) {
     return tx.paymentNote.create({
-      data: { paymentId, userId: dto.userId, text: dto.text },
+      data: {
+        paymentId,
+        userId: dto.userId as string,
+        text: dto.text,
+      },
     });
   }
 

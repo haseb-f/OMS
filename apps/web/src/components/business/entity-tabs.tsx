@@ -24,7 +24,7 @@ export function EntityTabs({
 }) {
   return (
     <Tabs defaultValue={defaultValue ?? tabs[0]?.value} className={className}>
-      <TabsList variant="line">
+      <TabsList variant="line" className="max-w-full flex-wrap overflow-x-auto">
         {tabs.map((tab) => (
           <TabsTrigger key={tab.value} value={tab.value} className="gap-1.5">
             {tab.label}
@@ -33,7 +33,7 @@ export function EntityTabs({
         ))}
       </TabsList>
       {tabs.map((tab) => (
-        <TabsContent key={tab.value} value={tab.value} className="pt-4">
+        <TabsContent key={tab.value} value={tab.value} className="pt-3">
           {tab.content}
         </TabsContent>
       ))}

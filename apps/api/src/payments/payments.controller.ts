@@ -1,4 +1,15 @@
-import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { CreatePaymentNoteDto } from './dto/create-payment-note.dto';
@@ -50,15 +61,29 @@ export class PaymentsController {
   }
 
   @Post(':id/attachments')
+  @UseGuards(JwtAuthGuard)
   attachReceipt(
     @Param('id') id: string,
     @Body() dto: CreatePaymentAttachmentDto,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.paymentsService.attachReceipt(id, dto);
+    return this.paymentsService.attachReceipt(id, {
+      ...dto,
+      uploadedById: dto.uploadedById ?? user.sub,
+      attachmentType: dto.attachmentType ?? 'RECEIPT',
+    });
   }
 
   @Post(':id/notes')
-  addNote(@Param('id') id: string, @Body() dto: CreatePaymentNoteDto) {
-    return this.paymentsService.addNote(id, dto);
+  @UseGuards(JwtAuthGuard)
+  addNote(
+    @Param('id') id: string,
+    @Body() dto: CreatePaymentNoteDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.paymentsService.addNote(id, {
+      ...dto,
+      userId: dto.userId ?? user.sub,
+    });
   }
 }
