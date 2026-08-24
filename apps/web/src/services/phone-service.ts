@@ -72,9 +72,21 @@ export function parsePhone(
   if (!trimmed) return empty;
 
   const prepared = preparePhoneInput(trimmed);
-  const region = isSupportedRegion(defaultRegion) ? defaultRegion : undefined;
+  const normalizedRegionInput = defaultRegion?.trim().toUpperCase();
+  const region = isSupportedRegion(normalizedRegionInput)
+    ? (normalizedRegionInput as CountryCode)
+    : undefined;
+  // Saudi Phone Normalization Hotfix — see the mirrored comment in
+  // apps/api/src/common/phone/phone-number.service.ts. Must run BEFORE
+  // parseInternationalWithoutPlus: a bare Saudi national number like
+  // "564345678" can structurally parse as a different country's number
+  // (e.g. "+56..." reads as Chile) once "+" is prepended blindly, and `??`
+  // only continues past `undefined`, not an already-parsed-but-invalid
+  // result.
   const parsed =
-    parsePhoneNumberFromString(prepared, region) ?? parseInternationalWithoutPlus(prepared, region);
+    parsePhoneNumberFromString(prepared, region) ??
+    parseSaudiNationalFallback(prepared, defaultRegion, region) ??
+    parseInternationalWithoutPlus(prepared, region);
 
   if (!parsed) {
     return { ...empty, errorReason: lengthErrorReason(prepared, region) ?? "NOT_A_NUMBER" };
@@ -114,6 +126,29 @@ function parseInternationalWithoutPlus(prepared: string, region?: CountryCode) {
   return parsePhoneNumberFromString(`+${prepared}`, region);
 }
 
+/** Documented Saudi Arabia mobile-number rule — see the mirrored, fully-commented version in apps/api/src/common/phone/phone-number.service.ts. */
+const SAUDI_CALLING_CODE = "966";
+const SAUDI_MOBILE_NATIONAL_PATTERN = /^5\d{8}$/;
+
+function isSaudiRegionHint(regionHint: string | null | undefined): boolean {
+  if (!regionHint) return false;
+  const normalized = regionHint.trim().toUpperCase();
+  return normalized === "SA" || normalized === "SAU";
+}
+
+function parseSaudiNationalFallback(
+  prepared: string,
+  rawRegionHint: string | null | undefined,
+  resolvedRegion: CountryCode | undefined,
+) {
+  if (resolvedRegion && resolvedRegion !== "SA") return undefined;
+  if (!resolvedRegion && !isSaudiRegionHint(rawRegionHint)) return undefined;
+  const withoutPlus = prepared.startsWith("+") ? prepared.slice(1) : prepared;
+  const national = withoutPlus.startsWith("0") ? withoutPlus.slice(1) : withoutPlus;
+  if (!SAUDI_MOBILE_NATIONAL_PATTERN.test(national)) return undefined;
+  return parsePhoneNumberFromString(`+${SAUDI_CALLING_CODE}${national}`, "SA");
+}
+
 export function normalizeToE164(
   rawInput: string | null | undefined,
   defaultRegion?: string | null,
@@ -145,7 +180,8 @@ export function preparePhoneInput(rawInput: string): string {
 export function isSupportedRegion(
   regionCode: string | null | undefined,
 ): regionCode is CountryCode {
-  return !!regionCode && SUPPORTED_REGIONS.has(regionCode);
+  const normalized = regionCode?.trim().toUpperCase();
+  return !!normalized && SUPPORTED_REGIONS.has(normalized);
 }
 
 export function getCallingCode(regionCode: string): string | null {

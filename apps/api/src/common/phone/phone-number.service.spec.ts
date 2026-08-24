@@ -287,4 +287,67 @@ describe('PhoneNumberService', () => {
       expect(result.e164).toBeNull();
     });
   });
+
+  // -------------------------------------------------------------------
+  // Saudi Phone Normalization Hotfix — the exact live-failure reproduction
+  // ("564345678" / السعودية) plus every documented variant. The Saudi
+  // fallback rule (`SAUDI_MOBILE_NATIONAL_PATTERN`, "5" + eight digits)
+  // must produce the SAME result whether the "SA" region hint arrives
+  // clean, with mismatched casing/whitespace, or as ISO3 "SAU" — covering
+  // every "Incorrect ISO country context" failure mode the hotfix ticket
+  // named — while never touching any other country's behavior.
+  // -------------------------------------------------------------------
+  describe('Saudi Phone Normalization Hotfix', () => {
+    it.each([
+      ['564345678', '+966564345678'],
+      ['0564345678', '+966564345678'],
+      ['966564345678', '+966564345678'],
+      ['+966564345678', '+966564345678'],
+      ['00966564345678', '+966564345678'],
+    ])('SA / %s => %s', (raw, expected) => {
+      const result = service.parse(raw, 'SA');
+      expect(result.isValid).toBe(true);
+      expect(result.e164).toBe(expected);
+    });
+
+    it('SA / 966 => invalid (calling code only, no subscriber number)', () => {
+      const result = service.parse('966', 'SA');
+      expect(result.isValid).toBe(false);
+      expect(result.e164).toBeNull();
+    });
+
+    it('SA / 56434567 => invalid (one digit short of the documented 5+8 pattern)', () => {
+      const result = service.parse('56434567', 'SA');
+      expect(result.isValid).toBe(false);
+      expect(result.e164).toBeNull();
+    });
+
+    it.each([['sa'], [' SA '], ['Sa'], ['SAU'], [' sau ']])(
+      'the bare national number still normalizes when the region hint is %j (casing/whitespace/ISO3 drift)',
+      (regionHint) => {
+        const result = service.parse('564345678', regionHint);
+        expect(result.isValid).toBe(true);
+        expect(result.e164).toBe('+966564345678');
+      },
+    );
+
+    it('never hijacks another country\'s own valid bare-national number just because it also starts with "5"', () => {
+      // Egypt's own numbering plan — must resolve as Egypt, not Saudi.
+      const result = service.parse('564345678', 'EG');
+      expect(result.isValid).toBe(true);
+      expect(result.e164).toBe('+20564345678');
+    });
+
+    it('never guesses Saudi Arabia when no region hint at all points to it', () => {
+      const result = service.parse('564345678', undefined);
+      expect(result.isValid).toBe(false);
+      expect(result.e164).toBeNull();
+    });
+
+    it('isSupportedRegion accepts "SA" independent of casing/whitespace', () => {
+      expect(service.isSupportedRegion('sa')).toBe(true);
+      expect(service.isSupportedRegion(' SA ')).toBe(true);
+      expect(service.isSupportedRegion('SA')).toBe(true);
+    });
+  });
 });

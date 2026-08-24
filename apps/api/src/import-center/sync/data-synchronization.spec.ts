@@ -1216,6 +1216,33 @@ describe('Data Synchronization', () => {
     // ---------------------------------------------------------------------
     // Phone Normalization + Full-Batch Phone Duplicate Detection.
     // ---------------------------------------------------------------------
+    it('Saudi Phone Normalization Hotfix — the exact reported live-failure value (564345678) is READY_TO_IMPORT, never INVALID_PHONE', async () => {
+      const row = validSheetRow({
+        'Customer Name': 'Sheet Customer Hotfix Repro',
+        'Customer Phone': '564345678',
+      });
+      const source = await createSource([row]);
+      const preview = await orchestrator.preview(source.id);
+      expect(preview.errorCount).toBe(0);
+      expect(preview.rows[0]?.status).toBe('READY');
+      expect(preview.willImportCount).toBe(1);
+      // Preview and apply must agree on the exact same normalized value.
+      expect(preview.rows[0]?.normalizedPhone).toBe('+966564345678');
+
+      const commitResult = await orchestrator.commit(
+        source.id,
+        preview.jobId,
+        undefined,
+        { acceptRowNumbers: preview.rows.flatMap((r) => r.rowNumbers) },
+      );
+      expect(commitResult.importedCount).toBe(1);
+      const order = await prisma.storeOrder.findFirstOrThrow({
+        where: byExternalId(row['External Order ID']),
+        include: { customer: true },
+      });
+      expect(order.customer.phone).toBe('+966564345678');
+    });
+
     it('normalizes a Saudi mobile number missing the local leading zero and imports it', async () => {
       const row = validSheetRow({
         'Customer Name': 'Sheet Customer No Leading Zero',

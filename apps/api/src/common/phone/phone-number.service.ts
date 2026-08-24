@@ -35,6 +35,28 @@ export interface PhoneParseResult {
 const SUPPORTED_REGIONS = new Set<string>(getCountries());
 
 /**
+ * Documented Saudi Arabia mobile-number rule (Saudi Phone Normalization
+ * Hotfix) — every Saudi mobile subscriber number is the digit "5" followed
+ * by exactly eight more digits (STC/Mobily/Zain's shared numbering plan;
+ * `libphonenumber-js`'s own SA metadata agrees — this pattern is never
+ * invented, only restated explicitly so a bare national number like
+ * "564345678" normalizes correctly even if something upstream fails to
+ * resolve/pass the "SA" region cleanly). Only ever used as a fallback
+ * AFTER the library's own region-aware parse already failed — the result
+ * still goes through the library's real `.isValid()` check below, never a
+ * silent bypass.
+ */
+const SAUDI_CALLING_CODE = '966';
+const SAUDI_MOBILE_NATIONAL_PATTERN = /^5\d{8}$/;
+
+/** Accepts "SA" case/whitespace-insensitively, and the ISO3 "SAU" some upstream data sources use instead of ISO2 — never any other country. */
+function isSaudiRegionHint(regionHint: string | null | undefined): boolean {
+  if (!regionHint) return false;
+  const normalized = regionHint.trim().toUpperCase();
+  return normalized === 'SA' || normalized === 'SAU';
+}
+
+/**
  * Strip separators operators commonly type into spreadsheets, then turn a
  * leading "00" international prefix into "+". Does not invent a country
  * calling code — `parse()` still uses `defaultRegion` (or an embedded "+")
@@ -89,7 +111,8 @@ export class PhoneNumberService {
   isSupportedRegion(
     regionCode: string | null | undefined,
   ): regionCode is CountryCode {
-    return !!regionCode && SUPPORTED_REGIONS.has(regionCode);
+    const normalized = regionCode?.trim().toUpperCase();
+    return !!normalized && SUPPORTED_REGIONS.has(normalized);
   }
 
   parse(
@@ -110,11 +133,26 @@ export class PhoneNumberService {
     if (!trimmed) return empty;
 
     const prepared = preparePhoneInput(trimmed);
-    const region = this.isSupportedRegion(defaultRegion)
-      ? defaultRegion
+    // Trim/uppercase absorbs whitespace or casing drift from upstream data
+    // (" sa", "sa") — `isSupportedRegion` itself normalizes the same way,
+    // this just keeps the value used for every call below in sync with it.
+    const normalizedRegionInput = defaultRegion?.trim().toUpperCase();
+    const region = this.isSupportedRegion(normalizedRegionInput)
+      ? normalizedRegionInput
       : undefined;
+    // The Saudi fallback runs BEFORE the generic international-without-plus
+    // attempt: `parsePhoneNumberFromString("+" + digits)` on a bare Saudi
+    // national number can structurally parse as a DIFFERENT country's
+    // number (e.g. "564345678" → "+564345678" reads as a Chilean "+56"
+    // number) and `??` only continues past `undefined`, not an
+    // already-parsed-but-invalid result — so the wrong-country guess would
+    // otherwise win before Saudi Arabia's own explicit rule ever runs. The
+    // Saudi check itself only ever fires when the caller's region hint
+    // clearly means Saudi Arabia, so this never changes behavior for any
+    // other country.
     const parsed =
       parsePhoneNumberFromString(prepared, region) ??
+      this.parseSaudiNationalFallback(prepared, defaultRegion, region) ??
       this.parseInternationalWithoutPlus(prepared, region);
 
     if (!parsed) {
@@ -154,6 +192,35 @@ export class PhoneNumberService {
       regionMismatch,
       errorReason: null,
     };
+  }
+
+  /**
+   * Saudi Phone Normalization Hotfix — a documented, explicit rule (see
+   * `SAUDI_MOBILE_NATIONAL_PATTERN`), never a silent bypass: only fires
+   * when (a) the caller's own region hint clearly means Saudi Arabia (even
+   * if it failed the strict `isSupportedRegion` gate above, e.g. "SAU"),
+   * and (b) the digits are EXACTLY the documented Saudi mobile shape —
+   * "5" + eight digits, with an optional leading trunk "0". The candidate
+   * is still re-parsed and re-validated through the real library below;
+   * this never invents a result the final `.isValid()` check doesn't agree
+   * with, it only makes sure the "+966" context is actually tried.
+   */
+  private parseSaudiNationalFallback(
+    prepared: string,
+    rawRegionHint: string | null | undefined,
+    resolvedRegion: CountryCode | undefined,
+  ) {
+    if (resolvedRegion && resolvedRegion !== 'SA') return undefined;
+    if (!resolvedRegion && !isSaudiRegionHint(rawRegionHint)) return undefined;
+    const withoutPlus = prepared.startsWith('+') ? prepared.slice(1) : prepared;
+    const national = withoutPlus.startsWith('0')
+      ? withoutPlus.slice(1)
+      : withoutPlus;
+    if (!SAUDI_MOBILE_NATIONAL_PATTERN.test(national)) return undefined;
+    return parsePhoneNumberFromString(
+      `+${SAUDI_CALLING_CODE}${national}`,
+      'SA',
+    );
   }
 
   /**
