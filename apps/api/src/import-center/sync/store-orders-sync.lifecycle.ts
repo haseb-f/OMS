@@ -106,6 +106,18 @@ export interface PriorOrderSummary {
   orderDate: string | null;
 }
 
+/** Full-Batch Phone Duplicate Detection — whether a PHONE_MATCH group matched an existing OMS order, another row in the SAME import batch, or both. */
+export type PhoneMatchScope = 'BATCH' | 'EXISTING' | 'BOTH';
+
+/** One OTHER group (never the group being classified itself) sharing a PHONE_MATCH group's normalized phone within the current batch. */
+export interface BatchPhoneMember {
+  primaryRowNumber: number;
+  rowNumbers: number[];
+  externalOrderId: string;
+  displayExternalOrderId: string;
+  customerName: string;
+}
+
 export interface ClassifiedStoreOrderGroup {
   rowNumbers: number[];
   /** Normalized external order id (empty when blank). */
@@ -126,6 +138,10 @@ export interface ClassifiedStoreOrderGroup {
   needsSheetNumberWriteback: boolean;
   /** ORPHAN_LINK only — System Order ID present on the sheet but missing in OMS. */
   staleSheetSystemOrderId?: string | null;
+  /** PHONE_MATCH only — داخل نفس ملف الاستيراد / مع طلب سابق في النظام / الاثنين معًا. */
+  phoneMatchScope?: PhoneMatchScope | null;
+  /** PHONE_MATCH only — every OTHER row/group in this batch sharing the same normalized phone. */
+  batchPhoneMatches?: BatchPhoneMember[];
 }
 
 export interface ClassifyStoreOrderRowsArgs {
@@ -139,6 +155,8 @@ export interface ClassifyStoreOrderRowsArgs {
   priorOrderByPhone?: Map<string, PriorOrderSummary>;
   /** rowNumber → normalized E.164 phone from the mapped group. */
   phoneByGroupRow?: Map<number, string | null>;
+  /** Full-Batch Phone Duplicate Detection — normalized phone → every group in THIS batch sharing it (including the group itself; self is filtered out per-group at classify time). */
+  batchPhoneGroups?: Map<string, BatchPhoneMember[]>;
   previous: StoreOrderRowHashMap;
   retryRowNumbers?: number[];
   retryAllFailed?: boolean;
@@ -236,6 +254,12 @@ export function classifyStoreOrderGroups(
       phone && args.priorOrderByPhone
         ? (args.priorOrderByPhone.get(phone) ?? null)
         : null;
+    // Full-Batch Phone Duplicate Detection — every OTHER group in this
+    // batch (never this one) sharing the same normalized phone.
+    const otherBatchMatches = (
+      (phone && args.batchPhoneGroups?.get(phone)) ||
+      []
+    ).filter((member) => member.primaryRowNumber !== primaryRow);
 
     // 1) Sheet success markers win — never reprocess.
     if (isSheetSuccessfullyImported(group.sourceRow)) {
@@ -301,8 +325,16 @@ export function classifyStoreOrderGroups(
     const previousHash = previous?.hash;
     const changed = !previousHash || previousHash !== hash;
 
-    // 4) New external id + existing customer phone → review (default skip).
-    if (priorOrder && externalOrderId) {
+    // 4) New external id + same normalized phone as an existing OMS
+    // customer/order OR another row in THIS batch → review (default skip).
+    // Every group sharing the phone gets PHONE_MATCH — never just the first.
+    if ((priorOrder || otherBatchMatches.length > 0) && externalOrderId) {
+      const phoneMatchScope: PhoneMatchScope =
+        priorOrder && otherBatchMatches.length > 0
+          ? 'BOTH'
+          : priorOrder
+            ? 'EXISTING'
+            : 'BATCH';
       classified.push({
         rowNumbers: group.rowNumbers,
         externalOrderId,
@@ -313,9 +345,11 @@ export function classifyStoreOrderGroups(
         includeInReview: true,
         changed: true,
         retryable: previouslyFailed,
-        existingInternalOrderId: priorOrder.internalOrderId,
+        existingInternalOrderId: priorOrder?.internalOrderId ?? null,
         priorOrder,
         needsSheetNumberWriteback: false,
+        phoneMatchScope,
+        batchPhoneMatches: otherBatchMatches,
       });
       continue;
     }
@@ -368,14 +402,32 @@ export function externalDupWritebackValues(args: {
   };
 }
 
+/** Full-Batch Phone Duplicate Detection — the skip write-back explains WHICH other row(s)/order(s) share the phone, never just "a prior order". */
 export function phoneSkipWritebackValues(args: {
-  priorInternalOrderId: string;
+  priorInternalOrderId?: string | null;
+  batchMatches?: BatchPhoneMember[];
 }): Record<string, string> {
+  const reasons: string[] = [];
+  if (args.priorInternalOrderId) {
+    reasons.push(`طلب سابق [${args.priorInternalOrderId}]`);
+  }
+  if (args.batchMatches?.length) {
+    const others = args.batchMatches
+      .map(
+        (member) =>
+          `الصف ${member.rowNumbers.join('/')} (${member.displayExternalOrderId || '—'})`,
+      )
+      .join('، ');
+    reasons.push(`صفوف أخرى في نفس ملف الاستيراد: ${others}`);
+  }
+  const reasonText = reasons.length
+    ? reasons.join(' و')
+    : 'صف آخر بنفس رقم الجوال';
   return {
     [STORE_ORDER_RESULT_COLUMNS.syncStatus]:
       STORE_ORDER_SHEET_STATUS.rejectedPhoneSkip,
     [STORE_ORDER_RESULT_COLUMNS.systemOrderId]: '',
-    [STORE_ORDER_RESULT_COLUMNS.errorMessage]: `لم يُستورد الطلب لأن رقم الجوال مرتبط بطلب سابق [${args.priorInternalOrderId}]. يمكن إعادة المحاولة بعد التصحيح أو القبول الصريح كطلب جديد.`,
+    [STORE_ORDER_RESULT_COLUMNS.errorMessage]: `لم يُستورد الطلب لأن رقم الجوال مرتبط بـ ${reasonText}. يمكن إعادة المحاولة بعد التصحيح أو القبول الصريح كطلب جديد.`,
   };
 }
 

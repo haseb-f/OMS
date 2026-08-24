@@ -275,6 +275,39 @@ export class CustomersService extends MasterDataCrudService<
     });
   }
 
+  /**
+   * Batch version of the same normalized-phone matching `findPhoneMatches`
+   * does for a single row — one DB fetch for the whole set, so a Store
+   * Orders Sync duplicate pre-check never issues one query per row.
+   * Existing stored `phone`/`mobile` values are normalized at comparison
+   * time (never assumed to already be clean E.164), so pre-existing
+   * raw/mixed-format data already in OMS is never missed — the "safe
+   * compatibility" approach for existing data (never a schema backfill,
+   * never an automatic merge).
+   */
+  async findByNormalizedPhones(
+    normalizedPhones: string[],
+  ): Promise<Map<string, Prisma.CustomerGetPayload<object>>> {
+    const targets = new Set(normalizedPhones.filter(Boolean));
+    const result = new Map<string, Prisma.CustomerGetPayload<object>>();
+    if (targets.size === 0) return result;
+    const candidates = await this.prisma.customer.findMany({
+      where: {
+        deletedAt: null,
+        OR: [{ phone: { not: null } }, { mobile: { not: null } }],
+      },
+    });
+    for (const customer of candidates) {
+      for (const raw of [customer.phone, customer.mobile]) {
+        const normalized = this.phoneNumberService.normalizeToE164(raw);
+        if (normalized && targets.has(normalized) && !result.has(normalized)) {
+          result.set(normalized, customer);
+        }
+      }
+    }
+    return result;
+  }
+
   private async findDuplicate(
     phones: (string | undefined | null)[],
     email?: string,

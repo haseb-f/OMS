@@ -1148,5 +1148,175 @@ describe('Data Synchronization', () => {
       expect(order).not.toBeNull();
       expect(fakeSheets.rows[0]['Sync Status'] ?? '').not.toBe('تم الاستيراد');
     });
+
+    // ---------------------------------------------------------------------
+    // Phone Normalization + Full-Batch Phone Duplicate Detection.
+    // ---------------------------------------------------------------------
+    it('normalizes a Saudi mobile number missing the local leading zero and imports it', async () => {
+      const row = validSheetRow({
+        'Customer Name': 'Sheet Customer No Leading Zero',
+        'Customer Phone': '578909876',
+      });
+      const source = await createSource([row]);
+      const preview = await orchestrator.preview(source.id);
+      expect(preview.errorCount).toBe(0);
+      expect(preview.willImportCount).toBe(1);
+      expect(preview.rows[0]?.normalizedPhone).toBe('+966578909876');
+
+      const commitResult = await orchestrator.commit(
+        source.id,
+        preview.jobId,
+        undefined,
+        { acceptRowNumbers: preview.rows.flatMap((r) => r.rowNumbers) },
+      );
+      expect(commitResult.importedCount).toBe(1);
+      const order = await prisma.storeOrder.findFirstOrThrow({
+        where: byExternalId(row['External Order ID']),
+        include: { customer: true },
+      });
+      expect(order.customer.phone).toBe('+966578909876');
+    });
+
+    it('flags two same-phone rows in the SAME batch as a review group instead of leaving both NEW', async () => {
+      const phone = `+9665${Math.floor(10000000 + Math.random() * 89999999)}`;
+      const rowA = validSheetRow({
+        'External Order ID': `BATCH-DUP-A-${randomUUID()}`,
+        'Customer Name': 'Batch Duplicate A',
+        'Customer Phone': phone,
+      });
+      const rowB = validSheetRow({
+        'External Order ID': `BATCH-DUP-B-${randomUUID()}`,
+        'Customer Name': 'Batch Duplicate B',
+        'Customer Phone': phone,
+      });
+      const source = await createSource([rowA, rowB]);
+
+      const preview = await orchestrator.preview(source.id);
+      expect(preview.rows).toHaveLength(2);
+      for (const row of preview.rows) {
+        expect(row.lifecycle).toBe('PHONE_MATCH');
+        expect(row.status).toBe('DUPLICATE');
+      }
+      expect(preview.incremental?.newCount).toBe(0);
+      expect(preview.incremental?.phoneMatchCount).toBe(2);
+      const phoneIssue = preview.rows[0]?.issues.find(
+        (issue) => issue.code === 'PHONE_MATCH',
+      );
+      expect(phoneIssue?.message).toContain('داخل نفس ملف الاستيراد');
+
+      // Reject both (default) -> neither order is created.
+      await orchestrator.commit(source.id, preview.jobId, undefined, {
+        acceptRowNumbers: [],
+      });
+      expect(
+        await prisma.storeOrder.count({
+          where: {
+            OR: [
+              byExternalId(rowA['External Order ID']),
+              byExternalId(rowB['External Order ID']),
+            ],
+            deletedAt: null,
+          },
+        }),
+      ).toBe(0);
+    });
+
+    it('flags same-batch phone duplicates as BOTH when one also matches a previous OMS order', async () => {
+      const phone = `+9665${Math.floor(10000000 + Math.random() * 89999999)}`;
+      const priorRow = validSheetRow({
+        'Customer Name': 'Prior Order Owner',
+        'Customer Phone': phone,
+      });
+      const priorSource = await createSource([priorRow]);
+      const priorPreview = await orchestrator.preview(priorSource.id);
+      await orchestrator.commit(priorSource.id, priorPreview.jobId, undefined, {
+        acceptRowNumbers: priorPreview.rows.flatMap((r) => r.rowNumbers),
+      });
+
+      const rowA = validSheetRow({
+        'External Order ID': `BOTH-A-${randomUUID()}`,
+        'Customer Name': 'Both Scope A',
+        'Customer Phone': phone,
+      });
+      const rowB = validSheetRow({
+        'External Order ID': `BOTH-B-${randomUUID()}`,
+        'Customer Name': 'Both Scope B',
+        'Customer Phone': phone,
+      });
+      const source = await createSource([rowA, rowB]);
+      const preview = await orchestrator.preview(source.id);
+      expect(preview.rows).toHaveLength(2);
+      for (const row of preview.rows) {
+        expect(row.lifecycle).toBe('PHONE_MATCH');
+      }
+      const message = preview.rows[0]?.issues.find(
+        (issue) => issue.code === 'PHONE_MATCH',
+      )?.message;
+      expect(message).toContain('داخل نفس ملف الاستيراد');
+      expect(message).toContain('مع طلب سابق في النظام');
+    });
+
+    it('explicitly accepting one row of a batch phone-match group creates it with مكرر while the rest stay skipped', async () => {
+      const phone = `+9665${Math.floor(10000000 + Math.random() * 89999999)}`;
+      const rowA = validSheetRow({
+        'External Order ID': `ACCEPT-A-${randomUUID()}`,
+        'Customer Name': 'Accept A',
+        'Customer Phone': phone,
+      });
+      const rowB = validSheetRow({
+        'External Order ID': `ACCEPT-B-${randomUUID()}`,
+        'Customer Name': 'Accept B',
+        'Customer Phone': phone,
+      });
+      const source = await createSource([rowA, rowB]);
+      const preview = await orchestrator.preview(source.id);
+      const rowAReview = preview.rows.find((r) =>
+        r.values.externalOrderId?.includes('ACCEPT-A'),
+      );
+      expect(rowAReview).toBeTruthy();
+
+      await orchestrator.commit(source.id, preview.jobId, undefined, {
+        acceptRowNumbers: rowAReview!.rowNumbers,
+      });
+
+      const orderA = await prisma.storeOrder.findFirst({
+        where: byExternalId(rowA['External Order ID']),
+      });
+      expect(orderA).not.toBeNull();
+      expect(orderA?.sourceChannel).toBe('مكرر');
+      const orderB = await prisma.storeOrder.findFirst({
+        where: byExternalId(rowB['External Order ID']),
+      });
+      expect(orderB).toBeNull();
+    });
+
+    it('still auto-rejects a repeated normalized External Order ID without asking for review', async () => {
+      const firstRow = validSheetRow({
+        'Customer Name': 'External Dup Owner',
+      });
+      const firstSource = await createSource([firstRow]);
+      const firstPreview = await orchestrator.preview(firstSource.id);
+      await orchestrator.commit(firstSource.id, firstPreview.jobId, undefined, {
+        acceptRowNumbers: firstPreview.rows.flatMap((r) => r.rowNumbers),
+      });
+
+      const dupRow = validSheetRow({
+        'External Order ID': firstRow['External Order ID'].toUpperCase(),
+        'Customer Name': 'External Dup Attempt',
+        'Customer Phone': `+9665${Math.floor(10000000 + Math.random() * 89999999)}`,
+      });
+      const dupSource = await createSource([dupRow]);
+      const preview = await orchestrator.preview(dupSource.id);
+      expect(preview.rows).toHaveLength(0);
+      expect(preview.incremental?.externalDupCount).toBe(1);
+
+      await orchestrator.commit(dupSource.id, preview.jobId, undefined, {
+        acceptRowNumbers: [],
+      });
+      const orders = await prisma.storeOrder.count({
+        where: byExternalId(firstRow['External Order ID']),
+      });
+      expect(orders).toBe(1);
+    });
   });
 });

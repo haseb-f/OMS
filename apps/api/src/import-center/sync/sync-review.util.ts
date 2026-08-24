@@ -1,5 +1,6 @@
 import type { PhoneNumberService } from '../../common/phone/phone-number.service';
 import { extractExistingRecordId, groupRowsByKey } from '../import-value.util';
+import { referenceValueKey } from '../list-sheet/list-sheet.normalize';
 import type {
   ImportDuplicateGroup,
   ImportRowValidationError,
@@ -163,7 +164,7 @@ export function buildSyncReviewRows(args: {
     const rawPhone = phoneValue(values);
     const countryName = values.countryName?.trim() || null;
     const region = countryName
-      ? args.countryCodeByName.get(countryName.toLowerCase())
+      ? args.countryCodeByName.get(referenceValueKey(countryName))
       : undefined;
     const parsed = rawPhone ? args.phone.parse(rawPhone, region) : null;
     const originalPhone = rawPhone || null;

@@ -192,4 +192,67 @@ describe('PhoneNumberService', () => {
       expect(service.isValidForRegion('12345', 'SA')).toBe(false);
     });
   });
+
+  // -------------------------------------------------------------------
+  // Canonical Phone Normalization — the exact examples from the "Phone
+  // Normalization + Batch-Wide Phone Duplicate Review" spec.
+  // -------------------------------------------------------------------
+  describe('required normalization examples', () => {
+    it('Saudi Arabia — with leading zero: 0578909876 -> +966578909876', () => {
+      const result = service.parse('0578909876', 'SA');
+      expect(result.isValid).toBe(true);
+      expect(result.e164).toBe('+966578909876');
+    });
+
+    it('Saudi Arabia — without leading zero: 578909876 -> +966578909876', () => {
+      const result = service.parse('578909876', 'SA');
+      expect(result.isValid).toBe(true);
+      expect(result.e164).toBe('+966578909876');
+    });
+
+    it('Saudi Arabia — 00 international prefix: 00966578909876 -> +966578909876', () => {
+      const result = service.parse('00966578909876', 'SA');
+      expect(result.isValid).toBe(true);
+      expect(result.e164).toBe('+966578909876');
+    });
+
+    it('Egypt — with leading zero: 01087899877 -> +201087899877', () => {
+      const result = service.parse('01087899877', 'EG');
+      expect(result.isValid).toBe(true);
+      expect(result.e164).toBe('+201087899877');
+    });
+
+    it('Egypt — without leading zero: 1087899877 -> +201087899877', () => {
+      const result = service.parse('1087899877', 'EG');
+      expect(result.isValid).toBe(true);
+      expect(result.e164).toBe('+201087899877');
+    });
+
+    it('accepts Arabic-Indic digits and normalizes them like Western digits', () => {
+      // ٠٥٧٨٩٠٩٨٧٦ == 0578909876
+      const result = service.parse('٠٥٧٨٩٠٩٨٧٦', 'SA');
+      expect(result.isValid).toBe(true);
+      expect(result.e164).toBe('+966578909876');
+    });
+
+    it('accepts a valid explicit E.164 input unchanged', () => {
+      const result = service.parse('+966578909876', 'SA');
+      expect(result.isValid).toBe(true);
+      expect(result.e164).toBe('+966578909876');
+    });
+
+    it('rejects a truly incomplete number and never invents missing digits', () => {
+      const result = service.parse('5789', 'SA');
+      expect(result.isValid).toBe(false);
+      expect(result.e164).toBeNull();
+      expect(result.errorReason).toBe('TOO_SHORT');
+    });
+
+    it('two same-phone spreadsheet rows normalize to the identical E.164 value for duplicate detection', () => {
+      const a = service.normalizeToE164('0578909876', 'SA');
+      const b = service.normalizeToE164('578909876', 'SA');
+      expect(a).toBe(b);
+      expect(a).toBe('+966578909876');
+    });
+  });
 });

@@ -13,6 +13,13 @@ import { RejectImportRowDto } from '../dto/reject-import-row.dto';
 import { PhoneNumberService } from '../../common/phone/phone-number.service';
 import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 import { StoreOrdersService } from '../../store-orders/store-orders.service';
+import { CustomersService } from '../../customers/customers.service';
+import { ReferenceDataRegistryService } from '../reference-data/reference-data-registry.service';
+import {
+  matchReferenceRecords,
+  matchCodeSuffix,
+} from '../reference-data/match-reference-records';
+import { referenceValueKey } from '../list-sheet/list-sheet.normalize';
 import { buildSyncReviewRows, type SyncReviewRow } from './sync-review.util';
 import {
   groupRowsByKey,
@@ -27,10 +34,13 @@ import {
   isDeletedSyncRowNumber,
   normalizeExternalOrderId,
   phoneSkipWritebackValues,
+  REPEAT_CUSTOMER_ORDER_LABEL,
   storeOrderWritebackValues,
   STORE_ORDER_RESULT_COLUMNS,
+  type BatchPhoneMember,
   type ClassifiedStoreOrderGroup,
   type DeletedStoreOrderGroup,
+  type PhoneMatchScope,
   type PriorOrderSummary,
   type StoreOrderRowHashMap,
 } from './store-orders-sync.lifecycle';
@@ -56,6 +66,57 @@ const HANDLER_TYPE_BY_SOURCE: Record<SyncSourceType, string> = {
 const EXTRA_PERMISSION_BY_SOURCE: Partial<Record<SyncSourceType, string>> = {
   SHIPPING_UPDATES: 'shipping.manage',
 };
+
+/** Full-Batch Phone Duplicate Detection — the review message names every row/order sharing the phone and whether the match is inside this batch, against an existing OMS order, or both. */
+function phoneMatchScopeLabel(
+  scope: PhoneMatchScope | null | undefined,
+): string {
+  switch (scope) {
+    case 'BATCH':
+      return 'داخل نفس ملف الاستيراد';
+    case 'EXISTING':
+      return 'مع طلب سابق في النظام';
+    case 'BOTH':
+      return 'داخل نفس ملف الاستيراد ومع طلب سابق في النظام';
+    default:
+      return '';
+  }
+}
+
+function buildPhoneMatchMessage(
+  normalizedPhone: string | null,
+  prior: PriorOrderSummary | null | undefined,
+  batchMatches: BatchPhoneMember[] | undefined,
+  scope: PhoneMatchScope | null | undefined,
+): string {
+  const parts: string[] = [];
+  if (normalizedPhone) parts.push(`رقم الجوال: ${normalizedPhone}`);
+  const scopeLabel = phoneMatchScopeLabel(scope);
+  if (scopeLabel) parts.push(`نوع التطابق: ${scopeLabel}`);
+  if (prior) {
+    const priorExternal = prior.externalOrderId
+      ? ` / ${prior.externalOrderId}`
+      : '';
+    const priorDate = prior.orderDate ? ` بتاريخ ${prior.orderDate}` : '';
+    parts.push(
+      `طلب سابق في النظام: ${prior.internalOrderId}${priorExternal}${priorDate}`,
+    );
+  }
+  if (batchMatches?.length) {
+    const others = batchMatches
+      .map((member) => {
+        const name = member.customerName ? ` — ${member.customerName}` : '';
+        const external = member.displayExternalOrderId
+          ? ` (${member.displayExternalOrderId})`
+          : '';
+        return `الصف ${member.rowNumbers.join('/')}${external}${name}`;
+      })
+      .join('، ');
+    parts.push(`صفوف أخرى في نفس الملف بنفس رقم الجوال: ${others}`);
+  }
+  parts.push('الإجراء الافتراضي: تخطي. اقبل صراحةً كطلب جديد لاستيراده.');
+  return parts.join(' — ');
+}
 
 type ShippingRunAs = 'SHIPPING_UPDATES';
 
@@ -168,7 +229,33 @@ export class SyncOrchestratorService {
     private readonly permissionsResolver: PermissionsResolverService,
     private readonly phone: PhoneNumberService,
     private readonly storeOrders: StoreOrdersService,
+    private readonly referenceData: ReferenceDataRegistryService,
+    private readonly customers: CustomersService,
   ) {}
+
+  /**
+   * Canonical Phone Normalization — resolves a List Sheet Country display
+   * value (e.g. "السعودية") to its ISO2 calling-code region, reusing the
+   * EXACT SAME matcher (`matchReferenceRecords`/`matchCodeSuffix`) the real
+   * Store Orders import path resolves Country through (never a second,
+   * weaker ad-hoc lookup — a bare `Prisma equals` comparison is not
+   * whitespace-safe, so a pasted sheet value with incidental spaces would
+   * silently fail to resolve a country that import validation resolves
+   * just fine). Never throws — a preview-time duplicate-detection pre-check
+   * must degrade gracefully (phone stays unparsed) rather than break the
+   * whole batch.
+   */
+  private async resolveCountryCodeForPhone(
+    countryName: string,
+  ): Promise<string | undefined> {
+    const trimmed = countryName.trim();
+    if (!trimmed) return undefined;
+    const records = await this.referenceData.listCached('COUNTRY');
+    let matches = matchReferenceRecords(records, 'name', trimmed);
+    if (matches.length === 0) matches = matchCodeSuffix(records, trimmed);
+    const match = matches.length === 1 ? matches[0] : undefined;
+    return match?.active && match.code ? match.code : undefined;
+  }
 
   private async getEnabledSource(
     sourceId: string,
@@ -563,14 +650,17 @@ export class SyncOrchestratorService {
         const group = classifiedByRow.get(row.rowNumber);
         const prior = group?.priorOrder;
         const issues = [...row.issues];
-        if (group?.lifecycle === 'PHONE_MATCH' && prior) {
+        if (group?.lifecycle === 'PHONE_MATCH') {
           if (!issues.some((issue) => issue.code === 'PHONE_MATCH')) {
             issues.push({
               field: 'customerPhone',
               code: 'PHONE_MATCH',
-              message: `طلب سابق لنفس رقم الجوال: ${prior.internalOrderId}${
-                prior.externalOrderId ? ` / ${prior.externalOrderId}` : ''
-              }${prior.orderDate ? ` (${prior.orderDate})` : ''}`,
+              message: buildPhoneMatchMessage(
+                row.normalizedPhone,
+                prior,
+                group.batchPhoneMatches,
+                group.phoneMatchScope,
+              ),
             });
           }
         }
@@ -708,7 +798,9 @@ export class SyncOrchestratorService {
         ]),
     );
 
+    // Canonical Phone Normalization + Full-Batch Phone Duplicate Detection.
     const phoneByGroupRow = new Map<number, string | null>();
+    const batchPhoneGroups = new Map<string, BatchPhoneMember[]>();
     const phones = new Set<string>();
     for (const group of groups) {
       const primary = group[0];
@@ -717,32 +809,44 @@ export class SyncOrchestratorService {
       const countryName = primary.mappedRow.countryName?.trim() ?? '';
       let e164: string | null = null;
       if (rawPhone) {
-        const country = countryName
-          ? await this.prisma.country.findFirst({
-              where: {
-                OR: [
-                  { name: { equals: countryName, mode: 'insensitive' } },
-                  { nameEn: { equals: countryName, mode: 'insensitive' } },
-                ],
-                deletedAt: null,
-              },
-              select: { code: true },
-            })
-          : null;
-        const parsed = this.phone.parse(rawPhone, country?.code ?? undefined);
+        const countryCode = countryName
+          ? await this.resolveCountryCodeForPhone(countryName)
+          : undefined;
+        const parsed = this.phone.parse(rawPhone, countryCode);
         e164 = parsed?.isValid ? (parsed.e164 ?? null) : null;
       }
       phoneByGroupRow.set(primary.rowNumber, e164);
-      if (e164) phones.add(e164);
+      if (!e164) continue;
+      phones.add(e164);
+
+      const member: BatchPhoneMember = {
+        primaryRowNumber: primary.rowNumber,
+        rowNumbers: group.map((row) => row.rowNumber),
+        externalOrderId: normalizeExternalOrderId(
+          primary.mappedRow.externalOrderId,
+        ),
+        displayExternalOrderId: (
+          primary.mappedRow.externalOrderId ?? ''
+        ).trim(),
+        customerName: primary.mappedRow.customerName?.trim() ?? '',
+      };
+      const members = batchPhoneGroups.get(e164) ?? [];
+      members.push(member);
+      batchPhoneGroups.set(e164, members);
     }
 
     const priorOrderByPhone = new Map<string, PriorOrderSummary>();
     if (phones.size > 0) {
-      const customers = await this.prisma.customer.findMany({
-        where: { phone: { in: [...phones] }, deletedAt: null },
-        select: { id: true, phone: true },
-      });
-      const customerIds = customers.map((c) => c.id);
+      // Existing-data compatibility (safe, read-only): matches normalized
+      // against possibly raw/mixed-format stored `phone`/`mobile` values —
+      // never assumes a Customer row is already clean E.164, never merges
+      // or rewrites anything.
+      const customerByPhone = await this.customers.findByNormalizedPhones([
+        ...phones,
+      ]);
+      const customerIds = [
+        ...new Set([...customerByPhone.values()].map((c) => c.id)),
+      ];
       if (customerIds.length > 0) {
         const orders = await this.prisma.storeOrder.findMany({
           where: { customerId: { in: customerIds }, deletedAt: null },
@@ -754,13 +858,16 @@ export class SyncOrchestratorService {
             orderDate: true,
           },
         });
-        const phoneByCustomerId = new Map(
-          customers.map((c) => [c.id, c.phone] as const),
-        );
+        const orderByCustomerId = new Map<string, (typeof orders)[number]>();
         for (const order of orders) {
-          const phone = phoneByCustomerId.get(order.customerId);
-          if (!phone || priorOrderByPhone.has(phone)) continue;
-          priorOrderByPhone.set(phone, {
+          if (!orderByCustomerId.has(order.customerId)) {
+            orderByCustomerId.set(order.customerId, order);
+          }
+        }
+        for (const [normalizedPhone, customer] of customerByPhone) {
+          const order = orderByCustomerId.get(customer.id);
+          if (!order) continue;
+          priorOrderByPhone.set(normalizedPhone, {
             internalOrderId: order.internalOrderId,
             externalOrderId: order.externalOrderId,
             orderDate: order.orderDate
@@ -785,6 +892,7 @@ export class SyncOrchestratorService {
       existingByExternalId,
       priorOrderByPhone,
       phoneByGroupRow,
+      batchPhoneGroups,
       previous: metadata.storeOrderRowHashes ?? {},
       retryRowNumbers: options?.retryRowNumbers,
       retryAllFailed: options?.retryAllFailed,
@@ -920,6 +1028,18 @@ export class SyncOrchestratorService {
               )
               .map((group) => [String(group.rowNumbers[0]), group.priorOrder]),
           ),
+          storeOrderPhoneMatchBatch: Object.fromEntries(
+            classified
+              .filter(
+                (group) =>
+                  group.lifecycle === 'PHONE_MATCH' &&
+                  group.batchPhoneMatches?.length,
+              )
+              .map((group) => [
+                String(group.rowNumbers[0]),
+                group.batchPhoneMatches,
+              ]),
+          ),
         } as unknown as Prisma.InputJsonValue,
       },
     });
@@ -998,9 +1118,9 @@ export class SyncOrchestratorService {
     ]);
     const countryCodeByName = new Map<string, string>();
     for (const country of countries) {
-      countryCodeByName.set(country.name.toLowerCase(), country.code);
+      countryCodeByName.set(referenceValueKey(country.name), country.code);
       if (country.nameEn) {
-        countryCodeByName.set(country.nameEn.toLowerCase(), country.code);
+        countryCodeByName.set(referenceValueKey(country.nameEn), country.code);
       }
     }
 
@@ -1190,6 +1310,7 @@ export class SyncOrchestratorService {
             acceptedSheetRows,
             options?.acceptRowNumbers !== undefined,
           );
+          await this.labelAcceptedPhoneMatchOrders(source, result.successRows);
           await this.markStoreOrdersImported(source, jobId, result.successRows);
           await this.applyStoreOrderDeletions(
             source,
@@ -1263,6 +1384,7 @@ export class SyncOrchestratorService {
         string,
         { internalOrderId: string } | undefined
       >;
+      storeOrderPhoneMatchBatch?: Record<string, BatchPhoneMember[]>;
     };
     const phoneMatchRows = metadata.storeOrderPhoneMatchRowNumbers ?? [];
     if (phoneMatchRows.length === 0) return;
@@ -1273,9 +1395,14 @@ export class SyncOrchestratorService {
         const prior =
           metadata.storeOrderPhoneMatchPriors?.[String(rowNumber)]
             ?.internalOrderId ?? '';
+        const batchMatches =
+          metadata.storeOrderPhoneMatchBatch?.[String(rowNumber)] ?? [];
         return {
           rowNumber,
-          values: phoneSkipWritebackValues({ priorInternalOrderId: prior }),
+          values: phoneSkipWritebackValues({
+            priorInternalOrderId: prior,
+            batchMatches,
+          }),
         };
       });
     if (writes.length === 0) return;
@@ -1284,6 +1411,36 @@ export class SyncOrchestratorService {
       writes,
       source.worksheetGid ?? undefined,
     );
+  }
+
+  /**
+   * Full-Batch Phone Duplicate Detection — "If the user explicitly accepts
+   * a row as new: apply the مكرر badge." Reads the SAME
+   * `storeOrderPhoneMatchRowNumbers` metadata `writeRejectedPhoneMatchRows`
+   * uses, so it's driven by the actual classification decision rather than
+   * a live "does a prior order already exist" query — which would miss the
+   * FIRST row of a batch-only duplicate pair (nothing existed yet when it
+   * was created, only the second row's own creation would have found it).
+   */
+  private async labelAcceptedPhoneMatchOrders(
+    source: { configMetadata: unknown },
+    successRows: { rowNumber: number; id: string }[],
+  ) {
+    const metadata = (source.configMetadata ?? {}) as {
+      storeOrderPhoneMatchRowNumbers?: number[];
+    };
+    const phoneMatchRows = new Set(
+      metadata.storeOrderPhoneMatchRowNumbers ?? [],
+    );
+    if (phoneMatchRows.size === 0) return;
+    const orderIds = successRows
+      .filter((row) => phoneMatchRows.has(row.rowNumber))
+      .map((row) => row.id);
+    if (orderIds.length === 0) return;
+    await this.prisma.storeOrder.updateMany({
+      where: { id: { in: orderIds } },
+      data: { sourceChannel: REPEAT_CUSTOMER_ORDER_LABEL },
+    });
   }
 
   private async writeBackStoreOrders(
