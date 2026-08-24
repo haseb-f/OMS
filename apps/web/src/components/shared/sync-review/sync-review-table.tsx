@@ -81,7 +81,7 @@ function SyncReviewMobileCard({
                 ) : undefined
               }
             />
-            <SyncRowStatusBadge row={row} />
+            <SyncRowStatusBadge row={row} decision={decision} />
           </div>
           {row.values.customerName || row.normalizedPhone || row.originalPhone ? (
             <div className="mt-1">
@@ -271,7 +271,12 @@ export function SyncReviewTable({
           minWidth: 108,
         },
         accessorFn: (row) => row.status,
-        cell: ({ row }) => <SyncRowStatusBadge row={row.original} />,
+        cell: ({ row }) => (
+          <SyncRowStatusBadge
+            row={row.original}
+            decision={decisions[row.original.id] ?? defaultDecision(row.original)}
+          />
+        ),
       },
       {
         id: "issue",

@@ -47,7 +47,17 @@ export function SyncBulkActions({
           {t("importCenter.sync.review.bulkSelectStatus")}
         </EnterpriseButton>
       ) : null}
-      {(filter === "ALL" || filter === "READY" || filter === "WARNING") && (
+      {/*
+        Part 4 — PHONE_MATCH_REVIEW rows carry status "DUPLICATE" (same
+        bucket as true external-ID duplicates), so filtering the table down
+        to that status is exactly how an operator reviews them in bulk. The
+        import-selected action must stay visible there too, or selecting
+        phone-match rows to decide on has no bulk action at all.
+      */}
+      {(filter === "ALL" ||
+        filter === "READY" ||
+        filter === "WARNING" ||
+        filter === "DUPLICATE") && (
         <>
           <EnterpriseButton
             type="button"

@@ -124,13 +124,24 @@ export function SyncButton({
   };
 
   const handleConfirm = async (
-    commits: Array<{ sourceId: string; jobId: string; acceptRowNumbers: number[] }>,
+    commits: Array<{
+      sourceId: string;
+      jobId: string;
+      acceptRowNumbers: number[];
+      rejectRowNumbers: number[];
+    }>,
   ) => {
     setCommitting(true);
     try {
       const results = await Promise.all(
         commits.map((commit) =>
-          syncService.commit(commit.sourceId, commit.jobId, commit.acceptRowNumbers, shippingRunAs),
+          syncService.commit(
+            commit.sourceId,
+            commit.jobId,
+            commit.acceptRowNumbers,
+            shippingRunAs,
+            commit.rejectRowNumbers,
+          ),
         ),
       );
       const writebackError = results.find((result) => result.writebackError)?.writebackError;

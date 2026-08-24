@@ -29,7 +29,15 @@ export function SyncSourceContext({
     const decision = decisions[row.id] ?? defaultDecision(row);
     return decision === "ACCEPT" && isImportable(row.status, row.lifecycle);
   }).length;
-  const rejected = rows.length - accepted;
+  // Part 2/6 — a PENDING row (undecided PHONE_MATCH) is neither accepted nor
+  // rejected; it must never inflate the "rejected" count, or the summary
+  // would itself claim rows are rejected before the operator ever decided.
+  const rejected = rows.filter(
+    (row) => (decisions[row.id] ?? defaultDecision(row)) === "REJECT",
+  ).length;
+  const pending = rows.filter(
+    (row) => (decisions[row.id] ?? defaultDecision(row)) === "PENDING",
+  ).length;
   const duplicates = rows.filter((row) => row.status === "DUPLICATE").length;
 
   return (
@@ -70,6 +78,14 @@ export function SyncSourceContext({
           {rejected}
         </dd>
       </div>
+      {pending > 0 ? (
+        <div>
+          <dt className="text-muted-foreground">{t("importCenter.sync.review.rowsPending")}</dt>
+          <dd className="font-medium tabular-nums" dir="ltr">
+            {pending}
+          </dd>
+        </div>
+      ) : null}
       <div>
         <dt className="text-muted-foreground">{t("importCenter.sync.review.duplicates")}</dt>
         <dd className="font-medium tabular-nums" dir="ltr">

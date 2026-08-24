@@ -25,6 +25,17 @@ export class CommitSyncDto {
   @IsInt({ each: true })
   acceptRowNumbers?: number[];
 
+  /**
+   * Sheet row numbers the user EXPLICITLY chose "رفض" on — a
+   * PHONE_MATCH_REVIEW row absent from both this and `acceptRowNumbers`
+   * stays untouched/pending, never silently rejected.
+   */
+  @IsOptional()
+  @IsArray()
+  @Type(() => Number)
+  @IsInt({ each: true })
+  rejectRowNumbers?: number[];
+
   /** Same `runAs` the matching preview used — required when Shipping Sync reuses a Store Orders source. */
   @IsOptional()
   @IsIn(['SHIPPING_UPDATES'])

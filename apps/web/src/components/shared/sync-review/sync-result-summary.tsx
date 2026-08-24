@@ -23,7 +23,22 @@ export function SyncResultSummary({
   const ready = accepted.filter((row) => row.status === "READY").length;
   const warnings = accepted.filter((row) => row.status === "WARNING").length;
   const errors = rows.filter((row) => row.status === "ERROR").length;
-  const duplicates = rows.filter((row) => row.status === "DUPLICATE").length;
+  // Part 6 — PHONE_MATCH rows are importable, so lumping them into the
+  // generic "duplicates" (excluded) bucket regardless of the staged
+  // decision would misrepresent an accepted row as excluded, and a pending
+  // one as already rejected. Break them out by their actual decision;
+  // "duplicates" here is left for lifecycles that are ALWAYS excluded
+  // (e.g. a true external-order-id duplicate), never PHONE_MATCH.
+  const phoneMatchRows = rows.filter((row) => row.lifecycle === "PHONE_MATCH");
+  const phoneMatchAccepted = phoneMatchRows.filter(
+    (row) => (decisions[row.id] ?? defaultDecision(row)) === "ACCEPT",
+  ).length;
+  const phoneMatchPending = phoneMatchRows.filter(
+    (row) => (decisions[row.id] ?? defaultDecision(row)) === "PENDING",
+  ).length;
+  const duplicates = rows.filter(
+    (row) => row.status === "DUPLICATE" && row.lifecycle !== "PHONE_MATCH",
+  ).length;
 
   return (
     <div className="flex flex-col gap-3">
@@ -65,6 +80,29 @@ export function SyncResultSummary({
             {duplicates}
           </dd>
         </div>
+        {phoneMatchAccepted > 0 ? (
+          <div className="rounded-lg border border-success/30 bg-success/5 p-3">
+            <dt className="text-muted-foreground">
+              {t("importCenter.sync.review.confirmPhoneMatchAccepted")}
+            </dt>
+            <dd className="text-ui-title font-semibold tabular-nums text-success" dir="ltr">
+              {phoneMatchAccepted}
+            </dd>
+          </div>
+        ) : null}
+        {phoneMatchPending > 0 ? (
+          <div className="rounded-lg border border-warning/30 bg-warning/5 p-3">
+            <dt className="text-muted-foreground">
+              {t("importCenter.sync.review.confirmPhoneMatchPending")}
+            </dt>
+            <dd
+              className="text-ui-title font-semibold tabular-nums text-warning-foreground"
+              dir="ltr"
+            >
+              {phoneMatchPending}
+            </dd>
+          </div>
+        ) : null}
       </dl>
     </div>
   );

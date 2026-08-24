@@ -8,7 +8,14 @@ export type SyncReviewLifecycle =
   | "EXTERNAL_DUP"
   | "PHONE_MATCH"
   | "DELETED";
-export type SyncReviewDecision = "ACCEPT" | "REJECT";
+/**
+ * `PENDING` is the true default for a `PHONE_MATCH` row — distinct from
+ * `REJECT`. Until the operator explicitly chooses, the row must stay
+ * untouched: never imported, never written to the sheet as rejected, never
+ * treated as a decided outcome. Every other lifecycle only ever uses
+ * ACCEPT/REJECT (see `defaultDecision`).
+ */
+export type SyncReviewDecision = "ACCEPT" | "REJECT" | "PENDING";
 export type SyncReviewStatusFilter = SyncReviewStatus | "ALL" | "RETRY" | "NEW";
 
 export interface SyncReviewIssue {
@@ -70,7 +77,7 @@ export function defaultDecision(
   row: Pick<SyncReviewRow, "status" | "lifecycle">,
 ): SyncReviewDecision {
   if (row.lifecycle === "DELETED") return "REJECT";
-  if (row.lifecycle === "PHONE_MATCH") return "REJECT";
+  if (row.lifecycle === "PHONE_MATCH") return "PENDING";
   return row.status === "READY" || row.status === "WARNING" ? "ACCEPT" : "REJECT";
 }
 

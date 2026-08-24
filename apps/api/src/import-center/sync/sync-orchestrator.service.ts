@@ -160,6 +160,13 @@ type SyncRunOptions = {
 
 type SyncCommitOptions = {
   acceptRowNumbers?: number[];
+  /**
+   * Sheet rows the user EXPLICITLY chose "رفض" on — distinct from a row
+   * simply absent from `acceptRowNumbers`. A PHONE_MATCH_REVIEW row the
+   * operator never decided on must stay untouched/pending, never receive a
+   * final rejection write-back merely because it wasn't accepted this run.
+   */
+  rejectRowNumbers?: number[];
   runAs?: ShippingRunAs;
 };
 
@@ -1266,6 +1273,9 @@ export class SyncOrchestratorService {
       const acceptedDeletedRows = new Set(
         (acceptRowNumbers ?? []).filter(isDeletedSyncRowNumber),
       );
+      const rejectedSheetRows = (options?.rejectRowNumbers ?? []).filter(
+        (rowNumber) => !isDeletedSyncRowNumber(rowNumber),
+      );
       const shouldBoundAcceptRows =
         options?.acceptRowNumbers !== undefined ||
         source.sourceType === SyncSourceType.STORE_ORDERS;
@@ -1352,11 +1362,7 @@ export class SyncOrchestratorService {
       } else if (source.sourceType === SyncSourceType.STORE_ORDERS) {
         try {
           await this.writeBackStoreOrders(source, result);
-          await this.writeRejectedPhoneMatchRows(
-            source,
-            acceptedSheetRows,
-            options?.acceptRowNumbers !== undefined,
-          );
+          await this.writeRejectedPhoneMatchRows(source, rejectedSheetRows);
           await this.labelAcceptedPhoneMatchOrders(
             source,
             result.successRows,
@@ -1415,8 +1421,13 @@ export class SyncOrchestratorService {
    * additional run-time errors) to the exact source row.
    */
   /**
-   * Phone-match rows default to Reject. On commit, any phone-match row that
-   * was not explicitly accepted gets an Arabic skip write-back (no OMS order).
+   * A PHONE_MATCH_REVIEW row is never rejected by omission — only an
+   * explicit "رفض" decision (a sheet row number the caller places in
+   * `rejectedSheetRows`) gets the final Arabic rejection write-back. A row
+   * that is neither accepted nor explicitly rejected is left completely
+   * untouched (no Q:R:S write at all), so it stays eligible — "بانتظار
+   * قرار" — for a later sync/review pass instead of silently becoming a
+   * permanent failure the moment "إتمام المزامنة" is pressed.
    */
   private async writeRejectedPhoneMatchRows(
     source: {
@@ -1425,10 +1436,9 @@ export class SyncOrchestratorService {
       worksheetGid: string | null;
       configMetadata: unknown;
     },
-    acceptedSheetRows: number[],
-    decisionsWereSent: boolean,
+    rejectedSheetRows: number[],
   ) {
-    if (!decisionsWereSent) return;
+    if (rejectedSheetRows.length === 0) return;
     const metadata = (source.configMetadata ?? {}) as {
       storeOrderPhoneMatchRowNumbers?: number[];
       storeOrderPhoneMatchPriors?: Record<
@@ -1437,11 +1447,12 @@ export class SyncOrchestratorService {
       >;
       storeOrderPhoneMatchBatch?: Record<string, BatchPhoneMember[]>;
     };
-    const phoneMatchRows = metadata.storeOrderPhoneMatchRowNumbers ?? [];
-    if (phoneMatchRows.length === 0) return;
-    const accepted = new Set(acceptedSheetRows);
-    const writes = phoneMatchRows
-      .filter((rowNumber) => !accepted.has(rowNumber))
+    const phoneMatchRows = new Set(
+      metadata.storeOrderPhoneMatchRowNumbers ?? [],
+    );
+    if (phoneMatchRows.size === 0) return;
+    const writes = rejectedSheetRows
+      .filter((rowNumber) => phoneMatchRows.has(rowNumber))
       .map((rowNumber) => {
         const prior =
           metadata.storeOrderPhoneMatchPriors?.[String(rowNumber)]

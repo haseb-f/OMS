@@ -90,7 +90,12 @@ export function SyncReviewDialog({
   committing: boolean;
   report: ShippingSyncRowReport[] | null;
   onConfirm: (
-    commits: Array<{ sourceId: string; jobId: string; acceptRowNumbers: number[] }>,
+    commits: Array<{
+      sourceId: string;
+      jobId: string;
+      acceptRowNumbers: number[];
+      rejectRowNumbers: number[];
+    }>,
   ) => Promise<void> | void;
   onRevalidate: (options?: {
     retryRowNumbers?: number[];
@@ -175,12 +180,16 @@ export function SyncReviewDialog({
     });
   };
 
-  // Part 2 — "قبول كطلب جديد" on a PHONE_MATCH row always confirms first,
-  // whether triggered from one row's own action or a bulk selection.
-  // REJECT/skip never confirms — it's the safe default, never destructive.
+  // Part 3 — both "استيراد كطلب جديد" (ACCEPT) and "رفض" (REJECT) on a
+  // PHONE_MATCH row always confirm first, whether triggered from one row's
+  // own action or a bulk selection — each is a final, sheet-writing decision
+  // for that row. Non-phone-match rows keep applying instantly: REJECT there
+  // is just the safe/default skip, never destructive. PENDING (undoing a
+  // staged decision back to "بانتظار قرار") never needs confirmation either.
   const [pendingAccept, setPendingAccept] = useState<SyncReviewRow[] | null>(null);
+  const [pendingReject, setPendingReject] = useState<SyncReviewRow[] | null>(null);
   const requestDecision = (rowIds: string[], decision: SyncReviewDecision) => {
-    if (decision !== "ACCEPT") {
+    if (decision === "PENDING") {
       setDecision(rowIds, decision);
       return;
     }
@@ -191,7 +200,12 @@ export function SyncReviewDialog({
       setDecision(rowIds, decision);
       return;
     }
-    setPendingAccept(rowIds.map((id) => rows.find((row) => row.id === id)!).filter(Boolean));
+    const resolvedRows = rowIds.map((id) => rows.find((row) => row.id === id)!).filter(Boolean);
+    if (decision === "ACCEPT") {
+      setPendingAccept(resolvedRows);
+    } else {
+      setPendingReject(resolvedRows);
+    }
   };
   const confirmPendingAccept = () => {
     if (!pendingAccept) return;
@@ -200,6 +214,14 @@ export function SyncReviewDialog({
       "ACCEPT",
     );
     setPendingAccept(null);
+  };
+  const confirmPendingReject = () => {
+    if (!pendingReject) return;
+    setDecision(
+      pendingReject.map((row) => row.id),
+      "REJECT",
+    );
+    setPendingReject(null);
   };
 
   const downloadErrors = () => {
@@ -265,7 +287,20 @@ export function SyncReviewDialog({
         if (decision !== "ACCEPT" || !isImportable(row.status, row.lifecycle)) return [];
         return row.rowNumbers;
       });
-      return { sourceId: item.source.id, jobId: item.preview.jobId, acceptRowNumbers };
+      // Part 7 — only an EXPLICIT "رفض" on a PHONE_MATCH_REVIEW row writes a
+      // final rejection to the sheet; every other lifecycle's REJECT is
+      // already just "don't import," never a sheet write-back.
+      const rejectRowNumbers = (item.preview.rows ?? []).flatMap((row) => {
+        const decision = sourceDecisions[row.id] ?? defaultDecision(row);
+        if (decision !== "REJECT" || row.lifecycle !== "PHONE_MATCH") return [];
+        return row.rowNumbers;
+      });
+      return {
+        sourceId: item.source.id,
+        jobId: item.preview.jobId,
+        acceptRowNumbers,
+        rejectRowNumbers,
+      };
     });
     await onConfirm(commits);
   };
@@ -476,7 +511,7 @@ export function SyncReviewDialog({
                         "ACCEPT",
                       )
                     }
-                    onRejectSelected={() => setDecision(selectedIds, "REJECT")}
+                    onRejectSelected={() => requestDecision(selectedIds, "REJECT")}
                     onDownloadErrors={downloadErrors}
                     onRetrySelected={() => {
                       const numbers = selectedRows
@@ -557,6 +592,35 @@ export function SyncReviewDialog({
         confirmLabel={t("importCenter.sync.review.phoneMatchConfirmAction")}
         tone="warning"
         onConfirm={confirmPendingAccept}
+      />
+      <ConfirmationDialog
+        open={!!pendingReject}
+        onOpenChange={(open) => {
+          if (!open) setPendingReject(null);
+        }}
+        title={t("importCenter.sync.review.phoneMatchRejectConfirmTitle")}
+        description={t("importCenter.sync.review.phoneMatchRejectConfirmDescription", {
+          count: pendingReject?.length ?? 0,
+        })}
+        extra={
+          pendingReject ? (
+            <ul className="flex max-h-40 flex-col gap-1 overflow-y-auto rounded-lg border border-border p-2">
+              {pendingReject.map((row) => {
+                const phoneIssue = row.issues.find((issue) => issue.code === "PHONE_MATCH");
+                return (
+                  <li key={row.id} className="text-caption text-muted-foreground">
+                    {t("importCenter.sync.review.sourceRow")} {row.rowNumber}
+                    {row.values.customerName ? ` — ${row.values.customerName}` : ""}
+                    {phoneIssue?.summary ? ` — ${phoneIssue.summary}` : ""}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : undefined
+        }
+        confirmLabel={t("importCenter.sync.review.phoneMatchRejectConfirmAction")}
+        tone="destructive"
+        onConfirm={confirmPendingReject}
       />
     </>
   );

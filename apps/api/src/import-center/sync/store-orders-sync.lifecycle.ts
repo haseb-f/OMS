@@ -254,12 +254,23 @@ export function classifyStoreOrderGroups(
       phone && args.priorOrderByPhone
         ? (args.priorOrderByPhone.get(phone) ?? null)
         : null;
-    // Full-Batch Phone Duplicate Detection — every OTHER group in this
-    // batch (never this one) sharing the same normalized phone.
-    const otherBatchMatches = (
-      (phone && args.batchPhoneGroups?.get(phone)) ||
-      []
-    ).filter((member) => member.primaryRowNumber !== primaryRow);
+    // Full-Batch Phone Duplicate Detection — every group in this batch
+    // (including this one) sharing the same normalized phone.
+    const allBatchMembers = (phone && args.batchPhoneGroups?.get(phone)) || [];
+    const otherBatchMatches = allBatchMembers.filter(
+      (member) => member.primaryRowNumber !== primaryRow,
+    );
+    // The EARLIEST row/order group for a batch-only phone match (no prior
+    // OMS order involved) is the primary order — it stays NEW/ready, never
+    // flagged. Every LATER row sharing that phone becomes PHONE_MATCH. A
+    // match against an EXISTING OMS order always needs review regardless
+    // of position — there is no "earliest" exemption once real order
+    // history is involved.
+    const isEarliestBatchOnlyMatch =
+      !priorOrder &&
+      allBatchMembers.length > 0 &&
+      primaryRow ===
+        Math.min(...allBatchMembers.map((m) => m.primaryRowNumber));
 
     // 1) Sheet success markers win — never reprocess.
     if (isSheetSuccessfullyImported(group.sourceRow)) {
@@ -326,9 +337,13 @@ export function classifyStoreOrderGroups(
     const changed = !previousHash || previousHash !== hash;
 
     // 4) New external id + same normalized phone as an existing OMS
-    // customer/order OR another row in THIS batch → review (default skip).
-    // Every group sharing the phone gets PHONE_MATCH — never just the first.
-    if ((priorOrder || otherBatchMatches.length > 0) && externalOrderId) {
+    // customer/order OR a LATER row in THIS batch → review (default skip).
+    // The earliest batch-only match stays a normal NEW row.
+    if (
+      (priorOrder ||
+        (otherBatchMatches.length > 0 && !isEarliestBatchOnlyMatch)) &&
+      externalOrderId
+    ) {
       const phoneMatchScope: PhoneMatchScope =
         priorOrder && otherBatchMatches.length > 0
           ? 'BOTH'

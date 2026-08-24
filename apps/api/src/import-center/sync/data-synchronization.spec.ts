@@ -582,8 +582,10 @@ describe('Data Synchronization', () => {
         resolveSheetTitle: jest.fn().mockResolvedValue('Sheet1'),
         writeRowResults: jest.fn(),
         ensureResultColumns: jest.fn(),
-        getHeaders: jest.fn(async () =>
-          fakeSheets.rows[0] ? Object.keys(fakeSheets.rows[0]) : [...HEADERS],
+        getHeaders: jest.fn(() =>
+          Promise.resolve(
+            fakeSheets.rows[0] ? Object.keys(fakeSheets.rows[0]) : [...HEADERS],
+          ),
         ),
         renameHeader: jest.fn().mockResolvedValue(false),
       };
@@ -1177,7 +1179,7 @@ describe('Data Synchronization', () => {
       expect(order.customer.phone).toBe('+966578909876');
     });
 
-    it('flags two same-phone rows in the SAME batch as a review group instead of leaving both NEW', async () => {
+    it('the earliest same-phone row in a batch is READY; only later rows need review', async () => {
       const phone = `+9665${Math.floor(10000000 + Math.random() * 89999999)}`;
       const rowA = validSheetRow({
         'External Order ID': `BATCH-DUP-A-${randomUUID()}`,
@@ -1193,18 +1195,26 @@ describe('Data Synchronization', () => {
 
       const preview = await orchestrator.preview(source.id);
       expect(preview.rows).toHaveLength(2);
-      for (const row of preview.rows) {
-        expect(row.lifecycle).toBe('PHONE_MATCH');
-        expect(row.status).toBe('DUPLICATE');
-      }
-      expect(preview.incremental?.newCount).toBe(0);
-      expect(preview.incremental?.phoneMatchCount).toBe(2);
-      const phoneIssue = preview.rows[0]?.issues.find(
+      const rowAReview = preview.rows.find((r) =>
+        r.values.externalOrderId?.includes('BATCH-DUP-A'),
+      )!;
+      const rowBReview = preview.rows.find((r) =>
+        r.values.externalOrderId?.includes('BATCH-DUP-B'),
+      )!;
+      expect(rowAReview.lifecycle).toBe('NEW');
+      expect(rowAReview.status).toBe('READY');
+      expect(rowBReview.lifecycle).toBe('PHONE_MATCH');
+      expect(rowBReview.status).toBe('DUPLICATE');
+      expect(preview.incremental?.newCount).toBe(1);
+      expect(preview.incremental?.phoneMatchCount).toBe(1);
+      const phoneIssue = rowBReview.issues.find(
         (issue) => issue.code === 'PHONE_MATCH',
       );
       expect(phoneIssue?.message).toContain('داخل نفس ملف الاستيراد');
 
-      // Reject both (default) -> neither order is created.
+      // Neither accepted nor explicitly rejected -> nothing is imported,
+      // and the pending PHONE_MATCH row gets NO final write-back at all
+      // (stays "بانتظار قرار", not silently rejected).
       await orchestrator.commit(source.id, preview.jobId, undefined, {
         acceptRowNumbers: [],
       });
@@ -1219,6 +1229,9 @@ describe('Data Synchronization', () => {
           },
         }),
       ).toBe(0);
+      const bRowNumber = rowBReview.rowNumbers[0];
+      expect(fakeSheets.rows[bRowNumber - 2]['Sync Status'] ?? '').toBe('');
+      expect(fakeSheets.rows[bRowNumber - 2]['Error Message'] ?? '').toBe('');
     });
 
     it('flags same-batch phone duplicates as BOTH when one also matches a previous OMS order', async () => {
@@ -1246,6 +1259,8 @@ describe('Data Synchronization', () => {
       const source = await createSource([rowA, rowB]);
       const preview = await orchestrator.preview(source.id);
       expect(preview.rows).toHaveLength(2);
+      // A previous OMS order match always needs review, for BOTH rows —
+      // there is no "earliest" exemption once real order history exists.
       for (const row of preview.rows) {
         expect(row.lifecycle).toBe('PHONE_MATCH');
       }
@@ -1256,7 +1271,7 @@ describe('Data Synchronization', () => {
       expect(message).toContain('مع طلب سابق في النظام');
     });
 
-    it('explicitly accepting one row of a batch phone-match group creates it with مكرر while the rest stay skipped', async () => {
+    it('explicitly accepting a later phone-match row creates it with مكرر while an undecided sibling stays pending', async () => {
       const phone = `+9665${Math.floor(10000000 + Math.random() * 89999999)}`;
       const rowA = validSheetRow({
         'External Order ID': `ACCEPT-A-${randomUUID()}`,
@@ -1268,16 +1283,29 @@ describe('Data Synchronization', () => {
         'Customer Name': 'Accept B',
         'Customer Phone': phone,
       });
-      const source = await createSource([rowA, rowB]);
+      const rowC = validSheetRow({
+        'External Order ID': `ACCEPT-C-${randomUUID()}`,
+        'Customer Name': 'Accept C',
+        'Customer Phone': phone,
+      });
+      const source = await createSource([rowA, rowB, rowC]);
       const preview = await orchestrator.preview(source.id);
       const rowAReview = preview.rows.find((r) =>
         r.values.externalOrderId?.includes('ACCEPT-A'),
-      );
-      expect(rowAReview).toBeTruthy();
+      )!;
+      const rowBReview = preview.rows.find((r) =>
+        r.values.externalOrderId?.includes('ACCEPT-B'),
+      )!;
+      const rowCReview = preview.rows.find((r) =>
+        r.values.externalOrderId?.includes('ACCEPT-C'),
+      )!;
+      expect(rowAReview.lifecycle).toBe('NEW');
+      expect(rowBReview.lifecycle).toBe('PHONE_MATCH');
+      expect(rowCReview.lifecycle).toBe('PHONE_MATCH');
 
       // Compact review table: a SHORT summary, never the full explanation,
       // plus structured detail data for the row-details panel.
-      const phoneIssue = rowAReview!.issues.find(
+      const phoneIssue = rowBReview.issues.find(
         (issue) => issue.code === 'PHONE_MATCH',
       );
       expect(phoneIssue?.summary).toBeTruthy();
@@ -1285,29 +1313,117 @@ describe('Data Synchronization', () => {
         phoneIssue!.message.length,
       );
       expect(phoneIssue?.summary).toContain('مطابقة جوال داخل الملف');
-      expect(rowAReview?.phoneMatch?.scope).toBe('BATCH');
-      expect(rowAReview?.phoneMatch?.batchMatches?.length).toBe(1);
+      expect(rowBReview.phoneMatch?.scope).toBe('BATCH');
+      expect(rowBReview.phoneMatch?.batchMatches?.length).toBe(2);
 
+      // Accept the auto-ready row A AND explicitly accept phone-match row
+      // B — row C is left completely undecided (neither accept nor reject).
       await orchestrator.commit(source.id, preview.jobId, undefined, {
-        acceptRowNumbers: rowAReview!.rowNumbers,
+        acceptRowNumbers: [...rowAReview.rowNumbers, ...rowBReview.rowNumbers],
       });
 
       const orderA = await prisma.storeOrder.findFirst({
         where: byExternalId(rowA['External Order ID']),
       });
       expect(orderA).not.toBeNull();
-      expect(orderA?.sourceChannel).toBe('مكرر');
+      expect(orderA?.sourceChannel).not.toBe('مكرر');
+
       const orderB = await prisma.storeOrder.findFirst({
         where: byExternalId(rowB['External Order ID']),
       });
-      expect(orderB).toBeNull();
+      expect(orderB).not.toBeNull();
+      expect(orderB?.sourceChannel).toBe('مكرر');
+
+      const orderC = await prisma.storeOrder.findFirst({
+        where: byExternalId(rowC['External Order ID']),
+      });
+      expect(orderC).toBeNull();
+      const cRowNumber = rowCReview.rowNumbers[0];
+      expect(fakeSheets.rows[cRowNumber - 2]['Sync Status'] ?? '').toBe('');
 
       // Audit trail — the explicit accept decision is recorded, not just
       // the مكرر label.
       const activity = await prisma.storeOrderActivity.findMany({
-        where: { storeOrderId: orderA!.id, action: 'PHONE_MATCH_ACCEPTED' },
+        where: { storeOrderId: orderB!.id, action: 'PHONE_MATCH_ACCEPTED' },
       });
       expect(activity).toHaveLength(1);
+    });
+
+    it('explicit رفض on a phone-match row writes the final Arabic rejection result and never imports it', async () => {
+      const phone = `+9665${Math.floor(10000000 + Math.random() * 89999999)}`;
+      const rowA = validSheetRow({
+        'External Order ID': `REJECT-A-${randomUUID()}`,
+        'Customer Name': 'Reject A',
+        'Customer Phone': phone,
+      });
+      const rowB = validSheetRow({
+        'External Order ID': `REJECT-B-${randomUUID()}`,
+        'Customer Name': 'Reject B',
+        'Customer Phone': phone,
+      });
+      const source = await createSource([rowA, rowB]);
+      const preview = await orchestrator.preview(source.id);
+      const rowBReview = preview.rows.find((r) =>
+        r.values.externalOrderId?.includes('REJECT-B'),
+      )!;
+      expect(rowBReview.lifecycle).toBe('PHONE_MATCH');
+
+      await orchestrator.commit(source.id, preview.jobId, undefined, {
+        acceptRowNumbers: [],
+        rejectRowNumbers: rowBReview.rowNumbers,
+      });
+
+      const orderB = await prisma.storeOrder.findFirst({
+        where: byExternalId(rowB['External Order ID']),
+      });
+      expect(orderB).toBeNull();
+      const bRowNumber = rowBReview.rowNumbers[0];
+      expect(fakeSheets.rows[bRowNumber - 2]['Sync Status']).toBe(
+        'مرفوض - لم يُستورد لوجود طلب سابق لنفس رقم الجوال',
+      );
+      expect(fakeSheets.rows[bRowNumber - 2]['Error Message']).toContain(
+        'صفوف أخرى في نفس ملف الاستيراد',
+      );
+    });
+
+    it('a pending (undecided) phone-match row is still offered for review on the next preview, never silently dropped', async () => {
+      const phone = `+9665${Math.floor(10000000 + Math.random() * 89999999)}`;
+      const rowA = validSheetRow({
+        'External Order ID': `PENDING-A-${randomUUID()}`,
+        'Customer Name': 'Pending A',
+        'Customer Phone': phone,
+      });
+      const rowB = validSheetRow({
+        'External Order ID': `PENDING-B-${randomUUID()}`,
+        'Customer Name': 'Pending B',
+        'Customer Phone': phone,
+      });
+      const source = await createSource([rowA, rowB]);
+
+      const firstPreview = await orchestrator.preview(source.id);
+      const firstRowB = firstPreview.rows.find((r) =>
+        r.values.externalOrderId?.includes('PENDING-B'),
+      )!;
+      // Only accept row A this run; row B is left undecided.
+      await orchestrator.commit(source.id, firstPreview.jobId, undefined, {
+        acceptRowNumbers: firstPreview.rows.find((r) =>
+          r.values.externalOrderId?.includes('PENDING-A'),
+        )!.rowNumbers,
+      });
+
+      const secondPreview = await orchestrator.preview(source.id);
+      const secondRowB = secondPreview.rows.find((r) =>
+        r.values.externalOrderId?.includes('PENDING-B'),
+      );
+      expect(secondRowB).toBeTruthy();
+      expect(secondRowB!.lifecycle).toBe('PHONE_MATCH');
+      expect(secondRowB!.status).toBe('DUPLICATE');
+      expect(secondRowB!.rowNumbers).toEqual(firstRowB.rowNumbers);
+
+      const orderB = await prisma.storeOrder.findFirst({
+        where: byExternalId(rowB['External Order ID']),
+      });
+      expect(orderB).toBeNull();
     });
 
     it('still auto-rejects a repeated normalized External Order ID without asking for review', async () => {

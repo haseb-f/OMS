@@ -159,10 +159,12 @@ export const syncService = {
     jobId: string,
     acceptRowNumbers?: number[],
     runAs?: "SHIPPING_UPDATES",
+    rejectRowNumbers?: number[],
   ) =>
     apiClient.post<SyncCommitResult>(`/import-center/sync/sources/${sourceId}/commit`, {
       jobId,
       ...(acceptRowNumbers === undefined ? {} : { acceptRowNumbers }),
+      ...(rejectRowNumbers === undefined ? {} : { rejectRowNumbers }),
       ...(runAs ? { runAs } : {}),
     }),
 
