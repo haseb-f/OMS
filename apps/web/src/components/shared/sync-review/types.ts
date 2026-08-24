@@ -17,6 +17,28 @@ export interface SyncReviewIssue {
   message: string;
   originalValue?: string | null;
   normalizedValue?: string | null;
+  /** Short table-cell text — falls back to a generic short label when absent. Full detail always stays in `message`, shown only in the row-details panel. */
+  summary?: string;
+}
+
+export type PhoneMatchScope = "BATCH" | "EXISTING" | "BOTH";
+
+export interface PhoneMatchBatchMember {
+  rowNumbers: number[];
+  externalOrderId: string;
+  customerName: string;
+}
+
+export interface PhoneMatchPriorOrder {
+  internalOrderId: string;
+  externalOrderId: string | null;
+  orderDate: string | null;
+}
+
+export interface PhoneMatchDetail {
+  scope: PhoneMatchScope;
+  priorOrder?: PhoneMatchPriorOrder | null;
+  batchMatches?: PhoneMatchBatchMember[];
 }
 
 export interface SyncReviewRow {
@@ -34,6 +56,7 @@ export interface SyncReviewRow {
   lifecycle?: SyncReviewLifecycle;
   changed?: boolean;
   retryable?: boolean;
+  phoneMatch?: PhoneMatchDetail | null;
 }
 
 export interface SyncReviewSourceMeta {

@@ -142,7 +142,59 @@ export function SyncRowDetails({ row }: { row: SyncReviewRow }) {
         </TableDetailSection>
       ) : null}
 
-      {row.status === "DUPLICATE" ? (
+      {row.lifecycle === "PHONE_MATCH" && row.phoneMatch ? (
+        <TableDetailSection title={t("importCenter.sync.review.phoneMatchInfo")}>
+          <p className="text-caption font-medium text-foreground">
+            {row.phoneMatch.scope === "BATCH"
+              ? t("importCenter.sync.review.phoneMatchScopeBatch")
+              : row.phoneMatch.scope === "EXISTING"
+                ? t("importCenter.sync.review.phoneMatchScopeExisting")
+                : t("importCenter.sync.review.phoneMatchScopeBoth")}
+          </p>
+          {row.phoneMatch.priorOrder ? (
+            <TableDetailField
+              primary={
+                <>
+                  {t("importCenter.sync.review.existingOrder")}:{" "}
+                  <SemanticValue kind="id">
+                    {row.phoneMatch.priorOrder.internalOrderId}
+                  </SemanticValue>
+                  {row.phoneMatch.priorOrder.externalOrderId
+                    ? ` / ${row.phoneMatch.priorOrder.externalOrderId}`
+                    : ""}
+                </>
+              }
+              secondary={
+                row.phoneMatch.priorOrder.orderDate
+                  ? `${t("importCenter.sync.review.orderDate")}: ${row.phoneMatch.priorOrder.orderDate}`
+                  : undefined
+              }
+            />
+          ) : null}
+          {row.phoneMatch.batchMatches?.length ? (
+            <div className="mt-1">
+              <p className="text-caption text-muted-foreground">
+                {t("importCenter.sync.review.phoneMatchGroupRows", {
+                  count: row.phoneMatch.batchMatches.length,
+                })}
+              </p>
+              <ul className="mt-1 flex flex-col gap-1">
+                {row.phoneMatch.batchMatches.map((member, index) => (
+                  <li key={index} className="text-caption text-muted-foreground">
+                    {t("importCenter.sync.review.sourceRow")}{" "}
+                    <SemanticValue kind="number">{member.rowNumbers.join("/")}</SemanticValue>
+                    {member.externalOrderId ? ` — ${member.externalOrderId}` : ""}
+                    {member.customerName ? ` — ${member.customerName}` : ""}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          <p className="mt-2 text-caption text-muted-foreground">
+            {t("importCenter.sync.review.phoneMatchRecommendation")}
+          </p>
+        </TableDetailSection>
+      ) : row.status === "DUPLICATE" ? (
         <TableDetailSection title={t("importCenter.sync.review.duplicateInfo")}>
           <TableDetailField
             primary={t("importCenter.sync.review.reasons.duplicateOrder")}

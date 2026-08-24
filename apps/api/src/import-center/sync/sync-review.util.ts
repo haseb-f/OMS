@@ -23,6 +23,29 @@ export interface SyncReviewIssue {
   message: string;
   originalValue?: string | null;
   normalizedValue?: string | null;
+  /** Short table-cell text — falls back to `message` when absent. Full detail always stays in `message`, rendered in the row-details panel. */
+  summary?: string;
+}
+
+export type PhoneMatchScope = 'BATCH' | 'EXISTING' | 'BOTH';
+
+export interface PhoneMatchBatchMember {
+  rowNumbers: number[];
+  externalOrderId: string;
+  customerName: string;
+}
+
+export interface PhoneMatchPriorOrder {
+  internalOrderId: string;
+  externalOrderId: string | null;
+  orderDate: string | null;
+}
+
+/** Structured detail for a PHONE_MATCH row's row-details panel — the group/prior-order data the compact table cell never shows directly. */
+export interface PhoneMatchDetail {
+  scope: PhoneMatchScope;
+  priorOrder?: PhoneMatchPriorOrder | null;
+  batchMatches?: PhoneMatchBatchMember[];
 }
 
 export interface SyncReviewRow {
@@ -40,6 +63,7 @@ export interface SyncReviewRow {
   lifecycle?: SyncReviewLifecycle;
   changed?: boolean;
   retryable?: boolean;
+  phoneMatch?: PhoneMatchDetail | null;
 }
 
 const PHONE_KEYS = ['customerPhone', 'mobileNumber', 'phone'] as const;

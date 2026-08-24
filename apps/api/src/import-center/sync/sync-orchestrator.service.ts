@@ -14,6 +14,11 @@ import { PhoneNumberService } from '../../common/phone/phone-number.service';
 import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 import { StoreOrdersService } from '../../store-orders/store-orders.service';
 import { CustomersService } from '../../customers/customers.service';
+import {
+  StoreOrderActivityService,
+  StoreOrderActivitySource,
+  StoreOrderActivityType,
+} from '../../store-orders/activities/store-order-activity.service';
 import { ReferenceDataRegistryService } from '../reference-data/reference-data-registry.service';
 import {
   matchReferenceRecords,
@@ -116,6 +121,33 @@ function buildPhoneMatchMessage(
   }
   parts.push('الإجراء الافتراضي: تخطي. اقبل صراحةً كطلب جديد لاستيراده.');
   return parts.join(' — ');
+}
+
+/**
+ * Compact table-cell text — one short line, never the full explanation
+ * (that stays in `buildPhoneMatchMessage`, shown only in the row-details
+ * panel). Matches the exact phrasing the redesigned review table expects:
+ * "مطابقة جوال داخل الملف: صفوف 14، 15" / "طلب سابق للعميل: STO-...".
+ */
+function buildPhoneMatchSummary(
+  prior: PriorOrderSummary | null | undefined,
+  batchMatches: BatchPhoneMember[] | undefined,
+  scope: PhoneMatchScope | null | undefined,
+): string {
+  if (scope === 'BATCH' && batchMatches?.length) {
+    const rows = batchMatches.flatMap((member) => member.rowNumbers);
+    return `مطابقة جوال داخل الملف: صفوف ${rows.join('، ')}`;
+  }
+  if (scope === 'EXISTING' && prior) {
+    return `طلب سابق للعميل: ${prior.internalOrderId}`;
+  }
+  if (scope === 'BOTH') {
+    const rows = (batchMatches ?? []).flatMap((member) => member.rowNumbers);
+    const priorPart = prior ? `طلب سابق ${prior.internalOrderId}` : '';
+    const batchPart = rows.length ? `صفوف ${rows.join('، ')}` : '';
+    return `مطابقة جوال: ${[priorPart, batchPart].filter(Boolean).join(' + ')}`;
+  }
+  return 'مطابقة جوال — راجع التفاصيل';
 }
 
 type ShippingRunAs = 'SHIPPING_UPDATES';
@@ -231,6 +263,7 @@ export class SyncOrchestratorService {
     private readonly storeOrders: StoreOrdersService,
     private readonly referenceData: ReferenceDataRegistryService,
     private readonly customers: CustomersService,
+    private readonly activityService: StoreOrderActivityService,
   ) {}
 
   /**
@@ -661,6 +694,11 @@ export class SyncOrchestratorService {
                 group.batchPhoneMatches,
                 group.phoneMatchScope,
               ),
+              summary: buildPhoneMatchSummary(
+                prior,
+                group.batchPhoneMatches,
+                group.phoneMatchScope,
+              ),
             });
           }
         }
@@ -672,6 +710,7 @@ export class SyncOrchestratorService {
               field: 'System Order ID',
               code: 'ORPHAN_LINK',
               message: `رقم الطلب في النظام «${staleId}» غير موجود في OMS. الرقم الخارجي: ${externalId}. الإجراء الموصى به: إعادة تعيين نتائج المزامنة (Q:R:S) ثم إعادة المحاولة.`,
+              summary: `رقم نظام قديم غير موجود: ${staleId}`,
               originalValue: staleId === '—' ? null : staleId,
             });
           }
@@ -693,6 +732,14 @@ export class SyncOrchestratorService {
             group?.existingInternalOrderId ??
             prior?.internalOrderId ??
             null,
+          phoneMatch:
+            group?.lifecycle === 'PHONE_MATCH' && group.phoneMatchScope
+              ? {
+                  scope: group.phoneMatchScope,
+                  priorOrder: prior ?? null,
+                  batchMatches: group.batchPhoneMatches ?? [],
+                }
+              : null,
         };
       });
 
@@ -1310,7 +1357,11 @@ export class SyncOrchestratorService {
             acceptedSheetRows,
             options?.acceptRowNumbers !== undefined,
           );
-          await this.labelAcceptedPhoneMatchOrders(source, result.successRows);
+          await this.labelAcceptedPhoneMatchOrders(
+            source,
+            result.successRows,
+            userId,
+          );
           await this.markStoreOrdersImported(source, jobId, result.successRows);
           await this.applyStoreOrderDeletions(
             source,
@@ -1425,6 +1476,7 @@ export class SyncOrchestratorService {
   private async labelAcceptedPhoneMatchOrders(
     source: { configMetadata: unknown },
     successRows: { rowNumber: number; id: string }[],
+    userId?: string,
   ) {
     const metadata = (source.configMetadata ?? {}) as {
       storeOrderPhoneMatchRowNumbers?: number[];
@@ -1441,6 +1493,18 @@ export class SyncOrchestratorService {
       where: { id: { in: orderIds } },
       data: { sourceChannel: REPEAT_CUSTOMER_ORDER_LABEL },
     });
+    // Audit trail — the explicit "قبول كطلب جديد" decision, not just the
+    // مكرر label, is recorded on each order's own activity timeline.
+    for (const orderId of orderIds) {
+      await this.activityService.log(
+        orderId,
+        StoreOrderActivityType.PHONE_MATCH_ACCEPTED,
+        'Accepted as a new order despite a matching phone number (مكرر)',
+        userId,
+        this.prisma,
+        StoreOrderActivitySource.GOOGLE_SHEETS,
+      );
+    }
   }
 
   private async writeBackStoreOrders(

@@ -1275,6 +1275,19 @@ describe('Data Synchronization', () => {
       );
       expect(rowAReview).toBeTruthy();
 
+      // Compact review table: a SHORT summary, never the full explanation,
+      // plus structured detail data for the row-details panel.
+      const phoneIssue = rowAReview!.issues.find(
+        (issue) => issue.code === 'PHONE_MATCH',
+      );
+      expect(phoneIssue?.summary).toBeTruthy();
+      expect(phoneIssue!.summary!.length).toBeLessThan(
+        phoneIssue!.message.length,
+      );
+      expect(phoneIssue?.summary).toContain('مطابقة جوال داخل الملف');
+      expect(rowAReview?.phoneMatch?.scope).toBe('BATCH');
+      expect(rowAReview?.phoneMatch?.batchMatches?.length).toBe(1);
+
       await orchestrator.commit(source.id, preview.jobId, undefined, {
         acceptRowNumbers: rowAReview!.rowNumbers,
       });
@@ -1288,6 +1301,13 @@ describe('Data Synchronization', () => {
         where: byExternalId(rowB['External Order ID']),
       });
       expect(orderB).toBeNull();
+
+      // Audit trail — the explicit accept decision is recorded, not just
+      // the مكرر label.
+      const activity = await prisma.storeOrderActivity.findMany({
+        where: { storeOrderId: orderA!.id, action: 'PHONE_MATCH_ACCEPTED' },
+      });
+      expect(activity).toHaveLength(1);
     });
 
     it('still auto-rejects a repeated normalized External Order ID without asking for review', async () => {

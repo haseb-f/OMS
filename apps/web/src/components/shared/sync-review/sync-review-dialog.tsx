@@ -30,6 +30,7 @@ import {
   defaultDecision,
   isImportable,
   type SyncReviewDecision,
+  type SyncReviewRow,
   type SyncReviewStatusFilter,
 } from "./types";
 
@@ -172,6 +173,33 @@ export function SyncReviewDialog({
       }
       return { ...current, [active.source.id]: sourceDecisions };
     });
+  };
+
+  // Part 2 — "قبول كطلب جديد" on a PHONE_MATCH row always confirms first,
+  // whether triggered from one row's own action or a bulk selection.
+  // REJECT/skip never confirms — it's the safe default, never destructive.
+  const [pendingAccept, setPendingAccept] = useState<SyncReviewRow[] | null>(null);
+  const requestDecision = (rowIds: string[], decision: SyncReviewDecision) => {
+    if (decision !== "ACCEPT") {
+      setDecision(rowIds, decision);
+      return;
+    }
+    const phoneMatchRows = rowIds
+      .map((id) => rows.find((row) => row.id === id))
+      .filter((row): row is SyncReviewRow => !!row && row.lifecycle === "PHONE_MATCH");
+    if (phoneMatchRows.length === 0) {
+      setDecision(rowIds, decision);
+      return;
+    }
+    setPendingAccept(rowIds.map((id) => rows.find((row) => row.id === id)!).filter(Boolean));
+  };
+  const confirmPendingAccept = () => {
+    if (!pendingAccept) return;
+    setDecision(
+      pendingAccept.map((row) => row.id),
+      "ACCEPT",
+    );
+    setPendingAccept(null);
   };
 
   const downloadErrors = () => {
@@ -437,13 +465,13 @@ export function SyncReviewDialog({
                     retryableCount={rows.filter((row) => row.retryable).length}
                     filter={statusFilter}
                     onAcceptSelected={() =>
-                      setDecision(
+                      requestDecision(
                         importableSelected.map((row) => row.id),
                         "ACCEPT",
                       )
                     }
                     onAcceptReady={() =>
-                      setDecision(
+                      requestDecision(
                         rows.filter((row) => row.status === "READY").map((row) => row.id),
                         "ACCEPT",
                       )
@@ -474,7 +502,7 @@ export function SyncReviewDialog({
                   decisions={decisions}
                   rowSelection={rowSelection}
                   onRowSelectionChange={setActiveSelection}
-                  onDecision={setDecision}
+                  onDecision={requestDecision}
                   onRetry={(rowNumbers) => {
                     void handleRetry({ retryRowNumbers: rowNumbers });
                   }}
@@ -500,6 +528,35 @@ export function SyncReviewDialog({
         tone="warning"
         isConfirming={clearingOrphans}
         onConfirm={() => void handleClearOrphanResults()}
+      />
+      <ConfirmationDialog
+        open={!!pendingAccept}
+        onOpenChange={(open) => {
+          if (!open) setPendingAccept(null);
+        }}
+        title={t("importCenter.sync.review.phoneMatchConfirmTitle")}
+        description={t("importCenter.sync.review.phoneMatchConfirmDescription", {
+          count: pendingAccept?.length ?? 0,
+        })}
+        extra={
+          pendingAccept ? (
+            <ul className="flex max-h-40 flex-col gap-1 overflow-y-auto rounded-lg border border-border p-2">
+              {pendingAccept.map((row) => {
+                const phoneIssue = row.issues.find((issue) => issue.code === "PHONE_MATCH");
+                return (
+                  <li key={row.id} className="text-caption text-muted-foreground">
+                    {t("importCenter.sync.review.sourceRow")} {row.rowNumber}
+                    {row.values.customerName ? ` — ${row.values.customerName}` : ""}
+                    {phoneIssue?.summary ? ` — ${phoneIssue.summary}` : ""}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : undefined
+        }
+        confirmLabel={t("importCenter.sync.review.phoneMatchConfirmAction")}
+        tone="warning"
+        onConfirm={confirmPendingAccept}
       />
     </>
   );

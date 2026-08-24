@@ -3547,7 +3547,20 @@ const en = {
         value: "Value",
         country: "Country",
         existingOrder: "Existing order",
+        orderDate: "Order date",
         sourceRow: "Source row",
+        phoneMatchInfo: "Phone match",
+        phoneMatchScopeBatch: "Matches another row in this import file",
+        phoneMatchScopeExisting: "Matches a previous order already in the system",
+        phoneMatchScopeBoth:
+          "Matches both another row in this file and a previous order in the system",
+        phoneMatchGroupRows: "{count} other row(s) share this phone number:",
+        phoneMatchRecommendation:
+          "Confirm whether this is really a new order for the same customer before accepting it.",
+        phoneMatchConfirmTitle: "Accept as new order?",
+        phoneMatchConfirmDescription:
+          "{count} row(s) with a matching phone number will be created as new orders and labeled مكرر.",
+        phoneMatchConfirmAction: "Accept as new order",
         phoneReady: "Ready",
         errorsInRow: "{count} errors on this row",
         viewErrors: "View errors",
@@ -3608,6 +3621,8 @@ const en = {
           phoneInvalid: "The mobile number is not valid for the selected country.",
           unrecognizedCountry: "This country is not recognized. Choose an existing country.",
           duplicateOrder: "This order already exists in the system.",
+          phoneMatch: "Phone match — review",
+          orphanLink: "Stale system number — not found in OMS",
           duplicateInFile: "This value is duplicated in the source file.",
           needsReviewCustomer:
             "An existing customer was found by mobile number — the new order will be linked to that customer.",

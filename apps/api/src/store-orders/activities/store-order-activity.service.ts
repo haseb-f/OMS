@@ -32,6 +32,8 @@ export const StoreOrderActivityType = {
   SHIPPING_COST_ADDED: 'SHIPPING_COST_ADDED',
   RECEIPT_ATTACHED: 'RECEIPT_ATTACHED',
   RECEIPT_REMOVED: 'RECEIPT_REMOVED',
+  /** Full-Batch Phone Duplicate Detection — a user explicitly chose "قبول كطلب جديد" on a PHONE_MATCH_REVIEW sync row. */
+  PHONE_MATCH_ACCEPTED: 'PHONE_MATCH_ACCEPTED',
   /** Direct "change to any status" operation — Shipping Status Configuration + Final-Shipment Sync Rules. */
   SHIPMENT_STATUS_CHANGED: 'SHIPMENT_STATUS_CHANGED',
   /** The direct status change landed on a `syncBehavior: FINAL` status. */

@@ -11,7 +11,7 @@ import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
-import { humanizeSyncIssue } from "./messages";
+import { summarizeSyncIssue } from "./messages";
 import { SyncRowDetails } from "./sync-row-details";
 import { SyncRowStatusBadge } from "./sync-status-badge";
 import {
@@ -59,7 +59,7 @@ function SyncReviewMobileCard({
     row.issues.length > 1
       ? t("importCenter.sync.review.errorsInRow", { count: row.issues.length })
       : issue
-        ? humanizeSyncIssue(issue, t)
+        ? summarizeSyncIssue(issue, t)
         : null;
 
   return (
@@ -286,8 +286,10 @@ export function SyncReviewTable({
         cell: ({ row }) => {
           const issues = row.original.issues;
           if (issues.length === 0) return null;
-          const unique = [...new Set(issues.map((issue) => humanizeSyncIssue(issue, t)))];
-          return <StackedCell primary={unique.join("؛ ")} />;
+          const unique = [...new Set(issues.map((issue) => summarizeSyncIssue(issue, t)))];
+          return (
+            <StackedCell primary={<span className="line-clamp-1">{unique.join("؛ ")}</span>} />
+          );
         },
       },
       {

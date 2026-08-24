@@ -118,3 +118,26 @@ export function humanizeSyncIssue(
   }
   return issue.message;
 }
+
+/**
+ * Compact-table text — never the full explanation `humanizeSyncIssue`
+ * returns for `PHONE_MATCH`/`ORPHAN_LINK` (which falls through to the raw,
+ * potentially long backend message). Prefers the backend-provided short
+ * `summary`; every other code already gets a short, translated label from
+ * `humanizeSyncIssue` itself, so this simply reuses it as the fallback.
+ * Full detail always stays available via `humanizeSyncIssue` in the
+ * row-details panel.
+ */
+export function summarizeSyncIssue(
+  issue: SyncReviewIssue,
+  t: (key: MessageKey, params?: Record<string, string | number>) => string,
+): string {
+  if (issue.summary) return issue.summary;
+  if (issue.code === "PHONE_MATCH") {
+    return t("importCenter.sync.review.reasons.phoneMatch");
+  }
+  if (issue.code === "ORPHAN_LINK") {
+    return t("importCenter.sync.review.reasons.orphanLink");
+  }
+  return humanizeSyncIssue(issue, t);
+}
