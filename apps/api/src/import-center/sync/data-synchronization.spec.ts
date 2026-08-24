@@ -845,6 +845,50 @@ describe('Data Synchronization', () => {
       expect(orders).toHaveLength(1);
     });
 
+    it('a stale System Order ID that no longer resolves in OMS is never trusted as done, and clearing Q:R:S makes the row importable again', async () => {
+      const row = validSheetRow({
+        'Customer Name': 'Sheet Customer Stale Link',
+        'Sync Status': 'تم الاستيراد',
+        'System Order ID': 'STO-DOES-NOT-EXIST-IN-OMS',
+      });
+      const source = await createSource([row]);
+
+      // Q says success and R is present, but R does not resolve to any
+      // real OMS order — must surface for review (ORPHAN_LINK), never be
+      // silently skipped as already-imported.
+      const preview = await orchestrator.preview(source.id);
+      expect(preview.rows).toHaveLength(1);
+      expect(preview.rows[0].lifecycle).toBe('ORPHAN_LINK');
+      expect(
+        await prisma.storeOrder.count({
+          where: byExternalId(row['External Order ID']),
+        }),
+      ).toBe(0);
+
+      // The user clears Q:R:S per the recommended action — the row must
+      // become eligible for normal validation/import again.
+      fakeSheets.rows[0]['Sync Status'] = '';
+      fakeSheets.rows[0]['System Order ID'] = '';
+      fakeSheets.rows[0]['Error Message'] = '';
+      const cleared = await orchestrator.preview(source.id);
+      expect(cleared.rows).toHaveLength(1);
+      expect(cleared.rows[0].lifecycle).toBe('NEW');
+      expect(cleared.rows[0].status).toBe('READY');
+
+      const commitResult = await orchestrator.commit(
+        source.id,
+        cleared.jobId,
+        undefined,
+        { acceptRowNumbers: cleared.rows.flatMap((r) => r.rowNumbers) },
+      );
+      expect(commitResult.importedCount).toBe(1);
+      expect(
+        await prisma.storeOrder.count({
+          where: byExternalId(row['External Order ID']),
+        }),
+      ).toBe(1);
+    });
+
     it('existing customer + new external order requires phone-match review; accept creates مكرر', async () => {
       const phone = `+9665${Math.floor(10000000 + Math.random() * 89999999)}`;
       const firstRow = validSheetRow({
@@ -1044,7 +1088,7 @@ describe('Data Synchronization', () => {
       expect(archived?.deletedAt).not.toBeNull();
     });
 
-    it('auto-rejects an existing external order id without updating the OMS order', async () => {
+    it('reconciles (never rejects, never duplicates) a cleared row whose External Order ID already exists in OMS', async () => {
       const row = validSheetRow({
         'Customer Name': 'Sheet Customer Identity',
       });
@@ -1058,6 +1102,10 @@ describe('Data Synchronization', () => {
         include: { customer: true },
       });
 
+      // The user manually clears Q:R:S on the sheet — Problem 1's exact
+      // "cleared results" scenario — while a different phone/name are
+      // typed in (simulating a re-typed row), but the External Order ID
+      // itself is unchanged and still resolves to the real OMS order.
       fakeSheets.rows[0]['Sync Status'] = '';
       fakeSheets.rows[0]['System Order ID'] = '';
       fakeSheets.rows[0]['Customer Phone'] =
@@ -1065,20 +1113,34 @@ describe('Data Synchronization', () => {
       fakeSheets.rows[0]['Customer Name'] = 'Sheet Customer Identity 2';
       const preview = await orchestrator.preview(source.id);
       expect(preview.incremental?.externalDupCount).toBe(1);
-      expect(preview.rows).toHaveLength(0);
+      // Never silently hidden — shown in review with the existing order reference.
+      expect(preview.rows).toHaveLength(1);
+      expect(preview.rows[0].lifecycle).toBe('EXTERNAL_DUP');
+      expect(preview.rows[0].existingRecordId).toBe(before.internalOrderId);
       expect(fakeSheets.rows[0]['Sync Status']).toBe(
-        'مرفوض - رقم الطلب الخارجي موجود مسبقًا',
+        'تمت استعادة الربط بالطلب الموجود',
       );
       expect(fakeSheets.rows[0]['System Order ID']).toBe(
         before.internalOrderId,
       );
+      expect(fakeSheets.rows[0]['Error Message']).toBe('');
 
+      // Never a duplicate, never mutated by the reconciliation.
       const after = await prisma.storeOrder.findFirstOrThrow({
         where: { id: before.id },
         include: { customer: true },
       });
       expect(after.customerId).toBe(before.customerId);
       expect(after.customer.name).toBe(before.customer.name);
+      const matchingOrders = await prisma.storeOrder.findMany({
+        where: byExternalId(row['External Order ID']),
+      });
+      expect(matchingOrders).toHaveLength(1);
+
+      // A subsequent preview (R now resolves + Q says success) is silent again.
+      const again = await orchestrator.preview(source.id);
+      expect(again.rows).toHaveLength(0);
+      expect(again.incremental?.importedSkippedCount).toBe(1);
     });
 
     it('TEST 3/4 — unchanged failures are skipped; a corrected row is retried and imported', async () => {
@@ -1426,7 +1488,7 @@ describe('Data Synchronization', () => {
       expect(orderB).toBeNull();
     });
 
-    it('still auto-rejects a repeated normalized External Order ID without asking for review', async () => {
+    it('still reconciles (never creates a second order for) a repeated normalized External Order ID from a different sheet', async () => {
       const firstRow = validSheetRow({
         'Customer Name': 'External Dup Owner',
       });
@@ -1434,6 +1496,9 @@ describe('Data Synchronization', () => {
       const firstPreview = await orchestrator.preview(firstSource.id);
       await orchestrator.commit(firstSource.id, firstPreview.jobId, undefined, {
         acceptRowNumbers: firstPreview.rows.flatMap((r) => r.rowNumbers),
+      });
+      const originalOrder = await prisma.storeOrder.findFirstOrThrow({
+        where: byExternalId(firstRow['External Order ID']),
       });
 
       const dupRow = validSheetRow({
@@ -1443,8 +1508,19 @@ describe('Data Synchronization', () => {
       });
       const dupSource = await createSource([dupRow]);
       const preview = await orchestrator.preview(dupSource.id);
-      expect(preview.rows).toHaveLength(0);
+      // Shown in review (never silently handled), never auto-committable.
+      expect(preview.rows).toHaveLength(1);
+      expect(preview.rows[0].lifecycle).toBe('EXTERNAL_DUP');
+      expect(preview.rows[0].existingRecordId).toBe(
+        originalOrder.internalOrderId,
+      );
       expect(preview.incremental?.externalDupCount).toBe(1);
+      expect(fakeSheets.rows[0]['Sync Status']).toBe(
+        'تمت استعادة الربط بالطلب الموجود',
+      );
+      expect(fakeSheets.rows[0]['System Order ID']).toBe(
+        originalOrder.internalOrderId,
+      );
 
       await orchestrator.commit(dupSource.id, preview.jobId, undefined, {
         acceptRowNumbers: [],

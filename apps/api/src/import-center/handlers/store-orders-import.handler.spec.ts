@@ -464,6 +464,55 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
     await expect(handler.importRow(row)).rejects.toThrow(BadRequestException);
   });
 
+  // -------------------------------------------------------------------
+  // Bare Country Calling Code Must Normalize Automatically
+  // -------------------------------------------------------------------
+  it('accepts a Saudi phone with a bare calling code and no "+" (966564345678)', async () => {
+    const row = baseRow({ customerPhone: '966564345678' });
+    const result = await handler.importRow(row);
+    const order = await prisma.storeOrder.findUniqueOrThrow({
+      where: { id: result.id },
+      include: { customer: true },
+    });
+    expect(order.customer.phone).toBe('+966564345678');
+  });
+
+  it('accepts every required Saudi representation of the same subscriber number', async () => {
+    const variants = [
+      '+966564345678',
+      '00966564345678',
+      '0564345678',
+      '564345678',
+    ];
+    for (const customerPhone of variants) {
+      const row = baseRow({ customerPhone });
+      const result = await handler.importRow(row);
+      const order = await prisma.storeOrder.findUniqueOrThrow({
+        where: { id: result.id },
+        include: { customer: true },
+      });
+      expect(order.customer.phone).toBe('+966564345678');
+    }
+  });
+
+  it('rejects a bare country calling code with no subscriber number ("966") with a clear Arabic explanation', async () => {
+    const row = baseRow({ customerPhone: '966' });
+    await expect(handler.importRow(row)).rejects.toThrow('مفتاح الدولة');
+  });
+
+  it('the invalid-phone Arabic message includes the raw value, the country, and never fires for a valid bare-calling-code number', async () => {
+    const row = baseRow({ customerPhone: 'not-a-phone-at-all' });
+    await expect(handler.importRow(row)).rejects.toThrow(
+      'رقم الجوال غير مكتمل أو غير صالح للدولة المحددة',
+    );
+    await expect(handler.importRow(row)).rejects.toThrow('not-a-phone-at-all');
+    await expect(handler.importRow(row)).rejects.toThrow(countryName);
+
+    // Never incorrectly rejected for a genuinely valid bare-calling-code value.
+    const validRow = baseRow({ customerPhone: '966564345678' });
+    await expect(handler.importRow(validRow)).resolves.toBeDefined();
+  });
+
   it('requires Detailed Address and Order Date', async () => {
     await expect(handler.importRow(baseRow({ address: '' }))).rejects.toThrow(
       BadRequestException,

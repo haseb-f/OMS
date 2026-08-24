@@ -64,11 +64,23 @@ describe('store-orders-sync.lifecycle', () => {
     expect(a).toBe(b);
   });
 
-  it('skips an already imported row when System Order ID is present', () => {
+  it('does NOT treat System Order ID alone (no successful Sync Status) as already imported', () => {
+    // Re-Sync Eligibility — R alone, without Q marking success, is
+    // incomplete: it must fall through to reconciliation/re-validation,
+    // never be trusted as "done" on its own.
     expect(
       isSheetSuccessfullyImported({
         'System Order ID': 'STO-2026-000123',
         'Sync Status': '',
+      }),
+    ).toBe(false);
+  });
+
+  it('skips an already imported row only when BOTH Sync Status and System Order ID mark success', () => {
+    expect(
+      isSheetSuccessfullyImported({
+        'System Order ID': 'STO-2026-000123',
+        'Sync Status': STORE_ORDER_SHEET_STATUS.imported,
       }),
     ).toBe(true);
 
@@ -78,13 +90,14 @@ describe('store-orders-sync.lifecycle', () => {
           rowNumbers: [2],
           mappedRows: [sourceFields()],
           sourceRow: {
-            'Sync Status': '',
+            'Sync Status': STORE_ORDER_SHEET_STATUS.imported,
             'System Order ID': 'STO-2026-000123',
           },
         },
       ],
       existingByExternalId: new Map(),
       previous: {},
+      validInternalOrderIds: new Set(['STO-2026-000123']),
     });
     expect(row.lifecycle).toBe('IMPORTED');
     expect(row.runValidation).toBe(false);
@@ -107,12 +120,13 @@ describe('store-orders-sync.lifecycle', () => {
         ['12345', { internalOrderId: 'STO-2026-000123' }],
       ]),
       previous: {},
+      validInternalOrderIds: new Set(['STO-2026-000123']),
     });
     expect(row.lifecycle).toBe('IMPORTED');
     expect(row.runValidation).toBe(false);
   });
 
-  it('auto-rejects existing external order id without update or review', () => {
+  it('reconciles (never rejects) an existing external order id — writes R, clears S, shows in review', () => {
     const [row] = classifyStoreOrderGroups({
       groups: [
         {
@@ -126,14 +140,15 @@ describe('store-orders-sync.lifecycle', () => {
     });
     expect(row.lifecycle).toBe('EXTERNAL_DUP');
     expect(row.runValidation).toBe(false);
-    expect(row.includeInReview).toBe(false);
+    expect(row.includeInReview).toBe(true);
     expect(row.existingInternalOrderId).toBe('STO-9');
-    expect(
-      externalDupWritebackValues({
-        displayExternalOrderId: 'ABC-1',
-        existingInternalOrderId: 'STO-9',
-      })['Sync Status'],
-    ).toBe(STORE_ORDER_SHEET_STATUS.rejectedExternalExists);
+    const writeback = externalDupWritebackValues({
+      displayExternalOrderId: 'ABC-1',
+      existingInternalOrderId: 'STO-9',
+    });
+    expect(writeback['Sync Status']).toBe(STORE_ORDER_SHEET_STATUS.reconciled);
+    expect(writeback['System Order ID']).toBe('STO-9');
+    expect(writeback['Error Message']).toBe('');
   });
 
   it('marks phone-match rows for review (not auto-create)', () => {
@@ -243,6 +258,125 @@ describe('store-orders-sync.lifecycle', () => {
         issues: [{ message: 'x' }],
       })['Sync Status'],
     ).toBe(STORE_ORDER_SHEET_STATUS.error);
+  });
+
+  // -------------------------------------------------------------------
+  // Re-Sync Eligibility After Cleared Google Sheets Results
+  // -------------------------------------------------------------------
+  describe('re-sync eligibility after cleared results', () => {
+    it('clearing Q:R:S makes a previously-imported row eligible again (no matching OMS order -> NEW)', () => {
+      const [row] = classifyStoreOrderGroups({
+        groups: [
+          {
+            rowNumbers: [2],
+            mappedRows: [sourceFields({ externalOrderId: 'CLR-1' })],
+            sourceRow: {
+              'Sync Status': '',
+              'System Order ID': '',
+              'Error Message': '',
+            },
+          },
+        ],
+        existingByExternalId: new Map(),
+        previous: {
+          'clr-1': {
+            hash: 'old',
+            status: 'IMPORTED',
+            internalOrderId: 'STO-1',
+          },
+        },
+      });
+      expect(row.lifecycle).toBe('NEW');
+      expect(row.runValidation).toBe(true);
+      expect(row.includeInReview).toBe(true);
+    });
+
+    it('clearing only System Order ID (R) — with a stale success Sync Status left in Q — makes the row eligible for reconciliation', () => {
+      const [row] = classifyStoreOrderGroups({
+        groups: [
+          {
+            rowNumbers: [2],
+            mappedRows: [sourceFields({ externalOrderId: 'CLR-2' })],
+            sourceRow: {
+              'Sync Status': STORE_ORDER_SHEET_STATUS.imported,
+              'System Order ID': '',
+            },
+          },
+        ],
+        existingByExternalId: new Map([
+          ['clr-2', { internalOrderId: 'STO-2' }],
+        ]),
+        previous: {},
+      });
+      // Falls through step 1 (R missing) straight into reconciliation
+      // (step 2), since the external id still resolves to a real order.
+      expect(row.lifecycle).toBe('EXTERNAL_DUP');
+      expect(row.existingInternalOrderId).toBe('STO-2');
+      expect(row.includeInReview).toBe(true);
+    });
+
+    it('a stale/unresolvable System Order ID (Q says success, R does not resolve in OMS) is never trusted as done', () => {
+      const [row] = classifyStoreOrderGroups({
+        groups: [
+          {
+            rowNumbers: [2],
+            mappedRows: [sourceFields({ externalOrderId: 'CLR-3' })],
+            sourceRow: {
+              'Sync Status': STORE_ORDER_SHEET_STATUS.imported,
+              'System Order ID': 'STO-DELETED',
+            },
+          },
+        ],
+        existingByExternalId: new Map(),
+        previous: {},
+        validInternalOrderIds: new Set(), // STO-DELETED does not resolve
+      });
+      expect(row.lifecycle).not.toBe('IMPORTED');
+      expect(row.lifecycle).toBe('ORPHAN_LINK');
+    });
+
+    it('old sync-job hash history does not suppress a row whose CURRENT Q/R state is no longer successful', () => {
+      const [row] = classifyStoreOrderGroups({
+        groups: [
+          {
+            rowNumbers: [2],
+            mappedRows: [sourceFields({ externalOrderId: 'CLR-4' })],
+            sourceRow: {},
+          },
+        ],
+        existingByExternalId: new Map(),
+        // A prior run's hash/status claims this row was successfully
+        // imported — but the CURRENT sheet Q/R is empty, so it must be
+        // reprocessed anyway. Job history is never authoritative over the
+        // sheet's live state.
+        previous: {
+          'clr-4': {
+            hash: 'some-other-hash',
+            status: 'IMPORTED',
+            internalOrderId: 'STO-4',
+          },
+        },
+      });
+      expect(row.lifecycle).toBe('NEW');
+      expect(row.runValidation).toBe(true);
+    });
+
+    it('a cleared row whose External Order ID does NOT exist in OMS proceeds through normal NEW classification, never reconciliation', () => {
+      const [row] = classifyStoreOrderGroups({
+        groups: [
+          {
+            rowNumbers: [2],
+            mappedRows: [sourceFields({ externalOrderId: 'CLR-5' })],
+            sourceRow: {},
+          },
+        ],
+        existingByExternalId: new Map(), // no matching OMS order
+        previous: {},
+      });
+      expect(row.lifecycle).toBe('NEW');
+      expect(row.runValidation).toBe(true);
+      expect(row.includeInReview).toBe(true);
+    });
   });
 
   it('detects deleted previously-imported identities', () => {

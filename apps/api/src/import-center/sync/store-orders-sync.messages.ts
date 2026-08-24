@@ -1,3 +1,8 @@
+import {
+  preparePhoneInput,
+  type PhoneParseResult,
+} from '../../common/phone/phone-number.service';
+
 /**
  * Arabic sheet-facing Store Order sync messages.
  *
@@ -9,6 +14,41 @@ export interface SheetErrorIssue {
   field?: string | null;
   code?: string;
   message: string;
+}
+
+/**
+ * The exact Arabic phone-invalid explanation required for Store Order sync
+ * (Bare Country Calling Code Normalization) — shows the raw value, the
+ * selected country, and a best-effort normalized attempt so the operator
+ * can fix the sheet without guessing. Thrown as the `BadRequestException`
+ * message itself, so it reaches both the sheet write-back (`arabicReason`
+ * passes unrecognized-pattern Arabic text through verbatim) and the review
+ * UI (`humanizeSyncIssue`'s English-regex checks never match Arabic text,
+ * so it also falls through unchanged) without any second translation layer.
+ */
+export function buildStoreOrderPhoneErrorMessage(
+  rawValue: string,
+  countryDisplayName: string,
+  check: PhoneParseResult,
+): string {
+  const prepared = preparePhoneInput(rawValue);
+  const digitsOnly = prepared.replace(/^\+/, '');
+  if (check.callingCode && digitsOnly === check.callingCode) {
+    return `رقم الجوال يحتوي على مفتاح الدولة (+${check.callingCode}) فقط دون رقم المشترك المحلي. الدولة: ${countryDisplayName}.`;
+  }
+  const attempt =
+    check.callingCode && check.nationalNumber
+      ? `+${check.callingCode}${check.nationalNumber}`
+      : null;
+  const lines = [
+    'رقم الجوال غير مكتمل أو غير صالح للدولة المحددة.',
+    `القيمة المدخلة: ${rawValue}`,
+    `الدولة: ${countryDisplayName}`,
+  ];
+  if (attempt) {
+    lines.push(`القيمة المتوقعة بعد التوحيد: ${attempt}`);
+  }
+  return lines.join('\n');
 }
 
 const FIELD_AR: Record<string, string> = {

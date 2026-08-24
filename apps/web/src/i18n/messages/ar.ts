@@ -3503,6 +3503,7 @@ const ar = {
         lifecycleError: "خطأ",
         lifecycleModified: "تم التعديل",
         lifecycleExternalDup: "مكرر برقم الطلب الخارجي",
+        externalDupReconciled: "طلب موجود في OMS — تمت استعادة الربط",
         lifecyclePhoneMatch: "بانتظار قرار — نفس الجوال",
         lifecycleDeleted: "تم الحذف",
         phoneMatchAccepted: "مقبول كطلب جديد",

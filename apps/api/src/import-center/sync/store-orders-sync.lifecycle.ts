@@ -22,12 +22,20 @@ export const STORE_ORDER_SHEET_STATUS = {
   imported: 'تم الاستيراد',
   error: 'خطأ',
   needsReview: 'بانتظار المراجعة',
+  /** @deprecated No longer written — a cleared row whose External Order ID
+   * already exists in OMS is now reconciled (see `reconciled`), never
+   * shown as a rejection. Still recognized on read for sheets a prior
+   * sync already wrote this into, so a legacy row self-heals on its next
+   * sync instead of being stuck. */
   rejectedExternalExists: 'مرفوض - رقم الطلب الخارجي موجود مسبقًا',
   rejectedPhoneSkip: 'مرفوض - لم يُستورد لوجود طلب سابق لنفس رقم الجوال',
+  /** A cleared/stale row whose External Order ID already maps to a real OMS order — the row is safely re-linked, never duplicated. */
+  reconciled: 'تمت استعادة الربط بالطلب الموجود',
 } as const;
 
 const IMPORTED_STATUSES = new Set([
   STORE_ORDER_SHEET_STATUS.imported,
+  STORE_ORDER_SHEET_STATUS.reconciled,
   'SUCCESS',
   'IMPORTED',
   'SYNCED',
@@ -160,6 +168,13 @@ export interface ClassifyStoreOrderRowsArgs {
   previous: StoreOrderRowHashMap;
   retryRowNumbers?: number[];
   retryAllFailed?: boolean;
+  /**
+   * Every currently-existing (non-deleted) `internalOrderId` — used to
+   * decide whether a sheet's `System Order ID` (R) is "valid/resolvable"
+   * rather than stale garbage. Omit only in tests that don't care about
+   * this distinction; the orchestrator always supplies it.
+   */
+  validInternalOrderIds?: Set<string>;
 }
 
 export function sheetCell(
@@ -200,7 +215,13 @@ export function isNeedsReviewSheetStatus(value: string): boolean {
   return NEEDS_REVIEW_STATUSES.has(value.trim());
 }
 
-/** Sheet Q/R markers that mean "do not process again". */
+/**
+ * Sheet Q/R markers that mean "do not process again". A row is only
+ * successfully synced when BOTH are true: `Sync Status` (Q) marks success
+ * AND `System Order ID` (R) is present — either alone (a cleared R with
+ * stale success text in Q, or a success status with no R at all) must fall
+ * through to reconciliation/re-validation instead of being trusted as done.
+ */
 export function isSheetSuccessfullyImported(
   sourceRow: Record<string, string>,
 ): boolean {
@@ -212,7 +233,7 @@ export function isSheetSuccessfullyImported(
     sourceRow,
     STORE_ORDER_RESULT_COLUMNS.syncStatus,
   );
-  return Boolean(sheetOrderId) || isImportedSheetStatus(sheetStatus);
+  return Boolean(sheetOrderId) && isImportedSheetStatus(sheetStatus);
 }
 
 function identityKey(externalOrderId: string, rowNumbers: number[]): string {
@@ -272,8 +293,15 @@ export function classifyStoreOrderGroups(
       primaryRow ===
         Math.min(...allBatchMembers.map((m) => m.primaryRowNumber));
 
-    // 1) Sheet success markers win — never reprocess.
-    if (isSheetSuccessfullyImported(group.sourceRow)) {
+    // 1) Sheet success markers win — never reprocess. A resolvable R is
+    // required too: a stale/deleted System Order ID must fall through
+    // (to step 2's reconciliation, or step 3's orphan-link review)
+    // instead of being trusted forever just because Q/R look filled in.
+    const sheetOrderIdResolves =
+      !sheetOrderId ||
+      !args.validInternalOrderIds ||
+      args.validInternalOrderIds.has(sheetOrderId);
+    if (isSheetSuccessfullyImported(group.sourceRow) && sheetOrderIdResolves) {
       classified.push({
         rowNumbers: group.rowNumbers,
         externalOrderId,
@@ -291,7 +319,13 @@ export function classifyStoreOrderGroups(
       continue;
     }
 
-    // 2) Exact external id already in OMS — auto-reject, never update.
+    // 2) Exact external id already in OMS — safe reconciliation, never a
+    // duplicate. This is reached both for a brand-new colliding row AND
+    // for a row whose Q/R were cleared/gone-stale after a real prior
+    // import — either way the correct action is identical: link this row
+    // to the existing order via R, never create a second one. Surfaced in
+    // review (not silently handled) so the operator sees which OMS order
+    // it now points to.
     if (dbOrder) {
       classified.push({
         rowNumbers: group.rowNumbers,
@@ -300,7 +334,7 @@ export function classifyStoreOrderGroups(
         hash,
         lifecycle: 'EXTERNAL_DUP',
         runValidation: false,
-        includeInReview: false,
+        includeInReview: true,
         changed: false,
         retryable: false,
         existingInternalOrderId: dbOrder.internalOrderId,
@@ -328,11 +362,19 @@ export function classifyStoreOrderGroups(
       continue;
     }
 
+    // Re-Sync Eligibility — a fully cleared Q AND R (the user wiped the
+    // result columns) must never stay stuck behind the OLD job/hash
+    // record's remembered "this failed before" status when the CURRENT
+    // sheet no longer says so. Only trust the `previous` fallback while
+    // the sheet still carries some prior state (Q not blank) — e.g. a
+    // write-back that silently failed to apply — never after an explicit
+    // clear, which is exactly what makes the row "eligible again".
+    const sheetCleared = !sheetStatus && !sheetOrderId;
     const previouslyFailed =
       isFailedSheetStatus(sheetStatus) ||
       isNeedsReviewSheetStatus(sheetStatus) ||
-      previous?.status === 'ERROR' ||
-      previous?.status === 'NEEDS_REVIEW';
+      (!sheetCleared &&
+        (previous?.status === 'ERROR' || previous?.status === 'NEEDS_REVIEW'));
     const previousHash = previous?.hash;
     const changed = !previousHash || previousHash !== hash;
 
@@ -405,15 +447,21 @@ export function classifyStoreOrderGroups(
   return classified;
 }
 
+/**
+ * Never a rejection — this External Order ID already maps to a real,
+ * existing OMS order, so the row is safely re-linked via R instead of
+ * creating a duplicate. `errorMessage` is cleared (S), not filled with an
+ * error, since nothing actually failed.
+ */
 export function externalDupWritebackValues(args: {
   displayExternalOrderId: string;
   existingInternalOrderId: string;
 }): Record<string, string> {
   return {
     [STORE_ORDER_RESULT_COLUMNS.syncStatus]:
-      STORE_ORDER_SHEET_STATUS.rejectedExternalExists,
+      STORE_ORDER_SHEET_STATUS.reconciled,
     [STORE_ORDER_RESULT_COLUMNS.systemOrderId]: args.existingInternalOrderId,
-    [STORE_ORDER_RESULT_COLUMNS.errorMessage]: `رقم الطلب الخارجي [${args.displayExternalOrderId}] مرتبط بالفعل بالطلب [${args.existingInternalOrderId}].`,
+    [STORE_ORDER_RESULT_COLUMNS.errorMessage]: '',
   };
 }
 

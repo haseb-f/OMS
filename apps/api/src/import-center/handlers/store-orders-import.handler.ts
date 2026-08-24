@@ -8,10 +8,8 @@ import {
   PAYMENT_TYPE_SHEET_LABELS,
   resolvePaymentType,
 } from '../../store-orders/payment-type.catalog';
-import {
-  PhoneNumberService,
-  phoneErrorMessage,
-} from '../../common/phone/phone-number.service';
+import { PhoneNumberService } from '../../common/phone/phone-number.service';
+import { buildStoreOrderPhoneErrorMessage } from '../sync/store-orders-sync.messages';
 import { ImportTypeRegistryService } from '../import-type-registry.service';
 import { ReferenceDataRegistryService } from '../reference-data/reference-data-registry.service';
 import {
@@ -493,7 +491,13 @@ export class StoreOrdersImportHandler
       country.code,
     );
     if (!phoneCheck.isValid || !phoneCheck.e164) {
-      throw new BadRequestException(phoneErrorMessage(phoneCheck.errorReason));
+      throw new BadRequestException(
+        buildStoreOrderPhoneErrorMessage(
+          first.customerPhone,
+          country.name,
+          phoneCheck,
+        ),
+      );
     }
     const normalizedPhone = phoneCheck.e164;
     const currencyId = await this.resolveListSheetValue(

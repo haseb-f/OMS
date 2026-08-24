@@ -22,6 +22,7 @@ const EXAMPLES: Record<
   Tunisia: { region: 'TN', callingCode: '216', national: '20123456' },
   Algeria: { region: 'DZ', callingCode: '213', national: '551234567' },
   Yemen: { region: 'YE', callingCode: '967', national: '712345678' },
+  Turkey: { region: 'TR', callingCode: '90', national: '5012345678' },
   'United States': { region: 'US', callingCode: '1', national: '2015550123' },
   'United Kingdom': { region: 'GB', callingCode: '44', national: '7400123456' },
   Germany: { region: 'DE', callingCode: '49', national: '15123456789' },
@@ -253,6 +254,37 @@ describe('PhoneNumberService', () => {
       const b = service.normalizeToE164('578909876', 'SA');
       expect(a).toBe(b);
       expect(a).toBe('+966578909876');
+    });
+  });
+
+  // -------------------------------------------------------------------
+  // Bare Country Calling Code Must Normalize Automatically — the exact
+  // examples from the ticket, for Saudi Arabia (country: السعودية / SA).
+  // -------------------------------------------------------------------
+  describe('bare country calling code (Saudi Arabia)', () => {
+    it.each([
+      ['966564345678', '+966564345678'],
+      ['+966564345678', '+966564345678'],
+      ['00966564345678', '+966564345678'],
+      ['0564345678', '+966564345678'],
+      ['564345678', '+966564345678'],
+    ])('%s -> %s', (raw, expected) => {
+      const result = service.parse(raw, 'SA');
+      expect(result.isValid).toBe(true);
+      expect(result.e164).toBe(expected);
+    });
+
+    it('"966" alone is only a country calling code, not a complete number — stays invalid', () => {
+      const result = service.parse('966', 'SA');
+      expect(result.isValid).toBe(false);
+      expect(result.e164).toBeNull();
+      expect(result.callingCode).toBe('966');
+    });
+
+    it('never invents subscriber digits for a genuinely incomplete number', () => {
+      const result = service.parse('9665643', 'SA');
+      expect(result.isValid).toBe(false);
+      expect(result.e164).toBeNull();
     });
   });
 });

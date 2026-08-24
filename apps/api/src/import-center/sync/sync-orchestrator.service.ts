@@ -37,9 +37,11 @@ import {
   fingerprintMappedRows,
   fingerprintStorageKey,
   isDeletedSyncRowNumber,
+  isImportedSheetStatus,
   normalizeExternalOrderId,
   phoneSkipWritebackValues,
   REPEAT_CUSTOMER_ORDER_LABEL,
+  sheetCell,
   storeOrderWritebackValues,
   STORE_ORDER_RESULT_COLUMNS,
   type BatchPhoneMember,
@@ -722,11 +724,28 @@ export class SyncOrchestratorService {
             });
           }
         }
+        if (group?.lifecycle === 'EXTERNAL_DUP') {
+          const existingOrderId = group.existingInternalOrderId || '—';
+          const externalId = group.displayExternalOrderId || '—';
+          if (
+            !issues.some((issue) => issue.code === 'EXTERNAL_DUP_RECONCILED')
+          ) {
+            issues.push({
+              field: 'External Order ID',
+              code: 'EXTERNAL_DUP_RECONCILED',
+              message: `رقم الطلب الخارجي [${externalId}] مرتبط بالفعل بطلب OMS موجود [${existingOrderId}]. تمت استعادة الربط تلقائيًا في R — لم يتم إنشاء طلب جديد.`,
+              summary: `طلب موجود في OMS — تمت استعادة الربط (${existingOrderId})`,
+              originalValue: null,
+              normalizedValue: existingOrderId === '—' ? null : existingOrderId,
+            });
+          }
+        }
         return {
           ...row,
           issues,
           status:
-            group?.lifecycle === 'PHONE_MATCH'
+            group?.lifecycle === 'PHONE_MATCH' ||
+            group?.lifecycle === 'EXTERNAL_DUP'
               ? ('DUPLICATE' as const)
               : group?.lifecycle === 'ORPHAN_LINK'
                 ? ('ERROR' as const)
@@ -852,6 +871,44 @@ export class SyncOrchestratorService {
         ]),
     );
 
+    // Re-Sync Eligibility — a sheet's R (System Order ID) only counts as
+    // "already imported" when it resolves to a REAL, non-deleted order.
+    // Only look up the small set of R values actually claiming success —
+    // never the whole orders table.
+    const candidateOrderIds = [
+      ...new Set(
+        groups
+          .map((group) => {
+            const sourceRow = group[0]?.sourceRow ?? {};
+            const sheetOrderId = sheetCell(
+              sourceRow,
+              STORE_ORDER_RESULT_COLUMNS.systemOrderId,
+            );
+            const sheetStatus = sheetCell(
+              sourceRow,
+              STORE_ORDER_RESULT_COLUMNS.syncStatus,
+            );
+            return sheetOrderId && isImportedSheetStatus(sheetStatus)
+              ? sheetOrderId
+              : null;
+          })
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    const validInternalOrderIds = new Set(
+      candidateOrderIds.length
+        ? (
+            await this.prisma.storeOrder.findMany({
+              where: {
+                internalOrderId: { in: candidateOrderIds },
+                deletedAt: null,
+              },
+              select: { internalOrderId: true },
+            })
+          ).map((order) => order.internalOrderId)
+        : [],
+    );
+
     // Canonical Phone Normalization + Full-Batch Phone Duplicate Detection.
     const phoneByGroupRow = new Map<number, string | null>();
     const batchPhoneGroups = new Map<string, BatchPhoneMember[]>();
@@ -950,6 +1007,7 @@ export class SyncOrchestratorService {
       previous: metadata.storeOrderRowHashes ?? {},
       retryRowNumbers: options?.retryRowNumbers,
       retryAllFailed: options?.retryAllFailed,
+      validInternalOrderIds,
     });
   }
 
@@ -967,6 +1025,13 @@ export class SyncOrchestratorService {
       }
       if (row.lifecycle === 'PHONE_MATCH') {
         // Preview only — leave sheet eligible until commit accept/reject.
+        continue;
+      }
+      if (row.lifecycle === 'EXTERNAL_DUP') {
+        // Reconciliation write-back happens once below, from `classified`
+        // directly — never the generic "error" writeback this loop uses
+        // for a real DUPLICATE status, or the row would briefly get an
+        // incorrect rejection-flavored Q/S before being overwritten.
         continue;
       }
       if (row.status === 'ERROR' || row.status === 'DUPLICATE') {
@@ -1068,8 +1133,16 @@ export class SyncOrchestratorService {
             internalOrderId: group.internalOrderId,
             sentinelRowNumber: group.sentinelRowNumber,
           })),
+          // EXTERNAL_DUP is shown in review (Part: "show the existing OMS
+          // order reference") but must never be auto-committed on a bare
+          // "accept everything not skipped" run — it was already safely
+          // reconciled via the preview-time Q:R:S write-back, and there is
+          // nothing left to import.
           storeOrderSkipRowNumbers: classified
-            .filter((group) => !group.includeInReview)
+            .filter(
+              (group) =>
+                !group.includeInReview || group.lifecycle === 'EXTERNAL_DUP',
+            )
             .flatMap((group) => group.rowNumbers),
           storeOrderPhoneMatchRowNumbers: classified
             .filter((group) => group.lifecycle === 'PHONE_MATCH')

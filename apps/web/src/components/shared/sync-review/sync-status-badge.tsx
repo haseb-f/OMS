@@ -46,6 +46,15 @@ export function SyncStatusBadge({
   decision?: SyncReviewDecision;
 }) {
   const { t } = useLocale();
+  if (lifecycle === "EXTERNAL_DUP") {
+    // Re-Sync Eligibility — never a rejection: the row's External Order ID
+    // already maps to a real OMS order, so it was safely re-linked (never
+    // duplicated). A calm "resolved" tone, not the neutral "مكرر" a same-file
+    // duplicate group gets.
+    return (
+      <StatusBadge label={t("importCenter.sync.review.externalDupReconciled")} tone="success" />
+    );
+  }
   if (lifecycle === "PHONE_MATCH") {
     const effectiveDecision = decision ?? "PENDING";
     const label =

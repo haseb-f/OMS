@@ -3540,6 +3540,7 @@ const en = {
         lifecycleError: "Error",
         lifecycleModified: "Modified",
         lifecycleExternalDup: "Duplicate external order ID",
+        externalDupReconciled: "Order exists in OMS — link restored",
         lifecyclePhoneMatch: "Pending decision — same phone",
         lifecycleDeleted: "Deleted",
         phoneMatchAccepted: "Accepted as new order",
