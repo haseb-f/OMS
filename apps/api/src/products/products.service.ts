@@ -390,6 +390,15 @@ export class ProductsService {
       const product = await tx.product.update({
         where: { id },
         data: { status: ProductStatus.ACTIVE, updatedBy: userId ?? null },
+        include: {
+          category: true,
+          brand: true,
+          unit: true,
+          tax: true,
+          analyticAccount: true,
+          preferredSupplier: true,
+          preferredWarehouse: true,
+        },
       });
       await this.activityService.log(
         id,
