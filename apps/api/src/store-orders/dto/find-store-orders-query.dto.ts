@@ -41,7 +41,14 @@ export class FindStoreOrdersQueryDto {
   @IsOptional()
   source?: StoreOrderSource[];
 
-  /** Matches internalOrderId, externalOrderId, or customer name (case-insensitive, partial). */
+  /**
+   * Complete Store Orders Search — matches internalOrderId, externalOrderId,
+   * or customer name (case-insensitive, partial), and the customer's
+   * phone/mobile via digit-only candidates (local trunk zero, "00"/"+"
+   * international prefix, with/without calling code — see
+   * `PhoneNumberService.searchCandidates`), so "564345678", "0564345678",
+   * "966564345678", and "+966564345678" all find the same customer.
+   */
   @IsString()
   @IsOptional()
   search?: string;

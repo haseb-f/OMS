@@ -10,6 +10,7 @@ import {
   RotateCcw,
   Rows3,
   Upload,
+  X,
 } from "lucide-react";
 import {
   type ColumnDef,
@@ -41,7 +42,12 @@ import {
   tableCellWrapClass,
 } from "@/components/ui/table";
 import { EnterpriseButton } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { IconActionButton } from "@/components/shared/icon-action-button";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -142,6 +148,7 @@ export function EnterpriseDataTable<TData>({
   onSortChange,
   search,
   onSearchChange,
+  searchPlaceholder,
   isLoading,
   rowSelection,
   onRowSelectionChange,
@@ -177,6 +184,8 @@ export function EnterpriseDataTable<TData>({
   onSortChange?: (sortBy: string, sortOrder: SortOrder) => void;
   search?: string;
   onSearchChange?: (value: string) => void;
+  /** Overrides the generic "Filter..." placeholder — use this when the search box covers specific fields worth naming (e.g. "Search by order number, customer name, or phone..."). */
+  searchPlaceholder?: string;
   isLoading?: boolean;
   rowSelection?: RowSelectionState;
   onRowSelectionChange?: (next: RowSelectionState) => void;
@@ -367,6 +376,29 @@ export function EnterpriseDataTable<TData>({
 
   const effectiveSearch = search ?? internalSearch;
   const handleSearchChange = onSearchChange ?? setInternalSearch;
+
+  /**
+   * An empty result while a search term is active means "no match", not
+   * "nothing here" — names the term and offers one click back to the full
+   * filtered list, instead of the generic "No results." every other empty
+   * table shows.
+   */
+  const emptyStateProps = effectiveSearch.trim()
+    ? {
+        title: t("table.noSearchResults", { term: effectiveSearch.trim() }),
+        description: t("table.noSearchResultsHint"),
+        action: (
+          <EnterpriseButton
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => handleSearchChange("")}
+          >
+            {t("table.clearSearch")}
+          </EnterpriseButton>
+        ),
+      }
+    : { title: emptyTitle ?? t("table.noResults") };
   const effectiveRowSelection = rowSelection ?? internalRowSelection;
   const handleRowSelectionChange = onRowSelectionChange ?? setInternalRowSelection;
 
@@ -654,6 +686,14 @@ export function EnterpriseDataTable<TData>({
         [pinned === "left" ? "insetInlineStart" : "insetInlineEnd"]: offset,
         zIndex: pinned ? 6 : undefined,
         backgroundColor: "var(--card)",
+        // A subtle boundary against the scrollable data it floats over —
+        // on whichever side actually faces that data (a start-pinned
+        // column's data sits at its end; an end-pinned column's — e.g. a
+        // pinned Actions column — sits at its start). Logical properties
+        // so this is correct under RTL without a direction check here.
+        ...(pinned === "left"
+          ? { borderInlineEnd: "1px solid var(--border)" }
+          : { borderInlineStart: "1px solid var(--border)" }),
       };
     },
     [table, pinnedOffsets],
@@ -810,12 +850,25 @@ export function EnterpriseDataTable<TData>({
             this one, which stacked two dividers directly on top of the sticky
             header and read as a single indistinct band. */}
         <ListToolbar>
-          <Input
-            value={effectiveSearch}
-            onChange={(event) => handleSearchChange(event.target.value)}
-            placeholder={t("table.filterPlaceholder")}
-            className="h-(--control-height-sm) max-w-(--width-control-search)"
-          />
+          <InputGroup className="h-(--control-height-sm) max-w-(--width-control-search)">
+            <InputGroupInput
+              value={effectiveSearch}
+              onChange={(event) => handleSearchChange(event.target.value)}
+              placeholder={searchPlaceholder ?? t("table.filterPlaceholder")}
+            />
+            {effectiveSearch ? (
+              <InputGroupAddon align="inline-end">
+                <InputGroupButton
+                  type="button"
+                  size="icon-xs"
+                  aria-label={t("table.clearSearch")}
+                  onClick={() => handleSearchChange("")}
+                >
+                  <X />
+                </InputGroupButton>
+              </InputGroupAddon>
+            ) : null}
+          </InputGroup>
           {filterBar}
           <div className="ms-auto flex items-center gap-1">
             {onRefresh && (
@@ -851,7 +904,7 @@ export function EnterpriseDataTable<TData>({
             ) : error ? (
               <ErrorState title={t("table.loadFailed")} description={error} onRetry={onRetry} />
             ) : table.getRowModel().rows.length === 0 ? (
-              <EmptyState icon={Inbox} title={emptyTitle ?? t("table.noResults")} />
+              <EmptyState icon={Inbox} {...emptyStateProps} />
             ) : (
               table.getRowModel().rows.map((row) => (
                 <div key={row.id}>
@@ -1019,7 +1072,7 @@ export function EnterpriseDataTable<TData>({
               ) : table.getRowModel().rows.length === 0 ? (
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={visibleLeafColumns.length} className="h-auto p-0">
-                    <EmptyState icon={Inbox} title={emptyTitle ?? t("table.noResults")} />
+                    <EmptyState icon={Inbox} {...emptyStateProps} />
                   </TableCell>
                 </TableRow>
               ) : (

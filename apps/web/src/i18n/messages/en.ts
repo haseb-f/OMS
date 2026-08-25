@@ -379,6 +379,9 @@ const en = {
     goToLastPage: "Go to last page",
     noResults: "No results.",
     filterPlaceholder: "Filter…",
+    clearSearch: "Clear search",
+    noSearchResults: 'No results for "{term}".',
+    noSearchResultsHint: "Check the spelling or try a different search term.",
     refresh: "Refresh",
     print: "Print",
     options: "Table options",
@@ -2040,6 +2043,7 @@ const en = {
     title: "Store Orders",
     description:
       "External store orders — imported or entered manually, matched to Customers by phone, reconciled and shipped.",
+    searchPlaceholder: "Search by order number, customer name, or phone...",
     empty: "No store orders yet.",
     open: "Open",
     viewOrder: "View order",

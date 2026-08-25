@@ -238,6 +238,34 @@ export class PhoneNumberService {
     return parsePhoneNumberFromString(`+${prepared}`, region);
   }
 
+  /**
+   * Digit-only candidate representations of a free-text search term, for
+   * matching a phone number stored in E.164 (`+966564345678`) regardless
+   * of how the operator typed it — local trunk zero, "00" international
+   * prefix, with or without "+", with or without the calling code. A
+   * search box has no per-row country context to `parse()` against (that
+   * needs a selected Country), so this stays deliberately country-agnostic:
+   * it just strips a leading "00" or a single leading trunk "0" so the
+   * remaining digits still land as a `contains` substring of the stored
+   * E.164 value, whichever country it belongs to.
+   *
+   * Returns `[]` for anything under 6 digits — too short to plausibly be a
+   * phone fragment, so a short numeric order-id search term doesn't
+   * spuriously widen into a phone match.
+   */
+  searchCandidates(rawSearch: string | null | undefined): string[] {
+    const digitsOnly = (rawSearch ?? '').replace(/\D/g, '');
+    if (digitsOnly.length < 6) return [];
+    const candidates = new Set<string>([digitsOnly]);
+    if (digitsOnly.startsWith('00') && digitsOnly.length > 2) {
+      candidates.add(digitsOnly.slice(2));
+    }
+    if (digitsOnly.startsWith('0') && digitsOnly.length > 1) {
+      candidates.add(digitsOnly.slice(1));
+    }
+    return [...candidates].filter((candidate) => candidate.length >= 6);
+  }
+
   /** Convenience — E.164 string when valid, `null` otherwise. Never throws. */
   normalizeToE164(
     rawInput: string | null | undefined,

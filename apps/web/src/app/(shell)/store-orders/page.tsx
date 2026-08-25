@@ -253,6 +253,7 @@ function StoreOrdersPageContent() {
           setSearch(value);
           setPage(1);
         }}
+        searchPlaceholder={t("storeOrders.searchPlaceholder")}
         isLoading={isLoading}
         error={loadError}
         onRetry={load}

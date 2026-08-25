@@ -78,13 +78,25 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
 
 /**
  * Shared column inset — the only horizontal padding EDT headers and body
- * cells should add. Applied identically to THEAD and TBODY. Utility
- * columns are zero-inset so their control sits in the column box; data
- * columns share one 12px inline padding (no extra first/last offset —
+ * cells should add. Applied identically to THEAD and TBODY. Data columns
+ * share one 12px inline padding throughout (no extra first/last offset —
  * that was shifting the first data column independently of the header).
+ *
+ * Utility columns (checkbox/expand/actions) are tight (4px) on the side
+ * facing another column, but get the full 12px "safe gutter" on whichever
+ * side is the table's own outer edge — first column's inline-start, last
+ * column's inline-end. Actions is almost always the last column, so this
+ * is what keeps its row-menu button from sitting flush against the table
+ * border/card edge in RTL — logical `ps-`/`pe-`, never `pl-`/`pr-`, so the
+ * gutter lands on the correct physical side automatically in both
+ * directions. Applies to every utility column, not just actions, so a
+ * pinned/leading checkbox column gets the same edge safety.
  */
-function tableColumnInsetClass(_index: number, _count: number, kind: "data" | "utility" = "data") {
-  return kind === "utility" ? "px-1" : "px-3";
+function tableColumnInsetClass(index: number, count: number, kind: "data" | "utility" = "data") {
+  if (kind !== "utility") return "px-3";
+  const isFirst = index === 0;
+  const isLast = index === count - 1;
+  return cn(isFirst ? "ps-3" : "ps-1", isLast ? "pe-3" : "pe-1");
 }
 
 /**

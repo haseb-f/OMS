@@ -40,6 +40,7 @@ import { CreateStoreOrderReceiptDto } from './dto/create-store-order-receipt.dto
 import { SetPaymentReviewStatusDto } from './dto/set-payment-review-status.dto';
 import { ObjectStorageService } from '../common/storage/object-storage.service';
 import { validateAttachmentUpload } from '../common/storage/file-validation';
+import { PhoneNumberService } from '../common/phone/phone-number.service';
 import { randomUUID } from 'node:crypto';
 
 const ORDER_INCLUDE = {
@@ -146,6 +147,7 @@ export class StoreOrdersService {
     private readonly activityService: StoreOrderActivityService,
     private readonly paymentSync: StoreOrderPaymentSyncService,
     private readonly objectStorage: ObjectStorageService,
+    private readonly phoneNumberService: PhoneNumberService,
   ) {}
 
   /**
@@ -387,13 +389,23 @@ export class StoreOrdersService {
         ],
       };
     }
-    if (query.search) {
+    const search = query.search?.trim();
+    if (search) {
+      // Practical operational search: OMS order number, External Order
+      // ID, customer name, and customer phone — the last matched via
+      // digit-only candidates (shared `PhoneNumberService.searchCandidates`,
+      // the same normalization authority import/sync logic uses) so
+      // "564345678", "0564345678", "966564345678", and "+966564345678"
+      // all find a customer stored as "+966564345678".
+      const phoneCandidates = this.phoneNumberService.searchCandidates(search);
       where.OR = [
-        { internalOrderId: { contains: query.search, mode: 'insensitive' } },
-        { externalOrderId: { contains: query.search, mode: 'insensitive' } },
-        {
-          customer: { name: { contains: query.search, mode: 'insensitive' } },
-        },
+        { internalOrderId: { contains: search, mode: 'insensitive' } },
+        { externalOrderId: { contains: search, mode: 'insensitive' } },
+        { customer: { name: { contains: search, mode: 'insensitive' } } },
+        ...phoneCandidates.flatMap((digits) => [
+          { customer: { phone: { contains: digits } } },
+          { customer: { mobile: { contains: digits } } },
+        ]),
       ];
     }
     if (query.dateFrom || query.dateTo) {

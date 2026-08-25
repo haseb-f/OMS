@@ -378,6 +378,9 @@ const ar = {
     goToLastPage: "الانتقال إلى الصفحة الأخيرة",
     noResults: "لا توجد نتائج.",
     filterPlaceholder: "تصفية…",
+    clearSearch: "مسح البحث",
+    noSearchResults: 'لا توجد نتائج لـ "{term}".',
+    noSearchResultsHint: "تحقق من الإملاء أو جرّب كلمات بحث مختلفة.",
     refresh: "تحديث",
     print: "طباعة",
     options: "خيارات الجدول",
@@ -2025,6 +2028,7 @@ const ar = {
     title: "طلبات المتجر",
     description:
       "طلبات المتجر الخارجية — مستوردة أو مُدخلة يدوياً، تُطابق مع العملاء برقم الهاتف، ثم تُسوّى وتُشحن.",
+    searchPlaceholder: "ابحث برقم الطلب أو اسم العميل أو رقم الجوال...",
     empty: "لا توجد طلبات متجر بعد.",
     open: "فتح",
     viewOrder: "عرض الطلب",
