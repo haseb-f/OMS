@@ -214,6 +214,7 @@ export function ProductModal({
   warehouses,
   onSaved,
   onCategoryCreated,
+  initialTab,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -230,9 +231,11 @@ export function ProductModal({
   onSaved: () => void;
   /** Appends the newly created category to the page's `categories` list — this modal never owns that state itself. */
   onCategoryCreated?: (category: CategoryRow) => void;
+  /** Opens straight to a specific tab (e.g. the compact detail page's per-section edit icons) — falls back to "general". */
+  initialTab?: string;
 }) {
   const { t } = useLocale();
-  const [activeTab, setActiveTab] = useState("general");
+  const [activeTab, setActiveTab] = useState(initialTab ?? "general");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [savedProduct, setSavedProduct] = useState<ProductRow | null>(editingProduct);
   const [originalType, setOriginalType] = useState<ProductType | null>(
@@ -249,12 +252,12 @@ export function ProductModal({
 
   useEffect(() => {
     if (!open) return;
-    setActiveTab("general");
+    setActiveTab(initialTab ?? "general");
     setSavedProduct(editingProduct);
     setOriginalType(editingProduct?.type ?? null);
     form.reset(toFormValues(editingProduct ?? duplicateSource));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, editingProduct, duplicateSource]);
+  }, [open, editingProduct, duplicateSource, initialTab]);
 
   const isDirty = form.formState.isDirty;
   const isEditing = !!editingProduct;

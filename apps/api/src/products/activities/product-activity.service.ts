@@ -11,6 +11,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 export const ProductActivityType = {
   PRODUCT_CREATED: 'PRODUCT_CREATED',
   PRODUCT_UPDATED: 'PRODUCT_UPDATED',
+  /** Product Creation Wizard — Draft → Active via the dedicated "تفعيل المنتج" action. */
+  PRODUCT_ACTIVATED: 'PRODUCT_ACTIVATED',
   PRODUCT_ARCHIVED: 'PRODUCT_ARCHIVED',
   PRODUCT_RESTORED: 'PRODUCT_RESTORED',
   ATTACHMENT_ADDED: 'ATTACHMENT_ADDED',

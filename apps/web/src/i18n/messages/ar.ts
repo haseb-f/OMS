@@ -1,6 +1,7 @@
 const ar = {
   common: {
     none: "— بدون —",
+    yes: "نعم",
     select: "اختر…",
     clearSelection: "إلغاء التحديد",
     search: "بحث",
@@ -1319,6 +1320,38 @@ const ar = {
     createDialog: {
       title: "إضافة منتج",
       description: "فقط ما يلزم للحفظ — يمكن إضافة الباقي لاحقًا.",
+    },
+    wizard: {
+      steps: {
+        basics: "الأساسيات",
+        pricing: "التسعير والتجارة",
+        inventory: "المخزون",
+        review: "مراجعة وإنشاء",
+      },
+      back: "السابق",
+      next: "التالي",
+      createDraft: "إنشاء كمسودة",
+      createDraftNow: "إنشاء كمسودة الآن",
+      reviewIntro: "راجع البيانات قبل الإنشاء — يمكن إكمال أي حقل لاحقًا من صفحة المنتج.",
+      willStartAsDraft:
+        "سيبدأ المنتج كـ «مسودة» — استخدم زر «تفعيل المنتج» لاحقًا لإتاحته للبيع والشراء.",
+      notProvided: "لم تتم إضافته",
+    },
+    detail: {
+      activate: "تفعيل المنتج",
+      activated: "تم تفعيل المنتج.",
+      draftExcludedHint:
+        "هذا المنتج «مسودة» — لا يظهر في قوائم البيع/الشراء ولا في بيانات Google Sheets المرجعية حتى يتم تفعيله.",
+      sections: {
+        basics: "الأساسيات",
+        status: "الحالة",
+      },
+      tabs: {
+        overview: "نظرة عامة",
+        pricing: "التسعير",
+        inventory: "المخزون",
+        activity: "النشاط",
+      },
     },
     successDialog: {
       title: "تم إنشاء المنتج بنجاح",

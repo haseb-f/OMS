@@ -53,6 +53,13 @@ export class ProductsController {
     return this.productsService.update(id, dto, user.sub);
   }
 
+  /** Product Creation Wizard — the "تفعيل المنتج" action. Reuses the `edit` permission, same as `PATCH` (POST defaults to `create`, which activation is not). */
+  @Post(':id/activate')
+  @PermissionAction('edit')
+  activate(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.productsService.activate(id, user.sub);
+  }
+
   @Post(':id/archive')
   @PermissionAction('delete')
   archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {

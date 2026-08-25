@@ -17,6 +17,9 @@ const enterpriseButtonVariants = cva(
         secondary:
           "bg-linear-to-b from-secondary to-secondary/95 text-secondary-foreground border-black/10 dark:border-white/12 shadow-xs not-disabled:hover:shadow-sm not-disabled:hover:brightness-[1.03] not-disabled:hover:border-black/16 dark:not-disabled:hover:border-white/18 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         info: "bg-info text-info-foreground border-black/18 dark:border-white/18 shadow-xs not-disabled:hover:shadow-md not-disabled:hover:brightness-90 not-disabled:hover:border-black/25 dark:not-disabled:hover:border-white/25 aria-expanded:brightness-90",
+        /** The one green "primary positive" action (Activate, Approve, ...) — never a one-off inline green className. */
+        success:
+          "bg-success text-success-foreground border-black/18 dark:border-white/18 shadow-xs not-disabled:hover:shadow-md not-disabled:hover:brightness-90 not-disabled:hover:border-black/25 dark:not-disabled:hover:border-white/25 aria-expanded:brightness-90",
         warning:
           "bg-warning text-warning-foreground border-black/18 dark:border-white/18 shadow-xs not-disabled:hover:shadow-md not-disabled:hover:brightness-90 not-disabled:hover:border-black/25 dark:not-disabled:hover:border-white/25 aria-expanded:brightness-90",
         ghost:

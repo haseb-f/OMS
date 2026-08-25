@@ -97,8 +97,15 @@ export class CreateProductDto {
   @IsOptional()
   longDescription?: string;
 
+  /**
+   * Optional — never a mandatory extra step in the creation wizard.
+   * Defaults to `PURCHASE_AND_SALE` in `ProductsService.create()` when
+   * omitted (the safest default: sellable AND purchasable), still editable
+   * later like every other field.
+   */
   @IsEnum(ProductType)
-  type!: ProductType;
+  @IsOptional()
+  type?: ProductType;
 
   @IsEnum(ProductStatus)
   @IsOptional()

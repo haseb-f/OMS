@@ -1,6 +1,7 @@
 const en = {
   common: {
     none: "— None —",
+    yes: "Yes",
     select: "Select…",
     clearSelection: "Clear selection",
     search: "Search",
@@ -1325,6 +1326,39 @@ const en = {
     createDialog: {
       title: "Add Product",
       description: "Only what's needed to save — everything else can be added after.",
+    },
+    wizard: {
+      steps: {
+        basics: "Basics",
+        pricing: "Pricing & Commerce",
+        inventory: "Inventory",
+        review: "Review & Create",
+      },
+      back: "Back",
+      next: "Next",
+      createDraft: "Create as Draft",
+      createDraftNow: "Create as Draft Now",
+      reviewIntro:
+        "Review before creating — any field can be completed later from the product page.",
+      willStartAsDraft:
+        'The product will start as a Draft — use the "Activate Product" action later to make it available for sale and purchase.',
+      notProvided: "Not provided",
+    },
+    detail: {
+      activate: "Activate Product",
+      activated: "Product activated.",
+      draftExcludedHint:
+        "This product is a Draft — it will not appear in sales/purchase lists or Google Sheets reference data until activated.",
+      sections: {
+        basics: "Basics",
+        status: "Status",
+      },
+      tabs: {
+        overview: "Overview",
+        pricing: "Pricing",
+        inventory: "Inventory",
+        activity: "Activity",
+      },
     },
     successDialog: {
       title: "Product created successfully",

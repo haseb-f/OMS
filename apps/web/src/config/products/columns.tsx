@@ -58,7 +58,7 @@ export const productsColumns: ColumnDef<ProductRow, unknown>[] = [
   },
   {
     id: "name",
-    meta: { titleKey: "products.table.name", stacked: true, type: "name" },
+    meta: { titleKey: "products.table.name", stacked: true, type: "name", identity: true },
     accessorFn: (row) => row.displayName || row.name,
     cell: ({ row }) => (
       <StackedCell

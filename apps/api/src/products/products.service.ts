@@ -93,7 +93,11 @@ export class ProductsService {
    * check as `update()`.
    */
   async create(dto: CreateProductDto, userId?: string) {
-    const defaults = DEFAULT_FLAGS_BY_TYPE[dto.type];
+    // Product Creation Wizard — Product Type is never an extra required
+    // step; PURCHASE_AND_SALE is the safest default (sellable AND
+    // purchasable) when the wizard's caller omits it entirely.
+    const type = dto.type ?? ProductType.PURCHASE_AND_SALE;
+    const defaults = DEFAULT_FLAGS_BY_TYPE[type];
     const isPurchasable = dto.isPurchasable ?? defaults.isPurchasable;
     const isSellable = dto.isSellable ?? defaults.isSellable;
     const isInventoryItem = dto.isInventoryItem ?? defaults.isInventoryItem;
@@ -101,15 +105,9 @@ export class ProductsService {
 
     if (status === ProductStatus.ACTIVE) {
       this.assertActivationReady({
-        isSellable,
-        isPurchasable,
-        isInventoryItem,
-        salesPrice: dto.salesPrice,
-        purchasePrice: dto.purchasePrice,
-        weight: dto.weight,
-        width: dto.width,
-        height: dto.height,
-        length: dto.length,
+        name: dto.name,
+        categoryId: dto.categoryId,
+        unitId: dto.unitId,
       });
     }
 
@@ -123,6 +121,7 @@ export class ProductsService {
         const product = await tx.product.create({
           data: {
             ...dto,
+            type,
             status,
             sku,
             internalName: dto.internalName || dto.name,
@@ -248,15 +247,9 @@ export class ProductsService {
       existing.status !== ProductStatus.ACTIVE
     ) {
       this.assertActivationReady({
-        isSellable: dto.isSellable ?? existing.isSellable,
-        isPurchasable: dto.isPurchasable ?? existing.isPurchasable,
-        isInventoryItem: dto.isInventoryItem ?? existing.isInventoryItem,
-        salesPrice: dto.salesPrice ?? existing.salesPrice?.toNumber(),
-        purchasePrice: dto.purchasePrice ?? existing.purchasePrice?.toNumber(),
-        weight: dto.weight ?? existing.weight?.toNumber(),
-        width: dto.width ?? existing.width?.toNumber(),
-        height: dto.height ?? existing.height?.toNumber(),
-        length: dto.length ?? existing.length?.toNumber(),
+        name: dto.name ?? existing.name,
+        categoryId: dto.categoryId ?? existing.categoryId,
+        unitId: dto.unitId ?? existing.unitId,
       });
     }
 
@@ -343,48 +336,26 @@ export class ProductsService {
   }
 
   /**
-   * The Draft → Active gate. Grounded only in rules that already exist
-   * elsewhere in this codebase — ADR-0012's "weight/dimensions mandatory
-   * when isInventoryItem" verbatim, plus the same "can't sell/purchase
-   * without a price" logic implied by `salesPrice`/`purchasePrice` existing
-   * as real, meaningful fields once `isSellable`/`isPurchasable` is true.
-   * Never gates on Category/Tax/accounts — those already resolve to a
-   * working default via Category/Accounting Settings, so there's nothing
-   * genuinely missing at the product level to block on.
+   * The Draft → Active gate (Product Creation Wizard) — exactly Name,
+   * Category, and Unit of Measure, the same three fields required to
+   * create a product at all. Every other field (price, tax, supplier,
+   * inventory settings, dimensions, ...) stays fully optional at
+   * activation — a draft with nothing but the three required fields must
+   * be activatable. These three are already non-nullable DB columns (so a
+   * real, previously-saved row can never actually fail this), but the
+   * check stays explicit here as the one place activation's business rule
+   * is stated and server-side enforced, independent of whatever the
+   * frontend does.
    */
   private assertActivationReady(data: {
-    isSellable: boolean;
-    isPurchasable: boolean;
-    isInventoryItem: boolean;
-    salesPrice?: number | null;
-    purchasePrice?: number | null;
-    weight?: number | null;
-    width?: number | null;
-    height?: number | null;
-    length?: number | null;
+    name?: string | null;
+    categoryId?: string | null;
+    unitId?: string | null;
   }): void {
     const missing: string[] = [];
-    if (
-      data.isSellable &&
-      (data.salesPrice === null || data.salesPrice === undefined)
-    ) {
-      missing.push('salesPrice');
-    }
-    if (
-      data.isPurchasable &&
-      (data.purchasePrice === null || data.purchasePrice === undefined)
-    ) {
-      missing.push('purchasePrice');
-    }
-    if (
-      data.isInventoryItem &&
-      (data.weight == null ||
-        data.width == null ||
-        data.height == null ||
-        data.length == null)
-    ) {
-      missing.push('weight', 'width', 'height', 'length');
-    }
+    if (!data.name?.trim()) missing.push('name');
+    if (!data.categoryId) missing.push('categoryId');
+    if (!data.unitId) missing.push('unitId');
     if (missing.length > 0) {
       throw new BadRequestException({
         code: 'VALIDATION_ERROR',
@@ -395,6 +366,40 @@ export class ProductsService {
         })),
       });
     }
+  }
+
+  /**
+   * Dedicated Draft → Active business operation (mirrors Purchase Order's
+   * `approve()` transition pattern) — a named endpoint the "تفعيل المنتج"
+   * button calls, rather than relying on callers to know that `PATCH
+   * {status: 'ACTIVE'}` happens to do the same thing. Only ever moves a
+   * DRAFT or INACTIVE product to ACTIVE; already-ACTIVE is a no-op success
+   * (idempotent — clicking twice, or a slow double-submit, never errors).
+   */
+  async activate(id: string, userId?: string) {
+    const existing = await this.findOne(id);
+    if (existing.status === ProductStatus.ACTIVE) {
+      return existing;
+    }
+    this.assertActivationReady({
+      name: existing.name,
+      categoryId: existing.categoryId,
+      unitId: existing.unitId,
+    });
+    return this.prisma.$transaction(async (tx) => {
+      const product = await tx.product.update({
+        where: { id },
+        data: { status: ProductStatus.ACTIVE, updatedBy: userId ?? null },
+      });
+      await this.activityService.log(
+        id,
+        ProductActivityType.PRODUCT_ACTIVATED,
+        `Product ${product.sku} activated`,
+        undefined,
+        tx,
+      );
+      return product;
+    });
   }
 
   private mapError(error: unknown): Error {

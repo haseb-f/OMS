@@ -188,7 +188,16 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
   {
     key: 'products',
     labelKey: 'permissions.modules.products',
-    actions: crud('products', { export: true }),
+    // `delete` maps to the friendlier `products.archive` name (soft delete
+    // only, same as Suppliers' `purchasing.suppliers.archive`) — this was
+    // previously missing entirely, so the controller's `/archive` route
+    // (@PermissionAction('delete')) could never actually be granted to
+    // anyone; the frontend's own `hasPermission("products.archive")`
+    // check already expected this exact name.
+    actions: [
+      ...crud('products', { export: true }),
+      { action: 'delete', name: 'products.archive' },
+    ],
   },
   {
     key: 'inventory',

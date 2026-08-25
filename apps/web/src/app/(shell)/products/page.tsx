@@ -330,6 +330,7 @@ function ProductsPageContent() {
           )
         }
         onRefresh={load}
+        getRowHref={(row) => `/products/${row.id}`}
         exportColumns={exportColumnsFromKeys(productsColumns, productsExportColumns, t)}
         onExport={(selectedKeys) =>
           exportRowsToCsv(
@@ -346,6 +347,9 @@ function ProductsPageContent() {
         icon={Package}
         categories={categories}
         units={units}
+        taxes={taxes}
+        suppliers={suppliers}
+        warehouses={warehouses}
         onCreated={handleCreated}
       />
 

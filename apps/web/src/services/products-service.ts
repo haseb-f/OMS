@@ -116,6 +116,14 @@ export interface ProductListParams {
   type?: ProductType | ProductType[];
 }
 
+export interface ProductActivityEntry {
+  id: string;
+  type: string;
+  description: string;
+  createdAt: string;
+  createdBy: string | null;
+}
+
 interface ProductListResult {
   items: ProductRow[];
   total: number;
@@ -132,18 +140,11 @@ export const productsService = {
   create: (dto: Record<string, unknown>) => apiClient.post<ProductRow>("/products", dto),
   update: (id: string, dto: Record<string, unknown>) =>
     apiClient.patch<ProductRow>(`/products/${id}`, dto),
+  /** Product Creation Wizard — the "تفعيل المنتج" action. Validates only Name/Category/Unit server-side. */
+  activate: (id: string) => apiClient.post<ProductRow>(`/products/${id}/activate`),
   archive: (id: string) => apiClient.post<ProductRow>(`/products/${id}/archive`),
   restore: (id: string) => apiClient.post<ProductRow>(`/products/${id}/restore`),
-  activity: (id: string) =>
-    apiClient.get<
-      {
-        id: string;
-        type: string;
-        description: string;
-        createdAt: string;
-        createdBy: string | null;
-      }[]
-    >(`/products/${id}/activities`),
+  activity: (id: string) => apiClient.get<ProductActivityEntry[]>(`/products/${id}/activities`),
 
   variants: {
     list: (productId: string) =>
