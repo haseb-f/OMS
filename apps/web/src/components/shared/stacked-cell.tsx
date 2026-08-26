@@ -38,18 +38,21 @@ export function StackedCell({
   return (
     <div
       data-slot="stacked-cell"
-      className={cn("flex min-w-0 max-w-full flex-col justify-center gap-0.5", className)}
+      className={cn("flex min-w-0 max-w-full flex-col justify-center gap-0", className)}
     >
       {/* Line height comes from the type scale, never a tighter local override:
           these blocks sit inside cells that clip overflow, so a compressed box
-          shaves the tops off Arabic glyphs instead of just tightening rhythm. */}
+          shaves the tops off Arabic glyphs instead of just tightening rhythm.
+          The secondary line uses `text-micro` (not a shrunk `text-caption`) —
+          the type scale's own "tertiary metadata in a busy view" step, so this
+          still leans on a vetted token rather than a one-off override. */}
       {showPrimary ? (
         <div className="min-w-0 max-w-full font-medium text-foreground [&:not(:has([data-slot=badge]))]:text-body">
           {primary}
         </div>
       ) : null}
       {showSecondary ? (
-        <div className="min-w-0 max-w-full text-caption text-muted-foreground">{secondary}</div>
+        <div className="min-w-0 max-w-full text-micro text-muted-foreground">{secondary}</div>
       ) : null}
     </div>
   );

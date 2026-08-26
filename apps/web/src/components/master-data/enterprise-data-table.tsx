@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
   ChevronRight,
@@ -341,6 +341,46 @@ export function EnterpriseDataTable<TData>({
   );
 
   const headerRefs = useRef<Record<string, HTMLTableCellElement | null>>({});
+
+  // Fill-remaining-viewport row area (TASK-062 scroll fix) — a flat `70vh`
+  // cap ignored how much chrome a given page stacks above the table
+  // (breadcrumb/header/toolbar) and how tall its own footer/pagination is,
+  // so on pages with more chrome than average (Customers, Products) the
+  // card's natural height still slightly exceeded the viewport. This
+  // measures the real remaining space (viewport height minus the scroll
+  // area's own top offset minus the footer's rendered height) instead of
+  // guessing a fraction — resolution-independent by construction, since it
+  // reads the actual layout rather than assuming a fixed chrome size.
+  // `max-h-[70vh]` in the className stays as the pre-hydration fallback.
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLDivElement>(null);
+  const [maxBodyHeight, setMaxBodyHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    function recomputeMaxBodyHeight() {
+      const scrollEl = scrollAreaRef.current;
+      if (!scrollEl) return;
+      const top = scrollEl.getBoundingClientRect().top;
+      const footerHeight = footerRef.current?.getBoundingClientRect().height ?? 0;
+      // 28px mirrors the shell's own bottom breathing room (AppShell's
+      // `pb-5`/`sm:pb-6`) plus a small safety margin for sub-pixel layout
+      // rounding, so the card never sits flush against the viewport edge;
+      // 240px is a sane floor so a very short window never collapses the
+      // table to something unusable.
+      const available = window.innerHeight - top - footerHeight - 28;
+      setMaxBodyHeight(Math.max(240, Math.round(available)));
+    }
+    recomputeMaxBodyHeight();
+    // One late re-measure catches chrome that's still settling on first
+    // paint (webfont swap, filter bar wrapping to a second line) without
+    // reaching for a full ResizeObserver for what is a one-time correction.
+    const settleTimer = window.setTimeout(recomputeMaxBodyHeight, 300);
+    window.addEventListener("resize", recomputeMaxBodyHeight);
+    return () => {
+      window.clearTimeout(settleTimer);
+      window.removeEventListener("resize", recomputeMaxBodyHeight);
+    };
+  }, []);
 
   const handleCopyCell = useCallback(
     (value: string) => {
@@ -931,10 +971,12 @@ export function EnterpriseDataTable<TData>({
             share leftover space by `grow`. `overflow-x-auto` is last resort
             after the responsive hide classes drop low/medium columns. */}
         <div
+          ref={scrollAreaRef}
           className={cn(
             "min-w-0 max-h-[70vh] overflow-auto",
             renderMobileRow && "hidden @3xl/enterprise-table:block",
           )}
+          style={maxBodyHeight ? { maxHeight: maxBodyHeight } : undefined}
         >
           <Table
             className="w-full table-fixed border-separate border-spacing-0"
@@ -1261,9 +1303,11 @@ export function EnterpriseDataTable<TData>({
           </Table>
         </div>
 
-        <ListFooter>
-          <EnterprisePagination table={table} />
-        </ListFooter>
+        <div ref={footerRef}>
+          <ListFooter>
+            <EnterprisePagination table={table} />
+          </ListFooter>
+        </div>
       </ListSurface>
 
       {exportColumns && onExport && (
