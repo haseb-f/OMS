@@ -1087,7 +1087,13 @@ export function EnterpriseDataTable<TData>({
                       <TableRow
                         data-state={row.getIsSelected() ? "selected" : undefined}
                         className={cn(
-                          "transition-colors duration-150 motion-reduce:transition-none hover:bg-muted/40 data-[state=selected]:bg-primary-soft",
+                          // Hairline row separator, same `--border` token as
+                          // every other line in the design system (never a
+                          // custom color) — scanning aid only, stripped off
+                          // the last row by TableBody's
+                          // `[&_tr:last-child]:border-0` so it never doubles
+                          // up with the list footer's own border-t.
+                          "border-b border-border transition-colors duration-150 motion-reduce:transition-none hover:bg-muted/40 data-[state=selected]:bg-primary-soft",
                           rowHref && "cursor-pointer",
                         )}
                         onClick={
