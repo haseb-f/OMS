@@ -71,8 +71,10 @@ import {
   hasTableDetailContent,
   RowActionsMenu,
   RowIdentityLink,
+  SelectCustomCountDialog,
   type RowAction,
   type TableDetailRegion,
+  type SelectCustomCountCopy,
 } from "@/components/shared/data-table";
 import { useLocale } from "@/providers/locale-provider";
 import { useLocalStorage } from "@/hooks/use-local-storage";
@@ -156,6 +158,7 @@ export function EnterpriseDataTable<TData>({
   bulkActions,
   onSelectAllMatching,
   isSelectingAllMatching,
+  selectCustomCount,
   exportColumns,
   onExport,
   onImport,
@@ -201,6 +204,18 @@ export function EnterpriseDataTable<TData>({
   onSelectAllMatching?: () => void | Promise<void>;
   /** Shows a loading state on the "select all matching" affordance while `onSelectAllMatching` is in flight. */
   isSelectingAllMatching?: boolean;
+  /**
+   * "Select a specific number" (TASK-064, opt-in) — omit to hide that menu
+   * item entirely. `onSelect` fetches/selects the first `count` rows by the
+   * caller's current filter+sort (the same job `onSelectAllMatching` does,
+   * unbounded); every string in `copy` is caller-owned since "N orders"
+   * needs the caller's own noun and grammar.
+   */
+  selectCustomCount?: {
+    onSelect: (count: number) => void | Promise<void>;
+    isSelecting?: boolean;
+    copy: SelectCustomCountCopy;
+  };
   /** Columns offered in the Export dialog's picker — omit to hide the Export button entirely. */
   exportColumns?: ExportColumn[];
   /** Foundation only — exports the current page's visible rows for the columns the user kept checked. */
@@ -456,13 +471,22 @@ export function EnterpriseDataTable<TData>({
     ? { pageIndex: (page as number) - 1, pageSize }
     : { pageIndex: internalPageIndex, pageSize: internalPageSize };
 
+  const [customCountDialogOpen, setCustomCountDialogOpen] = useState(false);
+
   const selectionColumn = useMemo(
     () =>
-      createSelectionColumn<TData>({
-        selectAll: t("table.selectAll"),
-        selectRow: t("table.selectRow"),
-      }),
-    [t],
+      createSelectionColumn<TData>(
+        { selectAll: t("table.selectAll"), selectRow: t("table.selectRow") },
+        {
+          onSelectAllMatching,
+          isSelectingAllMatching,
+          onRequestCustomCount: selectCustomCount
+            ? () => setCustomCountDialogOpen(true)
+            : undefined,
+          onClearSelection: () => handleRowSelectionChange({}),
+        },
+      ),
+    [t, onSelectAllMatching, isSelectingAllMatching, selectCustomCount, handleRowSelectionChange],
   );
 
   // Injects the translated header (via the shared EnterpriseTableColumnHeader) from
@@ -510,8 +534,11 @@ export function EnterpriseDataTable<TData>({
 
   const renderedColumns = useMemo<ColumnDef<TData, unknown>[]>(
     () => [
-      selectionColumn,
+      // Expand/open chevron before the checkbox (TASK-063) — in RTL this
+      // renders it at the true far edge of the table, ahead of selection,
+      // instead of floating between selection and the first data column.
       ...(expandColumn ? [expandColumn] : []),
+      selectionColumn,
       ...columns.map(
         (column) =>
           ({
@@ -628,17 +655,10 @@ export function EnterpriseDataTable<TData>({
   });
 
   const selectedCount = Object.keys(effectiveRowSelection).length;
-  // "Select all matching filters" (cross-page selection, Part 8) — only
-  // offered in server mode, only once every row on the current page is
-  // already selected, and only when the filtered set is actually bigger
-  // than one page. `onSelectAllMatching` does the real work (fetch just the
-  // matching IDs, never full records); this component only decides when to
-  // show the affordance and renders its two states.
-  const isCurrentPageFullySelected =
-    isServerMode &&
-    data.length > 0 &&
-    data.every((row, index) => effectiveRowSelection[resolveRowId(row, index)]);
-  const hasMoreThanPageMatching = isServerMode && (totalCount ?? 0) > data.length;
+  // Once every matching row (server mode) is selected, the bar swaps to a
+  // "use just this page" down-scope action instead of the usual
+  // clear-selection-only state — the up-scope action itself now lives in
+  // the header's own selection-scope menu (TASK-064).
   const isAllMatchingSelected =
     isServerMode && (totalCount ?? 0) > 0 && selectedCount >= (totalCount ?? 0);
   // Compact: two-line grouping with tighter padding. Comfortable: the same
@@ -829,27 +849,10 @@ export function EnterpriseDataTable<TData>({
               : `${selectedCount} ${t("table.rowsSelected")}`}
           </span>
 
-          {/* "Select all matching filters" — offered once every row on this
-              page is checked; disappears once the whole filtered set is
-              already selected, replaced by a plain clear-selection action. */}
-          {onSelectAllMatching &&
-            isCurrentPageFullySelected &&
-            hasMoreThanPageMatching &&
-            !isAllMatchingSelected && (
-              <EnterpriseButton
-                type="button"
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                disabled={isSelectingAllMatching}
-                onClick={() => onSelectAllMatching()}
-              >
-                {isSelectingAllMatching
-                  ? t("table.selectingAllMatching")
-                  : t("table.selectAllMatching", { count: totalCount ?? 0 })}
-              </EnterpriseButton>
-            )}
-
+          {/* "Select all matching filters" now lives in the header's own
+              selection-scope menu (TASK-064) — this bar only offers the
+              down-scope action once everything is already selected, plus
+              clear-selection, so it never duplicates that menu's items. */}
           {isAllMatchingSelected ? (
             <EnterpriseButton
               type="button"
@@ -1324,6 +1327,19 @@ export function EnterpriseDataTable<TData>({
           open={importDialogOpen}
           onOpenChange={setImportDialogOpen}
           onImport={onImport}
+        />
+      )}
+
+      {selectCustomCount && (
+        <SelectCustomCountDialog
+          open={customCountDialogOpen}
+          onOpenChange={setCustomCountDialogOpen}
+          isSubmitting={selectCustomCount.isSelecting}
+          copy={selectCustomCount.copy}
+          onConfirm={async (count) => {
+            await selectCustomCount.onSelect(count);
+            setCustomCountDialogOpen(false);
+          }}
         />
       )}
     </div>

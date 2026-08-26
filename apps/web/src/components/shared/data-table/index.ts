@@ -1,7 +1,8 @@
 export { EnterpriseTableColumnHeader } from "./data-table-column-header";
 export { EnterprisePagination } from "./data-table-pagination";
 export { EnterpriseTableViewOptions } from "./data-table-view-options";
-export { createSelectionColumn } from "./data-table-selection-column";
+export { createSelectionColumn, type SelectionMenuConfig } from "./data-table-selection-column";
+export { SelectCustomCountDialog, type SelectCustomCountCopy } from "./select-custom-count-dialog";
 export { RowActionsMenu, type RowAction } from "./row-actions-menu";
 export { RowIdentityLink } from "./row-identity-link";
 export {

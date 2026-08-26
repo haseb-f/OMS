@@ -136,6 +136,8 @@ export interface StoreOrderListParams {
   pageSize?: number;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
+  /** `listIds` only — caps "select all"/"select first N" to the first N matching rows by `sortBy`/`sortOrder`. */
+  limit?: number;
 }
 
 export interface StoreOrderListResult {

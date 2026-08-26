@@ -467,4 +467,41 @@ export class StoreOrderShipmentOperationsService {
     }
     return results;
   }
+
+  /**
+   * Bulk "change to any status" for the Store Orders list's advanced
+   * selection feature — reuses `setShippingStatus` (the exact per-order
+   * "direct change to any status" operation, including its FINAL/UNDER_SYNC
+   * reopening logic) per row, applied atomically with partial success
+   * allowed, tagged `BULK` for the audit trail. Deliberately separate from
+   * `bulkUpdateStatus` above: that one is keyed by shipment id and limited
+   * to a handful of named enum transitions for the flat Shipping list; this
+   * one is keyed by store order id and accepts any active catalog status,
+   * matching the Store Order detail page's own status picker.
+   */
+  async bulkSetShippingStatus(
+    storeOrderIds: string[],
+    shippingStatusId: string,
+    userId?: string,
+  ) {
+    const results: { id: string; success: boolean; message?: string }[] = [];
+    for (const storeOrderId of storeOrderIds) {
+      try {
+        await this.setShippingStatus(
+          storeOrderId,
+          shippingStatusId,
+          userId,
+          StoreOrderActivitySource.BULK,
+        );
+        results.push({ id: storeOrderId, success: true });
+      } catch (error) {
+        results.push({
+          id: storeOrderId,
+          success: false,
+          message: error instanceof Error ? error.message : 'Failed to update.',
+        });
+      }
+    }
+    return results;
+  }
 }

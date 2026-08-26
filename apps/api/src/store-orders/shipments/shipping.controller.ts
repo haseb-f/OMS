@@ -18,6 +18,7 @@ import { StoreOrderShipmentsService } from './store-order-shipments.service';
 import { StoreOrderShipmentOperationsService } from './store-order-shipment-operations.service';
 import { FindShipmentsQueryDto } from './dto/find-shipments-query.dto';
 import { BulkUpdateShipmentsDto } from './dto/bulk-update-shipments.dto';
+import { BulkSetShippingStatusDto } from './dto/bulk-set-shipping-status.dto';
 
 /** Flat, cross-order Shipping list page — `GET /shipping`, not nested under any one Store Order. */
 @Controller('shipping')
@@ -70,6 +71,21 @@ export class ShippingController {
     return this.operations.bulkUpdateStatus(
       dto.shipmentIds,
       dto.targetStatus,
+      user.sub,
+    );
+  }
+
+  /** Bulk "change to any status" from the Store Orders list's advanced selection — see `bulkSetShippingStatus`. */
+  @Post('bulk-status')
+  @HttpCode(200)
+  @PermissionAction('manage')
+  bulkSetStatus(
+    @Body() dto: BulkSetShippingStatusDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.operations.bulkSetShippingStatus(
+      dto.storeOrderIds,
+      dto.shippingStatusId,
       user.sub,
     );
   }

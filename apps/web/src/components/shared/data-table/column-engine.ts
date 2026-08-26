@@ -177,7 +177,9 @@ function inferColumnType(columnId: string): ColumnType {
 }
 
 const UTILITY_FIXED_WIDTH: Record<"select" | "__expand" | "__actions", number> = {
-  select: 44,
+  // Wide enough for the checkbox plus the selection-scope menu's chevron
+  // (TASK-064) side by side without crowding.
+  select: 52,
   __expand: 44,
   __actions: 88,
 };

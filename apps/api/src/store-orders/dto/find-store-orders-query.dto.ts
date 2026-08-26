@@ -82,4 +82,12 @@ export class FindStoreOrdersQueryDto {
   @IsIn(['asc', 'desc'])
   @IsOptional()
   sortOrder?: 'asc' | 'desc' = 'desc';
+
+  /** `GET /store-orders/ids` only — caps "select all"/"select first N" to the first N matching rows by `sortBy`/`sortOrder`, instead of the full (up to 10,000) matching set. */
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(10_000)
+  @IsOptional()
+  limit?: number;
 }

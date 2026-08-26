@@ -439,7 +439,14 @@ export class StoreOrdersService {
     };
   }
 
-  /** "Select all matching filters" — bare IDs only, same filter/search as `findAll`. */
+  /**
+   * "Select all matching filters" / "select the first N" — bare IDs only,
+   * same filter/search as `findAll`, ordered the same way (`sortBy`/
+   * `sortOrder`) so a caller-supplied `limit` deterministically means "the
+   * first N by the current sort," never an arbitrary DB-order subset.
+   * Uncapped selection still stops at 10,000 rows — plain id strings, not
+   * full records, so this stays cheap even at that ceiling.
+   */
   async findAllIds(
     query: Pick<
       FindStoreOrdersQueryDto,
@@ -451,14 +458,19 @@ export class StoreOrdersService {
       | 'search'
       | 'dateFrom'
       | 'dateTo'
+      | 'sortBy'
+      | 'sortOrder'
+      | 'limit'
     >,
   ) {
     const where = this.buildFindWhere(query);
+    const take = Math.min(query.limit ?? 10_000, 10_000);
     const [rows, total] = await Promise.all([
       this.prisma.storeOrder.findMany({
         where,
         select: { id: true },
-        take: 10_000,
+        orderBy: { [query.sortBy || 'createdAt']: query.sortOrder ?? 'desc' },
+        take,
       }),
       this.prisma.storeOrder.count({ where }),
     ]);

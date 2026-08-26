@@ -63,6 +63,13 @@ export interface BulkShipmentUpdateResult {
   failed: { id: string; message: string }[];
 }
 
+/** One row's outcome from `bulkSetStatus` — partial success is expected, never all-or-nothing. */
+export interface BulkShippingStatusResultRow {
+  id: string;
+  success: boolean;
+  message?: string;
+}
+
 /** Dynamic shipping-status catalog row as embedded on a Shipment (`shipment.shippingStatus`) — `{id, code, name, color}`. */
 export interface ShippingStatusOption {
   id: string;
@@ -104,4 +111,10 @@ export const shippingService = {
     apiClient.post<BulkShipmentUpdateResult>("/shipping/bulk-update", { ids, status }),
   /** Dynamic shipping-status catalog — database is the source of truth, used to populate the direct "change to any status" picker. */
   statuses: () => apiClient.get<ShippingStatusCatalogEntry[]>("/shipping/statuses"),
+  /** Bulk "change to any status" from the Store Orders list's advanced selection (TASK-064) — same per-order operation as `storeOrdersService.shipments.setShippingStatus`, keyed by store order id, applied per row with partial success reported back. */
+  bulkSetStatus: (storeOrderIds: string[], shippingStatusId: string) =>
+    apiClient.post<BulkShippingStatusResultRow[]>("/shipping/bulk-status", {
+      storeOrderIds,
+      shippingStatusId,
+    }),
 };
