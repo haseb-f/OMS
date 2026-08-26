@@ -7,11 +7,14 @@ import { cn } from "@/lib/utils";
 /**
  * The record link a list row is opened from.
  *
- * Rows are not one large click target — the checkbox, expand chevron and
- * actions menu each own their own zone — so the identity cell carries
- * navigation on its own. It reads as product chrome rather than a document
- * hyperlink: inherited colour at rest, primary on hover, and a focus ring
- * that survives being nested inside a clipped table cell.
+ * The whole row navigates on click (see `getRowHref` in
+ * `EnterpriseDataTable`), but the identity cell also renders as a real
+ * anchor so middle-click, Ctrl+click and "copy link" work from the thing
+ * that names the record — the checkbox, expand chevron and actions menu
+ * keep their own independent click zones regardless. It reads as product
+ * chrome rather than a document hyperlink: inherited colour at rest, primary
+ * on hover, and a focus ring that survives being nested inside a clipped
+ * table cell.
  */
 export function RowIdentityLink({
   href,

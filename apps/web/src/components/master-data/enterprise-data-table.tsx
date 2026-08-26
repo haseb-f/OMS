@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import {
   ChevronRight,
   Download,
@@ -227,14 +228,17 @@ export function EnterpriseDataTable<TData>({
   renderMobileRow?: (args: MobileRowRenderArgs<TData>) => ReactNode;
   /**
    * Detail route for a row. Opt-in: tables for entities with no detail route
-   * simply omit it. When present, the column marked `meta.identity` becomes a
-   * real link, so opening a record is one click on the thing that names it
-   * rather than a trip through the actions menu — and middle-click, Ctrl+click
-   * and "copy link" all behave like navigation is expected to.
+   * simply omit it. When present, the whole row navigates on click — the
+   * column marked `meta.identity` additionally renders as a real `<a>`, so
+   * middle-click, Ctrl+click and "copy link" work from that cell exactly like
+   * navigation is expected to. Interactive children (checkbox, expand
+   * chevron, actions menu, inline controls) own their own click and never
+   * trigger row navigation.
    */
   getRowHref?: (row: TData) => string | null | undefined;
 }) {
   const { t, direction } = useLocale();
+  const router = useRouter();
   const { printList } = usePrintEngine();
   const { activeCompany } = useCompany();
   const { user } = useUserContext();
@@ -1076,147 +1080,176 @@ export function EnterpriseDataTable<TData>({
                   </TableCell>
                 </TableRow>
               ) : (
-                table.getRowModel().rows.map((row) => (
-                  <Fragment key={row.id}>
-                    <TableRow
-                      data-state={row.getIsSelected() ? "selected" : undefined}
-                      className="transition-colors duration-150 motion-reduce:transition-none hover:bg-muted/40 data-[state=selected]:bg-primary-soft"
-                    >
-                      {row.getVisibleCells().map((cell, index) => {
-                        const layout = layoutById.get(cell.column.id);
-                        const rendered = flexRender(cell.column.columnDef.cell, cell.getContext());
-                        // Only the identity column navigates. The row itself
-                        // stays inert so the checkbox, chevron and actions menu
-                        // sharing it keep unambiguous hit areas.
-                        const identityHref = cell.column.columnDef.meta?.identity
-                          ? (getRowHref?.(row.original) ?? null)
-                          : null;
-                        const content = identityHref ? (
-                          <RowIdentityLink href={identityHref}>{rendered}</RowIdentityLink>
-                        ) : (
-                          rendered
-                        );
-                        const isWrapped = Boolean(cell.column.columnDef.meta?.wrap);
-                        const isStacked =
-                          Boolean(cell.column.columnDef.meta?.stacked) ||
-                          isStackedCellNode(rendered);
-                        const isUtility =
-                          layout?.type === "checkbox" ||
-                          layout?.type === "expand" ||
-                          layout?.type === "actions" ||
-                          cell.column.id === "__expand";
-                        const displayValue = isUtility
-                          ? ""
-                          : getColumnDisplayValue(cell.column.columnDef, row.original);
-                        return (
-                          <TableCell
-                            key={cell.id}
-                            data-column-id={cell.column.id}
-                            className={cn(
-                              "align-middle min-w-0 px-0",
-                              tableColumnInsetClass(
-                                index,
-                                row.getVisibleCells().length,
-                                isUtility ? "utility" : "data",
-                              ),
-                              cellPaddingClass,
-                              cellTextClass,
-                              alignClass[layout?.align ?? "start"],
-                              responsiveHideClass(layout?.importance ?? "high"),
-                              (isStacked || isWrapped) && "whitespace-normal",
-                            )}
-                            style={{
-                              minWidth: layout?.minWidth ?? undefined,
-                              maxWidth: columnWidths[cell.column.id]
-                                ? undefined
-                                : (layout?.maxWidth ?? undefined),
-                              ...getPinStyle(cell.column.id),
-                            }}
-                          >
-                            {isUtility || isStacked ? (
-                              content
-                            ) : isWrapped ? (
-                              <div className={tableCellWrapClass}>{content}</div>
-                            ) : (
-                              // Single-line operational values clip on the
-                              // inline axis and recover the full text in the
-                              // tooltip — the only place truncation is applied
-                              // by default.
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div
-                                    className={cn(
-                                      tableCellContentClass,
-                                      layout?.align === "end" && "block w-full text-end",
-                                      layout?.align === "center" && "block w-full text-center",
-                                    )}
-                                    onDoubleClick={() => handleCopyCell(displayValue)}
-                                    title=""
-                                  >
-                                    {content}
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent side="top">{displayValue}</TooltipContent>
-                              </Tooltip>
-                            )}
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                    {row.getIsExpanded() && renderExpandedRegions
-                      ? (() => {
-                          const detailCells = layoutDetailRegions(
-                            detailColumnAxes,
-                            renderExpandedRegions(row.original),
+                table.getRowModel().rows.map((row) => {
+                  const rowHref = getRowHref?.(row.original) ?? null;
+                  return (
+                    <Fragment key={row.id}>
+                      <TableRow
+                        data-state={row.getIsSelected() ? "selected" : undefined}
+                        className={cn(
+                          "transition-colors duration-150 motion-reduce:transition-none hover:bg-muted/40 data-[state=selected]:bg-primary-soft",
+                          rowHref && "cursor-pointer",
+                        )}
+                        onClick={
+                          rowHref
+                            ? (event) => {
+                                const target = event.target as HTMLElement;
+                                // Interactive children (checkbox, expand chevron,
+                                // actions menu, the identity link itself, any
+                                // inline control) own their own click — only a
+                                // click on inert row space navigates.
+                                if (
+                                  target.closest(
+                                    'a, button, input, select, textarea, [role="menuitem"], [data-radix-collection-item], [contenteditable="true"]',
+                                  )
+                                ) {
+                                  return;
+                                }
+                                if (window.getSelection()?.toString()) return;
+                                router.push(rowHref);
+                              }
+                            : undefined
+                        }
+                      >
+                        {row.getVisibleCells().map((cell, index) => {
+                          const layout = layoutById.get(cell.column.id);
+                          const rendered = flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext(),
                           );
-                          const total = visibleLeafColumns.length;
+                          // Only the identity column navigates. The row itself
+                          // stays inert so the checkbox, chevron and actions menu
+                          // sharing it keep unambiguous hit areas.
+                          const identityHref = cell.column.columnDef.meta?.identity
+                            ? rowHref
+                            : null;
+                          const content = identityHref ? (
+                            <RowIdentityLink href={identityHref}>{rendered}</RowIdentityLink>
+                          ) : (
+                            rendered
+                          );
+                          const isWrapped = Boolean(cell.column.columnDef.meta?.wrap);
+                          const isStacked =
+                            Boolean(cell.column.columnDef.meta?.stacked) ||
+                            isStackedCellNode(rendered);
+                          const isUtility =
+                            layout?.type === "checkbox" ||
+                            layout?.type === "expand" ||
+                            layout?.type === "actions" ||
+                            cell.column.id === "__expand";
+                          const displayValue = isUtility
+                            ? ""
+                            : getColumnDisplayValue(cell.column.columnDef, row.original);
                           return (
-                            <TableRow
-                              id={`table-detail-${row.id}`}
-                              data-slot="table-detail-row"
-                              dir={direction}
-                              className="bg-muted/25 hover:bg-transparent"
+                            <TableCell
+                              key={cell.id}
+                              data-column-id={cell.column.id}
+                              className={cn(
+                                "align-middle min-w-0 px-0",
+                                tableColumnInsetClass(
+                                  index,
+                                  row.getVisibleCells().length,
+                                  isUtility ? "utility" : "data",
+                                ),
+                                cellPaddingClass,
+                                cellTextClass,
+                                alignClass[layout?.align ?? "start"],
+                                responsiveHideClass(layout?.importance ?? "high"),
+                                (isStacked || isWrapped) && "whitespace-normal",
+                              )}
+                              style={{
+                                minWidth: layout?.minWidth ?? undefined,
+                                maxWidth: columnWidths[cell.column.id]
+                                  ? undefined
+                                  : (layout?.maxWidth ?? undefined),
+                                ...getPinStyle(cell.column.id),
+                              }}
                             >
-                              {detailCells.map((detailCell) => {
-                                const startIndex = visibleLeafColumns.findIndex(
-                                  (column) => column.id === detailCell.columnId,
-                                );
-                                const layout = layoutById.get(detailCell.columnId);
-                                const isUtility =
-                                  layout?.type === "checkbox" ||
-                                  layout?.type === "expand" ||
-                                  layout?.type === "actions" ||
-                                  detailCell.columnId === "__expand";
-                                const empty = detailCell.content == null;
-                                return (
-                                  <TableCell
-                                    key={`${row.id}-detail-${detailCell.columnId}`}
-                                    data-column-id={detailCell.columnId}
-                                    data-empty={empty ? "true" : undefined}
-                                    colSpan={detailCell.colSpan}
-                                    className={cn(
-                                      "align-top whitespace-normal px-0",
-                                      tableColumnInsetClass(
-                                        startIndex,
-                                        total,
-                                        isUtility ? "utility" : "data",
-                                      ),
-                                      empty || isUtility ? "py-0" : "py-3",
-                                      alignClass[layout?.align ?? "start"],
-                                      detailCell.hideClass,
-                                    )}
-                                    style={getPinStyle(detailCell.columnId)}
-                                  >
-                                    {detailCell.content}
-                                  </TableCell>
-                                );
-                              })}
-                            </TableRow>
+                              {isUtility || isStacked ? (
+                                content
+                              ) : isWrapped ? (
+                                <div className={tableCellWrapClass}>{content}</div>
+                              ) : (
+                                // Single-line operational values clip on the
+                                // inline axis and recover the full text in the
+                                // tooltip — the only place truncation is applied
+                                // by default.
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div
+                                      className={cn(
+                                        tableCellContentClass,
+                                        layout?.align === "end" && "block w-full text-end",
+                                        layout?.align === "center" && "block w-full text-center",
+                                      )}
+                                      onDoubleClick={() => handleCopyCell(displayValue)}
+                                      title=""
+                                    >
+                                      {content}
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top">{displayValue}</TooltipContent>
+                                </Tooltip>
+                              )}
+                            </TableCell>
                           );
-                        })()
-                      : null}
-                  </Fragment>
-                ))
+                        })}
+                      </TableRow>
+                      {row.getIsExpanded() && renderExpandedRegions
+                        ? (() => {
+                            const detailCells = layoutDetailRegions(
+                              detailColumnAxes,
+                              renderExpandedRegions(row.original),
+                            );
+                            const total = visibleLeafColumns.length;
+                            return (
+                              <TableRow
+                                id={`table-detail-${row.id}`}
+                                data-slot="table-detail-row"
+                                dir={direction}
+                                className="bg-muted/25 hover:bg-transparent"
+                              >
+                                {detailCells.map((detailCell) => {
+                                  const startIndex = visibleLeafColumns.findIndex(
+                                    (column) => column.id === detailCell.columnId,
+                                  );
+                                  const layout = layoutById.get(detailCell.columnId);
+                                  const isUtility =
+                                    layout?.type === "checkbox" ||
+                                    layout?.type === "expand" ||
+                                    layout?.type === "actions" ||
+                                    detailCell.columnId === "__expand";
+                                  const empty = detailCell.content == null;
+                                  return (
+                                    <TableCell
+                                      key={`${row.id}-detail-${detailCell.columnId}`}
+                                      data-column-id={detailCell.columnId}
+                                      data-empty={empty ? "true" : undefined}
+                                      colSpan={detailCell.colSpan}
+                                      className={cn(
+                                        "align-top whitespace-normal px-0",
+                                        tableColumnInsetClass(
+                                          startIndex,
+                                          total,
+                                          isUtility ? "utility" : "data",
+                                        ),
+                                        empty || isUtility ? "py-0" : "py-3",
+                                        alignClass[layout?.align ?? "start"],
+                                        detailCell.hideClass,
+                                      )}
+                                      style={getPinStyle(detailCell.columnId)}
+                                    >
+                                      {detailCell.content}
+                                    </TableCell>
+                                  );
+                                })}
+                              </TableRow>
+                            );
+                          })()
+                        : null}
+                    </Fragment>
+                  );
+                })
               )}
             </TableBody>
           </Table>
