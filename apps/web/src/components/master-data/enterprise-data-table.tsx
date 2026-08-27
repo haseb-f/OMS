@@ -534,11 +534,15 @@ export function EnterpriseDataTable<TData>({
 
   const renderedColumns = useMemo<ColumnDef<TData, unknown>[]>(
     () => [
-      // Expand/open chevron before the checkbox (TASK-063) — in RTL this
-      // renders it at the true far edge of the table, ahead of selection,
-      // instead of floating between selection and the first data column.
-      ...(expandColumn ? [expandColumn] : []),
+      // Checkbox first, expand/open chevron second — in RTL the first
+      // column in this array renders at the true far edge of the table, so
+      // this order is what actually produces "Checkbox → Chevron → Data"
+      // reading from the right. `columnOrder` (below) re-normalizes this
+      // same canonical utility order on top of whatever a user previously
+      // persisted, so a stale saved layout can never resurrect the old
+      // "Chevron → Checkbox" sequence.
       selectionColumn,
+      ...(expandColumn ? [expandColumn] : []),
       ...columns.map(
         (column) =>
           ({
@@ -580,6 +584,20 @@ export function EnterpriseDataTable<TData>({
     [defaultHiddenVisibility, columnVisibility],
   );
 
+  // Re-normalizes the canonical utility-column order (select, then expand)
+  // on top of whatever a user has persisted, so a layout saved before this
+  // order was corrected — or from before an expand column existed on this
+  // table — can never resurrect an invalid utility sequence. Only these two
+  // ids are touched; every persisted data-column position is preserved
+  // exactly, in its original relative order. A pure derived read, never a
+  // write-back, so it self-heals every render without a migration step.
+  const normalizedColumnOrder = useMemo<ColumnOrderState>(() => {
+    if (columnOrder.length === 0) return columnOrder;
+    const canonicalUtilityOrder = ["select", ...(expandColumn ? ["__expand"] : [])];
+    const rest = columnOrder.filter((id) => id !== "select" && id !== "__expand");
+    return [...canonicalUtilityOrder, ...rest];
+  }, [columnOrder, expandColumn]);
+
   const table = useReactTable({
     data,
     columns: renderedColumns,
@@ -587,7 +605,7 @@ export function EnterpriseDataTable<TData>({
       rowSelection: effectiveRowSelection,
       columnVisibility: effectiveColumnVisibility,
       columnPinning,
-      columnOrder,
+      columnOrder: normalizedColumnOrder,
       // Column filters only ever act on data already in memory, so they
       // stay empty (and inert) in server mode rather than silently
       // filtering just the current page — see `canFilter` on the header.
@@ -1075,7 +1093,14 @@ export function EnterpriseDataTable<TData>({
                 </TableRow>
               ))}
             </TableHeader>
-            <TableBody>
+            {/* `border-separate` (required for the sticky header + per-column
+                pinning below) never paints a border set on <tr> itself —
+                browsers only render cell borders under that layout model.
+                The row separator therefore lives on each `<TableCell>`
+                instead (below); this last-child rule only has to strip
+                that cell-level border off the actual last row so it never
+                doubles up with the list footer's own border-t. */}
+            <TableBody className="[&>tr:last-child>td]:border-b-0">
               {isLoading ? (
                 Array.from({ length: 6 }).map((_, rowIndex) => (
                   <TableRow key={rowIndex}>
@@ -1139,13 +1164,12 @@ export function EnterpriseDataTable<TData>({
                       <TableRow
                         data-state={row.getIsSelected() ? "selected" : undefined}
                         className={cn(
-                          // Hairline row separator, same `--border` token as
-                          // every other line in the design system (never a
-                          // custom color) — scanning aid only, stripped off
-                          // the last row by TableBody's
-                          // `[&_tr:last-child]:border-0` so it never doubles
-                          // up with the list footer's own border-t.
-                          "border-b border-border transition-colors duration-150 motion-reduce:transition-none hover:bg-muted/40 data-[state=selected]:bg-primary-soft",
+                          // The hairline separator itself is a per-cell
+                          // border (below) — a `border-separate` table never
+                          // renders a border painted on the row element.
+                          // Backgrounds are unaffected by that rule, so
+                          // hover/selected tint stays here as normal.
+                          "transition-colors duration-150 motion-reduce:transition-none hover:bg-muted/40 data-[state=selected]:bg-primary-soft",
                           rowHref && "cursor-pointer",
                         )}
                         onClick={
@@ -1203,7 +1227,7 @@ export function EnterpriseDataTable<TData>({
                               key={cell.id}
                               data-column-id={cell.column.id}
                               className={cn(
-                                "align-middle min-w-0 px-0",
+                                "align-middle min-w-0 px-0 border-b border-border",
                                 tableColumnInsetClass(
                                   index,
                                   row.getVisibleCells().length,
