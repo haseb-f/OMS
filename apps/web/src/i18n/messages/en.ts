@@ -936,6 +936,58 @@ const en = {
       title: "Languages",
       description: "Manage languages available in OMS.",
     },
+    transactionTypes: {
+      title: "Transaction Types",
+      descriptionIncoming:
+        "System and custom types for incoming cash movements — why money came in.",
+      descriptionOutgoing:
+        "System and custom types for outgoing cash movements — why money went out.",
+      tabs: {
+        incoming: "Incoming",
+        outgoing: "Outgoing",
+      },
+      system: "System",
+      custom: "Custom",
+      inactive: "Inactive",
+      transferBadge: "Internal Transfer",
+      createNew: "New Transaction Type",
+      fields: {
+        code: "Code",
+        nameAr: "Arabic Name",
+        nameEn: "English Name",
+        direction: "Direction",
+        matchingTarget: "Matching Target",
+        defaultAccount: "Default Account",
+        accountingTreatment: "Accounting Treatment",
+        isActive: "Active",
+      },
+      direction: {
+        IN: "In",
+        OUT: "Out",
+      },
+      matchingTarget: {
+        STORE_ORDER: "Store Order",
+        SALES_INVOICE: "Sales Invoice",
+        PURCHASE_INVOICE: "Purchase Invoice",
+        CUSTOMER: "Customer",
+        VENDOR: "Vendor",
+        EMPLOYEE: "Employee",
+        FINANCIAL_ACCOUNT: "Financial Account",
+        EXPENSE_ACCOUNT: "Expense Account",
+        LIABILITY: "Liability",
+        EQUITY_OR_PARTNER: "Equity / Partner",
+        INVESTMENT: "Investment",
+        ACCOUNT: "Account",
+      },
+      accountingTreatment: {
+        OPERATING_REVENUE: "Operating Revenue",
+        OPERATING_EXPENSE: "Operating Expense",
+        EQUITY_MOVEMENT: "Equity Movement",
+        LIABILITY_MOVEMENT: "Liability Movement",
+        TRANSFER: "Internal Transfer",
+        NEUTRAL: "Unclassified",
+      },
+    },
   },
   reports: {
     hub: {

@@ -611,6 +611,14 @@ export const navigationConfig: NavigationItem[] = [
     icon: "languages",
     order: 2,
   },
+  {
+    id: "master-data-transaction-types",
+    titleKey: "masterData.transactionTypes.title",
+    parent: "master-data",
+    route: "/master-data/transaction-types",
+    icon: "arrow-left-right",
+    order: 3,
+  },
 
   /// Core module (must always exist) — shell only, no report is generated
   /// yet (TASK-024 Part 5). Categories are direct children, same shape as

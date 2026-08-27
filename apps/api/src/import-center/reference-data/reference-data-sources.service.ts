@@ -358,6 +358,47 @@ export class ReferenceDataSourcesService implements OnModuleInit {
             active: r.isActive,
           })),
       },
+      {
+        // Transaction Types Registry (Cash Transactions Foundation) — OMS is
+        // the source of truth for "why did the money move," never a second
+        // hand-typed list inside the Google Sheet. Split IN/OUT into two
+        // sources (never merged — spec section 10) so an incoming sheet's
+        // dropdown can never offer an outgoing type and vice versa.
+        type: 'TRANSACTION_TYPE_IN',
+        label: 'Transaction Type (Incoming)',
+        defaultMatchField: 'name',
+        list: async () =>
+          (
+            await prisma.transactionType.findMany({
+              where: { deletedAt: null, direction: 'IN' },
+              orderBy: { sortOrder: 'asc' },
+              select: { id: true, code: true, nameAr: true, isActive: true },
+            })
+          ).map((r) => ({
+            id: r.id,
+            code: r.code,
+            name: r.nameAr,
+            active: r.isActive,
+          })),
+      },
+      {
+        type: 'TRANSACTION_TYPE_OUT',
+        label: 'Transaction Type (Outgoing)',
+        defaultMatchField: 'name',
+        list: async () =>
+          (
+            await prisma.transactionType.findMany({
+              where: { deletedAt: null, direction: 'OUT' },
+              orderBy: { sortOrder: 'asc' },
+              select: { id: true, code: true, nameAr: true, isActive: true },
+            })
+          ).map((r) => ({
+            id: r.id,
+            code: r.code,
+            name: r.nameAr,
+            active: r.isActive,
+          })),
+      },
     ];
   }
 }

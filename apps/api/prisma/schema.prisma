@@ -727,10 +727,10 @@ model WarehouseLocation {
 /// Reference Data — Sales Orders Phase 2, decision #2: Shipping Company must be a
 /// reference-data entity, never free text.
 model ShippingCompany {
-  id          String              @id @default(uuid()) @db.Uuid
-  name        String              @unique
+  id          String             @id @default(uuid()) @db.Uuid
+  name        String             @unique
   /// INTERNAL_DELIVERY vs EXTERNAL_COMPANY — absorbed from ShippingMethod.
-  type        ShippingMethodType  @default(EXTERNAL_COMPANY)
+  type        ShippingMethodType @default(EXTERNAL_COMPANY)
   description String?
 
   createdAt DateTime  @default(now()) @map("created_at")
@@ -761,14 +761,14 @@ enum ShippingSyncBehavior {
 /// codes; this table is the source of truth for display, import resolution,
 /// and administrator-created statuses. `جاهز للشحن` is the protected default.
 model ShippingStatus {
-  id   String @id @default(uuid()) @db.Uuid
-  code String @unique
+  id           String  @id @default(uuid()) @db.Uuid
+  code         String  @unique
   /// Not `@unique` here — uniqueness is enforced only among ACTIVE
   /// (non-archived) rows via a partial unique index added in a raw-SQL
   /// migration (same pattern as ProductCategory.name), so a name freed up
   /// by archiving can be reused. See migration
   /// `shipping_status_sync_behavior_and_active_uniques`.
-  name String
+  name         String
   /// Closed StatusTone token: success | warning | destructive | info | neutral
   color        String  @default("neutral")
   isSystem     Boolean @default(false) @map("is_system")
@@ -1397,6 +1397,9 @@ model ChartOfAccount {
   /// Cash Flow module — accounts used as a direct Expense debit target.
   financialTransactionsExpense FinancialTransaction[] @relation("FinancialTransactionExpenseAccount")
   bankTransactionsExpense      BankTransaction[]      @relation("BankTransactionExpenseAccount")
+
+  /// Transaction Types Registry — a type's configured default posting account.
+  transactionTypesDefault TransactionType[] @relation("TransactionTypeDefaultAccount")
 
   /// Google Sheets Readiness — every Payment Method's required linked
   /// accounting account (spec section 5).
@@ -2917,18 +2920,18 @@ model StoreOrderReceipt {
   paymentId String?  @map("payment_id") @db.Uuid
   payment   Payment? @relation(fields: [paymentId], references: [id])
 
-  fileUrl  String  @map("file_url")
-  fileName String? @map("file_name")
-  mimeType String? @map("mime_type")
-  fileSizeBytes Int? @map("file_size_bytes")
+  fileUrl       String  @map("file_url")
+  fileName      String? @map("file_name")
+  mimeType      String? @map("mime_type")
+  fileSizeBytes Int?    @map("file_size_bytes")
   storageKey    String? @map("storage_key")
 
   driveFileId  String? @map("drive_file_id")
   driveFileUrl String? @map("drive_file_url")
 
-  uploadedById String?  @map("uploaded_by_id") @db.Uuid
-  uploadedBy   User?    @relation(fields: [uploadedById], references: [id])
-  uploadedAt   DateTime @default(now()) @map("uploaded_at")
+  uploadedById String?   @map("uploaded_by_id") @db.Uuid
+  uploadedBy   User?     @relation(fields: [uploadedById], references: [id])
+  uploadedAt   DateTime  @default(now()) @map("uploaded_at")
   deletedAt    DateTime? @map("deleted_at")
 
   @@map("store_order_receipts")
@@ -4362,6 +4365,126 @@ model MasterDataActivityLog {
 
   @@index([entityType, entityId])
   @@map("master_data_activity_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Transaction Types Registry (Cash Transactions Foundation) — answers "why
+// did the money move," never "how" (Payment Method — `PaymentSource`),
+// "where it landed" (Financial Account — `ReceivingAccount`/
+// `ChartOfAccount`), or "where the record came from" (Source — a future
+// Cash Transaction's own `ImportJob`/manual-entry origin). Those stay
+// separate dimensions and this registry never merges them in.
+//
+// This is a NEW, broader catalog for the upcoming Cash Transactions/Google
+// Sheets Sync/Reconciliation phases — it does not replace or migrate
+// `FinancialTransactionType` (CUSTOMER_RECEIPT/SUPPLIER_PAYMENT/
+// EXPENSE_PAYMENT, the closed accounting-voucher-type enum
+// `FinancialTransactionsService`'s posting logic already keys off) or
+// `CashFlowOutgoingType` (SUPPLIER_PAYMENT/EXPENSE, the narrower hint
+// `BankTransaction`/`CashFlowReconciliationService` already use) — both
+// keep working completely untouched. A future Cash Transaction model can
+// carry a `transactionTypeId` FK to this table alongside (not instead of)
+// those existing fields once the next-phase Reconciliation Engine is built.
+// ---------------------------------------------------------------------------
+
+/// A type's direction is fixed — never chosen freely per-transaction.
+enum TransactionDirection {
+  IN
+  OUT
+}
+
+/// STANDARD is a normal, potentially revenue/expense-bearing cash movement;
+/// TRANSFER marks the two Internal Transfer system types as two sides of
+/// one internal account-to-account movement — structurally excluded from
+/// revenue/expense reporting by this flag, rather than relying on every
+/// future report to remember to filter certain codes out.
+enum TransactionNature {
+  STANDARD
+  TRANSFER
+}
+
+/// Lightweight default-accounting-treatment HINT a future Posting/
+/// Reconciliation engine may read — never itself a posting rule (Account
+/// Mapping + the Posting Providers stay the only place an actual Chart of
+/// Account id gets resolved). Exists to make "not every IN is Revenue, not
+/// every OUT is Expense" a structural fact on the type rather than tribal
+/// knowledge — e.g. FINANCING_RECEIVED/OWNER_CONTRIBUTION/
+/// INVESTMENT_RECEIVED/INTERNAL_TRANSFER_IN are never OPERATING_REVENUE;
+/// FINANCING_REPAYMENT/PROFIT_DISTRIBUTION/INTERNAL_TRANSFER_OUT are never
+/// OPERATING_EXPENSE.
+enum TransactionAccountingTreatment {
+  OPERATING_REVENUE
+  OPERATING_EXPENSE
+  EQUITY_MOVEMENT
+  LIABILITY_MOVEMENT
+  TRANSFER
+  NEUTRAL
+}
+
+/// What kind of object the future Reconciliation Engine should attempt to
+/// match a transaction of this type against. Normalized to one closed,
+/// generic set rather than one enum value per document type this system
+/// already has (SalesOrder/SalesInvoice/Payment/...) — a system type whose
+/// natural target is more specific than this set (e.g. a vendor refund
+/// against a specific Purchase Invoice) still starts from the closest
+/// generic bucket (`VENDOR`) here; the engine narrows further using the
+/// transaction's own reference/description, exactly like
+/// `CashFlowReconciliationService.suggestIncoming`/`suggestOutgoing`
+/// already narrow `PAYMENT`/`STORE_ORDER`/`SALES_INVOICE`/
+/// `PURCHASE_INVOICE` candidates today.
+enum TransactionMatchingTarget {
+  STORE_ORDER
+  SALES_INVOICE
+  PURCHASE_INVOICE
+  CUSTOMER
+  VENDOR
+  EMPLOYEE
+  FINANCIAL_ACCOUNT
+  EXPENSE_ACCOUNT
+  LIABILITY
+  EQUITY_OR_PARTNER
+  INVESTMENT
+  ACCOUNT
+}
+
+/// System rows (`isSystem = true`) are seeded once (migration + idempotent
+/// `prisma/seed.ts` upsert by `code`, same dual pattern as
+/// `ShippingStatus`) and never destructively editable — the service layer
+/// rejects changes to `code`/`direction`/`nature`/`matchingTarget` and
+/// blocks `archive()` outright once `isSystem` is true; `isActive`/
+/// `defaultAccountId`/`defaultAccountingTreatment`/`sortOrder` stay safely
+/// configurable. Admins may additionally create Custom types (`isSystem =
+/// false`) with a system-generated `code` — never hand-typed, same
+/// `USR_<random>` convention `ShippingStatusesService.create` already uses.
+model TransactionType {
+  id     String  @id @default(uuid()) @db.Uuid
+  code   String  @unique
+  nameAr String  @map("name_ar")
+  nameEn String? @map("name_en")
+
+  direction TransactionDirection
+  nature    TransactionNature    @default(STANDARD)
+
+  matchingTarget TransactionMatchingTarget? @map("matching_target")
+
+  isSystem Boolean @default(false) @map("is_system")
+  isActive Boolean @default(true) @map("is_active")
+
+  defaultAccountingTreatment TransactionAccountingTreatment @default(NEUTRAL) @map("default_accounting_treatment")
+
+  defaultAccountId String?         @map("default_account_id") @db.Uuid
+  defaultAccount   ChartOfAccount? @relation("TransactionTypeDefaultAccount", fields: [defaultAccountId], references: [id])
+
+  sortOrder Int @default(0) @map("sort_order")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([direction, isActive])
+  @@map("transaction_types")
 }
 
 // ---------------------------------------------------------------------------

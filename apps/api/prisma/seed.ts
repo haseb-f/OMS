@@ -9,6 +9,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcryptjs';
 import { ALL_PERMISSION_NAMES } from '../src/permissions/permission-catalog';
 import { INITIAL_SHIPPING_STATUSES } from '../src/shipping/shipping-status.catalog';
+import { SYSTEM_TRANSACTION_TYPES } from '../src/transaction-types/transaction-type.catalog';
 import { seedCountries } from './scripts/seed-countries';
 
 const prisma = new PrismaClient({
@@ -69,6 +70,8 @@ const masterDataEntities = [
   // System-Wide Data-Entry Standard pass — Expenses, Fixed Assets.
   'expenses',
   'fixed-assets',
+  // Transaction Types Registry (Cash Transactions Foundation).
+  'transaction-types',
 ];
 const masterDataActions = ['view', 'create', 'edit', 'archive'];
 const masterDataPermissions = masterDataEntities.flatMap((entity) =>
@@ -516,6 +519,39 @@ async function main() {
           isImportable: status.isImportable,
           sortOrder: status.sortOrder,
           syncBehavior: status.syncBehavior,
+        },
+      }),
+    ),
+  );
+
+  // Transaction Types Registry (Cash Transactions Foundation) — idempotent
+  // upsert by `code`, same dual seed-migration+seed.ts pattern as
+  // INITIAL_SHIPPING_STATUSES above (the migration already inserts these
+  // once for production; this keeps local/dev re-seeding safe).
+  await Promise.all(
+    SYSTEM_TRANSACTION_TYPES.map((type) =>
+      prisma.transactionType.upsert({
+        where: { code: type.code },
+        update: {
+          nameAr: type.nameAr,
+          nameEn: type.nameEn,
+          direction: type.direction,
+          nature: type.nature,
+          matchingTarget: type.matchingTarget,
+          defaultAccountingTreatment: type.defaultAccountingTreatment,
+          sortOrder: type.sortOrder,
+          isSystem: true,
+        },
+        create: {
+          code: type.code,
+          nameAr: type.nameAr,
+          nameEn: type.nameEn,
+          direction: type.direction,
+          nature: type.nature,
+          matchingTarget: type.matchingTarget,
+          defaultAccountingTreatment: type.defaultAccountingTreatment,
+          sortOrder: type.sortOrder,
+          isSystem: true,
         },
       }),
     ),

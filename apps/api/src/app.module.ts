@@ -25,6 +25,7 @@ import { UnitConversionsModule } from './unit-conversions/unit-conversions.modul
 import { LeadsModule } from './leads/leads.module';
 import { ShippingCompaniesModule } from './shipping-companies/shipping-companies.module';
 import { ShippingStatusesModule } from './shipping-statuses/shipping-statuses.module';
+import { TransactionTypesModule } from './transaction-types/transaction-types.module';
 import { SalesOrdersModule } from './sales-orders/sales-orders.module';
 import { PaymentSourcesModule } from './payment-sources/payment-sources.module';
 import { PaymentsModule } from './payments/payments.module';
@@ -94,6 +95,7 @@ import { StoreOrdersModule } from './store-orders/store-orders.module';
     LeadsModule,
     ShippingCompaniesModule,
     ShippingStatusesModule,
+    TransactionTypesModule,
     SalesOrdersModule,
     ChartOfAccountsModule,
     ReceivingAccountsModule,

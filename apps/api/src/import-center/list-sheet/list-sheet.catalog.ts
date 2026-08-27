@@ -36,7 +36,9 @@ export type ListSheetColumnKey =
   | 'shippingStatus'
   | 'shippingCompany'
   | 'paymentType'
-  | 'financialTransactionType';
+  | 'financialTransactionType'
+  | 'transactionTypeIncoming'
+  | 'transactionTypeOutgoing';
 
 export type ListSheetColumnSource =
   | {
@@ -145,6 +147,32 @@ export const LIST_SHEET_COLUMNS: readonly ListSheetColumnDef[] = [
     source: {
       kind: 'static',
       values: Object.values(FINANCIAL_TRANSACTION_TYPE_SHEET_LABELS),
+    },
+  },
+  {
+    // Transaction Types Registry — OMS-managed, database-backed dropdown
+    // (never a second hand-typed list in the sheet). Kept separate from
+    // `financialTransactionType` above (the older, narrower B2B receipt/
+    // payment/expense-voucher import column, which stays as-is) and split
+    // into two columns — never merged — so an incoming sheet's dropdown can
+    // never offer an outgoing type and vice versa.
+    key: 'transactionTypeIncoming',
+    header: 'Transaction Type - Incoming',
+    source: {
+      kind: 'reference',
+      type: 'TRANSACTION_TYPE_IN',
+      matchField: 'name',
+      valueOf: (record) => record.name,
+    },
+  },
+  {
+    key: 'transactionTypeOutgoing',
+    header: 'Transaction Type - Outgoing',
+    source: {
+      kind: 'reference',
+      type: 'TRANSACTION_TYPE_OUT',
+      matchField: 'name',
+      valueOf: (record) => record.name,
     },
   },
 ];

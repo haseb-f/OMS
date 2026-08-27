@@ -6,6 +6,7 @@ import { StackedCell } from "@/components/shared/stacked-cell";
 import { statusColumn, textColumn } from "./shared-columns";
 import { formatDate } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
+import type { TransactionTypeRow } from "@/services/transaction-types-service";
 
 // ---------------------------------------------------------------------------
 // Entity shapes — the subset of each Prisma model the Master Data UI reads.
@@ -1220,4 +1221,154 @@ export const languagesDefaultValues = {
   direction: "LTR" as const,
 };
 export const languagesExportColumns = ["code", "name", "direction"];
+
+// ---------------------------------------------------------------------------
+// Transaction Types Registry (Cash Transactions Foundation)
+// ---------------------------------------------------------------------------
+
+export type { TransactionTypeRow };
+
+function TransactionTypeNameCell({ row }: { row: TransactionTypeRow }) {
+  const { t } = useLocale();
+  const badges = [
+    row.isSystem
+      ? t("masterData.transactionTypes.system")
+      : t("masterData.transactionTypes.custom"),
+    !row.isActive ? t("masterData.transactionTypes.inactive") : null,
+  ].filter(Boolean);
+  return (
+    <StackedCell primary={row.nameAr} secondary={badges.length ? badges.join(" · ") : undefined} />
+  );
+}
+
+function TransactionTypeMatchingTargetCell({ row }: { row: TransactionTypeRow }) {
+  const { t } = useLocale();
+  if (row.nature === "TRANSFER") {
+    return <StatusBadge label={t("masterData.transactionTypes.transferBadge")} tone="info" />;
+  }
+  if (!row.matchingTarget) return <span>—</span>;
+  return <span>{t(`masterData.transactionTypes.matchingTarget.${row.matchingTarget}`)}</span>;
+}
+
+function TransactionTypeTreatmentCell({ row }: { row: TransactionTypeRow }) {
+  const { t } = useLocale();
+  return (
+    <span>
+      {t(`masterData.transactionTypes.accountingTreatment.${row.defaultAccountingTreatment}`)}
+    </span>
+  );
+}
+
+function TransactionTypeActiveCell({ row }: { row: TransactionTypeRow }) {
+  const { t } = useLocale();
+  return row.isActive ? (
+    <StatusBadge label={t("common.active")} tone="success" />
+  ) : (
+    <StatusBadge label={t("masterData.transactionTypes.inactive")} tone="neutral" />
+  );
+}
+
+/** Shared by both الوارد/الصادر tabs — direction itself is the tab's own fixed filter, never a visible column (spec: direction is derived from the type, not a data attribute the user compares across a mixed list). */
+export const transactionTypesColumns: ColumnDef<TransactionTypeRow, unknown>[] = [
+  {
+    id: "nameAr",
+    meta: { titleKey: "masterData.fields.name" },
+    accessorFn: (row) => row.nameAr,
+    cell: ({ row }) => <TransactionTypeNameCell row={row.original} />,
+  },
+  textColumn<TransactionTypeRow>("code", "masterData.transactionTypes.fields.code", (r) => r.code),
+  {
+    id: "matchingTarget",
+    meta: { titleKey: "masterData.transactionTypes.fields.matchingTarget" },
+    accessorFn: (row) => row.matchingTarget ?? row.nature,
+    cell: ({ row }) => <TransactionTypeMatchingTargetCell row={row.original} />,
+    enableSorting: false,
+  },
+  {
+    id: "defaultAccountingTreatment",
+    meta: { titleKey: "masterData.transactionTypes.fields.accountingTreatment" },
+    accessorFn: (row) => row.defaultAccountingTreatment,
+    cell: ({ row }) => <TransactionTypeTreatmentCell row={row.original} />,
+  },
+  {
+    id: "isActive",
+    meta: { titleKey: "common.status" },
+    accessorFn: (row) => (row.isActive ? "active" : "inactive"),
+    cell: ({ row }) => <TransactionTypeActiveCell row={row.original} />,
+  },
+];
+
+export const transactionTypesStaticFields: MasterDataFormField[] = [
+  {
+    name: "nameAr",
+    label: "masterData.transactionTypes.fields.nameAr",
+    type: "text",
+    required: true,
+  },
+  {
+    name: "nameEn",
+    label: "masterData.transactionTypes.fields.nameEn",
+    type: "text",
+  },
+];
+
+export const transactionTypesSchema = z.object({
+  nameAr: z.string().min(1),
+  nameEn: z.string().nullish().or(z.literal("")),
+  direction: z.enum(["IN", "OUT"]),
+  matchingTarget: z.string().nullish().or(z.literal("")),
+  defaultAccountId: z.string().nullish().or(z.literal("")),
+  defaultAccountingTreatment: z.enum([
+    "OPERATING_REVENUE",
+    "OPERATING_EXPENSE",
+    "EQUITY_MOVEMENT",
+    "LIABILITY_MOVEMENT",
+    "TRANSFER",
+    "NEUTRAL",
+  ]),
+  isActive: z.boolean(),
+});
+
+export function transactionTypesDefaultValues(direction: "IN" | "OUT") {
+  return {
+    nameAr: "",
+    nameEn: "",
+    direction,
+    matchingTarget: "",
+    defaultAccountId: "",
+    defaultAccountingTreatment: "NEUTRAL" as const,
+    isActive: true,
+  };
+}
+
+export const transactionTypesExportColumns = [
+  "nameAr",
+  "nameEn",
+  "code",
+  "matchingTarget",
+  "defaultAccountingTreatment",
+];
+export const transactionTypeRowLabel = (row: TransactionTypeRow) => row.nameAr;
+export const TRANSACTION_MATCHING_TARGETS = [
+  "STORE_ORDER",
+  "SALES_INVOICE",
+  "PURCHASE_INVOICE",
+  "CUSTOMER",
+  "VENDOR",
+  "EMPLOYEE",
+  "FINANCIAL_ACCOUNT",
+  "EXPENSE_ACCOUNT",
+  "LIABILITY",
+  "EQUITY_OR_PARTNER",
+  "INVESTMENT",
+  "ACCOUNT",
+] as const;
+export const TRANSACTION_ACCOUNTING_TREATMENTS = [
+  "OPERATING_REVENUE",
+  "OPERATING_EXPENSE",
+  "EQUITY_MOVEMENT",
+  "LIABILITY_MOVEMENT",
+  "TRANSFER",
+  "NEUTRAL",
+] as const;
 export const languageRowLabel = (row: LanguageRow) => `${row.code} — ${row.name}`;
