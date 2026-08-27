@@ -511,7 +511,7 @@ export function EnterpriseDataTable<TData>({
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                className="size-8"
+                className="size-8 text-muted-foreground"
                 aria-expanded={expanded}
                 aria-controls={detailId}
                 aria-label={label}
@@ -841,50 +841,6 @@ export function EnterpriseDataTable<TData>({
 
   return (
     <div className="flex min-w-0 flex-col gap-3" id={`table-${tableId}`}>
-      {selectedCount > 0 && bulkActions && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border border-border bg-muted/40 px-3 py-2">
-          <span className="text-caption font-medium">
-            {isAllMatchingSelected
-              ? t("table.allFilteredSelected", { count: selectedCount })
-              : `${selectedCount} ${t("table.rowsSelected")}`}
-          </span>
-
-          {/* "Select all matching filters" now lives in the header's own
-              selection-scope menu (TASK-064) — this bar only offers the
-              down-scope action once everything is already selected, plus
-              clear-selection, so it never duplicates that menu's items. */}
-          {isAllMatchingSelected ? (
-            <EnterpriseButton
-              type="button"
-              variant="link"
-              size="sm"
-              className="h-auto p-0"
-              onClick={() => {
-                const next: RowSelectionState = {};
-                for (const row of table.getRowModel().rows) {
-                  next[row.id] = true;
-                }
-                handleRowSelectionChange(next);
-              }}
-            >
-              {t("table.usePageSelection")}
-            </EnterpriseButton>
-          ) : null}
-
-          <EnterpriseButton
-            type="button"
-            variant="link"
-            size="sm"
-            className="h-auto p-0 text-muted-foreground"
-            onClick={() => handleRowSelectionChange({})}
-          >
-            {t("table.clearSelection")}
-          </EnterpriseButton>
-
-          <div className="ms-auto flex items-center gap-2">{bulkActions}</div>
-        </div>
-      )}
-
       {/* Premium Table Card (TASK-036 V2) — toolbar, grid, and pagination
           live inside one contiguous card so the table never feels like a
           bare HTML element floating on the page. `@container/enterprise-table`
@@ -936,6 +892,56 @@ export function EnterpriseDataTable<TData>({
             <RowActionsMenu label={t("table.options")} actions={tableOptions} />
           </div>
         </ListToolbar>
+
+        {/* Contextual bulk-action strip — reveals in place of ordinary
+            browsing chrome the instant a selection exists, reads as a
+            continuation of the toolbar above it (same border/tint, no
+            separate card of its own) rather than a floating banner.
+            Feature actions lead (rightmost, strongest emphasis first),
+            the live count sits beside them, and "Clear" trails at the far
+            end — never the other way around. */}
+        {selectedCount > 0 && bulkActions && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border bg-muted/20 px-3 py-2 sm:px-4">
+            <div className="flex items-center gap-2">{bulkActions}</div>
+            <span className="text-caption font-medium">
+              {isAllMatchingSelected
+                ? t("table.allFilteredSelected", { count: selectedCount })
+                : `${selectedCount} ${t("table.rowsSelected")}`}
+            </span>
+
+            {/* "Select all matching filters" now lives in the header's own
+                selection-scope menu (TASK-064) — this strip only offers the
+                down-scope action once everything is already selected, plus
+                clear-selection, so it never duplicates that menu's items. */}
+            {isAllMatchingSelected ? (
+              <EnterpriseButton
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto p-0"
+                onClick={() => {
+                  const next: RowSelectionState = {};
+                  for (const row of table.getRowModel().rows) {
+                    next[row.id] = true;
+                  }
+                  handleRowSelectionChange(next);
+                }}
+              >
+                {t("table.usePageSelection")}
+              </EnterpriseButton>
+            ) : null}
+
+            <EnterpriseButton
+              type="button"
+              variant="link"
+              size="sm"
+              className="ms-auto h-auto p-0 text-muted-foreground"
+              onClick={() => handleRowSelectionChange({})}
+            >
+              {t("table.clearSelection")}
+            </EnterpriseButton>
+          </div>
+        )}
 
         {renderMobileRow && (
           <div className="max-h-[70vh] overflow-auto @3xl/enterprise-table:hidden">
@@ -1000,10 +1006,11 @@ export function EnterpriseDataTable<TData>({
                 );
               })}
             </colgroup>
-            {/* A solid fill plus a full-strength bottom rule: the header sits
-                directly under the toolbar, and a translucent tint against the
-                card read as one continuous band rather than a column axis. */}
-            <TableHeader className="sticky top-0 z-10 bg-muted shadow-[inset_0_-1px_0_0_var(--border)]">
+            {/* Same white/light card surface as the rows below it, not a
+                heavy gray fill — the sticky positioning plus this bottom
+                rule are what separate it from scrolled-under content, not a
+                contrasting background. */}
+            <TableHeader className="sticky top-0 z-10 bg-card shadow-[inset_0_-1px_0_0_var(--border)]">
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id} className="hover:bg-transparent">
                   {headerGroup.headers.map((header, index) => {
