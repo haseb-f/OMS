@@ -38,7 +38,9 @@ export type ListSheetColumnKey =
   | 'paymentType'
   | 'financialTransactionType'
   | 'transactionTypeIncoming'
-  | 'transactionTypeOutgoing';
+  | 'transactionTypeOutgoing'
+  | 'partner'
+  | 'postableAccount';
 
 export type ListSheetColumnSource =
   | {
@@ -155,9 +157,13 @@ export const LIST_SHEET_COLUMNS: readonly ListSheetColumnDef[] = [
     // `financialTransactionType` above (the older, narrower B2B receipt/
     // payment/expense-voucher import column, which stays as-is) and split
     // into two columns — never merged — so an incoming sheet's dropdown can
-    // never offer an outgoing type and vice versa.
+    // never offer an outgoing type and vice versa. Header text must match
+    // the sheet's own pre-provisioned "Transaction Type (In)"/"(Out)"
+    // columns exactly (managed columns are matched by header text, not by
+    // this key) — a mismatched header silently creates a stray duplicate
+    // column instead of reusing the intended one.
     key: 'transactionTypeIncoming',
-    header: 'Transaction Type - Incoming',
+    header: 'Transaction Type (In)',
     source: {
       kind: 'reference',
       type: 'TRANSACTION_TYPE_IN',
@@ -167,12 +173,40 @@ export const LIST_SHEET_COLUMNS: readonly ListSheetColumnDef[] = [
   },
   {
     key: 'transactionTypeOutgoing',
-    header: 'Transaction Type - Outgoing',
+    header: 'Transaction Type (Out)',
     source: {
       kind: 'reference',
       type: 'TRANSACTION_TYPE_OUT',
       matchField: 'name',
       valueOf: (record) => record.name,
+    },
+  },
+  {
+    // Counterparty of a cash transaction (Customer ∪ Supplier) — see
+    // `ReferenceDataSourcesService`'s `PARTNER` source for why no new
+    // registry was created.
+    key: 'partner',
+    header: 'Partner',
+    source: {
+      kind: 'reference',
+      type: 'PARTNER',
+      matchField: 'name',
+      valueOf: (record) => record.name,
+    },
+  },
+  {
+    // Leaf/posting-eligible accounts only — never the full Chart of
+    // Accounts (see `POSTABLE_ACCOUNT` source: filters on the same
+    // `allowsPosting` flag the accounting engine itself enforces).
+    // "Code — Name" matches every existing OMS account selector's display
+    // format (Journals, Categories, Customer/Supplier Groups, Taxes, ...).
+    key: 'postableAccount',
+    header: 'Account',
+    source: {
+      kind: 'reference',
+      type: 'POSTABLE_ACCOUNT',
+      matchField: 'code',
+      valueOf: (record) => `${record.code} — ${record.name}`,
     },
   },
 ];

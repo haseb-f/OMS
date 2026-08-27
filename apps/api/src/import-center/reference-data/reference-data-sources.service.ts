@@ -399,6 +399,74 @@ export class ReferenceDataSourcesService implements OnModuleInit {
             active: r.isActive,
           })),
       },
+      {
+        // "Partner" = the counterparty of a cash transaction — the same
+        // Customer∪Supplier concept the schema already names `partnerCustomer`/
+        // `partnerSupplier` (JournalEntry, BankTransaction). No new registry:
+        // reuses the existing CUSTOMER/SUPPLIER master data verbatim.
+        type: 'PARTNER',
+        label: 'Partner (Customer/Supplier)',
+        defaultMatchField: 'name',
+        list: async () => {
+          const [customers, suppliers] = await Promise.all([
+            prisma.customer.findMany({
+              where: { deletedAt: null },
+              select: {
+                id: true,
+                customerNumber: true,
+                name: true,
+                status: true,
+              },
+            }),
+            prisma.supplier.findMany({
+              where: { deletedAt: null },
+              select: {
+                id: true,
+                supplierNumber: true,
+                name: true,
+                status: true,
+              },
+            }),
+          ]);
+          return [
+            ...customers.map((r) => ({
+              id: r.id,
+              code: r.customerNumber,
+              name: r.name,
+              active: r.status === CustomerStatus.ACTIVE,
+            })),
+            ...suppliers.map((r) => ({
+              id: r.id,
+              code: r.supplierNumber,
+              name: r.name,
+              active: r.status === SupplierStatus.ACTIVE,
+            })),
+          ];
+        },
+      },
+      {
+        // Only leaf/posting-eligible accounts — the exact same `allowsPosting`
+        // flag the accounting engine itself checks before accepting a journal
+        // line (JournalEntriesService.resolveLines, PaymentMethodsService,
+        // FinancialTransactionsService). A header/parent account never
+        // qualifies, regardless of type or level.
+        type: 'POSTABLE_ACCOUNT',
+        label: 'Postable Account',
+        defaultMatchField: 'code',
+        list: async () =>
+          (
+            await prisma.chartOfAccount.findMany({
+              where: { deletedAt: null, allowsPosting: true },
+              orderBy: { code: 'asc' },
+              select: { id: true, code: true, name: true },
+            })
+          ).map((r) => ({
+            id: r.id,
+            code: r.code,
+            name: r.name,
+            active: true,
+          })),
+      },
     ];
   }
 }
