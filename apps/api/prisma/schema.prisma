@@ -1192,6 +1192,9 @@ model Shipment {
 
   @@index([storeOrderId])
   @@index([salesOrderId])
+  @@index([status, createdAt])
+  @@index([shippingCompanyId])
+  @@index([deletedAt, createdAt])
   @@map("shipments")
 }
 
@@ -2126,6 +2129,10 @@ model Product {
   leads                   Lead[]
   storeOrderItems         StoreOrderItem[]
 
+  @@index([deletedAt, createdAt])
+  @@index([categoryId])
+  @@index([brandId])
+  @@index([status])
   @@map("products")
 }
 
@@ -2784,6 +2791,7 @@ model Customer {
   /// CustomersService.create() runs on every write.
   @@index([phone])
   @@index([email])
+  @@index([deletedAt, name])
   @@map("customers")
 }
 
@@ -2883,7 +2891,13 @@ model StoreOrder {
   invoices   SalesInvoice[]
 
   @@index([customerId])
-  @@index([externalOrderId])
+  /// `externalOrderId String? @unique` above already creates this index —
+  /// a second explicit `@@index([externalOrderId])` was a pure duplicate
+  /// (same lookup, extra write cost on every import) and was removed here.
+  @@index([deletedAt, createdAt])
+  @@index([paymentStatus, createdAt])
+  @@index([shippingStage, createdAt])
+  @@index([orderDate])
   @@map("store_orders")
 }
 
