@@ -27,8 +27,6 @@ import { SupplierPicker } from "@/components/business/supplier-picker";
 import {
   JournalEntryLinesGrid,
   type JournalEntryLineGridRow,
-  type JournalEntryAccountOption,
-  type JournalEntryCodeOption,
 } from "@/components/accounting/journal-entry-lines-grid";
 import {
   journalEntriesService,
@@ -124,10 +122,10 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
   const [activity, setActivity] = useState<JournalEntryActivityEntry[] | null | undefined>(
     undefined,
   );
-  const [accounts, setAccounts] = useState<JournalEntryAccountOption[]>([]);
+  const [accounts, setAccounts] = useState<ChartOfAccountRow[]>([]);
   const [journals, setJournals] = useState<JournalRow[]>([]);
-  const [costCenters, setCostCenters] = useState<JournalEntryCodeOption[]>([]);
-  const [projects, setProjects] = useState<JournalEntryCodeOption[]>([]);
+  const [costCenters, setCostCenters] = useState<CostCenterRow[]>([]);
+  const [projects, setProjects] = useState<ProjectRow[]>([]);
 
   const [entryDate, setEntryDate] = useState<Date | null>(new Date());
   const [description, setDescription] = useState("");
@@ -182,9 +180,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
   useEffect(() => {
     accountsService
       .list({ pageSize: 200, postingOnly: true })
-      .then((result) =>
-        setAccounts(result.items.map((a) => ({ id: a.id, code: a.code, name: a.name }))),
-      )
+      .then((result) => setAccounts(result.items))
       .catch(() => setAccounts([]));
     journalsService
       .list({ pageSize: 200 })
@@ -192,15 +188,11 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
       .catch(() => setJournals([]));
     costCentersService
       .list({ pageSize: 200 })
-      .then((result) =>
-        setCostCenters(result.items.map((c) => ({ id: c.id, code: c.code, name: c.name }))),
-      )
+      .then((result) => setCostCenters(result.items))
       .catch(() => setCostCenters([]));
     projectsService
       .list({ pageSize: 200 })
-      .then((result) =>
-        setProjects(result.items.map((p) => ({ id: p.id, code: p.code, name: p.name }))),
-      )
+      .then((result) => setProjects(result.items))
       .catch(() => setProjects([]));
     journalEntriesService.templates
       .list()

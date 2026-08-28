@@ -11,16 +11,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { MoneyInput } from "@/components/shared/money-input";
+import { AccountPicker } from "@/components/business/account-picker";
+import { CostCenterPicker } from "@/components/business/cost-center-picker";
+import { ProjectPicker } from "@/components/business/project-picker";
 import { EnterpriseButton } from "@/components/ui/button";
 import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
+import type { ChartOfAccountRow, CostCenterRow, ProjectRow } from "@/config/master-data/entities";
 
 let nextLineId = 1;
 
@@ -34,18 +32,6 @@ export interface JournalEntryLineGridRow {
   projectId: string;
   debit: number;
   credit: number;
-}
-
-export interface JournalEntryAccountOption {
-  id: string;
-  code: string;
-  name: string;
-}
-
-export interface JournalEntryCodeOption {
-  id: string;
-  code: string;
-  name: string;
 }
 
 function formatMoney(value: number) {
@@ -67,10 +53,10 @@ export function JournalEntryLinesGrid({
   disabled,
 }: {
   lines: JournalEntryLineGridRow[];
-  accounts: JournalEntryAccountOption[];
+  accounts: ChartOfAccountRow[];
   /** Omit to hide the Cost Center/Project columns entirely (e.g. the Opening Balance Wizard, which has no per-line cost attribution). */
-  costCenters?: JournalEntryCodeOption[];
-  projects?: JournalEntryCodeOption[];
+  costCenters?: CostCenterRow[];
+  projects?: ProjectRow[];
   onChange: (lines: JournalEntryLineGridRow[]) => void;
   disabled?: boolean;
 }) {
@@ -168,24 +154,13 @@ export function JournalEntryLinesGrid({
               lines.map((line, rowIndex) => (
                 <TableRow key={line.id}>
                   <TableCell className="align-middle">
-                    <Select
-                      value={line.accountId || undefined}
-                      onValueChange={(value) => updateLine(line.id, { accountId: value })}
+                    <AccountPicker
+                      items={accounts}
+                      value={accounts.find((account) => account.id === line.accountId) ?? null}
+                      onChange={(account) => updateLine(line.id, { accountId: account?.id ?? "" })}
+                      placeholder={t("accounting.journalEntries.lines.selectAccount")}
                       disabled={disabled}
-                    >
-                      <SelectTrigger size="sm" className="w-full">
-                        <SelectValue
-                          placeholder={t("accounting.journalEntries.lines.selectAccount")}
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {accounts.map((account) => (
-                          <SelectItem key={account.id} value={account.id}>
-                            {account.code} — {account.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                   </TableCell>
                   <TableCell className="align-middle">
                     <Input
@@ -198,62 +173,39 @@ export function JournalEntryLinesGrid({
                   {showCostAttribution && (
                     <>
                       <TableCell className="align-middle">
-                        <Select
-                          value={line.costCenterId || "__none__"}
-                          onValueChange={(value) =>
-                            updateLine(line.id, { costCenterId: value === "__none__" ? "" : value })
+                        <CostCenterPicker
+                          items={costCenters ?? []}
+                          value={
+                            (costCenters ?? []).find(
+                              (costCenter) => costCenter.id === line.costCenterId,
+                            ) ?? null
+                          }
+                          onChange={(costCenter) =>
+                            updateLine(line.id, { costCenterId: costCenter?.id ?? "" })
                           }
                           disabled={disabled}
-                        >
-                          <SelectTrigger size="sm" className="w-full">
-                            <SelectValue
-                              placeholder={t("accounting.journalEntries.lines.selectCostCenter")}
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">{t("common.none")}</SelectItem>
-                            {(costCenters ?? []).map((costCenter) => (
-                              <SelectItem key={costCenter.id} value={costCenter.id}>
-                                {costCenter.code} — {costCenter.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        />
                       </TableCell>
                       <TableCell className="align-middle">
-                        <Select
-                          value={line.projectId || "__none__"}
-                          onValueChange={(value) =>
-                            updateLine(line.id, { projectId: value === "__none__" ? "" : value })
+                        <ProjectPicker
+                          items={projects ?? []}
+                          value={
+                            (projects ?? []).find((project) => project.id === line.projectId) ??
+                            null
+                          }
+                          onChange={(project) =>
+                            updateLine(line.id, { projectId: project?.id ?? "" })
                           }
                           disabled={disabled}
-                        >
-                          <SelectTrigger size="sm" className="w-full">
-                            <SelectValue
-                              placeholder={t("accounting.journalEntries.lines.selectProject")}
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">{t("common.none")}</SelectItem>
-                            {(projects ?? []).map((project) => (
-                              <SelectItem key={project.id} value={project.id}>
-                                {project.code} — {project.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        />
                       </TableCell>
                     </>
                   )}
                   <TableCell className="w-(--width-control-price) align-middle">
-                    <Input
+                    <MoneyInput
                       data-row={rowIndex}
                       data-col={0}
-                      type="number"
-                      min={0}
-                      dir="ltr"
-                      inputSize="compact-md"
-                      className="text-center"
+                      align="center"
                       value={line.debit || ""}
                       disabled={disabled}
                       onKeyDown={(event) => handleKeyDown(event, rowIndex, 0)}
@@ -263,14 +215,10 @@ export function JournalEntryLinesGrid({
                     />
                   </TableCell>
                   <TableCell className="w-(--width-control-price) align-middle">
-                    <Input
+                    <MoneyInput
                       data-row={rowIndex}
                       data-col={1}
-                      type="number"
-                      min={0}
-                      dir="ltr"
-                      inputSize="compact-md"
-                      className="text-center"
+                      align="center"
                       value={line.credit || ""}
                       disabled={disabled}
                       onKeyDown={(event) => handleKeyDown(event, rowIndex, 1)}

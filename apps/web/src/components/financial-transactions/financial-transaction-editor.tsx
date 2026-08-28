@@ -6,6 +6,7 @@ import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/shared/money-input";
 import {
   Select,
   SelectContent,
@@ -220,12 +221,8 @@ export function FinancialTransactionEditor({
             <label className="text-caption text-muted-foreground">
               {t("financialTransactions.fields.amount")}
             </label>
-            <Input
+            <MoneyInput
               inputSize="sm"
-              type="number"
-              min={0}
-              dir="ltr"
-              className="text-end"
               value={state.amount}
               disabled={!canEdit}
               onChange={(event) => handlers.onAmountChange(event.target.valueAsNumber || 0)}

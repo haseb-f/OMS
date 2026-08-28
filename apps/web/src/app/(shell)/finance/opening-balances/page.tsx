@@ -17,7 +17,6 @@ import { StatusBadge } from "@/components/business/status-badge";
 import {
   JournalEntryLinesGrid,
   type JournalEntryLineGridRow,
-  type JournalEntryAccountOption,
 } from "@/components/accounting/journal-entry-lines-grid";
 import { fiscalYearsService, type FiscalYearRow } from "@/services/fiscal-years-service";
 import { openingBalancesService } from "@/services/opening-balances-service";
@@ -56,7 +55,7 @@ function OpeningBalancesPageContent() {
   const canManage = hasPermission("accounting.fiscal-years.manage");
 
   const [fiscalYears, setFiscalYears] = useState<FiscalYearRow[]>([]);
-  const [accounts, setAccounts] = useState<JournalEntryAccountOption[]>([]);
+  const [accounts, setAccounts] = useState<ChartOfAccountRow[]>([]);
   const [fiscalYearId, setFiscalYearId] = useState("");
   const [openingDate, setOpeningDate] = useState<Date | null>(null);
   const [lines, setLines] = useState<JournalEntryLineGridRow[]>([emptyLine(), emptyLine()]);
@@ -71,9 +70,7 @@ function OpeningBalancesPageContent() {
       .catch(() => setFiscalYears([]));
     accountsService
       .list({ pageSize: 500, postingOnly: true })
-      .then((result) =>
-        setAccounts(result.items.map((a) => ({ id: a.id, code: a.code, name: a.name }))),
-      )
+      .then((result) => setAccounts(result.items))
       .catch(() => setAccounts([]));
   }, []);
 
