@@ -12,11 +12,14 @@ export function ProductPicker({
   onChange,
   disabled,
   className,
+  inventoryOnly,
 }: {
   value: ProductRow | null | undefined;
   onChange: (product: ProductRow) => void;
   disabled?: boolean;
   className?: string;
+  /** Inventory movement pickers (Transfer/Adjustment/Opening) — only products a stock movement can legally apply to (ADR-0013). */
+  inventoryOnly?: boolean;
 }) {
   const { t } = useLocale();
 
@@ -31,6 +34,7 @@ export function ProductPicker({
           search: search || undefined,
           pageSize: 8,
           status: "ACTIVE",
+          ...(inventoryOnly ? { isInventoryItem: true } : {}),
         });
         return result.items;
       }}

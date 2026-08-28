@@ -114,6 +114,7 @@ export interface ProductListParams {
   taxId?: string;
   status?: ProductStatus | ProductStatus[];
   type?: ProductType | ProductType[];
+  isInventoryItem?: boolean;
 }
 
 export interface ProductActivityEntry {

@@ -162,6 +162,7 @@ export class ProductsService {
       taxId: query.taxId,
       status: prismaEnumFilter(query.status),
       type: prismaEnumFilter(query.type),
+      isInventoryItem: query.isInventoryItem,
     };
 
     if (query.search) {

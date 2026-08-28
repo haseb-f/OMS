@@ -1,36 +1,28 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { WarehousePicker } from "@/components/business/warehouse-picker";
+import { ProductPicker } from "@/components/business/product-picker";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import { inventoryService } from "@/services/inventory-service";
-import { createMasterDataService } from "@/services/master-data-service";
-import { productsService, type ProductRow } from "@/services/products-service";
+import type { ProductRow } from "@/services/products-service";
 import type { WarehouseRow } from "@/config/master-data/entities";
-
-const warehousesService = createMasterDataService<WarehouseRow>("/warehouses");
 
 interface TransferLine {
   key: number;
-  productId: string;
+  product: ProductRow | null;
   quantity: string;
 }
 
 let lineKeySeq = 0;
-const emptyLine = (): TransferLine => ({ key: lineKeySeq++, productId: "", quantity: "" });
+const emptyLine = (): TransferLine => ({ key: lineKeySeq++, product: null, quantity: "" });
 
 /** TASK-029 — Stock Transfer as its own dedicated entry point: From/To Warehouse + one or more Product/Quantity lines, one shared document number. */
 export function TransferDialog({
@@ -43,30 +35,16 @@ export function TransferDialog({
   onCreated: () => void;
 }) {
   const { t } = useLocale();
-  const [products, setProducts] = useState<ProductRow[]>([]);
-  const [warehouses, setWarehouses] = useState<WarehouseRow[]>([]);
 
-  const [sourceWarehouseId, setSourceWarehouseId] = useState("");
-  const [destinationWarehouseId, setDestinationWarehouseId] = useState("");
+  const [sourceWarehouse, setSourceWarehouse] = useState<WarehouseRow | null>(null);
+  const [destinationWarehouse, setDestinationWarehouse] = useState<WarehouseRow | null>(null);
   const [lines, setLines] = useState<TransferLine[]>([emptyLine()]);
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (!open) return;
-    productsService
-      .list({ pageSize: 200 })
-      .then((result) => setProducts(result.items.filter((product) => product.isInventoryItem)))
-      .catch(() => setProducts([]));
-    warehousesService
-      .list({ pageSize: 200 })
-      .then((result) => setWarehouses(result.items))
-      .catch(() => setWarehouses([]));
-  }, [open]);
-
   const reset = () => {
-    setSourceWarehouseId("");
-    setDestinationWarehouseId("");
+    setSourceWarehouse(null);
+    setDestinationWarehouse(null);
     setLines([emptyLine()]);
     setNotes("");
   };
@@ -80,27 +58,28 @@ export function TransferDialog({
       current.length > 1 ? current.filter((line) => line.key !== key) : current,
     );
 
-  const sameWarehouse = !!sourceWarehouseId && sourceWarehouseId === destinationWarehouseId;
+  const sameWarehouse =
+    !!sourceWarehouse && !!destinationWarehouse && sourceWarehouse.id === destinationWarehouse.id;
   const validLines = useMemo(
-    () => lines.filter((line) => line.productId && Number(line.quantity) > 0),
+    () => lines.filter((line) => line.product && Number(line.quantity) > 0),
     [lines],
   );
   const isValid =
-    !!sourceWarehouseId &&
-    !!destinationWarehouseId &&
+    !!sourceWarehouse &&
+    !!destinationWarehouse &&
     !sameWarehouse &&
     validLines.length === lines.length &&
     validLines.length > 0;
 
   const submit = async () => {
-    if (!isValid) return;
+    if (!isValid || !sourceWarehouse || !destinationWarehouse) return;
     setIsSubmitting(true);
     try {
       await inventoryService.transfer({
-        sourceWarehouseId,
-        destinationWarehouseId,
+        sourceWarehouseId: sourceWarehouse.id,
+        destinationWarehouseId: destinationWarehouse.id,
         lines: validLines.map((line) => ({
-          productId: line.productId,
+          productId: line.product!.id,
           quantity: Number(line.quantity),
         })),
         notes: notes || undefined,
@@ -146,36 +125,11 @@ export function TransferDialog({
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-2">
             <Label>{t("inventory.createMovement.sourceWarehouse")}</Label>
-            <Select value={sourceWarehouseId || undefined} onValueChange={setSourceWarehouseId}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {warehouses.map((warehouse) => (
-                  <SelectItem key={warehouse.id} value={warehouse.id}>
-                    {warehouse.code} — {warehouse.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <WarehousePicker value={sourceWarehouse} onChange={setSourceWarehouse} />
           </div>
           <div className="flex flex-col gap-2">
             <Label>{t("inventory.createMovement.destinationWarehouse")}</Label>
-            <Select
-              value={destinationWarehouseId || undefined}
-              onValueChange={setDestinationWarehouseId}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {warehouses.map((warehouse) => (
-                  <SelectItem key={warehouse.id} value={warehouse.id}>
-                    {warehouse.code} — {warehouse.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <WarehousePicker value={destinationWarehouse} onChange={setDestinationWarehouse} />
           </div>
         </div>
         {sameWarehouse && (
@@ -189,21 +143,12 @@ export function TransferDialog({
           <div className="flex flex-col gap-2">
             {lines.map((line) => (
               <div key={line.key} className="flex items-center gap-2">
-                <Select
-                  value={line.productId || undefined}
-                  onValueChange={(value) => updateLine(line.key, { productId: value })}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder={t("inventory.fields.product")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {products.map((product) => (
-                      <SelectItem key={product.id} value={product.id}>
-                        {product.sku} — {product.displayName || product.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <ProductPicker
+                  value={line.product}
+                  onChange={(product) => updateLine(line.key, { product })}
+                  inventoryOnly
+                  className="w-full"
+                />
                 <Input
                   type="number"
                   dir="ltr"

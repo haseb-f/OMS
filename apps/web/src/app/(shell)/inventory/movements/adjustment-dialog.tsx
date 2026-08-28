@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,15 +12,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { WarehousePicker } from "@/components/business/warehouse-picker";
+import { ProductPicker } from "@/components/business/product-picker";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import { inventoryService } from "@/services/inventory-service";
-import { createMasterDataService } from "@/services/master-data-service";
-import { productsService, type ProductRow } from "@/services/products-service";
+import type { ProductRow } from "@/services/products-service";
 import type { WarehouseRow } from "@/config/master-data/entities";
-
-const warehousesService = createMasterDataService<WarehouseRow>("/warehouses");
 
 type Direction = "INCREASE" | "DECREASE";
 
@@ -37,34 +36,20 @@ export function AdjustmentDialog({
   onCreated: () => void;
 }) {
   const { t } = useLocale();
-  const [products, setProducts] = useState<ProductRow[]>([]);
-  const [warehouses, setWarehouses] = useState<WarehouseRow[]>([]);
 
   const [direction, setDirection] = useState<Direction>("INCREASE");
-  const [productId, setProductId] = useState("");
-  const [warehouseId, setWarehouseId] = useState("");
+  const [product, setProduct] = useState<ProductRow | null>(null);
+  const [warehouse, setWarehouse] = useState<WarehouseRow | null>(null);
   const [quantity, setQuantity] = useState("");
   const [reason, setReason] = useState<(typeof REASONS)[number] | "">("");
   const [customReason, setCustomReason] = useState("");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (!open) return;
-    productsService
-      .list({ pageSize: 200 })
-      .then((result) => setProducts(result.items.filter((product) => product.isInventoryItem)))
-      .catch(() => setProducts([]));
-    warehousesService
-      .list({ pageSize: 200 })
-      .then((result) => setWarehouses(result.items))
-      .catch(() => setWarehouses([]));
-  }, [open]);
-
   const reset = () => {
     setDirection("INCREASE");
-    setProductId("");
-    setWarehouseId("");
+    setProduct(null);
+    setWarehouse(null);
     setQuantity("");
     setReason("");
     setCustomReason("");
@@ -73,16 +58,16 @@ export function AdjustmentDialog({
 
   const resolvedReason = reason === "OTHER" ? customReason.trim() : reason;
   const isValid =
-    !!productId && !!warehouseId && !!quantity && Number(quantity) > 0 && !!resolvedReason;
+    !!product && !!warehouse && !!quantity && Number(quantity) > 0 && !!resolvedReason;
 
   const submit = async () => {
-    if (!isValid) return;
+    if (!isValid || !product || !warehouse) return;
     setIsSubmitting(true);
     try {
       const signedQuantity = direction === "INCREASE" ? Number(quantity) : -Number(quantity);
       await inventoryService.adjustment({
-        productId,
-        warehouseId,
+        productId: product.id,
+        warehouseId: warehouse.id,
         quantity: signedQuantity,
         reason: resolvedReason,
         notes: notes || undefined,
@@ -155,33 +140,11 @@ export function AdjustmentDialog({
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
             <Label>{t("inventory.fields.product")}</Label>
-            <Select value={productId || undefined} onValueChange={setProductId}>
-              <SelectTrigger size="sm" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {products.map((product) => (
-                  <SelectItem key={product.id} value={product.id}>
-                    {product.sku} — {product.displayName || product.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <ProductPicker value={product} onChange={setProduct} inventoryOnly className="w-full" />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label>{t("masterData.fields.warehouse")}</Label>
-            <Select value={warehouseId || undefined} onValueChange={setWarehouseId}>
-              <SelectTrigger size="sm" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {warehouses.map((warehouse) => (
-                  <SelectItem key={warehouse.id} value={warehouse.id}>
-                    {warehouse.code} — {warehouse.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <WarehousePicker value={warehouse} onChange={setWarehouse} />
           </div>
         </div>
 

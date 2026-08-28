@@ -44,6 +44,12 @@ export class FindProductsQueryDto {
   @IsOptional()
   type?: ProductType[];
 
+  /** Inventory movement pickers (Transfer/Adjustment/Opening) — only products a movement can legally apply to (ADR-0013). */
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  @IsOptional()
+  isInventoryItem?: boolean;
+
   @IsString()
   @IsOptional()
   search?: string;
