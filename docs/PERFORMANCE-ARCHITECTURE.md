@@ -186,3 +186,13 @@ proven duplication and was not force-wired in without a real call site.
   in the task (Store Orders, Shipping list) — both were already
   well-projected. Other list endpoints (Sales/Purchase invoices, Journal
   Entries, Leads) were not individually audited.
+- **Pre-existing hydration mismatch (React error #418) found during
+  production smoke testing, on both changed and unchanged pages** (reproduced
+  on `/finance/journal-entries/new` and on the untouched Dashboard root) —
+  present before this session's push too (it is not layout/shell code this
+  pass touched). Some server-rendered text node doesn't match what the
+  client renders on hydration; the app still works (React recovers by
+  re-rendering client-side), but it's a real, unfixed bug worth its own
+  investigation — most likely a date/time or locale-dependent string
+  rendered differently between SSR and the client. Out of scope for a
+  performance pass; noted here rather than silently left out of the report.
