@@ -25,16 +25,15 @@ import { ProductCreateDialog } from "./product-create-dialog";
 import { ProductSuccessDialog } from "./product-success-dialog";
 import { ProductOpeningBalanceDialog } from "./product-opening-balance-dialog";
 import { productsService, type ProductRow } from "@/services/products-service";
-import { createMasterDataService } from "@/services/master-data-service";
-import { suppliersService, type SupplierRow } from "@/services/suppliers-service";
-import type {
-  CategoryRow,
-  BrandRow,
-  UnitRow,
-  TaxRow,
-  AnalyticAccountRow,
-  WarehouseRow,
-} from "@/config/master-data/entities";
+import {
+  useProductCategories,
+  useProductBrands,
+  useUnits,
+  useTaxes,
+  useAnalyticAccounts,
+  useSuppliers,
+  useWarehouses,
+} from "@/hooks/use-reference-data";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
@@ -43,13 +42,6 @@ import { ApiError } from "@/services/api-client";
 import { formatDateTime } from "@/lib/date";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
-
-const categoriesService = createMasterDataService<CategoryRow>("/product-categories");
-const brandsService = createMasterDataService<BrandRow>("/product-brands");
-const unitsService = createMasterDataService<UnitRow>("/units");
-const taxesService = createMasterDataService<TaxRow>("/taxes");
-const analyticAccountsService = createMasterDataService<AnalyticAccountRow>("/analytic-accounts");
-const warehousesService = createMasterDataService<WarehouseRow>("/warehouses");
 
 function ProductsPageContent() {
   const { t } = useLocale();
@@ -70,13 +62,13 @@ function ProductsPageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState({});
 
-  const [categories, setCategories] = useState<CategoryRow[]>([]);
-  const [brands, setBrands] = useState<BrandRow[]>([]);
-  const [units, setUnits] = useState<UnitRow[]>([]);
-  const [taxes, setTaxes] = useState<TaxRow[]>([]);
-  const [analyticAccounts, setAnalyticAccounts] = useState<AnalyticAccountRow[]>([]);
-  const [suppliers, setSuppliers] = useState<SupplierRow[]>([]);
-  const [warehouses, setWarehouses] = useState<WarehouseRow[]>([]);
+  const categories = useProductCategories();
+  const brands = useProductBrands();
+  const units = useUnits();
+  const taxes = useTaxes();
+  const analyticAccounts = useAnalyticAccounts();
+  const suppliers = useSuppliers();
+  const warehouses = useWarehouses();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductRow | null>(null);
@@ -110,44 +102,6 @@ function ProductsPageContent() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
-
-  useEffect(() => {
-    const notifyLoadFailed = (name: string, error: unknown) => {
-      toast.error(error instanceof ApiError ? error.message : t("common.loadListFailed", { name }));
-    };
-    categoriesService
-      .list({ pageSize: 200 })
-      .then((r) => setCategories(r.items))
-      .catch((error: unknown) => {
-        setCategories([]);
-        notifyLoadFailed(t("products.fields.category"), error);
-      });
-    brandsService
-      .list({ pageSize: 200 })
-      .then((r) => setBrands(r.items))
-      .catch(() => setBrands([]));
-    unitsService
-      .list({ pageSize: 200 })
-      .then((r) => setUnits(r.items))
-      .catch(() => setUnits([]));
-    taxesService
-      .list({ pageSize: 200 })
-      .then((r) => setTaxes(r.items))
-      .catch(() => setTaxes([]));
-    analyticAccountsService
-      .list({ pageSize: 200 })
-      .then((r) => setAnalyticAccounts(r.items))
-      .catch(() => setAnalyticAccounts([]));
-    suppliersService
-      .list({ pageSize: 200 })
-      .then((r) => setSuppliers(r.items))
-      .catch(() => setSuppliers([]));
-    warehousesService
-      .list({ pageSize: 200 })
-      .then((r) => setWarehouses(r.items))
-      .catch(() => setWarehouses([]));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const openCreate = () => setCreateDialogOpen(true);
   const openEdit = (product: ProductRow) => {
@@ -393,7 +347,7 @@ function ProductsPageContent() {
         suppliers={suppliers}
         warehouses={warehouses}
         onSaved={load}
-        onCategoryCreated={(category) => setCategories((prev) => [...prev, category])}
+        onCategoryCreated={(category) => useProductCategories.add(category)}
       />
 
       <ConfirmationDialog

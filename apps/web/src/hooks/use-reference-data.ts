@@ -2,8 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createMasterDataService } from "@/services/master-data-service";
-import type { CurrencyRow, CountryRow } from "@/config/master-data/entities";
+import type {
+  CurrencyRow,
+  CountryRow,
+  CategoryRow,
+  BrandRow,
+  UnitRow,
+  TaxRow,
+  AnalyticAccountRow,
+  WarehouseRow,
+} from "@/config/master-data/entities";
 import { usersService, type UserRow } from "@/services/users-service";
+import { suppliersService, type SupplierRow } from "@/services/suppliers-service";
 
 /**
  * Session-lifetime cache for read-mostly reference data (currencies,
@@ -42,7 +52,7 @@ function createReferenceDataHook<T>(fetcher: () => Promise<T[]>) {
       });
   }
 
-  return function useReferenceData(): T[] {
+  function useReferenceData(): T[] {
     const [, forceRender] = useState(0);
 
     useEffect(() => {
@@ -55,7 +65,26 @@ function createReferenceDataHook<T>(fetcher: () => Promise<T[]>) {
     }, []);
 
     return cache ?? [];
+  }
+
+  /**
+   * Cache invalidation (never a blanket "clear everything") — a quick-create
+   * dialog appends the row it just created so it shows up immediately in
+   * every mounted consumer without a full reload or a redundant refetch.
+   */
+  useReferenceData.add = (item: T) => {
+    cache = cache ? [...cache, item] : [item];
+    listeners.forEach((listener) => listener());
   };
+
+  /** For a rarer full edit/archive from the entity's own management page — refetch on next read instead of trying to patch the cached array in place. */
+  useReferenceData.invalidate = () => {
+    cache = null;
+    inFlight = null;
+    listeners.forEach((listener) => listener());
+  };
+
+  return useReferenceData;
 }
 
 const currenciesService = createMasterDataService<CurrencyRow>("/currencies");
@@ -67,6 +96,49 @@ export const useCurrencies = createReferenceDataHook<CurrencyRow>(() =>
 
 export const useCountries = createReferenceDataHook<CountryRow>(() =>
   countriesService.list({ pageSize: 300 }).then((r) => r.items),
+);
+
+/**
+ * Same duplication proven for currencies/countries above, found again
+ * verbatim between the Products list page and Product detail page: both
+ * independently fetched Category/Brand/Unit/Tax/AnalyticAccount/Warehouse/
+ * Supplier on every mount (7 requests each way, every navigation between
+ * the two screens). Centralized here rather than left as two copies of the
+ * same six `useState`+`useEffect` blocks.
+ */
+const categoriesService = createMasterDataService<CategoryRow>("/product-categories");
+const brandsService = createMasterDataService<BrandRow>("/product-brands");
+const unitsService = createMasterDataService<UnitRow>("/units");
+const taxesService = createMasterDataService<TaxRow>("/taxes");
+const analyticAccountsService = createMasterDataService<AnalyticAccountRow>("/analytic-accounts");
+const warehousesService = createMasterDataService<WarehouseRow>("/warehouses");
+
+export const useProductCategories = createReferenceDataHook<CategoryRow>(() =>
+  categoriesService.list({ pageSize: 200 }).then((r) => r.items),
+);
+
+export const useProductBrands = createReferenceDataHook<BrandRow>(() =>
+  brandsService.list({ pageSize: 200 }).then((r) => r.items),
+);
+
+export const useUnits = createReferenceDataHook<UnitRow>(() =>
+  unitsService.list({ pageSize: 200 }).then((r) => r.items),
+);
+
+export const useTaxes = createReferenceDataHook<TaxRow>(() =>
+  taxesService.list({ pageSize: 200 }).then((r) => r.items),
+);
+
+export const useAnalyticAccounts = createReferenceDataHook<AnalyticAccountRow>(() =>
+  analyticAccountsService.list({ pageSize: 200 }).then((r) => r.items),
+);
+
+export const useWarehouses = createReferenceDataHook<WarehouseRow>(() =>
+  warehousesService.list({ pageSize: 200 }).then((r) => r.items),
+);
+
+export const useSuppliers = createReferenceDataHook<SupplierRow>(() =>
+  suppliersService.list({ pageSize: 200 }).then((r) => r.items),
 );
 
 /**

@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 import { ChevronDown, Plus, Trash2 } from "lucide-react";
 import {
   Table,
@@ -21,15 +21,12 @@ import {
 } from "@/components/ui/select";
 import { ProductPicker } from "@/components/business/product-picker";
 import { WarehousePicker } from "@/components/business/warehouse-picker";
-import { createMasterDataService } from "@/services/master-data-service";
-import type { TaxRow } from "@/config/master-data/entities";
+import { useTaxes } from "@/hooks/use-reference-data";
 import type { ProductRow } from "@/services/products-service";
 import type { WarehouseRow } from "@/config/master-data/entities";
 import { previewSalesLine } from "./sales-line-preview-math";
 import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
-
-const taxesService = createMasterDataService<TaxRow>("/taxes");
 
 export interface ProductLineItemsGridLine {
   /** Client-side row identity (React key + keyboard-nav target) — never a document/DB id at this layer. */
@@ -108,7 +105,7 @@ export function ProductLineItemsGrid({
   compact?: boolean;
 }) {
   const { t } = useLocale();
-  const [taxes, setTaxes] = useState<TaxRow[]>([]);
+  const taxes = useTaxes();
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -120,13 +117,6 @@ export function ProductLineItemsGrid({
       return next;
     });
   };
-
-  useEffect(() => {
-    taxesService
-      .list({ pageSize: 200 })
-      .then((r) => setTaxes(r.items))
-      .catch(() => setTaxes([]));
-  }, []);
 
   const updateLine = (id: string, patch: Partial<ProductLineItemsGridLine>) => {
     const index = lines.findIndex((line) => line.id === id);

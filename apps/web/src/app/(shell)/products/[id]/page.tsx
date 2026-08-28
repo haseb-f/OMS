@@ -30,24 +30,16 @@ import {
   type ProductActivityEntry as ProductActivityRow,
   type ProductRow,
 } from "@/services/products-service";
-import { createMasterDataService } from "@/services/master-data-service";
-import { suppliersService, type SupplierRow } from "@/services/suppliers-service";
-import type {
-  CategoryRow,
-  BrandRow,
-  UnitRow,
-  TaxRow,
-  AnalyticAccountRow,
-  WarehouseRow,
-} from "@/config/master-data/entities";
+import {
+  useProductCategories,
+  useProductBrands,
+  useUnits,
+  useTaxes,
+  useAnalyticAccounts,
+  useSuppliers,
+  useWarehouses,
+} from "@/hooks/use-reference-data";
 import { ProductModal } from "../product-modal";
-
-const categoriesService = createMasterDataService<CategoryRow>("/product-categories");
-const brandsService = createMasterDataService<BrandRow>("/product-brands");
-const unitsService = createMasterDataService<UnitRow>("/units");
-const taxesService = createMasterDataService<TaxRow>("/taxes");
-const analyticAccountsService = createMasterDataService<AnalyticAccountRow>("/analytic-accounts");
-const warehousesService = createMasterDataService<WarehouseRow>("/warehouses");
 
 const STATUS_TONE: Record<ProductRow["status"], StatusTone> = {
   DRAFT: "warning",
@@ -73,13 +65,13 @@ function ProductDetailContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [activities, setActivities] = useState<ProductActivityRow[] | null>(null);
 
-  const [categories, setCategories] = useState<CategoryRow[]>([]);
-  const [brands, setBrands] = useState<BrandRow[]>([]);
-  const [units, setUnits] = useState<UnitRow[]>([]);
-  const [taxes, setTaxes] = useState<TaxRow[]>([]);
-  const [analyticAccounts, setAnalyticAccounts] = useState<AnalyticAccountRow[]>([]);
-  const [suppliers, setSuppliers] = useState<SupplierRow[]>([]);
-  const [warehouses, setWarehouses] = useState<WarehouseRow[]>([]);
+  const categories = useProductCategories();
+  const brands = useProductBrands();
+  const units = useUnits();
+  const taxes = useTaxes();
+  const analyticAccounts = useAnalyticAccounts();
+  const suppliers = useSuppliers();
+  const warehouses = useWarehouses();
 
   const [editOpen, setEditOpen] = useState(false);
   const [editInitialTab, setEditInitialTab] = useState<string | undefined>(undefined);
@@ -118,38 +110,6 @@ function ProductDetailContent() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadActivities();
   }, [loadActivities]);
-
-  useEffect(() => {
-    const notifyLoadFailed = () => undefined;
-    categoriesService
-      .list({ pageSize: 200 })
-      .then((r) => setCategories(r.items))
-      .catch(notifyLoadFailed);
-    brandsService
-      .list({ pageSize: 200 })
-      .then((r) => setBrands(r.items))
-      .catch(notifyLoadFailed);
-    unitsService
-      .list({ pageSize: 200 })
-      .then((r) => setUnits(r.items))
-      .catch(notifyLoadFailed);
-    taxesService
-      .list({ pageSize: 200 })
-      .then((r) => setTaxes(r.items))
-      .catch(notifyLoadFailed);
-    analyticAccountsService
-      .list({ pageSize: 200 })
-      .then((r) => setAnalyticAccounts(r.items))
-      .catch(notifyLoadFailed);
-    suppliersService
-      .list({ pageSize: 200 })
-      .then((r) => setSuppliers(r.items))
-      .catch(notifyLoadFailed);
-    warehousesService
-      .list({ pageSize: 200 })
-      .then((r) => setWarehouses(r.items))
-      .catch(notifyLoadFailed);
-  }, []);
 
   const openEdit = (tab?: string) => {
     setEditInitialTab(tab);
@@ -450,7 +410,7 @@ function ProductDetailContent() {
         onSaved={() => {
           void load();
         }}
-        onCategoryCreated={(category) => setCategories((prev) => [...prev, category])}
+        onCategoryCreated={(category) => useProductCategories.add(category)}
         initialTab={editInitialTab}
       />
 

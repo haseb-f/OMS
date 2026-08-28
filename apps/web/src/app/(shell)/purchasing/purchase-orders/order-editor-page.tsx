@@ -15,8 +15,8 @@ import {
   previewSalesLine,
   previewSalesDocumentTotals,
 } from "@/components/sales/sales-line-preview-math";
-import { createMasterDataService } from "@/services/master-data-service";
-import type { TaxRow, CurrencyRow } from "@/config/master-data/entities";
+import { useTaxes } from "@/hooks/use-reference-data";
+import type { CurrencyRow } from "@/config/master-data/entities";
 import type { DocumentTotals } from "@/components/sales/document-totals-footer";
 import type {
   PurchaseDocumentEditorConfig,
@@ -42,8 +42,6 @@ import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import { ConvertToInvoiceDialog } from "./convert-to-invoice-dialog";
-
-const taxesService = createMasterDataService<TaxRow>("/taxes");
 
 function itemToLine(item: PurchaseOrderItemRow): ProductLineItemsGridLine {
   return {
@@ -94,14 +92,8 @@ export function OrderEditorPage({ id }: { id: string | null }) {
   const [notes, setNotes] = useState("");
   const [terms, setTerms] = useState("");
   const [lines, setLines] = useState<ProductLineItemsGridLine[]>([createEmptyLine()]);
-  const [taxes, setTaxes] = useState<TaxRow[]>([]);
+  const taxes = useTaxes();
 
-  useEffect(() => {
-    taxesService
-      .list({ pageSize: 200 })
-      .then((r) => setTaxes(r.items))
-      .catch(() => setTaxes([]));
-  }, []);
   const taxRateById = useMemo(
     () => new Map(taxes.map((tax) => [tax.id, Number(tax.rate)])),
     [taxes],
