@@ -25,6 +25,7 @@ export function AccountPicker({
   excludeIds,
   accountType,
   postingOnly,
+  items,
 }: {
   value: ChartOfAccountRow | null | undefined;
   onChange: (account: ChartOfAccountRow | null) => void;
@@ -33,6 +34,8 @@ export function AccountPicker({
   excludeIds?: string[];
   accountType?: ChartOfAccountRow["accountType"];
   postingOnly?: boolean;
+  /** Skip the async search and filter this already-fetched list instead — for callers (e.g. a line-grid) that prefetch the account list once for the whole page rather than per-row. */
+  items?: ChartOfAccountRow[];
 }) {
   const { t } = useLocale();
   const excluded = new Set(excludeIds ?? []);
@@ -41,17 +44,23 @@ export function AccountPicker({
     <EntityCombobox
       value={value ?? null}
       onChange={onChange}
-      onSearch={async (search) => {
-        const result = await accountsService.list({
-          search: search || undefined,
-          pageSize: 20,
-          ...(accountType ? { accountType } : {}),
-          ...(postingOnly ? { postingOnly: true } : {}),
-        });
-        return result.items.filter((item) => !excluded.has(item.id));
-      }}
+      items={items}
+      onSearch={
+        items
+          ? undefined
+          : async (search) => {
+              const result = await accountsService.list({
+                search: search || undefined,
+                pageSize: 20,
+                ...(accountType ? { accountType } : {}),
+                ...(postingOnly ? { postingOnly: true } : {}),
+              });
+              return result.items.filter((item) => !excluded.has(item.id));
+            }
+      }
       getId={(account) => account.id}
       getTitle={(account) => account.name}
+      getSearchText={(account) => account.code}
       getSubtitle={(account) =>
         account.parentAccount
           ? `${account.code} · ${account.parentAccount.name}`
