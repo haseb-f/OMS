@@ -87,4 +87,12 @@
   --width-picker-customer: 420px;
   --width-picker-product: 340px;
   --width-picker-warehouse: 300px;
+
+  /* OMS Global Scroll System — the one scrollbar treatment every scrollable
+     surface in the app shares (tables, dialogs/sheets, sidebar, dropdown/
+     combobox lists, transaction workspaces). Color tokens
+     (--scrollbar-thumb/-hover/-active/-track) live in globals.css next to
+     --foreground, since they're derived from it and need to flip with
+     .dark; this file only owns the non-color size. */
+  --scrollbar-size: 6px;
 }

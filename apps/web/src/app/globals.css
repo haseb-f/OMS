@@ -174,6 +174,16 @@
   --brand-blue: #3c78d0;
   --brand-teal: #3cb8c0;
   --brand-canvas: #eef3f8;
+
+  /* OMS Global Scroll System (--scrollbar-size lives in theme/tokens.css) —
+     a flat percentage of --foreground rather than separate light/dark
+     literals, so light and dark mode both fall out of the one definition
+     below without a second block: --foreground is near-black in :root and
+     near-white in .dark already. */
+  --scrollbar-thumb: color-mix(in oklab, var(--foreground) 16%, transparent);
+  --scrollbar-thumb-hover: color-mix(in oklab, var(--foreground) 28%, transparent);
+  --scrollbar-thumb-active: color-mix(in oklab, var(--foreground) 38%, transparent);
+  --scrollbar-track: transparent;
 }
 
 .dark {
@@ -235,6 +245,92 @@
   }
   html {
     @apply font-sans;
+  }
+
+  /*
+   * OMS Global Scroll System — applied once, globally, to every native
+   * overflow-auto/-scroll container in the app (tables, dialogs/sheets,
+   * forms, transaction workspaces, ...) instead of styling each screen
+   * independently. Deliberately NOT wrapped in every scroll container as a
+   * Radix ScrollArea (see components/ui/scroll-area.tsx for where that's
+   * used instead): this is pure paint, so it carries zero layout/
+   * sticky-position risk.
+   *
+   * Chromium/Safari (Blink/WebKit — `@supports selector(::-webkit-scrollbar)`
+   * true) get the ::-webkit-scrollbar-* pseudo-elements below, which is the
+   * ONLY path that can fully remove the native up/down arrow caps — Chromium
+   * on Windows still renders one of its own even under the standard
+   * `scrollbar-width: thin` (confirmed empirically: setting both on the same
+   * element silently drops the ::-webkit-scrollbar-button override, since
+   * Chromium treats `scrollbar-width` as authoritative once present). Firefox
+   * (no ::-webkit-scrollbar support at all) gets `scrollbar-width`/
+   * `scrollbar-color` instead, which is already arrow-free there.
+   */
+  @supports selector(::-webkit-scrollbar) {
+    ::-webkit-scrollbar {
+      width: var(--scrollbar-size);
+      height: var(--scrollbar-size);
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--scrollbar-track);
+    }
+    ::-webkit-scrollbar-thumb {
+      background-color: var(--scrollbar-thumb);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background-color: var(--scrollbar-thumb-hover);
+    }
+    ::-webkit-scrollbar-thumb:active {
+      background-color: var(--scrollbar-thumb-active);
+    }
+    /* Removes the legacy up/down/left/right arrow-button controls. */
+    ::-webkit-scrollbar-button {
+      display: none;
+      width: 0;
+      height: 0;
+    }
+    ::-webkit-scrollbar-corner {
+      background: transparent;
+    }
+  }
+
+  @supports not selector(::-webkit-scrollbar) {
+    html {
+      scrollbar-width: thin;
+      scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+    }
+  }
+
+  /* Fully hidden scrollbar — content still scrolls (wheel/touch/keyboard
+     untouched), for the rare container that must never show one at all. */
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Sidebar-style "discreet until interacting" scrollbar (spec section 12):
+     transparent thumb at rest, the normal subtle thumb only while the
+     pointer is over the scroll container or a descendant has focus — never
+     a permanently reserved visual column. */
+  .scroll-auto-hide {
+    scrollbar-color: transparent var(--scrollbar-track);
+  }
+  .scroll-auto-hide::-webkit-scrollbar-thumb {
+    background-color: transparent;
+  }
+  .scroll-auto-hide:hover,
+  .scroll-auto-hide:focus-within {
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
+  .scroll-auto-hide:hover::-webkit-scrollbar-thumb,
+  .scroll-auto-hide:focus-within::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+  }
+  .scroll-auto-hide::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
   }
 
   /*
