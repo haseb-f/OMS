@@ -23,6 +23,13 @@ async function bootstrap() {
   app.enableCors({
     origin: process.env.WEB_APP_URL ?? 'http://localhost:3001',
     credentials: true,
+    // Every browser request from apps/web carries the same fixed header set
+    // (Authorization/Content-Type/X-Company-Id/X-Branch-Id), so one
+    // preflight per (method, headers) pair is enough — without this the
+    // browser re-issues a full OPTIONS round trip before every single GET/
+    // POST/PATCH, doubling real request count app-wide. 86400s = 24h, the
+    // maximum Chrome/Firefox actually honor (larger values are clamped).
+    maxAge: 86400,
   });
   await app.listen(process.env.PORT ?? 3000);
 }

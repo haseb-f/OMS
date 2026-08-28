@@ -38,6 +38,8 @@ async function bootstrap(): Promise<Express> {
   app.enableCors({
     origin: process.env.WEB_APP_URL ?? "http://localhost:3001",
     credentials: true,
+    // Mirrors apps/api/src/main.ts — see that file for why this matters.
+    maxAge: 86400,
   });
   await app.init();
   return server;
