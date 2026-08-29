@@ -14,6 +14,7 @@ import { PaymentsService } from '../payments/payments.service';
 import { StoreOrdersService } from '../store-orders/store-orders.service';
 import { StoreOrderPaymentSyncService } from '../store-orders/store-order-payment-sync.service';
 import { FinancialTransactionsService } from '../financial-transactions/financial-transactions.service';
+import { WorkflowStatusResolverService } from '../workflow/workflow-status-resolver.service';
 import type { CompanyContext } from '../common/decorators/current-company-context.decorator';
 
 export interface ReconciliationCandidate {
@@ -23,6 +24,12 @@ export interface ReconciliationCandidate {
   amount: number;
   score: number;
   reasons: string[];
+  /** Expected vs actual payment method/source diverge — still a valid candidate. */
+  methodMismatch?: boolean;
+  expectedPaymentSourceId?: string | null;
+  expectedPaymentSourceName?: string | null;
+  actualCashSourceId?: string | null;
+  actualCashSourceName?: string | null;
 }
 
 /**
@@ -46,7 +53,15 @@ export class CashFlowReconciliationService {
     private readonly storeOrdersService: StoreOrdersService,
     private readonly storeOrderPaymentSync: StoreOrderPaymentSyncService,
     private readonly financialTransactions: FinancialTransactionsService,
+    private readonly statusResolver: WorkflowStatusResolverService,
   ) {}
+
+  private matchStatusData(status: BankTransactionMatchStatus) {
+    return {
+      matchStatus: status,
+      matchStatusId: this.statusResolver.matchingStatusId(status),
+    };
+  }
 
   private async getUnreconciled(
     id: string,
@@ -138,9 +153,30 @@ export class CashFlowReconciliationService {
           internalOrderId: true,
           externalOrderId: true,
           currencyId: true,
+          payments: {
+            where: { deletedAt: null },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            select: {
+              paymentSourceId: true,
+              paymentSource: {
+                select: {
+                  id: true,
+                  name: true,
+                  defaultChartOfAccountId: true,
+                },
+              },
+            },
+          },
         },
         take: 500,
       });
+      const cashSource = transaction.cashSourceId
+        ? await this.prisma.receivingAccount.findFirst({
+            where: { id: transaction.cashSourceId, deletedAt: null },
+            select: { id: true, name: true, chartOfAccountId: true },
+          })
+        : null;
       for (const order of openOrders) {
         if (!order.externalOrderId) continue;
         if (!needle.includes(order.externalOrderId.toLowerCase())) continue;
@@ -151,15 +187,52 @@ export class CashFlowReconciliationService {
         ) {
           continue;
         }
+        const expectedPayment = order.payments[0] ?? null;
+        const expectedSource = expectedPayment?.paymentSource ?? null;
+        // HOW (PaymentSource default CoA) vs WHERE (Cash Source CoA).
+        // Name-only fallback when PaymentSource has no default CoA.
+        let methodMismatch = false;
+        if (expectedSource && cashSource) {
+          if (
+            expectedSource.defaultChartOfAccountId &&
+            expectedSource.defaultChartOfAccountId !==
+              cashSource.chartOfAccountId
+          ) {
+            methodMismatch = true;
+          } else if (
+            !expectedSource.defaultChartOfAccountId &&
+            expectedSource.name.trim().toLowerCase() !==
+              cashSource.name.trim().toLowerCase() &&
+            !cashSource.name
+              .toLowerCase()
+              .includes(expectedSource.name.trim().toLowerCase()) &&
+            !expectedSource.name
+              .toLowerCase()
+              .includes(cashSource.name.trim().toLowerCase())
+          ) {
+            methodMismatch = true;
+          }
+        }
+
         candidates.push({
           kind: 'STORE_ORDER',
           id: order.id,
           label: `${order.internalOrderId} (${order.externalOrderId})`,
           amount,
-          score: 70,
+          score: methodMismatch ? 68 : 70,
           reasons: [
             `External Order ID "${order.externalOrderId}" found in reference/description`,
+            ...(methodMismatch && expectedSource
+              ? [
+                  `Expected payment method "${expectedSource.name}" vs cash source "${cashSource?.name ?? 'unknown'}" — verify before confirming (mismatch does not block match)`,
+                ]
+              : []),
           ],
+          methodMismatch,
+          expectedPaymentSourceId: expectedSource?.id ?? null,
+          expectedPaymentSourceName: expectedSource?.name ?? null,
+          actualCashSourceId: cashSource?.id ?? transaction.cashSourceId,
+          actualCashSourceName: cashSource?.name ?? null,
         });
       }
     }
@@ -209,7 +282,7 @@ export class CashFlowReconciliationService {
     await this.prisma.bankTransaction.update({
       where: { id },
       data: {
-        matchStatus: status,
+        ...this.matchStatusData(status),
         matchCandidates: candidates as unknown as Prisma.InputJsonValue,
       },
     });
@@ -250,6 +323,8 @@ export class CashFlowReconciliationService {
       paymentSourceId: string;
       referenceNumber?: string;
       senderName?: string;
+      acknowledgeMethodMismatch?: boolean;
+      updateExpectedPaymentSource?: boolean;
     },
     userId: string,
   ) {
@@ -262,6 +337,39 @@ export class CashFlowReconciliationService {
       throw new BadRequestException(
         'This transaction has no mapped Cash Source — map it to a Receiving Account before reconciling.',
       );
+    }
+
+    const priorReported = await this.prisma.payment.findFirst({
+      where: {
+        storeOrderId: dto.storeOrderId,
+        deletedAt: null,
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        paymentSourceId: true,
+        paymentSource: { select: { id: true, name: true } },
+      },
+    });
+    const expectedSourceId = priorReported?.paymentSourceId ?? null;
+    const isMismatch =
+      !!expectedSourceId && expectedSourceId !== dto.paymentSourceId;
+    if (isMismatch && !dto.acknowledgeMethodMismatch) {
+      throw new BadRequestException(
+        'Payment method differs from the reported expectation — acknowledge the mismatch to continue.',
+      );
+    }
+
+    if (
+      dto.updateExpectedPaymentSource &&
+      priorReported &&
+      expectedSourceId &&
+      expectedSourceId !== dto.paymentSourceId
+    ) {
+      await this.prisma.payment.update({
+        where: { id: priorReported.id },
+        data: { paymentSourceId: dto.paymentSourceId },
+      });
     }
 
     const payment = await this.storeOrdersService.addPayment(
@@ -288,11 +396,26 @@ export class CashFlowReconciliationService {
     );
     await this.paymentsService.match(payment.id, { matchedById: userId });
 
+    if (dto.acknowledgeMethodMismatch || isMismatch) {
+      await this.storeOrdersService.addNote(
+        dto.storeOrderId,
+        {
+          note:
+            `Method mismatch acknowledged on cash-flow match: expected=${priorReported?.paymentSource?.name ?? expectedSourceId ?? 'n/a'};` +
+            ` actualPaymentSourceId=${dto.paymentSourceId};` +
+            ` cashSourceId=${receivingAccountId};` +
+            ` updateExpected=${dto.updateExpectedPaymentSource ? 'yes' : 'no'};` +
+            ` bankTransactionId=${id}`,
+        },
+        userId,
+      );
+    }
+
     return this.prisma.bankTransaction.update({
       where: { id },
       data: {
         direction: CashFlowDirection.INCOMING,
-        matchStatus: BankTransactionMatchStatus.MATCHED,
+        ...this.matchStatusData(BankTransactionMatchStatus.MATCHED),
         matchedPaymentId: payment.id,
         matchedAt: new Date(),
         matchedById: userId,
@@ -369,7 +492,7 @@ export class CashFlowReconciliationService {
       where: { id },
       data: {
         direction: CashFlowDirection.INCOMING,
-        matchStatus: BankTransactionMatchStatus.MATCHED,
+        ...this.matchStatusData(BankTransactionMatchStatus.MATCHED),
         matchedFinancialTransactionId: created.id,
         matchedAt: new Date(),
         matchedById: userId,
@@ -495,7 +618,7 @@ export class CashFlowReconciliationService {
     await this.prisma.bankTransaction.update({
       where: { id },
       data: {
-        matchStatus: status,
+        ...this.matchStatusData(status),
         matchCandidates: candidates as unknown as Prisma.InputJsonValue,
       },
     });
@@ -564,7 +687,7 @@ export class CashFlowReconciliationService {
       data: {
         direction: CashFlowDirection.OUTGOING,
         outgoingType: CashFlowOutgoingType.SUPPLIER_PAYMENT,
-        matchStatus: BankTransactionMatchStatus.MATCHED,
+        ...this.matchStatusData(BankTransactionMatchStatus.MATCHED),
         matchedFinancialTransactionId: created.id,
         matchedAt: new Date(),
         matchedById: userId,
@@ -633,7 +756,7 @@ export class CashFlowReconciliationService {
         direction: CashFlowDirection.OUTGOING,
         outgoingType: CashFlowOutgoingType.EXPENSE,
         expenseAccountId,
-        matchStatus: BankTransactionMatchStatus.MATCHED,
+        ...this.matchStatusData(BankTransactionMatchStatus.MATCHED),
         matchedFinancialTransactionId: created.id,
         matchedAt: new Date(),
         matchedById: userId,
@@ -785,11 +908,10 @@ export class CashFlowReconciliationService {
   }
 
   /**
-   * Controlled Unreconcile — clears the Cash Flow match without deleting the
-   * bank transaction. Soft-deletes the linked Store Order Payment (so it no
-   * longer contributes to order PAID truth) and recomputes paymentStatus.
-   * B2B financial-transaction matches that already posted must be reversed
-   * through the financial document flow — not silently cleared here.
+   * Controlled Unreconcile — Cash Transaction retained.
+   * Store Order path: soft-delete linked Payment + clear match.
+   * B2B path: cancel FinancialTransaction (reverses JE via Posting Engine)
+   * then clear match.
    */
   async unreconcile(id: string, userId: string, reason?: string) {
     const transaction = await this.prisma.bankTransaction.findFirst({
@@ -806,10 +928,25 @@ export class CashFlowReconciliationService {
         'This transaction is not reconciled — nothing to unreconcile.',
       );
     }
+
     if (transaction.matchedFinancialTransactionId) {
-      throw new BadRequestException(
-        'B2B / posted financial reconciliations must be reversed via the financial document — not Cash Flow unreconcile.',
+      await this.financialTransactions.cancel(
+        transaction.matchedFinancialTransactionId,
+        userId,
       );
+      return this.prisma.bankTransaction.update({
+        where: { id },
+        data: {
+          ...this.matchStatusData(BankTransactionMatchStatus.UNMATCHED),
+          matchedFinancialTransactionId: null,
+          matchedAt: null,
+          matchedById: null,
+          matchCandidates: Prisma.DbNull,
+          conflictReason:
+            reason?.trim() ||
+            'Unreconciled — financial transaction cancelled and JE reversed',
+        },
+      });
     }
 
     const paymentId = transaction.matchedPaymentId!;
@@ -853,7 +990,7 @@ export class CashFlowReconciliationService {
       await tx.bankTransaction.update({
         where: { id },
         data: {
-          matchStatus: BankTransactionMatchStatus.UNMATCHED,
+          ...this.matchStatusData(BankTransactionMatchStatus.UNMATCHED),
           matchedPaymentId: null,
           matchedAt: null,
           matchedById: null,

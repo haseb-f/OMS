@@ -138,22 +138,8 @@ export class LeadsService {
   }
 
   /**
-   * TASK-061 — Customer must be a MASTER RECORD, linked to every one of
-   * their orders from the moment the order exists (never only after it's
-   * marked PAID). Every Lead creation now:
-   *  1. Rejects an exact-duplicate Lead (unchanged).
-   *  2. Rejects a duplicate Order (same `externalOrderId` as an existing,
-   *     non-deleted Lead) — never creates a second order for the same
-   *     source-system order.
-   *  3. Reuses an existing Customer by normalized phone if one matches
-   *     (`CustomersService.findOrCreate`), otherwise creates one — never
-   *     duplicates the Customer. If the reused Customer's own name/city/
-   *     address differs from what this order carries, that's flagged on the
-   *     Lead's timeline for manual review; the Customer record itself is
-   *     never silently overwritten.
-   * `convertToCustomer()` (TASK-037) stays in place and is now always a
-   * no-op for a Lead created through this path (customerId is already set),
-   * but remains correct for any Lead created before this change.
+   * Lead.create never creates a Partner. Conversion
+   * (workflow LEAD_CONVERT) resolves/creates Partner + StoreOrder.
    */
   /**
    * Order mode's extra requirements — address/product/paid amount — depend

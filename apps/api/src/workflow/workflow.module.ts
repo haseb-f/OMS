@@ -4,6 +4,7 @@ import { PermissionsCoreModule } from '../permissions/permissions-core.module';
 import { NumberingModule } from '../numbering/numbering.module';
 import { StatusDefinitionsModule } from '../status-definitions/status-definitions.module';
 import { WorkflowEngineService } from './workflow-engine.service';
+import { WorkflowStatusResolverService } from './workflow-status-resolver.service';
 import { WorkflowController } from './workflow.controller';
 
 @Module({
@@ -14,7 +15,11 @@ import { WorkflowController } from './workflow.controller';
     StatusDefinitionsModule,
   ],
   controllers: [WorkflowController],
-  providers: [WorkflowEngineService],
-  exports: [WorkflowEngineService, StatusDefinitionsModule],
+  providers: [WorkflowEngineService, WorkflowStatusResolverService],
+  exports: [
+    WorkflowEngineService,
+    WorkflowStatusResolverService,
+    StatusDefinitionsModule,
+  ],
 })
 export class WorkflowModule {}

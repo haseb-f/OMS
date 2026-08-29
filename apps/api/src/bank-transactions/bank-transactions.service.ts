@@ -13,6 +13,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsService } from '../payments/payments.service';
 import { PaymentAutoMatchingService } from '../payments/auto-matching/payment-auto-matching.service';
+import { WorkflowStatusResolverService } from '../workflow/workflow-status-resolver.service';
 import { FindBankTransactionsQueryDto } from './dto/find-bank-transactions-query.dto';
 import { ConfirmMatchDto } from './dto/confirm-match.dto';
 
@@ -51,7 +52,15 @@ export class BankTransactionsService {
     private readonly prisma: PrismaService,
     private readonly paymentsService: PaymentsService,
     private readonly autoMatching: PaymentAutoMatchingService,
+    private readonly statusResolver: WorkflowStatusResolverService,
   ) {}
+
+  private matchStatusData(status: BankTransactionMatchStatus) {
+    return {
+      matchStatus: status,
+      matchStatusId: this.statusResolver.matchingStatusId(status),
+    };
+  }
 
   /**
    * The one write path `BankTransactionsImportHandler` uses. Idempotency
@@ -117,7 +126,10 @@ export class BankTransactionsService {
 
     if (!existing) {
       const created = await this.prisma.bankTransaction.create({
-        data: { ...data, matchStatus: BankTransactionMatchStatus.UNMATCHED },
+        data: {
+          ...data,
+          ...this.matchStatusData(BankTransactionMatchStatus.UNMATCHED),
+        },
       });
       return { id: created.id, conflict: false };
     }
@@ -140,7 +152,7 @@ export class BankTransactionsService {
         const updated = await this.prisma.bankTransaction.update({
           where: { id: existing.id },
           data: {
-            matchStatus: BankTransactionMatchStatus.CONFLICT,
+            ...this.matchStatusData(BankTransactionMatchStatus.CONFLICT),
             conflictReason: `Source row changed after reconciliation — was ${Number(existing.amount).toFixed(2)} on ${existing.transactionDate.toISOString().slice(0, 10)}, now ${data.amount.toFixed(2)} on ${data.transactionDate.toISOString().slice(0, 10)}.`,
           },
         });
@@ -281,7 +293,7 @@ export class BankTransactionsService {
         return this.prisma.bankTransaction.update({
           where: { id: transaction.id },
           data: {
-            matchStatus: result.status,
+            ...this.matchStatusData(result.status),
             matchCandidates:
               result.candidates as unknown as Prisma.InputJsonValue,
           },
@@ -328,7 +340,7 @@ export class BankTransactionsService {
     return this.prisma.bankTransaction.update({
       where: { id },
       data: {
-        matchStatus: BankTransactionMatchStatus.MATCHED,
+        ...this.matchStatusData(BankTransactionMatchStatus.MATCHED),
         matchedPaymentId: dto.paymentId,
         matchedAt: new Date(),
         matchedById: userId,

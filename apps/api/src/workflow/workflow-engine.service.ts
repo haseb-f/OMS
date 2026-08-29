@@ -485,6 +485,17 @@ export class WorkflowEngineService {
         employeeId: lead.salesEmployeeId,
         paymentType,
         shippingStage,
+        paymentStatusId: await this.statusDefinitions
+          .findByCode(WorkflowType.PAYMENT, 'UNPAID')
+          .then((s) => s?.id),
+        fulfillmentStatusId: await this.statusDefinitions
+          .findByCode(
+            WorkflowType.FULFILLMENT,
+            shippingStage === StoreOrderShippingStage.READY_FOR_SHIPPING
+              ? 'READY'
+              : 'UNFULFILLED',
+          )
+          .then((s) => s?.id),
         notes: payload?.notes,
         createdBy: userId,
         updatedBy: userId,

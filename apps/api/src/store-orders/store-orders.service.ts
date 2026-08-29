@@ -43,12 +43,24 @@ import { ReportStoreOrderPaymentDto } from './dto/report-store-order-payment.dto
 import { ObjectStorageService } from '../common/storage/object-storage.service';
 import { validateAttachmentUpload } from '../common/storage/file-validation';
 import { PhoneNumberService } from '../common/phone/phone-number.service';
+import { WorkflowStatusResolverService } from '../workflow/workflow-status-resolver.service';
+import { PAID_PAYMENT_CODES } from '../workflow/workflow-status-map';
 import { randomUUID } from 'node:crypto';
+
+const STATUS_DEF_SELECT = {
+  id: true,
+  code: true,
+  name: true,
+  nameEn: true,
+  color: true,
+} as const;
 
 const ORDER_INCLUDE = {
   partner: true,
   currency: true,
   employee: { select: { id: true, fullName: true } },
+  paymentStatusDef: { select: STATUS_DEF_SELECT },
+  fulfillmentStatus: { select: STATUS_DEF_SELECT },
   items: { include: { product: true } },
   /// Every attempt, newest first — `attachCurrentShippingStatus` reads only
   /// `shipments[0]` for the derived status, but the full array is what the
@@ -97,6 +109,8 @@ const ORDER_LIST_INCLUDE = {
     },
   },
   currency: { select: { id: true, code: true, name: true, symbol: true } },
+  paymentStatusDef: { select: STATUS_DEF_SELECT },
+  fulfillmentStatus: { select: STATUS_DEF_SELECT },
   items: {
     select: {
       id: true,
@@ -150,6 +164,7 @@ export class StoreOrdersService {
     private readonly paymentSync: StoreOrderPaymentSyncService,
     private readonly objectStorage: ObjectStorageService,
     private readonly phoneNumberService: PhoneNumberService,
+    private readonly statusResolver: WorkflowStatusResolverService,
   ) {}
 
   /**
@@ -214,6 +229,11 @@ export class StoreOrdersService {
             currencyId: dto.currencyId,
             paymentType,
             shippingStage,
+            paymentStatusId: this.statusResolver.paymentStatusId(
+              StoreOrderPaymentStatus.PAYMENT_PENDING,
+            ),
+            fulfillmentStatusId:
+              this.statusResolver.fulfillmentStatusId(shippingStage),
             notes: dto.notes,
             createdBy: userId,
             updatedBy: userId,
@@ -678,7 +698,12 @@ export class StoreOrdersService {
       );
       await tx.storeOrder.update({
         where: { id },
-        data: { paymentStatus: StoreOrderPaymentStatus.PAYMENT_REVIEW },
+        data: {
+          paymentStatus: StoreOrderPaymentStatus.PAYMENT_REVIEW,
+          paymentStatusId: this.statusResolver.paymentStatusId(
+            StoreOrderPaymentStatus.PAYMENT_REVIEW,
+          ),
+        },
       });
       await this.activityService.log(
         id,
@@ -707,10 +732,14 @@ export class StoreOrdersService {
         reason: null as string | null,
       };
     }
-    if (
-      order.paymentStatus === StoreOrderPaymentStatus.FULLY_PAID_RECONCILED ||
-      order.paymentStatus === StoreOrderPaymentStatus.OVERPAID
-    ) {
+    const paymentCode =
+      order.paymentStatusDef?.code ??
+      (order.paymentStatus === StoreOrderPaymentStatus.FULLY_PAID_RECONCILED
+        ? 'PAID'
+        : order.paymentStatus === StoreOrderPaymentStatus.OVERPAID
+          ? 'OVERPAID'
+          : 'UNPAID');
+    if (PAID_PAYMENT_CODES.has(paymentCode)) {
       return {
         allowed: true,
         settlementMode: 'PREPAID' as const,
@@ -949,7 +978,10 @@ export class StoreOrdersService {
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.storeOrder.update({
         where: { id },
-        data: { paymentStatus: dto.status },
+        data: {
+          paymentStatus: dto.status,
+          paymentStatusId: this.statusResolver.paymentStatusId(dto.status),
+        },
       });
       await this.activityService.log(
         id,

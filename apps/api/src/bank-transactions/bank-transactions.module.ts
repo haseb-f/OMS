@@ -5,9 +5,15 @@ import { CashFlowReconciliationService } from './cash-flow-reconciliation.servic
 import { PaymentsModule } from '../payments/payments.module';
 import { StoreOrdersModule } from '../store-orders/store-orders.module';
 import { FinancialTransactionsModule } from '../financial-transactions/financial-transactions.module';
+import { WorkflowModule } from '../workflow/workflow.module';
 
 @Module({
-  imports: [PaymentsModule, StoreOrdersModule, FinancialTransactionsModule],
+  imports: [
+    PaymentsModule,
+    StoreOrdersModule,
+    FinancialTransactionsModule,
+    WorkflowModule,
+  ],
   controllers: [BankTransactionsController],
   providers: [BankTransactionsService, CashFlowReconciliationService],
   exports: [BankTransactionsService, CashFlowReconciliationService],

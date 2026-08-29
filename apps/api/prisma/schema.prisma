@@ -865,6 +865,9 @@ model StatusDefinition {
   deletedAt DateTime? @map("deleted_at")
 
   leadsAsCurrent            Lead[]
+  storeOrdersAsPayment      StoreOrder[]         @relation("StoreOrderPaymentStatusDef")
+  storeOrdersAsFulfillment  StoreOrder[]         @relation("StoreOrderFulfillmentStatusDef")
+  bankTransactionsAsMatch   BankTransaction[]    @relation("BankTransactionMatchStatusDef")
   transitionsFrom           WorkflowTransition[] @relation("TransitionFromStatus")
   transitionsTo             WorkflowTransition[] @relation("TransitionToStatus")
   statusHistoryFrom         StatusHistory[]      @relation("StatusHistoryFrom")
@@ -1973,6 +1976,9 @@ model BankTransaction {
   project   Project? @relation(fields: [projectId], references: [id])
 
   matchStatus     BankTransactionMatchStatus @default(UNMATCHED) @map("match_status")
+  /// Authoritative Matching StatusDefinition — kept in sync with `matchStatus`.
+  matchStatusId String?           @map("match_status_id") @db.Uuid
+  matchStatusDef StatusDefinition? @relation("BankTransactionMatchStatusDef", fields: [matchStatusId], references: [id])
   /// The scored candidate list from the last `PaymentAutoMatchingService` /
   /// `CashFlowReconciliationService` classification pass — display-only,
   /// recomputed on every matching run, never hand-edited.
@@ -2020,6 +2026,7 @@ model BankTransaction {
   /// NULL as distinct), same as before this migration.
   @@unique([cashSourceId, transactionId])
   @@index([direction, matchStatus])
+  @@index([matchStatusId])
   @@map("bank_transactions")
 }
 
@@ -3091,9 +3098,17 @@ model StoreOrder {
   employee   User?   @relation("StoreOrderEmployee", fields: [employeeId], references: [id])
 
   paymentStatus StoreOrderPaymentStatus @default(PAYMENT_PENDING) @map("payment_status")
+  /// Authoritative Payment StatusDefinition — dual-written with `paymentStatus`.
+  paymentStatusId String?           @map("payment_status_id") @db.Uuid
+  paymentStatusDef StatusDefinition? @relation("StoreOrderPaymentStatusDef", fields: [paymentStatusId], references: [id])
   /// Fixed catalog (PREPAID / CASH_ON_DELIVERY) — not financial confirmation.
   paymentType   StoreOrderPaymentType   @default(PREPAID) @map("payment_type")
   shippingStage StoreOrderShippingStage @default(NOT_READY) @map("shipping_stage")
+  /// Authoritative Fulfillment StatusDefinition — dual-written with `shippingStage`
+  /// (and advanced by shipment events). ShippingStatus on Shipment remains the
+  /// carrier-attempt catalog (sync behavior) — not a second order identity.
+  fulfillmentStatusId String?           @map("fulfillment_status_id") @db.Uuid
+  fulfillmentStatus   StatusDefinition? @relation("StoreOrderFulfillmentStatusDef", fields: [fulfillmentStatusId], references: [id])
 
   currencyId String   @map("currency_id") @db.Uuid
   currency   Currency @relation(fields: [currencyId], references: [id])
@@ -3119,7 +3134,9 @@ model StoreOrder {
   /// (same lookup, extra write cost on every import) and was removed here.
   @@index([deletedAt, createdAt])
   @@index([paymentStatus, createdAt])
+  @@index([paymentStatusId])
   @@index([shippingStage, createdAt])
+  @@index([fulfillmentStatusId])
   @@index([orderDate])
   @@map("store_orders")
 }

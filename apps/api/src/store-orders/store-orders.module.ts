@@ -3,6 +3,7 @@ import { PartnersModule } from '../partners/partners.module';
 import { NumberingModule } from '../numbering/numbering.module';
 import { PostingEngineModule } from '../accounting/posting-engine/posting-engine.module';
 import { ObjectStorageModule } from '../common/storage/object-storage.module';
+import { WorkflowModule } from '../workflow/workflow.module';
 import { StoreOrdersController } from './store-orders.controller';
 import { StoreOrdersService } from './store-orders.service';
 import { StoreOrderActivityService } from './activities/store-order-activity.service';
@@ -19,6 +20,7 @@ import { ShippingController } from './shipments/shipping.controller';
     NumberingModule,
     PostingEngineModule,
     ObjectStorageModule,
+    WorkflowModule,
   ],
   controllers: [
     StoreOrdersController,

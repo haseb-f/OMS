@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class ConfirmStoreOrderPaymentDto {
   @IsUUID()
@@ -14,4 +14,14 @@ export class ConfirmStoreOrderPaymentDto {
   @IsString()
   @IsOptional()
   senderName?: string;
+
+  /** Required when UI detected method mismatch — records authorized override. */
+  @IsBoolean()
+  @IsOptional()
+  acknowledgeMethodMismatch?: boolean;
+
+  /** When true, use selected paymentSourceId as the authoritative HOW for this match. */
+  @IsBoolean()
+  @IsOptional()
+  updateExpectedPaymentSource?: boolean;
 }
