@@ -28,13 +28,6 @@ export class CreateJournalEntryDto {
   @IsOptionalUuid()
   currencyId?: string;
 
-  /** TASK-058 — "Partner (optional)": at most one of Customer/Supplier, validated in the service. */
-  @IsOptionalUuid()
-  partnerCustomerId?: string;
-
-  @IsOptionalUuid()
-  partnerSupplierId?: string;
-
   @IsString()
   @IsOptional()
   referenceNumber?: string;

@@ -5,7 +5,11 @@ import { IsOptional, IsUUID } from 'class-validator';
 /** Accepts `A`, `A,B`, or `['A','B']` from query strings. */
 export function toEnumList(value: unknown): string[] | undefined {
   if (value == null || value === '') return undefined;
-  const parts = Array.isArray(value) ? value : String(value).split(',');
+  const parts = Array.isArray(value)
+    ? value
+    : typeof value === 'string'
+      ? value.split(',')
+      : [];
   const cleaned = parts
     .map(String)
     .map((part) => part.trim())

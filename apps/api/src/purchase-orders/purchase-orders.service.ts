@@ -4,14 +4,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  PartnerRoleType,
   Prisma,
   PurchaseDocumentStatus,
   PurchaseOrderStatus,
-  SupplierStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
-import { SuppliersService } from '../suppliers/suppliers.service';
+import { PartnersService } from '../partners/partners.service';
 import { ProductsService } from '../products/products.service';
 import {
   PurchaseOrderActivityService,
@@ -37,7 +37,7 @@ const QUOTATION_ACTIVITY_TYPE = {
 export class PurchaseOrdersService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly suppliersService: SuppliersService,
+    private readonly partnersService: PartnersService,
     private readonly productsService: ProductsService,
     private readonly activityService: PurchaseOrderActivityService,
     private readonly numberingEngine: NumberingEngineService,
@@ -53,7 +53,10 @@ export class PurchaseOrdersService {
     dto: CreatePurchaseOrderDto,
     context: CompanyContext = { companyId: null, branchId: null },
   ) {
-    await this.assertActiveSupplier(dto.supplierId);
+    await this.partnersService.assertActiveForRole(
+      dto.partnerId,
+      PartnerRoleType.SUPPLIER,
+    );
     const productsById = await this.productsService.findManyForValidation(
       dto.items.map((item) => item.productId),
     );
@@ -66,7 +69,7 @@ export class PurchaseOrdersService {
     return this.createOrder(
       {
         poNumber,
-        supplierId: dto.supplierId,
+        partnerId: dto.partnerId,
         quotationId: dto.quotationId ?? null,
         projectId: dto.projectId ?? null,
         costCenterId: dto.costCenterId ?? null,
@@ -95,8 +98,11 @@ export class PurchaseOrdersService {
         `Only a Draft Purchase Order can be edited.`,
       );
     }
-    if (dto.supplierId) {
-      await this.assertActiveSupplier(dto.supplierId);
+    if (dto.partnerId) {
+      await this.partnersService.assertActiveForRole(
+        dto.partnerId,
+        PartnerRoleType.SUPPLIER,
+      );
     }
 
     let computedItems:
@@ -120,7 +126,7 @@ export class PurchaseOrdersService {
       const po = await tx.purchaseOrder.update({
         where: { id },
         data: {
-          supplierId: dto.supplierId,
+          partnerId: dto.partnerId,
           projectId: dto.projectId,
           costCenterId: dto.costCenterId,
           currencyId: dto.currencyId,
@@ -135,7 +141,7 @@ export class PurchaseOrdersService {
           ...(computedItems ? { items: { create: computedItems } } : {}),
         },
         include: {
-          supplier: true,
+          partner: true,
           currency: true,
           items: { include: { product: true, unit: true, tax: true } },
         },
@@ -213,7 +219,10 @@ export class PurchaseOrdersService {
         `Cannot convert Purchase Quotation ${quotation.quotationNumber} to a Purchase Order unless it is Approved.`,
       );
     }
-    await this.assertActiveSupplier(quotation.supplierId);
+    await this.partnersService.assertActiveForRole(
+      quotation.partnerId,
+      PartnerRoleType.SUPPLIER,
+    );
 
     const poNumber =
       await this.numberingEngine.generateNumber('PURCHASE_ORDER');
@@ -221,7 +230,7 @@ export class PurchaseOrdersService {
     return this.createOrder(
       {
         poNumber,
-        supplierId: quotation.supplierId,
+        partnerId: quotation.partnerId,
         quotationId: quotation.id,
         projectId: null,
         costCenterId: null,
@@ -281,7 +290,7 @@ export class PurchaseOrdersService {
   async findAll(query: FindPurchaseOrdersQueryDto) {
     const where: Prisma.PurchaseOrderWhereInput = {
       deletedAt: null,
-      supplierId: prismaEnumFilter(query.supplierId),
+      partnerId: prismaEnumFilter(query.partnerId),
       status: prismaEnumFilter(query.status),
       purchaseType: prismaEnumFilter(query.purchaseType),
     };
@@ -302,7 +311,7 @@ export class PurchaseOrdersService {
       this.prisma.purchaseOrder.findMany({
         where,
         include: {
-          supplier: true,
+          partner: true,
           currency: true,
           items: { include: { product: true, unit: true, tax: true } },
         },
@@ -321,7 +330,7 @@ export class PurchaseOrdersService {
     const po = await this.prisma.purchaseOrder.findFirst({
       where: { id, deletedAt: null },
       include: {
-        supplier: true,
+        partner: true,
         currency: true,
         items: { include: { product: true, unit: true, tax: true } },
         // TASK-050 — Related Documents: the source Purchase Quotation (if
@@ -396,7 +405,7 @@ export class PurchaseOrdersService {
         where: { id },
         data: { deletedAt: new Date(), updatedBy: userId ?? null },
         include: {
-          supplier: true,
+          partner: true,
           currency: true,
           items: { include: { product: true, unit: true, tax: true } },
         },
@@ -480,7 +489,7 @@ export class PurchaseOrdersService {
         const po = await tx.purchaseOrder.create({
           data: { ...header, items: { create: items } },
           include: {
-            supplier: true,
+            partner: true,
             currency: true,
             items: { include: { product: true, unit: true, tax: true } },
           },
@@ -504,20 +513,11 @@ export class PurchaseOrdersService {
         }
         if (error.code === 'P2003') {
           throw new BadRequestException(
-            'Invalid supplier, project, cost center, currency, product, or unit reference.',
+            'Invalid partner, project, cost center, currency, product, or unit reference.',
           );
         }
       }
       throw error;
     }
-  }
-
-  /** "Reject: Inactive Supplier, Deleted Supplier." */
-  private async assertActiveSupplier(supplierId: string) {
-    const supplier = await this.suppliersService.findOne(supplierId);
-    if (supplier.status !== SupplierStatus.ACTIVE) {
-      throw new BadRequestException('Supplier is inactive.');
-    }
-    return supplier;
   }
 }

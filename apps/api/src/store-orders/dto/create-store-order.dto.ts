@@ -1,4 +1,5 @@
 import { Transform, Type } from 'class-transformer';
+import { OmitType } from '@nestjs/mapped-types';
 import { emptyToUndefined } from '../../common/transforms/empty-to-undefined';
 import {
   ArrayMinSize,
@@ -12,17 +13,22 @@ import {
 } from 'class-validator';
 import { StoreOrderSource, StoreOrderPaymentType } from '@prisma/client';
 import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
-import { FindOrCreateCustomerDto } from '../../customers/dto/find-or-create-customer.dto';
+import { FindOrCreatePartnerDto } from '../../partners/dto/find-or-create-partner.dto';
 import { CreateStoreOrderItemDto } from './create-store-order-item.dto';
 import { CreateStoreOrderPaymentDto } from './create-store-order-payment.dto';
+
+/** The store order's counterparty is always CUSTOMER-role — `role` is fixed server-side, never accepted from the caller. */
+export class StoreOrderPartnerDto extends OmitType(FindOrCreatePartnerDto, [
+  'role',
+] as const) {}
 
 /**
  * `internalOrderId` is never accepted here — always minted server-side via
  * the Numbering Engine ("STORE_ORDER" key), same convention as
- * `Customer.customerNumber`. The customer is never a raw `customerId` —
- * `customer` is resolved through `CustomersService.findOrCreate` (phone/
- * email dedup, never a second matching mechanism), exactly like the Manual
- * Create path and the Import handler both must.
+ * `Partner.partnerNumber`. The partner is never a raw `partnerId` —
+ * `partner` is resolved through `PartnersService.findOrCreateWithRole`
+ * (phone/email dedup, never a second matching mechanism), exactly like the
+ * Manual Create path and the Import handler both must.
  */
 export class CreateStoreOrderDto {
   /** The source system's own order id — the unique import identity. Omitted for a Manual order. */
@@ -31,8 +37,8 @@ export class CreateStoreOrderDto {
   externalOrderId?: string;
 
   @ValidateNested()
-  @Type(() => FindOrCreateCustomerDto)
-  customer!: FindOrCreateCustomerDto;
+  @Type(() => StoreOrderPartnerDto)
+  partner!: StoreOrderPartnerDto;
 
   @IsDateString()
   @IsOptional()

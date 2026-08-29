@@ -17,6 +17,10 @@ export class JournalEntryLineInputDto {
   @IsOptionalUuid()
   projectId?: string;
 
+  /** Unified Partner Architecture — required exactly when `accountId` resolves to a RECEIVABLE/PAYABLE control account (validated in JournalEntriesService.resolveLines). */
+  @IsOptionalUuid()
+  partnerId?: string;
+
   @IsNumber()
   @Min(0)
   @IsOptional()

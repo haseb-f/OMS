@@ -19,7 +19,7 @@ import { TransformEnumList } from '../../common/query/enum-list';
 
 export class FindStoreOrdersQueryDto {
   @IsOptionalUuid()
-  customerId?: string;
+  partnerId?: string;
 
   /** Matches the Customer's phone OR mobile — never the Order's own key (rule: "Phone is the CUSTOMER matching key, never the Order key"). */
   @IsString()

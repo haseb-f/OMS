@@ -12,7 +12,7 @@ export class ClassifyOutgoingDto {
 
   /** Required when `outgoingType = SUPPLIER_PAYMENT`. */
   @IsOptionalUuid()
-  partnerSupplierId?: string;
+  partnerId?: string;
 
   @IsOptionalUuid()
   costCenterId?: string;

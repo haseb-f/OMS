@@ -61,7 +61,12 @@ export class SalesInvoicePostingProvider
     const invoice = await tx.salesInvoice.findUniqueOrThrow({
       where: { id: sourceId },
       include: {
-        customer: { select: { id: true, customerGroupId: true } },
+        partner: {
+          select: {
+            id: true,
+            customerProfile: { select: { customerGroupId: true } },
+          },
+        },
         items: {
           include: {
             product: { select: { isInventoryItem: true, categoryId: true } },
@@ -75,13 +80,14 @@ export class SalesInvoicePostingProvider
     const lines: PostingLine[] = [];
 
     const arAccountId = await this.accountMapping.resolveReceivableAccount(
-      invoice.customer.id,
+      invoice.partner.id,
       tx,
     );
     lines.push({
       accountId: arAccountId,
       debit: Number(invoice.grandTotal),
       description: `Sales Invoice ${invoice.invoiceNumber}`,
+      partnerId: invoice.partner.id,
     });
 
     const revenueByLine = new Map<string, number>();
@@ -89,7 +95,7 @@ export class SalesInvoicePostingProvider
       const netAmount = Number(item.lineTotal) - Number(item.taxAmount);
       const accountId = await this.accountMapping.resolveSalesRevenueAccount(
         item.product.categoryId,
-        invoice.customer.customerGroupId,
+        invoice.partner.customerProfile?.customerGroupId ?? null,
         tx,
       );
       revenueByLine.set(

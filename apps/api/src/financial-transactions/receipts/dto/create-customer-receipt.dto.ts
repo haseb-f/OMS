@@ -15,7 +15,7 @@ import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.deco
 
 export class CreateCustomerReceiptDto {
   @IsUUID()
-  customerId!: string;
+  partnerId!: string;
 
   @IsOptionalUuid()
   currencyId?: string;

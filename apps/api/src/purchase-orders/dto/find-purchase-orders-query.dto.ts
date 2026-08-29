@@ -17,7 +17,7 @@ import {
 
 export class FindPurchaseOrdersQueryDto {
   @IsOptionalUuidList()
-  supplierId?: string[];
+  partnerId?: string[];
 
   @TransformEnumList()
   @IsEnum(PurchaseOrderStatus, { each: true })

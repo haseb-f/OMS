@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { LeadsController } from './leads.controller';
 import { LeadsService } from './leads.service';
 import { LeadActivitiesController } from './activities/lead-activities.controller';
@@ -11,10 +11,14 @@ import { LeadImportModule } from './import/lead-import.module';
 import { LeadDuplicateDetectionService } from './duplicate-detection/lead-duplicate-detection.service';
 import { LeadAutoDistributionService } from './distribution/lead-auto-distribution.service';
 import { NumberingModule } from '../numbering/numbering.module';
-import { CustomersModule } from '../customers/customers.module';
+import { WorkflowModule } from '../workflow/workflow.module';
 
 @Module({
-  imports: [LeadImportModule, NumberingModule, CustomersModule],
+  imports: [
+    forwardRef(() => LeadImportModule),
+    NumberingModule,
+    WorkflowModule,
+  ],
   controllers: [
     LeadsController,
     LeadActivitiesController,

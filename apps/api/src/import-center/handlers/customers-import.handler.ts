@@ -1,6 +1,7 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { BadRequestException } from '@nestjs/common';
-import { CustomersService } from '../../customers/customers.service';
+import { PartnerRoleType } from '@prisma/client';
+import { PartnersService } from '../../partners/partners.service';
 import { CountriesService } from '../../countries/countries.service';
 import { ImportTypeRegistryService } from '../import-type-registry.service';
 import { resolveOptionalIdByField } from '../import-value.util';
@@ -96,10 +97,11 @@ const FIELDS: ImportFieldDef[] = [
 ];
 
 /**
- * Customers Import (TASK-056) — every row calls `CustomersService.create()`
- * unchanged, so the same duplicate-phone/email check, auto-minted
- * `customerNumber`, and every other business rule the manual Customer form
- * enforces applies identically here.
+ * Customers Import (TASK-056) — every row calls `PartnersService.create()`
+ * with the CUSTOMER role (spec section 9: Customers are a role view over
+ * Partner, never a separate registry), so the same duplicate-phone/email
+ * check, auto-minted `partnerNumber`, and every other business rule the
+ * manual Partner form enforces applies identically here.
  */
 @Injectable()
 export class CustomersImportHandler implements ImportTypeHandler, OnModuleInit {
@@ -110,7 +112,7 @@ export class CustomersImportHandler implements ImportTypeHandler, OnModuleInit {
   readonly isAvailable = true;
 
   constructor(
-    private readonly customersService: CustomersService,
+    private readonly partnersService: PartnersService,
     private readonly countriesService: CountriesService,
     private readonly registry: ImportTypeRegistryService,
     private readonly phoneNumberService: PhoneNumberService,
@@ -146,7 +148,7 @@ export class CustomersImportHandler implements ImportTypeHandler, OnModuleInit {
     }
 
     if (options?.dryRun) return { id: 'dry-run' };
-    const customer = await this.customersService.create(
+    const partner = await this.partnersService.create(
       {
         name: row.name,
         commercialName: row.commercialName || undefined,
@@ -158,9 +160,10 @@ export class CustomersImportHandler implements ImportTypeHandler, OnModuleInit {
         city: row.city || undefined,
         address: row.address || undefined,
         notes: row.notes || undefined,
+        roles: [PartnerRoleType.CUSTOMER],
       },
       userId,
     );
-    return { id: customer.id };
+    return { id: partner.id };
   }
 }

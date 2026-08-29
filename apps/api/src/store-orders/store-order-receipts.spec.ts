@@ -65,7 +65,7 @@ describe('StoreOrdersService receipts', () => {
     prisma.storeOrder.findFirst.mockResolvedValue(orderRow);
     prisma.shippingStatus.findFirst.mockResolvedValue(null);
     prisma.$transaction.mockImplementation(
-      async (fn: (tx: typeof prisma) => unknown) => fn(prisma),
+      (fn: (tx: typeof prisma) => unknown) => Promise.resolve(fn(prisma)),
     );
   });
 
@@ -162,8 +162,10 @@ describe('StoreOrdersService receipts', () => {
       deletedAt: null,
     });
     await service.archiveReceipt(orderId, 'r1', userId);
+
     expect(prisma.storeOrderReceipt.update).toHaveBeenCalledWith({
       where: { id: 'r1' },
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- `expect.any()` is untyped by design
       data: { deletedAt: expect.any(Date) },
     });
     expect(objectStorage.delete).toHaveBeenCalledWith('k');

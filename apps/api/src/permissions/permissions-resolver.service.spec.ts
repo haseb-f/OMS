@@ -43,15 +43,15 @@ describe('PermissionsResolverService', () => {
       .mockResolvedValueOnce([{ permission: { name: 'store-orders.view' } }])
       .mockResolvedValueOnce([
         { permission: { name: 'store-orders.view' } },
-        { permission: { name: 'sales.customers.view' } },
+        { permission: { name: 'partners.view' } },
       ]);
 
     const first = await resolver.getPermissions('user-1');
-    expect(first.has('sales.customers.view')).toBe(false);
+    expect(first.has('partners.view')).toBe(false);
 
     resolver.invalidate('user-1');
     const second = await resolver.getPermissions('user-1');
-    expect(second.has('sales.customers.view')).toBe(true);
+    expect(second.has('partners.view')).toBe(true);
     expect(second.has('sales.view')).toBe(true);
   });
 

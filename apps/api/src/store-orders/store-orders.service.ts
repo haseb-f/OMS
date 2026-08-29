@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  PartnerRoleType,
   PaymentStatus,
   Prisma,
   ProductStatus,
@@ -15,7 +16,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
-import { CustomersService } from '../customers/customers.service';
+import { PartnersService } from '../partners/partners.service';
 import { PostingEngineService } from '../accounting/posting-engine/posting-engine.service';
 import {
   computeSalesDocumentTotals,
@@ -38,13 +39,14 @@ import {
 } from './dto/create-store-order-note.dto';
 import { CreateStoreOrderReceiptDto } from './dto/create-store-order-receipt.dto';
 import { SetPaymentReviewStatusDto } from './dto/set-payment-review-status.dto';
+import { ReportStoreOrderPaymentDto } from './dto/report-store-order-payment.dto';
 import { ObjectStorageService } from '../common/storage/object-storage.service';
 import { validateAttachmentUpload } from '../common/storage/file-validation';
 import { PhoneNumberService } from '../common/phone/phone-number.service';
 import { randomUUID } from 'node:crypto';
 
 const ORDER_INCLUDE = {
-  customer: true,
+  partner: true,
   currency: true,
   employee: { select: { id: true, fullName: true } },
   items: { include: { product: true } },
@@ -83,7 +85,7 @@ const ORDER_INCLUDE = {
  * latest shipment), without pulling payments/receipts/invoices/history.
  */
 const ORDER_LIST_INCLUDE = {
-  customer: {
+  partner: {
     select: {
       id: true,
       name: true,
@@ -141,7 +143,7 @@ const ORDER_LIST_INCLUDE = {
 export class StoreOrdersService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly customersService: CustomersService,
+    private readonly partnersService: PartnersService,
     private readonly numberingEngine: NumberingEngineService,
     private readonly postingEngine: PostingEngineService,
     private readonly activityService: StoreOrderActivityService,
@@ -154,7 +156,7 @@ export class StoreOrdersService {
    * Business operation: Create Store Order (Manual entry point — the Import
    * handler builds the same shape and calls this same method for the
    * auto-import path, so both paths always share one create implementation).
-   * Customer is resolved via `CustomersService.findOrCreate` (rule: never a
+   * Partner is resolved via `PartnersService.findOrCreateWithRole` (rule: never a
    * second phone-matching mechanism). `internalOrderId` is always
    * app-generated. `externalOrderId` — when given — is THE unique import
    * identity: a repeat is rejected, naming the existing internalOrderId,
@@ -184,8 +186,8 @@ export class StoreOrdersService {
       await this.assertActiveProduct(item.productId);
     }
 
-    const { customer } = await this.customersService.findOrCreate(
-      dto.customer,
+    const { partner } = await this.partnersService.findOrCreateWithRole(
+      { ...dto.partner, role: PartnerRoleType.CUSTOMER },
       userId,
     );
 
@@ -204,7 +206,7 @@ export class StoreOrdersService {
           data: {
             internalOrderId,
             externalOrderId: dto.externalOrderId,
-            customerId: customer.id,
+            partnerId: partner.id,
             orderDate: dto.orderDate ? new Date(dto.orderDate) : undefined,
             source: dto.source,
             sourceChannel: dto.sourceChannel,
@@ -267,7 +269,7 @@ export class StoreOrdersService {
   /**
    * Google Sheets incremental reconcile — applies a later source revision to
    * an already-imported Store Order. Identity (`externalOrderId` /
-   * `internalOrderId`) is never rewritten. Line items / customer / amounts
+   * `internalOrderId`) is never rewritten. Line items / partner / amounts
    * stay frozen once payment, shipping, or invoicing has started, matching
    * the existing post-create immutability of those fields.
    */
@@ -312,8 +314,8 @@ export class StoreOrdersService {
       await this.assertActiveProduct(item.productId);
     }
 
-    const { customer } = await this.customersService.findOrCreate(
-      dto.customer,
+    const { partner } = await this.partnersService.findOrCreateWithRole(
+      { ...dto.partner, role: PartnerRoleType.CUSTOMER },
       userId,
     );
 
@@ -323,7 +325,7 @@ export class StoreOrdersService {
         await tx.storeOrder.update({
           where: { id },
           data: {
-            customerId: customer.id,
+            partnerId: partner.id,
             orderDate: dto.orderDate ? new Date(dto.orderDate) : undefined,
             employeeId: dto.employeeId,
             currencyId: dto.currencyId,
@@ -364,7 +366,7 @@ export class StoreOrdersService {
   private buildFindWhere(
     query: Pick<
       FindStoreOrdersQueryDto,
-      | 'customerId'
+      | 'partnerId'
       | 'phone'
       | 'paymentStatus'
       | 'shippingStage'
@@ -376,13 +378,13 @@ export class StoreOrdersService {
   ): Prisma.StoreOrderWhereInput {
     const where: Prisma.StoreOrderWhereInput = {
       deletedAt: null,
-      customerId: query.customerId,
+      partnerId: query.partnerId,
       paymentStatus: prismaEnumFilter(query.paymentStatus),
       shippingStage: prismaEnumFilter(query.shippingStage),
       source: prismaEnumFilter(query.source),
     };
     if (query.phone) {
-      where.customer = {
+      where.partner = {
         OR: [
           { phone: { contains: query.phone } },
           { mobile: { contains: query.phone } },
@@ -392,19 +394,19 @@ export class StoreOrdersService {
     const search = query.search?.trim();
     if (search) {
       // Practical operational search: OMS order number, External Order
-      // ID, customer name, and customer phone — the last matched via
+      // ID, partner name, and partner phone — the last matched via
       // digit-only candidates (shared `PhoneNumberService.searchCandidates`,
       // the same normalization authority import/sync logic uses) so
       // "564345678", "0564345678", "966564345678", and "+966564345678"
-      // all find a customer stored as "+966564345678".
+      // all find a partner stored as "+966564345678".
       const phoneCandidates = this.phoneNumberService.searchCandidates(search);
       where.OR = [
         { internalOrderId: { contains: search, mode: 'insensitive' } },
         { externalOrderId: { contains: search, mode: 'insensitive' } },
-        { customer: { name: { contains: search, mode: 'insensitive' } } },
+        { partner: { name: { contains: search, mode: 'insensitive' } } },
         ...phoneCandidates.flatMap((digits) => [
-          { customer: { phone: { contains: digits } } },
-          { customer: { mobile: { contains: digits } } },
+          { partner: { phone: { contains: digits } } },
+          { partner: { mobile: { contains: digits } } },
         ]),
       ];
     }
@@ -450,7 +452,7 @@ export class StoreOrdersService {
   async findAllIds(
     query: Pick<
       FindStoreOrdersQueryDto,
-      | 'customerId'
+      | 'partnerId'
       | 'phone'
       | 'paymentStatus'
       | 'shippingStage'
@@ -626,6 +628,101 @@ export class StoreOrdersService {
     });
     await this.paymentSync.recompute(id);
     return payment;
+  }
+
+  /**
+   * Sales Agent payment report — PENDING Payment + PAYMENT_REVIEW.
+   * Does NOT set FULLY_PAID_RECONCILED (that requires verified reconciliation).
+   */
+  async reportPayment(
+    id: string,
+    dto: ReportStoreOrderPaymentDto,
+    userId?: string,
+  ) {
+    const order = await this.findOne(id);
+    if (order.paymentStatus === StoreOrderPaymentStatus.FULLY_PAID_RECONCILED) {
+      throw new BadRequestException(
+        'Order is already fully paid and reconciled — no payment report needed.',
+      );
+    }
+
+    let receivingAccountId = dto.receivingAccountId;
+    if (!receivingAccountId) {
+      const account = await this.prisma.receivingAccount.findFirst({
+        where: { deletedAt: null, isActive: true },
+        orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
+      });
+      if (!account) {
+        throw new BadRequestException(
+          'No active Receiving Account configured for payment reporting.',
+        );
+      }
+      receivingAccountId = account.id;
+    }
+
+    const payment = await this.prisma.$transaction(async (tx) => {
+      const created = await this.createPaymentRow(
+        id,
+        order.currencyId,
+        {
+          paymentDate: dto.reportedDate,
+          amount: dto.reportedAmount,
+          paymentSourceId: dto.paymentSourceId,
+          receivingAccountId,
+          referenceNumber: dto.reference,
+          senderName:
+            dto.senderName?.trim() || order.partner?.name || 'Reported',
+        },
+        userId,
+        tx,
+      );
+      await tx.storeOrder.update({
+        where: { id },
+        data: { paymentStatus: StoreOrderPaymentStatus.PAYMENT_REVIEW },
+      });
+      await this.activityService.log(
+        id,
+        StoreOrderActivityType.PAYMENT_REPORTED,
+        `Payment reported ${created.paymentNumber}` +
+          (dto.notes ? `: ${dto.notes}` : ''),
+        userId,
+        tx,
+      );
+      return created;
+    });
+
+    return { payment, paymentStatus: StoreOrderPaymentStatus.PAYMENT_REVIEW };
+  }
+
+  /**
+   * Central fulfillment gate — PREPAID requires verified payment;
+   * COD may ship before payment.
+   */
+  async canFulfill(id: string) {
+    const order = await this.findOne(id);
+    if (order.paymentType === StoreOrderPaymentType.CASH_ON_DELIVERY) {
+      return {
+        allowed: true,
+        settlementMode: 'COD' as const,
+        reason: null as string | null,
+      };
+    }
+    if (
+      order.paymentStatus === StoreOrderPaymentStatus.FULLY_PAID_RECONCILED ||
+      order.paymentStatus === StoreOrderPaymentStatus.OVERPAID
+    ) {
+      return {
+        allowed: true,
+        settlementMode: 'PREPAID' as const,
+        reason: null as string | null,
+      };
+    }
+    return {
+      allowed: false,
+      settlementMode: 'PREPAID' as const,
+      reason:
+        'Prepaid orders require verified reconciled payment before fulfillment.',
+    };
   }
 
   /** Business operation: Attach Receipt — URL metadata and/or an uploaded file. */
@@ -926,7 +1023,7 @@ export class StoreOrdersService {
       const created = await tx.salesInvoice.create({
         data: {
           invoiceNumber,
-          customerId: order.customerId,
+          partnerId: order.partnerId,
           storeOrderId: order.id,
           currencyId: order.currencyId,
           referenceNumber: order.internalOrderId,

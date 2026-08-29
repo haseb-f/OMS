@@ -18,6 +18,7 @@ import { ClassifyOutgoingDto } from './dto/classify-outgoing.dto';
 import { ConfirmExpenseVoucherDto } from './dto/confirm-expense-voucher.dto';
 import { BulkCashFlowIdsDto } from './dto/bulk-cash-flow-ids.dto';
 import { BulkClassifyOutgoingDto } from './dto/bulk-classify-outgoing.dto';
+import { UnreconcileCashFlowDto } from './dto/unreconcile-cash-flow.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { PermissionModule } from '../auth/decorators/permission-module.decorator';
@@ -98,6 +99,17 @@ export class BankTransactionsController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.reconciliation.confirmStoreOrderPayment(id, dto, user.sub);
+  }
+
+  /** Controlled Unreconcile — Cash Transaction retained; allocation reversed. */
+  @Post(':id/unreconcile')
+  @PermissionAction('manage')
+  unreconcile(
+    @Param('id') id: string,
+    @Body() dto: UnreconcileCashFlowDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.reconciliation.unreconcile(id, user.sub, dto.reason);
   }
 
   @Post(':id/confirm-sales-invoice-receipt')

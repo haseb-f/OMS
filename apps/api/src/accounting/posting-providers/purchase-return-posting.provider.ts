@@ -48,7 +48,7 @@ export class PurchaseReturnPostingProvider
     const purchaseReturn = await tx.purchaseReturn.findUniqueOrThrow({
       where: { id: sourceId },
       include: {
-        supplier: { select: { id: true } },
+        partner: { select: { id: true } },
         items: {
           include: {
             product: { select: { isInventoryItem: true, categoryId: true } },
@@ -62,13 +62,14 @@ export class PurchaseReturnPostingProvider
     const lines: PostingLine[] = [];
 
     const apAccountId = await this.accountMapping.resolvePayableAccount(
-      purchaseReturn.supplier.id,
+      purchaseReturn.partner.id,
       tx,
     );
     lines.push({
       accountId: apAccountId,
       debit: Number(purchaseReturn.grandTotal),
       description: `Purchase Return ${purchaseReturn.returnNumber}`,
+      partnerId: purchaseReturn.partner.id,
     });
 
     const creditByAccount = new Map<string, number>();
@@ -80,7 +81,7 @@ export class PurchaseReturnPostingProvider
             tx,
           )
         : await this.accountMapping.resolvePurchaseAccount(
-            purchaseReturn.supplier.id,
+            purchaseReturn.partner.id,
             item.product.categoryId,
             tx,
           );

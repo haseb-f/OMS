@@ -211,7 +211,7 @@ export class ProductsService {
         unit: true,
         tax: true,
         analyticAccount: true,
-        preferredSupplier: true,
+        preferredPartner: true,
         preferredWarehouse: true,
       },
     });
@@ -397,7 +397,7 @@ export class ProductsService {
           unit: true,
           tax: true,
           analyticAccount: true,
-          preferredSupplier: true,
+          preferredPartner: true,
           preferredWarehouse: true,
         },
       });

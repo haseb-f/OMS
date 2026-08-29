@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
 import { SalesReturnsService } from '../../sales/returns/sales-returns.service';
 import { SalesInvoicesService } from '../../sales/invoices/sales-invoices.service';
-import { CustomersService } from '../../customers/customers.service';
+import { PartnersService } from '../../partners/partners.service';
 import { ProductsService } from '../../products/products.service';
 import { UnitsService } from '../../units/units.service';
 import { WarehousesService } from '../../warehouses/warehouses.service';
@@ -100,7 +100,7 @@ export class SalesReturnsImportHandler
   constructor(
     private readonly salesReturnsService: SalesReturnsService,
     private readonly salesInvoicesService: SalesInvoicesService,
-    private readonly customersService: CustomersService,
+    private readonly partnersService: PartnersService,
     private readonly productsService: ProductsService,
     private readonly unitsService: UnitsService,
     private readonly warehousesService: WarehousesService,
@@ -127,8 +127,8 @@ export class SalesReturnsImportHandler
     options?: ImportRowOptions,
   ): Promise<ImportRowResult> {
     const first = rows[0];
-    const customerId = await resolveRequiredIdByField(
-      this.customersService,
+    const partnerId = await resolveRequiredIdByField(
+      this.partnersService,
       'name',
       first.partyName,
       'Customer',
@@ -189,7 +189,7 @@ export class SalesReturnsImportHandler
     if (options?.dryRun) return { id: 'dry-run' };
 
     const salesReturn = await this.salesReturnsService.create({
-      customerId,
+      partnerId,
       salesInvoiceId,
       currencyId,
       referenceNumber: first.referenceNumber || undefined,

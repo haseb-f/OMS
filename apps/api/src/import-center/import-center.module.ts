@@ -35,8 +35,7 @@ import { JournalEntriesImportHandler } from './handlers/journal-entries-import.h
 import { OpeningBalancesImportHandler } from './handlers/opening-balances-import.handler';
 import { StoreOrdersImportHandler } from './handlers/store-orders-import.handler';
 import { ShippingUpdatesImportHandler } from './handlers/shipping-updates-import.handler';
-import { CustomersModule } from '../customers/customers.module';
-import { SuppliersModule } from '../suppliers/suppliers.module';
+import { PartnersModule } from '../partners/partners.module';
 import { ProductsModule } from '../products/products.module';
 import { ProductCategoriesModule } from '../product-categories/product-categories.module';
 import { UnitsModule } from '../units/units.module';
@@ -86,8 +85,7 @@ import { ReferenceDataController } from './reference-data/reference-data.control
  */
 @Module({
   imports: [
-    CustomersModule,
-    SuppliersModule,
+    PartnersModule,
     ProductsModule,
     ProductCategoriesModule,
     UnitsModule,

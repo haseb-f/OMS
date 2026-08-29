@@ -83,7 +83,7 @@ export class CreateProductDto {
   analyticAccountId?: string;
 
   @IsOptionalUuid()
-  preferredSupplierId?: string;
+  preferredPartnerId?: string;
 
   @IsString()
   @IsOptional()

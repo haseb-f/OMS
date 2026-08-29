@@ -3,12 +3,16 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, PurchaseDocumentStatus } from '@prisma/client';
+import {
+  PartnerRoleType,
+  Prisma,
+  PurchaseDocumentStatus,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
 import { ProductsService } from '../../products/products.service';
 import { WarehousesService } from '../../warehouses/warehouses.service';
-import { SuppliersService } from '../../suppliers/suppliers.service';
+import { PartnersService } from '../../partners/partners.service';
 import { InventoryService } from '../../inventory/inventory.service';
 import { PostingEngineService } from '../../accounting/posting-engine/posting-engine.service';
 import {
@@ -38,7 +42,7 @@ interface ComputedReturnLines {
 export class PurchaseReturnsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly suppliersService: SuppliersService,
+    private readonly partnersService: PartnersService,
     private readonly productsService: ProductsService,
     private readonly warehousesService: WarehousesService,
     private readonly inventoryService: InventoryService,
@@ -48,10 +52,13 @@ export class PurchaseReturnsService {
   ) {}
 
   async create(dto: CreatePurchaseReturnDto) {
-    await this.suppliersService.assertActiveSupplier(dto.supplierId);
+    await this.partnersService.assertActiveForRole(
+      dto.partnerId,
+      PartnerRoleType.SUPPLIER,
+    );
     const sourceInvoice = await this.assertSourceInvoice(
       dto.purchaseInvoiceId,
-      dto.supplierId,
+      dto.partnerId,
     );
     const productsById = await this.productsService.findManyForValidation(
       dto.items.map((item) => item.productId),
@@ -79,7 +86,7 @@ export class PurchaseReturnsService {
         const purchaseReturn = await tx.purchaseReturn.create({
           data: {
             returnNumber,
-            supplierId: dto.supplierId,
+            partnerId: dto.partnerId,
             purchaseInvoiceId: dto.purchaseInvoiceId,
             currencyId: dto.currencyId,
             // TASK-051 Document Context Enrichment — inherited from the source invoice, never re-selected on the return.
@@ -94,7 +101,7 @@ export class PurchaseReturnsService {
             items: { create: computed.lines },
           },
           include: {
-            supplier: true,
+            partner: true,
             currency: true,
             items: {
               include: {
@@ -121,7 +128,7 @@ export class PurchaseReturnsService {
         error.code === 'P2003'
       ) {
         throw new BadRequestException(
-          'Invalid supplier, invoice, currency, product, warehouse, unit, or tax reference.',
+          'Invalid partner, invoice, currency, product, warehouse, unit, or tax reference.',
         );
       }
       throw error;
@@ -131,7 +138,7 @@ export class PurchaseReturnsService {
   async findAll(query: FindPurchaseReturnsQueryDto) {
     const where: Prisma.PurchaseReturnWhereInput = {
       deletedAt: null,
-      supplierId: prismaEnumFilter(query.supplierId),
+      partnerId: prismaEnumFilter(query.partnerId),
       status: prismaEnumFilter(query.status),
     };
     if (query.search) {
@@ -155,7 +162,7 @@ export class PurchaseReturnsService {
               product: { select: { id: true, name: true, sku: true } },
             },
           },
-          supplier: true,
+          partner: true,
           currency: true,
         },
         orderBy: { [query.sortBy || 'createdAt']: query.sortOrder ?? 'desc' },
@@ -172,7 +179,7 @@ export class PurchaseReturnsService {
     const purchaseReturn = await this.prisma.purchaseReturn.findFirst({
       where: { id, deletedAt: null },
       include: {
-        supplier: true,
+        partner: true,
         currency: true,
         purchaseInvoice: { select: { invoiceNumber: true } },
         items: {
@@ -237,8 +244,11 @@ export class PurchaseReturnsService {
     if (existing.status !== PurchaseDocumentStatus.DRAFT) {
       throw new BadRequestException('Only a Draft return can be edited.');
     }
-    if (dto.supplierId) {
-      await this.suppliersService.assertActiveSupplier(dto.supplierId);
+    if (dto.partnerId) {
+      await this.partnersService.assertActiveForRole(
+        dto.partnerId,
+        PartnerRoleType.SUPPLIER,
+      );
     }
 
     let computed: ComputedReturnLines | undefined;
@@ -280,7 +290,7 @@ export class PurchaseReturnsService {
       const purchaseReturn = await tx.purchaseReturn.update({
         where: { id },
         data: {
-          supplierId: dto.supplierId,
+          partnerId: dto.partnerId,
           purchaseInvoiceId: dto.purchaseInvoiceId,
           currencyId: dto.currencyId,
           referenceNumber: dto.referenceNumber,
@@ -291,7 +301,7 @@ export class PurchaseReturnsService {
             : {}),
         },
         include: {
-          supplier: true,
+          partner: true,
           currency: true,
           items: {
             include: { product: true, warehouse: true, unit: true, tax: true },
@@ -377,7 +387,7 @@ export class PurchaseReturnsService {
           confirmedBy: userId ?? null,
         },
         include: {
-          supplier: true,
+          partner: true,
           currency: true,
           items: {
             include: { product: true, warehouse: true, unit: true, tax: true },
@@ -421,7 +431,7 @@ export class PurchaseReturnsService {
         where: { id },
         data: { deletedAt: new Date(), updatedBy: userId ?? null },
         include: {
-          supplier: true,
+          partner: true,
           currency: true,
           items: {
             include: { product: true, warehouse: true, unit: true, tax: true },
@@ -458,7 +468,7 @@ export class PurchaseReturnsService {
         where: { id },
         data: { status: to, ...extraData },
         include: {
-          supplier: true,
+          partner: true,
           currency: true,
           items: {
             include: { product: true, warehouse: true, unit: true, tax: true },
@@ -530,15 +540,15 @@ export class PurchaseReturnsService {
     }
   }
 
-  /** TASK-048 — the return's supplier must match its source invoice's supplier; the invoice must exist and not be deleted. */
+  /** TASK-048 — the return's partner must match its source invoice's partner; the invoice must exist and not be deleted. */
   private async assertSourceInvoice(
     purchaseInvoiceId: string,
-    supplierId: string,
+    partnerId: string,
   ) {
     const invoice = await this.prisma.purchaseInvoice.findFirst({
       where: { id: purchaseInvoiceId, deletedAt: null },
       select: {
-        supplierId: true,
+        partnerId: true,
         status: true,
         invoiceNumber: true,
         companyId: true,
@@ -552,9 +562,9 @@ export class PurchaseReturnsService {
         `Purchase Invoice ${purchaseInvoiceId} not found`,
       );
     }
-    if (invoice.supplierId !== supplierId) {
+    if (invoice.partnerId !== partnerId) {
       throw new BadRequestException(
-        'Purchase Return supplier must match the source Purchase Invoice supplier.',
+        'Purchase Return partner must match the source Purchase Invoice partner.',
       );
     }
     // TASK-050 — a cancelled invoice can never be returned against.

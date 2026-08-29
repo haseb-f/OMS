@@ -1,6 +1,7 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { BadRequestException } from '@nestjs/common';
-import { SuppliersService } from '../../suppliers/suppliers.service';
+import { PartnerRoleType } from '@prisma/client';
+import { PartnersService } from '../../partners/partners.service';
 import { CountriesService } from '../../countries/countries.service';
 import { ImportTypeRegistryService } from '../import-type-registry.service';
 import { resolveOptionalIdByField } from '../import-value.util';
@@ -93,7 +94,7 @@ const FIELDS: ImportFieldDef[] = [
   },
 ];
 
-/** Suppliers Import (TASK-056) — every row calls `SuppliersService.create()` unchanged (unique supplier code check included). */
+/** Suppliers Import (TASK-056) — every row calls `PartnersService.create()` with the SUPPLIER role (spec section 10: Suppliers are a role view over Partner, never a separate registry). */
 @Injectable()
 export class SuppliersImportHandler implements ImportTypeHandler, OnModuleInit {
   readonly type = 'SUPPLIERS';
@@ -103,7 +104,7 @@ export class SuppliersImportHandler implements ImportTypeHandler, OnModuleInit {
   readonly isAvailable = true;
 
   constructor(
-    private readonly suppliersService: SuppliersService,
+    private readonly partnersService: PartnersService,
     private readonly countriesService: CountriesService,
     private readonly registry: ImportTypeRegistryService,
     private readonly phoneNumberService: PhoneNumberService,
@@ -136,7 +137,7 @@ export class SuppliersImportHandler implements ImportTypeHandler, OnModuleInit {
     }
 
     if (options?.dryRun) return { id: 'dry-run' };
-    const supplier = await this.suppliersService.create({
+    const partner = await this.partnersService.create({
       name: row.name,
       commercialName: row.commercialName || undefined,
       countryId,
@@ -147,7 +148,8 @@ export class SuppliersImportHandler implements ImportTypeHandler, OnModuleInit {
       city: row.city || undefined,
       address: row.address || undefined,
       notes: row.notes || undefined,
+      roles: [PartnerRoleType.SUPPLIER],
     });
-    return { id: supplier.id };
+    return { id: partner.id };
   }
 }

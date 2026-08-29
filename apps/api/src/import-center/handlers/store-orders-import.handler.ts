@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
 import { StoreOrderSource } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CustomersService } from '../../customers/customers.service';
+import { PartnersService } from '../../partners/partners.service';
 import { CountriesService } from '../../countries/countries.service';
 import { StoreOrdersService } from '../../store-orders/store-orders.service';
 import {
@@ -206,7 +206,7 @@ interface LineItem {
  * same "never post from raw imported rows" rule that module already
  * follows.
  *
- * Phone matching reuses `CustomersService.lookupAllByPhone` /
+ * Phone matching reuses `PartnersService.lookupAllByPhone` /
  * `findOrCreate` (never a second matching engine). Google Sheets sync
  * treats a new External Order ID on an existing customer phone as a
  * phone-match review (default skip); explicit accept creates the order
@@ -231,7 +231,7 @@ export class StoreOrdersImportHandler
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly customersService: CustomersService,
+    private readonly partnersService: PartnersService,
     private readonly countriesService: CountriesService,
     private readonly storeOrdersService: StoreOrdersService,
     private readonly phoneNumberService: PhoneNumberService,
@@ -270,7 +270,7 @@ export class StoreOrdersImportHandler
     } = await this.validateGroup(rows);
 
     const phoneMatches =
-      await this.customersService.lookupAllByPhone(normalizedPhone);
+      await this.partnersService.lookupAllByPhone(normalizedPhone);
     if (phoneMatches.length > 1) {
       throw new BadRequestException({
         code: 'MASTER_DATA_AMBIGUOUS',
@@ -379,10 +379,10 @@ export class StoreOrdersImportHandler
 
   private async findPriorOrderForPhone(normalizedPhone: string) {
     const phoneMatches =
-      await this.customersService.lookupAllByPhone(normalizedPhone);
+      await this.partnersService.lookupAllByPhone(normalizedPhone);
     if (phoneMatches.length !== 1) return null;
     return this.prisma.storeOrder.findFirst({
-      where: { customerId: phoneMatches[0].id, deletedAt: null },
+      where: { partnerId: phoneMatches[0].id, deletedAt: null },
       orderBy: { orderDate: 'desc' },
       select: {
         internalOrderId: true,
@@ -404,7 +404,7 @@ export class StoreOrdersImportHandler
   ) {
     return {
       externalOrderId: normalizeExternalOrderId(first.externalOrderId),
-      customer: {
+      partner: {
         name: first.customerName,
         phone: normalizedPhone,
         countryId,

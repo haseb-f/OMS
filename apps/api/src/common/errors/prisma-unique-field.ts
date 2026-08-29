@@ -25,7 +25,7 @@ interface UniqueConstraintCause {
 function asStringArray(value: unknown): string[] | null {
   if (typeof value === 'string' && value) return [value];
   if (Array.isArray(value) && value.every((item) => typeof item === 'string')) {
-    return value as string[];
+    return value;
   }
   return null;
 }

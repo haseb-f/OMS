@@ -140,7 +140,7 @@ describe('Products — Draft Activation & Creation Wizard', () => {
       expect(product.salesPrice).toBeNull();
       expect(product.purchasePrice).toBeNull();
       expect(product.taxId).toBeNull();
-      expect(product.preferredSupplierId).toBeNull();
+      expect(product.preferredPartnerId).toBeNull();
       expect(product.weight).toBeNull();
       expect(product.barcode).toBeNull();
       expect(product.description).toBeNull();

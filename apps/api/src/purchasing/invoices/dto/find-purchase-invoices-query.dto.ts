@@ -17,7 +17,7 @@ import {
 
 export class FindPurchaseInvoicesQueryDto {
   @IsOptionalUuidList()
-  supplierId?: string[];
+  partnerId?: string[];
 
   @TransformEnumList()
   @IsEnum(PurchaseDocumentStatus, { each: true })

@@ -3,12 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, SalesDocumentStatus } from '@prisma/client';
+import { PartnerRoleType, Prisma, SalesDocumentStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
 import { ProductsService } from '../../products/products.service';
 import { WarehousesService } from '../../warehouses/warehouses.service';
-import { CustomersService } from '../../customers/customers.service';
+import { PartnersService } from '../../partners/partners.service';
 import {
   SalesQuotationActivityService,
   SalesQuotationActivityType,
@@ -30,7 +30,7 @@ import { prismaEnumFilter } from '../../common/query/enum-list';
 export class SalesQuotationsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly customersService: CustomersService,
+    private readonly partnersService: PartnersService,
     private readonly productsService: ProductsService,
     private readonly warehousesService: WarehousesService,
     private readonly activityService: SalesQuotationActivityService,
@@ -41,7 +41,10 @@ export class SalesQuotationsService {
     dto: CreateSalesQuotationDto,
     context: CompanyContext = { companyId: null, branchId: null },
   ) {
-    await this.customersService.assertActiveCustomer(dto.customerId);
+    await this.partnersService.assertActiveForRole(
+      dto.partnerId,
+      PartnerRoleType.CUSTOMER,
+    );
     const productsById = await this.productsService.findManyForValidation(
       dto.items.map((item) => item.productId),
     );
@@ -58,7 +61,7 @@ export class SalesQuotationsService {
         const quotation = await tx.salesQuotation.create({
           data: {
             quotationNumber,
-            customerId: dto.customerId,
+            partnerId: dto.partnerId,
             currencyId: dto.currencyId,
             companyId: context.companyId ?? undefined,
             branchId: context.branchId ?? undefined,
@@ -72,7 +75,7 @@ export class SalesQuotationsService {
             items: { create: computed.lines },
           },
           include: {
-            customer: true,
+            partner: true,
             currency: true,
             items: {
               include: {
@@ -99,7 +102,7 @@ export class SalesQuotationsService {
         error.code === 'P2003'
       ) {
         throw new BadRequestException(
-          'Invalid customer, currency, product, warehouse, unit, or tax reference.',
+          'Invalid partner, currency, product, warehouse, unit, or tax reference.',
         );
       }
       throw error;
@@ -109,7 +112,7 @@ export class SalesQuotationsService {
   async findAll(query: FindSalesQuotationsQueryDto) {
     const where: Prisma.SalesQuotationWhereInput = {
       deletedAt: null,
-      customerId: prismaEnumFilter(query.customerId),
+      partnerId: prismaEnumFilter(query.partnerId),
       status: prismaEnumFilter(query.status),
     };
     if (query.search) {
@@ -133,7 +136,7 @@ export class SalesQuotationsService {
               product: { select: { id: true, name: true, sku: true } },
             },
           },
-          customer: true,
+          partner: true,
           currency: true,
         },
         orderBy: { [query.sortBy || 'createdAt']: query.sortOrder ?? 'desc' },
@@ -150,7 +153,7 @@ export class SalesQuotationsService {
     const quotation = await this.prisma.salesQuotation.findFirst({
       where: { id, deletedAt: null },
       include: {
-        customer: true,
+        partner: true,
         currency: true,
         items: {
           include: { product: true, warehouse: true, unit: true, tax: true },
@@ -170,8 +173,11 @@ export class SalesQuotationsService {
       throw new BadRequestException('Only a Draft quotation can be edited.');
     }
 
-    if (dto.customerId) {
-      await this.customersService.assertActiveCustomer(dto.customerId);
+    if (dto.partnerId) {
+      await this.partnersService.assertActiveForRole(
+        dto.partnerId,
+        PartnerRoleType.CUSTOMER,
+      );
     }
 
     let computed: Awaited<ReturnType<typeof this.computeLines>> | undefined;
@@ -195,7 +201,7 @@ export class SalesQuotationsService {
       const quotation = await tx.salesQuotation.update({
         where: { id },
         data: {
-          customerId: dto.customerId,
+          partnerId: dto.partnerId,
           currencyId: dto.currencyId,
           documentDate: dto.documentDate
             ? new Date(dto.documentDate)
@@ -208,7 +214,7 @@ export class SalesQuotationsService {
             : {}),
         },
         include: {
-          customer: true,
+          partner: true,
           currency: true,
           items: {
             include: { product: true, warehouse: true, unit: true, tax: true },
@@ -286,7 +292,7 @@ export class SalesQuotationsService {
         where: { id },
         data: { deletedAt: new Date(), updatedBy: userId ?? null },
         include: {
-          customer: true,
+          partner: true,
           currency: true,
           items: {
             include: { product: true, warehouse: true, unit: true, tax: true },
@@ -338,7 +344,7 @@ export class SalesQuotationsService {
         where: { id },
         data: { status: to, ...extraData },
         include: {
-          customer: true,
+          partner: true,
           currency: true,
           items: {
             include: { product: true, warehouse: true, unit: true, tax: true },

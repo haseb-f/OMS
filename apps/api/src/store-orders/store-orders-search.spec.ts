@@ -92,7 +92,7 @@ describe('Store Orders — Complete Search', () => {
 
     const order = await service.create({
       externalOrderId,
-      customer: { name: arabicCustomerName, phone: saudiE164Phone },
+      partner: { name: arabicCustomerName, phone: saudiE164Phone },
       currencyId,
       items: [{ productId, quantity: 1, unitPrice: 50 }],
     });
@@ -115,7 +115,13 @@ describe('Store Orders — Complete Search', () => {
     });
     await prisma.storeOrder.deleteMany({ where: { id: orderId } });
     if (order) {
-      await prisma.customer.deleteMany({ where: { id: order.customerId } });
+      await prisma.partnerRoleAssignment.deleteMany({
+        where: { partnerId: order.partnerId },
+      });
+      await prisma.customerProfile.deleteMany({
+        where: { partnerId: order.partnerId },
+      });
+      await prisma.partner.deleteMany({ where: { id: order.partnerId } });
     }
     await prisma.product.deleteMany({
       where: { sku: { startsWith: 'SEARCH-TEST-' } },

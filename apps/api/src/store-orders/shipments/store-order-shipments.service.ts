@@ -68,6 +68,25 @@ export class StoreOrderShipmentsService {
     isReship: boolean,
     tx: Prisma.TransactionClient | PrismaService,
   ) {
+    const order = await tx.storeOrder.findFirst({
+      where: { id: storeOrderId, deletedAt: null },
+      select: { paymentType: true, paymentStatus: true },
+    });
+    if (!order) {
+      throw new BadRequestException('Store Order not found.');
+    }
+    // Central fulfillment gate: PREPAID requires verified reconciled payment;
+    // COD may ship before payment.
+    if (
+      order.paymentType === 'PREPAID' &&
+      order.paymentStatus !== 'FULLY_PAID_RECONCILED' &&
+      order.paymentStatus !== 'OVERPAID'
+    ) {
+      throw new BadRequestException(
+        'Prepaid orders require verified reconciled payment before shipment.',
+      );
+    }
+
     const previousCount = await tx.shipment.count({ where: { storeOrderId } });
     return tx.shipment.create({
       data: { storeOrderId, isReship, attemptNumber: previousCount + 1 },
@@ -353,7 +372,7 @@ export class StoreOrderShipmentsService {
     };
     /// The free-text search, the Country filter (Part 2 of the four-gaps
     /// task), and the Source filter all resolve through the same
-    /// `storeOrder` relation (Country via `storeOrder.customer` — there is
+    /// `storeOrder` relation (Country via `storeOrder.partner` — there is
     /// no separate shipping-address concept in this pipeline yet; Source is
     /// the order's own `source` column) — so they combine into one
     /// `storeOrder` filter object rather than several conflicting ones.
@@ -375,7 +394,7 @@ export class StoreOrderShipmentsService {
                   },
                 },
                 {
-                  customer: {
+                  partner: {
                     OR: [
                       { phone: { contains: query.search } },
                       { mobile: { contains: query.search } },
@@ -386,7 +405,7 @@ export class StoreOrderShipmentsService {
               ],
             }
           : {}),
-        ...(countryFilter ? { customer: { countryId: countryFilter } } : {}),
+        ...(countryFilter ? { partner: { countryId: countryFilter } } : {}),
         ...(sourceFilter ? { source: sourceFilter } : {}),
       };
     }
@@ -419,7 +438,7 @@ export class StoreOrderShipmentsService {
               syncBehavior: true,
             },
           },
-          storeOrder: { include: { customer: { include: { country: true } } } },
+          storeOrder: { include: { partner: { include: { country: true } } } },
         },
         orderBy: { createdAt: query.sortOrder ?? 'desc' },
         skip: (page - 1) * pageSize,

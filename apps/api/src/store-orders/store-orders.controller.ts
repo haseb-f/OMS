@@ -27,6 +27,7 @@ import { FindStoreOrdersQueryDto } from './dto/find-store-orders-query.dto';
 import { CreateStoreOrderNoteDto } from './dto/create-store-order-note.dto';
 import { CreateStoreOrderPaymentDto } from './dto/create-store-order-payment.dto';
 import { SetPaymentReviewStatusDto } from './dto/set-payment-review-status.dto';
+import { ReportStoreOrderPaymentDto } from './dto/report-store-order-payment.dto';
 import { CreateStoreOrderReceiptDto } from './dto/create-store-order-receipt.dto';
 import { ATTACHMENT_MAX_BYTES } from '../common/storage/file-validation';
 
@@ -95,6 +96,22 @@ export class StoreOrdersController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.storeOrdersService.addPayment(id, dto, user.sub);
+  }
+
+  /** Agent payment report — PAYMENT_REVIEW only; never PAID without reconciliation. */
+  @Post(':id/report-payment')
+  @PermissionAction('edit')
+  reportPayment(
+    @Param('id') id: string,
+    @Body() dto: ReportStoreOrderPaymentDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.storeOrdersService.reportPayment(id, dto, user.sub);
+  }
+
+  @Get(':id/can-fulfill')
+  canFulfill(@Param('id') id: string) {
+    return this.storeOrdersService.canFulfill(id);
   }
 
   @Post(':id/payment-review-status')

@@ -3,11 +3,15 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, PurchaseDocumentStatus } from '@prisma/client';
+import {
+  PartnerRoleType,
+  Prisma,
+  PurchaseDocumentStatus,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
 import { ProductsService } from '../../products/products.service';
-import { SuppliersService } from '../../suppliers/suppliers.service';
+import { PartnersService } from '../../partners/partners.service';
 import {
   PurchaseQuotationActivityService,
   PurchaseQuotationActivityType,
@@ -29,7 +33,7 @@ import { prismaEnumFilter } from '../../common/query/enum-list';
 export class PurchaseQuotationsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly suppliersService: SuppliersService,
+    private readonly partnersService: PartnersService,
     private readonly productsService: ProductsService,
     private readonly activityService: PurchaseQuotationActivityService,
     private readonly numberingEngine: NumberingEngineService,
@@ -39,7 +43,10 @@ export class PurchaseQuotationsService {
     dto: CreatePurchaseQuotationDto,
     context: CompanyContext = { companyId: null, branchId: null },
   ) {
-    await this.suppliersService.assertActiveSupplier(dto.supplierId);
+    await this.partnersService.assertActiveForRole(
+      dto.partnerId,
+      PartnerRoleType.SUPPLIER,
+    );
     const productsById = await this.productsService.findManyForValidation(
       dto.items.map((item) => item.productId),
     );
@@ -55,7 +62,7 @@ export class PurchaseQuotationsService {
         const quotation = await tx.purchaseQuotation.create({
           data: {
             quotationNumber,
-            supplierId: dto.supplierId,
+            partnerId: dto.partnerId,
             currencyId: dto.currencyId,
             companyId: context.companyId ?? undefined,
             branchId: context.branchId ?? undefined,
@@ -70,7 +77,7 @@ export class PurchaseQuotationsService {
             items: { create: computed.lines },
           },
           include: {
-            supplier: true,
+            partner: true,
             currency: true,
             items: { include: { product: true, unit: true, tax: true } },
           },
@@ -90,7 +97,7 @@ export class PurchaseQuotationsService {
         error.code === 'P2003'
       ) {
         throw new BadRequestException(
-          'Invalid supplier, currency, product, unit, or tax reference.',
+          'Invalid partner, currency, product, unit, or tax reference.',
         );
       }
       throw error;
@@ -100,7 +107,7 @@ export class PurchaseQuotationsService {
   async findAll(query: FindPurchaseQuotationsQueryDto) {
     const where: Prisma.PurchaseQuotationWhereInput = {
       deletedAt: null,
-      supplierId: prismaEnumFilter(query.supplierId),
+      partnerId: prismaEnumFilter(query.partnerId),
       status: prismaEnumFilter(query.status),
     };
     if (query.search) {
@@ -124,7 +131,7 @@ export class PurchaseQuotationsService {
               product: { select: { id: true, name: true, sku: true } },
             },
           },
-          supplier: true,
+          partner: true,
           currency: true,
         },
         orderBy: { [query.sortBy || 'createdAt']: query.sortOrder ?? 'desc' },
@@ -141,7 +148,7 @@ export class PurchaseQuotationsService {
     const quotation = await this.prisma.purchaseQuotation.findFirst({
       where: { id, deletedAt: null },
       include: {
-        supplier: true,
+        partner: true,
         currency: true,
         items: { include: { product: true, unit: true, tax: true } },
       },
@@ -160,8 +167,11 @@ export class PurchaseQuotationsService {
         'Only a Draft Purchase Quotation can be edited.',
       );
     }
-    if (dto.supplierId) {
-      await this.suppliersService.assertActiveSupplier(dto.supplierId);
+    if (dto.partnerId) {
+      await this.partnersService.assertActiveForRole(
+        dto.partnerId,
+        PartnerRoleType.SUPPLIER,
+      );
     }
 
     let computed: Awaited<ReturnType<typeof this.computeLines>> | undefined;
@@ -184,7 +194,7 @@ export class PurchaseQuotationsService {
       const quotation = await tx.purchaseQuotation.update({
         where: { id },
         data: {
-          supplierId: dto.supplierId,
+          partnerId: dto.partnerId,
           currencyId: dto.currencyId,
           purchaseType: dto.purchaseType,
           documentDate: dto.documentDate
@@ -198,7 +208,7 @@ export class PurchaseQuotationsService {
             : {}),
         },
         include: {
-          supplier: true,
+          partner: true,
           currency: true,
           items: { include: { product: true, unit: true, tax: true } },
         },
@@ -273,7 +283,7 @@ export class PurchaseQuotationsService {
         where: { id },
         data: { deletedAt: new Date(), updatedBy: userId ?? null },
         include: {
-          supplier: true,
+          partner: true,
           currency: true,
           items: { include: { product: true, unit: true, tax: true } },
         },
@@ -308,7 +318,7 @@ export class PurchaseQuotationsService {
         where: { id },
         data: { status: to, ...extraData },
         include: {
-          supplier: true,
+          partner: true,
           currency: true,
           items: { include: { product: true, unit: true, tax: true } },
         },

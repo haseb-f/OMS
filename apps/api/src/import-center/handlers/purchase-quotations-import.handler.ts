@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
 import { PurchaseType } from '@prisma/client';
 import { PurchaseQuotationsService } from '../../purchasing/quotations/purchase-quotations.service';
-import { SuppliersService } from '../../suppliers/suppliers.service';
+import { PartnersService } from '../../partners/partners.service';
 import { ProductsService } from '../../products/products.service';
 import { UnitsService } from '../../units/units.service';
 import { WarehousesService } from '../../warehouses/warehouses.service';
@@ -100,7 +100,7 @@ export class PurchaseQuotationsImportHandler
 
   constructor(
     private readonly purchaseQuotationsService: PurchaseQuotationsService,
-    private readonly suppliersService: SuppliersService,
+    private readonly partnersService: PartnersService,
     private readonly productsService: ProductsService,
     private readonly unitsService: UnitsService,
     private readonly warehousesService: WarehousesService,
@@ -136,8 +136,8 @@ export class PurchaseQuotationsImportHandler
         `Invalid purchase type "${first.purchaseType}" — expected one of ${Object.values(PurchaseType).join(', ')}.`,
       );
     }
-    const supplierId = await resolveRequiredIdByField(
-      this.suppliersService,
+    const partnerId = await resolveRequiredIdByField(
+      this.partnersService,
       'name',
       first.partyName,
       'Supplier',
@@ -182,7 +182,7 @@ export class PurchaseQuotationsImportHandler
     if (options?.dryRun) return { id: 'dry-run' };
 
     const quotation = await this.purchaseQuotationsService.create({
-      supplierId,
+      partnerId,
       purchaseType: purchaseType as PurchaseType,
       currencyId,
       documentDate: first.documentDate || undefined,

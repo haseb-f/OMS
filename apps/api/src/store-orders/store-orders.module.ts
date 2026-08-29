@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { CustomersModule } from '../customers/customers.module';
+import { PartnersModule } from '../partners/partners.module';
 import { NumberingModule } from '../numbering/numbering.module';
 import { PostingEngineModule } from '../accounting/posting-engine/posting-engine.module';
 import { ObjectStorageModule } from '../common/storage/object-storage.module';
@@ -15,7 +15,7 @@ import { ShippingController } from './shipments/shipping.controller';
 
 @Module({
   imports: [
-    CustomersModule,
+    PartnersModule,
     NumberingModule,
     PostingEngineModule,
     ObjectStorageModule,

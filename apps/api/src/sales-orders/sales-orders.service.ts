@@ -3,12 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  LeadStatus,
-  PaymentStatus,
-  Prisma,
-  SalesOrderStatus,
-} from '@prisma/client';
+import { PaymentStatus, Prisma, SalesOrderStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import {
@@ -80,13 +75,17 @@ export class SalesOrdersService {
   async create(dto: CreateSalesOrderDto) {
     const lead = await this.prisma.lead.findFirst({
       where: { id: dto.leadId, deletedAt: null },
+      include: { status: { select: { code: true } } },
     });
     if (!lead) {
       throw new BadRequestException('Lead not found.');
     }
-    if (lead.status !== LeadStatus.PAID) {
+    if (
+      lead.status?.code !== 'QUALIFIED' &&
+      lead.status?.code !== 'CONVERTED'
+    ) {
       throw new BadRequestException(
-        'Sales Orders can only be created from a Lead with status PAID.',
+        'Sales Orders can only be created from a qualified Lead.',
       );
     }
     // Lead.city/address are optional at the minimal Lead-creation stage

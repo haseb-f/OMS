@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  PartnerRoleType,
   Prisma,
   PurchaseDocumentStatus,
   PurchaseOrder,
@@ -14,7 +15,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
 import { ProductsService } from '../../products/products.service';
 import { WarehousesService } from '../../warehouses/warehouses.service';
-import { SuppliersService } from '../../suppliers/suppliers.service';
+import { PartnersService } from '../../partners/partners.service';
 import { InventoryService } from '../../inventory/inventory.service';
 import { PostingEngineService } from '../../accounting/posting-engine/posting-engine.service';
 import {
@@ -52,7 +53,7 @@ interface ComputedInvoiceLines {
 export class PurchaseInvoicesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly suppliersService: SuppliersService,
+    private readonly partnersService: PartnersService,
     private readonly productsService: ProductsService,
     private readonly warehousesService: WarehousesService,
     private readonly inventoryService: InventoryService,
@@ -65,7 +66,10 @@ export class PurchaseInvoicesService {
     dto: CreatePurchaseInvoiceDto,
     context: CompanyContext = { companyId: null, branchId: null },
   ) {
-    await this.suppliersService.assertActiveSupplier(dto.supplierId);
+    await this.partnersService.assertActiveForRole(
+      dto.partnerId,
+      PartnerRoleType.SUPPLIER,
+    );
     const productsById = await this.productsService.findManyForValidation(
       dto.items.map((item) => item.productId),
     );
@@ -80,7 +84,7 @@ export class PurchaseInvoicesService {
     return this.createInvoice(
       {
         invoiceNumber,
-        supplierId: dto.supplierId,
+        partnerId: dto.partnerId,
         purchaseOrderId: null,
         currencyId: dto.currencyId ?? null,
         companyId: context.companyId,
@@ -146,7 +150,7 @@ export class PurchaseInvoicesService {
     return this.createInvoice(
       {
         invoiceNumber,
-        supplierId: order.supplierId,
+        partnerId: order.partnerId,
         purchaseOrderId: order.id,
         currencyId: order.currencyId,
         companyId: order.companyId,
@@ -168,7 +172,7 @@ export class PurchaseInvoicesService {
   async findAll(query: FindPurchaseInvoicesQueryDto) {
     const where: Prisma.PurchaseInvoiceWhereInput = {
       deletedAt: null,
-      supplierId: prismaEnumFilter(query.supplierId),
+      partnerId: prismaEnumFilter(query.partnerId),
       status: prismaEnumFilter(query.status),
     };
     if (query.search) {
@@ -192,7 +196,7 @@ export class PurchaseInvoicesService {
               product: { select: { id: true, name: true, sku: true } },
             },
           },
-          supplier: true,
+          partner: true,
           currency: true,
         },
         orderBy: { [query.sortBy || 'createdAt']: query.sortOrder ?? 'desc' },
@@ -225,7 +229,7 @@ export class PurchaseInvoicesService {
     const invoice = await this.prisma.purchaseInvoice.findFirst({
       where: { id, deletedAt: null },
       include: {
-        supplier: true,
+        partner: true,
         currency: true,
         purchaseOrder: { select: { id: true, poNumber: true } },
         items: {
@@ -279,8 +283,11 @@ export class PurchaseInvoicesService {
         'Only a Draft Purchase Invoice can be edited.',
       );
     }
-    if (dto.supplierId) {
-      await this.suppliersService.assertActiveSupplier(dto.supplierId);
+    if (dto.partnerId) {
+      await this.partnersService.assertActiveForRole(
+        dto.partnerId,
+        PartnerRoleType.SUPPLIER,
+      );
     }
 
     let computed: ComputedInvoiceLines | undefined;
@@ -304,7 +311,7 @@ export class PurchaseInvoicesService {
       const invoice = await tx.purchaseInvoice.update({
         where: { id },
         data: {
-          supplierId: dto.supplierId,
+          partnerId: dto.partnerId,
           currencyId: dto.currencyId,
           referenceNumber: dto.referenceNumber,
           internalNotes: dto.internalNotes,
@@ -314,7 +321,7 @@ export class PurchaseInvoicesService {
             : {}),
         },
         include: {
-          supplier: true,
+          partner: true,
           currency: true,
           items: {
             include: { product: true, warehouse: true, unit: true, tax: true },
@@ -415,7 +422,7 @@ export class PurchaseInvoicesService {
           confirmedBy: userId ?? null,
         },
         include: {
-          supplier: true,
+          partner: true,
           currency: true,
           items: {
             include: { product: true, warehouse: true, unit: true, tax: true },
@@ -477,7 +484,7 @@ export class PurchaseInvoicesService {
         where: { id },
         data: { deletedAt: new Date(), updatedBy: userId ?? null },
         include: {
-          supplier: true,
+          partner: true,
           currency: true,
           items: {
             include: { product: true, warehouse: true, unit: true, tax: true },
@@ -514,7 +521,7 @@ export class PurchaseInvoicesService {
         where: { id },
         data: { status: to, ...extraData },
         include: {
-          supplier: true,
+          partner: true,
           currency: true,
           items: {
             include: { product: true, warehouse: true, unit: true, tax: true },
@@ -535,7 +542,7 @@ export class PurchaseInvoicesService {
   private async createInvoice(
     header: {
       invoiceNumber: string;
-      supplierId: string;
+      partnerId: string;
       purchaseOrderId: string | null;
       currencyId: string | null;
       companyId?: string | null;
@@ -560,7 +567,7 @@ export class PurchaseInvoicesService {
             items: { create: computed.lines },
           },
           include: {
-            supplier: true,
+            partner: true,
             currency: true,
             items: {
               include: {
@@ -587,7 +594,7 @@ export class PurchaseInvoicesService {
         error.code === 'P2003'
       ) {
         throw new BadRequestException(
-          'Invalid supplier, purchase order, currency, product, warehouse, unit, or tax reference.',
+          'Invalid partner, purchase order, currency, product, warehouse, unit, or tax reference.',
         );
       }
       throw error;

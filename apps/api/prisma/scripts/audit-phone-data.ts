@@ -35,10 +35,7 @@ async function main() {
   const leads = await prisma.lead.findMany({
     select: { mobileNumber: true, country: { select: { code: true } } },
   });
-  const customers = await prisma.customer.findMany({
-    select: { phone: true, mobile: true, country: { select: { code: true } } },
-  });
-  const suppliers = await prisma.supplier.findMany({
+  const partners = await prisma.partner.findMany({
     select: { phone: true, mobile: true, country: { select: { code: true } } },
   });
   const users = await prisma.user.findMany({ select: { mobile: true } });
@@ -100,20 +97,12 @@ async function main() {
     leads.map((l) => l.mobileNumber),
   );
   summarize(
-    'Customer.phone',
-    customers.map((c) => c.phone),
+    'Partner.phone',
+    partners.map((p) => p.phone),
   );
   summarize(
-    'Customer.mobile',
-    customers.map((c) => c.mobile),
-  );
-  summarize(
-    'Supplier.phone',
-    suppliers.map((s) => s.phone),
-  );
-  summarize(
-    'Supplier.mobile',
-    suppliers.map((s) => s.mobile),
+    'Partner.mobile',
+    partners.map((p) => p.mobile),
   );
   summarize(
     'User.mobile',
@@ -128,12 +117,8 @@ async function main() {
     leads.map((l) => ({ phone: l.mobileNumber, region: l.country?.code })),
   );
   crossCheck(
-    'Customer.phone',
-    customers.map((c) => ({ phone: c.phone, region: c.country?.code })),
-  );
-  crossCheck(
-    'Supplier.phone',
-    suppliers.map((s) => ({ phone: s.phone, region: s.country?.code })),
+    'Partner.phone',
+    partners.map((p) => ({ phone: p.phone, region: p.country?.code })),
   );
 }
 

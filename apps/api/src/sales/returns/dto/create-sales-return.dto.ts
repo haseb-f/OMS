@@ -19,7 +19,7 @@ import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.deco
  */
 export class CreateSalesReturnDto {
   @IsUUID()
-  customerId!: string;
+  partnerId!: string;
 
   @IsUUID()
   salesInvoiceId!: string;

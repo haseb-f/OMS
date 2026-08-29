@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  PartnerRoleType,
   Prisma,
   SalesDocumentStatus,
   SalesOrderDocument,
@@ -13,7 +14,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
 import { ProductsService } from '../../products/products.service';
 import { WarehousesService } from '../../warehouses/warehouses.service';
-import { CustomersService } from '../../customers/customers.service';
+import { PartnersService } from '../../partners/partners.service';
 import { InventoryService } from '../../inventory/inventory.service';
 import { PostingEngineService } from '../../accounting/posting-engine/posting-engine.service';
 import {
@@ -51,7 +52,7 @@ interface ComputedInvoiceLines {
 export class SalesInvoicesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly customersService: CustomersService,
+    private readonly partnersService: PartnersService,
     private readonly productsService: ProductsService,
     private readonly warehousesService: WarehousesService,
     private readonly inventoryService: InventoryService,
@@ -64,7 +65,10 @@ export class SalesInvoicesService {
     dto: CreateSalesInvoiceDto,
     context: CompanyContext = { companyId: null, branchId: null },
   ) {
-    await this.customersService.assertActiveCustomer(dto.customerId);
+    await this.partnersService.assertActiveForRole(
+      dto.partnerId,
+      PartnerRoleType.CUSTOMER,
+    );
     const productsById = await this.productsService.findManyForValidation(
       dto.items.map((item) => item.productId),
     );
@@ -79,7 +83,7 @@ export class SalesInvoicesService {
     return this.createInvoice(
       {
         invoiceNumber,
-        customerId: dto.customerId,
+        partnerId: dto.partnerId,
         salesOrderId: null,
         currencyId: dto.currencyId ?? null,
         companyId: context.companyId,
@@ -107,7 +111,10 @@ export class SalesInvoicesService {
   async createFromOrder(
     order: SalesOrderDocument & {
       items: SalesOrderDocumentItem[];
-      customer?: { id: string; paymentTermId: string | null };
+      partner?: {
+        id: string;
+        customerProfile?: { paymentTermId: string | null } | null;
+      };
     },
     lines: { orderItem: SalesOrderDocumentItem; quantity: number }[],
     userId?: string,
@@ -139,12 +146,12 @@ export class SalesInvoicesService {
     return this.createInvoice(
       {
         invoiceNumber,
-        customerId: order.customerId,
+        partnerId: order.partnerId,
         salesOrderId: order.id,
         currencyId: order.currencyId,
         companyId: order.companyId,
         branchId: order.branchId,
-        paymentTermId: order.customer?.paymentTermId ?? null,
+        paymentTermId: order.partner?.customerProfile?.paymentTermId ?? null,
         referenceNumber: order.referenceNumber,
         internalNotes: order.internalNotes,
         customerNotes: order.customerNotes,
@@ -160,7 +167,7 @@ export class SalesInvoicesService {
   async findAll(query: FindSalesInvoicesQueryDto) {
     const where: Prisma.SalesInvoiceWhereInput = {
       deletedAt: null,
-      customerId: prismaEnumFilter(query.customerId),
+      partnerId: prismaEnumFilter(query.partnerId),
       status: prismaEnumFilter(query.status),
     };
     if (query.search) {
@@ -184,7 +191,7 @@ export class SalesInvoicesService {
               product: { select: { id: true, name: true, sku: true } },
             },
           },
-          customer: true,
+          partner: true,
           currency: true,
         },
         orderBy: { [query.sortBy || 'createdAt']: query.sortOrder ?? 'desc' },
@@ -217,7 +224,7 @@ export class SalesInvoicesService {
     const invoice = await this.prisma.salesInvoice.findFirst({
       where: { id, deletedAt: null },
       include: {
-        customer: true,
+        partner: true,
         currency: true,
         salesOrder: { select: { orderNumber: true } },
         items: {
@@ -269,8 +276,11 @@ export class SalesInvoicesService {
     if (existing.status !== SalesDocumentStatus.DRAFT) {
       throw new BadRequestException('Only a Draft invoice can be edited.');
     }
-    if (dto.customerId) {
-      await this.customersService.assertActiveCustomer(dto.customerId);
+    if (dto.partnerId) {
+      await this.partnersService.assertActiveForRole(
+        dto.partnerId,
+        PartnerRoleType.CUSTOMER,
+      );
     }
 
     let computed: ComputedInvoiceLines | undefined;
@@ -294,7 +304,7 @@ export class SalesInvoicesService {
       const invoice = await tx.salesInvoice.update({
         where: { id },
         data: {
-          customerId: dto.customerId,
+          partnerId: dto.partnerId,
           currencyId: dto.currencyId,
           referenceNumber: dto.referenceNumber,
           internalNotes: dto.internalNotes,
@@ -304,7 +314,7 @@ export class SalesInvoicesService {
             : {}),
         },
         include: {
-          customer: true,
+          partner: true,
           currency: true,
           items: {
             include: { product: true, warehouse: true, unit: true, tax: true },
@@ -416,7 +426,7 @@ export class SalesInvoicesService {
           confirmedBy: userId ?? null,
         },
         include: {
-          customer: true,
+          partner: true,
           currency: true,
           items: {
             include: { product: true, warehouse: true, unit: true, tax: true },
@@ -527,7 +537,7 @@ export class SalesInvoicesService {
         where: { id },
         data: { deletedAt: new Date(), updatedBy: userId ?? null },
         include: {
-          customer: true,
+          partner: true,
           currency: true,
           items: {
             include: { product: true, warehouse: true, unit: true, tax: true },
@@ -553,7 +563,7 @@ export class SalesInvoicesService {
   async buildPostingPreview(id: string) {
     const invoice = await this.findOne(id);
     return {
-      customerId: invoice.customerId,
+      partnerId: invoice.partnerId,
       invoiceId: invoice.id,
       invoiceNumber: invoice.invoiceNumber,
       lines: invoice.items.map((item) => ({
@@ -584,7 +594,7 @@ export class SalesInvoicesService {
         where: { id },
         data: { status: to, ...extraData },
         include: {
-          customer: true,
+          partner: true,
           currency: true,
           items: {
             include: { product: true, warehouse: true, unit: true, tax: true },
@@ -605,7 +615,7 @@ export class SalesInvoicesService {
   private async createInvoice(
     header: {
       invoiceNumber: string;
-      customerId: string;
+      partnerId: string;
       salesOrderId: string | null;
       currencyId: string | null;
       companyId?: string | null;
@@ -631,7 +641,7 @@ export class SalesInvoicesService {
             items: { create: computed.lines },
           },
           include: {
-            customer: true,
+            partner: true,
             currency: true,
             items: {
               include: {
@@ -658,7 +668,7 @@ export class SalesInvoicesService {
         error.code === 'P2003'
       ) {
         throw new BadRequestException(
-          'Invalid customer, currency, product, warehouse, unit, or tax reference.',
+          'Invalid partner, currency, product, warehouse, unit, or tax reference.',
         );
       }
       throw error;

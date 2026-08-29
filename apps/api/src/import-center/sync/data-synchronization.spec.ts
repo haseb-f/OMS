@@ -221,7 +221,7 @@ describe('Data Synchronization', () => {
       });
     }
 
-    const customers = await prisma.customer.findMany({
+    const customers = await prisma.partner.findMany({
       where: {
         OR: [
           { name: { startsWith: 'Sync Test Customer' } },
@@ -232,7 +232,7 @@ describe('Data Synchronization', () => {
     });
     const customerIds = customers.map((c) => c.id);
     const orders = await prisma.storeOrder.findMany({
-      where: { customerId: { in: customerIds } },
+      where: { partnerId: { in: customerIds } },
       select: { id: true },
     });
     const orderIds = orders.map((o) => o.id);
@@ -246,7 +246,13 @@ describe('Data Synchronization', () => {
       where: { storeOrderId: { in: orderIds } },
     });
     await prisma.storeOrder.deleteMany({ where: { id: { in: orderIds } } });
-    await prisma.customer.deleteMany({ where: { id: { in: customerIds } } });
+    await prisma.partnerRoleAssignment.deleteMany({
+      where: { partnerId: { in: customerIds } },
+    });
+    await prisma.customerProfile.deleteMany({
+      where: { partnerId: { in: customerIds } },
+    });
+    await prisma.partner.deleteMany({ where: { id: { in: customerIds } } });
 
     await prisma.bankTransaction.deleteMany({
       where: { account: { startsWith: 'Sync Test Account' } },
@@ -323,14 +329,14 @@ describe('Data Synchronization', () => {
       where: { id: second.id },
     });
 
-    expect(secondOrder.customerId).toBe(firstOrder.customerId);
+    expect(secondOrder.partnerId).toBe(firstOrder.partnerId);
     expect(secondOrder.externalOrderId).toBe(secondRow.externalOrderId);
-    const customers = await prisma.customer.count({
-      where: { id: firstOrder.customerId },
+    const customers = await prisma.partner.count({
+      where: { id: firstOrder.partnerId },
     });
     expect(customers).toBe(1);
     const orders = await prisma.storeOrder.findMany({
-      where: { customerId: firstOrder.customerId, deletedAt: null },
+      where: { partnerId: firstOrder.partnerId, deletedAt: null },
     });
     expect(orders.length).toBeGreaterThanOrEqual(2);
   });
@@ -349,8 +355,8 @@ describe('Data Synchronization', () => {
     const firstOrder = await prisma.storeOrder.findUniqueOrThrow({
       where: { id: first.id },
     });
-    const beforeCustomers = await prisma.customer.count({
-      where: { id: firstOrder.customerId },
+    const beforeCustomers = await prisma.partner.count({
+      where: { id: firstOrder.partnerId },
     });
 
     const third = await storeOrdersHandler.importRow(
@@ -359,9 +365,9 @@ describe('Data Synchronization', () => {
     const thirdOrder = await prisma.storeOrder.findUniqueOrThrow({
       where: { id: third.id },
     });
-    expect(thirdOrder.customerId).toBe(firstOrder.customerId);
+    expect(thirdOrder.partnerId).toBe(firstOrder.partnerId);
     expect(
-      await prisma.customer.count({ where: { id: firstOrder.customerId } }),
+      await prisma.partner.count({ where: { id: firstOrder.partnerId } }),
     ).toBe(beforeCustomers);
   });
 
@@ -904,8 +910,8 @@ describe('Data Synchronization', () => {
       const firstOrder = await prisma.storeOrder.findFirstOrThrow({
         where: byExternalId(firstRow['External Order ID']),
       });
-      const customerCountBefore = await prisma.customer.count({
-        where: { id: firstOrder.customerId },
+      const customerCountBefore = await prisma.partner.count({
+        where: { id: firstOrder.partnerId },
       });
 
       const secondRow = validSheetRow({
@@ -940,10 +946,10 @@ describe('Data Synchronization', () => {
       const secondOrder = await prisma.storeOrder.findFirstOrThrow({
         where: byExternalId('NEW-ORDER-001'),
       });
-      expect(secondOrder.customerId).toBe(firstOrder.customerId);
+      expect(secondOrder.partnerId).toBe(firstOrder.partnerId);
       expect(secondOrder.sourceChannel).toBe('مكرر');
       expect(
-        await prisma.customer.count({ where: { id: firstOrder.customerId } }),
+        await prisma.partner.count({ where: { id: firstOrder.partnerId } }),
       ).toBe(customerCountBefore);
     });
 
@@ -1099,7 +1105,7 @@ describe('Data Synchronization', () => {
       });
       const before = await prisma.storeOrder.findFirstOrThrow({
         where: byExternalId(row['External Order ID']),
-        include: { customer: true },
+        include: { partner: true },
       });
 
       // The user manually clears Q:R:S on the sheet — Problem 1's exact
@@ -1128,10 +1134,10 @@ describe('Data Synchronization', () => {
       // Never a duplicate, never mutated by the reconciliation.
       const after = await prisma.storeOrder.findFirstOrThrow({
         where: { id: before.id },
-        include: { customer: true },
+        include: { partner: true },
       });
-      expect(after.customerId).toBe(before.customerId);
-      expect(after.customer.name).toBe(before.customer.name);
+      expect(after.partnerId).toBe(before.partnerId);
+      expect(after.partner.name).toBe(before.partner.name);
       const matchingOrders = await prisma.storeOrder.findMany({
         where: byExternalId(row['External Order ID']),
       });
@@ -1238,9 +1244,9 @@ describe('Data Synchronization', () => {
       expect(commitResult.importedCount).toBe(1);
       const order = await prisma.storeOrder.findFirstOrThrow({
         where: byExternalId(row['External Order ID']),
-        include: { customer: true },
+        include: { partner: true },
       });
-      expect(order.customer.phone).toBe('+966564345678');
+      expect(order.partner.phone).toBe('+966564345678');
     });
 
     it('normalizes a Saudi mobile number missing the local leading zero and imports it', async () => {
@@ -1263,9 +1269,9 @@ describe('Data Synchronization', () => {
       expect(commitResult.importedCount).toBe(1);
       const order = await prisma.storeOrder.findFirstOrThrow({
         where: byExternalId(row['External Order ID']),
-        include: { customer: true },
+        include: { partner: true },
       });
-      expect(order.customer.phone).toBe('+966578909876');
+      expect(order.partner.phone).toBe('+966578909876');
     });
 
     it('the earliest same-phone row in a batch is READY; only later rows need review', async () => {

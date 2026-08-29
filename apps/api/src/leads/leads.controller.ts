@@ -55,7 +55,7 @@ export class LeadsController {
   async findAll(
     @Query() query: MasterDataQueryDto,
     @CurrentUser() user: JwtPayload,
-    @Query('customerId') customerId?: string,
+    @Query('partnerId') partnerId?: string,
   ) {
     const canViewAll = await this.permissionsResolver.hasPermission(
       user.sub,
@@ -64,7 +64,7 @@ export class LeadsController {
     return this.leadsService.findAll(
       query,
       canViewAll ? undefined : user.sub,
-      customerId,
+      partnerId,
     );
   }
 
@@ -129,14 +129,15 @@ export class LeadsController {
     return this.leadsService.archive(id, dto);
   }
 
+  /** Marks Lead QUALIFIED after verified payment evidence — never Order PAID. */
   @Post(':id/mark-paid')
   @HttpCode(200)
   @PermissionAction('edit')
-  markPaid(@Param('id') id: string) {
-    return this.leadsService.markPaid(id);
+  markQualifiedFromPayment(@Param('id') id: string) {
+    return this.leadsService.markQualifiedFromPayment(id);
   }
 
-  /** Sales Foundation (TASK-037) — now always a no-op for a Lead created after TASK-061 (Customer is linked at creation time already), kept for Leads that predate that change. */
+  /** @deprecated Use Workflow LEAD_CONVERT — Partner is created with StoreOrder. */
   @Post(':id/convert-to-customer')
   @HttpCode(200)
   @PermissionAction('edit')

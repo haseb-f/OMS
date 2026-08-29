@@ -149,13 +149,13 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
   });
 
   afterAll(async () => {
-    const customers = await prisma.customer.findMany({
+    const customers = await prisma.partner.findMany({
       where: { name: { startsWith: 'SO Import Test Customer' } },
       select: { id: true },
     });
     const customerIds = customers.map((c) => c.id);
     const orders = await prisma.storeOrder.findMany({
-      where: { customerId: { in: customerIds } },
+      where: { partnerId: { in: customerIds } },
       select: { id: true },
     });
     const orderIds = orders.map((o) => o.id);
@@ -190,7 +190,13 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
       where: { storeOrderId: { in: orderIds } },
     });
     await prisma.storeOrder.deleteMany({ where: { id: { in: orderIds } } });
-    await prisma.customer.deleteMany({ where: { id: { in: customerIds } } });
+    await prisma.partnerRoleAssignment.deleteMany({
+      where: { partnerId: { in: customerIds } },
+    });
+    await prisma.customerProfile.deleteMany({
+      where: { partnerId: { in: customerIds } },
+    });
+    await prisma.partner.deleteMany({ where: { id: { in: customerIds } } });
 
     await prisma.product.deleteMany({
       where: { sku: { startsWith: 'SOTEST-' } },
@@ -437,9 +443,9 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
     const result = await handler.importRow(row);
     const order = await prisma.storeOrder.findUniqueOrThrow({
       where: { id: result.id },
-      include: { customer: true },
+      include: { partner: true },
     });
-    expect(order.customer.phone).toBe('+966512345678');
+    expect(order.partner.phone).toBe('+966512345678');
   });
 
   it("uses a DIFFERENT country's own calling code automatically — never a hardcoded +966", async () => {
@@ -453,10 +459,10 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
     const result = await handler.importRow(row);
     const order = await prisma.storeOrder.findUniqueOrThrow({
       where: { id: result.id },
-      include: { customer: true },
+      include: { partner: true },
     });
-    expect(order.customer.phone?.startsWith('+20')).toBe(true);
-    expect(order.customer.countryId).toBe(egypt.id);
+    expect(order.partner.phone?.startsWith('+20')).toBe(true);
+    expect(order.partner.countryId).toBe(egypt.id);
   });
 
   it('rejects a phone number that is invalid for the selected Country, rather than silently reinterpreting it under a different country', async () => {
@@ -472,9 +478,9 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
     const result = await handler.importRow(row);
     const order = await prisma.storeOrder.findUniqueOrThrow({
       where: { id: result.id },
-      include: { customer: true },
+      include: { partner: true },
     });
-    expect(order.customer.phone).toBe('+966564345678');
+    expect(order.partner.phone).toBe('+966564345678');
   });
 
   it('accepts every required Saudi representation of the same subscriber number', async () => {
@@ -489,9 +495,9 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
       const result = await handler.importRow(row);
       const order = await prisma.storeOrder.findUniqueOrThrow({
         where: { id: result.id },
-        include: { customer: true },
+        include: { partner: true },
       });
-      expect(order.customer.phone).toBe('+966564345678');
+      expect(order.partner.phone).toBe('+966564345678');
     }
   });
 
@@ -571,11 +577,11 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
       where: { id: secondResult.id },
     });
 
-    expect(secondOrder.customerId).toBe(firstOrder.customerId);
+    expect(secondOrder.partnerId).toBe(firstOrder.partnerId);
     expect(secondOrder.externalOrderId).toBe(secondRow.externalOrderId);
     expect(secondOrder.externalOrderId).not.toBe(first.externalOrderId);
-    const customers = await prisma.customer.findMany({
-      where: { id: firstOrder.customerId },
+    const customers = await prisma.partner.findMany({
+      where: { id: firstOrder.partnerId },
     });
     expect(customers).toHaveLength(1);
   });
@@ -602,7 +608,7 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
     const order = await prisma.storeOrder.findUniqueOrThrow({
       where: { id: result.id },
     });
-    expect(order.customerId).toBe(firstOrder.customerId);
+    expect(order.partnerId).toBe(firstOrder.partnerId);
     const items = await prisma.storeOrderItem.findMany({
       where: { storeOrderId: order.id },
     });
@@ -614,17 +620,17 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
     const country = await prisma.country.findFirstOrThrow({
       where: { deletedAt: null, isActive: true, code: 'SA' },
     });
-    await prisma.customer.create({
+    await prisma.partner.create({
       data: {
-        customerNumber: `SOTEST-C-${randomUUID().slice(0, 8)}`,
+        partnerNumber: `SOTEST-C-${randomUUID().slice(0, 8)}`,
         name: 'SO Import Test Customer Ambiguous A',
         phone: sharedPhone,
         countryId: country.id,
       },
     });
-    await prisma.customer.create({
+    await prisma.partner.create({
       data: {
-        customerNumber: `SOTEST-C-${randomUUID().slice(0, 8)}`,
+        partnerNumber: `SOTEST-C-${randomUUID().slice(0, 8)}`,
         name: 'SO Import Test Customer Ambiguous B',
         phone: sharedPhone,
         countryId: country.id,

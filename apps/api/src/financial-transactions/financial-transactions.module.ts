@@ -7,8 +7,7 @@ import { ExpensePaymentsController } from './expenses/expense-payments.controlle
 import { FinancialTransactionTypesController } from './financial-transaction-types.controller';
 import { FinancialTransactionsService } from './financial-transactions.service';
 import { FinancialTransactionActivityService } from './activities/financial-transaction-activity.service';
-import { CustomersModule } from '../customers/customers.module';
-import { SuppliersModule } from '../suppliers/suppliers.module';
+import { PartnersModule } from '../partners/partners.module';
 import { NumberingModule } from '../numbering/numbering.module';
 import { PostingEngineModule } from '../accounting/posting-engine/posting-engine.module';
 
@@ -20,12 +19,7 @@ import { PostingEngineModule } from '../accounting/posting-engine/posting-engine
  * modules would add coupling with no benefit.
  */
 @Module({
-  imports: [
-    CustomersModule,
-    SuppliersModule,
-    NumberingModule,
-    PostingEngineModule,
-  ],
+  imports: [PartnersModule, NumberingModule, PostingEngineModule],
   controllers: [
     CustomerReceiptsController,
     CustomerReceiptActivitiesController,

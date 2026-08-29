@@ -78,6 +78,15 @@ model User {
   storeOrderReceiptUploads StoreOrderReceipt[]
   storeOrderActivities     StoreOrderActivity[]
 
+  statusHistoryChanges     StatusHistory[]      @relation("StatusHistoryChangedBy")
+  workflowApprovalsRequested WorkflowApproval[] @relation("WorkflowApprovalRequestedBy")
+  workflowApprovalsApproved  WorkflowApproval[] @relation("WorkflowApprovalApprovedBy")
+  workflowApprovalsRejected  WorkflowApproval[] @relation("WorkflowApprovalRejectedBy")
+
+  /// Unified Partner Architecture — optional link from an EMPLOYEE-role
+  /// Partner to this system account.
+  employeeProfile EmployeeProfile?
+
   @@map("users")
 }
 
@@ -93,7 +102,8 @@ model JobTitle {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  users User[]
+  users            User[]
+  employeeProfiles EmployeeProfile[]
 
   @@map("job_titles")
 }
@@ -268,9 +278,8 @@ model Currency {
   storeOrders             StoreOrder[]
   payments                Payment[]
   receivingAccounts       ReceivingAccount[]
-  suppliers               Supplier[]
+  partners                Partner[]
   purchaseOrders          PurchaseOrder[]
-  customers               Customer[]
   salesQuotations         SalesQuotation[]
   countriesDefaultingHere Country[]
   bankTransactions        BankTransaction[]
@@ -328,9 +337,8 @@ model Country {
 
   leads       Lead[]
   salesOrders SalesOrder[]
-  suppliers   Supplier[]
   cities      City[]
-  customers   Customer[]
+  partners    Partner[]
 
   @@map("countries")
 }
@@ -496,7 +504,7 @@ model PaymentTerm {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  customers Customer[]
+  customerProfiles CustomerProfile[]
 
   @@map("payment_terms")
 }
@@ -796,19 +804,183 @@ model ShippingStatus {
 }
 
 // ---------------------------------------------------------------------------
+// Dynamic Workflow + Status Master Data — reusable across Lead, Order,
+// Payment, Fulfillment, Matching, and Reconciliation domains. Business
+// statuses are database records (not application enums); stable `code` drives
+// logic while `name`/`color` are admin-configurable display metadata.
+// ShippingStatus remains a specialized catalog for shipment lifecycle sync;
+// FULFILLMENT workflow statuses cover order-level fulfillment gates separately.
+// ---------------------------------------------------------------------------
+
+enum WorkflowType {
+  LEAD
+  ORDER
+  PAYMENT
+  FULFILLMENT
+  MATCHING
+  RECONCILIATION
+}
+
+enum StatusChangeSource {
+  USER
+  IMPORT
+  SYSTEM
+  MATCHING_ENGINE
+  SHIPPING_SYNC
+  WORKFLOW_ENGINE
+}
+
+enum WorkflowApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Protected business operations triggered by specific transitions — never a
+/// simple status write. `NONE` = display/workflow transition only.
+enum WorkflowBusinessAction {
+  NONE
+  LEAD_CONVERT
+  PAYMENT_RECONCILE
+  SHIPMENT_CREATE
+}
+
+model StatusDefinition {
+  id           String       @id @default(uuid()) @db.Uuid
+  workflowType WorkflowType @map("workflow_type")
+  code         String
+  name         String
+  nameEn       String?      @map("name_en")
+  /// Closed StatusTone token — same vocabulary as ShippingStatus / StatusBadge.
+  color        String       @default("neutral")
+  sortOrder    Int          @default(0) @map("sort_order")
+  isSystem     Boolean      @default(false) @map("is_system")
+  isFinal      Boolean      @default(false) @map("is_final")
+  isDefault    Boolean      @default(false) @map("is_default")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  leadsAsCurrent            Lead[]
+  transitionsFrom           WorkflowTransition[] @relation("TransitionFromStatus")
+  transitionsTo             WorkflowTransition[] @relation("TransitionToStatus")
+  statusHistoryFrom         StatusHistory[]      @relation("StatusHistoryFrom")
+  statusHistoryTo           StatusHistory[]      @relation("StatusHistoryTo")
+  workflowApprovalsFrom     WorkflowApproval[]   @relation("ApprovalFromStatus")
+  workflowApprovalsTo       WorkflowApproval[]   @relation("ApprovalToStatus")
+
+  @@unique([workflowType, code])
+  @@index([workflowType, deletedAt, sortOrder])
+  @@map("status_definitions")
+}
+
+model WorkflowTransition {
+  id           String       @id @default(uuid()) @db.Uuid
+  workflowType WorkflowType @map("workflow_type")
+
+  fromStatusId String           @map("from_status_id") @db.Uuid
+  fromStatus   StatusDefinition @relation("TransitionFromStatus", fields: [fromStatusId], references: [id])
+
+  toStatusId String           @map("to_status_id") @db.Uuid
+  toStatus   StatusDefinition @relation("TransitionToStatus", fields: [toStatusId], references: [id])
+
+  labelAr String  @map("label_ar")
+  labelEn String? @map("label_en")
+
+  requiresApproval    Boolean @default(false) @map("requires_approval")
+  requiresReason      Boolean @default(false) @map("requires_reason")
+  requiredPermission  String? @map("required_permission")
+  businessAction      WorkflowBusinessAction @default(NONE) @map("business_action")
+  isSystemProtected   Boolean @default(false) @map("is_system_protected")
+  isActive            Boolean @default(true) @map("is_active")
+  sortOrder           Int     @default(0) @map("sort_order")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  statusHistory     StatusHistory[]
+  workflowApprovals WorkflowApproval[]
+
+  @@index([workflowType, fromStatusId, isActive])
+  @@map("workflow_transitions")
+}
+
+model StatusHistory {
+  id String @id @default(uuid()) @db.Uuid
+
+  entityType String @map("entity_type")
+  entityId   String @map("entity_id") @db.Uuid
+
+  fromStatusId String?           @map("from_status_id") @db.Uuid
+  fromStatus   StatusDefinition? @relation("StatusHistoryFrom", fields: [fromStatusId], references: [id])
+
+  toStatusId String           @map("to_status_id") @db.Uuid
+  toStatus   StatusDefinition @relation("StatusHistoryTo", fields: [toStatusId], references: [id])
+
+  transitionId String?             @map("transition_id") @db.Uuid
+  transition   WorkflowTransition? @relation(fields: [transitionId], references: [id])
+
+  changedById String? @map("changed_by_id") @db.Uuid
+  changedBy   User?   @relation("StatusHistoryChangedBy", fields: [changedById], references: [id])
+
+  changedAt DateTime           @default(now()) @map("changed_at")
+  reason    String?
+  source    StatusChangeSource @default(USER)
+
+  @@index([entityType, entityId, changedAt])
+  @@map("status_history")
+}
+
+model WorkflowApproval {
+  id String @id @default(uuid()) @db.Uuid
+
+  entityType String @map("entity_type")
+  entityId   String @map("entity_id") @db.Uuid
+
+  transitionId String             @map("transition_id") @db.Uuid
+  transition   WorkflowTransition @relation(fields: [transitionId], references: [id])
+
+  fromStatusId String           @map("from_status_id") @db.Uuid
+  fromStatus   StatusDefinition @relation("ApprovalFromStatus", fields: [fromStatusId], references: [id])
+
+  toStatusId String           @map("to_status_id") @db.Uuid
+  toStatus   StatusDefinition @relation("ApprovalToStatus", fields: [toStatusId], references: [id])
+
+  status WorkflowApprovalStatus @default(PENDING)
+
+  requestedById String   @map("requested_by_id") @db.Uuid
+  requestedBy   User     @relation("WorkflowApprovalRequestedBy", fields: [requestedById], references: [id])
+  requestedAt   DateTime @default(now()) @map("requested_at")
+  reason        String?
+
+  approvedById String?   @map("approved_by_id") @db.Uuid
+  approvedBy   User?     @relation("WorkflowApprovalApprovedBy", fields: [approvedById], references: [id])
+  approvedAt   DateTime? @map("approved_at")
+
+  rejectedById String?   @map("rejected_by_id") @db.Uuid
+  rejectedBy   User?     @relation("WorkflowApprovalRejectedBy", fields: [rejectedById], references: [id])
+  rejectedAt   DateTime? @map("rejected_at")
+  rejectionReason String? @map("rejection_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([entityType, entityId, status])
+  @@index([status, requestedAt])
+  @@map("workflow_approvals")
+}
+
+// ---------------------------------------------------------------------------
 // CRM — Phase 1: Lead Management Foundation. Every sale starts as a Lead; this
 // is intentionally simple (not a marketing CRM) — receive, distribute, and
 // follow leads until they become confirmed orders. No Customer/Order/Payment
 // entities exist yet — those are future modules.
 // ---------------------------------------------------------------------------
-
-/// Closed set — do not add statuses beyond these four without a new decision.
-enum LeadStatus {
-  NEW
-  UNDER_FOLLOW_UP
-  PAID
-  ARCHIVED
-}
 
 /// Closed set — do not add sources beyond these three without a new decision.
 enum LeadSource {
@@ -847,7 +1019,9 @@ model Lead {
   salesEmployee   User?     @relation(fields: [salesEmployeeId], references: [id])
   assignedAt      DateTime? @map("assigned_at")
 
-  status LeadStatus @default(NEW)
+  statusId String           @map("status_id") @db.Uuid
+  status   StatusDefinition @relation(fields: [statusId], references: [id])
+
   source LeadSource
 
   /// Optional, no business meaning enforced yet — set when status is
@@ -871,13 +1045,14 @@ model Lead {
   /// none), enforced in `LeadsService.create()` instead.
   externalOrderId String? @map("external_order_id")
 
-  /// Sales Foundation (TASK-037) — set only by the "Convert to Customer"
-  /// action. Lead stays a CRM/pre-sales entity; Customer is the canonical
-  /// commercial account, so this is a one-way, optional link, never the
-  /// reverse (Customer has no FK back to a single Lead — a repeat customer
-  /// may originate multiple leads over time).
-  customerId String?   @map("customer_id") @db.Uuid
-  customer   Customer? @relation(fields: [customerId], references: [id])
+  /// Nullable until Lead conversion. Lead is a CRM prospect — Partner
+  /// (canonical commercial identity) is resolved/created only by
+  /// LEAD_CONVERT or convertToCustomer, never at Lead creation.
+  partnerId String?  @map("partner_id") @db.Uuid
+  partner   Partner? @relation(fields: [partnerId], references: [id])
+
+  /// Reverse of StoreOrder.leadId — set atomically on Lead → StoreOrder conversion.
+  storeOrder StoreOrder?
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -892,6 +1067,8 @@ model Lead {
   payments    Payment[]
 
   @@index([externalOrderId])
+  @@index([statusId])
+  @@index([salesEmployeeId, statusId])
   @@map("leads")
 }
 
@@ -1367,6 +1544,14 @@ model ChartOfAccount {
 
   allowReconciliation Boolean @default(false) @map("allow_reconciliation")
 
+  /// Unified Partner Architecture — server-set (never user-editable)
+  /// whenever this account is wired as PostingSettings.accountsReceivable/
+  /// PayableAccountId or a CustomerProfile/CustomerGroup/SupplierProfile/
+  /// SupplierGroup default-account override. Lets the Posting Engine and
+  /// Journal Entries service cheaply answer "does a line against this
+  /// account require a partnerId" without hardcoding account ids.
+  partnerControlType PartnerControlAccountType? @map("partner_control_type")
+
   /// Denormalized hierarchy depth (root = 1, set from `parentAccount.level +
   /// 1` on create) — avoids an ancestor walk just to indent/group the tree.
   level Int @default(1)
@@ -1410,11 +1595,11 @@ model ChartOfAccount {
 
   /// TASK-046 (Accounting Posting Engine) — every role a Chart of Account
   /// can play for the Posting Engine's default/fallback account resolution.
-  customersDefaultReceivable Customer[] @relation("CustomerDefaultReceivable")
-  suppliersDefaultPayable    Supplier[] @relation("SupplierDefaultPayable")
-  suppliersDefaultExpense    Supplier[] @relation("SupplierDefaultExpense")
-  taxOutputFor               Tax[]      @relation("TaxOutputAccount")
-  taxInputFor                Tax[]      @relation("TaxInputAccount")
+  customerProfilesDefaultReceivable CustomerProfile[] @relation("CustomerProfileDefaultReceivable")
+  supplierProfilesDefaultPayable    SupplierProfile[] @relation("SupplierProfileDefaultPayable")
+  supplierProfilesDefaultExpense    SupplierProfile[] @relation("SupplierProfileDefaultExpense")
+  taxOutputFor                      Tax[]             @relation("TaxOutputAccount")
+  taxInputFor                       Tax[]             @relation("TaxInputAccount")
 
   postingSettingsSalesRevenue        PostingSettings[] @relation("PostingSalesRevenue")
   postingSettingsCogs                PostingSettings[] @relation("PostingCogs")
@@ -1776,10 +1961,10 @@ model BankTransaction {
   expenseAccount   ChartOfAccount? @relation("BankTransactionExpenseAccount", fields: [expenseAccountId], references: [id])
 
   /// Outgoing + SUPPLIER_PAYMENT only — a classification hint from the
-  /// source row (e.g. a "Partner/Supplier" column), never itself the
-  /// reconciliation (that's `matchedFinancialTransactionId`).
-  partnerSupplierId String?   @map("partner_supplier_id") @db.Uuid
-  partnerSupplier   Supplier? @relation(fields: [partnerSupplierId], references: [id])
+  /// source row (e.g. a "Partner" column), never itself the reconciliation
+  /// (that's `matchedFinancialTransactionId`).
+  partnerId String?  @map("partner_id") @db.Uuid
+  partner   Partner? @relation(fields: [partnerId], references: [id])
 
   costCenterId String?     @map("cost_center_id") @db.Uuid
   costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
@@ -2023,8 +2208,8 @@ model Product {
   analyticAccountId String?          @map("analytic_account_id") @db.Uuid
   analyticAccount   AnalyticAccount? @relation(fields: [analyticAccountId], references: [id])
 
-  preferredSupplierId String?   @map("preferred_supplier_id") @db.Uuid
-  preferredSupplier   Supplier? @relation(fields: [preferredSupplierId], references: [id])
+  preferredPartnerId String?  @map("preferred_partner_id") @db.Uuid
+  preferredPartner   Partner? @relation(fields: [preferredPartnerId], references: [id])
 
   description String?
 
@@ -2586,133 +2771,62 @@ model ProductCostSnapshot {
 // ---------------------------------------------------------------------------
 
 /// Closed set, exactly as specified.
-enum SupplierStatus {
-  ACTIVE
-  INACTIVE
-}
-
-model Supplier {
-  id String @id @default(uuid()) @db.Uuid
-
-  /// App-generated ("SUP-000001", ...) via supplier_number_seq — same
-  /// pattern as Lead/SalesOrder/Payment/InventoryMovement numbers.
-  supplierNumber String @unique @map("supplier_number")
-
-  /// "Editable by user, unique" — distinct from the auto-generated number above.
-  code String @unique
-
-  name           String
-  commercialName String? @map("commercial_name")
-
-  phone   String?
-  mobile  String?
-  email   String?
-  website String?
-
-  taxNumber              String? @map("tax_number")
-  commercialRegistration String? @map("commercial_registration")
-
-  currencyId String?   @map("currency_id") @db.Uuid
-  currency   Currency? @relation(fields: [currencyId], references: [id])
-
-  /// TASK-047 — same treatment as Customer.customerGroupId: an optional
-  /// classification that also drives Accounting Configuration group-level
-  /// account-mapping overrides.
-  supplierGroupId String?        @map("supplier_group_id") @db.Uuid
-  supplierGroup   SupplierGroup? @relation(fields: [supplierGroupId], references: [id])
-
-  /// No closed set of values was specified — free-text (same reasoning as
-  /// Product.defaultCostMethod, ADR-0012).
-  paymentTerm String?  @map("payment_term")
-  creditLimit Decimal? @map("credit_limit") @db.Decimal(12, 2)
-
-  countryId String?  @map("country_id") @db.Uuid
-  country   Country? @relation(fields: [countryId], references: [id])
-
-  /// No City reference-data entity exists — plain text, same as every other
-  /// ad hoc address field in this codebase.
-  city    String?
-  address String?
-  notes   String?
-
-  status      SupplierStatus @default(ACTIVE)
-  isPreferred Boolean        @default(false) @map("is_preferred")
-
-  /// TASK-046 (Accounting Posting Engine) — promoted from a nullable
-  /// placeholder to a real FK: the Posting Engine's SupplierPostingProvider
-  /// reads this as the Accounts Payable account for this supplier,
-  /// falling back to PostingSettings.accountsPayableAccountId when unset.
-  defaultPayableAccountId String?         @map("default_payable_account_id") @db.Uuid
-  defaultPayableAccount   ChartOfAccount? @relation("SupplierDefaultPayable", fields: [defaultPayableAccountId], references: [id])
-
-  /// TASK-046 — likewise promoted: the expense account used for
-  /// non-inventory-tracked Purchase Invoice lines (services), falling back
-  /// to PostingSettings.defaultExpenseAccountId.
-  defaultExpenseAccountId String?         @map("default_expense_account_id") @db.Uuid
-  defaultExpenseAccount   ChartOfAccount? @relation("SupplierDefaultExpense", fields: [defaultExpenseAccountId], references: [id])
-
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  createdBy String?   @map("created_by") @db.Uuid
-  updatedBy String?   @map("updated_by") @db.Uuid
-  deletedAt DateTime? @map("deleted_at")
-
-  activities              SupplierActivity[]
-  purchaseOrders          PurchaseOrder[]
-  preferredForProducts    Product[]
-  purchaseQuotations      PurchaseQuotation[]
-  purchaseInvoices        PurchaseInvoice[]
-  purchaseReturns         PurchaseReturn[]
-  financialTransactions   FinancialTransaction[]
-  journalEntries          JournalEntry[]         @relation("JournalEntryPartnerSupplier")
-  /// Cash Flow module — outgoing transactions the sync/import row hinted are this supplier (classification only, before a Supplier Payment Voucher is created).
-  bankTransactionsPartner BankTransaction[]
-
-  @@map("suppliers")
-}
-
-/// Timeline — same shape as every other *Activity entity in this codebase.
-model SupplierActivity {
-  id String @id @default(uuid()) @db.Uuid
-
-  supplierId String   @map("supplier_id") @db.Uuid
-  supplier   Supplier @relation(fields: [supplierId], references: [id])
-
-  type        String
-  description String
-  metadata    Json?
-
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  createdBy String?   @map("created_by") @db.Uuid
-  updatedBy String?   @map("updated_by") @db.Uuid
-  deletedAt DateTime? @map("deleted_at")
-
-  @@map("supplier_activities")
-}
-
 // ---------------------------------------------------------------------------
-// Sales Foundation (TASK-037) — Customer is the canonical commercial account,
-// independent of Lead (the existing Leads→Shipping COD pipeline's single-use
-// prospect record, which has no balance/credit-limit/payment-term fields).
-// Lead gains an optional, one-way "convert to Customer" link (see
-// Lead.customerId above); Customer itself is creatable from any channel
-// (manual entry, Website, Salla, API, import, Google Sheets — see
-// CustomerSource) and is never duplicated: conversion and any future
-// integration look Customer up by phone/email first.
+// Unified Partner Architecture — Partner is the single canonical
+// counterparty identity across OMS (replaces the formerly separate
+// Customer/Supplier tables — physical merge, foundation-stage decision, no
+// compatibility layer). Identity (who this entity is) lives on Partner;
+// role-specific configuration (how OMS can interact with them) lives on the
+// optional *Profile tables. A Partner may hold multiple roles at once (e.g.
+// CUSTOMER + SUPPLIER) via PartnerRoleAssignment — never a duplicated
+// identity per role. Accounting stays control-account based: no GL account
+// is ever created per Partner (see ChartOfAccount.partnerControlType +
+// PostingSettings.accountsReceivableAccountId/accountsPayableAccountId) —
+// Partner only supplies the subledger dimension on JournalEntryLine.
 // ---------------------------------------------------------------------------
+
+enum PartnerEntityType {
+  PERSON
+  ORGANIZATION
+}
 
 /// Closed set, exactly as specified.
-enum CustomerStatus {
+enum PartnerStatus {
   ACTIVE
   INACTIVE
 }
 
-/// Where this Customer record originated. Only MANUAL and LEAD_CONVERSION
-/// are actually produced by this task's code — the channel integrations
-/// themselves (Website/Salla/API/Google Sheets) are a future, separate
-/// scope; this field is the extensibility point they plug into later.
-enum CustomerSource {
+/// A Partner may hold more than one of these at once — see
+/// PartnerRoleAssignment. EMPLOYEE/OWNER are net-new roles (no prior model
+/// existed for either); OTHER is the open-ended bucket for a counterparty
+/// that is none of the above (e.g. a government/tax authority).
+enum PartnerRoleType {
+  CUSTOMER
+  SUPPLIER
+  EMPLOYEE
+  OWNER
+  OTHER
+}
+
+/// Which control-account role a Chart of Account plays, server-set (never
+/// user-editable) whenever the account is wired as
+/// PostingSettings.accountsReceivableAccountId/accountsPayableAccountId or a
+/// CustomerProfile/CustomerGroup/SupplierProfile/SupplierGroup default
+/// override. The Posting Engine and Journal Entries service use this to
+/// answer "does this line's account require a partnerId" without hardcoding
+/// account ids.
+enum PartnerControlAccountType {
+  RECEIVABLE
+  PAYABLE
+}
+
+/// Where this Partner record originated. Only MANUAL and LEAD_CONVERSION are
+/// actually produced by this codebase's code today — the channel
+/// integrations themselves (Website/Salla/API/Google Sheets) are a future,
+/// separate scope; this field is the extensibility point they plug into
+/// later. (Formerly `CustomerSource` — renamed since it is identity-origin,
+/// not role-specific.)
+enum PartnerSource {
   MANUAL
   WEBSITE
   SALLA
@@ -2723,15 +2837,18 @@ enum CustomerSource {
   OTHER
 }
 
-model Customer {
+model Partner {
   id String @id @default(uuid()) @db.Uuid
 
-  /// App-generated ("CUST-000001") via the Numbering Engine — same pattern
-  /// as Supplier.supplierNumber.
-  customerNumber String @unique @map("customer_number")
+  /// App-generated ("PT-2026-000001") via the Numbering Engine — never
+  /// user-typed (spec: "user should not manually manage technical IDs").
+  partnerNumber String @unique @map("partner_number")
 
   name           String
+  legalName      String? @map("legal_name")
   commercialName String? @map("commercial_name")
+
+  entityType PartnerEntityType @default(ORGANIZATION) @map("entity_type")
 
   phone   String?
   mobile  String?
@@ -2741,36 +2858,20 @@ model Customer {
   taxNumber              String? @map("tax_number")
   commercialRegistration String? @map("commercial_registration")
 
-  customerGroupId String?        @map("customer_group_id") @db.Uuid
-  customerGroup   CustomerGroup? @relation(fields: [customerGroupId], references: [id])
-
   currencyId String?   @map("currency_id") @db.Uuid
   currency   Currency? @relation(fields: [currencyId], references: [id])
-
-  /// Real FK (unlike Supplier.paymentTerm, which predates the PaymentTerm
-  /// master-data table) — this task explicitly requires Payment Terms as a
-  /// first-class Customer field.
-  paymentTermId String?      @map("payment_term_id") @db.Uuid
-  paymentTerm   PaymentTerm? @relation(fields: [paymentTermId], references: [id])
-
-  creditLimit Decimal? @map("credit_limit") @db.Decimal(12, 2)
 
   countryId String?  @map("country_id") @db.Uuid
   country   Country? @relation(fields: [countryId], references: [id])
 
+  /// No City reference-data entity exists — plain text, same as every other
+  /// ad hoc address field in this codebase.
   city    String?
   address String?
   notes   String?
 
-  status CustomerStatus @default(ACTIVE)
-  source CustomerSource @default(MANUAL)
-
-  /// TASK-046 (Accounting Posting Engine) — promoted from a nullable
-  /// placeholder to a real FK: the Posting Engine's SalesInvoicePostingProvider
-  /// / CustomerReceipt provider read this as the Accounts Receivable account
-  /// for this customer, falling back to PostingSettings.accountsReceivableAccountId.
-  defaultReceivableAccountId String?         @map("default_receivable_account_id") @db.Uuid
-  defaultReceivableAccount   ChartOfAccount? @relation("CustomerDefaultReceivable", fields: [defaultReceivableAccountId], references: [id])
+  status PartnerStatus @default(ACTIVE)
+  source PartnerSource @default(MANUAL)
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -2778,21 +2879,138 @@ model Customer {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
+  roles           PartnerRoleAssignment[]
+  customerProfile CustomerProfile?
+  supplierProfile SupplierProfile?
+  employeeProfile EmployeeProfile?
+
   leads                 Lead[]
+  storeOrders           StoreOrder[]
   salesQuotations       SalesQuotation[]
   salesOrders           SalesOrderDocument[]
   salesInvoices         SalesInvoice[]
   salesReturns          SalesReturn[]
+  purchaseOrders        PurchaseOrder[]
+  purchaseQuotations    PurchaseQuotation[]
+  purchaseInvoices      PurchaseInvoice[]
+  purchaseReturns       PurchaseReturn[]
+  preferredForProducts  Product[]
   financialTransactions FinancialTransaction[]
-  journalEntries        JournalEntry[]         @relation("JournalEntryPartnerCustomer")
-  storeOrders           StoreOrder[]
+  journalEntryLines     JournalEntryLine[]
+  /// Cash Flow module — outgoing transactions the sync/import row hinted are
+  /// this partner (classification only, before a Supplier Payment Voucher
+  /// is created).
+  bankTransactionsHint  BankTransaction[]
 
-  /// TASK-038 — indexed for the "prevent duplicate by phone/email" lookup
-  /// CustomersService.create() runs on every write.
+  /// Dedup lookup (spec section 14: phone/email/tax number/CR) that
+  /// PartnersService.create() runs on every write — same indexing rationale
+  /// the former CustomersService.create() used.
   @@index([phone])
   @@index([email])
+  @@index([taxNumber])
   @@index([deletedAt, name])
-  @@map("customers")
+  @@map("partners")
+}
+
+/// One row per role a Partner holds. `@@unique([partnerId, role])` is what
+/// makes "assign SUPPLIER to an existing CUSTOMER Partner" idempotent —
+/// re-assigning an already-held role is rejected, never silently duplicated.
+model PartnerRoleAssignment {
+  id String @id @default(uuid()) @db.Uuid
+
+  partnerId String  @map("partner_id") @db.Uuid
+  partner   Partner @relation(fields: [partnerId], references: [id])
+
+  role PartnerRoleType
+
+  createdAt DateTime @default(now()) @map("created_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  @@unique([partnerId, role])
+  @@map("partner_role_assignments")
+}
+
+/// CUSTOMER-role configuration only — identity fields stay on Partner.
+model CustomerProfile {
+  id String @id @default(uuid()) @db.Uuid
+
+  partnerId String  @unique @map("partner_id") @db.Uuid
+  partner   Partner @relation(fields: [partnerId], references: [id])
+
+  customerGroupId String?        @map("customer_group_id") @db.Uuid
+  customerGroup   CustomerGroup? @relation(fields: [customerGroupId], references: [id])
+
+  paymentTermId String?      @map("payment_term_id") @db.Uuid
+  paymentTerm   PaymentTerm? @relation(fields: [paymentTermId], references: [id])
+
+  creditLimit Decimal? @map("credit_limit") @db.Decimal(12, 2)
+
+  /// Posting Engine's SalesInvoicePostingProvider / CustomerReceipt provider
+  /// read this as the Accounts Receivable account for this partner, falling
+  /// back to PostingSettings.accountsReceivableAccountId.
+  defaultReceivableAccountId String?         @map("default_receivable_account_id") @db.Uuid
+  defaultReceivableAccount   ChartOfAccount? @relation("CustomerProfileDefaultReceivable", fields: [defaultReceivableAccountId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("customer_profiles")
+}
+
+/// SUPPLIER-role configuration only — identity fields stay on Partner.
+model SupplierProfile {
+  id String @id @default(uuid()) @db.Uuid
+
+  partnerId String  @unique @map("partner_id") @db.Uuid
+  partner   Partner @relation(fields: [partnerId], references: [id])
+
+  supplierGroupId String?        @map("supplier_group_id") @db.Uuid
+  supplierGroup   SupplierGroup? @relation(fields: [supplierGroupId], references: [id])
+
+  /// No closed set of values was specified — free-text (same reasoning as
+  /// Product.defaultCostMethod, ADR-0012).
+  paymentTerm String?  @map("payment_term")
+  creditLimit Decimal? @map("credit_limit") @db.Decimal(12, 2)
+  isPreferred Boolean  @default(false) @map("is_preferred")
+
+  /// Posting Engine's PurchaseInvoicePostingProvider reads this as the
+  /// Accounts Payable account, falling back to
+  /// PostingSettings.accountsPayableAccountId.
+  defaultPayableAccountId String?         @map("default_payable_account_id") @db.Uuid
+  defaultPayableAccount   ChartOfAccount? @relation("SupplierProfileDefaultPayable", fields: [defaultPayableAccountId], references: [id])
+
+  /// The expense account used for non-inventory-tracked Purchase Invoice
+  /// lines (services), falling back to PostingSettings.defaultExpenseAccountId.
+  defaultExpenseAccountId String?         @map("default_expense_account_id") @db.Uuid
+  defaultExpenseAccount   ChartOfAccount? @relation("SupplierProfileDefaultExpense", fields: [defaultExpenseAccountId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("supplier_profiles")
+}
+
+/// EMPLOYEE-role configuration — genuinely new (no HR module exists in this
+/// codebase). Kept minimal per the architecture decision: Partner supplies
+/// the financial identity, this supplies the HR-adjacent link only. `userId`
+/// is optional — an Employee Partner used only for advances/expense
+/// reimbursement need not have a system login.
+model EmployeeProfile {
+  id String @id @default(uuid()) @db.Uuid
+
+  partnerId String  @unique @map("partner_id") @db.Uuid
+  partner   Partner @relation(fields: [partnerId], references: [id])
+
+  userId String? @unique @map("user_id") @db.Uuid
+  user   User?   @relation(fields: [userId], references: [id])
+
+  jobTitleId String?   @map("job_title_id") @db.Uuid
+  jobTitle   JobTitle? @relation(fields: [jobTitleId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("employee_profiles")
 }
 
 // ---------------------------------------------------------------------------
@@ -2846,7 +3064,7 @@ model StoreOrder {
   id String @id @default(uuid()) @db.Uuid
 
   /// App-generated via the Numbering Engine ("STORE_ORDER" key) — never
-  /// user-typed, same pattern as Customer.customerNumber.
+  /// user-typed, same pattern as Partner.partnerNumber.
   internalOrderId String @unique @map("internal_order_id")
 
   /// The source system's own order id (e.g. a marketplace order number).
@@ -2856,8 +3074,13 @@ model StoreOrder {
   /// those).
   externalOrderId String? @unique @map("external_order_id")
 
-  customerId String   @map("customer_id") @db.Uuid
-  customer   Customer @relation(fields: [customerId], references: [id])
+  partnerId String  @map("partner_id") @db.Uuid
+  partner   Partner @relation(fields: [partnerId], references: [id])
+
+  /// Optional — set when StoreOrder originates from Lead conversion. Unique so
+  /// a Lead converts to at most one Store Order (idempotent conversion gate).
+  leadId String? @unique @map("lead_id") @db.Uuid
+  lead   Lead?   @relation(fields: [leadId], references: [id])
 
   orderDate DateTime @default(now()) @map("order_date")
 
@@ -2890,7 +3113,7 @@ model StoreOrder {
   shipments  Shipment[]
   invoices   SalesInvoice[]
 
-  @@index([customerId])
+  @@index([partnerId])
   /// `externalOrderId String? @unique` above already creates this index —
   /// a second explicit `@@index([externalOrderId])` was a pure duplicate
   /// (same lookup, extra write cost on every import) and was removed here.
@@ -3022,8 +3245,8 @@ model SalesQuotation {
   id              String @id @default(uuid()) @db.Uuid
   quotationNumber String @unique @map("quotation_number")
 
-  customerId String   @map("customer_id") @db.Uuid
-  customer   Customer @relation(fields: [customerId], references: [id])
+  partnerId String  @map("partner_id") @db.Uuid
+  partner   Partner @relation(fields: [partnerId], references: [id])
 
   currencyId String?   @map("currency_id") @db.Uuid
   currency   Currency? @relation(fields: [currencyId], references: [id])
@@ -3145,8 +3368,8 @@ model SalesOrderDocument {
   id          String @id @default(uuid()) @db.Uuid
   orderNumber String @unique @map("order_number")
 
-  customerId String   @map("customer_id") @db.Uuid
-  customer   Customer @relation(fields: [customerId], references: [id])
+  partnerId String  @map("partner_id") @db.Uuid
+  partner   Partner @relation(fields: [partnerId], references: [id])
 
   quotationId String?         @map("quotation_id") @db.Uuid
   quotation   SalesQuotation? @relation(fields: [quotationId], references: [id])
@@ -3260,8 +3483,8 @@ model SalesInvoice {
   id            String @id @default(uuid()) @db.Uuid
   invoiceNumber String @unique @map("invoice_number")
 
-  customerId String   @map("customer_id") @db.Uuid
-  customer   Customer @relation(fields: [customerId], references: [id])
+  partnerId String  @map("partner_id") @db.Uuid
+  partner   Partner @relation(fields: [partnerId], references: [id])
 
   salesOrderId String?             @map("sales_order_id") @db.Uuid
   salesOrder   SalesOrderDocument? @relation(fields: [salesOrderId], references: [id])
@@ -3414,8 +3637,8 @@ model SalesReturn {
   id           String @id @default(uuid()) @db.Uuid
   returnNumber String @unique @map("return_number")
 
-  customerId String   @map("customer_id") @db.Uuid
-  customer   Customer @relation(fields: [customerId], references: [id])
+  partnerId String  @map("partner_id") @db.Uuid
+  partner   Partner @relation(fields: [partnerId], references: [id])
 
   salesInvoiceId String?       @map("sales_invoice_id") @db.Uuid
   salesInvoice   SalesInvoice? @relation(fields: [salesInvoiceId], references: [id])
@@ -3558,8 +3781,8 @@ model PurchaseOrder {
   /// App-generated ("PO-000001", ...) via purchase_order_number_seq.
   poNumber String @unique @map("po_number")
 
-  supplierId String   @map("supplier_id") @db.Uuid
-  supplier   Supplier @relation(fields: [supplierId], references: [id])
+  partnerId String  @map("partner_id") @db.Uuid
+  partner   Partner @relation(fields: [partnerId], references: [id])
 
   /// Set when this PO was created via PurchaseQuotation's "Convert to
   /// Order" action — mirrors SalesOrderDocument.quotationId. Null for a PO
@@ -3726,8 +3949,8 @@ model PurchaseQuotation {
   id              String @id @default(uuid()) @db.Uuid
   quotationNumber String @unique @map("quotation_number")
 
-  supplierId String   @map("supplier_id") @db.Uuid
-  supplier   Supplier @relation(fields: [supplierId], references: [id])
+  partnerId String  @map("partner_id") @db.Uuid
+  partner   Partner @relation(fields: [partnerId], references: [id])
 
   currencyId String?   @map("currency_id") @db.Uuid
   currency   Currency? @relation(fields: [currencyId], references: [id])
@@ -3835,8 +4058,8 @@ model PurchaseInvoice {
   id            String @id @default(uuid()) @db.Uuid
   invoiceNumber String @unique @map("invoice_number")
 
-  supplierId String   @map("supplier_id") @db.Uuid
-  supplier   Supplier @relation(fields: [supplierId], references: [id])
+  partnerId String  @map("partner_id") @db.Uuid
+  partner   Partner @relation(fields: [partnerId], references: [id])
 
   purchaseOrderId String?        @map("purchase_order_id") @db.Uuid
   purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
@@ -3967,8 +4190,8 @@ model PurchaseReturn {
   id           String @id @default(uuid()) @db.Uuid
   returnNumber String @unique @map("return_number")
 
-  supplierId String   @map("supplier_id") @db.Uuid
-  supplier   Supplier @relation(fields: [supplierId], references: [id])
+  partnerId String  @map("partner_id") @db.Uuid
+  partner   Partner @relation(fields: [partnerId], references: [id])
 
   purchaseInvoiceId String?          @map("purchase_invoice_id") @db.Uuid
   purchaseInvoice   PurchaseInvoice? @relation(fields: [purchaseInvoiceId], references: [id])
@@ -4289,7 +4512,7 @@ model CustomerGroup {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  customers Customer[]
+  customerProfiles CustomerProfile[]
 
   @@map("customer_groups")
 }
@@ -4315,7 +4538,7 @@ model SupplierGroup {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  suppliers Supplier[]
+  supplierProfiles SupplierProfile[]
 
   @@map("supplier_groups")
 }
@@ -4555,11 +4778,12 @@ model FinancialTransaction {
   transactionNumber String                   @unique @map("transaction_number")
   type              FinancialTransactionType
 
-  customerId String?   @map("customer_id") @db.Uuid
-  customer   Customer? @relation(fields: [customerId], references: [id])
-
-  supplierId String?   @map("supplier_id") @db.Uuid
-  supplier   Supplier? @relation(fields: [supplierId], references: [id])
+  /// Required for CUSTOMER_RECEIPT/SUPPLIER_PAYMENT, always null for
+  /// EXPENSE_PAYMENT (no party — see expenseAccountId below). Formerly a
+  /// split customerId/supplierId pair; unified since a Partner's role
+  /// already disambiguates which side of the transaction this is.
+  partnerId String?  @map("partner_id") @db.Uuid
+  partner   Partner? @relation(fields: [partnerId], references: [id])
 
   /// Only set when `type = EXPENSE_PAYMENT` — the account debited directly
   /// (Marketing Expense, ...) instead of resolving Accounts Payable.
@@ -4752,19 +4976,6 @@ model JournalEntry {
   journalId String?  @map("journal_id") @db.Uuid
   journal   Journal? @relation(fields: [journalId], references: [id])
 
-  /// TASK-058 — "Partner (optional)": a Manual Journal Entry may reference
-  /// at most one Customer OR one Supplier (never both — validated in
-  /// JournalEntriesService, same "closed set, conditionally required"
-  /// pattern as FinancialTransaction's own customerId/supplierId split).
-  /// Purely a reference for reconciliation/reporting — never required, and
-  /// never read by the Posting Engine (only PostingProviders' own
-  /// auto-generated entries carry real accounting meaning for a party).
-  partnerCustomerId String?   @map("partner_customer_id") @db.Uuid
-  partnerCustomer   Customer? @relation("JournalEntryPartnerCustomer", fields: [partnerCustomerId], references: [id])
-
-  partnerSupplierId String?   @map("partner_supplier_id") @db.Uuid
-  partnerSupplier   Supplier? @relation("JournalEntryPartnerSupplier", fields: [partnerSupplierId], references: [id])
-
   /// TASK-055 — "every accounting document must belong to a Fiscal Year."
   /// Auto-resolved from `entryDate` by the Posting Engine and
   /// `JournalEntriesService`, the same way `journalId`/period-open checks
@@ -4808,6 +5019,16 @@ model JournalEntryLine {
   accountId String         @map("account_id") @db.Uuid
   account   ChartOfAccount @relation(fields: [accountId], references: [id])
 
+  /// Unified Partner Architecture (subledger dimension) — required exactly
+  /// when `account.partnerControlType` is set (enforced in
+  /// JournalEntriesService.resolveLines() for manual entries and
+  /// PostingEngineService.assertPartnersRequired() for automatic postings),
+  /// null on every other line (Revenue/COGS/Inventory/VAT/... never carry a
+  /// partner). This is what makes the Partner Ledger directly queryable —
+  /// no more per-sourceType join back to SalesInvoice/PurchaseInvoice/etc.
+  partnerId String?  @map("partner_id") @db.Uuid
+  partner   Partner? @relation(fields: [partnerId], references: [id])
+
   /// TASK-053 — per-line cost attribution (the Journal Lines Grid's Cost
   /// Center / Project columns), distinct from `JournalEntry.costCenterId`/
   /// `projectId` above (header-level, still unpopulated by any provider):
@@ -4828,6 +5049,8 @@ model JournalEntryLine {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([accountId])
+  @@index([partnerId])
+  @@index([accountId, partnerId])
   @@map("journal_entry_lines")
 }
 

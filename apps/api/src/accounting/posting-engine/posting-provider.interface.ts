@@ -12,6 +12,8 @@ export interface PostingLine {
   debit?: number;
   credit?: number;
   description?: string;
+  /** Unified Partner Architecture — required whenever `accountId` resolves to a RECEIVABLE/PAYABLE control account (PostingEngineService.assertPartnersRequired enforces this), omitted on every other line. */
+  partnerId?: string;
 }
 
 /**

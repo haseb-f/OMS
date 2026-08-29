@@ -1,5 +1,5 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { CustomerStatus, ProductStatus, SupplierStatus } from '@prisma/client';
+import { PartnerRoleType, PartnerStatus, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ReferenceDataRegistryService } from './reference-data-registry.service';
 import type {
@@ -92,47 +92,57 @@ export class ReferenceDataSourcesService implements OnModuleInit {
           })),
       },
       {
+        // Unified Partner Architecture — Customer is a role view over
+        // Partner, never a separate registry (spec section 9).
         type: 'CUSTOMER',
         label: 'Customer',
         defaultMatchField: 'name',
         list: async () =>
           (
-            await prisma.customer.findMany({
-              where: { deletedAt: null },
+            await prisma.partner.findMany({
+              where: {
+                deletedAt: null,
+                roles: { some: { role: PartnerRoleType.CUSTOMER } },
+              },
               select: {
                 id: true,
-                customerNumber: true,
+                partnerNumber: true,
                 name: true,
                 status: true,
               },
             })
           ).map((r) => ({
             id: r.id,
-            code: r.customerNumber,
+            code: r.partnerNumber,
             name: r.name,
-            active: r.status === CustomerStatus.ACTIVE,
+            active: r.status === PartnerStatus.ACTIVE,
           })),
       },
       {
+        // Unified Partner Architecture — Supplier is a role view over
+        // Partner, never a separate registry (spec section 10).
         type: 'SUPPLIER',
         label: 'Supplier',
         defaultMatchField: 'name',
         list: async () =>
           (
-            await prisma.supplier.findMany({
-              where: { deletedAt: null },
+            await prisma.partner.findMany({
+              where: {
+                deletedAt: null,
+                roles: { some: { role: PartnerRoleType.SUPPLIER } },
+              },
               select: {
                 id: true,
-                supplierNumber: true,
+                partnerNumber: true,
                 name: true,
                 status: true,
               },
             })
           ).map((r) => ({
             id: r.id,
-            code: r.supplierNumber,
+            code: r.partnerNumber,
             name: r.name,
-            active: r.status === SupplierStatus.ACTIVE,
+            active: r.status === PartnerStatus.ACTIVE,
           })),
       },
       {
@@ -400,49 +410,30 @@ export class ReferenceDataSourcesService implements OnModuleInit {
           })),
       },
       {
-        // "Partner" = the counterparty of a cash transaction — the same
-        // Customer∪Supplier concept the schema already names `partnerCustomer`/
-        // `partnerSupplier` (JournalEntry, BankTransaction). No new registry:
-        // reuses the existing CUSTOMER/SUPPLIER master data verbatim.
+        // Unified Partner Architecture — the canonical active Partner
+        // registry (spec section 36/37: "Column J must read from the
+        // canonical active Partner registry"). Every role, one source —
+        // no more Customer∪Supplier union.
         type: 'PARTNER',
-        label: 'Partner (Customer/Supplier)',
+        label: 'Partner',
         defaultMatchField: 'name',
-        list: async () => {
-          const [customers, suppliers] = await Promise.all([
-            prisma.customer.findMany({
+        list: async () =>
+          (
+            await prisma.partner.findMany({
               where: { deletedAt: null },
               select: {
                 id: true,
-                customerNumber: true,
+                partnerNumber: true,
                 name: true,
                 status: true,
               },
-            }),
-            prisma.supplier.findMany({
-              where: { deletedAt: null },
-              select: {
-                id: true,
-                supplierNumber: true,
-                name: true,
-                status: true,
-              },
-            }),
-          ]);
-          return [
-            ...customers.map((r) => ({
-              id: r.id,
-              code: r.customerNumber,
-              name: r.name,
-              active: r.status === CustomerStatus.ACTIVE,
-            })),
-            ...suppliers.map((r) => ({
-              id: r.id,
-              code: r.supplierNumber,
-              name: r.name,
-              active: r.status === SupplierStatus.ACTIVE,
-            })),
-          ];
-        },
+            })
+          ).map((r) => ({
+            id: r.id,
+            code: r.partnerNumber,
+            name: r.name,
+            active: r.status === PartnerStatus.ACTIVE,
+          })),
       },
       {
         // Only leaf/posting-eligible accounts — the exact same `allowsPosting`

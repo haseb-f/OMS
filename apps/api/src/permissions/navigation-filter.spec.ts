@@ -55,7 +55,7 @@ describe('filterByAccess', () => {
   });
 
   it('hides Store Orders when store-orders.view is missing', () => {
-    const ids = filterByAccess(fixture, ['sales.customers.view']).map(
+    const ids = filterByAccess(fixture, ['partners.view']).map(
       (item) => item.id,
     );
     expect(ids).not.toContain('store-orders-list');
@@ -88,8 +88,8 @@ describe('filterByAccess', () => {
     expect(ids).toEqual(['dashboard']);
   });
 
-  it('shows Sales without Store Orders when only customers.view is granted', () => {
-    const ids = filterByAccess(navigationConfig, ['sales.customers.view']).map(
+  it('shows Sales without Store Orders when only partners.view is granted', () => {
+    const ids = filterByAccess(navigationConfig, ['partners.view']).map(
       (item) => item.id,
     );
     expect(ids).toEqual(

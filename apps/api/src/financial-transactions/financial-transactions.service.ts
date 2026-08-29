@@ -6,14 +6,14 @@ import {
 import {
   FinancialTransactionStatus,
   FinancialTransactionType,
+  PartnerRoleType,
   Prisma,
   SalesDocumentStatus,
   PurchaseDocumentStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
-import { CustomersService } from '../customers/customers.service';
-import { SuppliersService } from '../suppliers/suppliers.service';
+import { PartnersService } from '../partners/partners.service';
 import {
   FinancialTransactionActivityService,
   FinancialTransactionActivityType,
@@ -36,8 +36,7 @@ const NUMBERING_DOCUMENT_TYPE: Record<FinancialTransactionType, string> = {
 };
 
 const TRANSACTION_INCLUDE = {
-  customer: true,
-  supplier: true,
+  partner: true,
   expenseAccount: true,
   currency: true,
   paymentSource: true,
@@ -55,8 +54,7 @@ const TRANSACTION_INCLUDE = {
 } satisfies Prisma.FinancialTransactionInclude;
 
 export interface FinancialTransactionCreateInput {
-  customerId?: string;
-  supplierId?: string;
+  partnerId?: string;
   /** EXPENSE_PAYMENT only — the account debited directly instead of resolving Accounts Payable. */
   expenseAccountId?: string;
   currencyId?: string;
@@ -98,8 +96,7 @@ export interface OpenInvoiceRow {
 export class FinancialTransactionsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly customersService: CustomersService,
-    private readonly suppliersService: SuppliersService,
+    private readonly partnersService: PartnersService,
     private readonly activityService: FinancialTransactionActivityService,
     private readonly numberingEngine: NumberingEngineService,
     private readonly postingEngine: PostingEngineService,
@@ -130,10 +127,7 @@ export class FinancialTransactionsService {
           data: {
             transactionNumber,
             type,
-            customerId:
-              type === 'CUSTOMER_RECEIPT' ? dto.customerId : undefined,
-            supplierId:
-              type === 'SUPPLIER_PAYMENT' ? dto.supplierId : undefined,
+            partnerId: type !== 'EXPENSE_PAYMENT' ? dto.partnerId : undefined,
             expenseAccountId:
               type === 'EXPENSE_PAYMENT' ? dto.expenseAccountId : undefined,
             currencyId: dto.currencyId,
@@ -170,7 +164,7 @@ export class FinancialTransactionsService {
         error.code === 'P2003'
       ) {
         throw new BadRequestException(
-          'Invalid customer, supplier, currency, payment source, receiving account, or invoice reference.',
+          'Invalid partner, currency, payment source, receiving account, or invoice reference.',
         );
       }
       throw error;
@@ -180,16 +174,14 @@ export class FinancialTransactionsService {
   async findAll(
     type: FinancialTransactionType,
     query: FindFinancialTransactionsQueryDto & {
-      customerId?: string | string[];
-      supplierId?: string | string[];
+      partnerId?: string | string[];
     },
   ) {
     const where: Prisma.FinancialTransactionWhereInput = {
       type,
       deletedAt: null,
       status: prismaEnumFilter(query.status),
-      customerId: prismaEnumFilter(query.customerId),
-      supplierId: prismaEnumFilter(query.supplierId),
+      partnerId: prismaEnumFilter(query.partnerId),
     };
     if (query.search) {
       where.OR = [
@@ -240,7 +232,7 @@ export class FinancialTransactionsService {
       );
     }
 
-    const partyId = existing.customerId ?? existing.supplierId ?? undefined;
+    const partyId = existing.partnerId ?? undefined;
     if (dto.amount !== undefined || dto.allocations !== undefined) {
       const amount = dto.amount ?? Number(existing.amount);
       this.assertAllocationsWithinAmount(amount, dto.allocations ?? []);
@@ -432,7 +424,7 @@ export class FinancialTransactionsService {
         `Cannot allocate against ${this.label(existing.type)} ${existing.transactionNumber} while it is ${existing.status}.`,
       );
     }
-    const partyId = existing.customerId ?? existing.supplierId ?? undefined;
+    const partyId = existing.partnerId ?? undefined;
     const [resolved] = await this.resolveAllocations(
       existing.type,
       partyId as string,
@@ -531,7 +523,7 @@ export class FinancialTransactionsService {
   ): Promise<OpenInvoiceRow[]> {
     if (type === 'CUSTOMER_RECEIPT') {
       const invoices = await this.prisma.salesInvoice.findMany({
-        where: { customerId: partyId, status: 'CONFIRMED', deletedAt: null },
+        where: { partnerId: partyId, status: 'CONFIRMED', deletedAt: null },
         select: {
           id: true,
           invoiceNumber: true,
@@ -549,7 +541,7 @@ export class FinancialTransactionsService {
     }
 
     const invoices = await this.prisma.purchaseInvoice.findMany({
-      where: { supplierId: partyId, status: 'CONFIRMED', deletedAt: null },
+      where: { partnerId: partyId, status: 'CONFIRMED', deletedAt: null },
       select: {
         id: true,
         invoiceNumber: true,
@@ -604,19 +596,21 @@ export class FinancialTransactionsService {
   private async assertActiveParty(
     type: FinancialTransactionType,
     dto: {
-      customerId?: string;
-      supplierId?: string;
+      partnerId?: string;
       expenseAccountId?: string;
     },
   ): Promise<string> {
     if (type === 'CUSTOMER_RECEIPT') {
-      if (!dto.customerId) {
+      if (!dto.partnerId) {
         throw new BadRequestException(
-          'customerId is required for a Customer Receipt Voucher.',
+          'partnerId is required for a Customer Receipt Voucher.',
         );
       }
-      await this.customersService.assertActiveCustomer(dto.customerId);
-      return dto.customerId;
+      await this.partnersService.assertActiveForRole(
+        dto.partnerId,
+        PartnerRoleType.CUSTOMER,
+      );
+      return dto.partnerId;
     }
     if (type === 'EXPENSE_PAYMENT') {
       if (!dto.expenseAccountId) {
@@ -639,13 +633,16 @@ export class FinancialTransactionsService {
       // Expense Payment Voucher, so the returned id is never used.
       return '';
     }
-    if (!dto.supplierId) {
+    if (!dto.partnerId) {
       throw new BadRequestException(
-        'supplierId is required for a Supplier Payment Voucher.',
+        'partnerId is required for a Supplier Payment Voucher.',
       );
     }
-    await this.suppliersService.assertActiveSupplier(dto.supplierId);
-    return dto.supplierId;
+    await this.partnersService.assertActiveForRole(
+      dto.partnerId,
+      PartnerRoleType.SUPPLIER,
+    );
+    return dto.partnerId;
   }
 
   private assertAllocationsWithinAmount(
@@ -675,9 +672,9 @@ export class FinancialTransactionsService {
         const invoice = await this.prisma.salesInvoice.findFirst({
           where: { id: allocation.invoiceId, deletedAt: null },
         });
-        if (!invoice || invoice.customerId !== partyId) {
+        if (!invoice || invoice.partnerId !== partyId) {
           throw new BadRequestException(
-            `Invoice ${allocation.invoiceId} does not belong to this customer.`,
+            `Invoice ${allocation.invoiceId} does not belong to this partner.`,
           );
         }
         // TASK-050 — a cancelled invoice can never receive a payment allocation.
@@ -694,9 +691,9 @@ export class FinancialTransactionsService {
         const invoice = await this.prisma.purchaseInvoice.findFirst({
           where: { id: allocation.invoiceId, deletedAt: null },
         });
-        if (!invoice || invoice.supplierId !== partyId) {
+        if (!invoice || invoice.partnerId !== partyId) {
           throw new BadRequestException(
-            `Invoice ${allocation.invoiceId} does not belong to this supplier.`,
+            `Invoice ${allocation.invoiceId} does not belong to this partner.`,
           );
         }
         // TASK-050 — a cancelled invoice can never receive a payment allocation.

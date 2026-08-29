@@ -149,15 +149,18 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
     actions: [{ action: 'view', name: 'dashboard.view' }],
   },
   {
-    key: 'customers',
-    labelKey: 'permissions.modules.customers',
-    ...SALES_SECTION,
+    // Unified Partner Architecture — the single canonical counterparty
+    // identity; Customers/Suppliers pages are role-filtered views over this
+    // same registry, so one permission module governs all of them (never a
+    // separate `customers`/`suppliers` module competing with it).
+    key: 'partners',
+    labelKey: 'permissions.modules.partners',
     actions: [
-      { action: 'view', name: 'sales.customers.view' },
-      { action: 'create', name: 'sales.customers.create' },
-      { action: 'edit', name: 'sales.customers.edit' },
-      { action: 'delete', name: 'sales.customers.archive' },
-      { action: 'export', name: 'sales.customers.export' },
+      { action: 'view', name: 'partners.view' },
+      { action: 'create', name: 'partners.create' },
+      { action: 'edit', name: 'partners.edit' },
+      { action: 'delete', name: 'partners.archive' },
+      { action: 'export', name: 'partners.export' },
     ],
   },
   {
@@ -167,22 +170,12 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
       { action: 'view', name: 'crm.leads.view' },
       { action: 'create', name: 'crm.leads.create' },
       { action: 'edit', name: 'crm.leads.edit' },
+      { action: 'confirm', name: 'crm.leads.convert' },
       { action: 'delete', name: 'crm.leads.archive' },
       // "manage" = view every Lead/Order (not just assigned-to-self) and
       // assign/reassign/bulk-assign — the "authorized manager" capability
       // TASK-061 §6/§7 describe, distinct from the base CRUD actions above.
       { action: 'manage', name: 'crm.leads.manage' },
-    ],
-  },
-  {
-    key: 'suppliers',
-    labelKey: 'permissions.modules.suppliers',
-    actions: [
-      { action: 'view', name: 'purchasing.suppliers.view' },
-      { action: 'create', name: 'purchasing.suppliers.create' },
-      { action: 'edit', name: 'purchasing.suppliers.edit' },
-      { action: 'delete', name: 'purchasing.suppliers.archive' },
-      { action: 'export', name: 'purchasing.suppliers.export' },
     ],
   },
   {
@@ -446,14 +439,15 @@ export const IMPLIED_SECTION_PERMISSION: Record<
   string,
   string | readonly string[]
 > = {
-  'sales.customers': 'sales.view',
+  // Partner spans both Sales (Customers) and Purchasing (Suppliers) — grant
+  // implies both section gates, same multi-implication pattern as Store Orders.
+  partners: ['sales.view', 'purchasing.view'],
   'crm.leads': 'crm.view',
   'sales.quotations': 'sales.view',
   'sales.orders': 'sales.view',
   'sales.invoices': 'sales.view',
   'sales.returns': 'sales.view',
   'sales.receipts': 'finance.view',
-  'purchasing.suppliers': 'purchasing.view',
   'purchasing.quotations': 'purchasing.view',
   'purchasing.orders': 'purchasing.view',
   'purchasing.invoices': 'purchasing.view',

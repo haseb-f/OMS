@@ -13,7 +13,7 @@ import { RejectImportRowDto } from '../dto/reject-import-row.dto';
 import { PhoneNumberService } from '../../common/phone/phone-number.service';
 import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 import { StoreOrdersService } from '../../store-orders/store-orders.service';
-import { CustomersService } from '../../customers/customers.service';
+import { PartnersService } from '../../partners/partners.service';
 import {
   StoreOrderActivityService,
   StoreOrderActivitySource,
@@ -271,7 +271,7 @@ export class SyncOrchestratorService {
     private readonly phone: PhoneNumberService,
     private readonly storeOrders: StoreOrdersService,
     private readonly referenceData: ReferenceDataRegistryService,
-    private readonly customers: CustomersService,
+    private readonly customers: PartnersService,
     private readonly activityService: StoreOrderActivityService,
   ) {}
 
@@ -960,10 +960,10 @@ export class SyncOrchestratorService {
       ];
       if (customerIds.length > 0) {
         const orders = await this.prisma.storeOrder.findMany({
-          where: { customerId: { in: customerIds }, deletedAt: null },
+          where: { partnerId: { in: customerIds }, deletedAt: null },
           orderBy: { orderDate: 'desc' },
           select: {
-            customerId: true,
+            partnerId: true,
             internalOrderId: true,
             externalOrderId: true,
             orderDate: true,
@@ -971,8 +971,8 @@ export class SyncOrchestratorService {
         });
         const orderByCustomerId = new Map<string, (typeof orders)[number]>();
         for (const order of orders) {
-          if (!orderByCustomerId.has(order.customerId)) {
-            orderByCustomerId.set(order.customerId, order);
+          if (!orderByCustomerId.has(order.partnerId)) {
+            orderByCustomerId.set(order.partnerId, order);
           }
         }
         for (const [normalizedPhone, customer] of customerByPhone) {

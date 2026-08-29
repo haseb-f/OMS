@@ -154,13 +154,13 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
     });
     await prisma.importJob.deleteMany({ where: { id: { in: syncJobIds } } });
 
-    const customers = await prisma.customer.findMany({
+    const customers = await prisma.partner.findMany({
       where: { name: { startsWith: 'Sync Test Customer' } },
       select: { id: true },
     });
     const customerIds = customers.map((c) => c.id);
     const orders = await prisma.storeOrder.findMany({
-      where: { customerId: { in: customerIds } },
+      where: { partnerId: { in: customerIds } },
       select: { id: true },
     });
     const orderIds = orders.map((o) => o.id);
@@ -174,7 +174,13 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
       where: { storeOrderId: { in: orderIds } },
     });
     await prisma.storeOrder.deleteMany({ where: { id: { in: orderIds } } });
-    await prisma.customer.deleteMany({ where: { id: { in: customerIds } } });
+    await prisma.partnerRoleAssignment.deleteMany({
+      where: { partnerId: { in: customerIds } },
+    });
+    await prisma.customerProfile.deleteMany({
+      where: { partnerId: { in: customerIds } },
+    });
+    await prisma.partner.deleteMany({ where: { id: { in: customerIds } } });
 
     await prisma.shippingCompany.deleteMany({
       where: { name: { startsWith: 'Sync Test Shipping Company' } },
@@ -604,28 +610,31 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
         getSpreadsheetMetadata: jest.fn(),
         resolveSheetTitle: jest.fn().mockResolvedValue('Sheet1'),
         writeRowResults: jest.fn(),
-        ensureResultColumns: jest.fn(async (_id: string, names: string[]) => {
+        ensureResultColumns: jest.fn((_id: string, names: string[]) => {
           for (const name of names) {
             for (const row of fakeSheets.rows) {
               if (!(name in row)) row[name] = '';
             }
           }
-          return Object.fromEntries(
-            names.map((name, index) => [name, `COL${index}`]),
+          return Promise.resolve(
+            Object.fromEntries(
+              names.map((name, index) => [name, `COL${index}`]),
+            ),
           );
         }),
-        getHeaders: jest.fn(async () => {
-          if (fakeSheets.rows[0]) return Object.keys(fakeSheets.rows[0]);
-          return [...HEADERS];
+        getHeaders: jest.fn(() => {
+          if (fakeSheets.rows[0])
+            return Promise.resolve(Object.keys(fakeSheets.rows[0]));
+          return Promise.resolve([...HEADERS]);
         }),
-        renameHeader: jest.fn(async (_id: string, from: string, to: string) => {
+        renameHeader: jest.fn((_id: string, from: string, to: string) => {
           for (const row of fakeSheets.rows) {
             if (from in row && !(to in row)) {
               row[to] = row[from];
               delete row[from];
             }
           }
-          return true;
+          return Promise.resolve(true);
         }),
       };
       fakeSheets.getSheetAsCsv.mockImplementation(() =>

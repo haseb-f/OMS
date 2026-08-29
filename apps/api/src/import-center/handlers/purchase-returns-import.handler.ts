@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
 import { PurchaseReturnsService } from '../../purchasing/returns/purchase-returns.service';
 import { PurchaseInvoicesService } from '../../purchasing/invoices/purchase-invoices.service';
-import { SuppliersService } from '../../suppliers/suppliers.service';
+import { PartnersService } from '../../partners/partners.service';
 import { ProductsService } from '../../products/products.service';
 import { UnitsService } from '../../units/units.service';
 import { WarehousesService } from '../../warehouses/warehouses.service';
@@ -99,7 +99,7 @@ export class PurchaseReturnsImportHandler
   constructor(
     private readonly purchaseReturnsService: PurchaseReturnsService,
     private readonly purchaseInvoicesService: PurchaseInvoicesService,
-    private readonly suppliersService: SuppliersService,
+    private readonly partnersService: PartnersService,
     private readonly productsService: ProductsService,
     private readonly unitsService: UnitsService,
     private readonly warehousesService: WarehousesService,
@@ -126,8 +126,8 @@ export class PurchaseReturnsImportHandler
     options?: ImportRowOptions,
   ): Promise<ImportRowResult> {
     const first = rows[0];
-    const supplierId = await resolveRequiredIdByField(
-      this.suppliersService,
+    const partnerId = await resolveRequiredIdByField(
+      this.partnersService,
       'name',
       first.partyName,
       'Supplier',
@@ -189,7 +189,7 @@ export class PurchaseReturnsImportHandler
     if (options?.dryRun) return { id: 'dry-run' };
 
     const purchaseReturn = await this.purchaseReturnsService.create({
-      supplierId,
+      partnerId,
       purchaseInvoiceId,
       currencyId,
       referenceNumber: first.referenceNumber || undefined,

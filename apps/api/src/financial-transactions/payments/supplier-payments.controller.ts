@@ -55,8 +55,8 @@ export class SupplierPaymentsController {
 
   /** Open Purchase Invoices for the Allocation Grid / "Pay All Remaining" — must be registered before `:id`. */
   @Get('open-invoices')
-  getOpenInvoices(@Query('supplierId') supplierId: string) {
-    return this.transactions.getOpenInvoices(TYPE, supplierId);
+  getOpenInvoices(@Query('partnerId') partnerId: string) {
+    return this.transactions.getOpenInvoices(TYPE, partnerId);
   }
 
   @Get(':id')

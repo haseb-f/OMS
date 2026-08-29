@@ -3,5 +3,5 @@ import { IsOptionalUuidList } from '../../../common/query/enum-list';
 
 export class FindCustomerReceiptsQueryDto extends FindFinancialTransactionsQueryDto {
   @IsOptionalUuidList()
-  customerId?: string[];
+  partnerId?: string[];
 }

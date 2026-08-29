@@ -15,7 +15,7 @@ import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.deco
 
 export class CreateSupplierPaymentDto {
   @IsUUID()
-  supplierId!: string;
+  partnerId!: string;
 
   @IsOptionalUuid()
   currencyId?: string;

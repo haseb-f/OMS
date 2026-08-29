@@ -25,6 +25,8 @@ import { UnitConversionsModule } from './unit-conversions/unit-conversions.modul
 import { LeadsModule } from './leads/leads.module';
 import { ShippingCompaniesModule } from './shipping-companies/shipping-companies.module';
 import { ShippingStatusesModule } from './shipping-statuses/shipping-statuses.module';
+import { StatusDefinitionsModule } from './status-definitions/status-definitions.module';
+import { WorkflowModule } from './workflow/workflow.module';
 import { TransactionTypesModule } from './transaction-types/transaction-types.module';
 import { SalesOrdersModule } from './sales-orders/sales-orders.module';
 import { PaymentSourcesModule } from './payment-sources/payment-sources.module';
@@ -37,7 +39,7 @@ import { InventoryModule } from './inventory/inventory.module';
 import { PhysicalCountModule } from './physical-count/physical-count.module';
 import { CostComponentsModule } from './cost-components/cost-components.module';
 import { ProductCostModule } from './product-cost/product-cost.module';
-import { SuppliersModule } from './suppliers/suppliers.module';
+import { PartnersModule } from './partners/partners.module';
 import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module';
 import { TaxesModule } from './taxes/taxes.module';
 import { CustomerGroupsModule } from './customer-groups/customer-groups.module';
@@ -48,7 +50,6 @@ import { NumberingModule } from './numbering/numbering.module';
 import { AnalyticPlansModule } from './analytic-plans/analytic-plans.module';
 import { AnalyticAccountsModule } from './analytic-accounts/analytic-accounts.module';
 import { AnalyticDistributionsModule } from './analytic-distributions/analytic-distributions.module';
-import { CustomersModule } from './customers/customers.module';
 import { SalesQuotationsModule } from './sales/quotations/sales-quotations.module';
 import { SalesOrdersModule as SalesOrderDocumentsModule } from './sales/orders/sales-orders.module';
 import { SalesInvoicesModule } from './sales/invoices/sales-invoices.module';
@@ -95,6 +96,8 @@ import { StoreOrdersModule } from './store-orders/store-orders.module';
     LeadsModule,
     ShippingCompaniesModule,
     ShippingStatusesModule,
+    StatusDefinitionsModule,
+    WorkflowModule,
     TransactionTypesModule,
     SalesOrdersModule,
     ChartOfAccountsModule,
@@ -108,7 +111,7 @@ import { StoreOrdersModule } from './store-orders/store-orders.module';
     PhysicalCountModule,
     CostComponentsModule,
     ProductCostModule,
-    SuppliersModule,
+    PartnersModule,
     PurchaseOrdersModule,
     TaxesModule,
     CustomerGroupsModule,
@@ -119,7 +122,6 @@ import { StoreOrdersModule } from './store-orders/store-orders.module';
     AnalyticPlansModule,
     AnalyticAccountsModule,
     AnalyticDistributionsModule,
-    CustomersModule,
     SalesQuotationsModule,
     SalesOrderDocumentsModule,
     SalesInvoicesModule,

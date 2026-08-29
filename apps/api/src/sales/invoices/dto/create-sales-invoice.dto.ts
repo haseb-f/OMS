@@ -13,7 +13,7 @@ import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.deco
 /** Direct/standalone invoice — no originating Sales Order. Warehouse is required on every line. */
 export class CreateSalesInvoiceDto {
   @IsUUID()
-  customerId!: string;
+  partnerId!: string;
 
   @IsOptionalUuid()
   currencyId?: string;

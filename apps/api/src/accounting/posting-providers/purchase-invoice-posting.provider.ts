@@ -51,7 +51,7 @@ export class PurchaseInvoicePostingProvider
     const invoice = await tx.purchaseInvoice.findUniqueOrThrow({
       where: { id: sourceId },
       include: {
-        supplier: { select: { id: true } },
+        partner: { select: { id: true } },
         items: {
           include: {
             product: { select: { isInventoryItem: true, categoryId: true } },
@@ -85,7 +85,7 @@ export class PurchaseInvoicePostingProvider
         );
       } else {
         const accountId = await this.accountMapping.resolvePurchaseAccount(
-          invoice.supplier.id,
+          invoice.partner.id,
           item.product.categoryId,
           tx,
         );
@@ -129,13 +129,14 @@ export class PurchaseInvoicePostingProvider
     }
 
     const apAccountId = await this.accountMapping.resolvePayableAccount(
-      invoice.supplier.id,
+      invoice.partner.id,
       tx,
     );
     lines.push({
       accountId: apAccountId,
       credit: Number(invoice.grandTotal),
       description: `Purchase Invoice ${invoice.invoiceNumber}`,
+      partnerId: invoice.partner.id,
     });
 
     return {

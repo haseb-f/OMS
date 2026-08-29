@@ -13,7 +13,7 @@ import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.deco
 /** Warehouse is required on every line here (unlike Quotation) — enforced in the service. */
 export class CreateSalesOrderDto {
   @IsUUID()
-  customerId!: string;
+  partnerId!: string;
 
   @IsOptionalUuid()
   currencyId?: string;

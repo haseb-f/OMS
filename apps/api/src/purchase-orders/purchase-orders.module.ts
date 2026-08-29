@@ -3,14 +3,14 @@ import { PurchaseOrdersController } from './purchase-orders.controller';
 import { PurchaseOrdersService } from './purchase-orders.service';
 import { PurchaseOrderActivitiesController } from './activities/purchase-order-activities.controller';
 import { PurchaseOrderActivityService } from './activities/purchase-order-activity.service';
-import { SuppliersModule } from '../suppliers/suppliers.module';
+import { PartnersModule } from '../partners/partners.module';
 import { ProductsModule } from '../products/products.module';
 import { NumberingModule } from '../numbering/numbering.module';
 import { PurchaseInvoicesModule } from '../purchasing/invoices/purchase-invoices.module';
 
 @Module({
   imports: [
-    SuppliersModule,
+    PartnersModule,
     ProductsModule,
     NumberingModule,
     // For "Convert to Invoice" (Goods Receipt) — PurchaseInvoicesService.createFromOrder.

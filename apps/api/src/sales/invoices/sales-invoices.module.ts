@@ -3,7 +3,7 @@ import { SalesInvoicesController } from './sales-invoices.controller';
 import { SalesInvoicesService } from './sales-invoices.service';
 import { SalesInvoiceActivitiesController } from './activities/sales-invoice-activities.controller';
 import { SalesInvoiceActivityService } from './activities/sales-invoice-activity.service';
-import { CustomersModule } from '../../customers/customers.module';
+import { PartnersModule } from '../../partners/partners.module';
 import { ProductsModule } from '../../products/products.module';
 import { WarehousesModule } from '../../warehouses/warehouses.module';
 import { InventoryModule } from '../../inventory/inventory.module';
@@ -19,7 +19,7 @@ import { PostingEngineModule } from '../../accounting/posting-engine/posting-eng
  */
 @Module({
   imports: [
-    CustomersModule,
+    PartnersModule,
     ProductsModule,
     WarehousesModule,
     InventoryModule,

@@ -9,6 +9,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcryptjs';
 import { ALL_PERMISSION_NAMES } from '../src/permissions/permission-catalog';
 import { INITIAL_SHIPPING_STATUSES } from '../src/shipping/shipping-status.catalog';
+import { INITIAL_WORKFLOW_STATUSES } from '../src/workflow/workflow.catalog';
 import { SYSTEM_TRANSACTION_TYPES } from '../src/transaction-types/transaction-type.catalog';
 import { seedCountries } from './scripts/seed-countries';
 
@@ -52,6 +53,7 @@ const masterDataEntities = [
   'payment-terms',
   'shipping-companies',
   'shipping-statuses',
+  'workflow-statuses',
   'customer-groups',
   'supplier-groups',
   'countries',
@@ -519,6 +521,36 @@ async function main() {
           isImportable: status.isImportable,
           sortOrder: status.sortOrder,
           syncBehavior: status.syncBehavior,
+        },
+      }),
+    ),
+  );
+
+  await Promise.all(
+    INITIAL_WORKFLOW_STATUSES.map((status) =>
+      prisma.statusDefinition.upsert({
+        where: {
+          workflowType_code: {
+            workflowType: status.workflowType,
+            code: status.code,
+          },
+        },
+        update: {
+          isSystem: status.isSystem,
+          isDefault: status.isDefault,
+          isFinal: status.isFinal,
+          sortOrder: status.sortOrder,
+        },
+        create: {
+          workflowType: status.workflowType,
+          code: status.code,
+          name: status.name,
+          nameEn: status.nameEn,
+          color: status.color,
+          isSystem: status.isSystem,
+          isDefault: status.isDefault,
+          isFinal: status.isFinal,
+          sortOrder: status.sortOrder,
         },
       }),
     ),
@@ -1381,9 +1413,11 @@ async function main() {
     dayReset?: boolean;
   }[] = [
     {
-      documentType: 'SUPPLIER',
-      label: 'Supplier',
-      docCode: 'SUP',
+      // Unified Partner Architecture — replaces the former SUPPLIER/CUSTOMER
+      // series (Customer/Supplier no longer exist as separate identities).
+      documentType: 'PARTNER',
+      label: 'Partner',
+      docCode: 'PT',
       template: '{DOC}-{YEAR}-{SEQ}',
     },
     {
@@ -1537,13 +1571,6 @@ async function main() {
       documentType: 'OPPORTUNITY',
       label: 'Opportunity',
       docCode: 'OPP',
-      template: '{DOC}-{YEAR}-{SEQ}',
-    },
-    {
-      // TASK-037 — was prepared-only; now consumed by CustomersService.
-      documentType: 'CUSTOMER',
-      label: 'Customer',
-      docCode: 'CUS',
       template: '{DOC}-{YEAR}-{SEQ}',
     },
     {

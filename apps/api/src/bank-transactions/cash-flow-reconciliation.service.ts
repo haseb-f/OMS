@@ -3,6 +3,7 @@ import {
   BankTransactionMatchStatus,
   CashFlowDirection,
   CashFlowOutgoingType,
+  PaymentStatus,
   Prisma,
   SalesDocumentStatus,
   PurchaseDocumentStatus,
@@ -11,6 +12,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PaymentAutoMatchingService } from '../payments/auto-matching/payment-auto-matching.service';
 import { PaymentsService } from '../payments/payments.service';
 import { StoreOrdersService } from '../store-orders/store-orders.service';
+import { StoreOrderPaymentSyncService } from '../store-orders/store-order-payment-sync.service';
 import { FinancialTransactionsService } from '../financial-transactions/financial-transactions.service';
 import type { CompanyContext } from '../common/decorators/current-company-context.decorator';
 
@@ -42,6 +44,7 @@ export class CashFlowReconciliationService {
     private readonly autoMatching: PaymentAutoMatchingService,
     private readonly paymentsService: PaymentsService,
     private readonly storeOrdersService: StoreOrdersService,
+    private readonly storeOrderPaymentSync: StoreOrderPaymentSyncService,
     private readonly financialTransactions: FinancialTransactionsService,
   ) {}
 
@@ -174,7 +177,7 @@ export class CashFlowReconciliationService {
           id: true,
           invoiceNumber: true,
           grandTotal: true,
-          customerId: true,
+          partnerId: true,
           currencyId: true,
         },
         take: 500,
@@ -333,20 +336,20 @@ export class CashFlowReconciliationService {
         id: { in: dto.allocations.map((a) => a.invoiceId) },
         deletedAt: null,
       },
-      select: { id: true, customerId: true },
+      select: { id: true, partnerId: true },
     });
-    const customerIds = new Set(invoices.map((i) => i.customerId));
-    if (customerIds.size !== 1) {
+    const partnerIds = new Set(invoices.map((i) => i.partnerId));
+    if (partnerIds.size !== 1) {
       throw new BadRequestException(
-        'All allocated invoices must belong to the same customer.',
+        'All allocated invoices must belong to the same partner.',
       );
     }
-    const [customerId] = customerIds;
+    const [partnerId] = partnerIds;
 
     const created = await this.financialTransactions.create(
       'CUSTOMER_RECEIPT',
       {
-        customerId,
+        partnerId,
         currencyId: transaction.currencyId ?? undefined,
         transactionDate: transaction.transactionDate.toISOString(),
         paymentSourceId: dto.paymentSourceId,
@@ -384,7 +387,7 @@ export class CashFlowReconciliationService {
     dto: {
       outgoingType: CashFlowOutgoingType;
       expenseAccountId?: string;
-      partnerSupplierId?: string;
+      partnerId?: string;
       costCenterId?: string;
       projectId?: string;
     },
@@ -400,10 +403,10 @@ export class CashFlowReconciliationService {
     }
     if (
       dto.outgoingType === CashFlowOutgoingType.SUPPLIER_PAYMENT &&
-      !dto.partnerSupplierId
+      !dto.partnerId
     ) {
       throw new BadRequestException(
-        'partnerSupplierId is required to classify as Supplier Payment.',
+        'partnerId is required to classify as Supplier Payment.',
       );
     }
     return this.prisma.bankTransaction.update({
@@ -415,9 +418,9 @@ export class CashFlowReconciliationService {
           dto.outgoingType === CashFlowOutgoingType.EXPENSE
             ? dto.expenseAccountId
             : null,
-        partnerSupplierId:
+        partnerId:
           dto.outgoingType === CashFlowOutgoingType.SUPPLIER_PAYMENT
-            ? dto.partnerSupplierId
+            ? dto.partnerId
             : null,
         costCenterId: dto.costCenterId,
         projectId: dto.projectId,
@@ -448,15 +451,13 @@ export class CashFlowReconciliationService {
       where: {
         deletedAt: null,
         status: PurchaseDocumentStatus.CONFIRMED,
-        ...(transaction.partnerSupplierId
-          ? { supplierId: transaction.partnerSupplierId }
-          : {}),
+        ...(transaction.partnerId ? { partnerId: transaction.partnerId } : {}),
       },
       select: {
         id: true,
         invoiceNumber: true,
         grandTotal: true,
-        supplierId: true,
+        partnerId: true,
         currencyId: true,
       },
       take: 500,
@@ -464,9 +465,8 @@ export class CashFlowReconciliationService {
     for (const invoice of openInvoices) {
       const referenceMatches =
         needle && needle.includes(invoice.invoiceNumber.toLowerCase());
-      const supplierMatches =
-        transaction.partnerSupplierId === invoice.supplierId;
-      if (!referenceMatches && !supplierMatches) continue;
+      const partnerMatches = transaction.partnerId === invoice.partnerId;
+      if (!referenceMatches && !partnerMatches) continue;
       if (
         transaction.currencyId &&
         invoice.currencyId &&
@@ -486,9 +486,7 @@ export class CashFlowReconciliationService {
                 `Invoice number "${invoice.invoiceNumber}" found in reference/description`,
               ]
             : []),
-          ...(supplierMatches
-            ? ['Matches the classified Partner/Supplier']
-            : []),
+          ...(partnerMatches ? ['Matches the classified Partner'] : []),
         ],
       });
     }
@@ -532,20 +530,20 @@ export class CashFlowReconciliationService {
         id: { in: dto.allocations.map((a) => a.invoiceId) },
         deletedAt: null,
       },
-      select: { id: true, supplierId: true },
+      select: { id: true, partnerId: true },
     });
-    const supplierIds = new Set(invoices.map((i) => i.supplierId));
-    if (supplierIds.size !== 1) {
+    const partnerIds = new Set(invoices.map((i) => i.partnerId));
+    if (partnerIds.size !== 1) {
       throw new BadRequestException(
-        'All allocated invoices must belong to the same supplier.',
+        'All allocated invoices must belong to the same partner.',
       );
     }
-    const [supplierId] = supplierIds;
+    const [partnerId] = partnerIds;
 
     const created = await this.financialTransactions.create(
       'SUPPLIER_PAYMENT',
       {
-        supplierId,
+        partnerId,
         currencyId: transaction.currencyId ?? undefined,
         transactionDate: transaction.transactionDate.toISOString(),
         paymentSourceId: dto.paymentSourceId,
@@ -677,7 +675,7 @@ export class CashFlowReconciliationService {
     dto: {
       outgoingType: CashFlowOutgoingType;
       expenseAccountId?: string;
-      partnerSupplierId?: string;
+      partnerId?: string;
     },
   ): Promise<{ id: string; success: boolean; message?: string }[]> {
     const results: { id: string; success: boolean; message?: string }[] = [];
@@ -784,5 +782,92 @@ export class CashFlowReconciliationService {
             ._all ?? 0,
       },
     };
+  }
+
+  /**
+   * Controlled Unreconcile — clears the Cash Flow match without deleting the
+   * bank transaction. Soft-deletes the linked Store Order Payment (so it no
+   * longer contributes to order PAID truth) and recomputes paymentStatus.
+   * B2B financial-transaction matches that already posted must be reversed
+   * through the financial document flow — not silently cleared here.
+   */
+  async unreconcile(id: string, userId: string, reason?: string) {
+    const transaction = await this.prisma.bankTransaction.findFirst({
+      where: { id, deletedAt: null },
+    });
+    if (!transaction) {
+      throw new BadRequestException(`Cash Flow transaction ${id} not found.`);
+    }
+    if (
+      !transaction.matchedPaymentId &&
+      !transaction.matchedFinancialTransactionId
+    ) {
+      throw new BadRequestException(
+        'This transaction is not reconciled — nothing to unreconcile.',
+      );
+    }
+    if (transaction.matchedFinancialTransactionId) {
+      throw new BadRequestException(
+        'B2B / posted financial reconciliations must be reversed via the financial document — not Cash Flow unreconcile.',
+      );
+    }
+
+    const paymentId = transaction.matchedPaymentId!;
+    const payment = await this.prisma.payment.findFirst({
+      where: { id: paymentId, deletedAt: null },
+    });
+    if (!payment) {
+      throw new BadRequestException(
+        'Linked payment is missing — clear the Cash Flow match manually after review.',
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.payment.update({
+        where: { id: paymentId },
+        data: {
+          deletedAt: new Date(),
+          updatedBy: userId,
+          status: PaymentStatus.REJECTED,
+          rejectedAt: new Date(),
+          rejectedById: userId,
+          rejectionReason:
+            reason?.trim() ||
+            'Unreconciled from Cash Flow — allocation reversed',
+        },
+      });
+      await tx.paymentActivity.create({
+        data: {
+          paymentId,
+          type: 'UNRECONCILED',
+          description:
+            reason?.trim() ||
+            `Unreconciled from Cash Flow transaction ${transaction.transactionId ?? id}`,
+          metadata: {
+            bankTransactionId: id,
+            previousStatus: payment.status,
+            performedById: userId,
+          },
+        },
+      });
+      await tx.bankTransaction.update({
+        where: { id },
+        data: {
+          matchStatus: BankTransactionMatchStatus.UNMATCHED,
+          matchedPaymentId: null,
+          matchedAt: null,
+          matchedById: null,
+          matchCandidates: Prisma.DbNull,
+        },
+      });
+    });
+
+    if (payment.storeOrderId) {
+      await this.storeOrderPaymentSync.recompute(payment.storeOrderId);
+    }
+
+    return this.prisma.bankTransaction.findFirstOrThrow({
+      where: { id },
+    });
   }
 }

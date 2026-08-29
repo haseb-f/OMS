@@ -24,7 +24,7 @@ const INCLUDE = {
   currency: { select: { id: true, code: true } },
   cashSource: { select: { id: true, name: true, code: true } },
   expenseAccount: { select: { id: true, code: true, name: true } },
-  partnerSupplier: { select: { id: true, name: true, supplierNumber: true } },
+  partner: { select: { id: true, name: true, partnerNumber: true } },
   costCenter: { select: { id: true, code: true, name: true } },
   project: { select: { id: true, code: true, name: true } },
 } satisfies Prisma.BankTransactionInclude;
@@ -90,7 +90,7 @@ export class BankTransactionsService {
     cashSourceId?: string;
     outgoingType?: CashFlowOutgoingType;
     expenseAccountId?: string;
-    partnerSupplierId?: string;
+    partnerId?: string;
     costCenterId?: string;
     projectId?: string;
     /** Data Synchronization only — the `ImportJob` this run belongs to. Set
@@ -172,7 +172,7 @@ export class BankTransactionsService {
         cashSourceId: data.cashSourceId,
         outgoingType: data.outgoingType,
         expenseAccountId: data.expenseAccountId,
-        partnerSupplierId: data.partnerSupplierId,
+        partnerId: data.partnerId,
         costCenterId: data.costCenterId,
         projectId: data.projectId,
       },

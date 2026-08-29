@@ -175,7 +175,7 @@ export class PaymentsService {
     });
 
     if (payment.leadId) {
-      await this.leadsService.markPaid(payment.leadId);
+      await this.leadsService.markQualifiedFromPayment(payment.leadId);
     }
     if (payment.storeOrderId) {
       await this.storeOrderPaymentSync.recompute(payment.storeOrderId);

@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { CustomerSource, LeadStatus, Prisma } from '@prisma/client';
+import { Prisma, StatusChangeSource, WorkflowType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import {
@@ -13,7 +13,6 @@ import {
 } from './activities/lead-activity.service';
 import { LeadDuplicateDetectionService } from './duplicate-detection/lead-duplicate-detection.service';
 import { LeadAutoDistributionService } from './distribution/lead-auto-distribution.service';
-import { CustomersService } from '../customers/customers.service';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { ArchiveLeadDto } from './dto/archive-lead.dto';
@@ -22,6 +21,7 @@ import {
   PhoneNumberService,
   phoneErrorMessage,
 } from '../common/phone/phone-number.service';
+import { WorkflowEngineService } from '../workflow/workflow-engine.service';
 
 const SEARCH_FIELDS = [
   'leadNumber',
@@ -34,9 +34,22 @@ const SEARCH_FIELDS = [
 const LEAD_INCLUDE = {
   country: { select: { id: true, name: true } },
   currency: { select: { id: true, code: true, name: true } },
-  customer: { select: { id: true, customerNumber: true, name: true } },
+  partner: { select: { id: true, partnerNumber: true, name: true } },
   salesEmployee: { select: { id: true, fullName: true, email: true } },
   product: { select: { id: true, name: true, displayName: true, sku: true } },
+  status: {
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      nameEn: true,
+      color: true,
+      isFinal: true,
+    },
+  },
+  storeOrder: {
+    select: { id: true, internalOrderId: true },
+  },
 } satisfies Prisma.LeadInclude;
 
 /** Fields imported/entered order data may carry that live on `Payment`/`LeadNote`, not on `Lead` itself — recorded onto the timeline instead of a new table (see `recordImportedOrderDetails`). */
@@ -57,8 +70,8 @@ export class LeadsService {
     private readonly leadDuplicateDetectionService: LeadDuplicateDetectionService,
     private readonly leadAutoDistributionService: LeadAutoDistributionService,
     private readonly numberingEngine: NumberingEngineService,
-    private readonly customersService: CustomersService,
     private readonly phoneNumberService: PhoneNumberService,
+    private readonly workflowEngine: WorkflowEngineService,
   ) {}
 
   /** Resolves `dto.countryId` to its ISO2 code and validates/normalizes `dto.mobileNumber` against it — the country-aware check `@IsPhoneNumber()` on the DTO can't do (it has no access to the sibling `countryId`). Returns the E.164 value every caller should use in place of the raw input. */
@@ -81,24 +94,45 @@ export class LeadsService {
 
   private async transitionStatus(
     id: string,
-    status: LeadStatus,
+    toStatusCode: string,
     activityType: string,
     description: string,
-    extraData: Prisma.LeadUpdateInput = {},
+    extraData: { archivedReason?: string | null } = {},
   ) {
     const existing = await this.findOne(id);
+    const toStatusId = await this.workflowEngine.resolveStatusIdByCode(
+      WorkflowType.LEAD,
+      toStatusCode,
+    );
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.lead.update({
         where: { id },
-        data: { status, ...extraData },
+        data: {
+          statusId: toStatusId,
+          ...(extraData.archivedReason !== undefined
+            ? { archivedReason: extraData.archivedReason }
+            : {}),
+        },
       });
       await this.leadActivityService.log(
         id,
         activityType,
         description,
-        { previousStatus: existing.status, newStatus: status },
+        {
+          previousStatus: existing.status?.code,
+          newStatus: toStatusCode,
+        },
         tx,
       );
+      await tx.statusHistory.create({
+        data: {
+          entityType: 'LEAD',
+          entityId: id,
+          fromStatusId: existing.statusId,
+          toStatusId,
+          source: StatusChangeSource.SYSTEM,
+        },
+      });
       return updated;
     });
   }
@@ -220,21 +254,8 @@ export class LeadsService {
       }
     }
 
-    const { customer, created: customerCreated } =
-      await this.customersService.findOrCreate(
-        {
-          name: dto.customerName,
-          phone: mobileNumber,
-          countryId: dto.countryId,
-          city: dto.city,
-          address: dto.address,
-          source: CustomerSource.LEAD_CONVERSION,
-        },
-        userId,
-      );
-    const dataMismatches = customerCreated
-      ? []
-      : this.detectCustomerDataMismatch(customer, dto);
+    // Lead is a CRM prospect — Partner is created only at conversion
+    // (LEAD_CONVERT / convertToCustomer), never at Lead birth.
 
     const quantity = dto.quantity ?? 1;
     const currencyId =
@@ -270,6 +291,10 @@ export class LeadsService {
           : Promise.resolve(null),
       ]);
 
+    const defaultStatusId = await this.workflowEngine.resolveDefaultStatusId(
+      WorkflowType.LEAD,
+    );
+
     let lead: Prisma.LeadGetPayload<object>;
     try {
       lead = await this.prisma.$transaction(async (tx) => {
@@ -291,9 +316,8 @@ export class LeadsService {
             leadNumber,
             quantity,
             currencyId,
-            status: LeadStatus.NEW,
+            statusId: defaultStatusId,
             possibleDuplicate: duplicateCheck.isPossibleDuplicate,
-            customerId: customer.id,
           },
         });
         await this.leadActivityService.log(
@@ -303,26 +327,6 @@ export class LeadsService {
           undefined,
           tx,
         );
-        await this.leadActivityService.log(
-          created.id,
-          customerCreated
-            ? 'CUSTOMER_CREATED_FROM_LEAD'
-            : 'CUSTOMER_LINKED_FROM_LEAD',
-          customerCreated
-            ? `New Customer ${customer.customerNumber} created for this order`
-            : `Linked to existing Customer ${customer.customerNumber} (matched by phone)`,
-          { customerId: customer.id },
-          tx,
-        );
-        if (dataMismatches.length > 0) {
-          await this.leadActivityService.log(
-            created.id,
-            'CUSTOMER_DATA_MISMATCH_FLAGGED',
-            `Imported data differs from the existing customer record on: ${dataMismatches.join(', ')}. The customer record was not changed — review and update it manually if needed.`,
-            { fields: dataMismatches },
-            tx,
-          );
-        }
 
         // Order mode with a Paid Amount — create the linked Payment in the
         // same transaction (Lead and its Payment either both exist or
@@ -379,31 +383,15 @@ export class LeadsService {
     if (!lead.salesEmployeeId) {
       await this.leadAutoDistributionService.distribute(lead.id);
     }
-    return lead;
-  }
-
-  /** "Prevent duplicate customers... never silently overwrite" — compares only the fields this order actually carries against the existing Customer record. */
-  private detectCustomerDataMismatch(
-    customer: { name: string; city: string | null; address: string | null },
-    dto: CreateLeadDto,
-  ): string[] {
-    const mismatches: string[] = [];
-    const differs = (
-      a: string | null | undefined,
-      b: string | null | undefined,
-    ) => !!a && !!b && a.trim().toLowerCase() !== b.trim().toLowerCase();
-    if (differs(customer.name, dto.customerName)) mismatches.push('name');
-    if (differs(customer.city, dto.city)) mismatches.push('city');
-    if (differs(customer.address, dto.address)) mismatches.push('address');
-    return mismatches;
+    return this.findOne(lead.id);
   }
 
   /**
    * TASK-061 — records order-level details an import/manual entry carries
    * that don't belong on `Lead` itself (Paid Amount, Payment Method,
    * Receipts, Notes, source Order Date) onto the existing timeline instead
-   * of a new table — visible in the Lead's/Customer's order history exactly
-   * like every other activity entry.
+   * of a new table — visible in the Lead's timeline exactly like every
+   * other activity entry.
    */
   async recordImportedOrderDetails(
     leadId: string,
@@ -436,7 +424,7 @@ export class LeadsService {
   async findAll(
     query: MasterDataQueryDto,
     restrictToSalesEmployeeId?: string,
-    customerId?: string,
+    partnerId?: string,
   ) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
@@ -445,7 +433,7 @@ export class LeadsService {
       ...(restrictToSalesEmployeeId
         ? { salesEmployeeId: restrictToSalesEmployeeId }
         : {}),
-      ...(customerId ? { customerId } : {}),
+      ...(partnerId ? { partnerId } : {}),
       ...(query.search
         ? {
             OR: SEARCH_FIELDS.map((field) => ({
@@ -472,6 +460,14 @@ export class LeadsService {
     return { items, total, page, pageSize };
   }
 
+  /** Idempotent import/sync lookup — same External Lead ID = same Lead. */
+  async findByExternalOrderId(externalOrderId: string) {
+    return this.prisma.lead.findFirst({
+      where: { externalOrderId, deletedAt: null },
+      include: LEAD_INCLUDE,
+    });
+  }
+
   async findOne(id: string) {
     const lead = await this.prisma.lead.findFirst({
       where: { id, deletedAt: null },
@@ -485,10 +481,9 @@ export class LeadsService {
 
   async update(id: string, dto: UpdateLeadDto) {
     const existing = await this.findOne(id);
-    const statusChanged =
-      dto.status !== undefined && dto.status !== existing.status;
 
-    const data = { ...dto };
+    const { archivedReason: _archivedReason, ...data } = dto;
+    void _archivedReason;
     if (dto.mobileNumber !== undefined) {
       data.mobileNumber = await this.normalizeLeadMobile(
         dto.mobileNumber,
@@ -497,18 +492,10 @@ export class LeadsService {
     }
 
     try {
-      return await this.prisma.$transaction(async (tx) => {
-        const updated = await tx.lead.update({ where: { id }, data });
-        if (statusChanged) {
-          await this.leadActivityService.log(
-            id,
-            LeadActivityType.LEAD_STATUS_CHANGED,
-            `Lead status changed from ${existing.status} to ${updated.status}`,
-            { from: existing.status, to: updated.status },
-            tx,
-          );
-        }
-        return updated;
+      return await this.prisma.lead.update({
+        where: { id },
+        data,
+        include: LEAD_INCLUDE,
       });
     } catch (error) {
       if (
@@ -531,31 +518,31 @@ export class LeadsService {
     });
   }
 
-  /** Business operation: change status to UNDER_FOLLOW_UP. */
+  /** Legacy endpoint — prefer workflow transition API. */
   startFollowUp(id: string) {
     return this.transitionStatus(
       id,
-      LeadStatus.UNDER_FOLLOW_UP,
+      'FOLLOW_UP',
       LeadActivityType.FOLLOW_UP_STARTED,
       'Follow-up Started',
     );
   }
 
-  /** Business operation: change status to PAID. The Orders module continues the workflow from here. */
-  markPaid(id: string) {
+  /** Legacy endpoint — maps to QUALIFIED for payment-verified legacy flow. */
+  markQualifiedFromPayment(id: string) {
     return this.transitionStatus(
       id,
-      LeadStatus.PAID,
+      'QUALIFIED',
       LeadActivityType.MARKED_PAID,
-      'Marked Paid',
+      'Marked Qualified (payment verified)',
     );
   }
 
-  /** Business operation: change status to ARCHIVED. Archive reason is optional. */
+  /** Business operation: archive as LOST with optional reason. */
   archive(id: string, dto: ArchiveLeadDto) {
     return this.transitionStatus(
       id,
-      LeadStatus.ARCHIVED,
+      'LOST',
       LeadActivityType.ARCHIVED,
       'Archived',
       {
@@ -565,49 +552,12 @@ export class LeadsService {
   }
 
   /**
-   * Sales Foundation (TASK-037) business operation: converts this Lead into
-   * a Customer — reusing an existing Customer if one already matches this
-   * lead's mobile number (never duplicating), otherwise creating a new one
-   * from the Lead's own snapshot fields. Idempotent: a Lead already linked
-   * to a Customer just returns that same link again rather than creating a
-   * second one.
+   * Partner-only conversion without StoreOrder is retired.
+   * Authoritative path: Workflow LEAD_CONVERT (Partner + CUSTOMER + StoreOrder).
    */
-  async convertToCustomer(id: string, userId?: string) {
-    const lead = await this.findOne(id);
-    if (lead.customerId) {
-      const customer = await this.customersService.findOne(lead.customerId);
-      return { lead, customer, created: false };
-    }
-
-    const { customer, created } = await this.customersService.findOrCreate(
-      {
-        name: lead.customerName,
-        phone: lead.mobileNumber,
-        countryId: lead.countryId,
-        city: lead.city ?? undefined,
-        address: lead.address ?? undefined,
-        source: CustomerSource.LEAD_CONVERSION,
-      },
-      userId,
+  async convertToCustomer(_id: string, _userId?: string): Promise<never> {
+    throw new BadRequestException(
+      'Use Lead conversion (LEAD_CONVERT) — Partner is created with the Store Order, not alone.',
     );
-
-    const updatedLead = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.lead.update({
-        where: { id },
-        data: { customerId: customer.id },
-      });
-      await this.leadActivityService.log(
-        id,
-        created ? 'CUSTOMER_CREATED_FROM_LEAD' : 'CUSTOMER_LINKED_FROM_LEAD',
-        created
-          ? `Converted to new Customer ${customer.customerNumber}`
-          : `Linked to existing Customer ${customer.customerNumber}`,
-        { customerId: customer.id },
-        tx,
-      );
-      return updated;
-    });
-
-    return { lead: updatedLead, customer, created };
   }
 }

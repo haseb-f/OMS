@@ -13,10 +13,14 @@ describe('withImpliedSectionPermissions', () => {
     );
   });
 
-  it('expands sales.customers.view into sales.view', () => {
-    const expanded = withImpliedSectionPermissions(['sales.customers.view']);
+  it('expands partners.view into both sales.view and purchasing.view', () => {
+    const expanded = withImpliedSectionPermissions(['partners.view']);
     expect(expanded).toEqual(
-      expect.arrayContaining(['sales.customers.view', 'sales.view']),
+      expect.arrayContaining([
+        'partners.view',
+        'sales.view',
+        'purchasing.view',
+      ]),
     );
   });
 
@@ -54,7 +58,6 @@ describe('Sales catalog grouping', () => {
     const sales = groups.find((group) => group.sectionKey === 'sales');
     expect(sales?.sectionLabelKey).toBe('permissions.sections.sales');
     expect(sales?.modules.map((module) => module.key)).toEqual([
-      'customers',
       'sales-quotations',
       'sales-orders',
       'store-orders',

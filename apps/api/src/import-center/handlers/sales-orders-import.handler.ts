@@ -1,6 +1,6 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { SalesOrdersService } from '../../sales/orders/sales-orders.service';
-import { CustomersService } from '../../customers/customers.service';
+import { PartnersService } from '../../partners/partners.service';
 import { ProductsService } from '../../products/products.service';
 import { UnitsService } from '../../units/units.service';
 import { WarehousesService } from '../../warehouses/warehouses.service';
@@ -89,7 +89,7 @@ export class SalesOrdersImportHandler
 
   constructor(
     private readonly salesOrdersService: SalesOrdersService,
-    private readonly customersService: CustomersService,
+    private readonly partnersService: PartnersService,
     private readonly productsService: ProductsService,
     private readonly unitsService: UnitsService,
     private readonly warehousesService: WarehousesService,
@@ -116,8 +116,8 @@ export class SalesOrdersImportHandler
     options?: ImportRowOptions,
   ): Promise<ImportRowResult> {
     const first = rows[0];
-    const customerId = await resolveRequiredIdByField(
-      this.customersService,
+    const partnerId = await resolveRequiredIdByField(
+      this.partnersService,
       'name',
       first.partyName,
       'Customer',
@@ -162,7 +162,7 @@ export class SalesOrdersImportHandler
     if (options?.dryRun) return { id: 'dry-run' };
 
     const order = await this.salesOrdersService.create({
-      customerId,
+      partnerId,
       currencyId,
       referenceNumber: first.referenceNumber || undefined,
       items,

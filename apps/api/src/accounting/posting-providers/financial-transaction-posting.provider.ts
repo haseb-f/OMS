@@ -55,8 +55,7 @@ export class FinancialTransactionPostingProvider
     const transaction = await tx.financialTransaction.findUniqueOrThrow({
       where: { id: sourceId },
       include: {
-        customer: { select: { id: true } },
-        supplier: { select: { id: true } },
+        partner: { select: { id: true } },
         receivingAccount: { select: { chartOfAccountId: true } },
       },
     });
@@ -110,7 +109,7 @@ export class FinancialTransactionPostingProvider
 
     if (sourceType === 'CUSTOMER_RECEIPT') {
       const arAccountId = await this.accountMapping.resolveReceivableAccount(
-        transaction.customer!.id,
+        transaction.partner!.id,
         tx,
       );
       return {
@@ -124,6 +123,7 @@ export class FinancialTransactionPostingProvider
             accountId: arAccountId,
             credit: amount,
             description: `Customer Receipt Voucher ${transaction.transactionNumber}`,
+            partnerId: transaction.partner!.id,
           },
         ],
         description: `Customer Receipt Voucher ${transaction.transactionNumber}`,
@@ -137,7 +137,7 @@ export class FinancialTransactionPostingProvider
     }
 
     const apAccountId = await this.accountMapping.resolvePayableAccount(
-      transaction.supplier!.id,
+      transaction.partner!.id,
       tx,
     );
     return {
@@ -146,6 +146,7 @@ export class FinancialTransactionPostingProvider
           accountId: apAccountId,
           debit: amount,
           description: `Supplier Payment Voucher ${transaction.transactionNumber}`,
+          partnerId: transaction.partner!.id,
         },
         {
           accountId: bankAccountId,

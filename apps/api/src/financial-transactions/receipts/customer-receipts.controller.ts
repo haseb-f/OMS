@@ -55,8 +55,8 @@ export class CustomerReceiptsController {
 
   /** Open Sales Invoices for the Allocation Grid / "Pay All Remaining" — must be registered before `:id`. */
   @Get('open-invoices')
-  getOpenInvoices(@Query('customerId') customerId: string) {
-    return this.transactions.getOpenInvoices(TYPE, customerId);
+  getOpenInvoices(@Query('partnerId') partnerId: string) {
+    return this.transactions.getOpenInvoices(TYPE, partnerId);
   }
 
   @Get(':id')

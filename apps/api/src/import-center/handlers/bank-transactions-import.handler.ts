@@ -304,16 +304,13 @@ export class BankTransactionsImportHandler
         'Account (Expense) is required when Transaction Type is EXPENSE.',
       );
     }
-    const partnerSupplierId = await this.referenceData.resolveOptional(
+    const partnerId = await this.referenceData.resolveOptional(
       'SUPPLIER',
       'name',
       row.partnerSupplierCode,
       'Partner/Supplier',
     );
-    if (
-      outgoingType === CashFlowOutgoingType.SUPPLIER_PAYMENT &&
-      !partnerSupplierId
-    ) {
+    if (outgoingType === CashFlowOutgoingType.SUPPLIER_PAYMENT && !partnerId) {
       throw new BadRequestException(
         'Partner/Supplier is required when Transaction Type is SUPPLIER_PAYMENT.',
       );
@@ -372,7 +369,7 @@ export class BankTransactionsImportHandler
       cashSourceId,
       outgoingType,
       expenseAccountId,
-      partnerSupplierId,
+      partnerId,
       costCenterId,
       projectId,
     });

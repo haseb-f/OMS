@@ -18,13 +18,13 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class AccountMappingService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Dr Accounts Receivable — Customer's own account always wins; Customer Group, then global default, are the fallbacks. */
+  /** Dr Accounts Receivable — the Partner's own CustomerProfile account always wins; Customer Group, then global default, are the fallbacks. */
   async resolveReceivableAccount(
-    customerId: string,
+    partnerId: string,
     tx: Prisma.TransactionClient | PrismaService = this.prisma,
   ): Promise<string> {
-    const customer = await tx.customer.findUniqueOrThrow({
-      where: { id: customerId },
+    const profile = await tx.customerProfile.findUnique({
+      where: { partnerId },
       select: {
         defaultReceivableAccountId: true,
         customerGroup: { select: { defaultReceivableAccountId: true } },
@@ -32,11 +32,11 @@ export class AccountMappingService {
     });
     const settings = await this.getSettings(tx);
     const accountId =
-      customer.defaultReceivableAccountId ??
-      customer.customerGroup?.defaultReceivableAccountId ??
+      profile?.defaultReceivableAccountId ??
+      profile?.customerGroup?.defaultReceivableAccountId ??
       settings?.accountsReceivableAccountId;
     return this.require(accountId, 'Accounts Receivable', [
-      'Customer.defaultReceivableAccountId',
+      'CustomerProfile.defaultReceivableAccountId',
       'CustomerGroup.defaultReceivableAccountId',
       'PostingSettings.accountsReceivableAccountId',
     ]);
@@ -139,13 +139,13 @@ export class AccountMappingService {
    * legacy global Default Expense Account.
    */
   async resolvePurchaseAccount(
-    supplierId: string,
+    partnerId: string,
     categoryId: string | null,
     tx: Prisma.TransactionClient | PrismaService = this.prisma,
   ): Promise<string> {
-    const [supplier, category, settings] = await Promise.all([
-      tx.supplier.findUniqueOrThrow({
-        where: { id: supplierId },
+    const [profile, category, settings] = await Promise.all([
+      tx.supplierProfile.findUnique({
+        where: { partnerId },
         select: {
           defaultExpenseAccountId: true,
           supplierGroup: { select: { defaultPurchaseAccountId: true } },
@@ -160,13 +160,13 @@ export class AccountMappingService {
       this.getSettings(tx),
     ]);
     const accountId =
-      supplier.defaultExpenseAccountId ??
-      supplier.supplierGroup?.defaultPurchaseAccountId ??
+      profile?.defaultExpenseAccountId ??
+      profile?.supplierGroup?.defaultPurchaseAccountId ??
       category?.purchaseAccountId ??
       settings?.purchaseAccountId ??
       settings?.defaultExpenseAccountId;
     return this.require(accountId, 'Purchase / Expense', [
-      'Supplier.defaultExpenseAccountId',
+      'SupplierProfile.defaultExpenseAccountId',
       'SupplierGroup.defaultPurchaseAccountId',
       'ProductCategory.purchaseAccountId',
       'PostingSettings.purchaseAccountId',
@@ -174,13 +174,13 @@ export class AccountMappingService {
     ]);
   }
 
-  /** Dr Accounts Payable — Supplier's own account always wins, then Supplier Group, then the global default. */
+  /** Dr Accounts Payable — the Partner's own SupplierProfile account always wins, then Supplier Group, then the global default. */
   async resolvePayableAccount(
-    supplierId: string,
+    partnerId: string,
     tx: Prisma.TransactionClient | PrismaService = this.prisma,
   ): Promise<string> {
-    const supplier = await tx.supplier.findUniqueOrThrow({
-      where: { id: supplierId },
+    const profile = await tx.supplierProfile.findUnique({
+      where: { partnerId },
       select: {
         defaultPayableAccountId: true,
         supplierGroup: { select: { defaultPayableAccountId: true } },
@@ -188,11 +188,11 @@ export class AccountMappingService {
     });
     const settings = await this.getSettings(tx);
     const accountId =
-      supplier.defaultPayableAccountId ??
-      supplier.supplierGroup?.defaultPayableAccountId ??
+      profile?.defaultPayableAccountId ??
+      profile?.supplierGroup?.defaultPayableAccountId ??
       settings?.accountsPayableAccountId;
     return this.require(accountId, 'Accounts Payable', [
-      'Supplier.defaultPayableAccountId',
+      'SupplierProfile.defaultPayableAccountId',
       'SupplierGroup.defaultPayableAccountId',
       'PostingSettings.accountsPayableAccountId',
     ]);

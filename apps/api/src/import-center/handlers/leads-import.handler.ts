@@ -162,6 +162,20 @@ export class LeadsImportHandler implements ImportTypeHandler, OnModuleInit {
 
     if (options?.dryRun) return { id: 'dry-run' };
 
+    const isGoogleSheets = options?.context?.source === 'GOOGLE_SHEETS';
+    const source = isGoogleSheets ? LeadSource.GOOGLE_SHEETS : LeadSource.EXCEL;
+
+    // Idempotent re-sync: same external Lead ID must never create a second
+    // Lead (nor Partner / StoreOrder on a later sync after conversion).
+    if (row.externalOrderId) {
+      const existing = await this.leadsService.findByExternalOrderId(
+        row.externalOrderId,
+      );
+      if (existing) {
+        return { id: existing.id };
+      }
+    }
+
     const lead = await this.leadsService.create(
       {
         recordType: 'LEAD',
@@ -171,10 +185,12 @@ export class LeadsImportHandler implements ImportTypeHandler, OnModuleInit {
         city: row.city || undefined,
         address: row.address || undefined,
         productId,
-        source: LeadSource.EXCEL,
+        source,
         salesEmployeeId,
         externalOrderId: row.externalOrderId || undefined,
-        importBatch: `import-center-${new Date().toISOString().slice(0, 10)}`,
+        importBatch: isGoogleSheets
+          ? `google-sheets-${new Date().toISOString().slice(0, 10)}`
+          : `import-center-${new Date().toISOString().slice(0, 10)}`,
       },
       userId,
     );

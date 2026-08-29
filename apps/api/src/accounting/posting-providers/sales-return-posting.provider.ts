@@ -49,7 +49,12 @@ export class SalesReturnPostingProvider
     const salesReturn = await tx.salesReturn.findUniqueOrThrow({
       where: { id: sourceId },
       include: {
-        customer: { select: { id: true, customerGroupId: true } },
+        partner: {
+          select: {
+            id: true,
+            customerProfile: { select: { customerGroupId: true } },
+          },
+        },
         items: {
           include: {
             product: { select: { isInventoryItem: true, categoryId: true } },
@@ -64,13 +69,14 @@ export class SalesReturnPostingProvider
     const lines: PostingLine[] = [];
 
     const arAccountId = await this.accountMapping.resolveReceivableAccount(
-      salesReturn.customer.id,
+      salesReturn.partner.id,
       tx,
     );
     lines.push({
       accountId: arAccountId,
       credit: Number(salesReturn.grandTotal),
       description: `Sales Return ${salesReturn.returnNumber}`,
+      partnerId: salesReturn.partner.id,
     });
 
     const revenueByLine = new Map<string, number>();
@@ -78,7 +84,7 @@ export class SalesReturnPostingProvider
       const netAmount = Number(item.lineTotal) - Number(item.taxAmount);
       const accountId = await this.accountMapping.resolveSalesRevenueAccount(
         item.product.categoryId,
-        salesReturn.customer.customerGroupId,
+        salesReturn.partner.customerProfile?.customerGroupId ?? null,
         tx,
       );
       revenueByLine.set(

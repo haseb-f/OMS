@@ -3,8 +3,7 @@ import {
   FinancialTransactionsService,
   type FinancialTransactionCreateInput,
 } from '../../financial-transactions/financial-transactions.service';
-import { CustomersService } from '../../customers/customers.service';
-import { SuppliersService } from '../../suppliers/suppliers.service';
+import { PartnersService } from '../../partners/partners.service';
 import { SalesInvoicesService } from '../../sales/invoices/sales-invoices.service';
 import { PurchaseInvoicesService } from '../../purchasing/invoices/purchase-invoices.service';
 import { CurrenciesService } from '../../currencies/currencies.service';
@@ -119,7 +118,7 @@ function assertTransactionType(
 async function buildAndCreate(
   service: FinancialTransactionsService,
   type: 'CUSTOMER_RECEIPT' | 'SUPPLIER_PAYMENT',
-  partyId: string,
+  partnerId: string,
   currencyId: string | undefined,
   salesInvoicesService: SalesInvoicesService,
   purchaseInvoicesService: PurchaseInvoicesService,
@@ -160,8 +159,7 @@ async function buildAndCreate(
   }
 
   const input: FinancialTransactionCreateInput = {
-    customerId: type === 'CUSTOMER_RECEIPT' ? partyId : undefined,
-    supplierId: type === 'SUPPLIER_PAYMENT' ? partyId : undefined,
+    partnerId,
     currencyId,
     amount,
     referenceNumber: first.referenceNumber || undefined,
@@ -185,7 +183,7 @@ export class CustomerReceiptsImportHandler
 
   constructor(
     private readonly financialTransactionsService: FinancialTransactionsService,
-    private readonly customersService: CustomersService,
+    private readonly partnersService: PartnersService,
     private readonly salesInvoicesService: SalesInvoicesService,
     private readonly purchaseInvoicesService: PurchaseInvoicesService,
     private readonly currenciesService: CurrenciesService,
@@ -211,8 +209,8 @@ export class CustomerReceiptsImportHandler
   ): Promise<ImportRowResult> {
     const first = rows[0];
     assertTransactionType(first.transactionType, 'CUSTOMER_RECEIPT');
-    const customerId = await resolveRequiredIdByField(
-      this.customersService,
+    const partnerId = await resolveRequiredIdByField(
+      this.partnersService,
       'name',
       first.partyName,
       'Customer',
@@ -227,7 +225,7 @@ export class CustomerReceiptsImportHandler
     return buildAndCreate(
       this.financialTransactionsService,
       'CUSTOMER_RECEIPT',
-      customerId,
+      partnerId,
       currencyId,
       this.salesInvoicesService,
       this.purchaseInvoicesService,
@@ -250,7 +248,7 @@ export class SupplierPaymentsImportHandler
 
   constructor(
     private readonly financialTransactionsService: FinancialTransactionsService,
-    private readonly suppliersService: SuppliersService,
+    private readonly partnersService: PartnersService,
     private readonly salesInvoicesService: SalesInvoicesService,
     private readonly purchaseInvoicesService: PurchaseInvoicesService,
     private readonly currenciesService: CurrenciesService,
@@ -276,8 +274,8 @@ export class SupplierPaymentsImportHandler
   ): Promise<ImportRowResult> {
     const first = rows[0];
     assertTransactionType(first.transactionType, 'SUPPLIER_PAYMENT');
-    const supplierId = await resolveRequiredIdByField(
-      this.suppliersService,
+    const partnerId = await resolveRequiredIdByField(
+      this.partnersService,
       'name',
       first.partyName,
       'Supplier',
@@ -292,7 +290,7 @@ export class SupplierPaymentsImportHandler
     return buildAndCreate(
       this.financialTransactionsService,
       'SUPPLIER_PAYMENT',
-      supplierId,
+      partnerId,
       currencyId,
       this.salesInvoicesService,
       this.purchaseInvoicesService,

@@ -6,6 +6,7 @@ import {
   SalesDocumentStatus,
   PurchaseDocumentStatus,
   AccountType,
+  PartnerRoleType,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PrismaModule } from '../prisma/prisma.module';
@@ -16,7 +17,7 @@ import { StoreOrdersImportHandler } from '../import-center/handlers/store-orders
 import { ImportCenterModule } from '../import-center/import-center.module';
 import { StoreOrderPaymentSyncService } from '../store-orders/store-order-payment-sync.service';
 import { PaymentsService } from '../payments/payments.service';
-import { SuppliersService } from '../suppliers/suppliers.service';
+import { PartnersService } from '../partners/partners.service';
 import { PermissionsCoreModule } from '../permissions/permissions-core.module';
 import { PhoneModule } from '../common/phone/phone.module';
 import { AuthModule } from '../auth/auth.module';
@@ -39,7 +40,7 @@ describe('Cash Flow Reconciliation', () => {
   let reconciliation: CashFlowReconciliationService;
   let storeOrdersHandler: StoreOrdersImportHandler;
   let paymentsService: PaymentsService;
-  let suppliersService: SuppliersService;
+  let partnersService: PartnersService;
 
   let categoryId: string;
   let unitId: string;
@@ -80,7 +81,7 @@ describe('Cash Flow Reconciliation', () => {
     reconciliation = moduleRef.get(CashFlowReconciliationService);
     storeOrdersHandler = moduleRef.get(StoreOrdersImportHandler);
     paymentsService = moduleRef.get(PaymentsService);
-    suppliersService = moduleRef.get(SuppliersService);
+    partnersService = moduleRef.get(PartnersService);
     void moduleRef.get(StoreOrderPaymentSyncService);
 
     const category = await prisma.productCategory.create({
@@ -149,8 +150,9 @@ describe('Cash Flow Reconciliation', () => {
     });
     expenseAccountId = expenseAccount.id;
 
-    const supplier = await suppliersService.create({
+    const supplier = await partnersService.create({
       name: 'Cash Flow Test Supplier',
+      roles: [PartnerRoleType.SUPPLIER],
     });
     supplierId = supplier.id;
 
@@ -186,7 +188,7 @@ describe('Cash Flow Reconciliation', () => {
     const created = await prisma.storeOrder.findUniqueOrThrow({
       where: { id: order.id },
     });
-    sharedCustomerId = created.customerId;
+    sharedCustomerId = created.partnerId;
   });
 
   afterAll(async () => {
@@ -196,7 +198,7 @@ describe('Cash Flow Reconciliation', () => {
     // `sharedCustomerId`. Sweep up every one of them by the fixture's fixed
     // name, the same "tag it distinctively, clean up by that tag" pattern
     // `data-synchronization.spec.ts` already established.
-    const customers = await prisma.customer.findMany({
+    const customers = await prisma.partner.findMany({
       where: { name: 'Cash Flow Test Customer' },
       select: { id: true },
     });
@@ -204,7 +206,7 @@ describe('Cash Flow Reconciliation', () => {
       ...new Set([...customers.map((c) => c.id), sharedCustomerId]),
     ];
     const orders = await prisma.storeOrder.findMany({
-      where: { customerId: { in: customerIds } },
+      where: { partnerId: { in: customerIds } },
       select: { id: true },
     });
     const orderIds = orders.map((o) => o.id);
@@ -244,9 +246,11 @@ describe('Cash Flow Reconciliation', () => {
     }
 
     await prisma.salesInvoice.deleteMany({
-      where: { customerId: { in: customerIds } },
+      where: { partnerId: { in: customerIds } },
     });
-    await prisma.purchaseInvoice.deleteMany({ where: { supplierId } });
+    await prisma.purchaseInvoice.deleteMany({
+      where: { partnerId: supplierId },
+    });
 
     // Sweep by receiving account as well as by store order: the supplier
     // payment and expense voucher scenarios create Payments with no
@@ -273,9 +277,23 @@ describe('Cash Flow Reconciliation', () => {
       where: { storeOrderId: { in: orderIds } },
     });
     await prisma.storeOrder.deleteMany({ where: { id: { in: orderIds } } });
-    await prisma.customer.deleteMany({ where: { id: { in: customerIds } } });
-    await prisma.supplierActivity.deleteMany({ where: { supplierId } });
-    await prisma.supplier.deleteMany({ where: { id: supplierId } });
+    await prisma.masterDataActivityLog.deleteMany({
+      where: {
+        entityType: 'PARTNER',
+        entityId: { in: [...customerIds, supplierId] },
+      },
+    });
+    await prisma.customerProfile.deleteMany({
+      where: { partnerId: { in: customerIds } },
+    });
+    await prisma.partnerRoleAssignment.deleteMany({
+      where: { partnerId: { in: [...customerIds, supplierId] } },
+    });
+    await prisma.partner.deleteMany({ where: { id: { in: customerIds } } });
+    await prisma.supplierProfile.deleteMany({
+      where: { partnerId: supplierId },
+    });
+    await prisma.partner.deleteMany({ where: { id: supplierId } });
 
     await prisma.receivingAccount.deleteMany({ where: { id: cashSourceId } });
     await prisma.chartOfAccount.deleteMany({
@@ -553,7 +571,7 @@ describe('Cash Flow Reconciliation', () => {
       return prisma.salesInvoice.create({
         data: {
           invoiceNumber: `CF-SI-${randomUUID()}`,
-          customerId: sharedCustomerId,
+          partnerId: sharedCustomerId,
           currencyId: currency,
           status: SalesDocumentStatus.CONFIRMED,
           grandTotal,
@@ -667,7 +685,7 @@ describe('Cash Flow Reconciliation', () => {
       return prisma.purchaseInvoice.create({
         data: {
           invoiceNumber: `CF-PI-${randomUUID()}`,
-          supplierId,
+          partnerId: supplierId,
           currencyId,
           status: PurchaseDocumentStatus.CONFIRMED,
           grandTotal,
@@ -680,7 +698,7 @@ describe('Cash Flow Reconciliation', () => {
       const txn = await importOutgoing({ amount: -800 });
       await reconciliation.classifyOutgoing(txn.id, {
         outgoingType: 'SUPPLIER_PAYMENT',
-        partnerSupplierId: supplierId,
+        partnerId: supplierId,
       });
 
       const result = await reconciliation.confirmPurchaseInvoicePayment(
@@ -710,7 +728,7 @@ describe('Cash Flow Reconciliation', () => {
       const txn = await importOutgoing({ amount: -300 });
       await reconciliation.classifyOutgoing(txn.id, {
         outgoingType: 'SUPPLIER_PAYMENT',
-        partnerSupplierId: supplierId,
+        partnerId: supplierId,
       });
       await reconciliation.confirmPurchaseInvoicePayment(
         txn.id,
@@ -735,7 +753,7 @@ describe('Cash Flow Reconciliation', () => {
       const first = await importOutgoing({ amount: -500 });
       await reconciliation.classifyOutgoing(first.id, {
         outgoingType: 'SUPPLIER_PAYMENT',
-        partnerSupplierId: supplierId,
+        partnerId: supplierId,
       });
       await reconciliation.confirmPurchaseInvoicePayment(
         first.id,
@@ -750,7 +768,7 @@ describe('Cash Flow Reconciliation', () => {
       const second = await importOutgoing({ amount: -300 });
       await reconciliation.classifyOutgoing(second.id, {
         outgoingType: 'SUPPLIER_PAYMENT',
-        partnerSupplierId: supplierId,
+        partnerId: supplierId,
       });
       await reconciliation.confirmPurchaseInvoicePayment(
         second.id,

@@ -20,7 +20,7 @@ import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorat
  */
 export class CreatePurchaseOrderDto {
   @IsUUID()
-  supplierId!: string;
+  partnerId!: string;
 
   /** Set internally when a PO is created via "Convert to Order" (TASK-048) — never accepted from a plain create-PO request body. */
   @IsOptionalUuid()

@@ -21,13 +21,16 @@ import { prismaEnumFilter } from '../common/query/enum-list';
 
 const ENTRY_INCLUDE = {
   lines: {
-    include: { account: true, costCenter: true, project: true },
+    include: {
+      account: true,
+      costCenter: true,
+      project: true,
+      partner: { select: { id: true, partnerNumber: true, name: true } },
+    },
     orderBy: { lineOrder: 'asc' },
   },
   journal: true,
   currency: true,
-  partnerCustomer: { select: { id: true, customerNumber: true, name: true } },
-  partnerSupplier: { select: { id: true, supplierNumber: true, name: true } },
   reversalOfEntry: {
     select: { id: true, entryNumber: true },
   },
@@ -58,7 +61,6 @@ export class JournalEntriesService {
     const resolvedLines = await this.resolveLines(dto.lines);
     const { totalDebit, totalCredit } = this.computeTotals(resolvedLines);
     this.assertBalanced(totalDebit, totalCredit);
-    this.assertValidPartner(dto.partnerCustomerId, dto.partnerSupplierId);
 
     const entryNumber =
       await this.numberingEngine.generateNumber('JOURNAL_ENTRY');
@@ -72,8 +74,6 @@ export class JournalEntriesService {
             description: dto.description,
             journalId: dto.journalId,
             currencyId: dto.currencyId,
-            partnerCustomerId: dto.partnerCustomerId,
-            partnerSupplierId: dto.partnerSupplierId,
             referenceNumber: dto.referenceNumber,
             sourceType: 'MANUAL',
             totalDebit,
@@ -218,15 +218,6 @@ export class JournalEntriesService {
       totals = this.computeTotals(resolvedLines);
       this.assertBalanced(totals.totalDebit, totals.totalCredit);
     }
-    if (
-      dto.partnerCustomerId !== undefined ||
-      dto.partnerSupplierId !== undefined
-    ) {
-      this.assertValidPartner(
-        dto.partnerCustomerId ?? existing.partnerCustomerId ?? undefined,
-        dto.partnerSupplierId ?? existing.partnerSupplierId ?? undefined,
-      );
-    }
 
     return this.prisma.$transaction(async (tx) => {
       if (resolvedLines) {
@@ -241,8 +232,6 @@ export class JournalEntriesService {
           description: dto.description,
           journalId: dto.journalId,
           currencyId: dto.currencyId,
-          partnerCustomerId: dto.partnerCustomerId,
-          partnerSupplierId: dto.partnerSupplierId,
           referenceNumber: dto.referenceNumber,
           updatedBy: userId ?? null,
           ...(totals ?? {}),
@@ -373,6 +362,7 @@ export class JournalEntriesService {
               description: line.description,
               debit: line.credit,
               credit: line.debit,
+              partnerId: line.partnerId ?? undefined,
               lineOrder: index,
             })),
           },
@@ -472,8 +462,6 @@ export class JournalEntriesService {
           description: existing.description,
           journalId: existing.journalId,
           currencyId: existing.currencyId,
-          partnerCustomerId: existing.partnerCustomerId,
-          partnerSupplierId: existing.partnerSupplierId,
           referenceNumber: existing.referenceNumber,
           sourceType: 'MANUAL',
           totalDebit: existing.totalDebit,
@@ -488,6 +476,7 @@ export class JournalEntriesService {
               projectId: line.projectId,
               debit: line.debit,
               credit: line.credit,
+              partnerId: line.partnerId ?? undefined,
               lineOrder: index,
             })),
           },
@@ -526,7 +515,12 @@ export class JournalEntriesService {
     const accountIds = [...new Set(lines.map((l) => l.accountId))];
     const accounts = await this.prisma.chartOfAccount.findMany({
       where: { id: { in: accountIds }, deletedAt: null },
-      select: { id: true, allowsPosting: true, code: true },
+      select: {
+        id: true,
+        allowsPosting: true,
+        code: true,
+        partnerControlType: true,
+      },
     });
     const accountById = new Map(accounts.map((a) => [a.id, a]));
 
@@ -559,11 +553,22 @@ export class JournalEntriesService {
           'Every line needs either a debit or a credit amount.',
         );
       }
+      // Unified Partner Architecture (spec section 21) — backend-enforced,
+      // never left to the frontend alone: a line against a RECEIVABLE/
+      // PAYABLE control account must carry a Partner.
+      if (account.partnerControlType && !line.partnerId) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: `Account ${account.code} requires a Partner.`,
+          fields: [{ field: 'partnerId', constraints: ['partner_required'] }],
+        });
+      }
       return {
         accountId: line.accountId,
         description: line.description,
         costCenterId: line.costCenterId,
         projectId: line.projectId,
+        partnerId: line.partnerId,
         debit,
         credit,
       };
@@ -581,18 +586,6 @@ export class JournalEntriesService {
     if (Math.abs(totalDebit - totalCredit) > 0.001) {
       throw new BadRequestException(
         `Journal entry is not balanced — total debit (${totalDebit}) must equal total credit (${totalCredit}).`,
-      );
-    }
-  }
-
-  /** "Partner (optional)" — at most one of Customer/Supplier, never both. */
-  private assertValidPartner(
-    partnerCustomerId?: string,
-    partnerSupplierId?: string,
-  ) {
-    if (partnerCustomerId && partnerSupplierId) {
-      throw new BadRequestException(
-        'A journal entry can reference a Customer or a Supplier as its partner, not both.',
       );
     }
   }

@@ -3,12 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, SalesDocumentStatus } from '@prisma/client';
+import { PartnerRoleType, Prisma, SalesDocumentStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
 import { ProductsService } from '../../products/products.service';
 import { WarehousesService } from '../../warehouses/warehouses.service';
-import { CustomersService } from '../../customers/customers.service';
+import { PartnersService } from '../../partners/partners.service';
 import { InventoryService } from '../../inventory/inventory.service';
 import {
   SalesOrderDocumentActivityService,
@@ -36,7 +36,7 @@ const REFERENCE_TYPE = 'SALES_ORDER_DOC';
 export class SalesOrdersService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly customersService: CustomersService,
+    private readonly partnersService: PartnersService,
     private readonly productsService: ProductsService,
     private readonly warehousesService: WarehousesService,
     private readonly inventoryService: InventoryService,
@@ -49,7 +49,10 @@ export class SalesOrdersService {
     dto: CreateSalesOrderDto,
     context: CompanyContext = { companyId: null, branchId: null },
   ) {
-    await this.customersService.assertActiveCustomer(dto.customerId);
+    await this.partnersService.assertActiveForRole(
+      dto.partnerId,
+      PartnerRoleType.CUSTOMER,
+    );
     const productsById = await this.productsService.findManyForValidation(
       dto.items.map((item) => item.productId),
     );
@@ -64,7 +67,7 @@ export class SalesOrdersService {
     return this.createOrder(
       {
         orderNumber,
-        customerId: dto.customerId,
+        partnerId: dto.partnerId,
         currencyId: dto.currencyId ?? null,
         companyId: context.companyId,
         branchId: context.branchId,
@@ -104,7 +107,10 @@ export class SalesOrdersService {
         `Cannot convert Quotation ${quotation.quotationNumber} to a Sales Order unless it is Approved.`,
       );
     }
-    await this.customersService.assertActiveCustomer(quotation.customerId);
+    await this.partnersService.assertActiveForRole(
+      quotation.partnerId,
+      PartnerRoleType.CUSTOMER,
+    );
 
     const quotationItemById = new Map(
       quotation.items.map((item) => [item.id, item]),
@@ -143,7 +149,7 @@ export class SalesOrdersService {
     return this.createOrder(
       {
         orderNumber,
-        customerId: quotation.customerId,
+        partnerId: quotation.partnerId,
         currencyId: quotation.currencyId,
         companyId: quotation.companyId,
         branchId: quotation.branchId,
@@ -176,12 +182,12 @@ export class SalesOrdersService {
   private buildFindWhere(
     query: Pick<
       FindSalesOrdersQueryDto,
-      'customerId' | 'status' | 'search' | 'dateFrom' | 'dateTo'
+      'partnerId' | 'status' | 'search' | 'dateFrom' | 'dateTo'
     >,
   ): Prisma.SalesOrderDocumentWhereInput {
     const where: Prisma.SalesOrderDocumentWhereInput = {
       deletedAt: null,
-      customerId: prismaEnumFilter(query.customerId),
+      partnerId: prismaEnumFilter(query.partnerId),
       status: prismaEnumFilter(query.status),
     };
     if (query.search) {
@@ -209,7 +215,7 @@ export class SalesOrdersService {
               product: { select: { id: true, name: true, sku: true } },
             },
           },
-          customer: true,
+          partner: true,
           currency: true,
         },
         orderBy: { [query.sortBy || 'createdAt']: query.sortOrder ?? 'desc' },
@@ -259,7 +265,7 @@ export class SalesOrdersService {
     const order = await this.prisma.salesOrderDocument.findFirst({
       where: { id, deletedAt: null },
       include: {
-        customer: true,
+        partner: true,
         currency: true,
         quotation: { select: { quotationNumber: true } },
         items: {
@@ -284,8 +290,11 @@ export class SalesOrdersService {
     if (existing.status !== SalesDocumentStatus.DRAFT) {
       throw new BadRequestException('Only a Draft Sales Order can be edited.');
     }
-    if (dto.customerId) {
-      await this.customersService.assertActiveCustomer(dto.customerId);
+    if (dto.partnerId) {
+      await this.partnersService.assertActiveForRole(
+        dto.partnerId,
+        PartnerRoleType.CUSTOMER,
+      );
     }
 
     let computed: Awaited<ReturnType<typeof this.computeLines>> | undefined;
@@ -309,7 +318,7 @@ export class SalesOrdersService {
       const order = await tx.salesOrderDocument.update({
         where: { id },
         data: {
-          customerId: dto.customerId,
+          partnerId: dto.partnerId,
           currencyId: dto.currencyId,
           referenceNumber: dto.referenceNumber,
           internalNotes: dto.internalNotes,
@@ -319,7 +328,7 @@ export class SalesOrdersService {
             : {}),
         },
         include: {
-          customer: true,
+          partner: true,
           currency: true,
           items: {
             include: { product: true, warehouse: true, unit: true, tax: true },
@@ -390,7 +399,7 @@ export class SalesOrdersService {
           confirmedBy: userId ?? null,
         },
         include: {
-          customer: true,
+          partner: true,
           currency: true,
           items: {
             include: { product: true, warehouse: true, unit: true, tax: true },
@@ -450,7 +459,7 @@ export class SalesOrdersService {
           cancelledBy: userId ?? null,
         },
         include: {
-          customer: true,
+          partner: true,
           currency: true,
           items: {
             include: { product: true, warehouse: true, unit: true, tax: true },
@@ -493,7 +502,7 @@ export class SalesOrdersService {
         where: { id },
         data: { deletedAt: new Date(), updatedBy: userId ?? null },
         include: {
-          customer: true,
+          partner: true,
           currency: true,
           items: {
             include: { product: true, warehouse: true, unit: true, tax: true },
@@ -566,7 +575,7 @@ export class SalesOrdersService {
         where: { id },
         data: { status: to },
         include: {
-          customer: true,
+          partner: true,
           currency: true,
           items: {
             include: { product: true, warehouse: true, unit: true, tax: true },
@@ -587,7 +596,7 @@ export class SalesOrdersService {
   private async createOrder(
     header: {
       orderNumber: string;
-      customerId: string;
+      partnerId: string;
       currencyId: string | null;
       companyId?: string | null;
       branchId?: string | null;
@@ -610,7 +619,7 @@ export class SalesOrdersService {
             items: { create: computed.lines },
           },
           include: {
-            customer: true,
+            partner: true,
             currency: true,
             items: {
               include: {
@@ -640,7 +649,7 @@ export class SalesOrdersService {
         error.code === 'P2003'
       ) {
         throw new BadRequestException(
-          'Invalid customer, currency, product, warehouse, unit, or tax reference.',
+          'Invalid partner, currency, product, warehouse, unit, or tax reference.',
         );
       }
       throw error;

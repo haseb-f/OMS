@@ -107,14 +107,14 @@ describe('Users + Auth permission payload', () => {
       });
       const first = await auth.getCurrentUser(created.id);
       expect(first.permissions).toContain('store-orders.view');
-      expect(first.permissions).not.toContain('sales.customers.view');
+      expect(first.permissions).not.toContain('partners.view');
 
       await users.setPermissions(created.id, {
-        permissionNames: ['store-orders.view', 'sales.customers.view'],
+        permissionNames: ['store-orders.view', 'partners.view'],
       });
       const second = await auth.getCurrentUser(created.id);
       expect(second.permissions).toEqual(
-        expect.arrayContaining(['store-orders.view', 'sales.customers.view']),
+        expect.arrayContaining(['store-orders.view', 'partners.view']),
       );
     },
   );

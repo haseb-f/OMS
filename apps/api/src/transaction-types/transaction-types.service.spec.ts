@@ -94,13 +94,13 @@ describe('TransactionTypesService', () => {
     const originalName = system.nameAr;
     const renamed = await service.update(system.id, {
       nameAr: `${originalName} (test)`,
-    } as never);
+    });
     expect(renamed.id).toBe(system.id);
     expect(renamed.nameAr).toBe(`${originalName} (test)`);
 
     const restored = await service.update(system.id, {
       nameAr: originalName,
-    } as never);
+    });
     expect(restored.nameAr).toBe(originalName);
   });
 

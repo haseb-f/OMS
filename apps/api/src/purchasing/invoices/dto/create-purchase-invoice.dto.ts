@@ -13,7 +13,7 @@ import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.deco
 /** Direct/standalone Goods Receipt — no originating Purchase Order. Warehouse is required on every line. */
 export class CreatePurchaseInvoiceDto {
   @IsUUID()
-  supplierId!: string;
+  partnerId!: string;
 
   @IsOptionalUuid()
   currencyId?: string;

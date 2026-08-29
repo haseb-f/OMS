@@ -3,7 +3,7 @@ import { PurchaseInvoicesController } from './purchase-invoices.controller';
 import { PurchaseInvoicesService } from './purchase-invoices.service';
 import { PurchaseInvoiceActivitiesController } from './activities/purchase-invoice-activities.controller';
 import { PurchaseInvoiceActivityService } from './activities/purchase-invoice-activity.service';
-import { SuppliersModule } from '../../suppliers/suppliers.module';
+import { PartnersModule } from '../../partners/partners.module';
 import { ProductsModule } from '../../products/products.module';
 import { WarehousesModule } from '../../warehouses/warehouses.module';
 import { InventoryModule } from '../../inventory/inventory.module';
@@ -12,7 +12,7 @@ import { PostingEngineModule } from '../../accounting/posting-engine/posting-eng
 
 @Module({
   imports: [
-    SuppliersModule,
+    PartnersModule,
     ProductsModule,
     WarehousesModule,
     InventoryModule,

@@ -98,6 +98,7 @@ export class PostingEngineService {
       }
 
       this.assertBalanced(result.lines);
+      await this.assertPartnersRequired(result.lines, client);
 
       const entryDate = new Date();
       await this.accountingPeriods.assertPeriodOpen(entryDate, client);
@@ -147,6 +148,7 @@ export class PostingEngineService {
               debit: line.debit ?? 0,
               credit: line.credit ?? 0,
               description: line.description,
+              partnerId: line.partnerId ?? undefined,
               lineOrder: index,
             })),
           },
@@ -242,6 +244,7 @@ export class PostingEngineService {
               description: line.description,
               debit: line.credit,
               credit: line.debit,
+              partnerId: line.partnerId ?? undefined,
               lineOrder: index,
             })),
           },
@@ -306,6 +309,35 @@ export class PostingEngineService {
     if (Math.abs(totalDebit - totalCredit) > 0.01) {
       throw new BadRequestException(
         `Posting is not balanced — total debit (${totalDebit}) must equal total credit (${totalCredit}).`,
+      );
+    }
+  }
+
+  /**
+   * Unified Partner Architecture (spec section 21) — backend enforcement,
+   * never left to the frontend alone: a line against a RECEIVABLE/PAYABLE
+   * control account must carry a partnerId. Every posting provider already
+   * attaches it (see the provider files) — this is the last-line guard
+   * against a provider bug leaving one off, not the primary mechanism.
+   */
+  private async assertPartnersRequired(
+    lines: PostingLine[],
+    client: Prisma.TransactionClient,
+  ) {
+    const accountIds = [...new Set(lines.map((l) => l.accountId))];
+    const accounts = await client.chartOfAccount.findMany({
+      where: { id: { in: accountIds }, partnerControlType: { not: null } },
+      select: { id: true, code: true, name: true },
+    });
+    if (accounts.length === 0) return;
+    const controlledAccountIds = new Set(accounts.map((a) => a.id));
+    const missing = lines.find(
+      (line) => controlledAccountIds.has(line.accountId) && !line.partnerId,
+    );
+    if (missing) {
+      const account = accounts.find((a) => a.id === missing.accountId)!;
+      throw new BadRequestException(
+        `A posting line against ${account.code} — ${account.name} requires a Partner.`,
       );
     }
   }
