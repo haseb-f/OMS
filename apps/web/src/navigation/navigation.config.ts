@@ -48,6 +48,15 @@ export const navigationConfig: NavigationItem[] = [
     order: 0,
     permissions: ["crm.leads.view"],
   },
+  {
+    id: "crm-funnel",
+    titleKey: "workflow.funnel.title",
+    parent: "crm",
+    route: "/crm/funnel",
+    icon: "bar-chart",
+    order: 1,
+    permissions: ["crm.leads.view"],
+  },
 
   {
     id: "sales",

@@ -19,6 +19,11 @@ export interface BankTransactionMatchCandidate {
   amount: number;
   score: number;
   reasons: string[];
+  methodMismatch?: boolean;
+  expectedPaymentSourceId?: string | null;
+  expectedPaymentSourceName?: string | null;
+  actualCashSourceId?: string | null;
+  actualCashSourceName?: string | null;
 }
 
 export interface BankTransactionRow {
@@ -153,6 +158,8 @@ export const bankTransactionsService = {
       paymentSourceId: string;
       referenceNumber?: string;
       senderName?: string;
+      acknowledgeMethodMismatch?: boolean;
+      updateExpectedPaymentSource?: boolean;
     },
   ) =>
     apiClient.post<BankTransactionRow>(`/bank-transactions/${id}/confirm-store-order-payment`, dto),

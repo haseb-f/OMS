@@ -790,6 +790,12 @@ const ar = {
       classify: "تصنيف",
       confirmMatch: "تأكيد المطابقة",
       noCandidates: "لا توجد مطابقات مقترحة لهذه الحركة.",
+      methodMismatch: "تحذير: طريقة الدفع المتوقعة تختلف عن مصدر النقد الفعلي — يمكن المتابعة",
+      methodMismatchTitle: "اختلاف طريقة الدفع",
+      methodMismatchDescription:
+        "المتوقع {expected}، لكن النقد وصل إلى {actual}. اختر كيفية المتابعة — المطابقة ما زالت مسموحة.",
+      methodMismatchMatchAnyway: "مطابقة مع الإبقاء",
+      methodMismatchUpdateExpected: "مطابقة وتحديث الطريقة المتوقعة",
       matchConfirmed: "تم تأكيد المطابقة.",
       matchingRunSuccess: "تمت مطابقة {count} حركة.",
       tabs: { incoming: "الوارد", outgoing: "الصادر" },
@@ -1615,6 +1621,13 @@ const ar = {
       reject: "رفض",
       approved: "تم الاعتماد",
       rejected: "تم الرفض",
+    },
+    funnel: {
+      title: "قمع العملاء المحتملين",
+      description: "مراحل مسار العميل من سجل الحالة التاريخي — وليس من الحالة الحالية فقط.",
+      dateFrom: "من تاريخ",
+      dateTo: "إلى تاريخ",
+      events: "أحداث الحالة",
     },
     fields: {
       storeOrder: "طلب المتجر",

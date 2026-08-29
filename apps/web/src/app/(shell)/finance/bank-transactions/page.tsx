@@ -6,6 +6,7 @@ import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSurface, ListToolbar } from "@/components/shared/data-table/list-surface";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
+import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EnterpriseButton } from "@/components/ui/button";
 import { LoadingOverlay } from "@/components/shared/loading-overlay";
 import { KpiCard } from "@/components/shared/kpi-card";
@@ -539,6 +540,10 @@ function ReconcileDialog({
   const [manualPicker, setManualPicker] = useState<
     "STORE_ORDER" | "SALES_INVOICE" | "PURCHASE_INVOICE" | null
   >(null);
+  const [mismatchCandidate, setMismatchCandidate] = useState<BankTransactionMatchCandidate | null>(
+    null,
+  );
+  const [mismatchMode, setMismatchMode] = useState<"match" | "update" | null>(null);
 
   useEffect(() => {
     paymentSourcesService
@@ -560,9 +565,20 @@ function ReconcileDialog({
       .finally(() => setLoadingCandidates(false));
   }, [transaction.id, isIncoming, isExpense]);
 
-  const confirmCandidate = async (candidate: BankTransactionMatchCandidate) => {
+  const confirmCandidate = async (
+    candidate: BankTransactionMatchCandidate,
+    opts?: { acknowledgeMethodMismatch?: boolean; updateExpectedPaymentSource?: boolean },
+  ) => {
     if (!paymentSourceId && candidate.kind !== "PAYMENT") {
       toast.error(t("masterData.bankTransactions.voucher.paymentSource"));
+      return;
+    }
+    if (
+      candidate.kind === "STORE_ORDER" &&
+      candidate.methodMismatch &&
+      !opts?.acknowledgeMethodMismatch
+    ) {
+      setMismatchCandidate(candidate);
       return;
     }
     setBusy(true);
@@ -573,6 +589,8 @@ function ReconcileDialog({
         await bankTransactionsService.confirmStoreOrderPayment(transaction.id, {
           storeOrderId: candidate.id,
           paymentSourceId: paymentSourceId!,
+          acknowledgeMethodMismatch: opts?.acknowledgeMethodMismatch,
+          updateExpectedPaymentSource: opts?.updateExpectedPaymentSource,
         });
         toast.success(t("masterData.bankTransactions.voucher.storeOrderPaymentCreated"));
       } else if (candidate.kind === "SALES_INVOICE") {
@@ -592,11 +610,13 @@ function ReconcileDialog({
         });
         toast.success(t("masterData.bankTransactions.voucher.supplierPaymentCreated"));
       }
+      setMismatchCandidate(null);
       onDone();
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Failed to reconcile.");
     } finally {
       setBusy(false);
+      setMismatchMode(null);
     }
   };
 
@@ -623,192 +643,247 @@ function ReconcileDialog({
   };
 
   return (
-    <EnterpriseModal
-      open
-      onOpenChange={(open) => !open && onClose()}
-      size="lg"
-      icon={Landmark}
-      title={t("masterData.bankTransactions.reconcile")}
-      description={`${formatDate(transaction.transactionDate)} — ${formatMoney(transaction.amount, transaction.currency?.code)}`}
-      footer={(requestClose) => (
-        <EnterpriseButton type="button" variant="ghost" onClick={requestClose} disabled={busy}>
-          {t("common.cancel")}
-        </EnterpriseButton>
-      )}
-    >
-      <div className="flex flex-col gap-4">
-        {transaction.description && (
-          <p className="text-caption text-muted-foreground">{transaction.description}</p>
-        )}
-
-        <div className="flex flex-col gap-1.5">
-          <Label>{t("masterData.bankTransactions.voucher.paymentSource")}</Label>
-          <Select value={paymentSourceId ?? undefined} onValueChange={setPaymentSourceId}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder={t("common.select")} />
-            </SelectTrigger>
-            <SelectContent>
-              {paymentSources.map((source) => (
-                <SelectItem key={source.id} value={source.id}>
-                  {source.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {isExpense ? (
-          <EnterpriseButton type="button" onClick={confirmExpenseVoucher} disabled={busy}>
-            {t("masterData.bankTransactions.voucher.createExpenseVoucher")}
+    <>
+      <EnterpriseModal
+        open
+        onOpenChange={(open) => !open && onClose()}
+        size="lg"
+        icon={Landmark}
+        title={t("masterData.bankTransactions.reconcile")}
+        description={`${formatDate(transaction.transactionDate)} — ${formatMoney(transaction.amount, transaction.currency?.code)}`}
+        footer={(requestClose) => (
+          <EnterpriseButton type="button" variant="ghost" onClick={requestClose} disabled={busy}>
+            {t("common.cancel")}
           </EnterpriseButton>
-        ) : (
-          <>
-            {loadingCandidates ? (
-              <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
-            ) : !candidates || candidates.length === 0 ? (
-              <p className="text-caption text-muted-foreground">
-                {t("masterData.bankTransactions.noCandidates")}
-              </p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {candidates.map((candidate) => (
-                  <div
-                    key={`${candidate.kind}-${candidate.id}`}
-                    className="flex items-center justify-between gap-3 rounded-md border border-border p-3"
-                  >
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[0.65rem] text-muted-foreground">
-                        {t(candidateLabelKey[candidate.kind])}
-                      </span>
-                      <span className="font-medium" dir="ltr">
-                        {candidate.label}
-                      </span>
-                      <span className="text-caption text-muted-foreground">
-                        {candidate.reasons.join(" · ")}
-                      </span>
-                    </div>
-                    <EnterpriseButton
-                      type="button"
-                      size="sm"
-                      onClick={() => confirmCandidate(candidate)}
-                      disabled={busy}
-                    >
-                      {t("masterData.bankTransactions.candidates.confirm")}
-                    </EnterpriseButton>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {isIncoming ? (
-              <div className="flex gap-2">
-                <EnterpriseButton
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setManualPicker("STORE_ORDER")}
-                >
-                  <Search className="size-3.5" />
-                  {t("masterData.bankTransactions.manual.searchStoreOrder")}
-                </EnterpriseButton>
-                <EnterpriseButton
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setManualPicker("SALES_INVOICE")}
-                >
-                  <Search className="size-3.5" />
-                  {t("masterData.bankTransactions.manual.searchSalesInvoice")}
-                </EnterpriseButton>
-              </div>
-            ) : (
-              <EnterpriseButton
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setManualPicker("PURCHASE_INVOICE")}
-              >
-                <Search className="size-3.5" />
-                {t("masterData.bankTransactions.manual.searchPurchaseInvoice")}
-              </EnterpriseButton>
-            )}
-
-            {manualPicker === "STORE_ORDER" && (
-              <EntitySearchPicker
-                label={t("masterData.bankTransactions.manual.searchStoreOrder")}
-                placeholder={t("masterData.bankTransactions.manual.searchPlaceholder")}
-                search={async (query) => {
-                  const result = await storeOrdersService.list({ search: query, pageSize: 20 });
-                  return (result.items as StoreOrderRow[]).map((o) => ({
-                    id: o.id,
-                    label: `${o.internalOrderId} (${o.externalOrderId ?? "—"})`,
-                  }));
-                }}
-                onSelect={(id) =>
-                  confirmCandidate({
-                    kind: "STORE_ORDER",
-                    id,
-                    label: id,
-                    amount: 0,
-                    score: 0,
-                    reasons: [],
-                  })
-                }
-              />
-            )}
-            {manualPicker === "SALES_INVOICE" && (
-              <EntitySearchPicker
-                label={t("masterData.bankTransactions.manual.searchSalesInvoice")}
-                placeholder={t("masterData.bankTransactions.manual.searchPlaceholder")}
-                search={async (query) => {
-                  const result = await salesInvoicesService.list({ search: query, pageSize: 20 });
-                  return (result.items as SalesInvoiceRow[]).map((i) => ({
-                    id: i.id,
-                    label: i.invoiceNumber,
-                  }));
-                }}
-                onSelect={(id) =>
-                  confirmCandidate({
-                    kind: "SALES_INVOICE",
-                    id,
-                    label: id,
-                    amount: 0,
-                    score: 0,
-                    reasons: [],
-                  })
-                }
-              />
-            )}
-            {manualPicker === "PURCHASE_INVOICE" && (
-              <EntitySearchPicker
-                label={t("masterData.bankTransactions.manual.searchPurchaseInvoice")}
-                placeholder={t("masterData.bankTransactions.manual.searchPlaceholder")}
-                search={async (query) => {
-                  const result = await purchaseInvoicesService.list({
-                    search: query,
-                    pageSize: 20,
-                  });
-                  return (result.items as PurchaseInvoiceRow[]).map((i) => ({
-                    id: i.id,
-                    label: i.invoiceNumber,
-                  }));
-                }}
-                onSelect={(id) =>
-                  confirmCandidate({
-                    kind: "PURCHASE_INVOICE",
-                    id,
-                    label: id,
-                    amount: 0,
-                    score: 0,
-                    reasons: [],
-                  })
-                }
-              />
-            )}
-          </>
         )}
-      </div>
-    </EnterpriseModal>
+      >
+        <div className="flex flex-col gap-4">
+          {transaction.description && (
+            <p className="text-caption text-muted-foreground">{transaction.description}</p>
+          )}
+
+          <div className="flex flex-col gap-1.5">
+            <Label>{t("masterData.bankTransactions.voucher.paymentSource")}</Label>
+            <Select value={paymentSourceId ?? undefined} onValueChange={setPaymentSourceId}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={t("common.select")} />
+              </SelectTrigger>
+              <SelectContent>
+                {paymentSources.map((source) => (
+                  <SelectItem key={source.id} value={source.id}>
+                    {source.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {isExpense ? (
+            <EnterpriseButton type="button" onClick={confirmExpenseVoucher} disabled={busy}>
+              {t("masterData.bankTransactions.voucher.createExpenseVoucher")}
+            </EnterpriseButton>
+          ) : (
+            <>
+              {loadingCandidates ? (
+                <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
+              ) : !candidates || candidates.length === 0 ? (
+                <p className="text-caption text-muted-foreground">
+                  {t("masterData.bankTransactions.noCandidates")}
+                </p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {candidates.map((candidate) => (
+                    <div
+                      key={`${candidate.kind}-${candidate.id}`}
+                      className="flex items-center justify-between gap-3 rounded-md border border-border p-3"
+                    >
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[0.65rem] text-muted-foreground">
+                          {t(candidateLabelKey[candidate.kind])}
+                        </span>
+                        <span className="font-medium" dir="ltr">
+                          {candidate.label}
+                        </span>
+                        <span className="text-caption text-muted-foreground">
+                          {candidate.reasons.join(" · ")}
+                        </span>
+                        {candidate.methodMismatch && (
+                          <span className="text-caption text-warning">
+                            {t("masterData.bankTransactions.methodMismatch")}
+                            {candidate.expectedPaymentSourceName
+                              ? ` — ${candidate.expectedPaymentSourceName}`
+                              : ""}
+                          </span>
+                        )}
+                      </div>
+                      <EnterpriseButton
+                        type="button"
+                        size="sm"
+                        onClick={() => confirmCandidate(candidate)}
+                        disabled={busy}
+                      >
+                        {t("masterData.bankTransactions.candidates.confirm")}
+                      </EnterpriseButton>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {isIncoming ? (
+                <div className="flex gap-2">
+                  <EnterpriseButton
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setManualPicker("STORE_ORDER")}
+                  >
+                    <Search className="size-3.5" />
+                    {t("masterData.bankTransactions.manual.searchStoreOrder")}
+                  </EnterpriseButton>
+                  <EnterpriseButton
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setManualPicker("SALES_INVOICE")}
+                  >
+                    <Search className="size-3.5" />
+                    {t("masterData.bankTransactions.manual.searchSalesInvoice")}
+                  </EnterpriseButton>
+                </div>
+              ) : (
+                <EnterpriseButton
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setManualPicker("PURCHASE_INVOICE")}
+                >
+                  <Search className="size-3.5" />
+                  {t("masterData.bankTransactions.manual.searchPurchaseInvoice")}
+                </EnterpriseButton>
+              )}
+
+              {manualPicker === "STORE_ORDER" && (
+                <EntitySearchPicker
+                  label={t("masterData.bankTransactions.manual.searchStoreOrder")}
+                  placeholder={t("masterData.bankTransactions.manual.searchPlaceholder")}
+                  search={async (query) => {
+                    const result = await storeOrdersService.list({ search: query, pageSize: 20 });
+                    return (result.items as StoreOrderRow[]).map((o) => ({
+                      id: o.id,
+                      label: `${o.internalOrderId} (${o.externalOrderId ?? "—"})`,
+                    }));
+                  }}
+                  onSelect={(id) =>
+                    confirmCandidate({
+                      kind: "STORE_ORDER",
+                      id,
+                      label: id,
+                      amount: 0,
+                      score: 0,
+                      reasons: [],
+                    })
+                  }
+                />
+              )}
+              {manualPicker === "SALES_INVOICE" && (
+                <EntitySearchPicker
+                  label={t("masterData.bankTransactions.manual.searchSalesInvoice")}
+                  placeholder={t("masterData.bankTransactions.manual.searchPlaceholder")}
+                  search={async (query) => {
+                    const result = await salesInvoicesService.list({ search: query, pageSize: 20 });
+                    return (result.items as SalesInvoiceRow[]).map((i) => ({
+                      id: i.id,
+                      label: i.invoiceNumber,
+                    }));
+                  }}
+                  onSelect={(id) =>
+                    confirmCandidate({
+                      kind: "SALES_INVOICE",
+                      id,
+                      label: id,
+                      amount: 0,
+                      score: 0,
+                      reasons: [],
+                    })
+                  }
+                />
+              )}
+              {manualPicker === "PURCHASE_INVOICE" && (
+                <EntitySearchPicker
+                  label={t("masterData.bankTransactions.manual.searchPurchaseInvoice")}
+                  placeholder={t("masterData.bankTransactions.manual.searchPlaceholder")}
+                  search={async (query) => {
+                    const result = await purchaseInvoicesService.list({
+                      search: query,
+                      pageSize: 20,
+                    });
+                    return (result.items as PurchaseInvoiceRow[]).map((i) => ({
+                      id: i.id,
+                      label: i.invoiceNumber,
+                    }));
+                  }}
+                  onSelect={(id) =>
+                    confirmCandidate({
+                      kind: "PURCHASE_INVOICE",
+                      id,
+                      label: id,
+                      amount: 0,
+                      score: 0,
+                      reasons: [],
+                    })
+                  }
+                />
+              )}
+            </>
+          )}
+        </div>
+      </EnterpriseModal>
+      <ConfirmationDialog
+        open={!!mismatchCandidate}
+        onOpenChange={(open) => {
+          if (!open) {
+            setMismatchCandidate(null);
+            setMismatchMode(null);
+          }
+        }}
+        tone="warning"
+        title={t("masterData.bankTransactions.methodMismatchTitle")}
+        description={t("masterData.bankTransactions.methodMismatchDescription", {
+          expected: mismatchCandidate?.expectedPaymentSourceName ?? "—",
+          actual: mismatchCandidate?.actualCashSourceName ?? "—",
+        })}
+        extra={
+          <div className="flex flex-col gap-2 px-1">
+            <EnterpriseButton
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={busy || mismatchMode === "match"}
+              onClick={() => {
+                if (!mismatchCandidate) return;
+                setMismatchMode("update");
+                void confirmCandidate(mismatchCandidate, {
+                  acknowledgeMethodMismatch: true,
+                  updateExpectedPaymentSource: true,
+                });
+              }}
+            >
+              {t("masterData.bankTransactions.methodMismatchUpdateExpected")}
+            </EnterpriseButton>
+          </div>
+        }
+        confirmLabel={t("masterData.bankTransactions.methodMismatchMatchAnyway")}
+        isConfirming={busy && mismatchMode === "match"}
+        onConfirm={() => {
+          if (!mismatchCandidate) return;
+          setMismatchMode("match");
+          void confirmCandidate(mismatchCandidate, {
+            acknowledgeMethodMismatch: true,
+            updateExpectedPaymentSource: false,
+          });
+        }}
+      />
+    </>
   );
 }
 

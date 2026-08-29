@@ -793,6 +793,13 @@ const en = {
       classify: "Classify",
       confirmMatch: "Confirm Match",
       noCandidates: "No suggested matches for this transaction.",
+      methodMismatch:
+        "Warning: expected payment method differs from actual cash source — matching still allowed",
+      methodMismatchTitle: "Payment method mismatch",
+      methodMismatchDescription:
+        "Expected {expected}, but cash landed in {actual}. Choose how to proceed — matching remains allowed.",
+      methodMismatchMatchAnyway: "Match anyway",
+      methodMismatchUpdateExpected: "Match and update expected method",
       matchConfirmed: "Match confirmed.",
       matchingRunSuccess: "{count} transaction(s) classified.",
       tabs: { incoming: "Incoming", outgoing: "Outgoing" },
@@ -1629,6 +1636,14 @@ const en = {
       reject: "Reject",
       approved: "Approved",
       rejected: "Rejected",
+    },
+    funnel: {
+      title: "Lead Funnel",
+      description:
+        "Lead lifecycle stages from StatusHistory events — not inferred from current status alone.",
+      dateFrom: "From",
+      dateTo: "To",
+      events: "Status events",
     },
     fields: {
       storeOrder: "Store Order",
