@@ -18,7 +18,7 @@ import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { EditorHeader } from "@/components/shared/detail-workspace";
 import { StatusBadge } from "@/components/business/status-badge";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
-import { SupplierPicker } from "@/components/business/supplier-picker";
+import { PartnerPicker } from "@/components/business/partner-picker";
 import { ProductLineItemsGrid } from "@/components/sales/product-line-items-grid";
 import { DocumentTotalsFooter } from "@/components/sales/document-totals-footer";
 import type { PurchaseDocumentActivityEntry } from "./purchasing-document-editor.types";
@@ -149,7 +149,8 @@ export function PurchasingDocumentEditor<TDocument>({
             <label className="text-caption text-muted-foreground">
               {t("purchasing.editor.sections.supplier")}
             </label>
-            <SupplierPicker
+            <PartnerPicker
+              role="SUPPLIER"
               value={state.supplier}
               onChange={handlers.onSupplierChange}
               disabled={!canEdit}
@@ -289,8 +290,8 @@ export function PurchasingDocumentEditor<TDocument>({
                       {t("purchasing.suppliers.fields.creditLimit")}
                     </p>
                     <p dir="ltr" className="text-sm font-semibold">
-                      {state.supplier.creditLimit
-                        ? formatMoney(Number(state.supplier.creditLimit))
+                      {state.supplier.supplierProfile?.creditLimit
+                        ? formatMoney(Number(state.supplier.supplierProfile.creditLimit))
                         : "—"}
                     </p>
                   </div>
@@ -298,7 +299,9 @@ export function PurchasingDocumentEditor<TDocument>({
                     <p className="text-caption text-muted-foreground">
                       {t("purchasing.suppliers.fields.paymentTerm")}
                     </p>
-                    <p className="text-sm font-semibold">{state.supplier.paymentTerm ?? "—"}</p>
+                    <p className="text-sm font-semibold">
+                      {state.supplier.supplierProfile?.paymentTerm ?? "—"}
+                    </p>
                   </div>
                 </div>
               </div>

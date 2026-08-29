@@ -8,7 +8,7 @@ import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EditorWorkspace } from "@/components/shared/detail-workspace";
 import { RelatedDocuments } from "@/components/shared/related-documents";
 import { useSourceJournalEntryLinks } from "@/hooks/use-source-journal-entry";
-import { CustomerPicker } from "@/components/business/customer-picker";
+import { PartnerPicker } from "@/components/business/partner-picker";
 import { FinancialTransactionEditor } from "@/components/financial-transactions/financial-transaction-editor";
 import { OpenInvoicesTable } from "@/components/financial-transactions/open-invoices-table";
 import { AllocationSummary } from "@/components/financial-transactions/allocation-summary";
@@ -24,7 +24,7 @@ import {
   type FinancialTransactionRow,
   type OpenInvoiceRow,
 } from "@/services/customer-receipts-service";
-import { customersService, type CustomerRow } from "@/services/customers-service";
+import { partnersService, type PartnerRow } from "@/services/partners-service";
 import { buildTransactionStatusOptions } from "@/config/financial-transactions/status";
 import { buildReceiptPrintPayload } from "@/config/sales/receipt-print";
 import { usePrintEngine } from "@/hooks/use-print-engine";
@@ -69,7 +69,7 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
   const [cancelTarget, setCancelTarget] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(false);
 
-  const [customer, setCustomer] = useState<CustomerRow | null>(null);
+  const [customer, setCustomer] = useState<PartnerRow | null>(null);
   const [transactionDate, setTransactionDate] = useState<Date | null>(new Date());
   const [amount, setAmount] = useState(0);
   const [referenceNumber, setReferenceNumber] = useState("");
@@ -84,7 +84,7 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
 
   const applyReceipt = useCallback((data: FinancialTransactionRow) => {
     setReceipt(data);
-    setCustomer(data.customer ?? null);
+    setCustomer(data.partner ?? null);
     setTransactionDate(new Date(data.transactionDate));
     setAmount(Number(data.amount));
     setReferenceNumber(data.referenceNumber ?? "");
@@ -117,9 +117,9 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
   /** Deep-link prefill for the "New Receipt"/"Receive Payment" buttons (Customer Profile, Sales Invoice) — only applies on a brand-new receipt. */
   useEffect(() => {
     if (id || customer) return;
-    const prefillCustomerId = searchParams.get("customerId");
+    const prefillCustomerId = searchParams.get("partnerId");
     if (!prefillCustomerId) return;
-    customersService
+    partnersService
       .get(prefillCustomerId)
       .then(setCustomer)
       .catch(() => {});
@@ -163,7 +163,7 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
   };
 
   const buildPayload = () => ({
-    customerId: customer!.id,
+    partnerId: customer!.id,
     transactionDate: transactionDate ? transactionDate.toISOString() : undefined,
     paymentSourceId: paymentSourceId ?? undefined,
     receivingAccountId: receivingAccountId ?? undefined,
@@ -536,7 +536,12 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
         disabled={!canEdit || isSaving}
         isBusy={isSaving || isTransitioning}
         renderPartyPicker={({ disabled }) => (
-          <CustomerPicker value={customer} onChange={setCustomer} disabled={disabled} />
+          <PartnerPicker
+            role="CUSTOMER"
+            value={customer}
+            onChange={setCustomer}
+            disabled={disabled}
+          />
         )}
         allocationSection={
           <div className="flex flex-col gap-3">

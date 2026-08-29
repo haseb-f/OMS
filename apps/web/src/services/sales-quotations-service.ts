@@ -1,6 +1,6 @@
 import { apiClient } from "./api-client";
 import { buildQueryString } from "@/lib/query-string";
-import type { CustomerRow } from "./customers-service";
+import type { PartnerRow } from "./partners-service";
 import type { ProductRow } from "./products-service";
 import type { WarehouseRow, UnitRow, TaxRow } from "@/config/master-data/entities";
 import type { CurrencyRow } from "@/config/master-data/entities";
@@ -49,8 +49,8 @@ export interface SalesQuotationItemRow {
 export interface SalesQuotationRow {
   id: string;
   quotationNumber: string;
-  customerId: string;
-  customer?: CustomerRow;
+  partnerId: string;
+  partner?: PartnerRow;
   currencyId: string | null;
   currency?: CurrencyRow | null;
   documentDate: string;
@@ -88,7 +88,7 @@ export interface SalesQuotationLineItemPayload {
 }
 
 export interface SalesQuotationFormPayload {
-  customerId: string;
+  partnerId: string;
   currencyId?: string;
   /** ISO date string — defaults to "now" server-side when omitted. */
   documentDate?: string;
@@ -101,7 +101,7 @@ export interface SalesQuotationFormPayload {
 export interface SalesQuotationListParams {
   search?: string;
   status?: SalesDocumentStatusValue | SalesDocumentStatusValue[];
-  customerId?: string | string[];
+  partnerId?: string | string[];
   /** ISO date-only strings ("2026-01-01") — filters by `createdAt`, the same column the list's Date column shows. */
   dateFrom?: string;
   dateTo?: string;

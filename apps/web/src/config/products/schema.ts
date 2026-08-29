@@ -37,7 +37,7 @@ export const productSchema = z.object({
   isSellable: z.boolean(),
 
   purchasePrice: z.number().optional(),
-  preferredSupplierId: z.string().optional().or(z.literal("")),
+  preferredPartnerId: z.string().optional().or(z.literal("")),
   purchaseDescription: z.string().optional().or(z.literal("")),
   isPurchasable: z.boolean(),
 
@@ -92,7 +92,7 @@ export const productDefaultValues: ProductFormValues = {
   allowDiscount: true,
   isSellable: true,
   purchasePrice: undefined,
-  preferredSupplierId: "",
+  preferredPartnerId: "",
   purchaseDescription: "",
   isPurchasable: true,
   isInventoryItem: true,

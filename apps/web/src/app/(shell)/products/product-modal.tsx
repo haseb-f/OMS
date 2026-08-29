@@ -49,7 +49,7 @@ import {
   type StockCard,
   type InventoryMovementRow,
 } from "@/services/inventory-service";
-import type { SupplierRow } from "@/services/suppliers-service";
+import type { PartnerRow } from "@/services/partners-service";
 import type {
   CategoryRow,
   BrandRow,
@@ -150,7 +150,7 @@ function toFormValues(source: ProductRow | null): ProductFormValues {
     allowDiscount: source.allowDiscount,
     isSellable: source.isSellable,
     purchasePrice: source.purchasePrice ? Number(source.purchasePrice) : undefined,
-    preferredSupplierId: source.preferredSupplierId ?? "",
+    preferredPartnerId: source.preferredPartnerId ?? "",
     purchaseDescription: source.purchaseDescription ?? "",
     isPurchasable: source.isPurchasable,
     isInventoryItem: source.isInventoryItem,
@@ -189,7 +189,7 @@ function toPayload(values: ProductFormValues) {
     brandId: values.brandId || undefined,
     taxId: values.taxId || undefined,
     analyticAccountId: values.analyticAccountId || undefined,
-    preferredSupplierId: values.preferredSupplierId || undefined,
+    preferredPartnerId: values.preferredPartnerId || undefined,
     preferredWarehouseId: values.preferredWarehouseId || undefined,
     costingMethod: values.costingMethod || undefined,
     // The form's single select converts back to the two API booleans
@@ -226,7 +226,7 @@ export function ProductModal({
   units: UnitRow[];
   taxes: TaxRow[];
   analyticAccounts: AnalyticAccountRow[];
-  suppliers: SupplierRow[];
+  suppliers: PartnerRow[];
   warehouses: WarehouseRow[];
   onSaved: () => void;
   /** Appends the newly created category to the page's `categories` list — this modal never owns that state itself. */
@@ -885,7 +885,7 @@ export function ProductModal({
                 />
                 <FormField
                   control={form.control}
-                  name="preferredSupplierId"
+                  name="preferredPartnerId"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t("products.fields.preferredSupplier")}</FormLabel>

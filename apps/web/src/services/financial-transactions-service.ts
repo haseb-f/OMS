@@ -1,7 +1,6 @@
 import { apiClient } from "./api-client";
 import { buildQueryString } from "@/lib/query-string";
-import type { CustomerRow } from "./customers-service";
-import type { SupplierRow } from "./suppliers-service";
+import type { PartnerRow } from "./partners-service";
 
 export type FinancialTransactionTypeValue = "CUSTOMER_RECEIPT" | "SUPPLIER_PAYMENT";
 export type FinancialTransactionStatusValue = "DRAFT" | "CONFIRMED" | "CANCELLED";
@@ -33,10 +32,8 @@ export interface FinancialTransactionRow {
   id: string;
   transactionNumber: string;
   type: FinancialTransactionTypeValue;
-  customerId: string | null;
-  customer?: CustomerRow | null;
-  supplierId: string | null;
-  supplier?: SupplierRow | null;
+  partnerId: string | null;
+  partner?: PartnerRow | null;
   currencyId: string | null;
   currency?: { id: string; code: string; name: string } | null;
   transactionDate: string;
@@ -67,8 +64,7 @@ export interface AllocationInputPayload {
 }
 
 export interface FinancialTransactionFormPayload {
-  customerId?: string;
-  supplierId?: string;
+  partnerId?: string;
   currencyId?: string;
   transactionDate?: string;
   paymentSourceId?: string;
@@ -82,8 +78,7 @@ export interface FinancialTransactionFormPayload {
 export interface FinancialTransactionListParams {
   search?: string;
   status?: FinancialTransactionStatusValue | FinancialTransactionStatusValue[];
-  customerId?: string | string[];
-  supplierId?: string | string[];
+  partnerId?: string | string[];
   dateFrom?: string;
   dateTo?: string;
   page?: number;
@@ -117,10 +112,7 @@ export interface OpenInvoiceRow {
  * pattern). Business operations are Create/Update/Confirm/Cancel/Archive/
  * Allocate/Unallocate, not the Master Data Archive/Restore shape.
  */
-export function createFinancialTransactionService(
-  basePath: string,
-  partyParam: "customerId" | "supplierId",
-) {
+export function createFinancialTransactionService(basePath: string) {
   return {
     list: (params: FinancialTransactionListParams = {}) =>
       apiClient.get<FinancialTransactionListResult>(
@@ -147,10 +139,10 @@ export function createFinancialTransactionService(
       ),
     activities: (id: string) =>
       apiClient.get<FinancialTransactionActivityEntry[]>(`${basePath}/${id}/activities`),
-    /** Every CONFIRMED invoice for this party with a remaining balance — the Allocation Grid / "Pay All Remaining" source. */
-    openInvoices: (partyId: string) =>
+    /** Every CONFIRMED invoice for this partner with a remaining balance — the Allocation Grid / "Pay All Remaining" source. */
+    openInvoices: (partnerId: string) =>
       apiClient.get<OpenInvoiceRow[]>(
-        `${basePath}/open-invoices${buildQueryString({ [partyParam]: partyId })}`,
+        `${basePath}/open-invoices${buildQueryString({ partnerId })}`,
       ),
   };
 }

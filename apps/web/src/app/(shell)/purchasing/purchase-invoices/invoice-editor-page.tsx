@@ -23,7 +23,7 @@ import {
   type PurchaseInvoiceItemRow,
   type PurchaseInvoiceRow,
 } from "@/services/purchase-invoices-service";
-import type { SupplierRow } from "@/services/suppliers-service";
+import type { PartnerRow } from "@/services/partners-service";
 import type { CurrencyRow } from "@/config/master-data/entities";
 import { buildInvoiceStatusOptions } from "@/config/purchasing/invoice-status";
 import { RETURN_STATUS_LABEL_KEY, RETURN_STATUS_TONE } from "@/config/purchasing/return-status";
@@ -90,7 +90,7 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
   const [cancelTarget, setCancelTarget] = useState(false);
   const [returnOpen, setReturnOpen] = useState(false);
 
-  const [supplier, setSupplier] = useState<SupplierRow | null>(null);
+  const [supplier, setSupplier] = useState<PartnerRow | null>(null);
   const [currency, setCurrency] = useState<CurrencyRow | null>(null);
   const [documentDate, setDocumentDate] = useState<Date | null>(new Date());
   const [referenceNumber, setReferenceNumber] = useState("");
@@ -100,7 +100,7 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
 
   const applyInvoice = useCallback((data: PurchaseInvoiceRow) => {
     setInvoice(data);
-    setSupplier(data.supplier ?? null);
+    setSupplier(data.partner ?? null);
     setCurrency(data.currency ?? null);
     setDocumentDate(new Date(data.createdAt));
     setReferenceNumber(data.referenceNumber ?? "");
@@ -153,7 +153,7 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
   };
 
   const buildPayload = () => ({
-    supplierId: supplier!.id,
+    partnerId: supplier!.id,
     currencyId: currency?.id,
     referenceNumber: referenceNumber || undefined,
     internalNotes: notes || undefined,
@@ -303,7 +303,7 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
           visibleForStatuses: ["CONFIRMED"],
           onAction: () =>
             router.push(
-              `/purchasing/payments/new?supplierId=${invoice?.supplierId ?? supplier?.id}&invoiceId=${invoice?.id}`,
+              `/purchasing/payments/new?partnerId=${invoice?.partnerId ?? supplier?.id}&invoiceId=${invoice?.id}`,
             ),
         },
         {

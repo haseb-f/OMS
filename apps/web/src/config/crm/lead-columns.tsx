@@ -1,38 +1,23 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { StatusBadge, type StatusTone } from "@/components/business/status-badge";
+import { DynamicStatusBadge } from "@/components/business/dynamic-status-badge";
+import { StatusBadge } from "@/components/business/status-badge";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { formatDate } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
-import type { MessageKey } from "@/i18n/translate";
-import type { LeadRow, LeadStatusValue } from "@/services/leads-service";
+import type { LeadRow } from "@/services/leads-service";
 
-const STATUS_TONE: Record<LeadStatusValue, StatusTone> = {
-  NEW: "info",
-  UNDER_FOLLOW_UP: "warning",
-  PAID: "success",
-  ARCHIVED: "neutral",
-};
-
-function LeadStatusCell({ status }: { status: LeadStatusValue }) {
+function PartnerCell({ row }: { row: LeadRow }) {
   const { t } = useLocale();
-  return (
-    <StatusBadge tone={STATUS_TONE[status]} label={t(`crm.leads.status.${status}` as MessageKey)} />
-  );
-}
-
-/** Every lead is linked to a Customer master record from creation (TASK-061) — this badge is the "clear existing customer indication" the UI must always show. */
-function CustomerCell({ row }: { row: LeadRow }) {
-  const { t } = useLocale();
-  if (!row.customer) {
+  if (!row.partner) {
     return null;
   }
   return (
     <span className="inline-flex items-center gap-1.5">
       <code dir="ltr" className="rounded bg-muted px-1.5 py-0.5 text-xs">
-        {row.customer.customerNumber}
+        {row.partner.partnerNumber}
       </code>
       {row.possibleDuplicate && (
         <StatusBadge tone="warning" label={t("crm.leads.possibleDuplicate")} />
@@ -74,10 +59,10 @@ export const leadColumns: ColumnDef<LeadRow, unknown>[] = [
     cell: (info) => <span dir="ltr">{info.getValue() as string}</span>,
   },
   {
-    id: "customer",
+    id: "partner",
     meta: { titleKey: "crm.leads.fields.customer" },
     enableSorting: false,
-    cell: ({ row }) => <CustomerCell row={row.original} />,
+    cell: ({ row }) => <PartnerCell row={row.original} />,
   },
   {
     id: "quantity",
@@ -88,7 +73,12 @@ export const leadColumns: ColumnDef<LeadRow, unknown>[] = [
     id: "status",
     meta: { titleKey: "common.status" },
     enableSorting: false,
-    cell: ({ row }) => <LeadStatusCell status={row.original.status} />,
+    cell: ({ row }) => (
+      <DynamicStatusBadge
+        label={row.original.status?.name ?? "—"}
+        colorKey={row.original.status?.color}
+      />
+    ),
   },
   {
     id: "salesEmployee",

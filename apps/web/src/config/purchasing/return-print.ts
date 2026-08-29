@@ -33,15 +33,15 @@ export function buildReturnPrintPayload(
       },
     },
     party: {
-      name: purchaseReturn.supplier?.name ?? "",
-      taxNumber: purchaseReturn.supplier?.taxNumber ?? undefined,
+      name: purchaseReturn.partner?.name ?? "",
+      taxNumber: purchaseReturn.partner?.taxNumber ?? undefined,
       addressLines: [
-        purchaseReturn.supplier?.address,
-        purchaseReturn.supplier?.city,
-        purchaseReturn.supplier?.country?.name,
+        purchaseReturn.partner?.address,
+        purchaseReturn.partner?.city,
+        purchaseReturn.partner?.country?.name,
       ].filter((value): value is string => !!value),
-      phone: purchaseReturn.supplier?.phone ?? undefined,
-      email: purchaseReturn.supplier?.email ?? undefined,
+      phone: purchaseReturn.partner?.phone ?? undefined,
+      email: purchaseReturn.partner?.email ?? undefined,
     },
     meta: [
       ...(purchaseReturn.referenceNumber

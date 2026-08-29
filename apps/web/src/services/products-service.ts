@@ -32,7 +32,7 @@ export interface ProductRow {
   tax?: { id: string; name: string; rate: string } | null;
   analyticAccountId: string | null;
   analyticAccount?: { id: string; name: string } | null;
-  preferredSupplierId: string | null;
+  preferredPartnerId: string | null;
   preferredSupplier?: { id: string; name: string } | null;
   description: string | null;
   shortDescription: string | null;

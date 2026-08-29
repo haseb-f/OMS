@@ -32,7 +32,7 @@ import {
   type FinancialTransactionRow,
 } from "@/services/customer-receipts-service";
 import type { FinancialTransactionStatusValue } from "@/services/financial-transactions-service";
-import { customersService, type CustomerRow } from "@/services/customers-service";
+import { partnersService, type PartnerRow } from "@/services/partners-service";
 import { useUsersLookup } from "@/hooks/use-reference-data";
 import {
   TRANSACTION_ARCHIVABLE_STATUSES,
@@ -70,7 +70,7 @@ function CustomerReceiptsPageContent() {
   const [sortBy, setSortBy] = usePathRestorableState("sortBy", "createdAt");
   const [sortOrder, setSortOrder] = usePathRestorableState<"asc" | "desc">("sortOrder", "desc");
   const [statusFilter, setStatusFilter] = usePathRestorableState<string[]>("status", []);
-  const [customerFilter, setCustomerFilter] = usePathRestorableState<CustomerRow[]>("customer", []);
+  const [customerFilter, setCustomerFilter] = usePathRestorableState<PartnerRow[]>("customer", []);
   const [dateRange, setDateRange] = usePathRestorableState<DateRangeValue>(
     "dateRange",
     EMPTY_DATE_RANGE,
@@ -88,7 +88,7 @@ function CustomerReceiptsPageContent() {
       const result = await customerReceiptsService.list({
         search: search || undefined,
         status: statusFilter as FinancialTransactionStatusValue[],
-        customerId: customerFilter.map((customer) => customer.id),
+        partnerId: customerFilter.map((customer) => customer.id),
         dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
         dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
         page,
@@ -115,7 +115,7 @@ function CustomerReceiptsPageContent() {
   const toPrintRow = useCallback(
     (item: FinancialTransactionRow): Record<string, string> => ({
       transactionNumber: item.transactionNumber,
-      customer: item.customer?.name ?? "",
+      partner: item.partner?.name ?? "",
       referenceNumber: item.referenceNumber ?? "",
       amount: item.amount,
       status: t(TRANSACTION_STATUS_LABEL_KEY[item.status]),
@@ -183,10 +183,10 @@ function CustomerReceiptsPageContent() {
       {
         id: "customer",
         meta: { titleKey: "sales.receipts.fields.customer" },
-        accessorFn: (row) => row.customer?.name ?? "—",
+        accessorFn: (row) => row.partner?.name ?? "—",
         cell: ({ row }) => (
           <StackedCell
-            primary={row.original.customer?.name ?? "—"}
+            primary={row.original.partner?.name ?? "—"}
             secondary={
               row.original.referenceNumber ? (
                 <SemanticValue kind="id">{row.original.referenceNumber}</SemanticValue>
@@ -394,9 +394,10 @@ function CustomerReceiptsPageContent() {
                 setPage(1);
               }}
               onSearch={async (search) => {
-                const result = await customersService.list({
+                const result = await partnersService.list({
                   search: search || undefined,
                   pageSize: 20,
+                  role: ["CUSTOMER"],
                 });
                 return result.items;
               }}

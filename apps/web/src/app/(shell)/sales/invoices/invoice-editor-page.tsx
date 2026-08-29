@@ -30,7 +30,7 @@ import {
   type SalesInvoiceItemRow,
   type SalesInvoiceRow,
 } from "@/services/sales-invoices-service";
-import type { CustomerRow } from "@/services/customers-service";
+import type { PartnerRow } from "@/services/partners-service";
 import type { CurrencyRow } from "@/config/master-data/entities";
 import { buildInvoiceStatusOptions } from "@/config/sales/invoice-status";
 import { RETURN_STATUS_LABEL_KEY, RETURN_STATUS_TONE } from "@/config/sales/return-status";
@@ -96,7 +96,7 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
   const [cancelTarget, setCancelTarget] = useState(false);
   const [returnOpen, setReturnOpen] = useState(false);
 
-  const [customer, setCustomer] = useState<CustomerRow | null>(null);
+  const [customer, setCustomer] = useState<PartnerRow | null>(null);
   const [currency, setCurrency] = useState<CurrencyRow | null>(null);
   const [referenceNumber, setReferenceNumber] = useState("");
   const [notes, setNotes] = useState("");
@@ -105,7 +105,7 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
 
   const applyInvoice = useCallback((data: SalesInvoiceRow) => {
     setInvoice(data);
-    setCustomer(data.customer ?? null);
+    setCustomer(data.partner ?? null);
     setCurrency(data.currency ?? null);
     setReferenceNumber(data.referenceNumber ?? "");
     setNotes(data.internalNotes ?? "");
@@ -158,7 +158,7 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
   };
 
   const buildPayload = () => ({
-    customerId: customer!.id,
+    partnerId: customer!.id,
     currencyId: currency?.id,
     referenceNumber: referenceNumber || undefined,
     internalNotes: notes || undefined,
@@ -299,7 +299,7 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
           visibleForStatuses: ["CONFIRMED"],
           onAction: () =>
             router.push(
-              `/sales/payments/new?customerId=${invoice?.customerId ?? customer?.id}&invoiceId=${invoice?.id}`,
+              `/sales/payments/new?partnerId=${invoice?.partnerId ?? customer?.id}&invoiceId=${invoice?.id}`,
             ),
         },
         {

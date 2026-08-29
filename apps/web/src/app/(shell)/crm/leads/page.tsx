@@ -178,7 +178,7 @@ function CrmLeadsPageContent() {
             key: "archive",
             label: t("common.archive"),
             icon: Archive,
-            hidden: !hasPermission("crm.leads.archive") || entity.status === "ARCHIVED",
+            hidden: !hasPermission("crm.leads.archive") || entity.status?.code === "LOST",
             destructive: true,
             separatorBefore: true,
             onSelect: () => setArchiveTarget(entity),

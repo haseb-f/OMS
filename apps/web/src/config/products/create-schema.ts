@@ -30,7 +30,7 @@ export const productCreateSchema = z.object({
   salesPrice: z.number().optional(),
   purchasePrice: z.number().optional(),
   taxId: z.string().optional(),
-  preferredSupplierId: z.string().optional(),
+  preferredPartnerId: z.string().optional(),
   // Step 3 — المخزون (all optional)
   isInventoryItem: z.boolean().optional(),
   reorderLevel: z.number().optional(),
@@ -53,7 +53,7 @@ export const productCreateDefaultValues: ProductCreateFormValues = {
   salesPrice: undefined,
   purchasePrice: undefined,
   taxId: undefined,
-  preferredSupplierId: undefined,
+  preferredPartnerId: undefined,
   isInventoryItem: undefined,
   reorderLevel: undefined,
   preferredWarehouseId: undefined,

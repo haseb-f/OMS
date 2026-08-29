@@ -8,7 +8,7 @@ import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EditorWorkspace } from "@/components/shared/detail-workspace";
 import { RelatedDocuments } from "@/components/shared/related-documents";
 import { useSourceJournalEntryLinks } from "@/hooks/use-source-journal-entry";
-import { SupplierPicker } from "@/components/business/supplier-picker";
+import { PartnerPicker } from "@/components/business/partner-picker";
 import { FinancialTransactionEditor } from "@/components/financial-transactions/financial-transaction-editor";
 import { OpenInvoicesTable } from "@/components/financial-transactions/open-invoices-table";
 import { AllocationSummary } from "@/components/financial-transactions/allocation-summary";
@@ -24,7 +24,7 @@ import {
   type FinancialTransactionRow,
   type OpenInvoiceRow,
 } from "@/services/supplier-payments-service";
-import { suppliersService, type SupplierRow } from "@/services/suppliers-service";
+import { partnersService, type PartnerRow } from "@/services/partners-service";
 import { buildTransactionStatusOptions } from "@/config/financial-transactions/status";
 import { buildPaymentPrintPayload } from "@/config/purchasing/payment-print";
 import { usePrintEngine } from "@/hooks/use-print-engine";
@@ -69,7 +69,7 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
   const [cancelTarget, setCancelTarget] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(false);
 
-  const [supplier, setSupplier] = useState<SupplierRow | null>(null);
+  const [supplier, setSupplier] = useState<PartnerRow | null>(null);
   const [transactionDate, setTransactionDate] = useState<Date | null>(new Date());
   const [amount, setAmount] = useState(0);
   const [referenceNumber, setReferenceNumber] = useState("");
@@ -84,7 +84,7 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
 
   const applyPayment = useCallback((data: FinancialTransactionRow) => {
     setPayment(data);
-    setSupplier(data.supplier ?? null);
+    setSupplier(data.partner ?? null);
     setTransactionDate(new Date(data.transactionDate));
     setAmount(Number(data.amount));
     setReferenceNumber(data.referenceNumber ?? "");
@@ -117,9 +117,9 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
   /** Deep-link prefill for the "New Payment"/"Record Payment" buttons (Supplier Profile, Purchase Invoice) — only applies on a brand-new payment. */
   useEffect(() => {
     if (id || supplier) return;
-    const prefillSupplierId = searchParams.get("supplierId");
+    const prefillSupplierId = searchParams.get("partnerId");
     if (!prefillSupplierId) return;
-    suppliersService
+    partnersService
       .get(prefillSupplierId)
       .then(setSupplier)
       .catch(() => {});
@@ -163,7 +163,7 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
   };
 
   const buildPayload = () => ({
-    supplierId: supplier!.id,
+    partnerId: supplier!.id,
     transactionDate: transactionDate ? transactionDate.toISOString() : undefined,
     paymentSourceId: paymentSourceId ?? undefined,
     receivingAccountId: receivingAccountId ?? undefined,
@@ -536,7 +536,12 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
         disabled={!canEdit || isSaving}
         isBusy={isSaving || isTransitioning}
         renderPartyPicker={({ disabled }) => (
-          <SupplierPicker value={supplier} onChange={setSupplier} disabled={disabled} />
+          <PartnerPicker
+            role="SUPPLIER"
+            value={supplier}
+            onChange={setSupplier}
+            disabled={disabled}
+          />
         )}
         allocationSection={
           <div className="flex flex-col gap-3">

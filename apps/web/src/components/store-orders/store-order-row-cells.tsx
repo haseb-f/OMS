@@ -17,7 +17,7 @@ import {
 import { catalogStatusTone } from "@/config/shipping/shipment-status";
 
 export function customerPhone(row: StoreOrderRow): string | null {
-  return row.customer?.phone || row.customer?.mobile || null;
+  return row.partner?.phone || row.partner?.mobile || null;
 }
 
 export function latestShipment(row: StoreOrderRow) {
@@ -47,9 +47,7 @@ export function StoreOrderCustomerCell({ order }: { order: StoreOrderRow }) {
   const phone = customerPhone(order);
   return (
     <StackedCell
-      primary={
-        order.customer?.name ? <TruncateText>{order.customer.name}</TruncateText> : undefined
-      }
+      primary={order.partner?.name ? <TruncateText>{order.partner.name}</TruncateText> : undefined}
       secondary={phone ? <SemanticValue kind="phone">{phone}</SemanticValue> : undefined}
     />
   );

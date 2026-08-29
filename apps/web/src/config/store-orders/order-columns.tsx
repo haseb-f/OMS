@@ -105,7 +105,7 @@ export function buildStoreOrderColumns(
       enableSorting: false,
       accessorFn: (row) => {
         const phone = customerPhone(row);
-        return phone ? `${row.customer?.name ?? "—"} ${phone}` : (row.customer?.name ?? "—");
+        return phone ? `${row.partner?.name ?? "—"} ${phone}` : (row.partner?.name ?? "—");
       },
       cell: ({ row }) => <StoreOrderCustomerCell order={row.original} />,
     },
@@ -198,7 +198,7 @@ export function storeOrderPrintRow(
   return {
     internalOrderId: item.internalOrderId,
     externalOrderId: item.externalOrderId ?? "",
-    customer: item.customer?.name ?? "",
+    customer: item.partner?.name ?? "",
     phone: customerPhone(item) ?? "",
     orderDate: formatDate(item.orderDate),
     paymentStatus: t(PAYMENT_STATUS_LABEL_KEY[item.paymentStatus]),

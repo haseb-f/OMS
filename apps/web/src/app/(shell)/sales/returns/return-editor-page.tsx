@@ -22,7 +22,7 @@ import {
   type SalesReturnItemRow,
   type SalesReturnRow,
 } from "@/services/sales-returns-service";
-import type { CustomerRow } from "@/services/customers-service";
+import type { PartnerRow } from "@/services/partners-service";
 import type { CurrencyRow } from "@/config/master-data/entities";
 import { buildReturnStatusOptions } from "@/config/sales/return-status";
 import { buildReturnPrintPayload } from "@/config/sales/return-print";
@@ -83,7 +83,7 @@ export function ReturnEditorPage({ id }: { id: string }) {
   );
   const [cancelTarget, setCancelTarget] = useState(false);
 
-  const [customer, setCustomer] = useState<CustomerRow | null>(null);
+  const [customer, setCustomer] = useState<PartnerRow | null>(null);
   const [currency, setCurrency] = useState<CurrencyRow | null>(null);
   const [referenceNumber, setReferenceNumber] = useState("");
   const [notes, setNotes] = useState("");
@@ -92,7 +92,7 @@ export function ReturnEditorPage({ id }: { id: string }) {
 
   const applyReturn = useCallback((data: SalesReturnRow) => {
     setSalesReturn(data);
-    setCustomer(data.customer ?? null);
+    setCustomer(data.partner ?? null);
     setCurrency(data.currency ?? null);
     setReferenceNumber(data.referenceNumber ?? "");
     setNotes(data.internalNotes ?? "");
@@ -139,7 +139,7 @@ export function ReturnEditorPage({ id }: { id: string }) {
   };
 
   const buildPayload = () => ({
-    customerId: customer!.id,
+    partnerId: customer!.id,
     currencyId: currency?.id,
     referenceNumber: referenceNumber || undefined,
     internalNotes: notes || undefined,

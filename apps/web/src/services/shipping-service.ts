@@ -11,7 +11,7 @@ export interface ShipmentListRow {
     id: string;
     internalOrderId: string;
     externalOrderId: string | null;
-    customer: {
+    partner: {
       id: string;
       name: string;
       phone: string | null;

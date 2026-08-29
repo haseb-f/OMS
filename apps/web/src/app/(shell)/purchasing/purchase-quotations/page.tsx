@@ -30,7 +30,7 @@ import {
   type PurchaseDocumentStatusValue,
   type PurchaseQuotationRow,
 } from "@/services/purchase-quotations-service";
-import { suppliersService, type SupplierRow } from "@/services/suppliers-service";
+import { partnersService, type PartnerRow } from "@/services/partners-service";
 import { useUsersLookup } from "@/hooks/use-reference-data";
 import {
   buildQuotationColumns,
@@ -71,7 +71,7 @@ function PurchaseQuotationsPageContent() {
   const [sortBy, setSortBy] = usePathRestorableState("sortBy", "createdAt");
   const [sortOrder, setSortOrder] = usePathRestorableState<"asc" | "desc">("sortOrder", "desc");
   const [statusFilter, setStatusFilter] = usePathRestorableState<string[]>("status", []);
-  const [supplierFilter, setSupplierFilter] = usePathRestorableState<SupplierRow[]>("supplier", []);
+  const [supplierFilter, setSupplierFilter] = usePathRestorableState<PartnerRow[]>("supplier", []);
   const [dateRange, setDateRange] = usePathRestorableState<DateRangeValue>(
     "dateRange",
     EMPTY_DATE_RANGE,
@@ -89,7 +89,7 @@ function PurchaseQuotationsPageContent() {
       const result = await purchaseQuotationsService.list({
         search: search || undefined,
         status: statusFilter as PurchaseDocumentStatusValue[],
-        supplierId: supplierFilter.map((supplier) => supplier.id),
+        partnerId: supplierFilter.map((supplier) => supplier.id),
         dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
         dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
         page,
@@ -116,7 +116,7 @@ function PurchaseQuotationsPageContent() {
   const toPrintRow = useCallback(
     (item: PurchaseQuotationRow): Record<string, string> => ({
       quotationNumber: item.quotationNumber,
-      supplier: item.supplier?.name ?? "",
+      supplier: item.partner?.name ?? "",
       referenceNumber: item.referenceNumber ?? "",
       grandTotal: item.grandTotal,
       status: t(QUOTATION_STATUS_LABEL_KEY[item.status]),
@@ -129,7 +129,7 @@ function PurchaseQuotationsPageContent() {
   const handleDuplicate = async (row: PurchaseQuotationRow) => {
     try {
       const created = await purchaseQuotationsService.create({
-        supplierId: row.supplierId,
+        partnerId: row.partnerId,
         currencyId: row.currencyId ?? undefined,
         purchaseType: row.purchaseType,
         referenceNumber: row.referenceNumber ?? undefined,
@@ -302,7 +302,7 @@ function PurchaseQuotationsPageContent() {
                 setPage(1);
               }}
               onSearch={async (search) => {
-                const result = await suppliersService.list({
+                const result = await partnersService.list({
                   search: search || undefined,
                   pageSize: 20,
                 });
@@ -397,7 +397,7 @@ function PurchaseQuotationsPageContent() {
             notesColumnId: "createdAt",
             items: toDocumentLineItems(row.items ?? []),
             currency: row.currency,
-            party: row.supplier,
+            party: row.partner,
             notes: row.internalNotes,
             labels: documentDetailLabels(t, "supplier"),
             onShowMore: () => router.push(`/purchasing/purchase-quotations/${row.id}`),

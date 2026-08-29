@@ -40,15 +40,15 @@ export function buildQuotationPrintPayload(
       },
     },
     party: {
-      name: quotation.customer?.name ?? "",
-      taxNumber: quotation.customer?.taxNumber ?? undefined,
+      name: quotation.partner?.name ?? "",
+      taxNumber: quotation.partner?.taxNumber ?? undefined,
       addressLines: [
-        quotation.customer?.address,
-        quotation.customer?.city,
-        quotation.customer?.country?.name,
+        quotation.partner?.address,
+        quotation.partner?.city,
+        quotation.partner?.country?.name,
       ].filter((value): value is string => !!value),
-      phone: quotation.customer?.phone ?? undefined,
-      email: quotation.customer?.email ?? undefined,
+      phone: quotation.partner?.phone ?? undefined,
+      email: quotation.partner?.email ?? undefined,
     },
     meta: [
       ...(quotation.referenceNumber

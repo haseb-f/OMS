@@ -16,7 +16,7 @@ import { EntityTabs } from "@/components/business/entity-tabs";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PartyPaymentsPanel } from "@/components/financial-transactions/party-payments-panel";
-import { suppliersService, type SupplierRow } from "@/services/suppliers-service";
+import { partnersService, type PartnerRow } from "@/services/partners-service";
 import {
   supplierPaymentsService,
   type FinancialTransactionRow,
@@ -38,7 +38,7 @@ function formatMoney(value: number) {
   return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-/** Mirrors `sales/customers/[id]/page.tsx` (TASK-048) — bespoke Profile page, not `MasterDataPage`'s built-in quick-preview sheet. */
+/** Mirrors `sales/customers/[id]/page.tsx` — bespoke Profile page, not `MasterDataPage`'s built-in quick-preview sheet. */
 export default function SupplierProfilePage() {
   const params = useParams<{ id: string }>();
   const { t, direction } = useLocale();
@@ -47,7 +47,7 @@ export default function SupplierProfilePage() {
   const { user, hasPermission } = useUserContext();
   const router = useRouter();
 
-  const [supplier, setSupplier] = useState<SupplierRow | null>(null);
+  const [supplier, setSupplier] = useState<PartnerRow | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activity, setActivity] = useState<MasterDataActivityEntry[] | null>(null);
   const [payments, setPayments] = useState<FinancialTransactionRow[]>([]);
@@ -56,8 +56,8 @@ export default function SupplierProfilePage() {
   const [isLoadingOpenInvoices, setIsLoadingOpenInvoices] = useState(true);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
-  const canEdit = hasPermission("purchasing.suppliers.edit");
-  const canArchive = hasPermission("purchasing.suppliers.archive");
+  const canEdit = hasPermission("partners.edit");
+  const canArchive = hasPermission("partners.archive");
 
   useBreadcrumbLabel(supplier?.name ?? null);
 
@@ -65,7 +65,7 @@ export default function SupplierProfilePage() {
     const loadSupplier = async () => {
       setIsLoading(true);
       try {
-        setSupplier(await suppliersService.get(params.id));
+        setSupplier(await partnersService.get(params.id));
       } catch {
         setSupplier(null);
       } finally {
@@ -76,7 +76,7 @@ export default function SupplierProfilePage() {
   }, [params.id]);
 
   useEffect(() => {
-    suppliersService
+    partnersService
       .activity(params.id)
       .then(setActivity)
       .catch(() => setActivity([]));
@@ -86,7 +86,7 @@ export default function SupplierProfilePage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoadingPayments(true);
     supplierPaymentsService
-      .list({ supplierId: params.id, pageSize: 50, sortBy: "transactionDate", sortOrder: "desc" })
+      .list({ partnerId: params.id, pageSize: 50, sortBy: "transactionDate", sortOrder: "desc" })
       .then((result) => setPayments(result.items))
       .catch(() => setPayments([]))
       .finally(() => setIsLoadingPayments(false));
@@ -114,7 +114,9 @@ export default function SupplierProfilePage() {
     );
   }
 
-  const creditLimit = supplier.creditLimit ? Number(supplier.creditLimit) : null;
+  const creditLimit = supplier.supplierProfile?.creditLimit
+    ? Number(supplier.supplierProfile.creditLimit)
+    : null;
 
   const timelineEntries: TimelineEntry[] = (activity ?? []).map((entry) => ({
     id: entry.id,
@@ -130,7 +132,7 @@ export default function SupplierProfilePage() {
   const handlePrint = () => {
     const data: DocumentData = {
       type: "supplier-statement",
-      documentNumber: supplier.supplierNumber,
+      documentNumber: supplier.partnerNumber,
       documentDate: formatDate(new Date().toISOString()),
       currency: supplier.currency?.code ?? "",
       company: {
@@ -159,7 +161,7 @@ export default function SupplierProfilePage() {
           value: t(`common.${supplier.status === "ACTIVE" ? "active" : "archived"}`),
         },
       ],
-      // Real supplier data only — no transaction lines here (Purchase
+      // Real Partner data only — no transaction lines here (Purchase
       // Invoice/Return list-by-supplier UI is out of this task's scope).
       lineItems: [],
       totals:
@@ -194,7 +196,7 @@ export default function SupplierProfilePage() {
   const handleArchive = async () => {
     setIsArchiving(true);
     try {
-      await suppliersService.archive(supplier.id);
+      await partnersService.archive(supplier.id);
       toast.success(t("common.archive"));
       setArchiveOpen(false);
       router.push("/purchasing/suppliers");
@@ -208,7 +210,7 @@ export default function SupplierProfilePage() {
   return (
     <DetailWorkspace
       title={supplier.name}
-      subtitle={supplier.supplierNumber}
+      subtitle={supplier.partnerNumber}
       status={
         <StatusBadge
           label={t(`common.${supplier.status === "ACTIVE" ? "active" : "archived"}` as MessageKey)}
@@ -254,10 +256,6 @@ export default function SupplierProfilePage() {
               <DetailSection>
                 <DetailFieldGrid>
                   <DetailField
-                    label={t("purchasing.suppliers.fields.code")}
-                    value={supplier.code}
-                  />
-                  <DetailField
                     label={t("purchasing.suppliers.fields.commercialName")}
                     value={supplier.commercialName}
                   />
@@ -289,7 +287,7 @@ export default function SupplierProfilePage() {
                   />
                   <DetailField
                     label={t("purchasing.suppliers.fields.paymentTerm")}
-                    value={supplier.paymentTerm}
+                    value={supplier.supplierProfile?.paymentTerm}
                   />
                   <DetailField
                     label={t("purchasing.suppliers.fields.creditLimit")}
@@ -297,7 +295,7 @@ export default function SupplierProfilePage() {
                   />
                   <DetailField
                     label={t("purchasing.suppliers.fields.supplierGroup")}
-                    value={supplier.supplierGroup?.name}
+                    value={supplier.supplierProfile?.supplierGroup?.name}
                   />
                 </DetailFieldGrid>
               </DetailSection>
@@ -379,7 +377,7 @@ export default function SupplierProfilePage() {
                 documentHref={(id) => `/purchasing/payments/${id}`}
                 onCreateNew={
                   hasPermission("purchasing.payments.create")
-                    ? () => router.push(`/purchasing/payments/new?supplierId=${supplier.id}`)
+                    ? () => router.push(`/purchasing/payments/new?partnerId=${supplier.id}`)
                     : undefined
                 }
                 createLabel={t("purchasing.payments.addNew")}

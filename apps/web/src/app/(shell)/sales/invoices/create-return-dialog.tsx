@@ -86,7 +86,7 @@ export function CreateReturnDialog({
     setIsSubmitting(true);
     try {
       const payload: SalesReturnFormPayload = {
-        customerId: invoice.customerId,
+        partnerId: invoice.partnerId,
         salesInvoiceId: invoice.id,
         items: selectedLines.map((item) => ({
           productId: item.productId,

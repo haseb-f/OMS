@@ -29,7 +29,7 @@ import {
   type SalesOrderItemRow,
   type SalesOrderRow,
 } from "@/services/sales-orders-service";
-import type { CustomerRow } from "@/services/customers-service";
+import type { PartnerRow } from "@/services/partners-service";
 import type { CurrencyRow } from "@/config/master-data/entities";
 import { buildOrderStatusOptions } from "@/config/sales/order-status";
 import { INVOICE_STATUS_LABEL_KEY, INVOICE_STATUS_TONE } from "@/config/sales/invoice-status";
@@ -89,7 +89,7 @@ export function OrderEditorPage({ id }: { id: string | null }) {
   const [cancelTarget, setCancelTarget] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
 
-  const [customer, setCustomer] = useState<CustomerRow | null>(null);
+  const [customer, setCustomer] = useState<PartnerRow | null>(null);
   const [currency, setCurrency] = useState<CurrencyRow | null>(null);
   const [referenceNumber, setReferenceNumber] = useState("");
   const [notes, setNotes] = useState("");
@@ -98,7 +98,7 @@ export function OrderEditorPage({ id }: { id: string | null }) {
 
   const applyOrder = useCallback((data: SalesOrderRow) => {
     setOrder(data);
-    setCustomer(data.customer ?? null);
+    setCustomer(data.partner ?? null);
     setCurrency(data.currency ?? null);
     setReferenceNumber(data.referenceNumber ?? "");
     setNotes(data.internalNotes ?? "");
@@ -151,7 +151,7 @@ export function OrderEditorPage({ id }: { id: string | null }) {
   };
 
   const buildPayload = () => ({
-    customerId: customer!.id,
+    partnerId: customer!.id,
     currencyId: currency?.id,
     referenceNumber: referenceNumber || undefined,
     internalNotes: notes || undefined,

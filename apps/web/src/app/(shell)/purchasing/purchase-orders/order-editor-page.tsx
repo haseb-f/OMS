@@ -29,7 +29,7 @@ import {
   type PurchaseOrderItemRow,
   type PurchaseOrderRow,
 } from "@/services/purchase-orders-service";
-import type { SupplierRow } from "@/services/suppliers-service";
+import type { PartnerRow } from "@/services/partners-service";
 import { buildOrderStatusOptions } from "@/config/purchasing/order-status";
 import { INVOICE_STATUS_LABEL_KEY, INVOICE_STATUS_TONE } from "@/config/purchasing/invoice-status";
 import { RelatedDocuments } from "@/components/shared/related-documents";
@@ -86,7 +86,7 @@ export function OrderEditorPage({ id }: { id: string | null }) {
   const [closeTarget, setCloseTarget] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
 
-  const [supplier, setSupplier] = useState<SupplierRow | null>(null);
+  const [supplier, setSupplier] = useState<PartnerRow | null>(null);
   const [currency, setCurrency] = useState<CurrencyRow | null>(null);
   const [referenceNumber, setReferenceNumber] = useState("");
   const [notes, setNotes] = useState("");
@@ -101,7 +101,7 @@ export function OrderEditorPage({ id }: { id: string | null }) {
 
   const applyOrder = useCallback((data: PurchaseOrderRow) => {
     setOrder(data);
-    setSupplier(data.supplier ?? null);
+    setSupplier(data.partner ?? null);
     setCurrency(data.currency ?? null);
     setReferenceNumber(data.referenceNumber ?? "");
     setNotes(data.internalNotes ?? "");
@@ -152,7 +152,7 @@ export function OrderEditorPage({ id }: { id: string | null }) {
   };
 
   const buildPayload = () => ({
-    supplierId: supplier!.id,
+    partnerId: supplier!.id,
     currencyId: currency?.id,
     purchaseType: "INVENTORY" as const,
     referenceNumber: referenceNumber || undefined,

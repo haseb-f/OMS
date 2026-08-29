@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Archive, CheckCircle2, FileText, UserCheck } from "lucide-react";
+import { Archive, FileText, UserCheck } from "lucide-react";
 import {
   DetailField,
   DetailFieldGrid,
@@ -14,7 +14,8 @@ import { RowActionsMenu } from "@/components/shared/data-table";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EntityTabs } from "@/components/business/entity-tabs";
-import { StatusBadge, type StatusTone } from "@/components/business/status-badge";
+import { StatusBadge } from "@/components/business/status-badge";
+import { WorkflowActionsPanel } from "@/components/business/workflow-actions-panel";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
 import { AssignLeadDialog } from "@/components/business/assign-lead-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -26,7 +27,6 @@ import {
   type LeadActivityRow,
   type LeadAssignmentRow,
   type LeadNoteRow,
-  type LeadStatusValue,
 } from "@/services/leads-service";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
@@ -34,13 +34,6 @@ import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import { formatDate, formatDateTime } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
-
-const STATUS_TONE: Record<LeadStatusValue, StatusTone> = {
-  NEW: "info",
-  UNDER_FOLLOW_UP: "warning",
-  PAID: "success",
-  ARCHIVED: "neutral",
-};
 
 function LeadDetailContent() {
   const params = useParams<{ id: string }>();
@@ -56,8 +49,8 @@ function LeadDetailContent() {
   const [noteDraft, setNoteDraft] = useState("");
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
 
   const canEdit = hasPermission("crm.leads.edit");
   const canManage = hasPermission("crm.leads.manage");
@@ -101,7 +94,6 @@ function LeadDetailContent() {
   }, [reloadSidePanels]);
 
   const runTransition = async (action: () => Promise<unknown>) => {
-    setIsTransitioning(true);
     try {
       await action();
       toast.success(t("common.save"));
@@ -109,8 +101,6 @@ function LeadDetailContent() {
       reloadSidePanels();
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
-    } finally {
-      setIsTransitioning(false);
     }
   };
 
@@ -159,10 +149,6 @@ function LeadDetailContent() {
       title={lead.leadNumber}
       status={
         <>
-          <StatusBadge
-            label={t(`crm.leads.status.${lead.status}` as MessageKey)}
-            tone={STATUS_TONE[lead.status]}
-          />
           {lead.possibleDuplicate ? (
             <StatusBadge tone="warning" label={t("crm.leads.possibleDuplicate")} />
           ) : null}
@@ -172,22 +158,6 @@ function LeadDetailContent() {
         <RowActionsMenu
           label={t("common.actions")}
           actions={[
-            {
-              key: "follow-up",
-              label: t("crm.leads.actions.startFollowUp"),
-              icon: CheckCircle2,
-              hidden: !canEdit || lead.status !== "NEW",
-              disabled: isTransitioning,
-              onSelect: () => void runTransition(() => leadsService.startFollowUp(lead.id)),
-            },
-            {
-              key: "mark-paid",
-              label: t("crm.leads.actions.markPaid"),
-              icon: CheckCircle2,
-              hidden: !canEdit || lead.status === "PAID" || lead.status === "ARCHIVED",
-              disabled: isTransitioning,
-              onSelect: () => void runTransition(() => leadsService.markPaid(lead.id)),
-            },
             {
               key: "assign",
               label: t("crm.leads.actions.reassign"),
@@ -199,8 +169,7 @@ function LeadDetailContent() {
               key: "archive",
               label: t("crm.leads.actions.archive"),
               icon: Archive,
-              hidden: !canArchive || lead.status === "ARCHIVED",
-              disabled: isTransitioning,
+              hidden: !canArchive || lead.status?.code === "LOST",
               destructive: true,
               separatorBefore: true,
               onSelect: () => setArchiveOpen(true),
@@ -209,6 +178,21 @@ function LeadDetailContent() {
         />
       }
     >
+      <DetailSection title={t("workflow.actions.title")}>
+        <WorkflowActionsPanel
+          entityType="LEAD"
+          entityId={lead.id}
+          currentStatus={lead.status}
+          onTransitionComplete={() => {
+            void load();
+            reloadSidePanels();
+          }}
+          convertDefaults={{
+            productId: lead.productId ?? undefined,
+            quantity: lead.quantity,
+          }}
+        />
+      </DetailSection>
       <EntityTabs
         tabs={[
           {
@@ -253,21 +237,37 @@ function LeadDetailContent() {
                   <DetailField
                     label={t("crm.leads.fields.customer")}
                     value={
-                      lead.customer ? (
+                      lead.partner ? (
                         <EnterpriseButton
                           type="button"
                           variant="ghost"
                           size="sm"
                           className="h-auto justify-start p-0 text-body font-medium"
-                          onClick={() => router.push(`/sales/customers/${lead.customer!.id}`)}
+                          onClick={() => router.push(`/sales/customers/${lead.partner!.id}`)}
                         >
-                          {lead.customer.customerNumber} — {lead.customer.name}
+                          {lead.partner.partnerNumber} — {lead.partner.name}
                         </EnterpriseButton>
                       ) : (
                         t("crm.leads.noCustomerLinked")
                       )
                     }
                   />
+                  {lead.storeOrder ? (
+                    <DetailField
+                      label={t("workflow.fields.storeOrder")}
+                      value={
+                        <EnterpriseButton
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto justify-start p-0 text-body font-medium"
+                          onClick={() => router.push(`/store-orders/${lead.storeOrder!.id}`)}
+                        >
+                          {lead.storeOrder.internalOrderId}
+                        </EnterpriseButton>
+                      }
+                    />
+                  ) : null}
                 </DetailFieldGrid>
               </DetailSection>
             ),
@@ -374,10 +374,13 @@ function LeadDetailContent() {
         description={t("common.confirmArchiveDescription")}
         confirmLabel={t("crm.leads.actions.archive")}
         cancelLabel={t("common.cancel")}
-        isConfirming={isTransitioning}
+        isConfirming={isArchiving}
         onConfirm={() => {
-          setArchiveOpen(false);
-          void runTransition(() => leadsService.archiveLead(lead.id));
+          setIsArchiving(true);
+          void runTransition(() => leadsService.archiveLead(lead.id)).finally(() => {
+            setIsArchiving(false);
+            setArchiveOpen(false);
+          });
         }}
       />
     </DetailWorkspace>

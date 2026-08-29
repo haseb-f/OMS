@@ -1,6 +1,6 @@
 import { apiClient } from "./api-client";
 import { buildQueryString } from "@/lib/query-string";
-import type { CustomerRow } from "./customers-service";
+import type { PartnerRow } from "./partners-service";
 import type { ProductRow } from "./products-service";
 import type { WarehouseRow, UnitRow, TaxRow } from "@/config/master-data/entities";
 import type { SalesDocumentStatusValue } from "./sales-quotations-service";
@@ -42,8 +42,8 @@ export interface SalesReturnItemRow {
 export interface SalesReturnRow {
   id: string;
   returnNumber: string;
-  customerId: string;
-  customer?: CustomerRow;
+  partnerId: string;
+  partner?: PartnerRow;
   salesInvoiceId: string | null;
   salesInvoice?: { invoiceNumber: string } | null;
   currencyId: string | null;
@@ -86,7 +86,7 @@ export interface SalesReturnLineItemPayload {
 }
 
 export interface SalesReturnFormPayload {
-  customerId: string;
+  partnerId: string;
   /** Required — TASK-048: a Sales Return must always originate from an existing Sales Invoice. */
   salesInvoiceId: string;
   currencyId?: string;
@@ -110,7 +110,7 @@ export interface SalesReturnableSummary {
 export interface SalesReturnListParams {
   search?: string;
   status?: SalesDocumentStatusValue | SalesDocumentStatusValue[];
-  customerId?: string | string[];
+  partnerId?: string | string[];
   /** ISO date-only strings ("2026-01-01") — filters by `createdAt`, the same column the list's Date column shows. */
   dateFrom?: string;
   dateTo?: string;

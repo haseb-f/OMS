@@ -32,7 +32,7 @@ import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import { productsService, type ProductRow } from "@/services/products-service";
 import type { CategoryRow, UnitRow, TaxRow, WarehouseRow } from "@/config/master-data/entities";
-import type { SupplierRow } from "@/services/suppliers-service";
+import type { PartnerRow } from "@/services/partners-service";
 import {
   productCreateSchema,
   productCreateDefaultValues,
@@ -87,7 +87,7 @@ export function ProductCreateDialog({
   categories: CategoryRow[];
   units: UnitRow[];
   taxes?: TaxRow[];
-  suppliers?: SupplierRow[];
+  suppliers?: PartnerRow[];
   warehouses?: WarehouseRow[];
   onCreated: (product: ProductRow) => void;
 }) {
@@ -398,7 +398,7 @@ export function ProductCreateDialog({
               {suppliers && (
                 <FormField
                   control={form.control}
-                  name="preferredSupplierId"
+                  name="preferredPartnerId"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t("products.fields.preferredSupplier")}</FormLabel>

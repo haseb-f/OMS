@@ -112,13 +112,13 @@ export function buildOrderColumns(handlers: OrderRowHandlers): ColumnDef<SalesOr
     {
       id: "customer",
       meta: { titleKey: "sales.orders.fields.customer", stacked: true, type: "name" },
-      accessorFn: (row) => row.customer?.name ?? "—",
+      accessorFn: (row) => row.partner?.name ?? "—",
       cell: ({ row }) => (
         <StackedCell
-          primary={row.original.customer?.name ?? "—"}
+          primary={row.original.partner?.name ?? "—"}
           secondary={
-            row.original.customer?.phone ? (
-              <SemanticValue kind="phone">{row.original.customer.phone}</SemanticValue>
+            row.original.partner?.phone ? (
+              <SemanticValue kind="phone">{row.original.partner.phone}</SemanticValue>
             ) : undefined
           }
         />

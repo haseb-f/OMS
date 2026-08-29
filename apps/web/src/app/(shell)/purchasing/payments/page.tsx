@@ -32,7 +32,7 @@ import {
   type FinancialTransactionRow,
 } from "@/services/supplier-payments-service";
 import type { FinancialTransactionStatusValue } from "@/services/financial-transactions-service";
-import { suppliersService, type SupplierRow } from "@/services/suppliers-service";
+import { partnersService, type PartnerRow } from "@/services/partners-service";
 import { useUsersLookup } from "@/hooks/use-reference-data";
 import {
   TRANSACTION_ARCHIVABLE_STATUSES,
@@ -70,7 +70,7 @@ function SupplierPaymentsPageContent() {
   const [sortBy, setSortBy] = usePathRestorableState("sortBy", "createdAt");
   const [sortOrder, setSortOrder] = usePathRestorableState<"asc" | "desc">("sortOrder", "desc");
   const [statusFilter, setStatusFilter] = usePathRestorableState<string[]>("status", []);
-  const [supplierFilter, setSupplierFilter] = usePathRestorableState<SupplierRow[]>("supplier", []);
+  const [supplierFilter, setSupplierFilter] = usePathRestorableState<PartnerRow[]>("supplier", []);
   const [dateRange, setDateRange] = usePathRestorableState<DateRangeValue>(
     "dateRange",
     EMPTY_DATE_RANGE,
@@ -88,7 +88,7 @@ function SupplierPaymentsPageContent() {
       const result = await supplierPaymentsService.list({
         search: search || undefined,
         status: statusFilter as FinancialTransactionStatusValue[],
-        supplierId: supplierFilter.map((supplier) => supplier.id),
+        partnerId: supplierFilter.map((supplier) => supplier.id),
         dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
         dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
         page,
@@ -115,7 +115,7 @@ function SupplierPaymentsPageContent() {
   const toPrintRow = useCallback(
     (item: FinancialTransactionRow): Record<string, string> => ({
       transactionNumber: item.transactionNumber,
-      supplier: item.supplier?.name ?? "",
+      partner: item.partner?.name ?? "",
       referenceNumber: item.referenceNumber ?? "",
       amount: item.amount,
       status: t(TRANSACTION_STATUS_LABEL_KEY[item.status]),
@@ -183,10 +183,10 @@ function SupplierPaymentsPageContent() {
       {
         id: "supplier",
         meta: { titleKey: "purchasing.payments.fields.supplier" },
-        accessorFn: (row) => row.supplier?.name ?? "—",
+        accessorFn: (row) => row.partner?.name ?? "—",
         cell: ({ row }) => (
           <StackedCell
-            primary={row.original.supplier?.name ?? "—"}
+            primary={row.original.partner?.name ?? "—"}
             secondary={
               row.original.referenceNumber ? (
                 <SemanticValue kind="id">{row.original.referenceNumber}</SemanticValue>
@@ -394,9 +394,10 @@ function SupplierPaymentsPageContent() {
                 setPage(1);
               }}
               onSearch={async (search) => {
-                const result = await suppliersService.list({
+                const result = await partnersService.list({
                   search: search || undefined,
                   pageSize: 20,
+                  role: ["SUPPLIER"],
                 });
                 return result.items;
               }}

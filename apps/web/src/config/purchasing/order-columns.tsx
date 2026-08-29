@@ -123,13 +123,13 @@ export function buildOrderColumns(
     {
       id: "supplier",
       meta: { titleKey: "purchasing.orders.fields.supplier", stacked: true, type: "name" },
-      accessorFn: (row) => row.supplier?.name ?? "—",
+      accessorFn: (row) => row.partner?.name ?? "—",
       cell: ({ row }) => (
         <StackedCell
-          primary={row.original.supplier?.name ?? "—"}
+          primary={row.original.partner?.name ?? "—"}
           secondary={
-            row.original.supplier?.phone ? (
-              <SemanticValue kind="phone">{row.original.supplier.phone}</SemanticValue>
+            row.original.partner?.phone ? (
+              <SemanticValue kind="phone">{row.original.partner.phone}</SemanticValue>
             ) : undefined
           }
         />

@@ -36,15 +36,15 @@ export function buildOrderPrintPayload(
       },
     },
     party: {
-      name: order.supplier?.name ?? "",
-      taxNumber: order.supplier?.taxNumber ?? undefined,
+      name: order.partner?.name ?? "",
+      taxNumber: order.partner?.taxNumber ?? undefined,
       addressLines: [
-        order.supplier?.address,
-        order.supplier?.city,
-        order.supplier?.country?.name,
+        order.partner?.address,
+        order.partner?.city,
+        order.partner?.country?.name,
       ].filter((value): value is string => !!value),
-      phone: order.supplier?.phone ?? undefined,
-      email: order.supplier?.email ?? undefined,
+      phone: order.partner?.phone ?? undefined,
+      email: order.partner?.email ?? undefined,
     },
     meta: [
       ...(order.referenceNumber

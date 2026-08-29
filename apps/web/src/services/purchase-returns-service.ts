@@ -1,6 +1,6 @@
 import { apiClient } from "./api-client";
 import { buildQueryString } from "@/lib/query-string";
-import type { SupplierRow } from "./suppliers-service";
+import type { PartnerRow } from "./partners-service";
 import type { ProductRow } from "./products-service";
 import type { WarehouseRow, UnitRow, TaxRow } from "@/config/master-data/entities";
 import type { PurchaseDocumentStatusValue } from "./purchase-quotations-service";
@@ -40,8 +40,8 @@ export interface PurchaseReturnItemRow {
 export interface PurchaseReturnRow {
   id: string;
   returnNumber: string;
-  supplierId: string;
-  supplier?: SupplierRow;
+  partnerId: string;
+  partner?: PartnerRow;
   purchaseInvoiceId: string | null;
   purchaseInvoice?: { invoiceNumber: string } | null;
   currencyId: string | null;
@@ -82,7 +82,7 @@ export interface PurchaseReturnLineItemPayload {
 }
 
 export interface PurchaseReturnFormPayload {
-  supplierId: string;
+  partnerId: string;
   /** Required — TASK-048: a Purchase Return must always originate from an existing Purchase Invoice. */
   purchaseInvoiceId: string;
   currencyId?: string;
@@ -106,7 +106,7 @@ export interface PurchaseReturnableSummary {
 export interface PurchaseReturnListParams {
   search?: string;
   status?: PurchaseDocumentStatusValue | PurchaseDocumentStatusValue[];
-  supplierId?: string | string[];
+  partnerId?: string | string[];
   dateFrom?: string;
   dateTo?: string;
   page?: number;

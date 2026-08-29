@@ -32,15 +32,15 @@ export function buildReturnPrintPayload(
       },
     },
     party: {
-      name: salesReturn.customer?.name ?? "",
-      taxNumber: salesReturn.customer?.taxNumber ?? undefined,
+      name: salesReturn.partner?.name ?? "",
+      taxNumber: salesReturn.partner?.taxNumber ?? undefined,
       addressLines: [
-        salesReturn.customer?.address,
-        salesReturn.customer?.city,
-        salesReturn.customer?.country?.name,
+        salesReturn.partner?.address,
+        salesReturn.partner?.city,
+        salesReturn.partner?.country?.name,
       ].filter((value): value is string => !!value),
-      phone: salesReturn.customer?.phone ?? undefined,
-      email: salesReturn.customer?.email ?? undefined,
+      phone: salesReturn.partner?.phone ?? undefined,
+      email: salesReturn.partner?.email ?? undefined,
     },
     meta: [
       ...(salesReturn.referenceNumber

@@ -30,7 +30,7 @@ import {
   type SalesDocumentStatusValue,
   type SalesInvoiceRow,
 } from "@/services/sales-invoices-service";
-import { customersService, type CustomerRow } from "@/services/customers-service";
+import { partnersService, type PartnerRow } from "@/services/partners-service";
 import { useUsersLookup } from "@/hooks/use-reference-data";
 import { buildInvoiceColumns, invoiceExportColumns } from "@/config/sales/invoice-columns";
 import {
@@ -67,7 +67,7 @@ function SalesInvoicesPageContent() {
   const [sortBy, setSortBy] = usePathRestorableState("sortBy", "createdAt");
   const [sortOrder, setSortOrder] = usePathRestorableState<"asc" | "desc">("sortOrder", "desc");
   const [statusFilter, setStatusFilter] = usePathRestorableState<string[]>("status", []);
-  const [customerFilter, setCustomerFilter] = usePathRestorableState<CustomerRow[]>("customer", []);
+  const [customerFilter, setCustomerFilter] = usePathRestorableState<PartnerRow[]>("customer", []);
   const [dateRange, setDateRange] = usePathRestorableState<DateRangeValue>(
     "dateRange",
     EMPTY_DATE_RANGE,
@@ -85,7 +85,7 @@ function SalesInvoicesPageContent() {
       const result = await salesInvoicesService.list({
         search: search || undefined,
         status: statusFilter as SalesDocumentStatusValue[],
-        customerId: customerFilter.map((customer) => customer.id),
+        partnerId: customerFilter.map((customer) => customer.id),
         dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
         dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
         page,
@@ -112,7 +112,7 @@ function SalesInvoicesPageContent() {
   const toPrintRow = useCallback(
     (item: SalesInvoiceRow): Record<string, string> => ({
       invoiceNumber: item.invoiceNumber,
-      customer: item.customer?.name ?? "",
+      partner: item.partner?.name ?? "",
       referenceNumber: item.referenceNumber ?? "",
       grandTotal: item.grandTotal,
       status: t(INVOICE_STATUS_LABEL_KEY[item.status]),
@@ -125,7 +125,7 @@ function SalesInvoicesPageContent() {
   const handleDuplicate = async (row: SalesInvoiceRow) => {
     try {
       const created = await salesInvoicesService.create({
-        customerId: row.customerId,
+        partnerId: row.partnerId,
         currencyId: row.currencyId ?? undefined,
         referenceNumber: row.referenceNumber ?? undefined,
         internalNotes: row.internalNotes ?? undefined,
@@ -293,7 +293,7 @@ function SalesInvoicesPageContent() {
                 setPage(1);
               }}
               onSearch={async (search) => {
-                const result = await customersService.list({
+                const result = await partnersService.list({
                   search: search || undefined,
                   pageSize: 20,
                 });
@@ -390,7 +390,7 @@ function SalesInvoicesPageContent() {
             notesColumnId: "createdAt",
             items: toDocumentLineItems(row.items ?? []),
             currency: row.currency,
-            party: row.customer,
+            party: row.partner,
             notes: row.internalNotes,
             labels: documentDetailLabels(t, "customer"),
             onShowMore: () => router.push(`/sales/invoices/${row.id}`),

@@ -17,7 +17,7 @@ import { AuditTimeline, type TimelineEntry } from "@/components/business/timelin
 import { ComingSoon } from "@/components/shared/coming-soon";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PartyPaymentsPanel } from "@/components/financial-transactions/party-payments-panel";
-import { customersService, type CustomerRow } from "@/services/customers-service";
+import { partnersService, type PartnerRow } from "@/services/partners-service";
 import {
   customerReceiptsService,
   type FinancialTransactionRow,
@@ -25,7 +25,8 @@ import {
 } from "@/services/customer-receipts-service";
 import { leadsService, type LeadRow } from "@/services/leads-service";
 import type { MasterDataActivityEntry } from "@/services/master-data-service";
-import { StatusBadge, type StatusTone } from "@/components/business/status-badge";
+import { DynamicStatusBadge } from "@/components/business/dynamic-status-badge";
+import { StatusBadge } from "@/components/business/status-badge";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
@@ -35,13 +36,6 @@ import type { DocumentData } from "@/types/document-engine";
 import { ApiError } from "@/services/api-client";
 import { toast } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
-
-const LEAD_STATUS_TONE: Record<LeadRow["status"], StatusTone> = {
-  NEW: "info",
-  UNDER_FOLLOW_UP: "warning",
-  PAID: "success",
-  ARCHIVED: "neutral",
-};
 
 function formatMoney(value: number) {
   return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -55,7 +49,7 @@ export default function CustomerProfilePage() {
   const { user, hasPermission } = useUserContext();
   const router = useRouter();
 
-  const [customer, setCustomer] = useState<CustomerRow | null>(null);
+  const [customer, setCustomer] = useState<PartnerRow | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activity, setActivity] = useState<MasterDataActivityEntry[] | null>(null);
   const [receipts, setReceipts] = useState<FinancialTransactionRow[]>([]);
@@ -67,8 +61,8 @@ export default function CustomerProfilePage() {
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
 
-  const canEdit = hasPermission("sales.customers.edit");
-  const canArchive = hasPermission("sales.customers.archive");
+  const canEdit = hasPermission("partners.edit");
+  const canArchive = hasPermission("partners.archive");
 
   useBreadcrumbLabel(customer?.name ?? null);
 
@@ -76,7 +70,7 @@ export default function CustomerProfilePage() {
     const loadCustomer = async () => {
       setIsLoading(true);
       try {
-        setCustomer(await customersService.get(params.id));
+        setCustomer(await partnersService.get(params.id));
       } catch {
         setCustomer(null);
       } finally {
@@ -87,7 +81,7 @@ export default function CustomerProfilePage() {
   }, [params.id]);
 
   useEffect(() => {
-    customersService
+    partnersService
       .activity(params.id)
       .then(setActivity)
       .catch(() => setActivity([]));
@@ -97,7 +91,7 @@ export default function CustomerProfilePage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoadingReceipts(true);
     customerReceiptsService
-      .list({ customerId: params.id, pageSize: 50, sortBy: "transactionDate", sortOrder: "desc" })
+      .list({ partnerId: params.id, pageSize: 50, sortBy: "transactionDate", sortOrder: "desc" })
       .then((result) => setReceipts(result.items))
       .catch(() => setReceipts([]))
       .finally(() => setIsLoadingReceipts(false));
@@ -114,7 +108,7 @@ export default function CustomerProfilePage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoadingOrders(true);
     leadsService
-      .list({ customerId: params.id, pageSize: 100 })
+      .list({ partnerId: params.id, pageSize: 100 })
       .then((result) => setOrders(result.items))
       .catch(() => setOrders([]))
       .finally(() => setIsLoadingOrders(false));
@@ -135,8 +129,10 @@ export default function CustomerProfilePage() {
     );
   }
 
-  const creditLimit = customer.creditLimit ? Number(customer.creditLimit) : null;
-  const creditAvailable = creditLimit !== null ? creditLimit - customer.balance : null;
+  const creditLimit = customer.customerProfile?.creditLimit
+    ? Number(customer.customerProfile.creditLimit)
+    : null;
+  const creditAvailable = creditLimit !== null ? creditLimit - customer.receivableBalance : null;
 
   const timelineEntries: TimelineEntry[] = (activity ?? []).map((entry) => ({
     id: entry.id,
@@ -148,7 +144,7 @@ export default function CustomerProfilePage() {
   const handlePrint = () => {
     const data: DocumentData = {
       type: "customer-statement",
-      documentNumber: customer.customerNumber,
+      documentNumber: customer.partnerNumber,
       documentDate: formatDate(new Date().toISOString()),
       currency: "",
       company: {
@@ -177,14 +173,14 @@ export default function CustomerProfilePage() {
           value: t(`common.${customer.status === "ACTIVE" ? "active" : "archived"}`),
         },
       ],
-      // Real customer/balance data only — no transaction lines yet (Sales
+      // Real Partner/balance data only — no transaction lines yet (Sales
       // Invoices UI is out of scope for this task; the balance itself is
       // already computed server-side from real confirmed invoices/returns).
       lineItems: [],
       totals: [
         {
           label: t("sales.customers.profile.statistics.balance"),
-          value: customer.balance,
+          value: customer.receivableBalance,
           emphasis: true,
         },
       ],
@@ -212,7 +208,7 @@ export default function CustomerProfilePage() {
   const handleArchive = async () => {
     setIsArchiving(true);
     try {
-      await customersService.archive(customer.id);
+      await partnersService.archive(customer.id);
       toast.success(t("common.archive"));
       setArchiveOpen(false);
       router.push("/sales/customers");
@@ -226,7 +222,7 @@ export default function CustomerProfilePage() {
   return (
     <DetailWorkspace
       title={customer.name}
-      subtitle={customer.customerNumber}
+      subtitle={customer.partnerNumber}
       status={
         <StatusBadge
           label={t(`common.${customer.status === "ACTIVE" ? "active" : "archived"}` as MessageKey)}
@@ -277,11 +273,11 @@ export default function CustomerProfilePage() {
                   />
                   <DetailField
                     label={t("sales.customers.fields.customerGroup")}
-                    value={customer.customerGroup?.name}
+                    value={customer.customerProfile?.customerGroup?.name}
                   />
                   <DetailField
                     label={t("sales.customers.fields.source")}
-                    value={t(`sales.customers.source.${customer.source}` as MessageKey)}
+                    value={t(`partners.source.${customer.source}` as MessageKey)}
                   />
                   <DetailField
                     label={t("sales.customers.fields.createdAt")}
@@ -307,7 +303,7 @@ export default function CustomerProfilePage() {
                   />
                   <DetailField
                     label={t("sales.customers.fields.paymentTerm")}
-                    value={customer.paymentTerm?.name}
+                    value={customer.customerProfile?.paymentTerm?.name}
                   />
                   <DetailField
                     label={t("sales.customers.fields.creditLimit")}
@@ -373,7 +369,7 @@ export default function CustomerProfilePage() {
                 <DetailFieldGrid columns={3}>
                   <DetailField
                     label={t("sales.customers.profile.statistics.balance")}
-                    value={formatMoney(customer.balance)}
+                    value={formatMoney(customer.receivableBalance)}
                   />
                   <DetailField
                     label={t("sales.customers.profile.statistics.creditLimit")}
@@ -440,9 +436,9 @@ export default function CustomerProfilePage() {
                               {order.salesEmployee.fullName}
                             </span>
                           ) : null}
-                          <StatusBadge
-                            tone={LEAD_STATUS_TONE[order.status]}
-                            label={t(`crm.leads.status.${order.status}` as MessageKey)}
+                          <DynamicStatusBadge
+                            label={order.status?.name ?? "—"}
+                            colorKey={order.status?.color}
                           />
                         </div>
                       </button>
@@ -477,7 +473,7 @@ export default function CustomerProfilePage() {
                 documentHref={(id) => `/sales/payments/${id}`}
                 onCreateNew={
                   hasPermission("sales.receipts.create")
-                    ? () => router.push(`/sales/payments/new?customerId=${customer.id}`)
+                    ? () => router.push(`/sales/payments/new?partnerId=${customer.id}`)
                     : undefined
                 }
                 createLabel={t("sales.receipts.addNew")}

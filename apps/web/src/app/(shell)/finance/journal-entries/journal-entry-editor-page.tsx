@@ -22,8 +22,6 @@ import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { RelatedDocuments } from "@/components/shared/related-documents";
 import { StatusBadge } from "@/components/business/status-badge";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
-import { CustomerPicker } from "@/components/business/customer-picker";
-import { SupplierPicker } from "@/components/business/supplier-picker";
 import {
   JournalEntryLinesGrid,
   type JournalEntryLineGridRow,
@@ -41,8 +39,6 @@ import type {
   CostCenterRow,
   ProjectRow,
 } from "@/config/master-data/entities";
-import { customersService, type CustomerRow } from "@/services/customers-service";
-import { suppliersService, type SupplierRow } from "@/services/suppliers-service";
 import {
   JOURNAL_ENTRY_STATUS_LABEL_KEY,
   JOURNAL_ENTRY_STATUS_TONE,
@@ -62,7 +58,6 @@ import { ApiError } from "@/services/api-client";
 
 const accountsService = createMasterDataService<ChartOfAccountRow>("/chart-of-accounts");
 
-type PartnerType = "none" | "customer" | "supplier";
 /** The entry's own `currency` include is a slim `{id,code,name}` projection (see ENTRY_INCLUDE server-side), not a full CurrencyRow — the selector only ever needs these three fields. */
 type CurrencyOption = { id: string; code: string; name: string };
 
@@ -86,6 +81,8 @@ function lineToGridRow(line: JournalEntryRow["lines"][number]): JournalEntryLine
     description: line.description ?? "",
     costCenterId: line.costCenterId ?? "",
     projectId: line.projectId ?? "",
+    partnerId: line.partnerId ?? "",
+    partner: line.partner ?? null,
     debit: Number(line.debit),
     credit: Number(line.credit),
   };
@@ -102,6 +99,8 @@ function templateLineToGridRow(
     description: line.description ?? "",
     costCenterId: line.costCenterId ?? "",
     projectId: line.projectId ?? "",
+    partnerId: "",
+    partner: null,
     debit: line.debit ?? 0,
     credit: line.credit ?? 0,
   };
@@ -134,9 +133,6 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
   const [lines, setLines] = useState<JournalEntryLineGridRow[]>([]);
   const currencies = useCurrencies();
   const [currency, setCurrency] = useState<CurrencyOption | null>(null);
-  const [partnerType, setPartnerType] = useState<PartnerType>("none");
-  const [partnerCustomer, setPartnerCustomer] = useState<CustomerRow | null>(null);
-  const [partnerSupplier, setPartnerSupplier] = useState<SupplierRow | null>(null);
 
   const [templates, setTemplates] = useState<JournalEntryTemplateRow[]>([]);
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
@@ -158,23 +154,6 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
     setReferenceNumber(data.referenceNumber ?? "");
     setLines(data.lines.map(lineToGridRow));
     setCurrency(data.currency ?? null);
-    if (data.partnerCustomerId) {
-      setPartnerType("customer");
-      customersService
-        .get(data.partnerCustomerId)
-        .then(setPartnerCustomer)
-        .catch(() => setPartnerCustomer(null));
-    } else if (data.partnerSupplierId) {
-      setPartnerType("supplier");
-      suppliersService
-        .get(data.partnerSupplierId)
-        .then(setPartnerSupplier)
-        .catch(() => setPartnerSupplier(null));
-    } else {
-      setPartnerType("none");
-      setPartnerCustomer(null);
-      setPartnerSupplier(null);
-    }
   }, []);
 
   useEffect(() => {
@@ -249,13 +228,12 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
     journalId: journalId || undefined,
     referenceNumber: referenceNumber || undefined,
     currencyId: currency?.id || undefined,
-    partnerCustomerId: partnerType === "customer" ? partnerCustomer?.id : undefined,
-    partnerSupplierId: partnerType === "supplier" ? partnerSupplier?.id : undefined,
     lines: lines.map((line) => ({
       accountId: line.accountId,
       description: line.description || undefined,
       costCenterId: line.costCenterId || undefined,
       projectId: line.projectId || undefined,
+      partnerId: line.partnerId || undefined,
       debit: line.debit || undefined,
       credit: line.credit || undefined,
     })),
@@ -342,12 +320,6 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
     } finally {
       setIsDuplicating(false);
     }
-  };
-
-  const handlePartnerTypeChange = (next: PartnerType) => {
-    setPartnerType(next);
-    if (next !== "customer") setPartnerCustomer(null);
-    if (next !== "supplier") setPartnerSupplier(null);
   };
 
   /** "Recurring Journal Templates" — only offered on the "new" route; applying pre-fills Journal + Lines, never the entry's own Description/Reference. */
@@ -649,55 +621,6 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-caption text-muted-foreground">
-                  {t("accounting.journalEntries.fields.partnerType")}
-                </label>
-                <Select
-                  value={partnerType}
-                  onValueChange={(next) => handlePartnerTypeChange(next as PartnerType)}
-                  disabled={!canEdit}
-                >
-                  <SelectTrigger size="sm" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">
-                      {t("accounting.journalEntries.fields.noPartner")}
-                    </SelectItem>
-                    <SelectItem value="customer">
-                      {t("accounting.journalEntries.fields.customer")}
-                    </SelectItem>
-                    <SelectItem value="supplier">
-                      {t("accounting.journalEntries.fields.supplier")}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-caption text-muted-foreground">
-                  {t("accounting.journalEntries.fields.partner")}
-                </label>
-                {partnerType === "customer" && (
-                  <CustomerPicker
-                    value={partnerCustomer}
-                    onChange={setPartnerCustomer}
-                    disabled={!canEdit}
-                  />
-                )}
-                {partnerType === "supplier" && (
-                  <SupplierPicker
-                    value={partnerSupplier}
-                    onChange={setPartnerSupplier}
-                    disabled={!canEdit}
-                  />
-                )}
-                {partnerType === "none" && (
-                  <div className="flex h-9 items-center text-caption text-muted-foreground">
-                    {t("accounting.journalEntries.fields.noPartner")}
-                  </div>
-                )}
-              </div>
               <div className="flex flex-col gap-1 sm:col-span-3">
                 <label className="text-caption text-muted-foreground">
                   {t("accounting.journalEntries.fields.description")}
@@ -736,15 +659,6 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
                 {
                   label: t("accounting.journalEntries.fields.journal"),
                   value: journals.find((journal) => journal.id === journalId)?.name ?? "—",
-                },
-                {
-                  label: t("accounting.journalEntries.fields.partner"),
-                  value:
-                    partnerType === "customer"
-                      ? (partnerCustomer?.name ?? "—")
-                      : partnerType === "supplier"
-                        ? (partnerSupplier?.name ?? "—")
-                        : t("accounting.journalEntries.fields.noPartner"),
                 },
                 {
                   label: t("accounting.journalEntries.fields.currency"),

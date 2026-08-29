@@ -33,15 +33,15 @@ export function buildInvoicePrintPayload(
       },
     },
     party: {
-      name: invoice.supplier?.name ?? "",
-      taxNumber: invoice.supplier?.taxNumber ?? undefined,
+      name: invoice.partner?.name ?? "",
+      taxNumber: invoice.partner?.taxNumber ?? undefined,
       addressLines: [
-        invoice.supplier?.address,
-        invoice.supplier?.city,
-        invoice.supplier?.country?.name,
+        invoice.partner?.address,
+        invoice.partner?.city,
+        invoice.partner?.country?.name,
       ].filter((value): value is string => !!value),
-      phone: invoice.supplier?.phone ?? undefined,
-      email: invoice.supplier?.email ?? undefined,
+      phone: invoice.partner?.phone ?? undefined,
+      email: invoice.partner?.email ?? undefined,
     },
     meta: [
       ...(invoice.referenceNumber

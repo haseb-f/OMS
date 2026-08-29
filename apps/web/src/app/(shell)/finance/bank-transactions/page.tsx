@@ -56,7 +56,7 @@ import {
   purchaseInvoicesService,
   type PurchaseInvoiceRow,
 } from "@/services/purchase-invoices-service";
-import { suppliersService, type SupplierRow } from "@/services/suppliers-service";
+import { partnersService, type PartnerRow } from "@/services/partners-service";
 import { createMasterDataService } from "@/services/master-data-service";
 import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import type { MessageKey } from "@/i18n/translate";
@@ -424,8 +424,7 @@ function ClassifyDialog({
       await bankTransactionsService.classifyOutgoing(transaction.id, {
         outgoingType,
         expenseAccountId: outgoingType === "EXPENSE" ? (expenseAccountId ?? undefined) : undefined,
-        partnerSupplierId:
-          outgoingType === "SUPPLIER_PAYMENT" ? (supplierId ?? undefined) : undefined,
+        partnerId: outgoingType === "SUPPLIER_PAYMENT" ? (supplierId ?? undefined) : undefined,
       });
       toast.success(t("masterData.bankTransactions.classifyDialog.saved"));
       onDone();
@@ -498,8 +497,12 @@ function ClassifyDialog({
             label={t("masterData.bankTransactions.classifyDialog.supplier")}
             placeholder={t("masterData.bankTransactions.manual.searchSupplier")}
             search={async (query) => {
-              const result = await suppliersService.list({ search: query, pageSize: 20 });
-              return (result.items as SupplierRow[]).map((s) => ({ id: s.id, label: s.name }));
+              const result = await partnersService.list({
+                search: query,
+                pageSize: 20,
+                role: ["SUPPLIER"],
+              });
+              return (result.items as PartnerRow[]).map((s) => ({ id: s.id, label: s.name }));
             }}
             onSelect={(id) => setSupplierId(id)}
             selectedLabel={supplierId ? supplierId : undefined}

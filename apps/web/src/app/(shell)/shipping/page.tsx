@@ -127,7 +127,7 @@ function ShippingPageContent() {
     (item: ShipmentListRow): Record<string, string> => ({
       internalOrderId: item.storeOrder.internalOrderId,
       externalOrderId: item.storeOrder.externalOrderId ?? "",
-      customer: item.storeOrder.customer?.name ?? "",
+      customer: item.storeOrder.partner?.name ?? "",
       shippingCompany: item.shippingCompany?.name ?? "",
       trackingNumber: item.trackingNumber ?? "",
       status: t(SHIPMENT_STATUS_LABEL_KEY[item.status]),

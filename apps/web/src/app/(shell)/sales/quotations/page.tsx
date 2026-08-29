@@ -30,7 +30,7 @@ import {
   type SalesDocumentStatusValue,
   type SalesQuotationRow,
 } from "@/services/sales-quotations-service";
-import { customersService, type CustomerRow } from "@/services/customers-service";
+import { partnersService, type PartnerRow } from "@/services/partners-service";
 import { useUsersLookup } from "@/hooks/use-reference-data";
 import { buildQuotationColumns, quotationExportColumns } from "@/config/sales/quotation-columns";
 import {
@@ -67,7 +67,7 @@ function QuotationsPageContent() {
   const [sortBy, setSortBy] = usePathRestorableState("sortBy", "createdAt");
   const [sortOrder, setSortOrder] = usePathRestorableState<"asc" | "desc">("sortOrder", "desc");
   const [statusFilter, setStatusFilter] = usePathRestorableState<string[]>("status", []);
-  const [customerFilter, setCustomerFilter] = usePathRestorableState<CustomerRow[]>("customer", []);
+  const [customerFilter, setCustomerFilter] = usePathRestorableState<PartnerRow[]>("customer", []);
   const [dateRange, setDateRange] = usePathRestorableState<DateRangeValue>(
     "dateRange",
     EMPTY_DATE_RANGE,
@@ -85,7 +85,7 @@ function QuotationsPageContent() {
       const result = await salesQuotationsService.list({
         search: search || undefined,
         status: statusFilter as SalesDocumentStatusValue[],
-        customerId: customerFilter.map((customer) => customer.id),
+        partnerId: customerFilter.map((customer) => customer.id),
         dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
         dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
         page,
@@ -112,7 +112,7 @@ function QuotationsPageContent() {
   const toPrintRow = useCallback(
     (item: SalesQuotationRow): Record<string, string> => ({
       quotationNumber: item.quotationNumber,
-      customer: item.customer?.name ?? "",
+      partner: item.partner?.name ?? "",
       referenceNumber: item.referenceNumber ?? "",
       grandTotal: item.grandTotal,
       status: t(QUOTATION_STATUS_LABEL_KEY[item.status]),
@@ -125,7 +125,7 @@ function QuotationsPageContent() {
   const handleDuplicate = async (row: SalesQuotationRow) => {
     try {
       const created = await salesQuotationsService.create({
-        customerId: row.customerId,
+        partnerId: row.partnerId,
         currencyId: row.currencyId ?? undefined,
         referenceNumber: row.referenceNumber ?? undefined,
         internalNotes: row.internalNotes ?? undefined,
@@ -295,7 +295,7 @@ function QuotationsPageContent() {
                 setPage(1);
               }}
               onSearch={async (search) => {
-                const result = await customersService.list({
+                const result = await partnersService.list({
                   search: search || undefined,
                   pageSize: 20,
                 });
@@ -392,7 +392,7 @@ function QuotationsPageContent() {
             notesColumnId: "createdAt",
             items: toDocumentLineItems(row.items ?? []),
             currency: row.currency,
-            party: row.customer,
+            party: row.partner,
             notes: row.internalNotes,
             labels: documentDetailLabels(t, "customer"),
             onShowMore: () => router.push(`/sales/quotations/${row.id}`),

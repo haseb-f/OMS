@@ -97,13 +97,13 @@ export function buildShipmentColumns(
     {
       id: "customer",
       meta: { titleKey: "shipping.fields.customer", stacked: true, type: "name" },
-      accessorFn: (row) => row.storeOrder.customer?.name ?? "—",
+      accessorFn: (row) => row.storeOrder.partner?.name ?? "—",
       cell: ({ row }) => (
         <StackedCell
-          primary={row.original.storeOrder.customer?.name ?? "—"}
+          primary={row.original.storeOrder.partner?.name ?? "—"}
           secondary={
-            row.original.storeOrder.customer?.phone ? (
-              <SemanticValue kind="phone">{row.original.storeOrder.customer.phone}</SemanticValue>
+            row.original.storeOrder.partner?.phone ? (
+              <SemanticValue kind="phone">{row.original.storeOrder.partner.phone}</SemanticValue>
             ) : undefined
           }
         />

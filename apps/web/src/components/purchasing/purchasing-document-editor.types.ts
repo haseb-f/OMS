@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import type { StatusTone } from "@/components/business/status-badge";
-import type { SupplierRow } from "@/services/suppliers-service";
+import type { PartnerRow } from "@/services/partners-service";
 import type { CurrencyRow } from "@/config/master-data/entities";
 import type { DocumentPrintPayload } from "@/types/print-engine";
 import type { DocumentTotals } from "@/components/sales/document-totals-footer";
@@ -32,7 +32,7 @@ export type PurchaseDocumentWorkflowActionKey =
 export interface PurchaseDocumentEditorActionContext<TDocument> {
   document: TDocument | null;
   lines: ProductLineItemsGridLine[];
-  supplier: SupplierRow | null;
+  supplier: PartnerRow | null;
 }
 
 export interface PurchaseDocumentWorkflowAction<TDocument> {
@@ -80,7 +80,7 @@ export interface PurchaseDocumentEditorState<TDocument> {
   documentNumber: string | null;
   status: string;
   documentDate: Date | null;
-  supplier: SupplierRow | null;
+  supplier: PartnerRow | null;
   /** TASK-057A — document currency (`/currencies` master data). `null` = company base currency. */
   currency: CurrencyRow | null;
   referenceNumber: string;
@@ -92,7 +92,7 @@ export interface PurchaseDocumentEditorState<TDocument> {
 
 export interface PurchaseDocumentEditorHandlers {
   onDocumentDateChange: (date: Date | null) => void;
-  onSupplierChange: (supplier: SupplierRow) => void;
+  onSupplierChange: (supplier: PartnerRow) => void;
   onCurrencyChange: (currency: CurrencyRow | null) => void;
   onReferenceNumberChange: (value: string) => void;
   onNotesChange: (value: string) => void;

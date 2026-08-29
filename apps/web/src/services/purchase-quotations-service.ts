@@ -1,6 +1,6 @@
 import { apiClient } from "./api-client";
 import { buildQueryString } from "@/lib/query-string";
-import type { SupplierRow } from "./suppliers-service";
+import type { PartnerRow } from "./partners-service";
 import type { ProductRow } from "./products-service";
 import type { UnitRow, TaxRow } from "@/config/master-data/entities";
 import type { CurrencyRow } from "@/config/master-data/entities";
@@ -43,8 +43,8 @@ export interface PurchaseQuotationItemRow {
 export interface PurchaseQuotationRow {
   id: string;
   quotationNumber: string;
-  supplierId: string;
-  supplier?: SupplierRow;
+  partnerId: string;
+  partner?: PartnerRow;
   currencyId: string | null;
   currency?: CurrencyRow | null;
   purchaseType: PurchaseTypeValue;
@@ -83,7 +83,7 @@ export interface PurchaseLineItemPayload {
 }
 
 export interface PurchaseQuotationFormPayload {
-  supplierId: string;
+  partnerId: string;
   currencyId?: string;
   purchaseType: PurchaseTypeValue;
   documentDate?: string;
@@ -96,7 +96,7 @@ export interface PurchaseQuotationFormPayload {
 export interface PurchaseQuotationListParams {
   search?: string;
   status?: PurchaseDocumentStatusValue | PurchaseDocumentStatusValue[];
-  supplierId?: string | string[];
+  partnerId?: string | string[];
   dateFrom?: string;
   dateTo?: string;
   page?: number;

@@ -30,7 +30,7 @@ import {
   type PurchaseOrderStatusValue,
   type PurchaseOrderRow,
 } from "@/services/purchase-orders-service";
-import { suppliersService, type SupplierRow } from "@/services/suppliers-service";
+import { partnersService, type PartnerRow } from "@/services/partners-service";
 import { useUsersLookup } from "@/hooks/use-reference-data";
 import { buildOrderColumns, orderExportColumns } from "@/config/purchasing/order-columns";
 import {
@@ -68,7 +68,7 @@ function PurchaseOrdersPageContent() {
   const [sortBy, setSortBy] = usePathRestorableState("sortBy", "createdAt");
   const [sortOrder, setSortOrder] = usePathRestorableState<"asc" | "desc">("sortOrder", "desc");
   const [statusFilter, setStatusFilter] = usePathRestorableState<string[]>("status", []);
-  const [supplierFilter, setSupplierFilter] = usePathRestorableState<SupplierRow[]>("supplier", []);
+  const [supplierFilter, setSupplierFilter] = usePathRestorableState<PartnerRow[]>("supplier", []);
   const [dateRange, setDateRange] = usePathRestorableState<DateRangeValue>(
     "dateRange",
     EMPTY_DATE_RANGE,
@@ -86,7 +86,7 @@ function PurchaseOrdersPageContent() {
       const result = await purchaseOrdersService.list({
         search: search || undefined,
         status: statusFilter as PurchaseOrderStatusValue[],
-        supplierId: supplierFilter.map((supplier) => supplier.id),
+        partnerId: supplierFilter.map((supplier) => supplier.id),
         dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
         dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
         page,
@@ -113,7 +113,7 @@ function PurchaseOrdersPageContent() {
   const toPrintRow = useCallback(
     (item: PurchaseOrderRow): Record<string, string> => ({
       poNumber: item.poNumber,
-      supplier: item.supplier?.name ?? "",
+      supplier: item.partner?.name ?? "",
       referenceNumber: item.referenceNumber ?? "",
       grandTotal: item.items.reduce((sum, i) => sum + Number(i.subtotal), 0).toFixed(2),
       status: t(ORDER_STATUS_LABEL_KEY[item.status]),
@@ -126,7 +126,7 @@ function PurchaseOrdersPageContent() {
   const handleDuplicate = async (row: PurchaseOrderRow) => {
     try {
       const created = await purchaseOrdersService.create({
-        supplierId: row.supplierId,
+        partnerId: row.partnerId,
         purchaseType: row.purchaseType,
         referenceNumber: row.referenceNumber ?? undefined,
         internalNotes: row.internalNotes ?? undefined,
@@ -301,7 +301,7 @@ function PurchaseOrdersPageContent() {
                 setPage(1);
               }}
               onSearch={async (search) => {
-                const result = await suppliersService.list({
+                const result = await partnersService.list({
                   search: search || undefined,
                   pageSize: 20,
                 });
@@ -396,7 +396,7 @@ function PurchaseOrdersPageContent() {
             notesColumnId: "createdAt",
             items: toDocumentLineItems(row.items ?? []),
             currency: row.currency,
-            party: row.supplier,
+            party: row.partner,
             notes: row.internalNotes,
             labels: documentDetailLabels(t, "supplier"),
             onShowMore: () => router.push(`/purchasing/purchase-orders/${row.id}`),

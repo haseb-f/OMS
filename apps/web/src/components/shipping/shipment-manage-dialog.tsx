@@ -176,7 +176,7 @@ export function ShipmentManageDialog({
               <span dir="ltr"> — {shipment.storeOrder.externalOrderId}</span>
             )}
             {" · "}
-            {shipment.storeOrder.customer?.name}
+            {shipment.storeOrder.partner?.name}
           </DialogDescription>
         </DialogHeader>
 

@@ -6,8 +6,8 @@ import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { CreateOperationFooter } from "@/components/shared/create-operation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { customersService } from "@/services/customers-service";
-import type { StoreOrderCustomerRef } from "@/services/store-orders-service";
+import { partnersService } from "@/services/partners-service";
+import type { StoreOrderPartnerRef } from "@/services/store-orders-service";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
@@ -18,7 +18,7 @@ export function StoreOrderEditCustomerDialog({
   onOpenChange,
   onSaved,
 }: {
-  customer: StoreOrderCustomerRef;
+  customer: StoreOrderPartnerRef;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
@@ -42,7 +42,7 @@ export function StoreOrderEditCustomerDialog({
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await customersService.update(customer.id, {
+      await partnersService.update(customer.id, {
         name: customer.name,
         phone: phone.trim() || undefined,
         email: email.trim() || undefined,

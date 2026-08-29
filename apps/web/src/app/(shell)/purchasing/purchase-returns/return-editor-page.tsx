@@ -24,7 +24,7 @@ import {
   type PurchaseReturnItemRow,
   type PurchaseReturnRow,
 } from "@/services/purchase-returns-service";
-import type { SupplierRow } from "@/services/suppliers-service";
+import type { PartnerRow } from "@/services/partners-service";
 import type { CurrencyRow } from "@/config/master-data/entities";
 import { buildReturnStatusOptions } from "@/config/purchasing/return-status";
 import { buildReturnPrintPayload } from "@/config/purchasing/return-print";
@@ -87,7 +87,7 @@ export function ReturnEditorPage({ id }: { id: string }) {
   );
   const [cancelTarget, setCancelTarget] = useState(false);
 
-  const [supplier, setSupplier] = useState<SupplierRow | null>(null);
+  const [supplier, setSupplier] = useState<PartnerRow | null>(null);
   const [currency, setCurrency] = useState<CurrencyRow | null>(null);
   const [documentDate, setDocumentDate] = useState<Date | null>(new Date());
   const [referenceNumber, setReferenceNumber] = useState("");
@@ -97,7 +97,7 @@ export function ReturnEditorPage({ id }: { id: string }) {
 
   const applyReturn = useCallback((data: PurchaseReturnRow) => {
     setPurchaseReturn(data);
-    setSupplier(data.supplier ?? null);
+    setSupplier(data.partner ?? null);
     setCurrency(data.currency ?? null);
     setDocumentDate(new Date(data.createdAt));
     setReferenceNumber(data.referenceNumber ?? "");
@@ -144,7 +144,7 @@ export function ReturnEditorPage({ id }: { id: string }) {
   };
 
   const buildPayload = () => ({
-    supplierId: supplier!.id,
+    partnerId: supplier!.id,
     currencyId: currency?.id,
     referenceNumber: referenceNumber || undefined,
     internalNotes: notes || undefined,

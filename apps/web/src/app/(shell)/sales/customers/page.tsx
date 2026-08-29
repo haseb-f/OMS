@@ -8,26 +8,27 @@ import type { MasterDataFormSection } from "@/components/master-data/master-data
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import { MultiSelectFilter, type RowAction } from "@/components/shared/data-table";
 import {
-  customersService,
-  type CustomerRow,
-  type CustomerSourceValue,
-} from "@/services/customers-service";
+  createRoleScopedPartnerService,
+  type PartnerRow,
+  type PartnerSourceValue,
+} from "@/services/partners-service";
+import {
+  customerPartnerColumns,
+  customerExportColumns,
+  partnerRowLabel,
+} from "@/config/partners/partner-columns";
+import { buildPartnerSchema, partnerDefaultValuesForRole } from "@/config/partners/partner-form";
 import { createMasterDataService } from "@/services/master-data-service";
 import type { PaymentTermRow, CustomerGroupRow } from "@/config/master-data/entities";
-import {
-  customerColumns,
-  customerExportColumns,
-  customerRowLabel,
-} from "@/config/sales/customer-columns";
-import { buildCustomerSchema, customerDefaultValues } from "@/config/sales/customer-form";
 import { useLocale } from "@/providers/locale-provider";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { useCurrencies, useCountries } from "@/hooks/use-reference-data";
 
 const paymentTermsService = createMasterDataService<PaymentTermRow>("/payment-terms");
 const customerGroupsService = createMasterDataService<CustomerGroupRow>("/customer-groups");
+const customersService = createRoleScopedPartnerService("CUSTOMER");
 
-const SOURCE_VALUES: CustomerSourceValue[] = [
+const SOURCE_VALUES: PartnerSourceValue[] = [
   "MANUAL",
   "WEBSITE",
   "SALLA",
@@ -38,6 +39,7 @@ const SOURCE_VALUES: CustomerSourceValue[] = [
   "OTHER",
 ];
 
+/** Thin role-filtered view over the Partner registry (Unified Partner Architecture) — "Customers" is Partners WHERE role = CUSTOMER, never a separate identity. */
 function CustomersPageContent() {
   const { t } = useLocale();
   const router = useRouter();
@@ -68,7 +70,7 @@ function CustomersPageContent() {
           { name: "name", label: "sales.customers.fields.name", type: "text", required: true },
           { name: "commercialName", label: "sales.customers.fields.commercialName", type: "text" },
           {
-            name: "customerGroupId",
+            name: "customerProfile.customerGroupId",
             label: "sales.customers.fields.customerGroup",
             type: "select",
             options: customerGroups.map((g) => ({ value: g.id, label: g.name })),
@@ -112,12 +114,16 @@ function CustomersPageContent() {
             options: currencies.map((c) => ({ value: c.id, label: `${c.code} — ${c.name}` })),
           },
           {
-            name: "paymentTermId",
+            name: "customerProfile.paymentTermId",
             label: "sales.customers.fields.paymentTerm",
             type: "select",
             options: paymentTerms.map((p) => ({ value: p.id, label: p.name })),
           },
-          { name: "creditLimit", label: "sales.customers.fields.creditLimit", type: "number" },
+          {
+            name: "customerProfile.creditLimit",
+            label: "sales.customers.fields.creditLimit",
+            type: "number",
+          },
         ],
       },
       {
@@ -139,30 +145,33 @@ function CustomersPageContent() {
         fields: [{ name: "notes", label: "sales.customers.fields.notes", type: "textarea" }],
       },
     ],
-    [t, customerGroups, currencies, paymentTerms, countries],
+    [t, customerGroups, currencies, paymentTerms],
   );
 
-  const customerSchema = useMemo(() => buildCustomerSchema(countries, t), [countries, t]);
+  const partnerSchema = useMemo(() => buildPartnerSchema(countries, t), [countries, t]);
 
   return (
-    <MasterDataPage<CustomerRow>
+    <MasterDataPage<PartnerRow>
       titleKey="sales.customers.title"
       descriptionKey="sales.customers.description"
       tableId="sales-customers"
       icon={UserCircle}
       service={customersService}
-      columns={customerColumns}
+      columns={customerPartnerColumns}
       exportColumnKeys={customerExportColumns}
       formSections={formSections}
-      schema={customerSchema}
+      schema={partnerSchema}
       phoneCountries={countries}
-      defaultValues={customerDefaultValues}
-      permissionPrefix="sales.customers"
-      rowLabel={customerRowLabel}
+      defaultValues={partnerDefaultValuesForRole("CUSTOMER")}
+      permissionPrefix="partners"
+      rowLabel={partnerRowLabel}
       getRowHref={(row) => `/sales/customers/${row.id}`}
       supportsSelectAllMatching
       extraActions={<ModuleImportButtons importType="CUSTOMERS" />}
-      extraListParams={sourceFilter.length ? { source: sourceFilter } : undefined}
+      extraListParams={{
+        role: ["CUSTOMER"],
+        ...(sourceFilter.length ? { source: sourceFilter } : undefined),
+      }}
       extraFilters={
         <MultiSelectFilter
           label={t("sales.customers.filters.source")}
@@ -170,7 +179,7 @@ function CustomersPageContent() {
           onChange={setSourceFilter}
           options={SOURCE_VALUES.map((source) => ({
             value: source,
-            label: t(`sales.customers.source.${source}`),
+            label: t(`partners.source.${source}`),
           }))}
         />
       }
@@ -188,7 +197,7 @@ function CustomersPageContent() {
 
 export default function CustomersPage() {
   return (
-    <PermissionGate permission="sales.customers.view">
+    <PermissionGate permission="partners.view">
       <CustomersPageContent />
     </PermissionGate>
   );

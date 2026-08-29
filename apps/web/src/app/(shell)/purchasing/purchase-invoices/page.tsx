@@ -30,7 +30,7 @@ import {
   type PurchaseInvoiceRow,
 } from "@/services/purchase-invoices-service";
 import type { PurchaseDocumentStatusValue } from "@/services/purchase-quotations-service";
-import { suppliersService, type SupplierRow } from "@/services/suppliers-service";
+import { partnersService, type PartnerRow } from "@/services/partners-service";
 import { useUsersLookup } from "@/hooks/use-reference-data";
 import { buildInvoiceColumns, invoiceExportColumns } from "@/config/purchasing/invoice-columns";
 import {
@@ -69,7 +69,7 @@ function PurchaseInvoicesPageContent() {
   const [sortBy, setSortBy] = usePathRestorableState("sortBy", "createdAt");
   const [sortOrder, setSortOrder] = usePathRestorableState<"asc" | "desc">("sortOrder", "desc");
   const [statusFilter, setStatusFilter] = usePathRestorableState<string[]>("status", []);
-  const [supplierFilter, setSupplierFilter] = usePathRestorableState<SupplierRow[]>("supplier", []);
+  const [supplierFilter, setSupplierFilter] = usePathRestorableState<PartnerRow[]>("supplier", []);
   const [dateRange, setDateRange] = usePathRestorableState<DateRangeValue>(
     "dateRange",
     EMPTY_DATE_RANGE,
@@ -88,7 +88,7 @@ function PurchaseInvoicesPageContent() {
       const result = await purchaseInvoicesService.list({
         search: search || undefined,
         status: statusFilter as PurchaseDocumentStatusValue[],
-        supplierId: supplierFilter.map((supplier) => supplier.id),
+        partnerId: supplierFilter.map((supplier) => supplier.id),
         dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
         dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
         page,
@@ -115,7 +115,7 @@ function PurchaseInvoicesPageContent() {
   const toPrintRow = useCallback(
     (item: PurchaseInvoiceRow): Record<string, string> => ({
       invoiceNumber: item.invoiceNumber,
-      supplier: item.supplier?.name ?? "",
+      supplier: item.partner?.name ?? "",
       referenceNumber: item.referenceNumber ?? "",
       grandTotal: item.grandTotal,
       status: t(INVOICE_STATUS_LABEL_KEY[item.status]),
@@ -128,7 +128,7 @@ function PurchaseInvoicesPageContent() {
   const handleDuplicate = async (row: PurchaseInvoiceRow) => {
     try {
       const created = await purchaseInvoicesService.create({
-        supplierId: row.supplierId,
+        partnerId: row.partnerId,
         currencyId: row.currencyId ?? undefined,
         referenceNumber: row.referenceNumber ?? undefined,
         internalNotes: row.internalNotes ?? undefined,
@@ -306,7 +306,7 @@ function PurchaseInvoicesPageContent() {
                 setPage(1);
               }}
               onSearch={async (search) => {
-                const result = await suppliersService.list({
+                const result = await partnersService.list({
                   search: search || undefined,
                   pageSize: 20,
                 });
@@ -401,7 +401,7 @@ function PurchaseInvoicesPageContent() {
             notesColumnId: "createdAt",
             items: toDocumentLineItems(row.items ?? []),
             currency: row.currency,
-            party: row.supplier,
+            party: row.partner,
             notes: row.internalNotes,
             labels: documentDetailLabels(t, "supplier"),
             onShowMore: () => router.push(`/purchasing/purchase-invoices/${row.id}`),

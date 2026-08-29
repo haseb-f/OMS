@@ -43,6 +43,8 @@ function emptyLine(): JournalEntryLineGridRow {
     description: "",
     costCenterId: "",
     projectId: "",
+    partnerId: "",
+    partner: null,
     debit: 0,
     credit: 0,
   };

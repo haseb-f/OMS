@@ -30,7 +30,7 @@ import {
   type PurchaseReturnRow,
 } from "@/services/purchase-returns-service";
 import type { PurchaseDocumentStatusValue } from "@/services/purchase-quotations-service";
-import { suppliersService, type SupplierRow } from "@/services/suppliers-service";
+import { partnersService, type PartnerRow } from "@/services/partners-service";
 import { useUsersLookup } from "@/hooks/use-reference-data";
 import { buildReturnColumns, returnExportColumns } from "@/config/purchasing/return-columns";
 import {
@@ -68,7 +68,7 @@ function PurchaseReturnsPageContent() {
   const [sortBy, setSortBy] = usePathRestorableState("sortBy", "createdAt");
   const [sortOrder, setSortOrder] = usePathRestorableState<"asc" | "desc">("sortOrder", "desc");
   const [statusFilter, setStatusFilter] = usePathRestorableState<string[]>("status", []);
-  const [supplierFilter, setSupplierFilter] = usePathRestorableState<SupplierRow[]>("supplier", []);
+  const [supplierFilter, setSupplierFilter] = usePathRestorableState<PartnerRow[]>("supplier", []);
   const [dateRange, setDateRange] = usePathRestorableState<DateRangeValue>(
     "dateRange",
     EMPTY_DATE_RANGE,
@@ -86,7 +86,7 @@ function PurchaseReturnsPageContent() {
       const result = await purchaseReturnsService.list({
         search: search || undefined,
         status: statusFilter as PurchaseDocumentStatusValue[],
-        supplierId: supplierFilter.map((supplier) => supplier.id),
+        partnerId: supplierFilter.map((supplier) => supplier.id),
         dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
         dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
         page,
@@ -111,7 +111,7 @@ function PurchaseReturnsPageContent() {
   const toPrintRow = useCallback(
     (item: PurchaseReturnRow): Record<string, string> => ({
       returnNumber: item.returnNumber,
-      supplier: item.supplier?.name ?? "",
+      supplier: item.partner?.name ?? "",
       referenceNumber: item.referenceNumber ?? "",
       grandTotal: item.grandTotal,
       status: t(RETURN_STATUS_LABEL_KEY[item.status]),
@@ -255,7 +255,7 @@ function PurchaseReturnsPageContent() {
                 setPage(1);
               }}
               onSearch={async (search) => {
-                const result = await suppliersService.list({
+                const result = await partnersService.list({
                   search: search || undefined,
                   pageSize: 20,
                 });
@@ -350,7 +350,7 @@ function PurchaseReturnsPageContent() {
             notesColumnId: "createdAt",
             items: toDocumentLineItems(row.items ?? []),
             currency: row.currency,
-            party: row.supplier,
+            party: row.partner,
             notes: row.internalNotes,
             labels: documentDetailLabels(t, "supplier"),
             onShowMore: () => router.push(`/purchasing/purchase-returns/${row.id}`),

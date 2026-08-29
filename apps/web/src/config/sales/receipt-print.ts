@@ -33,15 +33,15 @@ export function buildReceiptPrintPayload(
       },
     },
     party: {
-      name: receipt.customer?.name ?? "",
-      taxNumber: receipt.customer?.taxNumber ?? undefined,
+      name: receipt.partner?.name ?? "",
+      taxNumber: receipt.partner?.taxNumber ?? undefined,
       addressLines: [
-        receipt.customer?.address,
-        receipt.customer?.city,
-        receipt.customer?.country?.name,
+        receipt.partner?.address,
+        receipt.partner?.city,
+        receipt.partner?.country?.name,
       ].filter((value): value is string => !!value),
-      phone: receipt.customer?.phone ?? undefined,
-      email: receipt.customer?.email ?? undefined,
+      phone: receipt.partner?.phone ?? undefined,
+      email: receipt.partner?.email ?? undefined,
     },
     meta: [
       ...(receipt.referenceNumber

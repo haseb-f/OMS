@@ -1,6 +1,6 @@
 import { apiClient } from "./api-client";
 import { buildQueryString } from "@/lib/query-string";
-import type { CustomerRow } from "./customers-service";
+import type { PartnerRow } from "./partners-service";
 import type { ProductRow } from "./products-service";
 import type { WarehouseRow, UnitRow, TaxRow } from "@/config/master-data/entities";
 import type { SalesDocumentStatusValue } from "./sales-quotations-service";
@@ -43,8 +43,8 @@ export interface SalesOrderItemRow {
 export interface SalesOrderRow {
   id: string;
   orderNumber: string;
-  customerId: string;
-  customer?: CustomerRow;
+  partnerId: string;
+  partner?: PartnerRow;
   quotationId: string | null;
   quotation?: { quotationNumber: string } | null;
   currencyId: string | null;
@@ -85,7 +85,7 @@ export interface SalesOrderLineItemPayload {
 }
 
 export interface SalesOrderFormPayload {
-  customerId: string;
+  partnerId: string;
   currencyId?: string;
   referenceNumber?: string;
   internalNotes?: string;
@@ -96,7 +96,7 @@ export interface SalesOrderFormPayload {
 export interface SalesOrderListParams {
   search?: string;
   status?: SalesDocumentStatusValue | SalesDocumentStatusValue[];
-  customerId?: string | string[];
+  partnerId?: string | string[];
   /** ISO date-only strings ("2026-01-01") — filters by `createdAt`, the same column the list's Date column shows. */
   dateFrom?: string;
   dateTo?: string;

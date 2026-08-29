@@ -7,13 +7,13 @@ import { MasterDataPage } from "@/components/master-data/master-data-page";
 import type { MasterDataFormSection } from "@/components/master-data/master-data-form";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import type { RowAction } from "@/components/shared/data-table";
-import { suppliersService, type SupplierRow } from "@/services/suppliers-service";
+import { createRoleScopedPartnerService, type PartnerRow } from "@/services/partners-service";
 import {
-  supplierColumns,
+  supplierPartnerColumns,
   supplierExportColumns,
-  supplierRowLabel,
-} from "@/config/purchasing/supplier-columns";
-import { buildSupplierSchema, supplierDefaultValues } from "@/config/purchasing/supplier-form";
+  partnerRowLabel,
+} from "@/config/partners/partner-columns";
+import { buildPartnerSchema, partnerDefaultValuesForRole } from "@/config/partners/partner-form";
 import { useLocale } from "@/providers/locale-provider";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { useCurrencies, useCountries } from "@/hooks/use-reference-data";
@@ -22,8 +22,9 @@ import type { PaymentTermRow, SupplierGroupRow } from "@/config/master-data/enti
 
 const paymentTermsService = createMasterDataService<PaymentTermRow>("/payment-terms");
 const supplierGroupsService = createMasterDataService<SupplierGroupRow>("/supplier-groups");
+const suppliersService = createRoleScopedPartnerService("SUPPLIER");
 
-/** Mirrors `sales/customers/page.tsx` (TASK-048) — Supplier's list/create/edit/archive/restore reuse `MasterDataPage`, same as Customer. */
+/** Thin role-filtered view over the Partner registry (Unified Partner Architecture) — "Suppliers" is Partners WHERE role = SUPPLIER, never a separate identity. Mirrors `sales/customers/page.tsx`. */
 function SuppliersPageContent() {
   const { t } = useLocale();
   const router = useRouter();
@@ -50,7 +51,6 @@ function SuppliersPageContent() {
         title: t("purchasing.suppliers.sections.general"),
         columns: 3,
         fields: [
-          { name: "code", label: "purchasing.suppliers.fields.code", type: "text" },
           { name: "name", label: "purchasing.suppliers.fields.name", type: "text", required: true },
           {
             name: "commercialName",
@@ -90,7 +90,7 @@ function SuppliersPageContent() {
             type: "text",
           },
           {
-            name: "supplierGroupId",
+            name: "supplierProfile.supplierGroupId",
             label: "purchasing.suppliers.fields.supplierGroup",
             type: "select",
             options: supplierGroups.map((group) => ({ value: group.id, label: group.name })),
@@ -102,12 +102,16 @@ function SuppliersPageContent() {
             options: currencies.map((c) => ({ value: c.id, label: `${c.code} — ${c.name}` })),
           },
           {
-            name: "paymentTerm",
+            name: "supplierProfile.paymentTerm",
             label: "purchasing.suppliers.fields.paymentTerm",
             type: "select",
             options: paymentTerms.map((term) => ({ value: term.name, label: term.name })),
           },
-          { name: "creditLimit", label: "purchasing.suppliers.fields.creditLimit", type: "number" },
+          {
+            name: "supplierProfile.creditLimit",
+            label: "purchasing.suppliers.fields.creditLimit",
+            type: "number",
+          },
         ],
       },
       {
@@ -137,24 +141,25 @@ function SuppliersPageContent() {
     [t, currencies, paymentTerms, supplierGroups],
   );
 
-  const supplierSchema = useMemo(() => buildSupplierSchema(countries, t), [countries, t]);
+  const partnerSchema = useMemo(() => buildPartnerSchema(countries, t), [countries, t]);
 
   return (
-    <MasterDataPage<SupplierRow>
+    <MasterDataPage<PartnerRow>
       titleKey="purchasing.suppliers.title"
       descriptionKey="purchasing.suppliers.description"
       tableId="purchasing-suppliers"
       icon={Truck}
       service={suppliersService}
-      columns={supplierColumns}
+      columns={supplierPartnerColumns}
       exportColumnKeys={supplierExportColumns}
       formSections={formSections}
-      schema={supplierSchema}
+      schema={partnerSchema}
       phoneCountries={countries}
-      defaultValues={supplierDefaultValues}
-      permissionPrefix="purchasing.suppliers"
-      rowLabel={supplierRowLabel}
+      defaultValues={partnerDefaultValuesForRole("SUPPLIER")}
+      permissionPrefix="partners"
+      rowLabel={partnerRowLabel}
       getRowHref={(row) => `/purchasing/suppliers/${row.id}`}
+      extraListParams={{ role: ["SUPPLIER"] }}
       extraActions={<ModuleImportButtons importType="SUPPLIERS" />}
       extraRowActions={(entity): RowAction[] => [
         {
@@ -170,7 +175,7 @@ function SuppliersPageContent() {
 
 export default function SuppliersPage() {
   return (
-    <PermissionGate permission="purchasing.suppliers.view">
+    <PermissionGate permission="partners.view">
       <SuppliersPageContent />
     </PermissionGate>
   );

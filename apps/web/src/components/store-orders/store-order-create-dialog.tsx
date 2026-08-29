@@ -39,7 +39,7 @@ import {
 import { FieldLabel, FieldMessage, Form } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { ProductPicker } from "@/components/business/product-picker";
-import { CustomerPicker } from "@/components/business/customer-picker";
+import { PartnerPicker } from "@/components/business/partner-picker";
 import { AccountPicker } from "@/components/business/account-picker";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { storeOrdersService, type StoreOrderRow } from "@/services/store-orders-service";
@@ -47,7 +47,7 @@ import {
   paymentSourcesService,
   type PaymentSourceOption,
 } from "@/services/payment-sources-service";
-import type { CustomerRow } from "@/services/customers-service";
+import type { PartnerRow } from "@/services/partners-service";
 import type { ProductRow } from "@/services/products-service";
 import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import {
@@ -86,7 +86,7 @@ export function StoreOrderCreateDialog({
   const { t } = useLocale();
   const currencies = useCurrencies();
   const countries = useCountries();
-  const [selectedCustomer, setSelectedCustomer] = useState<CustomerRow | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<PartnerRow | null>(null);
   const [lines, setLines] = useState<StoreOrderCreateLine[]>([createEmptyLine()]);
   const [itemsError, setItemsError] = useState<string | null>(null);
   const [paymentSources, setPaymentSources] = useState<PaymentSourceOption[]>([]);
@@ -149,7 +149,7 @@ export function StoreOrderCreateDialog({
     namedLines.map((line) => line.product!.displayName || line.product!.name).join(" · ") || "—";
   const summaryQuantity = namedLines.reduce((sum, line) => sum + line.quantity, 0);
 
-  const applyCustomer = (customer: CustomerRow) => {
+  const applyCustomer = (customer: PartnerRow) => {
     setSelectedCustomer(customer);
     form.setValue("customerName", customer.name, { shouldDirty: true, shouldValidate: true });
     form.setValue("customerPhone", customer.phone || customer.mobile || "", {
@@ -201,7 +201,7 @@ export function StoreOrderCreateDialog({
     try {
       const created = await storeOrdersService.create({
         externalOrderId: values.externalOrderId || undefined,
-        customer: {
+        partner: {
           name: values.customerName,
           phone: values.customerPhone || undefined,
           email: values.customerEmail || undefined,
@@ -283,7 +283,8 @@ export function StoreOrderCreateDialog({
             <ModalFieldSpan span={2}>
               <div className="flex flex-col gap-1">
                 <FieldLabel>{t("storeOrders.createDialog.fields.customer")}</FieldLabel>
-                <CustomerPicker
+                <PartnerPicker
+                  role="CUSTOMER"
                   value={selectedCustomer}
                   onChange={applyCustomer}
                   className="max-w-none"

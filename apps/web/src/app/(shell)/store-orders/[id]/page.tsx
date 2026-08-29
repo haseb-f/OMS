@@ -84,11 +84,11 @@ function toShipmentListRow(order: StoreOrderRow, shipment: StoreOrderShipmentRow
       id: order.id,
       internalOrderId: order.internalOrderId,
       externalOrderId: order.externalOrderId,
-      customer: order.customer
+      partner: order.partner
         ? {
-            id: order.customer.id,
-            name: order.customer.name,
-            phone: order.customer.phone,
+            id: order.partner.id,
+            name: order.partner.name,
+            phone: order.partner.phone,
             country: null,
           }
         : null,
@@ -114,7 +114,7 @@ function StoreOrderDetailContent() {
   const { hasPermission } = useUserContext();
   const canEdit = hasPermission("store-orders.edit");
   const canArchive = hasPermission("store-orders.archive");
-  const canEditCustomer = hasPermission("sales.customers.edit");
+  const canEditCustomer = hasPermission("partners.edit");
 
   const [order, setOrder] = useState<StoreOrderRow | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -330,7 +330,7 @@ function StoreOrderDetailContent() {
   const remainingAmount = Number(order.total ?? 0) - paidAmount;
   const latestPayment = order.payments?.[0] ?? null;
   const latestShipmentRow = order.shipments?.[0] ?? null;
-  const phone = order.customer?.phone || order.customer?.mobile || null;
+  const phone = order.partner?.phone || order.partner?.mobile || null;
   const visibleActivity = showAllActivity
     ? timelineEntries
     : timelineEntries.slice(0, ACTIVITY_PREVIEW);
@@ -484,14 +484,14 @@ function StoreOrderDetailContent() {
           <DetailGroup
             title={t("storeOrders.detail.sections.customer")}
             actions={
-              canEditCustomer && order.customer
+              canEditCustomer && order.partner
                 ? editButton(t("storeOrders.detail.edit.customerTitle"), () =>
                     setCustomerEditOpen(true),
                   )
                 : null
             }
           >
-            <DetailFieldRow label={t("storeOrders.fields.customer")} value={order.customer?.name} />
+            <DetailFieldRow label={t("storeOrders.fields.customer")} value={order.partner?.name} />
             <DetailFieldRow
               label={t("storeOrders.fields.phone")}
               value={phone ? <SemanticValue kind="phone">{phone}</SemanticValue> : undefined}
@@ -499,16 +499,16 @@ function StoreOrderDetailContent() {
             <DetailFieldRow
               label={t("storeOrders.createDialog.fields.customerEmail")}
               value={
-                order.customer?.email ? (
-                  <SemanticValue kind="email">{order.customer.email}</SemanticValue>
+                order.partner?.email ? (
+                  <SemanticValue kind="email">{order.partner.email}</SemanticValue>
                 ) : undefined
               }
             />
             <DetailFieldRow
               label={t("storeOrders.createDialog.fields.address")}
               value={
-                order.customer?.address || order.customer?.city
-                  ? [order.customer.address, order.customer.city].filter(Boolean).join("، ")
+                order.partner?.address || order.partner?.city
+                  ? [order.partner.address, order.partner.city].filter(Boolean).join("، ")
                   : undefined
               }
             />
@@ -850,7 +850,7 @@ function StoreOrderDetailContent() {
         }
         metrics={
           <>
-            <DetailField label={t("storeOrders.fields.customer")} value={order.customer?.name} />
+            <DetailField label={t("storeOrders.fields.customer")} value={order.partner?.name} />
             <DetailField
               label={t("storeOrders.fields.orderDate")}
               value={formatDate(order.orderDate)}
@@ -939,7 +939,7 @@ function StoreOrderDetailContent() {
       <StoreOrderAddPaymentDialog
         storeOrderId={order.id}
         orderCurrencyId={order.currencyId}
-        customerName={order.customer?.name ?? ""}
+        customerName={order.partner?.name ?? ""}
         open={addPaymentOpen}
         onOpenChange={setAddPaymentOpen}
         onAdded={() => void refreshOrder()}
@@ -951,9 +951,9 @@ function StoreOrderDetailContent() {
         onOpenChange={setAssignmentOpen}
         onSaved={() => void refreshOrder()}
       />
-      {order.customer ? (
+      {order.partner ? (
         <StoreOrderEditCustomerDialog
-          customer={order.customer}
+          customer={order.partner}
           open={customerEditOpen}
           onOpenChange={setCustomerEditOpen}
           onSaved={() => void refreshOrder()}

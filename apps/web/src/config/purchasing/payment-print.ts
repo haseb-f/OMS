@@ -33,15 +33,15 @@ export function buildPaymentPrintPayload(
       },
     },
     party: {
-      name: payment.supplier?.name ?? "",
-      taxNumber: payment.supplier?.taxNumber ?? undefined,
+      name: payment.partner?.name ?? "",
+      taxNumber: payment.partner?.taxNumber ?? undefined,
       addressLines: [
-        payment.supplier?.address,
-        payment.supplier?.city,
-        payment.supplier?.country?.name,
+        payment.partner?.address,
+        payment.partner?.city,
+        payment.partner?.country?.name,
       ].filter((value): value is string => !!value),
-      phone: payment.supplier?.phone ?? undefined,
-      email: payment.supplier?.email ?? undefined,
+      phone: payment.partner?.phone ?? undefined,
+      email: payment.partner?.email ?? undefined,
     },
     meta: [
       ...(payment.referenceNumber

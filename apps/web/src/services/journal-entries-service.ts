@@ -13,6 +13,9 @@ export interface JournalEntryLineRow {
   costCenter?: { id: string; code: string; name: string } | null;
   projectId: string | null;
   project?: { id: string; code: string; name: string } | null;
+  /** Unified Partner Architecture — required whenever `account` is a RECEIVABLE/PAYABLE control account (backend-enforced). */
+  partnerId: string | null;
+  partner?: { id: string; partnerNumber: string; name: string } | null;
   debit: string;
   credit: string;
   lineOrder: number;
@@ -32,11 +35,6 @@ export interface JournalEntryRow {
   journal?: { id: string; code: string; name: string; type: string } | null;
   currencyId: string | null;
   currency?: { id: string; code: string; name: string } | null;
-  /** "Partner (optional)" — at most one of these is ever set. */
-  partnerCustomerId: string | null;
-  partnerCustomer?: { id: string; customerNumber: string; name: string } | null;
-  partnerSupplierId: string | null;
-  partnerSupplier?: { id: string; supplierNumber: string; name: string } | null;
   referenceNumber: string | null;
   reversalOfEntryId: string | null;
   reversalOfEntry?: { id: string; entryNumber: string } | null;
@@ -58,6 +56,7 @@ export interface JournalEntryLineInputPayload {
   description?: string;
   costCenterId?: string;
   projectId?: string;
+  partnerId?: string;
   debit?: number;
   credit?: number;
 }
@@ -67,8 +66,6 @@ export interface JournalEntryFormPayload {
   description?: string;
   journalId?: string;
   currencyId?: string;
-  partnerCustomerId?: string;
-  partnerSupplierId?: string;
   referenceNumber?: string;
   lines: JournalEntryLineInputPayload[];
 }

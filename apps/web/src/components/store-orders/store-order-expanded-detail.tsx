@@ -23,8 +23,8 @@ export function buildStoreOrderDetailRegions(
   onShowMore?: () => void,
 ): TableDetailRegion[] {
   const shipment = latestShipment(order);
-  const address = formatPartyAddress(order.customer);
-  const email = order.customer?.email?.trim() || null;
+  const address = formatPartyAddress(order.partner);
+  const email = order.partner?.email?.trim() || null;
   const notes = order.notes?.trim() || null;
   const regions: TableDetailRegion[] = [];
 

@@ -30,7 +30,7 @@ import {
   type SalesDocumentStatusValue,
   type SalesOrderRow,
 } from "@/services/sales-orders-service";
-import { customersService, type CustomerRow } from "@/services/customers-service";
+import { partnersService, type PartnerRow } from "@/services/partners-service";
 import { useUsersLookup } from "@/hooks/use-reference-data";
 import { buildOrderColumns, orderExportColumns } from "@/config/sales/order-columns";
 import {
@@ -67,7 +67,7 @@ function SalesOrdersPageContent() {
   const [sortBy, setSortBy] = usePathRestorableState("sortBy", "createdAt");
   const [sortOrder, setSortOrder] = usePathRestorableState<"asc" | "desc">("sortOrder", "desc");
   const [statusFilter, setStatusFilter] = usePathRestorableState<string[]>("status", []);
-  const [customerFilter, setCustomerFilter] = usePathRestorableState<CustomerRow[]>("customer", []);
+  const [customerFilter, setCustomerFilter] = usePathRestorableState<PartnerRow[]>("customer", []);
   const [dateRange, setDateRange] = usePathRestorableState<DateRangeValue>(
     "dateRange",
     EMPTY_DATE_RANGE,
@@ -93,7 +93,7 @@ function SalesOrdersPageContent() {
       const result = await salesOrdersService.list({
         search: search || undefined,
         status: statusFilter as SalesDocumentStatusValue[],
-        customerId: customerFilter.map((customer) => customer.id),
+        partnerId: customerFilter.map((customer) => customer.id),
         dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
         dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
         page,
@@ -124,7 +124,7 @@ function SalesOrdersPageContent() {
   const toPrintRow = useCallback(
     (item: SalesOrderRow): Record<string, string> => ({
       orderNumber: item.orderNumber,
-      customer: item.customer?.name ?? "",
+      partner: item.partner?.name ?? "",
       referenceNumber: item.referenceNumber ?? "",
       grandTotal: item.grandTotal,
       status: t(ORDER_STATUS_LABEL_KEY[item.status]),
@@ -137,7 +137,7 @@ function SalesOrdersPageContent() {
   const handleDuplicate = async (row: SalesOrderRow) => {
     try {
       const created = await salesOrdersService.create({
-        customerId: row.customerId,
+        partnerId: row.partnerId,
         currencyId: row.currencyId ?? undefined,
         referenceNumber: row.referenceNumber ?? undefined,
         internalNotes: row.internalNotes ?? undefined,
@@ -260,7 +260,7 @@ function SalesOrdersPageContent() {
       const result = await salesOrdersService.listIds({
         search: search || undefined,
         status: statusFilter as SalesDocumentStatusValue[],
-        customerId: customerFilter.map((customer) => customer.id),
+        partnerId: customerFilter.map((customer) => customer.id),
         dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
         dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
       });
@@ -328,7 +328,7 @@ function SalesOrdersPageContent() {
                 setPage(1);
               }}
               onSearch={async (search) => {
-                const result = await customersService.list({
+                const result = await partnersService.list({
                   search: search || undefined,
                   pageSize: 20,
                 });
@@ -431,7 +431,7 @@ function SalesOrdersPageContent() {
             notesColumnId: "createdAt",
             items: toDocumentLineItems(row.items ?? []),
             currency: row.currency,
-            party: row.customer,
+            party: row.partner,
             notes: row.internalNotes,
             labels: documentDetailLabels(t, "customer"),
             onShowMore: () => router.push(`/sales/orders/${row.id}`),

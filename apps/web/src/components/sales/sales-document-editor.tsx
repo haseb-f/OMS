@@ -18,7 +18,7 @@ import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { EditorHeader } from "@/components/shared/detail-workspace";
 import { StatusBadge } from "@/components/business/status-badge";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
-import { CustomerPicker } from "@/components/business/customer-picker";
+import { PartnerPicker } from "@/components/business/partner-picker";
 import { useUsersList, useCurrencies } from "@/hooks/use-reference-data";
 import type { SalesDocumentActivityEntry } from "./sales-document-editor.types";
 import { useCompany } from "@/providers/company-provider";
@@ -159,7 +159,8 @@ export function SalesDocumentEditor<TDocument>({
             <label className="text-caption text-muted-foreground">
               {t("sales.editor.sections.customer")}
             </label>
-            <CustomerPicker
+            <PartnerPicker
+              role="CUSTOMER"
               value={state.customer}
               onChange={handlers.onCustomerChange}
               disabled={!canEdit}
@@ -337,8 +338,8 @@ export function SalesDocumentEditor<TDocument>({
                       {t("sales.customers.fields.balance")}
                     </p>
                     <p dir="ltr" className="text-sm font-semibold">
-                      {typeof state.customer.balance === "number"
-                        ? formatMoney(state.customer.balance)
+                      {typeof state.customer.receivableBalance === "number"
+                        ? formatMoney(state.customer.receivableBalance)
                         : "—"}
                     </p>
                   </div>
@@ -347,8 +348,8 @@ export function SalesDocumentEditor<TDocument>({
                       {t("sales.customers.fields.creditLimit")}
                     </p>
                     <p dir="ltr" className="text-sm font-semibold">
-                      {state.customer.creditLimit
-                        ? formatMoney(Number(state.customer.creditLimit))
+                      {state.customer.customerProfile?.creditLimit
+                        ? formatMoney(Number(state.customer.customerProfile.creditLimit))
                         : "—"}
                     </p>
                   </div>
@@ -357,7 +358,7 @@ export function SalesDocumentEditor<TDocument>({
                       {t("sales.customers.fields.paymentTerm")}
                     </p>
                     <p className="text-sm font-semibold">
-                      {state.customer.paymentTerm?.name ?? "—"}
+                      {state.customer.customerProfile?.paymentTerm?.name ?? "—"}
                     </p>
                   </div>
                 </div>

@@ -1,8 +1,16 @@
 import { apiClient } from "./api-client";
 import { createMasterDataService } from "./master-data-service";
 
-export type LeadStatusValue = "NEW" | "UNDER_FOLLOW_UP" | "PAID" | "ARCHIVED";
 export type LeadSourceValue = "MANUAL" | "EXCEL" | "GOOGLE_SHEETS";
+
+export interface LeadStatusSnapshot {
+  id: string;
+  code: string;
+  name: string;
+  nameEn: string | null;
+  color: string;
+  isFinal: boolean;
+}
 
 export interface LeadRow {
   id: string;
@@ -11,7 +19,6 @@ export interface LeadRow {
   mobileNumber: string;
   countryId: string;
   country: { id: string; name: string } | null;
-  /** Optional at the minimal Lead-creation stage — required only when saved as an Order. */
   city: string | null;
   address: string | null;
   productId: string | null;
@@ -22,14 +29,16 @@ export interface LeadRow {
   salesEmployeeId: string | null;
   salesEmployee: { id: string; fullName: string; email: string } | null;
   assignedAt: string | null;
-  status: LeadStatusValue;
+  statusId: string;
+  status: LeadStatusSnapshot;
   source: LeadSourceValue;
   archivedReason: string | null;
   possibleDuplicate: boolean;
   importBatch: string | null;
   externalOrderId: string | null;
-  customerId: string | null;
-  customer: { id: string; customerNumber: string; name: string } | null;
+  partnerId: string | null;
+  partner: { id: string; partnerNumber: string; name: string } | null;
+  storeOrder: { id: string; internalOrderId: string } | null;
   createdAt: string;
   updatedAt: string;
   createdBy: string | null;
@@ -73,21 +82,10 @@ export interface LeadNoteRow {
   createdAt: string;
 }
 
-// Single type param — `create`/`update` stay structurally compatible with
-// `MasterDataPage`'s loosely-typed `Record<string, unknown>` form values,
-// same convention `customersService` uses.
 const base = createMasterDataService<LeadRow>("/leads");
 
-/**
- * The one Leads/Orders API client (TASK-061). Reuses `createMasterDataService`
- * for list/get/create/update (the generic archive/restore aren't used here —
- * see `MasterDataPage`'s `disableArchiveRestore`, since Lead's "Archive" is a
- * business-status transition, not soft-delete). Every business operation
- * below is a distinct existing endpoint, never a second write path.
- */
 export const leadsService = {
   ...base,
-  /** Lead's timeline lives at `/leads/:id/activities` (its own `LeadActivity` table), not the generic Master Data activity log `createMasterDataService.activity` assumes. */
   activities: (id: string) => apiClient.get<LeadActivityRow[]>(`/leads/${id}/activities`),
   assignments: (id: string) => apiClient.get<LeadAssignmentRow[]>(`/leads/${id}/assignments`),
   notes: (id: string) => apiClient.get<LeadNoteRow[]>(`/leads/${id}/notes`),
@@ -97,7 +95,6 @@ export const leadsService = {
     apiClient.post<LeadAssignmentRow>(`/leads/${id}/assign`, { salesEmployeeId }),
   bulkAssign: (leadIds: string[], salesEmployeeId?: string) =>
     apiClient.post<{ assigned: number }>("/leads/bulk-assign", { leadIds, salesEmployeeId }),
-  /** Active users granted `crm.leads.edit` — the only valid Assign-dialog choices (server re-validates regardless). */
   eligibleAssignees: () =>
     apiClient.get<{ id: string; fullName: string; email: string }[]>("/leads/eligible-assignees"),
   startFollowUp: (id: string) => apiClient.post<LeadRow>(`/leads/${id}/start-follow-up`),

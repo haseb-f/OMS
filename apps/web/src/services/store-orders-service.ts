@@ -15,8 +15,9 @@ export type StoreOrderPaymentTypeValue = "PREPAID" | "CASH_ON_DELIVERY";
 
 export type StoreOrderShippingStageValue = "NOT_READY" | "READY_FOR_SHIPPING";
 
-export interface StoreOrderCustomerRef {
+export interface StoreOrderPartnerRef {
   id: string;
+  partnerNumber?: string;
   name: string;
   phone: string | null;
   mobile?: string | null;
@@ -101,8 +102,9 @@ export interface StoreOrderRow {
   id: string;
   internalOrderId: string;
   externalOrderId: string | null;
-  customerId: string;
-  customer?: StoreOrderCustomerRef | null;
+  partnerId: string;
+  partner?: StoreOrderPartnerRef | null;
+  leadId?: string | null;
   orderDate: string;
   source: StoreOrderSourceValue;
   sourceChannel: string | null;
@@ -173,7 +175,7 @@ export const storeOrdersService = {
   archive: (id: string) => apiClient.post<StoreOrderRow>(`/store-orders/${id}/archive`),
   create: (dto: {
     externalOrderId?: string;
-    customer: {
+    partner: {
       name: string;
       phone?: string;
       email?: string;

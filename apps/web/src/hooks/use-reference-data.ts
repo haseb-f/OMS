@@ -13,7 +13,7 @@ import type {
   WarehouseRow,
 } from "@/config/master-data/entities";
 import { usersService, type UserRow } from "@/services/users-service";
-import { suppliersService, type SupplierRow } from "@/services/suppliers-service";
+import { partnersService, type PartnerRow } from "@/services/partners-service";
 
 /**
  * Session-lifetime cache for read-mostly reference data (currencies,
@@ -137,8 +137,9 @@ export const useWarehouses = createReferenceDataHook<WarehouseRow>(() =>
   warehousesService.list({ pageSize: 200 }).then((r) => r.items),
 );
 
-export const useSuppliers = createReferenceDataHook<SupplierRow>(() =>
-  suppliersService.list({ pageSize: 200 }).then((r) => r.items),
+/** Supplier-role Partners — same "preferred supplier" picker Products uses (spec section 10: Suppliers are a role view over Partner). */
+export const useSuppliers = createReferenceDataHook<PartnerRow>(() =>
+  partnersService.list({ pageSize: 200, role: ["SUPPLIER"] }).then((r) => r.items),
 );
 
 /**

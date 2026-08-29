@@ -44,8 +44,8 @@ export interface BankTransactionRow {
   outgoingType: CashFlowOutgoingType | null;
   expenseAccountId: string | null;
   expenseAccount: { id: string; code: string; name: string } | null;
-  partnerSupplierId: string | null;
-  partnerSupplier: { id: string; name: string; supplierNumber: string } | null;
+  partnerId: string | null;
+  partner: { id: string; name: string; partnerNumber: string } | null;
   costCenterId: string | null;
   costCenter: { id: string; code: string; name: string } | null;
   projectId: string | null;
@@ -156,6 +156,11 @@ export const bankTransactionsService = {
     },
   ) =>
     apiClient.post<BankTransactionRow>(`/bank-transactions/${id}/confirm-store-order-payment`, dto),
+  /** Controlled Unreconcile — keeps Cash Transaction; reverses payment allocation. */
+  unreconcile: (id: string, reason?: string) =>
+    apiClient.post<BankTransactionRow>(`/bank-transactions/${id}/unreconcile`, {
+      reason,
+    }),
   confirmSalesInvoiceReceipt: (
     id: string,
     dto: {
@@ -174,7 +179,7 @@ export const bankTransactionsService = {
     dto: {
       outgoingType: CashFlowOutgoingType;
       expenseAccountId?: string;
-      partnerSupplierId?: string;
+      partnerId?: string;
       costCenterId?: string;
       projectId?: string;
     },
@@ -215,7 +220,7 @@ export const bankTransactionsService = {
     dto: {
       outgoingType: CashFlowOutgoingType;
       expenseAccountId?: string;
-      partnerSupplierId?: string;
+      partnerId?: string;
     },
   ) =>
     apiClient.post<BulkCashFlowResult[]>("/bank-transactions/bulk/classify-outgoing", {

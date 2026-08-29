@@ -15,10 +15,15 @@ import { MoneyInput } from "@/components/shared/money-input";
 import { AccountPicker } from "@/components/business/account-picker";
 import { CostCenterPicker } from "@/components/business/cost-center-picker";
 import { ProjectPicker } from "@/components/business/project-picker";
+import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { EnterpriseButton } from "@/components/ui/button";
 import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
 import type { ChartOfAccountRow, CostCenterRow, ProjectRow } from "@/config/master-data/entities";
+import { partnersService } from "@/services/partners-service";
+
+/** Slim projection — matches both `JournalEntryRow["lines"][number].partner` (server include) and a full `PartnerRow` from the picker's search results. */
+type LinePartner = { id: string; partnerNumber: string; name: string };
 
 let nextLineId = 1;
 
@@ -30,6 +35,9 @@ export interface JournalEntryLineGridRow {
   /** TASK-053 — per-line cost attribution, distinct from the (still-unused) header-level JournalEntry.costCenterId/projectId. */
   costCenterId: string;
   projectId: string;
+  /** Unified Partner Architecture — required whenever `accountId` resolves to a RECEIVABLE/PAYABLE control account (backend-enforced in `resolveLines()`). */
+  partnerId: string;
+  partner: LinePartner | null;
   debit: number;
   credit: number;
 }
@@ -62,7 +70,7 @@ export function JournalEntryLinesGrid({
 }) {
   const { t } = useLocale();
   const showCostAttribution = costCenters !== undefined && projects !== undefined;
-  const columnCount = showCostAttribution ? 7 : 5;
+  const columnCount = (showCostAttribution ? 7 : 5) + 1;
   const containerRef = useRef<HTMLDivElement>(null);
 
   const updateLine = (id: string, patch: Partial<JournalEntryLineGridRow>) => {
@@ -86,6 +94,8 @@ export function JournalEntryLinesGrid({
       description: "",
       costCenterId: "",
       projectId: "",
+      partnerId: "",
+      partner: null,
       debit: difference < -0.001 ? Math.abs(difference) : 0,
       credit: difference > 0.001 ? difference : 0,
     };
@@ -125,6 +135,7 @@ export function JournalEntryLinesGrid({
             <TableRow className="hover:bg-transparent">
               <TableHead>{t("accounting.journalEntries.lines.account")}</TableHead>
               <TableHead>{t("accounting.journalEntries.lines.description")}</TableHead>
+              <TableHead>{t("partners.fields.name")}</TableHead>
               {showCostAttribution && (
                 <>
                   <TableHead>{t("accounting.journalEntries.lines.costCenter")}</TableHead>
@@ -168,6 +179,32 @@ export function JournalEntryLinesGrid({
                       value={line.description}
                       disabled={disabled}
                       onChange={(event) => updateLine(line.id, { description: event.target.value })}
+                    />
+                  </TableCell>
+                  <TableCell className="align-middle">
+                    <EntityCombobox<LinePartner>
+                      value={line.partner}
+                      onChange={(partner) =>
+                        updateLine(line.id, {
+                          partnerId: partner?.id ?? "",
+                          partner: partner ?? null,
+                        })
+                      }
+                      onSearch={async (search) => {
+                        const result = await partnersService.list({
+                          search: search || undefined,
+                          pageSize: 8,
+                        });
+                        return result.items;
+                      }}
+                      getId={(partner) => partner.id}
+                      getTitle={(partner) => partner.name}
+                      subtitleDir="ltr"
+                      placeholder={t("partners.picker.selectPartner")}
+                      searchPlaceholder={t("partners.picker.placeholder")}
+                      emptyText={t("partners.picker.noResults")}
+                      disabled={disabled}
+                      allowClear
                     />
                   </TableCell>
                   {showCostAttribution && (

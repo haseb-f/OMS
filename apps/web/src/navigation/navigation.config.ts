@@ -63,7 +63,7 @@ export const navigationConfig: NavigationItem[] = [
     route: "/sales/customers",
     icon: "contact",
     order: 0,
-    permissions: ["sales.customers.view"],
+    permissions: ["partners.view"],
   },
   {
     id: "master-data-customer-groups",
@@ -72,7 +72,7 @@ export const navigationConfig: NavigationItem[] = [
     route: "/master-data/customer-groups",
     icon: "users-round",
     order: 1,
-    permissions: ["sales.customers.view"],
+    permissions: ["partners.view"],
   },
   {
     id: "sales-quotations",
@@ -175,6 +175,24 @@ export const navigationConfig: NavigationItem[] = [
     permissions: ["shipping.view"],
   },
   {
+    id: "master-data-workflow-statuses",
+    titleKey: "masterData.workflowStatuses.title",
+    parent: "master-data",
+    route: "/master-data/workflow-statuses",
+    icon: "list-checks",
+    order: 25,
+    permissions: ["masterdata.view"],
+  },
+  {
+    id: "master-data-workflow-transitions",
+    titleKey: "workflow.transitions.title",
+    parent: "master-data",
+    route: "/master-data/workflow-transitions",
+    icon: "git-branch",
+    order: 26,
+    permissions: ["masterdata.view"],
+  },
+  {
     id: "master-data-shipping-companies",
     titleKey: "masterData.shippingCompanies.title",
     parent: "shipping",
@@ -198,7 +216,7 @@ export const navigationConfig: NavigationItem[] = [
     route: "/purchasing/suppliers",
     icon: "truck",
     order: 0,
-    permissions: ["purchasing.suppliers.view"],
+    permissions: ["partners.view"],
   },
   {
     id: "master-data-supplier-groups",
@@ -207,7 +225,7 @@ export const navigationConfig: NavigationItem[] = [
     route: "/master-data/supplier-groups",
     icon: "users-round",
     order: 1,
-    permissions: ["purchasing.suppliers.view"],
+    permissions: ["partners.view"],
   },
   {
     id: "purchasing-quotations",
