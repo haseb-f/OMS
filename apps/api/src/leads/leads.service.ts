@@ -4,7 +4,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, StatusChangeSource, WorkflowType } from '@prisma/client';
+import {
+  LeadAssignmentMethod,
+  Prisma,
+  StatusChangeSource,
+  WorkflowType,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import {
@@ -13,15 +18,22 @@ import {
 } from './activities/lead-activity.service';
 import { LeadDuplicateDetectionService } from './duplicate-detection/lead-duplicate-detection.service';
 import { LeadAutoDistributionService } from './distribution/lead-auto-distribution.service';
+import { LeadAssignmentsService } from './assignments/lead-assignments.service';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { ArchiveLeadDto } from './dto/archive-lead.dto';
-import { MasterDataQueryDto } from '../master-data/dto/master-data-query.dto';
+import { FindLeadsQueryDto } from './dto/find-leads-query.dto';
+import { BulkAssignLeadsDto } from './dto/bulk-assign-leads.dto';
+import { CreateLeadFollowUpDto } from './dto/create-lead-follow-up.dto';
 import {
   PhoneNumberService,
   phoneErrorMessage,
 } from '../common/phone/phone-number.service';
 import { WorkflowEngineService } from '../workflow/workflow-engine.service';
+import {
+  SalesScopeService,
+  type SalesScope,
+} from '../sales-scope/sales-scope.service';
 
 const SEARCH_FIELDS = [
   'leadNumber',
@@ -69,9 +81,11 @@ export class LeadsService {
     private readonly leadActivityService: LeadActivityService,
     private readonly leadDuplicateDetectionService: LeadDuplicateDetectionService,
     private readonly leadAutoDistributionService: LeadAutoDistributionService,
+    private readonly leadAssignmentsService: LeadAssignmentsService,
     private readonly numberingEngine: NumberingEngineService,
     private readonly phoneNumberService: PhoneNumberService,
     private readonly workflowEngine: WorkflowEngineService,
+    private readonly salesScope: SalesScopeService,
   ) {}
 
   /** Resolves `dto.countryId` to its ISO2 code and validates/normalizes `dto.mobileNumber` against it — the country-aware check `@IsPhoneNumber()` on the DTO can't do (it has no access to the sibling `countryId`). Returns the E.164 value every caller should use in place of the raw input. */
@@ -137,37 +151,7 @@ export class LeadsService {
     });
   }
 
-  /**
-   * Lead.create never creates a Partner. Conversion
-   * (workflow LEAD_CONVERT) resolves/creates Partner + StoreOrder.
-   */
-  /**
-   * Order mode's extra requirements — address/product/paid amount — depend
-   * on more than one field together, so this lives in the service, not as
-   * DTO decorators (which only ever see one field at a time).
-   */
-  private assertOrderReady(dto: CreateLeadDto): void {
-    const missing: { field: string; constraints: string[] }[] = [];
-    if (!dto.address)
-      missing.push({ field: 'address', constraints: ['required_for_order'] });
-    if (!dto.productId)
-      missing.push({ field: 'productId', constraints: ['required_for_order'] });
-    if (dto.paidAmount === undefined || dto.paidAmount === null) {
-      missing.push({
-        field: 'paidAmount',
-        constraints: ['required_for_order'],
-      });
-    }
-    if (missing.length > 0) {
-      throw new BadRequestException({
-        code: 'VALIDATION_ERROR',
-        message: 'Order is missing fields required to save as an Order.',
-        fields: missing,
-      });
-    }
-  }
-
-  /** Order mode omits currencyId — resolved from the selected country's `defaultCurrencyId`, falling back to the system's first active currency. */
+  /** Currency is resolved from the selected country's `defaultCurrencyId`. */
   private async resolveDefaultCurrencyId(countryId: string): Promise<string> {
     const country = await this.prisma.country.findFirst({
       where: { id: countryId, deletedAt: null },
@@ -186,32 +170,11 @@ export class LeadsService {
     return fallback.id;
   }
 
-  /** Order mode's PaymentSource/ReceivingAccount — the row flagged `isDefault`, else the first active one — so the user only ever types the Paid Amount. */
-  private async resolvePaymentDefault<
-    T extends { id: string; isDefault: boolean; isActive: boolean },
-  >(
-    delegate: { findMany: (args: object) => Promise<T[]> },
-    overrideId: string | undefined,
-    orderBy: object,
-  ): Promise<string> {
-    if (overrideId) return overrideId;
-    const candidates = await delegate.findMany({
-      where: { deletedAt: null, isActive: true },
-      orderBy: [{ isDefault: 'desc' }, orderBy],
-      take: 1,
-    });
-    if (!candidates[0]) {
-      throw new BadRequestException(
-        'No active Payment Source/Receiving Account is configured — add at least one before saving an Order with a Paid Amount.',
-      );
-    }
-    return candidates[0].id;
-  }
-
   async create(dto: CreateLeadDto, userId?: string) {
-    const recordType = dto.recordType ?? 'LEAD';
-    if (recordType === 'ORDER') {
-      this.assertOrderReady(dto);
+    if (dto.recordType === 'ORDER') {
+      throw new BadRequestException(
+        'Lead-as-Order is retired. Create a Store Order for operational orders, or a Lead for CRM prospects.',
+      );
     }
 
     const mobileNumber = await this.normalizeLeadMobile(
@@ -235,75 +198,46 @@ export class LeadsService {
       });
       if (existingOrder) {
         throw new ConflictException(
-          `Duplicate Order — an order with External Order ID "${dto.externalOrderId}" already exists (${existingOrder.leadNumber}).`,
+          `Duplicate Lead — an item with External ID "${dto.externalOrderId}" already exists (${existingOrder.leadNumber}).`,
         );
       }
     }
-
-    // Lead is a CRM prospect — Partner is created only at conversion
-    // (LEAD_CONVERT / convertToCustomer), never at Lead birth.
 
     const quantity = dto.quantity ?? 1;
     const currencyId =
       dto.currencyId ?? (await this.resolveDefaultCurrencyId(dto.countryId));
 
-    // Minted before the transaction, same trade-off as leadNumber below — a
-    // rollback leaves a gap in the sequence, which is fine. Only minted for
-    // Order mode with a Paid Amount, since that's the only case a Payment
-    // gets created at all.
-    const shouldCreatePayment =
-      recordType === 'ORDER' &&
-      dto.paidAmount !== undefined &&
-      dto.paidAmount !== null;
-    const [leadNumber, paymentNumber, paymentSourceId, receivingAccountId] =
-      await Promise.all([
-        this.numberingEngine.generateNumber('LEAD'),
-        shouldCreatePayment
-          ? this.numberingEngine.generateNumber('PAYMENT')
-          : Promise.resolve(null),
-        shouldCreatePayment
-          ? this.resolvePaymentDefault(
-              this.prisma.paymentSource,
-              dto.paymentSourceId,
-              { name: 'asc' as const },
-            )
-          : Promise.resolve(null),
-        shouldCreatePayment
-          ? this.resolvePaymentDefault(
-              this.prisma.receivingAccount,
-              dto.receivingAccountId,
-              { name: 'asc' as const },
-            )
-          : Promise.resolve(null),
-      ]);
-
+    const leadNumber = await this.numberingEngine.generateNumber('LEAD');
     const defaultStatusId = await this.workflowEngine.resolveDefaultStatusId(
       WorkflowType.LEAD,
     );
 
+    const explicitOwnerId = dto.salesEmployeeId;
+    const importMethod = dto.importBatch
+      ? LeadAssignmentMethod.IMPORT
+      : LeadAssignmentMethod.MANUAL;
+
     let lead: Prisma.LeadGetPayload<object>;
     try {
       lead = await this.prisma.$transaction(async (tx) => {
-        const {
-          recordType: _recordType,
-          paidAmount: _paidAmount,
-          paymentSourceId: _paymentSourceId,
-          receivingAccountId: _receivingAccountId,
-          ...leadFields
-        } = dto;
-        void _recordType;
-        void _paidAmount;
-        void _paymentSourceId;
-        void _receivingAccountId;
         const created = await tx.lead.create({
           data: {
-            ...leadFields,
+            customerName: dto.customerName,
             mobileNumber,
-            leadNumber,
+            countryId: dto.countryId,
+            city: dto.city,
+            address: dto.address,
+            productId: dto.productId,
             quantity,
             currencyId,
+            source: dto.source,
+            importBatch: dto.importBatch,
+            externalOrderId: dto.externalOrderId,
+            leadNumber,
             statusId: defaultStatusId,
             possibleDuplicate: duplicateCheck.isPossibleDuplicate,
+            createdBy: userId ?? null,
+            updatedBy: userId ?? null,
           },
         });
         await this.leadActivityService.log(
@@ -313,41 +247,6 @@ export class LeadsService {
           undefined,
           tx,
         );
-
-        // Order mode with a Paid Amount — create the linked Payment in the
-        // same transaction (Lead and its Payment either both exist or
-        // neither does), reusing PaymentsService's own field shape without
-        // calling PaymentsService itself (it depends on LeadsService, so
-        // injecting it back here would be a circular module dependency).
-        if (
-          shouldCreatePayment &&
-          paymentNumber &&
-          paymentSourceId &&
-          receivingAccountId
-        ) {
-          const payment = await tx.payment.create({
-            data: {
-              paymentNumber,
-              leadId: created.id,
-              paymentDate: new Date(),
-              amount: dto.paidAmount!,
-              currencyId,
-              paymentSourceId,
-              receivingAccountId,
-              senderName: dto.customerName,
-              status: 'PENDING',
-            },
-          });
-          await tx.paymentActivity.create({
-            data: {
-              paymentId: payment.id,
-              type: 'PAYMENT_CREATED',
-              description: `Payment ${payment.paymentNumber} created from Order ${created.leadNumber}`,
-              metadata: { leadId: created.id },
-            },
-          });
-        }
-
         return created;
       });
     } catch (error) {
@@ -362,11 +261,13 @@ export class LeadsService {
       throw error;
     }
 
-    // Auto Assignment (TASK-061 §5) — runs after the Lead exists so it can be
-    // assigned via the same LeadAssignmentsService.assign() every manual
-    // assignment uses; a caller-supplied salesEmployeeId is always preserved
-    // (this only fires when none was given).
-    if (!lead.salesEmployeeId) {
+    if (explicitOwnerId) {
+      await this.leadAssignmentsService.assign(lead.id, {
+        salesEmployeeId: explicitOwnerId,
+        method: importMethod,
+        actorId: userId ?? null,
+      });
+    } else {
       await this.leadAutoDistributionService.distribute(lead.id);
     }
     return this.findOne(lead.id);
@@ -395,44 +296,15 @@ export class LeadsService {
     );
   }
 
-  /**
-   * TASK-061 §7 — Customer Service sees only their assigned Leads/Orders by
-   * default; authorized managers (resolved by the controller via
-   * `crm.leads.manage`) see everything. `restrictToSalesEmployeeId` unset
-   * means "no restriction," never "restrict to nothing." Same
-   * search/page/sort/includeArchived shape every other list endpoint in OMS
-   * uses (`MasterDataQueryDto`) — Lead isn't a `MasterDataCrudService`
-   * subclass (its `create()` has its own duplicate/Customer-Master/Auto
-   * Assignment logic, and its timeline is `LeadActivity`, not the shared
-   * Master Data activity log), but the list response shape stays identical
-   * so the same frontend table/pagination component works unchanged.
-   */
-  async findAll(
-    query: MasterDataQueryDto,
-    restrictToSalesEmployeeId?: string,
-    partnerId?: string,
-  ) {
+  async findAll(query: FindLeadsQueryDto, scope: SalesScope) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
-    const where: Prisma.LeadWhereInput = {
-      deletedAt: query.includeArchived ? undefined : null,
-      ...(restrictToSalesEmployeeId
-        ? { salesEmployeeId: restrictToSalesEmployeeId }
-        : {}),
-      ...(partnerId ? { partnerId } : {}),
-      ...(query.search
-        ? {
-            OR: SEARCH_FIELDS.map((field) => ({
-              [field]: { contains: query.search, mode: 'insensitive' as const },
-            })),
-          }
-        : {}),
-    };
+    const where = await this.buildLeadWhere(query, scope);
     const orderBy = {
       [query.sortBy || 'createdAt']: query.sortOrder ?? 'desc',
     };
 
-    const [items, total] = await Promise.all([
+    const [items, total, unassignedCount] = await Promise.all([
       this.prisma.lead.findMany({
         where,
         include: LEAD_INCLUDE,
@@ -441,9 +313,42 @@ export class LeadsService {
         orderBy,
       }),
       this.prisma.lead.count({ where }),
+      this.prisma.lead.count({
+        where: {
+          ...this.salesScope.leadWhere(scope),
+          deletedAt: query.includeArchived ? undefined : null,
+          salesEmployeeId: null,
+        },
+      }),
     ]);
 
-    return { items, total, page, pageSize };
+    return { items, total, page, pageSize, unassignedCount };
+  }
+
+  async findAllIds(query: FindLeadsQueryDto, scope: SalesScope) {
+    const where = await this.buildLeadWhere(query, scope);
+    const take = Math.min(query.pageSize ?? 10_000, 10_000);
+    const [rows, total] = await Promise.all([
+      this.prisma.lead.findMany({
+        where,
+        select: { id: true },
+        orderBy: { createdAt: 'asc' },
+        take,
+      }),
+      this.prisma.lead.count({ where }),
+    ]);
+    return { ids: rows.map((row) => row.id), total };
+  }
+
+  async unassignedCount(scope: SalesScope) {
+    const count = await this.prisma.lead.count({
+      where: {
+        ...this.salesScope.leadWhere(scope),
+        deletedAt: null,
+        salesEmployeeId: null,
+      },
+    });
+    return { count };
   }
 
   /** Idempotent import/sync lookup — same External Lead ID = same Lead. */
@@ -454,22 +359,52 @@ export class LeadsService {
     });
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, scope?: SalesScope) {
     const lead = await this.prisma.lead.findFirst({
       where: { id, deletedAt: null },
-      include: LEAD_INCLUDE,
+      include: {
+        ...LEAD_INCLUDE,
+        followUps: {
+          where: { deletedAt: null },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+          include: { user: { select: { id: true, fullName: true } } },
+        },
+      },
     });
     if (!lead) {
       throw new NotFoundException(`Lead ${id} not found`);
     }
+    this.salesScope.assertLeadAccess(
+      scope ?? {
+        kind: 'ALL',
+        ownerIds: null,
+        userId: '',
+        isSuperAdmin: true,
+        canManageLeads: true,
+        canViewLeads: true,
+        canViewStoreOrders: true,
+        canViewShipping: true,
+        canEditShipping: true,
+      },
+      lead,
+    );
     return lead;
   }
 
-  async update(id: string, dto: UpdateLeadDto) {
-    const existing = await this.findOne(id);
-
-    const { archivedReason: _archivedReason, ...data } = dto;
+  async update(id: string, dto: UpdateLeadDto, scope: SalesScope) {
+    const existing = await this.findOne(id, scope);
+    const {
+      archivedReason: _archivedReason,
+      salesEmployeeId: _salesEmployeeId,
+      recordType: _recordType,
+      paidAmount: _paidAmount,
+      ...data
+    } = dto;
     void _archivedReason;
+    void _salesEmployeeId;
+    void _recordType;
+    void _paidAmount;
     if (dto.mobileNumber !== undefined) {
       data.mobileNumber = await this.normalizeLeadMobile(
         dto.mobileNumber,
@@ -496,16 +431,139 @@ export class LeadsService {
     }
   }
 
-  async remove(id: string) {
-    await this.findOne(id);
+  async remove(id: string, scope: SalesScope) {
+    await this.findOne(id, scope);
     return this.prisma.lead.update({
       where: { id },
       data: { deletedAt: new Date() },
     });
   }
 
-  /** Legacy endpoint — prefer workflow transition API. */
-  startFollowUp(id: string) {
+  async firstOpen(id: string, userId: string, scope: SalesScope) {
+    const lead = await this.findOne(id, scope);
+    if (lead.salesEmployeeId !== userId) {
+      return lead;
+    }
+    if (lead.firstOpenedAt || lead.status.code !== 'NEW') {
+      return lead;
+    }
+
+    try {
+      await this.workflowEngine.executeTransitionByCodes(
+        'LEAD',
+        id,
+        'NEW',
+        'IN_PROGRESS',
+        userId,
+        {},
+        scope.isSuperAdmin,
+      );
+    } catch {
+      return this.findOne(id, scope);
+    }
+    return this.prisma.lead.update({
+      where: { id },
+      data: { firstOpenedAt: new Date() },
+      include: LEAD_INCLUDE,
+    });
+  }
+
+  async addFollowUp(
+    id: string,
+    dto: CreateLeadFollowUpDto,
+    userId: string,
+    scope: SalesScope,
+  ) {
+    const lead = await this.findOne(id, scope);
+    const followUp = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.leadFollowUp.create({
+        data: {
+          leadId: id,
+          userId,
+          outcome: dto.outcome?.trim() || null,
+          note: dto.note?.trim() || null,
+          followUpAt: dto.followUpAt ? new Date(dto.followUpAt) : null,
+          createdBy: userId,
+          updatedBy: userId,
+        },
+      });
+      await this.refreshNextFollowUp(id, tx);
+      await this.leadActivityService.log(
+        id,
+        'FOLLOW_UP_ADDED',
+        dto.outcome ? `Follow-up: ${dto.outcome}` : 'Follow-up recorded',
+        {
+          followUpId: created.id,
+          outcome: dto.outcome,
+          followUpAt: dto.followUpAt,
+          channel: dto.channel,
+        },
+        tx,
+      );
+      return created;
+    });
+
+    if (
+      lead.status.code === 'NEW' ||
+      lead.status.code === 'IN_PROGRESS' ||
+      lead.status.code === 'CONTACTED'
+    ) {
+      try {
+        await this.workflowEngine.executeTransitionByCodes(
+          'LEAD',
+          id,
+          lead.status.code,
+          'FOLLOW_UP',
+          userId,
+          {},
+          scope.isSuperAdmin,
+        );
+      } catch {
+        // Stay on current status if that transition is not configured.
+      }
+    }
+    return followUp;
+  }
+
+  listFollowUps(leadId: string) {
+    return this.prisma.leadFollowUp.findMany({
+      where: { leadId, deletedAt: null },
+      include: { user: { select: { id: true, fullName: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async bulkAssign(
+    dto: BulkAssignLeadsDto,
+    actorId: string,
+    scope: SalesScope,
+  ) {
+    this.salesScope.assertCanAssign(scope);
+    const ids = dto.leadIds?.length
+      ? dto.leadIds
+      : await this.resolveAssignableLeadIds(dto, scope);
+    if (dto.dryRun) {
+      return { assigned: 0, ids, preview: true };
+    }
+    for (const leadId of ids) {
+      const lead = await this.prisma.lead.findFirst({
+        where: { id: leadId, deletedAt: null },
+        select: { id: true, salesEmployeeId: true },
+      });
+      this.salesScope.assertLeadAccess(scope, lead);
+      await this.leadAssignmentsService.assign(leadId, {
+        salesEmployeeId: dto.salesEmployeeId,
+        method: LeadAssignmentMethod.MANUAL,
+        reason: dto.reason,
+        actorId,
+      });
+    }
+    return { assigned: ids.length, ids };
+  }
+
+  /** Legacy — structured follow-up is the canonical path. */
+  startFollowUp(id: string, scope: SalesScope) {
+    void this.findOne(id, scope);
     return this.transitionStatus(
       id,
       'FOLLOW_UP',
@@ -514,18 +572,14 @@ export class LeadsService {
     );
   }
 
-  /** Legacy endpoint — maps to QUALIFIED for payment-verified legacy flow. */
-  markQualifiedFromPayment(id: string) {
-    return this.transitionStatus(
-      id,
-      'QUALIFIED',
-      LeadActivityType.MARKED_PAID,
-      'Marked Qualified (payment verified)',
+  markQualifiedFromPayment(): Promise<never> {
+    throw new BadRequestException(
+      'Payment belongs to Store Order, not Lead. Use Store Order payment reporting.',
     );
   }
 
-  /** Business operation: archive as LOST with optional reason. */
-  archive(id: string, dto: ArchiveLeadDto) {
+  archive(id: string, dto: ArchiveLeadDto, scope: SalesScope) {
+    void this.findOne(id, scope);
     return this.transitionStatus(
       id,
       'LOST',
@@ -537,13 +591,109 @@ export class LeadsService {
     );
   }
 
-  /**
-   * Partner-only conversion without StoreOrder is retired.
-   * Authoritative path: Workflow LEAD_CONVERT (Partner + CUSTOMER + StoreOrder).
-   */
-  async convertToCustomer(_id: string, _userId?: string): Promise<never> {
+  convertToCustomer(): Promise<never> {
     throw new BadRequestException(
       'Use Lead conversion (LEAD_CONVERT) — Partner is created with the Store Order, not alone.',
     );
+  }
+
+  private async buildLeadWhere(
+    query: FindLeadsQueryDto,
+    scope: SalesScope,
+  ): Promise<Prisma.LeadWhereInput> {
+    const parts: Prisma.LeadWhereInput[] = [this.salesScope.leadWhere(scope)];
+    if (!query.includeArchived) parts.push({ deletedAt: null });
+    if (query.partnerId) parts.push({ partnerId: query.partnerId });
+    if (query.countryId) parts.push({ countryId: query.countryId });
+    if (query.source) parts.push({ source: query.source });
+    if (query.unassigned) parts.push({ salesEmployeeId: null });
+    else if (query.salesEmployeeId) {
+      parts.push({ salesEmployeeId: query.salesEmployeeId });
+    }
+    if (query.statusCode) {
+      parts.push({ status: { code: query.statusCode } });
+    }
+    if (query.teamId) {
+      const team = await this.prisma.salesTeam.findFirst({
+        where: { id: query.teamId, deletedAt: null },
+        select: {
+          managerId: true,
+          members: { select: { userId: true } },
+        },
+      });
+      if (team) {
+        parts.push({
+          salesEmployeeId: {
+            in: [team.managerId, ...team.members.map((m) => m.userId)],
+          },
+        });
+      }
+    }
+    if (query.dateFrom || query.dateTo) {
+      parts.push({
+        createdAt: {
+          ...(query.dateFrom ? { gte: new Date(query.dateFrom) } : {}),
+          ...(query.dateTo ? { lte: new Date(query.dateTo) } : {}),
+        },
+      });
+    }
+    if (query.search) {
+      parts.push({
+        OR: SEARCH_FIELDS.map((field) => ({
+          [field]: { contains: query.search, mode: 'insensitive' as const },
+        })),
+      });
+    }
+    return { AND: parts };
+  }
+
+  private async resolveAssignableLeadIds(
+    dto: BulkAssignLeadsDto,
+    scope: SalesScope,
+  ): Promise<string[]> {
+    if (!dto.count) {
+      throw new BadRequestException(
+        'Provide leadIds or a positive count for Custom N assignment.',
+      );
+    }
+    const where = await this.buildLeadWhere(
+      {
+        unassigned: dto.unassignedOnly !== false,
+        countryId: dto.countryId,
+        statusCode: dto.statusCode,
+        source: dto.source,
+        search: dto.search,
+        page: 1,
+        pageSize: dto.count,
+      },
+      scope,
+    );
+    const rows = await this.prisma.lead.findMany({
+      where,
+      select: { id: true },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: dto.count,
+    });
+    return rows.map((row) => row.id);
+  }
+
+  private async refreshNextFollowUp(
+    leadId: string,
+    tx: Prisma.TransactionClient,
+  ) {
+    const next = await tx.leadFollowUp.findFirst({
+      where: {
+        leadId,
+        deletedAt: null,
+        completedAt: null,
+        followUpAt: { not: null },
+      },
+      orderBy: { followUpAt: 'asc' },
+      select: { followUpAt: true },
+    });
+    await tx.lead.update({
+      where: { id: leadId },
+      data: { nextFollowUpAt: next?.followUpAt ?? null },
+    });
   }
 }

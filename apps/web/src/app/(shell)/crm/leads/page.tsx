@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Contact, Archive, Eye, Plus, UserPlus } from "lucide-react";
+import { Contact, Archive, Eye, Plus, UserPlus, Shuffle } from "lucide-react";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
 import type { MasterDataFormSection } from "@/components/master-data/master-data-form";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
@@ -19,6 +19,8 @@ import { PermissionGate } from "@/components/shared/permission-gate";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { AssignLeadDialog } from "@/components/business/assign-lead-dialog";
 import { LeadOrderCreateDialog } from "@/components/business/lead-order-create-dialog";
+import { LeadDistributionModal } from "@/components/crm/lead-distribution-modal";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useCurrencies, useCountries } from "@/hooks/use-reference-data";
 import { useUserContext } from "@/providers/user-context";
 import { toast } from "@/lib/toast";
@@ -36,7 +38,18 @@ function CrmLeadsPageContent() {
   const [archiveTarget, setArchiveTarget] = useState<LeadRow | null>(null);
   const [isArchiving, setIsArchiving] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [distributionOpen, setDistributionOpen] = useState(false);
+  const [bulkAssignIds, setBulkAssignIds] = useState<string[]>([]);
+  const [unassignedOnly, setUnassignedOnly] = useState(false);
+  const [unassignedCount, setUnassignedCount] = useState<number | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
+
+  useEffect(() => {
+    leadsService
+      .unassignedCount()
+      .then((r) => setUnassignedCount(r.count))
+      .catch(() => setUnassignedCount(null));
+  }, [refreshToken]);
 
   useEffect(() => {
     productsService
@@ -101,7 +114,7 @@ function CrmLeadsPageContent() {
         ],
       },
     ],
-    [t, countries, currencies, products],
+    [t, currencies, products],
   );
 
   const leadSchema = useMemo(() => buildLeadSchema(countries, t), [countries, t]);
@@ -142,15 +155,47 @@ function CrmLeadsPageContent() {
         defaultSortBy="createdAt"
         disableArchiveRestore
         hideCreateButton
+        extraListParams={unassignedOnly ? { unassigned: true } : undefined}
+        extraFilters={
+          <label className="flex items-center gap-2 text-caption">
+            <Checkbox
+              checked={unassignedOnly}
+              onCheckedChange={(value) => setUnassignedOnly(value === true)}
+            />
+            {t("crm.leads.distribution.unassigned")}
+            {unassignedCount !== null ? ` (${unassignedCount})` : ""}
+          </label>
+        }
+        extraBulkActions={(ids) =>
+          hasPermission("crm.leads.manage") ? (
+            <EnterpriseButton
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setBulkAssignIds(ids);
+                setDistributionOpen(true);
+              }}
+            >
+              {t("crm.leads.actions.assign")}
+            </EnterpriseButton>
+          ) : null
+        }
         extraActions={
           <>
+            {hasPermission("crm.leads.manage") ? (
+              <EnterpriseButton
+                type="button"
+                variant="outline"
+                onClick={() => setDistributionOpen(true)}
+              >
+                <Shuffle />
+                {t("crm.leads.distribution.action")}
+              </EnterpriseButton>
+            ) : null}
             <SyncButton sourceType="LEADS" onSynced={() => setRefreshToken((n) => n + 1)} />
             <ModuleImportButtons
               importType="LEADS"
-              onImported={() => setRefreshToken((n) => n + 1)}
-            />
-            <ModuleImportButtons
-              importType="ORDERS"
               onImported={() => setRefreshToken((n) => n + 1)}
             />
             <EnterpriseButton type="button" onClick={() => setCreateDialogOpen(true)}>
@@ -184,6 +229,15 @@ function CrmLeadsPageContent() {
             onSelect: () => setArchiveTarget(entity),
           },
         ]}
+      />
+      <LeadDistributionModal
+        open={distributionOpen}
+        onOpenChange={(open) => {
+          setDistributionOpen(open);
+          if (!open) setBulkAssignIds([]);
+        }}
+        selectedLeadIds={bulkAssignIds}
+        onChanged={() => setRefreshToken((n) => n + 1)}
       />
       <AssignLeadDialog
         open={!!assigningLead}

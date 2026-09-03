@@ -1,22 +1,28 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  LeadAssignmentMethod,
+  LeadDistributionMode,
+  LeadDistributionScope,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 import { LeadAssignmentsService } from '../assignments/lead-assignments.service';
 
 const ASSIGNABLE_PERMISSION = 'crm.leads.edit';
-const LOOKBACK_HOURS = 24;
+
+export interface ActivatePolicyInput {
+  mode: LeadDistributionMode;
+  teamId?: string | null;
+  departmentId?: string | null;
+  actorId?: string;
+  now?: Date;
+}
 
 /**
- * TASK-061 §5 — "distribute new leads equally between active Customer
- * Service employees who have permission to handle Leads/Orders." Eligible =
- * an active (`isActive`, not locked, not soft-deleted) User granted
- * `crm.leads.edit`. Balance is computed from each eligible employee's own
- * `LeadAssignment` count over the trailing 24 hours (the rule this service's
- * doc comment originally specified) — the employee with the fewest recent
- * assignments receives the next one. Every actual assignment still goes
- * through `LeadAssignmentsService.assign()` (the one append-only assignment
- * write path — never a second one), so auto-assigned and manually-assigned
- * Leads share identical history/activity-log behavior.
+ * Authoritative automatic Lead distribution: persistent policy + strict
+ * Round Robin with a row-locked cursor. Manual assignment is a separate
+ * action on LeadAssignmentsService.
  */
 @Injectable()
 export class LeadAutoDistributionService {
@@ -26,102 +32,232 @@ export class LeadAutoDistributionService {
     private readonly leadAssignmentsService: LeadAssignmentsService,
   ) {}
 
-  /** Assigns one Lead to the least-loaded eligible employee. No-op (leaves it unassigned) if no eligible employee exists — never fails the Lead creation itself. */
-  async distribute(leadId: string): Promise<void> {
-    const eligible = await this.getEligibleEmployeeIds();
-    if (eligible.length === 0) return;
-    const counts = await this.getRecentAssignmentCounts(eligible);
-    const employeeId = this.leastLoaded(eligible, counts);
-    await this.leadAssignmentsService.assign(leadId, {
-      salesEmployeeId: employeeId,
+  async getEffectivePolicy(now = new Date()) {
+    const policies = await this.prisma.leadDistributionPolicy.findMany({
+      where: { isActive: true, deletedAt: null },
+      orderBy: { startedAt: 'desc' },
+    });
+    return (
+      policies.find((policy) => this.isPolicyEffective(policy, now)) ?? null
+    );
+  }
+
+  isPolicyEffective(
+    policy: {
+      isActive: boolean;
+      deletedAt: Date | null;
+      mode: LeadDistributionMode;
+      expiresAt: Date | null;
+    },
+    now = new Date(),
+  ) {
+    if (!policy.isActive || policy.deletedAt) return false;
+    if (
+      policy.mode === LeadDistributionMode.TIME_LIMITED &&
+      policy.expiresAt &&
+      now >= policy.expiresAt
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  async getPolicySnapshot(now = new Date()) {
+    const policy = await this.getEffectivePolicy(now);
+    const eligible = await this.getEligibleEmployees(policy?.teamId);
+    return {
+      policy: policy
+        ? {
+            ...policy,
+            remainingMs:
+              policy.mode === LeadDistributionMode.TIME_LIMITED &&
+              policy.expiresAt
+                ? Math.max(0, policy.expiresAt.getTime() - now.getTime())
+                : null,
+          }
+        : null,
+      eligible,
+    };
+  }
+
+  async activate(input: ActivatePolicyInput) {
+    const now = input.now ?? new Date();
+    const expiresAt =
+      input.mode === LeadDistributionMode.TIME_LIMITED
+        ? new Date(now.getTime() + 24 * 60 * 60 * 1000)
+        : null;
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.leadDistributionPolicy.updateMany({
+        where: { isActive: true, deletedAt: null },
+        data: { isActive: false, updatedBy: input.actorId ?? null },
+      });
+      const policy = await tx.leadDistributionPolicy.create({
+        data: {
+          mode: input.mode,
+          isActive: true,
+          startedAt: now,
+          expiresAt,
+          scopeType: input.teamId
+            ? LeadDistributionScope.TEAM
+            : input.departmentId
+              ? LeadDistributionScope.DEPARTMENT
+              : LeadDistributionScope.COMPANY,
+          teamId: input.teamId ?? null,
+          departmentId: input.departmentId ?? null,
+          createdBy: input.actorId ?? null,
+          updatedBy: input.actorId ?? null,
+        },
+      });
+      await tx.leadDistributionState.create({
+        data: { policyId: policy.id, cursorPosition: 0 },
+      });
+      return policy;
     });
   }
 
-  /**
-   * Manual/Bulk Assignment (§6) "balanced distribution among eligible
-   * employees" — distributes a batch of Leads, keeping the running count
-   * balanced within the batch itself rather than re-querying the trailing
-   * 24h window after every single assignment.
-   */
-  async distributeMany(leadIds: string[]): Promise<void> {
-    if (leadIds.length === 0) return;
-    const eligible = await this.getEligibleEmployeeIds();
-    if (eligible.length === 0) return;
-    const counts = await this.getRecentAssignmentCounts(eligible);
-    for (const leadId of leadIds) {
-      const employeeId = this.leastLoaded(eligible, counts);
-      await this.leadAssignmentsService.assign(leadId, {
-        salesEmployeeId: employeeId,
-      });
-      counts.set(employeeId, (counts.get(employeeId) ?? 0) + 1);
-    }
+  async deactivate(actorId?: string) {
+    await this.prisma.leadDistributionPolicy.updateMany({
+      where: { isActive: true, deletedAt: null },
+      data: { isActive: false, updatedBy: actorId ?? null },
+    });
+    return this.getPolicySnapshot();
   }
 
-  /** Powers the Assign dialog's employee picker — "who is even eligible to receive this?" (§6). */
-  async getEligibleEmployees() {
-    const permittedUserIds = await this.resolver.getUsersWithPermission(
-      ASSIGNABLE_PERMISSION,
-    );
-    if (permittedUserIds.length === 0) return [];
-    return this.prisma.user.findMany({
-      where: {
-        id: { in: permittedUserIds },
-        deletedAt: null,
-        isActive: true,
-        isLocked: false,
+  /** Assigns one unowned Lead when an effective automatic policy exists. */
+  async distribute(leadId: string, now = new Date()): Promise<void> {
+    const policy = await this.getEffectivePolicy(now);
+    if (!policy) return;
+    await this.prisma.$transaction(
+      async (tx) => {
+        await this.distributeInTx(tx, leadId, policy, now);
       },
+      { timeout: 20_000 },
+    );
+  }
+
+  async distributeMany(leadIds: string[], now = new Date()): Promise<void> {
+    if (leadIds.length === 0) return;
+    const policy = await this.getEffectivePolicy(now);
+    if (!policy) return;
+    await this.prisma.$transaction(async (tx) => {
+      for (const leadId of leadIds) {
+        await this.distributeInTx(tx, leadId, policy, now);
+      }
+    });
+  }
+
+  private async distributeInTx(
+    tx: Prisma.TransactionClient,
+    leadId: string,
+    policy: { id: string; mode: LeadDistributionMode; teamId: string | null },
+    now: Date,
+  ) {
+    const lead = await tx.lead.findFirst({
+      where: { id: leadId, deletedAt: null },
+      select: { id: true, salesEmployeeId: true },
+    });
+    if (!lead || lead.salesEmployeeId) return;
+
+    const locked = await tx.$queryRaw<{ id: string }[]>`
+      SELECT id FROM lead_distribution_states
+      WHERE policy_id = ${policy.id}::uuid
+      FOR UPDATE
+    `;
+    if (locked.length === 0) {
+      await tx.leadDistributionState.create({
+        data: { policyId: policy.id, cursorPosition: 0 },
+      });
+      await tx.$queryRaw`
+        SELECT id FROM lead_distribution_states
+        WHERE policy_id = ${policy.id}::uuid
+        FOR UPDATE
+      `;
+    }
+
+    const state = await tx.leadDistributionState.findUnique({
+      where: { policyId: policy.id },
+    });
+    if (!state) return;
+
+    const eligible = await this.getEligibleEmployeeIds(policy.teamId);
+    if (eligible.length === 0) return;
+
+    const next = this.nextRoundRobin(eligible, state.lastAssignedEmployeeId);
+    const method =
+      policy.mode === LeadDistributionMode.TIME_LIMITED
+        ? LeadAssignmentMethod.AUTO_24H
+        : LeadAssignmentMethod.AUTO_CONTINUOUS;
+
+    await this.leadAssignmentsService.assign(
+      leadId,
+      { salesEmployeeId: next, method, actorId: null },
+      tx,
+    );
+
+    await tx.leadDistributionState.update({
+      where: { policyId: policy.id },
+      data: {
+        lastAssignedEmployeeId: next,
+        cursorPosition: (state.cursorPosition + 1) % eligible.length,
+        updatedAt: now,
+      },
+    });
+  }
+
+  nextRoundRobin(eligible: string[], lastAssignedEmployeeId: string | null) {
+    if (eligible.length === 0) {
+      throw new BadRequestException('No eligible sales employees.');
+    }
+    if (!lastAssignedEmployeeId) return eligible[0];
+    const index = eligible.indexOf(lastAssignedEmployeeId);
+    if (index < 0) return eligible[0];
+    return eligible[(index + 1) % eligible.length];
+  }
+
+  async getEligibleEmployees(teamId?: string | null) {
+    const ids = await this.getEligibleEmployeeIds(teamId);
+    if (ids.length === 0) return [];
+    return this.prisma.user.findMany({
+      where: { id: { in: ids } },
       select: { id: true, fullName: true, email: true },
       orderBy: { fullName: 'asc' },
     });
   }
 
-  private leastLoaded(eligible: string[], counts: Map<string, number>): string {
-    let best = eligible[0];
-    let bestCount = counts.get(best) ?? 0;
-    for (const id of eligible.slice(1)) {
-      const count = counts.get(id) ?? 0;
-      if (count < bestCount) {
-        best = id;
-        bestCount = count;
-      }
-    }
-    return best;
-  }
-
-  private async getEligibleEmployeeIds(): Promise<string[]> {
+  async getEligibleEmployeeIds(teamId?: string | null): Promise<string[]> {
     const permittedUserIds = await this.resolver.getUsersWithPermission(
       ASSIGNABLE_PERMISSION,
     );
     if (permittedUserIds.length === 0) return [];
+
+    let scopedIds = permittedUserIds;
+    if (teamId) {
+      const team = await this.prisma.salesTeam.findFirst({
+        where: { id: teamId, deletedAt: null, isActive: true },
+        select: {
+          managerId: true,
+          members: { select: { userId: true } },
+        },
+      });
+      if (!team) return [];
+      const teamUserIds = new Set([
+        team.managerId,
+        ...team.members.map((m) => m.userId),
+      ]);
+      scopedIds = permittedUserIds.filter((id) => teamUserIds.has(id));
+    }
+
     const activeUsers = await this.prisma.user.findMany({
       where: {
-        id: { in: permittedUserIds },
+        id: { in: scopedIds },
         deletedAt: null,
         isActive: true,
         isLocked: false,
       },
-      select: { id: true },
+      select: { id: true, fullName: true },
+      orderBy: [{ fullName: 'asc' }, { id: 'asc' }],
     });
     return activeUsers.map((u) => u.id);
-  }
-
-  private async getRecentAssignmentCounts(
-    employeeIds: string[],
-  ): Promise<Map<string, number>> {
-    const since = new Date(Date.now() - LOOKBACK_HOURS * 60 * 60 * 1000);
-    const rows = await this.prisma.leadAssignment.groupBy({
-      by: ['assignedToId'],
-      where: {
-        assignedToId: { in: employeeIds },
-        assignedAt: { gte: since },
-        deletedAt: null,
-      },
-      _count: { _all: true },
-    });
-    const counts = new Map<string, number>(employeeIds.map((id) => [id, 0]));
-    for (const row of rows) {
-      counts.set(row.assignedToId, row._count._all);
-    }
-    return counts;
   }
 }

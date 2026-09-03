@@ -17,11 +17,8 @@ import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorat
 const emptyToUndefined = ({ value }: { value: unknown }) =>
   value === '' ? undefined : value;
 
-/** Input-only discriminator — never stored on `Lead` itself. Decides which
- * tier of validation `LeadsService.create()` applies: a Lead needs only
- * name/phone/country; an Order additionally needs address/product/paid
- * amount (enforced in the service, not here, since it depends on more than
- * one field together). */
+/** Leads are CRM prospects only. Operational orders use StoreOrder.
+ * `ORDER` is rejected by `LeadsService.create()`. */
 export type LeadRecordType = 'LEAD' | 'ORDER';
 
 export class CreateLeadDto {
@@ -43,12 +40,11 @@ export class CreateLeadDto {
   @IsUUID()
   countryId!: string;
 
-  /** `'LEAD'` (default) or `'ORDER'` — see `LeadRecordType`. */
+  /** Ignored except to reject retired Lead-as-Order (`ORDER`). */
   @IsIn(['LEAD', 'ORDER'])
   @IsOptional()
   recordType?: LeadRecordType;
 
-  /** Optional at the Lead stage — required only for `recordType: 'ORDER'`, enforced in `LeadsService.assertOrderReady()`. */
   @IsString()
   @IsOptional()
   city?: string;
@@ -57,7 +53,7 @@ export class CreateLeadDto {
   @IsOptional()
   address?: string;
 
-  /** A real reference to the Product catalog — required only for `recordType: 'ORDER'`. */
+  /** Optional — used later at conversion, not required to create a Lead. */
   @IsOptionalUuid()
   productId?: string;
 
@@ -88,9 +84,7 @@ export class CreateLeadDto {
   @IsOptional()
   externalOrderId?: string;
 
-  // --- Order mode only (recordType: 'ORDER') ------------------------------
-
-  /** Required for Order mode — creates a linked Payment record alongside the Lead in the same transaction. Never stored on Lead itself. */
+  /** Legacy import field — ignored. Payment belongs on StoreOrder. */
   @IsNumber()
   @Min(0)
   @IsOptional()

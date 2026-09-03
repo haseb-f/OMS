@@ -3,27 +3,26 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { LeadAssignmentMethod, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 import {
   LeadActivityService,
   LeadActivityType,
 } from '../activities/lead-activity.service';
-import { CreateLeadAssignmentDto } from './dto/create-lead-assignment.dto';
 
 const ASSIGNABLE_PERMISSION = 'crm.leads.edit';
 
+export interface AssignLeadInput {
+  salesEmployeeId: string;
+  method: LeadAssignmentMethod;
+  reason?: string | null;
+  actorId?: string | null;
+}
+
 /**
- * The one append-only assignment write path — both manual assignment and
- * `LeadAutoDistributionService`'s auto/bulk distribution call this same
- * method, never a second one.
- *
- * "Active sales employee" = a User that exists, is not soft-deleted
- * (`deletedAt IS NULL`), `isActive`, not `isLocked`, and holds
- * `crm.leads.edit` (TASK-061 §5/§8 — "Never assign inactive users" /
- * "Never assign users without the required permission") — enforced here
- * rather than only in Auto Assignment, since a manager's manual pick must
- * satisfy the exact same rule.
+ * The one append-only assignment write path. Auto-distribution, manual
+ * assign, import-explicit owner, and reassignment all call this.
  */
 @Injectable()
 export class LeadAssignmentsService {
@@ -33,17 +32,10 @@ export class LeadAssignmentsService {
     private readonly permissionsResolver: PermissionsResolverService,
   ) {}
 
-  async assign(leadId: string, dto: CreateLeadAssignmentDto) {
-    const lead = await this.prisma.lead.findFirst({
-      where: { id: leadId, deletedAt: null },
-    });
-    if (!lead) {
-      throw new NotFoundException(`Lead ${leadId} not found`);
-    }
-
+  async assertEligibleEmployee(employeeId: string) {
     const salesEmployee = await this.prisma.user.findFirst({
       where: {
-        id: dto.salesEmployeeId,
+        id: employeeId,
         deletedAt: null,
         isActive: true,
         isLocked: false,
@@ -55,7 +47,7 @@ export class LeadAssignmentsService {
       );
     }
     const canHandleLeads = await this.permissionsResolver.hasPermission(
-      dto.salesEmployeeId,
+      employeeId,
       ASSIGNABLE_PERMISSION,
     );
     if (!canHandleLeads) {
@@ -63,13 +55,45 @@ export class LeadAssignmentsService {
         'This employee does not have permission to handle Leads/Orders.',
       );
     }
+    return salesEmployee;
+  }
 
-    return this.prisma.$transaction(async (tx) => {
-      const assignedAt = new Date();
-      const assignment = await tx.leadAssignment.create({
-        data: { leadId, assignedToId: dto.salesEmployeeId, assignedAt },
+  async assign(
+    leadId: string,
+    dto: AssignLeadInput,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const run = async (client: Prisma.TransactionClient) => {
+      const lead = await client.lead.findFirst({
+        where: { id: leadId, deletedAt: null },
       });
-      await tx.lead.update({
+      if (!lead) {
+        throw new NotFoundException(`Lead ${leadId} not found`);
+      }
+
+      await this.assertEligibleEmployee(dto.salesEmployeeId);
+
+      const method =
+        lead.salesEmployeeId &&
+        lead.salesEmployeeId !== dto.salesEmployeeId &&
+        dto.method === LeadAssignmentMethod.MANUAL
+          ? LeadAssignmentMethod.REASSIGNMENT
+          : dto.method;
+
+      const assignedAt = new Date();
+      const assignment = await client.leadAssignment.create({
+        data: {
+          leadId,
+          fromUserId: lead.salesEmployeeId,
+          assignedToId: dto.salesEmployeeId,
+          method,
+          reason: dto.reason?.trim() || null,
+          actorId: dto.actorId ?? null,
+          assignedAt,
+          createdBy: dto.actorId ?? null,
+        },
+      });
+      await client.lead.update({
         where: { id: leadId },
         data: { salesEmployeeId: dto.salesEmployeeId, assignedAt },
       });
@@ -77,16 +101,29 @@ export class LeadAssignmentsService {
         leadId,
         LeadActivityType.LEAD_ASSIGNED,
         'Lead assigned to sales employee',
-        { assignmentId: assignment.id, salesEmployeeId: dto.salesEmployeeId },
-        tx,
+        {
+          assignmentId: assignment.id,
+          salesEmployeeId: dto.salesEmployeeId,
+          method,
+          fromUserId: lead.salesEmployeeId,
+        },
+        client,
       );
       return assignment;
-    });
+    };
+
+    if (tx) return run(tx);
+    return this.prisma.$transaction(run);
   }
 
   findAllForLead(leadId: string) {
     return this.prisma.leadAssignment.findMany({
       where: { leadId, deletedAt: null },
+      include: {
+        assignedTo: { select: { id: true, fullName: true } },
+        fromUser: { select: { id: true, fullName: true } },
+        actor: { select: { id: true, fullName: true } },
+      },
       orderBy: { assignedAt: 'asc' },
     });
   }

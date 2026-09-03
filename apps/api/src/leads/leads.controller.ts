@@ -10,14 +10,14 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { LeadDistributionMode } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { PermissionModule } from '../auth/decorators/permission-module.decorator';
 import { PermissionAction } from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
-import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
-import { MasterDataQueryDto } from '../master-data/dto/master-data-query.dto';
+import { SalesScopeService } from '../sales-scope/sales-scope.service';
 import { LeadsService } from './leads.service';
 import { LeadAssignmentsService } from './assignments/lead-assignments.service';
 import { LeadAutoDistributionService } from './distribution/lead-auto-distribution.service';
@@ -26,15 +26,10 @@ import { UpdateLeadDto } from './dto/update-lead.dto';
 import { ArchiveLeadDto } from './dto/archive-lead.dto';
 import { BulkAssignLeadsDto } from './dto/bulk-assign-leads.dto';
 import { CreateLeadAssignmentDto } from './assignments/dto/create-lead-assignment.dto';
+import { FindLeadsQueryDto } from './dto/find-leads-query.dto';
+import { ActivateDistributionDto } from './dto/activate-distribution.dto';
+import { CreateLeadFollowUpDto } from './dto/create-lead-follow-up.dto';
 
-const MANAGE_PERMISSION = 'crm.leads.manage';
-
-/**
- * TASK-061 — every route now requires `crm.leads.*` (previously this
- * controller had no guard at all). §7 "Visibility": Customer Service sees
- * only Leads/Orders assigned to them; a user additionally granted
- * `crm.leads.manage` sees everything and can assign/reassign/bulk-assign.
- */
 @Controller('leads')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @PermissionModule('leads')
@@ -43,7 +38,7 @@ export class LeadsController {
     private readonly leadsService: LeadsService,
     private readonly leadAssignmentsService: LeadAssignmentsService,
     private readonly leadAutoDistributionService: LeadAutoDistributionService,
-    private readonly permissionsResolver: PermissionsResolverService,
+    private readonly salesScope: SalesScopeService,
   ) {}
 
   @Post()
@@ -53,95 +48,196 @@ export class LeadsController {
 
   @Get()
   async findAll(
-    @Query() query: MasterDataQueryDto,
+    @Query() query: FindLeadsQueryDto,
     @CurrentUser() user: JwtPayload,
-    @Query('partnerId') partnerId?: string,
   ) {
-    const canViewAll = await this.permissionsResolver.hasPermission(
-      user.sub,
-      MANAGE_PERMISSION,
-    );
-    return this.leadsService.findAll(
-      query,
-      canViewAll ? undefined : user.sub,
-      partnerId,
-    );
+    const scope = await this.salesScope.resolve(user.sub);
+    return this.leadsService.findAll(query, scope);
   }
 
-  /** Powers the Assign dialog's employee picker (§6) — active users granted `crm.leads.edit`. Must stay registered before `:id` or Nest would treat "eligible-assignees" as an id. */
+  @Get('ids')
+  async findAllIds(
+    @Query() query: FindLeadsQueryDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const scope = await this.salesScope.resolve(user.sub);
+    return this.leadsService.findAllIds(query, scope);
+  }
+
+  @Get('unassigned-count')
+  async unassignedCount(@CurrentUser() user: JwtPayload) {
+    const scope = await this.salesScope.resolve(user.sub);
+    return this.leadsService.unassignedCount(scope);
+  }
+
   @Get('eligible-assignees')
   @PermissionAction('manage')
   eligibleAssignees() {
     return this.leadAutoDistributionService.getEligibleEmployees();
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.leadsService.findOne(id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateLeadDto) {
-    return this.leadsService.update(id, dto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.leadsService.remove(id);
-  }
-
-  // --- Business Operations (beside CRUD) ---
-
-  @Post(':id/assign')
+  @Get('distribution')
   @PermissionAction('manage')
-  assign(@Param('id') id: string, @Body() dto: CreateLeadAssignmentDto) {
-    return this.leadAssignmentsService.assign(id, dto);
+  distributionSnapshot() {
+    return this.leadAutoDistributionService.getPolicySnapshot();
   }
 
-  /** Manual/Bulk Assignment (§6) — authorized managers only (`crm.leads.manage`). Balance-distributes when no `salesEmployeeId` is given. */
+  @Post('distribution/activate')
+  @HttpCode(200)
+  @PermissionAction('manage')
+  activateDistribution(
+    @Body() dto: ActivateDistributionDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.leadAutoDistributionService.activate({
+      mode: dto.mode,
+      teamId: dto.teamId,
+      departmentId: dto.departmentId,
+      actorId: user.sub,
+    });
+  }
+
+  @Post('distribution/deactivate')
+  @HttpCode(200)
+  @PermissionAction('manage')
+  deactivateDistribution(@CurrentUser() user: JwtPayload) {
+    return this.leadAutoDistributionService.deactivate(user.sub);
+  }
+
+  @Post('distribution/activate-continuous')
+  @HttpCode(200)
+  @PermissionAction('manage')
+  activateContinuous(@CurrentUser() user: JwtPayload) {
+    return this.leadAutoDistributionService.activate({
+      mode: LeadDistributionMode.CONTINUOUS,
+      actorId: user.sub,
+    });
+  }
+
+  @Post('distribution/activate-24h')
+  @HttpCode(200)
+  @PermissionAction('manage')
+  activate24h(@CurrentUser() user: JwtPayload) {
+    return this.leadAutoDistributionService.activate({
+      mode: LeadDistributionMode.TIME_LIMITED,
+      actorId: user.sub,
+    });
+  }
+
   @Post('bulk-assign')
   @HttpCode(200)
   @PermissionAction('manage')
-  async bulkAssign(@Body() dto: BulkAssignLeadsDto) {
-    if (dto.salesEmployeeId) {
-      for (const leadId of dto.leadIds) {
-        await this.leadAssignmentsService.assign(leadId, {
-          salesEmployeeId: dto.salesEmployeeId,
-        });
-      }
-    } else {
-      await this.leadAutoDistributionService.distributeMany(dto.leadIds);
-    }
-    return { assigned: dto.leadIds.length };
+  async bulkAssign(
+    @Body() dto: BulkAssignLeadsDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const scope = await this.salesScope.resolve(user.sub);
+    return this.leadsService.bulkAssign(dto, user.sub, scope);
+  }
+
+  @Get(':id')
+  async findOne(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    const scope = await this.salesScope.resolve(user.sub);
+    return this.leadsService.findOne(id, scope);
+  }
+
+  @Patch(':id')
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateLeadDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const scope = await this.salesScope.resolve(user.sub);
+    return this.leadsService.update(id, dto, scope);
+  }
+
+  @Delete(':id')
+  async remove(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    const scope = await this.salesScope.resolve(user.sub);
+    return this.leadsService.remove(id, scope);
+  }
+
+  @Post(':id/assign')
+  @PermissionAction('manage')
+  async assign(
+    @Param('id') id: string,
+    @Body() dto: CreateLeadAssignmentDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const scope = await this.salesScope.resolve(user.sub);
+    this.salesScope.assertCanAssign(scope);
+    const lead = await this.leadsService.findOne(id, scope);
+    void lead;
+    return this.leadAssignmentsService.assign(id, {
+      salesEmployeeId: dto.salesEmployeeId,
+      method: 'MANUAL',
+      reason: dto.reason,
+      actorId: user.sub,
+    });
+  }
+
+  @Post(':id/first-open')
+  @HttpCode(200)
+  async firstOpen(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    const scope = await this.salesScope.resolve(user.sub);
+    return this.leadsService.firstOpen(id, user.sub, scope);
+  }
+
+  @Post(':id/follow-ups')
+  @PermissionAction('edit')
+  async addFollowUp(
+    @Param('id') id: string,
+    @Body() dto: CreateLeadFollowUpDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const scope = await this.salesScope.resolve(user.sub);
+    return this.leadsService.addFollowUp(id, dto, user.sub, scope);
+  }
+
+  @Get(':id/follow-ups')
+  async listFollowUps(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const scope = await this.salesScope.resolve(user.sub);
+    await this.leadsService.findOne(id, scope);
+    return this.leadsService.listFollowUps(id);
   }
 
   @Post(':id/start-follow-up')
   @HttpCode(200)
   @PermissionAction('edit')
-  startFollowUp(@Param('id') id: string) {
-    return this.leadsService.startFollowUp(id);
+  async startFollowUp(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const scope = await this.salesScope.resolve(user.sub);
+    return this.leadsService.startFollowUp(id, scope);
   }
 
   @Post(':id/archive')
   @HttpCode(200)
   @PermissionAction('edit')
-  archive(@Param('id') id: string, @Body() dto: ArchiveLeadDto) {
-    return this.leadsService.archive(id, dto);
+  async archive(
+    @Param('id') id: string,
+    @Body() dto: ArchiveLeadDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const scope = await this.salesScope.resolve(user.sub);
+    return this.leadsService.archive(id, dto, scope);
   }
 
-  /** Marks Lead QUALIFIED after verified payment evidence — never Order PAID. */
   @Post(':id/mark-paid')
   @HttpCode(200)
   @PermissionAction('edit')
-  markQualifiedFromPayment(@Param('id') id: string) {
-    return this.leadsService.markQualifiedFromPayment(id);
+  markQualifiedFromPayment() {
+    return this.leadsService.markQualifiedFromPayment();
   }
 
-  /** @deprecated Use Workflow LEAD_CONVERT — Partner is created with StoreOrder. */
   @Post(':id/convert-to-customer')
   @HttpCode(200)
   @PermissionAction('edit')
-  convertToCustomer(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
-    return this.leadsService.convertToCustomer(id, user.sub);
+  convertToCustomer() {
+    return this.leadsService.convertToCustomer();
   }
 }

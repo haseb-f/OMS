@@ -106,12 +106,14 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   extraRowActions,
   extraFilters,
   extraActions,
+  extraBulkActions,
   defaultSortBy = "name",
   disableArchiveRestore = false,
   supportsSelectAllMatching = false,
   hideCreateButton = false,
   getRowHref,
   isRowProtected,
+  onRecordsChanged,
 }: {
   titleKey: MessageKey;
   descriptionKey: MessageKey;
@@ -140,6 +142,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   extraFilters?: ReactNode;
   /** Opt-in extra toolbar action(s) rendered before the internal "+ New" button — e.g. `<ModuleImportButtons />` (TASK-060B Part 5). */
   extraActions?: ReactNode;
+  extraBulkActions?: (selectedIds: string[]) => ReactNode;
   /** Initial sort field — defaults to "name" (every existing Master Data entity has one); override for an entity that doesn't (e.g. Leads, sorted by "createdAt"). */
   defaultSortBy?: string;
   /**
@@ -162,6 +165,8 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
    * Archive only. Uses the existing RowActionsMenu; does not change menu geometry.
    */
   isRowProtected?: (entity: TEntity) => boolean;
+  /** Called after create/update/archive/restore so reference-data caches can refresh selectors. */
+  onRecordsChanged?: () => void;
 }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
@@ -332,6 +337,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
           await service.create(values);
         }
         toast.success(t("common.save"));
+        onRecordsChanged?.();
         await load();
         if (andNew) {
           form.reset(defaultValues);
@@ -352,6 +358,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
       await service.archive(archiveTarget.id);
       toast.success(t("common.archive"));
       setArchiveTarget(null);
+      onRecordsChanged?.();
       await load();
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Failed to archive.");
@@ -367,6 +374,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
       await service.restore(restoreTarget.id);
       toast.success(t("common.restore"));
       setRestoreTarget(null);
+      onRecordsChanged?.();
       await load();
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Failed to restore.");
@@ -397,6 +405,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
         toast.success(t("common.archive"));
       }
       setRowSelection({});
+      onRecordsChanged?.();
       await load();
     } finally {
       setIsMutating(false);
@@ -603,16 +612,19 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
           }
           isSelectingAllMatching={isSelectingAllMatching}
           bulkActions={
-            canArchive && (
-              <EnterpriseButton
-                type="button"
-                variant="destructive"
-                size="sm"
-                onClick={bulkArchiveSelected}
-              >
-                {t("common.archive")}
-              </EnterpriseButton>
-            )
+            <>
+              {extraBulkActions?.(Object.keys(rowSelection))}
+              {canArchive && (
+                <EnterpriseButton
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={bulkArchiveSelected}
+                >
+                  {t("common.archive")}
+                </EnterpriseButton>
+              )}
+            </>
           }
           onRefresh={load}
           getRowHref={getRowHref}

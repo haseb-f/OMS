@@ -5,8 +5,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  PartnerEntityType,
+  PartnerRoleType,
+  PartnerSource,
+  PartnerStatus,
   Prisma,
   StatusChangeSource,
+  StoreOrderPaymentType,
+  StoreOrderShippingStage,
   WorkflowApprovalStatus,
   WorkflowBusinessAction,
   WorkflowType,
@@ -15,6 +21,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import { StatusDefinitionsService } from '../status-definitions/status-definitions.service';
+import { SalesScopeService } from '../sales-scope/sales-scope.service';
 import {
   type WorkflowEntityType,
   isWorkflowEntityType,
@@ -39,9 +46,9 @@ export interface WorkflowTransitionContext {
 }
 
 export interface LeadConvertPayload {
-  productId: string;
-  quantity: number;
-  unitPrice: number;
+  productId?: string;
+  quantity?: number;
+  unitPrice?: number;
   paymentType?: 'PREPAID' | 'CASH_ON_DELIVERY';
   paymentSourceId?: string;
   notes?: string;
@@ -60,6 +67,7 @@ export class WorkflowEngineService {
     private readonly permissions: PermissionsResolverService,
     private readonly statusDefinitions: StatusDefinitionsService,
     private readonly numberingEngine: NumberingEngineService,
+    private readonly salesScope: SalesScopeService,
   ) {}
 
   async getAvailableActions(
@@ -73,6 +81,7 @@ export class WorkflowEngineService {
         `Unsupported workflow entity: ${entityType}`,
       );
     }
+    await this.assertLeadScope(entityType, entityId, userId);
     const currentStatusId = await this.getCurrentStatusId(entityType, entityId);
     if (!currentStatusId) {
       throw new NotFoundException(`${entityType} ${entityId} not found`);
@@ -142,6 +151,7 @@ export class WorkflowEngineService {
         `Unsupported workflow entity: ${entityType}`,
       );
     }
+    await this.assertLeadScope(entityType, entityId, userId);
 
     const transition = await this.prisma.workflowTransition.findFirst({
       where: { id: transitionId, deletedAt: null, isActive: true },
@@ -194,6 +204,41 @@ export class WorkflowEngineService {
       transition,
       userId,
       context,
+    );
+  }
+
+  async executeTransitionByCodes(
+    entityType: WorkflowEntityType,
+    entityId: string,
+    fromCode: string,
+    toCode: string,
+    userId: string,
+    context: WorkflowTransitionContext = {},
+    isSuperAdmin = false,
+  ) {
+    const workflowType = WorkflowType.LEAD;
+    const transition = await this.prisma.workflowTransition.findFirst({
+      where: {
+        workflowType,
+        isActive: true,
+        deletedAt: null,
+        fromStatus: { code: fromCode, workflowType },
+        toStatus: { code: toCode, workflowType },
+      },
+      include: { fromStatus: true, toStatus: true },
+    });
+    if (!transition) {
+      throw new BadRequestException(
+        `No workflow transition ${fromCode} → ${toCode}.`,
+      );
+    }
+    return this.executeTransition(
+      entityType,
+      entityId,
+      transition.id,
+      userId,
+      context,
+      isSuperAdmin,
     );
   }
 
@@ -461,9 +506,6 @@ export class WorkflowEngineService {
       data: { partnerId },
     });
 
-    const { StoreOrderPaymentType, StoreOrderShippingStage, StoreOrderSource } =
-      await import('@prisma/client');
-
     const paymentType =
       payload?.paymentType === 'CASH_ON_DELIVERY'
         ? StoreOrderPaymentType.CASH_ON_DELIVERY
@@ -499,7 +541,7 @@ export class WorkflowEngineService {
         notes: payload?.notes,
         createdBy: userId,
         updatedBy: userId,
-        source: StoreOrderSource.MANUAL,
+        source: this.mapLeadSource(lead.source),
         items: {
           create: {
             productId,
@@ -547,9 +589,6 @@ export class WorkflowEngineService {
     userId: string,
     tx: Prisma.TransactionClient,
   ): Promise<string> {
-    const { PartnerRoleType, PartnerSource, PartnerEntityType, PartnerStatus } =
-      await import('@prisma/client');
-
     if (lead.partnerId) {
       const existing = await tx.partner.findFirst({
         where: { id: lead.partnerId, deletedAt: null },
@@ -797,7 +836,7 @@ export class WorkflowEngineService {
           code: {
             in: [
               'NEW',
-              'ASSIGNED',
+              'IN_PROGRESS',
               'CONTACTED',
               'FOLLOW_UP',
               'QUALIFIED',
@@ -842,9 +881,117 @@ export class WorkflowEngineService {
       counts[row.toStatus.code] = (counts[row.toStatus.code] ?? 0) + 1;
     }
 
+    const createdWhere: Prisma.LeadWhereInput = {
+      deletedAt: null,
+      ...(params.source ? { source: params.source as never } : {}),
+      ...(params.salesEmployeeId
+        ? { salesEmployeeId: params.salesEmployeeId }
+        : {}),
+      ...(params.dateFrom || params.dateTo
+        ? {
+            createdAt: {
+              ...(params.dateFrom ? { gte: new Date(params.dateFrom) } : {}),
+              ...(params.dateTo ? { lte: new Date(params.dateTo) } : {}),
+            },
+          }
+        : {}),
+    };
+    counts.CREATED = await this.prisma.lead.count({ where: createdWhere });
+
+    const assignmentWhere: Prisma.LeadAssignmentWhereInput = {
+      deletedAt: null,
+      lead: createdWhere,
+      ...(params.dateFrom || params.dateTo
+        ? {
+            assignedAt: {
+              ...(params.dateFrom ? { gte: new Date(params.dateFrom) } : {}),
+              ...(params.dateTo ? { lte: new Date(params.dateTo) } : {}),
+            },
+          }
+        : {}),
+    };
+    const assignedLeadIds = await this.prisma.leadAssignment.findMany({
+      where: assignmentWhere,
+      select: { leadId: true },
+      distinct: ['leadId'],
+    });
+    counts.ASSIGNED = assignedLeadIds.length;
+
+    const orderWhere: Prisma.StoreOrderWhereInput = {
+      deletedAt: null,
+      leadId: { not: null },
+      ...(params.salesEmployeeId ? { employeeId: params.salesEmployeeId } : {}),
+      ...(params.dateFrom || params.dateTo
+        ? {
+            createdAt: {
+              ...(params.dateFrom ? { gte: new Date(params.dateFrom) } : {}),
+              ...(params.dateTo ? { lte: new Date(params.dateTo) } : {}),
+            },
+          }
+        : {}),
+    };
+    counts.ORDER = await this.prisma.storeOrder.count({ where: orderWhere });
+
+    const paidCodes = ['PAID', 'FULLY_PAID_RECONCILED'];
+    counts.PAID = await this.prisma.storeOrder.count({
+      where: {
+        ...orderWhere,
+        OR: [
+          { paymentStatusDef: { code: { in: paidCodes } } },
+          { paymentStatus: 'FULLY_PAID_RECONCILED' },
+        ],
+      },
+    });
+    counts.SHIPPED = await this.prisma.storeOrder.count({
+      where: {
+        ...orderWhere,
+        fulfillmentStatus: { code: 'SHIPPED' },
+      },
+    });
+    counts.DELIVERED = await this.prisma.storeOrder.count({
+      where: {
+        ...orderWhere,
+        fulfillmentStatus: { code: 'DELIVERED' },
+      },
+    });
+
     return {
       byStatus: counts,
+      stages: {
+        CREATED: counts.CREATED ?? 0,
+        ASSIGNED: counts.ASSIGNED ?? 0,
+        IN_PROGRESS: counts.IN_PROGRESS ?? 0,
+        FOLLOW_UP: counts.FOLLOW_UP ?? 0,
+        QUALIFIED: counts.QUALIFIED ?? 0,
+        CONVERTED: counts.CONVERTED ?? 0,
+        ORDER: counts.ORDER ?? 0,
+        PAID: counts.PAID ?? 0,
+        SHIPPED: counts.SHIPPED ?? 0,
+        DELIVERED: counts.DELIVERED ?? 0,
+      },
       totalEvents: history.filter((h) => allowed.has(h.entityId)).length,
     };
+  }
+
+  private mapLeadSource(source: string) {
+    if (source === 'EXCEL') return 'EXCEL' as const;
+    if (source === 'GOOGLE_SHEETS') return 'GOOGLE_SHEETS' as const;
+    return 'MANUAL' as const;
+  }
+
+  private async assertLeadScope(
+    entityType: string,
+    entityId: string,
+    userId: string,
+  ) {
+    if (entityType !== 'LEAD') return;
+    const [scope, lead] = await Promise.all([
+      this.salesScope.resolve(userId),
+      this.prisma.lead.findFirst({
+        where: { id: entityId, deletedAt: null },
+        select: { id: true, salesEmployeeId: true },
+      }),
+    ]);
+    this.salesScope.assertLeadAccess(scope, lead);
   }
 }

@@ -10,14 +10,16 @@ import { toast } from "@/lib/toast";
 import { workflowService } from "@/services/workflow-service";
 
 const FUNNEL_ORDER = [
-  "NEW",
+  "CREATED",
   "ASSIGNED",
-  "CONTACTED",
+  "IN_PROGRESS",
   "FOLLOW_UP",
   "QUALIFIED",
   "CONVERTED",
-  "LOST",
-  "DISQUALIFIED",
+  "ORDER",
+  "PAID",
+  "SHIPPED",
+  "DELIVERED",
 ] as const;
 
 export default function LeadFunnelPage() {
@@ -34,8 +36,12 @@ export default function LeadFunnelPage() {
       const result = (await workflowService.leadFunnel({
         dateFrom: dateFrom || undefined,
         dateTo: dateTo || undefined,
-      })) as { byStatus: Record<string, number>; totalEvents: number };
-      setByStatus(result.byStatus ?? {});
+      })) as {
+        byStatus: Record<string, number>;
+        stages?: Record<string, number>;
+        totalEvents: number;
+      };
+      setByStatus(result.stages ?? result.byStatus ?? {});
       setTotalEvents(result.totalEvents ?? 0);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to load funnel");
@@ -45,6 +51,7 @@ export default function LeadFunnelPage() {
   }, [dateFrom, dateTo]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
@@ -83,7 +90,27 @@ export default function LeadFunnelPage() {
           const width = `${Math.round((count / max) * 100)}%`;
           return (
             <div key={code} className="flex items-center gap-3 text-caption">
-              <span className="w-28 shrink-0 font-medium">{code}</span>
+              <span className="w-36 shrink-0 font-medium">
+                {code === "CREATED"
+                  ? t("workflow.funnel.stages.CREATED")
+                  : code === "ASSIGNED"
+                    ? t("workflow.funnel.stages.ASSIGNED")
+                    : code === "IN_PROGRESS"
+                      ? t("workflow.funnel.stages.IN_PROGRESS")
+                      : code === "FOLLOW_UP"
+                        ? t("workflow.funnel.stages.FOLLOW_UP")
+                        : code === "QUALIFIED"
+                          ? t("workflow.funnel.stages.QUALIFIED")
+                          : code === "CONVERTED"
+                            ? t("workflow.funnel.stages.CONVERTED")
+                            : code === "ORDER"
+                              ? t("workflow.funnel.stages.ORDER")
+                              : code === "PAID"
+                                ? t("workflow.funnel.stages.PAID")
+                                : code === "SHIPPED"
+                                  ? t("workflow.funnel.stages.SHIPPED")
+                                  : t("workflow.funnel.stages.DELIVERED")}
+              </span>
               <div className="h-2 min-w-0 flex-1 rounded-sm bg-muted">
                 <div
                   className="h-2 rounded-sm bg-primary/70"

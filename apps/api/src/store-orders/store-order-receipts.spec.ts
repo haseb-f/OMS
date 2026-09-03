@@ -59,6 +59,7 @@ describe('StoreOrdersService receipts', () => {
     objectStorage as unknown as ObjectStorageService,
     {} as never,
     {} as never,
+    {} as never,
   );
 
   beforeEach(() => {

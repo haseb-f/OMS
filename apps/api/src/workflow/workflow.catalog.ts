@@ -63,6 +63,17 @@ export const INITIAL_WORKFLOW_STATUSES: Array<{
   },
   {
     workflowType: WorkflowType.LEAD,
+    code: 'IN_PROGRESS',
+    name: 'جاري المتابعة',
+    nameEn: 'In Progress',
+    color: 'info',
+    sortOrder: 1,
+    isSystem: true,
+    isFinal: false,
+    isDefault: false,
+  },
+  {
+    workflowType: WorkflowType.LEAD,
     code: 'ASSIGNED',
     name: 'مُعيَّن',
     nameEn: 'Assigned',

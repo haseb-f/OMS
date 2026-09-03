@@ -134,16 +134,13 @@ export class WorkflowController {
       user.sub,
       {
         reason: dto.reason,
-        convertPayload:
-          dto.productId && dto.unitPrice !== undefined
-            ? {
-                productId: dto.productId,
-                quantity: dto.quantity ?? 1,
-                unitPrice: dto.unitPrice,
-                paymentType: dto.paymentType,
-                notes: dto.notes,
-              }
-            : undefined,
+        convertPayload: {
+          productId: dto.productId,
+          quantity: dto.quantity,
+          unitPrice: dto.unitPrice,
+          paymentType: dto.paymentType,
+          notes: dto.notes,
+        },
       },
       isSuperAdmin,
     );

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Archive, FileText, UserCheck } from "lucide-react";
+import { Archive, CalendarClock, FileText, UserCheck } from "lucide-react";
 import {
   DetailField,
   DetailFieldGrid,
@@ -18,6 +18,7 @@ import { StatusBadge } from "@/components/business/status-badge";
 import { WorkflowActionsPanel } from "@/components/business/workflow-actions-panel";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
 import { AssignLeadDialog } from "@/components/business/assign-lead-dialog";
+import { LeadFollowUpDialog } from "@/components/crm/lead-follow-up-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { Textarea } from "@/components/ui/textarea";
@@ -49,6 +50,7 @@ function LeadDetailContent() {
   const [noteDraft, setNoteDraft] = useState("");
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
+  const [followUpOpen, setFollowUpOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
 
@@ -61,7 +63,11 @@ function LeadDetailContent() {
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      setLead(await leadsService.get(params.id));
+      const loaded = await leadsService.get(params.id);
+      setLead(loaded);
+      if (loaded.status?.code === "NEW") {
+        setLead(await leadsService.firstOpen(params.id));
+      }
     } catch {
       setLead(null);
     } finally {
@@ -155,30 +161,52 @@ function LeadDetailContent() {
         </>
       }
       actions={
-        <RowActionsMenu
-          label={t("common.actions")}
-          actions={[
-            {
-              key: "assign",
-              label: t("crm.leads.actions.reassign"),
-              icon: UserCheck,
-              hidden: !canManage,
-              onSelect: () => setAssignOpen(true),
-            },
-            {
-              key: "archive",
-              label: t("crm.leads.actions.archive"),
-              icon: Archive,
-              hidden: !canArchive || lead.status?.code === "LOST",
-              destructive: true,
-              separatorBefore: true,
-              onSelect: () => setArchiveOpen(true),
-            },
-          ]}
-        />
+        <div className="flex items-center gap-2">
+          {canEdit && lead.status?.code !== "CONVERTED" ? (
+            <EnterpriseButton size="sm" variant="outline" onClick={() => setFollowUpOpen(true)}>
+              <CalendarClock />
+              {t("crm.leads.actions.addFollowUp")}
+            </EnterpriseButton>
+          ) : null}
+          <RowActionsMenu
+            label={t("common.actions")}
+            actions={[
+              {
+                key: "assign",
+                label: t("crm.leads.actions.reassign"),
+                icon: UserCheck,
+                hidden: !canManage,
+                onSelect: () => setAssignOpen(true),
+              },
+              {
+                key: "archive",
+                label: t("crm.leads.actions.archive"),
+                icon: Archive,
+                hidden: !canArchive || lead.status?.code === "LOST",
+                destructive: true,
+                separatorBefore: true,
+                onSelect: () => setArchiveOpen(true),
+              },
+            ]}
+          />
+        </div>
       }
     >
       <DetailSection title={t("workflow.actions.title")}>
+        {lead.storeOrder ? (
+          <p className="text-body">
+            {t("crm.leads.convert.convertedTo")}{" "}
+            <EnterpriseButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-auto p-0 font-medium"
+              onClick={() => router.push(`/store-orders/${lead.storeOrder!.id}`)}
+            >
+              {lead.storeOrder.internalOrderId}
+            </EnterpriseButton>
+          </p>
+        ) : null}
         <WorkflowActionsPanel
           entityType="LEAD"
           entityId={lead.id}
@@ -229,6 +257,10 @@ function LeadDetailContent() {
                   <DetailField
                     label={t("crm.leads.fields.source")}
                     value={t(`crm.leads.source.${lead.source}` as MessageKey)}
+                  />
+                  <DetailField
+                    label={t("crm.leads.fields.nextFollowUp")}
+                    value={lead.nextFollowUpAt ? formatDateTime(lead.nextFollowUpAt) : undefined}
                   />
                   <DetailField
                     label={t("crm.leads.fields.createdAt")}
@@ -354,6 +386,16 @@ function LeadDetailContent() {
             ),
           },
         ]}
+      />
+
+      <LeadFollowUpDialog
+        open={followUpOpen}
+        onOpenChange={setFollowUpOpen}
+        leadId={lead.id}
+        onSaved={() => {
+          void load();
+          reloadSidePanels();
+        }}
       />
 
       <AssignLeadDialog

@@ -26,6 +26,25 @@ function PartnerCell({ row }: { row: LeadRow }) {
   );
 }
 
+function NextFollowUpCell({ value }: { value: string | null }) {
+  const { t } = useLocale();
+  if (!value) return <span>—</span>;
+  const when = new Date(value);
+  const now = new Date();
+  const startToday = new Date(now);
+  startToday.setHours(0, 0, 0, 0);
+  const startTomorrow = new Date(startToday);
+  startTomorrow.setDate(startTomorrow.getDate() + 1);
+  const startDayAfter = new Date(startTomorrow);
+  startDayAfter.setDate(startDayAfter.getDate() + 1);
+  const overdue = when.getTime() < now.getTime();
+  let label = formatDate(value);
+  if (when >= startToday && when < startTomorrow) label = t("crm.leads.followUp.today");
+  else if (when >= startTomorrow && when < startDayAfter) label = t("crm.leads.followUp.tomorrow");
+  else if (overdue) label = t("crm.leads.followUp.overdue");
+  return <span className={overdue ? "text-destructive font-medium" : undefined}>{label}</span>;
+}
+
 export const leadColumns: ColumnDef<LeadRow, unknown>[] = [
   {
     id: "leadNumber",
@@ -60,13 +79,13 @@ export const leadColumns: ColumnDef<LeadRow, unknown>[] = [
   },
   {
     id: "partner",
-    meta: { titleKey: "crm.leads.fields.customer" },
+    meta: { titleKey: "crm.leads.fields.customer", defaultHidden: true },
     enableSorting: false,
     cell: ({ row }) => <PartnerCell row={row.original} />,
   },
   {
     id: "quantity",
-    meta: { titleKey: "crm.leads.fields.quantity" },
+    meta: { titleKey: "crm.leads.fields.quantity", defaultHidden: true },
     accessorFn: (row) => row.quantity,
   },
   {
@@ -81,10 +100,25 @@ export const leadColumns: ColumnDef<LeadRow, unknown>[] = [
     ),
   },
   {
+    id: "country",
+    meta: { titleKey: "crm.leads.fields.country" },
+    accessorFn: (row) => row.country?.name ?? "—",
+  },
+  {
+    id: "source",
+    meta: { titleKey: "crm.leads.fields.source" },
+    accessorFn: (row) => row.source,
+  },
+  {
     id: "salesEmployee",
     meta: { titleKey: "crm.leads.fields.assignedTo" },
     enableSorting: false,
     accessorFn: (row) => row.salesEmployee?.fullName ?? "—",
+  },
+  {
+    id: "nextFollowUpAt",
+    meta: { titleKey: "crm.leads.fields.nextFollowUp" },
+    cell: ({ row }) => <NextFollowUpCell value={row.original.nextFollowUpAt} />,
   },
   {
     id: "createdAt",
@@ -100,6 +134,7 @@ export const leadExportColumns = [
   "quantity",
   "status",
   "salesEmployee",
+  "nextFollowUpAt",
   "createdAt",
 ];
 

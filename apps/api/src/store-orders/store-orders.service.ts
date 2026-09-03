@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -44,6 +45,7 @@ import { ObjectStorageService } from '../common/storage/object-storage.service';
 import { validateAttachmentUpload } from '../common/storage/file-validation';
 import { PhoneNumberService } from '../common/phone/phone-number.service';
 import { WorkflowStatusResolverService } from '../workflow/workflow-status-resolver.service';
+import { SalesScopeService } from '../sales-scope/sales-scope.service';
 import { PAID_PAYMENT_CODES } from '../workflow/workflow-status-map';
 import { randomUUID } from 'node:crypto';
 
@@ -165,6 +167,7 @@ export class StoreOrdersService {
     private readonly objectStorage: ObjectStorageService,
     private readonly phoneNumberService: PhoneNumberService,
     private readonly statusResolver: WorkflowStatusResolverService,
+    private readonly salesScope: SalesScopeService,
   ) {}
 
   /**
@@ -215,6 +218,17 @@ export class StoreOrdersService {
         ? StoreOrderShippingStage.READY_FOR_SHIPPING
         : StoreOrderShippingStage.NOT_READY;
 
+    let employeeId = dto.employeeId;
+    if (userId) {
+      const scope = await this.salesScope.resolve(userId);
+      if (!employeeId) employeeId = userId;
+      if (!this.salesScope.canSetOrderOwner(scope, employeeId)) {
+        throw new ForbiddenException(
+          'You are not allowed to assign this Store Order to that owner.',
+        );
+      }
+    }
+
     try {
       const order = await this.prisma.$transaction(async (tx) => {
         const created = await tx.storeOrder.create({
@@ -225,7 +239,7 @@ export class StoreOrdersService {
             orderDate: dto.orderDate ? new Date(dto.orderDate) : undefined,
             source: dto.source,
             sourceChannel: dto.sourceChannel,
-            employeeId: dto.employeeId,
+            employeeId,
             currencyId: dto.currencyId,
             paymentType,
             shippingStage,
@@ -272,7 +286,7 @@ export class StoreOrdersService {
         await this.paymentSync.recompute(order.id);
       }
 
-      return this.findOne(order.id);
+      return this.findOne(order.id, userId);
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -369,7 +383,7 @@ export class StoreOrdersService {
           tx,
         );
       });
-      return this.findOne(id);
+      return this.findOne(id, userId);
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -436,8 +450,18 @@ export class StoreOrdersService {
     return where;
   }
 
-  async findAll(query: FindStoreOrdersQueryDto) {
+  private async buildScopedFindWhere(
+    query: FindStoreOrdersQueryDto,
+    userId?: string,
+  ): Promise<Prisma.StoreOrderWhereInput> {
     const where = this.buildFindWhere(query);
+    if (!userId) return where;
+    const scope = await this.salesScope.resolve(userId);
+    return { AND: [where, this.salesScope.storeOrderWhere(scope)] };
+  }
+
+  async findAll(query: FindStoreOrdersQueryDto, userId?: string) {
+    const where = await this.buildScopedFindWhere(query, userId);
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
     const [items, total] = await Promise.all([
@@ -484,8 +508,9 @@ export class StoreOrdersService {
       | 'sortOrder'
       | 'limit'
     >,
+    userId?: string,
   ) {
-    const where = this.buildFindWhere(query);
+    const where = await this.buildScopedFindWhere(query, userId);
     const take = Math.min(query.limit ?? 10_000, 10_000);
     const [rows, total] = await Promise.all([
       this.prisma.storeOrder.findMany({
@@ -499,13 +524,17 @@ export class StoreOrdersService {
     return { ids: rows.map((row) => row.id), total };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, userId?: string) {
     const order = await this.prisma.storeOrder.findFirst({
       where: { id, deletedAt: null },
       include: ORDER_INCLUDE,
     });
     if (!order) {
       throw new NotFoundException(`Store Order ${id} not found`);
+    }
+    if (userId) {
+      const scope = await this.salesScope.resolve(userId);
+      this.salesScope.assertStoreOrderAccess(scope, order);
     }
     const withStatus = await this.attachCurrentShippingStatus(order);
     return { ...withStatus, receipts: this.mapReceipts(id, order.receipts) };
@@ -569,7 +598,15 @@ export class StoreOrdersService {
   }
 
   async update(id: string, dto: UpdateStoreOrderDto, userId?: string) {
-    await this.findOne(id);
+    await this.findOne(id, userId);
+    if (dto.employeeId && userId) {
+      const scope = await this.salesScope.resolve(userId);
+      if (!this.salesScope.canSetOrderOwner(scope, dto.employeeId)) {
+        throw new ForbiddenException(
+          'You are not allowed to assign this Store Order to that owner.',
+        );
+      }
+    }
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.storeOrder.update({
         where: { id },
@@ -593,7 +630,7 @@ export class StoreOrdersService {
 
   /** Business operation: Archive. Soft-delete only — schema has no hard delete anywhere in this pipeline. */
   async archive(id: string, userId?: string) {
-    await this.findOne(id);
+    await this.findOne(id, userId);
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.storeOrder.update({
         where: { id },
@@ -612,14 +649,14 @@ export class StoreOrdersService {
 
   /** Business operation: Add Internal Note — logged directly as a timeline entry (no dedicated Note table on this model). */
   async addNote(id: string, dto: CreateStoreOrderNoteDto, userId?: string) {
-    await this.findOne(id);
+    await this.findOne(id, userId);
     await this.activityService.log(
       id,
       StoreOrderActivityType.NOTE_ADDED,
       resolveStoreOrderNoteText(dto),
       userId,
     );
-    return this.findOne(id);
+    return this.findOne(id, userId);
   }
 
   /** Business operation: Add Payment — a Store Order can receive many Payments over time (e.g. 3x partial payments); each is a normal `Payment` row with `storeOrderId` set and `leadId` left null, immediately eligible for the existing bank-matching engine untouched. */
@@ -628,7 +665,7 @@ export class StoreOrdersService {
     dto: CreateStoreOrderPaymentDto,
     userId?: string,
   ) {
-    const order = await this.findOne(id);
+    const order = await this.findOne(id, userId);
     const payment = await this.prisma.$transaction(async (tx) => {
       const created = await this.createPaymentRow(
         id,
@@ -659,7 +696,7 @@ export class StoreOrdersService {
     dto: ReportStoreOrderPaymentDto,
     userId?: string,
   ) {
-    const order = await this.findOne(id);
+    const order = await this.findOne(id, userId);
     if (order.paymentStatus === StoreOrderPaymentStatus.FULLY_PAID_RECONCILED) {
       throw new BadRequestException(
         'Order is already fully paid and reconciled — no payment report needed.',
@@ -760,7 +797,7 @@ export class StoreOrdersService {
     dto: CreateStoreOrderReceiptDto,
     userId?: string,
   ) {
-    await this.findOne(id);
+    await this.findOne(id, userId);
     if (dto.paymentId) {
       const payment = await this.prisma.payment.findFirst({
         where: { id: dto.paymentId, storeOrderId: id, deletedAt: null },
@@ -796,7 +833,7 @@ export class StoreOrdersService {
     file: Express.Multer.File | undefined,
     userId?: string,
   ) {
-    await this.findOne(id);
+    await this.findOne(id, userId);
     const validated = validateAttachmentUpload(file);
     const storageKey = `store-order-receipts/${id}/${randomUUID()}${validated.extension}`;
     await this.objectStorage.put(storageKey, file!.buffer);
@@ -849,7 +886,7 @@ export class StoreOrdersService {
   }
 
   async archiveReceipt(id: string, receiptId: string, userId?: string) {
-    await this.findOne(id);
+    await this.findOne(id, userId);
     const receipt = await this.prisma.storeOrderReceipt.findFirst({
       where: { id: receiptId, storeOrderId: id, deletedAt: null },
     });
@@ -974,7 +1011,7 @@ export class StoreOrdersService {
     dto: SetPaymentReviewStatusDto,
     userId?: string,
   ) {
-    await this.findOne(id);
+    await this.findOne(id, userId);
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.storeOrder.update({
         where: { id },
@@ -1006,7 +1043,7 @@ export class StoreOrdersService {
    * payment alone.
    */
   async generateInvoice(id: string, userId?: string) {
-    const order = await this.findOne(id);
+    const order = await this.findOne(id, userId);
     if (order.paymentStatus !== StoreOrderPaymentStatus.FULLY_PAID_RECONCILED) {
       throw new BadRequestException(
         'Invoice can only be generated once the order is Fully Paid & Reconciled.',

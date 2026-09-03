@@ -47,19 +47,25 @@ export class StoreOrdersController {
   }
 
   @Get()
-  findAll(@Query() query: FindStoreOrdersQueryDto) {
-    return this.storeOrdersService.findAll(query);
+  findAll(
+    @Query() query: FindStoreOrdersQueryDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.storeOrdersService.findAll(query, user.sub);
   }
 
   /** "Select all matching filters" — bare IDs only, same filter/search as `findAll`. */
   @Get('ids')
-  findAllIds(@Query() query: FindStoreOrdersQueryDto) {
-    return this.storeOrdersService.findAllIds(query);
+  findAllIds(
+    @Query() query: FindStoreOrdersQueryDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.storeOrdersService.findAllIds(query, user.sub);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.storeOrdersService.findOne(id);
+  findOne(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.storeOrdersService.findOne(id, user.sub);
   }
 
   @Patch(':id')

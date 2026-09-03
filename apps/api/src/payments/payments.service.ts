@@ -6,7 +6,6 @@ import {
 import { PaymentStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
-import { LeadsService } from '../leads/leads.service';
 import { StoreOrderPaymentSyncService } from '../store-orders/store-order-payment-sync.service';
 import {
   PaymentActivityService,
@@ -24,15 +23,14 @@ import { RejectPaymentDto } from './dto/reject-payment.dto';
 /**
  * Payment Workflow: Customer sends payment -> Payment record created ->
  * Accounting reviews bank statement manually -> Accounting matches payment
- * -> Payment becomes VERIFIED -> Lead automatically becomes PAID -> Sales
- * Order can now be created. Matching is manual only in this phase — see
- * PaymentAutoMatchingService for the (unused) architecture placeholder.
+ * -> Payment becomes VERIFIED -> Store Order payment status is recomputed.
+ * Matching is manual only in this phase — see PaymentAutoMatchingService
+ * for the (unused) architecture placeholder.
  */
 @Injectable()
 export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly leadsService: LeadsService,
     private readonly activityService: PaymentActivityService,
     private readonly notesService: PaymentNotesService,
     private readonly attachmentsService: PaymentAttachmentsService,
@@ -148,8 +146,8 @@ export class PaymentsService {
     return payment;
   }
 
-  /** Business operation: Verify Payment. Requires current status MATCHED. Cascades:
-   *  "Payment becomes VERIFIED -> Lead automatically becomes PAID." */
+  /** Business operation: Verify Payment. Requires current status MATCHED.
+   *  Store Order payment status is recomputed; Leads are never marked paid. */
   async verify(id: string, dto: VerifyPaymentDto) {
     const existing = await this.findOne(id);
     if (existing.status !== PaymentStatus.MATCHED) {
@@ -174,9 +172,6 @@ export class PaymentsService {
       return updated;
     });
 
-    if (payment.leadId) {
-      await this.leadsService.markQualifiedFromPayment(payment.leadId);
-    }
     if (payment.storeOrderId) {
       await this.storeOrderPaymentSync.recompute(payment.storeOrderId);
     }

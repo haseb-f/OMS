@@ -36,13 +36,13 @@ export function AssignLeadDialog({
 }) {
   const { t } = useLocale();
   const [employees, setEmployees] = useState<{ id: string; fullName: string; email: string }[]>([]);
-  const [selected, setSelected] = useState<string>("__balanced__");
+  const [selected, setSelected] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSelected("__balanced__");
+    setSelected("");
     leadsService
       .eligibleAssignees()
       .then(setEmployees)
@@ -52,11 +52,15 @@ export function AssignLeadDialog({
   const confirm = async () => {
     setIsSubmitting(true);
     try {
-      const salesEmployeeId = selected === "__balanced__" ? undefined : selected;
-      if (leadIds.length === 1 && salesEmployeeId) {
+      const salesEmployeeId = selected;
+      if (!salesEmployeeId) {
+        toast.error(t("crm.leads.assignDialog.selectEmployee"));
+        return;
+      }
+      if (leadIds.length === 1) {
         await leadsService.assign(leadIds[0], salesEmployeeId);
       } else {
-        await leadsService.bulkAssign(leadIds, salesEmployeeId);
+        await leadsService.bulkAssign({ leadIds, salesEmployeeId });
       }
       toast.success(t("crm.leads.assignDialog.success"));
       onAssigned?.();
@@ -89,7 +93,7 @@ export function AssignLeadDialog({
           <EnterpriseButton
             type="button"
             onClick={confirm}
-            disabled={isSubmitting || employees.length === 0}
+            disabled={isSubmitting || employees.length === 0 || !selected}
           >
             {t("crm.leads.assignDialog.confirm")}
           </EnterpriseButton>
@@ -106,7 +110,6 @@ export function AssignLeadDialog({
             <SelectValue placeholder={t("crm.leads.assignDialog.selectEmployee")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__balanced__">{t("crm.leads.assignDialog.balanced")}</SelectItem>
             {employees.map((employee) => (
               <SelectItem key={employee.id} value={employee.id}>
                 {employee.fullName} — {employee.email}

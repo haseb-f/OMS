@@ -161,55 +161,16 @@ describe('ImportTemplateService — Master Data dropdowns', () => {
     expect(sheetValues.has(inactiveSku)).toBe(false);
   });
 
-  it('builds a Payment Method dropdown on the Orders template, sourced from the live Payment Method table (spec section 3)', async () => {
+  it('retired ORDERS type stays registered without the Lead-as-Order payment template', async () => {
     const { buffer } = await templateService.generate('ORDERS');
     const workbook = new Workbook();
     await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
-
     const dataSheet = workbook.getWorksheet('Import Data');
     const headerRow = dataSheet!.getRow(1);
     const paymentMethodColumnIndex = (headerRow.values as unknown[]).findIndex(
       (v) => typeof v === 'string' && v.startsWith('Payment Method'),
     );
-    expect(paymentMethodColumnIndex).toBeGreaterThan(0);
-
-    const cell = dataSheet!.getCell(2, paymentMethodColumnIndex);
-    expect(cell.dataValidation?.type).toBe('list');
-    expect(String(cell.dataValidation?.formulae?.[0] ?? '')).toContain(
-      "'Reference Data'!",
-    );
-  });
-
-  it('a freshly downloaded template reflects a Payment Method created after the previous download — no developer edit required (spec section 10)', async () => {
-    const before = await templateService.generate('ORDERS');
-    const beforeWorkbook = new Workbook();
-    await beforeWorkbook.xlsx.load(before.buffer as unknown as ArrayBuffer);
-    const beforeSheet = beforeWorkbook.getWorksheet('Reference Data')!;
-    const beforeValues = new Set<string>();
-    beforeSheet.eachRow((row, rowNumber) => {
-      if (rowNumber === 1) return;
-      row.eachCell((c) => {
-        if (typeof c.value === 'string') beforeValues.add(c.value);
-      });
-    });
-
-    const newName = `Template Test Payment Method ${randomUUID().slice(0, 8)}`;
-    await prisma.paymentMethod.create({ data: { name: newName } });
-
-    const after = await templateService.generate('ORDERS');
-    const afterWorkbook = new Workbook();
-    await afterWorkbook.xlsx.load(after.buffer as unknown as ArrayBuffer);
-    const afterSheet = afterWorkbook.getWorksheet('Reference Data')!;
-    const afterValues = new Set<string>();
-    afterSheet.eachRow((row, rowNumber) => {
-      if (rowNumber === 1) return;
-      row.eachCell((c) => {
-        if (typeof c.value === 'string') afterValues.add(c.value);
-      });
-    });
-
-    expect(beforeValues.has(newName)).toBe(false);
-    expect(afterValues.has(newName)).toBe(true);
+    expect(paymentMethodColumnIndex).toBeLessThanOrEqual(0);
   });
 
   it('Store Orders template — Country is a live dropdown', async () => {
