@@ -18,8 +18,6 @@ model User {
   fullName           String    @map("full_name")
   passwordHash       String    @map("password_hash")
   mobile             String?
-  /// Free-text — no fixed list requested (unlike Job Title, which IS a closed set — see `JobTitle`).
-  department         String?
   isActive           Boolean   @default(true) @map("is_active")
   /// TASK-060 — set by "Lock"/"Unlock", independent of `isActive`: Active/Inactive is an admin-toggled field, Lock is a security action (e.g. after a manual lock or a future failed-login policy). A locked user cannot log in even if `isActive` is true.
   isLocked           Boolean   @default(false) @map("is_locked")
@@ -31,6 +29,10 @@ model User {
 
   jobTitleId String?   @map("job_title_id") @db.Uuid
   jobTitle   JobTitle? @relation(fields: [jobTitleId], references: [id])
+
+  /// Canonical company Department (Master Data) — never free text.
+  departmentId String?     @map("department_id") @db.Uuid
+  department   Department? @relation(fields: [departmentId], references: [id])
 
   /// TASK-060 — the user's assigned Branch (distinct from `CompanyMembership.branchId`, which is a per-company default). Simple direct FK, matching the flat "Branch" field the Users form asks for.
   branchId String? @map("branch_id") @db.Uuid
@@ -49,7 +51,10 @@ model User {
 
   leadsAsSalesEmployee Lead[]
   leadAssignments      LeadAssignment[]
+  leadAssignmentsFrom  LeadAssignment[] @relation("LeadAssignmentFrom")
+  leadAssignmentsActor LeadAssignment[] @relation("LeadAssignmentActor")
   leadNotes            LeadNote[]
+  leadFollowUps        LeadFollowUp[]
 
   salesOrdersAsSalesEmployee      SalesOrder[]           @relation("SalesOrderSalesEmployee")
   salesOrdersAsShippingEmployee   SalesOrder[]           @relation("SalesOrderShippingEmployee")
@@ -87,6 +92,10 @@ model User {
   /// Partner to this system account.
   employeeProfile EmployeeProfile?
 
+  managedSalesTeams SalesTeam[]       @relation("SalesTeamManager")
+  salesTeamMembers  SalesTeamMember[]
+
+  @@index([departmentId])
   @@map("users")
 }
 
@@ -106,6 +115,80 @@ model JobTitle {
   employeeProfiles EmployeeProfile[]
 
   @@map("job_titles")
+}
+
+/// Company-wide organizational Department — the ONE authoritative Master
+/// Data source for department selection (Users, Sales Teams, future HR).
+/// Distinct from SalesTeam: a Department (المبيعات) can own many teams.
+model Department {
+  id          String  @id @default(uuid()) @db.Uuid
+  code        String  @unique
+  name        String
+  nameEn      String? @map("name_en")
+  description String?
+  sortOrder   Int     @default(0) @map("sort_order")
+  isActive    Boolean @default(true) @map("is_active")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  users                 User[]
+  salesTeams            SalesTeam[]
+  distributionPolicies  LeadDistributionPolicy[]
+
+  @@index([deletedAt, isActive, sortOrder])
+  @@map("departments")
+}
+
+/// A sales working group under a Department — never itself a Department.
+/// Manager + members are Users; departmentId is the canonical FK.
+model SalesTeam {
+  id   String @id @default(uuid()) @db.Uuid
+  code String @unique
+  name String
+
+  departmentId String     @map("department_id") @db.Uuid
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  managerId String @map("manager_id") @db.Uuid
+  manager   User   @relation("SalesTeamManager", fields: [managerId], references: [id])
+
+  isActive Boolean @default(true) @map("is_active")
+  notes    String?
+
+  distributionPolicies LeadDistributionPolicy[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  members SalesTeamMember[]
+
+  @@index([departmentId])
+  @@index([managerId])
+  @@map("sales_teams")
+}
+
+model SalesTeamMember {
+  id String @id @default(uuid()) @db.Uuid
+
+  salesTeamId String    @map("sales_team_id") @db.Uuid
+  salesTeam   SalesTeam @relation(fields: [salesTeamId], references: [id], onDelete: Cascade)
+
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  @@unique([salesTeamId, userId])
+  @@index([userId])
+  @@map("sales_team_members")
 }
 
 /// TASK-060 — the full catalog of grantable permission strings
@@ -1057,6 +1140,11 @@ model Lead {
   /// Reverse of StoreOrder.leadId — set atomically on Lead → StoreOrder conversion.
   storeOrder StoreOrder?
 
+  /// Denormalized from the latest open LeadFollowUp.followUpAt for list/overdue.
+  nextFollowUpAt DateTime? @map("next_follow_up_at")
+  /// First owner detail-open that moved NEW → IN_PROGRESS. Idempotency gate.
+  firstOpenedAt  DateTime? @map("first_opened_at")
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   createdBy String?   @map("created_by") @db.Uuid
@@ -1066,13 +1154,39 @@ model Lead {
   assignments LeadAssignment[]
   activities  LeadActivity[]
   notes       LeadNote[]
+  followUps   LeadFollowUp[]
   salesOrders SalesOrder[]
   payments    Payment[]
 
   @@index([externalOrderId])
   @@index([statusId])
   @@index([salesEmployeeId, statusId])
+  @@index([createdAt])
+  @@index([countryId])
+  @@index([assignedAt])
+  @@index([nextFollowUpAt])
+  @@index([source])
   @@map("leads")
+}
+
+enum LeadAssignmentMethod {
+  AUTO_CONTINUOUS
+  AUTO_24H
+  MANUAL
+  REASSIGNMENT
+  IMPORT
+  SYSTEM
+}
+
+enum LeadDistributionMode {
+  CONTINUOUS
+  TIME_LIMITED
+}
+
+enum LeadDistributionScope {
+  COMPANY
+  TEAM
+  DEPARTMENT
 }
 
 /// Append-only assignment history. Reassigning a lead creates a new row here
@@ -1083,8 +1197,17 @@ model LeadAssignment {
   leadId String @map("lead_id") @db.Uuid
   lead   Lead   @relation(fields: [leadId], references: [id])
 
+  fromUserId String? @map("from_user_id") @db.Uuid
+  fromUser   User?   @relation("LeadAssignmentFrom", fields: [fromUserId], references: [id])
+
   assignedToId String @map("assigned_to_id") @db.Uuid
   assignedTo   User   @relation(fields: [assignedToId], references: [id])
+
+  method LeadAssignmentMethod @default(SYSTEM)
+  reason String?
+
+  actorId String? @map("actor_id") @db.Uuid
+  actor   User?   @relation("LeadAssignmentActor", fields: [actorId], references: [id])
 
   assignedAt DateTime @default(now()) @map("assigned_at")
 
@@ -1094,7 +1217,76 @@ model LeadAssignment {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
+  @@index([leadId, assignedAt])
+  @@index([assignedToId])
   @@map("lead_assignments")
+}
+
+/// Structured CRM follow-up — not a free-text LeadNote.
+model LeadFollowUp {
+  id String @id @default(uuid()) @db.Uuid
+
+  leadId String @map("lead_id") @db.Uuid
+  lead   Lead   @relation(fields: [leadId], references: [id])
+
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id])
+
+  outcome    String?
+  note       String?
+  followUpAt DateTime? @map("follow_up_at")
+  completedAt DateTime? @map("completed_at")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([leadId, createdAt])
+  @@index([followUpAt])
+  @@map("lead_follow_ups")
+}
+
+/// One effective automatic policy per scope. Manual assignment is an action, not a policy.
+model LeadDistributionPolicy {
+  id String @id @default(uuid()) @db.Uuid
+
+  mode     LeadDistributionMode
+  isActive Boolean              @default(true) @map("is_active")
+  startedAt DateTime            @default(now()) @map("started_at")
+  expiresAt DateTime?           @map("expires_at")
+
+  scopeType    LeadDistributionScope @default(COMPANY) @map("scope_type")
+  teamId       String?               @map("team_id") @db.Uuid
+  team         SalesTeam?            @relation(fields: [teamId], references: [id])
+  departmentId String?               @map("department_id") @db.Uuid
+  department   Department?           @relation(fields: [departmentId], references: [id])
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  state LeadDistributionState?
+
+  @@index([isActive, scopeType, expiresAt])
+  @@map("lead_distribution_policies")
+}
+
+/// Persistent Round Robin cursor — locked FOR UPDATE during assignment.
+model LeadDistributionState {
+  id String @id @default(uuid()) @db.Uuid
+
+  policyId String                 @unique @map("policy_id") @db.Uuid
+  policy   LeadDistributionPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  lastAssignedEmployeeId String? @map("last_assigned_employee_id") @db.Uuid
+  cursorPosition         Int     @default(0) @map("cursor_position")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@map("lead_distribution_states")
 }
 
 /// System-generated timeline. `type` is a plain string, not an enum — the
@@ -3038,6 +3230,8 @@ model EmployeeProfile {
 enum StoreOrderSource {
   MANUAL
   IMPORT
+  EXCEL
+  GOOGLE_SHEETS
 }
 
 enum StoreOrderPaymentStatus {
@@ -3138,6 +3332,7 @@ model StoreOrder {
   @@index([shippingStage, createdAt])
   @@index([fulfillmentStatusId])
   @@index([orderDate])
+  @@index([employeeId])
   @@map("store_orders")
 }
 

@@ -1,4 +1,14 @@
 import { apiClient } from "./api-client";
+import { buildQueryString } from "@/lib/query-string";
+
+export interface UserDepartment {
+  id: string;
+  code: string;
+  name: string;
+  nameEn: string | null;
+  isActive: boolean;
+  deletedAt: string | null;
+}
 
 export interface UserRow {
   id: string;
@@ -6,7 +16,8 @@ export interface UserRow {
   username: string;
   fullName: string;
   mobile: string | null;
-  department: string | null;
+  departmentId: string | null;
+  department: UserDepartment | null;
   isActive: boolean;
   isLocked: boolean;
   mustChangePassword: boolean;
@@ -26,7 +37,7 @@ export interface UserFormPayload {
   password?: string;
   generatePassword?: boolean;
   mobile?: string;
-  department?: string;
+  departmentId?: string;
   jobTitleId?: string;
   branchId?: string;
   isActive?: boolean;
@@ -45,8 +56,8 @@ export interface UserPermissionsResult {
  * unmodified; every field below is additive.
  */
 export const usersService = {
-  list: (search?: string) =>
-    apiClient.get<UserRow[]>(`/users${search ? `?search=${encodeURIComponent(search)}` : ""}`),
+  list: (search?: string, departmentId?: string) =>
+    apiClient.get<UserRow[]>(`/users${buildQueryString({ search, departmentId })}`),
   get: (id: string) => apiClient.get<UserRow>(`/users/${id}`),
   create: (dto: UserFormPayload) => apiClient.post<UserMutationResult>("/users", dto),
   update: (id: string, dto: UserFormPayload) => apiClient.patch<UserRow>(`/users/${id}`, dto),

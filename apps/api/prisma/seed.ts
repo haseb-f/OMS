@@ -1607,6 +1607,20 @@ async function main() {
       template: '{DOC}-{SEQ}',
     },
     {
+      documentType: 'DEPARTMENT',
+      label: 'Department',
+      docCode: 'DEPT',
+      template: '{DOC}-{SEQ}',
+      yearReset: false,
+    },
+    {
+      documentType: 'SALES_TEAM',
+      label: 'Sales Team',
+      docCode: 'ST',
+      template: '{DOC}-{SEQ}',
+      yearReset: false,
+    },
+    {
       // TASK-029 — Physical Count now actually generates numbers from this
       // series (previously prepared-only); docCode/template updated to the
       // spec's plain "CNT-2026-000001" shape.

@@ -18,6 +18,8 @@ import { OMSPhoneInput, isPhoneValidForCountry } from "@/components/shared/phone
 import { PermissionMatrix } from "./permission-matrix";
 import { usersService, type UserRow, type UserFormPayload } from "@/services/users-service";
 import { jobTitlesService, type JobTitleRow } from "@/services/job-titles-service";
+import { DepartmentPicker } from "@/components/business/department-picker";
+import type { DepartmentRow } from "@/config/master-data/entities";
 import { useCompany } from "@/providers/company-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
@@ -31,7 +33,7 @@ interface FormState {
   password: string;
   generatePassword: boolean;
   jobTitleId: string;
-  department: string;
+  departmentId: string;
   branchId: string;
   isActive: boolean;
 }
@@ -44,7 +46,7 @@ const emptyForm: FormState = {
   password: "",
   generatePassword: false,
   jobTitleId: "",
-  department: "",
+  departmentId: "",
   branchId: "",
   isActive: true,
 };
@@ -58,7 +60,7 @@ function formFromUser(user: UserRow): FormState {
     password: "",
     generatePassword: false,
     jobTitleId: user.jobTitleId ?? "",
-    department: user.department ?? "",
+    departmentId: user.departmentId ?? "",
     branchId: user.branchId ?? "",
     isActive: user.isActive,
   };
@@ -87,6 +89,8 @@ export function UserEditorModal({
   const { t } = useLocale();
   const { companies } = useCompany();
   const [jobTitles, setJobTitles] = useState<JobTitleRow[]>([]);
+  const [selectedDepartment, setSelectedDepartment] = useState<DepartmentRow | null>(null);
+  const [archivedDepartment, setArchivedDepartment] = useState<DepartmentRow | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [permissions, setPermissions] = useState<string[]>([]);
   const [copySourceId, setCopySourceId] = useState("");
@@ -113,11 +117,41 @@ export function UserEditorModal({
     if (!user) {
       setForm(emptyForm);
       setPermissions([]);
+      setSelectedDepartment(null);
+      setArchivedDepartment(null);
       setIsLoadingRecord(false);
       setIsLoadingPermissions(false);
       return;
     }
     setForm(formFromUser(user));
+    setSelectedDepartment(
+      user.department
+        ? {
+            id: user.department.id,
+            code: user.department.code,
+            name: user.department.name,
+            nameEn: user.department.nameEn,
+            description: null,
+            sortOrder: 0,
+            isActive: user.department.isActive,
+            deletedAt: user.department.deletedAt,
+          }
+        : null,
+    );
+    setArchivedDepartment(
+      user.department?.deletedAt
+        ? {
+            id: user.department.id,
+            code: user.department.code,
+            name: user.department.name,
+            nameEn: user.department.nameEn,
+            description: null,
+            sortOrder: 0,
+            isActive: user.department.isActive,
+            deletedAt: user.department.deletedAt,
+          }
+        : null,
+    );
     setIsLoadingRecord(true);
     setIsLoadingPermissions(true);
     usersService
@@ -151,6 +185,10 @@ export function UserEditorModal({
       toast.error(t("settings.users.editor.validationRequired"));
       return;
     }
+    if (!form.departmentId) {
+      toast.error(t("settings.users.editor.validationDepartment"));
+      return;
+    }
     if (!user && !form.generatePassword && form.password.trim().length < 8) {
       toast.error(t("settings.users.editor.validationPassword"));
       return;
@@ -166,7 +204,7 @@ export function UserEditorModal({
         username: form.username.trim(),
         email: form.email.trim().toLowerCase(),
         mobile: form.mobile || undefined,
-        department: form.department.trim() || undefined,
+        departmentId: form.departmentId,
         jobTitleId: form.jobTitleId || undefined,
         branchId: form.branchId || undefined,
         isActive: form.isActive,
@@ -336,12 +374,15 @@ export function UserEditorModal({
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-caption text-muted-foreground">
-                {t("settings.users.fields.department")}
+                {t("settings.users.fields.department")} <span className="text-destructive">*</span>
               </label>
-              <Input
-                inputSize="sm"
-                value={form.department}
-                onChange={(event) => setForm((c) => ({ ...c, department: event.target.value }))}
+              <DepartmentPicker
+                value={selectedDepartment}
+                requiredArchived={archivedDepartment}
+                onChange={(department) => {
+                  setSelectedDepartment(department);
+                  setForm((c) => ({ ...c, departmentId: department?.id ?? "" }));
+                }}
               />
             </div>
             <div className="flex flex-col gap-1">

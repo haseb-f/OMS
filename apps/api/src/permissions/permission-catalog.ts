@@ -164,6 +164,17 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
     ],
   },
   {
+    key: 'sales-teams',
+    labelKey: 'permissions.modules.salesTeams',
+    ...SALES_SECTION,
+    actions: [
+      { action: 'view', name: 'crm.sales-teams.view' },
+      { action: 'create', name: 'crm.sales-teams.create' },
+      { action: 'edit', name: 'crm.sales-teams.edit' },
+      { action: 'delete', name: 'crm.sales-teams.archive' },
+    ],
+  },
+  {
     key: 'leads',
     labelKey: 'permissions.modules.leads',
     actions: [
@@ -382,6 +393,16 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
     ],
   },
   {
+    key: 'departments',
+    labelKey: 'permissions.modules.departments',
+    actions: [
+      { action: 'view', name: 'masterdata.departments.view' },
+      { action: 'create', name: 'masterdata.departments.create' },
+      { action: 'edit', name: 'masterdata.departments.edit' },
+      { action: 'delete', name: 'masterdata.departments.archive' },
+    ],
+  },
+  {
     key: 'settings',
     labelKey: 'permissions.modules.settings',
     actions: [
@@ -443,6 +464,7 @@ export const IMPLIED_SECTION_PERMISSION: Record<
   // implies both section gates, same multi-implication pattern as Store Orders.
   partners: ['sales.view', 'purchasing.view'],
   'crm.leads': 'crm.view',
+  'crm.sales-teams': 'crm.view',
   'sales.quotations': 'sales.view',
   'sales.orders': 'sales.view',
   'sales.invoices': 'sales.view',
@@ -465,6 +487,7 @@ export const IMPLIED_SECTION_PERMISSION: Record<
   'reports.inventory': 'reports.view',
   'import-center': 'datamanagement.view',
   settings: 'settings.view',
+  'masterdata.departments': 'settings.view',
   // Store Orders is nested under Sales in navigation and the matrix;
   // granting any `store-orders.*` action still implies `store-orders.view`
   // and the ungrantable Sales section gate so the parent sidebar item appears.

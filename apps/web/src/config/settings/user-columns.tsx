@@ -148,14 +148,14 @@ export function buildUserColumns(handlers: UserRowHandlers): ColumnDef<UserRow, 
       cell: ({ row }) => (
         <StackedCell
           primary={row.original.jobTitle?.name ?? "—"}
-          secondary={row.original.department ?? undefined}
+          secondary={row.original.department?.name ?? undefined}
         />
       ),
     },
     {
       id: "department",
       meta: { titleKey: "settings.users.fields.department", defaultHidden: true },
-      accessorFn: (row) => row.department ?? "—",
+      accessorFn: (row) => row.department?.name ?? "—",
     },
     {
       id: "branch",

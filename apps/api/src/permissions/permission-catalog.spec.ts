@@ -58,12 +58,21 @@ describe('Sales catalog grouping', () => {
     const sales = groups.find((group) => group.sectionKey === 'sales');
     expect(sales?.sectionLabelKey).toBe('permissions.sections.sales');
     expect(sales?.modules.map((module) => module.key)).toEqual([
+      'sales-teams',
       'sales-quotations',
       'sales-orders',
       'store-orders',
       'sales-invoices',
       'sales-returns',
     ]);
+    expect(ALL_PERMISSION_NAMES).toEqual(
+      expect.arrayContaining([
+        'crm.sales-teams.view',
+        'crm.sales-teams.create',
+        'masterdata.departments.view',
+        'masterdata.departments.create',
+      ]),
+    );
     expect(
       groups.some(
         (group) =>

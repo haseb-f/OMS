@@ -5,6 +5,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   MinLength,
   ValidateIf,
 } from 'class-validator';
@@ -42,9 +43,8 @@ export class CreateUserDto {
   @IsOptional()
   mobile?: string;
 
-  @IsString()
-  @IsOptional()
-  department?: string;
+  @IsUUID()
+  departmentId!: string;
 
   @IsOptionalUuid()
   jobTitleId?: string;

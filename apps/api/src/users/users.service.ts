@@ -25,6 +25,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { SetUserPermissionsDto } from './dto/set-user-permissions.dto';
+import { DepartmentsService } from '../departments/departments.service';
 
 // Never select passwordHash into an API response.
 const PUBLIC_USER_SELECT = {
@@ -33,7 +34,17 @@ const PUBLIC_USER_SELECT = {
   username: true,
   fullName: true,
   mobile: true,
-  department: true,
+  departmentId: true,
+  department: {
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      nameEn: true,
+      isActive: true,
+      deletedAt: true,
+    },
+  },
   isActive: true,
   isLocked: true,
   mustChangePassword: true,
@@ -66,7 +77,21 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly resolver: PermissionsResolverService,
     private readonly phoneNumberService: PhoneNumberService,
+    private readonly departments: DepartmentsService,
   ) {}
+
+  /**
+   * New assignment must be an active Department. Keeping the same archived
+   * Department on an existing User is allowed (historical display).
+   */
+  private async assertDepartmentAssignment(
+    nextId: string | undefined,
+    currentId?: string | null,
+  ) {
+    if (!nextId) return;
+    if (currentId && nextId === currentId) return;
+    await this.departments.assertAssignable(nextId);
+  }
 
   /**
    * `User` has no `countryId` (unlike Lead/Customer/Supplier) — the
@@ -105,6 +130,7 @@ export class UsersService {
       });
     }
     const passwordHash = await hashPassword(plainPassword);
+    await this.assertDepartmentAssignment(dto.departmentId);
     try {
       const user = await this.prisma.user.create({
         data: {
@@ -113,7 +139,7 @@ export class UsersService {
           fullName: dto.fullName,
           passwordHash,
           mobile: mobile ? this.normalizeUserMobile(mobile) : mobile,
-          department: dto.department,
+          departmentId: dto.departmentId,
           jobTitleId: dto.jobTitleId,
           branchId: dto.branchId,
           isActive: dto.isActive,
@@ -127,7 +153,7 @@ export class UsersService {
     }
   }
 
-  findAll(search?: string) {
+  findAll(search?: string, departmentId?: string) {
     const where: Prisma.UserWhereInput = { deletedAt: null };
     if (search) {
       where.OR = [
@@ -135,6 +161,9 @@ export class UsersService {
         { username: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } },
       ];
+    }
+    if (departmentId) {
+      where.departmentId = departmentId;
     }
     return this.prisma.user.findMany({
       where,
@@ -155,7 +184,11 @@ export class UsersService {
   }
 
   async update(id: string, dto: UpdateUserDto) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
+    await this.assertDepartmentAssignment(
+      dto.departmentId,
+      existing.departmentId,
+    );
     const data: Prisma.UserUncheckedUpdateInput = { ...dto };
     if (dto.email !== undefined) {
       data.email = normalizeEmail(dto.email);

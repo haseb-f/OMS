@@ -906,6 +906,55 @@ export const paymentTermsExportColumns = ["code", "name", "days"];
 export const paymentTermRowLabel = (row: PaymentTermRow) => `${row.code} — ${row.name}`;
 
 // ---------------------------------------------------------------------------
+// Departments (code is auto-generated — never in formFields/schema)
+// ---------------------------------------------------------------------------
+
+export interface DepartmentRow {
+  id: string;
+  code: string;
+  name: string;
+  nameEn: string | null;
+  description: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  deletedAt: string | null;
+}
+
+export const departmentsColumns: ColumnDef<DepartmentRow, unknown>[] = [
+  textColumn("code", "masterData.fields.code", (r) => r.code),
+  textColumn("name", "masterData.fields.name", (r) => r.name),
+  textColumn("nameEn", "masterData.fields.nameEn", (r) => r.nameEn),
+  textColumn("sortOrder", "masterData.fields.sortOrder", (r) => String(r.sortOrder)),
+  statusColumn<DepartmentRow>(),
+];
+
+export const departmentsFormFields: MasterDataFormField[] = [
+  { name: "name", label: "masterData.fields.name", type: "text", required: true },
+  { name: "nameEn", label: "masterData.fields.nameEn", type: "text" },
+  { name: "sortOrder", label: "masterData.fields.sortOrder", type: "number" },
+  { name: "isActive", label: "masterData.fields.isActive", type: "boolean" },
+  { name: "description", label: "masterData.fields.description", type: "textarea" },
+];
+
+export const departmentsSchema = z.object({
+  name: z.string().min(1),
+  nameEn: z.string().optional().or(z.literal("")),
+  sortOrder: z.number().optional(),
+  isActive: z.boolean().optional(),
+  description: z.string().optional().or(z.literal("")),
+});
+
+export const departmentsDefaultValues = {
+  name: "",
+  nameEn: "",
+  sortOrder: 0,
+  isActive: true,
+  description: "",
+};
+export const departmentsExportColumns = ["code", "name", "nameEn", "sortOrder"];
+export const departmentRowLabel = (row: DepartmentRow) => `${row.code} — ${row.name}`;
+
+// ---------------------------------------------------------------------------
 // Shipping Methods
 // ---------------------------------------------------------------------------
 

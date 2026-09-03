@@ -57,6 +57,15 @@ export const navigationConfig: NavigationItem[] = [
     order: 1,
     permissions: ["crm.leads.view"],
   },
+  {
+    id: "crm-sales-teams",
+    titleKey: "nav.crmSalesTeams",
+    parent: "crm",
+    route: "/crm/sales-teams",
+    icon: "users",
+    order: 2,
+    permissions: ["crm.sales-teams.view"],
+  },
 
   {
     id: "sales",
@@ -781,6 +790,15 @@ export const navigationConfig: NavigationItem[] = [
     icon: "users",
     order: 1,
     permissions: ["settings.manage"],
+  },
+  {
+    id: "master-data-departments",
+    titleKey: "masterData.departments.title",
+    parent: "settings",
+    route: "/master-data/departments",
+    icon: "building",
+    order: 2,
+    permissions: ["masterdata.departments.view"],
   },
   {
     id: "settings-document-numbering",

@@ -63,6 +63,23 @@ describe('Users + Auth permission payload', () => {
     });
   }
 
+  async function testDepartmentId() {
+    const existing = await prisma.department.findFirst({
+      where: { deletedAt: null, isActive: true },
+      select: { id: true },
+    });
+    if (existing) return existing.id;
+    return (
+      await prisma.department.create({
+        data: {
+          code: `DEPT-PERM-${suffix()}`,
+          name: 'Test Department',
+          isActive: true,
+        },
+      })
+    ).id;
+  }
+
   liveIt(
     'returns store-orders.view and implied sales.view from /auth/me after a matrix grant',
     async () => {
@@ -72,6 +89,7 @@ describe('Users + Auth permission payload', () => {
         username: `perm_flow_${tag}`,
         fullName: 'Permission Flow User',
         password: 'PermPassw0rd!',
+        departmentId: await testDepartmentId(),
       });
       createdUserIds.push(created.id);
 
@@ -99,6 +117,7 @@ describe('Users + Auth permission payload', () => {
         username: `perm_change_${tag}`,
         fullName: 'Permission Change User',
         password: 'PermPassw0rd!',
+        departmentId: await testDepartmentId(),
       });
       createdUserIds.push(created.id);
 
@@ -128,6 +147,7 @@ describe('Users + Auth permission payload', () => {
         username: `perm_empty_${tag}`,
         fullName: 'Empty Permission User',
         password: 'PermPassw0rd!',
+        departmentId: await testDepartmentId(),
       });
       createdUserIds.push(created.id);
 

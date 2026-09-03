@@ -78,13 +78,41 @@ describe('Users + Auth password flow', () => {
     createdUserIds.push(id);
   }
 
+  async function testDepartmentId() {
+    const existing = await prisma.department.findFirst({
+      where: { deletedAt: null, isActive: true },
+      select: { id: true },
+    });
+    if (existing) return existing.id;
+    return (
+      await prisma.department.create({
+        data: {
+          code: `DEPT-TEST-${suffix()}`,
+          name: 'Test Department',
+          isActive: true,
+        },
+      })
+    ).id;
+  }
+
+  async function createUser(
+    dto: Omit<Parameters<UsersService['create']>[0], 'departmentId'> & {
+      departmentId?: string;
+    },
+  ) {
+    return users.create({
+      ...dto,
+      departmentId: dto.departmentId ?? (await testDepartmentId()),
+    });
+  }
+
   liveIt(
-    'creates a user with a manual password, stores a bcrypt hash, and logs in',
+    'creates a user with a typed password, hashes it, and logs in',
     async () => {
       const tag = suffix();
       const email = `auth-flow-manual-${tag}@example.com`;
       const password = 'ManualPass1!';
-      const created = await users.create({
+      const created = await createUser({
         email: `  ${email.toUpperCase()}  `,
         username: `  manual_${tag}  `,
         fullName: 'Manual Password User',
@@ -115,7 +143,7 @@ describe('Users + Auth password flow', () => {
     'creates a user with a generated password, returns it once, and logs in',
     async () => {
       const tag = suffix();
-      const created = await users.create({
+      const created = await createUser({
         email: `auth-flow-generated-${tag}@example.com`,
         username: `generated_${tag}`,
         fullName: 'Generated Password User',
@@ -149,7 +177,7 @@ describe('Users + Auth password flow', () => {
     async () => {
       const tag = suffix();
       const oldPassword = 'OldPassw0rd!';
-      const created = await users.create({
+      const created = await createUser({
         email: `auth-flow-reset-${tag}@example.com`,
         username: `reset_${tag}`,
         fullName: 'Reset Password User',
@@ -175,7 +203,7 @@ describe('Users + Auth password flow', () => {
 
   liveIt('rejects a wrong password', async () => {
     const tag = suffix();
-    const created = await users.create({
+    const created = await createUser({
       email: `auth-flow-wrong-${tag}@example.com`,
       username: `wrong_${tag}`,
       fullName: 'Wrong Password User',
@@ -192,7 +220,7 @@ describe('Users + Auth password flow', () => {
     'edits name/email and persists the change without disabling the user',
     async () => {
       const tag = suffix();
-      const created = await users.create({
+      const created = await createUser({
         email: `auth-flow-edit-${tag}@example.com`,
         username: `edit_${tag}`,
         fullName: 'Before Edit',
@@ -221,7 +249,7 @@ describe('Users + Auth password flow', () => {
     async () => {
       const tag = suffix();
       const password = 'DisabledPass1!';
-      const created = await users.create({
+      const created = await createUser({
         email: `auth-flow-disabled-${tag}@example.com`,
         username: `disabled_${tag}`,
         fullName: 'Disabled User',
@@ -241,7 +269,7 @@ describe('Users + Auth password flow', () => {
     async () => {
       const tag = suffix();
       const email = `auth-flow-dup-${tag}@example.com`;
-      const first = await users.create({
+      const first = await createUser({
         email,
         username: `dup_a_${tag}`,
         fullName: 'Duplicate A',
@@ -255,6 +283,7 @@ describe('Users + Auth password flow', () => {
           username: `dup_b_${tag}`,
           fullName: 'Duplicate B',
           password: 'DupPassw0rd!',
+          departmentId: await testDepartmentId(),
         })
         .catch((error: unknown) => error);
       expect(duplicate).toBeInstanceOf(BadRequestException);

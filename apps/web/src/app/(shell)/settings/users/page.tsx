@@ -116,7 +116,7 @@ function UsersPageContent() {
               email: row.email,
               mobile: row.mobile ?? "",
               jobTitle: row.jobTitle?.name ?? "",
-              department: row.department ?? "",
+              department: row.department?.name ?? "",
               branch: row.branch?.name ?? "",
               status: row.isLocked
                 ? t("settings.users.status.locked")

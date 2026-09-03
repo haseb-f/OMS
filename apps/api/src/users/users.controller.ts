@@ -35,8 +35,11 @@ export class UsersController {
 
   @Get()
   @PermissionAction('manage')
-  findAll(@Query('search') search?: string) {
-    return this.usersService.findAll(search);
+  findAll(
+    @Query('search') search?: string,
+    @Query('departmentId') departmentId?: string,
+  ) {
+    return this.usersService.findAll(search, departmentId);
   }
 
   @Get(':id')

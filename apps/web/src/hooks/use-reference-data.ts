@@ -11,6 +11,7 @@ import type {
   TaxRow,
   AnalyticAccountRow,
   WarehouseRow,
+  DepartmentRow,
 } from "@/config/master-data/entities";
 import { usersService, type UserRow } from "@/services/users-service";
 import { partnersService, type PartnerRow } from "@/services/partners-service";
@@ -37,19 +38,22 @@ function createReferenceDataHook<T>(fetcher: () => Promise<T[]>) {
 
   function ensureLoaded() {
     if (cache || inFlight) return;
-    inFlight = fetcher()
+    const request = fetcher()
       .then((data) => {
+        if (inFlight !== request) return data;
         cache = data;
         inFlight = null;
         listeners.forEach((listener) => listener());
         return data;
       })
       .catch(() => {
+        if (inFlight !== request) return cache ?? [];
         cache = [];
         inFlight = null;
         listeners.forEach((listener) => listener());
         return [];
       });
+    inFlight = request;
   }
 
   function useReferenceData(): T[] {
@@ -77,11 +81,11 @@ function createReferenceDataHook<T>(fetcher: () => Promise<T[]>) {
     listeners.forEach((listener) => listener());
   };
 
-  /** For a rarer full edit/archive from the entity's own management page — refetch on next read instead of trying to patch the cached array in place. */
+  /** For a rarer full edit/archive from the entity's own management page — refetch so selectors pick up the change without a full reload. */
   useReferenceData.invalidate = () => {
     cache = null;
     inFlight = null;
-    listeners.forEach((listener) => listener());
+    ensureLoaded();
   };
 
   return useReferenceData;
@@ -151,6 +155,15 @@ export const useSuppliers = createReferenceDataHook<PartnerRow>(() =>
  * re-attempting the request on every page navigation.
  */
 export const useUsersList = createReferenceDataHook<UserRow>(() => usersService.list());
+
+const departmentsService = createMasterDataService<DepartmentRow>("/departments");
+
+/** Active Departments for selectors — one request per session, never per table row. */
+export const useDepartments = createReferenceDataHook<DepartmentRow>(() =>
+  departmentsService
+    .list({ pageSize: 200, sortBy: "sortOrder" })
+    .then((r) => r.items.filter((row) => !row.deletedAt && row.isActive)),
+);
 
 export function useUsersLookup(): Record<string, string> {
   const users = useUsersList();
