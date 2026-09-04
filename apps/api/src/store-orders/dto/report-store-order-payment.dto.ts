@@ -16,7 +16,11 @@ import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorat
  */
 export class ReportStoreOrderPaymentDto {
   @IsUUID()
-  paymentSourceId!: string;
+  @IsOptional()
+  paymentSourceId?: string;
+
+  @IsOptionalUuid()
+  paymentMethodId?: string;
 
   @Type(() => Number)
   @IsNumber()

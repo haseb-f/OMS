@@ -12,6 +12,7 @@ import {
   paymentMethodRowLabel,
   type PaymentMethodRow,
 } from "@/config/master-data/entities";
+import { usePaymentMethods } from "@/hooks/use-reference-data";
 
 const service = createMasterDataService<PaymentMethodRow>("/payment-methods");
 
@@ -30,6 +31,7 @@ export default function PaymentMethodsPage() {
       toFormValues={paymentMethodsToFormValues}
       permissionPrefix="masterdata.payment-methods"
       rowLabel={paymentMethodRowLabel}
+      onRecordsChanged={() => usePaymentMethods.invalidate()}
     />
   );
 }

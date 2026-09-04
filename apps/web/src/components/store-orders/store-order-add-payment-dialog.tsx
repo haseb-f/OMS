@@ -12,17 +12,11 @@ import { ModalSection } from "@/components/shared/modal-section";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { storeOrdersService } from "@/services/store-orders-service";
 import { apiClient, ApiError } from "@/services/api-client";
 import { useLocale } from "@/providers/locale-provider";
-import { useCurrencies } from "@/hooks/use-reference-data";
+import { useCurrencies, usePaymentMethods } from "@/hooks/use-reference-data";
 import { toast } from "@/lib/toast";
 import { toISODate } from "@/lib/date";
 
@@ -31,7 +25,6 @@ interface LookupRow {
   name: string;
 }
 
-const paymentSourcesService = { list: () => apiClient.get<LookupRow[]>("/payment-sources") };
 const receivingAccountsService = { list: () => apiClient.get<LookupRow[]>("/receiving-accounts") };
 
 /**
@@ -59,13 +52,18 @@ export function StoreOrderAddPaymentDialog({
   onAdded: () => void;
 }) {
   const { t } = useLocale();
-  const [paymentSources, setPaymentSources] = useState<LookupRow[]>([]);
   const [receivingAccounts, setReceivingAccounts] = useState<LookupRow[]>([]);
+  const [context, setContext] = useState<{
+    total: string;
+    paid: string;
+    outstanding: string;
+  } | null>(null);
   const currencies = useCurrencies();
+  const paymentMethods = usePaymentMethods();
 
   const [amount, setAmount] = useState("");
   const [currencyId, setCurrencyId] = useState(orderCurrencyId);
-  const [paymentSourceId, setPaymentSourceId] = useState("");
+  const [paymentMethodId, setPaymentMethodId] = useState("");
   const [receivingAccountId, setReceivingAccountId] = useState("");
   const [paymentDate, setPaymentDate] = useState(toISODate(new Date()));
   const [referenceNumber, setReferenceNumber] = useState("");
@@ -76,30 +74,32 @@ export function StoreOrderAddPaymentDialog({
 
   useEffect(() => {
     if (!open) return;
-    paymentSourcesService
-      .list()
-      .then(setPaymentSources)
-      .catch(() => setPaymentSources([]));
+    storeOrdersService
+      .paymentContext(storeOrderId)
+      .then((row) => {
+        setContext(row);
+        setAmount(row.outstanding);
+      })
+      .catch(() => setContext(null));
     receivingAccountsService
       .list()
       .then(setReceivingAccounts)
       .catch(() => setReceivingAccounts([]));
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setAmount("");
     setCurrencyId(orderCurrencyId);
-    setPaymentSourceId("");
+    setPaymentMethodId("");
     setReceivingAccountId("");
     setPaymentDate(toISODate(new Date()));
     setReferenceNumber("");
     setSenderName(customerName);
     setNotes("");
     setReceiptUrl("");
-  }, [open, orderCurrencyId, customerName]);
+  }, [open, storeOrderId, orderCurrencyId, customerName]);
 
   const amountValue = Number(amount);
   const isValid =
     amountValue > 0 &&
-    Boolean(paymentSourceId) &&
+    Boolean(paymentMethodId) &&
     Boolean(receivingAccountId) &&
     Boolean(paymentDate) &&
     senderName.trim() !== "";
@@ -112,7 +112,7 @@ export function StoreOrderAddPaymentDialog({
         paymentDate,
         amount: amountValue,
         currencyId: currencyId || undefined,
-        paymentSourceId,
+        paymentMethodId,
         receivingAccountId,
         referenceNumber: referenceNumber.trim() || undefined,
         senderName: senderName.trim(),
@@ -135,8 +135,10 @@ export function StoreOrderAddPaymentDialog({
     }
   };
 
-  const paymentSourceName =
-    paymentSources.find((source) => source.id === paymentSourceId)?.name ?? "—";
+  const paymentMethodName =
+    paymentMethods.find((method) => method.id === paymentMethodId)?.name ?? "—";
+  const outstanding = Number(context?.outstanding ?? 0);
+  const isOverpayment = amountValue > outstanding && outstanding >= 0;
   const currencyCode = currencies.find((currency) => currency.id === currencyId)?.code ?? "";
 
   return (
@@ -157,6 +159,21 @@ export function StoreOrderAddPaymentDialog({
       )}
     >
       <CreateOperationLayout>
+        {context ? (
+          <CreateOperationSummary
+            title={t("storeOrders.detail.payments.amount")}
+            rows={[
+              { label: t("storeOrders.detail.payments.orderTotal"), value: context.total },
+              { label: t("storeOrders.detail.payments.paid"), value: context.paid },
+              { label: t("storeOrders.detail.payments.remaining"), value: context.outstanding },
+            ]}
+          />
+        ) : null}
+        {isOverpayment ? (
+          <p className="text-caption text-warning-foreground">
+            {t("storeOrders.detail.payments.overpaymentWarning")}
+          </p>
+        ) : null}
         <ModalSection title={t("storeOrders.createDialog.sections.payment")} columns={2}>
           <div className="flex flex-col gap-1">
             <Label>
@@ -173,53 +190,41 @@ export function StoreOrderAddPaymentDialog({
           </div>
           <div className="flex flex-col gap-1">
             <Label>{t("storeOrders.detail.payments.currency")}</Label>
-            <Select value={currencyId} onValueChange={setCurrencyId}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {currencies.map((currency) => (
-                  <SelectItem key={currency.id} value={currency.id}>
-                    {currency.code}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <EntityCombobox
+              value={currencies.find((currency) => currency.id === currencyId) ?? null}
+              onChange={(row) => setCurrencyId(row?.id ?? orderCurrencyId)}
+              items={currencies.filter((row) => !row.deletedAt)}
+              getId={(item) => item.id}
+              getTitle={(item) => `${item.code} — ${item.name}`}
+              getSearchText={(item) => `${item.code} ${item.name}`}
+            />
           </div>
           <div className="flex flex-col gap-1">
             <Label>
               {t("storeOrders.detail.payments.method")} <span className="text-destructive">*</span>
             </Label>
-            <Select value={paymentSourceId} onValueChange={setPaymentSourceId}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={t("storeOrders.detail.payments.selectMethod")} />
-              </SelectTrigger>
-              <SelectContent>
-                {paymentSources.map((source) => (
-                  <SelectItem key={source.id} value={source.id}>
-                    {source.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <EntityCombobox
+              value={paymentMethods.find((method) => method.id === paymentMethodId) ?? null}
+              onChange={(row) => setPaymentMethodId(row?.id ?? "")}
+              items={paymentMethods}
+              getId={(item) => item.id}
+              getTitle={(item) => item.name}
+              placeholder={t("storeOrders.detail.payments.selectMethod")}
+            />
           </div>
           <div className="flex flex-col gap-1">
             <Label>
               {t("storeOrders.detail.payments.receivingAccount")}{" "}
               <span className="text-destructive">*</span>
             </Label>
-            <Select value={receivingAccountId} onValueChange={setReceivingAccountId}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={t("storeOrders.detail.payments.selectAccount")} />
-              </SelectTrigger>
-              <SelectContent>
-                {receivingAccounts.map((account) => (
-                  <SelectItem key={account.id} value={account.id}>
-                    {account.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <EntityCombobox
+              value={receivingAccounts.find((account) => account.id === receivingAccountId) ?? null}
+              onChange={(row) => setReceivingAccountId(row?.id ?? "")}
+              items={receivingAccounts}
+              getId={(item) => item.id}
+              getTitle={(item) => item.name}
+              placeholder={t("storeOrders.detail.payments.selectAccount")}
+            />
           </div>
           <div className="flex flex-col gap-1">
             <Label>
@@ -271,7 +276,7 @@ export function StoreOrderAddPaymentDialog({
                 </span>
               ),
             },
-            { label: t("storeOrders.detail.payments.method"), value: paymentSourceName },
+            { label: t("storeOrders.detail.payments.method"), value: paymentMethodName },
             { label: t("storeOrders.detail.payments.date"), value: paymentDate || "—" },
           ]}
         />

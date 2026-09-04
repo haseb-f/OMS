@@ -32,6 +32,7 @@ export interface StoreOrderItemRow {
   product?: { id: string; name: string; sku: string } | null;
   quantity: number;
   unitPrice: string;
+  agreedAmount?: string;
 }
 
 export interface StoreOrderPaymentRow {
@@ -213,13 +214,22 @@ export const storeOrdersService = {
       receivedDate?: string;
       amount: number;
       currencyId?: string;
-      paymentSourceId: string;
+      paymentSourceId?: string;
+      paymentMethodId?: string;
       receivingAccountId: string;
       referenceNumber?: string;
       senderName: string;
       bankAccount?: string;
     },
   ) => apiClient.post<StoreOrderPaymentRow>(`/store-orders/${id}/payments`, dto),
+  paymentContext: (id: string) =>
+    apiClient.get<{
+      total: string;
+      paid: string;
+      outstanding: string;
+      currencyId: string;
+      paymentStatus: string;
+    }>(`/store-orders/${id}/payment-context`),
   generateInvoice: (id: string) =>
     apiClient.post<{ id: string; invoiceNumber: string }>(`/store-orders/${id}/generate-invoice`),
   activities: (id: string) =>

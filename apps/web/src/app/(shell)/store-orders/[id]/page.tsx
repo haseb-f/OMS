@@ -383,7 +383,11 @@ function StoreOrderDetailContent() {
                       align: "end",
                       cell: (item) => (
                         <MoneyValue
-                          value={Number(item.unitPrice) * item.quantity}
+                          value={
+                            item.agreedAmount != null
+                              ? Number(item.agreedAmount)
+                              : Number(item.unitPrice) * item.quantity
+                          }
                           currency={order.currency}
                         />
                       ),

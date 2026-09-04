@@ -6,8 +6,10 @@ import {
   IsPositive,
   IsString,
   IsUUID,
+  ValidateIf,
 } from 'class-validator';
 import { emptyToUndefined } from '../../common/transforms/empty-to-undefined';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 /**
  * Same shape as `CreatePaymentDto` minus `leadId`/`storeOrderId` — the
@@ -33,8 +35,12 @@ export class CreateStoreOrderPaymentDto {
   @IsOptional()
   currencyId?: string;
 
+  @ValidateIf((dto: CreateStoreOrderPaymentDto) => !dto.paymentMethodId)
   @IsUUID()
-  paymentSourceId!: string;
+  paymentSourceId?: string;
+
+  @IsOptionalUuid()
+  paymentMethodId?: string;
 
   @IsUUID()
   receivingAccountId!: string;

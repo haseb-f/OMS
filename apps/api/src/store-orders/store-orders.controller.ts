@@ -63,6 +63,11 @@ export class StoreOrdersController {
     return this.storeOrdersService.findAllIds(query, user.sub);
   }
 
+  @Get(':id/payment-context')
+  paymentContext(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.storeOrdersService.paymentContext(id, user.sub);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.storeOrdersService.findOne(id, user.sub);

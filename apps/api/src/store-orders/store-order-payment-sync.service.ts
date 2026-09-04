@@ -8,6 +8,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { WorkflowStatusResolverService } from '../workflow/workflow-status-resolver.service';
 import { PAID_PAYMENT_CODES } from '../workflow/workflow-status-map';
+import { storeOrderItemsTotal } from './store-order-line-amount';
 
 /**
  * Keeps Store Order payment + fulfillment StatusDefinitions in sync with
@@ -25,7 +26,9 @@ export class StoreOrderPaymentSyncService {
     const order = await client.storeOrder.findUnique({
       where: { id: storeOrderId },
       include: {
-        items: { select: { quantity: true, unitPrice: true } },
+        items: {
+          select: { quantity: true, unitPrice: true, agreedAmount: true },
+        },
         shipments: {
           where: { deletedAt: null },
           select: { id: true },
@@ -36,10 +39,7 @@ export class StoreOrderPaymentSyncService {
     });
     if (!order) return;
 
-    const orderTotal = order.items.reduce(
-      (sum, item) => sum + item.quantity * Number(item.unitPrice),
-      0,
-    );
+    const orderTotal = storeOrderItemsTotal(order.items);
     const verified = await client.payment.aggregate({
       where: {
         storeOrderId,

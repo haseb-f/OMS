@@ -30,6 +30,10 @@ import {
   StoreOrderActivityType,
 } from './activities/store-order-activity.service';
 import { StoreOrderPaymentSyncService } from './store-order-payment-sync.service';
+import {
+  storeOrderItemsTotal,
+  storeOrderLineAmount,
+} from './store-order-line-amount';
 import { CreateStoreOrderDto } from './dto/create-store-order.dto';
 import { UpdateStoreOrderDto } from './dto/update-store-order.dto';
 import { FindStoreOrdersQueryDto } from './dto/find-store-orders-query.dto';
@@ -119,6 +123,7 @@ const ORDER_LIST_INCLUDE = {
       productId: true,
       quantity: true,
       unitPrice: true,
+      agreedAmount: true,
       product: { select: { id: true, name: true, sku: true } },
     },
   },
@@ -256,6 +261,7 @@ export class StoreOrdersService {
                 productId: item.productId,
                 quantity: item.quantity,
                 unitPrice: item.unitPrice,
+                agreedAmount: item.quantity * item.unitPrice,
               })),
             },
           },
@@ -371,6 +377,7 @@ export class StoreOrdersService {
                 productId: item.productId,
                 quantity: item.quantity,
                 unitPrice: item.unitPrice,
+                agreedAmount: item.quantity * item.unitPrice,
               })),
             },
           },
@@ -464,11 +471,20 @@ export class StoreOrdersService {
     const where = await this.buildScopedFindWhere(query, userId);
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
+    const sortField = query.sortBy || 'createdAt';
+    const sortDir = query.sortOrder ?? 'desc';
+    const orderBy =
+      sortField === 'id'
+        ? [{ id: sortDir as Prisma.SortOrder }]
+        : [
+            { [sortField]: sortDir as Prisma.SortOrder },
+            { id: 'desc' as const },
+          ];
     const [items, total] = await Promise.all([
       this.prisma.storeOrder.findMany({
         where,
         include: ORDER_LIST_INCLUDE,
-        orderBy: { [query.sortBy || 'createdAt']: query.sortOrder ?? 'desc' },
+        orderBy,
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
@@ -516,7 +532,15 @@ export class StoreOrdersService {
       this.prisma.storeOrder.findMany({
         where,
         select: { id: true },
-        orderBy: { [query.sortBy || 'createdAt']: query.sortOrder ?? 'desc' },
+        orderBy:
+          query.sortBy === 'id'
+            ? [{ id: (query.sortOrder ?? 'desc') as Prisma.SortOrder }]
+            : [
+                {
+                  [query.sortBy || 'createdAt']: query.sortOrder ?? 'desc',
+                },
+                { id: 'desc' as const },
+              ],
         take,
       }),
       this.prisma.storeOrder.count({ where }),
@@ -557,7 +581,11 @@ export class StoreOrdersService {
           color: string;
         } | null;
       }[];
-      items: { quantity: number; unitPrice: Prisma.Decimal }[];
+      items: {
+        quantity: number;
+        unitPrice: Prisma.Decimal;
+        agreedAmount?: Prisma.Decimal;
+      }[];
     },
   >(order: T) {
     const latestShipment = order.shipments[0];
@@ -568,10 +596,7 @@ export class StoreOrdersService {
         : null);
     const currentShippingStatus: ShipmentStatus | StoreOrderShippingStage =
       latestShipment?.status ?? order.shippingStage;
-    const total = order.items.reduce(
-      (sum, item) => sum + item.quantity * Number(item.unitPrice),
-      0,
-    );
+    const total = storeOrderItemsTotal(order.items);
     return {
       ...order,
       currentShippingStatus,
@@ -718,13 +743,14 @@ export class StoreOrdersService {
     }
 
     const payment = await this.prisma.$transaction(async (tx) => {
+      const paymentSourceId = await this.resolvePaymentSourceId(dto, tx);
       const created = await this.createPaymentRow(
         id,
         order.currencyId,
         {
           paymentDate: dto.reportedDate,
           amount: dto.reportedAmount,
-          paymentSourceId: dto.paymentSourceId,
+          paymentSourceId,
           receivingAccountId,
           referenceNumber: dto.reference,
           senderName:
@@ -963,14 +989,7 @@ export class StoreOrdersService {
     userId: string | undefined,
     tx: Prisma.TransactionClient,
   ) {
-    const paymentSource = await tx.paymentSource.findFirst({
-      where: { id: dto.paymentSourceId, deletedAt: null, isActive: true },
-    });
-    if (!paymentSource) {
-      throw new BadRequestException(
-        'Payment source not found or is not active.',
-      );
-    }
+    const paymentSourceId = await this.resolvePaymentSourceId(dto, tx);
     const receivingAccount = await tx.receivingAccount.findFirst({
       where: { id: dto.receivingAccountId, deletedAt: null, isActive: true },
     });
@@ -993,7 +1012,7 @@ export class StoreOrdersService {
         receivedDate: dto.receivedDate ? new Date(dto.receivedDate) : undefined,
         amount: dto.amount,
         currencyId: dto.currencyId ?? orderCurrencyId,
-        paymentSourceId: dto.paymentSourceId,
+        paymentSourceId,
         receivingAccountId: dto.receivingAccountId,
         referenceNumber: dto.referenceNumber,
         senderName: dto.senderName,
@@ -1003,6 +1022,73 @@ export class StoreOrdersService {
         updatedBy: userId,
       },
     });
+  }
+
+  private async resolvePaymentSourceId(
+    dto: { paymentSourceId?: string; paymentMethodId?: string },
+    tx: Prisma.TransactionClient,
+  ): Promise<string> {
+    if (dto.paymentSourceId) {
+      const source = await tx.paymentSource.findFirst({
+        where: { id: dto.paymentSourceId, deletedAt: null, isActive: true },
+      });
+      if (!source) {
+        throw new BadRequestException(
+          'Payment source not found or is not active.',
+        );
+      }
+      return source.id;
+    }
+    if (dto.paymentMethodId) {
+      const method = await tx.paymentMethod.findFirst({
+        where: { id: dto.paymentMethodId, deletedAt: null },
+      });
+      if (!method) {
+        throw new BadRequestException('Payment method not found.');
+      }
+      const byName = await tx.paymentSource.findFirst({
+        where: {
+          deletedAt: null,
+          isActive: true,
+          name: { equals: method.name, mode: 'insensitive' },
+        },
+      });
+      if (byName) return byName.id;
+    }
+    const fallback = await tx.paymentSource.findFirst({
+      where: { deletedAt: null, isActive: true },
+      orderBy: [{ isDefault: 'desc' }, { sortOrder: 'asc' }],
+    });
+    if (!fallback) {
+      throw new BadRequestException('No active Payment Source is configured.');
+    }
+    return fallback.id;
+  }
+
+  /**
+   * Outstanding uses verified/reconciled payments only — pending claims
+   * do not reduce what Finance still needs to confirm.
+   */
+  async paymentContext(id: string, userId?: string) {
+    const order = await this.findOne(id, userId);
+    const total = storeOrderItemsTotal(order.items);
+    const verified = await this.prisma.payment.aggregate({
+      where: {
+        storeOrderId: id,
+        status: PaymentStatus.VERIFIED,
+        deletedAt: null,
+      },
+      _sum: { amount: true },
+    });
+    const paid = Number(verified._sum.amount ?? 0);
+    const outstanding = Math.max(Math.round((total - paid) * 100) / 100, 0);
+    return {
+      total: total.toFixed(2),
+      paid: paid.toFixed(2),
+      outstanding: outstanding.toFixed(2),
+      currencyId: order.currencyId,
+      paymentStatus: order.paymentStatus,
+    };
   }
 
   /** Business operation: Set Payment Review Status — manual escalation, see `SetPaymentReviewStatusDto`. */
@@ -1081,6 +1167,7 @@ export class StoreOrdersService {
       computeSalesLine({
         quantity: item.quantity,
         unitPrice: Number(item.unitPrice),
+        agreedAmount: storeOrderLineAmount(item),
       }),
     );
     const totals = computeSalesDocumentTotals(computedLines);

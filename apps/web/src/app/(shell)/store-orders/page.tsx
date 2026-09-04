@@ -69,7 +69,7 @@ function StoreOrdersPageContent() {
   const [page, setPage] = usePathRestorableState("page", 1);
   const [pageSize, setPageSize] = usePathRestorableState("pageSize", 20);
   const [search, setSearch] = usePathRestorableState("search", "");
-  const [sortBy, setSortBy] = usePathRestorableState("sortBy", "orderDate");
+  const [sortBy, setSortBy] = usePathRestorableState("sortBy", "createdAt");
   const [sortOrder, setSortOrder] = usePathRestorableState<"asc" | "desc">("sortOrder", "desc");
   const [paymentStatusFilter, setPaymentStatusFilter] = usePathRestorableState<string[]>(
     "paymentStatus",
