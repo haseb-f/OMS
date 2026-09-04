@@ -99,12 +99,29 @@ describe('PhoneNumberService', () => {
   );
 
   describe('local-format leading-zero handling (Saudi Arabia)', () => {
+    const canonical = '+966570267876';
+
     it('normalizes "0501234567" (leading trunk zero) to the same E.164 as "501234567"', () => {
       const withZero = service.parse('0501234567', 'SA');
       const withoutZero = service.parse('501234567', 'SA');
       expect(withZero.isValid).toBe(true);
       expect(withZero.e164).toBe(withoutZero.e164);
       expect(withZero.e164).toBe('+966501234567');
+    });
+
+    it.each(['0570267876', '570267876', '966570267876', '+966570267876'])(
+      'normalizes %s to +966570267876',
+      (input) => {
+        const result = service.parse(input, 'SA');
+        expect(result.isValid).toBe(true);
+        expect(result.e164).toBe(canonical);
+      },
+    );
+
+    it('does not apply Saudi rules to a valid Egyptian number', () => {
+      const result = service.parse('1001234567', 'EG');
+      expect(result.isValid).toBe(true);
+      expect(result.e164).toBe('+201001234567');
     });
 
     it('still rejects a genuinely short Saudi number after normalization', () => {

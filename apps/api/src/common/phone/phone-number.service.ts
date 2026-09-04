@@ -151,8 +151,8 @@ export class PhoneNumberService {
     // clearly means Saudi Arabia, so this never changes behavior for any
     // other country.
     const parsed =
-      parsePhoneNumberFromString(prepared, region) ??
       this.parseSaudiNationalFallback(prepared, defaultRegion, region) ??
+      parsePhoneNumberFromString(prepared, region) ??
       this.parseInternationalWithoutPlus(prepared, region);
 
     if (!parsed) {
@@ -213,9 +213,14 @@ export class PhoneNumberService {
     if (resolvedRegion && resolvedRegion !== 'SA') return undefined;
     if (!resolvedRegion && !isSaudiRegionHint(rawRegionHint)) return undefined;
     const withoutPlus = prepared.startsWith('+') ? prepared.slice(1) : prepared;
-    const national = withoutPlus.startsWith('0')
-      ? withoutPlus.slice(1)
-      : withoutPlus;
+    const digits = withoutPlus.replace(/\D/g, '');
+    let national = digits;
+    if (national.startsWith(SAUDI_CALLING_CODE)) {
+      national = national.slice(SAUDI_CALLING_CODE.length);
+    }
+    if (national.startsWith('0')) {
+      national = national.slice(1);
+    }
     if (!SAUDI_MOBILE_NATIONAL_PATTERN.test(national)) return undefined;
     return parsePhoneNumberFromString(
       `+${SAUDI_CALLING_CODE}${national}`,
