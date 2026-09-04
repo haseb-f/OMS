@@ -29,7 +29,7 @@ export class LeadAssignmentsController {
   ) {}
 
   @Post()
-  @PermissionAction('manage')
+  @PermissionAction('edit')
   async assign(
     @Param('leadId') leadId: string,
     @Body() dto: CreateLeadAssignmentDto,
@@ -43,6 +43,7 @@ export class LeadAssignmentsController {
       method: LeadAssignmentMethod.MANUAL,
       reason: dto.reason,
       actorId: user.sub,
+      scope,
     });
   }
 

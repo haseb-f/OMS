@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -10,6 +11,10 @@ import {
   LeadActivityService,
   LeadActivityType,
 } from '../activities/lead-activity.service';
+import {
+  SalesScopeService,
+  type SalesScope,
+} from '../../sales-scope/sales-scope.service';
 
 const ASSIGNABLE_PERMISSION = 'crm.leads.edit';
 
@@ -18,6 +23,8 @@ export interface AssignLeadInput {
   method: LeadAssignmentMethod;
   reason?: string | null;
   actorId?: string | null;
+  /** Required for MANUAL/REASSIGNMENT HTTP paths — Agents are denied. */
+  scope?: SalesScope;
 }
 
 /**
@@ -30,6 +37,7 @@ export class LeadAssignmentsService {
     private readonly prisma: PrismaService,
     private readonly leadActivityService: LeadActivityService,
     private readonly permissionsResolver: PermissionsResolverService,
+    private readonly salesScope: SalesScopeService,
   ) {}
 
   async assertEligibleEmployee(employeeId: string) {
@@ -79,6 +87,19 @@ export class LeadAssignmentsService {
         dto.method === LeadAssignmentMethod.MANUAL
           ? LeadAssignmentMethod.REASSIGNMENT
           : dto.method;
+
+      if (
+        dto.scope &&
+        (method === LeadAssignmentMethod.MANUAL ||
+          method === LeadAssignmentMethod.REASSIGNMENT)
+      ) {
+        this.salesScope.assertCanAssign(dto.scope);
+        if (!this.salesScope.canSetOrderOwner(dto.scope, dto.salesEmployeeId)) {
+          throw new ForbiddenException(
+            'Target employee is outside your assignment scope.',
+          );
+        }
+      }
 
       const assignedAt = new Date();
       const assignment = await client.leadAssignment.create({

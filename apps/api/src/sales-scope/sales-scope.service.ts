@@ -196,10 +196,14 @@ export class SalesScopeService {
     }
   }
 
+  /** Manual assign/reassign — Agents (OWN) and Shipping (NONE) are denied. */
   assertCanAssign(scope: SalesScope) {
-    if (scope.kind === 'OWN' && !scope.canManageLeads) {
-      throw new ForbiddenException('You are not allowed to assign Leads.');
-    }
+    if (scope.kind === 'ALL' || scope.kind === 'TEAM') return;
+    throw new ForbiddenException('You are not allowed to assign Leads.');
+  }
+
+  canAssignLeads(scope: SalesScope): boolean {
+    return scope.kind === 'ALL' || scope.kind === 'TEAM';
   }
 
   canSetOrderOwner(scope: SalesScope, targetEmployeeId: string): boolean {
