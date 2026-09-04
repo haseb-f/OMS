@@ -21,7 +21,18 @@ import { AssignLeadDialog } from "@/components/business/assign-lead-dialog";
 import { LeadOrderCreateDialog } from "@/components/business/lead-order-create-dialog";
 import { LeadDistributionModal } from "@/components/crm/lead-distribution-modal";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useCurrencies, useCountries } from "@/hooks/use-reference-data";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  useCurrencies,
+  useCountries,
+  useCustomerClassifications,
+} from "@/hooks/use-reference-data";
 import { useUserContext } from "@/providers/user-context";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
@@ -30,6 +41,8 @@ function CrmLeadsPageContent() {
   const { t } = useLocale();
   const router = useRouter();
   const { hasPermission } = useUserContext();
+  const classifications = useCustomerClassifications();
+  const [canAssign, setCanAssign] = useState(false);
 
   const currencies = useCurrencies();
   const countries = useCountries();
@@ -41,6 +54,8 @@ function CrmLeadsPageContent() {
   const [distributionOpen, setDistributionOpen] = useState(false);
   const [bulkAssignIds, setBulkAssignIds] = useState<string[]>([]);
   const [unassignedOnly, setUnassignedOnly] = useState(false);
+  const [lifecycle, setLifecycle] = useState("active");
+  const [classificationFilter, setClassificationFilter] = useState("all");
   const [unassignedCount, setUnassignedCount] = useState<number | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
 
@@ -49,6 +64,10 @@ function CrmLeadsPageContent() {
       .unassignedCount()
       .then((r) => setUnassignedCount(r.count))
       .catch(() => setUnassignedCount(null));
+    leadsService
+      .scope()
+      .then((scope) => setCanAssign(scope.canAssign))
+      .catch(() => setCanAssign(false));
   }, [refreshToken]);
 
   useEffect(() => {
@@ -153,21 +172,52 @@ function CrmLeadsPageContent() {
         rowLabel={leadRowLabel}
         getRowHref={(row) => `/crm/leads/${row.id}`}
         defaultSortBy="createdAt"
+        defaultSortOrder="desc"
         disableArchiveRestore
         hideCreateButton
-        extraListParams={unassignedOnly ? { unassigned: true } : undefined}
+        extraListParams={{
+          ...(unassignedOnly ? { unassigned: true } : {}),
+          lifecycle,
+          ...(classificationFilter !== "all" ? { classificationIds: classificationFilter } : {}),
+        }}
         extraFilters={
-          <label className="flex items-center gap-2 text-caption">
-            <Checkbox
-              checked={unassignedOnly}
-              onCheckedChange={(value) => setUnassignedOnly(value === true)}
-            />
-            {t("crm.leads.distribution.unassigned")}
-            {unassignedCount !== null ? ` (${unassignedCount})` : ""}
-          </label>
+          <div className="flex flex-wrap items-center gap-3">
+            <Select value={lifecycle} onValueChange={setLifecycle}>
+              <SelectTrigger size="sm" className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">{t("crm.leads.lifecycle.active")}</SelectItem>
+                <SelectItem value="converted">{t("crm.leads.lifecycle.converted")}</SelectItem>
+                <SelectItem value="closed">{t("crm.leads.lifecycle.closed")}</SelectItem>
+                <SelectItem value="all">{t("crm.leads.lifecycle.all")}</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={classificationFilter} onValueChange={setClassificationFilter}>
+              <SelectTrigger size="sm" className="w-44">
+                <SelectValue placeholder={t("crm.leads.fields.classification")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("common.select")}</SelectItem>
+                {classifications.map((row) => (
+                  <SelectItem key={row.id} value={row.id}>
+                    {row.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <label className="flex items-center gap-2 text-caption">
+              <Checkbox
+                checked={unassignedOnly}
+                onCheckedChange={(value) => setUnassignedOnly(value === true)}
+              />
+              {t("crm.leads.distribution.unassigned")}
+              {unassignedCount !== null ? ` (${unassignedCount})` : ""}
+            </label>
+          </div>
         }
         extraBulkActions={(ids) =>
-          hasPermission("crm.leads.manage") ? (
+          canAssign ? (
             <EnterpriseButton
               type="button"
               size="sm"
@@ -183,7 +233,7 @@ function CrmLeadsPageContent() {
         }
         extraActions={
           <>
-            {hasPermission("crm.leads.manage") ? (
+            {canAssign ? (
               <EnterpriseButton
                 type="button"
                 variant="outline"
@@ -216,7 +266,7 @@ function CrmLeadsPageContent() {
             key: "assign",
             label: t("crm.leads.assign"),
             icon: UserPlus,
-            hidden: !hasPermission("crm.leads.manage"),
+            hidden: !canAssign,
             onSelect: () => setAssigningLead(entity),
           },
           {

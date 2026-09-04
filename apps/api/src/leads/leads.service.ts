@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -25,6 +26,10 @@ import { ArchiveLeadDto } from './dto/archive-lead.dto';
 import { FindLeadsQueryDto } from './dto/find-leads-query.dto';
 import { BulkAssignLeadsDto } from './dto/bulk-assign-leads.dto';
 import { CreateLeadFollowUpDto } from './dto/create-lead-follow-up.dto';
+import {
+  CloseLeadWithoutPurchaseDto,
+  ConvertLeadDto,
+} from './dto/convert-lead.dto';
 import {
   PhoneNumberService,
   phoneErrorMessage,
@@ -61,6 +66,27 @@ const LEAD_INCLUDE = {
   },
   storeOrder: {
     select: { id: true, internalOrderId: true },
+  },
+  customerClassification: {
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      nameEn: true,
+      color: true,
+      isActive: true,
+      deletedAt: true,
+    },
+  },
+  noPurchaseReason: {
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      nameEn: true,
+      isActive: true,
+      deletedAt: true,
+    },
   },
 } satisfies Prisma.LeadInclude;
 
@@ -207,6 +233,13 @@ export class LeadsService {
     const currencyId =
       dto.currencyId ?? (await this.resolveDefaultCurrencyId(dto.countryId));
 
+    if (dto.customerClassificationId) {
+      await this.assertClassificationAssignable(
+        dto.customerClassificationId,
+        null,
+      );
+    }
+
     const leadNumber = await this.numberingEngine.generateNumber('LEAD');
     const defaultStatusId = await this.workflowEngine.resolveDefaultStatusId(
       WorkflowType.LEAD,
@@ -216,6 +249,16 @@ export class LeadsService {
     const importMethod = dto.importBatch
       ? LeadAssignmentMethod.IMPORT
       : LeadAssignmentMethod.MANUAL;
+
+    if (explicitOwnerId && userId && explicitOwnerId !== userId) {
+      const scope = await this.salesScope.resolve(userId);
+      this.salesScope.assertCanAssign(scope);
+      if (!this.salesScope.canSetOrderOwner(scope, explicitOwnerId)) {
+        throw new ForbiddenException(
+          'You cannot assign this Lead to that employee.',
+        );
+      }
+    }
 
     let lead: Prisma.LeadGetPayload<object>;
     try {
@@ -236,6 +279,7 @@ export class LeadsService {
             leadNumber,
             statusId: defaultStatusId,
             possibleDuplicate: duplicateCheck.isPossibleDuplicate,
+            customerClassificationId: dto.customerClassificationId,
             createdBy: userId ?? null,
             updatedBy: userId ?? null,
           },
@@ -300,9 +344,12 @@ export class LeadsService {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
     const where = await this.buildLeadWhere(query, scope);
-    const orderBy = {
-      [query.sortBy || 'createdAt']: query.sortOrder ?? 'desc',
-    };
+    const sortField = query.sortBy || 'createdAt';
+    const sortDir = query.sortOrder ?? 'desc';
+    const orderBy =
+      sortField === 'id'
+        ? [{ id: sortDir }]
+        : [{ [sortField]: sortDir }, { id: 'desc' as const }];
 
     const [items, total, unassignedCount] = await Promise.all([
       this.prisma.lead.findMany({
@@ -332,7 +379,7 @@ export class LeadsService {
       this.prisma.lead.findMany({
         where,
         select: { id: true },
-        orderBy: { createdAt: 'asc' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take,
       }),
       this.prisma.lead.count({ where }),
@@ -405,11 +452,20 @@ export class LeadsService {
     void _salesEmployeeId;
     void _recordType;
     void _paidAmount;
+    delete (data as { noPurchaseReasonId?: string }).noPurchaseReasonId;
     if (dto.mobileNumber !== undefined) {
       data.mobileNumber = await this.normalizeLeadMobile(
         dto.mobileNumber,
         dto.countryId ?? existing.countryId,
       );
+    }
+    if (dto.customerClassificationId !== undefined) {
+      if (dto.customerClassificationId) {
+        await this.assertClassificationAssignable(
+          dto.customerClassificationId,
+          existing.customerClassificationId,
+        );
+      }
     }
 
     try {
@@ -551,14 +607,127 @@ export class LeadsService {
         select: { id: true, salesEmployeeId: true },
       });
       this.salesScope.assertLeadAccess(scope, lead);
+      if (!this.salesScope.canSetOrderOwner(scope, dto.salesEmployeeId)) {
+        throw new ForbiddenException(
+          'Target employee is outside your assignment scope.',
+        );
+      }
       await this.leadAssignmentsService.assign(leadId, {
         salesEmployeeId: dto.salesEmployeeId,
         method: LeadAssignmentMethod.MANUAL,
         reason: dto.reason,
         actorId,
+        scope,
       });
     }
     return { assigned: ids.length, ids };
+  }
+
+  /** Descriptive classification only — never changes workflow status. */
+  private async assertClassificationAssignable(
+    classificationId: string,
+    currentId: string | null,
+  ) {
+    const row = await this.prisma.customerClassification.findFirst({
+      where: { id: classificationId },
+    });
+    if (!row) {
+      throw new BadRequestException('Customer classification not found.');
+    }
+    const keepingCurrent = currentId === classificationId;
+    if (!keepingCurrent && (row.deletedAt || row.isActive === false)) {
+      throw new BadRequestException(
+        'Archived or inactive Customer Classifications cannot be assigned.',
+      );
+    }
+  }
+
+  async convertToStoreOrder(
+    id: string,
+    dto: ConvertLeadDto,
+    userId: string,
+    scope: SalesScope,
+  ) {
+    await this.findOne(id, scope);
+    await this.workflowEngine.convertLead(id, userId, {
+      items: dto.items,
+      paymentType: dto.paymentType,
+      paymentMethodId: dto.paymentMethodId,
+      currencyId: dto.currencyId,
+      amountPaid: dto.amountPaid,
+      paymentReference: dto.paymentReference,
+      paymentProofUrl: dto.paymentProofUrl,
+      countryId: dto.countryId,
+      city: dto.city,
+      address: dto.address,
+      notes: dto.notes,
+    });
+    return this.findOne(id, scope);
+  }
+
+  async closeWithoutPurchase(
+    id: string,
+    dto: CloseLeadWithoutPurchaseDto,
+    userId: string,
+    scope: SalesScope,
+  ) {
+    const lead = await this.findOne(id, scope);
+    if (lead.status.code === 'CONVERTED') {
+      throw new BadRequestException(
+        'A converted Lead cannot be closed without purchase.',
+      );
+    }
+    if (lead.status.code === 'LOST' || lead.status.code === 'DISQUALIFIED') {
+      throw new BadRequestException('Lead is already closed.');
+    }
+    const reason = await this.prisma.noPurchaseReason.findFirst({
+      where: { id: dto.noPurchaseReasonId },
+    });
+    if (!reason) {
+      throw new BadRequestException('No purchase reason not found.');
+    }
+    if (reason.deletedAt || reason.isActive === false) {
+      throw new BadRequestException(
+        'Archived or inactive No Purchase Reasons cannot be used.',
+      );
+    }
+
+    await this.prisma.lead.update({
+      where: { id },
+      data: {
+        noPurchaseReasonId: reason.id,
+        closeNotes: dto.notes?.trim() || null,
+        archivedReason: reason.name,
+      },
+    });
+
+    const toCode = lead.status.code === 'NEW' ? 'DISQUALIFIED' : 'LOST';
+    try {
+      await this.workflowEngine.executeTransitionByCodes(
+        'LEAD',
+        id,
+        lead.status.code,
+        toCode,
+        userId,
+        { reason: reason.name },
+      );
+    } catch {
+      await this.workflowEngine.executeTransitionByCodes(
+        'LEAD',
+        id,
+        lead.status.code,
+        toCode === 'LOST' ? 'DISQUALIFIED' : 'LOST',
+        userId,
+        { reason: reason.name },
+      );
+    }
+    await this.leadActivityService.log(
+      id,
+      LeadActivityType.ARCHIVED,
+      `Closed without purchase — ${reason.name}`,
+      { noPurchaseReasonId: reason.id, notes: dto.notes ?? null },
+    );
+    return this.findOne(id, scope);
   }
 
   /** Legacy — structured follow-up is the canonical path. */
@@ -628,6 +797,21 @@ export class LeadsService {
           },
         });
       }
+    }
+    if (query.classificationIds?.length) {
+      parts.push({
+        customerClassificationId: { in: query.classificationIds },
+      });
+    }
+    const lifecycle = query.lifecycle ?? 'active';
+    if (lifecycle === 'active') {
+      parts.push({
+        status: { code: { notIn: ['CONVERTED', 'LOST', 'DISQUALIFIED'] } },
+      });
+    } else if (lifecycle === 'converted') {
+      parts.push({ status: { code: 'CONVERTED' } });
+    } else if (lifecycle === 'closed') {
+      parts.push({ status: { code: { in: ['LOST', 'DISQUALIFIED'] } } });
     }
     if (query.dateFrom || query.dateTo) {
       parts.push({

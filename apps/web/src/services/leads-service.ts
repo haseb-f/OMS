@@ -41,6 +41,24 @@ export interface LeadRow {
   storeOrder: { id: string; internalOrderId: string } | null;
   nextFollowUpAt: string | null;
   firstOpenedAt: string | null;
+  customerClassificationId: string | null;
+  customerClassification: {
+    id: string;
+    code: string;
+    name: string;
+    nameEn: string | null;
+    color: string;
+    isActive: boolean;
+    deletedAt: string | null;
+  } | null;
+  noPurchaseReasonId: string | null;
+  noPurchaseReason: {
+    id: string;
+    code: string;
+    name: string;
+    nameEn: string | null;
+  } | null;
+  closeNotes: string | null;
   createdAt: string;
   updatedAt: string;
   createdBy: string | null;
@@ -157,4 +175,10 @@ export const leadsService = {
   startFollowUp: (id: string) => apiClient.post<LeadRow>(`/leads/${id}/start-follow-up`),
   archiveLead: (id: string, archiveReason?: string) =>
     apiClient.post<LeadRow>(`/leads/${id}/archive`, { archiveReason }),
+  convert: (id: string, body: Record<string, unknown>) =>
+    apiClient.post<LeadRow>(`/leads/${id}/convert`, body),
+  closeWithoutPurchase: (id: string, body: { noPurchaseReasonId: string; notes?: string }) =>
+    apiClient.post<LeadRow>(`/leads/${id}/close-without-purchase`, body),
+  scope: () =>
+    apiClient.get<{ kind: string; canAssign: boolean; canManage: boolean }>("/leads/scope"),
 };

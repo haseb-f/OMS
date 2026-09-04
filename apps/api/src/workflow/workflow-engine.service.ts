@@ -9,8 +9,10 @@ import {
   PartnerRoleType,
   PartnerSource,
   PartnerStatus,
+  PaymentStatus,
   Prisma,
   StatusChangeSource,
+  StoreOrderPaymentStatus,
   StoreOrderPaymentType,
   StoreOrderShippingStage,
   WorkflowApprovalStatus,
@@ -22,6 +24,7 @@ import { PermissionsResolverService } from '../permissions/permissions-resolver.
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import { StatusDefinitionsService } from '../status-definitions/status-definitions.service';
 import { SalesScopeService } from '../sales-scope/sales-scope.service';
+import { derivedUnitPrice } from '../store-orders/store-order-line-amount';
 import {
   type WorkflowEntityType,
   isWorkflowEntityType,
@@ -49,8 +52,21 @@ export interface LeadConvertPayload {
   productId?: string;
   quantity?: number;
   unitPrice?: number;
+  items?: Array<{
+    productId: string;
+    quantity: number;
+    agreedAmount: number;
+  }>;
   paymentType?: 'PREPAID' | 'CASH_ON_DELIVERY';
   paymentSourceId?: string;
+  paymentMethodId?: string;
+  currencyId?: string;
+  amountPaid?: number;
+  paymentReference?: string;
+  paymentProofUrl?: string;
+  countryId?: string;
+  city?: string;
+  address?: string;
   notes?: string;
 }
 
@@ -240,6 +256,102 @@ export class WorkflowEngineService {
       context,
       isSuperAdmin,
     );
+  }
+
+  /**
+   * Dedicated conversion entry — auto-advances NEW/IN_PROGRESS/FOLLOW_UP to
+   * QUALIFIED inside the same transaction so the agent does not hunt statuses.
+   */
+  async convertLead(
+    leadId: string,
+    userId: string,
+    payload: LeadConvertPayload,
+  ) {
+    await this.assertLeadScope('LEAD', leadId, userId);
+    if (!payload.items?.length && !payload.productId) {
+      throw new BadRequestException(
+        'Conversion requires at least one product line.',
+      );
+    }
+
+    const lead = await this.prisma.lead.findFirst({
+      where: { id: leadId, deletedAt: null },
+      include: {
+        status: true,
+        storeOrder: { select: { id: true, internalOrderId: true } },
+      },
+    });
+    if (!lead) throw new NotFoundException('Lead not found');
+    if (lead.storeOrder) {
+      return this.prisma.lead.findFirst({
+        where: { id: leadId },
+        include: { status: true, storeOrder: true },
+      });
+    }
+    if (lead.status.code === 'LOST' || lead.status.code === 'DISQUALIFIED') {
+      throw new BadRequestException('A closed Lead cannot be converted.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      let fromCode = lead.status.code;
+      if (fromCode !== 'QUALIFIED' && fromCode !== 'CONVERTED') {
+        const qualified = await this.statusDefinitions.findByCode(
+          WorkflowType.LEAD,
+          'QUALIFIED',
+        );
+        if (!qualified) {
+          throw new BadRequestException('QUALIFIED status is not configured.');
+        }
+        await tx.lead.update({
+          where: { id: leadId },
+          data: {
+            statusId: qualified.id,
+            ...(fromCode === 'NEW' &&
+            lead.salesEmployeeId === userId &&
+            !lead.firstOpenedAt
+              ? { firstOpenedAt: new Date() }
+              : {}),
+          },
+        });
+        await tx.statusHistory.create({
+          data: {
+            entityType: 'LEAD',
+            entityId: leadId,
+            fromStatusId: lead.statusId,
+            toStatusId: qualified.id,
+            changedById: userId,
+            reason: 'Qualified for conversion',
+            source: StatusChangeSource.WORKFLOW_ENGINE,
+          },
+        });
+        fromCode = 'QUALIFIED';
+      }
+
+      const transition = await tx.workflowTransition.findFirst({
+        where: {
+          workflowType: WorkflowType.LEAD,
+          isActive: true,
+          deletedAt: null,
+          businessAction: WorkflowBusinessAction.LEAD_CONVERT,
+          fromStatus: { code: fromCode, workflowType: WorkflowType.LEAD },
+          toStatus: { code: 'CONVERTED', workflowType: WorkflowType.LEAD },
+        },
+        include: { fromStatus: true, toStatus: true },
+      });
+      if (!transition) {
+        throw new BadRequestException(
+          'No LEAD_CONVERT transition QUALIFIED → CONVERTED is configured.',
+        );
+      }
+      return this.applyTransition(
+        'LEAD',
+        leadId,
+        transition,
+        userId,
+        { convertPayload: payload },
+        tx,
+      );
+    });
   }
 
   async approveTransition(approvalId: string, approverId: string) {
@@ -482,29 +594,64 @@ export class WorkflowEngineService {
       return;
     }
 
-    const productId = payload?.productId ?? lead.productId;
-    if (!productId) {
+    const lines = await this.resolveConvertLines(payload, lead, tx);
+    if (!lines.length) {
       throw new BadRequestException(
         'Conversion requires a product on the Lead or in the conversion payload.',
       );
     }
 
-    let unitPrice = payload?.unitPrice;
-    if (unitPrice === undefined || unitPrice === null) {
-      const product = await tx.product.findFirst({
-        where: { id: productId, deletedAt: null },
-        select: { salesPrice: true },
+    if (
+      payload?.countryId ||
+      payload?.city !== undefined ||
+      payload?.address !== undefined
+    ) {
+      await tx.lead.update({
+        where: { id: leadId },
+        data: {
+          ...(payload.countryId ? { countryId: payload.countryId } : {}),
+          ...(payload.city !== undefined ? { city: payload.city } : {}),
+          ...(payload.address !== undefined
+            ? { address: payload.address }
+            : {}),
+        },
       });
-      unitPrice = product?.salesPrice ? Number(product.salesPrice) : 0;
     }
 
-    // Resolve or create Partner + CUSTOMER role inside this transaction.
-    const partnerId = await this.resolvePartnerForLead(lead, userId, tx);
+    const shippingLead = {
+      ...lead,
+      countryId: payload?.countryId ?? lead.countryId,
+      city: payload?.city !== undefined ? payload.city : lead.city,
+      address: payload?.address !== undefined ? payload.address : lead.address,
+    };
+
+    const partnerId = await this.resolvePartnerForLead(
+      shippingLead,
+      userId,
+      tx,
+    );
 
     await tx.lead.update({
       where: { id: leadId },
       data: { partnerId },
     });
+
+    if (
+      payload?.city !== undefined ||
+      payload?.address !== undefined ||
+      payload?.countryId
+    ) {
+      await tx.partner.update({
+        where: { id: partnerId },
+        data: {
+          ...(payload.countryId ? { countryId: payload.countryId } : {}),
+          ...(payload.city !== undefined ? { city: payload.city } : {}),
+          ...(payload.address !== undefined
+            ? { address: payload.address }
+            : {}),
+        },
+      });
+    }
 
     const paymentType =
       payload?.paymentType === 'CASH_ON_DELIVERY'
@@ -515,15 +662,28 @@ export class WorkflowEngineService {
         ? StoreOrderShippingStage.READY_FOR_SHIPPING
         : StoreOrderShippingStage.NOT_READY;
 
-    const internalOrderId =
-      await this.numberingEngine.generateNumber('STORE_ORDER');
+    const currencyId = payload?.currencyId ?? lead.currencyId;
+    if (payload?.currencyId) {
+      const currency = await tx.currency.findFirst({
+        where: { id: payload.currencyId, deletedAt: null },
+      });
+      if (!currency) {
+        throw new BadRequestException('Currency not found.');
+      }
+    }
+
+    const internalOrderId = await this.numberingEngine.generateNumber(
+      'STORE_ORDER',
+      undefined,
+      tx,
+    );
 
     const storeOrder = await tx.storeOrder.create({
       data: {
         internalOrderId,
         partnerId,
         leadId: lead.id,
-        currencyId: lead.currencyId,
+        currencyId,
         employeeId: lead.salesEmployeeId,
         paymentType,
         shippingStage,
@@ -543,11 +703,12 @@ export class WorkflowEngineService {
         updatedBy: userId,
         source: this.mapLeadSource(lead.source),
         items: {
-          create: {
-            productId,
-            quantity: payload?.quantity ?? lead.quantity,
-            unitPrice,
-          },
+          create: lines.map((line) => ({
+            productId: line.productId,
+            quantity: line.quantity,
+            unitPrice: line.unitPrice,
+            agreedAmount: line.agreedAmount,
+          })),
         },
       },
     });
@@ -561,6 +722,18 @@ export class WorkflowEngineService {
       },
     });
 
+    const amountPaid = payload?.amountPaid ?? 0;
+    if (amountPaid > 0) {
+      await this.createConversionPaymentClaim(
+        storeOrder.id,
+        currencyId,
+        amountPaid,
+        payload,
+        userId,
+        tx,
+      );
+    }
+
     await tx.leadActivity.create({
       data: {
         leadId,
@@ -569,6 +742,157 @@ export class WorkflowEngineService {
         metadata: { storeOrderId: storeOrder.id, partnerId },
       },
     });
+  }
+
+  private async resolveConvertLines(
+    payload: LeadConvertPayload | undefined,
+    lead: { productId: string | null; quantity: number },
+    tx: Prisma.TransactionClient,
+  ): Promise<
+    Array<{
+      productId: string;
+      quantity: number;
+      unitPrice: number;
+      agreedAmount: number;
+    }>
+  > {
+    if (payload?.items?.length) {
+      const lines = [];
+      for (const item of payload.items) {
+        const product = await tx.product.findFirst({
+          where: { id: item.productId, deletedAt: null },
+          select: { id: true },
+        });
+        if (!product) {
+          throw new BadRequestException('Product not found or is not active.');
+        }
+        lines.push({
+          productId: item.productId,
+          quantity: item.quantity,
+          agreedAmount: item.agreedAmount,
+          unitPrice: derivedUnitPrice(item.quantity, item.agreedAmount),
+        });
+      }
+      return lines;
+    }
+
+    const productId = payload?.productId ?? lead.productId;
+    if (!productId) return [];
+    const quantity = payload?.quantity ?? lead.quantity;
+    let unitPrice = payload?.unitPrice;
+    if (unitPrice === undefined || unitPrice === null) {
+      const product = await tx.product.findFirst({
+        where: { id: productId, deletedAt: null },
+        select: { salesPrice: true },
+      });
+      unitPrice = product?.salesPrice ? Number(product.salesPrice) : 0;
+    }
+    const agreedAmount = quantity * unitPrice;
+    return [{ productId, quantity, unitPrice, agreedAmount }];
+  }
+
+  private async createConversionPaymentClaim(
+    storeOrderId: string,
+    orderCurrencyId: string,
+    amount: number,
+    payload: LeadConvertPayload | undefined,
+    userId: string,
+    tx: Prisma.TransactionClient,
+  ) {
+    const paymentSourceId = await this.resolvePaymentSourceId(
+      payload?.paymentMethodId,
+      payload?.paymentSourceId,
+      tx,
+    );
+    const receivingAccount = await tx.receivingAccount.findFirst({
+      where: { deletedAt: null, isActive: true },
+      orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
+    });
+    if (!receivingAccount) {
+      throw new BadRequestException(
+        'No active Receiving Account configured for payment reporting.',
+      );
+    }
+    const paymentNumber = await this.numberingEngine.generateNumber(
+      'PAYMENT',
+      undefined,
+      tx,
+    );
+    const payment = await tx.payment.create({
+      data: {
+        paymentNumber,
+        storeOrderId,
+        paymentDate: new Date(),
+        amount,
+        currencyId: payload?.currencyId ?? orderCurrencyId,
+        paymentSourceId,
+        receivingAccountId: receivingAccount.id,
+        referenceNumber: payload?.paymentReference,
+        senderName: 'Reported',
+        status: PaymentStatus.PENDING,
+        createdBy: userId,
+        updatedBy: userId,
+      },
+    });
+    await tx.storeOrder.update({
+      where: { id: storeOrderId },
+      data: {
+        paymentStatus: StoreOrderPaymentStatus.PAYMENT_REVIEW,
+      },
+    });
+    if (payload?.paymentProofUrl?.trim()) {
+      await tx.storeOrderReceipt.create({
+        data: {
+          storeOrderId,
+          paymentId: payment.id,
+          fileUrl: payload.paymentProofUrl.trim(),
+          fileName: 'payment-proof',
+          uploadedById: userId,
+        },
+      });
+    }
+  }
+
+  private async resolvePaymentSourceId(
+    paymentMethodId: string | undefined,
+    paymentSourceId: string | undefined,
+    tx: Prisma.TransactionClient,
+  ): Promise<string> {
+    if (paymentSourceId) {
+      const source = await tx.paymentSource.findFirst({
+        where: { id: paymentSourceId, deletedAt: null, isActive: true },
+      });
+      if (!source) {
+        throw new BadRequestException(
+          'Payment source not found or is not active.',
+        );
+      }
+      return source.id;
+    }
+    if (paymentMethodId) {
+      const method = await tx.paymentMethod.findFirst({
+        where: { id: paymentMethodId, deletedAt: null },
+      });
+      if (!method) {
+        throw new BadRequestException('Payment method not found.');
+      }
+      const byName = await tx.paymentSource.findFirst({
+        where: {
+          deletedAt: null,
+          isActive: true,
+          name: { equals: method.name, mode: 'insensitive' },
+        },
+      });
+      if (byName) return byName.id;
+    }
+    const fallback = await tx.paymentSource.findFirst({
+      where: { deletedAt: null, isActive: true },
+      orderBy: [{ isDefault: 'desc' }, { sortOrder: 'asc' }],
+    });
+    if (!fallback) {
+      throw new BadRequestException('No active Payment Source is configured.');
+    }
+    return fallback.id;
   }
 
   /**

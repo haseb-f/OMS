@@ -29,6 +29,10 @@ import { CreateLeadAssignmentDto } from './assignments/dto/create-lead-assignmen
 import { FindLeadsQueryDto } from './dto/find-leads-query.dto';
 import { ActivateDistributionDto } from './dto/activate-distribution.dto';
 import { CreateLeadFollowUpDto } from './dto/create-lead-follow-up.dto';
+import {
+  CloseLeadWithoutPurchaseDto,
+  ConvertLeadDto,
+} from './dto/convert-lead.dto';
 
 @Controller('leads')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -70,10 +74,27 @@ export class LeadsController {
     return this.leadsService.unassignedCount(scope);
   }
 
+  @Get('scope')
+  async salesScopeSnapshot(@CurrentUser() user: JwtPayload) {
+    const scope = await this.salesScope.resolve(user.sub);
+    return {
+      kind: scope.kind,
+      canAssign: this.salesScope.canAssignLeads(scope),
+      canManage: scope.canManageLeads,
+    };
+  }
+
   @Get('eligible-assignees')
-  @PermissionAction('manage')
-  eligibleAssignees() {
-    return this.leadAutoDistributionService.getEligibleEmployees();
+  @PermissionAction('edit')
+  async eligibleAssignees(@CurrentUser() user: JwtPayload) {
+    const scope = await this.salesScope.resolve(user.sub);
+    this.salesScope.assertCanAssign(scope);
+    const rows = await this.leadAutoDistributionService.getEligibleEmployees();
+    if (scope.kind === 'TEAM' && scope.ownerIds) {
+      const allowed = new Set(scope.ownerIds);
+      return rows.filter((row) => allowed.has(row.id));
+    }
+    return rows;
   }
 
   @Get('distribution')
@@ -126,7 +147,7 @@ export class LeadsController {
 
   @Post('bulk-assign')
   @HttpCode(200)
-  @PermissionAction('manage')
+  @PermissionAction('edit')
   async bulkAssign(
     @Body() dto: BulkAssignLeadsDto,
     @CurrentUser() user: JwtPayload,
@@ -158,7 +179,7 @@ export class LeadsController {
   }
 
   @Post(':id/assign')
-  @PermissionAction('manage')
+  @PermissionAction('edit')
   async assign(
     @Param('id') id: string,
     @Body() dto: CreateLeadAssignmentDto,
@@ -173,7 +194,32 @@ export class LeadsController {
       method: 'MANUAL',
       reason: dto.reason,
       actorId: user.sub,
+      scope,
     });
+  }
+
+  @Post(':id/convert')
+  @HttpCode(200)
+  @PermissionAction('confirm')
+  async convert(
+    @Param('id') id: string,
+    @Body() dto: ConvertLeadDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const scope = await this.salesScope.resolve(user.sub);
+    return this.leadsService.convertToStoreOrder(id, dto, user.sub, scope);
+  }
+
+  @Post(':id/close-without-purchase')
+  @HttpCode(200)
+  @PermissionAction('edit')
+  async closeWithoutPurchase(
+    @Param('id') id: string,
+    @Body() dto: CloseLeadWithoutPurchaseDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const scope = await this.salesScope.resolve(user.sub);
+    return this.leadsService.closeWithoutPurchase(id, dto, user.sub, scope);
   }
 
   @Post(':id/first-open')

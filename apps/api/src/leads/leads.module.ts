@@ -33,6 +33,6 @@ import { WorkflowModule } from '../workflow/workflow.module';
     LeadDuplicateDetectionService,
     LeadAutoDistributionService,
   ],
-  exports: [LeadsService, LeadAutoDistributionService],
+  exports: [LeadsService, LeadAutoDistributionService, LeadAssignmentsService],
 })
 export class LeadsModule {}

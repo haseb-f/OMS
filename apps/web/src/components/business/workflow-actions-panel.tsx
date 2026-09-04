@@ -29,12 +29,14 @@ export function WorkflowActionsPanel({
   currentStatus,
   onTransitionComplete,
   convertDefaults,
+  hideConvert,
 }: {
   entityType: string;
   entityId: string;
   currentStatus?: { name: string; color: string } | null;
   onTransitionComplete: () => void;
   convertDefaults?: Partial<LeadConvertPayload>;
+  hideConvert?: boolean;
 }) {
   const { t, locale } = useLocale();
   const [actions, setActions] = useState<WorkflowAction[]>([]);
@@ -114,16 +116,21 @@ export function WorkflowActionsPanel({
 
   if (loading) return null;
 
-  const convert = actions.find((a) => a.businessAction === "LEAD_CONVERT");
-  const primary = convert ?? actions.find((a) => a.isPrimary) ?? actions[0];
-  const secondary = actions.filter((a) => a !== primary);
+  const visibleActions = hideConvert
+    ? actions.filter((action) => action.businessAction !== "LEAD_CONVERT")
+    : actions;
+  const convert = visibleActions.find((a) => a.businessAction === "LEAD_CONVERT");
+  const primary = convert ?? visibleActions.find((a) => a.isPrimary) ?? visibleActions[0];
+  const secondary = visibleActions.filter((a) => a !== primary);
+
+  if (hideConvert && visibleActions.length === 0) return null;
 
   return (
     <div className="flex flex-col gap-3">
       {currentStatus ? (
         <DynamicStatusBadge label={currentStatus.name} colorKey={currentStatus.color} />
       ) : null}
-      {actions.length > 0 ? (
+      {visibleActions.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2">
           {primary ? (
             <EnterpriseButton size="sm" disabled={pending} onClick={() => handleAction(primary)}>

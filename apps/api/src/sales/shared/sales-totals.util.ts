@@ -13,6 +13,8 @@ export interface SalesLineInput {
   unitPrice: number;
   discountPercent?: number;
   discountValue?: number;
+  /** When set, this is the commercial line subtotal (independent of qty × unit). */
+  agreedAmount?: number;
   /** Resolved `Tax.rate` percent (e.g. 15 for 15%) — the caller looks this
    * up once per line before calling in, this util does no DB access. */
   taxRatePercent?: number;
@@ -37,7 +39,9 @@ export function round2(value: number): number {
 }
 
 export function computeSalesLine(input: SalesLineInput): ComputedSalesLine {
-  const lineSubtotal = round2(input.quantity * input.unitPrice);
+  const lineSubtotal = round2(
+    input.agreedAmount ?? input.quantity * input.unitPrice,
+  );
   const percentDiscount = lineSubtotal * ((input.discountPercent ?? 0) / 100);
   const discountAmount = round2(percentDiscount + (input.discountValue ?? 0));
   const taxableAmount = Math.max(lineSubtotal - discountAmount, 0);

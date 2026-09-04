@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
@@ -9,44 +10,31 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
-import { LeadConvertLineDto } from '../../leads/dto/convert-lead.dto';
 
-export class ExecuteWorkflowTransitionDto {
+export class LeadConvertLineDto {
   @IsUUID()
-  transitionId!: string;
+  productId!: string;
 
-  @IsString()
-  @IsOptional()
-  reason?: string;
-
-  /** LEAD_CONVERT payload — prefer POST /leads/:id/convert for the full form. */
-  @IsUUID()
-  @IsOptional()
-  productId?: string;
-
-  @IsNumber()
+  @Type(() => Number)
+  @IsInt()
   @Min(1)
-  @IsOptional()
-  quantity?: number;
+  quantity!: number;
 
+  /** Agreed selling amount for this line — independent of quantity. */
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
-  @IsOptional()
-  unitPrice?: number;
+  agreedAmount!: number;
+}
 
-  @IsString()
-  @IsOptional()
-  paymentType?: 'PREPAID' | 'CASH_ON_DELIVERY';
-
-  @IsString()
-  @IsOptional()
-  notes?: string;
-
+export class ConvertLeadDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => LeadConvertLineDto)
-  @IsOptional()
-  items?: LeadConvertLineDto[];
+  items!: LeadConvertLineDto[];
+
+  @IsString()
+  paymentType!: 'PREPAID' | 'CASH_ON_DELIVERY';
 
   @IsOptionalUuid()
   paymentMethodId?: string;
@@ -78,13 +66,17 @@ export class ExecuteWorkflowTransitionDto {
   @IsString()
   @IsOptional()
   address?: string;
-}
-
-export class RequestWorkflowApprovalDto {
-  @IsUUID()
-  transitionId!: string;
 
   @IsString()
   @IsOptional()
-  reason?: string;
+  notes?: string;
+}
+
+export class CloseLeadWithoutPurchaseDto {
+  @IsUUID()
+  noPurchaseReasonId!: string;
+
+  @IsString()
+  @IsOptional()
+  notes?: string;
 }

@@ -1,30 +1,13 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import { ClassificationBadge } from "@/components/business/classification-badge";
 import { DynamicStatusBadge } from "@/components/business/dynamic-status-badge";
-import { StatusBadge } from "@/components/business/status-badge";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { formatDate } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
 import type { LeadRow } from "@/services/leads-service";
-
-function PartnerCell({ row }: { row: LeadRow }) {
-  const { t } = useLocale();
-  if (!row.partner) {
-    return null;
-  }
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <code dir="ltr" className="rounded bg-muted px-1.5 py-0.5 text-xs">
-        {row.partner.partnerNumber}
-      </code>
-      {row.possibleDuplicate && (
-        <StatusBadge tone="warning" label={t("crm.leads.possibleDuplicate")} />
-      )}
-    </span>
-  );
-}
 
 function NextFollowUpCell({ value }: { value: string | null }) {
   const { t } = useLocale();
@@ -51,9 +34,11 @@ export const leadColumns: ColumnDef<LeadRow, unknown>[] = [
     meta: { titleKey: "crm.leads.fields.leadNumber", identity: true },
     accessorFn: (row) => row.leadNumber,
     cell: ({ row }) => (
-      <SemanticValue kind="id" className="text-body font-medium">
-        {row.original.leadNumber}
-      </SemanticValue>
+      <span title={row.original.leadNumber} className="inline-flex min-w-0 max-w-full">
+        <SemanticValue kind="id" className="text-body font-medium">
+          {row.original.leadNumber}
+        </SemanticValue>
+      </span>
     ),
   },
   {
@@ -75,18 +60,30 @@ export const leadColumns: ColumnDef<LeadRow, unknown>[] = [
     id: "mobileNumber",
     meta: { titleKey: "crm.leads.fields.mobileNumber", defaultHidden: true },
     accessorFn: (row) => row.mobileNumber,
-    cell: (info) => <span dir="ltr">{info.getValue() as string}</span>,
+    cell: (info) => (
+      <span title={String(info.getValue() ?? "")} className="inline-flex min-w-0 max-w-full">
+        <SemanticValue kind="phone">{info.getValue() as string}</SemanticValue>
+      </span>
+    ),
   },
   {
-    id: "partner",
-    meta: { titleKey: "crm.leads.fields.customer", defaultHidden: true },
+    id: "country",
+    meta: { titleKey: "crm.leads.fields.country" },
+    accessorFn: (row) => row.country?.name ?? "—",
+  },
+  {
+    id: "classification",
+    meta: { titleKey: "crm.leads.fields.classification" },
     enableSorting: false,
-    cell: ({ row }) => <PartnerCell row={row.original} />,
-  },
-  {
-    id: "quantity",
-    meta: { titleKey: "crm.leads.fields.quantity", defaultHidden: true },
-    accessorFn: (row) => row.quantity,
+    cell: ({ row }) =>
+      row.original.customerClassification ? (
+        <ClassificationBadge
+          label={row.original.customerClassification.name}
+          color={row.original.customerClassification.color}
+        />
+      ) : (
+        <span className="text-muted-foreground">—</span>
+      ),
   },
   {
     id: "status",
@@ -98,11 +95,6 @@ export const leadColumns: ColumnDef<LeadRow, unknown>[] = [
         colorKey={row.original.status?.color}
       />
     ),
-  },
-  {
-    id: "country",
-    meta: { titleKey: "crm.leads.fields.country" },
-    accessorFn: (row) => row.country?.name ?? "—",
   },
   {
     id: "source",

@@ -2,33 +2,37 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Archive, CalendarClock, FileText, UserCheck } from "lucide-react";
+import { CalendarClock, FileText, ShoppingCart, UserCheck } from "lucide-react";
 import {
   DetailField,
   DetailFieldGrid,
   DetailSection,
   DetailWorkspace,
 } from "@/components/shared/detail-workspace";
-import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
-import { RowActionsMenu } from "@/components/shared/data-table";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EntityTabs } from "@/components/business/entity-tabs";
-import { StatusBadge } from "@/components/business/status-badge";
+import { DynamicStatusBadge } from "@/components/business/dynamic-status-badge";
+import { ClassificationBadge } from "@/components/business/classification-badge";
 import { WorkflowActionsPanel } from "@/components/business/workflow-actions-panel";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
 import { AssignLeadDialog } from "@/components/business/assign-lead-dialog";
 import { LeadFollowUpDialog } from "@/components/crm/lead-follow-up-dialog";
+import { LeadConvertDialog } from "@/components/crm/lead-convert-dialog";
+import { LeadCloseWithoutPurchaseDialog } from "@/components/crm/lead-close-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PermissionGate } from "@/components/shared/permission-gate";
+import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { Textarea } from "@/components/ui/textarea";
 import {
   leadsService,
   type LeadRow,
   type LeadActivityRow,
   type LeadAssignmentRow,
+  type LeadFollowUpRow,
   type LeadNoteRow,
 } from "@/services/leads-service";
+import { useCustomerClassifications } from "@/hooks/use-reference-data";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
@@ -41,22 +45,29 @@ function LeadDetailContent() {
   const router = useRouter();
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
+  const classifications = useCustomerClassifications();
 
   const [lead, setLead] = useState<LeadRow | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activities, setActivities] = useState<LeadActivityRow[] | null>(null);
   const [assignments, setAssignments] = useState<LeadAssignmentRow[] | null>(null);
+  const [followUps, setFollowUps] = useState<LeadFollowUpRow[] | null>(null);
   const [notes, setNotes] = useState<LeadNoteRow[] | null>(null);
   const [noteDraft, setNoteDraft] = useState("");
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [followUpOpen, setFollowUpOpen] = useState(false);
-  const [archiveOpen, setArchiveOpen] = useState(false);
-  const [isArchiving, setIsArchiving] = useState(false);
+  const [convertOpen, setConvertOpen] = useState(false);
+  const [closeOpen, setCloseOpen] = useState(false);
+  const [canAssign, setCanAssign] = useState(false);
 
   const canEdit = hasPermission("crm.leads.edit");
-  const canManage = hasPermission("crm.leads.manage");
-  const canArchive = hasPermission("crm.leads.archive");
+  const canConvert = hasPermission("crm.leads.convert") || canEdit;
+  const operational =
+    lead &&
+    lead.status?.code !== "CONVERTED" &&
+    lead.status?.code !== "LOST" &&
+    lead.status?.code !== "DISQUALIFIED";
 
   useBreadcrumbLabel(lead?.leadNumber ?? null);
 
@@ -80,6 +91,13 @@ function LeadDetailContent() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    leadsService
+      .scope()
+      .then((scope) => setCanAssign(scope.canAssign))
+      .catch(() => setCanAssign(false));
+  }, []);
+
   const reloadSidePanels = useCallback(() => {
     leadsService
       .activities(params.id)
@@ -90,6 +108,10 @@ function LeadDetailContent() {
       .then(setAssignments)
       .catch(() => setAssignments([]));
     leadsService
+      .followUps(params.id)
+      .then(setFollowUps)
+      .catch(() => setFollowUps([]));
+    leadsService
       .notes(params.id)
       .then(setNotes)
       .catch(() => setNotes([]));
@@ -98,17 +120,6 @@ function LeadDetailContent() {
   useEffect(() => {
     reloadSidePanels();
   }, [reloadSidePanels]);
-
-  const runTransition = async (action: () => Promise<unknown>) => {
-    try {
-      await action();
-      toast.success(t("common.save"));
-      await load();
-      reloadSidePanels();
-    } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
-    }
-  };
 
   const submitNote = async () => {
     if (!noteDraft.trim()) return;
@@ -121,9 +132,21 @@ function LeadDetailContent() {
         .then(setNotes)
         .catch(() => setNotes([]));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to add note.");
+      toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
     } finally {
       setIsSavingNote(false);
+    }
+  };
+
+  const saveClassification = async (id: string | null) => {
+    if (!lead) return;
+    try {
+      const updated = await leadsService.update(lead.id, {
+        customerClassificationId: id,
+      } as never);
+      setLead(updated);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
     }
   };
 
@@ -150,77 +173,129 @@ function LeadDetailContent() {
       entry.type === "ARCHIVED" ? "rejected" : entry.type === "LEAD_CREATED" ? "done" : "pending",
   }));
 
+  const selectedClassification =
+    classifications.find((row) => row.id === lead.customerClassificationId) ??
+    (lead.customerClassification
+      ? {
+          ...lead.customerClassification,
+          description: null,
+          sortOrder: 0,
+          isActive: lead.customerClassification.isActive,
+        }
+      : null);
+
   return (
     <DetailWorkspace
       title={lead.leadNumber}
+      subtitle={lead.customerName}
       status={
-        <>
-          {lead.possibleDuplicate ? (
-            <StatusBadge tone="warning" label={t("crm.leads.possibleDuplicate")} />
+        <div className="flex flex-wrap items-center gap-1.5">
+          <DynamicStatusBadge label={lead.status?.name ?? "—"} colorKey={lead.status?.color} />
+          {lead.customerClassification ? (
+            <ClassificationBadge
+              label={lead.customerClassification.name}
+              color={lead.customerClassification.color}
+            />
           ) : null}
-        </>
+          {lead.possibleDuplicate ? (
+            <DynamicStatusBadge label={t("crm.leads.possibleDuplicate")} colorKey="warning" />
+          ) : null}
+        </div>
       }
       actions={
-        <div className="flex items-center gap-2">
-          {canEdit && lead.status?.code !== "CONVERTED" ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {canConvert && operational ? (
+            <EnterpriseButton size="sm" variant="success" onClick={() => setConvertOpen(true)}>
+              <ShoppingCart />
+              {t("crm.leads.convert.cta")}
+            </EnterpriseButton>
+          ) : null}
+          {canEdit && operational ? (
             <EnterpriseButton size="sm" variant="outline" onClick={() => setFollowUpOpen(true)}>
               <CalendarClock />
               {t("crm.leads.actions.addFollowUp")}
             </EnterpriseButton>
           ) : null}
-          <RowActionsMenu
-            label={t("common.actions")}
-            actions={[
-              {
-                key: "assign",
-                label: t("crm.leads.actions.reassign"),
-                icon: UserCheck,
-                hidden: !canManage,
-                onSelect: () => setAssignOpen(true),
-              },
-              {
-                key: "archive",
-                label: t("crm.leads.actions.archive"),
-                icon: Archive,
-                hidden: !canArchive || lead.status?.code === "LOST",
-                destructive: true,
-                separatorBefore: true,
-                onSelect: () => setArchiveOpen(true),
-              },
-            ]}
-          />
+          {canAssign && operational ? (
+            <EnterpriseButton size="sm" variant="outline" onClick={() => setAssignOpen(true)}>
+              <UserCheck />
+              {lead.salesEmployee ? t("crm.leads.actions.transfer") : t("crm.leads.actions.assign")}
+            </EnterpriseButton>
+          ) : null}
+          {canEdit && operational ? (
+            <EnterpriseButton size="sm" variant="outline" onClick={() => setCloseOpen(true)}>
+              {t("crm.leads.actions.closeWithoutPurchase")}
+            </EnterpriseButton>
+          ) : null}
         </div>
       }
     >
-      <DetailSection title={t("workflow.actions.title")}>
-        {lead.storeOrder ? (
-          <p className="text-body">
-            {t("crm.leads.convert.convertedTo")}{" "}
-            <EnterpriseButton
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-auto p-0 font-medium"
-              onClick={() => router.push(`/store-orders/${lead.storeOrder!.id}`)}
-            >
-              {lead.storeOrder.internalOrderId}
-            </EnterpriseButton>
-          </p>
-        ) : null}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <DetailField
+          label={t("crm.leads.fields.assignedTo")}
+          value={lead.salesEmployee?.fullName}
+        />
+        <DetailField
+          label={t("crm.leads.fields.nextFollowUp")}
+          value={lead.nextFollowUpAt ? formatDateTime(lead.nextFollowUpAt) : undefined}
+        />
+        <DetailField
+          label={t("crm.leads.fields.classification")}
+          value={
+            canEdit && operational ? (
+              <EntityCombobox
+                value={selectedClassification}
+                onChange={(row) => void saveClassification(row?.id ?? null)}
+                items={[
+                  ...(lead.customerClassification &&
+                  lead.customerClassification.deletedAt &&
+                  !classifications.some((row) => row.id === lead.customerClassification!.id)
+                    ? [lead.customerClassification as never]
+                    : []),
+                  ...classifications,
+                ]}
+                getId={(row) => row.id}
+                getTitle={(row) => row.name}
+                allowClear
+                placeholder={t("masterData.customerClassifications.select")}
+              />
+            ) : lead.customerClassification ? (
+              <ClassificationBadge
+                label={lead.customerClassification.name}
+                color={lead.customerClassification.color}
+              />
+            ) : undefined
+          }
+        />
+      </div>
+
+      {lead.storeOrder ? (
+        <p className="text-body">
+          {t("crm.leads.convert.convertedTo")}{" "}
+          <EnterpriseButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-auto p-0 font-medium"
+            onClick={() => router.push(`/store-orders/${lead.storeOrder!.id}`)}
+          >
+            {lead.storeOrder.internalOrderId}
+          </EnterpriseButton>
+        </p>
+      ) : null}
+
+      {operational ? (
         <WorkflowActionsPanel
           entityType="LEAD"
           entityId={lead.id}
-          currentStatus={lead.status}
+          hideConvert
           onTransitionComplete={() => {
             void load();
             reloadSidePanels();
           }}
-          convertDefaults={{
-            productId: lead.productId ?? undefined,
-            quantity: lead.quantity,
-          }}
         />
-      </DetailSection>
+      ) : null}
+
       <EntityTabs
         tabs={[
           {
@@ -237,67 +312,17 @@ function LeadDetailContent() {
                   <DetailField label={t("crm.leads.fields.city")} value={lead.city} />
                   <DetailField label={t("crm.leads.fields.address")} value={lead.address} />
                   <DetailField
-                    label={t("crm.leads.fields.product")}
-                    value={lead.product?.displayName ?? lead.product?.name}
-                  />
-                  <DetailField
-                    label={t("crm.leads.fields.quantity")}
-                    value={String(lead.quantity)}
-                  />
-                  <DetailField
-                    label={t("crm.leads.fields.currency")}
-                    value={
-                      lead.currency ? `${lead.currency.code} — ${lead.currency.name}` : undefined
-                    }
-                  />
-                  <DetailField
-                    label={t("crm.leads.fields.externalOrderId")}
-                    value={lead.externalOrderId}
-                  />
-                  <DetailField
                     label={t("crm.leads.fields.source")}
                     value={t(`crm.leads.source.${lead.source}` as MessageKey)}
-                  />
-                  <DetailField
-                    label={t("crm.leads.fields.nextFollowUp")}
-                    value={lead.nextFollowUpAt ? formatDateTime(lead.nextFollowUpAt) : undefined}
                   />
                   <DetailField
                     label={t("crm.leads.fields.createdAt")}
                     value={formatDate(lead.createdAt)}
                   />
-                  <DetailField
-                    label={t("crm.leads.fields.customer")}
-                    value={
-                      lead.partner ? (
-                        <EnterpriseButton
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-auto justify-start p-0 text-body font-medium"
-                          onClick={() => router.push(`/sales/customers/${lead.partner!.id}`)}
-                        >
-                          {lead.partner.partnerNumber} — {lead.partner.name}
-                        </EnterpriseButton>
-                      ) : (
-                        t("crm.leads.noCustomerLinked")
-                      )
-                    }
-                  />
-                  {lead.storeOrder ? (
+                  {lead.noPurchaseReason ? (
                     <DetailField
-                      label={t("workflow.fields.storeOrder")}
-                      value={
-                        <EnterpriseButton
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-auto justify-start p-0 text-body font-medium"
-                          onClick={() => router.push(`/store-orders/${lead.storeOrder!.id}`)}
-                        >
-                          {lead.storeOrder.internalOrderId}
-                        </EnterpriseButton>
-                      }
+                      label={t("crm.leads.fields.noPurchaseReason")}
+                      value={lead.noPurchaseReason.name}
                     />
                   ) : null}
                 </DetailFieldGrid>
@@ -305,29 +330,31 @@ function LeadDetailContent() {
             ),
           },
           {
-            value: "assignment",
-            label: t("crm.leads.sections.assignment"),
+            value: "followUps",
+            label: t("crm.leads.sections.followUps"),
             content: (
               <DetailSection>
-                <DetailField
-                  label={t("crm.leads.fields.assignedTo")}
-                  value={
-                    lead.salesEmployee
-                      ? `${lead.salesEmployee.fullName} — ${lead.salesEmployee.email}`
-                      : undefined
-                  }
-                />
-                {assignments === null ? (
-                  <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
-                ) : assignments.length > 0 ? (
-                  <div className="flex flex-col gap-2">
-                    {assignments.map((assignment) => (
-                      <p key={assignment.id} className="text-caption text-muted-foreground">
-                        {formatDateTime(assignment.assignedAt)}
-                      </p>
+                {(followUps ?? []).length === 0 ? (
+                  <p className="text-caption text-muted-foreground">{t("common.noResults")}</p>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {(followUps ?? []).map((item) => (
+                      <div
+                        key={item.id}
+                        className="border-t border-border pt-2 first:border-t-0 first:pt-0"
+                      >
+                        <p className="text-body font-medium">{item.outcome || "—"}</p>
+                        {item.note ? <p className="text-caption">{item.note}</p> : null}
+                        <p className="text-caption text-muted-foreground">
+                          {item.user?.fullName} · {formatDateTime(item.createdAt)}
+                          {item.followUpAt
+                            ? ` · ${t("crm.leads.fields.nextFollowUp")}: ${formatDateTime(item.followUpAt)}`
+                            : ""}
+                        </p>
+                      </div>
                     ))}
                   </div>
-                ) : null}
+                )}
               </DetailSection>
             ),
           },
@@ -342,6 +369,28 @@ function LeadDetailContent() {
               ) : (
                 <AuditTimeline entries={timelineEntries} />
               ),
+          },
+          {
+            value: "assignment",
+            label: t("crm.leads.sections.assignment"),
+            content: (
+              <DetailSection>
+                <DetailField
+                  label={t("crm.leads.fields.assignedTo")}
+                  value={
+                    lead.salesEmployee
+                      ? `${lead.salesEmployee.fullName} — ${lead.salesEmployee.email}`
+                      : undefined
+                  }
+                />
+                {(assignments ?? []).map((assignment) => (
+                  <p key={assignment.id} className="text-caption text-muted-foreground">
+                    {formatDateTime(assignment.assignedAt)} · {assignment.assignedTo?.fullName} ·{" "}
+                    {assignment.method}
+                  </p>
+                ))}
+              </DetailSection>
+            ),
           },
           {
             value: "notes",
@@ -359,29 +408,19 @@ function LeadDetailContent() {
                     size="sm"
                     className="w-fit"
                     disabled={isSavingNote || !noteDraft.trim()}
-                    onClick={submitNote}
+                    onClick={() => void submitNote()}
                   >
                     {t("crm.leads.actions.addNote")}
                   </EnterpriseButton>
                 </div>
-                <div className="flex flex-col gap-3">
-                  {notes === null ? (
-                    <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
-                  ) : notes.length === 0 ? (
-                    <p className="text-caption text-muted-foreground">
-                      {t("crm.leads.notesPanel.empty")}
+                {(notes ?? []).map((note) => (
+                  <div key={note.id} className="border-t border-border pt-3">
+                    <p className="whitespace-pre-wrap text-sm">{note.text}</p>
+                    <p className="pt-1 text-caption text-muted-foreground">
+                      {formatDateTime(note.createdAt)}
                     </p>
-                  ) : (
-                    notes.map((note) => (
-                      <div key={note.id} className="border-t border-border pt-3">
-                        <p className="whitespace-pre-wrap text-sm">{note.text}</p>
-                        <p className="pt-1 text-caption text-muted-foreground">
-                          {formatDateTime(note.createdAt)}
-                        </p>
-                      </div>
-                    ))
-                  )}
-                </div>
+                  </div>
+                ))}
               </DetailSection>
             ),
           },
@@ -397,7 +436,28 @@ function LeadDetailContent() {
           reloadSidePanels();
         }}
       />
-
+      <LeadConvertDialog
+        lead={lead}
+        open={convertOpen}
+        onOpenChange={setConvertOpen}
+        onConverted={(result) => {
+          if (result.storeOrder?.id) {
+            router.push(`/store-orders/${result.storeOrder.id}`);
+            return;
+          }
+          void load();
+        }}
+      />
+      <LeadCloseWithoutPurchaseDialog
+        leadId={lead.id}
+        classificationId={lead.customerClassificationId}
+        open={closeOpen}
+        onOpenChange={setCloseOpen}
+        onClosed={() => {
+          void load();
+          reloadSidePanels();
+        }}
+      />
       <AssignLeadDialog
         open={assignOpen}
         onOpenChange={setAssignOpen}
@@ -405,24 +465,6 @@ function LeadDetailContent() {
         onAssigned={() => {
           void load();
           reloadSidePanels();
-        }}
-      />
-
-      <ConfirmationDialog
-        open={archiveOpen}
-        onOpenChange={setArchiveOpen}
-        tone="destructive"
-        title={t("common.confirmArchiveTitle")}
-        description={t("common.confirmArchiveDescription")}
-        confirmLabel={t("crm.leads.actions.archive")}
-        cancelLabel={t("common.cancel")}
-        isConfirming={isArchiving}
-        onConfirm={() => {
-          setIsArchiving(true);
-          void runTransition(() => leadsService.archiveLead(lead.id)).finally(() => {
-            setIsArchiving(false);
-            setArchiveOpen(false);
-          });
         }}
       />
     </DetailWorkspace>

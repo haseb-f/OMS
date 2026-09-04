@@ -97,4 +97,7 @@ export class CreateLeadDto {
   /** Optional override — same default behavior as `paymentSourceId`. */
   @IsOptionalUuid()
   receivingAccountId?: string;
+
+  @IsOptionalUuid()
+  customerClassificationId?: string;
 }
