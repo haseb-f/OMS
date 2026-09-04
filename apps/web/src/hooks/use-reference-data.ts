@@ -12,6 +12,9 @@ import type {
   AnalyticAccountRow,
   WarehouseRow,
   DepartmentRow,
+  CustomerClassificationRow,
+  NoPurchaseReasonRow,
+  PaymentMethodRow,
 } from "@/config/master-data/entities";
 import { usersService, type UserRow } from "@/services/users-service";
 import { partnersService, type PartnerRow } from "@/services/partners-service";
@@ -163,6 +166,31 @@ export const useDepartments = createReferenceDataHook<DepartmentRow>(() =>
   departmentsService
     .list({ pageSize: 200, sortBy: "sortOrder" })
     .then((r) => r.items.filter((row) => !row.deletedAt && row.isActive)),
+);
+
+const customerClassificationsService = createMasterDataService<CustomerClassificationRow>(
+  "/customer-classifications",
+);
+const noPurchaseReasonsService =
+  createMasterDataService<NoPurchaseReasonRow>("/no-purchase-reasons");
+const paymentMethodsRefService = createMasterDataService<PaymentMethodRow>("/payment-methods");
+
+export const useCustomerClassifications = createReferenceDataHook<CustomerClassificationRow>(() =>
+  customerClassificationsService
+    .list({ pageSize: 200, sortBy: "sortOrder" })
+    .then((r) => r.items.filter((row) => !row.deletedAt && row.isActive)),
+);
+
+export const useNoPurchaseReasons = createReferenceDataHook<NoPurchaseReasonRow>(() =>
+  noPurchaseReasonsService
+    .list({ pageSize: 200, sortBy: "sortOrder" })
+    .then((r) => r.items.filter((row) => !row.deletedAt && row.isActive)),
+);
+
+export const usePaymentMethods = createReferenceDataHook<PaymentMethodRow>(() =>
+  paymentMethodsRefService
+    .list({ pageSize: 200 })
+    .then((r) => r.items.filter((row) => !row.deletedAt)),
 );
 
 export function useUsersLookup(): Record<string, string> {

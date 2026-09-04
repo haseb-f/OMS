@@ -108,6 +108,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   extraActions,
   extraBulkActions,
   defaultSortBy = "name",
+  defaultSortOrder = "asc",
   disableArchiveRestore = false,
   supportsSelectAllMatching = false,
   hideCreateButton = false,
@@ -145,6 +146,8 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   extraBulkActions?: (selectedIds: string[]) => ReactNode;
   /** Initial sort field — defaults to "name" (every existing Master Data entity has one); override for an entity that doesn't (e.g. Leads, sorted by "createdAt"). */
   defaultSortBy?: string;
+  /** Initial sort direction — Leads/Orders default newest-first. */
+  defaultSortOrder?: "asc" | "desc";
   /**
    * Hides the generic Archive/Restore row actions and the bulk-archive bar
    * — for an entity whose "Archive" is a business-status transition (e.g.
@@ -182,7 +185,10 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   const [pageSize, setPageSize] = usePathRestorableState("pageSize", 20);
   const [search, setSearch] = usePathRestorableState("search", "");
   const [sortBy, setSortBy] = usePathRestorableState("sortBy", defaultSortBy);
-  const [sortOrder, setSortOrder] = usePathRestorableState<"asc" | "desc">("sortOrder", "asc");
+  const [sortOrder, setSortOrder] = usePathRestorableState<"asc" | "desc">(
+    "sortOrder",
+    defaultSortOrder,
+  );
   const [includeArchived, setIncludeArchived] = usePathRestorableState("includeArchived", false);
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});

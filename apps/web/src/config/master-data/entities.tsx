@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { MasterDataFormField } from "@/components/master-data/master-data-form";
 import { StatusBadge } from "@/components/business/status-badge";
+import { ClassificationBadge } from "@/components/business/classification-badge";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { statusColumn, textColumn } from "./shared-columns";
 import { formatDate } from "@/lib/date";
@@ -953,6 +954,113 @@ export const departmentsDefaultValues = {
 };
 export const departmentsExportColumns = ["code", "name", "nameEn", "sortOrder"];
 export const departmentRowLabel = (row: DepartmentRow) => `${row.code} — ${row.name}`;
+
+export interface CustomerClassificationRow {
+  id: string;
+  code: string;
+  name: string;
+  nameEn: string | null;
+  description: string | null;
+  color: string;
+  sortOrder: number;
+  isActive: boolean;
+  deletedAt: string | null;
+}
+
+export const customerClassificationsColumns: ColumnDef<CustomerClassificationRow, unknown>[] = [
+  textColumn("code", "masterData.fields.code", (r) => r.code),
+  {
+    id: "name",
+    meta: { titleKey: "masterData.fields.name" },
+    accessorFn: (row) => row.name,
+    cell: ({ row }) => <ClassificationBadge label={row.original.name} color={row.original.color} />,
+  },
+  textColumn("nameEn", "masterData.fields.nameEn", (r) => r.nameEn),
+  textColumn("sortOrder", "masterData.fields.sortOrder", (r) => String(r.sortOrder)),
+  statusColumn<CustomerClassificationRow>(),
+];
+
+export const customerClassificationsFormFields: MasterDataFormField[] = [
+  { name: "name", label: "masterData.fields.name", type: "text", required: true },
+  { name: "nameEn", label: "masterData.fields.nameEn", type: "text" },
+  { name: "color", label: "masterData.fields.color", type: "colorToken" },
+  { name: "sortOrder", label: "masterData.fields.sortOrder", type: "number" },
+  { name: "isActive", label: "masterData.fields.isActive", type: "boolean" },
+  { name: "description", label: "masterData.fields.description", type: "textarea" },
+];
+
+export const customerClassificationsSchema = z.object({
+  name: z.string().min(1),
+  nameEn: z.string().optional().or(z.literal("")),
+  color: z.enum(["neutral", "info", "warning", "success", "destructive"]).optional(),
+  sortOrder: z.number().optional(),
+  isActive: z.boolean().optional(),
+  description: z.string().optional().or(z.literal("")),
+});
+
+export const customerClassificationsDefaultValues = {
+  name: "",
+  nameEn: "",
+  color: "neutral",
+  sortOrder: 0,
+  isActive: true,
+  description: "",
+};
+export const customerClassificationsExportColumns = [
+  "code",
+  "name",
+  "nameEn",
+  "color",
+  "sortOrder",
+];
+export const customerClassificationRowLabel = (row: CustomerClassificationRow) =>
+  `${row.code} — ${row.name}`;
+
+export interface NoPurchaseReasonRow {
+  id: string;
+  code: string;
+  name: string;
+  nameEn: string | null;
+  description: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  deletedAt: string | null;
+  classifications?: { id: string; name: string; color: string }[];
+}
+
+export const noPurchaseReasonsColumns: ColumnDef<NoPurchaseReasonRow, unknown>[] = [
+  textColumn("code", "masterData.fields.code", (r) => r.code),
+  textColumn("name", "masterData.fields.name", (r) => r.name),
+  textColumn("nameEn", "masterData.fields.nameEn", (r) => r.nameEn),
+  textColumn("sortOrder", "masterData.fields.sortOrder", (r) => String(r.sortOrder)),
+  statusColumn<NoPurchaseReasonRow>(),
+];
+
+export const noPurchaseReasonsFormFields: MasterDataFormField[] = [
+  { name: "name", label: "masterData.fields.name", type: "text", required: true },
+  { name: "nameEn", label: "masterData.fields.nameEn", type: "text" },
+  { name: "sortOrder", label: "masterData.fields.sortOrder", type: "number" },
+  { name: "isActive", label: "masterData.fields.isActive", type: "boolean" },
+  { name: "description", label: "masterData.fields.description", type: "textarea" },
+];
+
+export const noPurchaseReasonsSchema = z.object({
+  name: z.string().min(1),
+  nameEn: z.string().optional().or(z.literal("")),
+  sortOrder: z.number().optional(),
+  isActive: z.boolean().optional(),
+  description: z.string().optional().or(z.literal("")),
+});
+
+export const noPurchaseReasonsDefaultValues = {
+  name: "",
+  nameEn: "",
+  sortOrder: 0,
+  isActive: true,
+  description: "",
+};
+export const noPurchaseReasonsExportColumns = ["code", "name", "nameEn", "sortOrder"];
+export const noPurchaseReasonRowLabel = (row: NoPurchaseReasonRow) => `${row.code} — ${row.name}`;
 
 // ---------------------------------------------------------------------------
 // Shipping Methods

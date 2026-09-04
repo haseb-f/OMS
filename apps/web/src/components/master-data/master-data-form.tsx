@@ -29,6 +29,7 @@ import {
 } from "@/components/shared/phone-country-selector";
 import { OMSPhoneInput } from "@/components/shared/phone-input";
 import { AccountPicker } from "@/components/business/account-picker";
+import { ClassificationColorPicker } from "@/components/business/classification-badge";
 import { createMasterDataService } from "@/services/master-data-service";
 import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
@@ -49,7 +50,8 @@ export interface MasterDataFormField {
     | "boolean"
     | "country"
     | "phone"
-    | "account";
+    | "account"
+    | "colorToken";
   required?: boolean;
   placeholder?: string;
   /** Pre-resolved display text (translated or a raw entity name) — the page builds this via `t()`/live data, not a MessageKey itself. */
@@ -256,6 +258,12 @@ function FormFieldGrid<TFieldValues extends FieldValues>({
                         rhfField={rhfField}
                         postingOnly={field.postingOnly}
                         placeholder={field.placeholder}
+                      />
+                    ) : field.type === "colorToken" ? (
+                      <ClassificationColorPicker
+                        value={rhfField.value || "neutral"}
+                        onChange={rhfField.onChange}
+                        previewLabel={String(form.watch("name" as never) ?? "")}
                       />
                     ) : (
                       <Input

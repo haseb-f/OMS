@@ -143,6 +143,56 @@ model Department {
   @@map("departments")
 }
 
+/// Descriptive commercial segmentation for Leads — never a workflow status,
+/// never an action. Color is a StatusDefinition-style semantic token
+/// (info/success/warning/destructive/neutral), not a raw CSS string.
+model CustomerClassification {
+  id          String  @id @default(uuid()) @db.Uuid
+  code        String  @unique
+  name        String
+  nameEn      String? @map("name_en")
+  description String?
+  color       String  @default("neutral")
+  sortOrder   Int     @default(0) @map("sort_order")
+  isActive    Boolean @default(true) @map("is_active")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  leads             Lead[]
+  suggestedReasons  NoPurchaseReason[] @relation("ClassificationSuggestedReasons")
+
+  @@index([deletedAt, isActive, sortOrder])
+  @@map("customer_classifications")
+}
+
+/// Configurable reasons for closing a Lead without purchase. Historical
+/// usage remains after archive; new selection is active rows only.
+model NoPurchaseReason {
+  id          String  @id @default(uuid()) @db.Uuid
+  code        String  @unique
+  name        String
+  nameEn      String? @map("name_en")
+  description String?
+  sortOrder   Int     @default(0) @map("sort_order")
+  isActive    Boolean @default(true) @map("is_active")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  leads            Lead[]
+  classifications  CustomerClassification[] @relation("ClassificationSuggestedReasons")
+
+  @@index([deletedAt, isActive, sortOrder])
+  @@map("no_purchase_reasons")
+}
+
 /// A sales working group under a Department — never itself a Department.
 /// Manager + members are Users; departmentId is the canonical FK.
 model SalesTeam {
@@ -1108,6 +1158,15 @@ model Lead {
   statusId String           @map("status_id") @db.Uuid
   status   StatusDefinition @relation(fields: [statusId], references: [id])
 
+  /// Descriptive only — changing this MUST NOT change Lead workflow status.
+  customerClassificationId String?                 @map("customer_classification_id") @db.Uuid
+  customerClassification   CustomerClassification? @relation(fields: [customerClassificationId], references: [id])
+
+  /// Set when the Lead is closed without purchase (LOST/DISQUALIFIED).
+  noPurchaseReasonId String?           @map("no_purchase_reason_id") @db.Uuid
+  noPurchaseReason   NoPurchaseReason? @relation(fields: [noPurchaseReasonId], references: [id])
+  closeNotes         String?           @map("close_notes")
+
   source LeadSource
 
   /// Optional, no business meaning enforced yet — set when status is
@@ -1166,6 +1225,8 @@ model Lead {
   @@index([assignedAt])
   @@index([nextFollowUpAt])
   @@index([source])
+  @@index([customerClassificationId])
+  @@index([noPurchaseReasonId])
   @@map("leads")
 }
 
@@ -3349,6 +3410,10 @@ model StoreOrderItem {
 
   quantity  Int
   unitPrice Decimal @map("unit_price") @db.Decimal(12, 2)
+  /// Agreed selling amount for this line — independent of quantity.
+  /// Totals use this field; `unitPrice` is retained as a derived snapshot
+  /// (agreedAmount / quantity) so legacy qty×unit readers stay approximately equal.
+  agreedAmount Decimal @map("agreed_amount") @db.Decimal(12, 2)
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")

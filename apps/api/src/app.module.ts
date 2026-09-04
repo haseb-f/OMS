@@ -17,6 +17,8 @@ import { FixedAssetsModule } from './fixed-assets/fixed-assets.module';
 import { PaymentMethodsModule } from './payment-methods/payment-methods.module';
 import { PaymentTermsModule } from './payment-terms/payment-terms.module';
 import { DepartmentsModule } from './departments/departments.module';
+import { CustomerClassificationsModule } from './customer-classifications/customer-classifications.module';
+import { NoPurchaseReasonsModule } from './no-purchase-reasons/no-purchase-reasons.module';
 import { SalesTeamsModule } from './sales-teams/sales-teams.module';
 import { SalesScopeModule } from './sales-scope/sales-scope.module';
 import { SalesPerformanceModule } from './sales-performance/sales-performance.module';
@@ -110,6 +112,8 @@ import { StoreOrdersModule } from './store-orders/store-orders.module';
     PaymentSourcesModule,
     PaymentTermsModule,
     DepartmentsModule,
+    CustomerClassificationsModule,
+    NoPurchaseReasonsModule,
     SalesTeamsModule,
     PaymentsModule,
     UnitsModule,

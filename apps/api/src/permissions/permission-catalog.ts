@@ -403,6 +403,26 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
     ],
   },
   {
+    key: 'customer-classifications',
+    labelKey: 'permissions.modules.customerClassifications',
+    actions: [
+      { action: 'view', name: 'masterdata.customer-classifications.view' },
+      { action: 'create', name: 'masterdata.customer-classifications.create' },
+      { action: 'edit', name: 'masterdata.customer-classifications.edit' },
+      { action: 'delete', name: 'masterdata.customer-classifications.archive' },
+    ],
+  },
+  {
+    key: 'no-purchase-reasons',
+    labelKey: 'permissions.modules.noPurchaseReasons',
+    actions: [
+      { action: 'view', name: 'masterdata.no-purchase-reasons.view' },
+      { action: 'create', name: 'masterdata.no-purchase-reasons.create' },
+      { action: 'edit', name: 'masterdata.no-purchase-reasons.edit' },
+      { action: 'delete', name: 'masterdata.no-purchase-reasons.archive' },
+    ],
+  },
+  {
     key: 'settings',
     labelKey: 'permissions.modules.settings',
     actions: [
@@ -488,6 +508,8 @@ export const IMPLIED_SECTION_PERMISSION: Record<
   'import-center': 'datamanagement.view',
   settings: 'settings.view',
   'masterdata.departments': 'settings.view',
+  'masterdata.customer-classifications': 'settings.view',
+  'masterdata.no-purchase-reasons': 'settings.view',
   // Store Orders is nested under Sales in navigation and the matrix;
   // granting any `store-orders.*` action still implies `store-orders.view`
   // and the ungrantable Sales section gate so the parent sidebar item appears.

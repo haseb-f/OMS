@@ -1614,6 +1614,20 @@ async function main() {
       yearReset: false,
     },
     {
+      documentType: 'CUSTOMER_CLASSIFICATION',
+      label: 'Customer Classification',
+      docCode: 'CC',
+      template: '{DOC}-{SEQ}',
+      yearReset: false,
+    },
+    {
+      documentType: 'NO_PURCHASE_REASON',
+      label: 'No Purchase Reason',
+      docCode: 'NPR',
+      template: '{DOC}-{SEQ}',
+      yearReset: false,
+    },
+    {
       documentType: 'SALES_TEAM',
       label: 'Sales Team',
       docCode: 'ST',
