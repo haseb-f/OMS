@@ -215,6 +215,7 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
       productSku: productDisplayName,
       quantity: '1',
       paidAmount: '100',
+      paymentType: 'CASH_ON_DELIVERY',
       currencyCode,
       paymentMethodLabel,
       agentEmail: employeeEmail,
@@ -225,6 +226,10 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
   async function createAcceptedOrder() {
     const row = storeOrderRow();
     const result = await storeOrdersHandler.importRow(row);
+    await prisma.storeOrder.update({
+      where: { id: result.id },
+      data: { paymentType: 'CASH_ON_DELIVERY' },
+    });
     return prisma.storeOrder.findUniqueOrThrow({ where: { id: result.id } });
   }
 

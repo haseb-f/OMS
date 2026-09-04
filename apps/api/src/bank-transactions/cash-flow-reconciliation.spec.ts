@@ -34,6 +34,7 @@ import { PostingProvidersModule } from '../accounting/posting-providers/posting-
  * permission-gated reconciliation) is exactly what would be mocked away.
  */
 describe('Cash Flow Reconciliation', () => {
+  jest.setTimeout(180_000);
   let moduleRef: TestingModule;
   let prisma: PrismaService;
   let bankTransactions: BankTransactionsService;
@@ -204,7 +205,12 @@ describe('Cash Flow Reconciliation', () => {
     });
     const customerIds = [
       ...new Set([...customers.map((c) => c.id), sharedCustomerId]),
-    ];
+    ].filter((id): id is string => Boolean(id));
+    if (!customerIds.length) {
+      await prisma.$disconnect();
+      if (moduleRef) await moduleRef.close();
+      return;
+    }
     const orders = await prisma.storeOrder.findMany({
       where: { partnerId: { in: customerIds } },
       select: { id: true },

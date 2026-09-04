@@ -59,7 +59,10 @@ describe('StoreOrdersService receipts', () => {
     objectStorage as unknown as ObjectStorageService,
     {} as never,
     {} as never,
-    {} as never,
+    {
+      resolve: jest.fn().mockResolvedValue({ kind: 'ALL' }),
+      assertStoreOrderAccess: jest.fn(),
+    } as never,
   );
 
   beforeEach(() => {
