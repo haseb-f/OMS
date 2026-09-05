@@ -293,6 +293,7 @@ function CrmLeadsPageContent() {
         open={!!assigningLead}
         onOpenChange={(open) => !open && setAssigningLead(null)}
         leadIds={assigningLead ? [assigningLead.id] : []}
+        onAssigned={() => setRefreshToken((n) => n + 1)}
       />
       <LeadOrderCreateDialog
         open={createDialogOpen}
