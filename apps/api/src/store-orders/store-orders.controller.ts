@@ -155,16 +155,22 @@ export class StoreOrdersController {
     @Param('id') id: string,
     @UploadedFile() file: Express.Multer.File | undefined,
     @CurrentUser() user: JwtPayload,
+    @Body('paymentId') paymentId?: string,
   ) {
-    return this.storeOrdersService.uploadReceipt(id, file, user.sub);
+    return this.storeOrdersService.uploadReceipt(id, file, user.sub, paymentId);
   }
 
   @Get(':id/receipts/:receiptId/file')
   async downloadReceipt(
     @Param('id') id: string,
     @Param('receiptId') receiptId: string,
+    @CurrentUser() user: JwtPayload,
   ) {
-    const file = await this.storeOrdersService.getReceiptFile(id, receiptId);
+    const file = await this.storeOrdersService.getReceiptFile(
+      id,
+      receiptId,
+      user.sub,
+    );
     return new StreamableFile(file.body, {
       type: file.mimeType,
       disposition: `inline; filename="${encodeURIComponent(file.fileName)}"`,

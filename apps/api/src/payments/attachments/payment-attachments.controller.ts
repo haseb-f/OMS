@@ -1,15 +1,20 @@
-import { Controller, Get, Param } from '@nestjs/common';
-import { PaymentAttachmentsService } from './payment-attachments.service';
+import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import type { JwtPayload } from '../../auth/guards/jwt-auth.guard';
+import { AttachmentsService } from '../../common/storage/attachments.service';
 
-/** GET only here — creation goes through PaymentsController's "Attach Receipt" operation. */
+/** GET only here — creation goes through PaymentsController upload/attach. */
 @Controller('payments/:paymentId/attachments')
+@UseGuards(JwtAuthGuard)
 export class PaymentAttachmentsController {
-  constructor(
-    private readonly paymentAttachmentsService: PaymentAttachmentsService,
-  ) {}
+  constructor(private readonly attachments: AttachmentsService) {}
 
   @Get()
-  findAll(@Param('paymentId') paymentId: string) {
-    return this.paymentAttachmentsService.findAllForPayment(paymentId);
+  findAll(
+    @Param('paymentId') paymentId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.attachments.listForPayment(paymentId, user.sub);
   }
 }

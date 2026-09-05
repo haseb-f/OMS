@@ -433,6 +433,8 @@ export class LeadsService {
         canViewStoreOrders: true,
         canViewShipping: true,
         canEditShipping: true,
+        canViewPaymentEvidence: true,
+        canManagePaymentEvidence: true,
       },
       lead,
     );
@@ -657,6 +659,7 @@ export class LeadsService {
       amountPaid: dto.amountPaid,
       paymentReference: dto.paymentReference,
       paymentProofUrl: dto.paymentProofUrl,
+      stagingAttachmentIds: dto.stagingAttachmentIds,
       countryId: dto.countryId,
       city: dto.city,
       address: dto.address,

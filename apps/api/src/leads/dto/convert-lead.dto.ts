@@ -56,6 +56,11 @@ export class ConvertLeadDto {
   @IsOptional()
   paymentProofUrl?: string;
 
+  @IsArray()
+  @IsUUID('4', { each: true })
+  @IsOptional()
+  stagingAttachmentIds?: string[];
+
   @IsOptionalUuid()
   countryId?: string;
 

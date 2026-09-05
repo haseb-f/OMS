@@ -46,6 +46,7 @@ import { CreateStoreOrderReceiptDto } from './dto/create-store-order-receipt.dto
 import { SetPaymentReviewStatusDto } from './dto/set-payment-review-status.dto';
 import { ReportStoreOrderPaymentDto } from './dto/report-store-order-payment.dto';
 import { ObjectStorageService } from '../common/storage/object-storage.service';
+import { AttachmentsService } from '../common/storage/attachments.service';
 import { validateAttachmentUpload } from '../common/storage/file-validation';
 import { PhoneNumberService } from '../common/phone/phone-number.service';
 import { WorkflowStatusResolverService } from '../workflow/workflow-status-resolver.service';
@@ -89,11 +90,32 @@ const ORDER_INCLUDE = {
   payments: {
     where: { deletedAt: null },
     orderBy: { createdAt: 'desc' as const },
+    include: {
+      attachments: {
+        where: { deletedAt: null },
+        orderBy: { createdAt: 'asc' as const },
+        include: {
+          uploadedBy: { select: { fullName: true } },
+          attachment: {
+            select: {
+              id: true,
+              originalName: true,
+              mimeType: true,
+              sizeBytes: true,
+              createdAt: true,
+            },
+          },
+        },
+      },
+    },
   },
   receipts: {
     where: { deletedAt: null },
     orderBy: { uploadedAt: 'desc' as const },
-    include: { uploadedBy: { select: { fullName: true } } },
+    include: {
+      uploadedBy: { select: { fullName: true } },
+      attachment: { select: { id: true } },
+    },
   },
 } satisfies Prisma.StoreOrderInclude;
 
@@ -170,6 +192,7 @@ export class StoreOrdersService {
     private readonly activityService: StoreOrderActivityService,
     private readonly paymentSync: StoreOrderPaymentSyncService,
     private readonly objectStorage: ObjectStorageService,
+    private readonly attachments: AttachmentsService,
     private readonly phoneNumberService: PhoneNumberService,
     private readonly statusResolver: WorkflowStatusResolverService,
     private readonly salesScope: SalesScopeService,
@@ -475,11 +498,8 @@ export class StoreOrdersService {
     const sortDir = query.sortOrder ?? 'desc';
     const orderBy =
       sortField === 'id'
-        ? [{ id: sortDir as Prisma.SortOrder }]
-        : [
-            { [sortField]: sortDir as Prisma.SortOrder },
-            { id: 'desc' as const },
-          ];
+        ? [{ id: sortDir }]
+        : [{ [sortField]: sortDir }, { id: 'desc' as const }];
     const [items, total] = await Promise.all([
       this.prisma.storeOrder.findMany({
         where,
@@ -534,7 +554,7 @@ export class StoreOrdersService {
         select: { id: true },
         orderBy:
           query.sortBy === 'id'
-            ? [{ id: (query.sortOrder ?? 'desc') as Prisma.SortOrder }]
+            ? [{ id: query.sortOrder ?? 'desc' }]
             : [
                 {
                   [query.sortBy || 'createdAt']: query.sortOrder ?? 'desc',
@@ -561,7 +581,26 @@ export class StoreOrdersService {
       this.salesScope.assertStoreOrderAccess(scope, order);
     }
     const withStatus = await this.attachCurrentShippingStatus(order);
-    return { ...withStatus, receipts: this.mapReceipts(id, order.receipts) };
+    return {
+      ...withStatus,
+      payments: (order.payments ?? []).map((payment) => ({
+        ...payment,
+        attachments: (payment.attachments ?? []).map((row) => ({
+          id: row.id,
+          attachmentId: row.attachment?.id ?? null,
+          fileName: row.attachment?.originalName ?? row.fileName,
+          mimeType: row.attachment?.mimeType ?? null,
+          sizeBytes: row.attachment?.sizeBytes ?? null,
+          source: row.attachment ? 'UPLOAD' : 'URL',
+          fileUrl: row.attachment
+            ? `/attachments/${row.attachment.id}/file`
+            : row.fileUrl,
+          uploadedBy: row.uploadedBy?.fullName ?? null,
+          createdAt: row.attachment?.createdAt ?? row.createdAt,
+        })),
+      })),
+      receipts: this.mapReceipts(id, order.receipts),
+    };
   }
 
   /**
@@ -841,7 +880,10 @@ export class StoreOrdersService {
           fileName: dto.fileName,
           uploadedById: userId,
         },
-        include: { uploadedBy: { select: { fullName: true } } },
+        include: {
+          uploadedBy: { select: { fullName: true } },
+          attachment: { select: { id: true } },
+        },
       });
       await this.activityService.log(
         id,
@@ -858,16 +900,60 @@ export class StoreOrdersService {
     id: string,
     file: Express.Multer.File | undefined,
     userId?: string,
+    paymentId?: string,
   ) {
-    await this.findOne(id, userId);
+    const order = await this.findOne(id, userId);
+    if (userId) {
+      const scope = await this.salesScope.resolve(userId);
+      this.salesScope.assertPaymentEvidenceAccess(scope, order);
+    }
+    if (paymentId) {
+      if (!userId) {
+        throw new BadRequestException('Authentication required.');
+      }
+      await this.attachments.uploadForPayment(paymentId, file, userId);
+      const receipt = await this.prisma.storeOrderReceipt.findFirst({
+        where: { storeOrderId: id, paymentId, deletedAt: null },
+        orderBy: { uploadedAt: 'desc' },
+        include: {
+          uploadedBy: { select: { fullName: true } },
+          attachment: { select: { id: true } },
+        },
+      });
+      if (!receipt) {
+        throw new BadRequestException('تعذر رفع الإيصال، حاول مرة أخرى');
+      }
+      await this.activityService.log(
+        id,
+        StoreOrderActivityType.RECEIPT_ATTACHED,
+        `Receipt uploaded: ${receipt.fileName ?? ''}`.trim(),
+        userId,
+      );
+      return this.mapReceipt(id, receipt);
+    }
     const validated = validateAttachmentUpload(file);
     const storageKey = `store-order-receipts/${id}/${randomUUID()}${validated.extension}`;
-    await this.objectStorage.put(storageKey, file!.buffer);
+    await this.objectStorage.put(storageKey, file!.buffer, validated.mimeType);
     try {
       return await this.prisma.$transaction(async (tx) => {
+        const attachment = userId
+          ? await tx.attachment.create({
+              data: {
+                fileName: `${randomUUID()}${validated.extension}`,
+                originalName: validated.originalName,
+                mimeType: validated.mimeType,
+                sizeBytes: validated.sizeBytes,
+                storageProvider: this.objectStorage.provider(),
+                storageKey,
+                uploadedById: userId,
+                finalizedAt: new Date(),
+              },
+            })
+          : null;
         const receipt = await tx.storeOrderReceipt.create({
           data: {
             storeOrderId: id,
+            attachmentId: attachment?.id,
             fileUrl: `storage:${storageKey}`,
             fileName: validated.originalName,
             mimeType: validated.mimeType,
@@ -875,7 +961,10 @@ export class StoreOrdersService {
             storageKey,
             uploadedById: userId,
           },
-          include: { uploadedBy: { select: { fullName: true } } },
+          include: {
+            uploadedBy: { select: { fullName: true } },
+            attachment: { select: { id: true } },
+          },
         });
         await this.activityService.log(
           id,
@@ -892,13 +981,22 @@ export class StoreOrdersService {
     }
   }
 
-  async getReceiptFile(id: string, receiptId: string) {
-    await this.findOne(id);
+  async getReceiptFile(id: string, receiptId: string, userId?: string) {
+    const order = await this.findOne(id, userId);
+    if (userId) {
+      const scope = await this.salesScope.resolve(userId);
+      this.salesScope.assertPaymentEvidenceAccess(scope, order);
+    } else {
+      throw new ForbiddenException('ليس لديك صلاحية لعرض هذا الإيصال');
+    }
     const receipt = await this.prisma.storeOrderReceipt.findFirst({
       where: { id: receiptId, storeOrderId: id, deletedAt: null },
     });
     if (!receipt) {
       throw new NotFoundException('Attachment not found.');
+    }
+    if (receipt.attachmentId) {
+      return this.attachments.getFile(receipt.attachmentId, userId);
     }
     if (!receipt.storageKey) {
       throw new BadRequestException('This attachment is an external URL.');
@@ -912,18 +1010,40 @@ export class StoreOrdersService {
   }
 
   async archiveReceipt(id: string, receiptId: string, userId?: string) {
-    await this.findOne(id, userId);
+    const order = await this.findOne(id, userId);
     const receipt = await this.prisma.storeOrderReceipt.findFirst({
       where: { id: receiptId, storeOrderId: id, deletedAt: null },
+      include: { payment: { select: { id: true, status: true } } },
     });
     if (!receipt) {
       throw new NotFoundException('Attachment not found.');
     }
+    if (userId) {
+      const scope = await this.salesScope.resolve(userId);
+      this.salesScope.assertPaymentEvidenceAccess(scope, order);
+      const locked = receipt.payment?.status === PaymentStatus.VERIFIED;
+      if (locked && !scope.canManagePaymentEvidence) {
+        throw new ForbiddenException(
+          'لا يمكن حذف إيصال سداد بعد التحقق إلا بصلاحية مالية.',
+        );
+      }
+    }
+    const locked = receipt.payment?.status === PaymentStatus.VERIFIED;
     await this.prisma.$transaction(async (tx) => {
       await tx.storeOrderReceipt.update({
         where: { id: receiptId },
         data: { deletedAt: new Date() },
       });
+      if (receipt.attachmentId) {
+        await tx.attachment.update({
+          where: { id: receipt.attachmentId },
+          data: { deletedAt: new Date(), deletedById: userId },
+        });
+        await tx.paymentAttachment.updateMany({
+          where: { attachmentId: receipt.attachmentId, deletedAt: null },
+          data: { deletedAt: new Date() },
+        });
+      }
       await this.activityService.log(
         id,
         StoreOrderActivityType.RECEIPT_REMOVED,
@@ -932,7 +1052,7 @@ export class StoreOrdersService {
         tx,
       );
     });
-    if (receipt.storageKey) {
+    if (!locked && receipt.storageKey) {
       await this.objectStorage.delete(receipt.storageKey);
     }
     return { id: receiptId };
@@ -942,6 +1062,7 @@ export class StoreOrdersService {
     orderId: string,
     receipts: Array<{
       id: string;
+      paymentId?: string | null;
       fileUrl: string;
       fileName: string | null;
       mimeType: string | null;
@@ -949,6 +1070,7 @@ export class StoreOrdersService {
       storageKey: string | null;
       uploadedAt: Date;
       uploadedBy: { fullName: string } | null;
+      attachment?: { id: string } | null;
     }>,
   ) {
     return receipts.map((receipt) => this.mapReceipt(orderId, receipt));
@@ -958,6 +1080,7 @@ export class StoreOrdersService {
     orderId: string,
     receipt: {
       id: string;
+      paymentId?: string | null;
       fileUrl: string;
       fileName: string | null;
       mimeType?: string | null;
@@ -965,14 +1088,19 @@ export class StoreOrdersService {
       storageKey?: string | null;
       uploadedAt: Date;
       uploadedBy?: { fullName: string } | null;
+      attachment?: { id: string } | null;
     },
   ) {
-    const uploaded = Boolean(receipt.storageKey);
+    const uploaded = Boolean(receipt.storageKey || receipt.attachment);
     return {
       id: receipt.id,
-      fileUrl: uploaded
-        ? `/store-orders/${orderId}/receipts/${receipt.id}/file`
-        : receipt.fileUrl,
+      paymentId: receipt.paymentId ?? null,
+      attachmentId: receipt.attachment?.id ?? null,
+      fileUrl: receipt.attachment
+        ? `/attachments/${receipt.attachment.id}/file`
+        : uploaded
+          ? `/store-orders/${orderId}/receipts/${receipt.id}/file`
+          : receipt.fileUrl,
       fileName: receipt.fileName,
       mimeType: receipt.mimeType ?? null,
       fileSizeBytes: receipt.fileSizeBytes ?? null,

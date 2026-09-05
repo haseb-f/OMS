@@ -20,6 +20,8 @@ export interface SalesScope {
   canViewStoreOrders: boolean;
   canViewShipping: boolean;
   canEditShipping: boolean;
+  canViewPaymentEvidence: boolean;
+  canManagePaymentEvidence: boolean;
 }
 
 /**
@@ -42,13 +44,32 @@ export class SalesScopeService {
       canViewStoreOrders,
       canViewShipping,
       canEditShipping,
+      canViewFinance,
+      canViewSalesReceipts,
+      canConfirmSalesReceipts,
+      canManageStoreOrders,
     ] = await Promise.all([
       this.permissions.hasPermission(userId, 'crm.leads.manage'),
       this.permissions.hasPermission(userId, 'crm.leads.view'),
       this.permissions.hasPermission(userId, 'store-orders.view'),
       this.permissions.hasPermission(userId, 'shipping.view'),
       this.permissions.hasPermission(userId, 'shipping.edit'),
+      this.permissions.hasPermission(userId, 'finance.view'),
+      this.permissions.hasPermission(userId, 'sales.receipts.view'),
+      this.permissions.hasPermission(userId, 'sales.receipts.confirm'),
+      this.permissions.hasPermission(userId, 'store-orders.manage'),
     ]);
+
+    const canManagePaymentEvidence =
+      isSuperAdmin ||
+      canViewFinance ||
+      canConfirmSalesReceipts ||
+      canManageStoreOrders;
+    const canViewPaymentEvidence =
+      canManagePaymentEvidence ||
+      canViewSalesReceipts ||
+      canViewLeads ||
+      canManageLeads;
 
     if (isSuperAdmin) {
       return {
@@ -61,6 +82,8 @@ export class SalesScopeService {
         canViewStoreOrders: true,
         canViewShipping: true,
         canEditShipping: true,
+        canViewPaymentEvidence: true,
+        canManagePaymentEvidence: true,
       };
     }
 
@@ -87,6 +110,8 @@ export class SalesScopeService {
         canViewStoreOrders,
         canViewShipping,
         canEditShipping,
+        canViewPaymentEvidence,
+        canManagePaymentEvidence,
       };
     }
 
@@ -101,6 +126,8 @@ export class SalesScopeService {
         canViewStoreOrders,
         canViewShipping,
         canEditShipping,
+        canViewPaymentEvidence,
+        canManagePaymentEvidence,
       };
     }
 
@@ -115,11 +142,13 @@ export class SalesScopeService {
         canViewStoreOrders,
         canViewShipping,
         canEditShipping,
+        canViewPaymentEvidence,
+        canManagePaymentEvidence,
       };
     }
 
     return {
-      kind: canViewShipping ? 'NONE' : 'NONE',
+      kind: 'NONE',
       ownerIds: [],
       userId,
       isSuperAdmin,
@@ -128,6 +157,8 @@ export class SalesScopeService {
       canViewStoreOrders,
       canViewShipping,
       canEditShipping,
+      canViewPaymentEvidence,
+      canManagePaymentEvidence,
     };
   }
 
@@ -171,7 +202,13 @@ export class SalesScopeService {
     scope: SalesScope,
     order: { employeeId: string | null },
   ): boolean {
-    if (scope.canViewShipping || scope.kind === 'ALL') return true;
+    if (
+      scope.canViewShipping ||
+      scope.kind === 'ALL' ||
+      scope.canManagePaymentEvidence
+    ) {
+      return true;
+    }
     if (!order.employeeId) return scope.kind === 'TEAM' || scope.canManageLeads;
     return scope.ownerIds?.includes(order.employeeId) ?? false;
   }
@@ -212,5 +249,31 @@ export class SalesScopeService {
       return scope.ownerIds?.includes(targetEmployeeId) ?? false;
     }
     return targetEmployeeId === scope.userId;
+  }
+
+  /**
+   * Payment receipts are financial evidence. Shipping visibility of an
+   * Order does not grant receipt access.
+   */
+  canAccessPaymentEvidence(
+    scope: SalesScope,
+    order: { employeeId: string | null },
+  ): boolean {
+    if (!scope.canViewPaymentEvidence) return false;
+    if (scope.canManagePaymentEvidence || scope.kind === 'ALL') return true;
+    if (!order.employeeId) {
+      return scope.kind === 'TEAM' || scope.canManageLeads;
+    }
+    return scope.ownerIds?.includes(order.employeeId) ?? false;
+  }
+
+  assertPaymentEvidenceAccess(
+    scope: SalesScope,
+    order: { id: string; employeeId: string | null } | null,
+  ) {
+    if (!order) throw new NotFoundException('Store Order not found');
+    if (!this.canAccessPaymentEvidence(scope, order)) {
+      throw new ForbiddenException('ليس لديك صلاحية لعرض هذا الإيصال');
+    }
   }
 }

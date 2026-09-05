@@ -24,6 +24,7 @@ import { PermissionsResolverService } from '../permissions/permissions-resolver.
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import { StatusDefinitionsService } from '../status-definitions/status-definitions.service';
 import { SalesScopeService } from '../sales-scope/sales-scope.service';
+import { AttachmentsService } from '../common/storage/attachments.service';
 import { derivedUnitPrice } from '../store-orders/store-order-line-amount';
 import {
   type WorkflowEntityType,
@@ -64,6 +65,7 @@ export interface LeadConvertPayload {
   amountPaid?: number;
   paymentReference?: string;
   paymentProofUrl?: string;
+  stagingAttachmentIds?: string[];
   countryId?: string;
   city?: string;
   address?: string;
@@ -84,6 +86,7 @@ export class WorkflowEngineService {
     private readonly statusDefinitions: StatusDefinitionsService,
     private readonly numberingEngine: NumberingEngineService,
     private readonly salesScope: SalesScopeService,
+    private readonly attachments: AttachmentsService,
   ) {}
 
   async getAvailableActions(
@@ -840,13 +843,31 @@ export class WorkflowEngineService {
         paymentStatus: StoreOrderPaymentStatus.PAYMENT_REVIEW,
       },
     });
+    if (payload?.stagingAttachmentIds?.length) {
+      await this.attachments.finalizeForPayment(
+        payment.id,
+        storeOrderId,
+        payload.stagingAttachmentIds,
+        userId,
+        tx,
+      );
+    }
     if (payload?.paymentProofUrl?.trim()) {
+      await tx.paymentAttachment.create({
+        data: {
+          paymentId: payment.id,
+          uploadedById: userId,
+          fileUrl: payload.paymentProofUrl.trim(),
+          fileName: 'legacy-payment-proof',
+          attachmentType: 'PAYMENT_RECEIPT',
+        },
+      });
       await tx.storeOrderReceipt.create({
         data: {
           storeOrderId,
           paymentId: payment.id,
           fileUrl: payload.paymentProofUrl.trim(),
-          fileName: 'payment-proof',
+          fileName: 'legacy-payment-proof',
           uploadedById: userId,
         },
       });

@@ -164,7 +164,7 @@ describe('Cash Flow Reconciliation', () => {
         username: `cash-flow-test-${suffix}`,
         fullName: 'Cash Flow Tester',
         passwordHash: 'x',
-        isSuperAdmin: false,
+        isSuperAdmin: true,
       },
     });
     testUserId = user.id;

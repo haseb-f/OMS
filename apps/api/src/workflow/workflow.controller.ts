@@ -146,6 +146,7 @@ export class WorkflowController {
           amountPaid: dto.amountPaid,
           paymentReference: dto.paymentReference,
           paymentProofUrl: dto.paymentProofUrl,
+          stagingAttachmentIds: dto.stagingAttachmentIds,
           countryId: dto.countryId,
           city: dto.city,
           address: dto.address,

@@ -32,6 +32,7 @@ describe('StoreOrdersService receipts', () => {
     shipments: [],
     items: [],
     receipts: [],
+    payments: [],
     currencyId: 'c1',
   };
 
@@ -42,12 +43,19 @@ describe('StoreOrdersService receipts', () => {
       findFirst: jest.fn(),
       update: jest.fn(),
     },
+    attachment: { create: jest.fn(), update: jest.fn() },
+    paymentAttachment: { updateMany: jest.fn() },
     payment: { findFirst: jest.fn() },
     shippingStatus: { findFirst: jest.fn() },
     $transaction: jest.fn(),
   };
   const activityService = { log: jest.fn() };
-  const objectStorage = { put: jest.fn(), get: jest.fn(), delete: jest.fn() };
+  const objectStorage = {
+    put: jest.fn(),
+    get: jest.fn(),
+    delete: jest.fn(),
+    provider: jest.fn().mockReturnValue('local'),
+  };
 
   const service = new StoreOrdersService(
     prisma as unknown as PrismaService,
@@ -57,11 +65,20 @@ describe('StoreOrdersService receipts', () => {
     activityService as never,
     {} as never,
     objectStorage as unknown as ObjectStorageService,
+    {
+      uploadForPayment: jest.fn(),
+      getFile: jest.fn(),
+    } as never,
     {} as never,
     {} as never,
     {
-      resolve: jest.fn().mockResolvedValue({ kind: 'ALL' }),
+      resolve: jest.fn().mockResolvedValue({
+        kind: 'ALL',
+        canViewPaymentEvidence: true,
+        canManagePaymentEvidence: true,
+      }),
       assertStoreOrderAccess: jest.fn(),
+      assertPaymentEvidenceAccess: jest.fn(),
     } as never,
   );
 
@@ -86,6 +103,7 @@ describe('StoreOrdersService receipts', () => {
       uploadedBy: { fullName: 'Admin' },
     };
     prisma.storeOrderReceipt.create.mockResolvedValue(created);
+    prisma.attachment.create.mockResolvedValue({ id: 'a1' });
 
     const result = await service.uploadReceipt(orderId, jpegFile(), userId);
 
@@ -142,15 +160,15 @@ describe('StoreOrdersService receipts', () => {
       deletedAt: null,
     });
     await expect(
-      service.getReceiptFile(orderId, 'url-1'),
+      service.getReceiptFile(orderId, 'url-1', userId),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('blocks download/delete when the order is missing (unauthorized/unknown)', async () => {
     prisma.storeOrder.findFirst.mockResolvedValue(null);
-    await expect(service.getReceiptFile(orderId, 'r1')).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      service.getReceiptFile(orderId, 'r1', userId),
+    ).rejects.toBeInstanceOf(NotFoundException);
     await expect(
       service.archiveReceipt(orderId, 'r1', userId),
     ).rejects.toBeInstanceOf(NotFoundException);
