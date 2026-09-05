@@ -61,9 +61,12 @@ export class FindLeadsQueryDto extends MasterDataQueryDto {
   @IsOptional()
   lifecycle?: LeadLifecycleFilter;
 
-  @Transform(({ value }) => {
+  @Transform(({ value }): string[] | undefined => {
     if (value == null || value === '') return undefined;
-    return Array.isArray(value) ? value : String(value).split(',');
+    if (Array.isArray(value)) {
+      return value.map((item) => String(item));
+    }
+    return String(value).split(',');
   })
   @IsUUID('4', { each: true })
   @IsOptional()

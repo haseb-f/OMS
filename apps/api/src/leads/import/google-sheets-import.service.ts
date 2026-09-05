@@ -24,13 +24,13 @@ export class GoogleSheetsImportService implements LeadImportService {
     private readonly leadsService: LeadsService,
   ) {}
 
-  async parse(source: unknown): Promise<CreateLeadDto[]> {
+  parse(source: unknown): Promise<CreateLeadDto[]> {
     if (!Array.isArray(source)) {
       throw new Error(
         'Google Sheets Lead import expects an array of row DTOs.',
       );
     }
-    return source as CreateLeadDto[];
+    return Promise.resolve(source as CreateLeadDto[]);
   }
 
   async import(source: unknown): Promise<LeadImportResult> {

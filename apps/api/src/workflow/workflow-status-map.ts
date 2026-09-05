@@ -31,7 +31,7 @@ export const ORDER_PAYMENT_CODE_TO_ENUM: Record<
     code,
     enumKey as StoreOrderPaymentStatus,
   ]),
-) as Record<string, StoreOrderPaymentStatus>;
+);
 
 export const FULFILLMENT_STAGE_CODE: Record<StoreOrderShippingStage, string> = {
   [StoreOrderShippingStage.NOT_READY]: 'UNFULFILLED',
