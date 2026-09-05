@@ -19,6 +19,12 @@ import { useLocale } from "@/providers/locale-provider";
 import { useCurrencies, usePaymentMethods } from "@/hooks/use-reference-data";
 import { toast } from "@/lib/toast";
 import { toISODate } from "@/lib/date";
+import {
+  PaymentReceiptsField,
+  stagingIdsOf,
+  type ReceiptUploadItem,
+} from "@/components/business/payment-receipts-field";
+import { attachmentsService } from "@/services/attachments-service";
 
 interface LookupRow {
   id: string;
@@ -69,7 +75,7 @@ export function StoreOrderAddPaymentDialog({
   const [referenceNumber, setReferenceNumber] = useState("");
   const [senderName, setSenderName] = useState(customerName);
   const [notes, setNotes] = useState("");
-  const [receiptUrl, setReceiptUrl] = useState("");
+  const [receiptItems, setReceiptItems] = useState<ReceiptUploadItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -93,7 +99,7 @@ export function StoreOrderAddPaymentDialog({
     setReferenceNumber("");
     setSenderName(customerName);
     setNotes("");
-    setReceiptUrl("");
+    setReceiptItems([]);
   }, [open, storeOrderId, orderCurrencyId, customerName]);
 
   const amountValue = Number(amount);
@@ -120,10 +126,9 @@ export function StoreOrderAddPaymentDialog({
       if (notes.trim()) {
         await apiClient.post(`/payments/${payment.id}/notes`, { text: notes.trim() });
       }
-      if (receiptUrl.trim()) {
-        await apiClient.post(`/payments/${payment.id}/attachments`, {
-          fileUrl: receiptUrl.trim(),
-        });
+      const stagingIds = stagingIdsOf(receiptItems);
+      if (stagingIds.length > 0) {
+        await attachmentsService.attachStaging(payment.id, stagingIds);
       }
       toast.success(t("storeOrders.detail.payments.added"));
       onOpenChange(false);
@@ -254,15 +259,11 @@ export function StoreOrderAddPaymentDialog({
             <Label>{t("storeOrders.detail.payments.notes")}</Label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </div>
-          <div className="col-span-full flex flex-col gap-1">
-            <Label>{t("storeOrders.detail.payments.receipt")}</Label>
-            <Input
-              dir="ltr"
-              value={receiptUrl}
-              onChange={(e) => setReceiptUrl(e.target.value)}
-              placeholder="https://…"
-            />
-          </div>
+          <PaymentReceiptsField
+            items={receiptItems}
+            onChange={setReceiptItems}
+            disabled={isSaving}
+          />
         </ModalSection>
         <CreateOperationSummary
           title={t("common.summary")}

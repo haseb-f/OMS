@@ -35,6 +35,18 @@ export interface StoreOrderItemRow {
   agreedAmount?: string;
 }
 
+export interface StoreOrderPaymentAttachmentRow {
+  id: string;
+  attachmentId: string | null;
+  fileName: string | null;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  source: "UPLOAD" | "URL";
+  fileUrl: string;
+  uploadedBy: string | null;
+  createdAt: string;
+}
+
 export interface StoreOrderPaymentRow {
   id: string;
   paymentNumber: string;
@@ -43,10 +55,13 @@ export interface StoreOrderPaymentRow {
   paymentDate: string;
   referenceNumber?: string | null;
   paymentSource?: { id?: string; name: string } | null;
+  attachments?: StoreOrderPaymentAttachmentRow[];
 }
 
 export interface StoreOrderReceiptRow {
   id: string;
+  paymentId?: string | null;
+  attachmentId?: string | null;
   fileUrl: string;
   fileName: string | null;
   mimeType?: string | null;

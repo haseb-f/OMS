@@ -39,6 +39,8 @@ import { AuditTimeline, type TimelineEntry } from "@/components/business/timelin
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { IconActionButton } from "@/components/shared/icon-action-button";
 import { FileDropField } from "@/components/shared/form-fields";
+import { AttachmentPreviewDialog } from "@/components/business/attachment-preview-dialog";
+import { attachmentsService } from "@/services/attachments-service";
 import {
   storeOrdersService,
   type StoreOrderActivityEntry,
@@ -137,6 +139,11 @@ function StoreOrderDetailContent() {
   const [notesOpen, setNotesOpen] = useState(false);
   const [shippingEditOpen, setShippingEditOpen] = useState(false);
   const [shippingCompanies, setShippingCompanies] = useState<ShippingCompanyOption[]>([]);
+  const [preview, setPreview] = useState<{
+    title: string;
+    mimeType: string | null;
+    blob: Blob | null;
+  } | null>(null);
 
   useBreadcrumbLabel(order?.internalOrderId ?? null);
 
@@ -273,10 +280,14 @@ function StoreOrderDetailContent() {
       return;
     }
     try {
-      const blob = await storeOrdersService.receipts.download(order.id, receipt.id);
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank", "noopener,noreferrer");
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      const blob = receipt.attachmentId
+        ? await attachmentsService.download(receipt.attachmentId)
+        : await storeOrdersService.receipts.download(order.id, receipt.id);
+      setPreview({
+        title: receipt.fileName ?? t("storeOrders.detail.receipts.fileName"),
+        mimeType: receipt.mimeType ?? blob.type,
+        blob,
+      });
     } catch (error) {
       toast.error(
         error instanceof ApiError ? error.message : t("storeOrders.detail.receipts.downloadFailed"),
@@ -628,6 +639,16 @@ function StoreOrderDetailContent() {
                         tone={paymentStatus.tone}
                       />
                     );
+                  },
+                },
+                {
+                  id: "receipts",
+                  header: t("storeOrders.detail.payments.receipts"),
+                  cell: (payment) => {
+                    const count = payment.attachments?.length ?? 0;
+                    return count > 0
+                      ? t("storeOrders.detail.payments.receiptCount", { count: String(count) })
+                      : "—";
                   },
                 },
               ]}
@@ -1001,6 +1022,15 @@ function StoreOrderDetailContent() {
         cancelLabel={t("common.cancel")}
         isConfirming={isRemovingReceipt}
         onConfirm={() => void handleRemoveReceipt()}
+      />
+      <AttachmentPreviewDialog
+        open={Boolean(preview)}
+        onOpenChange={(open) => {
+          if (!open) setPreview(null);
+        }}
+        title={preview?.title ?? ""}
+        mimeType={preview?.mimeType ?? null}
+        blob={preview?.blob ?? null}
       />
     </div>
   );

@@ -24,6 +24,12 @@ import type { CityRow, CurrencyRow, PaymentMethodRow } from "@/config/master-dat
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { createMasterDataService } from "@/services/master-data-service";
+import {
+  PaymentReceiptsField,
+  stagingIdsOf,
+  type ReceiptUploadItem,
+} from "@/components/business/payment-receipts-field";
+import { attachmentsService } from "@/services/attachments-service";
 
 const citiesService = createMasterDataService<CityRow>("/cities");
 
@@ -58,7 +64,7 @@ export function LeadConvertDialog({
   const [currency, setCurrency] = useState<CurrencyRow | null>(null);
   const [amountPaid, setAmountPaid] = useState("0");
   const [paymentReference, setPaymentReference] = useState("");
-  const [paymentProofUrl, setPaymentProofUrl] = useState("");
+  const [receiptItems, setReceiptItems] = useState<ReceiptUploadItem[]>([]);
   const [countryId, setCountryId] = useState(lead.countryId);
   const [city, setCity] = useState(lead.city ?? "");
   const [address, setAddress] = useState(lead.address ?? "");
@@ -91,7 +97,7 @@ export function LeadConvertDialog({
     setCurrency(currencies.find((c) => c.id === lead.currencyId) ?? null);
     setAmountPaid("0");
     setPaymentReference("");
-    setPaymentProofUrl("");
+    setReceiptItems([]);
     setCountryId(lead.countryId);
     setCity(lead.city ?? "");
     setAddress(lead.address ?? "");
@@ -152,7 +158,7 @@ export function LeadConvertDialog({
         currencyId: currency?.id ?? lead.currencyId,
         amountPaid: paymentType === "CASH_ON_DELIVERY" ? 0 : paid,
         paymentReference: paymentReference.trim() || undefined,
-        paymentProofUrl: paymentProofUrl.trim() || undefined,
+        stagingAttachmentIds: stagingIdsOf(receiptItems),
         countryId,
         city: city.trim() || undefined,
         address: address.trim() || undefined,
@@ -186,7 +192,11 @@ export function LeadConvertDialog({
             <EnterpriseButton variant="outline" onClick={() => setStep("form")}>
               {t("crm.leads.convert.backToEdit")}
             </EnterpriseButton>
-            <EnterpriseButton variant="success" disabled={isSaving} onClick={() => void submit()}>
+            <EnterpriseButton
+              variant="success"
+              disabled={isSaving || receiptItems.some((item) => item.status === "uploading")}
+              onClick={() => void submit()}
+            >
               {t("crm.leads.convert.confirmCreate")}
             </EnterpriseButton>
           </div>
@@ -314,9 +324,21 @@ export function LeadConvertDialog({
                     ? { id: "CASH_ON_DELIVERY", name: t("crm.leads.convert.cod") }
                     : { id: "PREPAID", name: t("crm.leads.convert.prepaid") }
                 }
-                onChange={(value) =>
-                  setPaymentType((value?.id as "PREPAID" | "CASH_ON_DELIVERY") ?? "PREPAID")
-                }
+                onChange={(value) => {
+                  const next = (value?.id as "PREPAID" | "CASH_ON_DELIVERY") ?? "PREPAID";
+                  setPaymentType(next);
+                  if (next === "CASH_ON_DELIVERY") {
+                    for (const item of receiptItems) {
+                      if (item.staging) {
+                        void attachmentsService
+                          .discardStaging(item.staging.id)
+                          .catch(() => undefined);
+                      }
+                    }
+                    setReceiptItems([]);
+                    setAmountPaid("0");
+                  }
+                }}
                 items={[
                   { id: "PREPAID", name: t("crm.leads.convert.prepaid") },
                   { id: "CASH_ON_DELIVERY", name: t("crm.leads.convert.cod") },
@@ -368,15 +390,12 @@ export function LeadConvertDialog({
                 onChange={(event) => setPaymentReference(event.target.value)}
               />
             </div>
-            <div className="flex flex-col gap-1">
-              <Label>{t("crm.leads.convert.paymentProof")}</Label>
-              <Input
-                dir="ltr"
-                value={paymentProofUrl}
-                onChange={(event) => setPaymentProofUrl(event.target.value)}
-                placeholder="https://…"
-              />
-            </div>
+            <PaymentReceiptsField
+              items={receiptItems}
+              onChange={setReceiptItems}
+              disabled={isSaving}
+              visible={paymentType === "PREPAID" && paid > 0}
+            />
           </ModalSection>
 
           <ModalSection title={t("crm.leads.convert.sectionShipping")} columns={2}>
