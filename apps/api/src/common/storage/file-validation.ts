@@ -4,6 +4,14 @@ export const ATTACHMENT_MAX_BYTES = Number(
   process.env.ATTACHMENT_MAX_BYTES ?? 10 * 1024 * 1024,
 );
 
+export const ATTACHMENT_MAX_PER_PAYMENT = Number(
+  process.env.ATTACHMENT_MAX_PER_PAYMENT ?? 10,
+);
+
+export const ATTACHMENT_STAGING_TTL_MS = Number(
+  process.env.ATTACHMENT_STAGING_TTL_MS ?? 24 * 60 * 60 * 1000,
+);
+
 export const ALLOWED_ATTACHMENT_MIME = {
   'image/jpeg': ['.jpg', '.jpeg'],
   'image/png': ['.png'],
@@ -63,7 +71,7 @@ export function validateAttachmentUpload(
   if (!file?.buffer || file.buffer.length === 0) {
     throw new BadRequestException({
       code: 'VALIDATION_ERROR',
-      message: 'The uploaded file is empty.',
+      message: 'الملف المحدد فارغ.',
       fields: [{ field: 'file', constraints: ['empty'] }],
     });
   }
@@ -71,7 +79,7 @@ export function validateAttachmentUpload(
   if (sizeBytes > ATTACHMENT_MAX_BYTES) {
     throw new BadRequestException({
       code: 'VALIDATION_ERROR',
-      message: 'The uploaded file exceeds the maximum size.',
+      message: 'حجم الملف يتجاوز الحد المسموح',
       fields: [{ field: 'file', constraints: ['max_size'] }],
     });
   }
@@ -79,7 +87,7 @@ export function validateAttachmentUpload(
   if (!sniffed) {
     throw new BadRequestException({
       code: 'VALIDATION_ERROR',
-      message: 'Only JPG, PNG, WEBP, and PDF files are allowed.',
+      message: 'نوع الملف غير مدعوم',
       fields: [{ field: 'file', constraints: ['mime'] }],
     });
   }
@@ -89,7 +97,7 @@ export function validateAttachmentUpload(
   if (extension && !allowedExt.includes(extension)) {
     throw new BadRequestException({
       code: 'VALIDATION_ERROR',
-      message: 'The file extension does not match the file contents.',
+      message: 'نوع الملف غير مدعوم',
       fields: [{ field: 'file', constraints: ['extension'] }],
     });
   }

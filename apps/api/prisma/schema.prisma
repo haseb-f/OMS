@@ -67,6 +67,8 @@ model User {
 
   paymentNotes         PaymentNote[]
   paymentAttachments   PaymentAttachment[]
+  uploadedAttachments  Attachment[]        @relation("AttachmentUploadedBy")
+  deletedAttachments   Attachment[]        @relation("AttachmentDeletedBy")
   paymentsAsMatchedBy  Payment[]           @relation("PaymentMatchedBy")
   paymentsAsVerifiedBy Payment[]           @relation("PaymentVerifiedBy")
   paymentsAsRejectedBy Payment[]           @relation("PaymentRejectedBy")
@@ -2283,13 +2285,49 @@ model BankTransaction {
   @@map("bank_transactions")
 }
 
-/// Unlimited attachments (Transfer Receipt, Bank Screenshot, Payment
-/// Confirmation, ...) — same shape as SalesOrderAttachment.
+/// Canonical reusable file object. Bytes live in object storage — never in
+/// PostgreSQL. Staging rows (`finalizedAt` null) expire and are cleaned up
+/// if conversion/payment linking does not complete.
+model Attachment {
+  id String @id @default(uuid()) @db.Uuid
+
+  fileName        String @map("file_name")
+  originalName    String @map("original_name")
+  mimeType        String @map("mime_type")
+  sizeBytes       Int    @map("size_bytes")
+  storageProvider String @map("storage_provider")
+  storageKey      String @unique @map("storage_key")
+  checksum        String?
+
+  uploadedById String @map("uploaded_by_id") @db.Uuid
+  uploadedBy   User   @relation("AttachmentUploadedBy", fields: [uploadedById], references: [id])
+
+  createdAt      DateTime  @default(now()) @map("created_at")
+  finalizedAt    DateTime? @map("finalized_at")
+  expiresAt      DateTime? @map("expires_at")
+  deletedAt      DateTime? @map("deleted_at")
+  deletedById    String?   @map("deleted_by_id") @db.Uuid
+  deletedBy      User?     @relation("AttachmentDeletedBy", fields: [deletedById], references: [id])
+  deletionReason String?   @map("deletion_reason")
+
+  paymentLinks       PaymentAttachment[]
+  storeOrderReceipts StoreOrderReceipt[]
+
+  @@index([uploadedById])
+  @@index([deletedAt, finalizedAt])
+  @@map("attachments")
+}
+
+/// Payment ↔ Attachment join. `fileUrl` remains for legacy URL-only proof
+/// (`attachmentId` null). New uploads always set `attachmentId`.
 model PaymentAttachment {
   id String @id @default(uuid()) @db.Uuid
 
   paymentId String  @map("payment_id") @db.Uuid
   payment   Payment @relation(fields: [paymentId], references: [id])
+
+  attachmentId String?     @unique @map("attachment_id") @db.Uuid
+  attachment   Attachment? @relation(fields: [attachmentId], references: [id])
 
   uploadedById String @map("uploaded_by_id") @db.Uuid
   uploadedBy   User   @relation(fields: [uploadedById], references: [id])
@@ -2305,6 +2343,7 @@ model PaymentAttachment {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
+  @@index([paymentId, deletedAt])
   @@map("payment_attachments")
 }
 
@@ -3440,6 +3479,9 @@ model StoreOrderReceipt {
   fileSizeBytes Int?    @map("file_size_bytes")
   storageKey    String? @map("storage_key")
 
+  attachmentId String?     @map("attachment_id") @db.Uuid
+  attachment   Attachment? @relation(fields: [attachmentId], references: [id])
+
   driveFileId  String? @map("drive_file_id")
   driveFileUrl String? @map("drive_file_url")
 
@@ -3448,6 +3490,8 @@ model StoreOrderReceipt {
   uploadedAt   DateTime  @default(now()) @map("uploaded_at")
   deletedAt    DateTime? @map("deleted_at")
 
+  @@index([paymentId])
+  @@index([attachmentId])
   @@map("store_order_receipts")
 }
 
