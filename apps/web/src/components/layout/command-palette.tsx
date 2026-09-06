@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import {
@@ -13,13 +13,14 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { navigationConfig } from "@/navigation/navigation.config";
-import { flattenNavigationTree, buildNavigationTree } from "@/navigation/build-navigation-tree";
+import {
+  flattenNavigationTree,
+  buildNavigationTree,
+  filterNavigationByAuth,
+} from "@/navigation/build-navigation-tree";
 import { iconRegistry } from "@/navigation/icon-registry";
 import { useLocale } from "@/providers/locale-provider";
-
-const navigableItems = flattenNavigationTree(buildNavigationTree(navigationConfig)).filter(
-  (item) => item.route,
-);
+import { useUserContext } from "@/providers/user-context";
 
 /**
  * Global Search + Command Palette, unified into one launcher (⌘K / Ctrl+K)
@@ -31,6 +32,23 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const { t } = useLocale();
+  const { permissions, isSuperAdmin, status } = useUserContext();
+
+  // Same canonical authorization filter the sidebar uses (ADR-0022 Part 4)
+  // — the palette must never offer a destination the user would then hit
+  // Access Denied on. Previously built from the raw, unfiltered config.
+  const navigableItems = useMemo(
+    () =>
+      flattenNavigationTree(
+        buildNavigationTree(
+          filterNavigationByAuth(navigationConfig, permissions, {
+            isSuperAdmin,
+            accessReady: status === "authenticated",
+          }),
+        ),
+      ).filter((item) => item.route),
+    [permissions, isSuperAdmin, status],
+  );
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
