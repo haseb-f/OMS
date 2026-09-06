@@ -172,9 +172,6 @@ export const leadsService = {
     body: { outcome?: string; note?: string; followUpAt?: string; channel?: string },
   ) => apiClient.post<LeadFollowUpRow>(`/leads/${id}/follow-ups`, body),
   unassignedCount: () => apiClient.get<{ count: number }>("/leads/unassigned-count"),
-  startFollowUp: (id: string) => apiClient.post<LeadRow>(`/leads/${id}/start-follow-up`),
-  archiveLead: (id: string, archiveReason?: string) =>
-    apiClient.post<LeadRow>(`/leads/${id}/archive`, { archiveReason }),
   convert: (id: string, body: Record<string, unknown>) =>
     apiClient.post<LeadRow>(`/leads/${id}/convert`, body),
   closeWithoutPurchase: (id: string, body: { noPurchaseReasonId: string; notes?: string }) =>

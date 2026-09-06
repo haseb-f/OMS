@@ -357,10 +357,9 @@ function InventoryMovementsPageContent() {
               values={productFilter}
               onChange={setProductFilter}
               onSearch={async (search) => {
-                const result = await productsService.list({
+                const result = await productsService.catalog({
                   search: search || undefined,
                   pageSize: 20,
-                  status: "ACTIVE",
                 });
                 return result.items;
               }}

@@ -16,7 +16,7 @@ import { leadColumns, leadExportColumns, leadRowLabel } from "@/config/crm/lead-
 import { buildLeadSchema, leadDefaultValues } from "@/config/crm/lead-form";
 import { useLocale } from "@/providers/locale-provider";
 import { PermissionGate } from "@/components/shared/permission-gate";
-import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { LeadCloseWithoutPurchaseDialog } from "@/components/crm/lead-close-dialog";
 import { AssignLeadDialog } from "@/components/business/assign-lead-dialog";
 import { LeadOrderCreateDialog } from "@/components/business/lead-order-create-dialog";
 import { LeadDistributionModal } from "@/components/crm/lead-distribution-modal";
@@ -34,8 +34,6 @@ import {
   useCustomerClassifications,
 } from "@/hooks/use-reference-data";
 import { useUserContext } from "@/providers/user-context";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
 
 function CrmLeadsPageContent() {
   const { t } = useLocale();
@@ -48,8 +46,7 @@ function CrmLeadsPageContent() {
   const countries = useCountries();
   const [products, setProducts] = useState<{ id: string; displayName: string; sku: string }[]>([]);
   const [assigningLead, setAssigningLead] = useState<LeadRow | null>(null);
-  const [archiveTarget, setArchiveTarget] = useState<LeadRow | null>(null);
-  const [isArchiving, setIsArchiving] = useState(false);
+  const [closeTarget, setCloseTarget] = useState<LeadRow | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [distributionOpen, setDistributionOpen] = useState(false);
   const [bulkAssignIds, setBulkAssignIds] = useState<string[]>([]);
@@ -71,10 +68,12 @@ function CrmLeadsPageContent() {
   }, [refreshToken]);
 
   useEffect(() => {
+    // /products/catalog, not the products.view-gated /products — the same
+    // "Unable to load products" class of failure a plain Sales Agent hit on
+    // the Convert-to-Order picker also applied here (Lead-as-Order create).
     productsService
-      .list({
+      .catalog({
         pageSize: 200,
-        status: "ACTIVE",
         isSellable: true,
         sortBy: "displayName",
         sortOrder: "asc",
@@ -276,13 +275,24 @@ function CrmLeadsPageContent() {
             onSelect: () => setAssigningLead(entity),
           },
           {
-            key: "archive",
-            label: t("common.archive"),
+            key: "close-without-purchase",
+            label: t("crm.leads.actions.closeWithoutPurchase"),
             icon: Archive,
-            hidden: !hasPermission("crm.leads.archive") || entity.status?.code === "LOST",
+            // Matches the Lead Detail page's own gate exactly — same
+            // permission (crm.leads.edit) the backend route requires, same
+            // terminal-status set. This row action used to be a generic
+            // "Archive" wired to the legacy POST :id/archive endpoint
+            // (crm.leads.archive, a different permission than the backend
+            // actually checked) with no NoPurchaseReason — closing a Lead
+            // now only ever happens through this one reason-driven dialog.
+            hidden:
+              !hasPermission("crm.leads.edit") ||
+              entity.status?.code === "LOST" ||
+              entity.status?.code === "DISQUALIFIED" ||
+              entity.status?.code === "CONVERTED",
             destructive: true,
             separatorBefore: true,
-            onSelect: () => setArchiveTarget(entity),
+            onSelect: () => setCloseTarget(entity),
           },
         ]}
       />
@@ -308,30 +318,16 @@ function CrmLeadsPageContent() {
         countries={countries}
         onCreated={() => setRefreshToken((n) => n + 1)}
       />
-      <ConfirmationDialog
-        open={!!archiveTarget}
+      <LeadCloseWithoutPurchaseDialog
+        leadId={closeTarget?.id ?? ""}
+        classificationId={closeTarget?.customerClassification?.id ?? null}
+        open={!!closeTarget}
         onOpenChange={(open) => {
-          if (!open) setArchiveTarget(null);
+          if (!open) setCloseTarget(null);
         }}
-        tone="destructive"
-        title={t("common.confirmArchiveTitle")}
-        description={t("common.confirmArchiveDescription")}
-        confirmLabel={t("common.archive")}
-        cancelLabel={t("common.cancel")}
-        isConfirming={isArchiving}
-        onConfirm={async () => {
-          if (!archiveTarget) return;
-          setIsArchiving(true);
-          try {
-            await leadsService.archiveLead(archiveTarget.id);
-            toast.success(t("common.archive"));
-            setArchiveTarget(null);
-            setRefreshToken((n) => n + 1);
-          } catch (error) {
-            toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
-          } finally {
-            setIsArchiving(false);
-          }
+        onClosed={() => {
+          setCloseTarget(null);
+          setRefreshToken((n) => n + 1);
         }}
       />
     </>

@@ -285,17 +285,24 @@ function LeadDetailContent() {
         </p>
       ) : null}
 
-      {operational ? (
-        <WorkflowActionsPanel
-          entityType="LEAD"
-          entityId={lead.id}
-          hideConvert
-          onTransitionComplete={() => {
-            void load();
-            reloadSidePanels();
-          }}
-        />
-      ) : null}
+      {/*
+        Always mounted, not just while `operational` — the backend-authorized
+        "Reopen" transition (LOST/DISQUALIFIED -> IN_PROGRESS, Manager-only)
+        only exists on a CLOSED Lead. Gating this panel on `operational` hid
+        it exactly when Reopen would apply, leaving no way to reopen a Lead
+        from this page at all. `hideConvert` already makes the panel render
+        nothing for a user with zero available actions, so this is safe for
+        every other status too.
+      */}
+      <WorkflowActionsPanel
+        entityType="LEAD"
+        entityId={lead.id}
+        hideConvert
+        onTransitionComplete={() => {
+          void load();
+          reloadSidePanels();
+        }}
+      />
 
       <EntityTabs
         tabs={[
