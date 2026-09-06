@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
 import { createMasterDataService } from "@/services/master-data-service";
 import type { MasterDataFormField } from "@/components/master-data/master-data-form";
@@ -11,37 +12,20 @@ import {
   workflowStatusesDefaultValues,
   workflowStatusesExportColumns,
   workflowStatusRowLabel,
+  WORKFLOW_TYPES,
   type WorkflowStatusRow,
+  type WorkflowTypeValue,
 } from "@/config/master-data/workflow-statuses";
 import { useLocale } from "@/providers/locale-provider";
 
 const service = createMasterDataService<WorkflowStatusRow>("/status-definitions");
 
-export default function WorkflowStatusesPage() {
+/** One workflow type's full status table — scoped via extraListParams, same pattern as Transaction Types' IN/OUT tabs. */
+function WorkflowTypeStatusTab({ workflowType }: { workflowType: WorkflowTypeValue }) {
   const { t } = useLocale();
 
   const formFields = useMemo<MasterDataFormField[]>(
     () => [
-      {
-        name: "workflowType",
-        label: "masterData.workflowStatuses.workflowType",
-        type: "select",
-        required: true,
-        options: [
-          { value: "LEAD", label: "LEAD" },
-          { value: "ORDER", label: "ORDER" },
-          { value: "PAYMENT", label: "PAYMENT" },
-          { value: "FULFILLMENT", label: "FULFILLMENT" },
-          { value: "MATCHING", label: "MATCHING" },
-          { value: "RECONCILIATION", label: "RECONCILIATION" },
-        ],
-      },
-      {
-        name: "code",
-        label: "masterData.workflowStatuses.code",
-        type: "text",
-        required: true,
-      },
       ...workflowStatusesStaticFields,
       {
         name: "color",
@@ -69,17 +53,58 @@ export default function WorkflowStatusesPage() {
     <MasterDataPage
       titleKey="masterData.workflowStatuses.title"
       descriptionKey="masterData.workflowStatuses.description"
-      tableId="workflow-statuses"
+      tableId={`workflow-statuses-${workflowType.toLowerCase()}`}
       service={service}
       columns={workflowStatusesColumns}
       exportColumnKeys={workflowStatusesExportColumns}
       formFields={formFields}
       schema={workflowStatusesSchema}
-      defaultValues={workflowStatusesDefaultValues}
+      defaultValues={workflowStatusesDefaultValues(workflowType)}
       permissionPrefix="masterdata.workflow-statuses"
       rowLabel={workflowStatusRowLabel}
       defaultSortBy="sortOrder"
-      isRowProtected={(row) => row.isSystem}
+      extraListParams={{ workflowType }}
+      isRowProtected={(row) => row.isDefault}
     />
+  );
+}
+
+export default function WorkflowStatusesPage() {
+  const { t } = useLocale();
+  const [counts, setCounts] = useState<Partial<Record<WorkflowTypeValue, number>>>({});
+
+  const loadCounts = useCallback(() => {
+    for (const workflowType of WORKFLOW_TYPES) {
+      service
+        .list({ workflowType, pageSize: 1 })
+        .then((result) => setCounts((prev) => ({ ...prev, [workflowType]: result.total })))
+        .catch(() => undefined);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCounts();
+  }, [loadCounts]);
+
+  return (
+    <Tabs defaultValue="LEAD" className="flex flex-col gap-3" onValueChange={loadCounts}>
+      <TabsList variant="line">
+        {WORKFLOW_TYPES.map((workflowType) => (
+          <TabsTrigger key={workflowType} value={workflowType} className="gap-1.5">
+            {t(`masterData.workflowStatuses.types.${workflowType}`)}
+            {counts[workflowType] !== undefined && (
+              <span className="text-caption text-muted-foreground tabular-nums">
+                {counts[workflowType]}
+              </span>
+            )}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+      {WORKFLOW_TYPES.map((workflowType) => (
+        <TabsContent key={workflowType} value={workflowType}>
+          <WorkflowTypeStatusTab workflowType={workflowType} />
+        </TabsContent>
+      ))}
+    </Tabs>
   );
 }

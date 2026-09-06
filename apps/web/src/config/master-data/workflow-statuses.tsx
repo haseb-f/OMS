@@ -37,6 +37,16 @@ function WorkflowStatusNameCell({ row }: { row: WorkflowStatusRow }) {
   );
 }
 
+export const WORKFLOW_TYPES = [
+  "LEAD",
+  "ORDER",
+  "PAYMENT",
+  "FULFILLMENT",
+  "MATCHING",
+  "RECONCILIATION",
+] as const;
+export type WorkflowTypeValue = (typeof WORKFLOW_TYPES)[number];
+
 export const workflowStatusesColumns: ColumnDef<WorkflowStatusRow, unknown>[] = [
   {
     id: "name",
@@ -44,8 +54,12 @@ export const workflowStatusesColumns: ColumnDef<WorkflowStatusRow, unknown>[] = 
     accessorFn: (row) => row.name,
     cell: ({ row }) => <WorkflowStatusNameCell row={row.original} />,
   },
-  textColumn("workflowType", "masterData.workflowStatuses.workflowType", (r) => r.workflowType),
   textColumn("code", "masterData.workflowStatuses.code", (r) => r.code),
+  {
+    id: "sortOrder",
+    meta: { titleKey: "masterData.fields.sortOrder" },
+    accessorFn: (row) => row.sortOrder,
+  },
   statusColumn<WorkflowStatusRow>(),
 ];
 
@@ -55,7 +69,7 @@ export const workflowStatusesStaticFields: MasterDataFormField[] = [
 ];
 
 export const workflowStatusesSchema = z.object({
-  workflowType: z.enum(["LEAD", "ORDER", "PAYMENT", "FULFILLMENT", "MATCHING", "RECONCILIATION"]),
+  workflowType: z.enum(WORKFLOW_TYPES),
   code: z.string().min(1),
   name: z.string().min(1),
   nameEn: z.string().optional().or(z.literal("")),
@@ -63,15 +77,15 @@ export const workflowStatusesSchema = z.object({
   sortOrder: z.coerce.number().optional(),
 });
 
-export const workflowStatusesDefaultValues = {
-  workflowType: "LEAD" as const,
+export const workflowStatusesDefaultValues = (workflowType: WorkflowTypeValue) => ({
+  workflowType,
   code: "",
   name: "",
   nameEn: "",
   color: "neutral" as const,
   sortOrder: 0,
-};
+});
 
-export const workflowStatusesExportColumns = ["name", "workflowType", "code", "color"];
+export const workflowStatusesExportColumns = ["name", "code", "color", "sortOrder"];
 export const workflowStatusRowLabel = (row: WorkflowStatusRow) =>
   `${row.workflowType}:${row.code} — ${row.name}`;

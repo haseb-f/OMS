@@ -36,7 +36,17 @@ export interface LeadConvertPayload {
   notes?: string;
 }
 
+export interface WorkflowStatusOption {
+  id: string;
+  code: string;
+  name: string;
+  color: string;
+}
+
 export const workflowService = {
+  statusesByWorkflow: (workflowType: WorkflowTypeValue) =>
+    apiClient.get<WorkflowStatusOption[]>(`/status-definitions/by-workflow/${workflowType}`),
+
   availableActions: (entityType: string, entityId: string) =>
     apiClient.get<WorkflowAction[]>(`/workflow/${entityType}/${entityId}/available-actions`),
 
