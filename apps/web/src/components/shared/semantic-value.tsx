@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-export type SemanticValueKind = "email" | "phone" | "id" | "url" | "number" | "money";
+export type SemanticValueKind = "email" | "phone" | "id" | "url" | "number" | "money" | "date";
 
 /**
  * Values that must stay LTR inside an Arabic UI: emails, phones, IDs,
- * tracking numbers, URLs, and figures. Labels remain RTL around them.
+ * tracking numbers, URLs, figures, and dates. Labels remain RTL around them.
  */
 export function SemanticValue({
   kind,
@@ -16,12 +16,13 @@ export function SemanticValue({
   children: ReactNode;
   className?: string;
 }) {
-  const numeric = kind === "number" || kind === "money";
+  const numeric = kind === "number" || kind === "money" || kind === "date";
 
   return (
     <span
       dir="ltr"
       data-slot="semantic-value"
+      data-kind={kind}
       className={cn(
         numeric ? "tabular-nums" : "font-mono",
         className,

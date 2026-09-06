@@ -1,10 +1,9 @@
 /**
- * The ONE date system for the OMS ERP (Date System task). Every module
- * displays and parses dates through these functions — never a raw
- * `toLocaleDateString()`/`toLocaleString()` call, which is locale-dependent
- * and would violate "never mix multiple date formats inside the ERP."
+ * The ONE date system for the OMS ERP. Every module displays and parses
+ * dates through these functions — never a raw `toLocaleDateString()` /
+ * `toLocaleString()` call, which is locale-dependent and would mix formats.
  *
- * Display format is fixed and locale-independent: `DD-MMM-YYYY` with
+ * Display format is fixed and locale-independent: `DD MMM YYYY` with
  * English abbreviated month names, always — even when the app UI is in
  * Arabic. Financial/document dates need to stay internationally
  * unambiguous, so the month name is never translated.
@@ -26,11 +25,41 @@ export const MONTH_ABBR = [
 
 export const WEEKDAY_ABBR = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"] as const;
 
-const DATE_PATTERN = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/;
+/** Accepts both the canonical spaced form and the legacy hyphenated form. */
+const DATE_PATTERN = /^(\d{1,2})[-\s]([A-Za-z]{3})[-\s](\d{4})$/;
 
 function toDate(value: Date | string | null | undefined): Date | null {
   if (!value) return null;
-  const date = value instanceof Date ? value : new Date(value);
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  // Date-only calendar day — never UTC-shift across timezones.
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+  if (dateOnly) {
+    const year = Number(dateOnly[1]);
+    const month = Number(dateOnly[2]);
+    const day = Number(dateOnly[3]);
+    const date = new Date(year, month - 1, day);
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+      return null;
+    }
+    return date;
+  }
+
+  // Midnight-UTC timestamps that represent a date-only business field.
+  const midnightUtc = /^(\d{4})-(\d{2})-(\d{2})T00:00:00(\.\d+)?Z$/i.exec(trimmed);
+  if (midnightUtc) {
+    const year = Number(midnightUtc[1]);
+    const month = Number(midnightUtc[2]);
+    const day = Number(midnightUtc[3]);
+    return new Date(year, month - 1, day);
+  }
+
+  const date = new Date(trimmed);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
@@ -38,21 +67,21 @@ function pad2(value: number): string {
   return String(value).padStart(2, "0");
 }
 
-/** The one display format: "01-Jan-2026". Returns "" for null/invalid input. */
+/** The one display format: "05 Sep 2026". Returns "" for null/invalid input. */
 export function formatDate(value: Date | string | null | undefined): string {
   const date = toDate(value);
   if (!date) return "";
-  return `${pad2(date.getDate())}-${MONTH_ABBR[date.getMonth()]}-${date.getFullYear()}`;
+  return `${pad2(date.getDate())} ${MONTH_ABBR[date.getMonth()]} ${date.getFullYear()}`;
 }
 
-/** 12-hour clock only: "02:30 PM". Returns "" for null/invalid input. */
+/** Canonical alias — prefer this name in new call sites. */
+export const formatDisplayDate = formatDate;
+
+/** 24-hour clock: "14:35". Returns "" for null/invalid input. */
 export function formatTime(value: Date | string | null | undefined): string {
   const date = toDate(value);
   if (!date) return "";
-  const hours24 = date.getHours();
-  const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
-  const period = hours24 < 12 ? "AM" : "PM";
-  return `${pad2(hours12)}:${pad2(date.getMinutes())} ${period}`;
+  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 }
 
 /**
@@ -72,14 +101,17 @@ export function hasClockTime(value: Date | string | null | undefined): boolean {
   return date.getHours() !== 0 || date.getMinutes() !== 0 || date.getSeconds() !== 0;
 }
 
-/** Date + time, same date format plus a 12-hour clock: "01-Jan-2026 02:30 PM". */
+/** Date + time: "05 Sep 2026 — 14:35". */
 export function formatDateTime(value: Date | string | null | undefined): string {
   const date = toDate(value);
   if (!date) return "";
-  return `${formatDate(date)} ${formatTime(date)}`;
+  return `${formatDate(date)} — ${formatTime(date)}`;
 }
 
-/** "01-Jan-2026 – 31-Jan-2026", or a single formatted date when both ends match. */
+/** Canonical alias — prefer this name in new call sites. */
+export const formatDisplayDateTime = formatDateTime;
+
+/** "05 Sep 2026 – 31 Sep 2026", or a single formatted date when both ends match. */
 export function formatDateRange(
   from: Date | string | null | undefined,
   to: Date | string | null | undefined,
@@ -93,7 +125,10 @@ export function formatDateRange(
   return `${fromLabel} – ${toLabel}`;
 }
 
-/** Strictly parses "DD-MMM-YYYY" (the only accepted typed format) — returns null on anything else, including a calendar-invalid date like 31-Feb-2026. */
+/**
+ * Strictly parses "DD MMM YYYY" (canonical) or legacy "DD-MMM-YYYY".
+ * Returns null on anything else, including a calendar-invalid date like 31 Feb 2026.
+ */
 export function parseDate(input: string): Date | null {
   const match = DATE_PATTERN.exec(input.trim());
   if (!match) return null;

@@ -1,10 +1,10 @@
 "use client";
 
 import { StatusBadge } from "@/components/business/status-badge";
+import { LocaleText } from "@/components/shared/locale-text";
 import { MoneyValue } from "@/components/shared/money-value";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
-import { TruncateText } from "@/components/shared/truncate-text";
 import { formatDate, formatTime, hasClockTime } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
 import type { StoreOrderRow } from "@/services/store-orders-service";
@@ -47,7 +47,7 @@ export function StoreOrderCustomerCell({ order }: { order: StoreOrderRow }) {
   const phone = customerPhone(order);
   return (
     <StackedCell
-      primary={order.partner?.name ? <TruncateText>{order.partner.name}</TruncateText> : undefined}
+      primary={order.partner?.name ? <LocaleText>{order.partner.name}</LocaleText> : undefined}
       secondary={phone ? <SemanticValue kind="phone">{phone}</SemanticValue> : undefined}
     />
   );
@@ -58,20 +58,8 @@ export function StoreOrderDateCell({ order }: { order: StoreOrderRow }) {
   const timeLabel = hasClockTime(order.orderDate) ? formatTime(order.orderDate) : undefined;
   return (
     <StackedCell
-      primary={
-        dateLabel ? (
-          <span dir="ltr" className="tabular-nums">
-            {dateLabel}
-          </span>
-        ) : undefined
-      }
-      secondary={
-        timeLabel ? (
-          <span dir="ltr" className="tabular-nums">
-            {timeLabel}
-          </span>
-        ) : undefined
-      }
+      primary={dateLabel ? <SemanticValue kind="date">{dateLabel}</SemanticValue> : undefined}
+      secondary={timeLabel ? <SemanticValue kind="date">{timeLabel}</SemanticValue> : undefined}
     />
   );
 }

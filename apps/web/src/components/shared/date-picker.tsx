@@ -14,7 +14,7 @@ import { formatDate, parseDate } from "@/lib/date";
  * The ONE Date Picker every module in OMS uses (Date System task) — never
  * the browser's native `<input type="date">`, never a page-local picker.
  * Supports both selecting from the calendar and manual typing in the fixed
- * "DD-MMM-YYYY" display format, with inline validation for anything else.
+ * "DD MMM YYYY" display format, with inline validation for anything else.
  *
  * A single click on a day commits immediately and closes the popover
  * (minimum clicks) — Today/Clear do the same. Apply is reserved for
@@ -24,7 +24,7 @@ import { formatDate, parseDate } from "@/lib/date";
 export function EnterpriseDatePicker({
   value,
   onChange,
-  placeholder = "DD-MMM-YYYY",
+  placeholder = "DD MMM YYYY",
   disabled,
   className,
   id,
@@ -77,7 +77,7 @@ export function EnterpriseDatePicker({
     <div className={cn("flex flex-col gap-1.5", className ?? "w-(--width-control-date)")}>
       {/*
         `dir="ltr"` here (not just on the `Input`) is the actual fix: the
-        displayed value is always fixed-format "DD-MMM-YYYY" (never
+        displayed value is always fixed-format "DD MMM YYYY" (never
         bidi-reordered), so the trigger icon must be positioned in that same
         LTR coordinate space. Without this wrapper, `pe-8` below resolves
         against the Input's own forced-ltr direction (physical end = right)

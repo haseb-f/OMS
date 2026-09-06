@@ -76,6 +76,7 @@ import {
   type TableDetailRegion,
   type SelectCustomCountCopy,
 } from "@/components/shared/data-table";
+import { applySemanticCellContent } from "@/components/shared/data-table/semantic-cell";
 import { useLocale } from "@/providers/locale-provider";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useRestorableState } from "@/hooks/use-restorable-state";
@@ -1195,9 +1196,9 @@ export function EnterpriseDataTable<TData>({
                       >
                         {row.getVisibleCells().map((cell, index) => {
                           const layout = layoutById.get(cell.column.id);
-                          const rendered = flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext(),
+                          const rendered = applySemanticCellContent(
+                            flexRender(cell.column.columnDef.cell, cell.getContext()),
+                            layout?.type,
                           );
                           // Only the identity column navigates. The row itself
                           // stays inert so the checkbox, chevron and actions menu

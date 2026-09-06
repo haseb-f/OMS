@@ -53,6 +53,7 @@ export type ColumnType =
   | "expand"
   | "actions"
   | "code"
+  | "phone"
   | "status"
   | "date"
   | "money"
@@ -97,8 +98,9 @@ const TYPE_PRESETS: Record<
   }
 > = {
   code: { grow: 1, minWidth: 96, maxWidth: 160, align: "start", importance: "medium" },
+  phone: { grow: 1, minWidth: 120, maxWidth: 180, align: "start", importance: "medium" },
   status: { grow: 1, minWidth: 90, maxWidth: 140, align: "start", importance: "high" },
-  date: { grow: 1, minWidth: 100, maxWidth: 150, align: "start", importance: "high" },
+  date: { grow: 1, minWidth: 110, maxWidth: 160, align: "start", importance: "high" },
   money: { grow: 1, minWidth: 148, maxWidth: 200, align: "end", importance: "high" },
   number: { grow: 1, minWidth: 90, maxWidth: 130, align: "end", importance: "medium" },
   name: { grow: 3, minWidth: 160, maxWidth: 320, align: "start", importance: "high" },
@@ -115,6 +117,9 @@ function inferColumnType(columnId: string): ColumnType {
     id.endsWith("type")
   ) {
     return "status";
+  }
+  if (["phone", "mobile", "tel"].some((k) => id.includes(k))) {
+    return "phone";
   }
   if (
     ["sku", "code", "reference", "ref", "symbol", "barcode", "number"].some((k) => id.includes(k))
@@ -169,6 +174,13 @@ function inferColumnType(columnId: string): ColumnType {
       "email",
       "manager",
       "category",
+      "employee",
+      "owner",
+      "agent",
+      "country",
+      "city",
+      "source",
+      "classification",
     ].some((k) => id.includes(k))
   ) {
     return "name";

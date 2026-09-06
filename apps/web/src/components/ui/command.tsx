@@ -197,16 +197,27 @@ function CommandResultRow({
   subtitleDir?: "ltr" | "rtl";
   layout?: "stacked" | "inline";
 }) {
+  const titleNode =
+    typeof title === "string" ? (
+      <span dir="auto" className="[unicode-bidi:isolate]">
+        {title}
+      </span>
+    ) : (
+      title
+    );
+
   if (layout === "inline") {
     return (
       <>
         {icon}
         <span className="min-w-0 flex-1 truncate">
-          <span className="font-medium">{title}</span>
+          <span className="font-medium">{titleNode}</span>
           {subtitle && (
             <span className="text-muted-foreground">
               <span className="px-1.5 opacity-60">·</span>
-              <span dir={subtitleDir}>{subtitle}</span>
+              <span dir={subtitleDir ?? "ltr"} className="[unicode-bidi:isolate]">
+                {subtitle}
+              </span>
             </span>
           )}
         </span>
@@ -218,9 +229,12 @@ function CommandResultRow({
     <>
       {icon}
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate font-medium">{title}</span>
+        <span className="truncate font-medium">{titleNode}</span>
         {subtitle ? (
-          <span dir={subtitleDir} className="truncate text-caption text-muted-foreground">
+          <span
+            dir={subtitleDir ?? "ltr"}
+            className="truncate text-caption text-muted-foreground [unicode-bidi:isolate]"
+          >
             {subtitle}
           </span>
         ) : null}
