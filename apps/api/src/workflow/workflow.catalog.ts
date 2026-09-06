@@ -37,6 +37,60 @@ export const WORKFLOW_TYPE_FOR_ENTITY: Record<
   LEAD: WorkflowType.LEAD,
 };
 
+/**
+ * Codes a running business flow resolves by string (workflow-engine.service,
+ * leads.service, sales-performance.service, workflow-status-map.ts /
+ * WorkflowStatusResolverService). Archiving one of these would silently break
+ * a live flow (some resolvers throw a raw Error, not a caught
+ * BadRequestException) — StatusDefinitionsService.archive() refuses them
+ * regardless of current row usage. Everything else in a workflow's catalog
+ * (e.g. LEAD's ASSIGNED/CONTACTED/FOLLOW_UP) is archivable once no active
+ * record still references it.
+ */
+export const PROTECTED_STATUS_CODES: Record<WorkflowType, readonly string[]> = {
+  [WorkflowType.LEAD]: [
+    'NEW',
+    'IN_PROGRESS',
+    'QUALIFIED',
+    'CONVERTED',
+    'LOST',
+    'DISQUALIFIED',
+  ],
+  [WorkflowType.ORDER]: ['DRAFT'],
+  [WorkflowType.PAYMENT]: [
+    'UNPAID',
+    'PAYMENT_REPORTED',
+    'PARTIALLY_PAID',
+    'PAID',
+    'OVERPAID',
+    'UNMATCHED',
+  ],
+  [WorkflowType.FULFILLMENT]: [
+    'UNFULFILLED',
+    'READY',
+    'SHIPPED',
+    'DELIVERED',
+    'CANCELLED',
+  ],
+  [WorkflowType.MATCHING]: [
+    'UNMATCHED',
+    'POTENTIAL',
+    'PARTIALLY_MATCHED',
+    'MATCHED',
+    'DUPLICATE',
+    'CONFLICT',
+    'MANUAL_REVIEW',
+  ],
+  [WorkflowType.RECONCILIATION]: [],
+};
+
+export function isProtectedStatusCode(
+  workflowType: WorkflowType,
+  code: string,
+): boolean {
+  return PROTECTED_STATUS_CODES[workflowType].includes(code);
+}
+
 /** Seed-only catalog — runtime reads StatusDefinition from the database. */
 export const INITIAL_WORKFLOW_STATUSES: Array<{
   workflowType: WorkflowType;

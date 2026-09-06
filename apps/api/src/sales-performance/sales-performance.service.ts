@@ -70,8 +70,14 @@ export class SalesPerformanceService {
       this.prisma.lead.count({
         where: { ...leadWhere, status: { code: 'IN_PROGRESS' } },
       }),
+      // Leads with an open scheduled follow-up (FOLLOW_UP is no longer a
+      // lifecycle status — see leads.service.ts addFollowUp()).
       this.prisma.lead.count({
-        where: { ...leadWhere, status: { code: 'FOLLOW_UP' } },
+        where: {
+          ...leadWhere,
+          nextFollowUpAt: { not: null },
+          status: { code: { notIn: ['CONVERTED', 'LOST', 'DISQUALIFIED'] } },
+        },
       }),
       this.prisma.lead.count({
         where: {

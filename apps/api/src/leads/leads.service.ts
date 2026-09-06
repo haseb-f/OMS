@@ -526,13 +526,19 @@ export class LeadsService {
     });
   }
 
+  /**
+   * Follow-up is an activity, not a lifecycle stage — recording one never
+   * mutates Lead.status. A Lead can carry unlimited follow-ups while staying
+   * IN_PROGRESS; FOLLOW_UP as a status is legacy (kept for history/rollback
+   * only, no longer entered from here).
+   */
   async addFollowUp(
     id: string,
     dto: CreateLeadFollowUpDto,
     userId: string,
     scope: SalesScope,
   ) {
-    const lead = await this.findOne(id, scope);
+    await this.findOne(id, scope);
     const followUp = await this.prisma.$transaction(async (tx) => {
       const created = await tx.leadFollowUp.create({
         data: {
@@ -561,25 +567,6 @@ export class LeadsService {
       return created;
     });
 
-    if (
-      lead.status.code === 'NEW' ||
-      lead.status.code === 'IN_PROGRESS' ||
-      lead.status.code === 'CONTACTED'
-    ) {
-      try {
-        await this.workflowEngine.executeTransitionByCodes(
-          'LEAD',
-          id,
-          lead.status.code,
-          'FOLLOW_UP',
-          userId,
-          {},
-          scope.isSuperAdmin,
-        );
-      } catch {
-        // Stay on current status if that transition is not configured.
-      }
-    }
     return followUp;
   }
 

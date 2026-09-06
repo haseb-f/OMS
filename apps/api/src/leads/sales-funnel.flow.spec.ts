@@ -730,73 +730,78 @@ describe('Sales Funnel Engine', () => {
     },
   );
 
-  liveIt('structured follow-up, overdue next date, and reopen', async () => {
-    const owner = await salesUser('Follow Owner');
-    const manager = await managerUser('Follow Manager');
-    const { countryId, currencyId } = await refs();
-    const lead = await leads.create({
-      customerName: `Follow ${suffix()}`,
-      mobileNumber: saMobile(),
-      countryId,
-      currencyId,
-      source: LeadSource.MANUAL,
-      salesEmployeeId: owner.id,
-      quantity: 1,
-    });
-    createdLeadIds.push(lead.id);
-    const ownerScope = await salesScope.resolve(owner.id);
-    await leads.firstOpen(lead.id, owner.id, ownerScope);
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    await leads.addFollowUp(
-      lead.id,
-      {
-        outcome: 'interested',
-        note: 'call tomorrow',
-        followUpAt: tomorrow.toISOString(),
-      },
-      owner.id,
-      ownerScope,
-    );
-    const overdue = new Date();
-    overdue.setDate(overdue.getDate() - 2);
-    await leads.addFollowUp(
-      lead.id,
-      {
-        outcome: 'no answer',
-        note: 'retry',
-        followUpAt: overdue.toISOString(),
-      },
-      owner.id,
-      ownerScope,
-    );
-    const rows = await leads.listFollowUps(lead.id);
-    expect(rows.length).toBeGreaterThanOrEqual(2);
-    const refreshed = await leads.findOne(lead.id, ownerScope);
-    expect(refreshed.status.code).toBe('FOLLOW_UP');
-    expect(refreshed.nextFollowUpAt).toBeTruthy();
-    await workflow.executeTransitionByCodes(
-      'LEAD',
-      lead.id,
-      'FOLLOW_UP',
-      'LOST',
-      owner.id,
-      { reason: 'price' },
-    );
-    const lost = await leads.findOne(lead.id, ownerScope);
-    expect(lost.status.code).toBe('LOST');
-    const managerScope = await salesScope.resolve(manager.id);
-    await workflow.executeTransitionByCodes(
-      'LEAD',
-      lead.id,
-      'LOST',
-      'IN_PROGRESS',
-      manager.id,
-      { reason: 'reopen requested' },
-    );
-    const reopened = await leads.findOne(lead.id, managerScope);
-    expect(reopened.status.code).toBe('IN_PROGRESS');
-  });
+  liveIt(
+    'structured follow-up stays IN_PROGRESS, then overdue next date, then reopen',
+    async () => {
+      const owner = await salesUser('Follow Owner');
+      const manager = await managerUser('Follow Manager');
+      const { countryId, currencyId } = await refs();
+      const lead = await leads.create({
+        customerName: `Follow ${suffix()}`,
+        mobileNumber: saMobile(),
+        countryId,
+        currencyId,
+        source: LeadSource.MANUAL,
+        salesEmployeeId: owner.id,
+        quantity: 1,
+      });
+      createdLeadIds.push(lead.id);
+      const ownerScope = await salesScope.resolve(owner.id);
+      await leads.firstOpen(lead.id, owner.id, ownerScope);
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      await leads.addFollowUp(
+        lead.id,
+        {
+          outcome: 'interested',
+          note: 'call tomorrow',
+          followUpAt: tomorrow.toISOString(),
+        },
+        owner.id,
+        ownerScope,
+      );
+      const overdue = new Date();
+      overdue.setDate(overdue.getDate() - 2);
+      await leads.addFollowUp(
+        lead.id,
+        {
+          outcome: 'no answer',
+          note: 'retry',
+          followUpAt: overdue.toISOString(),
+        },
+        owner.id,
+        ownerScope,
+      );
+      const rows = await leads.listFollowUps(lead.id);
+      expect(rows.length).toBeGreaterThanOrEqual(2);
+      // Multiple follow-ups never mutate lifecycle status — only the
+      // activity log + nextFollowUpAt move.
+      const refreshed = await leads.findOne(lead.id, ownerScope);
+      expect(refreshed.status.code).toBe('IN_PROGRESS');
+      expect(refreshed.nextFollowUpAt).toBeTruthy();
+      await workflow.executeTransitionByCodes(
+        'LEAD',
+        lead.id,
+        'IN_PROGRESS',
+        'LOST',
+        owner.id,
+        { reason: 'price' },
+      );
+      const lost = await leads.findOne(lead.id, ownerScope);
+      expect(lost.status.code).toBe('LOST');
+      const managerScope = await salesScope.resolve(manager.id);
+      await workflow.executeTransitionByCodes(
+        'LEAD',
+        lead.id,
+        'LOST',
+        'IN_PROGRESS',
+        manager.id,
+        { reason: 'reopen requested' },
+      );
+      const reopened = await leads.findOne(lead.id, managerScope);
+      expect(reopened.status.code).toBe('IN_PROGRESS');
+    },
+  );
 
   liveIt(
     'converts a Google Sheets lead preserving owner and source',
@@ -943,15 +948,7 @@ describe('Sales Funnel Engine', () => {
         ownerScope,
       );
       const current = await leads.findOne(lead.id, ownerScope);
-      if (current.status.code === 'FOLLOW_UP') {
-        await workflow.executeTransitionByCodes(
-          'LEAD',
-          lead.id,
-          'FOLLOW_UP',
-          'QUALIFIED',
-          owner.id,
-        );
-      }
+      expect(current.status.code).toBe('IN_PROGRESS');
       const afterQualify = await leads.findOne(lead.id, ownerScope);
       await workflow.executeTransitionByCodes(
         'LEAD',

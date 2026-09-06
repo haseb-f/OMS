@@ -8,7 +8,10 @@ import {
   MasterDataListResult,
 } from '../master-data/master-data-crud.service';
 import { uniqueFieldFromPrismaError } from '../common/errors/prisma-unique-field';
-import { isWorkflowStatusColor } from '../workflow/workflow.catalog';
+import {
+  isProtectedStatusCode,
+  isWorkflowStatusColor,
+} from '../workflow/workflow.catalog';
 import { CreateStatusDefinitionDto } from './dto/create-status-definition.dto';
 import { UpdateStatusDefinitionDto } from './dto/update-status-definition.dto';
 import { FindStatusDefinitionsQueryDto } from './dto/find-status-definitions-query.dto';
@@ -133,13 +136,71 @@ export class StatusDefinitionsService extends MasterDataCrudService<StatusDefini
     return updated;
   }
 
+  /**
+   * Archive is data-driven, not a blanket `isSystem` block: a seeded status
+   * that nothing currently uses (e.g. a superseded duplicate) is safe to
+   * retire, while a status a live business flow still resolves by code never
+   * is — see PROTECTED_STATUS_CODES. Either way this is a soft delete
+   * (deletedAt), reversible via restore(); it never touches history.
+   */
   async archive(id: string, userId?: string) {
     const existing = await this.findOne(id);
-    if (existing.isSystem) {
+    if (existing.isDefault) {
       throw new BadRequestException(
-        'System statuses cannot be archived — only display metadata can be edited.',
+        'Cannot archive the default status for this workflow — set another status as default first.',
       );
     }
-    return super.archive(id, userId);
+    if (isProtectedStatusCode(existing.workflowType, existing.code)) {
+      throw new BadRequestException(
+        `"${existing.name}" is required by core business logic for the ${existing.workflowType} workflow and cannot be archived.`,
+      );
+    }
+    const activeReferences = await this.countActiveReferences(
+      existing.workflowType,
+      id,
+    );
+    if (activeReferences > 0) {
+      throw new BadRequestException(
+        `${activeReferences} active record(s) currently use "${existing.name}" — move them to another status before archiving.`,
+      );
+    }
+
+    const archived = await super.archive(id, userId);
+    await this.prisma.workflowTransition.updateMany({
+      where: {
+        OR: [{ fromStatusId: id }, { toStatusId: id }],
+        isActive: true,
+        deletedAt: null,
+      },
+      data: { isActive: false, updatedBy: userId },
+    });
+    return archived;
+  }
+
+  /** How many live rows currently sit on this status, across every entity that references it. */
+  private async countActiveReferences(
+    workflowType: WorkflowType,
+    statusId: string,
+  ): Promise<number> {
+    switch (workflowType) {
+      case WorkflowType.LEAD:
+        return this.prisma.lead.count({
+          where: { statusId, deletedAt: null },
+        });
+      case WorkflowType.PAYMENT:
+        return this.prisma.storeOrder.count({
+          where: { paymentStatusId: statusId, deletedAt: null },
+        });
+      case WorkflowType.FULFILLMENT:
+        return this.prisma.storeOrder.count({
+          where: { fulfillmentStatusId: statusId, deletedAt: null },
+        });
+      case WorkflowType.MATCHING:
+        return this.prisma.bankTransaction.count({
+          where: { matchStatusId: statusId, deletedAt: null },
+        });
+      default:
+        return 0;
+    }
   }
 }
