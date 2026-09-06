@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { leadsService, type LeadDistributionSnapshot } from "@/services/leads-service";
 import { useLocale } from "@/providers/locale-provider";
+import { useUserContext } from "@/providers/user-context";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import { formatDateTime } from "@/lib/date";
@@ -33,7 +34,19 @@ export function LeadDistributionModal({
   onChanged?: () => void;
 }) {
   const { t } = useLocale();
-  const [tab, setTab] = useState<Tab>(selectedLeadIds.length ? "manual" : "continuous");
+  const { hasPermission } = useUserContext();
+  // The "continuous"/"hours" auto-distribution POLICY tabs call
+  // activateContinuous/activate24h/deactivateDistribution — all gated
+  // server-side on crm.leads.manage specifically, a stronger permission
+  // than the crm.leads.manage-OR-TEAM-scope check (assertCanAssign) that
+  // lets a plain Team Manager open this modal at all for manual bulk
+  // assignment. Without this, a Team Manager with TEAM scope but no
+  // explicit crm.leads.manage would see policy buttons that then 403.
+  const canManagePolicy = hasPermission("crm.leads.manage");
+  const availableTabs: Tab[] = canManagePolicy ? ["continuous", "hours", "manual"] : ["manual"];
+  const [tab, setTab] = useState<Tab>(
+    selectedLeadIds.length || !canManagePolicy ? "manual" : "continuous",
+  );
   const [snapshot, setSnapshot] = useState<LeadDistributionSnapshot | null>(null);
   const [employeeId, setEmployeeId] = useState("");
   const [customN, setCustomN] = useState("");
@@ -43,12 +56,12 @@ export function LeadDistributionModal({
   useEffect(() => {
     if (!open) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setTab(selectedLeadIds.length ? "manual" : "continuous");
+    setTab(selectedLeadIds.length || !canManagePolicy ? "manual" : "continuous");
     leadsService
       .distribution()
       .then(setSnapshot)
       .catch(() => setSnapshot({ policy: null, eligible: [] }));
-  }, [open, selectedLeadIds.length]);
+  }, [open, selectedLeadIds.length, canManagePolicy]);
 
   const remainingHours = snapshot?.policy?.remainingMs
     ? Math.ceil(snapshot.policy.remainingMs / 3_600_000)
@@ -119,7 +132,7 @@ export function LeadDistributionModal({
     >
       <div className="flex flex-col gap-4">
         <div className="flex gap-2 rounded-md border border-border bg-muted/30 p-1">
-          {(["continuous", "hours", "manual"] as const).map((item) => (
+          {availableTabs.map((item) => (
             <EnterpriseButton
               key={item}
               type="button"
@@ -133,7 +146,7 @@ export function LeadDistributionModal({
           ))}
         </div>
 
-        {tab === "continuous" ? (
+        {tab === "continuous" && canManagePolicy ? (
           <div className="flex flex-col gap-3">
             <p className="text-caption text-muted-foreground">
               {t("crm.leads.distribution.continuousHint")}
@@ -181,7 +194,7 @@ export function LeadDistributionModal({
           </div>
         ) : null}
 
-        {tab === "hours" ? (
+        {tab === "hours" && canManagePolicy ? (
           <div className="flex flex-col gap-3">
             <p className="text-caption text-muted-foreground">
               {t("crm.leads.distribution.hoursHint")}

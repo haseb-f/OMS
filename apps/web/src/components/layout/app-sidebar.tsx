@@ -55,14 +55,18 @@ export function AppSidebar() {
   // Sidebar must display only modules the user has permission to access
   // (ADR-0022 Part 4) — hidden modules never reach the render tree at all.
   // A super admin sees every module regardless of individual grants.
-  // Permission filtering waits until auth is resolved: an empty permission
-  // set during `loading` is unknown, not a denial (same contract as
-  // `PermissionGate`). Collapse/expand still comes from SidebarProvider.
+  // Permission filtering waits only for the initial `loading` bootstrap
+  // window (an empty permission set there is unknown, not a denial — same
+  // contract as `PermissionGate`); `error` must NOT skip filtering the same
+  // way, or a flaky `/auth/me` call (a real risk on a live network — cold
+  // start, timeout, transient 5xx) would fail OPEN into the full, unfiltered
+  // navigation indefinitely instead of failing closed. Collapse/expand still
+  // comes from SidebarProvider.
   const authorizedItems = useMemo(
     () =>
       filterNavigationByAuth(navigationConfig, permissions, {
         isSuperAdmin,
-        accessReady: status === "authenticated",
+        accessReady: status !== "loading",
       }),
     [permissions, isSuperAdmin, status],
   );

@@ -37,13 +37,16 @@ export function CommandPalette() {
   // Same canonical authorization filter the sidebar uses (ADR-0022 Part 4)
   // — the palette must never offer a destination the user would then hit
   // Access Denied on. Previously built from the raw, unfiltered config.
+  // `accessReady` only waits out the initial `loading` bootstrap window —
+  // an `error` status (a flaky `/auth/me` call) must fail closed, not skip
+  // filtering indefinitely. See app-sidebar.tsx for the matching fix.
   const navigableItems = useMemo(
     () =>
       flattenNavigationTree(
         buildNavigationTree(
           filterNavigationByAuth(navigationConfig, permissions, {
             isSuperAdmin,
-            accessReady: status === "authenticated",
+            accessReady: status !== "loading",
           }),
         ),
       ).filter((item) => item.route),
