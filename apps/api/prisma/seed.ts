@@ -1214,9 +1214,24 @@ async function main() {
     'products.view',
     'products.create',
     'products.edit',
-    'sales.customers.view',
-    'sales.customers.create',
-    'sales.customers.edit',
+    // Was 'sales.customers.*' — a permission name that predates the Partner
+    // module consolidation and no longer exists in permission-catalog.ts, so
+    // this grant silently no-opped (permissionByName.get() returned
+    // undefined) and the seeded Sales Agent had no way to select a
+    // customer/partner on any Sales document. `partners.*` is the real,
+    // current gate on GET/POST/PATCH /partners.
+    'partners.view',
+    'partners.create',
+    'partners.edit',
+    // A Sales Agent test persona needs the Lead -> Convert -> Store Order
+    // path to actually be exercisable end-to-end.
+    'crm.leads.view',
+    'crm.leads.create',
+    'crm.leads.edit',
+    'crm.leads.convert',
+    'store-orders.view',
+    'store-orders.create',
+    'store-orders.edit',
     'sales.quotations.view',
     'sales.quotations.create',
     'sales.quotations.edit',
