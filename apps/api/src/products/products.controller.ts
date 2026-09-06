@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Param,
   Patch,
@@ -22,12 +23,33 @@ import {
 } from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
+import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
+
+/**
+ * Anyone who legitimately builds a document that lines a Product on it
+ * (Lead conversion, Store Order, Purchase Order, Inventory movement) can
+ * browse the ACTIVE sellable catalog even without `products.view` — that
+ * permission stays reserved for Product management (full record, cost/
+ * purchase data). See `ProductsService.findSellableCatalog()`.
+ */
+const CATALOG_READ_PERMISSIONS = [
+  'products.view',
+  'crm.leads.convert',
+  'store-orders.create',
+  'store-orders.edit',
+  'purchasing.orders.create',
+  'purchasing.orders.edit',
+  'inventory.movements.create',
+];
 
 @Controller('products')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @PermissionModule('products')
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(
+    private readonly productsService: ProductsService,
+    private readonly permissions: PermissionsResolverService,
+  ) {}
 
   @Post()
   create(@Body() dto: CreateProductDto, @CurrentUser() user: JwtPayload) {
@@ -37,6 +59,29 @@ export class ProductsController {
   @Get()
   findAll(@Query() query: FindProductsQueryDto) {
     return this.productsService.findAll(query);
+  }
+
+  /** Static route — must precede `:id`. */
+  @Get('catalog')
+  @SkipPermissionCheck()
+  async catalog(
+    @Query() query: FindProductsQueryDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const isSuperAdmin = await this.permissions.isSuperAdmin(user.sub);
+    if (!isSuperAdmin) {
+      const grants = await Promise.all(
+        CATALOG_READ_PERMISSIONS.map((name) =>
+          this.permissions.hasPermission(user.sub, name),
+        ),
+      );
+      if (!grants.some(Boolean)) {
+        throw new ForbiddenException(
+          'You need an order- or movement-creation permission to browse the product catalog.',
+        );
+      }
+    }
+    return this.productsService.findSellableCatalog(query);
   }
 
   @Get(':id')

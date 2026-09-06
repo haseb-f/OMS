@@ -204,6 +204,72 @@ export class ProductsService {
     return { items, total, page, pageSize };
   }
 
+  /**
+   * Catalog browse for a picker (Lead conversion, Store Order create,
+   * Purchase Order create, Inventory movements) — never Product management.
+   * Unlike `findAll()`, `status`/`deletedAt` are forced server-side (never
+   * trusted from the query string), and the select is deliberately narrow:
+   * no purchase price, cost, supplier, or reorder data reaches a caller who
+   * only holds an order-creation permission, not `products.view`.
+   */
+  async findSellableCatalog(query: FindProductsQueryDto) {
+    const where: Prisma.ProductWhereInput = {
+      deletedAt: null,
+      status: ProductStatus.ACTIVE,
+      categoryId: prismaEnumFilter(query.categoryId),
+      brandId: prismaEnumFilter(query.brandId),
+      isInventoryItem: query.isInventoryItem,
+      isSellable: query.isSellable,
+      isPurchasable: query.isPurchasable,
+    };
+
+    if (query.search) {
+      where.OR = [
+        { sku: { contains: query.search, mode: 'insensitive' } },
+        { name: { contains: query.search, mode: 'insensitive' } },
+        { nameEn: { contains: query.search, mode: 'insensitive' } },
+        { barcode: { contains: query.search, mode: 'insensitive' } },
+        { internalName: { contains: query.search, mode: 'insensitive' } },
+        { displayName: { contains: query.search, mode: 'insensitive' } },
+        { searchKeywords: { contains: query.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 20;
+    const sortBy = query.sortBy ?? 'displayName';
+    const sortOrder = query.sortOrder ?? 'asc';
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.product.findMany({
+        where,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        orderBy: { [sortBy]: sortOrder },
+        select: {
+          id: true,
+          name: true,
+          nameEn: true,
+          internalName: true,
+          displayName: true,
+          sku: true,
+          barcode: true,
+          status: true,
+          type: true,
+          isSellable: true,
+          isPurchasable: true,
+          isInventoryItem: true,
+          salesPrice: true,
+          category: { select: { id: true, name: true } },
+          unitId: true,
+        },
+      }),
+      this.prisma.product.count({ where }),
+    ]);
+
+    return { items, total, page, pageSize };
+  }
+
   async findOne(id: string) {
     const product = await this.prisma.product.findFirst({
       where: { id, deletedAt: null },

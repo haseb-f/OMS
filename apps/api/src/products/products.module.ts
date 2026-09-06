@@ -10,9 +10,10 @@ import { ProductVariantsService } from './variants/product-variants.service';
 import { ProductComponentsController } from './components/product-components.controller';
 import { ProductComponentsService } from './components/product-components.service';
 import { NumberingModule } from '../numbering/numbering.module';
+import { PermissionsCoreModule } from '../permissions/permissions-core.module';
 
 @Module({
-  imports: [NumberingModule],
+  imports: [NumberingModule, PermissionsCoreModule],
   controllers: [
     ProductsController,
     ProductActivitiesController,

@@ -39,10 +39,9 @@ export function ProductPicker({
         if (product) onChange(product);
       }}
       onSearch={async (search) => {
-        const result = await productsService.list({
+        const result = await productsService.catalog({
           search: search || undefined,
           pageSize: 25,
-          status: "ACTIVE",
           sortBy: "displayName",
           sortOrder: "asc",
           ...(inventoryOnly ? { isInventoryItem: true } : {}),

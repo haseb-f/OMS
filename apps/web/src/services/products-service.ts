@@ -139,6 +139,16 @@ export const productsService = {
     apiClient.get<ProductListResult>(
       `/products${buildQueryString(params as unknown as Record<string, unknown>)}`,
     ),
+  /**
+   * ACTIVE-only sellable/purchasable catalog for a picker (Lead conversion,
+   * Store/Purchase Order create, Inventory movements) — readable by anyone
+   * who holds an order- or movement-creation permission, not just
+   * `products.view`. Never use for the Product management list/table.
+   */
+  catalog: (params: ProductListParams = {}) =>
+    apiClient.get<ProductListResult>(
+      `/products/catalog${buildQueryString(params as unknown as Record<string, unknown>)}`,
+    ),
   get: (id: string) => apiClient.get<ProductRow>(`/products/${id}`),
   create: (dto: Record<string, unknown>) => apiClient.post<ProductRow>("/products", dto),
   update: (id: string, dto: Record<string, unknown>) =>
