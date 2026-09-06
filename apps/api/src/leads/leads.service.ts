@@ -721,8 +721,11 @@ export class LeadsService {
   }
 
   /** Legacy — structured follow-up is the canonical path. */
-  startFollowUp(id: string, scope: SalesScope) {
-    void this.findOne(id, scope);
+  async startFollowUp(id: string, scope: SalesScope) {
+    // Must be awaited: assertLeadAccess() throws on a Lead outside scope,
+    // and that has to block transitionStatus() below — a fire-and-forget
+    // `void` call here let the mutation proceed regardless of ownership.
+    await this.findOne(id, scope);
     return this.transitionStatus(
       id,
       'FOLLOW_UP',
@@ -737,8 +740,9 @@ export class LeadsService {
     );
   }
 
-  archive(id: string, dto: ArchiveLeadDto, scope: SalesScope) {
-    void this.findOne(id, scope);
+  async archive(id: string, dto: ArchiveLeadDto, scope: SalesScope) {
+    // See startFollowUp() above — must be awaited, not fire-and-forget.
+    await this.findOne(id, scope);
     return this.transitionStatus(
       id,
       'LOST',

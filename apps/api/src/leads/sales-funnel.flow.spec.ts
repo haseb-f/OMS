@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { Test, type TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import {
   LeadAssignmentMethod,
@@ -685,6 +685,72 @@ describe('Sales Funnel Engine', () => {
       );
     },
   );
+
+  liveIt(
+    'legacy start-follow-up/archive mutations are also owner-scoped',
+    async () => {
+      // Regression: both methods used to fire `void this.findOne(id, scope)`
+      // without awaiting it, so the NotFoundException from an out-of-scope
+      // access never blocked the mutation that followed — Agent A could
+      // silently flip Agent B's Lead status via these legacy endpoints.
+      const a = await salesUser('Legacy Sec A');
+      const b = await salesUser('Legacy Sec B');
+      const { countryId, currencyId } = await refs();
+      const leadB = await leads.create({
+        customerName: `Legacy Sec Lead B ${suffix()}`,
+        mobileNumber: saMobile(),
+        countryId,
+        currencyId,
+        source: LeadSource.MANUAL,
+        salesEmployeeId: b.id,
+        quantity: 1,
+      });
+      createdLeadIds.push(leadB.id);
+      const scopeA = await salesScope.resolve(a.id);
+
+      await expect(
+        leads.startFollowUp(leadB.id, scopeA),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      await expect(leads.archive(leadB.id, {}, scopeA)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+
+      const untouched = await prisma.lead.findUnique({
+        where: { id: leadB.id },
+        select: { status: { select: { code: true } } },
+      });
+      expect(untouched?.status.code).toBe('NEW');
+    },
+  );
+
+  liveIt('a plain Sales Agent cannot assign or reassign Leads', async () => {
+    const agent = await salesUser('No Assign Agent');
+    const other = await salesUser('No Assign Target');
+    const { countryId, currencyId } = await refs();
+    const lead = await leads.create({
+      customerName: `No Assign ${suffix()}`,
+      mobileNumber: saMobile(),
+      countryId,
+      currencyId,
+      source: LeadSource.MANUAL,
+      salesEmployeeId: agent.id,
+      quantity: 1,
+    });
+    createdLeadIds.push(lead.id);
+    const agentScope = await salesScope.resolve(agent.id);
+    await expect(
+      leads.bulkAssign(
+        { salesEmployeeId: other.id, leadIds: [lead.id] },
+        agent.id,
+        agentScope,
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    const unchanged = await prisma.lead.findUnique({
+      where: { id: lead.id },
+      select: { salesEmployeeId: true },
+    });
+    expect(unchanged?.salesEmployeeId).toBe(agent.id);
+  });
 
   liveIt(
     'sales cannot edit shipping; shipping cannot read CRM leads',
