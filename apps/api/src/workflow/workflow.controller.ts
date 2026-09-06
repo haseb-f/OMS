@@ -23,6 +23,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 import { isWorkflowEntityType } from './workflow.catalog';
+import { SalesScopeService } from '../sales-scope/sales-scope.service';
 
 @Controller('workflow')
 @UseGuards(JwtAuthGuard)
@@ -30,6 +31,7 @@ export class WorkflowController {
   constructor(
     private readonly engine: WorkflowEngineService,
     private readonly permissions: PermissionsResolverService,
+    private readonly salesScope: SalesScopeService,
   ) {}
 
   // --- Static routes MUST precede :entityType/:entityId ---
@@ -79,18 +81,18 @@ export class WorkflowController {
   }
 
   @Get('analytics/lead-funnel')
-  leadFunnel(
+  async leadFunnel(
+    @CurrentUser() user: JwtPayload,
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo') dateTo?: string,
     @Query('source') source?: string,
     @Query('salesEmployeeId') salesEmployeeId?: string,
   ) {
-    return this.engine.getLeadFunnel({
-      dateFrom,
-      dateTo,
-      source,
-      salesEmployeeId,
-    });
+    const scope = await this.salesScope.resolve(user.sub);
+    return this.engine.getLeadFunnel(
+      { dateFrom, dateTo, source, salesEmployeeId },
+      scope,
+    );
   }
 
   @Get(':entityType/:entityId/available-actions')

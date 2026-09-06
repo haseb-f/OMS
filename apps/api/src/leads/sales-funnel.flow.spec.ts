@@ -753,6 +753,64 @@ describe('Sales Funnel Engine', () => {
   });
 
   liveIt(
+    "lead funnel is scoped — an Agent cannot see global counts or another Agent's funnel",
+    async () => {
+      // Regression: GET /workflow/analytics/lead-funnel never resolved a
+      // SalesScope at all — `salesEmployeeId` was a trusted, unrestricted
+      // query param, so any authenticated user could see company-wide
+      // counts (by omitting it) or another employee's funnel (by supplying
+      // their id) with no ownership check whatsoever.
+      const a = await salesUser('Funnel Scope A');
+      const b = await salesUser('Funnel Scope B');
+      const { countryId, currencyId } = await refs();
+      const leadA = await leads.create({
+        customerName: `Funnel Scope A Lead ${suffix()}`,
+        mobileNumber: saMobile(),
+        countryId,
+        currencyId,
+        source: LeadSource.MANUAL,
+        salesEmployeeId: a.id,
+        quantity: 1,
+      });
+      createdLeadIds.push(leadA.id);
+      const leadB = await leads.create({
+        customerName: `Funnel Scope B Lead ${suffix()}`,
+        mobileNumber: saMobile(),
+        countryId,
+        currencyId,
+        source: LeadSource.MANUAL,
+        salesEmployeeId: b.id,
+        quantity: 1,
+      });
+      createdLeadIds.push(leadB.id);
+
+      const scopeA = await salesScope.resolve(a.id);
+
+      // Omitting salesEmployeeId must NOT return global/company-wide counts.
+      const unfiltered = await workflow.getLeadFunnel({}, scopeA);
+      expect(unfiltered.stages.CREATED).toBe(1);
+
+      // Explicitly requesting another Agent's id must not leak their data —
+      // the scope AND-condition makes this match nothing, not fall back to
+      // an unfiltered/global result.
+      const spoofed = await workflow.getLeadFunnel(
+        { salesEmployeeId: b.id },
+        scopeA,
+      );
+      expect(spoofed.stages.CREATED).toBe(0);
+
+      // Admin (ALL scope, via crm.leads.manage) legitimately sees both.
+      const admin = await managerUser('Funnel Scope Admin');
+      const adminScope = await salesScope.resolve(admin.id);
+      const adminView = await workflow.getLeadFunnel(
+        { salesEmployeeId: b.id },
+        adminScope,
+      );
+      expect(adminView.stages.CREATED).toBeGreaterThanOrEqual(1);
+    },
+  );
+
+  liveIt(
     'sales cannot edit shipping; shipping cannot read CRM leads',
     async () => {
       const agent = await salesUser('Ship Sales');
@@ -1055,9 +1113,11 @@ describe('Sales Funnel Engine', () => {
               : {}),
         },
       });
-      const funnel = await workflow.getLeadFunnel({
-        salesEmployeeId: owner.id,
-      });
+      const ownerFunnelScope = await salesScope.resolve(owner.id);
+      const funnel = await workflow.getLeadFunnel(
+        { salesEmployeeId: owner.id },
+        ownerFunnelScope,
+      );
       expect(funnel.stages.CREATED).toBeGreaterThanOrEqual(1);
       expect(funnel.stages.ASSIGNED).toBeGreaterThanOrEqual(1);
       expect(funnel.stages.IN_PROGRESS).toBeGreaterThanOrEqual(1);

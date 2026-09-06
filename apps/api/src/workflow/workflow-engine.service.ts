@@ -23,7 +23,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import { StatusDefinitionsService } from '../status-definitions/status-definitions.service';
-import { SalesScopeService } from '../sales-scope/sales-scope.service';
+import {
+  SalesScopeService,
+  type SalesScope,
+} from '../sales-scope/sales-scope.service';
 import { AttachmentsService } from '../common/storage/attachments.service';
 import { derivedUnitPrice } from '../store-orders/store-order-line-amount';
 import {
@@ -1161,14 +1164,26 @@ export class WorkflowEngineService {
   }
 
   /**
-   * Funnel from StatusHistory events — never inferred from current status alone.
+   * Funnel from StatusHistory events — never inferred from current status
+   * alone. `scope` is ANDed into every underlying query (never spread as a
+   * sibling of `salesEmployeeId`, which would let a caller-supplied id
+   * silently overwrite it) so an OWN-scoped Sales Agent can never see
+   * global counts or another employee's funnel, however the query
+   * parameters are crafted — a request outside scope simply matches
+   * nothing rather than falling back to someone else's data.
    */
-  async getLeadFunnel(params: {
-    dateFrom?: string;
-    dateTo?: string;
-    source?: string;
-    salesEmployeeId?: string;
-  }) {
+  async getLeadFunnel(
+    params: {
+      dateFrom?: string;
+      dateTo?: string;
+      source?: string;
+      salesEmployeeId?: string;
+    },
+    scope: SalesScope,
+  ) {
+    const scopedLeadWhere = this.salesScope.leadWhere(scope);
+    const scopedOrderWhere = this.salesScope.storeOrderWhere(scope);
+
     const changedAt: Prisma.DateTimeFilter = {};
     if (params.dateFrom) changedAt.gte = new Date(params.dateFrom);
     if (params.dateTo) changedAt.lte = new Date(params.dateTo);
@@ -1200,12 +1215,17 @@ export class WorkflowEngineService {
     });
 
     const leadFilter: Prisma.LeadWhereInput = {
-      id: { in: [...new Set(history.map((h) => h.entityId))] },
-      deletedAt: null,
-      ...(params.source ? { source: params.source as never } : {}),
-      ...(params.salesEmployeeId
-        ? { salesEmployeeId: params.salesEmployeeId }
-        : {}),
+      AND: [
+        {
+          id: { in: [...new Set(history.map((h) => h.entityId))] },
+          deletedAt: null,
+        },
+        scopedLeadWhere,
+        params.source ? { source: params.source as never } : {},
+        params.salesEmployeeId
+          ? { salesEmployeeId: params.salesEmployeeId }
+          : {},
+      ],
     };
     const leads =
       history.length === 0
@@ -1227,19 +1247,22 @@ export class WorkflowEngineService {
     }
 
     const createdWhere: Prisma.LeadWhereInput = {
-      deletedAt: null,
-      ...(params.source ? { source: params.source as never } : {}),
-      ...(params.salesEmployeeId
-        ? { salesEmployeeId: params.salesEmployeeId }
-        : {}),
-      ...(params.dateFrom || params.dateTo
-        ? {
-            createdAt: {
-              ...(params.dateFrom ? { gte: new Date(params.dateFrom) } : {}),
-              ...(params.dateTo ? { lte: new Date(params.dateTo) } : {}),
-            },
-          }
-        : {}),
+      AND: [
+        { deletedAt: null },
+        scopedLeadWhere,
+        params.source ? { source: params.source as never } : {},
+        params.salesEmployeeId
+          ? { salesEmployeeId: params.salesEmployeeId }
+          : {},
+        params.dateFrom || params.dateTo
+          ? {
+              createdAt: {
+                ...(params.dateFrom ? { gte: new Date(params.dateFrom) } : {}),
+                ...(params.dateTo ? { lte: new Date(params.dateTo) } : {}),
+              },
+            }
+          : {},
+      ],
     };
     counts.CREATED = await this.prisma.lead.count({ where: createdWhere });
 
@@ -1263,17 +1286,19 @@ export class WorkflowEngineService {
     counts.ASSIGNED = assignedLeadIds.length;
 
     const orderWhere: Prisma.StoreOrderWhereInput = {
-      deletedAt: null,
-      leadId: { not: null },
-      ...(params.salesEmployeeId ? { employeeId: params.salesEmployeeId } : {}),
-      ...(params.dateFrom || params.dateTo
-        ? {
-            createdAt: {
-              ...(params.dateFrom ? { gte: new Date(params.dateFrom) } : {}),
-              ...(params.dateTo ? { lte: new Date(params.dateTo) } : {}),
-            },
-          }
-        : {}),
+      AND: [
+        { deletedAt: null, leadId: { not: null } },
+        scopedOrderWhere,
+        params.salesEmployeeId ? { employeeId: params.salesEmployeeId } : {},
+        params.dateFrom || params.dateTo
+          ? {
+              createdAt: {
+                ...(params.dateFrom ? { gte: new Date(params.dateFrom) } : {}),
+                ...(params.dateTo ? { lte: new Date(params.dateTo) } : {}),
+              },
+            }
+          : {},
+      ],
     };
     counts.ORDER = await this.prisma.storeOrder.count({ where: orderWhere });
 
