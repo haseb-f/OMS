@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { UserCog } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { ModalSection } from "@/components/shared/modal-section";
@@ -102,10 +102,21 @@ export function UserEditorModal({
     company.branches.map((branch) => ({ ...branch, companyName: company.name })),
   );
 
+  // Titles for the selected Department surface first — a nudge, not a hard
+  // filter (a generic/cross-department title stays fully selectable).
+  const sortedJobTitles = useMemo(() => {
+    if (!form.departmentId) return jobTitles;
+    return [...jobTitles].sort((a, b) => {
+      const aMatch = a.departmentId === form.departmentId ? 0 : 1;
+      const bMatch = b.departmentId === form.departmentId ? 0 : 1;
+      return aMatch - bMatch;
+    });
+  }, [jobTitles, form.departmentId]);
+
   useEffect(() => {
     if (!open) return;
     jobTitlesService
-      .list()
+      .listActive()
       .then(setJobTitles)
       .catch(() => setJobTitles([]));
   }, [open]);
@@ -364,7 +375,7 @@ export function UserEditorModal({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">{t("common.none")}</SelectItem>
-                  {jobTitles.map((title) => (
+                  {sortedJobTitles.map((title) => (
                     <SelectItem key={title.id} value={title.id}>
                       {title.name}
                     </SelectItem>

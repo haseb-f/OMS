@@ -101,21 +101,44 @@ model User {
   @@map("users")
 }
 
-/// TASK-060 — "Job Title is ONLY a label. Real access is controlled ONLY by
-/// Permissions." A closed, admin-seeded list (see seed.ts's 8 Arabic
-/// titles) — never joined into any permission check anywhere in this
-/// codebase. Replaces the old `Role` model, which conflated "job title" with
-/// "permission grant" (Odoo-style RBAC) — explicitly forbidden by this task.
+/// "Job Title is ONLY a descriptive label. Real access is controlled ONLY by
+/// Permissions" (TASK-060) — still true after this became dynamic Master
+/// Data: `code` is never joined into any permission check anywhere in this
+/// codebase, and nothing here implies a system Role. Distinct from
+/// `Department` (organizational unit) and from Permissions (what a user can
+/// do) — see OMS.md's Job Titles Master Data decision for the three-way
+/// split. Was a closed, seed-only list of 8 Arabic titles; now full Master
+/// Data (Create/Edit/Activate/Archive/Restore), same shape as Department/
+/// CustomerClassification — `code` is Numbering-Engine-generated, never
+/// typed by hand.
 model JobTitle {
-  id   String @id @default(uuid()) @db.Uuid
-  name String @unique
+  id     String  @id @default(uuid()) @db.Uuid
+  code   String  @unique
+  name   String  @unique
+  nameEn String? @map("name_en")
+  description String?
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  /// Optional — a Job Title may be department-specific (e.g. "Sales
+  /// Representative" under Sales) or cross-department/generic. Purely a
+  /// UX grouping hint (Part 27's "prefer matching titles first"), never a
+  /// hard requirement.
+  departmentId String?     @map("department_id") @db.Uuid
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  sortOrder Int     @default(0) @map("sort_order")
+  isActive  Boolean @default(true) @map("is_active")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
 
   users            User[]
   employeeProfiles EmployeeProfile[]
 
+  @@index([deletedAt, isActive, sortOrder])
+  @@index([departmentId])
   @@map("job_titles")
 }
 
@@ -140,6 +163,7 @@ model Department {
   users                 User[]
   salesTeams            SalesTeam[]
   distributionPolicies  LeadDistributionPolicy[]
+  jobTitles             JobTitle[]
 
   @@index([deletedAt, isActive, sortOrder])
   @@map("departments")

@@ -220,6 +220,7 @@ const en = {
       customerClassifications: "Customer Classifications",
       noPurchaseReasons: "No Purchase Reasons",
       salesTeams: "Sales Teams",
+      jobTitles: "Job Titles",
     },
   },
   nav: {
@@ -908,6 +909,13 @@ const en = {
       description:
         "Company organizational departments. New departments appear immediately in User and Sales Team selectors.",
       select: "Select department",
+    },
+    jobTitles: {
+      title: "Job Titles",
+      description:
+        "Descriptive employment positions — independent of Department and of system Role/Permissions. Changing a Job Title never changes what a user can do in OMS.",
+      department: "Department",
+      noDepartment: "No department (generic)",
     },
     customerClassifications: {
       title: "Customer Classifications",

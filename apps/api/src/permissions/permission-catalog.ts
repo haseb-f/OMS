@@ -423,6 +423,16 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
     ],
   },
   {
+    key: 'job-titles',
+    labelKey: 'permissions.modules.jobTitles',
+    actions: [
+      { action: 'view', name: 'masterdata.job-titles.view' },
+      { action: 'create', name: 'masterdata.job-titles.create' },
+      { action: 'edit', name: 'masterdata.job-titles.edit' },
+      { action: 'delete', name: 'masterdata.job-titles.archive' },
+    ],
+  },
+  {
     key: 'settings',
     labelKey: 'permissions.modules.settings',
     actions: [

@@ -201,16 +201,27 @@ const journalEntryPermissions = [
 ];
 const importCenterPermissions = ['import-center.manage'];
 
-// TASK-060 Part 2 — the closed, fixed Job Title list. Labels only; never joined into a permission check.
+// Default seeded Job Titles (Master Data — see 20260906120000_job_titles_master_data).
+// Labels only; `code` is never joined into a permission check anywhere in
+// this codebase. An admin can create further custom titles at runtime —
+// this is just the starting set.
 const jobTitles = [
-  'مدير النظام',
-  'المدير العام',
-  'المدير المالي',
-  'المحاسب',
-  'مدير المبيعات',
-  'مدير التشغيل',
-  'موظف خدمة العملاء',
-  'موظف الشحن',
+  { name: 'مدير النظام', nameEn: 'System Administrator', code: 'SYSTEM_ADMIN' },
+  { name: 'المدير العام', nameEn: 'General Manager', code: 'GENERAL_MANAGER' },
+  { name: 'المدير المالي', nameEn: 'Finance Manager', code: 'FINANCE_MANAGER' },
+  { name: 'المحاسب', nameEn: 'Accountant', code: 'ACCOUNTANT' },
+  { name: 'مدير المبيعات', nameEn: 'Sales Manager', code: 'SALES_MANAGER' },
+  {
+    name: 'مدير التشغيل',
+    nameEn: 'Operations Manager',
+    code: 'OPERATIONS_MANAGER',
+  },
+  {
+    name: 'موظف خدمة العملاء',
+    nameEn: 'Customer Service Representative',
+    code: 'CUSTOMER_SERVICE',
+  },
+  { name: 'موظف الشحن', nameEn: 'Shipping Staff', code: 'SHIPPING_STAFF' },
 ];
 
 const companies = [
@@ -1135,15 +1146,15 @@ async function main() {
     permissionByName.set(name, created);
   }
 
-  // TASK-060 Part 2 — the closed Job Title label list.
+  // Default seeded Job Titles — Master Data (see 20260906120000_job_titles_master_data).
   const jobTitleByName = new Map<string, { id: string }>();
-  for (const name of jobTitles) {
+  for (const title of jobTitles) {
     const created = await prisma.jobTitle.upsert({
-      where: { name },
+      where: { name: title.name },
       update: {},
-      create: { name },
+      create: title,
     });
-    jobTitleByName.set(name, created);
+    jobTitleByName.set(title.name, created);
   }
 
   const passwordHash = await bcrypt.hash('Passw0rd!', 10);
@@ -1624,6 +1635,13 @@ async function main() {
       documentType: 'NO_PURCHASE_REASON',
       label: 'No Purchase Reason',
       docCode: 'NPR',
+      template: '{DOC}-{SEQ}',
+      yearReset: false,
+    },
+    {
+      documentType: 'JOB_TITLE',
+      label: 'Job Title',
+      docCode: 'JT',
       template: '{DOC}-{SEQ}',
       yearReset: false,
     },

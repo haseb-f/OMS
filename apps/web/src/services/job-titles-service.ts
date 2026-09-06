@@ -2,10 +2,18 @@ import { apiClient } from "./api-client";
 
 export interface JobTitleRow {
   id: string;
+  code: string;
   name: string;
+  nameEn: string | null;
+  description: string | null;
+  departmentId: string | null;
+  department?: { id: string; name: string } | null;
+  sortOrder: number;
+  isActive: boolean;
+  deletedAt: string | null;
 }
 
-/** TASK-060 Part 2 — read-only: the closed, seed-managed Job Title list. */
 export const jobTitlesService = {
-  list: () => apiClient.get<JobTitleRow[]>("/job-titles"),
+  /** Active, non-archived titles only — the User/Employee form's picker. */
+  listActive: () => apiClient.get<JobTitleRow[]>("/job-titles/active"),
 };

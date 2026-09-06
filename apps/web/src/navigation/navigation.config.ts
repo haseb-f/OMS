@@ -801,6 +801,15 @@ export const navigationConfig: NavigationItem[] = [
     permissions: ["masterdata.departments.view"],
   },
   {
+    id: "master-data-job-titles",
+    titleKey: "masterData.jobTitles.title",
+    parent: "settings",
+    route: "/master-data/job-titles",
+    icon: "award",
+    order: 2.1,
+    permissions: ["masterdata.job-titles.view"],
+  },
+  {
     id: "master-data-customer-classifications",
     titleKey: "masterData.customerClassifications.title",
     parent: "settings",
