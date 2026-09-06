@@ -5,12 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  LeadAssignmentMethod,
-  Prisma,
-  StatusChangeSource,
-  WorkflowType,
-} from '@prisma/client';
+import { LeadAssignmentMethod, Prisma, WorkflowType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import {
@@ -22,7 +17,6 @@ import { LeadAutoDistributionService } from './distribution/lead-auto-distributi
 import { LeadAssignmentsService } from './assignments/lead-assignments.service';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
-import { ArchiveLeadDto } from './dto/archive-lead.dto';
 import { FindLeadsQueryDto } from './dto/find-leads-query.dto';
 import { BulkAssignLeadsDto } from './dto/bulk-assign-leads.dto';
 import { CreateLeadFollowUpDto } from './dto/create-lead-follow-up.dto';
@@ -130,51 +124,6 @@ export class LeadsService {
       throw new BadRequestException(phoneErrorMessage(phone.errorReason));
     }
     return phone.e164;
-  }
-
-  private async transitionStatus(
-    id: string,
-    toStatusCode: string,
-    activityType: string,
-    description: string,
-    extraData: { archivedReason?: string | null } = {},
-  ) {
-    const existing = await this.findOne(id);
-    const toStatusId = await this.workflowEngine.resolveStatusIdByCode(
-      WorkflowType.LEAD,
-      toStatusCode,
-    );
-    return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.lead.update({
-        where: { id },
-        data: {
-          statusId: toStatusId,
-          ...(extraData.archivedReason !== undefined
-            ? { archivedReason: extraData.archivedReason }
-            : {}),
-        },
-      });
-      await this.leadActivityService.log(
-        id,
-        activityType,
-        description,
-        {
-          previousStatus: existing.status?.code,
-          newStatus: toStatusCode,
-        },
-        tx,
-      );
-      await tx.statusHistory.create({
-        data: {
-          entityType: 'LEAD',
-          entityId: id,
-          fromStatusId: existing.statusId,
-          toStatusId,
-          source: StatusChangeSource.SYSTEM,
-        },
-      });
-      return updated;
-    });
   }
 
   /** Currency is resolved from the selected country's `defaultCurrencyId`. */
@@ -699,7 +648,7 @@ export class LeadsService {
         lead.status.code,
         toCode,
         userId,
-        { reason: reason.name },
+        { reason: reason.name, noPurchaseReasonId: reason.id },
       );
     } catch {
       await this.workflowEngine.executeTransitionByCodes(
@@ -708,7 +657,7 @@ export class LeadsService {
         lead.status.code,
         toCode === 'LOST' ? 'DISQUALIFIED' : 'LOST',
         userId,
-        { reason: reason.name },
+        { reason: reason.name, noPurchaseReasonId: reason.id },
       );
     }
     await this.leadActivityService.log(
@@ -720,37 +669,9 @@ export class LeadsService {
     return this.findOne(id, scope);
   }
 
-  /** Legacy — structured follow-up is the canonical path. */
-  async startFollowUp(id: string, scope: SalesScope) {
-    // Must be awaited: assertLeadAccess() throws on a Lead outside scope,
-    // and that has to block transitionStatus() below — a fire-and-forget
-    // `void` call here let the mutation proceed regardless of ownership.
-    await this.findOne(id, scope);
-    return this.transitionStatus(
-      id,
-      'FOLLOW_UP',
-      LeadActivityType.FOLLOW_UP_STARTED,
-      'Follow-up Started',
-    );
-  }
-
   markQualifiedFromPayment(): Promise<never> {
     throw new BadRequestException(
       'Payment belongs to Store Order, not Lead. Use Store Order payment reporting.',
-    );
-  }
-
-  async archive(id: string, dto: ArchiveLeadDto, scope: SalesScope) {
-    // See startFollowUp() above — must be awaited, not fire-and-forget.
-    await this.findOne(id, scope);
-    return this.transitionStatus(
-      id,
-      'LOST',
-      LeadActivityType.ARCHIVED,
-      'Archived',
-      {
-        archivedReason: dto.archiveReason ?? null,
-      },
     );
   }
 

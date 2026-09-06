@@ -50,6 +50,8 @@ export interface WorkflowActionDto {
 export interface WorkflowTransitionContext {
   reason?: string;
   convertPayload?: LeadConvertPayload;
+  /** Required for any LEAD transition landing on LOST/DISQUALIFIED — see executeTransition(). */
+  noPurchaseReasonId?: string;
 }
 
 export interface LeadConvertPayload {
@@ -137,6 +139,16 @@ export class WorkflowEngineService {
 
     const actions: WorkflowActionDto[] = [];
     for (const t of transitions) {
+      // LOST/DISQUALIFIED are only ever reached through the dedicated Close
+      // Without Purchase dialog (requires picking a NoPurchaseReason) — never
+      // exposed as a raw workflow-transition button, which would duplicate
+      // that flow with just a free-text reason and no NoPurchaseReason.
+      if (
+        entityType === 'LEAD' &&
+        (t.toStatus.code === 'LOST' || t.toStatus.code === 'DISQUALIFIED')
+      ) {
+        continue;
+      }
       if (
         t.requiredPermission &&
         !resolvedSuperAdmin &&
@@ -195,6 +207,34 @@ export class WorkflowEngineService {
 
     if (transition.requiresReason && !context.reason?.trim()) {
       throw new BadRequestException('This transition requires a reason.');
+    }
+
+    // A Lead can only reach LOST/DISQUALIFIED through the Close Without
+    // Purchase flow, never a bare status transition — otherwise a raw
+    // transition call (bypassing closeWithoutPurchase()) could close a Lead
+    // with a free-text "reason" and no NoPurchaseReason record at all.
+    if (
+      entityType === 'LEAD' &&
+      (transition.toStatus.code === 'LOST' ||
+        transition.toStatus.code === 'DISQUALIFIED')
+    ) {
+      if (!context.noPurchaseReasonId) {
+        throw new BadRequestException(
+          'Closing a Lead without a purchase requires a No Purchase Reason. Use the Close Without Purchase action.',
+        );
+      }
+      const noPurchaseReason = await this.prisma.noPurchaseReason.findFirst({
+        where: {
+          id: context.noPurchaseReasonId,
+          deletedAt: null,
+          isActive: true,
+        },
+      });
+      if (!noPurchaseReason) {
+        throw new BadRequestException(
+          'No purchase reason not found or inactive.',
+        );
+      }
     }
 
     if (

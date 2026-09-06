@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { Test, type TestingModule } from '@nestjs/testing';
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import {
   LeadAssignmentMethod,
@@ -19,6 +19,7 @@ import { UsersModule } from '../users/users.module';
 import { UsersService } from '../users/users.service';
 import { NumberingModule } from '../numbering/numbering.module';
 import { WorkflowModule } from '../workflow/workflow.module';
+import { WorkflowEngineService } from '../workflow/workflow-engine.service';
 import { LeadsModule } from '../leads/leads.module';
 import { LeadsService } from '../leads/leads.service';
 import { LeadAssignmentsService } from '../leads/assignments/lead-assignments.service';
@@ -42,6 +43,7 @@ describe('Sales Flow Hardening', () => {
   let moduleRef: TestingModule;
   let prisma: PrismaService;
   let leads: LeadsService;
+  let workflowEngine: WorkflowEngineService;
   let assignments: LeadAssignmentsService;
   let salesScope: SalesScopeService;
   let users: UsersService;
@@ -84,6 +86,7 @@ describe('Sales Flow Hardening', () => {
     await moduleRef.init();
     prisma = moduleRef.get(PrismaService);
     leads = moduleRef.get(LeadsService);
+    workflowEngine = moduleRef.get(WorkflowEngineService);
     assignments = moduleRef.get(LeadAssignmentsService);
     salesScope = moduleRef.get(SalesScopeService);
     users = moduleRef.get(UsersService);
@@ -518,6 +521,50 @@ describe('Sales Flow Hardening', () => {
       expect(closedList.items.some((row) => row.id === lead.id)).toBe(true);
       const followUps = await leads.listFollowUps(lead.id);
       expect(followUps.length).toBeGreaterThan(0);
+    },
+  );
+
+  liveIt(
+    'never offers Lost/Disqualify as raw workflow actions — Close Without Purchase is the only path',
+    async () => {
+      const owner = await salesUser('No Dup Terminal Owner');
+      const ownerScope = await salesScope.resolve(owner.id);
+      const lead = await createOwnedLead(owner.id);
+      await leads.firstOpen(lead.id, owner.id, ownerScope);
+
+      const actions = await workflowEngine.getAvailableActions(
+        'LEAD',
+        lead.id,
+        owner.id,
+        false,
+      );
+      const toCodes = actions.map((a) => a.toStatusCode);
+      expect(toCodes).not.toContain('LOST');
+      expect(toCodes).not.toContain('DISQUALIFIED');
+    },
+  );
+
+  liveIt(
+    'rejects a raw transition to LOST/DISQUALIFIED without a No Purchase Reason',
+    async () => {
+      const owner = await salesUser('Bypass Attempt Owner');
+      const ownerScope = await salesScope.resolve(owner.id);
+      const lead = await createOwnedLead(owner.id);
+      await leads.firstOpen(lead.id, owner.id, ownerScope);
+
+      await expect(
+        workflowEngine.executeTransitionByCodes(
+          'LEAD',
+          lead.id,
+          'IN_PROGRESS',
+          'LOST',
+          owner.id,
+          { reason: 'trying to bypass the dialog' },
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      const untouched = await leads.findOne(lead.id, ownerScope);
+      expect(untouched.status.code).toBe('IN_PROGRESS');
     },
   );
 

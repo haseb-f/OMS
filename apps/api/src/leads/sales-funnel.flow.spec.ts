@@ -49,6 +49,7 @@ describe('Sales Funnel Engine', () => {
   const createdUserIds: string[] = [];
   const createdLeadIds: string[] = [];
   const createdTeamIds: string[] = [];
+  const createdReasonIds: string[] = [];
   const suffix = () => randomUUID().slice(0, 8);
 
   beforeAll(async () => {
@@ -123,6 +124,11 @@ describe('Sales Funnel Engine', () => {
           where: { entityId: { in: createdLeadIds } },
         });
         await prisma.lead.deleteMany({ where: { id: { in: createdLeadIds } } });
+      }
+      if (createdReasonIds.length) {
+        await prisma.noPurchaseReason.deleteMany({
+          where: { id: { in: createdReasonIds } },
+        });
       }
       if (createdUserIds.length) {
         await prisma.storeOrderItem.deleteMany({
@@ -686,43 +692,6 @@ describe('Sales Funnel Engine', () => {
     },
   );
 
-  liveIt(
-    'legacy start-follow-up/archive mutations are also owner-scoped',
-    async () => {
-      // Regression: both methods used to fire `void this.findOne(id, scope)`
-      // without awaiting it, so the NotFoundException from an out-of-scope
-      // access never blocked the mutation that followed — Agent A could
-      // silently flip Agent B's Lead status via these legacy endpoints.
-      const a = await salesUser('Legacy Sec A');
-      const b = await salesUser('Legacy Sec B');
-      const { countryId, currencyId } = await refs();
-      const leadB = await leads.create({
-        customerName: `Legacy Sec Lead B ${suffix()}`,
-        mobileNumber: saMobile(),
-        countryId,
-        currencyId,
-        source: LeadSource.MANUAL,
-        salesEmployeeId: b.id,
-        quantity: 1,
-      });
-      createdLeadIds.push(leadB.id);
-      const scopeA = await salesScope.resolve(a.id);
-
-      await expect(
-        leads.startFollowUp(leadB.id, scopeA),
-      ).rejects.toBeInstanceOf(NotFoundException);
-      await expect(leads.archive(leadB.id, {}, scopeA)).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
-
-      const untouched = await prisma.lead.findUnique({
-        where: { id: leadB.id },
-        select: { status: { select: { code: true } } },
-      });
-      expect(untouched?.status.code).toBe('NEW');
-    },
-  );
-
   liveIt('a plain Sales Agent cannot assign or reassign Leads', async () => {
     const agent = await salesUser('No Assign Agent');
     const other = await salesUser('No Assign Target');
@@ -903,13 +872,17 @@ describe('Sales Funnel Engine', () => {
       const refreshed = await leads.findOne(lead.id, ownerScope);
       expect(refreshed.status.code).toBe('IN_PROGRESS');
       expect(refreshed.nextFollowUpAt).toBeTruthy();
+      const noPurchaseReason = await prisma.noPurchaseReason.create({
+        data: { code: `NPR-TEST-${suffix()}`, name: `Price ${suffix()}` },
+      });
+      createdReasonIds.push(noPurchaseReason.id);
       await workflow.executeTransitionByCodes(
         'LEAD',
         lead.id,
         'IN_PROGRESS',
         'LOST',
         owner.id,
-        { reason: 'price' },
+        { reason: 'price', noPurchaseReasonId: noPurchaseReason.id },
       );
       const lost = await leads.findOne(lead.id, ownerScope);
       expect(lost.status.code).toBe('LOST');

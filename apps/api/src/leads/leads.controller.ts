@@ -23,7 +23,6 @@ import { LeadAssignmentsService } from './assignments/lead-assignments.service';
 import { LeadAutoDistributionService } from './distribution/lead-auto-distribution.service';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
-import { ArchiveLeadDto } from './dto/archive-lead.dto';
 import { BulkAssignLeadsDto } from './dto/bulk-assign-leads.dto';
 import { CreateLeadAssignmentDto } from './assignments/dto/create-lead-assignment.dto';
 import { FindLeadsQueryDto } from './dto/find-leads-query.dto';
@@ -248,29 +247,6 @@ export class LeadsController {
     const scope = await this.salesScope.resolve(user.sub);
     await this.leadsService.findOne(id, scope);
     return this.leadsService.listFollowUps(id);
-  }
-
-  @Post(':id/start-follow-up')
-  @HttpCode(200)
-  @PermissionAction('edit')
-  async startFollowUp(
-    @Param('id') id: string,
-    @CurrentUser() user: JwtPayload,
-  ) {
-    const scope = await this.salesScope.resolve(user.sub);
-    return this.leadsService.startFollowUp(id, scope);
-  }
-
-  @Post(':id/archive')
-  @HttpCode(200)
-  @PermissionAction('edit')
-  async archive(
-    @Param('id') id: string,
-    @Body() dto: ArchiveLeadDto,
-    @CurrentUser() user: JwtPayload,
-  ) {
-    const scope = await this.salesScope.resolve(user.sub);
-    return this.leadsService.archive(id, dto, scope);
   }
 
   @Post(':id/mark-paid')
