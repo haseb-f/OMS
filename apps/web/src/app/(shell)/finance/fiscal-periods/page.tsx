@@ -9,6 +9,7 @@ import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { StatusBadge } from "@/components/business/status-badge";
 import type { StatusTone } from "@/components/business/status-badge";
 import { StackedCell } from "@/components/shared/stacked-cell";
+import { SemanticValue } from "@/components/shared/semantic-value";
 import {
   EnterpriseDataTable,
   exportColumnsFromKeys,
@@ -26,7 +27,7 @@ import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
-import { formatDate } from "@/lib/date";
+import { formatDate, formatDateRange } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
 
 const STATUS_TONE: Record<FiscalYearStatusValue, StatusTone> = {
@@ -97,7 +98,11 @@ export default function FiscalPeriodsPage() {
                 )}
               </div>
             }
-            secondary={`${formatDate(info.row.original.startDate)} — ${formatDate(info.row.original.endDate)}`}
+            secondary={
+              <SemanticValue kind="date">
+                {formatDateRange(info.row.original.startDate, info.row.original.endDate)}
+              </SemanticValue>
+            }
           />
         ),
       },

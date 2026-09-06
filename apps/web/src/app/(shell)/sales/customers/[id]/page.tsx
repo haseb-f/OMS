@@ -32,6 +32,7 @@ import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { formatDate, formatDateTime } from "@/lib/date";
+import { SemanticValue } from "@/components/shared/semantic-value";
 import type { DocumentData } from "@/types/document-engine";
 import { ApiError } from "@/services/api-client";
 import { toast } from "@/lib/toast";
@@ -281,7 +282,9 @@ export default function CustomerProfilePage() {
                   />
                   <DetailField
                     label={t("sales.customers.fields.createdAt")}
-                    value={formatDate(customer.createdAt)}
+                    value={
+                      <SemanticValue kind="date">{formatDate(customer.createdAt)}</SemanticValue>
+                    }
                   />
                 </DetailFieldGrid>
               </DetailSection>

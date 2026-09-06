@@ -221,7 +221,9 @@ function JournalEntriesPageContent() {
         cell: ({ row }) => (
           <StackedCell
             primary={<SemanticValue kind="id">{row.original.entryNumber}</SemanticValue>}
-            secondary={formatDate(row.original.entryDate)}
+            secondary={
+              <SemanticValue kind="date">{formatDate(row.original.entryDate)}</SemanticValue>
+            }
           />
         ),
       },

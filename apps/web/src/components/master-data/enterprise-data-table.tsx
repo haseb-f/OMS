@@ -700,6 +700,17 @@ export function EnterpriseDataTable<TData>({
     return new Map(resolved.map((column) => [column.id, column]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleLeafColumns.map((c) => c.id).join(",")]);
+  // `flexRender` wraps ANY function-valued `cell` — including the plain
+  // string fallback TanStack merges in for a column with no explicit `cell`
+  // — in `React.createElement`, so its output is `isValidElement()` either
+  // way. `applySemanticCellContent` needs to know which columns actually
+  // authored their own cell tree (and therefore own their own direction)
+  // versus which are just the `accessorFn` default, computed from the raw
+  // column config *before* TanStack merges in that default.
+  const columnsWithExplicitCell = useMemo(
+    () => new Set(columns.filter((column) => column.cell != null).map((column) => column.id)),
+    [columns],
+  );
   const resolvedColumns = useMemo(() => Array.from(layoutById.values()), [layoutById]);
   const detailColumnAxes = useMemo(
     () =>
@@ -1196,10 +1207,10 @@ export function EnterpriseDataTable<TData>({
                       >
                         {row.getVisibleCells().map((cell, index) => {
                           const layout = layoutById.get(cell.column.id);
-                          const rendered = applySemanticCellContent(
-                            flexRender(cell.column.columnDef.cell, cell.getContext()),
-                            layout?.type,
-                          );
+                          const rawContent = columnsWithExplicitCell.has(cell.column.id)
+                            ? flexRender(cell.column.columnDef.cell, cell.getContext())
+                            : cell.renderValue<ReactNode>();
+                          const rendered = applySemanticCellContent(rawContent, layout?.type);
                           // Only the identity column navigates. The row itself
                           // stays inert so the checkbox, chevron and actions menu
                           // sharing it keep unambiguous hit areas.

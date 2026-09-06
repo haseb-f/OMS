@@ -176,7 +176,9 @@ function SupplierPaymentsPageContent() {
         cell: ({ row }) => (
           <StackedCell
             primary={<SemanticValue kind="id">{row.original.transactionNumber}</SemanticValue>}
-            secondary={formatDate(row.original.createdAt)}
+            secondary={
+              <SemanticValue kind="date">{formatDate(row.original.createdAt)}</SemanticValue>
+            }
           />
         ),
       },

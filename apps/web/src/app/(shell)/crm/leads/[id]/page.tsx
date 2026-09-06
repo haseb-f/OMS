@@ -38,6 +38,7 @@ import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import { formatDate, formatDateTime } from "@/lib/date";
+import { SemanticValue } from "@/components/shared/semantic-value";
 import type { MessageKey } from "@/i18n/translate";
 
 function LeadDetailContent() {
@@ -317,7 +318,7 @@ function LeadDetailContent() {
                   />
                   <DetailField
                     label={t("crm.leads.fields.createdAt")}
-                    value={formatDate(lead.createdAt)}
+                    value={<SemanticValue kind="date">{formatDate(lead.createdAt)}</SemanticValue>}
                   />
                   {lead.noPurchaseReason ? (
                     <DetailField

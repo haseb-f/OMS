@@ -580,8 +580,8 @@ function StoreOrderDetailContent() {
               : t(`storeOrders.source.${order.source}` as MessageKey)
           }
         />
-        <DetailFieldRow label={t("common.createdAt")} value={formatDate(order.createdAt)} />
-        <DetailFieldRow label={t("common.updatedAt")} value={formatDate(order.updatedAt)} />
+        <DetailFieldRow label={t("common.createdAt")} value={formatDate(order.createdAt)} ltr />
+        <DetailFieldRow label={t("common.updatedAt")} value={formatDate(order.updatedAt)} ltr />
         <DetailFieldRow
           label={t("storeOrders.detail.sections.notes")}
           value={order.notes ?? undefined}
@@ -878,7 +878,7 @@ function StoreOrderDetailContent() {
             <DetailField label={t("storeOrders.fields.customer")} value={order.partner?.name} />
             <DetailField
               label={t("storeOrders.fields.orderDate")}
-              value={formatDate(order.orderDate)}
+              value={<SemanticValue kind="date">{formatDate(order.orderDate)}</SemanticValue>}
             />
             <DetailField
               label={t("storeOrders.fields.total")}
