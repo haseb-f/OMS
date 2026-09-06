@@ -498,7 +498,7 @@ function ClassifyDialog({
             label={t("masterData.bankTransactions.classifyDialog.supplier")}
             placeholder={t("masterData.bankTransactions.manual.searchSupplier")}
             search={async (query) => {
-              const result = await partnersService.list({
+              const result = await partnersService.catalog({
                 search: query,
                 pageSize: 20,
                 role: ["SUPPLIER"],

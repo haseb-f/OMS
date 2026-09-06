@@ -396,7 +396,7 @@ function SupplierPaymentsPageContent() {
                 setPage(1);
               }}
               onSearch={async (search) => {
-                const result = await partnersService.list({
+                const result = await partnersService.catalog({
                   search: search || undefined,
                   pageSize: 20,
                   role: ["SUPPLIER"],

@@ -149,7 +149,7 @@ export const useWarehouses = createReferenceDataHook<WarehouseRow>(() =>
 
 /** Supplier-role Partners — same "preferred supplier" picker Products uses (spec section 10: Suppliers are a role view over Partner). */
 export const useSuppliers = createReferenceDataHook<PartnerRow>(() =>
-  partnersService.list({ pageSize: 200, role: ["SUPPLIER"] }).then((r) => r.items),
+  partnersService.catalog({ pageSize: 200, role: ["SUPPLIER"] }).then((r) => r.items),
 );
 
 /**

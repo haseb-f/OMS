@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   Patch,
@@ -9,7 +10,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { PartnerRoleType } from '@prisma/client';
+import { PartnerRoleType, PartnerStatus } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { PermissionModule } from '../auth/decorators/permission-module.decorator';
@@ -26,13 +27,45 @@ import { FindOrCreatePartnerDto } from './dto/find-or-create-partner.dto';
 import { FindPartnersQueryDto } from './dto/find-partners-query.dto';
 import { AssignRoleDto } from './dto/assign-role.dto';
 import { BulkIdsDto } from '../master-data/dto/bulk-ids.dto';
+import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
+
+/**
+ * Anyone who legitimately builds a document that references a Customer or
+ * Supplier (Lead conversion, Store/Sales Order, Purchase Order, Journal
+ * Entry) can browse the ACTIVE partner picker even without `partners.view` —
+ * that permission stays reserved for full Partner/Supplier directory
+ * management. Without this, a Sales Agent granted `partners.create` (to
+ * quick-create a customer on an Order) had no way to pick an EXISTING
+ * customer, and granting `partners.view` instead leaked the whole
+ * "Purchasing" sidebar section into view (Suppliers lives there and shares
+ * this same permission — see ProductsController.catalog() for the identical
+ * pattern already established for Products).
+ */
+const CATALOG_READ_PERMISSIONS = [
+  'partners.view',
+  'crm.leads.convert',
+  'store-orders.create',
+  'store-orders.edit',
+  'sales.quotations.create',
+  'sales.orders.create',
+  'sales.invoices.create',
+  'sales.returns.create',
+  'purchasing.quotations.create',
+  'purchasing.orders.create',
+  'purchasing.invoices.create',
+  'purchasing.returns.create',
+  'accounting.journal-entries.create',
+];
 
 /** Business operations: Create, Update, Archive, Restore, Search, Find-or-Create, Assign/Remove Role. Customers/Suppliers pages are role-filtered views over this same registry (spec sections 9/10/12). */
 @Controller('partners')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @PermissionModule('partners')
 export class PartnersController {
-  constructor(private readonly partnersService: PartnersService) {}
+  constructor(
+    private readonly partnersService: PartnersService,
+    private readonly permissions: PermissionsResolverService,
+  ) {}
 
   @Post()
   create(@Body() dto: CreatePartnerDto, @CurrentUser() user: JwtPayload) {
@@ -57,6 +90,32 @@ export class PartnersController {
   @Get('ids')
   findAllIds(@Query() query: FindPartnersQueryDto) {
     return this.partnersService.findAllIds(query);
+  }
+
+  /** Static route — must precede `:id`. */
+  @Get('catalog')
+  @SkipPermissionCheck()
+  async catalog(
+    @Query() query: FindPartnersQueryDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const isSuperAdmin = await this.permissions.isSuperAdmin(user.sub);
+    if (!isSuperAdmin) {
+      const grants = await Promise.all(
+        CATALOG_READ_PERMISSIONS.map((name) =>
+          this.permissions.hasPermission(user.sub, name),
+        ),
+      );
+      if (!grants.some(Boolean)) {
+        throw new ForbiddenException(
+          'You need a document-creation permission to browse the partner picker.',
+        );
+      }
+    }
+    return this.partnersService.findAll({
+      ...query,
+      status: [PartnerStatus.ACTIVE],
+    });
   }
 
   @Get()

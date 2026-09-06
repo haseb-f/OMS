@@ -1,5 +1,11 @@
 import { apiClient } from "./api-client";
-import { createMasterDataService, type MasterDataActivityEntry } from "./master-data-service";
+import {
+  createMasterDataService,
+  type MasterDataActivityEntry,
+  type MasterDataListParams,
+  type MasterDataListResult,
+} from "./master-data-service";
+import { buildQueryString } from "@/lib/query-string";
 
 export type PartnerRoleValue = "CUSTOMER" | "SUPPLIER" | "EMPLOYEE" | "OWNER" | "OTHER";
 export type PartnerEntityTypeValue = "PERSON" | "ORGANIZATION";
@@ -121,6 +127,16 @@ const base = createMasterDataService<PartnerRow>("/partners");
  */
 export const partnersService = {
   ...base,
+  /**
+   * ACTIVE-only Partner picker for a Sales/Purchasing document (Lead
+   * conversion, Store/Sales/Purchase Order, Journal Entry) — readable by
+   * anyone who holds a document-creation permission, not just
+   * `partners.view`. `partners.view` stays reserved for the full Partner
+   * management directory (Customers/Suppliers pages); never use `.list()`
+   * for a picker.
+   */
+  catalog: (params: MasterDataListParams = {}) =>
+    apiClient.get<MasterDataListResult<PartnerRow>>(`/partners/catalog${buildQueryString(params)}`),
   /** Reuses an existing Partner by phone/mobile/email/tax number if one matches and adds `role` if it doesn't already hold it; otherwise creates a new Partner with just that role. Never duplicates. */
   findOrCreateWithRole: (role: PartnerRoleValue, dto: PartnerFormPayload) =>
     apiClient.post<{ partner: PartnerRow; created: boolean }>("/partners/find-or-create", {
