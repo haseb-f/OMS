@@ -13,6 +13,8 @@ export function ProductPicker({
   disabled,
   className,
   inventoryOnly,
+  sellableOnly = true,
+  purchasableOnly = false,
 }: {
   value: ProductRow | null | undefined;
   onChange: (product: ProductRow) => void;
@@ -20,6 +22,13 @@ export function ProductPicker({
   className?: string;
   /** Inventory movement pickers (Transfer/Adjustment/Opening) — only products a stock movement can legally apply to (ADR-0013). */
   inventoryOnly?: boolean;
+  /**
+   * Sales/convert pickers default to sellable ACTIVE products. Pass false for
+   * purchasing (with purchasableOnly) or generic ACTIVE catalog browsing.
+   */
+  sellableOnly?: boolean;
+  /** Purchasing pickers — only products that can be purchased. */
+  purchasableOnly?: boolean;
 }) {
   const { t } = useLocale();
 
@@ -32,9 +41,13 @@ export function ProductPicker({
       onSearch={async (search) => {
         const result = await productsService.list({
           search: search || undefined,
-          pageSize: 8,
+          pageSize: 25,
           status: "ACTIVE",
+          sortBy: "displayName",
+          sortOrder: "asc",
           ...(inventoryOnly ? { isInventoryItem: true } : {}),
+          ...(purchasableOnly && !inventoryOnly ? { isPurchasable: true } : {}),
+          ...(sellableOnly && !inventoryOnly && !purchasableOnly ? { isSellable: true } : {}),
         });
         return result.items;
       }}
@@ -51,7 +64,10 @@ export function ProductPicker({
       subtitleDir="ltr"
       placeholder={t("sales.editor.grid.selectProduct")}
       searchPlaceholder={t("sales.editor.grid.productSearchPlaceholder")}
-      emptyText={t("sales.customers.picker.noResults")}
+      loadingText={t("sales.editor.grid.loadingProducts")}
+      emptyText={t("sales.editor.grid.noActiveProducts")}
+      noMatchText={t("sales.editor.grid.noMatchingProducts")}
+      errorText={t("sales.editor.grid.productsLoadError")}
       disabled={disabled}
       icon={<Package className="size-3.5 shrink-0 text-muted-foreground" />}
       triggerClassName={cn("max-w-(--width-picker-product)", className)}

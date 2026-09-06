@@ -163,6 +163,8 @@ export class ProductsService {
       status: prismaEnumFilter(query.status),
       type: prismaEnumFilter(query.type),
       isInventoryItem: query.isInventoryItem,
+      isSellable: query.isSellable,
+      isPurchasable: query.isPurchasable,
     };
 
     if (query.search) {

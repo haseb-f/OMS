@@ -72,7 +72,13 @@ function CrmLeadsPageContent() {
 
   useEffect(() => {
     productsService
-      .list({ pageSize: 200 })
+      .list({
+        pageSize: 200,
+        status: "ACTIVE",
+        isSellable: true,
+        sortBy: "displayName",
+        sortOrder: "asc",
+      })
       .then((r) =>
         setProducts(r.items.map((p) => ({ id: p.id, displayName: p.displayName, sku: p.sku }))),
       )

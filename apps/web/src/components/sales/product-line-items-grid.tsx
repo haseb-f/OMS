@@ -88,6 +88,8 @@ export function ProductLineItemsGrid({
   requireWarehouse = true,
   disabled,
   compact = false,
+  sellableOnly = true,
+  purchasableOnly = false,
 }: {
   lines: ProductLineItemsGridLine[];
   onChange: (lines: ProductLineItemsGridLine[]) => void;
@@ -103,6 +105,10 @@ export function ProductLineItemsGrid({
    * document type requires (Quotation has none at all).
    */
   compact?: boolean;
+  /** Sales default: only sellable ACTIVE products. */
+  sellableOnly?: boolean;
+  /** Purchasing: only purchasable ACTIVE products. */
+  purchasableOnly?: boolean;
 }) {
   const { t } = useLocale();
   const taxes = useTaxes();
@@ -230,6 +236,8 @@ export function ProductLineItemsGrid({
                     <ProductPicker
                       value={line.product}
                       disabled={disabled}
+                      sellableOnly={sellableOnly}
+                      purchasableOnly={purchasableOnly}
                       onChange={(product) => selectProduct(line.id, product)}
                     />
                     {line.product && (

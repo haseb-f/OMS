@@ -71,6 +71,17 @@ export function EnterpriseModal({
     onOpenChange(false);
   };
 
+  /** Portaled pickers/menus live outside the dialog DOM — treat them as inside. */
+  const isPortaledOverlayEvent = (event: { target: EventTarget | null }) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return false;
+    return Boolean(
+      target.closest(
+        '[data-slot="popover-content"], [data-slot="select-content"], [data-slot="dropdown-menu-content"], [data-slot="combobox-content"], [data-radix-popper-content-wrapper], [role="listbox"], [role="menu"]',
+      ),
+    );
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : requestClose())}>
@@ -83,8 +94,22 @@ export function EnterpriseModal({
               requestClose();
             }}
             onPointerDownOutside={(event) => {
+              if (isPortaledOverlayEvent(event)) {
+                event.preventDefault();
+                return;
+              }
               event.preventDefault();
               requestClose();
+            }}
+            onFocusOutside={(event) => {
+              if (isPortaledOverlayEvent(event)) {
+                event.preventDefault();
+              }
+            }}
+            onInteractOutside={(event) => {
+              if (isPortaledOverlayEvent(event)) {
+                event.preventDefault();
+              }
             }}
             className={cn(
               "fixed top-1/2 start-1/2 z-50 flex max-h-[85vh] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 rtl:translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg duration-(--duration-base) outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",

@@ -40,6 +40,9 @@ export function EntityCombobox<T>({
   placeholder,
   searchPlaceholder,
   emptyText,
+  noMatchText,
+  loadingText,
+  errorText,
   disabled,
   allowClear = false,
   icon,
@@ -61,6 +64,9 @@ export function EntityCombobox<T>({
   placeholder?: string;
   searchPlaceholder?: string;
   emptyText?: string;
+  noMatchText?: string;
+  loadingText?: string;
+  errorText?: string;
   disabled?: boolean;
   allowClear?: boolean;
   icon?: ReactNode;
@@ -76,6 +82,7 @@ export function EntityCombobox<T>({
   const [search, setSearch] = useState("");
   const [remoteItems, setRemoteItems] = useState<T[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const onSearchRef = useRef(onSearch);
   const isAsync = typeof onSearch === "function";
 
@@ -90,10 +97,12 @@ export function EntityCombobox<T>({
         const searchFn = onSearchRef.current;
         if (!searchFn) return;
         setIsLoading(true);
+        setLoadError(false);
         try {
           setRemoteItems(await searchFn(search));
         } catch {
           setRemoteItems([]);
+          setLoadError(true);
         } finally {
           setIsLoading(false);
         }
@@ -123,13 +132,24 @@ export function EntityCombobox<T>({
     setSearch("");
   };
 
+  const emptyMessage =
+    loadError && errorText
+      ? errorText
+      : search.trim()
+        ? (noMatchText ?? emptyText ?? t("common.noResults"))
+        : (emptyText ?? t("common.noResults"));
+
   return (
     <Popover
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (!next) setSearch("");
+        if (!next) {
+          setSearch("");
+          setLoadError(false);
+        }
       }}
+      modal={false}
     >
       <div className="flex w-full items-center gap-1">
         <PopoverTrigger asChild>
@@ -185,12 +205,12 @@ export function EntityCombobox<T>({
           <CommandList aria-busy={isLoading || undefined}>
             {isLoading ? (
               <div className="px-2.5 py-2.5 text-center text-caption text-muted-foreground">
-                {t("common.loading")}
+                {loadingText ?? t("common.loading")}
               </div>
             ) : (
               <>
                 {!showGroups && filteredItems.length === 0 && (
-                  <CommandEmpty>{emptyText ?? t("common.noResults")}</CommandEmpty>
+                  <CommandEmpty>{emptyMessage}</CommandEmpty>
                 )}
                 {showGroups &&
                   groups!.map((group) => (

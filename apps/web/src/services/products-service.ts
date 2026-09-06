@@ -115,6 +115,8 @@ export interface ProductListParams {
   status?: ProductStatus | ProductStatus[];
   type?: ProductType | ProductType[];
   isInventoryItem?: boolean;
+  isSellable?: boolean;
+  isPurchasable?: boolean;
 }
 
 export interface ProductActivityEntry {

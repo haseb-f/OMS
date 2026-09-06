@@ -216,6 +216,8 @@ export function PurchasingDocumentEditor<TDocument>({
             requireWarehouse={config.requireWarehouse ?? true}
             disabled={!canEdit}
             compact
+            sellableOnly={false}
+            purchasableOnly
           />
         </div>
 

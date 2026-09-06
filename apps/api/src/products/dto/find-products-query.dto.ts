@@ -50,6 +50,18 @@ export class FindProductsQueryDto {
   @IsOptional()
   isInventoryItem?: boolean;
 
+  /** Sales/convert pickers — only products that can be sold. */
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  @IsOptional()
+  isSellable?: boolean;
+
+  /** Purchasing pickers — only products that can be purchased. */
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  @IsOptional()
+  isPurchasable?: boolean;
+
   @IsString()
   @IsOptional()
   search?: string;
