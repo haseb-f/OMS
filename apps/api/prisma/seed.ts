@@ -1159,6 +1159,17 @@ async function main() {
 
   const passwordHash = await bcrypt.hash('Passw0rd!', 10);
 
+  // Sales Department + Team — needed so the seeded Sales Manager test
+  // persona actually resolves to SalesScopeService's TEAM scope (managing a
+  // SalesTeam), not just holding a permission string. Required FK for
+  // SalesTeam; a generic "Sales" department is safe, universal test setup,
+  // not business-specific taxonomy.
+  const salesDepartment = await prisma.department.upsert({
+    where: { code: 'DEPT-SALES' },
+    update: {},
+    create: { code: 'DEPT-SALES', name: 'المبيعات', nameEn: 'Sales' },
+  });
+
   const adminUser = await prisma.user.upsert({
     where: { email: 'admin@oms.local' },
     update: {
@@ -1187,6 +1198,40 @@ async function main() {
       jobTitleId: jobTitleByName.get('مدير المبيعات')!.id,
     },
   });
+  // Second Sales Agent test persona — needed to verify cross-agent Lead
+  // isolation (Agent A must never see Agent B's Leads). Same permission
+  // shape as `salesUser`.
+  const salesUserB = await prisma.user.upsert({
+    where: { email: 'sales2@oms.local' },
+    update: {
+      username: 'sales2',
+      jobTitleId: jobTitleByName.get('مدير المبيعات')!.id,
+    },
+    create: {
+      email: 'sales2@oms.local',
+      username: 'sales2',
+      fullName: 'Yousef Hamdan',
+      passwordHash,
+      jobTitleId: jobTitleByName.get('مدير المبيعات')!.id,
+    },
+  });
+  // Sales Manager test persona — a real TEAM-scope manager (below), not just
+  // a permission string, so Assign/Distribute/team-visibility can be
+  // verified against SalesScopeService's actual TEAM branch.
+  const salesManagerUser = await prisma.user.upsert({
+    where: { email: 'sales-manager@oms.local' },
+    update: {
+      username: 'sales-manager',
+      jobTitleId: jobTitleByName.get('مدير المبيعات')!.id,
+    },
+    create: {
+      email: 'sales-manager@oms.local',
+      username: 'sales-manager',
+      fullName: 'Laila Qahtani',
+      passwordHash,
+      jobTitleId: jobTitleByName.get('مدير المبيعات')!.id,
+    },
+  });
 
   // TASK-060 — "Permissions are assigned directly to each user" (no
   // Role/RBAC layer). Admin gets every permission ever seeded (every module
@@ -1208,7 +1253,7 @@ async function main() {
       create: { userId: adminUser.id, permissionId: permission.id },
     });
   }
-  for (const name of [
+  const salesAgentPermissionNames = [
     'crm.view',
     'sales.view',
     'products.view',
@@ -1216,13 +1261,15 @@ async function main() {
     'products.edit',
     // Was 'sales.customers.*' — a permission name that predates the Partner
     // module consolidation and no longer exists in permission-catalog.ts, so
-    // this grant silently no-opped (permissionByName.get() returned
-    // undefined) and the seeded Sales Agent had no way to select a
-    // customer/partner on any Sales document. `partners.*` is the real,
-    // current gate on GET/POST/PATCH /partners.
-    'partners.view',
+    // this grant silently no-opped. `partners.create` is the real, current
+    // gate on quick-creating a customer inline. Deliberately NOT
+    // `partners.view`/`partners.edit` — those are full Partner/Supplier
+    // *directory* management (and `partners.view` alone made the entire
+    // "Purchasing" sidebar section visible, since Suppliers/Supplier Groups
+    // share that same permission). A Sales Agent picks an existing customer
+    // via PartnerPicker's /partners/catalog read (any document-creation
+    // permission grants that), never the full directory.
     'partners.create',
-    'partners.edit',
     // A Sales Agent test persona needs the Lead -> Convert -> Store Order
     // path to actually be exercisable end-to-end.
     'crm.leads.view',
@@ -1244,18 +1291,68 @@ async function main() {
     'sales.returns.view',
     'sales.returns.create',
     'sales.returns.edit',
-  ]) {
-    const permission = permissionByName.get(name);
-    if (!permission) continue;
-    await prisma.userPermission.upsert({
+  ];
+  async function grantPermissions(userId: string, names: string[]) {
+    for (const name of names) {
+      const permission = permissionByName.get(name);
+      if (!permission) continue;
+      await prisma.userPermission.upsert({
+        where: { userId_permissionId: { userId, permissionId: permission.id } },
+        update: {},
+        create: { userId, permissionId: permission.id },
+      });
+    }
+  }
+  // Agent A and Agent B: identical, deliberately narrow Sales Agent
+  // authority — OWN-scope only, per SalesScopeService (no crm.leads.manage,
+  // not a SalesTeam manager).
+  await grantPermissions(salesUser.id, salesAgentPermissionNames);
+  await grantPermissions(salesUserB.id, salesAgentPermissionNames);
+  // Sales Manager: the same day-to-day Sales authority as an Agent, plus
+  // crm.leads.manage (Distribute Leads) — TEAM scope itself comes from
+  // managing the Sales Team below, not from a permission string.
+  await grantPermissions(salesManagerUser.id, [
+    ...salesAgentPermissionNames,
+    'crm.leads.manage',
+  ]);
+  // Revoke over-grants from an earlier version of this seed — upsert only
+  // ever adds, so removing a name from salesAgentPermissionNames above
+  // leaves a stale row behind unless explicitly deleted here too.
+  const revokedSalesAgentPermissionNames = ['partners.view', 'partners.edit'];
+  for (const userId of [salesUser.id, salesUserB.id, salesManagerUser.id]) {
+    const revokedIds = revokedSalesAgentPermissionNames
+      .map((name) => permissionByName.get(name)?.id)
+      .filter((id): id is string => !!id);
+    if (revokedIds.length) {
+      await prisma.userPermission.deleteMany({
+        where: { userId, permissionId: { in: revokedIds } },
+      });
+    }
+  }
+
+  // Sales Team — gives salesManagerUser real TEAM scope over Agent A/B in
+  // SalesScopeService.resolve() (kind: 'TEAM'), the actual mechanism Sales
+  // Manager / Team Manager visibility and Assign/Distribute rely on.
+  const salesTeam = await prisma.salesTeam.upsert({
+    where: { code: 'TEAM-SALES-1' },
+    update: {
+      managerId: salesManagerUser.id,
+      departmentId: salesDepartment.id,
+    },
+    create: {
+      code: 'TEAM-SALES-1',
+      name: 'فريق المبيعات الأول',
+      departmentId: salesDepartment.id,
+      managerId: salesManagerUser.id,
+    },
+  });
+  for (const memberId of [salesUser.id, salesUserB.id]) {
+    await prisma.salesTeamMember.upsert({
       where: {
-        userId_permissionId: {
-          userId: salesUser.id,
-          permissionId: permission.id,
-        },
+        salesTeamId_userId: { salesTeamId: salesTeam.id, userId: memberId },
       },
       update: {},
-      create: { userId: salesUser.id, permissionId: permission.id },
+      create: { salesTeamId: salesTeam.id, userId: memberId },
     });
   }
 
@@ -1274,12 +1371,14 @@ async function main() {
     update: {},
     create: { userId: adminUser.id, companyId: nova.id },
   });
-  // Sales agent belongs to one company only.
-  await prisma.companyMembership.upsert({
-    where: { userId_companyId: { userId: salesUser.id, companyId: acme.id } },
-    update: {},
-    create: { userId: salesUser.id, companyId: acme.id, branchId: acmeMain.id },
-  });
+  // Sales agents and Sales Manager belong to one company only.
+  for (const userId of [salesUser.id, salesUserB.id, salesManagerUser.id]) {
+    await prisma.companyMembership.upsert({
+      where: { userId_companyId: { userId, companyId: acme.id } },
+      update: {},
+      create: { userId, companyId: acme.id, branchId: acmeMain.id },
+    });
+  }
 
   // ---------------------------------------------------------------------
   // Analytic Accounting demo data (TASK-026 Part 2) — Odoo-style: one flat
