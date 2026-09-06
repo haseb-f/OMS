@@ -14,6 +14,7 @@ import {
   type TaxRow,
   type ChartOfAccountRow,
 } from "@/config/master-data/entities";
+import { useTaxes } from "@/hooks/use-reference-data";
 
 const service = createMasterDataService<TaxRow>("/taxes");
 const accountsService = createMasterDataService<ChartOfAccountRow>("/chart-of-accounts");
@@ -70,6 +71,7 @@ export default function TaxesPage() {
       defaultValues={taxesDefaultValues}
       permissionPrefix="masterdata.taxes"
       rowLabel={taxRowLabel}
+      onRecordsChanged={() => useTaxes.invalidate()}
     />
   );
 }

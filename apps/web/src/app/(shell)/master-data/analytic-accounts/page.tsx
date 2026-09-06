@@ -14,6 +14,7 @@ import {
   type AnalyticAccountRow,
   type AnalyticPlanRow,
 } from "@/config/master-data/entities";
+import { useAnalyticAccounts } from "@/hooks/use-reference-data";
 
 const service = createMasterDataService<AnalyticAccountRow>("/analytic-accounts");
 const plansService = createMasterDataService<AnalyticPlanRow>("/analytic-plans");
@@ -66,6 +67,7 @@ export default function AnalyticAccountsPage() {
       defaultValues={analyticAccountsDefaultValues}
       permissionPrefix="masterdata.analytic-accounts"
       rowLabel={analyticAccountRowLabel}
+      onRecordsChanged={() => useAnalyticAccounts.invalidate()}
     />
   );
 }

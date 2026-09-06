@@ -11,6 +11,7 @@ import {
   currencyRowLabel,
   type CurrencyRow,
 } from "@/config/master-data/entities";
+import { useCurrencies } from "@/hooks/use-reference-data";
 
 const service = createMasterDataService<CurrencyRow>("/currencies");
 
@@ -28,6 +29,7 @@ export default function CurrenciesPage() {
       defaultValues={currenciesDefaultValues}
       permissionPrefix="masterdata.currencies"
       rowLabel={currencyRowLabel}
+      onRecordsChanged={() => useCurrencies.invalidate()}
     />
   );
 }

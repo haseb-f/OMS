@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
 import { createMasterDataService } from "@/services/master-data-service";
-import { useUsersList } from "@/hooks/use-reference-data";
+import { useUsersList, useWarehouses } from "@/hooks/use-reference-data";
 import type { MasterDataFormField } from "@/components/master-data/master-data-form";
 import {
   warehousesColumns,
@@ -64,6 +64,7 @@ export default function WarehousesPage() {
       defaultValues={warehousesDefaultValues}
       permissionPrefix="masterdata.warehouses"
       rowLabel={warehouseRowLabel}
+      onRecordsChanged={() => useWarehouses.invalidate()}
     />
   );
 }

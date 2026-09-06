@@ -11,6 +11,7 @@ import {
   unitRowLabel,
   type UnitRow,
 } from "@/config/master-data/entities";
+import { useUnits } from "@/hooks/use-reference-data";
 
 const service = createMasterDataService<UnitRow>("/units");
 
@@ -28,6 +29,7 @@ export default function UnitsPage() {
       defaultValues={unitsDefaultValues}
       permissionPrefix="masterdata.units"
       rowLabel={unitRowLabel}
+      onRecordsChanged={() => useUnits.invalidate()}
     />
   );
 }

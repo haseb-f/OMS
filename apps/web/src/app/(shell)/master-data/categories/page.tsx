@@ -14,6 +14,7 @@ import {
   type CategoryRow,
   type ChartOfAccountRow,
 } from "@/config/master-data/entities";
+import { useProductCategories } from "@/hooks/use-reference-data";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
@@ -102,6 +103,7 @@ export default function CategoriesPage() {
       defaultValues={categoriesDefaultValues}
       permissionPrefix="masterdata.categories"
       rowLabel={categoryRowLabel}
+      onRecordsChanged={() => useProductCategories.invalidate()}
     />
   );
 }

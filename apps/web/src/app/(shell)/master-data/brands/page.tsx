@@ -11,6 +11,7 @@ import {
   brandRowLabel,
   type BrandRow,
 } from "@/config/master-data/entities";
+import { useProductBrands } from "@/hooks/use-reference-data";
 
 const service = createMasterDataService<BrandRow>("/product-brands");
 
@@ -28,6 +29,7 @@ export default function BrandsPage() {
       defaultValues={brandsDefaultValues}
       permissionPrefix="masterdata.brands"
       rowLabel={brandRowLabel}
+      onRecordsChanged={() => useProductBrands.invalidate()}
     />
   );
 }

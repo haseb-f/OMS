@@ -51,10 +51,11 @@ function createReferenceDataHook<T>(fetcher: () => Promise<T[]>) {
       })
       .catch(() => {
         if (inFlight !== request) return cache ?? [];
-        cache = [];
+        // Do not cache failures as a permanent empty list — leave cache
+        // unset so the next mount/invalidate can retry.
         inFlight = null;
         listeners.forEach((listener) => listener());
-        return [];
+        return cache ?? [];
       });
     inFlight = request;
   }
@@ -141,7 +142,9 @@ export const useAnalyticAccounts = createReferenceDataHook<AnalyticAccountRow>((
 );
 
 export const useWarehouses = createReferenceDataHook<WarehouseRow>(() =>
-  warehousesService.list({ pageSize: 200 }).then((r) => r.items),
+  warehousesService
+    .list({ pageSize: 200 })
+    .then((r) => r.items.filter((row) => !row.deletedAt && row.isActive !== false)),
 );
 
 /** Supplier-role Partners — same "preferred supplier" picker Products uses (spec section 10: Suppliers are a role view over Partner). */

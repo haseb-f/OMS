@@ -11,6 +11,7 @@ import {
   countryRowLabel,
   type CountryRow,
 } from "@/config/master-data/entities";
+import { useCountries } from "@/hooks/use-reference-data";
 
 const service = createMasterDataService<CountryRow>("/countries");
 
@@ -28,6 +29,7 @@ export default function CountriesPage() {
       defaultValues={countriesDefaultValues}
       permissionPrefix="masterdata.countries"
       rowLabel={countryRowLabel}
+      onRecordsChanged={() => useCountries.invalidate()}
     />
   );
 }
