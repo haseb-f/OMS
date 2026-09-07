@@ -8,6 +8,7 @@ import { PurchaseInvoicePostingProvider } from './purchase-invoice-posting.provi
 import { PurchaseReturnPostingProvider } from './purchase-return-posting.provider';
 import { FinancialTransactionPostingProvider } from './financial-transaction-posting.provider';
 import { InventoryAdjustmentPostingProvider } from './inventory-adjustment-posting.provider';
+import { InternalTransferPostingProvider } from './internal-transfer-posting.provider';
 
 /**
  * Accounting Posting Engine (TASK-046/047) — every default Posting
@@ -35,6 +36,7 @@ import { InventoryAdjustmentPostingProvider } from './inventory-adjustment-posti
     PurchaseReturnPostingProvider,
     FinancialTransactionPostingProvider,
     InventoryAdjustmentPostingProvider,
+    InternalTransferPostingProvider,
   ],
 })
 export class PostingProvidersModule {}

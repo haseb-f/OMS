@@ -19,6 +19,7 @@ import { ConfirmExpenseVoucherDto } from './dto/confirm-expense-voucher.dto';
 import { BulkCashFlowIdsDto } from './dto/bulk-cash-flow-ids.dto';
 import { BulkClassifyOutgoingDto } from './dto/bulk-classify-outgoing.dto';
 import { UnreconcileCashFlowDto } from './dto/unreconcile-cash-flow.dto';
+import { ConfirmInternalTransferDto } from './dto/confirm-internal-transfer.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { PermissionModule } from '../auth/decorators/permission-module.decorator';
@@ -101,9 +102,15 @@ export class BankTransactionsController {
     return this.reconciliation.confirmStoreOrderPayment(id, dto, user.sub);
   }
 
-  /** Controlled Unreconcile — Cash Transaction retained; allocation reversed. */
+  /**
+   * Controlled Unreconcile — Cash Transaction retained; allocation reversed.
+   * Gated on `.unreconcile` (Finance Manager/Admin), a stronger,
+   * separately-grantable authority than `.manage` (ordinary Finance user
+   * confirm/classify) — undoing a reconciliation reverses posted
+   * accounting evidence, not just re-reviews a suggestion.
+   */
   @Post(':id/unreconcile')
-  @PermissionAction('manage')
+  @PermissionAction('reverse')
   unreconcile(
     @Param('id') id: string,
     @Body() dto: UnreconcileCashFlowDto,
@@ -171,6 +178,28 @@ export class BankTransactionsController {
       dto,
       user.sub,
       context,
+    );
+  }
+
+  // --- Internal Transfer (Reconciliation Part H) ---
+
+  @Post(':id/suggest-internal-transfer')
+  @PermissionAction('manage')
+  suggestInternalTransfer(@Param('id') id: string) {
+    return this.reconciliation.suggestInternalTransfer(id);
+  }
+
+  @Post(':id/confirm-internal-transfer')
+  @PermissionAction('manage')
+  confirmInternalTransfer(
+    @Param('id') id: string,
+    @Body() dto: ConfirmInternalTransferDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.reconciliation.confirmInternalTransfer(
+      id,
+      dto.pairedId,
+      user.sub,
     );
   }
 

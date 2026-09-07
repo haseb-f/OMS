@@ -14,8 +14,15 @@ import { PaymentsService } from '../payments/payments.service';
 import { StoreOrdersService } from '../store-orders/store-orders.service';
 import { StoreOrderPaymentSyncService } from '../store-orders/store-order-payment-sync.service';
 import { FinancialTransactionsService } from '../financial-transactions/financial-transactions.service';
+import {
+  computeInvoicePaymentSummary,
+  sumConfirmedAllocations,
+} from '../financial-transactions/shared/invoice-payment.util';
 import { WorkflowStatusResolverService } from '../workflow/workflow-status-resolver.service';
+import { PostingEngineService } from '../accounting/posting-engine/posting-engine.service';
 import type { CompanyContext } from '../common/decorators/current-company-context.decorator';
+
+const INTERNAL_TRANSFER_SOURCE_TYPE = 'BANK_TRANSACTION_TRANSFER';
 
 export interface ReconciliationCandidate {
   kind: 'PAYMENT' | 'STORE_ORDER' | 'SALES_INVOICE' | 'PURCHASE_INVOICE';
@@ -30,6 +37,14 @@ export interface ReconciliationCandidate {
   expectedPaymentSourceName?: string | null;
   actualCashSourceId?: string | null;
   actualCashSourceName?: string | null;
+  /**
+   * SALES_INVOICE/PURCHASE_INVOICE only — the invoice's own live remaining
+   * balance (computeInvoicePaymentSummary), distinct from `amount` above
+   * (the bank transaction's amount, unrelated to what any one invoice
+   * actually owes). Drives the allocation UI's default/max per candidate
+   * for partial and multi-invoice reconciliation.
+   */
+  outstanding?: number;
 }
 
 /**
@@ -54,6 +69,7 @@ export class CashFlowReconciliationService {
     private readonly storeOrderPaymentSync: StoreOrderPaymentSyncService,
     private readonly financialTransactions: FinancialTransactionsService,
     private readonly statusResolver: WorkflowStatusResolverService,
+    private readonly postingEngine: PostingEngineService,
   ) {}
 
   private matchStatusData(status: BankTransactionMatchStatus) {
@@ -255,20 +271,30 @@ export class CashFlowReconciliationService {
         },
         take: 500,
       });
-      for (const invoice of openInvoices) {
-        if (!needle.includes(invoice.invoiceNumber.toLowerCase())) continue;
-        if (
-          transaction.currencyId &&
-          invoice.currencyId &&
-          transaction.currencyId !== invoice.currencyId
-        ) {
-          continue;
-        }
+      const matchedInvoices = openInvoices.filter(
+        (invoice) =>
+          needle.includes(invoice.invoiceNumber.toLowerCase()) &&
+          (!transaction.currencyId ||
+            !invoice.currencyId ||
+            transaction.currencyId === invoice.currencyId),
+      );
+      const allocatedByInvoice = await sumConfirmedAllocations(
+        this.prisma,
+        'salesInvoiceId',
+        matchedInvoices.map((i) => i.id),
+      );
+      for (const invoice of matchedInvoices) {
+        const summary = computeInvoicePaymentSummary(
+          Number(invoice.grandTotal),
+          allocatedByInvoice.get(invoice.id) ?? 0,
+        );
+        if (summary.remainingBalance <= 0) continue;
         candidates.push({
           kind: 'SALES_INVOICE',
           id: invoice.id,
           label: invoice.invoiceNumber,
           amount,
+          outstanding: summary.remainingBalance,
           score: 70,
           reasons: [
             `Invoice number "${invoice.invoiceNumber}" found in reference/description`,
@@ -441,6 +467,9 @@ export class CashFlowReconciliationService {
     dto: {
       allocations: { invoiceId: string; allocatedAmount: number }[];
       paymentSourceId?: string;
+      /** Net-receipt / bank-fee settlement (Part G) — see FinancialTransactionsService.create(). */
+      feeAmount?: number;
+      feeAccountId?: string;
     },
     userId: string,
     context: CompanyContext,
@@ -478,6 +507,8 @@ export class CashFlowReconciliationService {
         paymentSourceId: dto.paymentSourceId,
         receivingAccountId: transaction.cashSourceId ?? undefined,
         amount: Math.abs(Number(transaction.amount)),
+        feeAmount: dto.feeAmount,
+        feeAccountId: dto.feeAccountId,
         referenceNumber:
           transaction.transactionId ?? transaction.reference ?? undefined,
         notes: transaction.description ?? undefined,
@@ -585,23 +616,40 @@ export class CashFlowReconciliationService {
       },
       take: 500,
     });
-    for (const invoice of openInvoices) {
+    const matchedInvoices = openInvoices.filter((invoice) => {
       const referenceMatches =
         needle && needle.includes(invoice.invoiceNumber.toLowerCase());
       const partnerMatches = transaction.partnerId === invoice.partnerId;
-      if (!referenceMatches && !partnerMatches) continue;
+      if (!referenceMatches && !partnerMatches) return false;
       if (
         transaction.currencyId &&
         invoice.currencyId &&
         transaction.currencyId !== invoice.currencyId
       ) {
-        continue;
+        return false;
       }
+      return true;
+    });
+    const allocatedByInvoice = await sumConfirmedAllocations(
+      this.prisma,
+      'purchaseInvoiceId',
+      matchedInvoices.map((i) => i.id),
+    );
+    for (const invoice of matchedInvoices) {
+      const referenceMatches =
+        needle && needle.includes(invoice.invoiceNumber.toLowerCase());
+      const partnerMatches = transaction.partnerId === invoice.partnerId;
+      const summary = computeInvoicePaymentSummary(
+        Number(invoice.grandTotal),
+        allocatedByInvoice.get(invoice.id) ?? 0,
+      );
+      if (summary.remainingBalance <= 0) continue;
       candidates.push({
         kind: 'PURCHASE_INVOICE',
         id: invoice.id,
         label: invoice.invoiceNumber,
         amount,
+        outstanding: summary.remainingBalance,
         score: referenceMatches ? 70 : 40,
         reasons: [
           ...(referenceMatches
@@ -765,6 +813,147 @@ export class CashFlowReconciliationService {
   }
 
   // ---------------------------------------------------------------------
+  // Internal Transfer (Reconciliation Part H) — a movement between two of
+  // the company's own Financial Accounts, never Revenue/Expense.
+  // ---------------------------------------------------------------------
+
+  /**
+   * Suggests the likely opposite-signed leg of an internal transfer —
+   * callable from either side (an OUTGOING or INCOMING row). Never guesses
+   * across a currency or cash-source mismatch; a different Financial
+   * Account is required (the whole point of a transfer), and the amount
+   * must match exactly (no fee/difference concept applies to a transfer
+   * between the company's own accounts).
+   */
+  async suggestInternalTransfer(id: string): Promise<{
+    candidates: {
+      id: string;
+      label: string;
+      amount: number;
+      cashSourceName: string | null;
+      transactionDate: string;
+      score: number;
+      reasons: string[];
+    }[];
+  }> {
+    const transaction = await this.getUnreconciled(id);
+    const amount = Math.abs(Number(transaction.amount));
+    const oppositeDirection =
+      transaction.direction === CashFlowDirection.OUTGOING
+        ? CashFlowDirection.INCOMING
+        : CashFlowDirection.OUTGOING;
+
+    // `amount` on BankTransaction is signed (negative for OUTGOING,
+    // positive for INCOMING) — the opposite leg's amount must be compared
+    // against the sign its OWN direction implies, never the absolute value.
+    const candidateAmount =
+      oppositeDirection === CashFlowDirection.OUTGOING ? -amount : amount;
+    const candidates = await this.prisma.bankTransaction.findMany({
+      where: {
+        id: { not: id },
+        deletedAt: null,
+        matchedPaymentId: null,
+        matchedFinancialTransactionId: null,
+        linkedTransferTransactionId: null,
+        linkedByTransferTransaction: null,
+        direction: oppositeDirection,
+        amount: { gte: candidateAmount - 0.01, lte: candidateAmount + 0.01 },
+        ...(transaction.currencyId
+          ? { currencyId: transaction.currencyId }
+          : {}),
+        ...(transaction.cashSourceId
+          ? { cashSourceId: { not: transaction.cashSourceId } }
+          : {}),
+      },
+      include: { cashSource: { select: { name: true } } },
+      take: 20,
+      orderBy: { transactionDate: 'asc' },
+    });
+
+    return {
+      candidates: candidates.map((candidate) => {
+        const dayDiff = Math.abs(
+          (candidate.transactionDate.getTime() -
+            transaction.transactionDate.getTime()) /
+            86_400_000,
+        );
+        const reasons = [
+          'Opposite direction, exact amount match',
+          transaction.currencyId
+            ? 'Same currency'
+            : 'No currency set to compare',
+          `On a different Financial Account (${candidate.cashSource?.name ?? 'unclassified'})`,
+        ];
+        if (dayDiff <= 1) reasons.push('Transaction date within 1 day');
+        return {
+          id: candidate.id,
+          label: candidate.transactionId ?? candidate.reference ?? candidate.id,
+          amount: Math.abs(Number(candidate.amount)),
+          cashSourceName: candidate.cashSource?.name ?? null,
+          transactionDate: candidate.transactionDate.toISOString(),
+          score: dayDiff <= 1 ? 90 : dayDiff <= 5 ? 70 : 50,
+          reasons,
+        };
+      }),
+    };
+  }
+
+  /**
+   * Confirms a pair as an Internal Transfer — posts one balanced
+   * Dr-destination/Cr-source entry via the canonical Posting Engine
+   * (`InternalTransferPostingProvider`, sourceId = the OUTGOING leg) and
+   * marks both rows MATCHED, linked to each other.
+   */
+  async confirmInternalTransfer(id: string, pairedId: string, userId: string) {
+    const a = await this.getUnreconciled(id);
+    const b = await this.getUnreconciled(pairedId);
+    if (a.direction === b.direction || !a.direction || !b.direction) {
+      throw new BadRequestException(
+        'An internal transfer requires one outgoing and one incoming transaction.',
+      );
+    }
+    if (Math.abs(Number(a.amount)) !== Math.abs(Number(b.amount))) {
+      throw new BadRequestException(
+        'The two transactions must have the same amount for an internal transfer.',
+      );
+    }
+    if (a.cashSourceId && b.cashSourceId && a.cashSourceId === b.cashSourceId) {
+      throw new BadRequestException(
+        'An internal transfer must move between two different Financial Accounts.',
+      );
+    }
+    const outgoing = a.direction === CashFlowDirection.OUTGOING ? a : b;
+    const incoming = a.direction === CashFlowDirection.OUTGOING ? b : a;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.bankTransaction.update({
+        where: { id: outgoing.id },
+        data: {
+          outgoingType: CashFlowOutgoingType.INTERNAL_TRANSFER,
+          linkedTransferTransactionId: incoming.id,
+        },
+      });
+      await this.postingEngine.post(
+        INTERNAL_TRANSFER_SOURCE_TYPE,
+        outgoing.id,
+        userId,
+        tx,
+      );
+      const matched = this.matchStatusData(BankTransactionMatchStatus.MATCHED);
+      await tx.bankTransaction.update({
+        where: { id: outgoing.id },
+        data: { ...matched, matchedAt: new Date(), matchedById: userId },
+      });
+      await tx.bankTransaction.update({
+        where: { id: incoming.id },
+        data: { ...matched, matchedAt: new Date(), matchedById: userId },
+      });
+    });
+
+    return this.prisma.bankTransaction.findUnique({ where: { id } });
+  }
+
+  // ---------------------------------------------------------------------
   // Bulk (spec section 17) — partial success, per-row try/catch, same
   // pattern as ImportJobsService.confirmRows/rejectRows.
   // ---------------------------------------------------------------------
@@ -920,13 +1109,57 @@ export class CashFlowReconciliationService {
     if (!transaction) {
       throw new BadRequestException(`Cash Flow transaction ${id} not found.`);
     }
+    // Either leg of an internal transfer can be unreconciled from — the
+    // OUTGOING leg carries `linkedTransferTransactionId`, the INCOMING leg
+    // is only found as some other row's target.
+    const asIncomingTransferLeg = !transaction.linkedTransferTransactionId
+      ? await this.prisma.bankTransaction.findFirst({
+          where: { linkedTransferTransactionId: id, deletedAt: null },
+        })
+      : null;
     if (
       !transaction.matchedPaymentId &&
-      !transaction.matchedFinancialTransactionId
+      !transaction.matchedFinancialTransactionId &&
+      !transaction.linkedTransferTransactionId &&
+      !asIncomingTransferLeg
     ) {
       throw new BadRequestException(
         'This transaction is not reconciled — nothing to unreconcile.',
       );
+    }
+
+    if (transaction.linkedTransferTransactionId || asIncomingTransferLeg) {
+      const outgoingId = transaction.linkedTransferTransactionId
+        ? transaction.id
+        : asIncomingTransferLeg!.id;
+      const incomingId = transaction.linkedTransferTransactionId
+        ? transaction.linkedTransferTransactionId
+        : transaction.id;
+      await this.prisma.$transaction(async (tx) => {
+        await this.postingEngine.reverse(
+          INTERNAL_TRANSFER_SOURCE_TYPE,
+          outgoingId,
+          userId,
+          tx,
+        );
+        const cleared = {
+          ...this.matchStatusData(BankTransactionMatchStatus.UNMATCHED),
+          matchedAt: null,
+          matchedById: null,
+          matchCandidates: Prisma.DbNull,
+          conflictReason:
+            reason?.trim() || 'Unreconciled — internal transfer reversed',
+        };
+        await tx.bankTransaction.update({
+          where: { id: outgoingId },
+          data: { ...cleared, linkedTransferTransactionId: null },
+        });
+        await tx.bankTransaction.update({
+          where: { id: incomingId },
+          data: cleared,
+        });
+      });
+      return this.prisma.bankTransaction.findUnique({ where: { id } });
     }
 
     if (transaction.matchedFinancialTransactionId) {

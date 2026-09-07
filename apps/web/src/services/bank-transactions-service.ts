@@ -24,6 +24,8 @@ export interface BankTransactionMatchCandidate {
   expectedPaymentSourceName?: string | null;
   actualCashSourceId?: string | null;
   actualCashSourceName?: string | null;
+  /** SALES_INVOICE/PURCHASE_INVOICE only — the invoice's own live remaining balance. */
+  outstanding?: number;
 }
 
 export interface BankTransactionRow {
@@ -173,6 +175,9 @@ export const bankTransactionsService = {
     dto: {
       allocations: { invoiceId: string; allocatedAmount: number }[];
       paymentSourceId?: string;
+      /** Net-receipt / bank-fee settlement — incoming only. */
+      feeAmount?: number;
+      feeAccountId?: string;
     },
   ) =>
     apiClient.post<BankTransactionRow>(
@@ -216,6 +221,24 @@ export const bankTransactionsService = {
       paymentSourceId?: string;
     },
   ) => apiClient.post<BankTransactionRow>(`/bank-transactions/${id}/confirm-expense-voucher`, dto),
+
+  // --- Internal Transfer ---
+  suggestInternalTransfer: (id: string) =>
+    apiClient.post<{
+      candidates: {
+        id: string;
+        label: string;
+        amount: number;
+        cashSourceName: string | null;
+        transactionDate: string;
+        score: number;
+        reasons: string[];
+      }[];
+    }>(`/bank-transactions/${id}/suggest-internal-transfer`),
+  confirmInternalTransfer: (id: string, pairedId: string) =>
+    apiClient.post<BankTransactionRow>(`/bank-transactions/${id}/confirm-internal-transfer`, {
+      pairedId,
+    }),
 
   // --- Bulk ---
   bulkConfirmExpenseVouchers: (ids: string[]) =>

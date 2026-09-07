@@ -1867,6 +1867,8 @@ model ChartOfAccount {
   /// Cash Flow module — accounts used as a direct Expense debit target.
   financialTransactionsExpense FinancialTransaction[] @relation("FinancialTransactionExpenseAccount")
   bankTransactionsExpense      BankTransaction[]      @relation("BankTransactionExpenseAccount")
+  /// Net-receipt / bank-fee settlement — accounts used as the fee debit target.
+  financialTransactionsFee     FinancialTransaction[] @relation("FinancialTransactionFeeAccount")
 
   /// Transaction Types Registry — a type's configured default posting account.
   transactionTypesDefault TransactionType[] @relation("TransactionTypeDefaultAccount")
@@ -2169,6 +2171,11 @@ enum CashFlowDirection {
 enum CashFlowOutgoingType {
   SUPPLIER_PAYMENT
   EXPENSE
+  /// Movement between two of the company's own Financial Accounts — never
+  /// Revenue/Expense. The OUTGOING leg carries this classification; the
+  /// paired INCOMING leg is linked via `linkedTransferTransactionId`, not
+  /// classified itself (there is nothing to classify on the receiving side).
+  INTERNAL_TRANSFER
 }
 
 model BankTransaction {
@@ -2284,6 +2291,16 @@ model BankTransaction {
   matchedAt   DateTime? @map("matched_at")
   matchedById String?   @map("matched_by_id") @db.Uuid
   matchedBy   User?     @relation("BankTransactionMatchedBy", fields: [matchedById], references: [id])
+
+  /// Internal Transfer path — set on the OUTGOING leg, pointing at the
+  /// paired INCOMING leg on a different Financial Account (same shape as
+  /// JournalEntry.reversalOfEntryId's self-relation). Posts a simple
+  /// Dr-destination/Cr-source entry via InternalTransferPostingProvider
+  /// (sourceType 'BANK_TRANSACTION_TRANSFER', sourceId = this row's id) —
+  /// never Revenue/Expense.
+  linkedTransferTransactionId String?          @unique @map("linked_transfer_transaction_id") @db.Uuid
+  linkedTransferTransaction   BankTransaction? @relation("BankTransactionTransferLink", fields: [linkedTransferTransactionId], references: [id])
+  linkedByTransferTransaction BankTransaction? @relation("BankTransactionTransferLink")
 
   /// Which sync/import run created this row (Data Synchronization — Cash
   /// Flow) — set only on first insert, never overwritten on a later
@@ -5168,6 +5185,19 @@ model FinancialTransaction {
   receivingAccount   ReceivingAccount? @relation(fields: [receivingAccountId], references: [id])
 
   amount Decimal @db.Decimal(12, 2)
+
+  /// Net-receipt / bank-fee settlement (CUSTOMER_RECEIPT only — see Part G
+  /// of the Reconciliation spec): `amount` above is always the real cash
+  /// that moved through `receivingAccountId`; when the bank kept a fee, the
+  /// invoice(s) can still be allocated their full `amount + feeAmount` so
+  /// the customer's obligation settles correctly, with the difference
+  /// posted to `feeAccountId` (Bank Fees / Adjustment expense) instead of
+  /// silently inflating the cash receipt. Zero by default — every existing
+  /// transaction keeps posting exactly as before.
+  feeAmount Decimal? @default(0) @map("fee_amount") @db.Decimal(12, 2)
+
+  feeAccountId String?         @map("fee_account_id") @db.Uuid
+  feeAccount   ChartOfAccount? @relation("FinancialTransactionFeeAccount", fields: [feeAccountId], references: [id])
 
   referenceNumber String? @map("reference_number")
   notes           String?

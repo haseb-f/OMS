@@ -1,4 +1,11 @@
-import { ArrayMinSize, IsArray, ValidateNested } from 'class-validator';
+import {
+  ArrayMinSize,
+  IsArray,
+  IsNumber,
+  IsOptional,
+  IsPositive,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { AllocationInputDto } from '../../financial-transactions/shared/allocation-input.dto';
 import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
@@ -13,4 +20,13 @@ export class ConfirmInvoiceAllocationDto {
 
   @IsOptionalUuid()
   paymentSourceId?: string;
+
+  /** Net-receipt / bank-fee settlement — incoming (Sales Invoice Receipt) only, rejected by the service for the outgoing path. */
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  feeAmount?: number;
+
+  @IsOptionalUuid()
+  feeAccountId?: string;
 }

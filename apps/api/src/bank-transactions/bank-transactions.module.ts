@@ -6,6 +6,7 @@ import { PaymentsModule } from '../payments/payments.module';
 import { StoreOrdersModule } from '../store-orders/store-orders.module';
 import { FinancialTransactionsModule } from '../financial-transactions/financial-transactions.module';
 import { WorkflowModule } from '../workflow/workflow.module';
+import { PostingEngineModule } from '../accounting/posting-engine/posting-engine.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { WorkflowModule } from '../workflow/workflow.module';
     StoreOrdersModule,
     FinancialTransactionsModule,
     WorkflowModule,
+    PostingEngineModule,
   ],
   controllers: [BankTransactionsController],
   providers: [BankTransactionsService, CashFlowReconciliationService],

@@ -338,6 +338,15 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
       // and reconciling bank transactions is one Accounting business
       // operation, not two separate permissions (Part 10).
       { action: 'manage', name: 'accounting.bank-transactions.manage' },
+      // Undoing a reconciliation reverses posted accounting evidence
+      // (Journal Entry reversal, outstanding restored) — a stronger,
+      // separately-grantable authority than confirming one, same
+      // "reverse is its own permission" pattern as journal-entries above.
+      // A Finance user can confirm; only Finance Manager/Admin unreconciles.
+      {
+        action: 'reverse',
+        name: 'accounting.bank-transactions.unreconcile',
+      },
     ],
   },
   {

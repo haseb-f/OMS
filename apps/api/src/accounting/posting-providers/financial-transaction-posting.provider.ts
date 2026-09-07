@@ -112,20 +112,39 @@ export class FinancialTransactionPostingProvider
         transaction.partner!.id,
         tx,
       );
+      // Net-receipt / bank-fee settlement (Part G) — the bank kept
+      // `feeAmount`, so the invoice(s) still clear their full
+      // `amount + feeAmount` while only `amount` actually moved through
+      // the bank account; the difference debits `feeAccountId` (a Bank
+      // Fees/Adjustment expense), never inflating the cash receipt.
+      const feeAmount = Number(transaction.feeAmount ?? 0);
+      const lines = [
+        {
+          accountId: bankAccountId,
+          debit: amount,
+          description: `Customer Receipt Voucher ${transaction.transactionNumber}`,
+        },
+        {
+          accountId: arAccountId,
+          credit: amount + feeAmount,
+          description: `Customer Receipt Voucher ${transaction.transactionNumber}`,
+          partnerId: transaction.partner!.id,
+        },
+      ];
+      if (feeAmount > 0) {
+        if (!transaction.feeAccountId) {
+          throw new BadRequestException(
+            `Select a Bank Fee account before confirming ${transaction.transactionNumber} — a settlement fee was recorded but no fee account is set.`,
+          );
+        }
+        lines.push({
+          accountId: transaction.feeAccountId,
+          debit: feeAmount,
+          description: `Bank Fee — Customer Receipt Voucher ${transaction.transactionNumber}`,
+        });
+      }
       return {
-        lines: [
-          {
-            accountId: bankAccountId,
-            debit: amount,
-            description: `Customer Receipt Voucher ${transaction.transactionNumber}`,
-          },
-          {
-            accountId: arAccountId,
-            credit: amount,
-            description: `Customer Receipt Voucher ${transaction.transactionNumber}`,
-            partnerId: transaction.partner!.id,
-          },
-        ],
+        lines,
         description: `Customer Receipt Voucher ${transaction.transactionNumber}`,
         referenceNumber: transaction.transactionNumber,
         currencyId: transaction.currencyId,

@@ -65,6 +65,15 @@ export interface FinancialTransactionCreateInput {
   paymentSourceId?: string;
   receivingAccountId?: string;
   amount: number;
+  /**
+   * Net-receipt / bank-fee settlement (CUSTOMER_RECEIPT only) — the
+   * difference between what actually hit the bank (`amount`) and what the
+   * invoice(s) are allocated (`amount + feeAmount`), posted to
+   * `feeAccountId` instead of silently inflating the cash receipt. See
+   * Part G of the Reconciliation spec.
+   */
+  feeAmount?: number;
+  feeAccountId?: string;
   referenceNumber?: string;
   notes?: string;
   allocations?: AllocationInputDto[];
@@ -109,8 +118,21 @@ export class FinancialTransactionsService {
     context: CompanyContext = { companyId: null, branchId: null },
   ) {
     const partyId = await this.assertActiveParty(type, dto);
+    const feeAmount = dto.feeAmount ?? 0;
+    if (feeAmount > 0) {
+      if (type !== 'CUSTOMER_RECEIPT') {
+        throw new BadRequestException(
+          'A settlement fee can only be recorded on a Customer Receipt.',
+        );
+      }
+      if (!dto.feeAccountId) {
+        throw new BadRequestException(
+          'feeAccountId is required when feeAmount is set.',
+        );
+      }
+    }
     const allocations = dto.allocations ?? [];
-    this.assertAllocationsWithinAmount(dto.amount, allocations);
+    this.assertAllocationsWithinAmount(dto.amount, allocations, feeAmount);
     const resolvedAllocations = await this.resolveAllocations(
       type,
       partyId,
@@ -141,6 +163,8 @@ export class FinancialTransactionsService {
             paymentSourceId: dto.paymentSourceId,
             receivingAccountId: dto.receivingAccountId,
             amount: dto.amount,
+            feeAmount,
+            feeAccountId: feeAmount > 0 ? dto.feeAccountId : undefined,
             referenceNumber: dto.referenceNumber,
             notes: dto.notes,
             createdBy: userId ?? null,
@@ -648,11 +672,15 @@ export class FinancialTransactionsService {
   private assertAllocationsWithinAmount(
     amount: number,
     allocations: AllocationInputDto[],
+    feeAmount = 0,
   ) {
     const total = allocations.reduce((sum, a) => sum + a.allocatedAmount, 0);
-    if (total > amount) {
+    const available = amount + feeAmount;
+    if (total > available) {
       throw new BadRequestException(
-        `Total allocated (${total}) cannot exceed the transaction amount (${amount}).`,
+        feeAmount > 0
+          ? `Total allocated (${total}) cannot exceed the transaction amount plus fee (${available}).`
+          : `Total allocated (${total}) cannot exceed the transaction amount (${amount}).`,
       );
     }
   }

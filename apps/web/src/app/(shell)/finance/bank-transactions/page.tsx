@@ -12,6 +12,8 @@ import { LoadingOverlay } from "@/components/shared/loading-overlay";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AccountPicker } from "@/components/business/account-picker";
 import {
   Select,
   SelectContent,
@@ -544,6 +546,28 @@ function ReconcileDialog({
     null,
   );
   const [mismatchMode, setMismatchMode] = useState<"match" | "update" | null>(null);
+  // Partial / multi-invoice allocation — SALES_INVOICE/PURCHASE_INVOICE
+  // candidates only. Each selected candidate carries its own editable
+  // allocation amount; the backend already accepts an array of
+  // {invoiceId, allocatedAmount} and caps each at the invoice's live
+  // remaining balance and the transaction's own amount.
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<Set<string>>(new Set());
+  const [allocationDrafts, setAllocationDrafts] = useState<Record<string, string>>({});
+  const [allocating, setAllocating] = useState(false);
+  // Net-receipt / bank-fee settlement (Part G) — incoming only. Recording a
+  // fee raises how much the selected invoices can be allocated (amount +
+  // fee) without inflating the actual cash receipt.
+  const [feeEnabled, setFeeEnabled] = useState(false);
+  const [feeAmountDraft, setFeeAmountDraft] = useState("");
+  const [feeAccount, setFeeAccount] = useState<ChartOfAccountRow | null>(null);
+  // Internal Transfer (Part H) — a movement between two of the company's
+  // own Financial Accounts, never Revenue/Expense. Works from either an
+  // incoming or outgoing unmatched row.
+  const [transferCandidates, setTransferCandidates] = useState<
+    Awaited<ReturnType<typeof bankTransactionsService.suggestInternalTransfer>>["candidates"] | null
+  >(null);
+  const [loadingTransfer, setLoadingTransfer] = useState(false);
+  const [confirmingTransferId, setConfirmingTransferId] = useState<string | null>(null);
 
   useEffect(() => {
     paymentSourcesService
@@ -635,6 +659,106 @@ function ReconcileDialog({
     }
   };
 
+  const transactionAmount = Math.abs(Number(transaction.amount));
+  const round2 = (value: number) => Math.round(value * 100) / 100;
+  const invoiceCandidates = (candidates ?? []).filter(
+    (c) => c.kind === "SALES_INVOICE" || c.kind === "PURCHASE_INVOICE",
+  );
+  const otherCandidates = (candidates ?? []).filter(
+    (c) => c.kind === "PAYMENT" || c.kind === "STORE_ORDER",
+  );
+  const feeAmountValue = feeEnabled ? Number(feeAmountDraft) || 0 : 0;
+  const totalAllocated = round2(
+    [...selectedInvoiceIds].reduce((sum, id) => sum + (Number(allocationDrafts[id]) || 0), 0),
+  );
+  const remainingUnallocated = round2(transactionAmount + feeAmountValue - totalAllocated);
+
+  const toggleInvoiceCandidate = (candidate: BankTransactionMatchCandidate, checked: boolean) => {
+    setSelectedInvoiceIds((previous) => {
+      const next = new Set(previous);
+      if (checked) next.add(candidate.id);
+      else next.delete(candidate.id);
+      return next;
+    });
+    if (checked && !allocationDrafts[candidate.id]) {
+      const currentlyAllocated = [...selectedInvoiceIds].reduce(
+        (sum, id) => sum + (Number(allocationDrafts[id]) || 0),
+        0,
+      );
+      const available = round2(transactionAmount - currentlyAllocated);
+      const defaultAmount = round2(
+        Math.max(0, Math.min(candidate.outstanding ?? available, available)),
+      );
+      setAllocationDrafts((previous) => ({ ...previous, [candidate.id]: String(defaultAmount) }));
+    }
+  };
+
+  const confirmAllocations = async () => {
+    const allocations = [...selectedInvoiceIds]
+      .map((id) => ({ invoiceId: id, allocatedAmount: Number(allocationDrafts[id]) || 0 }))
+      .filter((a) => a.allocatedAmount > 0);
+    if (allocations.length === 0) {
+      toast.error(t("masterData.bankTransactions.allocation.selectAtLeastOne"));
+      return;
+    }
+    if (!paymentSourceId) {
+      toast.error(t("masterData.bankTransactions.voucher.paymentSource"));
+      return;
+    }
+    if (feeEnabled && (!feeAmountValue || !feeAccount)) {
+      toast.error(t("masterData.bankTransactions.allocation.feeAccountRequired"));
+      return;
+    }
+    setAllocating(true);
+    try {
+      if (isIncoming) {
+        await bankTransactionsService.confirmSalesInvoiceReceipt(transaction.id, {
+          allocations,
+          paymentSourceId,
+          feeAmount: feeEnabled ? feeAmountValue : undefined,
+          feeAccountId: feeEnabled ? (feeAccount?.id ?? undefined) : undefined,
+        });
+        toast.success(t("masterData.bankTransactions.voucher.receiptCreated"));
+      } else {
+        await bankTransactionsService.confirmPurchaseInvoicePayment(transaction.id, {
+          allocations,
+          paymentSourceId,
+        });
+        toast.success(t("masterData.bankTransactions.voucher.supplierPaymentCreated"));
+      }
+      onDone();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Failed to reconcile.");
+    } finally {
+      setAllocating(false);
+    }
+  };
+
+  const findTransferCandidates = async () => {
+    setLoadingTransfer(true);
+    try {
+      const result = await bankTransactionsService.suggestInternalTransfer(transaction.id);
+      setTransferCandidates(result.candidates);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Failed to search.");
+    } finally {
+      setLoadingTransfer(false);
+    }
+  };
+
+  const confirmTransfer = async (pairedId: string) => {
+    setConfirmingTransferId(pairedId);
+    try {
+      await bankTransactionsService.confirmInternalTransfer(transaction.id, pairedId);
+      toast.success(t("masterData.bankTransactions.transfer.confirmed"));
+      onDone();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Failed to reconcile.");
+    } finally {
+      setConfirmingTransferId(null);
+    }
+  };
+
   const candidateLabelKey: Record<BankTransactionMatchCandidate["kind"], MessageKey> = {
     PAYMENT: "masterData.bankTransactions.candidates.payment",
     STORE_ORDER: "masterData.bankTransactions.candidates.storeOrder",
@@ -691,42 +815,157 @@ function ReconcileDialog({
                   {t("masterData.bankTransactions.noCandidates")}
                 </p>
               ) : (
-                <div className="flex flex-col gap-2">
-                  {candidates.map((candidate) => (
-                    <div
-                      key={`${candidate.kind}-${candidate.id}`}
-                      className="flex items-center justify-between gap-3 rounded-md border border-border p-3"
-                    >
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[0.65rem] text-muted-foreground">
-                          {t(candidateLabelKey[candidate.kind])}
+                <>
+                  {otherCandidates.length > 0 && (
+                    <div className="flex flex-col gap-2">
+                      {otherCandidates.map((candidate) => (
+                        <div
+                          key={`${candidate.kind}-${candidate.id}`}
+                          className="flex items-center justify-between gap-3 rounded-md border border-border p-3"
+                        >
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[0.65rem] text-muted-foreground">
+                              {t(candidateLabelKey[candidate.kind])}
+                            </span>
+                            <span className="font-medium" dir="ltr">
+                              {candidate.label}
+                            </span>
+                            <span className="text-caption text-muted-foreground">
+                              {candidate.reasons.join(" · ")}
+                            </span>
+                            {candidate.methodMismatch && (
+                              <span className="text-caption text-warning">
+                                {t("masterData.bankTransactions.methodMismatch")}
+                                {candidate.expectedPaymentSourceName
+                                  ? ` — ${candidate.expectedPaymentSourceName}`
+                                  : ""}
+                              </span>
+                            )}
+                          </div>
+                          <EnterpriseButton
+                            type="button"
+                            size="sm"
+                            onClick={() => confirmCandidate(candidate)}
+                            disabled={busy}
+                          >
+                            {t("masterData.bankTransactions.candidates.confirm")}
+                          </EnterpriseButton>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {invoiceCandidates.length > 0 && (
+                    <div className="flex flex-col gap-2">
+                      <p className="text-caption font-medium text-muted-foreground">
+                        {t("masterData.bankTransactions.allocation.title")}
+                      </p>
+                      {invoiceCandidates.map((candidate) => {
+                        const selected = selectedInvoiceIds.has(candidate.id);
+                        return (
+                          <div
+                            key={`${candidate.kind}-${candidate.id}`}
+                            className="flex items-center gap-3 rounded-md border border-border p-3"
+                          >
+                            <Checkbox
+                              checked={selected}
+                              onCheckedChange={(checked) =>
+                                toggleInvoiceCandidate(candidate, checked === true)
+                              }
+                            />
+                            <div className="flex flex-1 flex-col gap-1">
+                              <span className="text-[0.65rem] text-muted-foreground">
+                                {t(candidateLabelKey[candidate.kind])}
+                              </span>
+                              <span className="font-medium" dir="ltr">
+                                {candidate.label}
+                              </span>
+                              <span className="text-caption text-muted-foreground">
+                                {candidate.reasons.join(" · ")}
+                                {candidate.outstanding !== undefined
+                                  ? ` · ${t("masterData.bankTransactions.allocation.outstanding")}: ${formatMoney(String(candidate.outstanding), transaction.currency?.code)}`
+                                  : ""}
+                              </span>
+                            </div>
+                            {selected && (
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                dir="ltr"
+                                className="w-32"
+                                value={allocationDrafts[candidate.id] ?? ""}
+                                onChange={(e) =>
+                                  setAllocationDrafts((previous) => ({
+                                    ...previous,
+                                    [candidate.id]: e.target.value,
+                                  }))
+                                }
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                      {isIncoming && (
+                        <div className="flex flex-col gap-2 rounded-md border border-border p-3">
+                          <label className="flex items-center gap-2 text-caption">
+                            <Checkbox
+                              checked={feeEnabled}
+                              onCheckedChange={(checked) => setFeeEnabled(checked === true)}
+                            />
+                            {t("masterData.bankTransactions.allocation.feeToggle")}
+                          </label>
+                          {feeEnabled && (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                dir="ltr"
+                                className="w-32"
+                                placeholder={t("masterData.bankTransactions.allocation.feeAmount")}
+                                value={feeAmountDraft}
+                                onChange={(e) => setFeeAmountDraft(e.target.value)}
+                              />
+                              <AccountPicker
+                                value={feeAccount}
+                                onChange={setFeeAccount}
+                                accountType="EXPENSE"
+                                placeholder={t("masterData.bankTransactions.allocation.feeAccount")}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between rounded-md bg-muted/30 p-3 text-caption">
+                        <span dir="ltr">
+                          {t("masterData.bankTransactions.allocation.allocated")}:{" "}
+                          {formatMoney(String(totalAllocated), transaction.currency?.code)}
                         </span>
-                        <span className="font-medium" dir="ltr">
-                          {candidate.label}
+                        <span
+                          dir="ltr"
+                          className={remainingUnallocated < 0 ? "text-destructive font-medium" : ""}
+                        >
+                          {t("masterData.bankTransactions.allocation.remaining")}:{" "}
+                          {formatMoney(String(remainingUnallocated), transaction.currency?.code)}
                         </span>
-                        <span className="text-caption text-muted-foreground">
-                          {candidate.reasons.join(" · ")}
-                        </span>
-                        {candidate.methodMismatch && (
-                          <span className="text-caption text-warning">
-                            {t("masterData.bankTransactions.methodMismatch")}
-                            {candidate.expectedPaymentSourceName
-                              ? ` — ${candidate.expectedPaymentSourceName}`
-                              : ""}
-                          </span>
-                        )}
                       </div>
                       <EnterpriseButton
                         type="button"
-                        size="sm"
-                        onClick={() => confirmCandidate(candidate)}
-                        disabled={busy}
+                        onClick={confirmAllocations}
+                        disabled={
+                          allocating ||
+                          selectedInvoiceIds.size === 0 ||
+                          totalAllocated <= 0 ||
+                          remainingUnallocated < 0
+                        }
                       >
-                        {t("masterData.bankTransactions.candidates.confirm")}
+                        {t("masterData.bankTransactions.allocation.confirm")}
                       </EnterpriseButton>
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
               )}
 
               {isIncoming ? (
@@ -761,6 +1000,60 @@ function ReconcileDialog({
                   {t("masterData.bankTransactions.manual.searchPurchaseInvoice")}
                 </EnterpriseButton>
               )}
+
+              <div className="flex flex-col gap-2 rounded-md border border-border p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-caption font-medium text-muted-foreground">
+                    {t("masterData.bankTransactions.transfer.title")}
+                  </span>
+                  <EnterpriseButton
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={findTransferCandidates}
+                    disabled={loadingTransfer}
+                  >
+                    <Search className="size-3.5" />
+                    {t("masterData.bankTransactions.transfer.find")}
+                  </EnterpriseButton>
+                </div>
+                {loadingTransfer && (
+                  <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
+                )}
+                {transferCandidates && transferCandidates.length === 0 && (
+                  <p className="text-caption text-muted-foreground">
+                    {t("masterData.bankTransactions.transfer.noCandidates")}
+                  </p>
+                )}
+                {transferCandidates && transferCandidates.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    {transferCandidates.map((candidate) => (
+                      <div
+                        key={candidate.id}
+                        className="flex items-center justify-between gap-3 rounded-md border border-border p-2"
+                      >
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-medium" dir="ltr">
+                            {candidate.label}
+                          </span>
+                          <span className="text-caption text-muted-foreground">
+                            {candidate.reasons.join(" · ")}
+                            {candidate.cashSourceName ? ` · ${candidate.cashSourceName}` : ""}
+                          </span>
+                        </div>
+                        <EnterpriseButton
+                          type="button"
+                          size="sm"
+                          onClick={() => confirmTransfer(candidate.id)}
+                          disabled={confirmingTransferId === candidate.id}
+                        >
+                          {t("masterData.bankTransactions.transfer.confirm")}
+                        </EnterpriseButton>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {manualPicker === "STORE_ORDER" && (
                 <EntitySearchPicker
