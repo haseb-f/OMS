@@ -103,8 +103,7 @@ const en = {
     INVALID_CREDENTIALS: "Incorrect email or password.",
     ACCOUNT_DISABLED: "This user is inactive.",
     ACCOUNT_LOCKED: "This account is locked. Contact an administrator.",
-    PERMISSION_ERROR:
-      "You don't have permission to do this. Contact your system administrator if you need access.",
+    PERMISSION_ERROR: "No permission",
     NOT_FOUND:
       "This item couldn't be found — it may have been deleted or moved. Refresh the page and try again.",
     SERVER_ERROR:
