@@ -172,10 +172,10 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
       if (id) {
         const updated = await purchaseInvoicesService.update(id, buildPayload());
         applyInvoice(updated);
-        toast.success(t("common.save"));
+        toast.success(t("common.saved"));
       } else {
         const created = await purchaseInvoicesService.create(buildPayload());
-        toast.success(t("common.save"));
+        toast.success(t("common.saved"));
         router.replace(`/purchasing/purchase-invoices/${created.id}`);
       }
     } catch (error) {

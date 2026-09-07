@@ -125,7 +125,7 @@ function ProductDetailContent() {
       toast.success(t("products.detail.activated"));
       void loadActivities();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsActivating(false);
     }
@@ -140,7 +140,7 @@ function ProductDetailContent() {
       setArchiveOpen(false);
       router.push("/products");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsArchiving(false);
     }

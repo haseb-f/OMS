@@ -209,7 +209,7 @@ function StoreOrdersImportContent() {
             setCancelTarget(null);
             await loadJobs();
           } catch (error) {
-            toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+            toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
           } finally {
             setIsCancelling(false);
           }

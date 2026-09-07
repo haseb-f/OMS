@@ -187,10 +187,10 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
       if (id) {
         const updated = await supplierPaymentsService.update(id, buildPayload());
         applyPayment(updated);
-        toast.success(t("common.save"));
+        toast.success(t("common.saved"));
       } else {
         const created = await supplierPaymentsService.create(buildPayload());
-        toast.success(t("common.save"));
+        toast.success(t("common.saved"));
         router.replace(`/purchasing/payments/${created.id}`);
       }
     } catch (error) {

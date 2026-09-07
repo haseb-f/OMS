@@ -164,10 +164,10 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
       if (id) {
         const updated = await salesQuotationsService.update(id, buildPayload());
         applyQuotation(updated);
-        toast.success(t("common.save"));
+        toast.success(t("common.saved"));
       } else {
         const created = await salesQuotationsService.create(buildPayload());
-        toast.success(t("common.save"));
+        toast.success(t("common.saved"));
         router.replace(`/sales/quotations/${created.id}`);
       }
     } catch (error) {

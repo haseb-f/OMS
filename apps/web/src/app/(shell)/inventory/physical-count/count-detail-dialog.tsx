@@ -83,7 +83,7 @@ export function CountDetailDialog({
       const updated = await physicalCountService.updateLine(count.id, lineId, Number(value));
       setCount(updated);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setSavingLineId(null);
     }
@@ -99,7 +99,7 @@ export function CountDetailDialog({
       onChanged();
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsSubmitting(false);
     }
@@ -115,7 +115,7 @@ export function CountDetailDialog({
       onChanged();
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsSubmitting(false);
     }

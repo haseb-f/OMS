@@ -147,7 +147,7 @@ export function ImportJobWizard({
           setStep("upload");
         }
       } catch (error) {
-        toast.error(error instanceof ApiError ? error.message : "Failed to start import.");
+        toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
         onOpenChange(false);
       } finally {
         setIsLoading(false);
@@ -185,7 +185,7 @@ export function ImportJobWizard({
       setPreview(previewData);
       setStep("mapping");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Upload failed.");
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsLoading(false);
     }
@@ -201,7 +201,11 @@ export function ImportJobWizard({
       setPreview(previewData);
       setStep("mapping");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Could not read that Google Sheet.");
+      toast.error(
+        error instanceof ApiError
+          ? error.message
+          : t("importCenter.wizard.googleSheets.readFailed"),
+      );
     } finally {
       setIsLoading(false);
     }
@@ -218,7 +222,7 @@ export function ImportJobWizard({
       setPreview(previewData);
       toast.success(t("importCenter.wizard.googleSheets.refreshed"));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to refresh.");
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsRefreshing(false);
     }
@@ -238,7 +242,7 @@ export function ImportJobWizard({
         .catch(() => setValidation(null))
         .finally(() => setIsValidating(false));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to save mapping.");
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsLoading(false);
     }
@@ -259,7 +263,7 @@ export function ImportJobWizard({
         .then(setTemplates)
         .catch(() => {});
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to save template.");
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     }
   };
 
@@ -271,7 +275,7 @@ export function ImportJobWizard({
       setJob(result);
       setStep("results");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Import failed.");
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsLoading(false);
     }
@@ -285,7 +289,7 @@ export function ImportJobWizard({
       onOpenChange(false);
       onDone();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to cancel.");
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     }
   };
 
@@ -295,7 +299,7 @@ export function ImportJobWizard({
       const blob = await importJobsService.exportErrorsCsv(job.id);
       downloadBlob(blob, `import-errors-${job.id}.csv`);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to download report.");
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     }
   };
 
@@ -304,7 +308,7 @@ export function ImportJobWizard({
       const blob = await importTypesService.downloadTemplate(typeDef.type);
       downloadBlob(blob, `${typeDef.type.toLowerCase().replace(/_/g, "-")}-import-template.xlsx`);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to download template.");
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     }
   };
 

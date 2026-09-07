@@ -78,7 +78,7 @@ export function LeadDistributionModal({
       const next = await leadsService.distribution();
       setSnapshot(next);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setBusy(false);
     }
@@ -110,7 +110,7 @@ export function LeadDistributionModal({
       onChanged?.();
       onOpenChange(false);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setBusy(false);
     }

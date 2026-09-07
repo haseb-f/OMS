@@ -133,7 +133,7 @@ function LeadDetailContent() {
         .then(setNotes)
         .catch(() => setNotes([]));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsSavingNote(false);
     }
@@ -147,7 +147,7 @@ function LeadDetailContent() {
       } as never);
       setLead(updated);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     }
   };
 

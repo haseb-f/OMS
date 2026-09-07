@@ -44,7 +44,7 @@ export default function LeadFunnelPage() {
       setByStatus(result.stages ?? result.byStatus ?? {});
       setTotalEvents(result.totalEvents ?? 0);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to load funnel");
+      toast.error(error instanceof Error ? error.message : t("common.loadFailed"));
     } finally {
       setLoading(false);
     }

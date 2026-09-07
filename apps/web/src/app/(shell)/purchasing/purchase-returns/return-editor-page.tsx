@@ -162,7 +162,7 @@ export function ReturnEditorPage({ id }: { id: string }) {
     try {
       const updated = await purchaseReturnsService.update(id, buildPayload());
       applyReturn(updated);
-      toast.success(t("common.save"));
+      toast.success(t("common.saved"));
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
     } finally {

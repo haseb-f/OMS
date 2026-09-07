@@ -164,7 +164,7 @@ function TransitionDialog({
       onOpenChange(false);
       onSaved();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsSubmitting(false);
     }
@@ -322,7 +322,7 @@ function WorkflowTransitionsTab({ workflowType }: { workflowType: WorkflowTypeVa
       );
       void reload();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     }
   };
 

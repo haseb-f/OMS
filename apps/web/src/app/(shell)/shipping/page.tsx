@@ -154,14 +154,18 @@ function ShippingPageContent() {
 
   const handleBulkStatusUpdate = async (status: ShipmentStatusValue) => {
     if (selectedIds.length === 0) return;
-    const result = await shippingService.bulkUpdate(selectedIds, status);
-    if (result.failed.length === 0) {
-      toast.success(t("shipping.bulk.success", { count: result.succeeded.length }));
-    } else {
-      toast.error(t("shipping.bulk.partialFailure", { count: result.failed.length }));
+    try {
+      const result = await shippingService.bulkUpdate(selectedIds, status);
+      if (result.failed.length === 0) {
+        toast.success(t("shipping.bulk.success", { count: result.succeeded.length }));
+      } else {
+        toast.error(t("shipping.bulk.partialFailure", { count: result.failed.length }));
+      }
+      setRowSelection({});
+      void load();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     }
-    setRowSelection({});
-    void load();
   };
 
   return (

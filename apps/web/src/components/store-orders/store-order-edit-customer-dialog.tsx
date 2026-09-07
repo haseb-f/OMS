@@ -53,7 +53,7 @@ export function StoreOrderEditCustomerDialog({
       onOpenChange(false);
       onSaved();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsSaving(false);
     }

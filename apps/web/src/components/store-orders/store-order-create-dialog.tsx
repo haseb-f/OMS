@@ -249,14 +249,14 @@ export function StoreOrderCreateDialog({
         for (const receiptId of uploadedKeys) {
           await storeOrdersService.receipts.archive(created.id, receiptId).catch(() => undefined);
         }
-        toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+        toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
       }
 
       toast.success(t("storeOrders.createDialog.success"));
       onOpenChange(false);
       onCreated(created);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     }
   });
 

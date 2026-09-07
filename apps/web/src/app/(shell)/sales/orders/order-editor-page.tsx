@@ -170,10 +170,10 @@ export function OrderEditorPage({ id }: { id: string | null }) {
       if (id) {
         const updated = await salesOrdersService.update(id, buildPayload());
         applyOrder(updated);
-        toast.success(t("common.save"));
+        toast.success(t("common.saved"));
       } else {
         const created = await salesOrdersService.create(buildPayload());
-        toast.success(t("common.save"));
+        toast.success(t("common.saved"));
         router.replace(`/sales/orders/${created.id}`);
       }
     } catch (error) {

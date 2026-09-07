@@ -129,7 +129,7 @@ function ProductsPageContent() {
       setArchiveTarget(null);
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     }
   };
 
@@ -141,7 +141,7 @@ function ProductsPageContent() {
       setRestoreTarget(null);
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     }
   };
 

@@ -300,7 +300,7 @@ function ChartOfAccountsPageContent() {
         payload.parentAccountId = form.nature === "SUB" ? parentAccount?.id : undefined;
         await service.create(payload);
       }
-      toast.success(t("common.save"));
+      toast.success(t("common.saved"));
       setModalOpen(false);
       await load();
     } catch (error) {

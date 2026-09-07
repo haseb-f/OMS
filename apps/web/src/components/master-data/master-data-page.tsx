@@ -342,7 +342,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
         } else {
           await service.create(values);
         }
-        toast.success(t("common.save"));
+        toast.success(t("common.saved"));
         onRecordsChanged?.();
         await load();
         if (andNew) {

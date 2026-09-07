@@ -89,7 +89,7 @@ export function TransferDialog({
       onOpenChange(false);
       onCreated();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsSubmitting(false);
     }

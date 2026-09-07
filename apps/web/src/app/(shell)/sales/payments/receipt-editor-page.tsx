@@ -187,10 +187,10 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
       if (id) {
         const updated = await customerReceiptsService.update(id, buildPayload());
         applyReceipt(updated);
-        toast.success(t("common.save"));
+        toast.success(t("common.saved"));
       } else {
         const created = await customerReceiptsService.create(buildPayload());
-        toast.success(t("common.save"));
+        toast.success(t("common.saved"));
         router.replace(`/sales/payments/${created.id}`);
       }
     } catch (error) {

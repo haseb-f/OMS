@@ -89,14 +89,14 @@ export function WorkflowActionsPanel({
             }
           : {}),
       });
-      toast.success(t("common.save"));
+      toast.success(t("common.saved"));
       setDialogAction(null);
       setConvertAction(null);
       setReason("");
       await load();
       onTransitionComplete();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setPending(false);
     }

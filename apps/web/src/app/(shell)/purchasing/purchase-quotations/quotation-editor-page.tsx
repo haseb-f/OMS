@@ -167,10 +167,10 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
       if (id) {
         const updated = await purchaseQuotationsService.update(id, buildPayload());
         applyQuotation(updated);
-        toast.success(t("common.save"));
+        toast.success(t("common.saved"));
       } else {
         const created = await purchaseQuotationsService.create(buildPayload());
-        toast.success(t("common.save"));
+        toast.success(t("common.saved"));
         router.replace(`/purchasing/purchase-quotations/${created.id}`);
       }
     } catch (error) {

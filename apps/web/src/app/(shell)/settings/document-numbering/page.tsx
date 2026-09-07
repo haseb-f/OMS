@@ -177,11 +177,11 @@ export default function SettingsDocumentNumberingPage() {
         const payload: NumberSeriesInput = values;
         await numberSeriesService.create(payload);
       }
-      toast.success(t("common.save"));
+      toast.success(t("common.saved"));
       setModalOpen(false);
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsSubmitting(false);
     }
@@ -197,7 +197,7 @@ export default function SettingsDocumentNumberingPage() {
       toast.success(t("settings.documentNumbering.toggleSuccess"));
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     }
   };
 
@@ -209,7 +209,7 @@ export default function SettingsDocumentNumberingPage() {
       setDisableTarget(null);
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     }
   };
 
@@ -221,7 +221,7 @@ export default function SettingsDocumentNumberingPage() {
       setResetTarget(null);
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     }
   };
 

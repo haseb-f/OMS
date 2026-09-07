@@ -213,7 +213,7 @@ export default function AccountingSettingsPage() {
       const updated = await accountingSettingsService.update(payload);
       setSettings(updated);
       setShowErrors(false);
-      toast.success(t("common.save"));
+      toast.success(t("common.saved"));
     } catch (error) {
       toast.error(
         error instanceof ApiError ? error.message : "Failed to save accounting settings.",

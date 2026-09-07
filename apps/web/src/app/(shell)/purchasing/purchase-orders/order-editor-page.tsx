@@ -188,10 +188,10 @@ export function OrderEditorPage({ id }: { id: string | null }) {
       if (id) {
         const updated = await purchaseOrdersService.update(id, buildPayload());
         applyOrder(updated);
-        toast.success(t("common.save"));
+        toast.success(t("common.saved"));
       } else {
         const created = await purchaseOrdersService.create(buildPayload());
-        toast.success(t("common.save"));
+        toast.success(t("common.saved"));
         router.replace(`/purchasing/purchase-orders/${created.id}`);
       }
     } catch (error) {

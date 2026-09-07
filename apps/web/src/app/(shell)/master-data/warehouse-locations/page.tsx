@@ -153,7 +153,7 @@ function WarehouseLocationsPageContent() {
           parentLocationId: parentForNew?.id,
         });
       }
-      toast.success(t("common.save"));
+      toast.success(t("common.saved"));
       setModalOpen(false);
       await load();
     } catch (error) {

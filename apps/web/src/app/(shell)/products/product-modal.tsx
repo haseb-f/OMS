@@ -307,7 +307,7 @@ export function ProductModal({
         onOpenChange(false);
       }
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsSubmitting(false);
     }
@@ -1552,7 +1552,7 @@ function VariantsPanel({ productId }: { productId: string }) {
       setWeight("");
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsSaving(false);
     }
@@ -1564,7 +1564,7 @@ function VariantsPanel({ productId }: { productId: string }) {
       toast.success(t("products.variantRemoved"));
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     }
   };
 
@@ -1670,7 +1670,7 @@ function KitComponentsPanel({ kitProductId }: { kitProductId: string }) {
       setQuantity("");
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsSaving(false);
     }
@@ -1682,7 +1682,7 @@ function KitComponentsPanel({ kitProductId }: { kitProductId: string }) {
       toast.success(t("products.kit.componentRemoved"));
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     }
   };
 
@@ -1793,7 +1793,7 @@ function AttachmentsPanel({ productId }: { productId: string }) {
       setFileName("");
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsSaving(false);
     }

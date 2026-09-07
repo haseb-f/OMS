@@ -82,7 +82,7 @@ function InventoryStockPageContent() {
     try {
       const settings = await inventoryService.updateValuationSettings(value);
       setValuationMethod(settings.valuationMethod);
-      toast.success(t("common.save"));
+      toast.success(t("common.saved"));
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Failed to update valuation method.");
     } finally {

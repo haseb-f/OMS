@@ -57,7 +57,7 @@ export function LeadCloseWithoutPurchaseDialog({
       onOpenChange(false);
       onClosed();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsSaving(false);
     }

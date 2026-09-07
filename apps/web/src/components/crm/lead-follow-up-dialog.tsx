@@ -60,7 +60,7 @@ export function LeadFollowUpDialog({
       setNote("");
       setFollowUpAt("");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setBusy(false);
     }
