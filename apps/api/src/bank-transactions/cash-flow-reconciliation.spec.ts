@@ -54,6 +54,8 @@ describe('Cash Flow Reconciliation', () => {
   let productName: string;
   let paymentSourceId: string;
   let cashSourceId: string; // ReceivingAccount
+  let cashSourceId2: string; // ReceivingAccount — a second Financial Account for Internal Transfer tests
+  let bankChartAccountId2: string;
   let expenseAccountId: string; // ChartOfAccount (EXPENSE)
   let bankChartAccountId: string;
   let supplierId: string;
@@ -142,6 +144,23 @@ describe('Cash Flow Reconciliation', () => {
     });
     cashSourceId = receivingAccount.id;
 
+    const bankAccount2 = await prisma.chartOfAccount.create({
+      data: {
+        code: `CFTEST-BANK2-${randomUUID().slice(0, 6)}`,
+        name: 'Cash Flow Test Bank Account 2',
+        accountType: AccountType.ASSET,
+      },
+    });
+    bankChartAccountId2 = bankAccount2.id;
+    const receivingAccount2 = await prisma.receivingAccount.create({
+      data: {
+        name: 'Cash Flow Test Cash Source 2',
+        code: `CFTEST-RA2-${randomUUID().slice(0, 6)}`,
+        chartOfAccountId: bankChartAccountId2,
+      },
+    });
+    cashSourceId2 = receivingAccount2.id;
+
     const expenseAccount = await prisma.chartOfAccount.create({
       data: {
         code: `CFTEST-EXP-${randomUUID().slice(0, 6)}`,
@@ -217,14 +236,43 @@ describe('Cash Flow Reconciliation', () => {
     });
     const orderIds = orders.map((o) => o.id);
     const bankTxns = await prisma.bankTransaction.findMany({
-      where: { cashSourceId },
+      where: { cashSourceId: { in: [cashSourceId, cashSourceId2] } },
       select: { id: true, matchedFinancialTransactionId: true },
     });
     const financialTransactionIds = bankTxns
       .map((t) => t.matchedFinancialTransactionId)
       .filter((id): id is string => !!id);
+    const bankTxnIds = bankTxns.map((t) => t.id);
 
-    await prisma.bankTransaction.deleteMany({ where: { cashSourceId } });
+    // Internal Transfer entries — clear the self-referencing link first
+    // (linked_transfer_transaction_id has a FK + unique constraint) so the
+    // bankTransaction.deleteMany below never hits a constraint violation.
+    await prisma.bankTransaction.updateMany({
+      where: { id: { in: bankTxnIds } },
+      data: { linkedTransferTransactionId: null },
+    });
+    const transferEntries = await prisma.journalEntry.findMany({
+      where: {
+        sourceType: 'BANK_TRANSACTION_TRANSFER',
+        sourceId: { in: bankTxnIds },
+      },
+      select: { id: true },
+    });
+    if (transferEntries.length) {
+      await prisma.journalEntryLine.deleteMany({
+        where: { journalEntryId: { in: transferEntries.map((j) => j.id) } },
+      });
+      await prisma.journalEntryActivity.deleteMany({
+        where: { journalEntryId: { in: transferEntries.map((j) => j.id) } },
+      });
+      await prisma.journalEntry.deleteMany({
+        where: { id: { in: transferEntries.map((j) => j.id) } },
+      });
+    }
+
+    await prisma.bankTransaction.deleteMany({
+      where: { id: { in: bankTxnIds } },
+    });
 
     if (financialTransactionIds.length) {
       const journalEntries = await prisma.journalEntry.findMany({
@@ -301,9 +349,13 @@ describe('Cash Flow Reconciliation', () => {
     });
     await prisma.partner.deleteMany({ where: { id: supplierId } });
 
-    await prisma.receivingAccount.deleteMany({ where: { id: cashSourceId } });
+    await prisma.receivingAccount.deleteMany({
+      where: { id: { in: [cashSourceId, cashSourceId2] } },
+    });
     await prisma.chartOfAccount.deleteMany({
-      where: { id: { in: [expenseAccountId, bankChartAccountId] } },
+      where: {
+        id: { in: [expenseAccountId, bankChartAccountId, bankChartAccountId2] },
+      },
     });
     await prisma.product.deleteMany({ where: { sku: productSku } });
     await prisma.productCategory.deleteMany({ where: { id: categoryId } });
@@ -666,6 +718,66 @@ describe('Cash Flow Reconciliation', () => {
       expect(Number(total._sum.allocatedAmount)).toBe(1000);
     });
 
+    it('settles the full invoice on a net receipt, posting the bank fee as a third line', async () => {
+      // Part G — customer owes 1000, bank only received 990 (a 10 fee),
+      // invoice still clears in full; the difference posts to the fee
+      // account instead of inflating the cash receipt.
+      const invoice = await createInvoice(1000);
+      const txn = await importIncoming({ amount: 990 });
+
+      const result = await reconciliation.confirmSalesInvoiceReceipt(
+        txn.id,
+        {
+          allocations: [{ invoiceId: invoice.id, allocatedAmount: 1000 }],
+          paymentSourceId,
+          feeAmount: 10,
+          feeAccountId: expenseAccountId,
+        },
+        testUserId,
+        { companyId: null, branchId: null },
+      );
+      expect(result.matchedFinancialTransactionId).toBeTruthy();
+
+      const lines = await prisma.journalEntryLine.findMany({
+        where: {
+          journalEntry: { sourceId: result.matchedFinancialTransactionId! },
+        },
+      });
+      expect(lines).toHaveLength(3);
+      const bankLine = lines.find((l) => l.accountId === bankChartAccountId);
+      expect(Number(bankLine!.debit)).toBe(990);
+      const feeLine = lines.find((l) => l.accountId === expenseAccountId);
+      expect(Number(feeLine!.debit)).toBe(10);
+      const arLine = lines.find(
+        (l) => l.id !== bankLine!.id && l.id !== feeLine!.id,
+      );
+      expect(Number(arLine!.credit)).toBe(1000);
+
+      const openInvoices =
+        await prisma.financialTransactionAllocation.aggregate({
+          where: { salesInvoiceId: invoice.id },
+          _sum: { allocatedAmount: true },
+        });
+      expect(Number(openInvoices._sum.allocatedAmount)).toBe(1000);
+    });
+
+    it('rejects a fee amount without a fee account', async () => {
+      const invoice = await createInvoice(1000);
+      const txn = await importIncoming({ amount: 990 });
+      await expect(
+        reconciliation.confirmSalesInvoiceReceipt(
+          txn.id,
+          {
+            allocations: [{ invoiceId: invoice.id, allocatedAmount: 1000 }],
+            paymentSourceId,
+            feeAmount: 10,
+          },
+          testUserId,
+          { companyId: null, branchId: null },
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
     it('excludes a currency-mismatched invoice from suggested candidates', async () => {
       const otherCurrency = await prisma.currency.findFirst({
         where: { id: { not: currencyId } },
@@ -843,6 +955,119 @@ describe('Cash Flow Reconciliation', () => {
           branchId: null,
         }),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // -------------------------------------------------------------------
+  // 5b. Internal Transfer (Reconciliation Part H)
+  // -------------------------------------------------------------------
+
+  describe('internal transfer', () => {
+    it('confirms an opposite-signed pair on different accounts as one transfer, posting Dr destination / Cr source, never Revenue/Expense', async () => {
+      const outgoing = await importOutgoing({
+        amount: -10_000,
+        cashSourceId,
+      });
+      const incoming = await importIncoming({
+        amount: 10_000,
+        cashSourceId: cashSourceId2,
+      });
+
+      const { candidates } = await reconciliation.suggestInternalTransfer(
+        outgoing.id,
+      );
+      expect(candidates.some((c) => c.id === incoming.id)).toBe(true);
+
+      // Regression: amount is signed (negative OUTGOING / positive
+      // INCOMING) — suggesting from the INCOMING side must compare against
+      // the candidate's own signed (negative) amount, not the absolute
+      // value, or the OUTGOING leg is silently never found.
+      const fromIncoming = await reconciliation.suggestInternalTransfer(
+        incoming.id,
+      );
+      expect(fromIncoming.candidates.some((c) => c.id === outgoing.id)).toBe(
+        true,
+      );
+
+      const result = await reconciliation.confirmInternalTransfer(
+        outgoing.id,
+        incoming.id,
+        testUserId,
+      );
+      expect(result?.matchStatus).toBe('MATCHED');
+
+      const lines = await prisma.journalEntryLine.findMany({
+        where: {
+          journalEntry: {
+            sourceType: 'BANK_TRANSACTION_TRANSFER',
+            sourceId: outgoing.id,
+          },
+        },
+      });
+      expect(lines).toHaveLength(2);
+      const destinationLine = lines.find(
+        (l) => l.accountId === bankChartAccountId2,
+      );
+      expect(Number(destinationLine!.debit)).toBe(10_000);
+      const sourceLine = lines.find((l) => l.accountId === bankChartAccountId);
+      expect(Number(sourceLine!.credit)).toBe(10_000);
+
+      const refreshedIncoming = await prisma.bankTransaction.findUnique({
+        where: { id: incoming.id },
+      });
+      expect(refreshedIncoming?.matchStatus).toBe('MATCHED');
+    });
+
+    it('rejects pairing two transactions on the same Financial Account', async () => {
+      const outgoing = await importOutgoing({ amount: -5000, cashSourceId });
+      const incoming = await importIncoming({ amount: 5000, cashSourceId });
+      await expect(
+        reconciliation.confirmInternalTransfer(
+          outgoing.id,
+          incoming.id,
+          testUserId,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('unreconciles an internal transfer, reversing the JE and restoring UNMATCHED on both legs', async () => {
+      const outgoing = await importOutgoing({
+        amount: -2000,
+        cashSourceId,
+      });
+      const incoming = await importIncoming({
+        amount: 2000,
+        cashSourceId: cashSourceId2,
+      });
+      await reconciliation.confirmInternalTransfer(
+        outgoing.id,
+        incoming.id,
+        testUserId,
+      );
+
+      // Unreconcile from the INCOMING leg — must find and reverse via the
+      // OUTGOING leg's own sourceId, same as confirming works either way.
+      await reconciliation.unreconcile(incoming.id, testUserId, 'test undo');
+
+      const [refreshedOutgoing, refreshedIncoming] = await Promise.all([
+        prisma.bankTransaction.findUnique({ where: { id: outgoing.id } }),
+        prisma.bankTransaction.findUnique({ where: { id: incoming.id } }),
+      ]);
+      expect(refreshedOutgoing?.matchStatus).toBe('UNMATCHED');
+      expect(refreshedOutgoing?.linkedTransferTransactionId).toBeNull();
+      expect(refreshedIncoming?.matchStatus).toBe('UNMATCHED');
+
+      const entries = await prisma.journalEntry.findMany({
+        where: {
+          sourceType: 'BANK_TRANSACTION_TRANSFER',
+          sourceId: outgoing.id,
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+      expect(entries).toHaveLength(2);
+      expect(entries[0].status).toBe('REVERSED');
+      expect(entries[1].status).toBe('POSTED');
+      expect(entries[1].reversalOfEntryId).toBe(entries[0].id);
     });
   });
 
