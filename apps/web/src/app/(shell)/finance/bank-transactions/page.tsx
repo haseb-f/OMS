@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Landmark, RefreshCw, Search, Tag, CheckCircle2 } from "lucide-react";
+import { Landmark, RefreshCw, Search, Tag, CheckCircle2, Undo2 } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSurface, ListToolbar } from "@/components/shared/data-table/list-surface";
@@ -12,6 +12,7 @@ import { LoadingOverlay } from "@/components/shared/loading-overlay";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AccountPicker } from "@/components/business/account-picker";
 import {
@@ -110,6 +111,7 @@ function CashFlowPageContent() {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
   const canManage = hasPermission("accounting.bank-transactions.manage");
+  const canUnreconcile = hasPermission("accounting.bank-transactions.unreconcile");
 
   const [direction, setDirection] = useState<CashFlowDirection>("INCOMING");
   const [statusFilter, setStatusFilter] = useState<BankTransactionMatchStatus>("UNMATCHED");
@@ -128,6 +130,9 @@ function CashFlowPageContent() {
   const [isRunningMatch, setIsRunningMatch] = useState(false);
   const [reconcileTarget, setReconcileTarget] = useState<BankTransactionRow | null>(null);
   const [classifyTarget, setClassifyTarget] = useState<BankTransactionRow | null>(null);
+  const [unreconcileTarget, setUnreconcileTarget] = useState<BankTransactionRow | null>(null);
+  const [unreconcileReason, setUnreconcileReason] = useState("");
+  const [isUnreconciling, setIsUnreconciling] = useState(false);
 
   const statusTabs = direction === "INCOMING" ? INCOMING_STATUS_TABS : OUTGOING_STATUS_TABS;
 
@@ -143,13 +148,11 @@ function CashFlowPageContent() {
       setCounts(statusCounts);
       setSummary(cashFlowSummary);
     } catch (error) {
-      toast.error(
-        error instanceof ApiError ? error.message : "Failed to load Cash Flow transactions.",
-      );
+      toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
     } finally {
       setIsLoading(false);
     }
-  }, [direction, statusFilter]);
+  }, [direction, statusFilter, t]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -165,9 +168,25 @@ function CashFlowPageContent() {
       );
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to run matching.");
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsRunningMatch(false);
+    }
+  };
+
+  const handleUnreconcile = async () => {
+    if (!unreconcileTarget || !unreconcileReason.trim()) return;
+    setIsUnreconciling(true);
+    try {
+      await bankTransactionsService.unreconcile(unreconcileTarget.id, unreconcileReason.trim());
+      toast.success(t("masterData.bankTransactions.unreconcile.success"));
+      setUnreconcileTarget(null);
+      setUnreconcileReason("");
+      await load();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+    } finally {
+      setIsUnreconciling(false);
     }
   };
 
@@ -342,10 +361,26 @@ function CashFlowPageContent() {
                   </TableCell>
                   <TableCell>
                     {row.matchStatus === "MATCHED" ? (
-                      <span className="text-caption text-muted-foreground" dir="ltr">
-                        {row.matchedPayment?.paymentNumber ??
-                          row.matchedFinancialTransaction?.transactionNumber}
-                      </span>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-caption text-muted-foreground" dir="ltr">
+                          {row.matchedPayment?.paymentNumber ??
+                            row.matchedFinancialTransaction?.transactionNumber}
+                        </span>
+                        {canUnreconcile && (
+                          <RowActionsMenu
+                            label={t("common.actions")}
+                            actions={[
+                              {
+                                key: "unreconcile",
+                                label: t("masterData.bankTransactions.unreconcile.action"),
+                                icon: Undo2,
+                                destructive: true,
+                                onSelect: () => setUnreconcileTarget(row),
+                              },
+                            ]}
+                          />
+                        )}
+                      </div>
                     ) : (
                       canManage && (
                         <RowActionsMenu
@@ -398,6 +433,40 @@ function CashFlowPageContent() {
           }}
         />
       )}
+
+      <ConfirmationDialog
+        open={!!unreconcileTarget}
+        onOpenChange={(open) => {
+          if (!open) {
+            setUnreconcileTarget(null);
+            setUnreconcileReason("");
+          }
+        }}
+        tone="destructive"
+        title={t("masterData.bankTransactions.unreconcile.title")}
+        description={
+          unreconcileTarget
+            ? `${t("masterData.bankTransactions.unreconcile.impact")} ${formatMoney(unreconcileTarget.amount, unreconcileTarget.currency?.code)}`
+            : undefined
+        }
+        extra={
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="unreconcile-reason">
+              {t("masterData.bankTransactions.unreconcile.reasonLabel")}
+            </Label>
+            <Textarea
+              id="unreconcile-reason"
+              value={unreconcileReason}
+              onChange={(event) => setUnreconcileReason(event.target.value)}
+              rows={2}
+            />
+          </div>
+        }
+        confirmLabel={t("masterData.bankTransactions.unreconcile.confirm")}
+        confirmDisabled={!unreconcileReason.trim()}
+        isConfirming={isUnreconciling}
+        onConfirm={handleUnreconcile}
+      />
     </PageWorkspace>
   );
 }
