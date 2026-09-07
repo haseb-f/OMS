@@ -1,7 +1,13 @@
 import 'dotenv/config';
 import { Test, type TestingModule } from '@nestjs/testing';
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
+import { PERMISSION_CATALOG } from '../permissions/permission-catalog';
 import {
   LeadAssignmentMethod,
   LeadSource,
@@ -53,6 +59,7 @@ describe('Sales Flow Hardening', () => {
   let departments: DepartmentsService;
   let paymentMethods: PaymentMethodsService;
   let phone: PhoneNumberService;
+  let permissionsResolver: PermissionsResolverService;
   let dbUnreachable = false;
 
   const createdUserIds: string[] = [];
@@ -96,6 +103,7 @@ describe('Sales Flow Hardening', () => {
     departments = moduleRef.get(DepartmentsService);
     paymentMethods = moduleRef.get(PaymentMethodsService);
     phone = moduleRef.get(PhoneNumberService);
+    permissionsResolver = moduleRef.get(PermissionsResolverService);
     try {
       await prisma.$queryRaw`SELECT 1`;
     } catch {
@@ -678,6 +686,133 @@ describe('Sales Flow Hardening', () => {
       expect(Number(qty2?.agreedAmount)).toBe(300);
     },
   );
+
+  describe('Lead Conversion — permission and ownership enforcement', () => {
+    it('resolves the exact canonical Lead Convert permission from the catalog', () => {
+      const leadsModule = PERMISSION_CATALOG.find((m) => m.key === 'leads');
+      const confirmAction = leadsModule?.actions.find(
+        (a) => a.action === 'confirm',
+      );
+      expect(confirmAction?.name).toBe('crm.leads.convert');
+    });
+
+    liveIt(
+      'Agent A converts their own Lead — Order created, owned by Agent A, Lead leaves active queue',
+      async () => {
+        const agentA = await salesUser('Convert Agent A');
+        const agentAScope = await salesScope.resolve(agentA.id);
+        expect(agentAScope.kind).toBe('OWN');
+        const [sku] = await productIds();
+        const lead = await createOwnedLead(agentA.id);
+
+        const converted = await leads.convertToStoreOrder(
+          lead.id,
+          {
+            items: [{ productId: sku, quantity: 1, agreedAmount: 120 }],
+            paymentType: 'CASH_ON_DELIVERY',
+            amountPaid: 0,
+            address: 'Test St',
+          },
+          agentA.id,
+          agentAScope,
+        );
+        expect(converted?.status.code).toBe('CONVERTED');
+
+        const order = await prisma.storeOrder.findFirst({
+          where: { leadId: lead.id },
+        });
+        expect(order).toBeTruthy();
+        expect(order?.employeeId).toBe(agentA.id);
+
+        const active = await leads.findAll(
+          { lifecycle: 'active' },
+          agentAScope,
+        );
+        expect(active.items.some((row) => row.id === lead.id)).toBe(false);
+      },
+    );
+
+    liveIt(
+      'Agent A cannot convert Agent B Lead — denied, no Order created',
+      async () => {
+        const agentA = await salesUser('Convert Agent A2');
+        const agentB = await salesUser('Convert Agent B2');
+        const agentAScope = await salesScope.resolve(agentA.id);
+        const [sku] = await productIds();
+        const leadB = await createOwnedLead(agentB.id);
+
+        await expect(
+          leads.convertToStoreOrder(
+            leadB.id,
+            {
+              items: [{ productId: sku, quantity: 1, agreedAmount: 120 }],
+              paymentType: 'CASH_ON_DELIVERY',
+              amountPaid: 0,
+              address: 'Test St',
+            },
+            agentA.id,
+            agentAScope,
+          ),
+        ).rejects.toThrow(NotFoundException);
+
+        const order = await prisma.storeOrder.findFirst({
+          where: { leadId: leadB.id },
+        });
+        expect(order).toBeNull();
+      },
+    );
+
+    liveIt(
+      'Agent B converts their own Lead independently of Agent A',
+      async () => {
+        const agentB = await salesUser('Convert Agent B3');
+        const agentBScope = await salesScope.resolve(agentB.id);
+        const [sku] = await productIds();
+        const lead = await createOwnedLead(agentB.id);
+
+        const converted = await leads.convertToStoreOrder(
+          lead.id,
+          {
+            items: [{ productId: sku, quantity: 1, agreedAmount: 90 }],
+            paymentType: 'CASH_ON_DELIVERY',
+            amountPaid: 0,
+            address: 'Test St',
+          },
+          agentB.id,
+          agentBScope,
+        );
+        expect(converted?.status.code).toBe('CONVERTED');
+        const order = await prisma.storeOrder.findFirst({
+          where: { leadId: lead.id },
+        });
+        expect(order?.employeeId).toBe(agentB.id);
+      },
+    );
+
+    liveIt(
+      'a persona without crm.leads.convert (e.g. Shipping) fails the permission check the guard enforces',
+      async () => {
+        const tag = suffix();
+        const shippingLike = await users.create({
+          email: `hf-ship-${tag}@example.com`,
+          username: `hf_ship_${tag}`,
+          fullName: 'Shipping Persona',
+          password: 'SalesPassw0rd!',
+          departmentId: await departmentId(),
+        });
+        createdUserIds.push(shippingLike.id);
+        await users.setPermissions(shippingLike.id, {
+          permissionNames: ['shipping.view', 'shipping.manage'],
+        });
+
+        const allowed = await permissionsResolver.hasPermission(
+          shippingLike.id,
+          'crm.leads.convert',
+        );
+        expect(allowed).toBe(false);
+      },
+    );
+  });
 
   liveIt(
     'normalizes Saudi phones on Lead create for local and international forms',
