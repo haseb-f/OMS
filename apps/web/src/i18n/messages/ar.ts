@@ -16,6 +16,7 @@ const ar = {
     offlineDescription: "تحقق من اتصالك وحاول مرة أخرى.",
     retry: "إعادة المحاولة",
     loadFailed: "تعذر تحميل هذه البيانات.",
+    failedToSave: "تعذر الحفظ",
     confirming: "جارٍ التنفيذ…",
     noPermission: "لا تملك صلاحية",
     noPermissionDescription: "ليس لديك صلاحية الوصول إلى هذه الصفحة.",
@@ -26,6 +27,7 @@ const ar = {
     delete: "حذف",
     import: "استيراد",
     save: "حفظ",
+    saved: "تم الحفظ",
     edit: "تعديل",
     archive: "أرشفة",
     restore: "استعادة",
@@ -896,6 +898,15 @@ const ar = {
         noCandidates: "لا توجد حركة معاكسة مطابقة على حساب مالي مختلف.",
         confirm: "تأكيد التحويل الداخلي",
         confirmed: "تم تأكيد التحويل الداخلي بين الحسابين.",
+      },
+      unreconcile: {
+        action: "إلغاء المطابقة",
+        title: "إلغاء المطابقة؟",
+        impact: "سيعاد فتح الحركة وعكس القيد المحاسبي المرتبط بها.",
+        reasonLabel: "سبب إلغاء المطابقة",
+        reasonRequired: "سبب إلغاء المطابقة مطلوب.",
+        confirm: "إلغاء المطابقة",
+        success: "تم إلغاء المطابقة",
       },
     },
     journals: {
@@ -1785,6 +1796,12 @@ const ar = {
         paidAmountHelper: "المبلغ الذي دفعه العميل فعليًا — سيُنشئ سجل دفعة تلقائيًا.",
         quantityHelper: "الكمية — تُفترض 1 إن لم تُحدَّد.",
         currencyHelper: "تُشتق تلقائيًا من الدولة المختارة إن لم تُحدَّد.",
+        validation: {
+          customerName: "اسم العميل مطلوب",
+          country: "الدولة مطلوبة",
+          address: "العنوان مطلوب",
+          paidAmount: "المبلغ المدفوع مطلوب",
+        },
       },
       status: {
         NEW: "جديد",
@@ -1811,6 +1828,9 @@ const ar = {
         reassign: "نقل إلى موظف",
         closeWithoutPurchase: "إغلاق بدون شراء",
         transfer: "نقل إلى موظف",
+      },
+      toasts: {
+        created: "تم إضافة العميل",
       },
       assignDialog: {
         title: "إسناد الليدز",
@@ -1881,7 +1901,7 @@ const ar = {
         description: "إنشاء طلب متجر من هذا الليد مع المنتجات والدفع والشحن.",
         cta: "تحويل إلى طلب",
         convertedTo: "تم التحويل إلى طلب",
-        success: "تم إنشاء الطلب بنجاح",
+        success: "تم إنشاء الطلب",
         confirmCreate: "تأكيد وإنشاء الطلب",
         backToEdit: "رجوع للتعديل",
         unitPrice: "سعر البيع",
@@ -2186,6 +2206,9 @@ const ar = {
         print: "طباعة",
       },
       duplicatePhoneOrEmail: "يوجد عميل بنفس رقم الهاتف أو البريد الإلكتروني.",
+      toasts: {
+        archived: "تم أرشفة العميل.",
+      },
     },
     editor: {
       header: {
@@ -2547,6 +2570,9 @@ const ar = {
     empty: "لا توجد طلبات متجر بعد.",
     open: "فتح",
     viewOrder: "عرض الطلب",
+    toasts: {
+      archived: "تم أرشفة الطلب.",
+    },
     createDialog: {
       trigger: "طلب جديد",
       title: "طلب متجر جديد",
@@ -2983,6 +3009,9 @@ const ar = {
         print: "طباعة",
       },
       activate: "تفعيل",
+      toasts: {
+        archived: "تم أرشفة المورد.",
+      },
     },
     editor: {
       sections: {
@@ -3635,6 +3664,7 @@ const ar = {
     cancelJob: "إلغاء",
     confirmCancelJobTitle: "إلغاء مهمة الاستيراد؟",
     confirmCancelJobDescription: "ستتوقف المهمة قبل استيراد الصفوف المتبقية.",
+    downloadTemplateFailed: "فشل تنزيل القالب.",
     types: {
       leads: {
         label: "العملاء المحتملون",
@@ -3856,6 +3886,7 @@ const ar = {
         refreshTooltip: "جلب أحدث البيانات من Google Sheets",
         refreshed: "تم جلب أحدث البيانات من Google Sheets.",
         lastSynced: "آخر تحديث ناجح: {datetime}",
+        readFailed: "تعذرت قراءة الجدول — تحقق من الرابط والمشاركة.",
       },
       mapping: {
         title: "ربط الأعمدة",

@@ -16,6 +16,7 @@ const en = {
     offlineDescription: "Check your connection and try again.",
     retry: "Retry",
     loadFailed: "Couldn't load this data.",
+    failedToSave: "Couldn't save",
     confirming: "Working…",
     noPermission: "No Permission",
     noPermissionDescription: "You don't have access to this page.",
@@ -26,6 +27,7 @@ const en = {
     delete: "Delete",
     import: "Import",
     save: "Save",
+    saved: "Saved",
     edit: "Edit",
     archive: "Archive",
     restore: "Restore",
@@ -900,6 +902,15 @@ const en = {
         noCandidates: "No matching opposite transaction on a different Financial Account.",
         confirm: "Confirm Internal Transfer",
         confirmed: "Internal transfer confirmed between the two accounts.",
+      },
+      unreconcile: {
+        action: "Unreconcile",
+        title: "Unreconcile this transaction?",
+        impact: "The transaction will reopen and its linked journal entry will be reversed.",
+        reasonLabel: "Reason for unreconciling",
+        reasonRequired: "A reason is required to unreconcile.",
+        confirm: "Unreconcile",
+        success: "Unreconciled",
       },
     },
     journals: {
@@ -1804,6 +1815,12 @@ const en = {
           "The amount the customer actually paid — this creates a payment record automatically.",
         quantityHelper: "Quantity — defaults to 1 if not specified.",
         currencyHelper: "Derived automatically from the selected country if not specified.",
+        validation: {
+          customerName: "Customer name is required",
+          country: "Country is required",
+          address: "Address is required",
+          paidAmount: "Paid amount is required",
+        },
       },
       status: {
         NEW: "New",
@@ -1830,6 +1847,9 @@ const en = {
         reassign: "Transfer to employee",
         closeWithoutPurchase: "Close without purchase",
         transfer: "Transfer to employee",
+      },
+      toasts: {
+        created: "Customer added",
       },
       assignDialog: {
         title: "Assign Leads",
@@ -1901,7 +1921,7 @@ const en = {
         description: "Create a Store Order from this Lead with products, payment, and shipping.",
         cta: "Convert to Order",
         convertedTo: "Converted to order",
-        success: "Order created successfully",
+        success: "Order created",
         confirmCreate: "Confirm and create order",
         backToEdit: "Back to edit",
         unitPrice: "Selling price",
@@ -2207,6 +2227,9 @@ const en = {
         print: "Print",
       },
       duplicatePhoneOrEmail: "A customer with this phone or email already exists.",
+      toasts: {
+        archived: "Customer archived.",
+      },
     },
     editor: {
       header: {
@@ -2570,6 +2593,9 @@ const en = {
     empty: "No store orders yet.",
     open: "Open",
     viewOrder: "View order",
+    toasts: {
+      archived: "Order archived.",
+    },
     createDialog: {
       trigger: "New Order",
       title: "New Store Order",
@@ -3016,6 +3042,9 @@ const en = {
         print: "Print",
       },
       activate: "Activate",
+      toasts: {
+        archived: "Supplier archived.",
+      },
     },
     editor: {
       sections: {
@@ -3677,6 +3706,7 @@ const en = {
     cancelJob: "Cancel",
     confirmCancelJobTitle: "Cancel this import job?",
     confirmCancelJobDescription: "The job will stop before any remaining rows are imported.",
+    downloadTemplateFailed: "Failed to download template.",
     types: {
       leads: {
         label: "Leads",
@@ -3904,6 +3934,7 @@ const en = {
         refreshTooltip: "Fetch the latest data from Google Sheets",
         refreshed: "Re-fetched the latest data from Google Sheets.",
         lastSynced: "Last successful sync: {datetime}",
+        readFailed: "Couldn't read that sheet — check the link and sharing.",
       },
       mapping: {
         title: "Map Columns",
