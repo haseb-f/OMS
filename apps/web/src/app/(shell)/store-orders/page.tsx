@@ -225,11 +225,11 @@ function StoreOrdersPageContent() {
     setIsArchiving(true);
     try {
       await storeOrdersService.archive(archiveTarget.id);
-      toast.success(t("common.archive"));
+      toast.success(t("storeOrders.toasts.archived"));
       setArchiveTarget(null);
       void load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsArchiving(false);
     }

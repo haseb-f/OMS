@@ -210,11 +210,11 @@ export default function CustomerProfilePage() {
     setIsArchiving(true);
     try {
       await partnersService.archive(customer.id);
-      toast.success(t("common.archive"));
+      toast.success(t("sales.customers.toasts.archived"));
       setArchiveOpen(false);
       router.push("/sales/customers");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsArchiving(false);
     }

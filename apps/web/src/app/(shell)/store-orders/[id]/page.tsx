@@ -213,7 +213,7 @@ function StoreOrderDetailContent() {
       toast.success(t("storeOrders.detail.invoice.generated"));
       await refreshOrder();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsGeneratingInvoice(false);
     }
@@ -224,11 +224,11 @@ function StoreOrderDetailContent() {
     setIsArchiving(true);
     try {
       await storeOrdersService.archive(order.id);
-      toast.success(t("common.archive"));
+      toast.success(t("storeOrders.toasts.archived"));
       setArchiveOpen(false);
       router.push("/store-orders");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsArchiving(false);
     }

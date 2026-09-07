@@ -198,11 +198,11 @@ export default function SupplierProfilePage() {
     setIsArchiving(true);
     try {
       await partnersService.archive(supplier.id);
-      toast.success(t("common.archive"));
+      toast.success(t("purchasing.suppliers.toasts.archived"));
       setArchiveOpen(false);
       router.push("/purchasing/suppliers");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsArchiving(false);
     }
