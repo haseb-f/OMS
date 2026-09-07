@@ -1330,6 +1330,68 @@ async function main() {
     }
   }
 
+  // Finance test personas — needed to verify the Confirm/Unreconcile
+  // permission tier split: a Finance user can review and confirm
+  // reconciliation but must NOT be able to undo one; only Finance
+  // Manager/Admin holds `accounting.bank-transactions.unreconcile`.
+  const financeUser = await prisma.user.upsert({
+    where: { email: 'finance@oms.local' },
+    update: {
+      username: 'finance',
+      jobTitleId: jobTitleByName.get('المحاسب')!.id,
+    },
+    create: {
+      email: 'finance@oms.local',
+      username: 'finance',
+      fullName: 'Huda Al-Zahrani',
+      passwordHash,
+      jobTitleId: jobTitleByName.get('المحاسب')!.id,
+    },
+  });
+  const financeManagerUser = await prisma.user.upsert({
+    where: { email: 'finance-manager@oms.local' },
+    update: {
+      username: 'finance-manager',
+      jobTitleId: jobTitleByName.get('المدير المالي')!.id,
+    },
+    create: {
+      email: 'finance-manager@oms.local',
+      username: 'finance-manager',
+      fullName: 'Tariq Suleiman',
+      passwordHash,
+      jobTitleId: jobTitleByName.get('المدير المالي')!.id,
+    },
+  });
+  const financeUserPermissionNames = [
+    'finance.view',
+    'accounting.bank-transactions.view',
+    'accounting.bank-transactions.manage',
+    // Read-only Chart of Accounts access — required by AccountPicker
+    // wherever a Finance user must select an account while reconciling
+    // (the bank-fee/settlement-difference account, an Expense Payment
+    // Voucher's expense account). Live-verified missing: a Finance user
+    // could open the "record a bank fee" toggle but the account search
+    // silently 403'd, with no way to complete the net-receipt flow at all.
+    'accounting.chart-of-accounts.view',
+    'sales.receipts.view',
+    'sales.receipts.create',
+    'sales.receipts.edit',
+    'sales.receipts.confirm',
+    'purchasing.payments.view',
+    'purchasing.payments.create',
+    'purchasing.payments.edit',
+    'purchasing.payments.confirm',
+    'accounting.expense-payments.view',
+    'accounting.expense-payments.create',
+    'accounting.expense-payments.edit',
+    'accounting.expense-payments.confirm',
+  ];
+  await grantPermissions(financeUser.id, financeUserPermissionNames);
+  await grantPermissions(financeManagerUser.id, [
+    ...financeUserPermissionNames,
+    'accounting.bank-transactions.unreconcile',
+  ]);
+
   // Sales Team — gives salesManagerUser real TEAM scope over Agent A/B in
   // SalesScopeService.resolve() (kind: 'TEAM'), the actual mechanism Sales
   // Manager / Team Manager visibility and Assign/Distribute rely on.
@@ -1371,8 +1433,14 @@ async function main() {
     update: {},
     create: { userId: adminUser.id, companyId: nova.id },
   });
-  // Sales agents and Sales Manager belong to one company only.
-  for (const userId of [salesUser.id, salesUserB.id, salesManagerUser.id]) {
+  // Sales agents, Sales Manager, and Finance personas belong to one company only.
+  for (const userId of [
+    salesUser.id,
+    salesUserB.id,
+    salesManagerUser.id,
+    financeUser.id,
+    financeManagerUser.id,
+  ]) {
     await prisma.companyMembership.upsert({
       where: { userId_companyId: { userId, companyId: acme.id } },
       update: {},
