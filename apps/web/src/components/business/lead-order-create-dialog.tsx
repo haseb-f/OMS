@@ -85,6 +85,14 @@ export function LeadOrderCreateDialog({
     return [base];
   }, [t]);
 
+  // Field-level messages already mark the invalid field and receive focus
+  // (react-hook-form's default `shouldFocusError`) — this compact toast is
+  // the required "تعذر الحفظ" summary on top of that, per the global
+  // feedback standard (Part D.1.B): never rely on field marking alone.
+  const onInvalid = () => {
+    toast.error(t("common.failedToSave"));
+  };
+
   const submit = form.handleSubmit(async (values) => {
     try {
       const payload = {
@@ -101,13 +109,13 @@ export function LeadOrderCreateDialog({
         salesEmployeeId: values.salesEmployeeId || undefined,
       };
       const created = await leadsService.create(payload);
-      toast.success(t("common.save"));
+      toast.success(t("crm.leads.toasts.created"));
       onOpenChange(false);
       onCreated(created);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     }
-  });
+  }, onInvalid);
 
   return (
     <EnterpriseModal

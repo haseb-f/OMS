@@ -200,6 +200,8 @@ function SalesTeamsPageContent() {
         tone="destructive"
         title={t("crm.salesTeams.archiveTitle")}
         description={archiveTarget?.name}
+        confirmLabel={t("common.archive")}
+        cancelLabel={t("common.close")}
         isConfirming={archiving}
         onConfirm={async () => {
           if (!archiveTarget) return;

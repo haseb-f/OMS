@@ -250,10 +250,10 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
       if (id) {
         const updated = await journalEntriesService.update(id, buildPayload());
         applyEntry(updated);
-        toast.success(t("common.save"));
+        toast.success(t("common.saved"));
       } else {
         const created = await journalEntriesService.create(buildPayload());
-        toast.success(t("common.save"));
+        toast.success(t("common.saved"));
         router.replace(`/finance/journal-entries/${created.id}`);
       }
     } catch (error) {
@@ -755,7 +755,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
         onConfirm={async () => {
           setReverseTarget(false);
           const reversed = await journalEntriesService.reverse(id!).catch((error) => {
-            toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+            toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
             return null;
           });
           if (reversed) {

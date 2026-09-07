@@ -18,9 +18,11 @@ export function buildLeadOrderCreateSchema(
   return z
     .object({
       recordType: z.enum(["LEAD", "ORDER"]),
-      customerName: z.string().min(1),
-      mobileNumber: z.string().min(1),
-      countryId: z.string().min(1, { message: "Country is required." }),
+      customerName: z
+        .string()
+        .min(1, { message: t("crm.leads.createDialog.validation.customerName") }),
+      mobileNumber: z.string().min(1, { message: t("phone.errors.EMPTY") }),
+      countryId: z.string().min(1, { message: t("crm.leads.createDialog.validation.country") }),
       city: z.string().optional().or(z.literal("")),
       address: z.string().optional().or(z.literal("")),
       productId: z.string().optional().or(z.literal("")),
@@ -45,16 +47,24 @@ export function buildLeadOrderCreateSchema(
       if (values.recordType !== "ORDER") return;
 
       if (!values.address) {
-        ctx.addIssue({ code: "custom", path: ["address"], message: "Address is required." });
+        ctx.addIssue({
+          code: "custom",
+          path: ["address"],
+          message: t("crm.leads.createDialog.validation.address"),
+        });
       }
       if (!values.productId) {
-        ctx.addIssue({ code: "custom", path: ["productId"], message: "Product is required." });
+        ctx.addIssue({
+          code: "custom",
+          path: ["productId"],
+          message: t("crm.leads.convert.validation.product"),
+        });
       }
       if (values.paidAmount === undefined) {
         ctx.addIssue({
           code: "custom",
           path: ["paidAmount"],
-          message: "Paid amount is required.",
+          message: t("crm.leads.createDialog.validation.paidAmount"),
         });
       }
     });
