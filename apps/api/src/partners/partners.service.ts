@@ -44,7 +44,14 @@ const PARTNER_INCLUDE = {
   roles: true,
   customerProfile: { include: { customerGroup: true, paymentTerm: true } },
   supplierProfile: { include: { supplierGroup: true } },
-  employeeProfile: { include: { jobTitle: true } },
+  employeeProfile: {
+    include: {
+      jobTitle: true,
+      department: true,
+      salesTeam: true,
+      manager: { include: { partner: { select: { id: true, name: true } } } },
+    },
+  },
   country: true,
   currency: true,
 } satisfies Prisma.PartnerInclude;
@@ -243,9 +250,14 @@ export class PartnersService extends MasterDataCrudService<
           });
         }
         if (dto.employeeProfile && existing.employeeProfile) {
+          const { hireDate, ...employeeRest } = dto.employeeProfile;
           await tx.employeeProfile.update({
             where: { partnerId: id },
-            data: dto.employeeProfile,
+            data: {
+              ...employeeRest,
+              hireDate: hireDate ? new Date(hireDate) : undefined,
+              updatedBy: userId ?? null,
+            },
           });
         }
         await this.activityLog.log(
@@ -294,15 +306,52 @@ export class PartnersService extends MasterDataCrudService<
           },
         });
         return;
-      case PartnerRoleType.EMPLOYEE:
+      case PartnerRoleType.EMPLOYEE: {
+        const fields = {
+          userId: profiles.employeeProfile?.userId,
+          jobTitleId: profiles.employeeProfile?.jobTitleId,
+          departmentId: profiles.employeeProfile?.departmentId,
+          salesTeamId: profiles.employeeProfile?.salesTeamId,
+          managerEmployeeId: profiles.employeeProfile?.managerEmployeeId,
+          hireDate: profiles.employeeProfile?.hireDate
+            ? new Date(profiles.employeeProfile.hireDate)
+            : undefined,
+          employmentStatus: profiles.employeeProfile?.employmentStatus,
+        };
+        // A Partner can only ever hold one EmployeeProfile (partnerId is
+        // unique) — if the EMPLOYEE role was previously removed
+        // (soft-deleted), reassigning it must reactivate that same row
+        // (keeping its original employeeCode/history) rather than create a
+        // second one, which the unique constraint would reject anyway.
+        const existing = await tx.employeeProfile.findUnique({
+          where: { partnerId },
+        });
+        if (existing) {
+          await tx.employeeProfile.update({
+            where: { partnerId },
+            data: {
+              ...fields,
+              employmentStatus: fields.employmentStatus ?? 'ACTIVE',
+              deletedAt: null,
+            },
+          });
+          return;
+        }
+        // HR Milestone 1: employeeCode is app-generated here, the ONE place
+        // a new EmployeeProfile is created — never user-typed, regardless
+        // of whether the row originates from the Partner UI's role
+        // checkbox or the dedicated Employee creation wizard (both funnel
+        // through this method, so the code is minted exactly once).
+        const employeeCode = await this.numberingEngine.generateNumber(
+          'EMPLOYEE',
+          undefined,
+          tx,
+        );
         await tx.employeeProfile.create({
-          data: {
-            partnerId,
-            userId: profiles.employeeProfile?.userId,
-            jobTitleId: profiles.employeeProfile?.jobTitleId,
-          },
+          data: { partnerId, employeeCode, ...fields },
         });
         return;
+      }
       case PartnerRoleType.OWNER:
       case PartnerRoleType.OTHER:
         return;
@@ -347,7 +396,17 @@ export class PartnersService extends MasterDataCrudService<
         await tx.supplierProfile.deleteMany({ where: { partnerId: id } });
       }
       if (role === PartnerRoleType.EMPLOYEE) {
-        await tx.employeeProfile.deleteMany({ where: { partnerId: id } });
+        // Employees are soft-deleted only (never hard-deleted) — HR history
+        // (Compensation/KPI/Target/Commission/Payroll rows) references
+        // employeeProfileId and must stay traceable/auditable.
+        await tx.employeeProfile.updateMany({
+          where: { partnerId: id },
+          data: {
+            deletedAt: new Date(),
+            employmentStatus: 'TERMINATED',
+            updatedBy: userId ?? null,
+          },
+        });
       }
       await this.activityLog.log(
         this.entityType,

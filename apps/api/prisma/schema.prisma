@@ -85,7 +85,7 @@ model User {
   storeOrderReceiptUploads StoreOrderReceipt[]
   storeOrderActivities     StoreOrderActivity[]
 
-  statusHistoryChanges     StatusHistory[]      @relation("StatusHistoryChangedBy")
+  statusHistoryChanges       StatusHistory[]    @relation("StatusHistoryChangedBy")
   workflowApprovalsRequested WorkflowApproval[] @relation("WorkflowApprovalRequestedBy")
   workflowApprovalsApproved  WorkflowApproval[] @relation("WorkflowApprovalApprovedBy")
   workflowApprovalsRejected  WorkflowApproval[] @relation("WorkflowApprovalRejectedBy")
@@ -112,10 +112,10 @@ model User {
 /// CustomerClassification — `code` is Numbering-Engine-generated, never
 /// typed by hand.
 model JobTitle {
-  id     String  @id @default(uuid()) @db.Uuid
-  code   String  @unique
-  name   String  @unique
-  nameEn String? @map("name_en")
+  id          String  @id @default(uuid()) @db.Uuid
+  code        String  @unique
+  name        String  @unique
+  nameEn      String? @map("name_en")
   description String?
 
   /// Optional — a Job Title may be department-specific (e.g. "Sales
@@ -134,8 +134,9 @@ model JobTitle {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  users            User[]
-  employeeProfiles EmployeeProfile[]
+  users                  User[]
+  employeeProfiles       EmployeeProfile[]
+  kpiTemplateAssignments KpiTemplateAssignment[]
 
   @@index([deletedAt, isActive, sortOrder])
   @@index([departmentId])
@@ -160,10 +161,13 @@ model Department {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  users                 User[]
-  salesTeams            SalesTeam[]
-  distributionPolicies  LeadDistributionPolicy[]
-  jobTitles             JobTitle[]
+  users                     User[]
+  salesTeams                SalesTeam[]
+  distributionPolicies      LeadDistributionPolicy[]
+  jobTitles                 JobTitle[]
+  employeeProfiles          EmployeeProfile[]
+  kpiTemplateAssignments    KpiTemplateAssignment[]
+  commissionPlanAssignments CommissionPlanAssignment[]
 
   @@index([deletedAt, isActive, sortOrder])
   @@map("departments")
@@ -188,8 +192,8 @@ model CustomerClassification {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  leads             Lead[]
-  suggestedReasons  NoPurchaseReason[] @relation("ClassificationSuggestedReasons")
+  leads            Lead[]
+  suggestedReasons NoPurchaseReason[] @relation("ClassificationSuggestedReasons")
 
   @@index([deletedAt, isActive, sortOrder])
   @@map("customer_classifications")
@@ -212,8 +216,8 @@ model NoPurchaseReason {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  leads            Lead[]
-  classifications  CustomerClassification[] @relation("ClassificationSuggestedReasons")
+  leads           Lead[]
+  classifications CustomerClassification[] @relation("ClassificationSuggestedReasons")
 
   @@index([deletedAt, isActive, sortOrder])
   @@map("no_purchase_reasons")
@@ -243,7 +247,10 @@ model SalesTeam {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  members SalesTeamMember[]
+  members                   SalesTeamMember[]
+  employeeProfiles          EmployeeProfile[]
+  salesTargets              SalesTarget[]
+  commissionPlanAssignments CommissionPlanAssignment[]
 
   @@index([departmentId])
   @@index([managerId])
@@ -1023,16 +1030,16 @@ model StatusDefinition {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  leadsAsCurrent            Lead[]
-  storeOrdersAsPayment      StoreOrder[]         @relation("StoreOrderPaymentStatusDef")
-  storeOrdersAsFulfillment  StoreOrder[]         @relation("StoreOrderFulfillmentStatusDef")
-  bankTransactionsAsMatch   BankTransaction[]    @relation("BankTransactionMatchStatusDef")
-  transitionsFrom           WorkflowTransition[] @relation("TransitionFromStatus")
-  transitionsTo             WorkflowTransition[] @relation("TransitionToStatus")
-  statusHistoryFrom         StatusHistory[]      @relation("StatusHistoryFrom")
-  statusHistoryTo           StatusHistory[]      @relation("StatusHistoryTo")
-  workflowApprovalsFrom     WorkflowApproval[]   @relation("ApprovalFromStatus")
-  workflowApprovalsTo       WorkflowApproval[]   @relation("ApprovalToStatus")
+  leadsAsCurrent           Lead[]
+  storeOrdersAsPayment     StoreOrder[]         @relation("StoreOrderPaymentStatusDef")
+  storeOrdersAsFulfillment StoreOrder[]         @relation("StoreOrderFulfillmentStatusDef")
+  bankTransactionsAsMatch  BankTransaction[]    @relation("BankTransactionMatchStatusDef")
+  transitionsFrom          WorkflowTransition[] @relation("TransitionFromStatus")
+  transitionsTo            WorkflowTransition[] @relation("TransitionToStatus")
+  statusHistoryFrom        StatusHistory[]      @relation("StatusHistoryFrom")
+  statusHistoryTo          StatusHistory[]      @relation("StatusHistoryTo")
+  workflowApprovalsFrom    WorkflowApproval[]   @relation("ApprovalFromStatus")
+  workflowApprovalsTo      WorkflowApproval[]   @relation("ApprovalToStatus")
 
   @@unique([workflowType, code])
   @@index([workflowType, deletedAt, sortOrder])
@@ -1052,13 +1059,13 @@ model WorkflowTransition {
   labelAr String  @map("label_ar")
   labelEn String? @map("label_en")
 
-  requiresApproval    Boolean @default(false) @map("requires_approval")
-  requiresReason      Boolean @default(false) @map("requires_reason")
-  requiredPermission  String? @map("required_permission")
-  businessAction      WorkflowBusinessAction @default(NONE) @map("business_action")
-  isSystemProtected   Boolean @default(false) @map("is_system_protected")
-  isActive            Boolean @default(true) @map("is_active")
-  sortOrder           Int     @default(0) @map("sort_order")
+  requiresApproval   Boolean                @default(false) @map("requires_approval")
+  requiresReason     Boolean                @default(false) @map("requires_reason")
+  requiredPermission String?                @map("required_permission")
+  businessAction     WorkflowBusinessAction @default(NONE) @map("business_action")
+  isSystemProtected  Boolean                @default(false) @map("is_system_protected")
+  isActive           Boolean                @default(true) @map("is_active")
+  sortOrder          Int                    @default(0) @map("sort_order")
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -1125,10 +1132,10 @@ model WorkflowApproval {
   approvedBy   User?     @relation("WorkflowApprovalApprovedBy", fields: [approvedById], references: [id])
   approvedAt   DateTime? @map("approved_at")
 
-  rejectedById String?   @map("rejected_by_id") @db.Uuid
-  rejectedBy   User?     @relation("WorkflowApprovalRejectedBy", fields: [rejectedById], references: [id])
-  rejectedAt   DateTime? @map("rejected_at")
-  rejectionReason String? @map("rejection_reason")
+  rejectedById    String?   @map("rejected_by_id") @db.Uuid
+  rejectedBy      User?     @relation("WorkflowApprovalRejectedBy", fields: [rejectedById], references: [id])
+  rejectedAt      DateTime? @map("rejected_at")
+  rejectionReason String?   @map("rejection_reason")
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -1319,9 +1326,9 @@ model LeadFollowUp {
   userId String @map("user_id") @db.Uuid
   user   User   @relation(fields: [userId], references: [id])
 
-  outcome    String?
-  note       String?
-  followUpAt DateTime? @map("follow_up_at")
+  outcome     String?
+  note        String?
+  followUpAt  DateTime? @map("follow_up_at")
   completedAt DateTime? @map("completed_at")
 
   createdAt DateTime  @default(now()) @map("created_at")
@@ -1339,10 +1346,10 @@ model LeadFollowUp {
 model LeadDistributionPolicy {
   id String @id @default(uuid()) @db.Uuid
 
-  mode     LeadDistributionMode
-  isActive Boolean              @default(true) @map("is_active")
-  startedAt DateTime            @default(now()) @map("started_at")
-  expiresAt DateTime?           @map("expires_at")
+  mode      LeadDistributionMode
+  isActive  Boolean              @default(true) @map("is_active")
+  startedAt DateTime             @default(now()) @map("started_at")
+  expiresAt DateTime?            @map("expires_at")
 
   scopeType    LeadDistributionScope @default(COMPANY) @map("scope_type")
   teamId       String?               @map("team_id") @db.Uuid
@@ -1369,8 +1376,8 @@ model LeadDistributionState {
   policyId String                 @unique @map("policy_id") @db.Uuid
   policy   LeadDistributionPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
 
-  lastAssignedEmployeeId String? @map("last_assigned_employee_id") @db.Uuid
-  cursorPosition         Int     @default(0) @map("cursor_position")
+  lastAssignedEmployeeId String?  @map("last_assigned_employee_id") @db.Uuid
+  cursorPosition         Int      @default(0) @map("cursor_position")
   updatedAt              DateTime @updatedAt @map("updated_at")
 
   @@map("lead_distribution_states")
@@ -1921,6 +1928,15 @@ model ChartOfAccount {
   journalsDefaultDebit  Journal[] @relation("JournalDefaultDebit")
   journalsDefaultCredit Journal[] @relation("JournalDefaultCredit")
 
+  /// HR Milestone 1 — Payroll posting defaults + per-component overrides.
+  postingSettingsPayrollPayable          PostingSettings[]  @relation("PostingPayrollPayable")
+  postingSettingsSalaryExpense           PostingSettings[]  @relation("PostingSalaryExpense")
+  postingSettingsKpiExpense              PostingSettings[]  @relation("PostingKpiExpense")
+  postingSettingsCommissionExpense       PostingSettings[]  @relation("PostingCommissionExpense")
+  postingSettingsDefaultAllowanceExpense PostingSettings[]  @relation("PostingDefaultAllowanceExpense")
+  postingSettingsDefaultDeduction        PostingSettings[]  @relation("PostingDefaultDeduction")
+  payrollComponentsAccountMapping        PayrollComponent[] @relation("PayrollComponentAccountMapping")
+
   @@map("chart_of_accounts")
 }
 
@@ -2263,8 +2279,8 @@ model BankTransaction {
 
   matchStatus     BankTransactionMatchStatus @default(UNMATCHED) @map("match_status")
   /// Authoritative Matching StatusDefinition — kept in sync with `matchStatus`.
-  matchStatusId String?           @map("match_status_id") @db.Uuid
-  matchStatusDef StatusDefinition? @relation("BankTransactionMatchStatusDef", fields: [matchStatusId], references: [id])
+  matchStatusId   String?                    @map("match_status_id") @db.Uuid
+  matchStatusDef  StatusDefinition?          @relation("BankTransactionMatchStatusDef", fields: [matchStatusId], references: [id])
   /// The scored candidate list from the last `PaymentAutoMatchingService` /
   /// `CashFlowReconciliationService` classification pass — display-only,
   /// recomputed on every matching run, never hand-edited.
@@ -2332,12 +2348,12 @@ model BankTransaction {
 model Attachment {
   id String @id @default(uuid()) @db.Uuid
 
-  fileName        String @map("file_name")
-  originalName    String @map("original_name")
-  mimeType        String @map("mime_type")
-  sizeBytes       Int    @map("size_bytes")
-  storageProvider String @map("storage_provider")
-  storageKey      String @unique @map("storage_key")
+  fileName        String  @map("file_name")
+  originalName    String  @map("original_name")
+  mimeType        String  @map("mime_type")
+  sizeBytes       Int     @map("size_bytes")
+  storageProvider String  @map("storage_provider")
+  storageKey      String  @unique @map("storage_key")
   checksum        String?
 
   uploadedById String @map("uploaded_by_id") @db.Uuid
@@ -3330,11 +3346,22 @@ model SupplierProfile {
   @@map("supplier_profiles")
 }
 
-/// EMPLOYEE-role configuration — genuinely new (no HR module exists in this
-/// codebase). Kept minimal per the architecture decision: Partner supplies
-/// the financial identity, this supplies the HR-adjacent link only. `userId`
-/// is optional — an Employee Partner used only for advances/expense
-/// reimbursement need not have a system login.
+/// Closed set, V1 (HR Milestone 1) — kept intentionally small per the
+/// milestone's "no excessive lifecycle statuses" instruction.
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+  TERMINATED
+}
+
+/// EMPLOYEE-role configuration. Was originally kept minimal ("no HR module
+/// exists"); HR Milestone 1 extends it in place — this stays the ONE
+/// canonical Employee entity (never a parallel `Employee` table). Partner
+/// still supplies the shared identity fields (name/mobile/email/notes) — HR
+/// Milestone 1 adds only what is genuinely HR-specific: code, hire date,
+/// employment status, organizational placement, and manager hierarchy.
+/// `userId` stays optional — Employee (HR person record) is deliberately
+/// not the same thing as User (system access), per the milestone brief.
 model EmployeeProfile {
   id String @id @default(uuid()) @db.Uuid
 
@@ -3347,9 +3374,42 @@ model EmployeeProfile {
   jobTitleId String?   @map("job_title_id") @db.Uuid
   jobTitle   JobTitle? @relation(fields: [jobTitleId], references: [id])
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  /// App-generated ("EMP-2026-000125") via the Numbering Engine
+  /// (documentType EMPLOYEE, already seeded) — never user-typed.
+  employeeCode String @unique @map("employee_code")
 
+  hireDate DateTime? @map("hire_date") @db.Date
+
+  employmentStatus EmployeeStatus @default(ACTIVE) @map("employment_status")
+
+  departmentId String?     @map("department_id") @db.Uuid
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  salesTeamId String?    @map("sales_team_id") @db.Uuid
+  salesTeam   SalesTeam? @relation(fields: [salesTeamId], references: [id])
+
+  /// Explicit hierarchy field (spec: "Do not infer manager solely from Job
+  /// Title text"). Drives KPI evaluation routing + team-hierarchy views.
+  managerEmployeeId String?           @map("manager_employee_id") @db.Uuid
+  manager           EmployeeProfile?  @relation("EmployeeManager", fields: [managerEmployeeId], references: [id])
+  subordinates      EmployeeProfile[] @relation("EmployeeManager")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  /// Employees are soft-deleted only, same as every other master/HR record.
+  deletedAt DateTime? @map("deleted_at")
+
+  compensationRevisions     CompensationRevision[]
+  kpiTemplateAssignments    KpiTemplateAssignment[]
+  kpiEvaluations            KpiEvaluation[]
+  salesTargets              SalesTarget[]
+  commissionPlanAssignments CommissionPlanAssignment[]
+  commissionCalculations    CommissionCalculation[]
+  payrollLines              PayrollLine[]
+
+  @@index([deletedAt, employmentStatus])
   @@map("employee_profiles")
 }
 
@@ -3432,18 +3492,18 @@ model StoreOrder {
   employeeId String? @map("employee_id") @db.Uuid
   employee   User?   @relation("StoreOrderEmployee", fields: [employeeId], references: [id])
 
-  paymentStatus StoreOrderPaymentStatus @default(PAYMENT_PENDING) @map("payment_status")
+  paymentStatus       StoreOrderPaymentStatus @default(PAYMENT_PENDING) @map("payment_status")
   /// Authoritative Payment StatusDefinition — dual-written with `paymentStatus`.
-  paymentStatusId String?           @map("payment_status_id") @db.Uuid
-  paymentStatusDef StatusDefinition? @relation("StoreOrderPaymentStatusDef", fields: [paymentStatusId], references: [id])
+  paymentStatusId     String?                 @map("payment_status_id") @db.Uuid
+  paymentStatusDef    StatusDefinition?       @relation("StoreOrderPaymentStatusDef", fields: [paymentStatusId], references: [id])
   /// Fixed catalog (PREPAID / CASH_ON_DELIVERY) — not financial confirmation.
-  paymentType   StoreOrderPaymentType   @default(PREPAID) @map("payment_type")
-  shippingStage StoreOrderShippingStage @default(NOT_READY) @map("shipping_stage")
+  paymentType         StoreOrderPaymentType   @default(PREPAID) @map("payment_type")
+  shippingStage       StoreOrderShippingStage @default(NOT_READY) @map("shipping_stage")
   /// Authoritative Fulfillment StatusDefinition — dual-written with `shippingStage`
   /// (and advanced by shipment events). ShippingStatus on Shipment remains the
   /// carrier-attempt catalog (sync behavior) — not a second order identity.
-  fulfillmentStatusId String?           @map("fulfillment_status_id") @db.Uuid
-  fulfillmentStatus   StatusDefinition? @relation("StoreOrderFulfillmentStatusDef", fields: [fulfillmentStatusId], references: [id])
+  fulfillmentStatusId String?                 @map("fulfillment_status_id") @db.Uuid
+  fulfillmentStatus   StatusDefinition?       @relation("StoreOrderFulfillmentStatusDef", fields: [fulfillmentStatusId], references: [id])
 
   currencyId String   @map("currency_id") @db.Uuid
   currency   Currency @relation(fields: [currencyId], references: [id])
@@ -3488,8 +3548,8 @@ model StoreOrderItem {
   productId String  @map("product_id") @db.Uuid
   product   Product @relation(fields: [productId], references: [id])
 
-  quantity  Int
-  unitPrice Decimal @map("unit_price") @db.Decimal(12, 2)
+  quantity     Int
+  unitPrice    Decimal @map("unit_price") @db.Decimal(12, 2)
   /// Agreed selling amount for this line — independent of quantity.
   /// Totals use this field; `unitPrice` is retained as a derived snapshot
   /// (agreedAmount / quantity) so legacy qty×unit readers stay approximately equal.
@@ -5644,6 +5704,36 @@ model PostingSettings {
   retainedEarningsAccountId String?         @map("retained_earnings_account_id") @db.Uuid
   retainedEarningsAccount   ChartOfAccount? @relation("PostingRetainedEarnings", fields: [retainedEarningsAccountId], references: [id])
 
+  /// HR Milestone 1 — PayrollRunPostingProvider defaults. Every field a
+  /// fallback only: a PayrollComponent's own accountingMappingAccountId
+  /// (if set) always wins first, same tiered-override pattern as Product
+  /// Category / Customer Group above. payrollPayableAccountId is the
+  /// credit side (net pay owed) posted on Payroll accrual and debited on
+  /// Payroll payment — never hardcoded elsewhere.
+  payrollPayableAccountId String?         @map("payroll_payable_account_id") @db.Uuid
+  payrollPayableAccount   ChartOfAccount? @relation("PostingPayrollPayable", fields: [payrollPayableAccountId], references: [id])
+
+  salaryExpenseAccountId String?         @map("salary_expense_account_id") @db.Uuid
+  salaryExpenseAccount   ChartOfAccount? @relation("PostingSalaryExpense", fields: [salaryExpenseAccountId], references: [id])
+
+  kpiExpenseAccountId String?         @map("kpi_expense_account_id") @db.Uuid
+  kpiExpenseAccount   ChartOfAccount? @relation("PostingKpiExpense", fields: [kpiExpenseAccountId], references: [id])
+
+  commissionExpenseAccountId String?         @map("commission_expense_account_id") @db.Uuid
+  commissionExpenseAccount   ChartOfAccount? @relation("PostingCommissionExpense", fields: [commissionExpenseAccountId], references: [id])
+
+  /// Fallback expense account for any recurring-earning PayrollComponent
+  /// (e.g. Housing/Transport allowance) with no accountingMappingAccountId
+  /// of its own.
+  defaultAllowanceExpenseAccountId String?         @map("default_allowance_expense_account_id") @db.Uuid
+  defaultAllowanceExpenseAccount   ChartOfAccount? @relation("PostingDefaultAllowanceExpense", fields: [defaultAllowanceExpenseAccountId], references: [id])
+
+  /// Fallback credit account for any DEDUCTION PayrollComponent with no
+  /// accountingMappingAccountId of its own (e.g. an ad hoc "Other
+  /// Deduction" clearing account).
+  defaultDeductionAccountId String?         @map("default_deduction_account_id") @db.Uuid
+  defaultDeductionAccount   ChartOfAccount? @relation("PostingDefaultDeduction", fields: [defaultDeductionAccountId], references: [id])
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   updatedBy String?  @map("updated_by") @db.Uuid
@@ -5878,4 +5968,623 @@ model ImportMappingTemplate {
 
   @@unique([importType, name])
   @@map("import_mapping_templates")
+}
+
+// ---------------------------------------------------------------------------
+// HR Milestone 1 — Human Resources, KPI, Targets, Commissions & Payroll.
+// Employee is EmployeeProfile (extended above), never a parallel table.
+// Department/JobTitle/SalesTeam/Partner/PostingEngine/NumberingEngine are
+// all reused, never duplicated, per the milestone brief. Everything below
+// is genuinely new (confirmed by audit — no prior Payroll/Commission/KPI/
+// Target model existed anywhere in this schema).
+// ---------------------------------------------------------------------------
+
+enum PayrollComponentType {
+  EARNING
+  DEDUCTION
+}
+
+enum PayrollComponentCalculationType {
+  FIXED
+  PERCENTAGE
+  VARIABLE
+}
+
+/// Dynamic Payroll Component catalog (Part H) — component names are never
+/// hardcoded in payroll logic, only referenced by id.
+model PayrollComponent {
+  id String @id @default(uuid()) @db.Uuid
+
+  nameAr String  @map("name_ar")
+  nameEn String? @map("name_en")
+
+  type            PayrollComponentType            @map("type")
+  calculationType PayrollComponentCalculationType @default(FIXED) @map("calculation_type")
+  defaultValue    Decimal?                        @map("default_value") @db.Decimal(12, 2)
+
+  accountingMappingAccountId String?         @map("accounting_mapping_account_id") @db.Uuid
+  accountingMappingAccount   ChartOfAccount? @relation("PayrollComponentAccountMapping", fields: [accountingMappingAccountId], references: [id])
+
+  sortOrder Int     @default(0) @map("sort_order")
+  isActive  Boolean @default(true) @map("is_active")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  compensationLines     CompensationRevisionLine[]
+  payrollLineComponents PayrollLineComponent[]
+
+  @@index([deletedAt, isActive, type, sortOrder])
+  @@map("payroll_components")
+}
+
+/// Effective-dated Compensation Package (Part G/Salary History). Never
+/// overwritten — a change is always a new row with a later effectiveFrom.
+/// Immutable once its effectiveFrom date has passed (enforced in service);
+/// a still-future revision may be corrected in place.
+model CompensationRevision {
+  id String @id @default(uuid()) @db.Uuid
+
+  employeeProfileId String          @map("employee_profile_id") @db.Uuid
+  employeeProfile   EmployeeProfile @relation(fields: [employeeProfileId], references: [id])
+
+  effectiveFrom DateTime @map("effective_from") @db.Date
+
+  basicSalary Decimal @map("basic_salary") @db.Decimal(12, 2)
+  /// KPI Maximum Pay (Part I) — the 100%-achievement ceiling for this
+  /// employee's monthly KPI payout. 0 = employee is not on a KPI plan.
+  kpiMaxPay   Decimal @default(0) @map("kpi_max_pay") @db.Decimal(12, 2)
+
+  notes String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  lines CompensationRevisionLine[]
+
+  @@unique([employeeProfileId, effectiveFrom])
+  @@index([employeeProfileId, effectiveFrom])
+  @@map("compensation_revisions")
+}
+
+/// One recurring Earning/Deduction line on a Compensation Revision (Part G
+/// examples: Housing 1,000 / Transport 500). References the dynamic
+/// PayrollComponent catalog — never a hardcoded name.
+model CompensationRevisionLine {
+  id String @id @default(uuid()) @db.Uuid
+
+  compensationRevisionId String               @map("compensation_revision_id") @db.Uuid
+  compensationRevision   CompensationRevision @relation(fields: [compensationRevisionId], references: [id], onDelete: Cascade)
+
+  payrollComponentId String           @map("payroll_component_id") @db.Uuid
+  payrollComponent   PayrollComponent @relation(fields: [payrollComponentId], references: [id])
+
+  amount    Decimal @db.Decimal(12, 2)
+  sortOrder Int     @default(0) @map("sort_order")
+
+  @@unique([compensationRevisionId, payrollComponentId])
+  @@map("compensation_revision_lines")
+}
+
+enum KpiItemType {
+  YES_NO
+  PERCENTAGE
+  RATING_1_TO_5
+  DROPDOWN
+  AUTO_METRIC
+}
+
+enum KpiEvaluatorSource {
+  MANAGER
+  HR
+  SYSTEM
+}
+
+/// V1's only automatic metric source (Part L) — Sales Target Achievement,
+/// read from the canonical SalesTarget/StoreOrder data, never duplicated
+/// into HR.
+enum KpiAutoMetricSource {
+  SALES_TARGET_ACHIEVEMENT
+}
+
+enum KpiEvaluationStatus {
+  DRAFT
+  MANAGER_SUBMITTED
+  HR_APPROVED
+  INCLUDED_IN_PAYROLL
+}
+
+/// Which entity a KpiTemplateAssignment targets — exactly one of
+/// jobTitleId/departmentId/employeeProfileId is set, matching `scope`.
+enum KpiAssignmentScope {
+  EMPLOYEE
+  JOB_TITLE
+  DEPARTMENT
+}
+
+model KpiTemplate {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String
+  nameEn      String? @map("name_en")
+  description String?
+  isActive    Boolean @default(true) @map("is_active")
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  items       KpiTemplateItem[]
+  assignments KpiTemplateAssignment[]
+  evaluations KpiEvaluation[]
+
+  @@index([deletedAt, isActive, sortOrder])
+  @@map("kpi_templates")
+}
+
+/// One weighted criterion row. Weights across a template's active items
+/// must sum to 100% — validated by KpiTemplatesService, never by the DB.
+model KpiTemplateItem {
+  id String @id @default(uuid()) @db.Uuid
+
+  kpiTemplateId String      @map("kpi_template_id") @db.Uuid
+  kpiTemplate   KpiTemplate @relation(fields: [kpiTemplateId], references: [id], onDelete: Cascade)
+
+  criterionAr String  @map("criterion_ar")
+  criterionEn String? @map("criterion_en")
+
+  weight Decimal @db.Decimal(5, 2)
+
+  itemType         KpiItemType          @map("item_type")
+  evaluatorSource  KpiEvaluatorSource   @map("evaluator_source")
+  autoMetricSource KpiAutoMetricSource? @map("auto_metric_source")
+
+  /// DROPDOWN item type only — ordered [{ "label": "ممتاز", "score": 100 }, ...].
+  dropdownOptions Json? @map("dropdown_options")
+
+  sortOrder Int     @default(0) @map("sort_order")
+  isActive  Boolean @default(true) @map("is_active")
+
+  evaluationItems KpiEvaluationItem[]
+
+  @@index([kpiTemplateId, sortOrder])
+  @@map("kpi_template_items")
+}
+
+/// Template assignment by Job Title, Department, or a specific Employee
+/// override (Part J). Resolution priority (most to least specific):
+/// EMPLOYEE > JOB_TITLE > DEPARTMENT — enforced by KpiTemplatesService,
+/// not the DB (no partial-unique-index support without raw SQL).
+model KpiTemplateAssignment {
+  id String @id @default(uuid()) @db.Uuid
+
+  kpiTemplateId String      @map("kpi_template_id") @db.Uuid
+  kpiTemplate   KpiTemplate @relation(fields: [kpiTemplateId], references: [id], onDelete: Cascade)
+
+  scope KpiAssignmentScope
+
+  jobTitleId String?   @map("job_title_id") @db.Uuid
+  jobTitle   JobTitle? @relation(fields: [jobTitleId], references: [id])
+
+  departmentId String?     @map("department_id") @db.Uuid
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  employeeProfileId String?          @map("employee_profile_id") @db.Uuid
+  employeeProfile   EmployeeProfile? @relation(fields: [employeeProfileId], references: [id])
+
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  @@index([scope, jobTitleId])
+  @@index([scope, departmentId])
+  @@index([scope, employeeProfileId])
+  @@map("kpi_template_assignments")
+}
+
+/// One monthly evaluation per Employee (Part M). `period` is "YYYY-MM".
+/// Snapshots kpiTemplateId + kpiMaxPay at creation time so a later template
+/// or compensation change never rewrites an already-started evaluation.
+model KpiEvaluation {
+  id String @id @default(uuid()) @db.Uuid
+
+  employeeProfileId String          @map("employee_profile_id") @db.Uuid
+  employeeProfile   EmployeeProfile @relation(fields: [employeeProfileId], references: [id])
+
+  period String @map("period") @db.VarChar(7)
+
+  kpiTemplateId String      @map("kpi_template_id") @db.Uuid
+  kpiTemplate   KpiTemplate @relation(fields: [kpiTemplateId], references: [id])
+
+  status KpiEvaluationStatus @default(DRAFT)
+
+  kpiMaxPaySnapshot Decimal  @map("kpi_max_pay_snapshot") @db.Decimal(12, 2)
+  /// Final normalized score, 0-100, capped at 100 (Part P).
+  finalScore        Decimal? @map("final_score") @db.Decimal(5, 2)
+  /// kpiMaxPaySnapshot × finalScore / 100 — computed on HR approval, never
+  /// entered manually.
+  kpiPay            Decimal? @map("kpi_pay") @db.Decimal(12, 2)
+
+  managerSubmittedByUserId String?   @map("manager_submitted_by_user_id") @db.Uuid
+  managerSubmittedAt       DateTime? @map("manager_submitted_at")
+  hrApprovedByUserId       String?   @map("hr_approved_by_user_id") @db.Uuid
+  hrApprovedAt             DateTime? @map("hr_approved_at")
+  lockedAt                 DateTime? @map("locked_at")
+  reopenedAt               DateTime? @map("reopened_at")
+  reopenReason             String?   @map("reopen_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  items       KpiEvaluationItem[]
+  auditLogs   KpiEvaluationAuditLog[]
+  /// Idempotency: a KPI Evaluation is consumed by at most one Payroll Line.
+  payrollLine PayrollLine?
+
+  @@unique([employeeProfileId, period])
+  @@index([status, period])
+  @@map("kpi_evaluations")
+}
+
+/// One scored criterion row, snapshotted from KpiTemplateItem at evaluation
+/// time (a later template edit never rewrites an in-flight evaluation).
+model KpiEvaluationItem {
+  id String @id @default(uuid()) @db.Uuid
+
+  kpiEvaluationId String        @map("kpi_evaluation_id") @db.Uuid
+  kpiEvaluation   KpiEvaluation @relation(fields: [kpiEvaluationId], references: [id], onDelete: Cascade)
+
+  kpiTemplateItemId String          @map("kpi_template_item_id") @db.Uuid
+  kpiTemplateItem   KpiTemplateItem @relation(fields: [kpiTemplateItemId], references: [id])
+
+  criterionArSnapshot     String             @map("criterion_ar_snapshot")
+  weightSnapshot          Decimal            @map("weight_snapshot") @db.Decimal(5, 2)
+  itemTypeSnapshot        KpiItemType        @map("item_type_snapshot")
+  evaluatorSourceSnapshot KpiEvaluatorSource @map("evaluator_source_snapshot")
+
+  /// Raw evaluator input, shape depends on itemTypeSnapshot, e.g.
+  /// { "yesNo": true } / { "rating": 4 } / { "dropdownLabel": "جيد" } /
+  /// { "autoMetricValue": 82 }.
+  rawValue Json? @map("raw_value")
+
+  normalizedScore Decimal? @map("normalized_score") @db.Decimal(5, 2)
+  weightedScore   Decimal? @map("weighted_score") @db.Decimal(5, 2)
+
+  /// Required when normalizedScore < 50 (Part P "Low Score Comment").
+  comment String?
+
+  evaluatedByUserId String?   @map("evaluated_by_user_id") @db.Uuid
+  evaluatedAt       DateTime? @map("evaluated_at")
+
+  @@unique([kpiEvaluationId, kpiTemplateItemId])
+  @@map("kpi_evaluation_items")
+}
+
+/// Reopen/audit trail (Part P "Locking"). Every reopen of an HR_APPROVED
+/// evaluation writes one row here with a reason — never a silent edit.
+model KpiEvaluationAuditLog {
+  id String @id @default(uuid()) @db.Uuid
+
+  kpiEvaluationId String        @map("kpi_evaluation_id") @db.Uuid
+  kpiEvaluation   KpiEvaluation @relation(fields: [kpiEvaluationId], references: [id], onDelete: Cascade)
+
+  action         String
+  previousStatus KpiEvaluationStatus? @map("previous_status")
+  newStatus      KpiEvaluationStatus? @map("new_status")
+  reason         String?
+
+  actorUserId String   @map("actor_user_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([kpiEvaluationId, createdAt])
+  @@map("kpi_evaluation_audit_logs")
+}
+
+enum TargetScopeType {
+  EMPLOYEE
+  TEAM
+}
+
+enum TargetMetric {
+  SALES_REVENUE
+  COLLECTED_SALES
+  ORDERS_COUNT
+}
+
+/// Monthly Sales Target (Part Q), Employee or Team scoped. An Employee-level
+/// row for a given period+metric overrides its Team's default — resolved by
+/// SalesTargetsService, not the DB.
+model SalesTarget {
+  id String @id @default(uuid()) @db.Uuid
+
+  period    String          @db.VarChar(7)
+  scopeType TargetScopeType @map("scope_type")
+
+  employeeProfileId String?          @map("employee_profile_id") @db.Uuid
+  employeeProfile   EmployeeProfile? @relation(fields: [employeeProfileId], references: [id])
+
+  salesTeamId String?    @map("sales_team_id") @db.Uuid
+  salesTeam   SalesTeam? @relation(fields: [salesTeamId], references: [id])
+
+  metric       TargetMetric @default(COLLECTED_SALES)
+  targetAmount Decimal      @map("target_amount") @db.Decimal(14, 2)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  @@unique([period, employeeProfileId, metric])
+  @@unique([period, salesTeamId, metric])
+  @@index([period, scopeType])
+  @@map("sales_targets")
+}
+
+enum CommissionBasis {
+  COLLECTED_SALES
+  SALES_REVENUE
+  ORDERS_COUNT
+}
+
+enum CommissionRuleType {
+  FLAT_PERCENTAGE
+  ACHIEVEMENT_TIER
+  FIXED_BONUS
+}
+
+enum CommissionAssignmentScope {
+  EMPLOYEE
+  TEAM
+  DEPARTMENT
+  COMPANY
+}
+
+enum CommissionStatus {
+  CALCULATED
+  APPROVED
+  INCLUDED_IN_PAYROLL
+  ADJUSTED
+}
+
+model CommissionPlan {
+  id          String             @id @default(uuid()) @db.Uuid
+  name        String
+  description String?
+  basis       CommissionBasis    @default(COLLECTED_SALES)
+  ruleType    CommissionRuleType @map("rule_type")
+  isActive    Boolean            @default(true) @map("is_active")
+  sortOrder   Int                @default(0) @map("sort_order")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  tiers        CommissionPlanTier[]
+  assignments  CommissionPlanAssignment[]
+  calculations CommissionCalculation[]
+
+  @@index([deletedAt, isActive])
+  @@map("commission_plans")
+}
+
+/// One achievement-% band. For ruleType=ACHIEVEMENT_TIER, `percentage`
+/// applies to the basis amount within [minAchievementPercent,
+/// maxAchievementPercent). For ruleType=FLAT_PERCENTAGE, a plan has exactly
+/// one tier (0..null) carrying `percentage`. For ruleType=FIXED_BONUS,
+/// `fixedAmount` is used instead of `percentage`.
+model CommissionPlanTier {
+  id String @id @default(uuid()) @db.Uuid
+
+  commissionPlanId String         @map("commission_plan_id") @db.Uuid
+  commissionPlan   CommissionPlan @relation(fields: [commissionPlanId], references: [id], onDelete: Cascade)
+
+  minAchievementPercent Decimal  @map("min_achievement_percent") @db.Decimal(6, 2)
+  maxAchievementPercent Decimal? @map("max_achievement_percent") @db.Decimal(6, 2)
+
+  percentage  Decimal? @db.Decimal(6, 3)
+  fixedAmount Decimal? @map("fixed_amount") @db.Decimal(12, 2)
+
+  sortOrder Int @default(0) @map("sort_order")
+
+  @@index([commissionPlanId, minAchievementPercent])
+  @@map("commission_plan_tiers")
+}
+
+/// Deterministic resolution (Part U): EMPLOYEE > TEAM > DEPARTMENT >
+/// COMPANY. Exactly one applicable assignment resolves per employee/period
+/// — enforced by CommissionEngineService, not the DB.
+model CommissionPlanAssignment {
+  id String @id @default(uuid()) @db.Uuid
+
+  commissionPlanId String         @map("commission_plan_id") @db.Uuid
+  commissionPlan   CommissionPlan @relation(fields: [commissionPlanId], references: [id], onDelete: Cascade)
+
+  scope CommissionAssignmentScope
+
+  employeeProfileId String?          @map("employee_profile_id") @db.Uuid
+  employeeProfile   EmployeeProfile? @relation(fields: [employeeProfileId], references: [id])
+
+  salesTeamId String?    @map("sales_team_id") @db.Uuid
+  salesTeam   SalesTeam? @relation(fields: [salesTeamId], references: [id])
+
+  departmentId String?     @map("department_id") @db.Uuid
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  @@index([scope, employeeProfileId])
+  @@index([scope, salesTeamId])
+  @@index([scope, departmentId])
+  @@map("commission_plan_assignments")
+}
+
+/// One resolved+calculated Commission per Employee per period (Part V).
+/// Idempotent by [employeeProfileId, period] — recalculation replaces this
+/// row's values in place while status=CALCULATED, never creates a second row.
+model CommissionCalculation {
+  id String @id @default(uuid()) @db.Uuid
+
+  employeeProfileId String          @map("employee_profile_id") @db.Uuid
+  employeeProfile   EmployeeProfile @relation(fields: [employeeProfileId], references: [id])
+
+  period String @db.VarChar(7)
+
+  commissionPlanId String         @map("commission_plan_id") @db.Uuid
+  commissionPlan   CommissionPlan @relation(fields: [commissionPlanId], references: [id])
+
+  basisAmount        Decimal  @map("basis_amount") @db.Decimal(14, 2)
+  targetAmount       Decimal? @map("target_amount") @db.Decimal(14, 2)
+  achievementPercent Decimal? @map("achievement_percent") @db.Decimal(6, 2)
+  amount             Decimal  @db.Decimal(12, 2)
+
+  status CommissionStatus @default(CALCULATED)
+
+  calculatedAt     DateTime  @default(now()) @map("calculated_at")
+  approvedByUserId String?   @map("approved_by_user_id") @db.Uuid
+  approvedAt       DateTime? @map("approved_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  adjustments CommissionAdjustment[]
+  /// Idempotency: a Commission Calculation is consumed by at most one
+  /// Payroll Line.
+  payrollLine PayrollLine?
+
+  @@unique([employeeProfileId, period])
+  @@index([status, period])
+  @@map("commission_calculations")
+}
+
+/// A correction applied to a FUTURE payroll period (Part X) — never a
+/// rewrite of an already-POSTED payroll's commission. `targetPeriod` is the
+/// period this adjustment's amount will be included in.
+model CommissionAdjustment {
+  id String @id @default(uuid()) @db.Uuid
+
+  originCommissionCalculationId String                @map("origin_commission_calculation_id") @db.Uuid
+  originCommissionCalculation   CommissionCalculation @relation(fields: [originCommissionCalculationId], references: [id])
+
+  targetPeriod String @map("target_period") @db.VarChar(7)
+
+  previousAmount Decimal @map("previous_amount") @db.Decimal(12, 2)
+  newAmount      Decimal @map("new_amount") @db.Decimal(12, 2)
+  amountDelta    Decimal @map("amount_delta") @db.Decimal(12, 2)
+  reason         String
+
+  actorUserId String   @map("actor_user_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  appliedToPayrollLineId String? @map("applied_to_payroll_line_id") @db.Uuid
+
+  @@index([targetPeriod])
+  @@map("commission_adjustments")
+}
+
+enum PayrollRunStatus {
+  DRAFT
+  HR_REVIEWED
+  FINANCE_APPROVED
+  POSTED
+  PAID
+}
+
+/// One Payroll Run per calendar month (Part Y). Posts through the canonical
+/// PostingEngine (sourceType 'PAYROLL_RUN', sourceId = this row's id) —
+/// never a direct JournalEntry write, same as every other document.
+model PayrollRun {
+  id     String           @id @default(uuid()) @db.Uuid
+  period String           @unique @db.VarChar(7)
+  status PayrollRunStatus @default(DRAFT)
+
+  hrReviewedByUserId      String?   @map("hr_reviewed_by_user_id") @db.Uuid
+  hrReviewedAt            DateTime? @map("hr_reviewed_at")
+  financeApprovedByUserId String?   @map("finance_approved_by_user_id") @db.Uuid
+  financeApprovedAt       DateTime? @map("finance_approved_at")
+  postedByUserId          String?   @map("posted_by_user_id") @db.Uuid
+  postedAt                DateTime? @map("posted_at")
+  paidByUserId            String?   @map("paid_by_user_id") @db.Uuid
+  paidAt                  DateTime? @map("paid_at")
+
+  grossEarnings   Decimal @default(0) @map("gross_earnings") @db.Decimal(14, 2)
+  totalDeductions Decimal @default(0) @map("total_deductions") @db.Decimal(14, 2)
+  netPay          Decimal @default(0) @map("net_pay") @db.Decimal(14, 2)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  lines PayrollLine[]
+
+  @@map("payroll_runs")
+}
+
+/// One Employee's row within a Payroll Run (Part Z). Idempotent by
+/// [payrollRunId, employeeProfileId]; kpiEvaluationId/commissionCalculationId
+/// are @unique so a KPI/Commission result is ever consumed by one Payroll
+/// Line (Part AK "do not double-include").
+model PayrollLine {
+  id String @id @default(uuid()) @db.Uuid
+
+  payrollRunId String     @map("payroll_run_id") @db.Uuid
+  payrollRun   PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+
+  employeeProfileId String          @map("employee_profile_id") @db.Uuid
+  employeeProfile   EmployeeProfile @relation(fields: [employeeProfileId], references: [id])
+
+  basicSalary   Decimal @map("basic_salary") @db.Decimal(12, 2)
+  kpiPay        Decimal @default(0) @map("kpi_pay") @db.Decimal(12, 2)
+  commission    Decimal @default(0) @db.Decimal(12, 2)
+  allowances    Decimal @default(0) @db.Decimal(12, 2)
+  otherEarnings Decimal @default(0) @map("other_earnings") @db.Decimal(12, 2)
+  deductions    Decimal @default(0) @db.Decimal(12, 2)
+  grossEarnings Decimal @map("gross_earnings") @db.Decimal(12, 2)
+  netPay        Decimal @map("net_pay") @db.Decimal(12, 2)
+
+  kpiEvaluationId String?        @unique @map("kpi_evaluation_id") @db.Uuid
+  kpiEvaluation   KpiEvaluation? @relation(fields: [kpiEvaluationId], references: [id])
+
+  commissionCalculationId String?                @unique @map("commission_calculation_id") @db.Uuid
+  commissionCalculation   CommissionCalculation? @relation(fields: [commissionCalculationId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  components PayrollLineComponent[]
+
+  @@unique([payrollRunId, employeeProfileId])
+  @@map("payroll_lines")
+}
+
+/// Breakdown rows behind the Payroll Line drawer (Part Z "click row ->
+/// compact breakdown drawer"). payrollComponentId is null for the three
+/// synthetic lines (Basic Salary / KPI / Commission) that are not
+/// PayrollComponent-backed.
+model PayrollLineComponent {
+  id String @id @default(uuid()) @db.Uuid
+
+  payrollLineId String      @map("payroll_line_id") @db.Uuid
+  payrollLine   PayrollLine @relation(fields: [payrollLineId], references: [id], onDelete: Cascade)
+
+  payrollComponentId String?           @map("payroll_component_id") @db.Uuid
+  payrollComponent   PayrollComponent? @relation(fields: [payrollComponentId], references: [id])
+
+  label     String
+  type      PayrollComponentType
+  amount    Decimal              @db.Decimal(12, 2)
+  sortOrder Int                  @default(0) @map("sort_order")
+
+  @@map("payroll_line_components")
 }

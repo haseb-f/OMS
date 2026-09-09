@@ -45,6 +45,12 @@ const SALES_SECTION = {
   sectionLabelKey: 'permissions.sections.sales',
 } as const;
 
+/** HR Milestone 1 — الموارد البشرية section (Employees/KPI/Targets/Commissions/Payroll). */
+const HR_SECTION = {
+  sectionKey: 'hr',
+  sectionLabelKey: 'permissions.sections.hr',
+} as const;
+
 /** Groups catalog rows for the Permission Matrix: Sales children render under المبيعات, standalone modules stay as top-level rows. */
 export function groupPermissionCatalog(
   modules: PermissionModuleDef[] = PERMISSION_CATALOG,
@@ -468,6 +474,132 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
       { action: 'print', name: 'shipping.print' },
     ],
   },
+  {
+    // Part AG "HR employee management" — Employee (HR person record, never
+    // the same as User). Every authenticated user can always view their OWN
+    // Employee profile unguarded (same "My Profile" convention as
+    // settings.view above); this permission governs the Employees list and
+    // any OTHER employee's profile.
+    key: 'employees',
+    labelKey: 'permissions.modules.employees',
+    ...HR_SECTION,
+    actions: [
+      ...crud('hr.employees', { export: true }),
+      { action: 'delete', name: 'hr.employees.archive' },
+    ],
+  },
+  {
+    // Part AG "HR compensation" — kept separate from `employees` since
+    // salary is materially more sensitive than the rest of the HR record
+    // (Part AL Scenario 8: a Manager may evaluate a direct report without
+    // ever being able to see or edit their pay).
+    key: 'compensation',
+    labelKey: 'permissions.modules.compensation',
+    ...HR_SECTION,
+    actions: [
+      { action: 'view', name: 'hr.compensation.view' },
+      { action: 'create', name: 'hr.compensation.create' },
+      { action: 'edit', name: 'hr.compensation.edit' },
+    ],
+  },
+  {
+    key: 'payroll-components',
+    labelKey: 'permissions.modules.payrollComponents',
+    ...HR_SECTION,
+    actions: [
+      { action: 'view', name: 'hr.payroll-components.view' },
+      { action: 'create', name: 'hr.payroll-components.create' },
+      { action: 'edit', name: 'hr.payroll-components.edit' },
+      { action: 'delete', name: 'hr.payroll-components.archive' },
+    ],
+  },
+  {
+    key: 'kpi-templates',
+    labelKey: 'permissions.modules.kpiTemplates',
+    ...HR_SECTION,
+    actions: [
+      { action: 'view', name: 'hr.kpi-templates.view' },
+      { action: 'create', name: 'hr.kpi-templates.create' },
+      { action: 'edit', name: 'hr.kpi-templates.edit' },
+      { action: 'delete', name: 'hr.kpi-templates.archive' },
+    ],
+  },
+  {
+    // Part N "who can evaluate" — MANAGER/HR/SYSTEM all write into the same
+    // KpiEvaluation, distinguished by action: `edit` = scoring an item as
+    // its assigned evaluator, `confirm` = Manager Submit, `approve` = HR
+    // Approve, `manage` = HR Reopen (Part P "Locking").
+    key: 'kpi-evaluations',
+    labelKey: 'permissions.modules.kpiEvaluations',
+    ...HR_SECTION,
+    actions: [
+      { action: 'view', name: 'hr.kpi-evaluations.view' },
+      { action: 'edit', name: 'hr.kpi-evaluations.edit' },
+      { action: 'confirm', name: 'hr.kpi-evaluations.submit' },
+      { action: 'approve', name: 'hr.kpi-evaluations.approve' },
+      { action: 'manage', name: 'hr.kpi-evaluations.reopen' },
+    ],
+  },
+  {
+    // Part AG "Sales target management" — Sales Manager's Target/Ranking
+    // workspace.
+    key: 'sales-targets',
+    labelKey: 'permissions.modules.salesTargets',
+    ...HR_SECTION,
+    actions: [
+      { action: 'view', name: 'hr.sales-targets.view' },
+      { action: 'create', name: 'hr.sales-targets.create' },
+      { action: 'edit', name: 'hr.sales-targets.edit' },
+      { action: 'delete', name: 'hr.sales-targets.delete' },
+    ],
+  },
+  {
+    key: 'commission-plans',
+    labelKey: 'permissions.modules.commissionPlans',
+    ...HR_SECTION,
+    actions: [
+      { action: 'view', name: 'hr.commission-plans.view' },
+      { action: 'create', name: 'hr.commission-plans.create' },
+      { action: 'edit', name: 'hr.commission-plans.edit' },
+      { action: 'delete', name: 'hr.commission-plans.archive' },
+    ],
+  },
+  {
+    // Part AG "Commission management" — reviewing/approving the calculated
+    // results (Part W), distinct from configuring the Plans above.
+    key: 'commissions',
+    labelKey: 'permissions.modules.commissions',
+    ...HR_SECTION,
+    actions: [
+      { action: 'view', name: 'hr.commissions.view' },
+      { action: 'approve', name: 'hr.commissions.approve' },
+      // Adjustment (Part W/X) — requires a reason, its own audit trail.
+      { action: 'manage', name: 'hr.commissions.adjust' },
+    ],
+  },
+  {
+    // Part AG "HR payroll preparation" / "Finance payroll approval" /
+    // "Payroll posting" are three distinct actions on the SAME Payroll Run,
+    // not three separate modules — same one-module-many-actions pattern
+    // journal-entries uses for post/reverse. HR is granted
+    // create/edit/confirm; Finance is granted approve/post/manage; a
+    // superuser may hold all of them.
+    key: 'payroll',
+    labelKey: 'permissions.modules.payroll',
+    ...HR_SECTION,
+    actions: [
+      { action: 'view', name: 'hr.payroll.view' },
+      { action: 'create', name: 'hr.payroll.create' },
+      { action: 'edit', name: 'hr.payroll.edit' },
+      { action: 'confirm', name: 'hr.payroll.hr-review' },
+      { action: 'approve', name: 'hr.payroll.finance-approve' },
+      { action: 'post', name: 'hr.payroll.post' },
+      // Recording the actual payment (Part AB, distinct from Approval/Post).
+      { action: 'manage', name: 'hr.payroll.pay' },
+      { action: 'print', name: 'hr.payroll.print' },
+      { action: 'export', name: 'hr.payroll.export' },
+    ],
+  },
 ];
 
 export const ALL_PERMISSION_NAMES: string[] = [
@@ -534,6 +666,16 @@ export const IMPLIED_SECTION_PERMISSION: Record<
   // and the ungrantable Sales section gate so the parent sidebar item appears.
   'store-orders': ['store-orders.view', 'sales.view'],
   shipping: 'shipping.view',
+  // HR Milestone 1 — الموارد البشرية sidebar section.
+  'hr.employees': 'hr.view',
+  'hr.compensation': 'hr.view',
+  'hr.payroll-components': 'hr.view',
+  'hr.kpi-templates': 'hr.view',
+  'hr.kpi-evaluations': 'hr.view',
+  'hr.sales-targets': 'hr.view',
+  'hr.commission-plans': 'hr.view',
+  'hr.commissions': 'hr.view',
+  'hr.payroll': 'hr.view',
 };
 
 /** Expands a granted-permission list with every implied coarse section permission (see `IMPLIED_SECTION_PERMISSION`). */

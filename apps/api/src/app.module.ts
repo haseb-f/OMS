@@ -75,6 +75,8 @@ import { YearClosingModule } from './accounting/year-closing/year-closing.module
 import { ImportCenterModule } from './import-center/import-center.module';
 import { BankTransactionsModule } from './bank-transactions/bank-transactions.module';
 import { StoreOrdersModule } from './store-orders/store-orders.module';
+import { EmployeesModule } from './employees/employees.module';
+import { PayrollComponentsModule } from './payroll-components/payroll-components.module';
 
 @Module({
   imports: [
@@ -152,6 +154,8 @@ import { StoreOrdersModule } from './store-orders/store-orders.module';
     ImportCenterModule,
     BankTransactionsModule,
     StoreOrdersModule,
+    EmployeesModule,
+    PayrollComponentsModule,
     SalesPerformanceModule,
   ],
   controllers: [HealthController],
