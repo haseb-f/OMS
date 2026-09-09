@@ -77,6 +77,9 @@ import { BankTransactionsModule } from './bank-transactions/bank-transactions.mo
 import { StoreOrdersModule } from './store-orders/store-orders.module';
 import { EmployeesModule } from './employees/employees.module';
 import { PayrollComponentsModule } from './payroll-components/payroll-components.module';
+import { SalesTargetsModule } from './sales-targets/sales-targets.module';
+import { KpiTemplatesModule } from './kpi-templates/kpi-templates.module';
+import { KpiEvaluationsModule } from './kpi-evaluations/kpi-evaluations.module';
 
 @Module({
   imports: [
@@ -156,6 +159,9 @@ import { PayrollComponentsModule } from './payroll-components/payroll-components
     StoreOrdersModule,
     EmployeesModule,
     PayrollComponentsModule,
+    SalesTargetsModule,
+    KpiTemplatesModule,
+    KpiEvaluationsModule,
     SalesPerformanceModule,
   ],
   controllers: [HealthController],
