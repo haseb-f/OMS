@@ -232,6 +232,85 @@ export class AccountMappingService {
     ]);
   }
 
+  /** Cr Payroll Payable — accrued on Payroll accrual, debited back on Payroll payment (Part AB — the two are always separate postings). */
+  async resolvePayrollPayableAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    return this.require(settings?.payrollPayableAccountId, 'Payroll Payable', [
+      'PostingSettings.payrollPayableAccountId',
+    ]);
+  }
+
+  /** Dr Salary Expense — Basic Salary only. */
+  async resolveSalaryExpenseAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    return this.require(settings?.salaryExpenseAccountId, 'Salary Expense', [
+      'PostingSettings.salaryExpenseAccountId',
+    ]);
+  }
+
+  /** Dr KPI (Performance Incentive) Expense. */
+  async resolveKpiExpenseAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    return this.require(settings?.kpiExpenseAccountId, 'KPI Expense', [
+      'PostingSettings.kpiExpenseAccountId',
+    ]);
+  }
+
+  /** Dr Sales Commission Expense. */
+  async resolveCommissionExpenseAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    return this.require(
+      settings?.commissionExpenseAccountId,
+      'Commission Expense',
+      ['PostingSettings.commissionExpenseAccountId'],
+    );
+  }
+
+  /** Dr [recurring earning] Expense — the PayrollComponent's own accountingMappingAccountId always wins; the global default only covers a component that hasn't been configured yet. */
+  async resolveAllowanceExpenseAccount(
+    componentAccountId: string | null,
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    const accountId =
+      componentAccountId ?? settings?.defaultAllowanceExpenseAccountId;
+    return this.require(accountId, 'Allowance Expense', [
+      'PayrollComponent.accountingMappingAccountId',
+      'PostingSettings.defaultAllowanceExpenseAccountId',
+    ]);
+  }
+
+  /** Cr [deduction] — same tiered-override rule, contra side. */
+  async resolveDeductionAccount(
+    componentAccountId: string | null,
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    const accountId = componentAccountId ?? settings?.defaultDeductionAccountId;
+    return this.require(accountId, 'Deduction', [
+      'PayrollComponent.accountingMappingAccountId',
+      'PostingSettings.defaultDeductionAccountId',
+    ]);
+  }
+
+  /** Cr Bank — Payroll payment's cash-out side. Reuses the same global default every other cash disbursement (Supplier Payment, Expense Voucher, ...) falls back to. */
+  async resolveBankAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    return this.require(settings?.bankAccountId, 'Bank', [
+      'PostingSettings.bankAccountId',
+    ]);
+  }
+
   private async getSettings(tx: Prisma.TransactionClient | PrismaService) {
     return tx.postingSettings.findFirst();
   }

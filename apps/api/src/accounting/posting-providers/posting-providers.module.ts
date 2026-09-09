@@ -9,12 +9,14 @@ import { PurchaseReturnPostingProvider } from './purchase-return-posting.provide
 import { FinancialTransactionPostingProvider } from './financial-transaction-posting.provider';
 import { InventoryAdjustmentPostingProvider } from './inventory-adjustment-posting.provider';
 import { InternalTransferPostingProvider } from './internal-transfer-posting.provider';
+import { PayrollRunPostingProvider } from './payroll-run-posting.provider';
+import { PayrollPaymentPostingProvider } from './payroll-payment-posting.provider';
 
 /**
- * Accounting Posting Engine (TASK-046/047) — every default Posting
- * Provider, one per module (Sales, Purchasing, Financial Transactions,
- * Inventory Adjustments — Payroll/Manufacturing are future work, not built
- * here). Each provider self-registers with the shared
+ * Accounting Posting Engine (TASK-046/047, HR Milestone 1) — every default
+ * Posting Provider, one per module (Sales, Purchasing, Financial
+ * Transactions, Inventory Adjustments, Payroll — Manufacturing is future
+ * work, not built here). Each provider self-registers with the shared
  * `PostingEngineService` in its own `onModuleInit()`; this module's only
  * job is to instantiate them (imported once from `AppModule`) and give
  * them read access to `InventoryValuationService`/`AccountMappingService`.
@@ -37,6 +39,8 @@ import { InternalTransferPostingProvider } from './internal-transfer-posting.pro
     FinancialTransactionPostingProvider,
     InventoryAdjustmentPostingProvider,
     InternalTransferPostingProvider,
+    PayrollRunPostingProvider,
+    PayrollPaymentPostingProvider,
   ],
 })
 export class PostingProvidersModule {}
