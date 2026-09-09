@@ -23,16 +23,24 @@ function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 const inputGroupAddonVariants = cva(
-  "flex h-auto cursor-text items-center justify-center gap-2 py-1.5 text-sm font-medium text-muted-foreground select-none group-data-[disabled=true]/input-group:opacity-50 [&>kbd]:rounded-xs [&>svg:not([class*='size-'])]:size-4",
+  "flex cursor-text items-center justify-center gap-2 text-sm font-medium text-muted-foreground select-none group-data-[disabled=true]/input-group:opacity-50 [&>kbd]:rounded-xs [&>svg:not([class*='size-'])]:size-4",
   {
     variants: {
       align: {
-        "inline-start": "order-first ps-2 has-[>button]:ms-[-0.3rem] has-[>kbd]:ms-[-0.15rem]",
-        "inline-end": "order-last pe-2 has-[>button]:me-[-0.3rem] has-[>kbd]:me-[-0.15rem]",
+        // `h-full` keeps the addon within the group's own control height —
+        // never taller (which used to push icon buttons past the top/bottom
+        // border) — and the negative margin is scoped to text-label buttons
+        // (data-size=xs) only, since icon-only buttons (icon-xs/icon-sm)
+        // already have zero padding and the same margin pulled them past
+        // the group's outer edge, outside the visible border.
+        "inline-start":
+          "order-first h-full ps-2 has-[>button[data-size=xs]]:ms-[-0.3rem] has-[>kbd]:ms-[-0.15rem]",
+        "inline-end":
+          "order-last h-full pe-2 has-[>button[data-size=xs]]:me-[-0.3rem] has-[>kbd]:me-[-0.15rem]",
         "block-start":
-          "order-first w-full justify-start px-2.5 pt-2 group-has-[>input]/input-group:pt-2 [.border-b]:pb-2",
+          "order-first h-auto w-full justify-start px-2.5 pt-2 py-1.5 group-has-[>input]/input-group:pt-2 [.border-b]:pb-2",
         "block-end":
-          "order-last w-full justify-start px-2.5 pb-2 group-has-[>input]/input-group:pb-2 [.border-t]:pt-2",
+          "order-last h-auto w-full justify-start px-2.5 pb-2 py-1.5 group-has-[>input]/input-group:pb-2 [.border-t]:pt-2",
       },
     },
     defaultVariants: {
