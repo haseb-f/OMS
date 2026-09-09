@@ -80,6 +80,8 @@ import { PayrollComponentsModule } from './payroll-components/payroll-components
 import { SalesTargetsModule } from './sales-targets/sales-targets.module';
 import { KpiTemplatesModule } from './kpi-templates/kpi-templates.module';
 import { KpiEvaluationsModule } from './kpi-evaluations/kpi-evaluations.module';
+import { CommissionPlansModule } from './commission-plans/commission-plans.module';
+import { CommissionsModule } from './commissions/commissions.module';
 
 @Module({
   imports: [
@@ -162,6 +164,8 @@ import { KpiEvaluationsModule } from './kpi-evaluations/kpi-evaluations.module';
     SalesTargetsModule,
     KpiTemplatesModule,
     KpiEvaluationsModule,
+    CommissionPlansModule,
+    CommissionsModule,
     SalesPerformanceModule,
   ],
   controllers: [HealthController],
