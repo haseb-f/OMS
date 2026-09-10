@@ -60,4 +60,22 @@ export class UpdatePostingSettingsDto {
 
   @IsOptionalUuid()
   retainedEarningsAccountId?: string;
+
+  @IsOptionalUuid()
+  payrollPayableAccountId?: string;
+
+  @IsOptionalUuid()
+  salaryExpenseAccountId?: string;
+
+  @IsOptionalUuid()
+  kpiExpenseAccountId?: string;
+
+  @IsOptionalUuid()
+  commissionExpenseAccountId?: string;
+
+  @IsOptionalUuid()
+  defaultAllowanceExpenseAccountId?: string;
+
+  @IsOptionalUuid()
+  defaultDeductionAccountId?: string;
 }

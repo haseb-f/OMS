@@ -23,6 +23,12 @@ const INCLUDE = {
   exchangeDifferenceAccount: true,
   suspenseAccount: true,
   retainedEarningsAccount: true,
+  payrollPayableAccount: true,
+  salaryExpenseAccount: true,
+  kpiExpenseAccount: true,
+  commissionExpenseAccount: true,
+  defaultAllowanceExpenseAccount: true,
+  defaultDeductionAccount: true,
 } as const;
 
 /**

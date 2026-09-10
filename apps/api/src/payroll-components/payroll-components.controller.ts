@@ -48,6 +48,11 @@ export class PayrollComponentsController {
     return this.service.findOne(id);
   }
 
+  @Get(':id/activity')
+  activity(@Param('id') id: string) {
+    return this.service.activityFor(id);
+  }
+
   @Patch(':id')
   update(
     @Param('id') id: string,

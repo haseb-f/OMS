@@ -167,16 +167,49 @@ export class EmployeesService {
     );
     const employeeProfileId = partner.employeeProfile!.id;
 
-    if (dto.compensation) {
-      await this.recordCompensation(
-        employeeProfileId,
-        dto.compensation,
-        userId,
-      );
-    }
+    try {
+      if (dto.compensation) {
+        await this.recordCompensation(
+          employeeProfileId,
+          dto.compensation,
+          userId,
+        );
+      }
 
-    if (dto.createLoginAccount && dto.account) {
-      await this.createAccount(employeeProfileId, dto.account, userId);
+      if (dto.createLoginAccount && dto.account) {
+        await this.createAccount(employeeProfileId, dto.account, userId);
+      }
+    } catch (error) {
+      // The wizard is one compact "Save", not four round-trips (Part E) — a
+      // later step failing (e.g. account email/phone already taken) must
+      // never leave an orphaned Partner/EmployeeProfile behind, since
+      // partnersService.create() above already committed in its own
+      // transaction. Best-effort compensating rollback, most-dependent
+      // rows first.
+      await this.prisma.compensationRevision
+        .deleteMany({ where: { employeeProfileId } })
+        .catch(() => undefined);
+      const orphan = await this.prisma.employeeProfile
+        .findUnique({
+          where: { id: employeeProfileId },
+          select: { userId: true },
+        })
+        .catch(() => null);
+      await this.prisma.employeeProfile
+        .delete({ where: { id: employeeProfileId } })
+        .catch(() => undefined);
+      if (orphan?.userId) {
+        await this.prisma.user
+          .delete({ where: { id: orphan.userId } })
+          .catch(() => undefined);
+      }
+      await this.prisma.partnerRoleAssignment
+        .deleteMany({ where: { partnerId: partner.id } })
+        .catch(() => undefined);
+      await this.prisma.partner
+        .delete({ where: { id: partner.id } })
+        .catch(() => undefined);
+      throw error;
     }
 
     await this.activityLog.log(
