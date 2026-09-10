@@ -196,6 +196,36 @@ export const usePaymentMethods = createReferenceDataHook<PaymentMethodRow>(() =>
     .then((r) => r.items.filter((row) => !row.deletedAt)),
 );
 
+import { jobTitlesService, type JobTitleRow } from "@/services/job-titles-service";
+import { salesTeamsService, type SalesTeamRow } from "@/services/sales-teams-service";
+import { employeesService, type EmployeeRow } from "@/services/employees-service";
+import {
+  payrollComponentsService,
+  type PayrollComponentRow,
+} from "@/services/payroll-components-service";
+
+/** Active Payroll Components for selectors (Compensation lines, Payroll Line one-off components). */
+export const usePayrollComponents = createReferenceDataHook<PayrollComponentRow>(() =>
+  payrollComponentsService
+    .list({ pageSize: 200, sortBy: "sortOrder" })
+    .then((r) => r.items.filter((row) => !row.deletedAt && row.isActive)),
+);
+
+/** Active Job Titles for selectors (Employee wizard, KPI Template assignment). */
+export const useJobTitles = createReferenceDataHook<JobTitleRow>(() =>
+  jobTitlesService.listActive(),
+);
+
+/** Active Sales Teams for selectors (Employee wizard, Target/Commission scope). */
+export const useSalesTeams = createReferenceDataHook<SalesTeamRow>(() =>
+  salesTeamsService.list().then((rows) => rows.filter((row) => !row.deletedAt)),
+);
+
+/** Active Employees for selectors (KPI/Target/Commission employee pickers) — a bounded first page, refined further via `EntityCombobox`'s async `onSearch`. */
+export const useEmployees = createReferenceDataHook<EmployeeRow>(() =>
+  employeesService.list({ pageSize: 200, sortBy: "employeeCode" }).then((r) => r.items),
+);
+
 export function useUsersLookup(): Record<string, string> {
   const users = useUsersList();
   return useMemo(() => Object.fromEntries(users.map((u) => [u.id, u.fullName])), [users]);

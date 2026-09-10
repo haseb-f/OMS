@@ -48,6 +48,18 @@ export interface AccountingSettingsRow {
   suspenseAccount: AccountRef | null;
   retainedEarningsAccountId: string | null;
   retainedEarningsAccount: AccountRef | null;
+  payrollPayableAccountId: string | null;
+  payrollPayableAccount: AccountRef | null;
+  salaryExpenseAccountId: string | null;
+  salaryExpenseAccount: AccountRef | null;
+  kpiExpenseAccountId: string | null;
+  kpiExpenseAccount: AccountRef | null;
+  commissionExpenseAccountId: string | null;
+  commissionExpenseAccount: AccountRef | null;
+  defaultAllowanceExpenseAccountId: string | null;
+  defaultAllowanceExpenseAccount: AccountRef | null;
+  defaultDeductionAccountId: string | null;
+  defaultDeductionAccount: AccountRef | null;
 }
 
 export type AccountingSettingsField = Extract<keyof AccountingSettingsRow, `${string}Id`>;

@@ -130,6 +130,34 @@ const SECTIONS: SectionConfig[] = [
       },
     ],
   },
+  {
+    titleKey: "accounting.settings.sections.payroll",
+    fields: [
+      {
+        key: "payrollPayableAccountId",
+        labelKey: "accounting.settings.fields.payrollPayable",
+        required: true,
+      },
+      {
+        key: "salaryExpenseAccountId",
+        labelKey: "accounting.settings.fields.salaryExpense",
+        required: true,
+      },
+      { key: "kpiExpenseAccountId", labelKey: "accounting.settings.fields.kpiExpense" },
+      {
+        key: "commissionExpenseAccountId",
+        labelKey: "accounting.settings.fields.commissionExpense",
+      },
+      {
+        key: "defaultAllowanceExpenseAccountId",
+        labelKey: "accounting.settings.fields.defaultAllowanceExpense",
+      },
+      {
+        key: "defaultDeductionAccountId",
+        labelKey: "accounting.settings.fields.defaultDeduction",
+      },
+    ],
+  },
 ];
 
 function toChartRow(ref: AccountRef | null): ChartOfAccountRow | null {

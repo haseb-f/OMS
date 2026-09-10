@@ -53,6 +53,10 @@ import {
   UploadCloud,
   Store,
   ListChecks,
+  UserCircle,
+  IdCard,
+  ClipboardCheck,
+  HandCoins,
 } from "lucide-react";
 
 /**
@@ -115,6 +119,10 @@ export const iconRegistry = {
   "upload-cloud": UploadCloud,
   store: Store,
   "list-checks": ListChecks,
+  "user-circle": UserCircle,
+  "id-card": IdCard,
+  "clipboard-check": ClipboardCheck,
+  "hand-coins": HandCoins,
 } as const;
 
 export type IconName = keyof typeof iconRegistry;
