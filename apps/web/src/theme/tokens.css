@@ -94,5 +94,5 @@
      (--scrollbar-thumb/-hover/-active/-track) live in globals.css next to
      --foreground, since they're derived from it and need to flip with
      .dark; this file only owns the non-color size. */
-  --scrollbar-size: 6px;
+  --scrollbar-size: 4px;
 }

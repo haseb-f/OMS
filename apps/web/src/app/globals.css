@@ -314,16 +314,27 @@
   /* Sidebar-style "discreet until interacting" scrollbar (spec section 12):
      transparent thumb at rest, the normal subtle thumb only while the
      pointer is over the scroll container or a descendant has focus — never
-     a permanently reserved visual column. */
-  .scroll-auto-hide {
-    scrollbar-color: transparent var(--scrollbar-track);
+     a permanently reserved visual column.
+
+     The `scrollbar-color` pair is scoped to the Firefox-only branch on
+     purpose: setting `scrollbar-color` on an element — even transparently —
+     opts THAT element into Chromium's standardized scrollbar renderer,
+     which silently ignores `::-webkit-scrollbar-button { display: none }`
+     above and brings back a native OS arrow-button pair (confirmed
+     empirically). Chromium/Safari get the auto-hide behavior purely via the
+     `::-webkit-scrollbar-thumb` background-color toggle instead, which
+     never triggers that switch. */
+  @supports not selector(::-webkit-scrollbar) {
+    .scroll-auto-hide {
+      scrollbar-color: transparent var(--scrollbar-track);
+    }
+    .scroll-auto-hide:hover,
+    .scroll-auto-hide:focus-within {
+      scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+    }
   }
   .scroll-auto-hide::-webkit-scrollbar-thumb {
     background-color: transparent;
-  }
-  .scroll-auto-hide:hover,
-  .scroll-auto-hide:focus-within {
-    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
   }
   .scroll-auto-hide:hover::-webkit-scrollbar-thumb,
   .scroll-auto-hide:focus-within::-webkit-scrollbar-thumb {
