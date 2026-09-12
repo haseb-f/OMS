@@ -85,6 +85,9 @@ export function EntityCombobox<T>({
   const [loadError, setLoadError] = useState(false);
   const onSearchRef = useRef(onSearch);
   const isAsync = typeof onSearch === "function";
+  // Guards against a slower earlier keystroke's response landing after a
+  // faster later one and overwriting it with stale results.
+  const searchSeqRef = useRef(0);
 
   useEffect(() => {
     onSearchRef.current = onSearch;
@@ -93,18 +96,22 @@ export function EntityCombobox<T>({
   useEffect(() => {
     if (!open || !isAsync) return;
     const timeout = setTimeout(() => {
+      const seq = ++searchSeqRef.current;
       const run = async () => {
         const searchFn = onSearchRef.current;
         if (!searchFn) return;
         setIsLoading(true);
         setLoadError(false);
         try {
-          setRemoteItems(await searchFn(search));
+          const results = await searchFn(search);
+          if (seq !== searchSeqRef.current) return;
+          setRemoteItems(results);
         } catch {
+          if (seq !== searchSeqRef.current) return;
           setRemoteItems([]);
           setLoadError(true);
         } finally {
-          setIsLoading(false);
+          if (seq === searchSeqRef.current) setIsLoading(false);
         }
       };
       void run();
