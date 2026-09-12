@@ -278,6 +278,7 @@ function WarehouseLocationsPageContent() {
 
   return (
     <PageWorkspace
+      dense
       title={t("masterData.warehouseLocations.title")}
       description={t("masterData.warehouseLocations.description")}
       actions={

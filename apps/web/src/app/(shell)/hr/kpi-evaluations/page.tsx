@@ -125,6 +125,7 @@ export default function KpiEvaluationsPage() {
 
   return (
     <PageWorkspace
+      dense
       title={t("hr.kpiEvaluations.title")}
       description={t("hr.kpiEvaluations.description")}
       actions={

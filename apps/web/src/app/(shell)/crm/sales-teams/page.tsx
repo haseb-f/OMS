@@ -56,6 +56,7 @@ function SalesTeamsPageContent() {
   }, [search, t]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
@@ -139,6 +140,7 @@ function SalesTeamsPageContent() {
 
   return (
     <PageWorkspace
+      dense
       title={t("crm.salesTeams.title")}
       description={t("crm.salesTeams.description")}
       actions={

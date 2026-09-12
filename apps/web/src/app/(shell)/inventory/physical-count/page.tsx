@@ -193,6 +193,7 @@ function PhysicalCountPageContent() {
 
   return (
     <PageWorkspace
+      dense
       title={t("nav.inventoryPhysicalCount")}
       description={t("inventory.physicalCount.description")}
       actions={

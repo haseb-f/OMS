@@ -262,6 +262,7 @@ function PurchaseQuotationsPageContent() {
 
   return (
     <PageWorkspace
+      dense
       title={t("purchasing.quotations.title")}
       description={t("purchasing.quotations.description")}
       actions={

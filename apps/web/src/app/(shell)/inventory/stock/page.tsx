@@ -173,7 +173,11 @@ function InventoryStockPageContent() {
   );
 
   return (
-    <PageWorkspace title={t("nav.inventoryStock")} description={t("inventory.stock.description")}>
+    <PageWorkspace
+      title={t("nav.inventoryStock")}
+      description={t("inventory.stock.description")}
+      dense
+    >
       <EnterpriseCard size="sm">
         <EnterpriseCardHeader>
           <EnterpriseCardTitle>{t("inventory.valuationMethod.title")}</EnterpriseCardTitle>

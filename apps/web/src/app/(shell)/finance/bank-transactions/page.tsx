@@ -192,6 +192,7 @@ function CashFlowPageContent() {
 
   return (
     <PageWorkspace
+      dense
       title={t("masterData.bankTransactions.title")}
       description={t("masterData.bankTransactions.description")}
       actions={

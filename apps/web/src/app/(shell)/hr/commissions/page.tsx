@@ -100,6 +100,7 @@ export default function CommissionsPage() {
   }, [periodFilter, employeeFilter, statusFilter]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
@@ -265,6 +266,7 @@ export default function CommissionsPage() {
 
   return (
     <PageWorkspace
+      dense
       title={t("hr.commissions.title")}
       description={t("hr.commissions.description")}
       actions={

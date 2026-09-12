@@ -81,6 +81,7 @@ export default function SalesTargetsPage() {
   }, [filterPeriod, filterScopeType, filterMetric, t]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
@@ -217,6 +218,7 @@ export default function SalesTargetsPage() {
 
   return (
     <PageWorkspace
+      dense
       title={t("hr.salesTargets.title")}
       description={t("hr.salesTargets.description")}
       actions={

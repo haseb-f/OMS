@@ -266,6 +266,7 @@ function PurchaseInvoicesPageContent() {
 
   return (
     <PageWorkspace
+      dense
       title={t("purchasing.invoices.title")}
       description={t("purchasing.invoices.description")}
       actions={

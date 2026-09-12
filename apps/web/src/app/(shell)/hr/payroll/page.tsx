@@ -101,6 +101,7 @@ export default function PayrollRunsPage() {
 
   return (
     <PageWorkspace
+      dense
       title={t("hr.payroll.title")}
       description={t("hr.payroll.description")}
       actions={

@@ -291,6 +291,7 @@ function SalesOrdersPageContent() {
 
   return (
     <PageWorkspace
+      dense
       title={t("sales.orders.title")}
       description={t("sales.orders.description")}
       actions={

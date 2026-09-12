@@ -207,6 +207,7 @@ function ShippingPageContent() {
 
   return (
     <PageWorkspace
+      dense
       title={t("shipping.title")}
       description={t("shipping.description")}
       actions={

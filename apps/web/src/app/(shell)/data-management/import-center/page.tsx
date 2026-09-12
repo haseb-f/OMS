@@ -285,7 +285,11 @@ function ImportCenterPageContent() {
   );
 
   return (
-    <PageWorkspace title={t("importCenter.title")} description={t("importCenter.description")}>
+    <PageWorkspace
+      title={t("importCenter.title")}
+      description={t("importCenter.description")}
+      dense
+    >
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h2 className="text-card-title font-semibold">{t("importCenter.sync.button")}</h2>

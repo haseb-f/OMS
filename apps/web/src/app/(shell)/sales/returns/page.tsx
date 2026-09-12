@@ -260,6 +260,7 @@ function SalesReturnsPageContent() {
 
   return (
     <PageWorkspace
+      dense
       title={t("sales.returns.title")}
       description={t("sales.returns.description")}
       actions={<ModuleImportButtons importType="SALES_RETURNS" onImported={load} />}

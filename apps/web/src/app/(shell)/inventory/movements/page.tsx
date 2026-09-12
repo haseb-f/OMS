@@ -318,6 +318,7 @@ function InventoryMovementsPageContent() {
 
   return (
     <PageWorkspace
+      dense
       title={t("nav.inventoryMovements")}
       description={t("inventory.movements.description")}
       actions={

@@ -216,6 +216,7 @@ export default function FiscalPeriodsPage() {
 
   return (
     <PageWorkspace
+      dense
       title={t("nav.financeFiscalPeriods")}
       description={t("accounting.fiscalYears.description")}
       actions={

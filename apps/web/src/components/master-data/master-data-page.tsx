@@ -551,6 +551,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
     <PageWorkspace
       title={t(titleKey)}
       description={t(descriptionKey)}
+      dense
       actions={
         <>
           {extraActions}

@@ -39,7 +39,7 @@ export function BreadcrumbBar() {
 
   if (totalAfterHome === 0 && !parentRoute) {
     return (
-      <div className="flex min-w-0 items-center px-6 py-1.5">
+      <div className="flex min-w-0 items-center px-6 py-1">
         <Breadcrumb>
           <BreadcrumbList className="flex-nowrap">
             <BreadcrumbItem>
@@ -52,7 +52,7 @@ export function BreadcrumbBar() {
   }
 
   return (
-    <div className="flex min-w-0 items-center gap-2 overflow-hidden px-6 py-1.5">
+    <div className="flex min-w-0 items-center gap-2 overflow-hidden px-6 py-1">
       {parentRoute ? <BackButton href={parentRoute} /> : null}
       <Breadcrumb className="min-w-0 flex-1 overflow-hidden">
         <BreadcrumbList className="flex-nowrap overflow-hidden">

@@ -258,6 +258,7 @@ function QuotationsPageContent() {
 
   return (
     <PageWorkspace
+      dense
       title={t("sales.quotations.title")}
       description={t("sales.quotations.description")}
       actions={

@@ -596,6 +596,7 @@ function ChartOfAccountsPageContent() {
 
   return (
     <PageWorkspace
+      dense
       title={t("masterData.chartOfAccounts.title")}
       description={t("masterData.chartOfAccounts.description")}
       actions={

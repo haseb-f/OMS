@@ -228,6 +228,7 @@ function PurchaseReturnsPageContent() {
 
   return (
     <PageWorkspace
+      dense
       title={t("purchasing.returns.title")}
       description={t("purchasing.returns.description")}
       actions={<ModuleImportButtons importType="PURCHASE_RETURNS" onImported={load} />}

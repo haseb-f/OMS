@@ -90,6 +90,7 @@ function UsersPageContent() {
 
   return (
     <PageWorkspace
+      dense
       title={t("settings.users.title")}
       description={t("settings.users.description")}
       actions={

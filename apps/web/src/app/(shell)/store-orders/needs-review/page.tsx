@@ -332,6 +332,7 @@ function NeedsReviewContent() {
 
   return (
     <PageWorkspace
+      dense
       title={t("nav.storeOrdersNeedsReview")}
       description={t("storeOrders.needsReview.description")}
     >

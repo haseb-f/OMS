@@ -219,6 +219,7 @@ function ProductsPageContent() {
 
   return (
     <PageWorkspace
+      dense
       title={t("products.title")}
       description={t("products.description")}
       actions={

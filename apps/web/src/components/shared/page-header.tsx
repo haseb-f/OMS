@@ -14,14 +14,23 @@ export function PageHeader({
   subtitle,
   actions,
   className,
+  dense,
 }: {
   title: string;
   subtitle?: string;
   actions?: ReactNode;
   className?: string;
+  /** Table/list workspaces only (see `PageWorkspace`) — tighter wrap-gap when actions drop to their own line. Never set on dashboards, detail pages, or forms. */
+  dense?: boolean;
 }) {
   return (
-    <div className={cn("flex flex-wrap items-start justify-between gap-3", className)}>
+    <div
+      className={cn(
+        "flex flex-wrap items-start justify-between",
+        dense ? "gap-2" : "gap-3",
+        className,
+      )}
+    >
       <div className="flex min-w-0 flex-col justify-center gap-0.5">
         <h1 className="text-ui-title font-semibold tracking-tight">{title}</h1>
         {subtitle && <p className="text-caption text-muted-foreground">{subtitle}</p>}

@@ -283,6 +283,7 @@ function ReportsInventoryPageContent() {
 
   return (
     <PageWorkspace
+      dense
       title={t("nav.reportsInventory")}
       description={t("reports.inventory.description")}
     >

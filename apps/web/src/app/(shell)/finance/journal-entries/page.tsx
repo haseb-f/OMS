@@ -435,6 +435,7 @@ function JournalEntriesPageContent() {
 
   return (
     <PageWorkspace
+      dense
       title={t("accounting.journalEntries.title")}
       description={t("accounting.journalEntries.description")}
       actions={

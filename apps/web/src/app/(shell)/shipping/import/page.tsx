@@ -146,6 +146,7 @@ function ShippingImportContent() {
 
   return (
     <PageWorkspace
+      dense
       title={t("nav.storeOrdersShippingImport")}
       description={t("shipping.import.description")}
       actions={

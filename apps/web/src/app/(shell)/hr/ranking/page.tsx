@@ -48,13 +48,14 @@ export default function RankingPage() {
   }, [period, metric, t]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
   const columns = useMemo(() => buildRankingColumns(t, total), [t, total]);
 
   return (
-    <PageWorkspace title={t("hr.ranking.title")} description={t("hr.ranking.description")}>
+    <PageWorkspace title={t("hr.ranking.title")} description={t("hr.ranking.description")} dense>
       <EnterpriseDataTable
         tableId="hr-ranking"
         printTitle={t("hr.ranking.title")}

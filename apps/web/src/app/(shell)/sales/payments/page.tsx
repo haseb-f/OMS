@@ -359,6 +359,7 @@ function CustomerReceiptsPageContent() {
 
   return (
     <PageWorkspace
+      dense
       title={t("sales.receipts.title")}
       description={t("sales.receipts.description")}
       actions={

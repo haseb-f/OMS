@@ -359,6 +359,7 @@ function SupplierPaymentsPageContent() {
 
   return (
     <PageWorkspace
+      dense
       title={t("purchasing.payments.title")}
       description={t("purchasing.payments.description")}
       actions={

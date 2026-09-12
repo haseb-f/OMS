@@ -377,6 +377,7 @@ export default function SettingsDocumentNumberingPage() {
 
   return (
     <PageWorkspace
+      dense
       title={t("settings.documentNumbering.title")}
       description={t("settings.documentNumbering.description")}
       actions={
