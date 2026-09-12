@@ -1,5 +1,6 @@
 import { apiClient } from "./api-client";
 import { buildQueryString } from "@/lib/query-string";
+import type { MasterDataListResult } from "./master-data-service";
 
 export type CommissionStatus = "CALCULATED" | "APPROVED" | "INCLUDED_IN_PAYROLL" | "ADJUSTED";
 
@@ -54,12 +55,7 @@ export interface CommissionsQueryParams {
   [key: string]: string | number | boolean | string[] | undefined;
 }
 
-export interface CommissionsListResult {
-  items: CommissionCalculationRow[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
+export type CommissionsListResult = MasterDataListResult<CommissionCalculationRow>;
 
 const basePath = "/commissions";
 

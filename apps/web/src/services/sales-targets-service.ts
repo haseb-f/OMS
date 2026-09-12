@@ -1,5 +1,6 @@
 import { apiClient } from "./api-client";
 import { buildQueryString } from "@/lib/query-string";
+import type { MasterDataListResult } from "./master-data-service";
 
 export type TargetScopeType = "EMPLOYEE" | "TEAM";
 export type TargetMetric = "SALES_REVENUE" | "COLLECTED_SALES" | "ORDERS_COUNT";
@@ -52,12 +53,7 @@ export interface SalesTargetsQueryParams {
   [key: string]: string | number | boolean | string[] | undefined;
 }
 
-export interface SalesTargetsListResult {
-  items: SalesTargetRow[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
+export type SalesTargetsListResult = MasterDataListResult<SalesTargetRow>;
 
 export interface RankingRow {
   employeeProfileId: string;

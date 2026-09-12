@@ -1,6 +1,7 @@
 import { apiClient } from "./api-client";
 import { buildQueryString } from "@/lib/query-string";
 import type { PayrollComponentType } from "./payroll-components-service";
+import type { MasterDataListResult } from "./master-data-service";
 
 export type PayrollRunStatus = "DRAFT" | "HR_REVIEWED" | "FINANCE_APPROVED" | "POSTED" | "PAID";
 
@@ -80,12 +81,7 @@ export interface PayrollRunsListParams {
   [key: string]: string | number | undefined;
 }
 
-export interface PayrollRunsListResult {
-  items: PayrollRunRow[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
+export type PayrollRunsListResult = MasterDataListResult<PayrollRunRow>;
 
 const basePath = "/payroll";
 

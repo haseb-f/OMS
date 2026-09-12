@@ -42,8 +42,7 @@ import type { MasterDataActivityEntry, MasterDataListParams } from "@/services/m
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import { formatDateTime } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
 
@@ -255,7 +254,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
       setItems(result.items);
       setTotal(result.total);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to load data.");
+      reportApiError(error, "Failed to load data.");
     } finally {
       setIsLoading(false);
     }
@@ -351,7 +350,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
           setModalOpen(false);
         }
       } catch (error) {
-        toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+        reportApiError(error, "Something went wrong.");
       } finally {
         setIsSubmitting(false);
       }
@@ -367,7 +366,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
       onRecordsChanged?.();
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to archive.");
+      reportApiError(error, "Failed to archive.");
     } finally {
       setIsMutating(false);
     }
@@ -383,7 +382,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
       onRecordsChanged?.();
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to restore.");
+      reportApiError(error, "Failed to restore.");
     } finally {
       setIsMutating(false);
     }
@@ -432,9 +431,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
       });
       setRowSelection(Object.fromEntries(result.ids.map((id) => [id, true])));
     } catch (error) {
-      toast.error(
-        error instanceof ApiError ? error.message : "Failed to select all matching records.",
-      );
+      reportApiError(error, "Failed to select all matching records.");
     } finally {
       setIsSelectingAllMatching(false);
     }

@@ -38,9 +38,8 @@ import { PermissionGate } from "@/components/shared/permission-gate";
 import { RowActionsMenu } from "@/components/shared/data-table";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast } from "@/lib/toast";
+import { toast, reportApiError } from "@/lib/toast";
 import { formatDate } from "@/lib/date";
-import { ApiError } from "@/services/api-client";
 import {
   bankTransactionsService,
   type BankTransactionRow,
@@ -148,7 +147,7 @@ function CashFlowPageContent() {
       setCounts(statusCounts);
       setSummary(cashFlowSummary);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+      reportApiError(error, t("common.loadFailed"));
     } finally {
       setIsLoading(false);
     }
@@ -168,7 +167,7 @@ function CashFlowPageContent() {
       );
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, t("common.failedToSave"));
     } finally {
       setIsRunningMatch(false);
     }
@@ -184,7 +183,7 @@ function CashFlowPageContent() {
       setUnreconcileReason("");
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, t("common.failedToSave"));
     } finally {
       setIsUnreconciling(false);
     }
@@ -502,7 +501,7 @@ function ClassifyDialog({
       toast.success(t("masterData.bankTransactions.classifyDialog.saved"));
       onDone();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to classify.");
+      reportApiError(error, "Failed to classify.");
     } finally {
       setSaving(false);
     }
@@ -707,7 +706,7 @@ function ReconcileDialog({
       setMismatchCandidate(null);
       onDone();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to reconcile.");
+      reportApiError(error, "Failed to reconcile.");
     } finally {
       setBusy(false);
       setMismatchMode(null);
@@ -723,7 +722,7 @@ function ReconcileDialog({
       toast.success(t("masterData.bankTransactions.voucher.expenseVoucherCreated"));
       onDone();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to create voucher.");
+      reportApiError(error, "Failed to create voucher.");
     } finally {
       setBusy(false);
     }
@@ -798,7 +797,7 @@ function ReconcileDialog({
       }
       onDone();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to reconcile.");
+      reportApiError(error, "Failed to reconcile.");
     } finally {
       setAllocating(false);
     }
@@ -810,7 +809,7 @@ function ReconcileDialog({
       const result = await bankTransactionsService.suggestInternalTransfer(transaction.id);
       setTransferCandidates(result.candidates);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to search.");
+      reportApiError(error, "Failed to search.");
     } finally {
       setLoadingTransfer(false);
     }
@@ -823,7 +822,7 @@ function ReconcileDialog({
       toast.success(t("masterData.bankTransactions.transfer.confirmed"));
       onDone();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to reconcile.");
+      reportApiError(error, "Failed to reconcile.");
     } finally {
       setConfirmingTransferId(null);
     }

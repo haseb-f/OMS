@@ -14,6 +14,7 @@
  * hover/focus-pause are sonner defaults and are not affected by this.
  */
 import { toast as sonnerToast, type ExternalToast } from "sonner";
+import { ApiError } from "@/services/api-client";
 
 const DEFAULT_DURATIONS = {
   success: 5000,
@@ -54,3 +55,15 @@ export const toast: typeof sonnerToast = Object.assign(sonnerToast, {
   error: (message: React.ReactNode | (() => React.ReactNode), options?: ExternalToast) =>
     withDefaultDuration("error", message, options),
 });
+
+/**
+ * Canonical "surface an API failure" helper — replaces the
+ * `toast.error(error instanceof ApiError ? error.message : fallback)`
+ * pattern repeated across the app (a real API error's own message is
+ * shown to the user; anything else falls back to a caller-supplied,
+ * already-translated string). Callers keep doing their own try/catch;
+ * this only standardizes the one line that turns `error` into a toast.
+ */
+export function reportApiError(error: unknown, fallback: string, options?: ExternalToast) {
+  return toast.error(error instanceof ApiError ? error.message : fallback, options);
+}

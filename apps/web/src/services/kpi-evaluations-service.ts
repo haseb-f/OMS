@@ -6,6 +6,7 @@ import type {
   KpiEvaluatorSource,
   KpiItemType,
 } from "./kpi-templates-service";
+import type { MasterDataListResult } from "./master-data-service";
 
 export type KpiEvaluationStatus =
   "DRAFT" | "MANAGER_SUBMITTED" | "HR_APPROVED" | "INCLUDED_IN_PAYROLL";
@@ -101,12 +102,7 @@ export interface KpiEvaluationsListParams {
   [key: string]: string | number | undefined;
 }
 
-export interface KpiEvaluationsListResult {
-  items: KpiEvaluationRow[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
+export type KpiEvaluationsListResult = MasterDataListResult<KpiEvaluationRow>;
 
 // Re-exported so a page only needs one import for the whole scoring surface.
 export type { KpiAutoMetricSource, KpiDropdownOption, KpiEvaluatorSource, KpiItemType };
