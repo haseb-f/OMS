@@ -140,13 +140,8 @@ export class LeadsService {
     return phone.e164;
   }
 
-  /** Currency is resolved from the selected country's `defaultCurrencyId`. */
-  private async resolveDefaultCurrencyId(countryId: string): Promise<string> {
-    const country = await this.prisma.country.findFirst({
-      where: { id: countryId, deletedAt: null },
-      select: { defaultCurrencyId: true },
-    });
-    if (country?.defaultCurrencyId) return country.defaultCurrencyId;
+  /** The no-default-configured fallback `resolveDefaultCurrencyId`/`create` share — its own helper only so `create()` can reuse one already-fetched `country` row instead of querying Country twice (mobile normalization + currency default) per Lead. */
+  private async resolveFallbackCurrencyId(): Promise<string> {
     const fallback = await this.prisma.currency.findFirst({
       where: { deletedAt: null },
       orderBy: { code: 'asc' },
@@ -159,17 +154,43 @@ export class LeadsService {
     return fallback.id;
   }
 
-  async create(dto: CreateLeadDto, userId?: string) {
+  /**
+   * `options` is bulk-import-only tuning, additive and opt-in — every
+   * existing caller (manual "Create Lead", Lead Convert, etc.) keeps
+   * calling `create(dto, userId)` unchanged and gets identical behavior.
+   * `defaultStatusId`: the default LEAD workflow status never changes
+   * mid-batch, so an importer resolves it once and passes it in instead of
+   * `create()` re-querying it on every single row. `skipFullRefetch`: the
+   * final `findOne()` re-fetch (7 joined relations) exists so the caller
+   * gets a fully-populated Lead back — importers discard `create()`'s
+   * return value entirely, so that read is pure waste for them.
+   */
+  async create(
+    dto: CreateLeadDto,
+    userId?: string,
+    options?: { defaultStatusId?: string; skipFullRefetch?: boolean },
+  ) {
     if (dto.recordType === 'ORDER') {
       throw new BadRequestException(
         'Lead-as-Order is retired. Create a Store Order for operational orders, or a Lead for CRM prospects.',
       );
     }
 
-    const mobileNumber = await this.normalizeLeadMobile(
-      dto.mobileNumber,
-      dto.countryId,
-    );
+    // One Country fetch reused for both phone-normalization (needs the ISO2
+    // code) and the currency default (needs `defaultCurrencyId`) — this was
+    // two separate Country queries before, for the exact same countryId.
+    const country = await this.prisma.country.findFirst({
+      where: { id: dto.countryId, deletedAt: null },
+      select: { code: true, defaultCurrencyId: true },
+    });
+    if (!country) {
+      throw new BadRequestException('Invalid country.');
+    }
+    const phone = this.phoneNumberService.parse(dto.mobileNumber, country.code);
+    if (!phone.isValid || !phone.e164) {
+      throw new BadRequestException(phoneErrorMessage(phone.errorReason));
+    }
+    const mobileNumber = phone.e164;
 
     const duplicateCheck = await this.leadDuplicateDetectionService.check({
       mobileNumber,
@@ -194,7 +215,9 @@ export class LeadsService {
 
     const quantity = dto.quantity ?? 1;
     const currencyId =
-      dto.currencyId ?? (await this.resolveDefaultCurrencyId(dto.countryId));
+      dto.currencyId ??
+      country.defaultCurrencyId ??
+      (await this.resolveFallbackCurrencyId());
 
     if (dto.customerClassificationId) {
       await this.assertClassificationAssignable(
@@ -204,9 +227,9 @@ export class LeadsService {
     }
 
     const leadNumber = await this.numberingEngine.generateNumber('LEAD');
-    const defaultStatusId = await this.workflowEngine.resolveDefaultStatusId(
-      WorkflowType.LEAD,
-    );
+    const defaultStatusId =
+      options?.defaultStatusId ??
+      (await this.workflowEngine.resolveDefaultStatusId(WorkflowType.LEAD));
 
     const explicitOwnerId = dto.salesEmployeeId;
     const importMethod = dto.importBatch
@@ -277,7 +300,7 @@ export class LeadsService {
     } else {
       await this.leadAutoDistributionService.distribute(lead.id);
     }
-    return this.findOne(lead.id);
+    return options?.skipFullRefetch ? lead : this.findOne(lead.id);
   }
 
   /**
@@ -367,6 +390,28 @@ export class LeadsService {
       where: { externalOrderId, deletedAt: null },
       include: LEAD_INCLUDE,
     });
+  }
+
+  /**
+   * Bulk-import idempotency pre-check — one query for every externalOrderId
+   * in the batch instead of one `findByExternalOrderId` (full `LEAD_INCLUDE`)
+   * call per row. Existence-only (`select: { externalOrderId: true }`), so
+   * callers should still go through `create()`'s own authoritative
+   * per-row check for the actual create — this is purely the "skip early
+   * so it counts as skipped, not errored" fast path.
+   */
+  async findExistingExternalOrderIds(
+    externalOrderIds: string[],
+  ): Promise<Set<string>> {
+    const uniqueIds = [...new Set(externalOrderIds.filter(Boolean))];
+    if (uniqueIds.length === 0) return new Set();
+    const rows = await this.prisma.lead.findMany({
+      where: { externalOrderId: { in: uniqueIds }, deletedAt: null },
+      select: { externalOrderId: true },
+    });
+    return new Set(
+      rows.map((row) => row.externalOrderId).filter((id): id is string => !!id),
+    );
   }
 
   async findOne(id: string, scope?: SalesScope) {

@@ -1,8 +1,9 @@
 import { Inject, Injectable, forwardRef } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { LeadSource } from '@prisma/client';
+import { LeadSource, WorkflowType } from '@prisma/client';
 import { CreateLeadDto } from '../dto/create-lead.dto';
 import { LeadsService } from '../leads.service';
+import { WorkflowEngineService } from '../../workflow/workflow-engine.service';
 import {
   LeadImportResult,
   LeadImportService,
@@ -16,12 +17,19 @@ import {
  * Idempotency: existing `externalOrderId` → skip (no second Lead / Partner /
  * StoreOrder). Sticky ownership preserved because existing leads are not
  * rewritten.
+ *
+ * Performance (Phase 2/3 audit): same batching as `ExcelImportService` —
+ * duplicate detection, phone normalization, numbering, and assignment/
+ * distribution stay exactly per-row; the default LEAD workflow status is
+ * resolved once for the whole batch, and the externalOrderId idempotency
+ * check is one query for the whole file instead of one per row.
  */
 @Injectable()
 export class GoogleSheetsImportService implements LeadImportService {
   constructor(
     @Inject(forwardRef(() => LeadsService))
     private readonly leadsService: LeadsService,
+    private readonly workflowEngine: WorkflowEngineService,
   ) {}
 
   parse(source: unknown): Promise<CreateLeadDto[]> {
@@ -40,6 +48,16 @@ export class GoogleSheetsImportService implements LeadImportService {
     let skipped = 0;
     const errors: LeadImportResult['errors'] = [];
 
+    const defaultStatusId = await this.workflowEngine.resolveDefaultStatusId(
+      WorkflowType.LEAD,
+    );
+    const seenExternalIds =
+      await this.leadsService.findExistingExternalOrderIds(
+        rows
+          .map((row) => row.externalOrderId)
+          .filter((id): id is string => !!id),
+      );
+
     for (let i = 0; i < rows.length; i++) {
       const row: CreateLeadDto = {
         ...rows[i],
@@ -47,16 +65,15 @@ export class GoogleSheetsImportService implements LeadImportService {
         importBatch,
       };
       try {
-        if (row.externalOrderId) {
-          const existing = await this.leadsService.findByExternalOrderId(
-            row.externalOrderId,
-          );
-          if (existing) {
-            skipped += 1;
-            continue;
-          }
+        if (row.externalOrderId && seenExternalIds.has(row.externalOrderId)) {
+          skipped += 1;
+          continue;
         }
-        await this.leadsService.create(row);
+        await this.leadsService.create(row, undefined, {
+          defaultStatusId,
+          skipFullRefetch: true,
+        });
+        if (row.externalOrderId) seenExternalIds.add(row.externalOrderId);
         imported += 1;
       } catch (error) {
         errors.push({
