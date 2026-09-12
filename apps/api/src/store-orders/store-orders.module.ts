@@ -5,6 +5,7 @@ import { PostingEngineModule } from '../accounting/posting-engine/posting-engine
 import { ObjectStorageModule } from '../common/storage/object-storage.module';
 import { WorkflowModule } from '../workflow/workflow.module';
 import { SalesScopeModule } from '../sales-scope/sales-scope.module';
+import { ProductsModule } from '../products/products.module';
 import { StoreOrdersController } from './store-orders.controller';
 import { StoreOrdersService } from './store-orders.service';
 import { StoreOrderActivityService } from './activities/store-order-activity.service';
@@ -23,6 +24,7 @@ import { ShippingController } from './shipments/shipping.controller';
     ObjectStorageModule,
     WorkflowModule,
     SalesScopeModule,
+    ProductsModule,
   ],
   controllers: [
     StoreOrdersController,

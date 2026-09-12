@@ -84,6 +84,20 @@ const LEAD_INCLUDE = {
   },
 } satisfies Prisma.LeadInclude;
 
+/**
+ * Trimmed variant of `LEAD_INCLUDE` for `findAll`/list rows — the grid
+ * (`apps/web/src/config/crm/lead-columns.tsx`) never renders `currency`,
+ * `partner`, `product`, `storeOrder`, or `noPurchaseReason`; those exist
+ * only for the Lead detail page. Same "list vs detail include" split
+ * `StoreOrdersService` already uses (`ORDER_LIST_INCLUDE`/`ORDER_INCLUDE`).
+ */
+const LEAD_LIST_INCLUDE = {
+  country: LEAD_INCLUDE.country,
+  salesEmployee: LEAD_INCLUDE.salesEmployee,
+  status: LEAD_INCLUDE.status,
+  customerClassification: LEAD_INCLUDE.customerClassification,
+} satisfies Prisma.LeadInclude;
+
 /** Fields imported/entered order data may carry that live on `Payment`/`LeadNote`, not on `Lead` itself — recorded onto the timeline instead of a new table (see `recordImportedOrderDetails`). */
 export interface ImportedOrderDetails {
   orderDate?: string;
@@ -303,7 +317,7 @@ export class LeadsService {
     const [items, total, unassignedCount] = await Promise.all([
       this.prisma.lead.findMany({
         where,
-        include: LEAD_INCLUDE,
+        include: LEAD_LIST_INCLUDE,
         skip: (page - 1) * pageSize,
         take: pageSize,
         orderBy,

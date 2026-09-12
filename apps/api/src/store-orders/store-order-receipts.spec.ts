@@ -80,6 +80,7 @@ describe('StoreOrdersService receipts', () => {
       assertStoreOrderAccess: jest.fn(),
       assertPaymentEvidenceAccess: jest.fn(),
     } as never,
+    {} as never,
   );
 
   beforeEach(() => {

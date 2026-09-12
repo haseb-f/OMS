@@ -51,6 +51,7 @@ import { validateAttachmentUpload } from '../common/storage/file-validation';
 import { PhoneNumberService } from '../common/phone/phone-number.service';
 import { WorkflowStatusResolverService } from '../workflow/workflow-status-resolver.service';
 import { SalesScopeService } from '../sales-scope/sales-scope.service';
+import { ProductsService } from '../products/products.service';
 import { PAID_PAYMENT_CODES } from '../workflow/workflow-status-map';
 import { randomUUID } from 'node:crypto';
 
@@ -196,6 +197,7 @@ export class StoreOrdersService {
     private readonly phoneNumberService: PhoneNumberService,
     private readonly statusResolver: WorkflowStatusResolverService,
     private readonly salesScope: SalesScopeService,
+    private readonly productsService: ProductsService,
   ) {}
 
   /**
@@ -228,9 +230,7 @@ export class StoreOrdersService {
       dto.externalOrderId = normalized;
     }
 
-    for (const item of dto.items) {
-      await this.assertActiveProduct(item.productId);
-    }
+    await this.assertActiveProducts(dto.items.map((item) => item.productId));
 
     const { partner } = await this.partnersService.findOrCreateWithRole(
       { ...dto.partner, role: PartnerRoleType.CUSTOMER },
@@ -373,9 +373,7 @@ export class StoreOrdersService {
       );
     }
 
-    for (const item of dto.items) {
-      await this.assertActiveProduct(item.productId);
-    }
+    await this.assertActiveProducts(dto.items.map((item) => item.productId));
 
     const { partner } = await this.partnersService.findOrCreateWithRole(
       { ...dto.partner, role: PartnerRoleType.CUSTOMER },
@@ -1348,15 +1346,24 @@ export class StoreOrdersService {
     return invoice;
   }
 
-  private async assertActiveProduct(productId: string) {
-    const product = await this.prisma.product.findFirst({
-      where: { id: productId, status: ProductStatus.ACTIVE, deletedAt: null },
-    });
-    if (!product) {
-      throw new BadRequestException(
-        `Product ${productId} not found or is not active.`,
-      );
+  /**
+   * Batched replacement for a former per-line `findFirst` loop — one query
+   * for every product id on the order instead of one query per line item.
+   * Same error type/message as before (a per-order-item `BadRequestException`),
+   * just backed by `ProductsService.findManyForValidation`'s single query.
+   */
+  private async assertActiveProducts(productIds: string[]) {
+    const uniqueIds = [...new Set(productIds)];
+    if (uniqueIds.length === 0) return;
+    const productsById =
+      await this.productsService.findManyForValidation(uniqueIds);
+    for (const id of uniqueIds) {
+      const product = productsById.get(id);
+      if (!product || product.status !== ProductStatus.ACTIVE) {
+        throw new BadRequestException(
+          `Product ${id} not found or is not active.`,
+        );
+      }
     }
-    return product;
   }
 }

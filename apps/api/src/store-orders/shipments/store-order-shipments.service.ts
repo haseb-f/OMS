@@ -440,7 +440,11 @@ export class StoreOrderShipmentsService {
       this.prisma.shipment.findMany({
         where,
         include: {
-          shippingCompany: true,
+          // Slim select — the flat Shipping list only ever renders these
+          // fields (`apps/web/src/config/shipping/shipment-columns.tsx`);
+          // the old `include: true` hydrated every column of ShippingCompany/
+          // StoreOrder/Partner/Country on every row of every page.
+          shippingCompany: { select: { id: true, name: true } },
           shippingStatus: {
             select: {
               id: true,
@@ -450,7 +454,21 @@ export class StoreOrderShipmentsService {
               syncBehavior: true,
             },
           },
-          storeOrder: { include: { partner: { include: { country: true } } } },
+          storeOrder: {
+            select: {
+              id: true,
+              internalOrderId: true,
+              externalOrderId: true,
+              partner: {
+                select: {
+                  id: true,
+                  name: true,
+                  phone: true,
+                  country: { select: { id: true, name: true, code: true } },
+                },
+              },
+            },
+          },
           _count: { select: { receiptAttachments: true } },
         },
         orderBy: { createdAt: query.sortOrder ?? 'desc' },
