@@ -56,6 +56,53 @@ export class PayrollService {
     const employeesList = await tx.employeeProfile.findMany({
       where: { deletedAt: null, employmentStatus: 'ACTIVE' },
     });
+    const employeeIds = employeesList.map((employee) => employee.id);
+
+    // KPI/Commission for the period are batch-prefetched once for the
+    // whole run instead of once per employee (previously 3 extra read
+    // queries per employee). `currentCompensation` stays per-employee below
+    // — it resolves the latest effective-dated revision as of `start`,
+    // which isn't a simple batchable equality lookup.
+    const [kpiEvaluations, commissionCalculations, pendingAdjustments] =
+      await Promise.all([
+        tx.kpiEvaluation.findMany({
+          where: { period, employeeProfileId: { in: employeeIds } },
+        }),
+        tx.commissionCalculation.findMany({
+          where: { period, employeeProfileId: { in: employeeIds } },
+        }),
+        tx.commissionAdjustment.findMany({
+          where: {
+            targetPeriod: period,
+            appliedToPayrollLineId: null,
+            originCommissionCalculation: {
+              employeeProfileId: { in: employeeIds },
+            },
+          },
+          include: {
+            originCommissionCalculation: {
+              select: { employeeProfileId: true },
+            },
+          },
+        }),
+      ]);
+    const kpiByEmployee = new Map(
+      kpiEvaluations.map((evaluation) => [
+        evaluation.employeeProfileId,
+        evaluation,
+      ]),
+    );
+    const commissionByEmployee = new Map(
+      commissionCalculations.map((calc) => [calc.employeeProfileId, calc]),
+    );
+    const adjustmentsByEmployee = new Map<string, typeof pendingAdjustments>();
+    for (const adjustment of pendingAdjustments) {
+      const employeeId =
+        adjustment.originCommissionCalculation.employeeProfileId;
+      const list = adjustmentsByEmployee.get(employeeId) ?? [];
+      list.push(adjustment);
+      adjustmentsByEmployee.set(employeeId, list);
+    }
 
     let grossEarnings = 0;
     let totalDeductions = 0;
@@ -68,35 +115,21 @@ export class PayrollService {
       );
       if (!compensation) continue; // No compensation package — not yet on Payroll.
 
-      const evaluation = await tx.kpiEvaluation.findUnique({
-        where: {
-          employeeProfileId_period: { employeeProfileId: employee.id, period },
-        },
-      });
+      const evaluation = kpiByEmployee.get(employee.id);
       const kpiPay =
         evaluation?.status === 'HR_APPROVED'
           ? Number(evaluation.kpiPay ?? 0)
           : 0;
 
-      const commissionCalc = await tx.commissionCalculation.findUnique({
-        where: {
-          employeeProfileId_period: { employeeProfileId: employee.id, period },
-        },
-      });
+      const commissionCalc = commissionByEmployee.get(employee.id);
       const commissionBase =
         commissionCalc?.status === 'APPROVED'
           ? Number(commissionCalc.amount)
           : 0;
-      const pendingAdjustments = await tx.commissionAdjustment.findMany({
-        where: {
-          targetPeriod: period,
-          appliedToPayrollLineId: null,
-          originCommissionCalculation: { employeeProfileId: employee.id },
-        },
-      });
+      const employeeAdjustments = adjustmentsByEmployee.get(employee.id) ?? [];
       const commission =
         commissionBase +
-        pendingAdjustments.reduce((sum, a) => sum + Number(a.amountDelta), 0);
+        employeeAdjustments.reduce((sum, a) => sum + Number(a.amountDelta), 0);
 
       const basicSalary = Number(compensation.basicSalary);
       let allowances = 0;
