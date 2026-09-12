@@ -1261,6 +1261,11 @@ model Lead {
   @@index([source])
   @@index([customerClassificationId])
   @@index([noPurchaseReasonId])
+  @@index([partnerId])
+  /// Every Lead list query filters `deletedAt: null` (or explicitly
+  /// `includeArchived`) and defaults to sorting by `createdAt` — same
+  /// "soft-delete filter + default sort" composite `StoreOrder` already has.
+  @@index([deletedAt, createdAt])
   @@map("leads")
 }
 
@@ -3303,6 +3308,8 @@ model Partner {
   @@index([phone])
   @@index([email])
   @@index([taxNumber])
+  /// Checked on every Partner create/update duplicate check (`findDuplicate`).
+  @@index([commercialRegistration])
   @@index([deletedAt, name])
   @@map("partners")
 }
@@ -3449,6 +3456,13 @@ model EmployeeProfile {
   payrollLines              PayrollLine[]
 
   @@index([deletedAt, employmentStatus])
+  /// FK filters used across Employees, KPI Evaluations, Commissions, and
+  /// Sales Targets `findAll` (`employeeProfile: { departmentId }` etc).
+  @@index([departmentId])
+  @@index([jobTitleId])
+  @@index([salesTeamId])
+  /// Direct-reports / manager-scope lookups (KPI routing, team hierarchy).
+  @@index([managerEmployeeId])
   @@map("employee_profiles")
 }
 
