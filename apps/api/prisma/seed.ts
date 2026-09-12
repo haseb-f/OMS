@@ -222,6 +222,11 @@ const jobTitles = [
     code: 'CUSTOMER_SERVICE',
   },
   { name: 'موظف الشحن', nameEn: 'Shipping Staff', code: 'SHIPPING_STAFF' },
+  {
+    name: 'أخصائي الموارد البشرية',
+    nameEn: 'HR Specialist',
+    code: 'HR_SPECIALIST',
+  },
 ];
 
 const companies = [
@@ -1392,6 +1397,138 @@ async function main() {
     'accounting.bank-transactions.unreconcile',
   ]);
 
+  // Shipping Agent test persona — the Orders/Shipping quick-edit
+  // (Shipping Status/Carrier/Tracking Number/Attachments) is gated by
+  // exactly `shipping.view`/`shipping.edit` (see SalesScopeService), not a
+  // new bespoke permission.
+  const shippingUser = await prisma.user.upsert({
+    where: { email: 'shipping@oms.local' },
+    update: {
+      username: 'shipping',
+      jobTitleId: jobTitleByName.get('موظف الشحن')!.id,
+    },
+    create: {
+      email: 'shipping@oms.local',
+      username: 'shipping',
+      fullName: 'Faisal Otaibi',
+      passwordHash,
+      jobTitleId: jobTitleByName.get('موظف الشحن')!.id,
+    },
+  });
+  await grantPermissions(shippingUser.id, [
+    'store-orders.view',
+    'shipping.view',
+    'shipping.edit',
+    'shipping.print',
+    'shipping.export',
+  ]);
+
+  // HR test persona — administers Employees/Compensation/KPI/Commission
+  // Plans/Sales Targets and can carry a Payroll Run through HR review, but
+  // never Finance-approve/post/pay (separation of duties mirrors the
+  // Finance vs Finance Manager split above).
+  const hrUser = await prisma.user.upsert({
+    where: { email: 'hr@oms.local' },
+    update: {
+      username: 'hr',
+      jobTitleId: jobTitleByName.get('أخصائي الموارد البشرية')!.id,
+    },
+    create: {
+      email: 'hr@oms.local',
+      username: 'hr',
+      fullName: 'Noura Al-Harbi',
+      passwordHash,
+      jobTitleId: jobTitleByName.get('أخصائي الموارد البشرية')!.id,
+    },
+  });
+  await grantPermissions(hrUser.id, [
+    'hr.view',
+    'hr.employees.view',
+    'hr.employees.create',
+    'hr.employees.edit',
+    'hr.employees.export',
+    'hr.employees.archive',
+    'hr.compensation.view',
+    'hr.compensation.create',
+    'hr.compensation.edit',
+    'hr.payroll-components.view',
+    'hr.payroll-components.create',
+    'hr.payroll-components.edit',
+    'hr.payroll-components.archive',
+    'hr.kpi-templates.view',
+    'hr.kpi-templates.create',
+    'hr.kpi-templates.edit',
+    'hr.kpi-templates.archive',
+    'hr.kpi-evaluations.view',
+    'hr.kpi-evaluations.edit',
+    'hr.kpi-evaluations.approve',
+    'hr.kpi-evaluations.reopen',
+    'hr.sales-targets.view',
+    'hr.sales-targets.create',
+    'hr.sales-targets.edit',
+    'hr.sales-targets.delete',
+    'hr.commission-plans.view',
+    'hr.commission-plans.create',
+    'hr.commission-plans.edit',
+    'hr.commission-plans.archive',
+    'hr.commissions.view',
+    'hr.commissions.approve',
+    'hr.commissions.adjust',
+    'hr.payroll.view',
+    'hr.payroll.create',
+    'hr.payroll.edit',
+    'hr.payroll.hr-review',
+    'hr.payroll.print',
+    'hr.payroll.export',
+  ]);
+
+  // (Department/People) Manager test persona — distinct from Sales
+  // Manager: read-only visibility into their area's HR data (a real
+  // subordinate + "score this employee's MANAGER-source KPI item" is
+  // relationship-gated by EmployeeProfile.managerEmployeeId, not a
+  // permission string — see KpiEvaluationsService.assertCanScore — and is
+  // already exercised end-to-end by hr-milestone-e2e.spec.ts).
+  const managerUser = await prisma.user.upsert({
+    where: { email: 'manager@oms.local' },
+    update: {
+      username: 'manager',
+      jobTitleId: jobTitleByName.get('مدير التشغيل')!.id,
+    },
+    create: {
+      email: 'manager@oms.local',
+      username: 'manager',
+      fullName: 'Khalid Ghamdi',
+      passwordHash,
+      jobTitleId: jobTitleByName.get('مدير التشغيل')!.id,
+    },
+  });
+  await grantPermissions(managerUser.id, [
+    'hr.view',
+    'hr.employees.view',
+    'hr.kpi-evaluations.view',
+    'hr.sales-targets.view',
+    'hr.commissions.view',
+    'hr.payroll.view',
+  ]);
+
+  // Employee test persona — deliberately zero module permissions, so a
+  // regression pass can verify every gated section/action stays hidden
+  // rather than defaulting open for an authenticated-but-unprivileged user.
+  const employeeUser = await prisma.user.upsert({
+    where: { email: 'employee@oms.local' },
+    update: {
+      username: 'employee',
+      jobTitleId: jobTitleByName.get('موظف خدمة العملاء')!.id,
+    },
+    create: {
+      email: 'employee@oms.local',
+      username: 'employee',
+      fullName: 'Rania Qassemi',
+      passwordHash,
+      jobTitleId: jobTitleByName.get('موظف خدمة العملاء')!.id,
+    },
+  });
+
   // Sales Team — gives salesManagerUser real TEAM scope over Agent A/B in
   // SalesScopeService.resolve() (kind: 'TEAM'), the actual mechanism Sales
   // Manager / Team Manager visibility and Assign/Distribute rely on.
@@ -1433,13 +1570,18 @@ async function main() {
     update: {},
     create: { userId: adminUser.id, companyId: nova.id },
   });
-  // Sales agents, Sales Manager, and Finance personas belong to one company only.
+  // Sales agents, Sales Manager, Finance, Shipping, HR, Manager, and
+  // Employee personas belong to one company only.
   for (const userId of [
     salesUser.id,
     salesUserB.id,
     salesManagerUser.id,
     financeUser.id,
     financeManagerUser.id,
+    shippingUser.id,
+    hrUser.id,
+    managerUser.id,
+    employeeUser.id,
   ]) {
     await prisma.companyMembership.upsert({
       where: { userId_companyId: { userId, companyId: acme.id } },
