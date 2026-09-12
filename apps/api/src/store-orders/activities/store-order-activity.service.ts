@@ -41,6 +41,9 @@ export const StoreOrderActivityType = {
   SHIPMENT_FINALIZED: 'SHIPMENT_FINALIZED',
   /** The direct status change moved a shipment OFF a `syncBehavior: FINAL` status back onto `UNDER_SYNC` — re-eligible for Shipping Sync. */
   SHIPMENT_REOPENED: 'SHIPMENT_REOPENED',
+  /** Shipping operational evidence (ShipmentAttachment) — distinct from RECEIPT_ATTACHED/REMOVED, which are Payment/Order receipts (StoreOrderReceipt). */
+  SHIPMENT_ATTACHMENT_ADDED: 'SHIPMENT_ATTACHMENT_ADDED',
+  SHIPMENT_ATTACHMENT_REMOVED: 'SHIPMENT_ATTACHMENT_REMOVED',
 } as const;
 
 @Injectable()

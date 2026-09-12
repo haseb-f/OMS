@@ -4,6 +4,7 @@ import { AttachmentsService } from './attachments.service';
 import type { PrismaService } from '../../prisma/prisma.service';
 import type { ObjectStorageService } from './object-storage.service';
 import type { SalesScopeService } from '../../sales-scope/sales-scope.service';
+import type { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 
 function jpegFile(name = 'receipt.jpg'): Express.Multer.File {
   const buffer = Buffer.from([
@@ -48,6 +49,13 @@ describe('AttachmentsService', () => {
       findFirst: jest.fn(),
       updateMany: jest.fn(),
     },
+    shipmentAttachment: {
+      create: jest.fn(),
+      count: jest.fn(),
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+    },
     $transaction: jest.fn(),
   };
   const objectStorage = {
@@ -60,11 +68,15 @@ describe('AttachmentsService', () => {
     resolve: jest.fn(),
     assertPaymentEvidenceAccess: jest.fn(),
   };
+  const permissionsResolver = {
+    hasPermission: jest.fn().mockResolvedValue(true),
+  };
 
   const service = new AttachmentsService(
     prisma as unknown as PrismaService,
     objectStorage as unknown as ObjectStorageService,
     salesScope as unknown as SalesScopeService,
+    permissionsResolver as unknown as PermissionsResolverService,
   );
 
   beforeEach(() => {
@@ -186,5 +198,119 @@ describe('AttachmentsService', () => {
       service.archivePaymentAttachment(paymentId, 'pa1', userId),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(objectStorage.delete).not.toHaveBeenCalled();
+  });
+
+  describe('shipment attachments (shipping operational evidence)', () => {
+    const shipmentId = '44444444-4444-4444-4444-444444444444';
+
+    beforeEach(() => {
+      prisma.shipmentAttachment.count.mockResolvedValue(0);
+      prisma.shipmentAttachment.findFirst.mockResolvedValue(null);
+    });
+
+    it('finalizes a staged attachment as a ShipmentAttachment, never a PaymentAttachment', async () => {
+      const row = {
+        id: 'a1',
+        storageKey: 'k1',
+        originalName: 'waybill.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 40,
+      };
+      prisma.attachment.findMany.mockResolvedValue([row]);
+      prisma.shipmentAttachment.create.mockResolvedValue({ id: 'sa1' });
+
+      const created = await service.finalizeForShipment(
+        shipmentId,
+        ['a1'],
+        userId,
+        prisma as never,
+      );
+
+      expect(created).toHaveLength(1);
+      const createCall = prisma.shipmentAttachment.create.mock.calls.at(0) as
+        [{ data: Record<string, unknown> }] | undefined;
+      expect(createCall?.[0].data).toMatchObject({
+        shipmentId,
+        attachmentId: 'a1',
+        attachmentType: 'SHIPMENT_RECEIPT',
+      });
+      expect(prisma.paymentAttachment.create).not.toHaveBeenCalled();
+    });
+
+    it('enforces the per-shipment file cap', async () => {
+      prisma.shipmentAttachment.count.mockResolvedValue(10);
+      await expect(
+        service.finalizeForShipment(
+          shipmentId,
+          ['a1'],
+          userId,
+          prisma as never,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('discards the staging row when finalize fails during a direct upload', async () => {
+      prisma.attachment.create.mockImplementation(({ data }) =>
+        Promise.resolve({ ...data, createdAt: new Date() }),
+      );
+      prisma.attachment.findFirst.mockResolvedValue({
+        id: 'staged-1',
+        finalizedAt: null,
+        uploadedById: userId,
+        storageKey: 'attachments/staging/x',
+      });
+      prisma.attachment.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.uploadForShipment(shipmentId, jpegFile(), userId),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(objectStorage.delete).toHaveBeenCalled();
+    });
+
+    it('soft-deletes the join row and the underlying Attachment, and removes storage', async () => {
+      prisma.shipmentAttachment.findFirst.mockResolvedValue({
+        id: 'sa1',
+        shipmentId,
+        attachmentId: 'a1',
+        attachment: { storageKey: 'k1' },
+      });
+      prisma.$transaction.mockImplementation(
+        (fn: (tx: typeof prisma) => unknown) => fn(prisma),
+      );
+
+      await service.removeShipmentAttachment(shipmentId, 'sa1', userId);
+
+      const updateCall = prisma.shipmentAttachment.update.mock.calls.at(0) as
+        [{ where: { id: string }; data: Record<string, unknown> }] | undefined;
+      expect(updateCall?.[0].where).toEqual({ id: 'sa1' });
+      expect(updateCall?.[0].data).toMatchObject({ deletedById: userId });
+      expect(prisma.attachment.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'a1' } }),
+      );
+      expect(objectStorage.delete).toHaveBeenCalledWith('k1');
+    });
+
+    it('requires shipping.view (not sales scope) to view a shipment receipt via the generic download endpoint', async () => {
+      prisma.attachment.findFirst.mockResolvedValue({
+        id: 'a1',
+        finalizedAt: new Date(),
+        storageKey: 'k1',
+        mimeType: 'application/pdf',
+        originalName: 'waybill.pdf',
+      });
+      prisma.shipmentAttachment.findFirst.mockResolvedValue({
+        id: 'sa1',
+        attachmentId: 'a1',
+      });
+      permissionsResolver.hasPermission.mockResolvedValue(false);
+
+      await expect(service.getFile('a1', userId)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(permissionsResolver.hasPermission).toHaveBeenCalledWith(
+        userId,
+        'shipping.view',
+      );
+    });
   });
 });

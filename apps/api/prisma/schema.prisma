@@ -67,11 +67,12 @@ model User {
 
   paymentNotes         PaymentNote[]
   paymentAttachments   PaymentAttachment[]
-  uploadedAttachments  Attachment[]        @relation("AttachmentUploadedBy")
-  deletedAttachments   Attachment[]        @relation("AttachmentDeletedBy")
-  paymentsAsMatchedBy  Payment[]           @relation("PaymentMatchedBy")
-  paymentsAsVerifiedBy Payment[]           @relation("PaymentVerifiedBy")
-  paymentsAsRejectedBy Payment[]           @relation("PaymentRejectedBy")
+  shipmentAttachments  ShipmentAttachment[]
+  uploadedAttachments  Attachment[]         @relation("AttachmentUploadedBy")
+  deletedAttachments   Attachment[]         @relation("AttachmentDeletedBy")
+  paymentsAsMatchedBy  Payment[]            @relation("PaymentMatchedBy")
+  paymentsAsVerifiedBy Payment[]            @relation("PaymentVerifiedBy")
+  paymentsAsRejectedBy Payment[]            @relation("PaymentRejectedBy")
 
   bankTransactionsAsMatchedBy BankTransaction[] @relation("BankTransactionMatchedBy")
 
@@ -1656,6 +1657,12 @@ model Shipment {
 
   attachments SalesOrderAttachment[]
 
+  /// Shipping operational evidence (carrier receipt, waybill, handover
+  /// proof) — distinct from Payment/Order receipts (PaymentAttachment,
+  /// StoreOrderReceipt). Store Orders pipeline only; the legacy pipeline
+  /// keeps using `attachments` (SalesOrderAttachment) above.
+  receiptAttachments ShipmentAttachment[]
+
   @@index([storeOrderId])
   @@index([salesOrderId])
   @@index([status, createdAt])
@@ -1696,6 +1703,37 @@ model SalesOrderAttachment {
 
   @@index([salesOrderId])
   @@map("sales_order_attachments")
+}
+
+/// Shipment ↔ Attachment join for the Store Orders pipeline — shipping
+/// operational evidence (carrier receipt / waybill / handover receipt),
+/// never a Payment Receipt (see PaymentAttachment/StoreOrderReceipt).
+/// Unlimited per shipment attempt; soft-deleted, never hard-deleted, so
+/// history survives a removed attachment. Mirrors PaymentAttachment's shape.
+model ShipmentAttachment {
+  id String @id @default(uuid()) @db.Uuid
+
+  shipmentId String   @map("shipment_id") @db.Uuid
+  shipment   Shipment @relation(fields: [shipmentId], references: [id])
+
+  attachmentId String?     @unique @map("attachment_id") @db.Uuid
+  attachment   Attachment? @relation(fields: [attachmentId], references: [id])
+
+  uploadedById String @map("uploaded_by_id") @db.Uuid
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+
+  fileUrl        String  @map("file_url")
+  fileName       String? @map("file_name")
+  /// Plain string, same open-vocabulary convention as
+  /// SalesOrderAttachment.attachmentType / PaymentAttachment.attachmentType.
+  attachmentType String  @default("SHIPMENT_RECEIPT") @map("attachment_type")
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  deletedAt   DateTime? @map("deleted_at")
+  deletedById String?   @map("deleted_by_id") @db.Uuid
+
+  @@index([shipmentId, deletedAt])
+  @@map("shipment_attachments")
 }
 
 /// Append-only in this phase — create + list only, no update/delete
@@ -2369,6 +2407,7 @@ model Attachment {
 
   paymentLinks       PaymentAttachment[]
   storeOrderReceipts StoreOrderReceipt[]
+  shipmentLinks      ShipmentAttachment[]
 
   @@index([uploadedById])
   @@index([deletedAt, finalizedAt])

@@ -8,6 +8,11 @@ export const ATTACHMENT_MAX_PER_PAYMENT = Number(
   process.env.ATTACHMENT_MAX_PER_PAYMENT ?? 10,
 );
 
+/** Same canonical per-entity default as ATTACHMENT_MAX_PER_PAYMENT — shipment receipts reuse it rather than inventing a new limit. */
+export const ATTACHMENT_MAX_PER_SHIPMENT = Number(
+  process.env.ATTACHMENT_MAX_PER_SHIPMENT ?? ATTACHMENT_MAX_PER_PAYMENT,
+);
+
 export const ATTACHMENT_STAGING_TTL_MS = Number(
   process.env.ATTACHMENT_STAGING_TTL_MS ?? 24 * 60 * 60 * 1000,
 );

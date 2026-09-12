@@ -1,13 +1,19 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Param,
   Post,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { ATTACHMENT_MAX_BYTES } from '../../common/storage/file-validation';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { PermissionModule } from '../../auth/decorators/permission-module.decorator';
 import { PermissionAction } from '../../auth/decorators/permission-action.decorator';
@@ -187,6 +193,64 @@ export class StoreOrderShipmentsController {
     return this.operations.addNotes(
       storeOrderId,
       resolveShipmentNotes(dto),
+      user.sub,
+    );
+  }
+
+  /**
+   * Shipping operational evidence (receipt/waybill/handover proof) on the
+   * current shipment attempt — never a Payment Receipt. Reuses the generic
+   * Attachment staging/download pipeline (`/attachments/staging`,
+   * `/attachments/:id/file`); this controller only owns the
+   * Shipment-specific finalize/list/remove step.
+   */
+  @Get('attachments')
+  @PermissionAction('view')
+  listAttachments(@Param('storeOrderId') storeOrderId: string) {
+    return this.operations.listAttachments(storeOrderId);
+  }
+
+  @Post('attachments/upload')
+  @PermissionAction('edit')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: ATTACHMENT_MAX_BYTES },
+    }),
+  )
+  uploadAttachment(
+    @Param('storeOrderId') storeOrderId: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.operations.uploadAttachment(storeOrderId, file, user.sub);
+  }
+
+  @Post('attachments/from-staging')
+  @HttpCode(200)
+  @PermissionAction('edit')
+  attachStagingAttachments(
+    @Param('storeOrderId') storeOrderId: string,
+    @Body() body: { stagingAttachmentIds?: string[] },
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.operations.attachStagingAttachments(
+      storeOrderId,
+      body.stagingAttachmentIds ?? [],
+      user.sub,
+    );
+  }
+
+  @Delete('attachments/:attachmentId')
+  @PermissionAction('edit')
+  removeAttachment(
+    @Param('storeOrderId') storeOrderId: string,
+    @Param('attachmentId') attachmentId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.operations.removeAttachment(
+      storeOrderId,
+      attachmentId,
       user.sub,
     );
   }

@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { ShipmentStatus, ShippingCostPayer } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AttachmentsService } from '../../common/storage/attachments.service';
 import {
   StoreOrderActivityService,
   StoreOrderActivitySource,
@@ -35,6 +36,7 @@ export class StoreOrderShipmentOperationsService {
     private readonly prisma: PrismaService,
     private readonly shipmentsService: StoreOrderShipmentsService,
     private readonly activityService: StoreOrderActivityService,
+    private readonly attachments: AttachmentsService,
   ) {}
 
   private async assertOrderExists(storeOrderId: string) {
@@ -382,6 +384,120 @@ export class StoreOrderShipmentOperationsService {
 
   findAllForOrder(storeOrderId: string) {
     return this.shipmentsService.findAllForOrder(storeOrderId);
+  }
+
+  /**
+   * Shipping operational evidence (receipt/waybill/handover proof) attached
+   * to the CURRENT shipment attempt — same "current shipment" concept as
+   * shipping-company/tracking-number, auto-creating the shipment row on
+   * first use, never a second document-storage system.
+   */
+  async uploadAttachment(
+    storeOrderId: string,
+    file: Express.Multer.File | undefined,
+    userId: string,
+    source: StoreOrderActivitySource = MANUAL,
+  ) {
+    await this.assertOrderExists(storeOrderId);
+    const { shipment, created } =
+      await this.shipmentsService.getOrCreateCurrent(storeOrderId);
+    if (created) {
+      await this.activityService.log(
+        storeOrderId,
+        StoreOrderActivityType.SHIPMENT_CREATED,
+        `Shipment #${shipment.attemptNumber} created`,
+        userId,
+        this.prisma,
+        source,
+      );
+    }
+    const attachment = await this.attachments.uploadForShipment(
+      shipment.id,
+      file,
+      userId,
+    );
+    await this.activityService.log(
+      storeOrderId,
+      StoreOrderActivityType.SHIPMENT_ATTACHMENT_ADDED,
+      `Shipment attachment uploaded${attachment.fileName ? `: ${attachment.fileName}` : ''}`,
+      userId,
+      this.prisma,
+      source,
+    );
+    return attachment;
+  }
+
+  async attachStagingAttachments(
+    storeOrderId: string,
+    stagingIds: string[],
+    userId: string,
+    source: StoreOrderActivitySource = MANUAL,
+  ) {
+    await this.assertOrderExists(storeOrderId);
+    const { shipment, created } =
+      await this.shipmentsService.getOrCreateCurrent(storeOrderId);
+    if (created) {
+      await this.activityService.log(
+        storeOrderId,
+        StoreOrderActivityType.SHIPMENT_CREATED,
+        `Shipment #${shipment.attemptNumber} created`,
+        userId,
+        this.prisma,
+        source,
+      );
+    }
+    const links = await this.attachments.attachStagingToShipment(
+      shipment.id,
+      stagingIds,
+      userId,
+    );
+    if (links.length > 0) {
+      await this.activityService.log(
+        storeOrderId,
+        StoreOrderActivityType.SHIPMENT_ATTACHMENT_ADDED,
+        `${links.length} shipment attachment(s) added`,
+        userId,
+        this.prisma,
+        source,
+      );
+    }
+    return links;
+  }
+
+  async listAttachments(storeOrderId: string) {
+    await this.assertOrderExists(storeOrderId);
+    const current = await this.shipmentsService.getCurrent(storeOrderId);
+    if (!current) return [];
+    return this.attachments.listForShipment(current.id);
+  }
+
+  async removeAttachment(
+    storeOrderId: string,
+    shipmentAttachmentId: string,
+    userId: string,
+    source: StoreOrderActivitySource = MANUAL,
+  ) {
+    await this.assertOrderExists(storeOrderId);
+    const current = await this.shipmentsService.getCurrent(storeOrderId);
+    if (!current) {
+      throw new NotFoundException(
+        'No shipment exists yet for this Store Order.',
+      );
+    }
+    const result = await this.attachments.removeShipmentAttachment(
+      current.id,
+      shipmentAttachmentId,
+      userId,
+    );
+    await this.activityService.log(
+      storeOrderId,
+      StoreOrderActivityType.SHIPMENT_ATTACHMENT_REMOVED,
+      'Shipment attachment removed',
+      userId,
+      this.prisma,
+      source,
+    );
+    return result;
   }
 
   /**

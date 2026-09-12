@@ -8,14 +8,18 @@ import { PaymentStatus, Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SalesScopeService } from '../../sales-scope/sales-scope.service';
+import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 import {
   ATTACHMENT_MAX_PER_PAYMENT,
+  ATTACHMENT_MAX_PER_SHIPMENT,
   ATTACHMENT_STAGING_TTL_MS,
   validateAttachmentUpload,
 } from './file-validation';
 import { ObjectStorageService } from './object-storage.service';
 
 export const PAYMENT_RECEIPT_TYPE = 'PAYMENT_RECEIPT';
+/** Shipping operational evidence — never confused with PAYMENT_RECEIPT_TYPE (see ShipmentAttachment schema comment). */
+export const SHIPMENT_RECEIPT_TYPE = 'SHIPMENT_RECEIPT';
 
 const LOCKED_PAYMENT_STATUSES: PaymentStatus[] = [PaymentStatus.VERIFIED];
 
@@ -27,6 +31,7 @@ export class AttachmentsService {
     private readonly prisma: PrismaService,
     private readonly objectStorage: ObjectStorageService,
     private readonly salesScope: SalesScopeService,
+    private readonly permissionsResolver: PermissionsResolverService,
   ) {}
 
   async createStaging(file: Express.Multer.File | undefined, userId: string) {
@@ -195,6 +200,187 @@ export class AttachmentsService {
     return rows.map((row) => this.mapPaymentAttachment(row));
   }
 
+  /**
+   * Shipping operational evidence (carrier receipt / waybill / handover
+   * proof) — a `ShipmentAttachment` join, deliberately separate from
+   * PaymentAttachment/StoreOrderReceipt (see schema comment). Mirrors the
+   * payment finalize/upload/list/remove shape above exactly.
+   */
+  async finalizeForShipment(
+    shipmentId: string,
+    stagingIds: string[],
+    userId: string,
+    tx: Db = this.prisma,
+  ) {
+    const uniqueIds = [...new Set(stagingIds.filter(Boolean))];
+    if (uniqueIds.length === 0) return [];
+    await this.assertShipmentCapacity(shipmentId, uniqueIds.length, tx);
+    const rows = await tx.attachment.findMany({
+      where: {
+        id: { in: uniqueIds },
+        uploadedById: userId,
+        deletedAt: null,
+        finalizedAt: null,
+      },
+    });
+    if (rows.length !== uniqueIds.length) {
+      throw new BadRequestException('تعذر رفع المرفق، حاول مرة أخرى');
+    }
+    const created = [];
+    for (const row of rows) {
+      await tx.attachment.update({
+        where: { id: row.id },
+        data: { finalizedAt: new Date(), expiresAt: null },
+      });
+      const shipmentAttachment = await tx.shipmentAttachment.create({
+        data: {
+          shipmentId,
+          attachmentId: row.id,
+          uploadedById: userId,
+          fileUrl: `storage:${row.storageKey}`,
+          fileName: row.originalName,
+          attachmentType: SHIPMENT_RECEIPT_TYPE,
+        },
+      });
+      created.push(shipmentAttachment);
+    }
+    return created;
+  }
+
+  async attachStagingToShipment(
+    shipmentId: string,
+    stagingIds: string[],
+    userId: string,
+  ) {
+    return this.finalizeForShipment(shipmentId, stagingIds, userId);
+  }
+
+  async uploadForShipment(
+    shipmentId: string,
+    file: Express.Multer.File | undefined,
+    userId: string,
+  ) {
+    await this.assertShipmentCapacity(shipmentId, 1);
+    const staging = await this.createStaging(file, userId);
+    try {
+      const [link] = await this.finalizeForShipment(
+        shipmentId,
+        [staging.id],
+        userId,
+      );
+      return this.toShipmentAttachmentDto(link.id, staging);
+    } catch (error) {
+      await this.discardStaging(staging.id, userId).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  async listForShipment(shipmentId: string) {
+    const rows = await this.prisma.shipmentAttachment.findMany({
+      where: { shipmentId, deletedAt: null },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        uploadedBy: { select: { fullName: true } },
+        attachment: true,
+      },
+    });
+    return rows.map((row) => this.mapShipmentAttachment(row));
+  }
+
+  async removeShipmentAttachment(
+    shipmentId: string,
+    shipmentAttachmentId: string,
+    userId: string,
+  ) {
+    const link = await this.prisma.shipmentAttachment.findFirst({
+      where: { id: shipmentAttachmentId, shipmentId, deletedAt: null },
+      include: { attachment: true },
+    });
+    if (!link) throw new NotFoundException('Attachment not found.');
+    const now = new Date();
+    await this.prisma.$transaction(async (tx) => {
+      await tx.shipmentAttachment.update({
+        where: { id: link.id },
+        data: { deletedAt: now, deletedById: userId },
+      });
+      if (link.attachmentId) {
+        await tx.attachment.update({
+          where: { id: link.attachmentId },
+          data: { deletedAt: now, deletedById: userId },
+        });
+      }
+    });
+    if (link.attachment?.storageKey) {
+      await this.objectStorage.delete(link.attachment.storageKey);
+    }
+    return { id: shipmentAttachmentId };
+  }
+
+  private async assertShipmentCapacity(
+    shipmentId: string,
+    incoming: number,
+    tx: Db = this.prisma,
+  ) {
+    const count = await tx.shipmentAttachment.count({
+      where: { shipmentId, deletedAt: null },
+    });
+    if (count + incoming > ATTACHMENT_MAX_PER_SHIPMENT) {
+      throw new BadRequestException(
+        `لا يمكن إرفاق أكثر من ${ATTACHMENT_MAX_PER_SHIPMENT} مرفقات لكل شحنة.`,
+      );
+    }
+  }
+
+  private toShipmentAttachmentDto(
+    shipmentAttachmentId: string,
+    staging: {
+      id: string;
+      originalName: string;
+      mimeType: string;
+      sizeBytes: number;
+    },
+  ) {
+    return {
+      id: shipmentAttachmentId,
+      attachmentId: staging.id,
+      fileName: staging.originalName,
+      mimeType: staging.mimeType,
+      sizeBytes: staging.sizeBytes,
+      fileUrl: `/attachments/${staging.id}/file`,
+      attachmentType: SHIPMENT_RECEIPT_TYPE,
+    };
+  }
+
+  private mapShipmentAttachment(row: {
+    id: string;
+    fileUrl: string;
+    fileName: string | null;
+    attachmentType: string;
+    createdAt: Date;
+    uploadedBy: { fullName: string } | null;
+    attachment: {
+      id: string;
+      originalName: string;
+      mimeType: string;
+      sizeBytes: number;
+      createdAt: Date;
+    } | null;
+  }) {
+    return {
+      id: row.id,
+      attachmentId: row.attachment?.id ?? null,
+      fileName: row.attachment?.originalName ?? row.fileName,
+      mimeType: row.attachment?.mimeType ?? null,
+      sizeBytes: row.attachment?.sizeBytes ?? null,
+      fileUrl: row.attachment
+        ? `/attachments/${row.attachment.id}/file`
+        : row.fileUrl,
+      attachmentType: row.attachmentType,
+      uploadedBy: row.uploadedBy?.fullName ?? null,
+      createdAt: row.attachment?.createdAt ?? row.createdAt,
+    };
+  }
+
   async getFile(attachmentId: string, userId: string) {
     const attachment = await this.prisma.attachment.findFirst({
       where: { id: attachmentId, deletedAt: null },
@@ -314,6 +500,19 @@ export class AttachmentsService {
       where: { attachmentId, deletedAt: null },
       include: { storeOrder: { select: { id: true, employeeId: true } } },
     });
+    const shipmentLink = await this.prisma.shipmentAttachment.findFirst({
+      where: { attachmentId, deletedAt: null },
+    });
+    if (shipmentLink) {
+      const allowed = await this.permissionsResolver.hasPermission(
+        userId,
+        'shipping.view',
+      );
+      if (!allowed) {
+        throw new ForbiddenException('ليس لديك صلاحية لعرض هذا المرفق');
+      }
+      return;
+    }
     const scope = await this.salesScope.resolve(userId);
     if (link?.payment.storeOrder) {
       this.salesScope.assertPaymentEvidenceAccess(
