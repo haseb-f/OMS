@@ -144,11 +144,23 @@ export class CommissionsService {
         ? { departmentId: query.departmentId }
         : undefined,
     };
-    return this.prisma.commissionCalculation.findMany({
-      where,
-      include: CALCULATION_INCLUDE,
-      orderBy: [{ period: 'desc' }, { calculatedAt: 'asc' }],
-    });
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 20;
+    const orderBy: Prisma.CommissionCalculationOrderByWithRelationInput[] =
+      query.sortBy === 'calculatedAt'
+        ? [{ calculatedAt: query.sortOrder ?? 'desc' }]
+        : [{ period: 'desc' }, { calculatedAt: 'asc' }];
+    const [items, total] = await Promise.all([
+      this.prisma.commissionCalculation.findMany({
+        where,
+        include: CALCULATION_INCLUDE,
+        orderBy,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.commissionCalculation.count({ where }),
+    ]);
+    return { items, total, page, pageSize };
   }
 
   async approve(id: string, userId: string) {

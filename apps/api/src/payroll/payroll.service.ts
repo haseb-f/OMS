@@ -11,6 +11,7 @@ import { CommissionsService } from '../commissions/commissions.service';
 import { PostingEngineService } from '../accounting/posting-engine/posting-engine.service';
 import { CreatePayrollRunDto } from './dto/create-payroll-run.dto';
 import { AddPayrollLineComponentDto } from './dto/add-payroll-line-component.dto';
+import { PayrollRunsQueryDto } from './dto/payroll-runs-query.dto';
 import { periodToDateRange } from '../common/period/period-range.util';
 
 const RUN_INCLUDE = {
@@ -226,8 +227,24 @@ export class PayrollService {
     return run;
   }
 
-  async findAll() {
-    return this.prisma.payrollRun.findMany({ orderBy: { period: 'desc' } });
+  async findAll(query: PayrollRunsQueryDto = {}) {
+    const where: Prisma.PayrollRunWhereInput = { status: query.status };
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 20;
+    const orderBy: Prisma.PayrollRunOrderByWithRelationInput =
+      query.sortBy === 'createdAt'
+        ? { createdAt: query.sortOrder ?? 'desc' }
+        : { period: 'desc' };
+    const [items, total] = await Promise.all([
+      this.prisma.payrollRun.findMany({
+        where,
+        orderBy,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.payrollRun.count({ where }),
+    ]);
+    return { items, total, page, pageSize };
   }
 
   // -- Line-level ad hoc components (Part H one-off deductions/bonuses) ----

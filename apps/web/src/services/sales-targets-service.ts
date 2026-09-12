@@ -45,7 +45,18 @@ export interface SalesTargetsQueryParams {
   metric?: TargetMetric;
   departmentId?: string;
   salesTeamId?: string;
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
   [key: string]: string | number | boolean | string[] | undefined;
+}
+
+export interface SalesTargetsListResult {
+  items: SalesTargetRow[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 export interface RankingRow {
@@ -90,10 +101,10 @@ export interface MyRankingResult {
 
 const basePath = "/sales-targets";
 
-/** Part Q-S — Monthly Sales Targets (Employee or Team scoped) + the canonical Ranking/Achievement calculation, computed server-side from verified financial data (never derived here). `findAll` returns a bare array — no pagination wrapper, per `SalesTargetsController`. */
+/** Part Q-S — Monthly Sales Targets (Employee or Team scoped) + the canonical Ranking/Achievement calculation, computed server-side from verified financial data (never derived here). */
 export const salesTargetsService = {
   list: (params: SalesTargetsQueryParams = {}) =>
-    apiClient.get<SalesTargetRow[]>(`${basePath}${buildQueryString(params)}`),
+    apiClient.get<SalesTargetsListResult>(`${basePath}${buildQueryString(params)}`),
   get: (id: string) => apiClient.get<SalesTargetRow>(`${basePath}/${id}`),
   create: (dto: CreateSalesTargetPayload) => apiClient.post<SalesTargetRow>(basePath, dto),
   update: (id: string, dto: UpdateSalesTargetPayload) =>

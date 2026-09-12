@@ -31,6 +31,7 @@ import {
 } from "@/config/hr/kpi-evaluations";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
+import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 
@@ -43,6 +44,9 @@ export default function KpiEvaluationsPage() {
   const departments = useDepartments();
 
   const [items, setItems] = useState<KpiEvaluationRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = usePathRestorableState("page", 1);
+  const [pageSize, setPageSize] = usePathRestorableState("pageSize", 20);
   const [isLoading, setIsLoading] = useState(true);
   const [templateNameById, setTemplateNameById] = useState<Record<string, string>>({});
 
@@ -57,15 +61,18 @@ export default function KpiEvaluationsPage() {
         period: periodFilter && PERIOD_PATTERN.test(periodFilter) ? periodFilter : undefined,
         status: (statusFilter || undefined) as KpiEvaluationRow["status"] | undefined,
         departmentId: departmentFilter || undefined,
+        page,
+        pageSize,
       });
-      setItems(result);
+      setItems(result.items);
+      setTotal(result.total);
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [periodFilter, statusFilter, departmentFilter]);
+  }, [periodFilter, statusFilter, departmentFilter, page, pageSize]);
 
   useEffect(() => {
     // Fetch-on-dependency-change: the standard data-fetching effect pattern
@@ -144,9 +151,18 @@ export default function KpiEvaluationsPage() {
               className="w-32 shrink-0"
               placeholder={t("hr.kpiEvaluations.fields.period")}
               value={periodFilter}
-              onChange={(event) => setPeriodFilter(event.target.value)}
+              onChange={(event) => {
+                setPeriodFilter(event.target.value);
+                setPage(1);
+              }}
             />
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => {
+                setStatusFilter(value);
+                setPage(1);
+              }}
+            >
               <SelectTrigger className="w-44">
                 <SelectValue placeholder={t("hr.kpiEvaluations.fields.status")} />
               </SelectTrigger>
@@ -158,7 +174,13 @@ export default function KpiEvaluationsPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+            <Select
+              value={departmentFilter}
+              onValueChange={(value) => {
+                setDepartmentFilter(value);
+                setPage(1);
+              }}
+            >
               <SelectTrigger className="w-44">
                 <SelectValue placeholder={t("hr.employees.fields.department")} />
               </SelectTrigger>
@@ -179,6 +201,7 @@ export default function KpiEvaluationsPage() {
                   setPeriodFilter("");
                   setStatusFilter("");
                   setDepartmentFilter("");
+                  setPage(1);
                 }}
               >
                 <X className="size-3.5" />
@@ -191,6 +214,14 @@ export default function KpiEvaluationsPage() {
         printTitle={t("hr.kpiEvaluations.title")}
         columns={columns}
         data={items}
+        totalCount={total}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
         isLoading={isLoading}
         onRefresh={load}
         getRowHref={(row) => `/hr/kpi-evaluations/${row.id}`}

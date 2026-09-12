@@ -1,4 +1,5 @@
 import { apiClient } from "./api-client";
+import { buildQueryString } from "@/lib/query-string";
 import type { PayrollComponentType } from "./payroll-components-service";
 
 export type PayrollRunStatus = "DRAFT" | "HR_REVIEWED" | "FINANCE_APPROVED" | "POSTED" | "PAID";
@@ -70,10 +71,27 @@ export interface AddPayrollLineComponentPayload {
   amount: number;
 }
 
+export interface PayrollRunsListParams {
+  status?: PayrollRunStatus;
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+  [key: string]: string | number | undefined;
+}
+
+export interface PayrollRunsListResult {
+  items: PayrollRunRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 const basePath = "/payroll";
 
 export const payrollService = {
-  list: () => apiClient.get<PayrollRunRow[]>(basePath),
+  list: (params: PayrollRunsListParams = {}) =>
+    apiClient.get<PayrollRunsListResult>(`${basePath}${buildQueryString(params)}`),
   get: (id: string) => apiClient.get<PayrollRunRow>(`${basePath}/${id}`),
   createRun: (period: string) => apiClient.post<PayrollRunRow>(basePath, { period }),
   recalculate: (id: string) => apiClient.post<PayrollRunRow>(`${basePath}/${id}/recalculate`),

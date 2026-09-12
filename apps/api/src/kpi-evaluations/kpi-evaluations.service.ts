@@ -125,11 +125,23 @@ export class KpiEvaluationsService {
         salesTeamId: query.salesTeamId,
       },
     };
-    return this.prisma.kpiEvaluation.findMany({
-      where,
-      include: EVALUATION_INCLUDE,
-      orderBy: [{ period: 'desc' }, { createdAt: 'asc' }],
-    });
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 20;
+    const orderBy: Prisma.KpiEvaluationOrderByWithRelationInput[] =
+      query.sortBy === 'createdAt'
+        ? [{ createdAt: query.sortOrder ?? 'desc' }]
+        : [{ period: 'desc' }, { createdAt: 'asc' }];
+    const [items, total] = await Promise.all([
+      this.prisma.kpiEvaluation.findMany({
+        where,
+        include: EVALUATION_INCLUDE,
+        orderBy,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.kpiEvaluation.count({ where }),
+    ]);
+    return { items, total, page, pageSize };
   }
 
   // -- Scoring ---------------------------------------------------------------

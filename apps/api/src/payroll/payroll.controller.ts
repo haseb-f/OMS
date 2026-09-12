@@ -1,7 +1,16 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { PayrollService } from './payroll.service';
 import { CreatePayrollRunDto } from './dto/create-payroll-run.dto';
 import { AddPayrollLineComponentDto } from './dto/add-payroll-line-component.dto';
+import { PayrollRunsQueryDto } from './dto/payroll-runs-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { PermissionModule } from '../auth/decorators/permission-module.decorator';
@@ -22,8 +31,8 @@ export class PayrollController {
   }
 
   @Get()
-  findAll() {
-    return this.service.findAll();
+  findAll(@Query() query: PayrollRunsQueryDto) {
+    return this.service.findAll(query);
   }
 
   @Get(':id')

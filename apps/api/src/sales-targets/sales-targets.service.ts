@@ -122,14 +122,26 @@ export class SalesTargetsService {
         ? { departmentId: query.departmentId }
         : undefined,
     };
-    return this.prisma.salesTarget.findMany({
-      where,
-      include: {
-        employeeProfile: { include: { partner: { select: { name: true } } } },
-        salesTeam: { select: { id: true, name: true } },
-      },
-      orderBy: [{ period: 'desc' }, { createdAt: 'asc' }],
-    });
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 20;
+    const orderBy: Prisma.SalesTargetOrderByWithRelationInput[] =
+      query.sortBy === 'createdAt'
+        ? [{ createdAt: query.sortOrder ?? 'desc' }]
+        : [{ period: 'desc' }, { createdAt: 'asc' }];
+    const [items, total] = await Promise.all([
+      this.prisma.salesTarget.findMany({
+        where,
+        include: {
+          employeeProfile: { include: { partner: { select: { name: true } } } },
+          salesTeam: { select: { id: true, name: true } },
+        },
+        orderBy,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.salesTarget.count({ where }),
+    ]);
+    return { items, total, page, pageSize };
   }
 
   /** Part Q "Collected Sales must come from canonical verified financial data" — Payment.status=VERIFIED via the StoreOrder pipeline, the one canonical source. */

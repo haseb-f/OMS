@@ -94,7 +94,18 @@ export interface KpiEvaluationsListParams {
   salesTeamId?: string;
   employeeProfileId?: string;
   status?: KpiEvaluationStatus;
-  [key: string]: string | undefined;
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+  [key: string]: string | number | undefined;
+}
+
+export interface KpiEvaluationsListResult {
+  items: KpiEvaluationRow[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 // Re-exported so a page only needs one import for the whole scoring surface.
@@ -102,10 +113,10 @@ export type { KpiAutoMetricSource, KpiDropdownOption, KpiEvaluatorSource, KpiIte
 
 const basePath = "/kpi-evaluations";
 
-/** Part M-P — Monthly KPI Evaluations: start, score, submit, approve, reopen. `findAll` returns a bare array, no pagination wrapper (see `KpiEvaluationsService.findAll`). */
+/** Part M-P — Monthly KPI Evaluations: start, score, submit, approve, reopen. */
 export const kpiEvaluationsService = {
   list: (params: KpiEvaluationsListParams = {}) =>
-    apiClient.get<KpiEvaluationRow[]>(`${basePath}${buildQueryString(params)}`),
+    apiClient.get<KpiEvaluationsListResult>(`${basePath}${buildQueryString(params)}`),
   get: (id: string) => apiClient.get<KpiEvaluationRow>(`${basePath}/${id}`),
   auditLog: (id: string) =>
     apiClient.get<KpiEvaluationAuditLogRow[]>(`${basePath}/${id}/audit-log`),

@@ -29,6 +29,7 @@ import { salesTeamsService, type SalesTeamRow } from "@/services/sales-teams-ser
 import { buildSalesTargetsColumns, salesTargetRowLabel } from "@/config/hr/sales-targets";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
+import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 
@@ -58,6 +59,9 @@ export default function SalesTargetsPage() {
   const canDelete = hasPermission("hr.sales-targets.delete");
 
   const [rows, setRows] = useState<SalesTargetRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = usePathRestorableState("page", 1);
+  const [pageSize, setPageSize] = usePathRestorableState("pageSize", 20);
   const [isLoading, setIsLoading] = useState(true);
 
   const [filterPeriod, setFilterPeriod] = useState("");
@@ -71,14 +75,17 @@ export default function SalesTargetsPage() {
         period: filterPeriod || undefined,
         scopeType: (filterScopeType || undefined) as TargetScopeType | undefined,
         metric: (filterMetric || undefined) as TargetMetric | undefined,
+        page,
+        pageSize,
       });
-      setRows(result);
+      setRows(result.items);
+      setTotal(result.total);
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsLoading(false);
     }
-  }, [filterPeriod, filterScopeType, filterMetric, t]);
+  }, [filterPeriod, filterScopeType, filterMetric, page, pageSize, t]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -235,6 +242,14 @@ export default function SalesTargetsPage() {
         printTitle={t("hr.salesTargets.title")}
         columns={tableColumns}
         data={rows}
+        totalCount={total}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
         isLoading={isLoading}
         onRefresh={load}
         filterBar={
@@ -242,13 +257,19 @@ export default function SalesTargetsPage() {
             <Input
               type="month"
               value={filterPeriod}
-              onChange={(event) => setFilterPeriod(event.target.value)}
+              onChange={(event) => {
+                setFilterPeriod(event.target.value);
+                setPage(1);
+              }}
               className="h-(--control-height-sm) w-40"
               aria-label={t("hr.salesTargets.fields.period")}
             />
             <Select
               value={filterScopeType || ALL}
-              onValueChange={(value) => setFilterScopeType(value === ALL ? "" : value)}
+              onValueChange={(value) => {
+                setFilterScopeType(value === ALL ? "" : value);
+                setPage(1);
+              }}
             >
               <SelectTrigger size="sm" className="w-40">
                 <SelectValue placeholder={t("hr.salesTargets.fields.scopeType")} />
@@ -264,7 +285,10 @@ export default function SalesTargetsPage() {
             </Select>
             <Select
               value={filterMetric || ALL}
-              onValueChange={(value) => setFilterMetric(value === ALL ? "" : value)}
+              onValueChange={(value) => {
+                setFilterMetric(value === ALL ? "" : value);
+                setPage(1);
+              }}
             >
               <SelectTrigger size="sm" className="w-48">
                 <SelectValue placeholder={t("hr.salesTargets.fields.metric")} />

@@ -23,6 +23,7 @@ import { buildPayrollRunsColumns } from "@/config/hr/payroll";
 import { payrollService, type PayrollRunRow } from "@/services/payroll-service";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
+import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 
@@ -38,6 +39,9 @@ export default function PayrollRunsPage() {
   const canCreate = hasPermission("hr.payroll.create");
 
   const [rows, setRows] = useState<PayrollRunRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = usePathRestorableState("page", 1);
+  const [pageSize, setPageSize] = usePathRestorableState("pageSize", 20);
   const [isLoading, setIsLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -45,13 +49,15 @@ export default function PayrollRunsPage() {
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      setRows(await payrollService.list());
+      const result = await payrollService.list({ page, pageSize });
+      setRows(result.items);
+      setTotal(result.total);
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
     } finally {
       setIsLoading(false);
     }
-  }, [t]);
+  }, [page, pageSize, t]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -118,6 +124,14 @@ export default function PayrollRunsPage() {
         printTitle={t("hr.payroll.title")}
         columns={columns}
         data={rows}
+        totalCount={total}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
         isLoading={isLoading}
         getRowId={(row) => row.id}
         getRowHref={(row) => `/hr/payroll/${row.id}`}

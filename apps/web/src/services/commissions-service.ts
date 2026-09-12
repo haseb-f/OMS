@@ -47,21 +47,31 @@ export interface CommissionsQueryParams {
   status?: CommissionStatus;
   employeeProfileId?: string;
   departmentId?: string;
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
   [key: string]: string | number | boolean | string[] | undefined;
+}
+
+export interface CommissionsListResult {
+  items: CommissionCalculationRow[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 const basePath = "/commissions";
 
 /**
  * Part T-X — the Commission Engine's review/approval/adjustment surface
- * (Plan configuration lives in `commission-plans-service`). `list` returns a
- * bare array, same as `sales-targets-service`, per `CommissionsController`.
+ * (Plan configuration lives in `commission-plans-service`).
  */
 export const commissionsService = {
   calculate: (dto: { employeeProfileId: string; period: string }) =>
     apiClient.post<CommissionCalculationRow>(`${basePath}/calculate`, dto),
   list: (params: CommissionsQueryParams = {}) =>
-    apiClient.get<CommissionCalculationRow[]>(`${basePath}${buildQueryString(params)}`),
+    apiClient.get<CommissionsListResult>(`${basePath}${buildQueryString(params)}`),
   get: (id: string) => apiClient.get<CommissionCalculationRow>(`${basePath}/${id}`),
   approve: (id: string) => apiClient.post<CommissionCalculationRow>(`${basePath}/${id}/approve`),
   /** Corrects the SAME still-unposted period's calculation — requires a reason, fully audited. */

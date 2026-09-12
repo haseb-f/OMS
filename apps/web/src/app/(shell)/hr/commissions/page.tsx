@@ -43,6 +43,7 @@ import {
 } from "@/config/hr/commissions";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
+import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import type { MessageKey } from "@/i18n/translate";
@@ -76,6 +77,9 @@ export default function CommissionsPage() {
   const canCalculate = hasPermission("hr.commissions.view");
 
   const [rows, setRows] = useState<CommissionCalculationRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = usePathRestorableState("page", 1);
+  const [pageSize, setPageSize] = usePathRestorableState("pageSize", 20);
   const [isLoading, setIsLoading] = useState(true);
 
   const [periodFilter, setPeriodFilter] = useState(currentPeriod());
@@ -89,15 +93,18 @@ export default function CommissionsPage() {
         period: periodFilter && PERIOD_PATTERN.test(periodFilter) ? periodFilter : undefined,
         employeeProfileId: employeeFilter?.id || undefined,
         status: (statusFilter || undefined) as CommissionStatus | undefined,
+        page,
+        pageSize,
       });
-      setRows(result);
+      setRows(result.items);
+      setTotal(result.total);
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setIsLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [periodFilter, employeeFilter, statusFilter]);
+  }, [periodFilter, employeeFilter, statusFilter, page, pageSize]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -283,6 +290,14 @@ export default function CommissionsPage() {
         printTitle={t("hr.commissions.title")}
         columns={columns}
         data={rows}
+        totalCount={total}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
         isLoading={isLoading}
         onRefresh={load}
         getRowId={(row) => row.id}
@@ -293,13 +308,19 @@ export default function CommissionsPage() {
               inputSize="sm"
               className="w-40"
               value={periodFilter}
-              onChange={(event) => setPeriodFilter(event.target.value)}
+              onChange={(event) => {
+                setPeriodFilter(event.target.value);
+                setPage(1);
+              }}
               aria-label={t("hr.commissions.fields.period")}
             />
             <div className="w-56">
               <EntityCombobox
                 value={employeeFilter}
-                onChange={setEmployeeFilter}
+                onChange={(value) => {
+                  setEmployeeFilter(value);
+                  setPage(1);
+                }}
                 onSearch={employeesService.search}
                 getId={(row) => row.id}
                 getTitle={(row) => row.name}
@@ -311,7 +332,10 @@ export default function CommissionsPage() {
             </div>
             <Select
               value={statusFilter || ALL}
-              onValueChange={(value) => setStatusFilter(value === ALL ? "" : value)}
+              onValueChange={(value) => {
+                setStatusFilter(value === ALL ? "" : value);
+                setPage(1);
+              }}
             >
               <SelectTrigger size="sm" className="w-44">
                 <SelectValue placeholder={t("hr.commissions.fields.status")} />
