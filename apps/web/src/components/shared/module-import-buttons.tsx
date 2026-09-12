@@ -36,11 +36,12 @@ export function ModuleImportButtons({
   const [wizardOpen, setWizardOpen] = useState(false);
 
   useEffect(() => {
+    if (!canImport) return;
     importTypesService
       .list()
       .then((types) => setTypeDef(types.find((type) => type.type === importType) ?? null))
       .catch(() => setTypeDef(null));
-  }, [importType]);
+  }, [importType, canImport]);
 
   if (!typeDef || !canImport) return null;
 
