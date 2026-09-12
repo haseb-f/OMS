@@ -25,6 +25,15 @@ export interface AssignLeadInput {
   actorId?: string | null;
   /** Required for MANUAL/REASSIGNMENT HTTP paths — Agents are denied. */
   scope?: SalesScope;
+  /**
+   * Bulk-assign-only: the caller already ran `assertEligibleEmployee` once
+   * for this exact `salesEmployeeId` before looping over many leads — set
+   * only when the same target employee is being re-validated on every
+   * item of a batch that hasn't changed since. Every other caller (single
+   * assign, auto-distribution, import) omits this and keeps the per-call
+   * check.
+   */
+  skipEligibilityCheck?: boolean;
 }
 
 /**
@@ -79,7 +88,9 @@ export class LeadAssignmentsService {
         throw new NotFoundException(`Lead ${leadId} not found`);
       }
 
-      await this.assertEligibleEmployee(dto.salesEmployeeId);
+      if (!dto.skipEligibilityCheck) {
+        await this.assertEligibleEmployee(dto.salesEmployeeId);
+      }
 
       const method =
         lead.salesEmployeeId &&

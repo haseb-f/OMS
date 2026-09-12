@@ -598,23 +598,36 @@ export class LeadsService {
     if (dto.dryRun) {
       return { assigned: 0, ids, preview: true };
     }
+
+    // The target employee and the caller's scope are the same for every
+    // lead in the batch — validate both once instead of once per lead
+    // (previously: 1 employee-eligibility check + 1 redundant Lead read
+    // per item, on top of `assign()`'s own per-item read/write).
+    await this.leadAssignmentsService.assertEligibleEmployee(
+      dto.salesEmployeeId,
+    );
+    if (!this.salesScope.canSetOrderOwner(scope, dto.salesEmployeeId)) {
+      throw new ForbiddenException(
+        'Target employee is outside your assignment scope.',
+      );
+    }
+
+    const leads = await this.prisma.lead.findMany({
+      where: { id: { in: ids }, deletedAt: null },
+      select: { id: true, salesEmployeeId: true },
+    });
+    const leadsById = new Map(leads.map((lead) => [lead.id, lead]));
+
     for (const leadId of ids) {
-      const lead = await this.prisma.lead.findFirst({
-        where: { id: leadId, deletedAt: null },
-        select: { id: true, salesEmployeeId: true },
-      });
+      const lead = leadsById.get(leadId) ?? null;
       this.salesScope.assertLeadAccess(scope, lead);
-      if (!this.salesScope.canSetOrderOwner(scope, dto.salesEmployeeId)) {
-        throw new ForbiddenException(
-          'Target employee is outside your assignment scope.',
-        );
-      }
       await this.leadAssignmentsService.assign(leadId, {
         salesEmployeeId: dto.salesEmployeeId,
         method: LeadAssignmentMethod.MANUAL,
         reason: dto.reason,
         actorId,
         scope,
+        skipEligibilityCheck: true,
       });
     }
     return { assigned: ids.length, ids };
