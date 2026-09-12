@@ -31,6 +31,8 @@ describe('LeadsService.bulkAssign', () => {
     canViewStoreOrders: true,
     canViewShipping: true,
     canEditShipping: true,
+    canViewPaymentEvidence: true,
+    canManagePaymentEvidence: true,
   };
 
   const teamScopeRestricted: SalesScope = {
