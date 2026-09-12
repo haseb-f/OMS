@@ -40,6 +40,16 @@ export class FindShipmentsQueryDto {
   @IsOptional()
   search?: string;
 
+  /** Operational filter (Part 22 — Shipping Agent Table View filters). */
+  @IsIn(['true', 'false'])
+  @IsOptional()
+  hasTracking?: 'true' | 'false';
+
+  /** Operational filter — at least one non-deleted ShipmentAttachment (shipping receipt/waybill). */
+  @IsIn(['true', 'false'])
+  @IsOptional()
+  hasAttachment?: 'true' | 'false';
+
   @IsDateString()
   @IsOptional()
   dateFrom?: string;

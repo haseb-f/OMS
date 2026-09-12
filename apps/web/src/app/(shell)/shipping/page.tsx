@@ -28,6 +28,7 @@ import {
   shippingService,
   type ShipmentListRow,
   type ShipmentStatusValue,
+  type ShippingStatusCatalogEntry,
 } from "@/services/shipping-service";
 import {
   shippingCompaniesService,
@@ -36,6 +37,7 @@ import {
 import type { StoreOrderSourceValue } from "@/services/store-orders-service";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { useLocale } from "@/providers/locale-provider";
+import { useUserContext } from "@/providers/user-context";
 import { toast } from "@/lib/toast";
 import { formatDate, toISODate } from "@/lib/date";
 import { ApiError } from "@/services/api-client";
@@ -47,6 +49,8 @@ const EMPTY_DATE_RANGE: DateRangeValue = { from: null, to: null };
 function ShippingPageContent() {
   const { t } = useLocale();
   const router = useRouter();
+  const { hasPermission } = useUserContext();
+  const canQuickEdit = hasPermission("shipping.edit");
 
   const [items, setItems] = useState<ShipmentListRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -59,7 +63,13 @@ function ShippingPageContent() {
   const [companyFilter, setCompanyFilter] = usePathRestorableState<string[]>("company", []);
   const [countryFilter, setCountryFilter] = usePathRestorableState<string[]>("country", []);
   const [sourceFilter, setSourceFilter] = usePathRestorableState<string[]>("source", []);
+  const [trackingFilter, setTrackingFilter] = usePathRestorableState<string[]>("hasTracking", []);
+  const [attachmentFilter, setAttachmentFilter] = usePathRestorableState<string[]>(
+    "hasAttachment",
+    [],
+  );
   const [companies, setCompanies] = useState<ShippingCompanyOption[]>([]);
+  const [statuses, setStatuses] = useState<ShippingStatusCatalogEntry[]>([]);
   const countries = useCountries();
   const [dateRange, setDateRange] = usePathRestorableState<DateRangeValue>(
     "dateRange",
@@ -75,6 +85,10 @@ function ShippingPageContent() {
       .listOptions()
       .then(setCompanies)
       .catch(() => setCompanies([]));
+    shippingService
+      .statuses()
+      .then(setStatuses)
+      .catch(() => setStatuses([]));
   }, []);
 
   const listParams = useCallback(
@@ -84,11 +98,28 @@ function ShippingPageContent() {
       shippingCompanyId: companyFilter,
       countryId: countryFilter,
       source: sourceFilter as StoreOrderSourceValue[],
+      hasTracking: trackingFilter[0] as "true" | "false" | undefined,
+      hasAttachment: attachmentFilter[0] as "true" | "false" | undefined,
       dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
       dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
     }),
-    [search, statusFilter, companyFilter, countryFilter, sourceFilter, dateRange],
+    [
+      search,
+      statusFilter,
+      companyFilter,
+      countryFilter,
+      sourceFilter,
+      trackingFilter,
+      attachmentFilter,
+      dateRange,
+    ],
   );
+
+  const handleRowPatched = useCallback((shipmentId: string, patch: Partial<ShipmentListRow>) => {
+    setItems((current) =>
+      current.map((item) => (item.id === shipmentId ? { ...item, ...patch } : item)),
+    );
+  }, []);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -119,8 +150,14 @@ function ShippingPageContent() {
       buildShipmentColumns({
         onView: (row) => router.push(`/store-orders/${row.storeOrderId}`),
         onManage: (row) => setManageTarget(row),
+        quickEdit: {
+          canEdit: canQuickEdit,
+          statuses,
+          companies,
+          onPatched: handleRowPatched,
+        },
       }),
-    [router],
+    [router, canQuickEdit, statuses, companies, handleRowPatched],
   );
 
   const toPrintRow = useCallback(
@@ -230,6 +267,30 @@ function ShippingPageContent() {
                 { value: "IMPORT", label: t("storeOrders.source.IMPORT") },
               ]}
             />
+            <MultiSelectFilter
+              label={t("shipping.filters.tracking")}
+              values={trackingFilter}
+              onChange={(values) => {
+                setTrackingFilter(values.slice(-1));
+                setPage(1);
+              }}
+              options={[
+                { value: "true", label: t("shipping.filters.trackingHas") },
+                { value: "false", label: t("shipping.filters.trackingMissing") },
+              ]}
+            />
+            <MultiSelectFilter
+              label={t("shipping.filters.attachment")}
+              values={attachmentFilter}
+              onChange={(values) => {
+                setAttachmentFilter(values.slice(-1));
+                setPage(1);
+              }}
+              options={[
+                { value: "true", label: t("shipping.filters.attachmentHas") },
+                { value: "false", label: t("shipping.filters.attachmentMissing") },
+              ]}
+            />
             <EnterpriseDateRangePicker
               value={dateRange}
               onChange={(range) => {
@@ -240,6 +301,8 @@ function ShippingPageContent() {
             {(statusFilter.length > 0 ||
               companyFilter.length > 0 ||
               countryFilter.length > 0 ||
+              trackingFilter.length > 0 ||
+              attachmentFilter.length > 0 ||
               sourceFilter.length > 0 ||
               dateRange.from ||
               dateRange.to) && (
@@ -252,6 +315,8 @@ function ShippingPageContent() {
                   setCompanyFilter([]);
                   setCountryFilter([]);
                   setSourceFilter([]);
+                  setTrackingFilter([]);
+                  setAttachmentFilter([]);
                   setDateRange(EMPTY_DATE_RANGE);
                   setPage(1);
                 }}

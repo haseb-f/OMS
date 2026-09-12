@@ -106,6 +106,10 @@ function toShipmentListRow(order: StoreOrderRow, shipment: StoreOrderShipmentRow
     shippedAt: shipment.shippedAt,
     deliveredAt: shipment.deliveredAt,
     createdAt: shipment.createdAt,
+    // Always the latest attempt here (see `latestShipmentRow` at the call
+    // site) — this flag only matters for the flat Shipping list's per-row
+    // quick-edit gating, not this detail-page dialog.
+    isCurrentAttempt: true,
   };
 }
 

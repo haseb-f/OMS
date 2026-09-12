@@ -361,6 +361,8 @@ export class StoreOrderShipmentsService {
     search?: string;
     dateFrom?: string;
     dateTo?: string;
+    hasTracking?: 'true' | 'false';
+    hasAttachment?: 'true' | 'false';
   }): Prisma.ShipmentWhereInput {
     const countryFilter = prismaEnumFilter(query.countryId);
     const sourceFilter = prismaEnumFilter(query.source);
@@ -370,6 +372,16 @@ export class StoreOrderShipmentsService {
       status: prismaEnumFilter(query.status),
       shippingCompanyId: prismaEnumFilter(query.shippingCompanyId),
     };
+    if (query.hasTracking === 'true') {
+      where.trackingNumber = { not: null };
+    } else if (query.hasTracking === 'false') {
+      where.trackingNumber = null;
+    }
+    if (query.hasAttachment === 'true') {
+      where.receiptAttachments = { some: { deletedAt: null } };
+    } else if (query.hasAttachment === 'false') {
+      where.receiptAttachments = { none: { deletedAt: null } };
+    }
     /// The free-text search, the Country filter (Part 2 of the four-gaps
     /// task), and the Source filter all resolve through the same
     /// `storeOrder` relation (Country via `storeOrder.partner` — there is
@@ -439,6 +451,7 @@ export class StoreOrderShipmentsService {
             },
           },
           storeOrder: { include: { partner: { include: { country: true } } } },
+          _count: { select: { receiptAttachments: true } },
         },
         orderBy: { createdAt: query.sortOrder ?? 'desc' },
         skip: (page - 1) * pageSize,
@@ -446,7 +459,37 @@ export class StoreOrderShipmentsService {
       }),
       this.prisma.shipment.count({ where }),
     ]);
-    return { items, total, page, pageSize };
+
+    // Every per-order mutation (shipping-company, tracking-number,
+    // shipping-status, attachments) resolves "the CURRENT shipment attempt"
+    // for the Store Order — never a specific shipment id — so quick-editing
+    // a HISTORICAL attempt row from this flat list would silently write to
+    // the current attempt instead. `isCurrentAttempt` lets the frontend
+    // disable quick-edit on every row except the true current one.
+    const orderIds = [
+      ...new Set(
+        items
+          .map((item) => item.storeOrderId)
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    const currentAttempts = orderIds.length
+      ? await this.prisma.shipment.groupBy({
+          by: ['storeOrderId'],
+          where: { storeOrderId: { in: orderIds }, deletedAt: null },
+          _max: { attemptNumber: true },
+        })
+      : [];
+    const maxAttemptByOrder = new Map(
+      currentAttempts.map((row) => [row.storeOrderId, row._max.attemptNumber]),
+    );
+    const itemsWithCurrentFlag = items.map((item) => ({
+      ...item,
+      isCurrentAttempt:
+        item.attemptNumber === maxAttemptByOrder.get(item.storeOrderId),
+    }));
+
+    return { items: itemsWithCurrentFlag, total, page, pageSize };
   }
 
   async findAllFlatIds(query: FindShipmentsQueryDto) {

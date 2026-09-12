@@ -2,31 +2,25 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { Eye, Truck } from "lucide-react";
-import { StatusBadge } from "@/components/business/status-badge";
 import { RowActionsMenu } from "@/components/shared/data-table";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
-import { EnterpriseBadge } from "@/components/ui/badge";
+import { ShipmentAttachmentsPopover } from "@/components/shipping/shipment-attachments-popover";
 import { formatDate } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import type { ShipmentListRow } from "@/services/shipping-service";
-import { shipmentStatusLabelKey, shipmentStatusTone, catalogStatusTone } from "./shipment-status";
-
-function StatusCell({ row }: { row: ShipmentListRow }) {
-  const { t } = useLocale();
-  const catalog = row.shippingStatus;
-  return (
-    <StatusBadge
-      label={catalog?.name ?? t(shipmentStatusLabelKey(row.status))}
-      tone={catalog ? catalogStatusTone(catalog.color) : shipmentStatusTone(row.status)}
-    />
-  );
-}
+import {
+  ShippingCompanyQuickCell,
+  ShippingStatusQuickCell,
+  TrackingNumberQuickCell,
+  type ShipmentQuickEditContext,
+} from "./shipment-quick-edit-cells";
 
 export interface ShipmentRowHandlers {
   onView: (row: ShipmentListRow) => void;
   onManage: (row: ShipmentListRow) => void;
+  quickEdit: ShipmentQuickEditContext;
 }
 
 function ActionsCell({ row, handlers }: { row: ShipmentListRow; handlers: ShipmentRowHandlers }) {
@@ -111,43 +105,44 @@ export function buildShipmentColumns(
     },
     {
       id: "shippingCompany",
-      meta: { titleKey: "shipping.fields.shippingCompany", stacked: true, type: "name" },
+      meta: { titleKey: "shipping.fields.shippingCompany", type: "name" },
       accessorFn: (row) => row.shippingCompany?.name ?? "—",
-      cell: ({ row }) => (
-        <StackedCell
-          primary={row.original.shippingCompany?.name ?? "—"}
-          secondary={
-            row.original.trackingNumber ? (
-              <SemanticValue kind="id">{row.original.trackingNumber}</SemanticValue>
-            ) : undefined
-          }
-        />
-      ),
+      enableSorting: false,
+      cell: ({ row }) => <ShippingCompanyQuickCell row={row.original} ctx={handlers.quickEdit} />,
     },
     {
       id: "trackingNumber",
-      meta: { titleKey: "shipping.fields.trackingNumber", defaultHidden: true },
+      meta: { titleKey: "shipping.fields.trackingNumber" },
       accessorFn: (row) => row.trackingNumber ?? "—",
-      cell: (info) => (
-        <span dir="ltr" className="text-caption">
-          {info.getValue() as string}
-        </span>
-      ),
+      enableSorting: false,
+      cell: ({ row }) => <TrackingNumberQuickCell row={row.original} ctx={handlers.quickEdit} />,
     },
     {
       id: "status",
       meta: { titleKey: "shipping.fields.status" },
       enableSorting: false,
-      cell: ({ row }) => (
-        <div className="flex items-center gap-1.5">
-          <StatusCell row={row.original} />
-          {row.original.attemptNumber > 1 && (
-            <EnterpriseBadge variant="outline" className="text-xs">
-              #{row.original.attemptNumber}
-            </EnterpriseBadge>
-          )}
-        </div>
-      ),
+      cell: ({ row }) => <ShippingStatusQuickCell row={row.original} ctx={handlers.quickEdit} />,
+    },
+    {
+      id: "shippingAttachments",
+      meta: { titleKey: "shipping.fields.attachments" },
+      enableHiding: false,
+      enableSorting: false,
+      cell: ({ row }) =>
+        !row.original.isCurrentAttempt ? (
+          <span className="text-muted-foreground">—</span>
+        ) : (
+          <ShipmentAttachmentsPopover
+            storeOrderId={row.original.storeOrderId}
+            count={row.original._count?.receiptAttachments ?? 0}
+            canEdit={handlers.quickEdit.canEdit}
+            onCountChanged={(nextCount) =>
+              handlers.quickEdit.onPatched(row.original.id, {
+                _count: { receiptAttachments: nextCount },
+              })
+            }
+          />
+        ),
     },
     {
       id: "shippedAt",

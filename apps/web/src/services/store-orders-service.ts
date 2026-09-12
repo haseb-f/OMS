@@ -97,6 +97,19 @@ export interface StoreOrderShipmentRow {
   createdAt: string;
 }
 
+/** Shipping operational evidence (receipt/waybill/handover proof) — never a Payment Receipt (see StoreOrderReceiptRow/PaymentAttachmentRow). */
+export interface ShipmentAttachmentRow {
+  id: string;
+  attachmentId: string | null;
+  fileName: string | null;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  fileUrl: string;
+  attachmentType: string;
+  uploadedBy: string | null;
+  createdAt: string;
+}
+
 export type ShipmentStatusValue =
   | "READY_FOR_SHIPPING"
   | "LABEL_CREATED"
@@ -303,6 +316,28 @@ export const storeOrdersService = {
         shipmentId,
         notes: note,
       }),
+
+    // Shipping operational evidence on the CURRENT shipment attempt — reuses
+    // the generic Attachment staging/download pipeline; never a Payment
+    // Receipt (see `receipts` below / `attachmentsService`).
+    attachments: {
+      list: (storeOrderId: string) =>
+        apiClient.get<ShipmentAttachmentRow[]>(
+          `/store-orders/${storeOrderId}/shipments/attachments`,
+        ),
+      upload: (storeOrderId: string, file: File) => {
+        const form = new FormData();
+        form.append("file", file);
+        return apiClient.postForm<ShipmentAttachmentRow>(
+          `/store-orders/${storeOrderId}/shipments/attachments/upload`,
+          form,
+        );
+      },
+      remove: (storeOrderId: string, attachmentId: string) =>
+        apiClient.delete<{ id: string }>(
+          `/store-orders/${storeOrderId}/shipments/attachments/${attachmentId}`,
+        ),
+    },
   },
 
   // Receipts — the same "attach by URL" pattern used elsewhere in OMS

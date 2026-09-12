@@ -91,3 +91,45 @@ describe('Sales catalog grouping', () => {
     ).toBe(false);
   });
 });
+
+describe('Shipping quick-edit permission boundary', () => {
+  it('reuses the existing granular shipping.* actions — no new permission key was introduced', () => {
+    const shipping = PERMISSION_CATALOG.find(
+      (module) => module.key === 'shipping',
+    );
+    expect(shipping?.actions.map((action) => action.name)).toEqual(
+      expect.arrayContaining([
+        'shipping.view',
+        'shipping.create',
+        'shipping.edit',
+        'shipping.manage',
+      ]),
+    );
+  });
+
+  it('granting shipping.edit never implies store-orders/payments/accounting permissions', () => {
+    const expanded = withImpliedSectionPermissions([
+      'shipping.view',
+      'shipping.edit',
+    ]);
+    expect(expanded).toEqual(
+      expect.arrayContaining(['shipping.view', 'shipping.edit']),
+    );
+    expect(expanded).not.toEqual(
+      expect.arrayContaining([
+        'store-orders.edit',
+        'store-orders.view',
+        'payments.verify',
+        'payments.edit',
+      ]),
+    );
+  });
+
+  it('a Shipping Agent grant (shipping.* only) never resolves store-orders.edit', () => {
+    const shippingAgentGrants = withImpliedSectionPermissions([
+      'shipping.view',
+      'shipping.edit',
+    ]);
+    expect(shippingAgentGrants).not.toContain('store-orders.edit');
+  });
+});

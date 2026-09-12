@@ -29,6 +29,15 @@ export interface ShipmentListRow {
   shippedAt: string | null;
   deliveredAt: string | null;
   createdAt: string;
+  /** Shipping operational evidence count — never a Payment/Order receipt count. */
+  _count?: { receiptAttachments: number };
+  /**
+   * Every per-order shipment mutation (company/tracking/status/attachments)
+   * resolves "the CURRENT shipment attempt" server-side, never this exact
+   * row's id — so quick-edit must stay read-only on any row where this is
+   * false (a historical, superseded reship attempt).
+   */
+  isCurrentAttempt: boolean;
 }
 
 export interface ShipmentListParams {
@@ -39,6 +48,8 @@ export interface ShipmentListParams {
   source?: StoreOrderSourceValue | StoreOrderSourceValue[];
   dateFrom?: string;
   dateTo?: string;
+  hasTracking?: "true" | "false";
+  hasAttachment?: "true" | "false";
   search?: string;
   page?: number;
   pageSize?: number;
