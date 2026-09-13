@@ -17,7 +17,13 @@ import {
   type AccountingSettingsField,
   type AccountingSettingsRow,
 } from "@/services/accounting-settings-service";
+import {
+  investorAccountingSettingsService,
+  type InvestorAccountingSettingsField,
+  type InvestorAccountingSettingsRow,
+} from "@/services/investor-accounting-settings-service";
 import { useLocale } from "@/providers/locale-provider";
+import { useUserContext } from "@/providers/user-context";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import type { MessageKey } from "@/i18n/translate";
@@ -160,6 +166,30 @@ const SECTIONS: SectionConfig[] = [
   },
 ];
 
+interface InvestorFieldConfig {
+  key: InvestorAccountingSettingsField;
+  labelKey: MessageKey;
+}
+
+const INVESTOR_FIELDS: InvestorFieldConfig[] = [
+  {
+    key: "investorFundingAccountId",
+    labelKey: "accounting.settings.fields.investorFunding",
+  },
+  {
+    key: "investorProfitDistributionAccountId",
+    labelKey: "accounting.settings.fields.investorProfitDistribution",
+  },
+  {
+    key: "investorProfitPayableAccountId",
+    labelKey: "accounting.settings.fields.investorProfitPayable",
+  },
+  {
+    key: "capitalReturnAccountId",
+    labelKey: "accounting.settings.fields.capitalReturn",
+  },
+];
+
 function toChartRow(ref: AccountRef | null): ChartOfAccountRow | null {
   if (!ref) return null;
   return {
@@ -180,11 +210,50 @@ function toChartRow(ref: AccountRef | null): ChartOfAccountRow | null {
 
 export default function AccountingSettingsPage() {
   const { t } = useLocale();
+  const { hasPermission } = useUserContext();
+  const canViewInvestorSettings = hasPermission("investment-accounting.view");
+  const canConfigureInvestorSettings = hasPermission("investment-accounting.configure");
   const [settings, setSettings] = useState<AccountingSettingsRow | null>(null);
   const [values, setValues] = useState<Record<string, ChartOfAccountRow | null>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
+
+  const [investorValues, setInvestorValues] = useState<Record<string, ChartOfAccountRow | null>>(
+    {},
+  );
+  const [isInvestorSaving, setIsInvestorSaving] = useState(false);
+
+  useEffect(() => {
+    if (!canViewInvestorSettings) return;
+    investorAccountingSettingsService.get().then((row) => {
+      const next: Record<string, ChartOfAccountRow | null> = {};
+      for (const field of INVESTOR_FIELDS) {
+        const refKey = field.key.replace(/Id$/, "") as keyof InvestorAccountingSettingsRow;
+        next[field.key] = toChartRow(row[refKey] as AccountRef | null);
+      }
+
+      setInvestorValues(next);
+    });
+  }, [canViewInvestorSettings]);
+
+  const handleSaveInvestor = async () => {
+    setIsInvestorSaving(true);
+    try {
+      const payload: Record<string, string | null> = {};
+      for (const field of INVESTOR_FIELDS) {
+        payload[field.key] = investorValues[field.key]?.id ?? null;
+      }
+      await investorAccountingSettingsService.update(payload);
+      toast.success(t("common.saved"));
+    } catch (error) {
+      toast.error(
+        error instanceof ApiError ? error.message : "Failed to save Investor accounting settings.",
+      );
+    } finally {
+      setIsInvestorSaving(false);
+    }
+  };
 
   const load = () => {
     setIsLoading(true);
@@ -312,6 +381,43 @@ export default function AccountingSettingsPage() {
           </EnterpriseCard>
         ))}
       </div>
+
+      {canViewInvestorSettings && (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <EnterpriseCard className="gap-0 py-3">
+            <EnterpriseCardHeader className="flex flex-row items-center justify-between px-4 pb-2">
+              <EnterpriseCardTitle className="text-body">
+                {t("accounting.settings.sections.investors")}
+              </EnterpriseCardTitle>
+              {canConfigureInvestorSettings && (
+                <EnterpriseButton
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={isInvestorSaving}
+                  onClick={handleSaveInvestor}
+                >
+                  {t("common.save")}
+                </EnterpriseButton>
+              )}
+            </EnterpriseCardHeader>
+            <EnterpriseCardContent className="flex flex-col gap-2.5 px-4">
+              {INVESTOR_FIELDS.map((field) => (
+                <div key={field.key} className="flex flex-col gap-1">
+                  <label className="text-caption text-muted-foreground">{t(field.labelKey)}</label>
+                  <AccountPicker
+                    value={investorValues[field.key]}
+                    disabled={!canConfigureInvestorSettings}
+                    onChange={(account) =>
+                      setInvestorValues((prev) => ({ ...prev, [field.key]: account }))
+                    }
+                  />
+                </div>
+              ))}
+            </EnterpriseCardContent>
+          </EnterpriseCard>
+        </div>
+      )}
     </div>
   );
 }
