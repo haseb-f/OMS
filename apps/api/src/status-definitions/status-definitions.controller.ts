@@ -14,11 +14,18 @@ import { CreateStatusDefinitionDto } from './dto/create-status-definition.dto';
 import { UpdateStatusDefinitionDto } from './dto/update-status-definition.dto';
 import { FindStatusDefinitionsQueryDto } from './dto/find-status-definitions-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionModule } from '../auth/decorators/permission-module.decorator';
+import {
+  PermissionAction,
+  SkipPermissionCheck,
+} from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 
 @Controller('status-definitions')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@PermissionModule('workflow-statuses')
 export class StatusDefinitionsController {
   constructor(private readonly service: StatusDefinitionsService) {}
 
@@ -31,11 +38,13 @@ export class StatusDefinitionsController {
   }
 
   @Get()
+  @SkipPermissionCheck()
   findAll(@Query() query: FindStatusDefinitionsQueryDto) {
     return this.service.findAll(query);
   }
 
   @Get('by-workflow/:workflowType')
+  @SkipPermissionCheck()
   findByWorkflow(@Param('workflowType') workflowType: WorkflowType) {
     return this.service.findByWorkflow(workflowType);
   }
@@ -60,6 +69,7 @@ export class StatusDefinitionsController {
   }
 
   @Post(':id/archive')
+  @PermissionAction('delete')
   archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.service.archive(id, user.sub);
   }

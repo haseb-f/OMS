@@ -13,12 +13,19 @@ import { CreateLanguageDto } from './dto/create-language.dto';
 import { UpdateLanguageDto } from './dto/update-language.dto';
 import { MasterDataQueryDto } from '../master-data/dto/master-data-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionModule } from '../auth/decorators/permission-module.decorator';
+import {
+  PermissionAction,
+  SkipPermissionCheck,
+} from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 
 /** Master Data — Languages. Business operations: Create, Update, Archive, Restore, Search. */
 @Controller('languages')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@PermissionModule('languages')
 export class LanguagesController {
   constructor(private readonly languagesService: LanguagesService) {}
 
@@ -28,6 +35,7 @@ export class LanguagesController {
   }
 
   @Get()
+  @SkipPermissionCheck()
   findAll(@Query() query: MasterDataQueryDto) {
     return this.languagesService.findAll(query);
   }
@@ -52,6 +60,7 @@ export class LanguagesController {
   }
 
   @Post(':id/archive')
+  @PermissionAction('delete')
   archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.languagesService.archive(id, user.sub);
   }

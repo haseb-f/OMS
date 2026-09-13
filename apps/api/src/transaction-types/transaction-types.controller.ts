@@ -13,12 +13,19 @@ import { CreateTransactionTypeDto } from './dto/create-transaction-type.dto';
 import { UpdateTransactionTypeDto } from './dto/update-transaction-type.dto';
 import { FindTransactionTypesQueryDto } from './dto/find-transaction-types-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionModule } from '../auth/decorators/permission-module.decorator';
+import {
+  PermissionAction,
+  SkipPermissionCheck,
+} from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 
 /** Master Data — Transaction Types Registry. Business operations: Create, Update, Archive, Restore, Search — the الوارد/الصادر split is the `direction` query filter, never two separate endpoints. */
 @Controller('transaction-types')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@PermissionModule('transaction-types')
 export class TransactionTypesController {
   constructor(
     private readonly transactionTypesService: TransactionTypesService,
@@ -33,6 +40,7 @@ export class TransactionTypesController {
   }
 
   @Get()
+  @SkipPermissionCheck()
   findAll(@Query() query: FindTransactionTypesQueryDto) {
     return this.transactionTypesService.findAll(
       query,
@@ -60,6 +68,7 @@ export class TransactionTypesController {
   }
 
   @Post(':id/archive')
+  @PermissionAction('delete')
   archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.transactionTypesService.archive(id, user.sub);
   }

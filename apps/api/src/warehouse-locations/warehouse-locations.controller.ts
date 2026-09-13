@@ -13,12 +13,19 @@ import { CreateWarehouseLocationDto } from './dto/create-warehouse-location.dto'
 import { UpdateWarehouseLocationDto } from './dto/update-warehouse-location.dto';
 import { MasterDataQueryDto } from '../master-data/dto/master-data-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionModule } from '../auth/decorators/permission-module.decorator';
+import {
+  PermissionAction,
+  SkipPermissionCheck,
+} from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 
 /** Master Data — Warehouse Locations. Business operations: Create, Update, Archive, Restore, Search, plus a per-warehouse tree fetch. */
 @Controller('warehouse-locations')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@PermissionModule('warehouse-locations')
 export class WarehouseLocationsController {
   constructor(
     private readonly warehouseLocationsService: WarehouseLocationsService,
@@ -33,11 +40,13 @@ export class WarehouseLocationsController {
   }
 
   @Get()
+  @SkipPermissionCheck()
   findAll(@Query() query: MasterDataQueryDto) {
     return this.warehouseLocationsService.findAll(query);
   }
 
   @Get('by-warehouse/:warehouseId')
+  @SkipPermissionCheck()
   findByWarehouse(@Param('warehouseId') warehouseId: string) {
     return this.warehouseLocationsService.findByWarehouse(warehouseId);
   }
@@ -62,6 +71,7 @@ export class WarehouseLocationsController {
   }
 
   @Post(':id/archive')
+  @PermissionAction('delete')
   archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.warehouseLocationsService.archive(id, user.sub);
   }

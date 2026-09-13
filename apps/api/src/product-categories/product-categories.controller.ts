@@ -13,12 +13,19 @@ import { CreateProductCategoryDto } from './dto/create-product-category.dto';
 import { UpdateProductCategoryDto } from './dto/update-product-category.dto';
 import { MasterDataQueryDto } from '../master-data/dto/master-data-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionModule } from '../auth/decorators/permission-module.decorator';
+import {
+  PermissionAction,
+  SkipPermissionCheck,
+} from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 
 /** Master Data — Categories. Business operations: Create, Update, Archive, Restore, Search. */
 @Controller('product-categories')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@PermissionModule('categories')
 export class ProductCategoriesController {
   constructor(
     private readonly productCategoriesService: ProductCategoriesService,
@@ -33,6 +40,7 @@ export class ProductCategoriesController {
   }
 
   @Get()
+  @SkipPermissionCheck()
   findAll(@Query() query: MasterDataQueryDto) {
     return this.productCategoriesService.findAll(query);
   }
@@ -57,6 +65,7 @@ export class ProductCategoriesController {
   }
 
   @Post(':id/archive')
+  @PermissionAction('delete')
   archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.productCategoriesService.archive(id, user.sub);
   }

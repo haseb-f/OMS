@@ -11,7 +11,10 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { PermissionModule } from '../auth/decorators/permission-module.decorator';
-import { PermissionAction } from '../auth/decorators/permission-action.decorator';
+import {
+  PermissionAction,
+  SkipPermissionCheck,
+} from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 import { SalesTeamsService } from './sales-teams.service';
@@ -29,6 +32,7 @@ export class SalesTeamsController {
   }
 
   @Get()
+  @SkipPermissionCheck()
   findAll(@Query('search') search?: string) {
     return this.salesTeams.findAll(search);
   }

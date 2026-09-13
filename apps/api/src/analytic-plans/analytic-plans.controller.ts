@@ -13,12 +13,19 @@ import { CreateAnalyticPlanDto } from './dto/create-analytic-plan.dto';
 import { UpdateAnalyticPlanDto } from './dto/update-analytic-plan.dto';
 import { MasterDataQueryDto } from '../master-data/dto/master-data-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionModule } from '../auth/decorators/permission-module.decorator';
+import {
+  PermissionAction,
+  SkipPermissionCheck,
+} from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 
 /** Master Data — Analytic Plans. Business operations: Create, Update, Archive, Restore, Search. */
 @Controller('analytic-plans')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@PermissionModule('analytic-plans')
 export class AnalyticPlansController {
   constructor(private readonly analyticPlansService: AnalyticPlansService) {}
 
@@ -28,6 +35,7 @@ export class AnalyticPlansController {
   }
 
   @Get()
+  @SkipPermissionCheck()
   findAll(@Query() query: MasterDataQueryDto) {
     return this.analyticPlansService.findAll(query);
   }
@@ -52,6 +60,7 @@ export class AnalyticPlansController {
   }
 
   @Post(':id/archive')
+  @PermissionAction('delete')
   archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.analyticPlansService.archive(id, user.sub);
   }

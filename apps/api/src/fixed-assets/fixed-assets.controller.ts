@@ -13,12 +13,19 @@ import { CreateFixedAssetDto } from './dto/create-fixed-asset.dto';
 import { UpdateFixedAssetDto } from './dto/update-fixed-asset.dto';
 import { MasterDataQueryDto } from '../master-data/dto/master-data-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionModule } from '../auth/decorators/permission-module.decorator';
+import {
+  PermissionAction,
+  SkipPermissionCheck,
+} from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 
 /** Fixed Assets — Create, Update, Archive, Restore, Search (same shape as Cost Centers/Expenses). */
 @Controller('fixed-assets')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@PermissionModule('fixed-assets')
 export class FixedAssetsController {
   constructor(private readonly fixedAssetsService: FixedAssetsService) {}
 
@@ -28,6 +35,7 @@ export class FixedAssetsController {
   }
 
   @Get()
+  @SkipPermissionCheck()
   findAll(@Query() query: MasterDataQueryDto) {
     return this.fixedAssetsService.findAll(query);
   }
@@ -52,6 +60,7 @@ export class FixedAssetsController {
   }
 
   @Post(':id/archive')
+  @PermissionAction('delete')
   archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.fixedAssetsService.archive(id, user.sub);
   }

@@ -13,12 +13,19 @@ import { CreateCityDto } from './dto/create-city.dto';
 import { UpdateCityDto } from './dto/update-city.dto';
 import { FindCitiesQueryDto } from './dto/find-cities-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionModule } from '../auth/decorators/permission-module.decorator';
+import {
+  PermissionAction,
+  SkipPermissionCheck,
+} from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 
 /** Master Data — Cities. Business operations: Create, Update, Archive, Restore, Search. */
 @Controller('cities')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@PermissionModule('cities')
 export class CitiesController {
   constructor(private readonly citiesService: CitiesService) {}
 
@@ -28,6 +35,7 @@ export class CitiesController {
   }
 
   @Get()
+  @SkipPermissionCheck()
   findAll(@Query() query: FindCitiesQueryDto) {
     return this.citiesService.findAll(query);
   }
@@ -52,6 +60,7 @@ export class CitiesController {
   }
 
   @Post(':id/archive')
+  @PermissionAction('delete')
   archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.citiesService.archive(id, user.sub);
   }

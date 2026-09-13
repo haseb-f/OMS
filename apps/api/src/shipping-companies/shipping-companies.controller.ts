@@ -13,12 +13,19 @@ import { CreateShippingCompanyDto } from './dto/create-shipping-company.dto';
 import { UpdateShippingCompanyDto } from './dto/update-shipping-company.dto';
 import { MasterDataQueryDto } from '../master-data/dto/master-data-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionModule } from '../auth/decorators/permission-module.decorator';
+import {
+  PermissionAction,
+  SkipPermissionCheck,
+} from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 
 /** Master Data — Shipping Companies. Business operations: Create, Update, Archive, Restore, Search. */
 @Controller('shipping-companies')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@PermissionModule('shipping-companies')
 export class ShippingCompaniesController {
   constructor(
     private readonly shippingCompaniesService: ShippingCompaniesService,
@@ -33,6 +40,7 @@ export class ShippingCompaniesController {
   }
 
   @Get()
+  @SkipPermissionCheck()
   findAll(@Query() query: MasterDataQueryDto) {
     return this.shippingCompaniesService.findAll(query);
   }
@@ -57,6 +65,7 @@ export class ShippingCompaniesController {
   }
 
   @Post(':id/archive')
+  @PermissionAction('delete')
   archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.shippingCompaniesService.archive(id, user.sub);
   }

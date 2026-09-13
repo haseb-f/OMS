@@ -13,12 +13,19 @@ import { CreateProductBrandDto } from './dto/create-product-brand.dto';
 import { UpdateProductBrandDto } from './dto/update-product-brand.dto';
 import { MasterDataQueryDto } from '../master-data/dto/master-data-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionModule } from '../auth/decorators/permission-module.decorator';
+import {
+  PermissionAction,
+  SkipPermissionCheck,
+} from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 
 /** Master Data — Brands. Business operations: Create, Update, Archive, Restore, Search. */
 @Controller('product-brands')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@PermissionModule('brands')
 export class ProductBrandsController {
   constructor(private readonly productBrandsService: ProductBrandsService) {}
 
@@ -28,6 +35,7 @@ export class ProductBrandsController {
   }
 
   @Get()
+  @SkipPermissionCheck()
   findAll(@Query() query: MasterDataQueryDto) {
     return this.productBrandsService.findAll(query);
   }
@@ -52,6 +60,7 @@ export class ProductBrandsController {
   }
 
   @Post(':id/archive')
+  @PermissionAction('delete')
   archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.productBrandsService.archive(id, user.sub);
   }

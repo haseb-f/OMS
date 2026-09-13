@@ -13,12 +13,19 @@ import { CreateShippingStatusDto } from './dto/create-shipping-status.dto';
 import { UpdateShippingStatusDto } from './dto/update-shipping-status.dto';
 import { MasterDataQueryDto } from '../master-data/dto/master-data-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionModule } from '../auth/decorators/permission-module.decorator';
+import {
+  PermissionAction,
+  SkipPermissionCheck,
+} from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 
 /** Master Data — Shipping Statuses. Business operations: Create, Update, Archive, Restore, Search. */
 @Controller('shipping-statuses')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@PermissionModule('shipping-statuses')
 export class ShippingStatusesController {
   constructor(
     private readonly shippingStatusesService: ShippingStatusesService,
@@ -33,6 +40,7 @@ export class ShippingStatusesController {
   }
 
   @Get()
+  @SkipPermissionCheck()
   findAll(@Query() query: MasterDataQueryDto) {
     return this.shippingStatusesService.findAll(query);
   }
@@ -58,11 +66,13 @@ export class ShippingStatusesController {
 
   /** Safe default-replacement flow — see `ShippingStatusesService.setDefault`. */
   @Post(':id/set-default')
+  @PermissionAction('edit')
   setDefault(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.shippingStatusesService.setDefault(id, user.sub);
   }
 
   @Post(':id/archive')
+  @PermissionAction('delete')
   archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.shippingStatusesService.archive(id, user.sub);
   }

@@ -134,6 +134,24 @@ function documentActions(
   return actions;
 }
 
+/**
+ * TASK-062 Security Hardening — the standard shape for every plain Master
+ * Data reference entity (Cities, Warehouses, Payment Methods, ...): View,
+ * Create, Edit, Archive under the `masterdata.<entity>.*` name every
+ * existing entity (Departments, Job Titles, Customer Classifications, No
+ * Purchase Reasons) already uses and every Master Data page's
+ * `permissionPrefix` prop already expects — reused here instead of inventing
+ * a second naming scheme for the ~25 controllers TASK-060 never covered.
+ */
+function masterData(entityKey: string): PermissionActionDef[] {
+  return [
+    { action: 'view', name: `masterdata.${entityKey}.view` },
+    { action: 'create', name: `masterdata.${entityKey}.create` },
+    { action: 'edit', name: `masterdata.${entityKey}.edit` },
+    { action: 'delete', name: `masterdata.${entityKey}.archive` },
+  ];
+}
+
 /** Payment/Receipt workflow: Create, Edit, Confirm, Cancel — no Approve step (matches the existing `sales.receipts.*` / `purchasing.payments.*` permissions already wired into these editors). */
 function paymentActions(moduleName: string): PermissionActionDef[] {
   return [
@@ -366,6 +384,25 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
     ],
   },
   {
+    // Physical Count (stocktake) — its own lifecycle (Create, Confirm,
+    // Cancel, edit a counted line) distinct from Inventory Movements.
+    // `view` deliberately reuses the plain `inventory.view` name (not a
+    // `inventory.physical-count.view`) so it stays governed by the same
+    // "can see Inventory" boundary the `/inventory/physical-count` nav entry
+    // already gates on. `create`'s name matches the permission the seed's
+    // `inventoryPermissions` array already grants (TASK-048) — this closes
+    // the guard that was missing, it does not rename anything.
+    key: 'physical-count',
+    labelKey: 'permissions.modules.physicalCount',
+    actions: [
+      { action: 'view', name: 'inventory.view' },
+      { action: 'create', name: 'inventory.physical-count.create' },
+      { action: 'edit', name: 'inventory.physical-count.edit' },
+      { action: 'confirm', name: 'inventory.physical-count.confirm' },
+      { action: 'cancel', name: 'inventory.physical-count.cancel' },
+    ],
+  },
+  {
     key: 'opening-inventory',
     labelKey: 'permissions.modules.openingInventory',
     actions: [
@@ -446,6 +483,219 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
       { action: 'edit', name: 'masterdata.job-titles.edit' },
       { action: 'delete', name: 'masterdata.job-titles.archive' },
     ],
+  },
+  // TASK-062 Security Hardening — Master Data reference entities that had NO
+  // backend permission guard at all (any authenticated user could read or
+  // mutate them). Names/keys match the `permissionPrefix` every Master Data
+  // page already sends, so this is closing a gap the frontend already
+  // assumed was enforced, never a rename.
+  {
+    key: 'cities',
+    labelKey: 'permissions.modules.cities',
+    actions: masterData('cities'),
+  },
+  {
+    key: 'countries',
+    labelKey: 'permissions.modules.countries',
+    actions: masterData('countries'),
+  },
+  {
+    key: 'currencies',
+    labelKey: 'permissions.modules.currencies',
+    actions: masterData('currencies'),
+  },
+  {
+    key: 'languages',
+    labelKey: 'permissions.modules.languages',
+    actions: masterData('languages'),
+  },
+  {
+    key: 'transaction-types',
+    labelKey: 'permissions.modules.transactionTypes',
+    actions: masterData('transaction-types'),
+  },
+  {
+    // Backs the "workflow-statuses" page (`StatusDefinitionsController`,
+    // route `/status-definitions`) — key differs from the controller's own
+    // route name because the frontend page's `permissionPrefix` already
+    // shipped as `masterdata.workflow-statuses`.
+    key: 'workflow-statuses',
+    labelKey: 'permissions.modules.workflowStatuses',
+    actions: masterData('workflow-statuses'),
+  },
+  {
+    // Workflow Transition *configuration* (which permission a transition
+    // requires, whether it needs approval/a reason) — distinct from
+    // executing a transition, which already enforces the transition's own
+    // dynamic `requiredPermission` (`WorkflowEngineService`). Coarse
+    // view/manage, same shape as `settings`, since editing workflow rules is
+    // a single highly-privileged admin operation, not a multi-action CRUD.
+    key: 'workflow-transitions',
+    labelKey: 'permissions.modules.workflowTransitions',
+    actions: [
+      { action: 'view', name: 'masterdata.workflow-transitions.view' },
+      { action: 'manage', name: 'masterdata.workflow-transitions.manage' },
+    ],
+  },
+  {
+    key: 'customer-groups',
+    labelKey: 'permissions.modules.customerGroups',
+    actions: masterData('customer-groups'),
+  },
+  {
+    key: 'supplier-groups',
+    labelKey: 'permissions.modules.supplierGroups',
+    actions: masterData('supplier-groups'),
+  },
+  {
+    // Product Categories page uses `masterdata.categories` (not
+    // `masterdata.product-categories`) — matches the page's existing prop.
+    key: 'categories',
+    labelKey: 'permissions.modules.categories',
+    actions: masterData('categories'),
+  },
+  {
+    // Product Brands page uses `masterdata.brands`, same reasoning as above.
+    key: 'brands',
+    labelKey: 'permissions.modules.brands',
+    actions: masterData('brands'),
+  },
+  {
+    key: 'warehouses',
+    labelKey: 'permissions.modules.warehouses',
+    actions: masterData('warehouses'),
+  },
+  {
+    key: 'warehouse-locations',
+    labelKey: 'permissions.modules.warehouseLocations',
+    actions: masterData('warehouse-locations'),
+  },
+  {
+    // Units AND Unit Conversions share one permission — the Unit
+    // Conversions page's own `permissionPrefix` is `masterdata.units`, not a
+    // separate name, so both controllers are tagged with this one module.
+    key: 'units',
+    labelKey: 'permissions.modules.units',
+    actions: masterData('units'),
+  },
+  {
+    key: 'payment-methods',
+    labelKey: 'permissions.modules.paymentMethods',
+    actions: masterData('payment-methods'),
+  },
+  {
+    key: 'payment-terms',
+    labelKey: 'permissions.modules.paymentTerms',
+    actions: masterData('payment-terms'),
+  },
+  {
+    key: 'taxes',
+    labelKey: 'permissions.modules.taxes',
+    actions: masterData('taxes'),
+  },
+  {
+    key: 'cost-centers',
+    labelKey: 'permissions.modules.costCenters',
+    actions: masterData('cost-centers'),
+  },
+  {
+    key: 'projects',
+    labelKey: 'permissions.modules.projects',
+    actions: masterData('projects'),
+  },
+  {
+    key: 'analytic-plans',
+    labelKey: 'permissions.modules.analyticPlans',
+    actions: masterData('analytic-plans'),
+  },
+  {
+    key: 'analytic-accounts',
+    labelKey: 'permissions.modules.analyticAccounts',
+    actions: masterData('analytic-accounts'),
+  },
+  {
+    // Generic per-document analytic split (Analytic Distributions) — not a
+    // CRUD entity of its own (no create/archive), just a read/replace pair
+    // scoped to one document at a time. Reuses the `analytic-accounts`
+    // permission family conceptually but needs its own grantable row since
+    // "can maintain the Analytic Accounts list" and "can tag a document with
+    // an analytic split" are different authorities.
+    key: 'analytic-distributions',
+    labelKey: 'permissions.modules.analyticDistributions',
+    actions: [
+      { action: 'view', name: 'masterdata.analytic-distributions.view' },
+      { action: 'edit', name: 'masterdata.analytic-distributions.edit' },
+    ],
+  },
+  {
+    key: 'journals',
+    labelKey: 'permissions.modules.journals',
+    actions: masterData('journals'),
+  },
+  {
+    key: 'expenses',
+    labelKey: 'permissions.modules.expenses',
+    actions: masterData('expenses'),
+  },
+  {
+    key: 'fixed-assets',
+    labelKey: 'permissions.modules.fixedAssets',
+    actions: masterData('fixed-assets'),
+  },
+  {
+    key: 'shipping-companies',
+    labelKey: 'permissions.modules.shippingCompanies',
+    actions: masterData('shipping-companies'),
+  },
+  {
+    key: 'shipping-statuses',
+    labelKey: 'permissions.modules.shippingStatuses',
+    actions: masterData('shipping-statuses'),
+  },
+  {
+    key: 'payment-sources',
+    labelKey: 'permissions.modules.paymentSources',
+    actions: masterData('payment-sources'),
+  },
+  {
+    key: 'receiving-accounts',
+    labelKey: 'permissions.modules.receivingAccounts',
+    actions: masterData('receiving-accounts'),
+  },
+  {
+    // "Only administrators can modify numbering" — the Document Numbering
+    // page's own `hasPermission("numbering.manage")` check already shipped
+    // with this exact name; this registers the guard the frontend always
+    // assumed existed, not a new name. No separate `view`: the page loads
+    // the list for anyone who can reach Settings, same as before.
+    key: 'numbering',
+    labelKey: 'permissions.modules.numbering',
+    actions: [{ action: 'manage', name: 'numbering.manage' }],
+  },
+  {
+    // Cost Engine Foundation (ADR-0014) — Cost Components vocabulary +
+    // Product Cost recording/history. Nav gates the whole "Expenses" section
+    // on `expenses.view` alone (no per-entity page yet distinguishes
+    // create/edit), so one coarse view/manage pair covers both controllers.
+    key: 'cost-engine',
+    labelKey: 'permissions.modules.costEngine',
+    actions: [
+      { action: 'view', name: 'expenses.view' },
+      { action: 'manage', name: 'expenses.manage' },
+    ],
+  },
+  {
+    // Fiscal Years & Accounting Periods (TASK-051) + Posting Settings +
+    // Year-End Closing — Administrator-only system configuration; one
+    // module since all three are "how the books are structured/closed".
+    // `accounting.fiscal-years.manage` is the exact name the Fiscal
+    // Periods/Opening Balances/Year-Closing pages' own `hasPermission()`
+    // checks already shipped with — this registers the guard, not a rename.
+    // No separate `view`: every GET here stays open to any authenticated
+    // Finance user, same as before this hardening pass.
+    key: 'fiscal-configuration',
+    labelKey: 'permissions.modules.fiscalConfiguration',
+    actions: [{ action: 'manage', name: 'accounting.fiscal-years.manage' }],
   },
   {
     key: 'settings',
@@ -650,6 +900,7 @@ export const IMPLIED_SECTION_PERMISSION: Record<
   products: 'products.view',
   inventory: 'inventory.view',
   'inventory.opening-stock': 'inventory.view',
+  'inventory.physical-count': 'inventory.view',
   'accounting.journal-entries': 'finance.view',
   'accounting.chart-of-accounts': 'finance.view',
   'accounting.bank-transactions': 'finance.view',
@@ -661,6 +912,48 @@ export const IMPLIED_SECTION_PERMISSION: Record<
   'masterdata.departments': 'settings.view',
   'masterdata.customer-classifications': 'settings.view',
   'masterdata.no-purchase-reasons': 'settings.view',
+  // TASK-062 — cross-cutting geographic/workflow reference data lives under
+  // the standalone "master-data" sidebar section (`masterdata.view`, never
+  // itself a grantable row — same "coarse section gate" convention as
+  // `finance.view`/`products.view` below).
+  'masterdata.cities': 'masterdata.view',
+  'masterdata.countries': 'masterdata.view',
+  'masterdata.languages': 'masterdata.view',
+  'masterdata.transaction-types': 'masterdata.view',
+  'masterdata.workflow-statuses': 'masterdata.view',
+  'masterdata.workflow-transitions': 'masterdata.view',
+  // Products section — Warehouses/Units/Categories/Brands nav entries
+  // already hardcode `products.view` directly, but granting only the
+  // granular permission should still surface the section.
+  'masterdata.warehouses': 'products.view',
+  'masterdata.warehouse-locations': 'products.view',
+  'masterdata.units': 'products.view',
+  'masterdata.categories': 'products.view',
+  'masterdata.brands': 'products.view',
+  // Sales/Purchasing group pages nested under Partners.
+  'masterdata.customer-groups': ['partners.view', 'sales.view'],
+  'masterdata.supplier-groups': ['partners.view', 'purchasing.view'],
+  // Finance section.
+  'masterdata.currencies': 'finance.view',
+  'masterdata.taxes': 'finance.view',
+  'masterdata.cost-centers': 'finance.view',
+  'masterdata.projects': 'finance.view',
+  'masterdata.analytic-plans': 'finance.view',
+  'masterdata.analytic-accounts': 'finance.view',
+  'masterdata.analytic-distributions': 'finance.view',
+  'masterdata.payment-methods': 'finance.view',
+  'masterdata.payment-terms': 'finance.view',
+  'masterdata.journals': 'finance.view',
+  'masterdata.expenses': 'finance.view',
+  'masterdata.fixed-assets': 'finance.view',
+  'masterdata.payment-sources': 'finance.view',
+  'masterdata.receiving-accounts': 'finance.view',
+  'accounting.fiscal-years': 'finance.view',
+  expenses: 'expenses.view',
+  // Shipping section.
+  'masterdata.shipping-companies': 'shipping.view',
+  'masterdata.shipping-statuses': 'shipping.view',
+  numbering: 'settings.view',
   // Store Orders is nested under Sales in navigation and the matrix;
   // granting any `store-orders.*` action still implies `store-orders.view`
   // and the ungrantable Sales section gate so the parent sidebar item appears.
