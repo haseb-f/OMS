@@ -1,6 +1,7 @@
 import { Test, type TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import { AccountType } from '@prisma/client';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberingModule } from '../numbering/numbering.module';
@@ -8,6 +9,9 @@ import { MasterDataModule } from '../master-data/master-data.module';
 import { AuthModule } from '../auth/auth.module';
 import { PermissionsCoreModule } from '../permissions/permissions-core.module';
 import { PhoneModule } from '../common/phone/phone.module';
+import { PostingEngineModule } from '../accounting/posting-engine/posting-engine.module';
+import { PostingProvidersModule } from '../accounting/posting-providers/posting-providers.module';
+import { InvestorLedgerModule } from '../investor-ledger/investor-ledger.module';
 import { PartnersService } from '../partners/partners.service';
 import { InvestorsService } from '../investors/investors.service';
 import { InvestmentOpportunitiesService } from '../investment-opportunities/investment-opportunities.service';
@@ -45,6 +49,7 @@ describe('Investor Engine — funding lifecycle (130,000 SAR acceptance example)
   let unitId: string;
   let productAId: string;
   let productBId: string;
+  let bankAccountId: string;
   let opportunityId: string;
   let investorAId: string;
   let investorBId: string;
@@ -58,6 +63,9 @@ describe('Investor Engine — funding lifecycle (130,000 SAR acceptance example)
         PermissionsCoreModule,
         AuthModule,
         PhoneModule,
+        PostingEngineModule,
+        PostingProvidersModule,
+        InvestorLedgerModule,
       ],
       providers: [
         PartnersService,
@@ -117,6 +125,15 @@ describe('Investor Engine — funding lifecycle (130,000 SAR acceptance example)
     });
     productBId = productB.id;
 
+    const bankAccount = await prisma.chartOfAccount.create({
+      data: {
+        code: `${prefix}-BANK`,
+        name: 'Funding Lifecycle Test Bank',
+        accountType: AccountType.ASSET,
+      },
+    });
+    bankAccountId = bankAccount.id;
+
     await prisma.numberSeries.upsert({
       where: { documentType: 'INVESTMENT_OPPORTUNITY' },
       update: {},
@@ -168,6 +185,17 @@ describe('Investor Engine — funding lifecycle (130,000 SAR acceptance example)
   });
 
   afterAll(async () => {
+    await prisma.investorLedgerEntry.deleteMany({
+      where: { investorId: { in: [investorAId, investorBId] } },
+    });
+    await prisma.journalEntryActivity.deleteMany({
+      where: {
+        journalEntry: { lines: { some: { accountId: bankAccountId } } },
+      },
+    });
+    await prisma.journalEntry.deleteMany({
+      where: { lines: { some: { accountId: bankAccountId } } },
+    });
     await prisma.capitalContribution.deleteMany({
       where: { subscription: { opportunityId } },
     });
@@ -188,6 +216,7 @@ describe('Investor Engine — funding lifecycle (130,000 SAR acceptance example)
     });
     await prisma.productCategory.delete({ where: { id: categoryId } });
     await prisma.unit.delete({ where: { id: unitId } });
+    await prisma.chartOfAccount.delete({ where: { id: bankAccountId } });
     await prisma.currency.delete({ where: { id: currencyId } });
     await moduleRef.close();
   });
@@ -218,6 +247,7 @@ describe('Investor Engine — funding lifecycle (130,000 SAR acceptance example)
       subscriptionId: subA.id,
       amount: 65000,
       contributionDate: new Date().toISOString(),
+      financialAccountId: bankAccountId,
     });
     await contributionsService.confirm(contributionA.id);
 
@@ -225,6 +255,7 @@ describe('Investor Engine — funding lifecycle (130,000 SAR acceptance example)
       subscriptionId: subB.id,
       amount: 30000,
       contributionDate: new Date().toISOString(),
+      financialAccountId: bankAccountId,
     });
     await contributionsService.confirm(contributionB1.id);
 
@@ -253,6 +284,7 @@ describe('Investor Engine — funding lifecycle (130,000 SAR acceptance example)
       subscriptionId: subB.id,
       amount: 40000,
       contributionDate: new Date().toISOString(),
+      financialAccountId: bankAccountId,
     });
     await expect(
       contributionsService.confirm(overfundingAttempt.id),
@@ -265,6 +297,7 @@ describe('Investor Engine — funding lifecycle (130,000 SAR acceptance example)
       subscriptionId: subB.id,
       amount: 35000,
       contributionDate: new Date().toISOString(),
+      financialAccountId: bankAccountId,
     });
     await contributionsService.confirm(contributionB2.id);
 

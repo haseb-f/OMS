@@ -91,6 +91,9 @@ import { InvestmentExpensesModule } from './investment-expenses/investment-expen
 import { InvestmentProfitModule } from './investment-profit/investment-profit.module';
 import { InvestmentSettlementModule } from './investment-settlement/investment-settlement.module';
 import { CapitalContributionsModule } from './capital-contributions/capital-contributions.module';
+import { InvestorLedgerModule } from './investor-ledger/investor-ledger.module';
+import { InvestmentDistributionsModule } from './investment-distributions/investment-distributions.module';
+import { CapitalReturnsModule } from './capital-returns/capital-returns.module';
 
 @Module({
   imports: [
@@ -185,6 +188,9 @@ import { CapitalContributionsModule } from './capital-contributions/capital-cont
     InvestmentExpensesModule,
     InvestmentProfitModule,
     InvestmentSettlementModule,
+    InvestorLedgerModule,
+    InvestmentDistributionsModule,
+    CapitalReturnsModule,
   ],
   controllers: [HealthController],
   providers: [],
