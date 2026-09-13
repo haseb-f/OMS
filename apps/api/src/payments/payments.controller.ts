@@ -31,6 +31,7 @@ import { AttachmentsService } from '../common/storage/attachments.service';
  * No delete endpoint — not in the required operations list.
  */
 @Controller('payments')
+@UseGuards(JwtAuthGuard)
 export class PaymentsController {
   constructor(
     private readonly paymentsService: PaymentsService,

@@ -1,4 +1,12 @@
-import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { SalesOrdersService } from './sales-orders.service';
 import { CreateSalesOrderDto } from './dto/create-sales-order.dto';
 import { AssignShippingEmployeeDto } from './dto/assign-shipping-employee.dto';
@@ -8,6 +16,7 @@ import { UploadShippingLabelDto } from './dto/upload-shipping-label.dto';
 import { AddShippingCostDto } from './dto/add-shipping-cost.dto';
 import { CreateSalesOrderNoteDto } from './dto/create-sales-order-note.dto';
 import { CreateSalesOrderAttachmentDto } from './dto/create-sales-order-attachment.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 /**
  * Business operations, not generic CRUD (per TASK-011: "Never implement
@@ -15,8 +24,17 @@ import { CreateSalesOrderAttachmentDto } from './dto/create-sales-order-attachme
  * there is no generic POST accepting arbitrary fields. There is no generic
  * PATCH — every mutation is one of the named operations below. There is no
  * delete endpoint — not in the required operations list.
+ *
+ * SECURITY NOTE (TASK-062): this controller had NO auth guard at all until
+ * this fix — every route below was reachable by an unauthenticated caller.
+ * `JwtAuthGuard` closes that; granular `@PermissionModule` enforcement is
+ * intentionally NOT added here yet — this legacy route family overlaps with
+ * the newer `sales/orders` and `store-orders` shipping flows and needs a
+ * product decision on which permission module it should adopt before a
+ * guard can be added without risking the wrong access boundary.
  */
 @Controller('sales-orders')
+@UseGuards(JwtAuthGuard)
 export class SalesOrdersController {
   constructor(private readonly salesOrdersService: SalesOrdersService) {}
 
