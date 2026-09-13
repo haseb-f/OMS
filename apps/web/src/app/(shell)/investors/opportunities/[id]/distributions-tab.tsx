@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { CircleDollarSign, Wallet } from "lucide-react";
 import { DetailSection } from "@/components/shared/detail-workspace";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -231,8 +231,8 @@ export function DistributionsTab({
                     </thead>
                     <tbody>
                       {distribution.investorDistributions.map((row) => (
-                        <>
-                          <tr key={row.id} className="border-b border-border/60">
+                        <Fragment key={row.id}>
+                          <tr className="border-b border-border/60">
                             <td className="p-2 font-medium">{row.investorName}</td>
                             <td className="p-2">{formatMoney(row.entitledAmount, currencyCode)}</td>
                             <td className="p-2">{formatMoney(row.paidAmount, currencyCode)}</td>
@@ -313,7 +313,7 @@ export function DistributionsTab({
                               </td>
                             </tr>
                           ) : null}
-                        </>
+                        </Fragment>
                       ))}
                     </tbody>
                   </table>
