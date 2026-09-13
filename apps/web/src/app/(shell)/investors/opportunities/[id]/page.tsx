@@ -1745,6 +1745,7 @@ function SettlementTab({
           if (!next) setUnresolvedReason("");
         }}
         title={t("investors.settlement.completeDialog.title")}
+        confirmDisabled={!unresolvedReason.trim()}
         extra={
           <Textarea
             placeholder={t("investors.settlement.completeDialog.reasonPlaceholder")}
@@ -1758,7 +1759,7 @@ function SettlementTab({
           runAction(() =>
             investmentSettlementService.complete(active.id, {
               acceptUnresolved: true,
-              unresolvedReason: unresolvedReason.trim() || undefined,
+              unresolvedReason: unresolvedReason.trim(),
             }),
           );
           setUnresolvedReason("");

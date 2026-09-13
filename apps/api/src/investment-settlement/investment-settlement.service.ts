@@ -373,6 +373,11 @@ export class InvestmentSettlementService {
         `${remainingUnits} unit(s) remain unresolved. Completing requires acceptUnresolved=true with a reason.`,
       );
     }
+    if (remainingUnits > 0 && !dto.unresolvedReason?.trim()) {
+      throw new BadRequestException(
+        `A reason is required to accept ${remainingUnits} unresolved unit(s).`,
+      );
+    }
 
     await this.prisma.$transaction(async (tx) => {
       await tx.opportunitySettlement.update({
