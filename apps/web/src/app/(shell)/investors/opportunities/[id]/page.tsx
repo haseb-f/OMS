@@ -61,6 +61,7 @@ import {
   type OpportunitySettlementRow,
   type SettlementSuggestionLine,
 } from "@/services/investment-settlement-service";
+import { DistributionsTab } from "./distributions-tab";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -170,6 +171,11 @@ export default function OpportunityWorkspacePage() {
     hasPermission("investment-settlement.start") || hasPermission("investment-settlement.manage");
   const canApproveSettlement = hasPermission("investment-settlement.approve");
   const canCancelSettlement = hasPermission("investment-settlement.cancel");
+  const canCreateDistribution = hasPermission("investment-distributions.create");
+  const canApproveDistribution = hasPermission("investment-distributions.approve");
+  const canCancelDistribution = hasPermission("investment-distributions.cancel");
+  const canRecordDistributionPayment = hasPermission("investment-payments.create");
+  const canConfirmDistributionPayment = hasPermission("investment-payments.confirm");
 
   return (
     <>
@@ -386,6 +392,21 @@ export default function OpportunityWorkspacePage() {
                   canManage={canManageSettlement}
                   canApprove={canApproveSettlement}
                   canCancel={canCancelSettlement}
+                />
+              ),
+            },
+            {
+              value: "distributions",
+              label: t("investors.opportunities.tabs.distributions"),
+              content: (
+                <DistributionsTab
+                  opportunityId={opportunity.id}
+                  currencyCode={opportunity.currency.code}
+                  canCreate={canCreateDistribution}
+                  canApprove={canApproveDistribution}
+                  canCancel={canCancelDistribution}
+                  canRecordPayment={canRecordDistributionPayment}
+                  canConfirmPayment={canConfirmDistributionPayment}
                 />
               ),
             },

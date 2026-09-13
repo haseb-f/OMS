@@ -33,6 +33,12 @@ import {
   type CapitalContributionRow,
 } from "@/services/capital-contributions-service";
 import type { MasterDataActivityEntry } from "@/services/master-data-service";
+import {
+  investorLedgerService,
+  type InvestorFinancialSummary,
+} from "@/services/investor-ledger-service";
+import { ProfitsTab, StatementTab } from "./investor-ledger-tabs";
+import { CapitalReturnsSection } from "./capital-returns-section";
 import { investorSchema, investorDefaultValues } from "@/config/investors/investors";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { useLocale } from "@/providers/locale-provider";
@@ -81,6 +87,10 @@ export default function InvestorProfilePage() {
   const { hasPermission } = useUserContext();
   const canEdit = hasPermission("investors.edit");
   const canArchive = hasPermission("investors.archive");
+  const canCreateReturn = hasPermission("capital-returns.create");
+  const canApproveReturn = hasPermission("capital-returns.approve");
+  const canPayReturn = hasPermission("capital-returns.pay");
+  const canCancelReturn = hasPermission("capital-returns.cancel");
 
   const [investor, setInvestor] = useState<InvestorRow | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -88,6 +98,7 @@ export default function InvestorProfilePage() {
   const [subscriptions, setSubscriptions] = useState<InvestorSubscriptionRow[] | null>(null);
   const [contributions, setContributions] = useState<CapitalContributionRow[] | null>(null);
   const [activity, setActivity] = useState<MasterDataActivityEntry[] | null>(null);
+  const [ledgerSummary, setLedgerSummary] = useState<InvestorFinancialSummary | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
 
@@ -109,6 +120,10 @@ export default function InvestorProfilePage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    investorLedgerService.summary(params.id).then(setLedgerSummary);
+  }, [params.id]);
 
   useBreadcrumbLabel(investor?.name ?? null);
 
@@ -208,11 +223,33 @@ export default function InvestorProfilePage() {
           </>
         }
       >
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
           <KpiCard
             icon={Banknote}
-            label={t("investors.profile.summary.totalInvested")}
-            value={formatMoney(investor.totalConfirmedFunding)}
+            label={t("investors.ledger.summary.totalConfirmedCapital")}
+            value={formatMoney(
+              ledgerSummary?.totalConfirmedCapital ?? investor.totalConfirmedFunding,
+            )}
+          />
+          <KpiCard
+            icon={Banknote}
+            label={t("investors.ledger.summary.capitalReturned")}
+            value={formatMoney(ledgerSummary?.capitalReturned ?? 0)}
+          />
+          <KpiCard
+            icon={CheckCircle2}
+            label={t("investors.ledger.summary.totalApprovedProfit")}
+            value={formatMoney(ledgerSummary?.totalApprovedProfit ?? 0)}
+          />
+          <KpiCard
+            icon={CheckCircle2}
+            label={t("investors.ledger.summary.totalProfitPaid")}
+            value={formatMoney(ledgerSummary?.totalProfitPaid ?? 0)}
+          />
+          <KpiCard
+            icon={CheckCircle2}
+            label={t("investors.ledger.summary.outstandingProfit")}
+            value={formatMoney(ledgerSummary?.outstandingProfit ?? 0)}
           />
           <KpiCard
             icon={Briefcase}
@@ -266,7 +303,29 @@ export default function InvestorProfilePage() {
             {
               value: "funding",
               label: t("investors.profile.tabs.funding"),
-              content: <FundingTab contributions={contributions} onLoad={loadContributions} />,
+              content: (
+                <FundingTab
+                  contributions={contributions}
+                  onLoad={loadContributions}
+                  investorId={params.id}
+                  subscriptions={subscriptions ?? []}
+                  onLoadSubscriptions={loadSubscriptions}
+                  canCreateReturn={canCreateReturn}
+                  canApproveReturn={canApproveReturn}
+                  canPayReturn={canPayReturn}
+                  canCancelReturn={canCancelReturn}
+                />
+              ),
+            },
+            {
+              value: "profits",
+              label: t("investors.profile.tabs.profits"),
+              content: <ProfitsTab investorId={params.id} />,
+            },
+            {
+              value: "statement",
+              label: t("investors.profile.tabs.statement"),
+              content: <StatementTab investorId={params.id} />,
             },
             {
               value: "activity",
@@ -391,57 +450,80 @@ function InvestmentsTab({
 function FundingTab({
   contributions,
   onLoad,
+  investorId,
+  subscriptions,
+  onLoadSubscriptions,
+  canCreateReturn,
+  canApproveReturn,
+  canPayReturn,
+  canCancelReturn,
 }: {
   contributions: CapitalContributionRow[] | null;
   onLoad: () => void;
+  investorId: string;
+  subscriptions: InvestorSubscriptionRow[];
+  onLoadSubscriptions: () => void;
+  canCreateReturn: boolean;
+  canApproveReturn: boolean;
+  canPayReturn: boolean;
+  canCancelReturn: boolean;
 }) {
   const { t } = useLocale();
   useEffect(() => {
     onLoad();
+    onLoadSubscriptions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!contributions) return null;
-  if (contributions.length === 0) {
-    return (
-      <EmptyState
-        icon={Banknote}
-        title={t("investors.contributions.addNew")}
-        description={t("common.noDataAvailable")}
-      />
-    );
-  }
   return (
     <DetailSection>
-      <div className="overflow-x-auto">
-        <table className="w-full text-start text-body">
-          <thead>
-            <tr className="border-b border-border text-caption text-muted-foreground">
-              <th className="p-2 text-start">{t("investors.opportunities.fields.code")}</th>
-              <th className="p-2 text-start">{t("investors.contributions.fields.date")}</th>
-              <th className="p-2 text-start">{t("investors.contributions.fields.amount")}</th>
-              <th className="p-2 text-start">{t("investors.contributions.fields.status")}</th>
-              <th className="p-2 text-start">{t("investors.contributions.fields.confirmedBy")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {contributions.map((c) => (
-              <tr key={c.id} className="border-b border-border/60">
-                <td className="p-2 font-medium">{c.opportunityCode}</td>
-                <td className="p-2">{formatDate(c.contributionDate)}</td>
-                <td className="p-2">{formatMoney(c.amount)}</td>
-                <td className="p-2">
-                  <StatusBadge
-                    label={t(`investors.contributions.status.${c.status}` as MessageKey)}
-                    tone="neutral"
-                  />
-                </td>
-                <td className="p-2">{c.confirmedBy ?? "—"}</td>
+      {!contributions ? null : contributions.length === 0 ? (
+        <EmptyState
+          icon={Banknote}
+          title={t("investors.contributions.addNew")}
+          description={t("common.noDataAvailable")}
+        />
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-start text-body">
+            <thead>
+              <tr className="border-b border-border text-caption text-muted-foreground">
+                <th className="p-2 text-start">{t("investors.opportunities.fields.code")}</th>
+                <th className="p-2 text-start">{t("investors.contributions.fields.date")}</th>
+                <th className="p-2 text-start">{t("investors.contributions.fields.amount")}</th>
+                <th className="p-2 text-start">{t("investors.contributions.fields.status")}</th>
+                <th className="p-2 text-start">
+                  {t("investors.contributions.fields.confirmedBy")}
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {contributions.map((c) => (
+                <tr key={c.id} className="border-b border-border/60">
+                  <td className="p-2 font-medium">{c.opportunityCode}</td>
+                  <td className="p-2">{formatDate(c.contributionDate)}</td>
+                  <td className="p-2">{formatMoney(c.amount)}</td>
+                  <td className="p-2">
+                    <StatusBadge
+                      label={t(`investors.contributions.status.${c.status}` as MessageKey)}
+                      tone="neutral"
+                    />
+                  </td>
+                  <td className="p-2">{c.confirmedBy ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <CapitalReturnsSection
+        investorId={investorId}
+        subscriptions={subscriptions}
+        canCreate={canCreateReturn}
+        canApprove={canApproveReturn}
+        canPay={canPayReturn}
+        canCancel={canCancelReturn}
+      />
     </DetailSection>
   );
 }
