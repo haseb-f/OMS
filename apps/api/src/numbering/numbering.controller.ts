@@ -12,19 +12,25 @@ import { NumberingEngineService } from './numbering-engine.service';
 import { CreateNumberSeriesDto } from './dto/create-number-series.dto';
 import { UpdateNumberSeriesDto } from './dto/update-number-series.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionModule } from '../auth/decorators/permission-module.decorator';
+import {
+  PermissionAction,
+  SkipPermissionCheck,
+} from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 
 /**
  * Settings > Document Numbering (TASK-025 Part 5). "Only administrators can
- * modify numbering" is enforced the same way every permission in OMS is
- * enforced today — UI-side, via the `numbering.manage` permission seeded
- * only to the Administrator role (no controller in this codebase has an
- * API-level permission guard yet; this one is no exception, not a gap
- * introduced here).
+ * modify numbering" (TASK-062) is now enforced server-side via the existing
+ * `numbering.manage` permission (already seeded, already checked by the
+ * Document Numbering page), not just by which role the UI happens to show
+ * the button to.
  */
 @Controller('number-series')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@PermissionModule('numbering')
 export class NumberingController {
   constructor(
     private readonly numberSeriesService: NumberSeriesService,
@@ -32,16 +38,19 @@ export class NumberingController {
   ) {}
 
   @Get()
+  @SkipPermissionCheck()
   findAll() {
     return this.numberSeriesService.findAll();
   }
 
   @Get(':id')
+  @SkipPermissionCheck()
   findOne(@Param('id') id: string) {
     return this.numberSeriesService.findOne(id);
   }
 
   @Get(':id/preview')
+  @SkipPermissionCheck()
   async preview(@Param('id') id: string) {
     const series = await this.numberSeriesService.findOne(id);
     return {
@@ -50,11 +59,13 @@ export class NumberingController {
   }
 
   @Post()
+  @PermissionAction('manage')
   create(@Body() dto: CreateNumberSeriesDto, @CurrentUser() user: JwtPayload) {
     return this.numberSeriesService.create(dto, user.sub);
   }
 
   @Patch(':id')
+  @PermissionAction('manage')
   update(
     @Param('id') id: string,
     @Body() dto: UpdateNumberSeriesDto,

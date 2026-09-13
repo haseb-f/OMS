@@ -7,13 +7,23 @@ import {
   Param,
   Patch,
   Post,
+  UseGuards,
 } from '@nestjs/common';
 import { PaymentSourcesService } from './payment-sources.service';
 import { CreatePaymentSourceDto } from './dto/create-payment-source.dto';
 import { UpdatePaymentSourceDto } from './dto/update-payment-source.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionModule } from '../auth/decorators/permission-module.decorator';
+import {
+  PermissionAction,
+  SkipPermissionCheck,
+} from '../auth/decorators/permission-action.decorator';
 
 /** Administrator can: Create, Edit, Deactivate, Archive. */
 @Controller('payment-sources')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@PermissionModule('payment-sources')
 export class PaymentSourcesController {
   constructor(private readonly paymentSourcesService: PaymentSourcesService) {}
 
@@ -23,6 +33,7 @@ export class PaymentSourcesController {
   }
 
   @Get()
+  @SkipPermissionCheck()
   findAll() {
     return this.paymentSourcesService.findAll();
   }
@@ -39,11 +50,13 @@ export class PaymentSourcesController {
 
   @Post(':id/deactivate')
   @HttpCode(200)
+  @PermissionAction('edit')
   deactivate(@Param('id') id: string) {
     return this.paymentSourcesService.deactivate(id);
   }
 
   @Delete(':id')
+  @PermissionAction('delete')
   remove(@Param('id') id: string) {
     return this.paymentSourcesService.remove(id);
   }

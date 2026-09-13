@@ -11,11 +11,15 @@ import { PhysicalCountService } from './physical-count.service';
 import { CreatePhysicalCountDto } from './dto/create-physical-count.dto';
 import { UpdateCountLineDto } from './dto/update-count-line.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionModule } from '../auth/decorators/permission-module.decorator';
+import { PermissionAction } from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 
 @Controller('physical-counts')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@PermissionModule('physical-count')
 export class PhysicalCountController {
   constructor(private readonly physicalCountService: PhysicalCountService) {}
 
@@ -45,11 +49,13 @@ export class PhysicalCountController {
   }
 
   @Post(':id/confirm')
+  @PermissionAction('confirm')
   confirm(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.physicalCountService.confirm(id, user.sub);
   }
 
   @Post(':id/cancel')
+  @PermissionAction('cancel')
   cancel(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.physicalCountService.cancel(id, user.sub);
   }
