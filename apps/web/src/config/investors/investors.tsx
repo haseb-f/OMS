@@ -3,7 +3,6 @@
 import { z } from "zod";
 import type { ColumnDef } from "@tanstack/react-table";
 import { StackedCell } from "@/components/shared/stacked-cell";
-import { StatusBadge } from "@/components/business/status-badge";
 import { statusColumn } from "@/config/master-data/shared-columns";
 import { formatMoney } from "@/lib/money";
 import type { InvestorRow } from "@/services/investors-service";
@@ -11,20 +10,6 @@ import type { MessageKey } from "@/i18n/translate";
 
 function InvestorNameCell({ row }: { row: InvestorRow }) {
   return <StackedCell primary={row.name} secondary={row.phone ?? row.email ?? undefined} />;
-}
-
-const statusTone: Record<InvestorRow["status"], "success" | "neutral"> = {
-  ACTIVE: "success",
-  INACTIVE: "neutral",
-};
-
-function InvestorStatusCell({ row, t }: { row: InvestorRow; t: (key: MessageKey) => string }) {
-  return (
-    <StatusBadge
-      label={t(`investors.list.status.${row.status}` as MessageKey)}
-      tone={statusTone[row.status]}
-    />
-  );
 }
 
 export function buildInvestorsColumns(
@@ -60,13 +45,6 @@ export function buildInvestorsColumns(
       meta: { titleKey: "investors.list.fields.totalConfirmedFunding" },
       accessorFn: (row) => row.totalConfirmedFunding,
       cell: (info) => formatMoney(info.getValue() as number),
-    },
-    {
-      id: "status",
-      meta: { titleKey: "investors.list.fields.status" },
-      accessorFn: (row) => row.status,
-      cell: ({ row }) => <InvestorStatusCell row={row.original} t={t} />,
-      enableSorting: false,
     },
     statusColumn<InvestorRow>(),
   ];

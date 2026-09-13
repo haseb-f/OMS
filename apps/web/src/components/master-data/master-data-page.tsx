@@ -347,6 +347,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
         if (andNew) {
           form.reset(defaultValues);
         } else {
+          form.reset(defaultValues);
           setModalOpen(false);
         }
       } catch (error) {

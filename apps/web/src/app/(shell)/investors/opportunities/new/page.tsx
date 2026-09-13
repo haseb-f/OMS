@@ -135,7 +135,6 @@ export default function NewInvestmentOpportunityPage() {
       <DetailSection title={t("investors.opportunities.create.sectionDetails")}>
         <MasterDataForm
           form={form}
-          unwrapped
           fields={[
             {
               name: "nameAr",
