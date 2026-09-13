@@ -20,6 +20,7 @@ import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorat
 import { CustomerProfileInputDto } from './customer-profile-input.dto';
 import { SupplierProfileInputDto } from './supplier-profile-input.dto';
 import { EmployeeProfileInputDto } from './employee-profile-input.dto';
+import { InvestorProfileInputDto } from './investor-profile-input.dto';
 
 /**
  * Unified Partner Architecture — one identity, multiple roles (spec sections
@@ -118,4 +119,9 @@ export class CreatePartnerDto {
   @Type(() => EmployeeProfileInputDto)
   @IsOptional()
   employeeProfile?: EmployeeProfileInputDto;
+
+  @ValidateNested()
+  @Type(() => InvestorProfileInputDto)
+  @IsOptional()
+  investorProfile?: InvestorProfileInputDto;
 }

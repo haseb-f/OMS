@@ -83,6 +83,10 @@ import { KpiEvaluationsModule } from './kpi-evaluations/kpi-evaluations.module';
 import { CommissionPlansModule } from './commission-plans/commission-plans.module';
 import { CommissionsModule } from './commissions/commissions.module';
 import { PayrollModule } from './payroll/payroll.module';
+import { InvestorsModule } from './investors/investors.module';
+import { InvestmentOpportunitiesModule } from './investment-opportunities/investment-opportunities.module';
+import { InvestorSubscriptionsModule } from './investor-subscriptions/investor-subscriptions.module';
+import { CapitalContributionsModule } from './capital-contributions/capital-contributions.module';
 
 @Module({
   imports: [
@@ -169,6 +173,10 @@ import { PayrollModule } from './payroll/payroll.module';
     CommissionsModule,
     PayrollModule,
     SalesPerformanceModule,
+    InvestorsModule,
+    InvestmentOpportunitiesModule,
+    InvestorSubscriptionsModule,
+    CapitalContributionsModule,
   ],
   controllers: [HealthController],
   providers: [],

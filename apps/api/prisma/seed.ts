@@ -1445,6 +1445,15 @@ async function main() {
     'masterdata.receiving-accounts.edit',
     'masterdata.receiving-accounts.archive',
     'expenses.view',
+    // Investor Engine Milestone 1, Phase 19 — Finance reviews/confirms
+    // funding but does not create/manage Opportunities themselves.
+    'investors.view',
+    'investment-opportunities.view',
+    'investor-subscriptions.view',
+    'capital-contributions.view',
+    'capital-contributions.create',
+    'capital-contributions.edit',
+    'capital-contributions.confirm',
   ];
   await grantPermissions(financeUser.id, financeUserPermissionNames);
   await grantPermissions(financeManagerUser.id, [
@@ -1574,6 +1583,11 @@ async function main() {
     'hr.sales-targets.view',
     'hr.commissions.view',
     'hr.payroll.view',
+    // Investor Engine Milestone 1, Phase 19 — read-only oversight, same
+    // philosophy as this persona's HR visibility above.
+    'investors.view',
+    'investment-opportunities.view',
+    'investor-subscriptions.view',
   ]);
 
   // Employee test persona — deliberately zero module permissions, so a
@@ -1974,6 +1988,17 @@ async function main() {
       template: '{DOC}-{YEAR}-{SEQ}',
     },
     {
+      // Investor Engine Milestone 1 — deliberately a distinct documentType
+      // from the dormant 'OPPORTUNITY'/'OPP' row above (that one is
+      // ambiguously scoped to a future CRM concept, never consumed by any
+      // module) — same "don't collide with a differently-scoped existing
+      // key" reasoning as SALES_ORDER_DOC vs SALES_ORDER.
+      documentType: 'INVESTMENT_OPPORTUNITY',
+      label: 'Investment Opportunity',
+      docCode: 'IOP',
+      template: '{DOC}-{YEAR}-{SEQ}',
+    },
+    {
       documentType: 'PRODUCT',
       label: 'Product',
       docCode: 'PRD',
@@ -2073,6 +2098,263 @@ async function main() {
       template: '{DOC}-{YEAR}-{SEQ}',
     },
   ];
+
+  // -----------------------------------------------------------------------
+  // Investor Engine Milestone 1 — deterministic test fixtures (Phase 43/46).
+  // Mirrors the milestone's own acceptance example exactly: Opportunity
+  // "Muhbara Investment Cycle Test" (Product A: 1000x100, Product B:
+  // 500x60 -> Target Capital 130,000 SAR), Investor A fully confirmed at
+  // 65,000 and Investor B partially confirmed at 30,000 with a second,
+  // still-PENDING 35,000 contribution left for a Finance user to confirm
+  // during manual QA (watching participation shift from 68.421/31.579 to
+  // 50/50 and the Opportunity auto-transition to FUNDED). Dev/test fixture
+  // only — never run against Production data.
+  // -----------------------------------------------------------------------
+  const sarCurrency = await prisma.currency.findUnique({
+    where: { code: 'SAR' },
+  });
+  const piece = await prisma.unit.findUnique({ where: { name: 'قطعة' } });
+  const booksCategory = await prisma.productCategory.findFirst({
+    where: { name: 'كتب', deletedAt: null },
+  });
+
+  if (sarCurrency && piece && booksCategory) {
+    const investorAPartner = await prisma.partner.upsert({
+      where: { partnerNumber: 'PT-TEST-INV-A' },
+      update: { name: 'مستثمر تجريبي أ' },
+      create: {
+        partnerNumber: 'PT-TEST-INV-A',
+        name: 'مستثمر تجريبي أ',
+        entityType: 'PERSON',
+        phone: '0500000001',
+        email: 'investor-a-test@oms.local',
+        status: 'ACTIVE',
+      },
+    });
+    await prisma.partnerRoleAssignment.upsert({
+      where: {
+        partnerId_role: { partnerId: investorAPartner.id, role: 'INVESTOR' },
+      },
+      update: {},
+      create: { partnerId: investorAPartner.id, role: 'INVESTOR' },
+    });
+    const investorA = await prisma.investorProfile.upsert({
+      where: { partnerId: investorAPartner.id },
+      update: {},
+      create: { partnerId: investorAPartner.id },
+    });
+
+    const investorBPartner = await prisma.partner.upsert({
+      where: { partnerNumber: 'PT-TEST-INV-B' },
+      update: { name: 'مستثمر تجريبي ب' },
+      create: {
+        partnerNumber: 'PT-TEST-INV-B',
+        name: 'مستثمر تجريبي ب',
+        entityType: 'PERSON',
+        phone: '0500000002',
+        email: 'investor-b-test@oms.local',
+        status: 'ACTIVE',
+      },
+    });
+    await prisma.partnerRoleAssignment.upsert({
+      where: {
+        partnerId_role: { partnerId: investorBPartner.id, role: 'INVESTOR' },
+      },
+      update: {},
+      create: { partnerId: investorBPartner.id, role: 'INVESTOR' },
+    });
+    const investorB = await prisma.investorProfile.upsert({
+      where: { partnerId: investorBPartner.id },
+      update: {},
+      create: { partnerId: investorBPartner.id },
+    });
+
+    const productA = await prisma.product.upsert({
+      where: { sku: 'TEST-INV-PROD-A' },
+      update: {},
+      create: {
+        sku: 'TEST-INV-PROD-A',
+        name: 'منتج تجريبي أ',
+        internalName: 'منتج تجريبي أ',
+        displayName: 'Test Product A',
+        categoryId: booksCategory.id,
+        unitId: piece.id,
+        type: 'PURCHASE_AND_SALE',
+        status: 'ACTIVE',
+        isPurchasable: true,
+        isSellable: true,
+        isInventoryItem: true,
+      },
+    });
+    const productB = await prisma.product.upsert({
+      where: { sku: 'TEST-INV-PROD-B' },
+      update: {},
+      create: {
+        sku: 'TEST-INV-PROD-B',
+        name: 'منتج تجريبي ب',
+        internalName: 'منتج تجريبي ب',
+        displayName: 'Test Product B',
+        categoryId: booksCategory.id,
+        unitId: piece.id,
+        type: 'PURCHASE_AND_SALE',
+        status: 'ACTIVE',
+        isPurchasable: true,
+        isSellable: true,
+        isInventoryItem: true,
+      },
+    });
+
+    const opportunity = await prisma.investmentOpportunity.upsert({
+      where: { code: 'TEST-INV-001' },
+      update: {},
+      create: {
+        code: 'TEST-INV-001',
+        nameAr: 'دورة محبرة للاستثمار - تجريبي',
+        nameEn: 'Muhbara Investment Cycle Test',
+        currencyId: sarCurrency.id,
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
+        investorNetProfitSharePercent: 40,
+        status: 'OPEN',
+        createdBy: adminUser.id,
+        updatedBy: adminUser.id,
+      },
+    });
+
+    await prisma.opportunityProduct.upsert({
+      where: {
+        opportunityId_productId: {
+          opportunityId: opportunity.id,
+          productId: productA.id,
+        },
+      },
+      update: {},
+      create: {
+        opportunityId: opportunity.id,
+        productId: productA.id,
+        productNameSnapshot: productA.displayName,
+        fundedUnits: 1000,
+        fundedUnitCost: 100,
+        createdBy: adminUser.id,
+        updatedBy: adminUser.id,
+      },
+    });
+    await prisma.opportunityProduct.upsert({
+      where: {
+        opportunityId_productId: {
+          opportunityId: opportunity.id,
+          productId: productB.id,
+        },
+      },
+      update: {},
+      create: {
+        opportunityId: opportunity.id,
+        productId: productB.id,
+        productNameSnapshot: productB.displayName,
+        fundedUnits: 500,
+        fundedUnitCost: 60,
+        createdBy: adminUser.id,
+        updatedBy: adminUser.id,
+      },
+    });
+
+    // Confirmed total so far: 65,000 (A) + 30,000 (B) = 95,000 ->
+    // participation 68.421...% / 31.578...% (Phase 46's mid-point).
+    const subscriptionA = await prisma.investorSubscription.upsert({
+      where: {
+        investorId_opportunityId: {
+          investorId: investorA.id,
+          opportunityId: opportunity.id,
+        },
+      },
+      update: {},
+      create: {
+        investorId: investorA.id,
+        opportunityId: opportunity.id,
+        committedAmount: 65000,
+        fundedAmount: 65000,
+        participationPercent: 68.4211,
+        status: 'FUNDED',
+        createdBy: adminUser.id,
+        updatedBy: adminUser.id,
+      },
+    });
+    const subscriptionB = await prisma.investorSubscription.upsert({
+      where: {
+        investorId_opportunityId: {
+          investorId: investorB.id,
+          opportunityId: opportunity.id,
+        },
+      },
+      update: {},
+      create: {
+        investorId: investorB.id,
+        opportunityId: opportunity.id,
+        committedAmount: 65000,
+        fundedAmount: 30000,
+        participationPercent: 31.5789,
+        status: 'PARTIALLY_FUNDED',
+        createdBy: adminUser.id,
+        updatedBy: adminUser.id,
+      },
+    });
+
+    const existingContributionA = await prisma.capitalContribution.findFirst({
+      where: { subscriptionId: subscriptionA.id, referenceNumber: 'SEED-A-1' },
+    });
+    if (!existingContributionA) {
+      await prisma.capitalContribution.create({
+        data: {
+          subscriptionId: subscriptionA.id,
+          amount: 65000,
+          contributionDate: new Date(),
+          referenceNumber: 'SEED-A-1',
+          status: 'CONFIRMED',
+          confirmedById: financeUser.id,
+          confirmedAt: new Date(),
+          createdBy: adminUser.id,
+          updatedBy: adminUser.id,
+        },
+      });
+    }
+    const existingContributionB1 = await prisma.capitalContribution.findFirst({
+      where: { subscriptionId: subscriptionB.id, referenceNumber: 'SEED-B-1' },
+    });
+    if (!existingContributionB1) {
+      await prisma.capitalContribution.create({
+        data: {
+          subscriptionId: subscriptionB.id,
+          amount: 30000,
+          contributionDate: new Date(),
+          referenceNumber: 'SEED-B-1',
+          status: 'CONFIRMED',
+          confirmedById: financeUser.id,
+          confirmedAt: new Date(),
+          createdBy: adminUser.id,
+          updatedBy: adminUser.id,
+        },
+      });
+    }
+    // Left PENDING on purpose — confirming this during manual QA should
+    // push Investor B to fully funded, flip participation to 50/50, and
+    // auto-transition the Opportunity from OPEN to FUNDED.
+    const existingContributionB2 = await prisma.capitalContribution.findFirst({
+      where: { subscriptionId: subscriptionB.id, referenceNumber: 'SEED-B-2' },
+    });
+    if (!existingContributionB2) {
+      await prisma.capitalContribution.create({
+        data: {
+          subscriptionId: subscriptionB.id,
+          amount: 35000,
+          contributionDate: new Date(),
+          referenceNumber: 'SEED-B-2',
+          status: 'PENDING',
+          createdBy: adminUser.id,
+          updatedBy: adminUser.id,
+        },
+      });
+    }
+  }
 
   for (const series of numberSeriesData) {
     const padding = series.padding ?? 6;

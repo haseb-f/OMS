@@ -13,6 +13,11 @@ export const ATTACHMENT_MAX_PER_SHIPMENT = Number(
   process.env.ATTACHMENT_MAX_PER_SHIPMENT ?? ATTACHMENT_MAX_PER_PAYMENT,
 );
 
+/** Same canonical per-entity default — Capital Contribution receipts (Investor Engine Milestone 1). */
+export const ATTACHMENT_MAX_PER_CONTRIBUTION = Number(
+  process.env.ATTACHMENT_MAX_PER_CONTRIBUTION ?? ATTACHMENT_MAX_PER_PAYMENT,
+);
+
 export const ATTACHMENT_STAGING_TTL_MS = Number(
   process.env.ATTACHMENT_STAGING_TTL_MS ?? 24 * 60 * 60 * 1000,
 );

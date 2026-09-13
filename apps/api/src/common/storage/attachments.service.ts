@@ -10,6 +10,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { SalesScopeService } from '../../sales-scope/sales-scope.service';
 import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 import {
+  ATTACHMENT_MAX_PER_CONTRIBUTION,
   ATTACHMENT_MAX_PER_PAYMENT,
   ATTACHMENT_MAX_PER_SHIPMENT,
   ATTACHMENT_STAGING_TTL_MS,
@@ -20,6 +21,8 @@ import { ObjectStorageService } from './object-storage.service';
 export const PAYMENT_RECEIPT_TYPE = 'PAYMENT_RECEIPT';
 /** Shipping operational evidence — never confused with PAYMENT_RECEIPT_TYPE (see ShipmentAttachment schema comment). */
 export const SHIPMENT_RECEIPT_TYPE = 'SHIPMENT_RECEIPT';
+/** Capital Contribution transfer/receipt proof (Investor Engine Milestone 1, Phase 12). */
+export const CONTRIBUTION_RECEIPT_TYPE = 'CONTRIBUTION_RECEIPT';
 
 const LOCKED_PAYMENT_STATUSES: PaymentStatus[] = [PaymentStatus.VERIFIED];
 
@@ -314,6 +317,159 @@ export class AttachmentsService {
       await this.objectStorage.delete(link.attachment.storageKey);
     }
     return { id: shipmentAttachmentId };
+  }
+
+  /**
+   * Capital Contribution transfer/receipt proof (Investor Engine Milestone
+   * 1, Phase 12 "reuse existing Attachment architecture") — a
+   * `CapitalContributionAttachment` join, same finalize/upload/list shape as
+   * Payment/Shipment above.
+   */
+  async finalizeForContribution(
+    contributionId: string,
+    stagingIds: string[],
+    userId: string,
+    tx: Db = this.prisma,
+  ) {
+    const uniqueIds = [...new Set(stagingIds.filter(Boolean))];
+    if (uniqueIds.length === 0) return [];
+    await this.assertContributionCapacity(contributionId, uniqueIds.length, tx);
+    const rows = await tx.attachment.findMany({
+      where: {
+        id: { in: uniqueIds },
+        uploadedById: userId,
+        deletedAt: null,
+        finalizedAt: null,
+      },
+    });
+    if (rows.length !== uniqueIds.length) {
+      throw new BadRequestException('تعذر رفع المرفق، حاول مرة أخرى');
+    }
+    const created = [];
+    for (const row of rows) {
+      await tx.attachment.update({
+        where: { id: row.id },
+        data: { finalizedAt: new Date(), expiresAt: null },
+      });
+      const contributionAttachment =
+        await tx.capitalContributionAttachment.create({
+          data: {
+            contributionId,
+            attachmentId: row.id,
+            uploadedById: userId,
+            fileUrl: `storage:${row.storageKey}`,
+            fileName: row.originalName,
+            attachmentType: CONTRIBUTION_RECEIPT_TYPE,
+          },
+        });
+      created.push(contributionAttachment);
+    }
+    return created;
+  }
+
+  async attachStagingToContribution(
+    contributionId: string,
+    stagingIds: string[],
+    userId: string,
+  ) {
+    return this.finalizeForContribution(contributionId, stagingIds, userId);
+  }
+
+  async uploadForContribution(
+    contributionId: string,
+    file: Express.Multer.File | undefined,
+    userId: string,
+  ) {
+    await this.assertContributionCapacity(contributionId, 1);
+    const staging = await this.createStaging(file, userId);
+    try {
+      const [link] = await this.finalizeForContribution(
+        contributionId,
+        [staging.id],
+        userId,
+      );
+      return this.toContributionAttachmentDto(link.id, staging);
+    } catch (error) {
+      await this.discardStaging(staging.id, userId).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  async listForContribution(contributionId: string) {
+    const rows = await this.prisma.capitalContributionAttachment.findMany({
+      where: { contributionId, deletedAt: null },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        uploadedBy: { select: { fullName: true } },
+        attachment: true,
+      },
+    });
+    return rows.map((row) => this.mapContributionAttachment(row));
+  }
+
+  private async assertContributionCapacity(
+    contributionId: string,
+    incoming: number,
+    tx: Db = this.prisma,
+  ) {
+    const count = await tx.capitalContributionAttachment.count({
+      where: { contributionId, deletedAt: null },
+    });
+    if (count + incoming > ATTACHMENT_MAX_PER_CONTRIBUTION) {
+      throw new BadRequestException(
+        `لا يمكن إرفاق أكثر من ${ATTACHMENT_MAX_PER_CONTRIBUTION} مرفقات لكل دفعة.`,
+      );
+    }
+  }
+
+  private toContributionAttachmentDto(
+    contributionAttachmentId: string,
+    staging: {
+      id: string;
+      originalName: string;
+      mimeType: string;
+      sizeBytes: number;
+    },
+  ) {
+    return {
+      id: contributionAttachmentId,
+      attachmentId: staging.id,
+      fileName: staging.originalName,
+      mimeType: staging.mimeType,
+      sizeBytes: staging.sizeBytes,
+      fileUrl: `/attachments/${staging.id}/file`,
+      attachmentType: CONTRIBUTION_RECEIPT_TYPE,
+    };
+  }
+
+  private mapContributionAttachment(row: {
+    id: string;
+    fileUrl: string;
+    fileName: string | null;
+    attachmentType: string;
+    createdAt: Date;
+    uploadedBy: { fullName: string } | null;
+    attachment: {
+      id: string;
+      originalName: string;
+      mimeType: string;
+      sizeBytes: number;
+      createdAt: Date;
+    } | null;
+  }) {
+    return {
+      id: row.id,
+      attachmentId: row.attachment?.id ?? null,
+      fileName: row.attachment?.originalName ?? row.fileName,
+      mimeType: row.attachment?.mimeType ?? null,
+      sizeBytes: row.attachment?.sizeBytes ?? null,
+      fileUrl: row.attachment
+        ? `/attachments/${row.attachment.id}/file`
+        : row.fileUrl,
+      attachmentType: row.attachmentType,
+      uploadedBy: row.uploadedBy?.fullName ?? null,
+      createdAt: row.attachment?.createdAt ?? row.createdAt,
+    };
   }
 
   private async assertShipmentCapacity(

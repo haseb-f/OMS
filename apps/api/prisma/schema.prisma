@@ -94,9 +94,16 @@ model User {
   /// Unified Partner Architecture — optional link from an EMPLOYEE-role
   /// Partner to this system account.
   employeeProfile EmployeeProfile?
+  /// Investor Engine Milestone 1 — optional link from an INVESTOR-role
+  /// Partner to this system account (Investor Portal, future milestone).
+  investorProfile InvestorProfile?
 
   managedSalesTeams SalesTeam[]       @relation("SalesTeamManager")
   salesTeamMembers  SalesTeamMember[]
+
+  /// Investor Engine Milestone 1 — who confirmed/uploaded a Capital Contribution.
+  confirmedCapitalContributions  CapitalContribution[]           @relation("CapitalContributionConfirmedBy")
+  capitalContributionAttachments CapitalContributionAttachment[]
 
   @@index([departmentId])
   @@map("users")
@@ -451,6 +458,7 @@ model Currency {
   countriesDefaultingHere Country[]
   bankTransactions        BankTransaction[]
   salesOrderDocuments     SalesOrderDocument[]
+  investmentOpportunities InvestmentOpportunity[]
   salesInvoices           SalesInvoice[]
   salesReturns            SalesReturn[]
   purchaseQuotations      PurchaseQuotation[]
@@ -594,6 +602,7 @@ model PaymentMethod {
 
   salesOrders SalesOrder[]
   expenses    Expense[]
+  capitalContributions CapitalContribution[]
 
   @@map("payment_methods")
 }
@@ -1913,6 +1922,7 @@ model ChartOfAccount {
   paymentSourcesDefault PaymentSource[]
   receivingAccounts     ReceivingAccount[]
   journalEntryLines     JournalEntryLine[]
+  capitalContributions  CapitalContribution[]
 
   /// Cash Flow module — accounts used as a direct Expense debit target.
   financialTransactionsExpense FinancialTransaction[] @relation("FinancialTransactionExpenseAccount")
@@ -2413,6 +2423,7 @@ model Attachment {
   paymentLinks       PaymentAttachment[]
   storeOrderReceipts StoreOrderReceipt[]
   shipmentLinks      ShipmentAttachment[]
+  contributionLinks  CapitalContributionAttachment[]
 
   @@index([uploadedById])
   @@index([deletedAt, finalizedAt])
@@ -2696,6 +2707,7 @@ model Product {
   costHistory        ProductCostHistory[]
   costSnapshot       ProductCostSnapshot?
   purchaseOrderItems PurchaseOrderItem[]
+  opportunityProducts OpportunityProduct[]
   variants           ProductVariant[]
   attachments        ProductAttachment[]
   /// BOM lines where this product is the finished Kit.
@@ -3199,12 +3211,15 @@ enum PartnerStatus {
 /// A Partner may hold more than one of these at once — see
 /// PartnerRoleAssignment. EMPLOYEE/OWNER are net-new roles (no prior model
 /// existed for either); OTHER is the open-ended bucket for a counterparty
-/// that is none of the above (e.g. a government/tax authority).
+/// that is none of the above (e.g. a government/tax authority). INVESTOR
+/// (Investor Engine Milestone 1) is a business/investment entity — never the
+/// same thing as a system User (see InvestorProfile.userId).
 enum PartnerRoleType {
   CUSTOMER
   SUPPLIER
   EMPLOYEE
   OWNER
+  INVESTOR
   OTHER
 }
 
@@ -3283,6 +3298,7 @@ model Partner {
   customerProfile CustomerProfile?
   supplierProfile SupplierProfile?
   employeeProfile EmployeeProfile?
+  investorProfile InvestorProfile?
 
   leads                 Lead[]
   storeOrders           StoreOrder[]
@@ -3464,6 +3480,42 @@ model EmployeeProfile {
   /// Direct-reports / manager-scope lookups (KPI routing, team hierarchy).
   @@index([managerEmployeeId])
   @@map("employee_profiles")
+}
+
+/// INVESTOR-role configuration (Investor Engine Milestone 1) — identity
+/// fields (name/phone/email/tax number/CR) stay on Partner, same split as
+/// every other role. Investor is deliberately NOT the same thing as User:
+/// `userId` stays optional — an Investor may exist purely as a business
+/// record with no system login, only ever linked once an Investor Portal
+/// ships in a future milestone. `status`/`entityType` (PERSON/ORGANIZATION)
+/// are NOT duplicated here — Partner already owns both.
+model InvestorProfile {
+  id String @id @default(uuid()) @db.Uuid
+
+  partnerId String  @unique @map("partner_id") @db.Uuid
+  partner   Partner @relation(fields: [partnerId], references: [id])
+
+  userId String? @unique @map("user_id") @db.Uuid
+  user   User?   @relation(fields: [userId], references: [id])
+
+  /// Genuinely Investor-specific identity fields not already covered by
+  /// Partner.taxNumber/commercialRegistration/notes.
+  nationalId  String? @map("national_id")
+  residencyId String? @map("residency_id")
+  iban        String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  /// Investors are soft-deleted only (Archive), same convention as every
+  /// other role profile — never a hard delete.
+  deletedAt DateTime? @map("deleted_at")
+
+  subscriptions InvestorSubscription[]
+
+  @@index([deletedAt])
+  @@map("investor_profiles")
 }
 
 // ---------------------------------------------------------------------------
@@ -6640,4 +6692,246 @@ model PayrollLineComponent {
   sortOrder Int                  @default(0) @map("sort_order")
 
   @@map("payroll_line_components")
+}
+
+// ---------------------------------------------------------------------------
+// Investor Engine — Milestone 1: Foundation + Investors + Investment
+// Opportunities + Subscriptions + Funding. Investor reuses the Unified
+// Partner Architecture (INVESTOR role + InvestorProfile, same split as
+// Customer/Supplier/Employee) — never a parallel identity table.
+//
+// Deliberately NOT implemented here (future milestones): automatic sales
+// allocation, inventory lot consumption, unit settlement/reallocation, net
+// profit calculation, expense attribution, investor distributions/ledger,
+// accounting postings, Investor Portal. This schema is shaped so those can
+// be added by pointing new tables at InvestmentOpportunity/
+// OpportunityProduct/InvestorSubscription without redesigning them:
+// OpportunitySaleAllocation/OpportunityExpense would reference
+// InvestmentOpportunity (+ OpportunityProduct for per-product attribution);
+// ProfitCalculation/OpportunitySettlement would reference
+// InvestmentOpportunity; ProfitDistribution/InvestorDistribution/
+// InvestorLedgerEntry would reference InvestorSubscription (participation
+// share already lives there).
+// ---------------------------------------------------------------------------
+
+/// Closed set, exactly as specified (Phase 16). ENDED != CLOSED: ENDED only
+/// means the investment period is over; CLOSED is reserved for when a
+/// future settlement engine finishes unit/profit reconciliation. SETTLED is
+/// schema-ready but no transition into it exists yet (Milestone 1 does not
+/// implement settlement) — see InvestmentOpportunitiesService.
+enum InvestmentOpportunityStatus {
+  DRAFT
+  OPEN
+  FUNDED
+  ACTIVE
+  ENDED
+  SETTLED
+  CLOSED
+  CANCELLED
+}
+
+/// Closed set (Phase 9/30) — PARTIALLY_FUNDED/FUNDED are backend-derived from
+/// confirmed CapitalContribution totals, never directly settable.
+enum InvestorSubscriptionStatus {
+  PENDING
+  COMMITTED
+  PARTIALLY_FUNDED
+  FUNDED
+  CANCELLED
+}
+
+/// Closed set (Phase 12).
+enum CapitalContributionStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  CANCELLED
+}
+
+/// The central investment container (Phase 5). `code` is app-generated via
+/// the Numbering Engine (INVESTMENT_OPPORTUNITY series) — never user-typed,
+/// same convention as every other document number in OMS. Target Capital is
+/// never stored here — it is always SUM(OpportunityProduct.fundedUnits *
+/// fundedUnitCost), computed authoritatively in
+/// InvestmentOpportunitiesService (Phase 7).
+model InvestmentOpportunity {
+  id String @id @default(uuid()) @db.Uuid
+
+  code String @unique
+
+  nameAr      String  @map("name_ar")
+  nameEn      String? @map("name_en")
+  description String?
+
+  currencyId String   @map("currency_id") @db.Uuid
+  currency   Currency @relation(fields: [currencyId], references: [id])
+
+  /// Business dates (Phase 17) — stored as plain dates (no time-of-day),
+  /// never timezone-shifted. startDate < endDate enforced in the service.
+  startDate DateTime @map("start_date") @db.Date
+  endDate   DateTime @map("end_date") @db.Date
+
+  /// Percentage of Opportunity NET PROFIT belonging to the investor pool —
+  /// NOT the same concept as InvestorSubscription.participationPercent
+  /// (Phase 10). 0 < value <= 100, enforced in the service.
+  investorNetProfitSharePercent Decimal @map("investor_net_profit_share_percent") @db.Decimal(5, 2)
+
+  status InvestmentOpportunityStatus @default(DRAFT)
+
+  /// Set by the controlled "Activate"/"End Opportunity" actions — audit
+  /// timestamps only, no business logic reads them yet.
+  activatedAt DateTime? @map("activated_at")
+  endedAt     DateTime? @map("ended_at")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  products      OpportunityProduct[]
+  subscriptions InvestorSubscription[]
+
+  @@index([deletedAt, status])
+  @@index([startDate, endDate])
+  @@map("investment_opportunities")
+}
+
+/// Funded Product terms within an Opportunity (Phase 6/8) — one row per
+/// Product per Opportunity (`@@unique`, Phase 32 "duplicate Product ->
+/// reject"). `productNameSnapshot`/`fundedUnitCost` are a deliberate
+/// snapshot: Product master-data changes later must never silently rewrite
+/// historical investment terms (mission "preserve historical terms"). Once
+/// any CONFIRMED CapitalContribution exists anywhere on the parent
+/// Opportunity, these terms lock (enforced in
+/// InvestmentOpportunitiesService, not here).
+model OpportunityProduct {
+  id String @id @default(uuid()) @db.Uuid
+
+  opportunityId String                @map("opportunity_id") @db.Uuid
+  opportunity   InvestmentOpportunity @relation(fields: [opportunityId], references: [id])
+
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id])
+
+  productNameSnapshot String @map("product_name_snapshot")
+
+  fundedUnits    Int     @map("funded_units")
+  fundedUnitCost Decimal @map("funded_unit_cost") @db.Decimal(12, 2)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@unique([opportunityId, productId])
+  @@map("opportunity_products")
+}
+
+/// One Investor's subscription to one Opportunity (Phase 9) — `@@unique`
+/// enforces "one canonical subscription per Investor per Opportunity"
+/// (Phase 32 "duplicate Investor subscription -> reject"). `fundedAmount`/
+/// `participationPercent` are authoritative derived values, recalculated
+/// transactionally by InvestorSubscriptionsService whenever a
+/// CapitalContribution is confirmed/rejected/cancelled (Phase 11/13) — never
+/// directly writable by the frontend.
+model InvestorSubscription {
+  id String @id @default(uuid()) @db.Uuid
+
+  investorId String          @map("investor_id") @db.Uuid
+  investor   InvestorProfile @relation(fields: [investorId], references: [id])
+
+  opportunityId String                @map("opportunity_id") @db.Uuid
+  opportunity   InvestmentOpportunity @relation(fields: [opportunityId], references: [id])
+
+  committedAmount Decimal @map("committed_amount") @db.Decimal(14, 2)
+
+  fundedAmount Decimal @default(0) @map("funded_amount") @db.Decimal(14, 2)
+
+  /// Share of the investor pool this Investor holds, 0-100 (Phase 10/11).
+  participationPercent Decimal @default(0) @map("participation_percent") @db.Decimal(7, 4)
+
+  status InvestorSubscriptionStatus @default(PENDING)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  contributions CapitalContribution[]
+
+  @@unique([investorId, opportunityId])
+  @@index([opportunityId, status])
+  @@map("investor_subscriptions")
+}
+
+/// A single traceable funding movement against a Subscription (Phase 12) —
+/// `InvestorSubscription.fundedAmount` is never editable on its own; it is
+/// always SUM(CONFIRMED contributions here) (Phase 13). `paymentMethodId`/
+/// `financialAccountId` are nullable placeholders only (no posting logic
+/// yet, same "Preparation For Future" treatment as PurchaseOrder's).
+model CapitalContribution {
+  id String @id @default(uuid()) @db.Uuid
+
+  subscriptionId String               @map("subscription_id") @db.Uuid
+  subscription   InvestorSubscription @relation(fields: [subscriptionId], references: [id])
+
+  amount           Decimal  @db.Decimal(14, 2)
+  contributionDate DateTime @map("contribution_date") @db.Date
+
+  paymentMethodId String?        @map("payment_method_id") @db.Uuid
+  paymentMethod   PaymentMethod? @relation(fields: [paymentMethodId], references: [id])
+
+  financialAccountId String?         @map("financial_account_id") @db.Uuid
+  financialAccount   ChartOfAccount? @relation(fields: [financialAccountId], references: [id])
+
+  referenceNumber String? @map("reference_number")
+
+  status CapitalContributionStatus @default(PENDING)
+
+  confirmedById String?   @map("confirmed_by_id") @db.Uuid
+  confirmedBy   User?     @relation("CapitalContributionConfirmedBy", fields: [confirmedById], references: [id])
+  confirmedAt   DateTime? @map("confirmed_at")
+
+  notes String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  attachments CapitalContributionAttachment[]
+
+  @@index([subscriptionId, status])
+  @@map("capital_contributions")
+}
+
+/// Contribution ↔ Attachment join (Phase 12 "reuse existing Attachment
+/// architecture") — same shape as PaymentAttachment/ShipmentAttachment,
+/// never a second file-storage system.
+model CapitalContributionAttachment {
+  id String @id @default(uuid()) @db.Uuid
+
+  contributionId String              @map("contribution_id") @db.Uuid
+  contribution   CapitalContribution @relation(fields: [contributionId], references: [id])
+
+  attachmentId String?     @unique @map("attachment_id") @db.Uuid
+  attachment   Attachment? @relation(fields: [attachmentId], references: [id])
+
+  uploadedById String @map("uploaded_by_id") @db.Uuid
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+
+  fileUrl        String  @map("file_url")
+  fileName       String? @map("file_name")
+  attachmentType String  @map("attachment_type")
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  deletedAt   DateTime? @map("deleted_at")
+  deletedById String?   @map("deleted_by_id") @db.Uuid
+
+  @@index([contributionId, deletedAt])
+  @@map("capital_contribution_attachments")
 }

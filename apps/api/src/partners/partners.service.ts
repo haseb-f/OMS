@@ -52,6 +52,7 @@ const PARTNER_INCLUDE = {
       manager: { include: { partner: { select: { id: true, name: true } } } },
     },
   },
+  investorProfile: true,
   country: true,
   currency: true,
 } satisfies Prisma.PartnerInclude;
@@ -145,6 +146,7 @@ export class PartnersService extends MasterDataCrudService<
       customerProfile,
       supplierProfile,
       employeeProfile,
+      investorProfile,
       ...rest
     } = dto;
     try {
@@ -168,6 +170,7 @@ export class PartnersService extends MasterDataCrudService<
             customerProfile,
             supplierProfile,
             employeeProfile,
+            investorProfile,
           });
         }
         await this.activityLog.log(
@@ -195,6 +198,7 @@ export class PartnersService extends MasterDataCrudService<
     delete data.customerProfile;
     delete data.supplierProfile;
     delete data.employeeProfile;
+    delete data.investorProfile;
 
     let countryId = dto.countryId;
     if (dto.phone !== undefined || dto.mobile !== undefined) {
@@ -260,6 +264,12 @@ export class PartnersService extends MasterDataCrudService<
             },
           });
         }
+        if (dto.investorProfile && existing.investorProfile) {
+          await tx.investorProfile.update({
+            where: { partnerId: id },
+            data: { ...dto.investorProfile, updatedBy: userId ?? null },
+          });
+        }
         await this.activityLog.log(
           this.entityType,
           id,
@@ -282,6 +292,7 @@ export class PartnersService extends MasterDataCrudService<
       customerProfile?: CreatePartnerDto['customerProfile'];
       supplierProfile?: CreatePartnerDto['supplierProfile'];
       employeeProfile?: CreatePartnerDto['employeeProfile'];
+      investorProfile?: CreatePartnerDto['investorProfile'];
     },
   ) {
     switch (role) {
@@ -349,6 +360,31 @@ export class PartnersService extends MasterDataCrudService<
         );
         await tx.employeeProfile.create({
           data: { partnerId, employeeCode, ...fields },
+        });
+        return;
+      }
+      case PartnerRoleType.INVESTOR: {
+        const fields = {
+          userId: profiles.investorProfile?.userId,
+          nationalId: profiles.investorProfile?.nationalId,
+          residencyId: profiles.investorProfile?.residencyId,
+          iban: profiles.investorProfile?.iban,
+        };
+        // Same reactivate-in-place rule as EmployeeProfile above — partnerId
+        // is unique, so re-assigning a previously-removed INVESTOR role must
+        // revive that same row, never create a second one.
+        const existingInvestor = await tx.investorProfile.findUnique({
+          where: { partnerId },
+        });
+        if (existingInvestor) {
+          await tx.investorProfile.update({
+            where: { partnerId },
+            data: { ...fields, deletedAt: null },
+          });
+          return;
+        }
+        await tx.investorProfile.create({
+          data: { partnerId, ...fields },
         });
         return;
       }

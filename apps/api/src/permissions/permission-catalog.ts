@@ -51,6 +51,12 @@ const HR_SECTION = {
   sectionLabelKey: 'permissions.sections.hr',
 } as const;
 
+/** Investor Engine Milestone 1 — المستثمرون section (Investors/Opportunities/Subscriptions/Contributions). */
+const INVESTORS_SECTION = {
+  sectionKey: 'investors',
+  sectionLabelKey: 'permissions.sections.investors',
+} as const;
+
 /** Groups catalog rows for the Permission Matrix: Sales children render under المبيعات, standalone modules stay as top-level rows. */
 export function groupPermissionCatalog(
   modules: PermissionModuleDef[] = PERMISSION_CATALOG,
@@ -850,6 +856,54 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
       { action: 'export', name: 'hr.payroll.export' },
     ],
   },
+  {
+    // Investor Engine Milestone 1 — Investor (investment/business entity,
+    // distinct from User/Partner Customer/Supplier roles).
+    key: 'investors',
+    labelKey: 'permissions.modules.investors',
+    ...INVESTORS_SECTION,
+    actions: [
+      ...crud('investors', { export: true }),
+      { action: 'delete', name: 'investors.archive' },
+    ],
+  },
+  {
+    // The central investment container — status lifecycle (Open/Activate/
+    // End/Cancel) is one `manage-status` action, not a separate permission
+    // per transition (same one-module-many-actions pattern as `payroll`).
+    key: 'investment-opportunities',
+    labelKey: 'permissions.modules.investmentOpportunities',
+    ...INVESTORS_SECTION,
+    actions: [
+      { action: 'view', name: 'investment-opportunities.view' },
+      { action: 'create', name: 'investment-opportunities.create' },
+      { action: 'edit', name: 'investment-opportunities.edit' },
+      { action: 'manage', name: 'investment-opportunities.manage-status' },
+      { action: 'cancel', name: 'investment-opportunities.cancel' },
+      { action: 'delete', name: 'investment-opportunities.archive' },
+      { action: 'export', name: 'investment-opportunities.export' },
+    ],
+  },
+  {
+    // Managed mainly from within the Opportunity/Investor workspaces, not a
+    // standalone sidebar page (mission Phase 37/28).
+    key: 'investor-subscriptions',
+    labelKey: 'permissions.modules.investorSubscriptions',
+    ...INVESTORS_SECTION,
+    actions: [
+      { action: 'view', name: 'investor-subscriptions.view' },
+      { action: 'create', name: 'investor-subscriptions.create' },
+      { action: 'edit', name: 'investor-subscriptions.edit' },
+    ],
+  },
+  {
+    // Finance's Confirm/Reject authority over funding movements — same
+    // payment-workflow shape as sales.receipts/purchasing.payments.
+    key: 'capital-contributions',
+    labelKey: 'permissions.modules.capitalContributions',
+    ...INVESTORS_SECTION,
+    actions: paymentActions('capital-contributions'),
+  },
 ];
 
 export const ALL_PERMISSION_NAMES: string[] = [
@@ -969,6 +1023,10 @@ export const IMPLIED_SECTION_PERMISSION: Record<
   'hr.commission-plans': 'hr.view',
   'hr.commissions': 'hr.view',
   'hr.payroll': 'hr.view',
+  // Investor Engine Milestone 1 — المستثمرون sidebar section.
+  'investment-opportunities': 'investors.view',
+  'investor-subscriptions': 'investors.view',
+  'capital-contributions': 'investors.view',
 };
 
 /** Expands a granted-permission list with every implied coarse section permission (see `IMPLIED_SECTION_PERMISSION`). */
