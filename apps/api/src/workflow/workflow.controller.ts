@@ -20,13 +20,16 @@ import {
   UpdateWorkflowTransitionDto,
 } from './dto/workflow-transition.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionModule } from '../auth/decorators/permission-module.decorator';
+import { PermissionAction } from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 import { isWorkflowEntityType } from './workflow.catalog';
 import { SalesScopeService } from '../sales-scope/sales-scope.service';
 
 @Controller('workflow')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class WorkflowController {
   constructor(
     private readonly engine: WorkflowEngineService,
@@ -36,12 +39,20 @@ export class WorkflowController {
 
   // --- Static routes MUST precede :entityType/:entityId ---
 
+  // Configuring which transitions exist and what permission/approval each
+  // one requires is a highly-privileged admin operation (TASK-062) — never
+  // confuse with EXECUTING a transition below, which already enforces the
+  // transition's own dynamic `requiredPermission` inside
+  // `WorkflowEngineService`.
   @Get('transitions')
+  @PermissionModule('workflow-transitions')
   listTransitions(@Query('workflowType') workflowType?: WorkflowType) {
     return this.engine.listTransitions(workflowType);
   }
 
   @Post('transitions')
+  @PermissionModule('workflow-transitions')
+  @PermissionAction('manage')
   createTransition(
     @Body() dto: CreateWorkflowTransitionDto,
     @CurrentUser() user: JwtPayload,
@@ -50,6 +61,8 @@ export class WorkflowController {
   }
 
   @Patch('transitions/:id')
+  @PermissionModule('workflow-transitions')
+  @PermissionAction('manage')
   updateTransition(
     @Param('id') id: string,
     @Body() dto: UpdateWorkflowTransitionDto,
@@ -59,25 +72,33 @@ export class WorkflowController {
   }
 
   @Get('approvals/pending')
-  pendingApprovals() {
-    return this.engine.listPendingApprovals();
+  async pendingApprovals(@CurrentUser() user: JwtPayload) {
+    const isSuperAdmin = await this.permissions.isSuperAdmin(user.sub);
+    return this.engine.listPendingApprovals(user.sub, isSuperAdmin);
   }
 
   @Post('approvals/:approvalId/approve')
-  approve(
+  async approve(
     @Param('approvalId') approvalId: string,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.engine.approveTransition(approvalId, user.sub);
+    const isSuperAdmin = await this.permissions.isSuperAdmin(user.sub);
+    return this.engine.approveTransition(approvalId, user.sub, isSuperAdmin);
   }
 
   @Post('approvals/:approvalId/reject')
-  reject(
+  async reject(
     @Param('approvalId') approvalId: string,
     @Body() dto: RequestWorkflowApprovalDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.engine.rejectTransition(approvalId, user.sub, dto.reason);
+    const isSuperAdmin = await this.permissions.isSuperAdmin(user.sub);
+    return this.engine.rejectTransition(
+      approvalId,
+      user.sub,
+      dto.reason,
+      isSuperAdmin,
+    );
   }
 
   @Get('analytics/lead-funnel')

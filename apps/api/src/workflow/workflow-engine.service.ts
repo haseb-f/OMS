@@ -400,7 +400,11 @@ export class WorkflowEngineService {
     });
   }
 
-  async approveTransition(approvalId: string, approverId: string) {
+  async approveTransition(
+    approvalId: string,
+    approverId: string,
+    isSuperAdmin = false,
+  ) {
     const approval = await this.prisma.workflowApproval.findUnique({
       where: { id: approvalId },
       include: {
@@ -410,6 +414,23 @@ export class WorkflowEngineService {
     if (!approval || approval.status !== WorkflowApprovalStatus.PENDING) {
       throw new BadRequestException(
         'Approval request not found or already resolved.',
+      );
+    }
+
+    // TASK-062 — approving is the privileged half of the very gate a
+    // required-permission transition exists for; without this check any
+    // authenticated user could approve/unblock a transition they could
+    // never have executed directly.
+    if (
+      approval.transition.requiredPermission &&
+      !isSuperAdmin &&
+      !(await this.permissions.hasPermission(
+        approverId,
+        approval.transition.requiredPermission,
+      ))
+    ) {
+      throw new ForbiddenException(
+        `Missing permission "${approval.transition.requiredPermission}" to approve this transition.`,
       );
     }
 
@@ -453,13 +474,29 @@ export class WorkflowEngineService {
     approvalId: string,
     rejectorId: string,
     rejectionReason?: string,
+    isSuperAdmin = false,
   ) {
     const approval = await this.prisma.workflowApproval.findUnique({
       where: { id: approvalId },
+      include: { transition: true },
     });
     if (!approval || approval.status !== WorkflowApprovalStatus.PENDING) {
       throw new BadRequestException(
         'Approval request not found or already resolved.',
+      );
+    }
+    // TASK-062 — same authority required to reject as to approve; otherwise
+    // anyone could veto an approval they had no say in.
+    if (
+      approval.transition.requiredPermission &&
+      !isSuperAdmin &&
+      !(await this.permissions.hasPermission(
+        rejectorId,
+        approval.transition.requiredPermission,
+      ))
+    ) {
+      throw new ForbiddenException(
+        `Missing permission "${approval.transition.requiredPermission}" to reject this transition.`,
       );
     }
     return this.prisma.workflowApproval.update({
@@ -1190,8 +1227,13 @@ export class WorkflowEngineService {
     });
   }
 
-  listPendingApprovals() {
-    return this.prisma.workflowApproval.findMany({
+  // TASK-062 — previously returned every pending approval to any
+  // authenticated user, including whichever `requiredPermission` gated the
+  // underlying transition. Only surface an approval to someone who could
+  // actually approve/reject it (or to a super admin, who can act on any of
+  // them).
+  async listPendingApprovals(userId: string, isSuperAdmin = false) {
+    const approvals = await this.prisma.workflowApproval.findMany({
       where: { status: WorkflowApprovalStatus.PENDING },
       include: {
         transition: { include: { fromStatus: true, toStatus: true } },
@@ -1201,6 +1243,18 @@ export class WorkflowEngineService {
       },
       orderBy: { requestedAt: 'desc' },
     });
+    if (isSuperAdmin) return approvals;
+
+    const results = await Promise.all(
+      approvals.map(async (approval) => {
+        const requiredPermission = approval.transition.requiredPermission;
+        const allowed =
+          !requiredPermission ||
+          (await this.permissions.hasPermission(userId, requiredPermission));
+        return allowed ? approval : null;
+      }),
+    );
+    return results.filter((approval) => approval !== null);
   }
 
   /**
