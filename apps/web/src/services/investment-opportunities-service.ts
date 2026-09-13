@@ -101,6 +101,7 @@ export const investmentOpportunitiesService = {
   activate: (id: string) => apiClient.post<InvestmentOpportunityRow>(`${basePath}/${id}/activate`),
   end: (id: string) => apiClient.post<InvestmentOpportunityRow>(`${basePath}/${id}/end`),
   cancel: (id: string) => apiClient.post<InvestmentOpportunityRow>(`${basePath}/${id}/cancel`),
+  close: (id: string) => apiClient.post<InvestmentOpportunityRow>(`${basePath}/${id}/close`),
   archive: (id: string) => apiClient.post<InvestmentOpportunityRow>(`${basePath}/${id}/archive`),
   activity: (id: string) => apiClient.get<MasterDataActivityEntry[]>(`${basePath}/${id}/activity`),
 };
