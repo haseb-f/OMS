@@ -89,6 +89,14 @@ export class InvestmentOpportunitiesController {
     return this.opportunitiesService.cancel(id, user.sub);
   }
 
+  /** SETTLED -> CLOSED final archival action (Phase 47) — ENDED -> SETTLED only happens via the Settlement Engine. */
+  @Post(':id/close')
+  @HttpCode(200)
+  @PermissionAction('manage')
+  close(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.opportunitiesService.close(id, user.sub);
+  }
+
   @Post(':id/archive')
   @HttpCode(200)
   @PermissionAction('delete')

@@ -431,6 +431,28 @@ export class InvestmentOpportunitiesService {
     );
   }
 
+  /** ENDED -> SETTLED — set only by InvestmentSettlementService on valid Settlement completion (Phase 47), never directly by a controller action. */
+  markSettled(id: string, userId?: string) {
+    return this.transition(
+      id,
+      [InvestmentOpportunityStatus.ENDED],
+      InvestmentOpportunityStatus.SETTLED,
+      'settled',
+      userId,
+    );
+  }
+
+  /** SETTLED -> CLOSED — final archival action (Phase 47), independent of the financial engine. */
+  close(id: string, userId?: string) {
+    return this.transition(
+      id,
+      [InvestmentOpportunityStatus.SETTLED],
+      InvestmentOpportunityStatus.CLOSED,
+      'closed',
+      userId,
+    );
+  }
+
   /** Only from safe pre-settlement states (Phase 16 "CANCELLED only from safe pre-settlement states"). */
   cancel(id: string, userId?: string) {
     return this.transition(

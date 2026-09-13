@@ -1454,6 +1454,24 @@ async function main() {
     'capital-contributions.create',
     'capital-contributions.edit',
     'capital-contributions.confirm',
+    // Investor Engine Milestone 2, Phase 49/50 — Finance operates the
+    // Sales Allocation/Expenses/Profit/Settlement engines end to end (same
+    // financial-ownership role M1 already gave Finance over funding).
+    'investment-sales.view',
+    'investment-sales.manage',
+    'investment-sales.reallocate',
+    'investment-expenses.view',
+    'investment-expenses.create',
+    'investment-expenses.edit',
+    'investment-expenses.approve',
+    'investment-profit.view',
+    'investment-profit.calculate',
+    'investment-profit.approve',
+    'investment-settlement.view',
+    'investment-settlement.start',
+    'investment-settlement.manage',
+    'investment-settlement.approve',
+    'investment-settlement.cancel',
   ];
   await grantPermissions(financeUser.id, financeUserPermissionNames);
   await grantPermissions(financeManagerUser.id, [
@@ -1588,6 +1606,11 @@ async function main() {
     'investors.view',
     'investment-opportunities.view',
     'investor-subscriptions.view',
+    // Investor Engine Milestone 2 — same read-only oversight philosophy.
+    'investment-sales.view',
+    'investment-expenses.view',
+    'investment-profit.view',
+    'investment-settlement.view',
   ]);
 
   // Employee test persona — deliberately zero module permissions, so a
@@ -2353,6 +2376,433 @@ async function main() {
           updatedBy: adminUser.id,
         },
       });
+    }
+
+    // -------------------------------------------------------------------
+    // Investor Engine Milestone 2 — deterministic fixtures reproducing the
+    // mission's own exact acceptance numbers (Phase 66 Net Profit formula,
+    // Phase 70 End-Date Settlement). Real StoreOrder/StoreOrderItem rows,
+    // DELIVERED, never fabricated sales. Dev/test fixture only.
+    // -------------------------------------------------------------------
+    const testCustomer = await prisma.partner.upsert({
+      where: { partnerNumber: 'PT-TEST-INV-CUSTOMER' },
+      update: { name: 'عميل تجريبي - محرك الاستثمار' },
+      create: {
+        partnerNumber: 'PT-TEST-INV-CUSTOMER',
+        name: 'عميل تجريبي - محرك الاستثمار',
+        entityType: 'PERSON',
+        phone: '0500000099',
+        email: 'investor-engine-customer-test@oms.local',
+        status: 'ACTIVE',
+      },
+    });
+    await prisma.partnerRoleAssignment.upsert({
+      where: {
+        partnerId_role: { partnerId: testCustomer.id, role: 'CUSTOMER' },
+      },
+      update: {},
+      create: { partnerId: testCustomer.id, role: 'CUSTOMER' },
+    });
+
+    const deliveredStatus = await prisma.statusDefinition.findFirst({
+      where: { workflowType: 'FULFILLMENT', code: 'DELIVERED' },
+    });
+
+    if (deliveredStatus) {
+      // -- Phase 66 acceptance scenario: INV-PROFIT-TEST --------------------
+      // 1000 funded units @ 100 SAR cost, 40% investor share, Investor A
+      // 65% / Investor B 35%. 850 units sold (170,000), 50 units returned
+      // in full (10,000) -> net 800 active units / 160,000 revenue, 80,000
+      // COGS, 20,000 approved expenses -> Net Profit 50,000 -> Pool 20,000
+      // -> A 13,000 / B 7,000 -> Company portion 30,000.
+      const profitTestOpportunity = await prisma.investmentOpportunity.upsert({
+        where: { code: 'INV-PROFIT-TEST' },
+        update: {},
+        create: {
+          code: 'INV-PROFIT-TEST',
+          nameAr: 'اختبار محرك الأرباح - تجريبي',
+          nameEn: 'Profit Engine Acceptance Test',
+          currencyId: sarCurrency.id,
+          startDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),
+          endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+          investorNetProfitSharePercent: 40,
+          status: 'ACTIVE',
+          activatedAt: new Date(),
+          createdBy: adminUser.id,
+          updatedBy: adminUser.id,
+        },
+      });
+      const profitTestProductA = await prisma.opportunityProduct.upsert({
+        where: {
+          opportunityId_productId: {
+            opportunityId: profitTestOpportunity.id,
+            productId: productA.id,
+          },
+        },
+        update: {},
+        create: {
+          opportunityId: profitTestOpportunity.id,
+          productId: productA.id,
+          productNameSnapshot: productA.displayName,
+          fundedUnits: 1000,
+          fundedUnitCost: 100,
+          createdBy: adminUser.id,
+          updatedBy: adminUser.id,
+        },
+      });
+      const profitTestSubA = await prisma.investorSubscription.upsert({
+        where: {
+          investorId_opportunityId: {
+            investorId: investorA.id,
+            opportunityId: profitTestOpportunity.id,
+          },
+        },
+        update: {},
+        create: {
+          investorId: investorA.id,
+          opportunityId: profitTestOpportunity.id,
+          committedAmount: 65000,
+          fundedAmount: 65000,
+          participationPercent: 65,
+          status: 'FUNDED',
+          createdBy: adminUser.id,
+          updatedBy: adminUser.id,
+        },
+      });
+      const profitTestSubB = await prisma.investorSubscription.upsert({
+        where: {
+          investorId_opportunityId: {
+            investorId: investorB.id,
+            opportunityId: profitTestOpportunity.id,
+          },
+        },
+        update: {},
+        create: {
+          investorId: investorB.id,
+          opportunityId: profitTestOpportunity.id,
+          committedAmount: 35000,
+          fundedAmount: 35000,
+          participationPercent: 35,
+          status: 'FUNDED',
+          createdBy: adminUser.id,
+          updatedBy: adminUser.id,
+        },
+      });
+      for (const [sub, ref, amount] of [
+        [profitTestSubA, 'SEED-PROFIT-A-1', 65000],
+        [profitTestSubB, 'SEED-PROFIT-B-1', 35000],
+      ] as const) {
+        const existing = await prisma.capitalContribution.findFirst({
+          where: { subscriptionId: sub.id, referenceNumber: ref },
+        });
+        if (!existing) {
+          await prisma.capitalContribution.create({
+            data: {
+              subscriptionId: sub.id,
+              amount,
+              contributionDate: new Date(),
+              referenceNumber: ref,
+              status: 'CONFIRMED',
+              confirmedById: financeUser.id,
+              confirmedAt: new Date(),
+              createdBy: adminUser.id,
+              updatedBy: adminUser.id,
+            },
+          });
+        }
+      }
+
+      // Three DELIVERED sales of Product A: 400 + 400 + 50 units @ 200/unit.
+      const profitTestOrderSpecs = [
+        { ref: 'TEST-INV-PROFIT-ORDER-1', quantity: 400 },
+        { ref: 'TEST-INV-PROFIT-ORDER-2', quantity: 400 },
+        { ref: 'TEST-INV-PROFIT-ORDER-3', quantity: 50 },
+      ];
+      const profitTestOrders: {
+        orderId: string;
+        itemId: string;
+        quantity: number;
+        revenue: number;
+      }[] = [];
+      for (const spec of profitTestOrderSpecs) {
+        const order = await prisma.storeOrder.upsert({
+          where: { internalOrderId: spec.ref },
+          update: {},
+          create: {
+            internalOrderId: spec.ref,
+            partnerId: testCustomer.id,
+            currencyId: sarCurrency.id,
+            fulfillmentStatusId: deliveredStatus.id,
+            orderDate: new Date(),
+            source: 'MANUAL',
+            createdBy: adminUser.id,
+            updatedBy: adminUser.id,
+          },
+        });
+        const revenue = spec.quantity * 200;
+        let item = await prisma.storeOrderItem.findFirst({
+          where: { storeOrderId: order.id, productId: productA.id },
+        });
+        if (!item) {
+          item = await prisma.storeOrderItem.create({
+            data: {
+              storeOrderId: order.id,
+              productId: productA.id,
+              quantity: spec.quantity,
+              unitPrice: 200,
+              agreedAmount: revenue,
+            },
+          });
+        }
+        profitTestOrders.push({
+          orderId: order.id,
+          itemId: item.id,
+          quantity: spec.quantity,
+          revenue,
+        });
+      }
+
+      // Allocate 400+400 as ACTIVE (800 units / 160,000), reverse the 50-unit/10,000 order in full (a genuine return).
+      for (const [index, row] of profitTestOrders.entries()) {
+        const existingAllocation =
+          await prisma.opportunitySaleAllocation.findFirst({
+            where: {
+              storeOrderItemId: row.itemId,
+              opportunityId: profitTestOpportunity.id,
+            },
+          });
+        if (existingAllocation) continue;
+        const isReturned = index === 2;
+        await prisma.opportunitySaleAllocation.create({
+          data: {
+            opportunityId: profitTestOpportunity.id,
+            opportunityProductId: profitTestProductA.id,
+            storeOrderId: row.orderId,
+            storeOrderItemId: row.itemId,
+            productId: productA.id,
+            allocatedQuantity: row.quantity,
+            allocatedRevenue: row.revenue,
+            allocationType: 'AUTO',
+            status: isReturned ? 'REVERSED' : 'ACTIVE',
+            allocatedBy: adminUser.id,
+            reversedAt: isReturned ? new Date() : null,
+            reversedBy: isReturned ? financeUser.id : null,
+            reversalReason: isReturned
+              ? 'Customer return — Phase 66 acceptance scenario fixture'
+              : null,
+          },
+        });
+      }
+
+      const existingExpense = await prisma.opportunityExpense.findFirst({
+        where: {
+          opportunityId: profitTestOpportunity.id,
+          description: 'Seed fixture — Phase 66 approved expense',
+        },
+      });
+      if (!existingExpense) {
+        await prisma.opportunityExpense.create({
+          data: {
+            opportunityId: profitTestOpportunity.id,
+            expenseDate: new Date(),
+            category: 'OTHER',
+            description: 'Seed fixture — Phase 66 approved expense',
+            amount: 20000,
+            status: 'APPROVED',
+            approvedById: financeUser.id,
+            approvedAt: new Date(),
+            createdBy: adminUser.id,
+          },
+        });
+      }
+
+      // -- Phase 70 settlement scenario: TEST-INV-SETTLEMENT ---------------
+      // Product B (1000 funded), ENDED, 850 units already allocated/sold,
+      // Remaining 150; a separate real DELIVERED order of 120 still-
+      // unallocated units of the same Product sits ready for the
+      // Settlement Engine to suggest and commit (-> Sold 970, Remaining 30).
+      const settlementOpportunity = await prisma.investmentOpportunity.upsert({
+        where: { code: 'TEST-INV-SETTLEMENT' },
+        update: {},
+        create: {
+          code: 'TEST-INV-SETTLEMENT',
+          nameAr: 'اختبار محرك التسوية - تجريبي',
+          nameEn: 'Settlement Engine Acceptance Test',
+          currencyId: sarCurrency.id,
+          startDate: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000),
+          endDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+          investorNetProfitSharePercent: 40,
+          status: 'ENDED',
+          activatedAt: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000),
+          endedAt: new Date(),
+          createdBy: adminUser.id,
+          updatedBy: adminUser.id,
+        },
+      });
+      const settlementProductB = await prisma.opportunityProduct.upsert({
+        where: {
+          opportunityId_productId: {
+            opportunityId: settlementOpportunity.id,
+            productId: productB.id,
+          },
+        },
+        update: {},
+        create: {
+          opportunityId: settlementOpportunity.id,
+          productId: productB.id,
+          productNameSnapshot: productB.displayName,
+          fundedUnits: 1000,
+          fundedUnitCost: 60,
+          createdBy: adminUser.id,
+          updatedBy: adminUser.id,
+        },
+      });
+      const settlementSubA = await prisma.investorSubscription.upsert({
+        where: {
+          investorId_opportunityId: {
+            investorId: investorA.id,
+            opportunityId: settlementOpportunity.id,
+          },
+        },
+        update: {},
+        create: {
+          investorId: investorA.id,
+          opportunityId: settlementOpportunity.id,
+          committedAmount: 39000,
+          fundedAmount: 39000,
+          participationPercent: 65,
+          status: 'FUNDED',
+          createdBy: adminUser.id,
+          updatedBy: adminUser.id,
+        },
+      });
+      await prisma.investorSubscription.upsert({
+        where: {
+          investorId_opportunityId: {
+            investorId: investorB.id,
+            opportunityId: settlementOpportunity.id,
+          },
+        },
+        update: {},
+        create: {
+          investorId: investorB.id,
+          opportunityId: settlementOpportunity.id,
+          committedAmount: 21000,
+          fundedAmount: 21000,
+          participationPercent: 35,
+          status: 'FUNDED',
+          createdBy: adminUser.id,
+          updatedBy: adminUser.id,
+        },
+      });
+      const existingContributionSettlementA =
+        await prisma.capitalContribution.findFirst({
+          where: {
+            subscriptionId: settlementSubA.id,
+            referenceNumber: 'SEED-SETTLEMENT-A-1',
+          },
+        });
+      if (!existingContributionSettlementA) {
+        await prisma.capitalContribution.create({
+          data: {
+            subscriptionId: settlementSubA.id,
+            amount: 39000,
+            contributionDate: new Date(),
+            referenceNumber: 'SEED-SETTLEMENT-A-1',
+            status: 'CONFIRMED',
+            confirmedById: financeUser.id,
+            confirmedAt: new Date(),
+            createdBy: adminUser.id,
+            updatedBy: adminUser.id,
+          },
+        });
+      }
+
+      const settlementSoldOrder = await prisma.storeOrder.upsert({
+        where: { internalOrderId: 'TEST-INV-SETTLEMENT-ORDER-SOLD' },
+        update: {},
+        create: {
+          internalOrderId: 'TEST-INV-SETTLEMENT-ORDER-SOLD',
+          partnerId: testCustomer.id,
+          currencyId: sarCurrency.id,
+          fulfillmentStatusId: deliveredStatus.id,
+          orderDate: new Date(),
+          source: 'MANUAL',
+          createdBy: adminUser.id,
+          updatedBy: adminUser.id,
+        },
+      });
+      let settlementSoldItem = await prisma.storeOrderItem.findFirst({
+        where: { storeOrderId: settlementSoldOrder.id, productId: productB.id },
+      });
+      if (!settlementSoldItem) {
+        settlementSoldItem = await prisma.storeOrderItem.create({
+          data: {
+            storeOrderId: settlementSoldOrder.id,
+            productId: productB.id,
+            quantity: 850,
+            unitPrice: 80,
+            agreedAmount: 850 * 80,
+          },
+        });
+      }
+      const existingSettlementAllocation =
+        await prisma.opportunitySaleAllocation.findFirst({
+          where: {
+            storeOrderItemId: settlementSoldItem.id,
+            opportunityId: settlementOpportunity.id,
+          },
+        });
+      if (!existingSettlementAllocation) {
+        await prisma.opportunitySaleAllocation.create({
+          data: {
+            opportunityId: settlementOpportunity.id,
+            opportunityProductId: settlementProductB.id,
+            storeOrderId: settlementSoldOrder.id,
+            storeOrderItemId: settlementSoldItem.id,
+            productId: productB.id,
+            allocatedQuantity: 850,
+            allocatedRevenue: 850 * 80,
+            allocationType: 'AUTO',
+            status: 'ACTIVE',
+            allocatedBy: adminUser.id,
+          },
+        });
+      }
+
+      // 120 units of Product B, DELIVERED, deliberately left unallocated —
+      // the real eligible sale the Settlement Engine should suggest.
+      const settlementUnallocatedOrder = await prisma.storeOrder.upsert({
+        where: { internalOrderId: 'TEST-INV-SETTLEMENT-ORDER-UNALLOCATED' },
+        update: {},
+        create: {
+          internalOrderId: 'TEST-INV-SETTLEMENT-ORDER-UNALLOCATED',
+          partnerId: testCustomer.id,
+          currencyId: sarCurrency.id,
+          fulfillmentStatusId: deliveredStatus.id,
+          orderDate: new Date(),
+          source: 'MANUAL',
+          createdBy: adminUser.id,
+          updatedBy: adminUser.id,
+        },
+      });
+      const existingUnallocatedItem = await prisma.storeOrderItem.findFirst({
+        where: {
+          storeOrderId: settlementUnallocatedOrder.id,
+          productId: productB.id,
+        },
+      });
+      if (!existingUnallocatedItem) {
+        await prisma.storeOrderItem.create({
+          data: {
+            storeOrderId: settlementUnallocatedOrder.id,
+            productId: productB.id,
+            quantity: 120,
+            unitPrice: 80,
+            agreedAmount: 120 * 80,
+          },
+        });
+      }
     }
   }
 

@@ -904,6 +904,63 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
     ...INVESTORS_SECTION,
     actions: paymentActions('capital-contributions'),
   },
+  {
+    // Investor Engine Milestone 2 — attributing real OMS sales to
+    // Opportunities (auto/recalculate/manual/reverse/return) is one
+    // `manage` action (same one-module-many-actions pattern as `payroll`);
+    // cross-Opportunity reallocation is a separate, more sensitive
+    // `reallocate` action (request+approve+reject all gated together).
+    key: 'investment-sales',
+    labelKey: 'permissions.modules.investmentSales',
+    ...INVESTORS_SECTION,
+    actions: [
+      { action: 'view', name: 'investment-sales.view' },
+      { action: 'manage', name: 'investment-sales.manage' },
+      { action: 'reallocate', name: 'investment-sales.reallocate' },
+    ],
+  },
+  {
+    // Opportunity-level operating costs — only Approved expenses affect the
+    // Net Profit Engine, so Approve/Reject/Void share one gate distinct from
+    // Create/Edit (DRAFT-only).
+    key: 'investment-expenses',
+    labelKey: 'permissions.modules.investmentExpenses',
+    ...INVESTORS_SECTION,
+    actions: [
+      { action: 'view', name: 'investment-expenses.view' },
+      { action: 'create', name: 'investment-expenses.create' },
+      { action: 'edit', name: 'investment-expenses.edit' },
+      { action: 'approve', name: 'investment-expenses.approve' },
+    ],
+  },
+  {
+    // The authoritative Net Profit Engine — recalculating a live Estimated
+    // snapshot ("calculate") is separate from Approving it into an
+    // immutable record the Settlement/future payout workflow relies on.
+    key: 'investment-profit',
+    labelKey: 'permissions.modules.investmentProfit',
+    ...INVESTORS_SECTION,
+    actions: [
+      { action: 'view', name: 'investment-profit.view' },
+      { action: 'create', name: 'investment-profit.calculate' },
+      { action: 'approve', name: 'investment-profit.approve' },
+    ],
+  },
+  {
+    // End-Date Settlement workflow (Start/Review/Approve/Complete/Cancel) —
+    // Approve and Complete share one gate (both commit/close real financial
+    // state), same shape as `investment-sales`'s manage action.
+    key: 'investment-settlement',
+    labelKey: 'permissions.modules.investmentSettlement',
+    ...INVESTORS_SECTION,
+    actions: [
+      { action: 'view', name: 'investment-settlement.view' },
+      { action: 'create', name: 'investment-settlement.start' },
+      { action: 'manage', name: 'investment-settlement.manage' },
+      { action: 'approve', name: 'investment-settlement.approve' },
+      { action: 'cancel', name: 'investment-settlement.cancel' },
+    ],
+  },
 ];
 
 export const ALL_PERMISSION_NAMES: string[] = [
@@ -1027,6 +1084,11 @@ export const IMPLIED_SECTION_PERMISSION: Record<
   'investment-opportunities': 'investors.view',
   'investor-subscriptions': 'investors.view',
   'capital-contributions': 'investors.view',
+  // Investor Engine Milestone 2 — same المستثمرون sidebar section.
+  'investment-sales': 'investors.view',
+  'investment-expenses': 'investors.view',
+  'investment-profit': 'investors.view',
+  'investment-settlement': 'investors.view',
 };
 
 /** Expands a granted-permission list with every implied coarse section permission (see `IMPLIED_SECTION_PERMISSION`). */

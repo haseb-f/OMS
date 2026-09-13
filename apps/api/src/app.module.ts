@@ -86,6 +86,10 @@ import { PayrollModule } from './payroll/payroll.module';
 import { InvestorsModule } from './investors/investors.module';
 import { InvestmentOpportunitiesModule } from './investment-opportunities/investment-opportunities.module';
 import { InvestorSubscriptionsModule } from './investor-subscriptions/investor-subscriptions.module';
+import { InvestmentSalesModule } from './investment-sales/investment-sales.module';
+import { InvestmentExpensesModule } from './investment-expenses/investment-expenses.module';
+import { InvestmentProfitModule } from './investment-profit/investment-profit.module';
+import { InvestmentSettlementModule } from './investment-settlement/investment-settlement.module';
 import { CapitalContributionsModule } from './capital-contributions/capital-contributions.module';
 
 @Module({
@@ -177,6 +181,10 @@ import { CapitalContributionsModule } from './capital-contributions/capital-cont
     InvestmentOpportunitiesModule,
     InvestorSubscriptionsModule,
     CapitalContributionsModule,
+    InvestmentSalesModule,
+    InvestmentExpensesModule,
+    InvestmentProfitModule,
+    InvestmentSettlementModule,
   ],
   controllers: [HealthController],
   providers: [],

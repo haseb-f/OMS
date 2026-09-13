@@ -11,6 +11,7 @@ import { SalesScopeService } from '../../sales-scope/sales-scope.service';
 import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 import {
   ATTACHMENT_MAX_PER_CONTRIBUTION,
+  ATTACHMENT_MAX_PER_OPPORTUNITY_EXPENSE,
   ATTACHMENT_MAX_PER_PAYMENT,
   ATTACHMENT_MAX_PER_SHIPMENT,
   ATTACHMENT_STAGING_TTL_MS,
@@ -23,6 +24,8 @@ export const PAYMENT_RECEIPT_TYPE = 'PAYMENT_RECEIPT';
 export const SHIPMENT_RECEIPT_TYPE = 'SHIPMENT_RECEIPT';
 /** Capital Contribution transfer/receipt proof (Investor Engine Milestone 1, Phase 12). */
 export const CONTRIBUTION_RECEIPT_TYPE = 'CONTRIBUTION_RECEIPT';
+/** Opportunity Expense receipt proof (Investor Engine Milestone 2, Phase 15). */
+export const OPPORTUNITY_EXPENSE_RECEIPT_TYPE = 'OPPORTUNITY_EXPENSE_RECEIPT';
 
 const LOCKED_PAYMENT_STATUSES: PaymentStatus[] = [PaymentStatus.VERIFIED];
 
@@ -443,6 +446,161 @@ export class AttachmentsService {
   }
 
   private mapContributionAttachment(row: {
+    id: string;
+    fileUrl: string;
+    fileName: string | null;
+    attachmentType: string;
+    createdAt: Date;
+    uploadedBy: { fullName: string } | null;
+    attachment: {
+      id: string;
+      originalName: string;
+      mimeType: string;
+      sizeBytes: number;
+      createdAt: Date;
+    } | null;
+  }) {
+    return {
+      id: row.id,
+      attachmentId: row.attachment?.id ?? null,
+      fileName: row.attachment?.originalName ?? row.fileName,
+      mimeType: row.attachment?.mimeType ?? null,
+      sizeBytes: row.attachment?.sizeBytes ?? null,
+      fileUrl: row.attachment
+        ? `/attachments/${row.attachment.id}/file`
+        : row.fileUrl,
+      attachmentType: row.attachmentType,
+      uploadedBy: row.uploadedBy?.fullName ?? null,
+      createdAt: row.attachment?.createdAt ?? row.createdAt,
+    };
+  }
+
+  /**
+   * Opportunity Expense receipt proof (Investor Engine Milestone 2, Phase 15
+   * "Reuse Attachment architecture") — same finalize/upload/list shape as
+   * Capital Contributions above.
+   */
+  async finalizeForOpportunityExpense(
+    expenseId: string,
+    stagingIds: string[],
+    userId: string,
+    tx: Db = this.prisma,
+  ) {
+    const uniqueIds = [...new Set(stagingIds.filter(Boolean))];
+    if (uniqueIds.length === 0) return [];
+    await this.assertOpportunityExpenseCapacity(
+      expenseId,
+      uniqueIds.length,
+      tx,
+    );
+    const rows = await tx.attachment.findMany({
+      where: {
+        id: { in: uniqueIds },
+        uploadedById: userId,
+        deletedAt: null,
+        finalizedAt: null,
+      },
+    });
+    if (rows.length !== uniqueIds.length) {
+      throw new BadRequestException('تعذر رفع المرفق، حاول مرة أخرى');
+    }
+    const created = [];
+    for (const row of rows) {
+      await tx.attachment.update({
+        where: { id: row.id },
+        data: { finalizedAt: new Date(), expiresAt: null },
+      });
+      const expenseAttachment = await tx.opportunityExpenseAttachment.create({
+        data: {
+          expenseId,
+          attachmentId: row.id,
+          uploadedById: userId,
+          fileUrl: `storage:${row.storageKey}`,
+          fileName: row.originalName,
+          attachmentType: OPPORTUNITY_EXPENSE_RECEIPT_TYPE,
+        },
+      });
+      created.push(expenseAttachment);
+    }
+    return created;
+  }
+
+  async attachStagingToOpportunityExpense(
+    expenseId: string,
+    stagingIds: string[],
+    userId: string,
+  ) {
+    return this.finalizeForOpportunityExpense(expenseId, stagingIds, userId);
+  }
+
+  async uploadForOpportunityExpense(
+    expenseId: string,
+    file: Express.Multer.File | undefined,
+    userId: string,
+  ) {
+    await this.assertOpportunityExpenseCapacity(expenseId, 1);
+    const staging = await this.createStaging(file, userId);
+    try {
+      const [link] = await this.finalizeForOpportunityExpense(
+        expenseId,
+        [staging.id],
+        userId,
+      );
+      return this.toOpportunityExpenseAttachmentDto(link.id, staging);
+    } catch (error) {
+      await this.discardStaging(staging.id, userId).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  async listForOpportunityExpense(expenseId: string) {
+    const rows = await this.prisma.opportunityExpenseAttachment.findMany({
+      where: { expenseId, deletedAt: null },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        uploadedBy: { select: { fullName: true } },
+        attachment: true,
+      },
+    });
+    return rows.map((row) => this.mapOpportunityExpenseAttachment(row));
+  }
+
+  private async assertOpportunityExpenseCapacity(
+    expenseId: string,
+    incoming: number,
+    tx: Db = this.prisma,
+  ) {
+    const count = await tx.opportunityExpenseAttachment.count({
+      where: { expenseId, deletedAt: null },
+    });
+    if (count + incoming > ATTACHMENT_MAX_PER_OPPORTUNITY_EXPENSE) {
+      throw new BadRequestException(
+        `لا يمكن إرفاق أكثر من ${ATTACHMENT_MAX_PER_OPPORTUNITY_EXPENSE} مرفقات لكل مصروف.`,
+      );
+    }
+  }
+
+  private toOpportunityExpenseAttachmentDto(
+    expenseAttachmentId: string,
+    staging: {
+      id: string;
+      originalName: string;
+      mimeType: string;
+      sizeBytes: number;
+    },
+  ) {
+    return {
+      id: expenseAttachmentId,
+      attachmentId: staging.id,
+      fileName: staging.originalName,
+      mimeType: staging.mimeType,
+      sizeBytes: staging.sizeBytes,
+      fileUrl: `/attachments/${staging.id}/file`,
+      attachmentType: OPPORTUNITY_EXPENSE_RECEIPT_TYPE,
+    };
+  }
+
+  private mapOpportunityExpenseAttachment(row: {
     id: string;
     fileUrl: string;
     fileName: string | null;

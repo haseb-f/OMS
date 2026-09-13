@@ -105,6 +105,16 @@ model User {
   confirmedCapitalContributions  CapitalContribution[]           @relation("CapitalContributionConfirmedBy")
   capitalContributionAttachments CapitalContributionAttachment[]
 
+  /// Investor Engine Milestone 2.
+  opportunityExpensesApproved    OpportunityExpense[]           @relation("OpportunityExpenseApprovedBy")
+  opportunityExpenseAttachments  OpportunityExpenseAttachment[]
+  profitCalculationsCalculated   ProfitCalculation[]            @relation("ProfitCalculationCalculatedBy")
+  profitCalculationsApproved     ProfitCalculation[]            @relation("ProfitCalculationApprovedBy")
+  opportunitySettlementsStarted  OpportunitySettlement[]        @relation("SettlementStartedBy")
+  opportunitySettlementsApproved OpportunitySettlement[]        @relation("SettlementApprovedBy")
+  reallocationsRequested         OpportunityReallocation[]      @relation("ReallocationRequestedBy")
+  reallocationsApproved          OpportunityReallocation[]      @relation("ReallocationApprovedBy")
+
   @@index([departmentId])
   @@map("users")
 }
@@ -600,8 +610,8 @@ model PaymentMethod {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  salesOrders SalesOrder[]
-  expenses    Expense[]
+  salesOrders          SalesOrder[]
+  expenses             Expense[]
   capitalContributions CapitalContribution[]
 
   @@map("payment_methods")
@@ -631,6 +641,10 @@ model Expense {
   createdBy String?   @map("created_by") @db.Uuid
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
+
+  /// Investor Engine Milestone 2 — optional link from an OpportunityExpense
+  /// that references this canonical Expense record (never a silent duplicate).
+  opportunityExpenseLinks OpportunityExpense[]
 
   @@map("expenses")
 }
@@ -2420,10 +2434,11 @@ model Attachment {
   deletedBy      User?     @relation("AttachmentDeletedBy", fields: [deletedById], references: [id])
   deletionReason String?   @map("deletion_reason")
 
-  paymentLinks       PaymentAttachment[]
-  storeOrderReceipts StoreOrderReceipt[]
-  shipmentLinks      ShipmentAttachment[]
-  contributionLinks  CapitalContributionAttachment[]
+  paymentLinks            PaymentAttachment[]
+  storeOrderReceipts      StoreOrderReceipt[]
+  shipmentLinks           ShipmentAttachment[]
+  contributionLinks       CapitalContributionAttachment[]
+  opportunityExpenseLinks OpportunityExpenseAttachment[]
 
   @@index([uploadedById])
   @@index([deletedAt, finalizedAt])
@@ -2702,19 +2717,21 @@ model Product {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  activities         ProductActivity[]
-  inventoryMovements InventoryMovement[]
-  costHistory        ProductCostHistory[]
-  costSnapshot       ProductCostSnapshot?
-  purchaseOrderItems PurchaseOrderItem[]
-  opportunityProducts OpportunityProduct[]
-  variants           ProductVariant[]
-  attachments        ProductAttachment[]
+  activities                ProductActivity[]
+  inventoryMovements        InventoryMovement[]
+  costHistory               ProductCostHistory[]
+  costSnapshot              ProductCostSnapshot?
+  purchaseOrderItems        PurchaseOrderItem[]
+  opportunityProducts       OpportunityProduct[]
+  investmentSaleAllocations OpportunitySaleAllocation[]
+  investmentReallocations   OpportunityReallocation[]
+  variants                  ProductVariant[]
+  attachments               ProductAttachment[]
   /// BOM lines where this product is the finished Kit.
-  components         ProductComponent[]   @relation("KitComponents")
+  components                ProductComponent[]          @relation("KitComponents")
   /// BOM lines where this product is used AS a component of some Kit.
-  usedInKits         ProductComponent[]   @relation("ComponentUsedIn")
-  physicalCountLines PhysicalCountLine[]
+  usedInKits                ProductComponent[]          @relation("ComponentUsedIn")
+  physicalCountLines        PhysicalCountLine[]
 
   salesQuotationItems     SalesQuotationItem[]
   salesOrderDocumentItems SalesOrderDocumentItem[]
@@ -3513,6 +3530,7 @@ model InvestorProfile {
   deletedAt DateTime? @map("deleted_at")
 
   subscriptions InvestorSubscription[]
+  profitShares  ProfitCalculationInvestorShare[]
 
   @@index([deletedAt])
   @@map("investor_profiles")
@@ -3628,6 +3646,9 @@ model StoreOrder {
   shipments  Shipment[]
   invoices   SalesInvoice[]
 
+  /// Investor Engine Milestone 2 — never mutated by allocation (Phase 6).
+  investmentAllocations OpportunitySaleAllocation[]
+
   @@index([partnerId])
   /// `externalOrderId String? @unique` above already creates this index —
   /// a second explicit `@@index([externalOrderId])` was a pure duplicate
@@ -3663,6 +3684,10 @@ model StoreOrderItem {
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
+
+  /// Investor Engine Milestone 2.
+  investmentAllocations OpportunitySaleAllocation[]
+  reallocations         OpportunityReallocation[]
 
   @@map("store_order_items")
 }
@@ -6792,6 +6817,14 @@ model InvestmentOpportunity {
   products      OpportunityProduct[]
   subscriptions InvestorSubscription[]
 
+  /// Investor Engine Milestone 2.
+  saleAllocations    OpportunitySaleAllocation[]
+  expenses           OpportunityExpense[]
+  profitCalculations ProfitCalculation[]
+  settlements        OpportunitySettlement[]
+  reallocationsFrom  OpportunityReallocation[]   @relation("ReallocationFrom")
+  reallocationsTo    OpportunityReallocation[]   @relation("ReallocationTo")
+
   @@index([deletedAt, status])
   @@index([startDate, endDate])
   @@map("investment_opportunities")
@@ -6824,6 +6857,8 @@ model OpportunityProduct {
   createdBy String?   @map("created_by") @db.Uuid
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
+
+  saleAllocations OpportunitySaleAllocation[]
 
   @@unique([opportunityId, productId])
   @@map("opportunity_products")
@@ -6861,6 +6896,7 @@ model InvestorSubscription {
   deletedAt DateTime? @map("deleted_at")
 
   contributions CapitalContribution[]
+  profitShares  ProfitCalculationInvestorShare[]
 
   @@unique([investorId, opportunityId])
   @@index([opportunityId, status])
@@ -6934,4 +6970,387 @@ model CapitalContributionAttachment {
 
   @@index([contributionId, deletedAt])
   @@map("capital_contribution_attachments")
+}
+
+// ---------------------------------------------------------------------------
+// Investor Engine — Milestone 2: Sales Allocation + Expenses + Net Profit
+// Engine + End-Date Settlement + Unit Reallocation. Builds on Milestone 1
+// (Investor/InvestmentOpportunity/OpportunityProduct/InvestorSubscription/
+// CapitalContribution) without modifying it. Investor return is always a
+// share of NET PROFIT on the specific units attributed to an Opportunity —
+// never total company revenue/profit. A sold unit belongs to at most one
+// Opportunity at a time (enforced transactionally in
+// InvestmentSalesAllocationService, not just by a schema constraint, since
+// "SUM(active allocatedQuantity) <= eligible quantity" cannot be expressed
+// as a Postgres CHECK across rows).
+//
+// Deliberately NOT implemented here (Milestone 3): investor payouts, bank
+// distributions, an Investor Ledger, accounting journal postings for
+// distributions, Investor Portal/PDF statements. This schema only
+// calculates and approves financial results.
+// ---------------------------------------------------------------------------
+
+/// How an allocation came to exist (Phase 2/5/9/36/39).
+enum SaleAllocationType {
+  AUTO
+  MANUAL
+  SETTLEMENT
+  REALLOCATION
+}
+
+/// Reversal never deletes history (Phase 2/11) — a returned/refunded sale
+/// flips its allocation to REVERSED, freeing its quantity for future
+/// allocation, while the original row (and its revenue snapshot) stays.
+enum SaleAllocationStatus {
+  ACTIVE
+  REVERSED
+}
+
+/// One row per (real, qualifying) sold quantity attributed to one
+/// OpportunityProduct. `allocatedRevenue` is a snapshot (Phase 2 "store only
+/// if justified" — justified here: StoreOrderItem.agreedAmount is itself
+/// already immutable, but a REVERSED allocation must still explain exactly
+/// what revenue it had counted, independent of any future re-derivation).
+model OpportunitySaleAllocation {
+  id String @id @default(uuid()) @db.Uuid
+
+  opportunityId String                @map("opportunity_id") @db.Uuid
+  opportunity   InvestmentOpportunity @relation(fields: [opportunityId], references: [id])
+
+  opportunityProductId String             @map("opportunity_product_id") @db.Uuid
+  opportunityProduct   OpportunityProduct @relation(fields: [opportunityProductId], references: [id])
+
+  storeOrderId String     @map("store_order_id") @db.Uuid
+  storeOrder   StoreOrder @relation(fields: [storeOrderId], references: [id])
+
+  storeOrderItemId String         @map("store_order_item_id") @db.Uuid
+  storeOrderItem   StoreOrderItem @relation(fields: [storeOrderItemId], references: [id])
+
+  /// Denormalized from opportunityProduct/storeOrderItem — same canonical
+  /// Product on both sides (Phase 4), kept here too for cheap direct
+  /// filtering without a join.
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id])
+
+  allocatedQuantity Int @map("allocated_quantity")
+
+  /// derivedUnitPrice(storeOrderItem.quantity, storeOrderItem.agreedAmount) *
+  /// allocatedQuantity — the same agreedAmount-is-a-line-total convention
+  /// `store-order-line-amount.ts` already uses everywhere else in this
+  /// codebase (Phase 12/13).
+  allocatedRevenue Decimal @map("allocated_revenue") @db.Decimal(14, 2)
+
+  allocationType SaleAllocationType   @map("allocation_type")
+  status         SaleAllocationStatus @default(ACTIVE)
+
+  allocatedAt DateTime @default(now()) @map("allocated_at")
+  allocatedBy String?  @map("allocated_by") @db.Uuid
+
+  reversedAt     DateTime? @map("reversed_at")
+  reversedBy     String?   @map("reversed_by") @db.Uuid
+  reversalReason String?   @map("reversal_reason")
+
+  /// Reallocation lineage (Phase 40/43) — the REVERSED allocation this row
+  /// replaces when created via a reallocation, so the transfer stays
+  /// traceable end to end.
+  sourceAllocationId String?                     @map("source_allocation_id") @db.Uuid
+  sourceAllocation   OpportunitySaleAllocation?  @relation("AllocationLineage", fields: [sourceAllocationId], references: [id])
+  derivedAllocations OpportunitySaleAllocation[] @relation("AllocationLineage")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  reallocationsAsOriginal OpportunityReallocation[] @relation("ReallocationOriginal")
+  reallocationAsNew       OpportunityReallocation?  @relation("ReallocationNew")
+
+  @@index([storeOrderItemId, status])
+  @@index([opportunityId, status])
+  @@index([opportunityProductId, status])
+  @@index([productId])
+  @@index([status])
+  @@map("opportunity_sale_allocations")
+}
+
+/// Closed set (Phase 17) — kept as a small enum, not a Master Data table:
+/// no existing canonical "Expense Category" entity fits (CostComponent is
+/// landed-cost allocation vocabulary, ADR-0014, a different domain), and a
+/// closed enum is the lower-complexity choice consistent with every other
+/// status/category field in this codebase. Never hardcode Arabic strings
+/// into calculation logic — the UI translates these codes.
+enum OpportunityExpenseCategory {
+  ADVERTISING
+  SHIPPING
+  STORAGE
+  PAYMENT_FEES
+  RETURNS
+  OTHER
+}
+
+/// Closed set (Phase 15/18) — only APPROVED affects authoritative Net
+/// Profit. VOIDED is the reversal state for an approved expense that must
+/// stop counting (never hard-deleted, Phase 11's "no silent destructive
+/// reassignment" spirit applied here too) — this doubles as the row's own
+/// soft-delete state, so no separate `deletedAt` column exists on this model.
+enum OpportunityExpenseStatus {
+  DRAFT
+  APPROVED
+  REJECTED
+  VOIDED
+}
+
+/// Opportunity-level expense only (Phase 16 "do NOT implement complex
+/// expense allocation across dimensions"). `sourceExpenseId` is an optional
+/// link to a canonical `Expense` row when one already exists — never a
+/// silent duplicate of it.
+model OpportunityExpense {
+  id String @id @default(uuid()) @db.Uuid
+
+  opportunityId String                @map("opportunity_id") @db.Uuid
+  opportunity   InvestmentOpportunity @relation(fields: [opportunityId], references: [id])
+
+  expenseDate DateTime                   @map("expense_date") @db.Date
+  category    OpportunityExpenseCategory
+  description String
+
+  amount Decimal @db.Decimal(14, 2)
+
+  status OpportunityExpenseStatus @default(DRAFT)
+
+  sourceExpenseId String?  @map("source_expense_id") @db.Uuid
+  sourceExpense   Expense? @relation(fields: [sourceExpenseId], references: [id])
+
+  createdBy    String?   @map("created_by") @db.Uuid
+  approvedById String?   @map("approved_by_id") @db.Uuid
+  approvedBy   User?     @relation("OpportunityExpenseApprovedBy", fields: [approvedById], references: [id])
+  approvedAt   DateTime? @map("approved_at")
+
+  notes String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  attachments OpportunityExpenseAttachment[]
+
+  @@index([opportunityId, status])
+  @@map("opportunity_expenses")
+}
+
+/// Expense receipt attachment — same PaymentAttachment/
+/// CapitalContributionAttachment shape, reusing the one canonical
+/// Attachment entity (Phase 15 "Reuse Attachment architecture").
+model OpportunityExpenseAttachment {
+  id String @id @default(uuid()) @db.Uuid
+
+  expenseId String             @map("expense_id") @db.Uuid
+  expense   OpportunityExpense @relation(fields: [expenseId], references: [id])
+
+  attachmentId String?     @unique @map("attachment_id") @db.Uuid
+  attachment   Attachment? @relation(fields: [attachmentId], references: [id])
+
+  uploadedById String @map("uploaded_by_id") @db.Uuid
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+
+  fileUrl        String  @map("file_url")
+  fileName       String? @map("file_name")
+  attachmentType String  @map("attachment_type")
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  deletedAt   DateTime? @map("deleted_at")
+  deletedById String?   @map("deleted_by_id") @db.Uuid
+
+  @@index([expenseId, deletedAt])
+  @@map("opportunity_expense_attachments")
+}
+
+/// ESTIMATED rows are saved snapshots a Finance/Admin user explicitly
+/// created (Phase 19/21) — never one row per page view; the Profit tab's
+/// live/default view is computed fresh by InvestmentProfitEngineService and
+/// only persisted here when "Calculate" is pressed. Once APPROVED, a
+/// snapshot never mutates (Phase 21/47) — a later financial change requires
+/// a brand-new calculation, never an edit of this row.
+model ProfitCalculation {
+  id String @id @default(uuid()) @db.Uuid
+
+  opportunityId String                @map("opportunity_id") @db.Uuid
+  opportunity   InvestmentOpportunity @relation(fields: [opportunityId], references: [id])
+
+  status ProfitCalculationStatus @default(ESTIMATED)
+
+  revenue           Decimal @db.Decimal(14, 2)
+  cogs              Decimal @db.Decimal(14, 2)
+  expenses          Decimal @db.Decimal(14, 2)
+  returnsAdjustment Decimal @map("returns_adjustment") @db.Decimal(14, 2)
+  netProfit         Decimal @map("net_profit") @db.Decimal(14, 2)
+
+  /// Snapshot of Opportunity.investorNetProfitSharePercent at calculation
+  /// time (Phase 25) — terms are already locked once funding is confirmed
+  /// (Milestone 1), but snapshotting here keeps this row self-explaining.
+  investorSharePercent Decimal @map("investor_share_percent") @db.Decimal(5, 2)
+  investorProfitPool   Decimal @map("investor_profit_pool") @db.Decimal(14, 2)
+  /// Net Profit - Investor Profit Pool, for display only (Phase 31) — never
+  /// confused with real accounting Net Income.
+  companyProfitPortion Decimal @map("company_profit_portion") @db.Decimal(14, 2)
+
+  /// Explainability (Phase 60) — how many source rows fed this number, so
+  /// the UI can show "Revenue: from X allocated sale lines" etc. without a
+  /// separate audit-line table.
+  revenueLineCount Int @map("revenue_line_count")
+  netUnitsCount    Int @map("net_units_count")
+  expenseLineCount Int @map("expense_line_count")
+
+  calculatedById String?  @map("calculated_by_id") @db.Uuid
+  calculatedBy   User?    @relation("ProfitCalculationCalculatedBy", fields: [calculatedById], references: [id])
+  calculatedAt   DateTime @default(now()) @map("calculated_at")
+
+  approvedById String?   @map("approved_by_id") @db.Uuid
+  approvedBy   User?     @relation("ProfitCalculationApprovedBy", fields: [approvedById], references: [id])
+  approvedAt   DateTime? @map("approved_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  investorShares ProfitCalculationInvestorShare[]
+
+  @@index([opportunityId, status])
+  @@map("profit_calculations")
+}
+
+/// Closed set (Phase 19).
+enum ProfitCalculationStatus {
+  ESTIMATED
+  APPROVED
+}
+
+/// Per-Investor share of one ProfitCalculation — the "Participation Basis
+/// Snapshot" Phase 25 requires: later CapitalContribution/participation
+/// changes must never silently rewrite an already-approved allocation.
+model ProfitCalculationInvestorShare {
+  id String @id @default(uuid()) @db.Uuid
+
+  profitCalculationId String            @map("profit_calculation_id") @db.Uuid
+  profitCalculation   ProfitCalculation @relation(fields: [profitCalculationId], references: [id])
+
+  investorId String          @map("investor_id") @db.Uuid
+  investor   InvestorProfile @relation(fields: [investorId], references: [id])
+
+  subscriptionId String               @map("subscription_id") @db.Uuid
+  subscription   InvestorSubscription @relation(fields: [subscriptionId], references: [id])
+
+  /// Snapshot of InvestorSubscription.participationPercent at calculation
+  /// time.
+  participationPercent Decimal @map("participation_percent") @db.Decimal(7, 4)
+  /// Investor Profit Pool × participationPercent, deterministically rounded
+  /// (Phase 24) so SUM(profitShareAmount) reconciles exactly to
+  /// ProfitCalculation.investorProfitPool to the minor unit.
+  profitShareAmount    Decimal @map("profit_share_amount") @db.Decimal(14, 2)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([profitCalculationId, investorId])
+  @@map("profit_calculation_investor_shares")
+}
+
+/// Closed set (Phase 34).
+enum OpportunitySettlementStatus {
+  DRAFT
+  REVIEW
+  APPROVED
+  COMPLETED
+  CANCELLED
+}
+
+/// One settlement workflow per Opportunity (Phase 34/35) — required only
+/// once ENDED with Remaining Units > 0 on any OpportunityProduct; a
+/// non-CANCELLED/non-COMPLETED row is the "one active settlement" for its
+/// Opportunity (enforced in InvestmentSettlementService, not a DB
+/// constraint, same reasoning as EmployeeProfile's single-active-role
+/// pattern).
+model OpportunitySettlement {
+  id String @id @default(uuid()) @db.Uuid
+
+  opportunityId String                @map("opportunity_id") @db.Uuid
+  opportunity   InvestmentOpportunity @relation(fields: [opportunityId], references: [id])
+
+  status OpportunitySettlementStatus @default(DRAFT)
+
+  startedAt   DateTime @default(now()) @map("started_at")
+  startedById String?  @map("started_by_id") @db.Uuid
+  startedBy   User?    @relation("SettlementStartedBy", fields: [startedById], references: [id])
+
+  approvedAt   DateTime? @map("approved_at")
+  approvedById String?   @map("approved_by_id") @db.Uuid
+  approvedBy   User?     @relation("SettlementApprovedBy", fields: [approvedById], references: [id])
+
+  completedAt DateTime? @map("completed_at")
+
+  /// Set only when COMPLETED with unresolved remaining units (Phase 45) —
+  /// never silently pretended as sold.
+  unresolvedRemainingUnits Int?    @map("unresolved_remaining_units")
+  unresolvedReason         String? @map("unresolved_reason")
+
+  notes String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([opportunityId, status])
+  @@map("opportunity_settlements")
+}
+
+/// Closed set (Phase 40) — PENDING request, APPROVED+executed atomically
+/// (Phase 42) becomes COMPLETED; REJECTED leaves both Opportunities
+/// untouched.
+enum ReallocationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+/// Cross-Opportunity unit transfer (Phase 39-43) — the sensitive settlement
+/// source, distinct from allocating a still-unallocated sold unit. Never
+/// overwrites history: approval reverses the original allocation and
+/// creates a new one (linked via OpportunitySaleAllocation.sourceAllocationId),
+/// both preserved.
+model OpportunityReallocation {
+  id String @id @default(uuid()) @db.Uuid
+
+  fromOpportunityId String                @map("from_opportunity_id") @db.Uuid
+  fromOpportunity   InvestmentOpportunity @relation("ReallocationFrom", fields: [fromOpportunityId], references: [id])
+
+  toOpportunityId String                @map("to_opportunity_id") @db.Uuid
+  toOpportunity   InvestmentOpportunity @relation("ReallocationTo", fields: [toOpportunityId], references: [id])
+
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id])
+
+  storeOrderItemId String         @map("store_order_item_id") @db.Uuid
+  storeOrderItem   StoreOrderItem @relation(fields: [storeOrderItemId], references: [id])
+
+  quantity Int
+
+  reason String
+
+  status ReallocationStatus @default(PENDING)
+
+  requestedById String?  @map("requested_by_id") @db.Uuid
+  requestedBy   User?    @relation("ReallocationRequestedBy", fields: [requestedById], references: [id])
+  requestedAt   DateTime @default(now()) @map("requested_at")
+
+  approvedById String?   @map("approved_by_id") @db.Uuid
+  approvedBy   User?     @relation("ReallocationApprovedBy", fields: [approvedById], references: [id])
+  approvedAt   DateTime? @map("approved_at")
+
+  originalAllocationId String?                    @map("original_allocation_id") @db.Uuid
+  originalAllocation   OpportunitySaleAllocation? @relation("ReallocationOriginal", fields: [originalAllocationId], references: [id])
+
+  newAllocationId String?                    @unique @map("new_allocation_id") @db.Uuid
+  newAllocation   OpportunitySaleAllocation? @relation("ReallocationNew", fields: [newAllocationId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([fromOpportunityId, status])
+  @@index([toOpportunityId, status])
+  @@map("opportunity_reallocations")
 }
