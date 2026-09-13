@@ -476,6 +476,41 @@ export const navigationConfig: NavigationItem[] = [
   },
 
   {
+    id: "investors",
+    titleKey: "nav.investors",
+    icon: "trending-up",
+    order: 55,
+    permissions: ["investors.view"],
+  },
+  {
+    id: "investors-dashboard",
+    titleKey: "nav.investorsDashboard",
+    parent: "investors",
+    route: "/investors",
+    icon: "dashboard",
+    order: 0,
+    permissions: ["investors.view"],
+  },
+  {
+    id: "investors-list",
+    titleKey: "nav.investorsList",
+    parent: "investors",
+    route: "/investors/list",
+    icon: "users",
+    order: 1,
+    permissions: ["investors.view"],
+  },
+  {
+    id: "investors-opportunities",
+    titleKey: "nav.investorsOpportunities",
+    parent: "investors",
+    route: "/investors/opportunities",
+    icon: "briefcase",
+    order: 2,
+    permissions: ["investment-opportunities.view"],
+  },
+
+  {
     id: "expenses",
     titleKey: "nav.expenses",
     icon: "calculator",

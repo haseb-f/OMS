@@ -57,6 +57,8 @@ import {
   IdCard,
   ClipboardCheck,
   HandCoins,
+  TrendingUp,
+  Briefcase,
 } from "lucide-react";
 
 /**
@@ -123,6 +125,8 @@ export const iconRegistry = {
   "id-card": IdCard,
   "clipboard-check": ClipboardCheck,
   "hand-coins": HandCoins,
+  "trending-up": TrendingUp,
+  briefcase: Briefcase,
 } as const;
 
 export type IconName = keyof typeof iconRegistry;
