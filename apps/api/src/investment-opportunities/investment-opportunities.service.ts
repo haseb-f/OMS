@@ -3,7 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { InvestmentOpportunityStatus, Prisma } from '@prisma/client';
+import {
+  InvestmentOpportunityStatus,
+  InvestorDistributionStatus,
+  Prisma,
+  ProfitCalculationStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import { assertActiveProduct } from '../products/assert-active-product.util';
@@ -442,8 +447,46 @@ export class InvestmentOpportunitiesService {
     );
   }
 
-  /** SETTLED -> CLOSED — final archival action (Phase 47), independent of the financial engine. */
-  close(id: string, userId?: string) {
+  /**
+   * SETTLED -> CLOSED — final archival action (Milestone 2 Phase 47).
+   * Milestone 3 Phase 36/37 adds the financial closure gate: an Opportunity
+   * can never silently close while a Distribution still has outstanding
+   * Investor Profit, or while an APPROVED Profit Calculation has not even
+   * been distributed yet. Default V1 policy — block, never hide the
+   * liability.
+   */
+  async close(id: string, userId?: string) {
+    const existing = await this.findRaw(id);
+    if (existing.status !== InvestmentOpportunityStatus.SETTLED) {
+      throw new BadRequestException(
+        `Cannot transition Investment Opportunity ${existing.code} from ${existing.status} to CLOSED.`,
+      );
+    }
+
+    const approvedCalculation = await this.prisma.profitCalculation.findFirst({
+      where: { opportunityId: id, status: ProfitCalculationStatus.APPROVED },
+      include: { distribution: { include: { investorDistributions: true } } },
+    });
+    if (approvedCalculation) {
+      if (!approvedCalculation.distribution) {
+        throw new BadRequestException(
+          `Investment Opportunity ${existing.code} has an Approved Profit Calculation that was never distributed. Create and approve a Profit Distribution before closing.`,
+        );
+      }
+      const outstanding = approvedCalculation.distribution.investorDistributions
+        .filter((row) => row.status !== InvestorDistributionStatus.CANCELLED)
+        .reduce(
+          (sum, row) =>
+            sum + (Number(row.entitledAmount) - Number(row.paidAmount)),
+          0,
+        );
+      if (outstanding > 0.01) {
+        throw new BadRequestException(
+          `Investment Opportunity ${existing.code} still has ${round2(outstanding)} of outstanding Investor Profit. Pay or explicitly resolve it before closing.`,
+        );
+      }
+    }
+
     return this.transition(
       id,
       [InvestmentOpportunityStatus.SETTLED],
