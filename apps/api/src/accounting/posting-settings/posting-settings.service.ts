@@ -29,6 +29,10 @@ const INCLUDE = {
   commissionExpenseAccount: true,
   defaultAllowanceExpenseAccount: true,
   defaultDeductionAccount: true,
+  investorFundingAccount: true,
+  investorProfitDistributionAccount: true,
+  investorProfitPayableAccount: true,
+  capitalReturnAccount: true,
 } as const;
 
 /**

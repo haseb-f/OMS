@@ -311,6 +311,55 @@ export class AccountMappingService {
     ]);
   }
 
+  /** Cr Investor Funding — confirmed Capital Contribution's credit side (Investor Engine Milestone 3, Phase 20). */
+  async resolveInvestorFundingAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    return this.require(
+      settings?.investorFundingAccountId,
+      'Investor Funding',
+      ['PostingSettings.investorFundingAccountId'],
+    );
+  }
+
+  /** Dr Investor Profit Distribution — the expense/equity side debited when a Profit Distribution is approved (Phase 21). */
+  async resolveInvestorProfitDistributionAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    return this.require(
+      settings?.investorProfitDistributionAccountId,
+      'Investor Profit Distribution',
+      ['PostingSettings.investorProfitDistributionAccountId'],
+    );
+  }
+
+  /** Cr/Dr Investor Profit Payable — credited on Distribution approval, debited back on each confirmed Payment (Phase 21/23). */
+  async resolveInvestorProfitPayableAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    return this.require(
+      settings?.investorProfitPayableAccountId,
+      'Investor Profit Payable',
+      ['PostingSettings.investorProfitPayableAccountId'],
+    );
+  }
+
+  /** Dr Capital Return — falls back to the Investor Funding account (the same liability a Capital Return debits back down) when not separately configured (Phase 34). */
+  async resolveCapitalReturnAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    const accountId =
+      settings?.capitalReturnAccountId ?? settings?.investorFundingAccountId;
+    return this.require(accountId, 'Capital Return', [
+      'PostingSettings.capitalReturnAccountId',
+      'PostingSettings.investorFundingAccountId',
+    ]);
+  }
+
   private async getSettings(tx: Prisma.TransactionClient | PrismaService) {
     return tx.postingSettings.findFirst();
   }

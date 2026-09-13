@@ -3,16 +3,23 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { CapitalContributionStatus, Prisma } from '@prisma/client';
+import {
+  CapitalContributionStatus,
+  InvestorLedgerEntryType,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { InvestmentOpportunitiesService } from '../investment-opportunities/investment-opportunities.service';
 import { InvestorSubscriptionsService } from '../investor-subscriptions/investor-subscriptions.service';
 import { MasterDataActivityLogService } from '../master-data/master-data-activity-log.service';
+import { PostingEngineService } from '../accounting/posting-engine/posting-engine.service';
+import { InvestorLedgerService } from '../investor-ledger/investor-ledger.service';
 import { round2 } from '../investment-opportunities/shared/opportunity-totals.util';
 import { CreateCapitalContributionDto } from './dto/create-capital-contribution.dto';
 import { FindCapitalContributionsQueryDto } from './dto/find-capital-contributions-query.dto';
 
 const ENTITY_TYPE = 'CAPITAL_CONTRIBUTION';
+const SOURCE_TYPE = 'CAPITAL_CONTRIBUTION';
 
 const CONTRIBUTION_INCLUDE = {
   subscription: {
@@ -55,6 +62,8 @@ export class CapitalContributionsService {
     private readonly opportunitiesService: InvestmentOpportunitiesService,
     private readonly subscriptionsService: InvestorSubscriptionsService,
     private readonly activityLog: MasterDataActivityLogService,
+    private readonly postingEngine: PostingEngineService,
+    private readonly ledger: InvestorLedgerService,
   ) {}
 
   async create(dto: CreateCapitalContributionDto, userId?: string) {
@@ -189,6 +198,21 @@ export class CapitalContributionsService {
         },
       });
       await this.subscriptionsService.recalculateFunding(opportunityId, tx);
+      await this.postingEngine.post(SOURCE_TYPE, id, userId, tx);
+      await this.ledger.record(
+        {
+          investorId: existing.subscription.investorId,
+          opportunityId,
+          entryDate: existing.contributionDate,
+          type: InvestorLedgerEntryType.CAPITAL_FUNDED,
+          description: `Capital Contribution confirmed${existing.referenceNumber ? ` (${existing.referenceNumber})` : ''}`,
+          referenceType: ENTITY_TYPE,
+          referenceId: id,
+          creditAmount: Number(existing.amount),
+          userId,
+        },
+        tx,
+      );
     });
     await this.activityLog.log(
       ENTITY_TYPE,
@@ -245,6 +269,21 @@ export class CapitalContributionsService {
       });
       if (wasConfirmed) {
         await this.subscriptionsService.recalculateFunding(opportunityId, tx);
+        await this.postingEngine.reverse(SOURCE_TYPE, id, userId, tx);
+        await this.ledger.record(
+          {
+            investorId: existing.subscription.investorId,
+            opportunityId,
+            entryDate: new Date(),
+            type: InvestorLedgerEntryType.REVERSAL,
+            description: 'Capital Contribution cancelled — funding reversed',
+            referenceType: ENTITY_TYPE,
+            referenceId: id,
+            debitAmount: Number(existing.amount),
+            userId,
+          },
+          tx,
+        );
       }
     });
     await this.activityLog.log(

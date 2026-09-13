@@ -11,6 +11,7 @@ import { InventoryAdjustmentPostingProvider } from './inventory-adjustment-posti
 import { InternalTransferPostingProvider } from './internal-transfer-posting.provider';
 import { PayrollRunPostingProvider } from './payroll-run-posting.provider';
 import { PayrollPaymentPostingProvider } from './payroll-payment-posting.provider';
+import { InvestorPostingProvider } from './investor-posting.provider';
 
 /**
  * Accounting Posting Engine (TASK-046/047, HR Milestone 1) — every default
@@ -41,6 +42,7 @@ import { PayrollPaymentPostingProvider } from './payroll-payment-posting.provide
     InternalTransferPostingProvider,
     PayrollRunPostingProvider,
     PayrollPaymentPostingProvider,
+    InvestorPostingProvider,
   ],
 })
 export class PostingProvidersModule {}

@@ -78,4 +78,16 @@ export class UpdatePostingSettingsDto {
 
   @IsOptionalUuid()
   defaultDeductionAccountId?: string;
+
+  @IsOptionalUuid()
+  investorFundingAccountId?: string;
+
+  @IsOptionalUuid()
+  investorProfitDistributionAccountId?: string;
+
+  @IsOptionalUuid()
+  investorProfitPayableAccountId?: string;
+
+  @IsOptionalUuid()
+  capitalReturnAccountId?: string;
 }

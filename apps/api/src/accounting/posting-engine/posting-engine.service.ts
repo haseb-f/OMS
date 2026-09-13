@@ -44,6 +44,11 @@ const SOURCE_TYPE_JOURNAL: Record<string, JournalType> = {
   CUSTOMER_RECEIPT: JournalType.CASH,
   SUPPLIER_PAYMENT: JournalType.CASH,
   INVENTORY_ADJUSTMENT: JournalType.GENERAL,
+  // Investor Engine Milestone 3.
+  CAPITAL_CONTRIBUTION: JournalType.CASH,
+  INVESTOR_DISTRIBUTION: JournalType.GENERAL,
+  INVESTOR_PROFIT_PAYMENT: JournalType.CASH,
+  CAPITAL_RETURN: JournalType.CASH,
 };
 
 @Injectable()
