@@ -961,6 +961,76 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
       { action: 'cancel', name: 'investment-settlement.cancel' },
     ],
   },
+  {
+    // Investor Engine Milestone 3 — turns an APPROVED Profit Calculation
+    // into a controlled Distribution run. Create (Draft) is separate from
+    // Approve (creates the accounting liability); Cancel only ever reaches
+    // a DRAFT or APPROVED-but-unpaid run (service-enforced).
+    key: 'investment-distributions',
+    labelKey: 'permissions.modules.investmentDistributions',
+    ...INVESTORS_SECTION,
+    actions: [
+      { action: 'view', name: 'investment-distributions.view' },
+      { action: 'create', name: 'investment-distributions.create' },
+      { action: 'approve', name: 'investment-distributions.approve' },
+      { action: 'cancel', name: 'investment-distributions.cancel' },
+    ],
+  },
+  {
+    // Investor Engine Milestone 3 — recording/confirming actual Investor
+    // profit payouts against a Distribution, same payment-workflow shape as
+    // `capital-contributions`.
+    key: 'investment-payments',
+    labelKey: 'permissions.modules.investmentPayments',
+    ...INVESTORS_SECTION,
+    actions: [
+      { action: 'view', name: 'investment-payments.view' },
+      { action: 'create', name: 'investment-payments.create' },
+      { action: 'confirm', name: 'investment-payments.confirm' },
+      { action: 'cancel', name: 'investment-payments.cancel' },
+    ],
+  },
+  {
+    // Investor Engine Milestone 3 — the investor-facing subledger (Capital
+    // Funded/Profit Entitlement/Profit Payment/Capital Return/Adjustment/
+    // Reversal). `adjust` is separate and more sensitive than `view` since
+    // it is the only way to write a manual, non-canonical entry (Phase 30).
+    key: 'investor-ledger',
+    labelKey: 'permissions.modules.investorLedger',
+    ...INVESTORS_SECTION,
+    actions: [
+      { action: 'view', name: 'investor-ledger.view' },
+      { action: 'manage', name: 'investor-ledger.adjust' },
+    ],
+  },
+  {
+    // Investor Engine Milestone 3 — Capital Return foundation
+    // (Draft/Approve/Pay), deliberately separate gates since Pay is the
+    // one that moves real cash and posts accounting.
+    key: 'capital-returns',
+    labelKey: 'permissions.modules.capitalReturns',
+    ...INVESTORS_SECTION,
+    actions: [
+      { action: 'view', name: 'capital-returns.view' },
+      { action: 'create', name: 'capital-returns.create' },
+      { action: 'approve', name: 'capital-returns.approve' },
+      { action: 'confirm', name: 'capital-returns.pay' },
+      { action: 'cancel', name: 'capital-returns.cancel' },
+    ],
+  },
+  {
+    // Investor Engine Milestone 3, Phase 51 — changing the account mappings
+    // is a distinct, more sensitive permission than any operational
+    // Investor Finance action above; a Finance user without this cannot
+    // touch the mapping even though they can create/approve/pay.
+    key: 'investment-accounting',
+    labelKey: 'permissions.modules.investmentAccounting',
+    ...INVESTORS_SECTION,
+    actions: [
+      { action: 'view', name: 'investment-accounting.view' },
+      { action: 'manage', name: 'investment-accounting.configure' },
+    ],
+  },
 ];
 
 export const ALL_PERMISSION_NAMES: string[] = [
@@ -1089,6 +1159,12 @@ export const IMPLIED_SECTION_PERMISSION: Record<
   'investment-expenses': 'investors.view',
   'investment-profit': 'investors.view',
   'investment-settlement': 'investors.view',
+  // Investor Engine Milestone 3 — same المستثمرون sidebar section.
+  'investment-distributions': 'investors.view',
+  'investment-payments': 'investors.view',
+  'investor-ledger': 'investors.view',
+  'capital-returns': 'investors.view',
+  'investment-accounting': 'investors.view',
 };
 
 /** Expands a granted-permission list with every implied coarse section permission (see `IMPLIED_SECTION_PERMISSION`). */

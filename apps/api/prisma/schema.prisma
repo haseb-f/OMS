@@ -115,6 +115,16 @@ model User {
   reallocationsRequested         OpportunityReallocation[]      @relation("ReallocationRequestedBy")
   reallocationsApproved          OpportunityReallocation[]      @relation("ReallocationApprovedBy")
 
+  /// Investor Engine Milestone 3.
+  profitDistributionsCreated     ProfitDistribution[]            @relation("ProfitDistributionCreatedBy")
+  profitDistributionsApproved    ProfitDistribution[]            @relation("ProfitDistributionApprovedBy")
+  distributionPaymentsCreated    DistributionPayment[]           @relation("DistributionPaymentCreatedBy")
+  distributionPaymentsConfirmed  DistributionPayment[]           @relation("DistributionPaymentConfirmedBy")
+  distributionPaymentAttachments DistributionPaymentAttachment[]
+  capitalReturnsCreated          CapitalReturn[]                 @relation("CapitalReturnCreatedBy")
+  capitalReturnsApproved         CapitalReturn[]                 @relation("CapitalReturnApprovedBy")
+  capitalReturnsPaid             CapitalReturn[]                 @relation("CapitalReturnPaidBy")
+
   @@index([departmentId])
   @@map("users")
 }
@@ -478,6 +488,7 @@ model Currency {
   journalEntries          JournalEntry[]
   journals                Journal[]
   chartOfAccounts         ChartOfAccount[]
+  investorLedgerEntries   InvestorLedgerEntry[]
 
   @@map("currencies")
 }
@@ -613,6 +624,7 @@ model PaymentMethod {
   salesOrders          SalesOrder[]
   expenses             Expense[]
   capitalContributions CapitalContribution[]
+  distributionPayments DistributionPayment[]
 
   @@map("payment_methods")
 }
@@ -1937,6 +1949,8 @@ model ChartOfAccount {
   receivingAccounts     ReceivingAccount[]
   journalEntryLines     JournalEntryLine[]
   capitalContributions  CapitalContribution[]
+  distributionPayments  DistributionPayment[]
+  capitalReturns        CapitalReturn[]
 
   /// Cash Flow module — accounts used as a direct Expense debit target.
   financialTransactionsExpense FinancialTransaction[] @relation("FinancialTransactionExpenseAccount")
@@ -2003,6 +2017,12 @@ model ChartOfAccount {
   postingSettingsDefaultAllowanceExpense PostingSettings[]  @relation("PostingDefaultAllowanceExpense")
   postingSettingsDefaultDeduction        PostingSettings[]  @relation("PostingDefaultDeduction")
   payrollComponentsAccountMapping        PayrollComponent[] @relation("PayrollComponentAccountMapping")
+
+  /// Investor Engine Milestone 3 — Investor Accounting Settings mappings.
+  postingSettingsInvestorFunding    PostingSettings[] @relation("PostingInvestorFunding")
+  postingSettingsInvestorProfitDist PostingSettings[] @relation("PostingInvestorProfitDistribution")
+  postingSettingsInvestorPayable    PostingSettings[] @relation("PostingInvestorProfitPayable")
+  postingSettingsCapitalReturn      PostingSettings[] @relation("PostingCapitalReturn")
 
   @@map("chart_of_accounts")
 }
@@ -2434,11 +2454,12 @@ model Attachment {
   deletedBy      User?     @relation("AttachmentDeletedBy", fields: [deletedById], references: [id])
   deletionReason String?   @map("deletion_reason")
 
-  paymentLinks            PaymentAttachment[]
-  storeOrderReceipts      StoreOrderReceipt[]
-  shipmentLinks           ShipmentAttachment[]
-  contributionLinks       CapitalContributionAttachment[]
-  opportunityExpenseLinks OpportunityExpenseAttachment[]
+  paymentLinks             PaymentAttachment[]
+  storeOrderReceipts       StoreOrderReceipt[]
+  shipmentLinks            ShipmentAttachment[]
+  contributionLinks        CapitalContributionAttachment[]
+  opportunityExpenseLinks  OpportunityExpenseAttachment[]
+  distributionPaymentLinks DistributionPaymentAttachment[]
 
   @@index([uploadedById])
   @@index([deletedAt, finalizedAt])
@@ -3531,6 +3552,11 @@ model InvestorProfile {
 
   subscriptions InvestorSubscription[]
   profitShares  ProfitCalculationInvestorShare[]
+
+  /// Investor Engine Milestone 3.
+  distributions  InvestorDistribution[]
+  capitalReturns CapitalReturn[]
+  ledgerEntries  InvestorLedgerEntry[]
 
   @@index([deletedAt])
   @@map("investor_profiles")
@@ -5864,6 +5890,28 @@ model PostingSettings {
   defaultDeductionAccountId String?         @map("default_deduction_account_id") @db.Uuid
   defaultDeductionAccount   ChartOfAccount? @relation("PostingDefaultDeduction", fields: [defaultDeductionAccountId], references: [id])
 
+  /// Investor Engine Milestone 3, Phase 18/19 — Investor Accounting
+  /// Settings. Every field a global default only, resolved through
+  /// AccountMappingService; never hardcoded in a Posting Provider. Legal/
+  /// economic classification of Investor Capital (liability vs equity) is
+  /// left entirely to whichever real Chart of Account gets configured here
+  /// — never assumed by this codebase (Phase 18 "do not invent legal/
+  /// accounting classification").
+  investorFundingAccountId String?         @map("investor_funding_account_id") @db.Uuid
+  investorFundingAccount   ChartOfAccount? @relation("PostingInvestorFunding", fields: [investorFundingAccountId], references: [id])
+
+  investorProfitDistributionAccountId String?         @map("investor_profit_distribution_account_id") @db.Uuid
+  investorProfitDistributionAccount   ChartOfAccount? @relation("PostingInvestorProfitDistribution", fields: [investorProfitDistributionAccountId], references: [id])
+
+  investorProfitPayableAccountId String?         @map("investor_profit_payable_account_id") @db.Uuid
+  investorProfitPayableAccount   ChartOfAccount? @relation("PostingInvestorProfitPayable", fields: [investorProfitPayableAccountId], references: [id])
+
+  /// Falls back to investorFundingAccountId when not separately configured
+  /// (same account a Capital Return debits back down) — see
+  /// AccountMappingService.resolveCapitalReturnAccount.
+  capitalReturnAccountId String?         @map("capital_return_account_id") @db.Uuid
+  capitalReturnAccount   ChartOfAccount? @relation("PostingCapitalReturn", fields: [capitalReturnAccountId], references: [id])
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   updatedBy String?  @map("updated_by") @db.Uuid
@@ -6825,6 +6873,10 @@ model InvestmentOpportunity {
   reallocationsFrom  OpportunityReallocation[]   @relation("ReallocationFrom")
   reallocationsTo    OpportunityReallocation[]   @relation("ReallocationTo")
 
+  /// Investor Engine Milestone 3.
+  profitDistributions ProfitDistribution[]
+  ledgerEntries       InvestorLedgerEntry[]
+
   @@index([deletedAt, status])
   @@index([startDate, endDate])
   @@map("investment_opportunities")
@@ -6897,6 +6949,10 @@ model InvestorSubscription {
 
   contributions CapitalContribution[]
   profitShares  ProfitCalculationInvestorShare[]
+
+  /// Investor Engine Milestone 3.
+  distributions  InvestorDistribution[]
+  capitalReturns CapitalReturn[]
 
   @@unique([investorId, opportunityId])
   @@index([opportunityId, status])
@@ -7211,6 +7267,11 @@ model ProfitCalculation {
 
   investorShares ProfitCalculationInvestorShare[]
 
+  /// Investor Engine Milestone 3 — set only once this APPROVED snapshot is
+  /// distributed; `@unique` on ProfitDistribution.profitCalculationId is
+  /// the actual duplicate-distribution guard (Phase 7).
+  distribution ProfitDistribution?
+
   @@index([opportunityId, status])
   @@map("profit_calculations")
 }
@@ -7245,6 +7306,10 @@ model ProfitCalculationInvestorShare {
   profitShareAmount    Decimal @map("profit_share_amount") @db.Decimal(14, 2)
 
   createdAt DateTime @default(now()) @map("created_at")
+
+  /// Investor Engine Milestone 3 — the InvestorDistribution row this share
+  /// was copied into, if any (one-to-one via InvestorDistribution.sourceShareId).
+  investorDistribution InvestorDistribution?
 
   @@unique([profitCalculationId, investorId])
   @@map("profit_calculation_investor_shares")
@@ -7353,4 +7418,297 @@ model OpportunityReallocation {
   @@index([fromOpportunityId, status])
   @@index([toOpportunityId, status])
   @@map("opportunity_reallocations")
+}
+
+// ---------------------------------------------------------------------------
+// Investor Engine Milestone 3 — Profit Distributions + Investor Ledger +
+// Accounting Posting + Capital Return foundation. Operates ONLY on APPROVED
+// ProfitCalculation snapshots (Milestone 2); a Distribution copies
+// ProfitCalculationInvestorShare.profitShareAmount verbatim into each
+// InvestorDistribution.entitledAmount — it never recomputes profit from live
+// data. Posts through the canonical PostingEngineService only (no parallel
+// accounting engine); account selection is entirely configurable via new
+// PostingSettings columns (see above), resolved by AccountMappingService.
+// ---------------------------------------------------------------------------
+
+/// Closed set (Phase 3/55) — PARTIALLY_PAID/PAID are backend-derived from
+/// confirmed DistributionPayment totals, never directly settable.
+enum ProfitDistributionStatus {
+  DRAFT
+  APPROVED
+  PARTIALLY_PAID
+  PAID
+  CANCELLED
+}
+
+/// One controlled distribution event per APPROVED ProfitCalculation (Phase
+/// 3/7) — `profitCalculationId` is `@unique` so an approved allocation can
+/// never be distributed twice, enforced at the DB level. `code` is
+/// app-generated via the Numbering Engine (PROFIT_DISTRIBUTION series),
+/// never user-typed.
+model ProfitDistribution {
+  id String @id @default(uuid()) @db.Uuid
+
+  code String @unique
+
+  opportunityId String                @map("opportunity_id") @db.Uuid
+  opportunity   InvestmentOpportunity @relation(fields: [opportunityId], references: [id])
+
+  profitCalculationId String            @unique @map("profit_calculation_id") @db.Uuid
+  profitCalculation   ProfitCalculation @relation(fields: [profitCalculationId], references: [id])
+
+  /// SUM(InvestorDistribution.entitledAmount) at creation time — must
+  /// always exactly equal ProfitCalculation.investorProfitPool (Phase 6).
+  totalInvestorProfit Decimal @map("total_investor_profit") @db.Decimal(14, 2)
+
+  status ProfitDistributionStatus @default(DRAFT)
+
+  periodStart DateTime? @map("period_start") @db.Date
+  periodEnd   DateTime? @map("period_end") @db.Date
+
+  createdById String? @map("created_by_id") @db.Uuid
+  createdBy   User?   @relation("ProfitDistributionCreatedBy", fields: [createdById], references: [id])
+
+  approvedById String?   @map("approved_by_id") @db.Uuid
+  approvedBy   User?     @relation("ProfitDistributionApprovedBy", fields: [approvedById], references: [id])
+  approvedAt   DateTime? @map("approved_at")
+
+  notes String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  investorDistributions InvestorDistribution[]
+
+  @@index([opportunityId, status])
+  @@map("profit_distributions")
+}
+
+/// Closed set (Phase 5/56) — PARTIALLY_PAID/PAID are derived from
+/// SUM(CONFIRMED DistributionPayment.amount) only, never manually set.
+enum InvestorDistributionStatus {
+  PENDING
+  PAYABLE
+  PARTIALLY_PAID
+  PAID
+  CANCELLED
+}
+
+/// Per-Investor entitlement snapshot inside one ProfitDistribution (Phase
+/// 5/6) — `entitledAmount` is copied verbatim from
+/// ProfitCalculationInvestorShare.profitShareAmount at Distribution-create
+/// time and never recalculated from live participation data. `paidAmount`
+/// is maintained transactionally as CONFIRMED payments are recorded/
+/// reversed — never client-writable.
+model InvestorDistribution {
+  id String @id @default(uuid()) @db.Uuid
+
+  profitDistributionId String             @map("profit_distribution_id") @db.Uuid
+  profitDistribution   ProfitDistribution @relation(fields: [profitDistributionId], references: [id])
+
+  investorId String          @map("investor_id") @db.Uuid
+  investor   InvestorProfile @relation(fields: [investorId], references: [id])
+
+  /// The exact ProfitCalculationInvestorShare this entitlement was copied
+  /// from — the immutable source-snapshot reference (Phase 5).
+  sourceShareId String                         @unique @map("source_share_id") @db.Uuid
+  sourceShare   ProfitCalculationInvestorShare @relation(fields: [sourceShareId], references: [id])
+
+  subscriptionId String               @map("subscription_id") @db.Uuid
+  subscription   InvestorSubscription @relation(fields: [subscriptionId], references: [id])
+
+  entitledAmount Decimal @map("entitled_amount") @db.Decimal(14, 2)
+  paidAmount     Decimal @default(0) @map("paid_amount") @db.Decimal(14, 2)
+
+  status InvestorDistributionStatus @default(PENDING)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  payments DistributionPayment[]
+
+  @@unique([profitDistributionId, investorId])
+  @@index([investorId, status])
+  @@map("investor_distributions")
+}
+
+/// Closed set (Phase 9).
+enum DistributionPaymentStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  CANCELLED
+}
+
+/// One actual payment toward one InvestorDistribution (Phase 8/9) — supports
+/// partial payment; only CONFIRMED rows count toward
+/// InvestorDistribution.paidAmount (Phase 10).
+model DistributionPayment {
+  id String @id @default(uuid()) @db.Uuid
+
+  investorDistributionId String               @map("investor_distribution_id") @db.Uuid
+  investorDistribution   InvestorDistribution @relation(fields: [investorDistributionId], references: [id])
+
+  amount      Decimal  @db.Decimal(14, 2)
+  paymentDate DateTime @map("payment_date") @db.Date
+
+  financialAccountId String         @map("financial_account_id") @db.Uuid
+  financialAccount   ChartOfAccount @relation(fields: [financialAccountId], references: [id])
+
+  paymentMethodId String?        @map("payment_method_id") @db.Uuid
+  paymentMethod   PaymentMethod? @relation(fields: [paymentMethodId], references: [id])
+
+  referenceNumber String? @map("reference_number")
+
+  status DistributionPaymentStatus @default(PENDING)
+
+  createdById String? @map("created_by_id") @db.Uuid
+  createdBy   User?   @relation("DistributionPaymentCreatedBy", fields: [createdById], references: [id])
+
+  confirmedById String?   @map("confirmed_by_id") @db.Uuid
+  confirmedBy   User?     @relation("DistributionPaymentConfirmedBy", fields: [confirmedById], references: [id])
+  confirmedAt   DateTime? @map("confirmed_at")
+
+  notes String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  attachments DistributionPaymentAttachment[]
+
+  @@index([investorDistributionId, status])
+  @@map("distribution_payments")
+}
+
+/// Payment <-> Attachment join — same shape as CapitalContributionAttachment,
+/// never a second file-storage system (Phase 9 "reuse existing Attachment
+/// architecture").
+model DistributionPaymentAttachment {
+  id String @id @default(uuid()) @db.Uuid
+
+  paymentId String              @map("payment_id") @db.Uuid
+  payment   DistributionPayment @relation(fields: [paymentId], references: [id])
+
+  attachmentId String?     @unique @map("attachment_id") @db.Uuid
+  attachment   Attachment? @relation(fields: [attachmentId], references: [id])
+
+  uploadedById String @map("uploaded_by_id") @db.Uuid
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+
+  fileUrl  String  @map("file_url")
+  fileName String? @map("file_name")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([paymentId, deletedAt])
+  @@map("distribution_payment_attachments")
+}
+
+/// Closed set (Phase 31).
+enum CapitalReturnStatus {
+  DRAFT
+  APPROVED
+  PAID
+  CANCELLED
+}
+
+/// Capital Return foundation (Phase 31-35) — returns confirmed
+/// CapitalContribution principal back to an Investor. Never touches Profit
+/// figures (Phase 33); capped at confirmed capital minus previously
+/// approved/paid returns (Phase 32, enforced in service, not here).
+model CapitalReturn {
+  id String @id @default(uuid()) @db.Uuid
+
+  code String @unique
+
+  investorId String          @map("investor_id") @db.Uuid
+  investor   InvestorProfile @relation(fields: [investorId], references: [id])
+
+  subscriptionId String               @map("subscription_id") @db.Uuid
+  subscription   InvestorSubscription @relation(fields: [subscriptionId], references: [id])
+
+  amount Decimal  @db.Decimal(14, 2)
+  date   DateTime @db.Date
+
+  financialAccountId String?         @map("financial_account_id") @db.Uuid
+  financialAccount   ChartOfAccount? @relation(fields: [financialAccountId], references: [id])
+
+  referenceNumber String? @map("reference_number")
+
+  status CapitalReturnStatus @default(DRAFT)
+
+  createdById String? @map("created_by_id") @db.Uuid
+  createdBy   User?   @relation("CapitalReturnCreatedBy", fields: [createdById], references: [id])
+
+  approvedById String?   @map("approved_by_id") @db.Uuid
+  approvedBy   User?     @relation("CapitalReturnApprovedBy", fields: [approvedById], references: [id])
+  approvedAt   DateTime? @map("approved_at")
+
+  paidById String?   @map("paid_by_id") @db.Uuid
+  paidBy   User?     @relation("CapitalReturnPaidBy", fields: [paidById], references: [id])
+  paidAt   DateTime? @map("paid_at")
+
+  notes String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([investorId, status])
+  @@map("capital_returns")
+}
+
+/// Closed set (Phase 13).
+enum InvestorLedgerEntryType {
+  CAPITAL_FUNDED
+  PROFIT_ENTITLEMENT
+  PROFIT_PAYMENT
+  CAPITAL_RETURN
+  ADJUSTMENT
+  REVERSAL
+}
+
+/// Investor-facing subledger (Phase 13) — NOT the accounting General Ledger.
+/// Append-only, one row per canonical financial event
+/// (CapitalContribution/InvestorDistribution/DistributionPayment/
+/// CapitalReturn); never a free-floating entry outside a manual Adjustment
+/// (Phase 29/30). `referenceType`/`referenceId` trace back to the source
+/// row so every number in the Investor Statement is auditable to one real
+/// record; the `@@unique` below is the idempotency guard (Phase 28) — the
+/// same source event can never generate two ledger rows of the same type.
+model InvestorLedgerEntry {
+  id String @id @default(uuid()) @db.Uuid
+
+  investorId String          @map("investor_id") @db.Uuid
+  investor   InvestorProfile @relation(fields: [investorId], references: [id])
+
+  opportunityId String?                @map("opportunity_id") @db.Uuid
+  opportunity   InvestmentOpportunity? @relation(fields: [opportunityId], references: [id])
+
+  entryDate DateTime @map("entry_date")
+
+  type InvestorLedgerEntryType
+
+  description String
+
+  referenceType String @map("reference_type")
+  referenceId   String @map("reference_id") @db.Uuid
+
+  /// Investor-statement semantics (Phase 14), not raw accounting
+  /// debit/credit: a CREDIT increases what the company records as owed to
+  /// the investor (Capital Funded, Profit Entitlement); a DEBIT reduces it
+  /// (Profit Payment, Capital Return).
+  debitAmount  Decimal @default(0) @map("debit_amount") @db.Decimal(14, 2)
+  creditAmount Decimal @default(0) @map("credit_amount") @db.Decimal(14, 2)
+
+  currencyId String?   @map("currency_id") @db.Uuid
+  currency   Currency? @relation(fields: [currencyId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  @@unique([referenceType, referenceId, type])
+  @@index([investorId, entryDate])
+  @@index([opportunityId, entryDate])
+  @@map("investor_ledger_entries")
 }

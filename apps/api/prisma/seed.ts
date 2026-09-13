@@ -401,6 +401,25 @@ const postingChartOfAccounts = [
     accountType: AccountType.ASSET,
   },
   { code: 'CASH', name: 'Cash / Bank', accountType: AccountType.ASSET },
+  // Investor Engine Milestone 3 — Investor Accounting Settings defaults.
+  // Legal/economic classification is a real accounting decision left to
+  // whoever configures these in a real deployment; LIABILITY is the
+  // reasonable neutral default for a seeded demo environment.
+  {
+    code: 'INVFUND',
+    name: 'Investor Funding',
+    accountType: AccountType.LIABILITY,
+  },
+  {
+    code: 'INVDIST',
+    name: 'Investor Profit Distribution',
+    accountType: AccountType.EXPENSE,
+  },
+  {
+    code: 'INVPAY',
+    name: 'Investor Profit Payable',
+    accountType: AccountType.LIABILITY,
+  },
 ];
 
 const customerGroups = [
@@ -807,6 +826,12 @@ async function main() {
     vatOutputAccountId: accountsByCode.VATOUT,
     vatInputAccountId: accountsByCode.VATIN,
     cashAccountId: accountsByCode.CASH,
+    // Investor Engine Milestone 3 — capitalReturnAccountId is deliberately
+    // left unconfigured here so it exercises its documented fallback to
+    // investorFundingAccountId (AccountMappingService.resolveCapitalReturnAccount).
+    investorFundingAccountId: accountsByCode.INVFUND,
+    investorProfitDistributionAccountId: accountsByCode.INVDIST,
+    investorProfitPayableAccountId: accountsByCode.INVPAY,
   };
   if (postingSettings) {
     await prisma.postingSettings.update({
@@ -1472,11 +1497,34 @@ async function main() {
     'investment-settlement.manage',
     'investment-settlement.approve',
     'investment-settlement.cancel',
+    // Investor Engine Milestone 3, Phase 49/51 — Finance runs the
+    // Distribution/Payment/Capital Return workflows end to end, but the
+    // Accounting mapping itself is configuration, not an operational
+    // action — reserved for the Finance Manager persona below.
+    'investment-distributions.view',
+    'investment-distributions.create',
+    'investment-distributions.approve',
+    'investment-distributions.cancel',
+    'investment-payments.view',
+    'investment-payments.create',
+    'investment-payments.confirm',
+    'investment-payments.cancel',
+    'investor-ledger.view',
+    'capital-returns.view',
+    'capital-returns.create',
+    'capital-returns.approve',
+    'capital-returns.pay',
+    'capital-returns.cancel',
+    'investment-accounting.view',
   ];
   await grantPermissions(financeUser.id, financeUserPermissionNames);
   await grantPermissions(financeManagerUser.id, [
     ...financeUserPermissionNames,
     'accounting.bank-transactions.unreconcile',
+    // Phase 51 — only the Finance Manager persona can change Investor
+    // Accounting mappings, never plain Finance.
+    'investment-accounting.configure',
+    'investor-ledger.adjust',
   ]);
 
   // Shipping Agent test persona — the Orders/Shipping quick-edit
@@ -1611,6 +1659,11 @@ async function main() {
     'investment-expenses.view',
     'investment-profit.view',
     'investment-settlement.view',
+    // Investor Engine Milestone 3 — same read-only oversight philosophy.
+    'investment-distributions.view',
+    'investment-payments.view',
+    'investor-ledger.view',
+    'capital-returns.view',
   ]);
 
   // Employee test persona — deliberately zero module permissions, so a
@@ -2019,6 +2072,19 @@ async function main() {
       documentType: 'INVESTMENT_OPPORTUNITY',
       label: 'Investment Opportunity',
       docCode: 'IOP',
+      template: '{DOC}-{YEAR}-{SEQ}',
+    },
+    {
+      // Investor Engine Milestone 3.
+      documentType: 'PROFIT_DISTRIBUTION',
+      label: 'Profit Distribution',
+      docCode: 'PDIST',
+      template: '{DOC}-{YEAR}-{SEQ}',
+    },
+    {
+      documentType: 'CAPITAL_RETURN',
+      label: 'Capital Return',
+      docCode: 'CRET',
       template: '{DOC}-{YEAR}-{SEQ}',
     },
     {
