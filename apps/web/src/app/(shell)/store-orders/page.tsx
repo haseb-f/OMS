@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { RowSelectionState } from "@tanstack/react-table";
-import { Plus } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
@@ -19,7 +19,11 @@ import {
 } from "@/components/master-data/enterprise-data-table";
 import { StoreOrdersBulkActions } from "@/components/store-orders/store-orders-bulk-actions";
 import { BulkShippingStatusDialog } from "@/components/store-orders/bulk-shipping-status-dialog";
-import { StoreOrderCreateDialog } from "@/components/store-orders/store-order-create-dialog";
+import {
+  StoreOrderCreateDialog,
+  type StoreOrderCreatePrefillCustomer,
+} from "@/components/store-orders/store-order-create-dialog";
+import { GlobalLookupDialog } from "@/components/store-orders/global-lookup-dialog";
 import { buildStoreOrderDetailRegions } from "@/components/store-orders/store-order-expanded-detail";
 import { StoreOrderMobileCard } from "@/components/store-orders/store-order-mobile-card";
 import {
@@ -63,6 +67,8 @@ function StoreOrdersPageContent() {
   const { printList } = usePrintEngine();
   const canCreate = hasPermission("store-orders.create");
   const canBulkShipping = hasPermission("shipping.manage");
+  const canGlobalLookup =
+    hasPermission("customers.lookup_global") || hasPermission("orders.lookup_global");
 
   const [items, setItems] = useState<StoreOrderRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -100,6 +106,9 @@ function StoreOrdersPageContent() {
   const [isBulkUpdatingShipping, setIsBulkUpdatingShipping] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createDialogSession, setCreateDialogSession] = useState(0);
+  const [createPrefillCustomer, setCreatePrefillCustomer] =
+    useState<StoreOrderCreatePrefillCustomer | null>(null);
+  const [globalLookupOpen, setGlobalLookupOpen] = useState(false);
   const [archiveTarget, setArchiveTarget] = useState<StoreOrderRow | null>(null);
   const [isArchiving, setIsArchiving] = useState(false);
   // Cross-page selection cache (mirrors sales/orders/page.tsx) — `items`
@@ -320,11 +329,23 @@ function StoreOrdersPageContent() {
       description={t("storeOrders.description")}
       actions={
         <>
+          {canGlobalLookup && (
+            <EnterpriseButton
+              type="button"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => setGlobalLookupOpen(true)}
+            >
+              <Search className="size-4" />
+              {t("storeOrders.globalLookup.trigger")}
+            </EnterpriseButton>
+          )}
           {canCreate && (
             <EnterpriseButton
               type="button"
               className="gap-1.5"
               onClick={() => {
+                setCreatePrefillCustomer(null);
                 setCreateDialogSession((session) => session + 1);
                 setCreateDialogOpen(true);
               }}
@@ -494,7 +515,24 @@ function StoreOrdersPageContent() {
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
         onCreated={() => void load()}
+        prefillCustomer={createPrefillCustomer}
       />
+
+      {canGlobalLookup && (
+        <GlobalLookupDialog
+          open={globalLookupOpen}
+          onOpenChange={setGlobalLookupOpen}
+          onAddNewOrder={
+            canCreate
+              ? (customer) => {
+                  setCreatePrefillCustomer(customer);
+                  setCreateDialogSession((session) => session + 1);
+                  setCreateDialogOpen(true);
+                }
+              : null
+          }
+        />
+      )}
 
       <ConfirmationDialog
         open={!!archiveTarget}

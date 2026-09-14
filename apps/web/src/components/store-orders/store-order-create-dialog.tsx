@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Banknote, Globe, Plus, Trash2 } from "lucide-react";
+import { Banknote, Globe, Loader2, Plus, Trash2, UserCheck } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
+import { EnterpriseBadge } from "@/components/ui/badge";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import {
   ModalFieldFullWidth,
@@ -47,7 +48,11 @@ import {
   paymentSourcesService,
   type PaymentSourceOption,
 } from "@/services/payment-sources-service";
-import type { PartnerRow } from "@/services/partners-service";
+import {
+  partnersService,
+  type CustomerGlobalLookupResult,
+  type PartnerRow,
+} from "@/services/partners-service";
 import type { ProductRow } from "@/services/products-service";
 import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import {
@@ -60,7 +65,16 @@ import { useCountries, useCurrencies } from "@/hooks/use-reference-data";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import { toISODate } from "@/lib/date";
-import { PAYMENT_TYPE_LABEL_KEY } from "@/config/store-orders/status";
+import {
+  PAYMENT_STATUS_LABEL_KEY,
+  PAYMENT_TYPE_LABEL_KEY,
+  SHIPPING_STAGE_LABEL_KEY,
+} from "@/config/store-orders/status";
+import type {
+  StoreOrderPaymentStatusValue,
+  StoreOrderShippingStageValue,
+} from "@/services/store-orders-service";
+import { formatDate } from "@/lib/date";
 
 interface StoreOrderCreateLine {
   id: string;
@@ -74,14 +88,25 @@ function createEmptyLine(): StoreOrderCreateLine {
   return { id: `line-${nextLineId++}`, product: null, quantity: 1, unitPrice: 0 };
 }
 
+export interface StoreOrderCreatePrefillCustomer {
+  name: string;
+  phone?: string | null;
+  countryId?: string | null;
+  city?: string | null;
+  address?: string | null;
+}
+
 export function StoreOrderCreateDialog({
   open,
   onOpenChange,
   onCreated,
+  prefillCustomer,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: (order: StoreOrderRow) => void;
+  /** Set when opened from the Global Lookup dialog's "Add New Order" action — reuses this Customer instead of prompting for one. */
+  prefillCustomer?: StoreOrderCreatePrefillCustomer | null;
 }) {
   const { t } = useLocale();
   const currencies = useCurrencies();
@@ -95,6 +120,11 @@ export function StoreOrderCreateDialog({
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [receiptError, setReceiptError] = useState<string | null>(null);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [existingCustomer, setExistingCustomer] = useState<CustomerGlobalLookupResult | null>(null);
+  const [existingCustomerStatus, setExistingCustomerStatus] = useState<
+    "idle" | "checking" | "found" | "not-found"
+  >("idle");
+  const [existingCustomerApplied, setExistingCustomerApplied] = useState(false);
 
   const schema = useMemo(() => buildStoreOrderCreateSchema(t), [t]);
 
@@ -105,7 +135,19 @@ export function StoreOrderCreateDialog({
 
   useEffect(() => {
     if (!open) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPendingFiles([]);
+    setExistingCustomer(null);
+    setExistingCustomerStatus("idle");
+    setExistingCustomerApplied(false);
+    if (prefillCustomer) {
+      form.setValue("customerName", prefillCustomer.name, { shouldDirty: true });
+      form.setValue("customerPhone", prefillCustomer.phone || "", { shouldDirty: true });
+      form.setValue("countryId", prefillCustomer.countryId || "", { shouldDirty: true });
+      form.setValue("city", prefillCustomer.city || "", { shouldDirty: true });
+      form.setValue("address", prefillCustomer.address || "", { shouldDirty: true });
+      setExistingCustomerApplied(true);
+    }
     let cancelled = false;
     paymentSourcesService
       .list()
@@ -118,6 +160,7 @@ export function StoreOrderCreateDialog({
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const isDirty = form.formState.isDirty;
@@ -128,6 +171,7 @@ export function StoreOrderCreateDialog({
   const receiptName = useWatch({ control: form.control, name: "receiptName" });
   const receiptUrl = useWatch({ control: form.control, name: "receiptUrl" });
   const customerName = useWatch({ control: form.control, name: "customerName" });
+  const customerPhone = useWatch({ control: form.control, name: "customerPhone" });
   const paymentType = useWatch({ control: form.control, name: "paymentType" });
   const countryCode = countries.find((country) => country.id === countryId)?.code ?? null;
   const defaultCurrencyId =
@@ -163,7 +207,58 @@ export function StoreOrderCreateDialog({
     if (!form.getValues("senderName")) {
       form.setValue("senderName", customer.name, { shouldDirty: false });
     }
+    setExistingCustomer(null);
+    setExistingCustomerStatus("idle");
   };
+
+  const applyExistingCustomer = (customer: CustomerGlobalLookupResult) => {
+    form.setValue("customerName", customer.name, { shouldDirty: true, shouldValidate: true });
+    form.setValue("customerPhone", customer.phone || customer.mobile || "", {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    form.setValue("countryId", customer.countryId || "", { shouldDirty: true });
+    form.setValue("city", customer.city || "", { shouldDirty: true });
+    form.setValue("address", customer.address || "", { shouldDirty: true });
+    setExistingCustomerApplied(true);
+    toast.success(t("storeOrders.createDialog.existingCustomer.applied"));
+  };
+
+  // Existing Customer detection (Leads/Customers/Orders Finalization —
+  // "phone lookup during order creation"). Debounced, silent on
+  // permission-denied/network errors (progressive enhancement only — never
+  // blocks manual entry), and skipped once a customer was picked via
+  // PartnerPicker or already applied from a lookup result.
+  useEffect(() => {
+    if (!open || selectedCustomer || existingCustomerApplied) return;
+    const digits = (customerPhone ?? "").replace(/\D/g, "");
+    if (digits.length < 8) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setExistingCustomer(null);
+      setExistingCustomerStatus("idle");
+      return;
+    }
+    let cancelled = false;
+    setExistingCustomerStatus("checking");
+    const timer = setTimeout(() => {
+      partnersService
+        .globalLookupByPhone(customerPhone!)
+        .then((result) => {
+          if (cancelled) return;
+          setExistingCustomer(result);
+          setExistingCustomerStatus(result ? "found" : "not-found");
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setExistingCustomer(null);
+          setExistingCustomerStatus("idle");
+        });
+    }, 500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [customerPhone, open, selectedCustomer, existingCustomerApplied]);
 
   const updateLine = (id: string, patch: Partial<StoreOrderCreateLine>) => {
     setLines((current) => current.map((line) => (line.id === id ? { ...line, ...patch } : line)));
@@ -304,6 +399,69 @@ export function StoreOrderCreateDialog({
               required
               countryCode={countryCode}
             />
+            {existingCustomerStatus === "not-found" && (
+              <ModalFieldFullWidth>
+                <p className="text-xs text-muted-foreground">
+                  {t("storeOrders.globalLookup.notFoundCustomer")}
+                </p>
+              </ModalFieldFullWidth>
+            )}
+            {existingCustomerStatus === "checking" && (
+              <ModalFieldFullWidth>
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Loader2 className="size-3.5 animate-spin" />
+                  {t("storeOrders.createDialog.existingCustomer.checking")}
+                </p>
+              </ModalFieldFullWidth>
+            )}
+            {existingCustomerStatus === "found" && existingCustomer && (
+              <ModalFieldFullWidth>
+                <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/40 p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <EnterpriseBadge variant="info" className="gap-1">
+                      <UserCheck className="size-3.5" />
+                      {t("storeOrders.createDialog.existingCustomer.badge")}
+                    </EnterpriseBadge>
+                    <span className="text-xs text-muted-foreground">
+                      {t("storeOrders.createDialog.existingCustomer.previousOrders", {
+                        count: existingCustomer.totalOrders,
+                      })}
+                    </span>
+                  </div>
+                  {existingCustomer.lastOrder && (
+                    <p className="text-xs text-muted-foreground">
+                      {t("storeOrders.createDialog.existingCustomer.lastOrder")}:{" "}
+                      {existingCustomer.lastOrder.orderNumber} ·{" "}
+                      {formatDate(existingCustomer.lastOrder.orderDate)} ·{" "}
+                      {existingCustomer.lastOrder.products} ·{" "}
+                      {t(
+                        PAYMENT_STATUS_LABEL_KEY[
+                          existingCustomer.lastOrder.paymentStatus as StoreOrderPaymentStatusValue
+                        ] ?? "storeOrders.paymentStatus.PAYMENT_PENDING",
+                      )}{" "}
+                      ·{" "}
+                      {t(
+                        SHIPPING_STAGE_LABEL_KEY[
+                          existingCustomer.lastOrder.shippingStage as StoreOrderShippingStageValue
+                        ] ?? "storeOrders.shippingStage.NOT_READY",
+                      )}
+                    </p>
+                  )}
+                  {!existingCustomerApplied && (
+                    <EnterpriseButton
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-fit gap-1.5"
+                      onClick={() => applyExistingCustomer(existingCustomer)}
+                    >
+                      <UserCheck className="size-3.5" />
+                      {t("storeOrders.createDialog.existingCustomer.useData")}
+                    </EnterpriseButton>
+                  )}
+                </div>
+              </ModalFieldFullWidth>
+            )}
             <ComboboxFormField
               control={form.control}
               name="countryId"

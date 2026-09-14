@@ -149,7 +149,41 @@ export const partnersService = {
     apiClient.delete<PartnerRow>(`/partners/${id}/roles/${role}`),
   activity: (id: string): Promise<MasterDataActivityEntry[]> =>
     apiClient.get<MasterDataActivityEntry[]>(`/partners/${id}/activity`),
+  /**
+   * Exact-phone global lookup (`customers.lookup_global`) — a safe,
+   * read-only "does this Customer already exist, and what has it bought
+   * before" summary, distinct from `partners.view`'s full directory access.
+   * Returns `null` when no Customer matches; never throws for "not found".
+   */
+  globalLookupByPhone: (phone: string) =>
+    apiClient.get<CustomerGlobalLookupResult | null>(
+      `/partners/global-lookup${buildQueryString({ phone })}`,
+    ),
 };
+
+export interface CustomerGlobalLookupOrderSummary {
+  id: string;
+  orderNumber: string;
+  orderDate: string;
+  products: string;
+  paymentStatus: string;
+  shippingStage: string;
+  shippingStatus: string | null;
+}
+
+export interface CustomerGlobalLookupResult {
+  id: string;
+  partnerNumber: string;
+  name: string;
+  phone: string | null;
+  mobile: string | null;
+  countryId: string | null;
+  city: string | null;
+  address: string | null;
+  totalOrders: number;
+  lastOrder: CustomerGlobalLookupOrderSummary | null;
+  recentOrders: CustomerGlobalLookupOrderSummary[];
+}
 
 /**
  * Role-scoped wrapper for `MasterDataPage` — Customers/Suppliers pages pass

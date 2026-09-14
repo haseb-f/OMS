@@ -189,10 +189,31 @@ export interface StoreOrderIdsResult {
  * `externalOrderId` is the order's unique identity; the Customer link is
  * matched by phone only during import, never re-derived here.
  */
+export interface OrderGlobalLookupResult {
+  id: string;
+  orderNumber: string;
+  orderDate: string;
+  customerName: string;
+  customerPhone: string | null;
+  products: string;
+  paymentStatus: string;
+  shippingStage: string;
+  shippingStatus: string | null;
+}
+
 export const storeOrdersService = {
   list: (params: StoreOrderListParams = {}) =>
     apiClient.get<StoreOrderListResult>(
       `/store-orders${buildQueryString(params as Record<string, unknown>)}`,
+    ),
+  /**
+   * Exact Order Number global lookup (`orders.lookup_global`) — a safe,
+   * read-only summary regardless of the caller's own-scope. Returns `null`
+   * when no Order matches; never throws for "not found".
+   */
+  globalLookupByOrderNumber: (orderNumber: string) =>
+    apiClient.get<OrderGlobalLookupResult | null>(
+      `/store-orders/global-lookup${buildQueryString({ orderNumber })}`,
     ),
   listIds: (params: StoreOrderListParams = {}) =>
     apiClient.get<StoreOrderIdsResult>(

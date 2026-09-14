@@ -2736,6 +2736,42 @@ const en = {
       paymentIncomplete:
         "Complete payment method, receiving account, and sender name to record a payment with the order.",
       receiptIncomplete: "Enter both a file name and URL, or leave the attachment empty.",
+      existingCustomer: {
+        checking: "Checking for an existing customer...",
+        badge: "Existing customer",
+        previousOrders: "Has {count} previous order(s)",
+        lastOrder: "Last order",
+        useData: "Use this customer's data",
+        applied: "Existing customer data applied.",
+      },
+    },
+    globalLookup: {
+      trigger: "Look up by phone or order number",
+      title: "Global Customer / Order Lookup",
+      description:
+        "Exact lookup by phone number or order number — never a full browse of Customers or Orders.",
+      methodPhone: "Phone number",
+      methodOrder: "Order number",
+      phonePlaceholder: "Enter a phone number",
+      orderPlaceholder: "Enter an order number",
+      search: "Search",
+      searching: "Searching...",
+      notFoundCustomer: "No customer matches this number.",
+      notFoundOrder: "No order matches this number.",
+      error: "Lookup failed. Please try again.",
+      customer: {
+        totalOrders: "Total previous orders",
+        lastOrderDate: "Last order date",
+        recentOrders: "Recent orders",
+        addNewOrder: "Add a new order for this customer",
+      },
+      order: {
+        orderDate: "Order date",
+        products: "Products",
+        paymentStatus: "Payment status",
+        shippingStatus: "Shipping status",
+        readOnlyNotice: "Read-only view via global lookup.",
+      },
     },
     filters: {
       paymentStatus: "Payment Status",
