@@ -86,6 +86,22 @@ export class PartnersController {
     return this.partnersService.lookupByPhone(phone);
   }
 
+  /**
+   * Exact-phone global lookup — gated by `customers.lookup_global`, NOT
+   * `partners.view`. Lets a Sales Agent who cannot browse the Partner
+   * directory still recognize a returning Customer and see a safe, limited
+   * previous-orders summary (never profit/commission/finance/other-agent
+   * identity). Static route — must precede `:id`.
+   */
+  @Get('global-lookup')
+  @PermissionAction('lookup_global')
+  globalLookupByPhone(
+    @Query('phone') phone: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.partnersService.globalLookupByPhone(phone, user.sub);
+  }
+
   /** "Select all matching filters" — bare IDs only, same filter/search as `findAll`. */
   @Get('ids')
   findAllIds(@Query() query: FindPartnersQueryDto) {

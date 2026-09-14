@@ -63,6 +63,22 @@ export class StoreOrdersController {
     return this.storeOrdersService.findAllIds(query, user.sub);
   }
 
+  /**
+   * Exact Order Number global lookup — gated by `orders.lookup_global`, not
+   * ordinary own-scope. Static route — must precede `:id`.
+   */
+  @Get('global-lookup')
+  @PermissionAction('lookup_global')
+  globalLookupByOrderNumber(
+    @Query('orderNumber') orderNumber: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.storeOrdersService.globalLookupByOrderNumber(
+      orderNumber,
+      user.sub,
+    );
+  }
+
   @Get(':id/payment-context')
   paymentContext(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.storeOrdersService.paymentContext(id, user.sub);

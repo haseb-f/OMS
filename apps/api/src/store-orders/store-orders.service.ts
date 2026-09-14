@@ -566,6 +566,59 @@ export class StoreOrdersService {
     return { ids: rows.map((row) => row.id), total };
   }
 
+  /**
+   * Exact Order Number global lookup — gated by `orders.lookup_global`, NOT
+   * `store-orders.manage`. Deliberately bypasses `SalesScopeService`'s
+   * own-scope restriction (that is the entire point of a targeted global
+   * lookup) but returns a safe, read-only DTO only: no payments, no
+   * receipts, no owner identity, no financial evidence. Every call — match
+   * or not — is written to `GlobalLookupAudit`.
+   */
+  async globalLookupByOrderNumber(orderNumber: string, userId: string) {
+    const order = await this.prisma.storeOrder.findFirst({
+      where: {
+        deletedAt: null,
+        OR: [
+          { internalOrderId: orderNumber },
+          { externalOrderId: orderNumber },
+        ],
+      },
+      include: {
+        partner: {
+          select: { id: true, name: true, phone: true, mobile: true },
+        },
+        items: { include: { product: true }, take: 5 },
+        shipments: { orderBy: { attemptNumber: 'desc' }, take: 1 },
+      },
+    });
+
+    await this.prisma.globalLookupAudit.create({
+      data: {
+        userId,
+        action: 'GLOBAL_ORDER_LOOKUP',
+        method: 'ORDER_NUMBER',
+        queryValue: orderNumber,
+        matchedStoreOrderId: order?.id,
+      },
+    });
+
+    if (!order) return null;
+
+    return {
+      id: order.id,
+      orderNumber: order.internalOrderId,
+      orderDate: order.orderDate,
+      customerName: order.partner.name,
+      customerPhone: order.partner.phone || order.partner.mobile,
+      products: order.items
+        .map((item) => item.product.displayName || item.product.name)
+        .join(' · '),
+      paymentStatus: order.paymentStatus,
+      shippingStage: order.shippingStage,
+      shippingStatus: order.shipments[0]?.status ?? null,
+    };
+  }
+
   async findOne(id: string, userId?: string) {
     const order = await this.prisma.storeOrder.findFirst({
       where: { id, deletedAt: null },

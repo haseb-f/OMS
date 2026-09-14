@@ -504,6 +504,77 @@ export class PartnersService extends MasterDataCrudService<
     return this.findPhoneMatches([phone]);
   }
 
+  /**
+   * Exact-match "does a Customer already exist for this phone number, and
+   * what has it bought before?" — the safe DTO behind the
+   * `customers.lookup_global` permission (Leads/Customers/Orders
+   * Finalization Milestone). Deliberately excludes profit/margin,
+   * commissions, internal notes, and any other Order Owner's identity —
+   * only the operational summary needed to serve a returning customer.
+   * Every call is written to `GlobalLookupAudit`, matched or not.
+   */
+  async globalLookupByPhone(phone: string, userId: string) {
+    // Saudi is the primary market for this lookup — resolve a bare local
+    // ("0501234567") or trunk-less ("501234567") number the same way a
+    // "+966"/"966" one already resolves, without changing the stricter
+    // country-agnostic behavior `findDuplicate`/`lookupByPhone` rely on for
+    // Create/Update duplicate checks across every country.
+    const normalized = this.phoneNumberService.normalizeToE164(phone, 'SA');
+    const [match] = await this.findPhoneMatches([phone], undefined, 'SA');
+
+    await this.prisma.globalLookupAudit.create({
+      data: {
+        userId,
+        action: 'GLOBAL_CUSTOMER_LOOKUP',
+        method: 'PHONE',
+        queryValue: normalized ?? phone,
+        matchedPartnerId: match?.id,
+      },
+    });
+
+    if (!match) return null;
+
+    const orders = await this.prisma.storeOrder.findMany({
+      where: { partnerId: match.id, deletedAt: null },
+      orderBy: { orderDate: 'desc' },
+      take: 5,
+      include: {
+        items: { include: { product: true }, take: 3 },
+        shipments: { orderBy: { attemptNumber: 'desc' }, take: 1 },
+      },
+    });
+
+    const totalOrders = await this.prisma.storeOrder.count({
+      where: { partnerId: match.id, deletedAt: null },
+    });
+
+    const summarize = (order: (typeof orders)[number]) => ({
+      id: order.id,
+      orderNumber: order.internalOrderId,
+      orderDate: order.orderDate,
+      products: order.items
+        .map((item) => item.product.displayName || item.product.name)
+        .join(' · '),
+      paymentStatus: order.paymentStatus,
+      shippingStage: order.shippingStage,
+      shippingStatus: order.shipments[0]?.status ?? null,
+    });
+
+    return {
+      id: match.id,
+      partnerNumber: match.partnerNumber,
+      name: match.name,
+      phone: match.phone,
+      mobile: match.mobile,
+      countryId: match.countryId,
+      city: match.city,
+      address: match.address,
+      totalOrders,
+      lastOrder: orders[0] ? summarize(orders[0]) : null,
+      recentOrders: orders.map(summarize),
+    };
+  }
+
   async findAll(
     query: FindPartnersQueryDto,
   ): Promise<MasterDataListResult<PartnerWithBalance<PartnerWithRelations>>> {
@@ -600,11 +671,12 @@ export class PartnersService extends MasterDataCrudService<
   private async findPhoneMatches(
     phones: (string | undefined | null)[],
     excludingId?: string,
+    defaultRegion?: string,
   ) {
     const normalizedPhones = [
       ...new Set(
         phones
-          .map((p) => this.phoneNumberService.normalizeToE164(p))
+          .map((p) => this.phoneNumberService.normalizeToE164(p, defaultRegion))
           .filter((p): p is string => !!p),
       ),
     ];
