@@ -4849,6 +4849,14 @@ const ar = {
         distributions: "التوزيعات",
         activity: "النشاط",
       },
+      financialSummary: {
+        approvedNetProfit: "صافي الربح المعتمد",
+        investorProfitPool: "وعاء أرباح المستثمرين",
+        distributedProfit: "الأرباح الموزعة",
+        paidProfit: "الأرباح المدفوعة",
+        outstandingInvestorProfit: "أرباح المستثمرين المتبقية",
+        capitalReturned: "رأس المال المسترد",
+      },
       actions: {
         open: "فتح للاستثمار",
         activate: "تفعيل",

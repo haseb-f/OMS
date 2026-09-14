@@ -69,6 +69,7 @@ export function DistributionsTab({
   canCancel,
   canRecordPayment,
   canConfirmPayment,
+  onChanged,
 }: {
   opportunityId: string;
   currencyCode: string;
@@ -77,6 +78,8 @@ export function DistributionsTab({
   canCancel: boolean;
   canRecordPayment: boolean;
   canConfirmPayment: boolean;
+  /** Notifies the parent Opportunity page to refresh its Financial Summary (Phase 17) after any mutation here. */
+  onChanged?: () => void;
 }) {
   const { t } = useLocale();
   const [distributions, setDistributions] = useState<ProfitDistributionRow[] | null>(null);
@@ -120,6 +123,7 @@ export function DistributionsTab({
       await investmentDistributionsService.approve(distribution.id);
       toast.success(t("common.saved"));
       await load();
+      onChanged?.();
     } catch (error) {
       reportApiError(error, t("common.failedToSave"));
     }
@@ -132,6 +136,7 @@ export function DistributionsTab({
       toast.success(t("common.saved"));
       setCancelTarget(null);
       await load();
+      onChanged?.();
     } catch (error) {
       reportApiError(error, t("common.failedToSave"));
     }
@@ -299,6 +304,7 @@ export function DistributionsTab({
                                               toast.success(t("common.saved"));
                                               await loadPayments(row.id);
                                               await load();
+                                              onChanged?.();
                                             } catch (error) {
                                               reportApiError(error, t("common.failedToSave"));
                                             }

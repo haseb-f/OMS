@@ -4902,6 +4902,14 @@ const en = {
         distributions: "Distributions",
         activity: "Activity",
       },
+      financialSummary: {
+        approvedNetProfit: "Approved Net Profit",
+        investorProfitPool: "Investor Profit Pool",
+        distributedProfit: "Distributed Profit",
+        paidProfit: "Paid Profit",
+        outstandingInvestorProfit: "Outstanding Investor Profit",
+        capitalReturned: "Capital Returned",
+      },
       actions: {
         open: "Open for Investment",
         activate: "Activate",

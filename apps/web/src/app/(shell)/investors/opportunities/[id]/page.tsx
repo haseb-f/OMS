@@ -62,6 +62,10 @@ import {
   type SettlementSuggestionLine,
 } from "@/services/investment-settlement-service";
 import { DistributionsTab } from "./distributions-tab";
+import {
+  investmentDistributionsService,
+  type OpportunityFinancialSummary,
+} from "@/services/investment-distributions-service";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -98,6 +102,9 @@ export default function OpportunityWorkspacePage() {
   const { hasPermission } = useUserContext();
 
   const [opportunity, setOpportunity] = useState<InvestmentOpportunityRow | null>(null);
+  const [financialSummary, setFinancialSummary] = useState<OpportunityFinancialSummary | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [subscriptions, setSubscriptions] = useState<InvestorSubscriptionRow[] | null>(null);
   const [contributions, setContributions] = useState<CapitalContributionRow[] | null>(null);
@@ -120,6 +127,16 @@ export default function OpportunityWorkspacePage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const loadFinancialSummary = useCallback(async () => {
+    const summary = await investmentDistributionsService.opportunitySummary(params.id);
+    setFinancialSummary(summary);
+  }, [params.id]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadFinancialSummary();
+  }, [loadFinancialSummary]);
 
   useBreadcrumbLabel(opportunity?.code ?? null);
 
@@ -277,6 +294,47 @@ export default function OpportunityWorkspacePage() {
           />
         </div>
 
+        {financialSummary && financialSummary.approvedNetProfit != null ? (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+            <KpiCard
+              icon={CheckCircle2}
+              label={t("investors.opportunities.financialSummary.approvedNetProfit")}
+              value={formatMoney(financialSummary.approvedNetProfit, opportunity.currency.code)}
+            />
+            <KpiCard
+              icon={CheckCircle2}
+              label={t("investors.opportunities.financialSummary.investorProfitPool")}
+              value={formatMoney(
+                financialSummary.investorProfitPool ?? 0,
+                opportunity.currency.code,
+              )}
+            />
+            <KpiCard
+              icon={CheckCircle2}
+              label={t("investors.opportunities.financialSummary.distributedProfit")}
+              value={formatMoney(financialSummary.distributedProfit, opportunity.currency.code)}
+            />
+            <KpiCard
+              icon={CheckCircle2}
+              label={t("investors.opportunities.financialSummary.paidProfit")}
+              value={formatMoney(financialSummary.paidProfit, opportunity.currency.code)}
+            />
+            <KpiCard
+              icon={CheckCircle2}
+              label={t("investors.opportunities.financialSummary.outstandingInvestorProfit")}
+              value={formatMoney(
+                financialSummary.outstandingInvestorProfit,
+                opportunity.currency.code,
+              )}
+            />
+            <KpiCard
+              icon={CheckCircle2}
+              label={t("investors.opportunities.financialSummary.capitalReturned")}
+              value={formatMoney(financialSummary.capitalReturned, opportunity.currency.code)}
+            />
+          </div>
+        ) : null}
+
         <EntityTabs
           tabs={[
             {
@@ -407,6 +465,7 @@ export default function OpportunityWorkspacePage() {
                   canCancel={canCancelDistribution}
                   canRecordPayment={canRecordDistributionPayment}
                   canConfirmPayment={canConfirmDistributionPayment}
+                  onChanged={loadFinancialSummary}
                 />
               ),
             },
