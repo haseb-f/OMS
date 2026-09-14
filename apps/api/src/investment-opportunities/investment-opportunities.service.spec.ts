@@ -29,6 +29,7 @@ describe('InvestmentOpportunitiesService', () => {
   let unitId: string;
   let productAId: string;
   let productBId: string;
+  let productCId: string;
 
   beforeAll(async () => {
     moduleRef = await Test.createTestingModule({
@@ -72,6 +73,7 @@ describe('InvestmentOpportunitiesService', () => {
         isPurchasable: true,
         isSellable: true,
         isInventoryItem: true,
+        availableForInvestmentOpportunities: true,
       },
     });
     productAId = productA.id;
@@ -87,9 +89,26 @@ describe('InvestmentOpportunitiesService', () => {
         isPurchasable: true,
         isSellable: true,
         isInventoryItem: true,
+        availableForInvestmentOpportunities: true,
       },
     });
     productBId = productB.id;
+    const productC = await prisma.product.create({
+      data: {
+        sku: `${prefix}-C`,
+        name: 'Product C (ineligible)',
+        internalName: 'Product C',
+        displayName: 'Product C',
+        categoryId,
+        unitId,
+        type: 'PURCHASE_AND_SALE',
+        isPurchasable: true,
+        isSellable: true,
+        isInventoryItem: true,
+        availableForInvestmentOpportunities: false,
+      },
+    });
+    productCId = productC.id;
 
     await prisma.numberSeries.upsert({
       where: { documentType: 'INVESTMENT_OPPORTUNITY' },
@@ -110,7 +129,9 @@ describe('InvestmentOpportunitiesService', () => {
       where: {
         subscription: {
           opportunity: {
-            products: { some: { productId: { in: [productAId, productBId] } } },
+            products: {
+              some: { productId: { in: [productAId, productBId, productCId] } },
+            },
           },
         },
       },
@@ -118,18 +139,20 @@ describe('InvestmentOpportunitiesService', () => {
     await prisma.investorSubscription.deleteMany({
       where: {
         opportunity: {
-          products: { some: { productId: { in: [productAId, productBId] } } },
+          products: {
+            some: { productId: { in: [productAId, productBId, productCId] } },
+          },
         },
       },
     });
     await prisma.opportunityProduct.deleteMany({
-      where: { productId: { in: [productAId, productBId] } },
+      where: { productId: { in: [productAId, productBId, productCId] } },
     });
     await prisma.investmentOpportunity.deleteMany({
       where: { nameAr: { startsWith: prefix } },
     });
     await prisma.product.deleteMany({
-      where: { id: { in: [productAId, productBId] } },
+      where: { id: { in: [productAId, productBId, productCId] } },
     });
     await prisma.productCategory.delete({ where: { id: categoryId } });
     await prisma.unit.delete({ where: { id: unitId } });
@@ -184,6 +207,55 @@ describe('InvestmentOpportunitiesService', () => {
         ],
       }),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  it('rejects a Product not opted into Investment Opportunities (availableForInvestmentOpportunities=false)', async () => {
+    await expect(
+      service.create({
+        ...baseDto(),
+        products: [
+          { productId: productCId, fundedUnits: 10, fundedUnitCost: 5 },
+        ],
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('grandfathers a Product already attached to an Opportunity even after it becomes ineligible for new assignment', async () => {
+    // Attach Product B while still eligible.
+    const created = await service.create(baseDto());
+
+    // Make Product B ineligible for *new* assignment going forward.
+    await prisma.product.update({
+      where: { id: productBId },
+      data: { availableForInvestmentOpportunities: false },
+    });
+
+    try {
+      // Re-saving the Opportunity with the same product set (B still
+      // included) must not fail — historical assignment is preserved.
+      const resaved = await service.update(created.id, {
+        products: baseDto().products,
+      });
+      expect(resaved.products.map((p) => p.productId)).toEqual(
+        expect.arrayContaining([productAId, productBId]),
+      );
+
+      // But Product B can no longer be added to a brand-new Opportunity.
+      await expect(
+        service.create({
+          ...baseDto(),
+          products: [
+            { productId: productBId, fundedUnits: 10, fundedUnitCost: 5 },
+          ],
+        }),
+      ).rejects.toThrow(BadRequestException);
+    } finally {
+      // Restore fixture state for any later test in this file.
+      await prisma.product.update({
+        where: { id: productBId },
+        data: { availableForInvestmentOpportunities: true },
+      });
+    }
   });
 
   it('DRAFT -> OPEN -> terms lock once confirmed funding exists', async () => {

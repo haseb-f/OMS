@@ -62,6 +62,9 @@ export const productSchema = z.object({
   width: z.number().optional(),
   height: z.number().optional(),
   length: z.number().optional(),
+
+  /** Investor Engine Milestone 4, Part B — opt-in gate for the Investment Opportunity Product picker. Defaults unchecked for every new Product. */
+  availableForInvestmentOpportunities: z.boolean(),
 });
 
 export type ProductFormValues = z.infer<typeof productSchema>;
@@ -109,4 +112,5 @@ export const productDefaultValues: ProductFormValues = {
   width: undefined,
   height: undefined,
   length: undefined,
+  availableForInvestmentOpportunities: false,
 };

@@ -129,6 +129,11 @@ export class CreateProductDto {
   @IsOptional()
   isInventoryItem?: boolean;
 
+  /** Investor Engine Milestone 4, Part B — explicit opt-in for the Investment Opportunity Product picker. Defaults false. */
+  @IsBoolean()
+  @IsOptional()
+  availableForInvestmentOpportunities?: boolean;
+
   // --- Sales ---------------------------------------------------------
   @IsNumber()
   @IsOptional()

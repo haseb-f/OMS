@@ -52,4 +52,8 @@ export class CreateInvestorDto {
 
   @IsOptionalUuid()
   userId?: string;
+
+  /** Investor Engine Milestone 4, Part A — Master Data Investor Type (validated in InvestorsService). */
+  @IsOptionalUuid()
+  investorTypeId?: string;
 }

@@ -201,6 +201,8 @@ export default function NewInvestmentOpportunityPage() {
               <ProductPicker
                 value={line.product}
                 onChange={(product) => updateLine(index, { product })}
+                sellableOnly={false}
+                investmentEligibleOnly
               />
               <Input
                 type="number"

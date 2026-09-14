@@ -442,6 +442,25 @@ export function ProductCreateDialog({
                   )}
                 />
               </ModalFieldFullWidth>
+              <ModalFieldFullWidth>
+                <FormField
+                  control={form.control}
+                  name="availableForInvestmentOpportunities"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                      <FormControl>
+                        <Checkbox checked={field.value ?? false} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <FormLabel className="font-normal">
+                        {t("products.fields.availableForInvestmentOpportunities")}
+                      </FormLabel>
+                    </FormItem>
+                  )}
+                />
+                <p className="text-caption text-muted-foreground">
+                  {t("products.fields.availableForInvestmentOpportunitiesHint")}
+                </p>
+              </ModalFieldFullWidth>
               <FormField
                 control={form.control}
                 name="reorderLevel"

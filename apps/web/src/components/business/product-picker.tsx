@@ -15,6 +15,7 @@ export function ProductPicker({
   inventoryOnly,
   sellableOnly = true,
   purchasableOnly = false,
+  investmentEligibleOnly = false,
 }: {
   value: ProductRow | null | undefined;
   onChange: (product: ProductRow) => void;
@@ -29,6 +30,8 @@ export function ProductPicker({
   sellableOnly?: boolean;
   /** Purchasing pickers — only products that can be purchased. */
   purchasableOnly?: boolean;
+  /** Investment Opportunity Product picker — only products opted in via `availableForInvestmentOpportunities` (Investor Engine Milestone 4, Part B). */
+  investmentEligibleOnly?: boolean;
 }) {
   const { t } = useLocale();
 
@@ -47,6 +50,7 @@ export function ProductPicker({
           ...(inventoryOnly ? { isInventoryItem: true } : {}),
           ...(purchasableOnly && !inventoryOnly ? { isPurchasable: true } : {}),
           ...(sellableOnly && !inventoryOnly && !purchasableOnly ? { isSellable: true } : {}),
+          ...(investmentEligibleOnly ? { investmentEligible: true } : {}),
         });
         return result.items;
       }}

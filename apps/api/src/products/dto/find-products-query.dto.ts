@@ -62,6 +62,12 @@ export class FindProductsQueryDto {
   @IsOptional()
   isPurchasable?: boolean;
 
+  /** Investor Engine Milestone 4 — Investment Opportunity Product picker: only products opted in via `availableForInvestmentOpportunities`. */
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  @IsOptional()
+  investmentEligible?: boolean;
+
   @IsString()
   @IsOptional()
   search?: string;

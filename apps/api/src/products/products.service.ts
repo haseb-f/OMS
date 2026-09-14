@@ -221,6 +221,7 @@ export class ProductsService {
       isInventoryItem: query.isInventoryItem,
       isSellable: query.isSellable,
       isPurchasable: query.isPurchasable,
+      availableForInvestmentOpportunities: query.investmentEligible,
     };
 
     if (query.search) {
@@ -259,6 +260,7 @@ export class ProductsService {
           isSellable: true,
           isPurchasable: true,
           isInventoryItem: true,
+          availableForInvestmentOpportunities: true,
           salesPrice: true,
           category: { select: { id: true, name: true } },
           unitId: true,

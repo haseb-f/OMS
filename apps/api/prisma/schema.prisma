@@ -125,6 +125,9 @@ model User {
   capitalReturnsApproved         CapitalReturn[]                 @relation("CapitalReturnApprovedBy")
   capitalReturnsPaid             CapitalReturn[]                 @relation("CapitalReturnPaidBy")
 
+  /// Investor Engine Milestone 4 — who sent an Investor Portal invitation.
+  investorPortalAccountsInvited InvestorPortalAccount[] @relation("InvestorPortalAccountInvitedBy")
+
   @@index([departmentId])
   @@map("users")
 }
@@ -2680,6 +2683,14 @@ model Product {
   isSellable      Boolean @map("is_sellable")
   isInventoryItem Boolean @map("is_inventory_item")
 
+  /// Investor Engine Milestone 4 — explicit opt-in gate for the Investment
+  /// Opportunity Product picker (Part B). Defaults FALSE for every new
+  /// Product; migration backfills TRUE only for Products already referenced
+  /// by an existing OpportunityProduct (grandfathering, never a silent
+  /// eligibility loss for historical Opportunities). Affects new assignment
+  /// only — never removes a Product already attached to an Opportunity.
+  availableForInvestmentOpportunities Boolean @default(false) @map("available_for_investment_opportunities")
+
   /// Sales section (TASK-027).
   salesPrice       Decimal? @map("sales_price") @db.Decimal(12, 2)
   salesTaxIncluded Boolean  @default(false) @map("sales_tax_included")
@@ -3542,6 +3553,16 @@ model InvestorProfile {
   residencyId String? @map("residency_id")
   iban        String?
 
+  /// Investor Engine Milestone 4 — configurable Master Data (Individual/
+  /// Company/Institution/Family Office/Fund are seed examples, not a closed
+  /// enum). Nullable: historical Investors created before this Milestone
+  /// have no value and are never force-migrated to one. Distinct from
+  /// Partner.entityType (PERSON/ORGANIZATION), which is a structural
+  /// classification shared by every Partner role, not an investor-business
+  /// category.
+  investorTypeId String?       @map("investor_type_id") @db.Uuid
+  investorType   InvestorType? @relation(fields: [investorTypeId], references: [id])
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   createdBy String?   @map("created_by") @db.Uuid
@@ -3558,8 +3579,41 @@ model InvestorProfile {
   capitalReturns CapitalReturn[]
   ledgerEntries  InvestorLedgerEntry[]
 
+  /// Investor Engine Milestone 4 — optional Portal self-service access.
+  portalAccount InvestorPortalAccount?
+
   @@index([deletedAt])
+  @@index([investorTypeId])
   @@map("investor_profiles")
+}
+
+/// Investor Engine Milestone 4, Part A — configurable Investor Type Master
+/// Data (replaces the idea of a hardcoded Individual/Company/Institution/
+/// Family Office/Fund enum). Follows the exact CustomerClassification
+/// shape/convention (code/name/nameEn/description/sortOrder/isActive).
+model InvestorType {
+  id          String  @id @default(uuid()) @db.Uuid
+  code        String  @unique
+  name        String
+  nameEn      String? @map("name_en")
+  description String?
+  sortOrder   Int     @default(0) @map("sort_order")
+  /// Deactivating hides a type from NEW Investor assignment (assertAssignable)
+  /// while every Investor already referencing it keeps displaying it —
+  /// distinct from `deletedAt` (Archive), which removes it from the Investor
+  /// Settings list entirely but still never breaks historical references.
+  isActive    Boolean @default(true) @map("is_active")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  investors InvestorProfile[]
+
+  @@index([deletedAt, isActive, sortOrder])
+  @@map("investor_types")
 }
 
 // ---------------------------------------------------------------------------
@@ -7711,4 +7765,68 @@ model InvestorLedgerEntry {
   @@index([investorId, entryDate])
   @@index([opportunityId, entryDate])
   @@map("investor_ledger_entries")
+}
+
+// ---------------------------------------------------------------------------
+// Investor Engine — Milestone 4, Part C: Investor Portal. A dedicated
+// external-access identity, deliberately NOT the internal `User` model
+// (Part 18/52 "Investor != User", "no internal permissions to a Portal
+// account"). Reuses the same canonical auth building blocks as internal
+// login (bcrypt password hash, JWT) but signed with its own secret
+// (INVESTOR_PORTAL_JWT_SECRET) so a Portal token can never satisfy the
+// internal JwtAuthGuard/PermissionsGuard boundary, and vice versa.
+// ---------------------------------------------------------------------------
+
+/// Closed set (Part 20). SUSPENDED/DISABLED both block login; kept distinct
+/// so Admin can tell "temporarily paused" from "revoked" in the UI (Part 49).
+enum InvestorPortalAccountStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+  DISABLED
+}
+
+model InvestorPortalAccount {
+  id String @id @default(uuid()) @db.Uuid
+
+  investorId String          @unique @map("investor_id") @db.Uuid
+  investor   InvestorProfile @relation(fields: [investorId], references: [id])
+
+  email        String  @unique
+  passwordHash String? @map("password_hash")
+
+  status InvestorPortalAccountStatus @default(INVITED)
+
+  invitedAt   DateTime? @map("invited_at")
+  activatedAt DateTime? @map("activated_at")
+  lastLoginAt DateTime? @map("last_login_at")
+
+  invitedById String? @map("invited_by_id") @db.Uuid
+  invitedBy   User?   @relation("InvestorPortalAccountInvitedBy", fields: [invitedById], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  activationTokens InvestorPortalActivationToken[]
+
+  @@map("investor_portal_accounts")
+}
+
+/// Same shape/purpose as `PasswordResetToken` — a single-use, hashed,
+/// expiring token e-mailed (dev: logged) to the Investor to set their first
+/// Portal password (Invite) or reset a forgotten one. The raw token is never
+/// persisted, only its SHA-256 hash.
+model InvestorPortalActivationToken {
+  id String @id @default(uuid()) @db.Uuid
+
+  portalAccountId String                 @map("portal_account_id") @db.Uuid
+  portalAccount   InvestorPortalAccount  @relation(fields: [portalAccountId], references: [id])
+
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("investor_portal_activation_tokens")
 }

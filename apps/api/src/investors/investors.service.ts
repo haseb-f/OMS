@@ -11,6 +11,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { PartnersService } from '../partners/partners.service';
 import { MasterDataActivityLogService } from '../master-data/master-data-activity-log.service';
+import { InvestorTypesService } from '../investor-types/investor-types.service';
 import { CreateInvestorDto } from './dto/create-investor.dto';
 import { UpdateInvestorDto } from './dto/update-investor.dto';
 import { InvestorsQueryDto } from './dto/investors-query.dto';
@@ -38,6 +39,16 @@ const INVESTOR_INCLUDE = {
     },
   },
   user: { select: { id: true, email: true } },
+  investorType: {
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      nameEn: true,
+      isActive: true,
+      deletedAt: true,
+    },
+  },
   subscriptions: {
     where: { deletedAt: null },
     select: {
@@ -75,6 +86,19 @@ function toInvestorView(row: InvestorWithRelations) {
     nationalId: row.nationalId,
     residencyId: row.residencyId,
     iban: row.iban,
+    investorTypeId: row.investorType?.id ?? null,
+    /// Historical value stays visible even if the type was later
+    /// deactivated/archived (mission Part A #4/#69) — only the "assignable
+    /// to a NEW/different Investor" gate is enforced, never display.
+    investorType: row.investorType
+      ? {
+          id: row.investorType.id,
+          code: row.investorType.code,
+          name: row.investorType.name,
+          nameEn: row.investorType.nameEn,
+          isActive: row.investorType.isActive && !row.investorType.deletedAt,
+        }
+      : null,
     userId: row.user?.id ?? null,
     userEmail: row.user?.email ?? null,
     activeInvestmentsCount,
@@ -92,9 +116,13 @@ export class InvestorsService {
     private readonly prisma: PrismaService,
     private readonly partnersService: PartnersService,
     private readonly activityLog: MasterDataActivityLogService,
+    private readonly investorTypesService: InvestorTypesService,
   ) {}
 
   async create(dto: CreateInvestorDto, userId?: string) {
+    if (dto.investorTypeId) {
+      await this.investorTypesService.assertAssignable(dto.investorTypeId);
+    }
     const partner = await this.partnersService.create(
       {
         name: dto.name,
@@ -109,6 +137,7 @@ export class InvestorsService {
           nationalId: dto.nationalId,
           residencyId: dto.residencyId,
           iban: dto.iban,
+          investorTypeId: dto.investorTypeId,
         },
       },
       userId,
@@ -174,6 +203,18 @@ export class InvestorsService {
   async update(id: string, dto: UpdateInvestorDto, userId?: string) {
     const existing = await this.findRaw(id);
     const { status, ...rest } = dto;
+    // Only validate when the Investor Type is actually changing — resaving
+    // an Investor whose already-assigned type has since gone inactive must
+    // never break unrelated edits (mission Part A #6/#69 "historical
+    // inactive references remain readable").
+    if (
+      rest.investorTypeId !== undefined &&
+      rest.investorTypeId !== existing.investorType?.id
+    ) {
+      if (rest.investorTypeId) {
+        await this.investorTypesService.assertAssignable(rest.investorTypeId);
+      }
+    }
     await this.partnersService.update(
       existing.partnerId,
       {
@@ -188,6 +229,7 @@ export class InvestorsService {
           nationalId: rest.nationalId,
           residencyId: rest.residencyId,
           iban: rest.iban,
+          investorTypeId: rest.investorTypeId,
         },
       },
       userId,

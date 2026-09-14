@@ -369,6 +369,7 @@ export class PartnersService extends MasterDataCrudService<
           nationalId: profiles.investorProfile?.nationalId,
           residencyId: profiles.investorProfile?.residencyId,
           iban: profiles.investorProfile?.iban,
+          investorTypeId: profiles.investorProfile?.investorTypeId,
         };
         // Same reactivate-in-place rule as EmployeeProfile above — partnerId
         // is unique, so re-assigning a previously-removed INVESTOR role must

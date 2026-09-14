@@ -40,6 +40,15 @@ const CATALOG_READ_PERMISSIONS = [
   'purchasing.orders.create',
   'purchasing.orders.edit',
   'inventory.movements.create',
+  // Investor Engine Milestone 4, Part 11 — root cause of "the Investment
+  // Opportunity Product dropdown shows nothing": an Investor-module user
+  // holding only investment-opportunities.* permissions (no products.view,
+  // no order-creation permission) was silently 403'd out of this whitelist,
+  // and the frontend combobox renders that as an empty list rather than an
+  // error. Anyone who can create/edit an Opportunity must be able to browse
+  // the catalog to fund it.
+  'investment-opportunities.create',
+  'investment-opportunities.edit',
 ];
 
 @Controller('products')

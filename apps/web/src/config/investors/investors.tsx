@@ -29,6 +29,12 @@ export function buildInvestorsColumns(
       cell: (info) => info.getValue() as string,
     },
     {
+      id: "investorType",
+      meta: { titleKey: "investors.list.fields.investorType" },
+      accessorFn: (row) => row.investorType?.name ?? "—",
+      cell: (info) => info.getValue() as string,
+    },
+    {
       id: "email",
       meta: { titleKey: "investors.list.fields.email" },
       accessorFn: (row) => row.email ?? "—",
@@ -65,6 +71,7 @@ export const investorSchema = z.object({
   iban: z.string().optional().or(z.literal("")),
   notes: z.string().optional().or(z.literal("")),
   status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
+  investorTypeId: z.string().optional().or(z.literal("")),
 });
 
 export const investorDefaultValues = {
@@ -78,4 +85,5 @@ export const investorDefaultValues = {
   iban: "",
   notes: "",
   status: "ACTIVE" as const,
+  investorTypeId: "",
 };

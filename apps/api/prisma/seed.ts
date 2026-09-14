@@ -1516,6 +1516,10 @@ async function main() {
     'capital-returns.pay',
     'capital-returns.cancel',
     'investment-accounting.view',
+    // Investor Engine Milestone 4 — Finance can see Investor Settings/Portal
+    // status but not change configuration (reserved for Finance Manager).
+    'investor-settings.view',
+    'investor-portal.view',
   ];
   await grantPermissions(financeUser.id, financeUserPermissionNames);
   await grantPermissions(financeManagerUser.id, [
@@ -1525,6 +1529,13 @@ async function main() {
     // Accounting mappings, never plain Finance.
     'investment-accounting.configure',
     'investor-ledger.adjust',
+    // Investor Engine Milestone 4 — Investor Type Master Data + Portal
+    // access administration (Invite/Suspend/Reactivate/Disable).
+    'investor-settings.create',
+    'investor-settings.edit',
+    'investor-settings.archive',
+    'investor-portal.manage',
+    'investor-portal.invite',
   ]);
 
   // Shipping Agent test persona — the Orders/Shipping quick-edit
@@ -1664,6 +1675,9 @@ async function main() {
     'investment-payments.view',
     'investor-ledger.view',
     'capital-returns.view',
+    // Investor Engine Milestone 4 — same read-only oversight philosophy.
+    'investor-settings.view',
+    'investor-portal.view',
   ]);
 
   // Employee test persona — deliberately zero module permissions, so a

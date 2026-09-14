@@ -171,6 +171,7 @@ function toFormValues(source: ProductRow | null): ProductFormValues {
     width: source.width ? Number(source.width) : undefined,
     height: source.height ? Number(source.height) : undefined,
     length: source.length ? Number(source.length) : undefined,
+    availableForInvestmentOpportunities: source.availableForInvestmentOpportunities,
   };
 }
 
@@ -959,6 +960,24 @@ export function ProductModal({
                   />
                   <span className="text-body">{t("products.fields.trackInventory")}</span>
                 </label>
+                <label className="col-span-full flex items-center gap-2">
+                  <FormField
+                    control={form.control}
+                    name="availableForInvestmentOpportunities"
+                    render={({ field }) => (
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={(c) => field.onChange(c === true)}
+                      />
+                    )}
+                  />
+                  <span className="text-body">
+                    {t("products.fields.availableForInvestmentOpportunities")}
+                  </span>
+                </label>
+                <p className="col-span-full text-caption text-muted-foreground">
+                  {t("products.fields.availableForInvestmentOpportunitiesHint")}
+                </p>
                 <FormField
                   control={form.control}
                   name="reorderLevel"

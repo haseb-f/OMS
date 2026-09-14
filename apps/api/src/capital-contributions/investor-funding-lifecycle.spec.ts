@@ -14,6 +14,7 @@ import { PostingProvidersModule } from '../accounting/posting-providers/posting-
 import { InvestorLedgerModule } from '../investor-ledger/investor-ledger.module';
 import { PartnersService } from '../partners/partners.service';
 import { InvestorsService } from '../investors/investors.service';
+import { InvestorTypesService } from '../investor-types/investor-types.service';
 import { InvestmentOpportunitiesService } from '../investment-opportunities/investment-opportunities.service';
 import { InvestorSubscriptionsService } from '../investor-subscriptions/investor-subscriptions.service';
 import { CapitalContributionsService } from './capital-contributions.service';
@@ -69,6 +70,7 @@ describe('Investor Engine — funding lifecycle (130,000 SAR acceptance example)
       ],
       providers: [
         PartnersService,
+        InvestorTypesService,
         InvestorsService,
         InvestmentOpportunitiesService,
         InvestorSubscriptionsService,
@@ -106,6 +108,7 @@ describe('Investor Engine — funding lifecycle (130,000 SAR acceptance example)
         isPurchasable: true,
         isSellable: true,
         isInventoryItem: true,
+        availableForInvestmentOpportunities: true,
       },
     });
     productAId = productA.id;
@@ -121,6 +124,7 @@ describe('Investor Engine — funding lifecycle (130,000 SAR acceptance example)
         isPurchasable: true,
         isSellable: true,
         isInventoryItem: true,
+        availableForInvestmentOpportunities: true,
       },
     });
     productBId = productB.id;

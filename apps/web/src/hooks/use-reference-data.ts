@@ -15,6 +15,7 @@ import type {
   CustomerClassificationRow,
   NoPurchaseReasonRow,
   PaymentMethodRow,
+  InvestorTypeRow,
 } from "@/config/master-data/entities";
 import { usersService, type UserRow } from "@/services/users-service";
 import { partnersService, type PartnerRow } from "@/services/partners-service";
@@ -194,6 +195,22 @@ export const usePaymentMethods = createReferenceDataHook<PaymentMethodRow>(() =>
   paymentMethodsRefService
     .list({ pageSize: 200 })
     .then((r) => r.items.filter((row) => !row.deletedAt)),
+);
+
+const investorTypesService = createMasterDataService<InvestorTypeRow>("/investor-types");
+
+/**
+ * Every non-deleted Investor Type (active AND inactive) — unlike most
+ * reference-data hooks, this deliberately does NOT filter to active-only.
+ * The Investor form's select needs inactive types too, so an existing
+ * Investor whose type was later deactivated still renders its historical
+ * value (mission Part A #4/#69) instead of going blank; the page consuming
+ * this hook is responsible for labeling/ordering inactive entries and the
+ * backend (`InvestorTypesService.assertAssignable`) is the one and only
+ * place that actually blocks assigning an inactive type.
+ */
+export const useInvestorTypes = createReferenceDataHook<InvestorTypeRow>(() =>
+  investorTypesService.list({ pageSize: 200, sortBy: "sortOrder" }).then((r) => r.items),
 );
 
 import { jobTitlesService, type JobTitleRow } from "@/services/job-titles-service";

@@ -23,4 +23,8 @@ export class InvestorProfileInputDto {
   @IsString()
   @IsOptional()
   iban?: string;
+
+  /** Investor Engine Milestone 4, Part A — Master Data Investor Type. Validated (exists + active for new assignment) in InvestorsService, not here. */
+  @IsOptionalUuid()
+  investorTypeId?: string;
 }

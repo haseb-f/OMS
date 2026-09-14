@@ -1016,6 +1016,54 @@ export const customerClassificationsExportColumns = [
 export const customerClassificationRowLabel = (row: CustomerClassificationRow) =>
   `${row.code} — ${row.name}`;
 
+/** Investor Engine Milestone 4, Part A — Investor Type Master Data (Investor Settings). */
+export interface InvestorTypeRow {
+  id: string;
+  code: string;
+  name: string;
+  nameEn: string | null;
+  description: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  deletedAt: string | null;
+}
+
+export const investorTypesColumns: ColumnDef<InvestorTypeRow, unknown>[] = [
+  textColumn("code", "masterData.fields.code", (r) => r.code),
+  textColumn("name", "masterData.fields.name", (r) => r.name),
+  textColumn("nameEn", "masterData.fields.nameEn", (r) => r.nameEn),
+  textColumn("sortOrder", "masterData.fields.sortOrder", (r) => String(r.sortOrder)),
+  statusColumn<InvestorTypeRow>(),
+];
+
+export const investorTypesFormFields: MasterDataFormField[] = [
+  { name: "name", label: "masterData.fields.name", type: "text", required: true },
+  { name: "nameEn", label: "masterData.fields.nameEn", type: "text" },
+  { name: "sortOrder", label: "masterData.fields.sortOrder", type: "number" },
+  { name: "isActive", label: "masterData.fields.isActive", type: "boolean" },
+  { name: "description", label: "masterData.fields.description", type: "textarea" },
+];
+
+export const investorTypesSchema = z.object({
+  name: z.string().min(1),
+  nameEn: z.string().optional().or(z.literal("")),
+  sortOrder: z.number().optional(),
+  isActive: z.boolean().optional(),
+  description: z.string().optional().or(z.literal("")),
+});
+
+export const investorTypesDefaultValues = {
+  name: "",
+  nameEn: "",
+  sortOrder: 0,
+  isActive: true,
+  description: "",
+};
+
+export const investorTypesExportColumns = ["code", "name", "nameEn", "sortOrder"];
+
+export const investorTypeRowLabel = (row: InvestorTypeRow) => `${row.code} — ${row.name}`;
+
 export interface NoPurchaseReasonRow {
   id: string;
   code: string;

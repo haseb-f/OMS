@@ -43,6 +43,8 @@ export interface ProductRow {
   isPurchasable: boolean;
   isSellable: boolean;
   isInventoryItem: boolean;
+  /** Investor Engine Milestone 4, Part B — opt-in gate for the Investment Opportunity Product picker. */
+  availableForInvestmentOpportunities: boolean;
   salesPrice: string | null;
   salesTaxIncluded: boolean;
   salesDescription: string | null;
@@ -117,6 +119,7 @@ export interface ProductListParams {
   isInventoryItem?: boolean;
   isSellable?: boolean;
   isPurchasable?: boolean;
+  investmentEligible?: boolean;
 }
 
 export interface ProductActivityEntry {

@@ -33,6 +33,7 @@ export const productCreateSchema = z.object({
   preferredPartnerId: z.string().optional(),
   // Step 3 — المخزون (all optional)
   isInventoryItem: z.boolean().optional(),
+  availableForInvestmentOpportunities: z.boolean().optional(),
   reorderLevel: z.number().optional(),
   preferredWarehouseId: z.string().optional(),
   weight: z.number().optional(),

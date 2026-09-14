@@ -139,7 +139,18 @@ export class InvestmentOpportunitiesService {
     }
   }
 
-  private async computeProductRows(products: OpportunityProductInputDto[]) {
+  /**
+   * `existingProductIds` — Products already attached to THIS Opportunity
+   * before the current edit (empty on create). Investment eligibility
+   * (Part B #13/#66) only gates NEW assignment: a Product already funded
+   * here keeps working even after being made ineligible for future
+   * Opportunities, so re-saving an edit that still includes it must never
+   * fail.
+   */
+  private async computeProductRows(
+    products: OpportunityProductInputDto[],
+    existingProductIds: ReadonlySet<string> = new Set(),
+  ) {
     const ids = products.map((p) => p.productId);
     if (new Set(ids).size !== ids.length) {
       throw new BadRequestException(
@@ -148,12 +159,25 @@ export class InvestmentOpportunitiesService {
     }
     const rows = await this.prisma.product.findMany({
       where: { id: { in: ids }, deletedAt: null },
-      select: { id: true, status: true, displayName: true },
+      select: {
+        id: true,
+        status: true,
+        displayName: true,
+        availableForInvestmentOpportunities: true,
+      },
     });
     const byId = new Map(rows.map((r) => [r.id, r]));
     return products.map((p) => {
       assertActiveProduct(p.productId, byId);
       const full = byId.get(p.productId)!;
+      if (
+        !full.availableForInvestmentOpportunities &&
+        !existingProductIds.has(p.productId)
+      ) {
+        throw new BadRequestException(
+          `Product "${full.displayName}" is not available for Investment Opportunities.`,
+        );
+      }
       return {
         productId: p.productId,
         productNameSnapshot: full.displayName,
@@ -316,7 +340,13 @@ export class InvestmentOpportunitiesService {
     let productRows:
       Awaited<ReturnType<typeof this.computeProductRows>> | undefined;
     if (dto.products) {
-      productRows = await this.computeProductRows(dto.products);
+      const existingProductIds = new Set(
+        existing.products.map((p) => p.productId),
+      );
+      productRows = await this.computeProductRows(
+        dto.products,
+        existingProductIds,
+      );
     }
 
     await this.prisma.$transaction(async (tx) => {

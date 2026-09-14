@@ -1031,6 +1031,33 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
       { action: 'manage', name: 'investment-accounting.configure' },
     ],
   },
+  {
+    // Investor Engine Milestone 4, Part A — Investor Type Master Data (the
+    // "Investor Settings" page). Deliberately its own module/gate, not
+    // folded into `investors`: a Finance user can be granted this without
+    // also holding day-to-day Investor CRUD, and vice versa.
+    key: 'investor-settings',
+    labelKey: 'permissions.modules.investorSettings',
+    ...INVESTORS_SECTION,
+    actions: [
+      ...crud('investor-settings'),
+      { action: 'delete', name: 'investor-settings.archive' },
+    ],
+  },
+  {
+    // Investor Engine Milestone 4, Part K — Admin management of Investor
+    // Portal access (Invite/Suspend/Reactivate/Disable). Distinct from
+    // `investors` CRUD: a user can manage Investor business records without
+    // being able to grant them external Portal login access, or vice versa.
+    key: 'investor-portal',
+    labelKey: 'permissions.modules.investorPortal',
+    ...INVESTORS_SECTION,
+    actions: [
+      { action: 'view', name: 'investor-portal.view' },
+      { action: 'manage', name: 'investor-portal.manage' },
+      { action: 'create', name: 'investor-portal.invite' },
+    ],
+  },
 ];
 
 export const ALL_PERMISSION_NAMES: string[] = [
@@ -1165,6 +1192,9 @@ export const IMPLIED_SECTION_PERMISSION: Record<
   'investor-ledger': 'investors.view',
   'capital-returns': 'investors.view',
   'investment-accounting': 'investors.view',
+  // Investor Engine Milestone 4 — same المستثمرون sidebar section.
+  'investor-settings': 'investors.view',
+  'investor-portal': 'investors.view',
 };
 
 /** Expands a granted-permission list with every implied coarse section permission (see `IMPLIED_SECTION_PERMISSION`). */
