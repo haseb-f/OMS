@@ -509,6 +509,15 @@ export const navigationConfig: NavigationItem[] = [
     order: 2,
     permissions: ["investment-opportunities.view"],
   },
+  {
+    id: "investors-settings",
+    titleKey: "nav.investorsSettings",
+    parent: "investors",
+    route: "/investors/settings/investor-types",
+    icon: "settings",
+    order: 3,
+    permissions: ["investor-settings.view"],
+  },
 
   {
     id: "expenses",

@@ -39,6 +39,7 @@ import {
 } from "@/services/investor-ledger-service";
 import { ProfitsTab, StatementTab } from "./investor-ledger-tabs";
 import { CapitalReturnsSection } from "./capital-returns-section";
+import { PortalAccessSection } from "./portal-access-section";
 import { investorSchema, investorDefaultValues } from "@/config/investors/investors";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { useLocale } from "@/providers/locale-provider";
@@ -91,6 +92,9 @@ export default function InvestorProfilePage() {
   const canApproveReturn = hasPermission("capital-returns.approve");
   const canPayReturn = hasPermission("capital-returns.pay");
   const canCancelReturn = hasPermission("capital-returns.cancel");
+  const canViewPortal = hasPermission("investor-portal.view");
+  const canInvitePortal = hasPermission("investor-portal.invite");
+  const canManagePortal = hasPermission("investor-portal.manage");
 
   const [investor, setInvestor] = useState<InvestorRow | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -269,30 +273,47 @@ export default function InvestorProfilePage() {
               value: "overview",
               label: t("investors.profile.tabs.overview"),
               content: (
-                <DetailSection>
-                  <DetailFieldGrid columns={3}>
-                    <DetailField
-                      label={t("investors.list.fields.entityType")}
-                      value={t(`investors.list.entityType.${investor.entityType}` as MessageKey)}
-                    />
-                    <DetailField label={t("investors.list.fields.phone")} value={investor.phone} />
-                    <DetailField label={t("investors.list.fields.email")} value={investor.email} />
-                    <DetailField
-                      label={t("investors.list.fields.commercialRegistration")}
-                      value={investor.commercialRegistration}
-                    />
-                    <DetailField
-                      label={t("investors.list.fields.nationalId")}
-                      value={investor.nationalId}
-                    />
-                    <DetailField
-                      label={t("investors.list.fields.residencyId")}
-                      value={investor.residencyId}
-                    />
-                    <DetailField label={t("investors.list.fields.iban")} value={investor.iban} />
-                    <DetailField label={t("investors.list.fields.notes")} value={investor.notes} />
-                  </DetailFieldGrid>
-                </DetailSection>
+                <div className="flex flex-col gap-4">
+                  <DetailSection>
+                    <DetailFieldGrid columns={3}>
+                      <DetailField
+                        label={t("investors.list.fields.entityType")}
+                        value={t(`investors.list.entityType.${investor.entityType}` as MessageKey)}
+                      />
+                      <DetailField
+                        label={t("investors.list.fields.phone")}
+                        value={investor.phone}
+                      />
+                      <DetailField
+                        label={t("investors.list.fields.email")}
+                        value={investor.email}
+                      />
+                      <DetailField
+                        label={t("investors.list.fields.commercialRegistration")}
+                        value={investor.commercialRegistration}
+                      />
+                      <DetailField
+                        label={t("investors.list.fields.nationalId")}
+                        value={investor.nationalId}
+                      />
+                      <DetailField
+                        label={t("investors.list.fields.residencyId")}
+                        value={investor.residencyId}
+                      />
+                      <DetailField label={t("investors.list.fields.iban")} value={investor.iban} />
+                      <DetailField
+                        label={t("investors.list.fields.notes")}
+                        value={investor.notes}
+                      />
+                    </DetailFieldGrid>
+                  </DetailSection>
+                  <PortalAccessSection
+                    investorId={params.id}
+                    canView={canViewPortal}
+                    canInvite={canInvitePortal}
+                    canManage={canManagePortal}
+                  />
+                </div>
               ),
             },
             {

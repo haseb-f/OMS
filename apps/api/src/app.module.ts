@@ -94,6 +94,8 @@ import { CapitalContributionsModule } from './capital-contributions/capital-cont
 import { InvestorLedgerModule } from './investor-ledger/investor-ledger.module';
 import { InvestmentDistributionsModule } from './investment-distributions/investment-distributions.module';
 import { CapitalReturnsModule } from './capital-returns/capital-returns.module';
+import { InvestorTypesModule } from './investor-types/investor-types.module';
+import { InvestorPortalModule } from './investor-portal/investor-portal.module';
 
 @Module({
   imports: [
@@ -191,6 +193,8 @@ import { CapitalReturnsModule } from './capital-returns/capital-returns.module';
     InvestorLedgerModule,
     InvestmentDistributionsModule,
     CapitalReturnsModule,
+    InvestorTypesModule,
+    InvestorPortalModule,
   ],
   controllers: [HealthController],
   providers: [],

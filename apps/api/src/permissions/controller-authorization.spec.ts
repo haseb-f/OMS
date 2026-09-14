@@ -59,6 +59,10 @@ const INTENTIONALLY_UNGATED: Record<string, string> = {
     'KNOWN DEBT (TASK-062): legacy route family overlapping sales/orders + store-orders shipping flows; JwtAuthGuard added, granular permission module needs a product decision on which boundary to adopt.',
   'payments/payments.controller.ts':
     'KNOWN DEBT (TASK-062): no frontend caller references this generic /payments route (superseded by sales.receipts / purchasing.payments / accounting.expense-payments, all already guarded); JwtAuthGuard added, granular permission module needs a product decision on whether this is dead code to remove or a boundary to define.',
+  'investor-portal/investor-portal-auth.controller.ts':
+    'Pre-authentication Investor Portal endpoints (login/activate/forgot-password) — same shape as auth/auth.controller.ts above, for the external Investor identity instead of the internal User.',
+  'investor-portal/investor-portal.controller.ts':
+    "Guarded by the Investor Portal's own InvestorPortalAuthGuard (not the internal PermissionsGuard/@PermissionModule system — mission Part 18/52 requires a fully separate external-access boundary); every handler is self-scoped to the authenticated Portal Investor via @CurrentPortalInvestor(), never an internal permission check.",
 };
 
 /** Read-only, system-generated audit-trail sub-resources of an already-permission-guarded parent document — Phase 1 explicitly scoped this milestone to Master Data, not every transactional sub-resource; each stays behind JwtAuthGuard only. */
@@ -89,10 +93,23 @@ describe('Controller authorization coverage (TASK-062 safety net)', () => {
   });
 
   it.each(cases.map((c) => [c.relPath, c] as const))(
-    '%s requires authentication (JwtAuthGuard)',
+    "%s requires authentication (JwtAuthGuard or the Investor Portal's own InvestorPortalAuthGuard)",
     (_label, { relPath, content }) => {
       if (relPath === 'health/health.controller.ts') return; // deliberately public
-      expect(content).toContain('JwtAuthGuard');
+      if (relPath === 'investor-portal/investor-portal-auth.controller.ts')
+        return; // pre-authentication Portal endpoints, see INTENTIONALLY_UNGATED
+      // Investor Engine Milestone 4, Part C — the Investor Portal is a
+      // deliberately SEPARATE external-access boundary from internal
+      // sessions (mission Part 18/22/52): its authenticated routes are
+      // guarded by `InvestorPortalAuthGuard`, never the internal
+      // `JwtAuthGuard`, so a valid internal session token can never reach
+      // them and vice versa (see investor-portal.spec.ts's dedicated
+      // cross-boundary rejection tests for the enforced property this
+      // static scan only spot-checks by name).
+      const AUTH_GUARD_MARKERS = ['JwtAuthGuard', 'InvestorPortalAuthGuard'];
+      expect(
+        AUTH_GUARD_MARKERS.some((marker) => content.includes(marker)),
+      ).toBe(true);
     },
   );
 
