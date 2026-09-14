@@ -128,6 +128,10 @@ model User {
   /// Investor Engine Milestone 4 — who sent an Investor Portal invitation.
   investorPortalAccountsInvited InvestorPortalAccount[] @relation("InvestorPortalAccountInvitedBy")
 
+  /// Leads/Customers/Orders Finalization Milestone — cross-owner exact
+  /// Customer/Order lookups this user performed.
+  globalLookupAudits GlobalLookupAudit[]
+
   @@index([departmentId])
   @@map("users")
 }
@@ -7829,4 +7833,46 @@ model InvestorPortalActivationToken {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("investor_portal_activation_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// Global Lookup Audit — Leads/Customers/Orders Finalization Milestone.
+// Records every exact-match cross-owner Customer/Order lookup (the
+// `customers.lookup_global` / `orders.lookup_global` permissions), never
+// ordinary own-scope list/search activity. Append-only, same convention as
+// InventoryMovement (ADR-0013) — no `updatedAt`/`updatedBy`/`deletedAt`.
+// ---------------------------------------------------------------------------
+
+enum GlobalLookupAction {
+  GLOBAL_CUSTOMER_LOOKUP
+  GLOBAL_ORDER_LOOKUP
+}
+
+enum GlobalLookupMethod {
+  PHONE
+  ORDER_NUMBER
+}
+
+model GlobalLookupAudit {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId String             @map("user_id") @db.Uuid
+  user   User               @relation(fields: [userId], references: [id])
+  action GlobalLookupAction
+  method GlobalLookupMethod
+
+  /// The normalized phone or exact order number that was searched.
+  queryValue String @map("query_value")
+
+  /// Set only when the lookup found a match — never a foreign key, purely
+  /// informational (the referenced Partner/StoreOrder can later be deleted).
+  matchedPartnerId    String? @map("matched_partner_id") @db.Uuid
+  matchedStoreOrderId String? @map("matched_store_order_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@index([matchedPartnerId])
+  @@index([matchedStoreOrderId])
+  @@map("global_lookup_audits")
 }

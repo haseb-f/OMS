@@ -1321,6 +1321,12 @@ async function main() {
     'sales.returns.view',
     'sales.returns.create',
     'sales.returns.edit',
+    // Leads/Customers/Orders Finalization Milestone — exact-match lookup
+    // only, never `partners.view`/`store-orders.manage`'s full directory
+    // browse; lets an Agent recognize a returning Customer or open another
+    // Agent's Order read-only via the Global Lookup dialog.
+    'customers.lookup_global',
+    'orders.lookup_global',
   ];
   async function grantPermissions(userId: string, names: string[]) {
     for (const name of names) {

@@ -191,6 +191,12 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
       { action: 'edit', name: 'partners.edit' },
       { action: 'delete', name: 'partners.archive' },
       { action: 'export', name: 'partners.export' },
+      // Leads/Customers/Orders Finalization Milestone — a Sales Agent with
+      // no `partners.view` (no full Partner directory browse) may still
+      // resolve one exact phone number to its canonical Customer and a safe
+      // previous-orders summary, to serve a returning customer without
+      // granting `partners.view`'s much broader directory access.
+      { action: 'lookup_global', name: 'customers.lookup_global' },
     ],
   },
   {
@@ -270,6 +276,10 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
       { action: 'print', name: 'store-orders.print' },
       { action: 'export', name: 'store-orders.export' },
       { action: 'manage', name: 'store-orders.manage' },
+      // Leads/Customers/Orders Finalization Milestone — exact Order Number
+      // lookup outside the caller's own scope, read-only, distinct from
+      // `store-orders.manage`'s full cross-owner browse+edit capability.
+      { action: 'lookup_global', name: 'orders.lookup_global' },
     ],
   },
   {
