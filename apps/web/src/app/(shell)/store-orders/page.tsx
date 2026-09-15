@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { RowSelectionState } from "@tanstack/react-table";
-import { Plus, Search } from "lucide-react";
+import { Plus, UserSearch } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
@@ -330,13 +330,18 @@ function StoreOrdersPageContent() {
       actions={
         <>
           {canGlobalLookup && (
+            // Deliberately NOT the plain magnifying-glass `Search` icon this
+            // page's own inline table search already uses — a button that
+            // opens the audited cross-owner lookup dialog must read as a
+            // distinct action, never as "the" search box next to it (Global
+            // Lookup Search UX pass).
             <EnterpriseButton
               type="button"
               variant="outline"
               className="gap-1.5"
               onClick={() => setGlobalLookupOpen(true)}
             >
-              <Search className="size-4" />
+              <UserSearch className="size-4" />
               {t("storeOrders.globalLookup.trigger")}
             </EnterpriseButton>
           )}
