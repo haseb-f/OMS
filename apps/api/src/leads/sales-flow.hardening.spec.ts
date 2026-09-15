@@ -687,6 +687,46 @@ describe('Sales Flow Hardening', () => {
     },
   );
 
+  liveIt(
+    'converting an already-converted Lead is idempotent — retry never creates a second Order',
+    async () => {
+      const owner = await salesUser('Idempotent Convert Owner');
+      const ownerScope = await salesScope.resolve(owner.id);
+      const [skuA] = await productIds();
+      const lead = await createOwnedLead(owner.id);
+      await leads.firstOpen(lead.id, owner.id, ownerScope);
+
+      const payload = {
+        items: [{ productId: skuA, quantity: 1, agreedAmount: 100 }],
+        paymentType: 'CASH_ON_DELIVERY' as const,
+        amountPaid: 0,
+        address: 'Retry St',
+        city: 'Riyadh',
+      };
+
+      const first = await leads.convertToStoreOrder(
+        lead.id,
+        payload,
+        owner.id,
+        ownerScope,
+      );
+      const second = await leads.convertToStoreOrder(
+        lead.id,
+        payload,
+        owner.id,
+        ownerScope,
+      );
+
+      expect(first?.storeOrder?.id).toBeTruthy();
+      expect(second?.storeOrder?.id).toBe(first?.storeOrder?.id);
+
+      const orders = await prisma.storeOrder.findMany({
+        where: { leadId: lead.id },
+      });
+      expect(orders).toHaveLength(1);
+    },
+  );
+
   describe('Lead Conversion — permission and ownership enforcement', () => {
     it('resolves the exact canonical Lead Convert permission from the catalog', () => {
       const leadsModule = PERMISSION_CATALOG.find((m) => m.key === 'leads');

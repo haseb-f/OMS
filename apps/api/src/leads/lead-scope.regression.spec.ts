@@ -354,6 +354,37 @@ describe('Lead ownership scope (Ahmed/Sara regression)', () => {
     });
   });
 
+  describe('G. Distribution settings mutation — Sales Agent denied at every entry point', () => {
+    it('activate-continuous → 403 for an OWN-scope Agent', async () => {
+      const res = await request(httpServer)
+        .post('/leads/distribution/activate-continuous')
+        .set('Authorization', `Bearer ${ahmedToken}`);
+      expect(res.status).toBe(403);
+    });
+
+    it('activate-24h → 403 for an OWN-scope Agent', async () => {
+      const res = await request(httpServer)
+        .post('/leads/distribution/activate-24h')
+        .set('Authorization', `Bearer ${ahmedToken}`);
+      expect(res.status).toBe(403);
+    });
+
+    it('deactivate → 403 for an OWN-scope Agent', async () => {
+      const res = await request(httpServer)
+        .post('/leads/distribution/deactivate')
+        .set('Authorization', `Bearer ${ahmedToken}`);
+      expect(res.status).toBe(403);
+    });
+
+    it('generic activate → 403 for an OWN-scope Agent', async () => {
+      const res = await request(httpServer)
+        .post('/leads/distribution/activate')
+        .set('Authorization', `Bearer ${ahmedToken}`)
+        .send({ mode: 'CONTINUOUS' });
+      expect(res.status).toBe(403);
+    });
+  });
+
   describe('Direct access denial', () => {
     it("Sara cannot open Ahmed's Lead by ID directly", async () => {
       const res = await request(httpServer)
