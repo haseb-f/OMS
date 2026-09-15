@@ -14,13 +14,14 @@ import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
+import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { AccountPicker } from "@/components/business/account-picker";
 import { StatusBadge } from "@/components/business/status-badge";
 import { capitalReturnsService, type CapitalReturnRow } from "@/services/capital-returns-service";
 import type { InvestorSubscriptionRow } from "@/services/investor-subscriptions-service";
 import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
-import { formatDate, toISODate } from "@/lib/date";
+import { formatDate, fromISODate, toISODate } from "@/lib/date";
 import { formatMoney } from "@/lib/money";
 import { toast, reportApiError } from "@/lib/toast";
 
@@ -285,7 +286,10 @@ function CreateCapitalReturnDialog({
               {t("investors.capitalReturns.fields.date")}{" "}
               <span className="text-destructive">*</span>
             </Label>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <EnterpriseDatePicker
+              value={fromISODate(date)}
+              onChange={(next) => setDate(next ? toISODate(next) : "")}
+            />
           </div>
           <div className="flex flex-col gap-1">
             <Label>{t("investors.capitalReturns.fields.financialAccount")}</Label>

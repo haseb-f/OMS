@@ -21,6 +21,7 @@ import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { EntityTabs } from "@/components/business/entity-tabs";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -77,7 +78,7 @@ import {
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { formatDate, formatDateTime } from "@/lib/date";
+import { formatDate, formatDateTime, fromISODate, toISODate } from "@/lib/date";
 import { formatMoney } from "@/lib/money";
 import { toast, reportApiError } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
@@ -864,9 +865,7 @@ function AddContributionDialog({
   const { t } = useLocale();
   const [subscription, setSubscription] = useState<InvestorSubscriptionRow | null>(null);
   const [amount, setAmount] = useState("");
-  const [contributionDate, setContributionDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
-  );
+  const [contributionDate, setContributionDate] = useState(() => toISODate(new Date()));
   const [isSaving, setIsSaving] = useState(false);
 
   async function submit() {
@@ -931,10 +930,9 @@ function AddContributionDialog({
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
         />
-        <Input
-          type="date"
-          value={contributionDate}
-          onChange={(e) => setContributionDate(e.target.value)}
+        <EnterpriseDatePicker
+          value={fromISODate(contributionDate)}
+          onChange={(next) => setContributionDate(next ? toISODate(next) : "")}
         />
       </div>
     </EnterpriseModal>
@@ -1393,7 +1391,7 @@ function AddExpenseDialog({
   onAdded: () => Promise<void>;
 }) {
   const { t } = useLocale();
-  const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [expenseDate, setExpenseDate] = useState(() => toISODate(new Date()));
   const [category, setCategory] = useState<OpportunityExpenseCategory>("OTHER");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
@@ -1445,7 +1443,10 @@ function AddExpenseDialog({
       )}
     >
       <div className="flex flex-col gap-3">
-        <Input type="date" value={expenseDate} onChange={(e) => setExpenseDate(e.target.value)} />
+        <EnterpriseDatePicker
+          value={fromISODate(expenseDate)}
+          onChange={(next) => setExpenseDate(next ? toISODate(next) : "")}
+        />
         <Select
           value={category}
           onValueChange={(value) => setCategory(value as OpportunityExpenseCategory)}

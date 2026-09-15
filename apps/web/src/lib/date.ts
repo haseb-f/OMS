@@ -154,6 +154,14 @@ export function toISODate(date: Date): string {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 }
 
+/** The inverse of `toISODate` — parses "YYYY-MM-DD" back into a local `Date` for a DatePicker's `value` prop. Never UTC-parsed (`new Date("2026-01-01")` shifts a day in negative-UTC-offset zones), and empty/malformed input is `null`, not "today". */
+export function fromISODate(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+
 export function isSameDay(a: Date | null | undefined, b: Date | null | undefined): boolean {
   if (!a || !b) return false;
   return (

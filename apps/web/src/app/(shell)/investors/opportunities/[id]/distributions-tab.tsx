@@ -13,6 +13,7 @@ import {
 import { ModalSection } from "@/components/shared/modal-section";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { Input } from "@/components/ui/input";
+import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
@@ -35,7 +36,7 @@ import {
 import { usePaymentMethods } from "@/hooks/use-reference-data";
 import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
-import { formatDate, toISODate } from "@/lib/date";
+import { formatDate, fromISODate, toISODate } from "@/lib/date";
 import { formatMoney } from "@/lib/money";
 import { toast, reportApiError } from "@/lib/toast";
 
@@ -579,10 +580,9 @@ function RecordPaymentDialog({
             <Label>
               {t("investors.distributions.fields.date")} <span className="text-destructive">*</span>
             </Label>
-            <Input
-              type="date"
-              value={paymentDate}
-              onChange={(e) => setPaymentDate(e.target.value)}
+            <EnterpriseDatePicker
+              value={fromISODate(paymentDate)}
+              onChange={(next) => setPaymentDate(next ? toISODate(next) : "")}
             />
           </div>
           <div className="flex flex-col gap-1">

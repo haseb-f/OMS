@@ -19,7 +19,7 @@ import { apiClient, ApiError } from "@/services/api-client";
 import { useLocale } from "@/providers/locale-provider";
 import { useCurrencies, usePaymentMethods } from "@/hooks/use-reference-data";
 import { toast } from "@/lib/toast";
-import { toISODate } from "@/lib/date";
+import { fromISODate, toISODate } from "@/lib/date";
 import {
   PaymentReceiptsField,
   stagingIdsOf,
@@ -43,13 +43,6 @@ const receivingAccountsService = { list: () => apiClient.get<LookupRow[]>("/rece
  * `paymentSourceId`/`receivingAccountId` — both are required exactly as the
  * existing `CreateStoreOrderPaymentDto` already requires.
  */
-function dateFromISO(value: string): Date | null {
-  if (!value) return null;
-  const [year, month, day] = value.split("-").map(Number);
-  if (!year || !month || !day) return null;
-  return new Date(year, month - 1, day);
-}
-
 export function StoreOrderAddPaymentDialog({
   storeOrderId,
   orderCurrencyId,
@@ -244,7 +237,7 @@ export function StoreOrderAddPaymentDialog({
               {t("storeOrders.detail.payments.date")} <span className="text-destructive">*</span>
             </Label>
             <EnterpriseDatePicker
-              value={dateFromISO(paymentDate)}
+              value={fromISODate(paymentDate)}
               onChange={(date) => setPaymentDate(date ? toISODate(date) : "")}
             />
           </div>
