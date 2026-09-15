@@ -37,6 +37,7 @@ import {
   getColumnDisplayValue,
   RowActionsMenu,
   type RowAction,
+  type SelectCustomCountCopy,
 } from "@/components/shared/data-table";
 import type { MasterDataActivityEntry, MasterDataListParams } from "@/services/master-data-service";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
@@ -110,6 +111,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   defaultSortOrder = "asc",
   disableArchiveRestore = false,
   supportsSelectAllMatching = false,
+  selectCustomCountCopy,
   hideCreateButton = false,
   getRowHref,
   isRowProtected,
@@ -158,6 +160,14 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   disableArchiveRestore?: boolean;
   /** Opt-in — only set once the backend's `GET :entity/ids` and `POST :entity/bulk-archive` routes actually exist for this entity (Customers first; see `MasterDataService.listIds`/`bulkArchive`). */
   supportsSelectAllMatching?: boolean;
+  /**
+   * "Select a specific number" (Smart Selection) — opt-in alongside
+   * `supportsSelectAllMatching`; supply this entity's own noun/grammar
+   * (e.g. "N leads") and the menu item appears. Omit to keep just
+   * "select all matching" (or neither, if `supportsSelectAllMatching` is
+   * also false).
+   */
+  selectCustomCountCopy?: SelectCustomCountCopy;
   /** Suppresses the internal "+ New" button — for a page that renders its own create trigger/dialog instead (e.g. Leads' dual-mode Lead/Order create dialog) while still using this component for list/edit/archive. */
   hideCreateButton?: boolean;
   /** Opt-in detail route for a row — only for an entity that has a real detail page (Customers, Suppliers, Leads); forwarded to the table, where it turns the `meta.identity` column into a link. */
@@ -192,6 +202,14 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [isSelectingAllMatching, setIsSelectingAllMatching] = useState(false);
+  const [isSelectingCustomCount, setIsSelectingCustomCount] = useState(false);
+  // Smart Selection Safety — set only by "select all matching"/"select a
+  // specific number" (the two query-derived selections), never by
+  // individual checkbox clicks. If the underlying filters/sort change
+  // afterward, the effect below drops the now-stale selection instead of
+  // silently keeping rows selected that no longer match anything visible
+  // (mirrors the Store Orders Smart Selection page exactly).
+  const [bulkSelectionQuery, setBulkSelectionQuery] = useState<string | null>(null);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEntity, setEditingEntity] = useState<TEntity | null>(null);
@@ -268,6 +286,35 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+
+  /** Identifies "the query a Smart Selection was built from" — same filters+sort `listIds` was called with. */
+  const querySignature = useCallback(
+    () =>
+      JSON.stringify({
+        search: search || undefined,
+        sortBy,
+        sortOrder,
+        includeArchived,
+        ...extraListParams,
+      }),
+    [search, sortBy, sortOrder, includeArchived, extraKey],
+  );
+
+  useEffect(() => {
+    if (Object.keys(rowSelection).length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (bulkSelectionQuery !== null) setBulkSelectionQuery(null);
+      return;
+    }
+    if (bulkSelectionQuery === null) return;
+    const currentSignature = querySignature();
+    if (currentSignature !== bulkSelectionQuery) {
+      setRowSelection({});
+      setBulkSelectionQuery(null);
+      toast.info(t("masterData.bulkSelection.selectionCleared"));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [querySignature, rowSelection]);
 
   useEffect(() => {
     if (!activityEntity) {
@@ -431,10 +478,36 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
         ...extraListParams,
       });
       setRowSelection(Object.fromEntries(result.ids.map((id) => [id, true])));
+      setBulkSelectionQuery(querySignature());
     } catch (error) {
       reportApiError(error, "Failed to select all matching records.");
     } finally {
       setIsSelectingAllMatching(false);
+    }
+  };
+
+  /** "Select a specific number" (Smart Selection) — the first `count` rows by the current filter AND current sort, never an arbitrary subset. Reports when fewer than requested were available. */
+  const handleSelectCustomCount = async (count: number) => {
+    if (!service.listIds) return;
+    setIsSelectingCustomCount(true);
+    try {
+      const result = await service.listIds({
+        search: search || undefined,
+        sortBy,
+        sortOrder,
+        includeArchived,
+        pageSize: count,
+        ...extraListParams,
+      });
+      setRowSelection(Object.fromEntries(result.ids.map((id) => [id, true])));
+      setBulkSelectionQuery(querySignature());
+      if (result.ids.length < count) {
+        toast.info(t("masterData.bulkSelection.customCountPartial", { count: result.ids.length }));
+      }
+    } catch (error) {
+      reportApiError(error, "Failed to select records.");
+    } finally {
+      setIsSelectingCustomCount(false);
     }
   };
 
@@ -616,6 +689,15 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
             supportsSelectAllMatching && service.listIds ? handleSelectAllMatching : undefined
           }
           isSelectingAllMatching={isSelectingAllMatching}
+          selectCustomCount={
+            supportsSelectAllMatching && service.listIds && selectCustomCountCopy
+              ? {
+                  onSelect: handleSelectCustomCount,
+                  isSelecting: isSelectingCustomCount,
+                  copy: selectCustomCountCopy,
+                }
+              : undefined
+          }
           bulkActions={
             <>
               {extraBulkActions?.(Object.keys(rowSelection))}
