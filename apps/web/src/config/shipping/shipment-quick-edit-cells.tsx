@@ -137,7 +137,16 @@ export function ShippingStatusQuickCell({
         >
           {badge}
         </SelectTrigger>
-        <SelectContent>
+        {/* `position="popper"` (not the default item-aligned mode) — inside
+            a table row, item-aligned positioning tries to align the
+            selected item over the trigger using layout measurements that
+            can fail to resolve in this densely-nested, scroll/resize-
+            container-heavy layout, silently leaving the popover with no
+            computed offset (it then renders at its DOM fallback position,
+            off-screen). Popper mode anchors purely off the trigger's own
+            rect, the same robust mechanism the Shipping Company combobox
+            next to this cell already uses correctly. */}
+        <SelectContent position="popper" sideOffset={4}>
           {ctx.statuses.map((status) => (
             <SelectItem key={status.id} value={status.id}>
               {status.label}

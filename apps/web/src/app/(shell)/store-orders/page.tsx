@@ -329,22 +329,6 @@ function StoreOrdersPageContent() {
       description={t("storeOrders.description")}
       actions={
         <>
-          {canGlobalLookup && (
-            // Deliberately NOT the plain magnifying-glass `Search` icon this
-            // page's own inline table search already uses — a button that
-            // opens the audited cross-owner lookup dialog must read as a
-            // distinct action, never as "the" search box next to it (Global
-            // Lookup Search UX pass).
-            <EnterpriseButton
-              type="button"
-              variant="outline"
-              className="gap-1.5"
-              onClick={() => setGlobalLookupOpen(true)}
-            >
-              <UserSearch className="size-4" />
-              {t("storeOrders.globalLookup.trigger")}
-            </EnterpriseButton>
-          )}
           {canCreate && (
             <EnterpriseButton
               type="button"
@@ -469,6 +453,25 @@ function StoreOrdersPageContent() {
                 }}
               >
                 {t("table.clearFilters")}
+              </EnterpriseButton>
+            )}
+            {canGlobalLookup && (
+              // Lives beside the real inline search (never in the primary
+              // header actions next to New Order) and stays visually
+              // secondary — a ghost button, not an outlined one — so it
+              // reads as a distinct, occasional tool, not "the" search box.
+              // A different icon (UserSearch, not the plain magnifying
+              // glass the real search already uses) reinforces that this
+              // opens an audited cross-owner lookup dialog, not a filter.
+              <EnterpriseButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-muted-foreground"
+                onClick={() => setGlobalLookupOpen(true)}
+              >
+                <UserSearch className="size-4" />
+                {t("storeOrders.globalLookup.trigger")}
               </EnterpriseButton>
             )}
           </>
