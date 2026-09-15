@@ -24,6 +24,8 @@ import { LeadAutoDistributionService } from './distribution/lead-auto-distributi
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { BulkAssignLeadsDto } from './dto/bulk-assign-leads.dto';
+import { BulkChangeLeadStatusDto } from './dto/bulk-change-lead-status.dto';
+import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
 import { CreateLeadAssignmentDto } from './assignments/dto/create-lead-assignment.dto';
 import { FindLeadsQueryDto } from './dto/find-leads-query.dto';
 import { ActivateDistributionDto } from './dto/activate-distribution.dto';
@@ -42,6 +44,7 @@ export class LeadsController {
     private readonly leadAssignmentsService: LeadAssignmentsService,
     private readonly leadAutoDistributionService: LeadAutoDistributionService,
     private readonly salesScope: SalesScopeService,
+    private readonly permissionsResolver: PermissionsResolverService,
   ) {}
 
   @Post()
@@ -153,6 +156,23 @@ export class LeadsController {
   ) {
     const scope = await this.salesScope.resolve(user.sub);
     return this.leadsService.bulkAssign(dto, user.sub, scope);
+  }
+
+  @Post('bulk-status')
+  @HttpCode(200)
+  @PermissionAction('edit')
+  async bulkChangeStatus(
+    @Body() dto: BulkChangeLeadStatusDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const scope = await this.salesScope.resolve(user.sub);
+    const isSuperAdmin = await this.permissionsResolver.isSuperAdmin(user.sub);
+    return this.leadsService.bulkChangeStatus(
+      dto,
+      user.sub,
+      scope,
+      isSuperAdmin,
+    );
   }
 
   @Get(':id')

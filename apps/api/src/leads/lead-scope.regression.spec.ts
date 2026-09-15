@@ -297,6 +297,30 @@ describe('Lead ownership scope (Ahmed/Sara regression)', () => {
       expect(ids).not.toContain(ahmedLead1Id);
     });
 
+    it('Smart Selection "ids" filter never leaks another agent\'s Lead even when explicitly requested by id', async () => {
+      const res = await request(httpServer)
+        .get('/leads')
+        .query({ ids: [ahmedLead1Id, saraLead1Id].join(',') })
+        .set('Authorization', `Bearer ${ahmedToken}`);
+
+      expect(res.status).toBe(200);
+      expect(leadList(res.body).total).toBe(1);
+      const ids = leadList(res.body).items.map((l: { id: string }) => l.id);
+      expect(ids).toEqual([ahmedLead1Id]);
+      expect(ids).not.toContain(saraLead1Id);
+    });
+
+    it('/leads/ids (bulk-selection endpoint) applies the same scope+ids AND, never an OR', async () => {
+      const res = await request(httpServer)
+        .get('/leads/ids')
+        .query({ ids: [ahmedLead1Id, saraLead1Id].join(',') })
+        .set('Authorization', `Bearer ${ahmedToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.ids).toEqual([ahmedLead1Id]);
+      expect(res.body.total).toBe(1);
+    });
+
     it('unrecognized scope=all / ownerId params are silently stripped, not honored', async () => {
       const res = await request(httpServer)
         .get('/leads')
@@ -351,6 +375,20 @@ describe('Lead ownership scope (Ahmed/Sara regression)', () => {
       };
       const result = await leadsService.unassignedCount(teamScope);
       expect(result.count).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('F2. Bulk status change permission gate', () => {
+    it("an Agent without crm.leads.edit gets 403 from /leads/bulk-status (matches bulk-assign's gate)", async () => {
+      const res = await request(httpServer)
+        .post('/leads/bulk-status')
+        .set('Authorization', `Bearer ${ahmedToken}`)
+        .send({
+          leadIds: [ahmedLead1Id, saraLead1Id],
+          statusCode: 'IN_PROGRESS',
+        });
+
+      expect(res.status).toBe(403);
     });
   });
 

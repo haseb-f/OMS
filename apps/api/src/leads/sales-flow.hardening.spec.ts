@@ -727,6 +727,68 @@ describe('Sales Flow Hardening', () => {
     },
   );
 
+  describe('Bulk status change (Smart Selection)', () => {
+    liveIt(
+      'a mixed-status batch applies to every valid transition and reports the rest as failed, never throwing for the whole batch',
+      async () => {
+        const owner = await salesUser('Bulk Status Owner');
+        const ownerScope = await salesScope.resolve(owner.id);
+        const newLead1 = await createOwnedLead(owner.id);
+        const newLead2 = await createOwnedLead(owner.id);
+        const alreadyInProgress = await createOwnedLead(owner.id);
+        await leads.firstOpen(alreadyInProgress.id, owner.id, ownerScope);
+
+        const result = await leads.bulkChangeStatus(
+          {
+            leadIds: [newLead1.id, newLead2.id, alreadyInProgress.id],
+            statusCode: 'IN_PROGRESS',
+          },
+          owner.id,
+          ownerScope,
+          false,
+        );
+
+        expect(result.succeeded.sort()).toEqual(
+          [newLead1.id, newLead2.id].sort(),
+        );
+        expect(result.failed.map((row) => row.id)).toEqual([
+          alreadyInProgress.id,
+        ]);
+        expect(result.failed[0].message).toBeTruthy();
+
+        const refreshed1 = await leads.findOne(newLead1.id, ownerScope);
+        const refreshed2 = await leads.findOne(newLead2.id, ownerScope);
+        expect(refreshed1.status.code).toBe('IN_PROGRESS');
+        expect(refreshed2.status.code).toBe('IN_PROGRESS');
+      },
+    );
+
+    liveIt(
+      'bulk status change never mutates a Lead outside the caller scope — it is reported as failed, not silently skipped or forced',
+      async () => {
+        const owner = await salesUser('Bulk Status Owner A');
+        const otherOwner = await salesUser('Bulk Status Owner B');
+        const ownerScope = await salesScope.resolve(owner.id);
+        const ownLead = await createOwnedLead(owner.id);
+        const otherLead = await createOwnedLead(otherOwner.id);
+
+        const result = await leads.bulkChangeStatus(
+          { leadIds: [ownLead.id, otherLead.id], statusCode: 'IN_PROGRESS' },
+          owner.id,
+          ownerScope,
+          false,
+        );
+
+        expect(result.succeeded).toEqual([ownLead.id]);
+        expect(result.failed.map((row) => row.id)).toEqual([otherLead.id]);
+
+        const otherOwnerScope = await salesScope.resolve(otherOwner.id);
+        const untouched = await leads.findOne(otherLead.id, otherOwnerScope);
+        expect(untouched.status.code).not.toBe('IN_PROGRESS');
+      },
+    );
+  });
+
   describe('Lead Conversion — permission and ownership enforcement', () => {
     it('resolves the exact canonical Lead Convert permission from the catalog', () => {
       const leadsModule = PERMISSION_CATALOG.find((m) => m.key === 'leads');

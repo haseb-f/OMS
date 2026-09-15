@@ -71,4 +71,16 @@ export class FindLeadsQueryDto extends MasterDataQueryDto {
   @IsUUID('4', { each: true })
   @IsOptional()
   classificationIds?: string[];
+
+  /** Smart Selection (Bulk Ops) — fetch exactly these leads (still AND-ed with scope, never a bypass), e.g. to export an explicit selection. */
+  @Transform(({ value }): string[] | undefined => {
+    if (value == null || value === '') return undefined;
+    if (Array.isArray(value)) {
+      return value.map((item) => String(item));
+    }
+    return String(value).split(',');
+  })
+  @IsUUID('4', { each: true })
+  @IsOptional()
+  ids?: string[];
 }

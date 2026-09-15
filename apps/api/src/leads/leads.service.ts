@@ -19,7 +19,9 @@ import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { FindLeadsQueryDto } from './dto/find-leads-query.dto';
 import { BulkAssignLeadsDto } from './dto/bulk-assign-leads.dto';
+import { BulkChangeLeadStatusDto } from './dto/bulk-change-lead-status.dto';
 import { CreateLeadFollowUpDto } from './dto/create-lead-follow-up.dto';
+import type { BulkActionResult } from '../master-data/master-data-crud.service';
 import {
   CloseLeadWithoutPurchaseDto,
   ConvertLeadDto,
@@ -330,12 +332,7 @@ export class LeadsService {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
     const where = await this.buildLeadWhere(query, scope);
-    const sortField = query.sortBy || 'createdAt';
-    const sortDir = query.sortOrder ?? 'desc';
-    const orderBy =
-      sortField === 'id'
-        ? [{ id: sortDir }]
-        : [{ [sortField]: sortDir }, { id: 'desc' as const }];
+    const orderBy = this.buildLeadOrderBy(query);
 
     const [items, total, unassignedCount] = await Promise.all([
       this.prisma.lead.findMany({
@@ -360,6 +357,13 @@ export class LeadsService {
     return { items, total, page, pageSize, unassignedCount };
   }
 
+  /**
+   * Smart Selection (Bulk Ops) — "select all matching" (`pageSize` omitted,
+   * capped at 10,000) and "select first N" (`pageSize: N`) both go through
+   * this one bare-id lookup, ordered by the SAME sort the table is
+   * currently showing (`buildLeadOrderBy`) so "first 50" is deterministic
+   * and matches what the user actually sees, never a random subset.
+   */
   async findAllIds(query: FindLeadsQueryDto, scope: SalesScope) {
     const where = await this.buildLeadWhere(query, scope);
     const take = Math.min(query.pageSize ?? 10_000, 10_000);
@@ -367,12 +371,22 @@ export class LeadsService {
       this.prisma.lead.findMany({
         where,
         select: { id: true },
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        orderBy: this.buildLeadOrderBy(query),
         take,
       }),
       this.prisma.lead.count({ where }),
     ]);
     return { ids: rows.map((row) => row.id), total };
+  }
+
+  private buildLeadOrderBy(
+    query: Pick<FindLeadsQueryDto, 'sortBy' | 'sortOrder'>,
+  ): Prisma.LeadOrderByWithRelationInput[] {
+    const sortField = query.sortBy || 'createdAt';
+    const sortDir = query.sortOrder ?? 'desc';
+    return sortField === 'id'
+      ? [{ id: sortDir }]
+      : [{ [sortField]: sortDir }, { id: 'desc' }];
   }
 
   async unassignedCount(scope: SalesScope) {
@@ -637,6 +651,60 @@ export class LeadsService {
     return { assigned: ids.length, ids };
   }
 
+  /**
+   * Smart Selection (Bulk Ops) — bulk status change across a set of Leads
+   * that may currently sit in different statuses. Reuses
+   * `WorkflowEngineService.executeTransitionByCodes` per lead exactly as
+   * the single-Lead `WorkflowActionsPanel` does (never a parallel
+   * status-mutation path): each call independently re-checks that lead's
+   * own scope, the transition's `requiredPermission`/`requiresApproval`,
+   * and the LOST/DISQUALIFIED-needs-a-reason guard, so a mixed-status
+   * batch naturally skips whatever isn't a valid FROM→TO transition for
+   * that one lead instead of forcing an invalid state. Partial success is
+   * expected and reported, never all-or-nothing.
+   */
+  async bulkChangeStatus(
+    dto: BulkChangeLeadStatusDto,
+    actorId: string,
+    scope: SalesScope,
+    isSuperAdmin: boolean,
+  ): Promise<BulkActionResult> {
+    const leads = await this.prisma.lead.findMany({
+      where: { id: { in: dto.leadIds } },
+      select: { id: true, deletedAt: true, status: { select: { code: true } } },
+    });
+    const leadsById = new Map(leads.map((lead) => [lead.id, lead]));
+
+    const succeeded: string[] = [];
+    const failed: { id: string; message: string }[] = [];
+    for (const leadId of dto.leadIds) {
+      const lead = leadsById.get(leadId);
+      if (!lead || lead.deletedAt) {
+        failed.push({ id: leadId, message: 'Lead not found.' });
+        continue;
+      }
+      try {
+        await this.workflowEngine.executeTransitionByCodes(
+          'LEAD',
+          leadId,
+          lead.status.code,
+          dto.statusCode,
+          actorId,
+          { reason: dto.reason },
+          isSuperAdmin,
+        );
+        succeeded.push(leadId);
+      } catch (error) {
+        failed.push({
+          id: leadId,
+          message:
+            error instanceof Error ? error.message : 'Status change failed.',
+        });
+      }
+    }
+    return { succeeded, failed };
+  }
+
   /** Descriptive classification only — never changes workflow status. */
   private async assertClassificationAssignable(
     classificationId: string,
@@ -763,6 +831,7 @@ export class LeadsService {
   ): Promise<Prisma.LeadWhereInput> {
     const parts: Prisma.LeadWhereInput[] = [this.salesScope.leadWhere(scope)];
     if (!query.includeArchived) parts.push({ deletedAt: null });
+    if (query.ids?.length) parts.push({ id: { in: query.ids } });
     if (query.partnerId) parts.push({ partnerId: query.partnerId });
     if (query.countryId) parts.push({ countryId: query.countryId });
     if (query.source) parts.push({ source: query.source });
