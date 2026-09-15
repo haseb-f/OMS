@@ -105,7 +105,7 @@ export class SalesScopeService {
         ownerIds: [...ownerIds],
         userId,
         isSuperAdmin,
-        canManageLeads: canManageLeads || true,
+        canManageLeads,
         canViewLeads: true,
         canViewStoreOrders,
         canViewShipping,

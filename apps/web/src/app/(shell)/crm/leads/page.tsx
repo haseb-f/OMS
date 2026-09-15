@@ -211,14 +211,16 @@ function CrmLeadsPageContent() {
                 ))}
               </SelectContent>
             </Select>
-            <label className="flex items-center gap-2 text-caption">
-              <Checkbox
-                checked={unassignedOnly}
-                onCheckedChange={(value) => setUnassignedOnly(value === true)}
-              />
-              {t("crm.leads.distribution.unassigned")}
-              {unassignedCount !== null ? ` (${unassignedCount})` : ""}
-            </label>
+            {canAssign ? (
+              <label className="flex items-center gap-2 text-caption">
+                <Checkbox
+                  checked={unassignedOnly}
+                  onCheckedChange={(value) => setUnassignedOnly(value === true)}
+                />
+                {t("crm.leads.distribution.unassigned")}
+                {unassignedCount !== null ? ` (${unassignedCount})` : ""}
+              </label>
+            ) : null}
           </div>
         }
         extraBulkActions={(ids) =>

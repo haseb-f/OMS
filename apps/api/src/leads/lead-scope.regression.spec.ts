@@ -64,6 +64,7 @@ describe('Lead ownership scope (Ahmed/Sara regression)', () => {
   let ahmedLead1Id: string;
   let ahmedLead2Id: string;
   let saraLead1Id: string;
+  let unassignedLeadId: string;
 
   beforeAll(async () => {
     moduleRef = await Test.createTestingModule({
@@ -160,7 +161,7 @@ describe('Lead ownership scope (Ahmed/Sara regression)', () => {
     ahmedToken = jwt.sign({ sub: ahmedId, email: ahmed.email });
     saraToken = jwt.sign({ sub: saraId, email: sara.email });
 
-    const makeLead = (customerName: string, ownerId: string) =>
+    const makeLead = (customerName: string, ownerId: string | null) =>
       prisma.lead.create({
         data: {
           leadNumber: `LD-TEST-${suffix}-${randomUUID().slice(0, 6)}`,
@@ -184,11 +185,18 @@ describe('Lead ownership scope (Ahmed/Sara regression)', () => {
     ahmedLead1Id = ahmedLead1.id;
     ahmedLead2Id = ahmedLead2.id;
     saraLead1Id = saraLead1.id;
+
+    const unassignedLead = await makeLead(`Unassigned Lead ${suffix}`, null);
+    unassignedLeadId = unassignedLead.id;
   });
 
   afterAll(async () => {
     await prisma.lead.deleteMany({
-      where: { id: { in: [ahmedLead1Id, ahmedLead2Id, saraLead1Id] } },
+      where: {
+        id: {
+          in: [ahmedLead1Id, ahmedLead2Id, saraLead1Id, unassignedLeadId],
+        },
+      },
     });
     await prisma.userPermission.deleteMany({
       where: { userId: { in: [ahmedId, saraId] } },
@@ -304,6 +312,45 @@ describe('Lead ownership scope (Ahmed/Sara regression)', () => {
       expect(leadList(res.body).total).toBe(2);
       const ids = leadList(res.body).items.map((l: { id: string }) => l.id);
       expect(ids).not.toContain(saraLead1Id);
+    });
+  });
+
+  describe('F. Unassigned-pool metadata never leaks (own-scope count clobber regression)', () => {
+    it('GET /leads/unassigned-count for Ahmed (OWN scope) is 0, never the company-wide count', async () => {
+      const res = await request(httpServer)
+        .get('/leads/unassigned-count')
+        .set('Authorization', `Bearer ${ahmedToken}`);
+
+      expect(res.status).toBe(200);
+      expect((res.body as { count: number }).count).toBe(0);
+    });
+
+    it('the inline unassignedCount on GET /leads is also 0 for an OWN-scope Agent', async () => {
+      const res = await request(httpServer)
+        .get('/leads')
+        .query({ pageSize: 100 })
+        .set('Authorization', `Bearer ${ahmedToken}`);
+
+      expect(res.status).toBe(200);
+      expect((res.body as { unassignedCount: number }).unassignedCount).toBe(0);
+    });
+
+    it('a TEAM-scope manager still sees the real unassigned count (authorized pool visibility)', async () => {
+      const teamScope: SalesScope = {
+        kind: 'TEAM',
+        ownerIds: [ahmedId, saraId],
+        userId: ahmedId,
+        isSuperAdmin: false,
+        canManageLeads: true,
+        canViewLeads: true,
+        canViewStoreOrders: true,
+        canViewShipping: false,
+        canEditShipping: false,
+        canViewPaymentEvidence: true,
+        canManagePaymentEvidence: false,
+      };
+      const result = await leadsService.unassignedCount(teamScope);
+      expect(result.count).toBeGreaterThanOrEqual(1);
     });
   });
 

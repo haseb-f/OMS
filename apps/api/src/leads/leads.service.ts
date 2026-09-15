@@ -348,9 +348,11 @@ export class LeadsService {
       this.prisma.lead.count({ where }),
       this.prisma.lead.count({
         where: {
-          ...this.salesScope.leadWhere(scope),
-          deletedAt: query.includeArchived ? undefined : null,
-          salesEmployeeId: null,
+          AND: [
+            this.salesScope.leadWhere(scope),
+            { deletedAt: query.includeArchived ? undefined : null },
+            { salesEmployeeId: null },
+          ],
         },
       }),
     ]);
@@ -376,9 +378,11 @@ export class LeadsService {
   async unassignedCount(scope: SalesScope) {
     const count = await this.prisma.lead.count({
       where: {
-        ...this.salesScope.leadWhere(scope),
-        deletedAt: null,
-        salesEmployeeId: null,
+        AND: [
+          this.salesScope.leadWhere(scope),
+          { deletedAt: null },
+          { salesEmployeeId: null },
+        ],
       },
     });
     return { count };
