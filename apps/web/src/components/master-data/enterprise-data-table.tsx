@@ -10,6 +10,7 @@ import {
   RefreshCw,
   RotateCcw,
   Rows3,
+  Search,
   Upload,
   X,
 } from "lucide-react";
@@ -943,6 +944,9 @@ export function EnterpriseDataTable<TData>({
               onChange={(event) => handleSearchInput(event.target.value)}
               placeholder={searchPlaceholder ?? t("table.filterPlaceholder")}
             />
+            <InputGroupAddon>
+              <Search className="size-4 shrink-0 opacity-50" />
+            </InputGroupAddon>
             {searchDraft ? (
               <InputGroupAddon align="inline-end">
                 <InputGroupButton
