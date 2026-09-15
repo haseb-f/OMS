@@ -69,11 +69,6 @@ export function PhoneCountrySelector({
             <span className="truncate">
               {selected ? selected.name : (placeholder ?? t("phone.countryLabel"))}
             </span>
-            {selectedMeta && (
-              <span dir="ltr" className="shrink-0 text-muted-foreground">
-                +{selectedMeta.callingCode}
-              </span>
-            )}
           </span>
           <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
         </EnterpriseButton>

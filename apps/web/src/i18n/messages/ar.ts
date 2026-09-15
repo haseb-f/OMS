@@ -75,6 +75,7 @@ const ar = {
     noCountryFound: "لا توجد نتائج.",
     exampleLabel: "مثال",
     valid: "رقم جوال صحيح",
+    clear: "مسح رقم الجوال",
     regionMismatchTitle: "تم اكتشاف رمز دولة مختلف",
     regionMismatchDescription:
       "هذا الرقم يبدأ برمز دولة مختلف عن الدولة المختارة ({country}). تحقق من الرقم أو غيّر الدولة.",
@@ -1812,8 +1813,7 @@ const ar = {
     funnel: {
       title: "قمع العملاء المحتملين",
       description: "مراحل مسار العميل من سجل الحالة التاريخي — وليس من الحالة الحالية فقط.",
-      dateFrom: "من تاريخ",
-      dateTo: "إلى تاريخ",
+      dateRange: "نطاق التاريخ",
       events: "أحداث الحالة",
       stages: {
         CREATED: "إنشاء الليد",

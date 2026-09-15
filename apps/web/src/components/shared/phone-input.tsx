@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js/min";
-import { Check, TriangleAlert } from "lucide-react";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Check, TriangleAlert, X } from "lucide-react";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import { useLocale } from "@/providers/locale-provider";
 import {
   parsePhone,
@@ -70,6 +75,7 @@ export function OMSPhoneInput({
   const { t } = useLocale();
   const [draft, setDraft] = useState(value ?? "");
   const [isFocused, setIsFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Only re-sync from the outside value when the field isn't actively being
   // typed into — otherwise a parent re-render mid-keystroke would fight the
@@ -103,6 +109,18 @@ export function OMSPhoneInput({
     onBlur?.();
   };
 
+  // Clears the value immediately (not deferred to blur, unlike normal
+  // typing) — also drops the local draft and the invalid/status state tied
+  // to it, then returns focus to the input. The parent's own phone-driven
+  // effects (existing-customer lookup, etc.) react to `onChange("")` the
+  // same way they react to any other value change, so a stale Customer
+  // card clears on its own without this component needing to know about it.
+  const handleClear = () => {
+    setDraft("");
+    onChange("");
+    inputRef.current?.focus();
+  };
+
   return (
     <div className="flex flex-col gap-1">
       <InputGroup className="h-(--control-height-md)" dir="ltr">
@@ -110,6 +128,7 @@ export function OMSPhoneInput({
           <InputGroupAddon className="text-foreground">+{callingCode}</InputGroupAddon>
         )}
         <InputGroupInput
+          ref={inputRef}
           id={id}
           dir="ltr"
           inputMode="tel"
@@ -133,6 +152,19 @@ export function OMSPhoneInput({
                 aria-label={phoneErrorMessage(result.errorReason, countryCode, t)}
               />
             )}
+          </InputGroupAddon>
+        )}
+        {!disabled && !readOnly && draft.trim().length > 0 && (
+          <InputGroupAddon align="inline-end">
+            <InputGroupButton
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              aria-label={t("phone.clear")}
+              onClick={handleClear}
+            >
+              <X className="size-3.5" />
+            </InputGroupButton>
           </InputGroupAddon>
         )}
       </InputGroup>

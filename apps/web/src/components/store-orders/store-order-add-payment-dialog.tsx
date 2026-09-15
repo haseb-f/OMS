@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
+import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { storeOrdersService } from "@/services/store-orders-service";
 import { apiClient, ApiError } from "@/services/api-client";
 import { useLocale } from "@/providers/locale-provider";
@@ -42,6 +43,13 @@ const receivingAccountsService = { list: () => apiClient.get<LookupRow[]>("/rece
  * `paymentSourceId`/`receivingAccountId` — both are required exactly as the
  * existing `CreateStoreOrderPaymentDto` already requires.
  */
+function dateFromISO(value: string): Date | null {
+  if (!value) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+
 export function StoreOrderAddPaymentDialog({
   storeOrderId,
   orderCurrencyId,
@@ -235,10 +243,9 @@ export function StoreOrderAddPaymentDialog({
             <Label>
               {t("storeOrders.detail.payments.date")} <span className="text-destructive">*</span>
             </Label>
-            <Input
-              type="date"
-              value={paymentDate}
-              onChange={(e) => setPaymentDate(e.target.value)}
+            <EnterpriseDatePicker
+              value={dateFromISO(paymentDate)}
+              onChange={(date) => setPaymentDate(date ? toISODate(date) : "")}
             />
           </div>
           <div className="flex flex-col gap-1">

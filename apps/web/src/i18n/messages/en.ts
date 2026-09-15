@@ -76,6 +76,7 @@ const en = {
     noCountryFound: "No results.",
     exampleLabel: "Example",
     valid: "Valid phone number",
+    clear: "Clear phone number",
     regionMismatchTitle: "A different country code was detected",
     regionMismatchDescription:
       "This number starts with a different country code than the selected country ({country}). Check the number or change the country.",
@@ -1830,8 +1831,7 @@ const en = {
       title: "Lead Funnel",
       description:
         "Lead lifecycle stages from StatusHistory events — not inferred from current status alone.",
-      dateFrom: "From",
-      dateTo: "To",
+      dateRange: "Date range",
       events: "Status events",
       stages: {
         CREATED: "Lead created",

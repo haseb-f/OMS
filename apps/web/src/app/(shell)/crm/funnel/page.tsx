@@ -3,11 +3,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EnterpriseButton } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  EnterpriseDateRangePicker,
+  type DateRangeValue,
+} from "@/components/shared/date-range-picker";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
+import { toISODate } from "@/lib/date";
 import { workflowService } from "@/services/workflow-service";
+
+const EMPTY_DATE_RANGE: DateRangeValue = { from: null, to: null };
 
 const FUNNEL_ORDER = [
   "CREATED",
@@ -24,8 +30,7 @@ const FUNNEL_ORDER = [
 
 export default function LeadFunnelPage() {
   const { t } = useLocale();
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateRange, setDateRange] = useState<DateRangeValue>(EMPTY_DATE_RANGE);
   const [byStatus, setByStatus] = useState<Record<string, number>>({});
   const [totalEvents, setTotalEvents] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -34,8 +39,8 @@ export default function LeadFunnelPage() {
     setLoading(true);
     try {
       const result = (await workflowService.leadFunnel({
-        dateFrom: dateFrom || undefined,
-        dateTo: dateTo || undefined,
+        dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
+        dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
       })) as {
         byStatus: Record<string, number>;
         stages?: Record<string, number>;
@@ -48,7 +53,7 @@ export default function LeadFunnelPage() {
     } finally {
       setLoading(false);
     }
-  }, [dateFrom, dateTo]);
+  }, [dateRange]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -71,13 +76,19 @@ export default function LeadFunnelPage() {
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1">
-          <Label>{t("workflow.funnel.dateFrom")}</Label>
-          <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+          <Label>{t("workflow.funnel.dateRange")}</Label>
+          <EnterpriseDateRangePicker value={dateRange} onChange={setDateRange} />
         </div>
-        <div className="flex flex-col gap-1">
-          <Label>{t("workflow.funnel.dateTo")}</Label>
-          <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-        </div>
+        {(dateRange.from || dateRange.to) && (
+          <EnterpriseButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setDateRange(EMPTY_DATE_RANGE)}
+          >
+            {t("table.clearFilters")}
+          </EnterpriseButton>
+        )}
       </div>
 
       <p className="text-caption text-muted-foreground">
