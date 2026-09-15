@@ -389,6 +389,7 @@ const en = {
     today: "Today",
     clear: "Clear",
     apply: "Apply",
+    time: "Time",
     invalid: "Enter a valid date as DD MMM YYYY (e.g. 15 Aug 2026).",
     from: "From",
     to: "To",

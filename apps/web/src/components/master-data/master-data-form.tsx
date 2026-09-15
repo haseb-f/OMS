@@ -30,10 +30,12 @@ import {
 import { OMSPhoneInput } from "@/components/shared/phone-input";
 import { AccountPicker } from "@/components/business/account-picker";
 import { ClassificationColorPicker } from "@/components/business/classification-badge";
+import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { createMasterDataService } from "@/services/master-data-service";
 import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
+import { fromISODate, toISODate } from "@/lib/date";
 
 const accountsService = createMasterDataService<ChartOfAccountRow>("/chart-of-accounts");
 
@@ -265,15 +267,20 @@ function FormFieldGrid<TFieldValues extends FieldValues>({
                         onChange={rhfField.onChange}
                         previewLabel={String(form.watch("name" as never) ?? "")}
                       />
+                    ) : field.type === "date" ? (
+                      <EnterpriseDatePicker
+                        // Values may arrive as a bare "YYYY-MM-DD" (form
+                        // defaults normalized upstream) or a full ISO
+                        // timestamp straight from the API record being
+                        // edited — the leading 10 chars are the date either
+                        // way, .slice(0, 10) is a no-op on the former.
+                        value={fromISODate(String(rhfField.value ?? "").slice(0, 10) || null)}
+                        onChange={(date) => rhfField.onChange(date ? toISODate(date) : "")}
+                        placeholder={field.placeholder}
+                      />
                     ) : (
                       <Input
-                        type={
-                          field.type === "number"
-                            ? "number"
-                            : field.type === "date"
-                              ? "date"
-                              : "text"
-                        }
+                        type={field.type === "number" ? "number" : "text"}
                         placeholder={field.placeholder}
                         {...rhfField}
                         value={rhfField.value ?? ""}

@@ -5,10 +5,11 @@ import { CalendarIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
-import { formatDate, parseDate } from "@/lib/date";
+import { formatDate, formatDateTime, formatTime, parseDate } from "@/lib/date";
 
 /**
  * The ONE Date Picker every module in OMS uses (Date System task) — never
@@ -29,6 +30,7 @@ export function EnterpriseDatePicker({
   className,
   id,
   "aria-invalid": ariaInvalid,
+  showTime = false,
 }: {
   value: Date | null | undefined;
   onChange: (date: Date | null) => void;
@@ -37,17 +39,39 @@ export function EnterpriseDatePicker({
   className?: string;
   id?: string;
   "aria-invalid"?: boolean;
+  /**
+   * Adds a 24h time-of-day field inside the popover (never a native
+   * `<input type="datetime-local">`) for the rare form field that needs a
+   * scheduled moment, not just a calendar day — e.g. a Lead follow-up. The
+   * trigger becomes read-only ("DD MMM YYYY — HH:mm", via `formatDateTime`)
+   * since a combined date+time free-text parser isn't worth the complexity
+   * this one call site needs; day and time are each edited through their
+   * own widget inside the popover instead.
+   */
+  showTime?: boolean;
 }) {
   const { t, direction } = useLocale();
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState(() => formatDate(value));
+  const [draft, setDraft] = useState(() => (showTime ? formatDateTime(value) : formatDate(value)));
   const [error, setError] = useState(false);
+  const [timeValue, setTimeValue] = useState(() => formatTime(value) || "09:00");
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setDraft(formatDate(value));
+    setDraft(showTime ? formatDateTime(value) : formatDate(value));
     setError(false);
-  }, [value]);
+    if (formatTime(value)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTimeValue(formatTime(value));
+    }
+  }, [value, showTime]);
+
+  const combineWithTime = (day: Date, time: string) => {
+    const [hours, minutes] = time.split(":").map(Number);
+    const combined = new Date(day);
+    combined.setHours(hours || 0, minutes || 0, 0, 0);
+    return combined;
+  };
 
   const commitDraft = (raw: string) => {
     if (raw.trim() === "") {
@@ -67,10 +91,19 @@ export function EnterpriseDatePicker({
 
   const selectDay = (date: Date | undefined) => {
     if (!date) return;
-    setDraft(formatDate(date));
+    const result = showTime ? combineWithTime(date, timeValue) : date;
+    setDraft(showTime ? formatDateTime(result) : formatDate(result));
     setError(false);
-    onChange(date);
-    setOpen(false);
+    onChange(result);
+    if (!showTime) setOpen(false);
+  };
+
+  const changeTime = (time: string) => {
+    setTimeValue(time);
+    const day = value ?? new Date();
+    const combined = combineWithTime(day, time);
+    setDraft(formatDateTime(combined));
+    onChange(combined);
   };
 
   return (
@@ -92,21 +125,31 @@ export function EnterpriseDatePicker({
           id={id}
           dir="ltr"
           value={draft}
-          placeholder={placeholder}
+          placeholder={showTime ? "DD MMM YYYY — HH:mm" : placeholder}
           disabled={disabled}
+          readOnly={showTime}
           aria-invalid={ariaInvalid || error}
           className="pe-8"
-          onChange={(event) => {
-            setDraft(event.target.value);
-            if (error) setError(false);
-          }}
-          onBlur={(event) => commitDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              commitDraft(draft);
-            }
-          }}
+          onChange={
+            showTime
+              ? undefined
+              : (event) => {
+                  setDraft(event.target.value);
+                  if (error) setError(false);
+                }
+          }
+          onClick={showTime ? () => setOpen(true) : undefined}
+          onBlur={showTime ? undefined : (event) => commitDraft(event.target.value)}
+          onKeyDown={
+            showTime
+              ? undefined
+              : (event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    commitDraft(draft);
+                  }
+                }
+          }
         />
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
@@ -133,6 +176,24 @@ export function EnterpriseDatePicker({
               onSelect={selectDay}
               autoFocus
             />
+            {showTime ? (
+              <div className="flex items-center gap-2 border-t border-border p-2.5" dir="ltr">
+                <Label
+                  htmlFor={id ? `${id}-time` : undefined}
+                  className="text-caption text-muted-foreground"
+                >
+                  {t("datePicker.time")}
+                </Label>
+                <Input
+                  id={id ? `${id}-time` : undefined}
+                  type="time"
+                  dir="ltr"
+                  value={timeValue}
+                  className="h-8 w-auto"
+                  onChange={(event) => changeTime(event.target.value)}
+                />
+              </div>
+            ) : null}
             <div className="flex items-center justify-between gap-2 border-t border-border p-2.5">
               <EnterpriseButton
                 type="button"

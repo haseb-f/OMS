@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { CalendarClock } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
+import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { EnterpriseButton } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -42,7 +42,7 @@ export function LeadFollowUpDialog({
   const { t } = useLocale();
   const [outcome, setOutcome] = useState("");
   const [note, setNote] = useState("");
-  const [followUpAt, setFollowUpAt] = useState("");
+  const [followUpAt, setFollowUpAt] = useState<Date | null>(null);
   const [busy, setBusy] = useState(false);
 
   const save = async () => {
@@ -51,14 +51,14 @@ export function LeadFollowUpDialog({
       await leadsService.addFollowUp(leadId, {
         outcome: outcome || undefined,
         note: note || undefined,
-        followUpAt: followUpAt ? new Date(followUpAt).toISOString() : undefined,
+        followUpAt: followUpAt ? followUpAt.toISOString() : undefined,
       });
       toast.success(t("crm.leads.followUp.saved"));
       onSaved?.();
       onOpenChange(false);
       setOutcome("");
       setNote("");
-      setFollowUpAt("");
+      setFollowUpAt(null);
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
@@ -103,11 +103,7 @@ export function LeadFollowUpDialog({
         </div>
         <div className="flex flex-col gap-1">
           <Label>{t("crm.leads.followUp.nextAt")}</Label>
-          <Input
-            type="datetime-local"
-            value={followUpAt}
-            onChange={(e) => setFollowUpAt(e.target.value)}
-          />
+          <EnterpriseDatePicker value={followUpAt} onChange={setFollowUpAt} showTime />
         </div>
         <div className="flex flex-col gap-1">
           <Label>{t("crm.leads.followUp.note")}</Label>

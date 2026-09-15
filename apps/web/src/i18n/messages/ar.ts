@@ -388,6 +388,7 @@ const ar = {
     today: "اليوم",
     clear: "مسح",
     apply: "تطبيق",
+    time: "الوقت",
     invalid: "أدخل تاريخاً صحيحاً بصيغة DD MMM YYYY (مثال: 15 Aug 2026).",
     from: "من",
     to: "إلى",
