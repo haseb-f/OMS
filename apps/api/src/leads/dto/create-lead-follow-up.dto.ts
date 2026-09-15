@@ -1,6 +1,17 @@
-import { IsDateString, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsDateString,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+} from 'class-validator';
 
 export class CreateLeadFollowUpDto {
+  /** Master Data channel/method (call, WhatsApp, email, ...) — always optional, same as every other follow-up field. */
+  @IsUUID()
+  @IsOptional()
+  followUpTypeId?: string;
+
   @IsString()
   @IsOptional()
   @MaxLength(80)
@@ -14,9 +25,4 @@ export class CreateLeadFollowUpDto {
   @IsDateString()
   @IsOptional()
   followUpAt?: string;
-
-  @IsString()
-  @IsOptional()
-  @MaxLength(40)
-  channel?: string;
 }

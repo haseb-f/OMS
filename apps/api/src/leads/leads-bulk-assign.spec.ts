@@ -65,6 +65,7 @@ describe('LeadsService.bulkAssign', () => {
       {} as never,
       {} as never,
       salesScope,
+      {} as never,
     );
     return { service, prisma, leadAssignmentsService };
   }

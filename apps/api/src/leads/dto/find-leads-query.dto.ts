@@ -19,6 +19,14 @@ export const LEAD_LIFECYCLE_FILTERS = [
 ] as const;
 export type LeadLifecycleFilter = (typeof LEAD_LIFECYCLE_FILTERS)[number];
 
+export const LEAD_FOLLOW_UP_FILTERS = [
+  'today',
+  'overdue',
+  'upcoming',
+  'none',
+] as const;
+export type LeadFollowUpFilter = (typeof LEAD_FOLLOW_UP_FILTERS)[number];
+
 export class FindLeadsQueryDto extends MasterDataQueryDto {
   @IsString()
   @IsOptional()
@@ -83,4 +91,9 @@ export class FindLeadsQueryDto extends MasterDataQueryDto {
   @IsUUID('4', { each: true })
   @IsOptional()
   ids?: string[];
+
+  /** Quick operational filter over the denormalized `nextFollowUpAt` — Section E6. */
+  @IsIn(LEAD_FOLLOW_UP_FILTERS)
+  @IsOptional()
+  followUpFilter?: LeadFollowUpFilter;
 }

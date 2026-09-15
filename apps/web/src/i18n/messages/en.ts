@@ -224,8 +224,9 @@ const en = {
       storeOrders: "Store Orders",
       shipping: "Shipping",
       departments: "Departments",
-      customerClassifications: "Customer Classifications",
+      customerClassifications: "Lead Classifications",
       noPurchaseReasons: "No Purchase Reasons",
+      leadFollowUpTypes: "Lead Follow-up Types",
       salesTeams: "Sales Teams",
       jobTitles: "Job Titles",
       employees: "Employees",
@@ -1031,10 +1032,10 @@ const en = {
       noDepartment: "No department (generic)",
     },
     customerClassifications: {
-      title: "Customer Classifications",
+      title: "Lead Classifications",
       description:
         "Descriptive commercial segmentation for prospects — independent of Lead status and never a workflow action.",
-      select: "Select customer classification",
+      select: "Select Lead classification",
       preview: "Preview",
     },
     noPurchaseReasons: {
@@ -1042,6 +1043,12 @@ const en = {
       description: "Configurable reasons for closing a Lead without converting it to an order.",
       select: "Select no-purchase reason",
       classifications: "Suggested classifications (optional)",
+    },
+    leadFollowUpTypes: {
+      title: "Lead Follow-up Types",
+      description:
+        "How a follow-up happens (call, WhatsApp, email, meeting, ...) — the method, not the result.",
+      select: "Select follow-up type",
     },
     investorTypes: {
       title: "Investor Types",
@@ -1883,7 +1890,7 @@ const en = {
         product: "Product",
         paidAmount: "Paid Amount",
         nextFollowUp: "Next Follow-up",
-        classification: "Customer Classification",
+        classification: "Lead Classification",
         noPurchaseReason: "No Purchase Reason",
       },
       sections: {
@@ -1927,6 +1934,9 @@ const en = {
       },
       possibleDuplicate: "Possible Duplicate",
       noCustomerLinked: "No customer linked yet.",
+      ownership: {
+        assigned: "Assigned",
+      },
       actions: {
         addFollowUp: "Add Follow-up",
         convert: "Convert to Order",
@@ -1956,6 +1966,10 @@ const en = {
       },
       filters: {
         employee: "Assigned Employee",
+        followUp: "Follow-up",
+        followUpAll: "All follow-ups",
+        followUpUpcoming: "Upcoming",
+        followUpNone: "No follow-up",
       },
       bulkSelection: {
         customCountTitle: "Select a number of leads",
@@ -2021,6 +2035,7 @@ const en = {
       followUp: {
         title: "Add Follow-up",
         description: "Record the contact outcome and the next follow-up time.",
+        type: "Follow-up type",
         outcome: "Contact outcome",
         nextAt: "Next follow-up",
         note: "Notes",

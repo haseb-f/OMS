@@ -14,6 +14,7 @@ import type {
   DepartmentRow,
   CustomerClassificationRow,
   NoPurchaseReasonRow,
+  LeadFollowUpTypeRow,
   PaymentMethodRow,
   InvestorTypeRow,
 } from "@/config/master-data/entities";
@@ -177,6 +178,8 @@ const customerClassificationsService = createMasterDataService<CustomerClassific
 );
 const noPurchaseReasonsService =
   createMasterDataService<NoPurchaseReasonRow>("/no-purchase-reasons");
+const leadFollowUpTypesService =
+  createMasterDataService<LeadFollowUpTypeRow>("/lead-follow-up-types");
 const paymentMethodsRefService = createMasterDataService<PaymentMethodRow>("/payment-methods");
 
 export const useCustomerClassifications = createReferenceDataHook<CustomerClassificationRow>(() =>
@@ -187,6 +190,12 @@ export const useCustomerClassifications = createReferenceDataHook<CustomerClassi
 
 export const useNoPurchaseReasons = createReferenceDataHook<NoPurchaseReasonRow>(() =>
   noPurchaseReasonsService
+    .list({ pageSize: 200, sortBy: "sortOrder" })
+    .then((r) => r.items.filter((row) => !row.deletedAt && row.isActive)),
+);
+
+export const useLeadFollowUpTypes = createReferenceDataHook<LeadFollowUpTypeRow>(() =>
+  leadFollowUpTypesService
     .list({ pageSize: 200, sortBy: "sortOrder" })
     .then((r) => r.items.filter((row) => !row.deletedAt && row.isActive)),
 );

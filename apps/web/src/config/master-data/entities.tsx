@@ -1111,6 +1111,54 @@ export const noPurchaseReasonsExportColumns = ["code", "name", "nameEn", "sortOr
 export const noPurchaseReasonRowLabel = (row: NoPurchaseReasonRow) => `${row.code} — ${row.name}`;
 
 // ---------------------------------------------------------------------------
+// Lead Follow-up Types
+
+export interface LeadFollowUpTypeRow {
+  id: string;
+  code: string;
+  name: string;
+  nameEn: string | null;
+  description: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  deletedAt: string | null;
+}
+
+export const leadFollowUpTypesColumns: ColumnDef<LeadFollowUpTypeRow, unknown>[] = [
+  textColumn("code", "masterData.fields.code", (r) => r.code),
+  textColumn("name", "masterData.fields.name", (r) => r.name),
+  textColumn("nameEn", "masterData.fields.nameEn", (r) => r.nameEn),
+  textColumn("sortOrder", "masterData.fields.sortOrder", (r) => String(r.sortOrder)),
+  statusColumn<LeadFollowUpTypeRow>(),
+];
+
+export const leadFollowUpTypesFormFields: MasterDataFormField[] = [
+  { name: "name", label: "masterData.fields.name", type: "text", required: true },
+  { name: "nameEn", label: "masterData.fields.nameEn", type: "text" },
+  { name: "sortOrder", label: "masterData.fields.sortOrder", type: "number" },
+  { name: "isActive", label: "masterData.fields.isActive", type: "boolean" },
+  { name: "description", label: "masterData.fields.description", type: "textarea" },
+];
+
+export const leadFollowUpTypesSchema = z.object({
+  name: z.string().min(1),
+  nameEn: z.string().optional().or(z.literal("")),
+  sortOrder: z.number().optional(),
+  isActive: z.boolean().optional(),
+  description: z.string().optional().or(z.literal("")),
+});
+
+export const leadFollowUpTypesDefaultValues = {
+  name: "",
+  nameEn: "",
+  sortOrder: 0,
+  isActive: true,
+  description: "",
+};
+export const leadFollowUpTypesExportColumns = ["code", "name", "nameEn", "sortOrder"];
+export const leadFollowUpTypeRowLabel = (row: LeadFollowUpTypeRow) => `${row.code} — ${row.name}`;
+
+// ---------------------------------------------------------------------------
 // Shipping Methods
 // ---------------------------------------------------------------------------
 

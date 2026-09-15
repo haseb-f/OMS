@@ -19,6 +19,7 @@ import { PaymentTermsModule } from './payment-terms/payment-terms.module';
 import { DepartmentsModule } from './departments/departments.module';
 import { CustomerClassificationsModule } from './customer-classifications/customer-classifications.module';
 import { NoPurchaseReasonsModule } from './no-purchase-reasons/no-purchase-reasons.module';
+import { LeadFollowUpTypesModule } from './lead-follow-up-types/lead-follow-up-types.module';
 import { SalesTeamsModule } from './sales-teams/sales-teams.module';
 import { SalesScopeModule } from './sales-scope/sales-scope.module';
 import { SalesPerformanceModule } from './sales-performance/sales-performance.module';
@@ -135,6 +136,7 @@ import { InvestorPortalModule } from './investor-portal/investor-portal.module';
     DepartmentsModule,
     CustomerClassificationsModule,
     NoPurchaseReasonsModule,
+    LeadFollowUpTypesModule,
     SalesTeamsModule,
     PaymentsModule,
     UnitsModule,

@@ -223,8 +223,9 @@ const ar = {
       storeOrders: "طلبات المتجر",
       shipping: "الشحن",
       departments: "الأقسام",
-      customerClassifications: "تصنيفات العملاء",
+      customerClassifications: "تصنيفات العملاء المحتملين",
       noPurchaseReasons: "أسباب عدم الشراء",
+      leadFollowUpTypes: "أنواع متابعة العملاء المحتملين",
       salesTeams: "فرق المبيعات",
       jobTitles: "المسميات الوظيفية",
       employees: "الموظفون",
@@ -1027,9 +1028,9 @@ const ar = {
       noDepartment: "بدون قسم (عام)",
     },
     customerClassifications: {
-      title: "تصنيفات العملاء",
+      title: "تصنيفات العملاء المحتملين",
       description: "تصنيف تجاري وصفي للعملاء المحتملين — مستقل عن حالة الليد ولا يغيّر دورة العمل.",
-      select: "اختر تصنيف العميل",
+      select: "اختر تصنيف العميل المحتمل",
       preview: "معاينة",
     },
     noPurchaseReasons: {
@@ -1037,6 +1038,12 @@ const ar = {
       description: "أسباب قابلة للتهيئة لإغلاق الليد دون تحويله إلى طلب.",
       select: "اختر سبب عدم الشراء",
       classifications: "تصنيفات مقترحة (اختياري)",
+    },
+    leadFollowUpTypes: {
+      title: "أنواع متابعة العملاء المحتملين",
+      description:
+        "طريقة المتابعة (اتصال، واتساب، بريد إلكتروني، اجتماع...) — الوسيلة، وليست النتيجة.",
+      select: "اختر نوع المتابعة",
     },
     investorTypes: {
       title: "أنواع المستثمرين",
@@ -1865,7 +1872,7 @@ const ar = {
         product: "المنتج",
         paidAmount: "المبلغ المدفوع",
         nextFollowUp: "المتابعة القادمة",
-        classification: "تصنيف العميل",
+        classification: "تصنيف العميل المحتمل",
         noPurchaseReason: "سبب عدم الشراء",
       },
       sections: {
@@ -1908,6 +1915,9 @@ const ar = {
       },
       possibleDuplicate: "احتمال تكرار",
       noCustomerLinked: "لا يوجد عميل مرتبط بعد.",
+      ownership: {
+        assigned: "تم الإسناد",
+      },
       actions: {
         addFollowUp: "إضافة متابعة",
         convert: "تحويل إلى طلب",
@@ -1937,6 +1947,10 @@ const ar = {
       },
       filters: {
         employee: "الموظف المسؤول",
+        followUp: "المتابعة",
+        followUpAll: "كل المتابعات",
+        followUpUpcoming: "قادمة",
+        followUpNone: "بدون متابعة",
       },
       bulkSelection: {
         customCountTitle: "تحديد عدد معين من الليدز",
@@ -2000,6 +2014,7 @@ const ar = {
       followUp: {
         title: "إضافة متابعة",
         description: "سجّل نتيجة التواصل وموعد المتابعة القادمة.",
+        type: "نوع المتابعة",
         outcome: "نتيجة التواصل",
         nextAt: "موعد المتابعة القادمة",
         note: "ملاحظات",

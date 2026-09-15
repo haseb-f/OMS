@@ -23,6 +23,7 @@ import { LeadCloseWithoutPurchaseDialog } from "@/components/crm/lead-close-dial
 import { EmptyState } from "@/components/shared/empty-state";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
+import { leadLifecycleBadge } from "@/config/crm/lead-columns";
 import { Textarea } from "@/components/ui/textarea";
 import {
   leadsService,
@@ -191,7 +192,10 @@ function LeadDetailContent() {
       subtitle={lead.customerName}
       status={
         <div className="flex flex-wrap items-center gap-1.5">
-          <DynamicStatusBadge label={lead.status?.name ?? "—"} colorKey={lead.status?.color} />
+          {(() => {
+            const badge = leadLifecycleBadge(lead, t("crm.leads.ownership.assigned"));
+            return <DynamicStatusBadge label={badge.label} colorKey={badge.colorKey} />;
+          })()}
           {lead.customerClassification ? (
             <ClassificationBadge
               label={lead.customerClassification.name}

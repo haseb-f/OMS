@@ -12,12 +12,14 @@ import { LeadDuplicateDetectionService } from './duplicate-detection/lead-duplic
 import { LeadAutoDistributionService } from './distribution/lead-auto-distribution.service';
 import { NumberingModule } from '../numbering/numbering.module';
 import { WorkflowModule } from '../workflow/workflow.module';
+import { LeadFollowUpTypesModule } from '../lead-follow-up-types/lead-follow-up-types.module';
 
 @Module({
   imports: [
     forwardRef(() => LeadImportModule),
     NumberingModule,
     WorkflowModule,
+    LeadFollowUpTypesModule,
   ],
   controllers: [
     LeadsController,

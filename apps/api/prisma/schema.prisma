@@ -1374,6 +1374,13 @@ model LeadFollowUp {
   userId String @map("user_id") @db.Uuid
   user   User   @relation(fields: [userId], references: [id])
 
+  /// Optional Master Data channel/method (call, WhatsApp, email, ...) —
+  /// supersedes the old free-text `channel` string, which was only ever
+  /// logged into LeadActivity metadata, never a real queryable/filterable
+  /// column.
+  followUpTypeId String?           @map("follow_up_type_id") @db.Uuid
+  followUpType   LeadFollowUpType? @relation(fields: [followUpTypeId], references: [id])
+
   outcome     String?
   note        String?
   followUpAt  DateTime? @map("follow_up_at")
@@ -1388,6 +1395,32 @@ model LeadFollowUp {
   @@index([leadId, createdAt])
   @@index([followUpAt])
   @@map("lead_follow_ups")
+}
+
+/// Master Data — how a follow-up happens (call, WhatsApp, email, meeting,
+/// ...). Purely descriptive, same shape as NoPurchaseReason/
+/// CustomerClassification; independent of Lead workflow status. Distinct
+/// from `LeadFollowUp.outcome` (the RESULT of a contact attempt, e.g.
+/// answered/no answer) — this is the METHOD, not the result.
+model LeadFollowUpType {
+  id          String  @id @default(uuid()) @db.Uuid
+  code        String  @unique
+  name        String
+  nameEn      String? @map("name_en")
+  description String?
+  sortOrder   Int     @default(0) @map("sort_order")
+  isActive    Boolean @default(true) @map("is_active")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  followUps LeadFollowUp[]
+
+  @@index([deletedAt, isActive, sortOrder])
+  @@map("lead_follow_up_types")
 }
 
 /// One effective automatic policy per scope. Manual assignment is an action, not a policy.

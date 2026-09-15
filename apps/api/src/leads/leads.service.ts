@@ -31,6 +31,7 @@ import {
   phoneErrorMessage,
 } from '../common/phone/phone-number.service';
 import { WorkflowEngineService } from '../workflow/workflow-engine.service';
+import { LeadFollowUpTypesService } from '../lead-follow-up-types/lead-follow-up-types.service';
 import {
   SalesScopeService,
   type SalesScope,
@@ -122,6 +123,7 @@ export class LeadsService {
     private readonly phoneNumberService: PhoneNumberService,
     private readonly workflowEngine: WorkflowEngineService,
     private readonly salesScope: SalesScopeService,
+    private readonly leadFollowUpTypesService: LeadFollowUpTypesService,
   ) {}
 
   /** Resolves `dto.countryId` to its ISO2 code and validates/normalizes `dto.mobileNumber` against it — the country-aware check `@IsPhoneNumber()` on the DTO can't do (it has no access to the sibling `countryId`). Returns the E.164 value every caller should use in place of the raw input. */
@@ -565,11 +567,15 @@ export class LeadsService {
     scope: SalesScope,
   ) {
     await this.findOne(id, scope);
+    if (dto.followUpTypeId) {
+      await this.leadFollowUpTypesService.assertAssignable(dto.followUpTypeId);
+    }
     const followUp = await this.prisma.$transaction(async (tx) => {
       const created = await tx.leadFollowUp.create({
         data: {
           leadId: id,
           userId,
+          followUpTypeId: dto.followUpTypeId ?? null,
           outcome: dto.outcome?.trim() || null,
           note: dto.note?.trim() || null,
           followUpAt: dto.followUpAt ? new Date(dto.followUpAt) : null,
@@ -586,7 +592,7 @@ export class LeadsService {
           followUpId: created.id,
           outcome: dto.outcome,
           followUpAt: dto.followUpAt,
-          channel: dto.channel,
+          followUpTypeId: dto.followUpTypeId,
         },
         tx,
       );
@@ -599,7 +605,10 @@ export class LeadsService {
   listFollowUps(leadId: string) {
     return this.prisma.leadFollowUp.findMany({
       where: { leadId, deletedAt: null },
-      include: { user: { select: { id: true, fullName: true } } },
+      include: {
+        user: { select: { id: true, fullName: true } },
+        followUpType: { select: { id: true, name: true, nameEn: true } },
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -887,6 +896,25 @@ export class LeadsService {
           [field]: { contains: query.search, mode: 'insensitive' as const },
         })),
       });
+    }
+    if (query.followUpFilter) {
+      const now = new Date();
+      const startToday = new Date(now);
+      startToday.setHours(0, 0, 0, 0);
+      const startTomorrow = new Date(startToday);
+      startTomorrow.setDate(startTomorrow.getDate() + 1);
+      if (query.followUpFilter === 'today') {
+        parts.push({ nextFollowUpAt: { gte: startToday, lt: startTomorrow } });
+      } else if (query.followUpFilter === 'overdue') {
+        // Matches the table cell's own bucketing (lead-columns.tsx): "today"
+        // wins even if its time-of-day has already passed, so overdue means
+        // strictly before today, not merely before the current instant.
+        parts.push({ nextFollowUpAt: { lt: startToday } });
+      } else if (query.followUpFilter === 'upcoming') {
+        parts.push({ nextFollowUpAt: { gte: startTomorrow } });
+      } else if (query.followUpFilter === 'none') {
+        parts.push({ nextFollowUpAt: null });
+      }
     }
     return { AND: parts };
   }

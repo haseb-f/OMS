@@ -18,6 +18,7 @@ import { leadsService } from "@/services/leads-service";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
+import { useLeadFollowUpTypes } from "@/hooks/use-reference-data";
 
 const OUTCOMES = [
   "answered",
@@ -40,6 +41,8 @@ export function LeadFollowUpDialog({
   onSaved?: () => void;
 }) {
   const { t } = useLocale();
+  const followUpTypes = useLeadFollowUpTypes();
+  const [followUpTypeId, setFollowUpTypeId] = useState("");
   const [outcome, setOutcome] = useState("");
   const [note, setNote] = useState("");
   const [followUpAt, setFollowUpAt] = useState<Date | null>(null);
@@ -49,6 +52,7 @@ export function LeadFollowUpDialog({
     setBusy(true);
     try {
       await leadsService.addFollowUp(leadId, {
+        followUpTypeId: followUpTypeId || undefined,
         outcome: outcome || undefined,
         note: note || undefined,
         followUpAt: followUpAt ? followUpAt.toISOString() : undefined,
@@ -56,6 +60,7 @@ export function LeadFollowUpDialog({
       toast.success(t("crm.leads.followUp.saved"));
       onSaved?.();
       onOpenChange(false);
+      setFollowUpTypeId("");
       setOutcome("");
       setNote("");
       setFollowUpAt(null);
@@ -86,6 +91,21 @@ export function LeadFollowUpDialog({
       )}
     >
       <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <Label>{t("crm.leads.followUp.type")}</Label>
+          <Select value={followUpTypeId || "__none__"} onValueChange={setFollowUpTypeId}>
+            <SelectTrigger>
+              <SelectValue placeholder={t("masterData.leadFollowUpTypes.select")} />
+            </SelectTrigger>
+            <SelectContent>
+              {followUpTypes.map((type) => (
+                <SelectItem key={type.id} value={type.id}>
+                  {type.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <div className="flex flex-col gap-1">
           <Label>{t("crm.leads.followUp.outcome")}</Label>
           <Select value={outcome} onValueChange={setOutcome}>

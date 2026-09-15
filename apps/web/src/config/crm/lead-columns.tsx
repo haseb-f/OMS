@@ -10,6 +10,36 @@ import { formatDisplayDate } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
 import type { LeadRow } from "@/services/leads-service";
 
+/**
+ * Initial ownership lifecycle (blue "New" vs. orange "Assigned") layered
+ * purely on top of the existing NEW status + `salesEmployeeId` — never a
+ * second status field. `salesEmployeeId` already flows through ONE
+ * canonical path (manual assign, bulk-assign, and Auto Distribution all
+ * call the same `LeadAssignmentsService.assign()`), so this derivation is
+ * automatically correct for every assignment source, including
+ * reassignment (still non-null, still "Assigned", never reverts to blue).
+ * Every later workflow status (IN_PROGRESS, QUALIFIED, CONVERTED, ...)
+ * renders unchanged via the dynamic Master Data color — this only
+ * overrides the single NEW case.
+ */
+export function leadLifecycleBadge(
+  lead: Pick<LeadRow, "status" | "salesEmployeeId">,
+  assignedLabel: string,
+) {
+  if (lead.status?.code === "NEW") {
+    return lead.salesEmployeeId
+      ? { label: assignedLabel, colorKey: "warning" }
+      : { label: lead.status.name, colorKey: "info" };
+  }
+  return { label: lead.status?.name ?? "—", colorKey: lead.status?.color };
+}
+
+export function LeadStatusCell({ lead }: { lead: Pick<LeadRow, "status" | "salesEmployeeId"> }) {
+  const { t } = useLocale();
+  const badge = leadLifecycleBadge(lead, t("crm.leads.ownership.assigned"));
+  return <DynamicStatusBadge label={badge.label} colorKey={badge.colorKey} />;
+}
+
 function NextFollowUpCell({ value }: { value: string | null }) {
   const { t } = useLocale();
   if (!value) return <span>—</span>;
@@ -96,12 +126,7 @@ export const leadColumns: ColumnDef<LeadRow, unknown>[] = [
     id: "status",
     meta: { titleKey: "common.status", type: "status" },
     enableSorting: false,
-    cell: ({ row }) => (
-      <DynamicStatusBadge
-        label={row.original.status?.name ?? "—"}
-        colorKey={row.original.status?.color}
-      />
-    ),
+    cell: ({ row }) => <LeadStatusCell lead={row.original} />,
   },
   {
     id: "source",

@@ -491,6 +491,16 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
     ],
   },
   {
+    key: 'lead-follow-up-types',
+    labelKey: 'permissions.modules.leadFollowUpTypes',
+    actions: [
+      { action: 'view', name: 'masterdata.lead-follow-up-types.view' },
+      { action: 'create', name: 'masterdata.lead-follow-up-types.create' },
+      { action: 'edit', name: 'masterdata.lead-follow-up-types.edit' },
+      { action: 'delete', name: 'masterdata.lead-follow-up-types.archive' },
+    ],
+  },
+  {
     key: 'job-titles',
     labelKey: 'permissions.modules.jobTitles',
     actions: [
@@ -1130,6 +1140,7 @@ export const IMPLIED_SECTION_PERMISSION: Record<
   'masterdata.departments': 'settings.view',
   'masterdata.customer-classifications': 'settings.view',
   'masterdata.no-purchase-reasons': 'settings.view',
+  'masterdata.lead-follow-up-types': 'settings.view',
   // TASK-062 — cross-cutting geographic/workflow reference data lives under
   // the standalone "master-data" sidebar section (`masterdata.view`, never
   // itself a grantable row — same "coarse section gate" convention as

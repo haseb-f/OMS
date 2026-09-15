@@ -12,7 +12,6 @@ import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { exportRowsToCsv } from "@/components/master-data/enterprise-data-table";
 import type { RowAction } from "@/components/shared/data-table";
 import { leadsService, type LeadRow } from "@/services/leads-service";
-import { productsService } from "@/services/products-service";
 import { type MasterDataActivityEntry } from "@/services/master-data-service";
 import {
   leadColumns,
@@ -55,7 +54,6 @@ function CrmLeadsPageContent() {
 
   const currencies = useCurrencies();
   const countries = useCountries();
-  const [products, setProducts] = useState<{ id: string; displayName: string; sku: string }[]>([]);
   const [assigningLead, setAssigningLead] = useState<LeadRow | null>(null);
   const [closeTarget, setCloseTarget] = useState<LeadRow | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -67,6 +65,7 @@ function CrmLeadsPageContent() {
   const [unassignedOnly, setUnassignedOnly] = useState(false);
   const [lifecycle, setLifecycle] = useState("active");
   const [classificationFilter, setClassificationFilter] = useState("all");
+  const [followUpFilter, setFollowUpFilter] = useState("all");
   const [employeeFilter, setEmployeeFilter] = useState("");
   const [eligibleEmployees, setEligibleEmployees] = useState<
     { id: string; fullName: string; email: string }[]
@@ -100,23 +99,6 @@ function CrmLeadsPageContent() {
       .then(setEligibleEmployees)
       .catch(() => setEligibleEmployees([]));
   }, [canAssign, refreshToken]);
-
-  useEffect(() => {
-    // /products/catalog, not the products.view-gated /products — the same
-    // "Unable to load products" class of failure a plain Sales Agent hit on
-    // the Convert-to-Order picker also applied here (Lead-as-Order create).
-    productsService
-      .catalog({
-        pageSize: 200,
-        isSellable: true,
-        sortBy: "displayName",
-        sortOrder: "asc",
-      })
-      .then((r) =>
-        setProducts(r.items.map((p) => ({ id: p.id, displayName: p.displayName, sku: p.sku }))),
-      )
-      .catch(() => setProducts([]));
-  }, []);
 
   /**
    * Smart Selection "Export Selected" — the selection itself may be a bare
@@ -178,8 +160,8 @@ function CrmLeadsPageContent() {
           {
             name: "productId",
             label: "crm.leads.fields.product",
-            type: "select",
-            options: products.map((p) => ({ value: p.id, label: `${p.displayName} (${p.sku})` })),
+            type: "product",
+            sellableOnly: true,
           },
           { name: "quantity", label: "crm.leads.fields.quantity", type: "number" },
           {
@@ -197,7 +179,7 @@ function CrmLeadsPageContent() {
         ],
       },
     ],
-    [t, currencies, products],
+    [t, currencies],
   );
 
   const leadSchema = useMemo(() => buildLeadSchema(countries, t), [countries, t]);
@@ -252,6 +234,7 @@ function CrmLeadsPageContent() {
           ...(employeeFilter ? { salesEmployeeId: employeeFilter } : {}),
           lifecycle,
           ...(classificationFilter !== "all" ? { classificationIds: classificationFilter } : {}),
+          ...(followUpFilter !== "all" ? { followUpFilter } : {}),
         }}
         extraFilters={
           <div className="flex flex-wrap items-center gap-3">
@@ -279,6 +262,18 @@ function CrmLeadsPageContent() {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={followUpFilter} onValueChange={setFollowUpFilter}>
+              <SelectTrigger size="sm" className="w-44">
+                <SelectValue placeholder={t("crm.leads.filters.followUp")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("crm.leads.filters.followUpAll")}</SelectItem>
+                <SelectItem value="today">{t("crm.leads.followUp.today")}</SelectItem>
+                <SelectItem value="overdue">{t("crm.leads.followUp.overdue")}</SelectItem>
+                <SelectItem value="upcoming">{t("crm.leads.filters.followUpUpcoming")}</SelectItem>
+                <SelectItem value="none">{t("crm.leads.filters.followUpNone")}</SelectItem>
+              </SelectContent>
+            </Select>
             {/* Employee filter — Section 8: only ever rendered for a scope
                 that's authorized to see other employees' Leads at all
                 (canAssign === ALL/TEAM). An OWN-scope Sales Agent gets no
@@ -292,7 +287,7 @@ function CrmLeadsPageContent() {
                 onChange={(employee) => setEmployeeFilter(employee?.id ?? "")}
                 getId={(employee) => employee.id}
                 getTitle={(employee) => employee.fullName}
-                getSubtitle={(employee) => employee.email}
+                getSearchText={(employee) => employee.email}
                 placeholder={t("crm.leads.filters.employee")}
                 searchPlaceholder={t("common.search")}
                 allowClear

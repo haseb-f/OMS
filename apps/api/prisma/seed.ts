@@ -2162,6 +2162,13 @@ async function main() {
       yearReset: false,
     },
     {
+      documentType: 'LEAD_FOLLOW_UP_TYPE',
+      label: 'Lead Follow-up Type',
+      docCode: 'LFT',
+      template: '{DOC}-{SEQ}',
+      yearReset: false,
+    },
+    {
       documentType: 'JOB_TITLE',
       label: 'Job Title',
       docCode: 'JT',

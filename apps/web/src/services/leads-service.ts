@@ -104,6 +104,8 @@ export interface LeadFollowUpRow {
   id: string;
   leadId: string;
   userId: string;
+  followUpTypeId: string | null;
+  followUpType: { id: string; name: string; nameEn: string | null } | null;
   outcome: string | null;
   note: string | null;
   followUpAt: string | null;
@@ -169,7 +171,7 @@ export const leadsService = {
   followUps: (id: string) => apiClient.get<LeadFollowUpRow[]>(`/leads/${id}/follow-ups`),
   addFollowUp: (
     id: string,
-    body: { outcome?: string; note?: string; followUpAt?: string; channel?: string },
+    body: { followUpTypeId?: string; outcome?: string; note?: string; followUpAt?: string },
   ) => apiClient.post<LeadFollowUpRow>(`/leads/${id}/follow-ups`, body),
   unassignedCount: () => apiClient.get<{ count: number }>("/leads/unassigned-count"),
   convert: (id: string, body: Record<string, unknown>) =>

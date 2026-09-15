@@ -969,6 +969,15 @@ export const navigationConfig: NavigationItem[] = [
     permissions: ["masterdata.no-purchase-reasons.view"],
   },
   {
+    id: "master-data-lead-follow-up-types",
+    titleKey: "masterData.leadFollowUpTypes.title",
+    parent: "settings",
+    route: "/master-data/lead-follow-up-types",
+    icon: "calendar-clock",
+    order: 2.5,
+    permissions: ["masterdata.lead-follow-up-types.view"],
+  },
+  {
     id: "settings-document-numbering",
     titleKey: "nav.settingsDocumentNumbering",
     parent: "settings",
