@@ -178,4 +178,10 @@ export const leadsService = {
     apiClient.post<LeadRow>(`/leads/${id}/close-without-purchase`, body),
   scope: () =>
     apiClient.get<{ kind: string; canAssign: boolean; canManage: boolean }>("/leads/scope"),
+  /** Smart Selection (Bulk Ops) — mixed-status batches are expected; partial success is reported, never all-or-nothing. */
+  bulkChangeStatus: (body: { leadIds: string[]; statusCode: string; reason?: string }) =>
+    apiClient.post<{ succeeded: string[]; failed: { id: string; message: string }[] }>(
+      "/leads/bulk-status",
+      body,
+    ),
 };

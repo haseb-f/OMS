@@ -138,3 +138,40 @@ export const leadExportColumns = [
 ];
 
 export const leadRowLabel = (row: LeadRow) => `${row.leadNumber} — ${row.customerName}`;
+
+/**
+ * Smart Selection "Export Selected" (bulk action bar) — flattens exactly
+ * the operational fields a caller is meant to see (never internal/hidden
+ * columns) into the same keys `leadExportColumns` already names, so this
+ * plugs straight into `exportRowsToCsv`. Mirrors `storeOrderPrintRow`'s
+ * shape/spirit for Store Orders.
+ */
+export function leadExportRow(row: LeadRow): Record<string, string> {
+  return {
+    leadNumber: row.leadNumber,
+    customerName: row.customerName,
+    mobileNumber: row.mobileNumber,
+    country: row.country?.name ?? "",
+    source: row.source,
+    classification: row.customerClassification?.name ?? "",
+    quantity: String(row.quantity),
+    status: row.status?.name ?? "",
+    salesEmployee: row.salesEmployee?.fullName ?? "",
+    nextFollowUpAt: row.nextFollowUpAt ? formatDisplayDate(row.nextFollowUpAt) : "",
+    createdAt: formatDisplayDate(row.createdAt),
+  };
+}
+
+export const leadExportSelectedColumns = [
+  "leadNumber",
+  "customerName",
+  "mobileNumber",
+  "country",
+  "source",
+  "classification",
+  "quantity",
+  "status",
+  "salesEmployee",
+  "nextFollowUpAt",
+  "createdAt",
+];

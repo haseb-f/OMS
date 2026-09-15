@@ -677,6 +677,10 @@ const en = {
       viewActivity: "View Activity",
       bulkArchivePartialFailure: "Failed to archive {count} of the selected items.",
     },
+    bulkSelection: {
+      selectionCleared: "Selection cleared because the filters changed.",
+      customCountPartial: "Only {count} matching records were available.",
+    },
     fields: {
       code: "Code",
       name: "Name",
@@ -1935,6 +1939,7 @@ const en = {
         reassign: "Transfer to employee",
         closeWithoutPurchase: "Close without purchase",
         transfer: "Transfer to employee",
+        exportSelected: "Export",
       },
       toasts: {
         created: "Customer added",
@@ -1948,6 +1953,34 @@ const en = {
         success: "Lead assigned.",
         noEligibleEmployees:
           'No eligible active employee found — grant the "Leads" permission to at least one active user.',
+      },
+      filters: {
+        employee: "Assigned Employee",
+      },
+      bulkSelection: {
+        customCountTitle: "Select a number of leads",
+        customCountLabel: "Number of leads",
+        customCountHint:
+          "The first {count} leads matching the current filters and sort will be selected.",
+        customCountConfirm: "Select leads",
+        customCountInvalid: "Enter a whole number greater than zero.",
+      },
+      bulkStatus: {
+        action: "Change Status",
+        dialogTitle: "Change Status",
+        selectedCount: "{count} leads selected",
+        newStatusLabel: "New status",
+        newStatusPlaceholder: "Select a status",
+        reasonLabel: "Reason (optional)",
+        reasonPlaceholder: "Add a note for this change...",
+        submit: "Change Status",
+        confirmTitle: "Confirm status change",
+        confirmDescription: "Change {count} selected leads to {status}?",
+        confirmAction: "Confirm",
+        successMessage: "{count} leads updated successfully.",
+        allFailedMessage:
+          "Could not change status for {count} leads — no valid transition from their current status.",
+        partialFailureMessage: "{count} skipped — no valid transition from their current status.",
       },
       distribution: {
         title: "Distribute Leads",

@@ -2,17 +2,25 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Contact, Archive, Eye, Plus, UserPlus, Shuffle } from "lucide-react";
+import { Contact, Archive, Eye, Plus, UserPlus, Shuffle, Workflow, Download } from "lucide-react";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
 import type { MasterDataFormSection } from "@/components/master-data/master-data-form";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import { SyncButton } from "@/components/shared/sync-button";
 import { EnterpriseButton } from "@/components/ui/button";
+import { EntityCombobox } from "@/components/shared/entity-combobox";
+import { exportRowsToCsv } from "@/components/master-data/enterprise-data-table";
 import type { RowAction } from "@/components/shared/data-table";
 import { leadsService, type LeadRow } from "@/services/leads-service";
 import { productsService } from "@/services/products-service";
 import { type MasterDataActivityEntry } from "@/services/master-data-service";
-import { leadColumns, leadExportColumns, leadRowLabel } from "@/config/crm/lead-columns";
+import {
+  leadColumns,
+  leadExportColumns,
+  leadExportRow,
+  leadExportSelectedColumns,
+  leadRowLabel,
+} from "@/config/crm/lead-columns";
 import { buildLeadSchema, leadDefaultValues } from "@/config/crm/lead-form";
 import { useLocale } from "@/providers/locale-provider";
 import { PermissionGate } from "@/components/shared/permission-gate";
@@ -20,6 +28,9 @@ import { LeadCloseWithoutPurchaseDialog } from "@/components/crm/lead-close-dial
 import { AssignLeadDialog } from "@/components/business/assign-lead-dialog";
 import { LeadOrderCreateDialog } from "@/components/business/lead-order-create-dialog";
 import { LeadDistributionModal } from "@/components/crm/lead-distribution-modal";
+import { BulkLeadStatusDialog } from "@/components/crm/bulk-lead-status-dialog";
+import { toast } from "@/lib/toast";
+import { ApiError } from "@/services/api-client";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
@@ -50,9 +61,16 @@ function CrmLeadsPageContent() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [distributionOpen, setDistributionOpen] = useState(false);
   const [bulkAssignIds, setBulkAssignIds] = useState<string[]>([]);
+  const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
+  const [bulkStatusIds, setBulkStatusIds] = useState<string[]>([]);
+  const [isExportingSelected, setIsExportingSelected] = useState(false);
   const [unassignedOnly, setUnassignedOnly] = useState(false);
   const [lifecycle, setLifecycle] = useState("active");
   const [classificationFilter, setClassificationFilter] = useState("all");
+  const [employeeFilter, setEmployeeFilter] = useState("");
+  const [eligibleEmployees, setEligibleEmployees] = useState<
+    { id: string; fullName: string; email: string }[]
+  >([]);
   const [unassignedCount, setUnassignedCount] = useState<number | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
 
@@ -66,6 +84,22 @@ function CrmLeadsPageContent() {
       .then((scope) => setCanAssign(scope.canAssign))
       .catch(() => setCanAssign(false));
   }, [refreshToken]);
+
+  useEffect(() => {
+    // Employee filter (Smart Selection) — reuses the same canonical,
+    // scope-aware eligible-assignee source the Reassign dialog already
+    // uses. Backend requires `assertCanAssign` for this endpoint, so an
+    // OWN-scope Sales Agent (canAssign === false) never even calls it —
+    // this filter is simply absent for them, never a cross-employee leak.
+    if (!canAssign) {
+      setEligibleEmployees([]);
+      return;
+    }
+    leadsService
+      .eligibleAssignees()
+      .then(setEligibleEmployees)
+      .catch(() => setEligibleEmployees([]));
+  }, [canAssign, refreshToken]);
 
   useEffect(() => {
     // /products/catalog, not the products.view-gated /products — the same
@@ -83,6 +117,31 @@ function CrmLeadsPageContent() {
       )
       .catch(() => setProducts([]));
   }, []);
+
+  /**
+   * Smart Selection "Export Selected" — the selection itself may be a bare
+   * server-side id set (all-filtered/custom-N never loads full records into
+   * the browser just to build a count), so export re-fetches the exact
+   * selected rows by id (still AND-ed with scope server-side — never a
+   * bypass) rather than depending on whatever page data happens to be
+   * cached client-side.
+   */
+  const handleExportSelected = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    setIsExportingSelected(true);
+    try {
+      const result = await leadsService.list({ ids, pageSize: ids.length });
+      exportRowsToCsv(
+        result.items.map((item) => leadExportRow(item)),
+        leadExportSelectedColumns,
+        "leads-selected.csv",
+      );
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+    } finally {
+      setIsExportingSelected(false);
+    }
+  };
 
   const formSections = useMemo<MasterDataFormSection[]>(
     () => [
@@ -180,8 +239,17 @@ function CrmLeadsPageContent() {
         defaultSortOrder="desc"
         disableArchiveRestore
         hideCreateButton
+        supportsSelectAllMatching
+        selectCustomCountCopy={{
+          title: t("crm.leads.bulkSelection.customCountTitle"),
+          countLabel: t("crm.leads.bulkSelection.customCountLabel"),
+          hint: (count) => t("crm.leads.bulkSelection.customCountHint", { count }),
+          confirmLabel: t("crm.leads.bulkSelection.customCountConfirm"),
+          invalidMessage: t("crm.leads.bulkSelection.customCountInvalid"),
+        }}
         extraListParams={{
           ...(unassignedOnly ? { unassigned: true } : {}),
+          ...(employeeFilter ? { salesEmployeeId: employeeFilter } : {}),
           lifecycle,
           ...(classificationFilter !== "all" ? { classificationIds: classificationFilter } : {}),
         }}
@@ -211,6 +279,26 @@ function CrmLeadsPageContent() {
                 ))}
               </SelectContent>
             </Select>
+            {/* Employee filter — Section 8: only ever rendered for a scope
+                that's authorized to see other employees' Leads at all
+                (canAssign === ALL/TEAM). An OWN-scope Sales Agent gets no
+                such control, so they can never even attempt to filter by
+                another employee — the backend AND's this with scope
+                regardless, but hiding it here keeps the UI honest too. */}
+            {canAssign ? (
+              <EntityCombobox
+                items={eligibleEmployees}
+                value={eligibleEmployees.find((employee) => employee.id === employeeFilter) ?? null}
+                onChange={(employee) => setEmployeeFilter(employee?.id ?? "")}
+                getId={(employee) => employee.id}
+                getTitle={(employee) => employee.fullName}
+                getSubtitle={(employee) => employee.email}
+                placeholder={t("crm.leads.filters.employee")}
+                searchPlaceholder={t("common.search")}
+                allowClear
+                triggerClassName="h-(--control-height-sm) w-52"
+              />
+            ) : null}
             {canAssign ? (
               <label className="flex items-center gap-2 text-caption">
                 <Checkbox
@@ -223,21 +311,46 @@ function CrmLeadsPageContent() {
             ) : null}
           </div>
         }
-        extraBulkActions={(ids) =>
-          canAssign ? (
+        extraBulkActions={(ids) => (
+          <>
+            {canAssign ? (
+              <EnterpriseButton
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setBulkAssignIds(ids);
+                  setDistributionOpen(true);
+                }}
+              >
+                <UserPlus className="size-3.5" />
+                {t("crm.leads.actions.assign")}
+              </EnterpriseButton>
+            ) : null}
             <EnterpriseButton
               type="button"
               size="sm"
               variant="outline"
               onClick={() => {
-                setBulkAssignIds(ids);
-                setDistributionOpen(true);
+                setBulkStatusIds(ids);
+                setBulkStatusOpen(true);
               }}
             >
-              {t("crm.leads.actions.assign")}
+              <Workflow className="size-3.5" />
+              {t("crm.leads.bulkStatus.action")}
             </EnterpriseButton>
-          ) : null
-        }
+            <EnterpriseButton
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={isExportingSelected}
+              onClick={() => void handleExportSelected(ids)}
+            >
+              <Download className="size-3.5" />
+              {t("crm.leads.actions.exportSelected")}
+            </EnterpriseButton>
+          </>
+        )}
         extraActions={
           <>
             {canAssign ? (
@@ -305,6 +418,15 @@ function CrmLeadsPageContent() {
           if (!open) setBulkAssignIds([]);
         }}
         selectedLeadIds={bulkAssignIds}
+        onChanged={() => setRefreshToken((n) => n + 1)}
+      />
+      <BulkLeadStatusDialog
+        open={bulkStatusOpen}
+        onOpenChange={(open) => {
+          setBulkStatusOpen(open);
+          if (!open) setBulkStatusIds([]);
+        }}
+        selectedIds={bulkStatusIds}
         onChanged={() => setRefreshToken((n) => n + 1)}
       />
       <AssignLeadDialog

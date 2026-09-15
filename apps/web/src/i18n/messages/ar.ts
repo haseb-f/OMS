@@ -675,6 +675,10 @@ const ar = {
       viewActivity: "عرض النشاط",
       bulkArchivePartialFailure: "تعذّر أرشفة {count} من العناصر المحددة.",
     },
+    bulkSelection: {
+      selectionCleared: "تم إلغاء التحديد بسبب تغيير عوامل التصفية.",
+      customCountPartial: "تتوفر فقط {count} نتيجة مطابقة.",
+    },
     fields: {
       code: "الرمز",
       name: "الاسم",
@@ -1916,6 +1920,7 @@ const ar = {
         reassign: "نقل إلى موظف",
         closeWithoutPurchase: "إغلاق بدون شراء",
         transfer: "نقل إلى موظف",
+        exportSelected: "تصدير",
       },
       toasts: {
         created: "تم إضافة العميل",
@@ -1929,6 +1934,33 @@ const ar = {
         success: "تم إسناد الليد.",
         noEligibleEmployees:
           'لا يوجد موظف نشط مؤهل — امنح صلاحية "الليدز" لمستخدم نشط واحد على الأقل.',
+      },
+      filters: {
+        employee: "الموظف المسؤول",
+      },
+      bulkSelection: {
+        customCountTitle: "تحديد عدد معين من الليدز",
+        customCountLabel: "عدد الليدز",
+        customCountHint: "سيتم تحديد أول {count} عميلاً محتملاً وفق التصفية والترتيب الحاليين.",
+        customCountConfirm: "تحديد",
+        customCountInvalid: "أدخل رقماً صحيحاً أكبر من صفر.",
+      },
+      bulkStatus: {
+        action: "تغيير الحالة",
+        dialogTitle: "تغيير الحالة",
+        selectedCount: "تم تحديد {count} عميلاً محتملاً",
+        newStatusLabel: "الحالة الجديدة",
+        newStatusPlaceholder: "اختر حالة",
+        reasonLabel: "السبب (اختياري)",
+        reasonPlaceholder: "أضف ملاحظة لهذا التغيير...",
+        submit: "تغيير الحالة",
+        confirmTitle: "تأكيد تغيير الحالة",
+        confirmDescription: "تغيير حالة {count} عميلاً محتملاً محدداً إلى {status}؟",
+        confirmAction: "تأكيد",
+        successMessage: "تم تحديث {count} عميلاً محتملاً بنجاح.",
+        allFailedMessage:
+          "تعذّر تغيير حالة {count} عميلاً محتملاً — لا يوجد انتقال صالح من حالتهم الحالية.",
+        partialFailureMessage: "تم تخطي {count} — لا يوجد انتقال صالح من حالتهم الحالية.",
       },
       distribution: {
         title: "توزيع الليدز",
