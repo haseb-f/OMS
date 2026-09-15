@@ -337,10 +337,6 @@ function SalesOrdersPageContent() {
               }}
               getId={(customer) => customer.id}
               getTitle={(customer) => customer.name}
-              getSubtitle={(customer) =>
-                customer.phone || customer.mobile || customer.email || undefined
-              }
-              subtitleDir="ltr"
             />
             <EnterpriseDateRangePicker
               value={dateRange}

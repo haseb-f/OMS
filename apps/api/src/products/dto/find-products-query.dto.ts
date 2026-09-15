@@ -25,6 +25,10 @@ import {
  * Table).
  */
 export class FindProductsQueryDto {
+  /** Resolve a picker's already-selected value(s) by id — e.g. an Edit form showing a Product picked before the current filters/search were applied. */
+  @IsOptionalUuidList()
+  ids?: string[];
+
   @IsOptionalUuidList()
   categoryId?: string[];
 

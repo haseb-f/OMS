@@ -56,11 +56,7 @@ export function ProductPicker({
       }}
       getId={(product) => product.id}
       getTitle={(product) => product.displayName || product.name}
-      getSubtitle={(product) =>
-        [product.sku, product.salesPrice ? formatMoney(product.salesPrice) : null]
-          .filter(Boolean)
-          .join(" · ")
-      }
+      getSubtitle={(product) => (product.salesPrice ? formatMoney(product.salesPrice) : undefined)}
       getSearchText={(product) =>
         `${product.sku} ${product.barcode ?? ""} ${product.internalName} ${product.name}`
       }

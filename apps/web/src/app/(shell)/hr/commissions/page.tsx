@@ -324,8 +324,6 @@ export default function CommissionsPage() {
                 onSearch={employeesService.search}
                 getId={(row) => row.id}
                 getTitle={(row) => row.name}
-                getSubtitle={(row) => row.employeeCode}
-                subtitleDir="ltr"
                 placeholder={t("hr.commissions.fields.employee")}
                 allowClear
               />
@@ -392,8 +390,6 @@ export default function CommissionsPage() {
               onSearch={employeesService.search}
               getId={(row) => row.id}
               getTitle={(row) => row.name}
-              getSubtitle={(row) => row.employeeCode}
-              subtitleDir="ltr"
               allowClear
             />
           </div>

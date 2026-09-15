@@ -366,8 +366,6 @@ function InventoryMovementsPageContent() {
               }}
               getId={(product) => product.id}
               getTitle={(product) => product.name}
-              getSubtitle={(product) => product.sku}
-              subtitleDir="ltr"
             />
             <MultiEntityFilter
               label={t("inventory.fields.warehouse")}
@@ -382,8 +380,6 @@ function InventoryMovementsPageContent() {
               }}
               getId={(warehouse) => warehouse.id}
               getTitle={(warehouse) => warehouse.name}
-              getSubtitle={(warehouse) => warehouse.code}
-              subtitleDir="ltr"
             />
             <MultiSelectFilter
               label={t("inventory.fields.type")}

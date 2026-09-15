@@ -163,8 +163,6 @@ export function KpiTemplateAssignmentsPanel({
             onSearch={employeesService.search}
             getId={(row) => row.id}
             getTitle={(row) => row.name}
-            getSubtitle={(row) => row.employeeCode}
-            subtitleDir="ltr"
             placeholder={t("hr.kpiTemplates.assignment.target")}
             allowClear
             triggerClassName="sm:w-64"

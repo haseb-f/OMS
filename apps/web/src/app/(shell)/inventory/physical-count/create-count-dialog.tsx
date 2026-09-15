@@ -1,9 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Search, X } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -172,11 +179,28 @@ export function CreateCountDialog({
               {selected.size === products.length ? t("common.deselectAll") : t("common.selectAll")}
             </EnterpriseButton>
           </div>
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder={t("table.filterPlaceholder")}
-          />
+          <InputGroup>
+            <InputGroupInput
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={t("table.filterPlaceholder")}
+            />
+            <InputGroupAddon>
+              <Search className="size-4 shrink-0 opacity-50" />
+            </InputGroupAddon>
+            {search ? (
+              <InputGroupAddon align="inline-end">
+                <InputGroupButton
+                  type="button"
+                  size="icon-xs"
+                  aria-label={t("table.clearSearch")}
+                  onClick={() => setSearch("")}
+                >
+                  <X />
+                </InputGroupButton>
+              </InputGroupAddon>
+            ) : null}
+          </InputGroup>
           <div className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-md border border-border p-2">
             {filteredProducts.length === 0 && (
               <p className="p-2 text-caption text-muted-foreground">{t("table.noResults")}</p>

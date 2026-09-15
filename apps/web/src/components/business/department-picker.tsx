@@ -48,11 +48,9 @@ export function DepartmentPicker({
           ? `${labelOf(department)} (${t("common.archived")})`
           : labelOf(department)
       }
-      getSubtitle={(department) => department.code}
       getSearchText={(department) =>
         `${department.code} ${department.name} ${department.nameEn ?? ""}`
       }
-      subtitleDir="ltr"
       placeholder={placeholder ?? t("masterData.departments.select")}
       disabled={disabled}
       allowClear={allowClear}

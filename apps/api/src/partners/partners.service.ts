@@ -86,6 +86,7 @@ export class PartnersService extends MasterDataCrudService<
     'name',
     'commercialName',
     'phone',
+    'mobile',
     'email',
   ];
 

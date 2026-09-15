@@ -836,7 +836,6 @@ function AddInvestorDialog({
           onSearch={(query) => investorsService.search(query)}
           getId={(row) => row.id}
           getTitle={(row) => row.name}
-          getSubtitle={(row) => row.phone ?? row.email ?? undefined}
         />
         <Input
           type="number"

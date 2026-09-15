@@ -482,8 +482,6 @@ export default function CommissionPlanEditorPage() {
                           getId={(employee) => employee.id}
                           getTitle={(employee) => employee.name}
                           getSearchText={(employee) => employee.employeeCode}
-                          getSubtitle={(employee) => employee.employeeCode}
-                          subtitleDir="ltr"
                           placeholder={t("common.select")}
                           allowClear
                         />
@@ -496,8 +494,6 @@ export default function CommissionPlanEditorPage() {
                           getId={(team) => team.id}
                           getTitle={(team) => team.name}
                           getSearchText={(team) => team.code}
-                          getSubtitle={(team) => team.code}
-                          subtitleDir="ltr"
                           placeholder={t("common.select")}
                           allowClear
                         />
@@ -510,8 +506,6 @@ export default function CommissionPlanEditorPage() {
                           getId={(department) => department.id}
                           getTitle={(department) => department.name}
                           getSearchText={(department) => department.code}
-                          getSubtitle={(department) => department.code}
-                          subtitleDir="ltr"
                           placeholder={t("common.select")}
                           allowClear
                         />

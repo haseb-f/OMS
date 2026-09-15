@@ -470,9 +470,7 @@ export function StoreOrderCreateDialog({
               items={countries}
               getId={(country) => country.id}
               getTitle={(country) => country.name}
-              getSubtitle={(country) => country.code}
               getSearchText={(country) => `${country.name} ${country.code}`}
-              subtitleDir="ltr"
               allowClear
               icon={<Globe className="size-3.5 shrink-0 text-muted-foreground" />}
             />

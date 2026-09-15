@@ -216,6 +216,7 @@ export class ProductsService {
     const where: Prisma.ProductWhereInput = {
       deletedAt: null,
       status: ProductStatus.ACTIVE,
+      id: query.ids?.length ? { in: query.ids } : undefined,
       categoryId: prismaEnumFilter(query.categoryId),
       brandId: prismaEnumFilter(query.brandId),
       isInventoryItem: query.isInventoryItem,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, UserCircle, Truck, User } from "lucide-react";
 import { CommandItem } from "@/components/ui/command";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
@@ -127,14 +127,6 @@ export function PartnerPicker({
     );
   };
 
-  const subtitle = useMemo(
-    () => (partner: PartnerRow) =>
-      [partner.partnerNumber, partner.phone || partner.mobile || partner.email]
-        .filter(Boolean)
-        .join(" · "),
-    [],
-  );
-
   return (
     <>
       <EntityCombobox
@@ -152,8 +144,6 @@ export function PartnerPicker({
         }}
         getId={(partner) => partner.id}
         getTitle={(partner) => partner.name}
-        getSubtitle={subtitle}
-        subtitleDir="ltr"
         placeholder={t(text.select)}
         searchPlaceholder={t(text.placeholder)}
         emptyText={t(text.noResults)}

@@ -29,9 +29,11 @@ import {
 } from "@/components/shared/phone-country-selector";
 import { OMSPhoneInput } from "@/components/shared/phone-input";
 import { AccountPicker } from "@/components/business/account-picker";
+import { ProductPicker } from "@/components/business/product-picker";
 import { ClassificationColorPicker } from "@/components/business/classification-badge";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { createMasterDataService } from "@/services/master-data-service";
+import { productsService, type ProductRow } from "@/services/products-service";
 import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
@@ -53,6 +55,7 @@ export interface MasterDataFormField {
     | "country"
     | "phone"
     | "account"
+    | "product"
     | "colorToken";
   required?: boolean;
   placeholder?: string;
@@ -60,6 +63,8 @@ export interface MasterDataFormField {
   options?: { value: string; label: string }[];
   /** `type: "account"` only — restricts the picker to leaf/posting accounts (e.g. Payment Method's linked account must never be a header account). */
   postingOnly?: boolean;
+  /** `type: "product"` only — forwarded to `ProductPicker` (defaults to sellable-only ACTIVE products; pass `false` for a general catalog field). */
+  sellableOnly?: boolean;
   description?: string;
   /**
    * `type: "phone"` only — the sibling field holding the selected
@@ -169,6 +174,51 @@ function AccountFormField<TFieldValues extends FieldValues>({
   );
 }
 
+/** Resolves a `type: "product"` field's stored id to the full row `ProductPicker` needs to display — via `/products/catalog?ids=` (the permission-safe document-building endpoint every non-products.view role can already browse), never the `products.view`-gated `/products/:id`. */
+function ProductFormField<TFieldValues extends FieldValues>({
+  rhfField,
+  sellableOnly,
+}: {
+  rhfField: ControllerRenderProps<TFieldValues, never>;
+  sellableOnly?: boolean;
+}) {
+  const id = rhfField.value as string | undefined;
+  const [resolved, setResolved] = useState<ProductRow | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setResolved(null);
+      return;
+    }
+    if (resolved?.id === id) return;
+    productsService
+      .catalog({ ids: [id], pageSize: 1 })
+      .then((result) => {
+        if (!cancelled) setResolved(result.items[0] ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setResolved(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  return (
+    <ProductPicker
+      value={resolved}
+      onChange={(product) => {
+        setResolved(product);
+        rhfField.onChange(product?.id ?? undefined);
+      }}
+      sellableOnly={sellableOnly}
+    />
+  );
+}
+
 function FormFieldGrid<TFieldValues extends FieldValues>({
   form,
   fields,
@@ -261,6 +311,8 @@ function FormFieldGrid<TFieldValues extends FieldValues>({
                         postingOnly={field.postingOnly}
                         placeholder={field.placeholder}
                       />
+                    ) : field.type === "product" ? (
+                      <ProductFormField rhfField={rhfField} sellableOnly={field.sellableOnly} />
                     ) : field.type === "colorToken" ? (
                       <ClassificationColorPicker
                         value={rhfField.value || "neutral"}

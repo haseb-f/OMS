@@ -165,6 +165,32 @@ describe('Product conversion picker query', () => {
     expect(ids).toContain(productBId);
     expect(ids).not.toContain(productCId);
   });
+
+  /**
+   * Section B/E4 — `MasterDataForm`'s `type: "product"` field (Lead
+   * creation's Product picker) resolves an already-selected id back to a
+   * full row via `/products/catalog?ids=`, the permission-safe endpoint
+   * every document-building role can already browse — never the
+   * `products.view`-gated `/products/:id`. Locks in that the `ids` filter
+   * actually narrows the catalog result to just the requested row(s).
+   */
+  it('findSellableCatalog(ids) resolves an exact product by id, ignoring other filters', async () => {
+    const result = await service.findSellableCatalog({
+      ids: [productAId],
+      pageSize: 25,
+    });
+
+    expect(result.items.map((p) => p.id)).toEqual([productAId]);
+  });
+
+  it('findSellableCatalog(ids) still excludes an inactive product even when explicitly requested', async () => {
+    const result = await service.findSellableCatalog({
+      ids: [productCId],
+      pageSize: 25,
+    });
+
+    expect(result.items.map((p) => p.id)).not.toContain(productCId);
+  });
 });
 
 /**

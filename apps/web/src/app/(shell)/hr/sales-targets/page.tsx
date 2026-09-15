@@ -371,8 +371,6 @@ export default function SalesTargetsPage() {
                 getId={(employee) => employee.id}
                 getTitle={(employee) => employee.name}
                 getSearchText={(employee) => employee.employeeCode}
-                getSubtitle={(employee) => employee.employeeCode}
-                subtitleDir="ltr"
                 placeholder={t("common.select")}
                 allowClear
               />
@@ -389,8 +387,6 @@ export default function SalesTargetsPage() {
                 getId={(team) => team.id}
                 getTitle={(team) => team.name}
                 getSearchText={(team) => team.code}
-                getSubtitle={(team) => team.code}
-                subtitleDir="ltr"
                 placeholder={t("common.select")}
                 allowClear
               />

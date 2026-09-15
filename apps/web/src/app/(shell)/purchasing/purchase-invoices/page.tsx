@@ -315,8 +315,6 @@ function PurchaseInvoicesPageContent() {
               }}
               getId={(supplier) => supplier.id}
               getTitle={(supplier) => supplier.name}
-              getSubtitle={(supplier) => supplier.phone || supplier.email || undefined}
-              subtitleDir="ltr"
             />
             <EnterpriseDateRangePicker
               value={dateRange}

@@ -272,8 +272,6 @@ export default function KpiEvaluationsPage() {
               onSearch={employeesService.search}
               getId={(row) => row.id}
               getTitle={(row) => row.name}
-              getSubtitle={(row) => row.employeeCode}
-              subtitleDir="ltr"
               allowClear
             />
           </div>

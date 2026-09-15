@@ -105,6 +105,7 @@ export interface ProductAttachmentRow {
 }
 
 export interface ProductListParams {
+  ids?: string[];
   search?: string;
   page?: number;
   pageSize?: number;

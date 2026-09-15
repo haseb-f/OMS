@@ -227,7 +227,7 @@ export function SalesTeamEditorModal({
               onChange={setManager}
               getId={(user) => user.id}
               getTitle={(user) => user.fullName}
-              getSubtitle={(user) => user.username}
+              getSearchText={(user) => user.username}
               placeholder={t("crm.salesTeams.selectManager")}
               disabled={!department}
             />

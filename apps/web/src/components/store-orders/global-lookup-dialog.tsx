@@ -6,7 +6,7 @@ import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { FieldLabel } from "@/components/ui/form";
 import {
   Table,
@@ -127,20 +127,24 @@ export function GlobalLookupDialog({
               : t("storeOrders.globalLookup.methodOrder")}
           </FieldLabel>
           <div className="flex gap-2">
-            <Input
-              dir="ltr"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") void search();
-              }}
-              placeholder={
-                method === "phone"
-                  ? t("storeOrders.globalLookup.phonePlaceholder")
-                  : t("storeOrders.globalLookup.orderPlaceholder")
-              }
-              className="flex-1"
-            />
+            <InputGroup className="flex-1">
+              <InputGroupAddon>
+                <Search />
+              </InputGroupAddon>
+              <InputGroupInput
+                dir="ltr"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") void search();
+                }}
+                placeholder={
+                  method === "phone"
+                    ? t("storeOrders.globalLookup.phonePlaceholder")
+                    : t("storeOrders.globalLookup.orderPlaceholder")
+                }
+              />
+            </InputGroup>
             <EnterpriseButton
               type="button"
               onClick={() => void search()}
