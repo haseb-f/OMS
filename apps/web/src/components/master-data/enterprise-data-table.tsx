@@ -175,6 +175,7 @@ export function EnterpriseDataTable<TData>({
   filterBar,
   renderMobileRow,
   getRowHref,
+  identityOnlyNavigation,
 }: {
   columns: ColumnDef<TData, unknown>[];
   data: TData[];
@@ -252,6 +253,16 @@ export function EnterpriseDataTable<TData>({
    * trigger row navigation.
    */
   getRowHref?: (row: TData) => string | null | undefined;
+  /**
+   * When the row itself has enough clickable inline controls (quick-edit
+   * selects, attachments, tracking) that "click anywhere navigates" turns
+   * every blank cell into an accidental navigation trap — Shipping, not
+   * ordinary Master Data lists — set this to make the row inert and rely
+   * entirely on `meta.identity` columns (see `getRowHref`'s own doc) for
+   * navigation. Every other table keeps the default "whole row navigates,
+   * interactive children opt out" behavior.
+   */
+  identityOnlyNavigation?: boolean;
 }) {
   const { t, direction } = useLocale();
   const router = useRouter();
@@ -1225,10 +1236,10 @@ export function EnterpriseDataTable<TData>({
                           // Backgrounds are unaffected by that rule, so
                           // hover/selected tint stays here as normal.
                           "transition-colors duration-150 motion-reduce:transition-none hover:bg-muted/40 data-[state=selected]:bg-primary-soft",
-                          rowHref && "cursor-pointer",
+                          rowHref && !identityOnlyNavigation && "cursor-pointer",
                         )}
                         onClick={
-                          rowHref
+                          rowHref && !identityOnlyNavigation
                             ? (event) => {
                                 const target = event.target as HTMLElement;
                                 // Interactive children (checkbox, expand chevron,

@@ -90,7 +90,12 @@ export function buildShipmentColumns(
     },
     {
       id: "customer",
-      meta: { titleKey: "shipping.fields.customer", stacked: true, type: "name" },
+      meta: {
+        titleKey: "shipping.fields.customer",
+        stacked: true,
+        type: "name",
+        identity: true,
+      },
       accessorFn: (row) => row.storeOrder.partner?.name ?? "—",
       cell: ({ row }) => (
         <StackedCell
