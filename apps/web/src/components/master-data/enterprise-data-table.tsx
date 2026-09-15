@@ -437,6 +437,51 @@ export function EnterpriseDataTable<TData>({
   const effectiveSearch = search ?? internalSearch;
   const handleSearchChange = onSearchChange ?? setInternalSearch;
 
+  // Debounce the committed search value (not the input's own displayed
+  // text) so a server-mode table doesn't fire one request per keystroke —
+  // client-mode tables filter in-memory off the same debounced value too,
+  // which costs nothing noticeable and keeps one code path for both modes.
+  // `pendingSearchRef` distinguishes "we just committed this ourselves" from
+  // an external reset (session restore, a bulk-selection query change, the
+  // empty-state's Clear action) so that kind of change resyncs the draft
+  // immediately instead of being mistaken for stale debounce state.
+  const [searchDraft, setSearchDraft] = useState(effectiveSearch);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingSearchRef = useRef(effectiveSearch);
+
+  useEffect(() => {
+    if (effectiveSearch === pendingSearchRef.current) return;
+    pendingSearchRef.current = effectiveSearch;
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    setSearchDraft(effectiveSearch);
+  }, [effectiveSearch]);
+
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, []);
+
+  const commitSearch = useCallback(
+    (value: string) => {
+      pendingSearchRef.current = value;
+      handleSearchChange(value);
+    },
+    [handleSearchChange],
+  );
+
+  const handleSearchInput = (value: string) => {
+    setSearchDraft(value);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => commitSearch(value), 350);
+  };
+
+  const handleSearchClear = () => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    setSearchDraft("");
+    commitSearch("");
+  };
+
   /**
    * An empty result while a search term is active means "no match", not
    * "nothing here" — names the term and offers one click back to the full
@@ -448,12 +493,7 @@ export function EnterpriseDataTable<TData>({
         title: t("table.noSearchResults", { term: effectiveSearch.trim() }),
         description: t("table.noSearchResultsHint"),
         action: (
-          <EnterpriseButton
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => handleSearchChange("")}
-          >
+          <EnterpriseButton type="button" variant="outline" size="sm" onClick={handleSearchClear}>
             {t("table.clearSearch")}
           </EnterpriseButton>
         ),
@@ -613,7 +653,10 @@ export function EnterpriseDataTable<TData>({
       columnFilters: isServerMode ? [] : columnFilters,
       sorting,
       pagination,
-      globalFilter: effectiveSearch,
+      // The undebounced draft — client-mode filtering is in-memory and free,
+      // so it should react on every keystroke; only the server-mode
+      // `onSearchChange` commit (below) is debounced.
+      globalFilter: searchDraft,
       expanded,
     },
     getRowId: resolveRowId,
@@ -656,7 +699,7 @@ export function EnterpriseDataTable<TData>({
         setInternalSorting(next);
       }
     },
-    onGlobalFilterChange: (value: string) => handleSearchChange(value),
+    onGlobalFilterChange: (value: string) => handleSearchInput(value),
     onPaginationChange: (updater) => {
       const next = typeof updater === "function" ? updater(pagination) : updater;
       if (isServerMode) {
@@ -885,17 +928,17 @@ export function EnterpriseDataTable<TData>({
         <ListToolbar>
           <InputGroup className="h-(--control-height-sm) max-w-(--width-control-search)">
             <InputGroupInput
-              value={effectiveSearch}
-              onChange={(event) => handleSearchChange(event.target.value)}
+              value={searchDraft}
+              onChange={(event) => handleSearchInput(event.target.value)}
               placeholder={searchPlaceholder ?? t("table.filterPlaceholder")}
             />
-            {effectiveSearch ? (
+            {searchDraft ? (
               <InputGroupAddon align="inline-end">
                 <InputGroupButton
                   type="button"
                   size="icon-xs"
                   aria-label={t("table.clearSearch")}
-                  onClick={() => handleSearchChange("")}
+                  onClick={handleSearchClear}
                 >
                   <X />
                 </InputGroupButton>
@@ -1192,9 +1235,19 @@ export function EnterpriseDataTable<TData>({
                                 // actions menu, the identity link itself, any
                                 // inline control) own their own click — only a
                                 // click on inert row space navigates.
+                                // `[data-radix-popper-content-wrapper]` covers
+                                // every Radix Popper-anchored overlay (Select,
+                                // Popover, DropdownMenu, and any cmdk Command
+                                // rendered inside a Popover, e.g. EntityCombobox)
+                                // even though it's portaled outside the row's own
+                                // DOM subtree — React still bubbles the click to
+                                // this row handler through the component tree, so
+                                // without this guard picking an option from one of
+                                // those inline quick-edit controls both saves the
+                                // row AND navigates it away.
                                 if (
                                   target.closest(
-                                    'a, button, input, select, textarea, [role="menuitem"], [data-radix-collection-item], [contenteditable="true"]',
+                                    'a, button, input, select, textarea, [role="menuitem"], [role="option"], [data-radix-collection-item], [data-radix-popper-content-wrapper], [contenteditable="true"]',
                                   )
                                 ) {
                                   return;
