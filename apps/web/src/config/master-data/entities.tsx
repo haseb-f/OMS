@@ -1042,6 +1042,88 @@ export const fulfillmentCostRulesExportColumns = [
 export const fulfillmentCostRuleRowLabel = (row: DirectFulfillmentCostRuleRow) => row.name;
 
 // ---------------------------------------------------------------------------
+// Cost Allocation Rules (M4, Cost Module completion) — activates the
+// previously schema-only CostAllocationRule (ADR-0014) for real Run
+// execution. `method`/`targetDimension` are closed sets, same convention as
+// every other fixed-vocabulary Master Data enum field.
+// ---------------------------------------------------------------------------
+
+export interface CostAllocationRuleRow {
+  id: string;
+  name: string;
+  method: "BY_QUANTITY" | "BY_COST" | "EQUAL" | "MANUAL";
+  targetDimension: "PRODUCT" | "CHANNEL" | "CUSTOMER" | "EMPLOYEE" | "COUNTRY" | null;
+  description: string | null;
+  isActive: boolean;
+  deletedAt: string | null;
+}
+
+/** Option `value`s only — resolved to translated `label`s at render time by the page component (`t()` needs a hook, unavailable in this module-scope config), same split `fulfillmentCostRulesFormFieldsHead/Tail` uses for its `currencyId` field. */
+export const COST_ALLOCATION_METHOD_VALUES = ["BY_QUANTITY", "BY_COST", "EQUAL", "MANUAL"] as const;
+export const COST_ALLOCATION_DIMENSION_VALUES = [
+  "PRODUCT",
+  "CHANNEL",
+  "CUSTOMER",
+  "EMPLOYEE",
+  "COUNTRY",
+] as const;
+
+function MethodCell({ method }: { method: CostAllocationRuleRow["method"] }) {
+  const { t } = useLocale();
+  return <>{t(`masterData.costAllocationRules.methodValues.${method}` as MessageKey)}</>;
+}
+
+function DimensionCell({ dimension }: { dimension: CostAllocationRuleRow["targetDimension"] }) {
+  const { t } = useLocale();
+  if (!dimension) return <>—</>;
+  return <>{t(`masterData.costAllocationRules.dimensionValues.${dimension}` as MessageKey)}</>;
+}
+
+export const costAllocationRulesColumns: ColumnDef<CostAllocationRuleRow, unknown>[] = [
+  textColumn("name", "masterData.fields.name", (r) => r.name),
+  {
+    id: "method",
+    meta: { titleKey: "masterData.costAllocationRules.method" },
+    accessorFn: (row) => row.method,
+    cell: ({ row }) => <MethodCell method={row.original.method} />,
+  },
+  {
+    id: "targetDimension",
+    meta: { titleKey: "masterData.costAllocationRules.targetDimension" },
+    accessorFn: (row) => row.targetDimension ?? "",
+    cell: ({ row }) => <DimensionCell dimension={row.original.targetDimension} />,
+  },
+  statusColumn<CostAllocationRuleRow>(),
+];
+
+export const costAllocationRulesFormFieldsHead: MasterDataFormField[] = [
+  { name: "name", label: "masterData.fields.name", type: "text", required: true },
+];
+
+export const costAllocationRulesFormFieldsTail: MasterDataFormField[] = [
+  { name: "description", label: "masterData.fields.description", type: "text" },
+  { name: "isActive", label: "masterData.fields.isActive", type: "boolean" },
+];
+
+export const costAllocationRulesSchema = z.object({
+  name: z.string().min(1),
+  method: z.enum(["BY_QUANTITY", "BY_COST", "EQUAL", "MANUAL"]),
+  targetDimension: z.enum(["PRODUCT", "CHANNEL", "CUSTOMER", "EMPLOYEE", "COUNTRY"]),
+  description: z.string().optional().or(z.literal("")),
+  isActive: z.boolean().optional(),
+});
+
+export const costAllocationRulesDefaultValues = {
+  name: "",
+  method: "" as const,
+  targetDimension: "" as const,
+  description: "",
+  isActive: true,
+};
+export const costAllocationRulesExportColumns = ["name", "method", "targetDimension"];
+export const costAllocationRuleRowLabel = (row: CostAllocationRuleRow) => row.name;
+
+// ---------------------------------------------------------------------------
 // Payment Terms (code is auto-generated — never in formFields/schema)
 // ---------------------------------------------------------------------------
 

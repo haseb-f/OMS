@@ -703,6 +703,15 @@ export const navigationConfig: NavigationItem[] = [
     permissions: ["carrier-reconciliation.view"],
   },
   {
+    id: "finance-cost-allocation-rules",
+    titleKey: "nav.financeCostAllocationRules",
+    parent: "finance",
+    route: "/finance/cost-allocation-rules",
+    icon: "git-branch",
+    order: 13.7,
+    permissions: ["masterdata.cost-allocation-rules.view"],
+  },
+  {
     id: "finance-projects",
     titleKey: "nav.financeProjects",
     parent: "finance",
