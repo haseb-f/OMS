@@ -33,6 +33,7 @@ const INCLUDE = {
   investorProfitDistributionAccount: true,
   investorProfitPayableAccount: true,
   capitalReturnAccount: true,
+  landedCostClearingAccount: true,
 } as const;
 
 /**

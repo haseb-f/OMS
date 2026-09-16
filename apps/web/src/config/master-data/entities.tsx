@@ -7,6 +7,7 @@ import { StackedCell } from "@/components/shared/stacked-cell";
 import { statusColumn, textColumn } from "./shared-columns";
 import { formatDate } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
+import type { MessageKey } from "@/i18n/translate";
 import type { TransactionTypeRow } from "@/services/transaction-types-service";
 
 // ---------------------------------------------------------------------------
@@ -44,6 +45,34 @@ export interface CurrencyRow {
   code: string;
   name: string;
   symbol: string | null;
+  deletedAt: string | null;
+}
+
+export type CostAccountingClassValue =
+  "INVENTORY_ACQUISITION" | "COGS" | "FULFILLMENT" | "TRANSACTION" | "OPERATING_EXPENSE" | "OTHER";
+
+export const COST_ACCOUNTING_CLASSES: CostAccountingClassValue[] = [
+  "INVENTORY_ACQUISITION",
+  "COGS",
+  "FULFILLMENT",
+  "TRANSACTION",
+  "OPERATING_EXPENSE",
+  "OTHER",
+];
+
+/** ADR-0017 (Cost Engine M1) — Cost Category vocabulary + accounting behavior. */
+export interface CostComponentRow {
+  id: string;
+  code: string;
+  name: string;
+  nameEn: string | null;
+  description: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  accountingClass: CostAccountingClassValue;
+  capitalizable: boolean;
+  defaultAccountId: string | null;
+  defaultAccount?: { id: string; code: string; name: string } | null;
   deletedAt: string | null;
 }
 
@@ -1625,3 +1654,94 @@ export const TRANSACTION_ACCOUNTING_TREATMENTS = [
   "NEUTRAL",
 ] as const;
 export const languageRowLabel = (row: LanguageRow) => `${row.code} — ${row.name}`;
+
+// ---------------------------------------------------------------------------
+// Cost Categories (ADR-0017 — Cost Engine M1)
+
+function CostComponentAccountingClassCell({ row }: { row: CostComponentRow }) {
+  const { t } = useLocale();
+  return <>{t(`masterData.costAccountingClass.${row.accountingClass}` as MessageKey)}</>;
+}
+
+function CostComponentCapitalizableCell({ row }: { row: CostComponentRow }) {
+  const { t } = useLocale();
+  return (
+    <StatusBadge
+      label={row.capitalizable ? t("common.yes") : t("common.no")}
+      tone={row.capitalizable ? "success" : "neutral"}
+    />
+  );
+}
+
+export const costComponentsColumns: ColumnDef<CostComponentRow, unknown>[] = [
+  textColumn("code", "masterData.fields.code", (r) => r.code),
+  textColumn("name", "masterData.fields.name", (r) => r.name),
+  textColumn("nameEn", "masterData.fields.nameEn", (r) => r.nameEn),
+  {
+    id: "accountingClass",
+    meta: { titleKey: "masterData.fields.accountingClass" },
+    accessorFn: (row) => row.accountingClass,
+    cell: ({ row }) => <CostComponentAccountingClassCell row={row.original} />,
+  },
+  {
+    id: "capitalizable",
+    meta: { titleKey: "masterData.fields.capitalizable" },
+    accessorFn: (row) => row.capitalizable,
+    cell: ({ row }) => <CostComponentCapitalizableCell row={row.original} />,
+    enableSorting: false,
+  },
+  statusColumn<CostComponentRow>(),
+];
+
+/** Head fields, before the page splices in the live `accountingClass`/`defaultAccountId` selects. */
+export const costComponentsFormFieldsHead: MasterDataFormField[] = [
+  { name: "name", label: "masterData.fields.name", type: "text", required: true },
+  { name: "nameEn", label: "masterData.fields.nameEn", type: "text" },
+];
+
+/** Tail fields, after the spliced-in selects. */
+export const costComponentsFormFieldsTail: MasterDataFormField[] = [
+  { name: "capitalizable", label: "masterData.fields.capitalizable", type: "boolean" },
+  { name: "sortOrder", label: "masterData.fields.sortOrder", type: "number" },
+  { name: "isActive", label: "masterData.fields.isActive", type: "boolean" },
+  { name: "description", label: "masterData.fields.description", type: "textarea", span: "full" },
+];
+
+export const costComponentsSchema = z.object({
+  name: z.string().min(1),
+  nameEn: z.string().nullable().optional().or(z.literal("")),
+  sortOrder: z.number().optional(),
+  isActive: z.boolean().optional(),
+  accountingClass: z.enum([
+    "INVENTORY_ACQUISITION",
+    "COGS",
+    "FULFILLMENT",
+    "TRANSACTION",
+    "OPERATING_EXPENSE",
+    "OTHER",
+  ]),
+  capitalizable: z.boolean().optional(),
+  defaultAccountId: z.string().nullable().optional().or(z.literal("")),
+  description: z.string().nullable().optional().or(z.literal("")),
+});
+
+export const costComponentsDefaultValues = {
+  name: "",
+  nameEn: "",
+  sortOrder: 0,
+  isActive: true,
+  accountingClass: "OTHER" as CostAccountingClassValue,
+  capitalizable: false,
+  defaultAccountId: "",
+  description: "",
+};
+
+export const costComponentsExportColumns = [
+  "code",
+  "name",
+  "nameEn",
+  "accountingClass",
+  "capitalizable",
+];
+
+export const costComponentRowLabel = (row: CostComponentRow) => `${row.code} — ${row.name}`;

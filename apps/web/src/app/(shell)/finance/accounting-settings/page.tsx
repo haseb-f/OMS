@@ -94,6 +94,10 @@ const SECTIONS: SectionConfig[] = [
         key: "inventoryAdjustmentAccountId",
         labelKey: "accounting.settings.fields.inventoryAdjustment",
       },
+      {
+        key: "landedCostClearingAccountId",
+        labelKey: "accounting.settings.fields.landedCostClearing",
+      },
     ],
   },
   {

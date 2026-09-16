@@ -90,4 +90,7 @@ export class UpdatePostingSettingsDto {
 
   @IsOptionalUuid()
   capitalReturnAccountId?: string;
+
+  @IsOptionalUuid()
+  landedCostClearingAccountId?: string;
 }

@@ -282,6 +282,15 @@ export const navigationConfig: NavigationItem[] = [
     permissions: ["purchasing.returns.view"],
   },
   {
+    id: "purchasing-landed-cost",
+    titleKey: "nav.purchasingLandedCost",
+    parent: "purchasing",
+    route: "/purchasing/landed-cost",
+    icon: "ship",
+    order: 6,
+    permissions: ["landed-cost.view"],
+  },
+  {
     id: "products",
     titleKey: "nav.products",
     icon: "package",
@@ -541,6 +550,15 @@ export const navigationConfig: NavigationItem[] = [
     route: "/expenses/product-cost",
     icon: "file-text",
     order: 1,
+  },
+  {
+    id: "expenses-cost-explorer",
+    titleKey: "nav.expensesCostExplorer",
+    parent: "expenses",
+    route: "/expenses/cost-explorer",
+    icon: "layers",
+    order: 2,
+    permissions: ["cost-explorer.view"],
   },
 
   {

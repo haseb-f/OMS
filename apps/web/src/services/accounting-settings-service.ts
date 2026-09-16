@@ -60,6 +60,8 @@ export interface AccountingSettingsRow {
   defaultAllowanceExpenseAccount: AccountRef | null;
   defaultDeductionAccountId: string | null;
   defaultDeductionAccount: AccountRef | null;
+  landedCostClearingAccountId: string | null;
+  landedCostClearingAccount: AccountRef | null;
 }
 
 export type AccountingSettingsField = Extract<keyof AccountingSettingsRow, `${string}Id`>;
