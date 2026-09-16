@@ -21,10 +21,4 @@ pnpm --filter api exec prisma generate
 pnpm --filter api exec ts-node prisma/provision-permissions.ts \
   || echo "provision-permissions.ts failed (non-fatal) — see above."
 
-# One-time cleanup for the temporary M3/M4 QA E2E account — disables it and
-# revokes its permissions. Idempotent no-op once already run. Removed from
-# this script again in the next deploy.
-pnpm --filter api exec ts-node prisma/deprovision-qa-costmodule.ts \
-  || echo "deprovision-qa-costmodule.ts failed (non-fatal) — see above."
-
 pnpm --filter web run build
