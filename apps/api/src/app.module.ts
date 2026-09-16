@@ -38,6 +38,7 @@ import { TransactionTypesModule } from './transaction-types/transaction-types.mo
 import { SalesOrdersModule } from './sales-orders/sales-orders.module';
 import { PaymentSourcesModule } from './payment-sources/payment-sources.module';
 import { FulfillmentCostRulesModule } from './fulfillment-cost-rules/fulfillment-cost-rules.module';
+import { CarrierReconciliationModule } from './carrier-reconciliation/carrier-reconciliation.module';
 import { PaymentsModule } from './payments/payments.module';
 import { ChartOfAccountsModule } from './chart-of-accounts/chart-of-accounts.module';
 import { ReceivingAccountsModule } from './receiving-accounts/receiving-accounts.module';
@@ -135,6 +136,7 @@ import { InvestorPortalModule } from './investor-portal/investor-portal.module';
     ReceivingAccountsModule,
     PaymentSourcesModule,
     FulfillmentCostRulesModule,
+    CarrierReconciliationModule,
     PaymentTermsModule,
     DepartmentsModule,
     CustomerClassificationsModule,

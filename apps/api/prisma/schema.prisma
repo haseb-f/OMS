@@ -498,6 +498,7 @@ model Currency {
   investorLedgerEntries      InvestorLedgerEntry[]
   landedCostDocuments        LandedCostDocument[]
   directFulfillmentCostRules DirectFulfillmentCostRule[]
+  carrierCharges             CarrierCharge[]
 
   @@map("currencies")
 }
@@ -958,7 +959,8 @@ model ShippingCompany {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  shipments Shipment[]
+  shipments      Shipment[]
+  carrierCharges CarrierCharge[]
 
   @@map("shipping_companies")
 }
@@ -1745,6 +1747,13 @@ model Shipment {
   /// keeps using `attachments` (SalesOrderAttachment) above.
   receiptAttachments ShipmentAttachment[]
 
+  /// ADR-0018 (M2 gap closure) — every CarrierCharge ever matched to this
+  /// Attempt (REVIEW_REQUIRED candidates included); at most one may be
+  /// CONFIRMED at a time (enforced in CarrierReconciliationService, not the
+  /// schema — Prisma has no partial-unique-index syntax for "one CONFIRMED
+  /// per shipment").
+  carrierCharges CarrierCharge[]
+
   @@index([storeOrderId])
   @@index([salesOrderId])
   @@index([status, createdAt])
@@ -2367,6 +2376,101 @@ model StoreOrderFulfillmentCost {
 enum FulfillmentCostSource {
   STANDARD
   ACTUAL
+}
+
+/// ADR-0018 (Order Economics M2 gap closure) — one file upload's worth of
+/// carrier charge rows, mirroring the existing Import Center batch-summary
+/// pattern (counts by outcome, never a silent per-row import).
+model CarrierChargeImport {
+  id String @id @default(uuid()) @db.Uuid
+
+  fileName   String?
+  importedAt DateTime @default(now()) @map("imported_at")
+  importedBy String?  @map("imported_by") @db.Uuid
+
+  totalRows     Int @default(0) @map("total_rows")
+  matchedRows   Int @default(0) @map("matched_rows")
+  reviewRows    Int @default(0) @map("review_rows")
+  unmatchedRows Int @default(0) @map("unmatched_rows")
+  duplicateRows Int @default(0) @map("duplicate_rows")
+
+  charges CarrierCharge[]
+
+  @@map("carrier_charge_imports")
+}
+
+/// UNMATCHED (no reliable Shipment found) → MATCHED (deterministic
+/// candidate, not yet financially confirmed) → CONFIRMED (accepted as the
+/// authoritative CONFIRMED ACTUAL shipping cost for that Shipment
+/// Attempt) — or REVIEW_REQUIRED when more than one candidate Shipment
+/// matches and auto-confirming would be a guess.
+enum CarrierReconciliationState {
+  UNMATCHED
+  MATCHED
+  REVIEW_REQUIRED
+  CONFIRMED
+}
+
+/// ADR-0018 (Order Economics M2 gap closure) — one imported carrier charge
+/// line. Never a second Accounts Payable system: this is the reconciliation
+/// layer that determines the ACTUAL/CONFIRMED ACTUAL shipping cost
+/// `OrderEconomicsService` reads for a Shipment Attempt; posting a real
+/// carrier invoice into AP (Supplier/ChartOfAccount/Journal) stays the
+/// existing Purchasing/Expenses flow's job, not this table's — see
+/// `CarrierReconciliationService`'s own doc comment for the exact boundary.
+model CarrierCharge {
+  id String @id @default(uuid()) @db.Uuid
+
+  importId String?              @map("import_id") @db.Uuid
+  import   CarrierChargeImport? @relation(fields: [importId], references: [id])
+
+  /// As-imported label — always present even when it doesn't (yet) match a
+  /// canonical ShippingCompany row, so the charge is never lost to a failed
+  /// FK lookup. `shippingCompanyId` is the optional resolved reference.
+  carrierNameRaw    String           @map("carrier_name_raw")
+  shippingCompanyId String?          @map("shipping_company_id") @db.Uuid
+  shippingCompany   ShippingCompany? @relation(fields: [shippingCompanyId], references: [id])
+
+  carrierReference  String? @map("carrier_reference")
+  trackingNumber    String? @map("tracking_number")
+  /// Free-text order/shipment identifier as given by the carrier file
+  /// (Order Number, internal/external Shipment reference, ...) — matching
+  /// never trusts customer name/phone (Part 3 of the gap-closure spec).
+  shipmentReference String? @map("shipment_reference")
+
+  chargeAmount Decimal  @map("charge_amount") @db.Decimal(12, 2)
+  currencyId   String   @map("currency_id") @db.Uuid
+  currency     Currency @relation(fields: [currencyId], references: [id])
+  chargeDate   DateTime @map("charge_date") @db.Date
+  chargeType   String?  @map("charge_type")
+
+  /// Idempotency key (Part 10) — deterministic from carrierNameRaw +
+  /// carrierReference when the carrier gives one, else from
+  /// carrierNameRaw + trackingNumber + chargeAmount + chargeDate. Importing
+  /// the same file/line twice is a duplicate, never a second economic cost.
+  dedupeKey String @unique @map("dedupe_key")
+
+  shipmentId String?   @map("shipment_id") @db.Uuid
+  shipment   Shipment? @relation(fields: [shipmentId], references: [id])
+
+  reconciliationState CarrierReconciliationState @default(UNMATCHED) @map("reconciliation_state")
+
+  matchedAt   DateTime? @map("matched_at")
+  matchedBy   String?   @map("matched_by") @db.Uuid
+  confirmedAt DateTime? @map("confirmed_at")
+  confirmedBy String?   @map("confirmed_by") @db.Uuid
+
+  notes String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([shipmentId])
+  @@index([reconciliationState])
+  @@index([importId])
+  @@map("carrier_charges")
 }
 
 /// Bank Statement import + reconciliation (Part 10), extended into the Cash

@@ -812,6 +812,26 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
     ],
   },
   {
+    // ADR-0018 (Order Economics M2 gap closure) — reconciling a carrier's
+    // ACTUAL charge against a Shipment Attempt is a financial-cost write,
+    // not a shipping-operations action. Deliberately its own module rather
+    // than folded into `shipping.*`: a warehouse/shipping-desk user with
+    // full `shipping.manage` must never automatically be able to confirm
+    // the authoritative shipping cost that feeds Order profitability.
+    key: 'carrier-reconciliation',
+    labelKey: 'permissions.modules.carrierReconciliation',
+    actions: [
+      { action: 'view', name: 'carrier-reconciliation.view' },
+      { action: 'import', name: 'carrier-reconciliation.import' },
+      // "match" = manual rematch / unmatch of a REVIEW_REQUIRED or
+      // already-matched charge to a different Shipment.
+      { action: 'match', name: 'carrier-reconciliation.match' },
+      // "confirm" = accepting a charge as the authoritative CONFIRMED
+      // ACTUAL shipping cost — the one action that changes Order Economics.
+      { action: 'confirm', name: 'carrier-reconciliation.confirm' },
+    ],
+  },
+  {
     // Part AG "HR employee management" — Employee (HR person record, never
     // the same as User). Every authenticated user can always view their OWN
     // Employee profile unguarded (same "My Profile" convention as
