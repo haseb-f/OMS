@@ -13,6 +13,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { StoreOrderAddPaymentDialog } from "@/components/store-orders/store-order-add-payment-dialog";
+import { SetPaymentFeeDialog } from "@/components/store-orders/set-payment-fee-dialog";
 import { StoreOrderEditAssignmentDialog } from "@/components/store-orders/store-order-edit-assignment-dialog";
 import { StoreOrderEditCustomerDialog } from "@/components/store-orders/store-order-edit-customer-dialog";
 import { StoreOrderEditNotesDialog } from "@/components/store-orders/store-order-edit-notes-dialog";
@@ -47,6 +48,7 @@ import {
   type StoreOrderActivityEntry,
   type StoreOrderRow,
   type StoreOrderShipmentRow,
+  type StoreOrderPaymentRow,
 } from "@/services/store-orders-service";
 import {
   shippingCompaniesService,
@@ -122,6 +124,7 @@ function StoreOrderDetailContent() {
   const canEdit = hasPermission("store-orders.edit");
   const canArchive = hasPermission("store-orders.archive");
   const canViewProfitability = hasPermission("orders.profitability.view");
+  const canEditProfitabilityCosts = hasPermission("orders.profitability.editCosts");
   const canEditCustomer = hasPermission("partners.edit");
 
   const [order, setOrder] = useState<StoreOrderRow | null>(null);
@@ -138,6 +141,7 @@ function StoreOrderDetailContent() {
   const [removeReceiptId, setRemoveReceiptId] = useState<string | null>(null);
   const [isRemovingReceipt, setIsRemovingReceipt] = useState(false);
   const [addPaymentOpen, setAddPaymentOpen] = useState(false);
+  const [feeDialogPayment, setFeeDialogPayment] = useState<StoreOrderPaymentRow | null>(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
   const [assignmentOpen, setAssignmentOpen] = useState(false);
@@ -657,6 +661,30 @@ function StoreOrderDetailContent() {
                       : "—";
                   },
                 },
+                {
+                  id: "fee",
+                  header: t("storeOrders.detail.payments.fee"),
+                  align: "end",
+                  cell: (payment) =>
+                    canEditProfitabilityCosts ? (
+                      <EnterpriseButton
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setFeeDialogPayment(payment)}
+                      >
+                        {payment.actualFeeAmount != null ? (
+                          <MoneyValue value={payment.actualFeeAmount} currency={order.currency} />
+                        ) : (
+                          t("storeOrders.detail.payments.setFee")
+                        )}
+                      </EnterpriseButton>
+                    ) : payment.actualFeeAmount != null ? (
+                      <MoneyValue value={payment.actualFeeAmount} currency={order.currency} />
+                    ) : (
+                      "—"
+                    ),
+                },
               ]}
               rows={order.payments}
               rowKey={(payment) => payment.id}
@@ -983,6 +1011,14 @@ function StoreOrderDetailContent() {
         open={addPaymentOpen}
         onOpenChange={setAddPaymentOpen}
         onAdded={() => void refreshOrder()}
+      />
+      <SetPaymentFeeDialog
+        payment={feeDialogPayment}
+        open={feeDialogPayment != null}
+        onOpenChange={(open) => {
+          if (!open) setFeeDialogPayment(null);
+        }}
+        onSaved={() => void refreshOrder()}
       />
       <StoreOrderEditAssignmentDialog
         orderId={order.id}

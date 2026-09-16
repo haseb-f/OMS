@@ -130,12 +130,27 @@ export function OrderProfitabilityPanel({ storeOrderId }: { storeOrderId: string
           }
         />
         <DetailFieldRow
-          label={t("storeOrders.profitability.packaging")}
-          value={<CostStateBadge state={economics.packagingState} />}
+          label={t("storeOrders.profitability.fulfillmentCost")}
+          value={
+            <span className="inline-flex items-center gap-1.5">
+              {formatMoney(economics.fulfillmentCost)}
+              <CostStateBadge state={economics.fulfillmentCostState} />
+              {economics.fulfillmentCostRuleName ? (
+                <span className="text-caption text-muted-foreground">
+                  ({economics.fulfillmentCostRuleName})
+                </span>
+              ) : null}
+            </span>
+          }
         />
         <DetailFieldRow
           label={t("storeOrders.profitability.paymentFee")}
-          value={<CostStateBadge state={economics.paymentFeeState} />}
+          value={
+            <span className="inline-flex items-center gap-1.5">
+              {formatMoney(economics.paymentFeeCost)}
+              <CostStateBadge state={economics.paymentFeeState} />
+            </span>
+          }
         />
       </DetailGroup>
 
@@ -170,6 +185,33 @@ export function OrderProfitabilityPanel({ storeOrderId }: { storeOrderId: string
                   <TableCell>#{attempt.attemptNumber}</TableCell>
                   <TableCell>{attempt.status ?? "—"}</TableCell>
                   <TableCell>{formatMoney(attempt.totalCost)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </DetailSection>
+      )}
+
+      {economics.payments.length > 0 && (
+        <DetailSection title={t("storeOrders.profitability.paymentFees")}>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("storeOrders.profitability.amount")}</TableHead>
+                <TableHead>{t("storeOrders.profitability.fee")}</TableHead>
+                <TableHead>{t("storeOrders.profitability.feeSource")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {economics.payments.map((payment) => (
+                <TableRow key={payment.paymentId}>
+                  <TableCell>{formatMoney(payment.amount)}</TableCell>
+                  <TableCell>{formatMoney(payment.feeAmount)}</TableCell>
+                  <TableCell>
+                    {t(
+                      `storeOrders.profitability.feeSourceValues.${payment.feeSource}` as MessageKey,
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

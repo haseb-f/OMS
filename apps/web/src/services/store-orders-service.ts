@@ -21,6 +21,18 @@ export interface ShipmentAttemptCost {
   totalCost: number | null;
 }
 
+/** ADR-0018 (M2.2) — ACTUAL (Payment.actualFeeAmount) always wins over ESTIMATED (PaymentSource fee config) over UNKNOWN. */
+export type PaymentFeeSource = "ACTUAL" | "ESTIMATED" | "UNKNOWN";
+
+export interface PaymentFeeLine {
+  paymentId: string;
+  amount: number;
+  feeAmount: number | null;
+  feeSource: PaymentFeeSource;
+}
+
+export type FulfillmentCostSource = "STANDARD" | "ACTUAL";
+
 export interface OrderEconomics {
   storeOrderId: string;
   netRevenue: number;
@@ -32,8 +44,13 @@ export interface OrderEconomics {
   shippingAttempts: ShipmentAttemptCost[];
   shippingCost: number;
   shippingState: CostState;
-  packagingState: "UNKNOWN";
-  paymentFeeState: "UNKNOWN";
+  payments: PaymentFeeLine[];
+  paymentFeeCost: number;
+  paymentFeeState: CostState;
+  fulfillmentCost: number;
+  fulfillmentCostState: CostState;
+  fulfillmentCostSource: FulfillmentCostSource | null;
+  fulfillmentCostRuleName: string | null;
   totalDirectCost: number;
   contributionProfit: number;
   contributionMarginPercent: number | null;
@@ -95,6 +112,8 @@ export interface StoreOrderPaymentRow {
   referenceNumber?: string | null;
   paymentSource?: { id?: string; name: string } | null;
   attachments?: StoreOrderPaymentAttachmentRow[];
+  /** ADR-0018 (M2.2) — the ACTUAL provider transaction fee, once reconciled. Null means not recorded yet. */
+  actualFeeAmount?: string | null;
 }
 
 export interface StoreOrderReceiptRow {
@@ -313,6 +332,9 @@ export const storeOrdersService = {
       bankAccount?: string;
     },
   ) => apiClient.post<StoreOrderPaymentRow>(`/store-orders/${id}/payments`, dto),
+  /** ADR-0018 (M2.2) — records the ACTUAL provider transaction fee for a Payment, superseding any PaymentSource fee estimate for it. */
+  setPaymentActualFee: (paymentId: string, actualFeeAmount: number) =>
+    apiClient.post<StoreOrderPaymentRow>(`/payments/${paymentId}/fee`, { actualFeeAmount }),
   paymentContext: (id: string) =>
     apiClient.get<{
       total: string;
