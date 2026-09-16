@@ -43,5 +43,6 @@ What becomes easier or harder as a result of this change?
 | [0014](./docs/decisions/0014-cost-engine-foundation.md)                      | Cost Engine Foundation                                                      | Accepted |
 | [0015](./docs/decisions/0015-purchasing-phase1-suppliers-purchase-orders.md) | Purchasing Phase 1 — Suppliers + Purchase Orders                            | Accepted |
 | [0016](./docs/decisions/0016-frontend-foundation.md)                         | OMS Frontend Foundation — Design System, Navigation, App Shell              | Accepted |
+| [0017](./docs/decisions/0017-cost-accounting-engine-m1.md)                   | Cost Accounting Engine — Milestone 1                                        | Accepted |
 
 > Add new rows here as ADRs are created in `docs/decisions/`.

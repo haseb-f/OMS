@@ -63,6 +63,7 @@ import { SalesInvoicesModule } from './sales/invoices/sales-invoices.module';
 import { SalesReturnsModule } from './sales/returns/sales-returns.module';
 import { PurchaseQuotationsModule } from './purchasing/quotations/purchase-quotations.module';
 import { PurchaseInvoicesModule } from './purchasing/invoices/purchase-invoices.module';
+import { LandedCostDocumentsModule } from './landed-cost/landed-cost-documents.module';
 import { PurchaseReturnsModule } from './purchasing/returns/purchase-returns.module';
 import { FinancialTransactionsModule } from './financial-transactions/financial-transactions.module';
 import { JournalEntriesModule } from './journal-entries/journal-entries.module';
@@ -163,6 +164,7 @@ import { InvestorPortalModule } from './investor-portal/investor-portal.module';
     PurchaseQuotationsModule,
     PurchaseInvoicesModule,
     PurchaseReturnsModule,
+    LandedCostDocumentsModule,
     FinancialTransactionsModule,
     JournalEntriesModule,
     PostingProvidersModule,

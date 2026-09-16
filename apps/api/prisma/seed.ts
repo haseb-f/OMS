@@ -2169,6 +2169,20 @@ async function main() {
       yearReset: false,
     },
     {
+      documentType: 'COST_CATEGORY',
+      label: 'Cost Category',
+      docCode: 'CTG',
+      template: '{DOC}-{SEQ}',
+      yearReset: false,
+    },
+    {
+      documentType: 'LANDED_COST',
+      label: 'Landed Cost Document',
+      docCode: 'LC',
+      template: '{DOC}-{YEAR}-{SEQ}',
+      yearReset: true,
+    },
+    {
       documentType: 'JOB_TITLE',
       label: 'Job Title',
       docCode: 'JT',

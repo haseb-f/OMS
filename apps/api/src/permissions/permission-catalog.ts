@@ -320,6 +320,29 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
     actions: documentActions('purchasing.returns', { confirm: true }),
   },
   {
+    // ADR-0017 (Cost Engine M1) — Landed Cost documents attach acquisition
+    // costs to a CONFIRMED Purchase Invoice and post through the same
+    // canonical Posting Engine. `confirm` here is the DRAFT/APPROVED →
+    // POSTED transition (the one that actually capitalizes into inventory
+    // and creates a Journal Entry) — mirrors purchase-invoices' own use of
+    // `confirm` for its receipt/posting transition.
+    key: 'landed-cost',
+    labelKey: 'permissions.modules.landedCost',
+    actions: documentActions('landed-cost', { confirm: true }),
+  },
+  {
+    // Cost Explorer / Inventory Valuation / Reconciliation — read-only
+    // views over the M1 costing data. Deliberately separate from
+    // `expenses.view` (CostComponent/Product Cost) — company-wide
+    // inventory valuation and margin-adjacent numbers are more sensitive
+    // than the Cost Category vocabulary list, same reasoning
+    // `purchasing.payments` already uses `finance.view` instead of
+    // `purchasing.view` for money-movement visibility.
+    key: 'cost-explorer',
+    labelKey: 'permissions.modules.costExplorer',
+    actions: [{ action: 'view', name: 'cost-explorer.view' }],
+  },
+  {
     key: 'supplier-payments',
     labelKey: 'permissions.modules.supplierPayments',
     actions: paymentActions('purchasing.payments'),
@@ -699,15 +722,34 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
     actions: [{ action: 'manage', name: 'numbering.manage' }],
   },
   {
-    // Cost Engine Foundation (ADR-0014) — Cost Components vocabulary +
-    // Product Cost recording/history. Nav gates the whole "Expenses" section
-    // on `expenses.view` alone (no per-entity page yet distinguishes
-    // create/edit), so one coarse view/manage pair covers both controllers.
+    // Cost Engine Foundation (ADR-0014) — Product Cost recording/history
+    // (the manual `/product-cost/:id` exception path). Cost Components moved
+    // to its own granular `cost-components` module below (ADR-0017) once it
+    // became a real Master Data page — this coarse pair now only covers
+    // Product Cost's one write action.
     key: 'cost-engine',
     labelKey: 'permissions.modules.costEngine',
     actions: [
       { action: 'view', name: 'expenses.view' },
       { action: 'manage', name: 'expenses.manage' },
+    ],
+  },
+  {
+    // Cost Categories (ADR-0017) — promoted from the coarse `cost-engine`
+    // view/manage pair to a normal granular Master Data module once it
+    // became a real `MasterDataPage` (Search/Pagination/Archive/Restore),
+    // matching every other entity `MasterDataPage` gates on
+    // `masterdata.<entity>.*`. Implies `expenses.view` (see
+    // `IMPLIED_SECTION_PERMISSION`) so the "Expenses" nav section still
+    // opens for anyone holding it, same as `landed-cost` implies
+    // `finance.view`.
+    key: 'cost-components',
+    labelKey: 'permissions.modules.costComponents',
+    actions: [
+      { action: 'view', name: 'masterdata.cost-components.view' },
+      { action: 'create', name: 'masterdata.cost-components.create' },
+      { action: 'edit', name: 'masterdata.cost-components.edit' },
+      { action: 'delete', name: 'masterdata.cost-components.archive' },
     ],
   },
   {
@@ -1124,6 +1166,9 @@ export const IMPLIED_SECTION_PERMISSION: Record<
   'purchasing.invoices': 'purchasing.view',
   'purchasing.returns': 'purchasing.view',
   'purchasing.payments': 'finance.view',
+  'landed-cost': 'finance.view',
+  'masterdata.cost-components': 'expenses.view',
+  'cost-explorer': 'finance.view',
   'accounting.expense-payments': 'finance.view',
   products: 'products.view',
   inventory: 'inventory.view',

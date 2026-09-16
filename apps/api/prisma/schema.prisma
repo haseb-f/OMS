@@ -496,6 +496,7 @@ model Currency {
   journals                Journal[]
   chartOfAccounts         ChartOfAccount[]
   investorLedgerEntries   InvestorLedgerEntry[]
+  landedCostDocuments     LandedCostDocument[]
 
   @@map("currencies")
 }
@@ -1988,6 +1989,7 @@ model ChartOfAccount {
   paymentSourcesDefault PaymentSource[]
   receivingAccounts     ReceivingAccount[]
   journalEntryLines     JournalEntryLine[]
+  costComponentsDefault CostComponent[]
   capitalContributions  CapitalContribution[]
   distributionPayments  DistributionPayment[]
   capitalReturns        CapitalReturn[]
@@ -2033,6 +2035,7 @@ model ChartOfAccount {
   postingSettingsExchangeDifference  PostingSettings[] @relation("PostingExchangeDifference")
   postingSettingsSuspense            PostingSettings[] @relation("PostingSuspense")
   postingSettingsRetainedEarnings    PostingSettings[] @relation("PostingRetainedEarnings")
+  postingSettingsLandedCostClearing  PostingSettings[] @relation("PostingLandedCostClearing")
 
   /// TASK-047 — Product Category / Customer Group / Supplier Group
   /// account-mapping overrides.
@@ -3135,20 +3138,58 @@ model InventorySettings {
 }
 
 // ---------------------------------------------------------------------------
-// Cost Engine — Foundation (ADR-0014). Prepares the architecture that a future
-// Purchasing module will drive: no FIFO/LIFO/Average calculation, no cost
-// allocation/distribution logic, no inventory valuation, no accounting journal
-// entries live here. CostAllocationRule exists as schema/enum only — "No
-// calculation yet. Only architecture" — no service/controller was built for
-// it in this task.
+// Cost Engine — Foundation (ADR-0014), extended by ADR-0017 (M1: Cost
+// Accounting Foundation / Landed Cost / Inventory Valuation / COGS). The
+// moving-average valuation, historical COGS snapshot, and accounting Posting
+// Engine referenced throughout this section already existed and are
+// documented in ADR-0017 rather than rebuilt here — this section only adds
+// the genuinely missing pieces: accounting-behavior classification on
+// CostComponent (business display label vs. immutable accounting
+// treatment — renaming a category must never change its accounting
+// behavior) and the Landed Cost document/allocation models below.
 // ---------------------------------------------------------------------------
+
+/// The accounting-behavior side of a Cost Category — deliberately separate
+/// from the user-editable Arabic/English label on CostComponent, per
+/// ADR-0017 Rule: "A user renaming a category must not change its
+/// accounting treatment."
+enum CostAccountingClass {
+  INVENTORY_ACQUISITION
+  COGS
+  FULFILLMENT
+  TRANSACTION
+  OPERATING_EXPENSE
+  OTHER
+}
 
 model CostComponent {
   id          String  @id @default(uuid()) @db.Uuid
   code        String  @unique
   name        String
+  /// English name — added alongside `accountingClass` (ADR-0017); existing
+  /// rows keep `nameEn = null` until edited, same nullable-until-edited
+  /// pattern every other bilingual Master Data field in this codebase uses.
+  nameEn      String? @map("name_en")
   description String?
+  sortOrder   Int     @default(0) @map("sort_order")
   isActive    Boolean @default(true) @map("is_active")
+
+  /// Accounting behavior — never inferred from `name`/`nameEn`. Defaults to
+  /// OTHER for the handful of pre-ADR-0017 rows so existing behavior (no
+  /// capitalization, no COGS/fulfillment/transaction posting) is preserved
+  /// until an admin explicitly reclassifies them.
+  accountingClass CostAccountingClass @default(OTHER) @map("accounting_class")
+  /// Whether this cost is eligible for landed-cost capitalization into
+  /// Inventory (ADR-0017 Rule 5) — independent of `accountingClass` so e.g.
+  /// a FULFILLMENT-classed cost can never be capitalizable even if
+  /// misconfigured, enforced in `LandedCostLinesService`, not just the UI.
+  capitalizable Boolean @default(false)
+
+  /// Optional default posting account for this category — resolved through
+  /// `AccountMappingService`'s existing fail-safe fallback chain, same "never
+  /// hardcode an account id" rule every other posting provider follows.
+  defaultAccountId String?        @map("default_account_id") @db.Uuid
+  defaultAccount   ChartOfAccount? @relation(fields: [defaultAccountId], references: [id])
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -3158,7 +3199,9 @@ model CostComponent {
 
   activities      CostComponentActivity[]
   allocationRules CostAllocationRule[]
+  landedCostLines LandedCostLine[]
 
+  @@index([deletedAt, isActive, sortOrder])
   @@map("cost_components")
 }
 
@@ -3213,6 +3256,147 @@ model CostAllocationRule {
   deletedAt DateTime? @map("deleted_at")
 
   @@map("cost_allocation_rules")
+}
+
+/// ADR-0017 — mirrors `JournalEntryStatus`'s never-mutate-after-posted
+/// convention: DRAFT is freely editable, APPROVED is the allocation-locked
+/// checkpoint before posting, POSTED is immutable (corrections require a
+/// new document, never an edit), CANCELLED only reachable from DRAFT/APPROVED.
+enum LandedCostStatus {
+  DRAFT
+  APPROVED
+  POSTED
+  CANCELLED
+}
+
+/// The required M1 deliverable: attaches capitalizable acquisition costs
+/// (freight, duty, clearing, handling — never outbound shipping, payment
+/// fees, marketing) to an already-CONFIRMED Purchase Invoice (the actual
+/// receipt event in this OMS — see ADR-0017, no separate Goods Receipt
+/// entity exists) and allocates them across that invoice's lines, then
+/// capitalizes the allocated amount into inventory via
+/// `InventoryValuationService.applyLandedCost()` and posts through the
+/// canonical Posting Engine — never a second valuation/posting path.
+model LandedCostDocument {
+  id             String @id @default(uuid()) @db.Uuid
+  documentNumber String @unique @map("document_number")
+
+  purchaseInvoiceId String          @map("purchase_invoice_id") @db.Uuid
+  purchaseInvoice   PurchaseInvoice @relation(fields: [purchaseInvoiceId], references: [id])
+
+  /// The freight/customs/clearing provider — optional and deliberately NOT
+  /// required to be the same Partner as the goods Supplier on the Purchase
+  /// Invoice (a separate freight forwarder is the common real case).
+  providerId String?  @map("provider_id") @db.Uuid
+  provider   Partner? @relation(fields: [providerId], references: [id])
+
+  currencyId String   @map("currency_id") @db.Uuid
+  currency   Currency @relation(fields: [currencyId], references: [id])
+
+  referenceNumber String?  @map("reference_number")
+  documentDate    DateTime @map("document_date") @db.Date
+
+  /// Reuses `CostAllocationRule`'s existing vocabulary rather than a
+  /// parallel enum (ADR-0017) — `BY_COST` is this document's "allocate by
+  /// purchase value" method; `EQUAL`/`MANUAL` are accepted by the schema for
+  /// forward compatibility but rejected by `LandedCostDocumentsService`
+  /// until a later milestone actually implements them.
+  allocationMethod CostAllocationMethod @map("allocation_method")
+
+  status LandedCostStatus @default(DRAFT)
+
+  /// Sum of `lines.netAmount` — the amount actually capitalized into
+  /// Inventory. Never includes `taxTotal` (ADR-0017 Rule: recoverable VAT
+  /// is never inventory cost).
+  netTotal Decimal @default(0) @map("net_total") @db.Decimal(12, 2)
+  taxTotal Decimal @default(0) @map("tax_total") @db.Decimal(12, 2)
+
+  approvedAt  DateTime? @map("approved_at")
+  approvedBy  String?   @map("approved_by") @db.Uuid
+  postedAt    DateTime? @map("posted_at")
+  postedBy    String?   @map("posted_by") @db.Uuid
+  cancelledAt DateTime? @map("cancelled_at")
+  cancelledBy String?   @map("cancelled_by") @db.Uuid
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  lines       LandedCostLine[]
+  allocations LandedCostAllocation[]
+  activities  LandedCostActivity[]
+
+  @@index([purchaseInvoiceId])
+  @@index([deletedAt, status])
+  @@map("landed_cost_documents")
+}
+
+/// One capitalizable cost line — must reference a `capitalizable: true`
+/// `CostComponent` (enforced in the service, not just the UI). VAT is
+/// tracked here exactly like `PurchaseInvoiceItem` (net + tax split) but
+/// `taxAmount` never flows into `netAmount`/capitalization.
+model LandedCostLine {
+  id String @id @default(uuid()) @db.Uuid
+
+  landedCostDocumentId String             @map("landed_cost_document_id") @db.Uuid
+  landedCostDocument   LandedCostDocument @relation(fields: [landedCostDocumentId], references: [id])
+
+  costComponentId String        @map("cost_component_id") @db.Uuid
+  costComponent   CostComponent @relation(fields: [costComponentId], references: [id])
+
+  description String?
+  netAmount   Decimal @map("net_amount") @db.Decimal(12, 2)
+
+  taxId     String? @map("tax_id") @db.Uuid
+  tax       Tax?    @relation(fields: [taxId], references: [id])
+  taxAmount Decimal @default(0) @map("tax_amount") @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("landed_cost_lines")
+}
+
+/// One row per Purchase Invoice line this document's `netTotal` was
+/// allocated across. `allocatedAmount` reconciles exactly to `netTotal`
+/// (deterministic largest-remainder rounding in the service layer, integer
+/// minor-unit arithmetic — never floating point) — enforced by the service
+/// before allowing DRAFT → APPROVED.
+model LandedCostAllocation {
+  id String @id @default(uuid()) @db.Uuid
+
+  landedCostDocumentId String             @map("landed_cost_document_id") @db.Uuid
+  landedCostDocument   LandedCostDocument @relation(fields: [landedCostDocumentId], references: [id])
+
+  purchaseInvoiceItemId String              @map("purchase_invoice_item_id") @db.Uuid
+  purchaseInvoiceItem   PurchaseInvoiceItem @relation(fields: [purchaseInvoiceItemId], references: [id])
+
+  allocatedQuantity Int     @map("allocated_quantity")
+  allocatedAmount   Decimal @map("allocated_amount") @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([landedCostDocumentId, purchaseInvoiceItemId])
+  @@map("landed_cost_allocations")
+}
+
+/// Timeline — same shape as every other *Activity entity in this codebase.
+model LandedCostActivity {
+  id String @id @default(uuid()) @db.Uuid
+
+  landedCostDocumentId String             @map("landed_cost_document_id") @db.Uuid
+  landedCostDocument   LandedCostDocument @relation(fields: [landedCostDocumentId], references: [id])
+
+  type        String
+  description String
+  metadata    Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  @@map("landed_cost_activities")
 }
 
 /// Append-only — "Never overwrite history." Same reasoning as
@@ -3403,6 +3587,10 @@ model Partner {
   /// this partner (classification only, before a Supplier Payment Voucher
   /// is created).
   bankTransactionsHint  BankTransaction[]
+
+  /// ADR-0017 — the freight/customs/clearing provider on a Landed Cost
+  /// document, independent of whichever Partner is the goods Supplier.
+  landedCostDocuments LandedCostDocument[]
 
   /// Dedup lookup (spec section 14: phone/email/tax number/CR) that
   /// PartnersService.create() runs on every write — same indexing rationale
@@ -4781,7 +4969,8 @@ model PurchaseInvoice {
   /// TASK-043 — Financial Transactions & Matching Engine. Payment status is
   /// never stored here — always derived by summing these allocations for
   /// CONFIRMED transactions.
-  allocations FinancialTransactionAllocation[]
+  allocations         FinancialTransactionAllocation[]
+  landedCostDocuments LandedCostDocument[]
 
   @@map("purchase_invoices")
 }
@@ -4830,7 +5019,8 @@ model PurchaseInvoiceItem {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  returnLines PurchaseReturnItem[]
+  returnLines           PurchaseReturnItem[]
+  landedCostAllocations LandedCostAllocation[]
 
   @@map("purchase_invoice_items")
 }
@@ -5156,6 +5346,7 @@ model Tax {
   purchaseOrderItems      PurchaseOrderItem[]
   purchaseInvoiceItems    PurchaseInvoiceItem[]
   purchaseReturnItems     PurchaseReturnItem[]
+  landedCostLines         LandedCostLine[]
 
   @@map("taxes")
 }
@@ -6002,6 +6193,14 @@ model PostingSettings {
   /// AccountMappingService.resolveCapitalReturnAccount.
   capitalReturnAccountId String?         @map("capital_return_account_id") @db.Uuid
   capitalReturnAccount   ChartOfAccount? @relation("PostingCapitalReturn", fields: [capitalReturnAccountId], references: [id])
+
+  /// ADR-0017 (Cost Engine M1) — the credit side of a posted Landed Cost
+  /// document (Dr Inventory / Cr this account) when no more specific
+  /// mapping exists. Resolved through `AccountMappingService.resolveLandedCostClearingAccount`,
+  /// same fail-safe "throw a named configuration error, never fabricate an
+  /// account" rule as every other resolver here.
+  landedCostClearingAccountId String?         @map("landed_cost_clearing_account_id") @db.Uuid
+  landedCostClearingAccount   ChartOfAccount? @relation("PostingLandedCostClearing", fields: [landedCostClearingAccountId], references: [id])
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

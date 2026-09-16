@@ -81,6 +81,7 @@ describe('StoreOrdersService receipts', () => {
       assertPaymentEvidenceAccess: jest.fn(),
     } as never,
     {} as never,
+    {} as never,
   );
 
   beforeEach(() => {

@@ -52,6 +52,7 @@ import { PhoneNumberService } from '../common/phone/phone-number.service';
 import { WorkflowStatusResolverService } from '../workflow/workflow-status-resolver.service';
 import { SalesScopeService } from '../sales-scope/sales-scope.service';
 import { ProductsService } from '../products/products.service';
+import { InventoryService } from '../inventory/inventory.service';
 import { PAID_PAYMENT_CODES } from '../workflow/workflow-status-map';
 import { randomUUID } from 'node:crypto';
 
@@ -198,6 +199,7 @@ export class StoreOrdersService {
     private readonly statusResolver: WorkflowStatusResolverService,
     private readonly salesScope: SalesScopeService,
     private readonly productsService: ProductsService,
+    private readonly inventoryService: InventoryService,
   ) {}
 
   /**
@@ -1350,6 +1352,9 @@ export class StoreOrdersService {
       }),
     );
     const totals = computeSalesDocumentTotals(computedLines);
+    const resolvedWarehouseIds = order.items.map(
+      (item) => item.product.preferredWarehouseId ?? defaultWarehouse!.id,
+    );
 
     const invoiceNumber =
       await this.numberingEngine.generateNumber('SALES_INVOICE');
@@ -1371,8 +1376,7 @@ export class StoreOrdersService {
           items: {
             create: order.items.map((item, index) => ({
               productId: item.productId,
-              warehouseId:
-                item.product.preferredWarehouseId ?? defaultWarehouse!.id,
+              warehouseId: resolvedWarehouseIds[index],
               unitId: item.product.unitId,
               quantity: item.quantity,
               unitPrice: item.unitPrice,
@@ -1382,6 +1386,30 @@ export class StoreOrdersService {
           },
         },
       });
+
+      // Fix (M1 recovery): this used to only post the accounting/valuation
+      // side (Dr COGS / Cr Inventory via SalesInvoicePostingProvider) and
+      // never actually decremented physical stock — unlike the symmetric
+      // B2B `SalesInvoicesService.confirm()`, which always calls both. Every
+      // Store Order invoice generated before this fix left the GL Inventory
+      // balance and the real on-hand quantity silently diverging. Mirrored
+      // here exactly, guarded to inventory-item products only (a Store
+      // Order can legitimately contain non-stocked/service products, which
+      // `postSalesDelivery` would otherwise reject).
+      for (const [index, item] of order.items.entries()) {
+        if (!item.product.isInventoryItem) continue;
+        await this.inventoryService.postSalesDelivery(
+          {
+            productId: item.productId,
+            warehouseId: resolvedWarehouseIds[index],
+            quantity: item.quantity,
+            referenceType: 'SALES_INVOICE',
+            referenceId: created.id,
+          },
+          userId,
+          tx,
+        );
+      }
 
       await this.postingEngine.post('SALES_INVOICE', created.id, userId, tx);
 

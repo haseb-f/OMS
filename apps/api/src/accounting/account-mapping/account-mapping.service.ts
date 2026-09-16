@@ -360,6 +360,33 @@ export class AccountMappingService {
     ]);
   }
 
+  /**
+   * ADR-0017 (Cost Engine M1) — the credit side of a posted Landed Cost
+   * line: the Cost Category's own `defaultAccountId` always wins (e.g. a
+   * dedicated "Freight Payable" account for Inbound Freight), falling back
+   * to the single global `PostingSettings.landedCostClearingAccountId`.
+   * Same fail-safe "throw a named configuration error, never fabricate an
+   * account" contract as every other resolver here.
+   */
+  async resolveLandedCostClearingAccount(
+    costComponentId: string,
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const [component, settings] = await Promise.all([
+      tx.costComponent.findUnique({
+        where: { id: costComponentId },
+        select: { defaultAccountId: true },
+      }),
+      this.getSettings(tx),
+    ]);
+    const accountId =
+      component?.defaultAccountId ?? settings?.landedCostClearingAccountId;
+    return this.require(accountId, 'Landed Cost Clearing', [
+      'CostComponent.defaultAccountId',
+      'PostingSettings.landedCostClearingAccountId',
+    ]);
+  }
+
   private async getSettings(tx: Prisma.TransactionClient | PrismaService) {
     return tx.postingSettings.findFirst();
   }

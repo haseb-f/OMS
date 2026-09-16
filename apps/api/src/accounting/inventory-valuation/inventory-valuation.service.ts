@@ -94,6 +94,71 @@ export class InventoryValuationService {
     return { previousCost, newCost };
   }
 
+  /**
+   * ADR-0017 (Cost Engine M1) — capitalizes a Landed Cost allocation into
+   * inventory value *after* the original receipt already averaged in
+   * without it (the common real case: a freight/customs invoice arrives
+   * days or weeks after the goods did). Unlike `applyPurchaseReceipt`,
+   * which knows the exact received quantity, this recomputes the moving
+   * average over *current* on-hand quantity — some of the originally
+   * received units may have already sold — by simply adding the allocated
+   * amount to current inventory value and dividing by current quantity.
+   * If on-hand quantity has since reached zero (the entire receipt already
+   * sold through), the allocated amount cannot be capitalized into a
+   * balance that no longer exists — the caller must not call this in that
+   * case; existing accounting treats it as an already-expensed variance,
+   * never invented here.
+   */
+  async applyLandedCost(
+    productId: string,
+    allocatedAmount: number,
+    tx: Prisma.TransactionClient,
+    userId?: string,
+  ): Promise<{
+    previousCost: number;
+    newCost: number;
+    onHandQuantity: number;
+  }> {
+    const [onHandQuantity, product] = await Promise.all([
+      this.getOnHandQuantity(tx, productId),
+      tx.product.findUniqueOrThrow({
+        where: { id: productId },
+        select: { currentCost: true },
+      }),
+    ]);
+    const previousCost = Number(product.currentCost ?? 0);
+    if (onHandQuantity <= 0) {
+      throw new Error(
+        `Cannot capitalize landed cost for product ${productId}: no on-hand quantity remains from the originating receipt.`,
+      );
+    }
+
+    const previousValue = previousCost * onHandQuantity;
+    const newCost = (previousValue + allocatedAmount) / onHandQuantity;
+
+    await tx.product.update({
+      where: { id: productId },
+      data: { currentCost: newCost, lastCostUpdate: new Date() },
+    });
+    await tx.productCostSnapshot.upsert({
+      where: { productId },
+      create: { productId, cost: newCost, createdBy: userId ?? null },
+      update: { cost: newCost, updatedBy: userId ?? null },
+    });
+    await tx.productCostHistory.create({
+      data: {
+        productId,
+        previousCost,
+        newCost,
+        reason: 'Landed cost capitalized — moving average recalculated',
+        referenceType: 'LANDED_COST',
+        createdBy: userId ?? null,
+      },
+    });
+
+    return { previousCost, newCost, onHandQuantity };
+  }
+
   private async getOnHandQuantity(
     tx: Prisma.TransactionClient,
     productId: string,

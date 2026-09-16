@@ -12,6 +12,7 @@ import { InternalTransferPostingProvider } from './internal-transfer-posting.pro
 import { PayrollRunPostingProvider } from './payroll-run-posting.provider';
 import { PayrollPaymentPostingProvider } from './payroll-payment-posting.provider';
 import { InvestorPostingProvider } from './investor-posting.provider';
+import { LandedCostPostingProvider } from './landed-cost-posting.provider';
 
 /**
  * Accounting Posting Engine (TASK-046/047, HR Milestone 1) — every default
@@ -43,6 +44,7 @@ import { InvestorPostingProvider } from './investor-posting.provider';
     PayrollRunPostingProvider,
     PayrollPaymentPostingProvider,
     InvestorPostingProvider,
+    LandedCostPostingProvider,
   ],
 })
 export class PostingProvidersModule {}
