@@ -517,7 +517,10 @@ export class StoreOrdersService {
         ? [{ id: sortDir }]
         : [{ [sortField]: sortDir }, { id: 'desc' as const }];
 
-    if (includeProfitability && (query.costState || query.lossMaking)) {
+    if (
+      includeProfitability &&
+      ((query.costState && query.costState.length > 0) || query.lossMaking)
+    ) {
       return this.findAllFilteredByProfitability(
         where,
         orderBy,
@@ -598,7 +601,10 @@ export class StoreOrdersService {
       .filter((id) => {
         const economics = economicsById.get(id);
         if (!economics) return false;
-        if (query.costState && economics.costState !== query.costState) {
+        if (
+          query.costState?.length &&
+          !query.costState.includes(economics.costState)
+        ) {
           return false;
         }
         if (query.lossMaking && !(economics.contributionProfit < 0)) {

@@ -2987,6 +2987,9 @@ const ar = {
         PARTIAL: "جزئي",
         UNKNOWN: "غير معروف",
       },
+      lossMakingFilter: "الطلبات الخاسرة فقط",
+      filterCappedNotice:
+        "تُعرض النتائج من أول 500 طلب مطابق — ضيّق نطاق الفلاتر للحصول على عدد كامل.",
     },
     detail: {
       tabs: {

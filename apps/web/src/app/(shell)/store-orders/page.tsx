@@ -32,6 +32,7 @@ import {
   type StoreOrderRow,
   type StoreOrderShippingStageValue,
   type StoreOrderSourceValue,
+  type CostState,
 } from "@/services/store-orders-service";
 import { shippingService } from "@/services/shipping-service";
 import {
@@ -69,6 +70,7 @@ function StoreOrdersPageContent() {
   const canBulkShipping = hasPermission("shipping.manage");
   const canGlobalLookup =
     hasPermission("customers.lookup_global") || hasPermission("orders.lookup_global");
+  const canViewProfitability = hasPermission("orders.profitability.view");
 
   const [items, setItems] = useState<StoreOrderRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -90,6 +92,9 @@ function StoreOrdersPageContent() {
     "dateRange",
     EMPTY_DATE_RANGE,
   );
+  const [costStateFilter, setCostStateFilter] = usePathRestorableState<string[]>("costState", []);
+  const [lossMakingFilter, setLossMakingFilter] = usePathRestorableState("lossMaking", false);
+  const [profitabilityFilterCapped, setProfitabilityFilterCapped] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -124,8 +129,24 @@ function StoreOrdersPageContent() {
       source: sourceFilter as StoreOrderSourceValue[],
       dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
       dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
+      ...(canViewProfitability
+        ? {
+            includeProfitability: true,
+            costState: costStateFilter as CostState[],
+            lossMaking: lossMakingFilter || undefined,
+          }
+        : {}),
     }),
-    [search, paymentStatusFilter, shippingStageFilter, sourceFilter, dateRange],
+    [
+      search,
+      paymentStatusFilter,
+      shippingStageFilter,
+      sourceFilter,
+      dateRange,
+      canViewProfitability,
+      costStateFilter,
+      lossMakingFilter,
+    ],
   );
 
   const load = useCallback(async () => {
@@ -141,6 +162,7 @@ function StoreOrdersPageContent() {
       });
       setItems(result.items);
       setTotal(result.total);
+      setProfitabilityFilterCapped(!!result.profitabilityFilterCapped);
       setItemsCache((cache) => ({
         ...cache,
         ...Object.fromEntries(result.items.map((item) => [item.id, item])),
@@ -198,8 +220,9 @@ function StoreOrdersPageContent() {
         onView: (row) => router.push(`/store-orders/${row.id}`),
         onEdit: (row) => router.push(`/store-orders/${row.id}`),
         onArchive: (row) => setArchiveTarget(row),
+        includeProfitability: canViewProfitability,
       }),
-    [router],
+    [router, canViewProfitability],
   );
 
   const selectedIds = Object.keys(rowSelection);
@@ -347,6 +370,11 @@ function StoreOrdersPageContent() {
         </>
       }
     >
+      {profitabilityFilterCapped && (
+        <p className="text-caption text-muted-foreground">
+          {t("storeOrders.profitability.filterCappedNotice")}
+        </p>
+      )}
       <EnterpriseDataTable
         tableId="store-orders"
         printTitle={t("storeOrders.title")}
@@ -435,9 +463,38 @@ function StoreOrdersPageContent() {
                 setPage(1);
               }}
             />
+            {canViewProfitability && (
+              <>
+                <MultiSelectFilter
+                  label={t("storeOrders.profitability.costState")}
+                  values={costStateFilter}
+                  onChange={(values) => {
+                    setCostStateFilter(values);
+                    setPage(1);
+                  }}
+                  options={(["COMPLETE", "PARTIAL", "UNKNOWN"] as CostState[]).map((state) => ({
+                    value: state,
+                    label: t(`storeOrders.profitability.costStateValues.${state}`),
+                  }))}
+                />
+                <EnterpriseButton
+                  type="button"
+                  variant={lossMakingFilter ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setLossMakingFilter(!lossMakingFilter);
+                    setPage(1);
+                  }}
+                >
+                  {t("storeOrders.profitability.lossMakingFilter")}
+                </EnterpriseButton>
+              </>
+            )}
             {(paymentStatusFilter.length > 0 ||
               shippingStageFilter.length > 0 ||
               sourceFilter.length > 0 ||
+              costStateFilter.length > 0 ||
+              lossMakingFilter ||
               dateRange.from ||
               dateRange.to) && (
               <EnterpriseButton
@@ -448,6 +505,8 @@ function StoreOrdersPageContent() {
                   setPaymentStatusFilter([]);
                   setShippingStageFilter([]);
                   setSourceFilter([]);
+                  setCostStateFilter([]);
+                  setLossMakingFilter(false);
                   setDateRange(EMPTY_DATE_RANGE);
                   setPage(1);
                 }}

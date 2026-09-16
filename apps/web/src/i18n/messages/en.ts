@@ -3014,6 +3014,9 @@ const en = {
         PARTIAL: "Partial",
         UNKNOWN: "Unknown",
       },
+      lossMakingFilter: "Loss Making Only",
+      filterCappedNotice:
+        "Showing results from the first 500 matching Orders — narrow your filters for a complete count.",
     },
     detail: {
       tabs: {

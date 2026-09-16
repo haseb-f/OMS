@@ -104,10 +104,11 @@ export class FindStoreOrdersQueryDto {
   @IsOptional()
   includeProfitability?: boolean;
 
-  /** Requires `includeProfitability` — filters to Orders whose overall `costState` matches. */
-  @IsIn(['COMPLETE', 'PARTIAL', 'UNKNOWN'])
+  /** Requires `includeProfitability` — filters to Orders whose overall `costState` matches any of these. */
+  @TransformEnumList()
+  @IsIn(['COMPLETE', 'PARTIAL', 'UNKNOWN'], { each: true })
   @IsOptional()
-  costState?: CostState;
+  costState?: CostState[];
 
   /** Requires `includeProfitability` — filters to Orders whose Contribution Profit is negative. */
   @Type(() => Boolean)

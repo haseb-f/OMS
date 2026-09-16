@@ -6,6 +6,7 @@ import { formatMoney, currencyCodeOf } from "@/lib/money";
 import type { ExportColumn } from "@/components/shared/export-dialog";
 import type { MessageKey } from "@/i18n/translate";
 import type { StoreOrderRow } from "@/services/store-orders-service";
+import { StatusBadge } from "@/components/business/status-badge";
 import { PAYMENT_STATUS_LABEL_KEY, SHIPPING_STAGE_LABEL_KEY } from "./status";
 import { Archive, Eye, Pencil } from "lucide-react";
 import { RowActionsMenu } from "@/components/shared/data-table";
@@ -25,6 +26,36 @@ export interface StoreOrderRowHandlers {
   onView: (row: StoreOrderRow) => void;
   onEdit?: (row: StoreOrderRow) => void;
   onArchive?: (row: StoreOrderRow) => void;
+  /** ADR-0018 (M2 gap closure) — adds the default-hidden profitability columns; only pass true when the caller both requested and was authorized for `orders.profitability.view` (the page decides, never this config). */
+  includeProfitability?: boolean;
+}
+
+const COST_STATE_TONE: Record<string, "success" | "warning" | "neutral"> = {
+  COMPLETE: "success",
+  PARTIAL: "warning",
+  UNKNOWN: "neutral",
+};
+
+function CostStateCell({ order }: { order: StoreOrderRow }) {
+  const { t } = useLocale();
+  const state = order.profitability?.costState;
+  if (!state) return <span className="text-muted-foreground">—</span>;
+  return (
+    <StatusBadge
+      label={t(`storeOrders.profitability.costStateValues.${state}` as MessageKey)}
+      tone={COST_STATE_TONE[state]}
+    />
+  );
+}
+
+function money(value: number | null | undefined, currency: StoreOrderRow["currency"]) {
+  if (value == null) return "—";
+  return formatMoney(value, currencyCodeOf(currency));
+}
+
+function percent(value: number | null | undefined) {
+  if (value == null) return "—";
+  return `${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
 }
 
 function StoreOrderActionsCell({
@@ -157,6 +188,73 @@ export function buildStoreOrderColumns(
       },
       cell: ({ row }) => <StoreOrderShippingCell order={row.original} />,
     },
+    ...(handlers.includeProfitability
+      ? ([
+          {
+            id: "netRevenue",
+            meta: {
+              titleKey: "storeOrders.profitability.netRevenue",
+              defaultHidden: true,
+              align: "end",
+              type: "number",
+            },
+            accessorFn: (row) => row.profitability?.netRevenue ?? "",
+            cell: ({ row }) => money(row.original.profitability?.netRevenue, row.original.currency),
+          },
+          {
+            id: "cogs",
+            meta: {
+              titleKey: "storeOrders.profitability.cogs",
+              defaultHidden: true,
+              align: "end",
+              type: "number",
+            },
+            accessorFn: (row) => row.profitability?.cogs ?? "",
+            cell: ({ row }) => money(row.original.profitability?.cogs, row.original.currency),
+          },
+          {
+            id: "grossProductProfit",
+            meta: {
+              titleKey: "storeOrders.profitability.grossProductProfit",
+              defaultHidden: true,
+              align: "end",
+              type: "number",
+            },
+            accessorFn: (row) => row.profitability?.grossProductProfit ?? "",
+            cell: ({ row }) =>
+              money(row.original.profitability?.grossProductProfit, row.original.currency),
+          },
+          {
+            id: "contributionProfit",
+            meta: {
+              titleKey: "storeOrders.profitability.contributionProfit",
+              defaultHidden: true,
+              align: "end",
+              type: "number",
+            },
+            accessorFn: (row) => row.profitability?.contributionProfit ?? "",
+            cell: ({ row }) =>
+              money(row.original.profitability?.contributionProfit, row.original.currency),
+          },
+          {
+            id: "contributionMarginPercent",
+            meta: {
+              titleKey: "storeOrders.profitability.contributionMargin",
+              defaultHidden: true,
+              align: "end",
+              type: "number",
+            },
+            accessorFn: (row) => row.profitability?.contributionMarginPercent ?? "",
+            cell: ({ row }) => percent(row.original.profitability?.contributionMarginPercent),
+          },
+          {
+            id: "costState",
+            meta: { titleKey: "storeOrders.profitability.costState", defaultHidden: true },
+            accessorFn: (row) => row.profitability?.costState ?? "",
+            cell: ({ row }) => <CostStateCell order={row.original} />,
+          },
+        ] satisfies ColumnDef<StoreOrderRow, unknown>[])
+      : []),
     {
       id: "__actions",
       meta: { titleKey: "common.actions", importance: "critical" },

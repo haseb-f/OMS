@@ -212,6 +212,8 @@ export interface StoreOrderRow {
   total?: string;
   createdAt: string;
   updatedAt: string;
+  /** ADR-0018 (M2 gap closure) — present only when the list was fetched with `includeProfitability: true` AND the caller holds `orders.profitability.view`. */
+  profitability?: OrderEconomics | null;
 }
 
 export interface StoreOrderListParams {
@@ -227,6 +229,10 @@ export interface StoreOrderListParams {
   sortOrder?: "asc" | "desc";
   /** `listIds` only — caps "select all"/"select first N" to the first N matching rows by `sortBy`/`sortOrder`. */
   limit?: number;
+  /** ADR-0018 (M2 gap closure) — opts each row into a `profitability` summary. Ignored server-side unless the caller also holds `orders.profitability.view`. */
+  includeProfitability?: boolean;
+  costState?: CostState[];
+  lossMaking?: boolean;
 }
 
 export interface StoreOrderListResult {
@@ -234,6 +240,8 @@ export interface StoreOrderListResult {
   total: number;
   page: number;
   pageSize: number;
+  /** Only present when a `costState`/`lossMaking` filter was applied — true if the bounded candidate scan hit its cap, meaning `total` may undercount. */
+  profitabilityFilterCapped?: boolean;
 }
 
 export interface StoreOrderIdsResult {
