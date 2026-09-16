@@ -29,6 +29,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { MoneyValue } from "@/components/shared/money-value";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { EntityTabs } from "@/components/business/entity-tabs";
+import { OrderProfitabilityPanel } from "@/components/store-orders/order-profitability-panel";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -120,6 +121,7 @@ function StoreOrderDetailContent() {
   const { hasPermission } = useUserContext();
   const canEdit = hasPermission("store-orders.edit");
   const canArchive = hasPermission("store-orders.archive");
+  const canViewProfitability = hasPermission("orders.profitability.view");
   const canEditCustomer = hasPermission("partners.edit");
 
   const [order, setOrder] = useState<StoreOrderRow | null>(null);
@@ -962,6 +964,15 @@ function StoreOrderDetailContent() {
               ) : undefined,
             content: attachments,
           },
+          ...(canViewProfitability
+            ? [
+                {
+                  value: "profitability",
+                  label: t("storeOrders.detail.tabs.profitability"),
+                  content: <OrderProfitabilityPanel storeOrderId={order.id} />,
+                },
+              ]
+            : []),
         ]}
       />
 

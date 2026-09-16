@@ -1,6 +1,45 @@
 import { apiClient } from "./api-client";
 import { buildQueryString } from "@/lib/query-string";
 
+/** ADR-0018 — completeness of a cost component (or the Order overall). Never treat a missing value as 0 without reading this. */
+export type CostState = "COMPLETE" | "PARTIAL" | "UNKNOWN";
+
+export interface OrderEconomicsItemLine {
+  productId: string;
+  quantity: number;
+  netRevenue: number;
+  historicalUnitCost: number | null;
+  cogs: number | null;
+}
+
+export interface ShipmentAttemptCost {
+  shipmentId: string;
+  attemptNumber: number;
+  status: string | null;
+  baseShippingCost: number | null;
+  additionalShippingCost: number | null;
+  totalCost: number | null;
+}
+
+export interface OrderEconomics {
+  storeOrderId: string;
+  netRevenue: number;
+  items: OrderEconomicsItemLine[];
+  cogs: number;
+  cogsState: CostState;
+  grossProductProfit: number;
+  grossMarginPercent: number | null;
+  shippingAttempts: ShipmentAttemptCost[];
+  shippingCost: number;
+  shippingState: CostState;
+  packagingState: "UNKNOWN";
+  paymentFeeState: "UNKNOWN";
+  totalDirectCost: number;
+  contributionProfit: number;
+  contributionMarginPercent: number | null;
+  costState: CostState;
+}
+
 export type StoreOrderSourceValue = "MANUAL" | "IMPORT";
 
 export type StoreOrderPaymentStatusValue =
@@ -202,6 +241,9 @@ export interface OrderGlobalLookupResult {
 }
 
 export const storeOrdersService = {
+  /** ADR-0018 — the one canonical Order Economics read; never recomputed client-side. */
+  getEconomics: (storeOrderId: string) =>
+    apiClient.get<OrderEconomics>(`/store-orders/${storeOrderId}/economics`),
   list: (params: StoreOrderListParams = {}) =>
     apiClient.get<StoreOrderListResult>(
       `/store-orders${buildQueryString(params as Record<string, unknown>)}`,

@@ -70,6 +70,7 @@ export function ShipmentManageDialog({
   const [companyId, setCompanyId] = useState("");
   const [trackingNumber, setTrackingNumber] = useState("");
   const [labelUrl, setLabelUrl] = useState("");
+  const [shippingCost, setShippingCost] = useState("");
   const [shippingStatusId, setShippingStatusId] = useState("");
   const [statuses, setStatuses] = useState<ShippingStatusCatalogEntry[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -81,6 +82,7 @@ export function ShipmentManageDialog({
       setCompanyId(shipment.shippingCompanyId ?? "");
       setTrackingNumber(shipment.trackingNumber ?? "");
       setLabelUrl("");
+      setShippingCost(shipment.shippingCost ?? "");
       setShippingStatusId(shipment.shippingStatus?.id ?? "");
     }
   }, [shipment]);
@@ -135,6 +137,16 @@ export function ShipmentManageDialog({
           storeOrdersService.shipments.setLabel(shipment.storeOrderId, {
             fileUrl: labelUrl.trim(),
           }),
+        );
+      }
+      const trimmedCost = shippingCost.trim();
+      if (trimmedCost && trimmedCost !== (shipment.shippingCost ?? "")) {
+        calls.push(
+          storeOrdersService.shipments.setShippingCost(
+            shipment.storeOrderId,
+            shipment.id,
+            Number(trimmedCost),
+          ),
         );
       }
       if (calls.length === 0) {
@@ -242,6 +254,22 @@ export function ShipmentManageDialog({
               onChange={(e) => setTrackingNumber(e.target.value)}
               placeholder={t("shipping.manage.trackingNumberPlaceholder")}
             />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label>{t("shipping.manage.shippingCost")}</Label>
+            <Input
+              dir="ltr"
+              type="number"
+              min={0}
+              step="0.01"
+              value={shippingCost}
+              onChange={(e) => setShippingCost(e.target.value)}
+              placeholder="0.00"
+            />
+            <p className="text-caption text-muted-foreground">
+              {t("shipping.manage.shippingCostHint")}
+            </p>
           </div>
 
           <div className="flex flex-col gap-1.5">
