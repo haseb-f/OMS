@@ -88,6 +88,9 @@ describe('StoreOrdersService.generateInvoice — physical inventory delivery', (
     const inventoryService = {
       postSalesDelivery: jest.fn().mockResolvedValue(undefined),
     };
+    const fulfillmentCostService = {
+      applyStandardCost: jest.fn().mockResolvedValue(undefined),
+    };
 
     const service = new StoreOrdersService(
       prisma as unknown as PrismaService,
@@ -103,6 +106,7 @@ describe('StoreOrdersService.generateInvoice — physical inventory delivery', (
       salesScope as never,
       {} as never,
       inventoryService as never,
+      fulfillmentCostService as never,
     );
     return { service, inventoryService, postingEngine, prisma };
   }

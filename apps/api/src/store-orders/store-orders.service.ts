@@ -53,6 +53,7 @@ import { WorkflowStatusResolverService } from '../workflow/workflow-status-resol
 import { SalesScopeService } from '../sales-scope/sales-scope.service';
 import { ProductsService } from '../products/products.service';
 import { InventoryService } from '../inventory/inventory.service';
+import { FulfillmentCostService } from '../fulfillment-cost-rules/fulfillment-cost.service';
 import { PAID_PAYMENT_CODES } from '../workflow/workflow-status-map';
 import { randomUUID } from 'node:crypto';
 
@@ -200,6 +201,7 @@ export class StoreOrdersService {
     private readonly salesScope: SalesScopeService,
     private readonly productsService: ProductsService,
     private readonly inventoryService: InventoryService,
+    private readonly fulfillmentCostService: FulfillmentCostService,
   ) {}
 
   /**
@@ -1410,6 +1412,12 @@ export class StoreOrdersService {
           tx,
         );
       }
+
+      // ADR-0018 (Order Economics M2.2) — the same recognition moment as
+      // historical COGS above: apply the immutable Fulfillment Cost snapshot
+      // before posting, so a later rate change can never alter this Order's
+      // recorded profitability.
+      await this.fulfillmentCostService.applyStandardCost(id, tx, userId);
 
       await this.postingEngine.post('SALES_INVOICE', created.id, userId, tx);
 

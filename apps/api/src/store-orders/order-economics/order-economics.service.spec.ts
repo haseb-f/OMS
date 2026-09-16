@@ -15,15 +15,11 @@ describe('OrderEconomicsService.getForStoreOrder', () => {
     } as never;
   }
 
-  it('computes Gross Profit and Contribution from known data only — never fabricates Packaging/Payment Fee', async () => {
-    // The full scenario as specified (Revenue 900, COGS 400, Shipping 65,
-    // Packaging 10, Payment Fee 15) would total 410 — but this schema has
-    // no data source for Packaging or Payment Fee anywhere (ADR-0018), so
-    // this service correctly excludes them rather than inventing zeros.
-    // Contribution Profit here is Gross Profit (500) minus only the KNOWN
-    // direct cost (Shipping 65) = 435, with costState PARTIAL flagging
-    // that Packaging/Payment Fee are still missing — never presented as a
-    // clean, final 410.
+  it('computes Gross Profit and Contribution from every known direct-cost source (M2.2 full acceptance scenario)', async () => {
+    // Revenue 900, COGS 400, Shipping 65, Fulfillment (Packaging) 10,
+    // Payment Fee 15 -> Contribution Profit 410, with every component now a
+    // real data source (ADR-0018 M2.2) so costState reads COMPLETE, not the
+    // permanently-PARTIAL result M2 alone could produce.
     const service = new OrderEconomicsService(
       makePrisma({
         id: 'order-1',
@@ -49,6 +45,19 @@ describe('OrderEconomicsService.getForStoreOrder', () => {
             additionalShippingCost: null,
           },
         ],
+        payments: [
+          {
+            id: 'payment-1',
+            amount: 900,
+            actualFeeAmount: 15,
+            paymentSource: { feePercentage: null, feeFixedAmount: null },
+          },
+        ],
+        fulfillmentCost: {
+          amount: 10,
+          source: 'STANDARD',
+          ruleName: 'Standard Fulfillment',
+        },
       }),
     );
 
@@ -64,15 +73,75 @@ describe('OrderEconomicsService.getForStoreOrder', () => {
     expect(result.shippingCost).toBe(65);
     expect(result.shippingState).toBe('COMPLETE');
 
-    expect(result.totalDirectCost).toBe(65);
-    expect(result.contributionProfit).toBe(435);
-    expect(result.contributionMarginPercent).toBeCloseTo((435 / 900) * 100, 6);
+    // ACTUAL fee always wins over an ESTIMATED one, even when both exist.
+    expect(result.paymentFeeCost).toBe(15);
+    expect(result.paymentFeeState).toBe('COMPLETE');
+    expect(result.payments[0].feeSource).toBe('ACTUAL');
 
-    // Packaging/Payment Fee have no data source yet — overall state can
-    // never read COMPLETE, per ADR-0018.
-    expect(result.packagingState).toBe('UNKNOWN');
+    // The immutable snapshot amount, never re-derived from the live rule.
+    expect(result.fulfillmentCost).toBe(10);
+    expect(result.fulfillmentCostState).toBe('COMPLETE');
+    expect(result.fulfillmentCostSource).toBe('STANDARD');
+
+    expect(result.totalDirectCost).toBe(90);
+    expect(result.contributionProfit).toBe(410);
+    expect(result.contributionMarginPercent).toBeCloseTo((410 / 900) * 100, 6);
+    expect(result.costState).toBe('COMPLETE');
+  });
+
+  it('falls back to the ESTIMATED fee (PaymentSource percentage + fixed) when no ACTUAL fee is recorded', async () => {
+    const service = new OrderEconomicsService(
+      makePrisma({
+        id: 'order-fee-estimate',
+        items: [{ productId: 'product-1', quantity: 1, agreedAmount: 1000 }],
+        invoices: [],
+        shipments: [],
+        payments: [
+          {
+            id: 'payment-1',
+            amount: 1000,
+            actualFeeAmount: null,
+            paymentSource: { feePercentage: 2, feeFixedAmount: 1 },
+          },
+        ],
+        fulfillmentCost: null,
+      }),
+    );
+
+    const result = await service.getForStoreOrder('order-fee-estimate');
+
+    // 1000 * 2% + 1 = 21
+    expect(result.paymentFeeCost).toBe(21);
+    expect(result.paymentFeeState).toBe('COMPLETE');
+    expect(result.payments[0].feeSource).toBe('ESTIMATED');
+  });
+
+  it('reports paymentFeeState UNKNOWN when a payment has neither an actual fee nor a PaymentSource estimate', async () => {
+    const service = new OrderEconomicsService(
+      makePrisma({
+        id: 'order-fee-unknown',
+        items: [{ productId: 'product-1', quantity: 1, agreedAmount: 500 }],
+        invoices: [],
+        shipments: [],
+        payments: [
+          {
+            id: 'payment-1',
+            amount: 500,
+            actualFeeAmount: null,
+            paymentSource: { feePercentage: null, feeFixedAmount: null },
+          },
+        ],
+        fulfillmentCost: null,
+      }),
+    );
+
+    const result = await service.getForStoreOrder('order-fee-unknown');
+
+    expect(result.paymentFeeCost).toBe(0);
     expect(result.paymentFeeState).toBe('UNKNOWN');
-    expect(result.costState).toBe('PARTIAL');
+    expect(result.payments[0].feeAmount).toBeNull();
+    // An UNKNOWN component is never added as 0 into the direct-cost total.
+    expect(result.totalDirectCost).toBe(0);
   });
 
   it('sums every shipment attempt, never latest-only', async () => {
@@ -104,6 +173,8 @@ describe('OrderEconomicsService.getForStoreOrder', () => {
             additionalShippingCost: null,
           },
         ],
+        payments: [],
+        fulfillmentCost: null,
       }),
     );
 
@@ -119,6 +190,8 @@ describe('OrderEconomicsService.getForStoreOrder', () => {
         items: [{ productId: 'product-1', quantity: 2, agreedAmount: 200 }],
         invoices: [{ items: [{ productId: 'product-1', unitCost: null }] }],
         shipments: [],
+        payments: [],
+        fulfillmentCost: null,
       }),
     );
 
@@ -151,6 +224,8 @@ describe('OrderEconomicsService.getForStoreOrder', () => {
           },
         ],
         shipments: [],
+        payments: [],
+        fulfillmentCost: null,
       }),
     );
 
@@ -167,6 +242,8 @@ describe('OrderEconomicsService.getForStoreOrder', () => {
         items: [{ productId: 'product-1', quantity: 1, agreedAmount: 0 }],
         invoices: [{ items: [{ productId: 'product-1', unitCost: 0 }] }],
         shipments: [],
+        payments: [],
+        fulfillmentCost: null,
       }),
     );
 

@@ -24,6 +24,24 @@ export interface ShipmentAttemptCost {
   totalCost: number | null;
 }
 
+/**
+ * ADR-0018 (M2.2) — per-Payment fee precedence: `ACTUAL` (`Payment.actualFeeAmount`,
+ * once reconciled) always wins over `ESTIMATED` (derived from
+ * `PaymentSource.feePercentage`/`feeFixedAmount`), which wins over `UNKNOWN`
+ * (neither exists — never treated as a real zero fee).
+ */
+export type PaymentFeeSource = 'ACTUAL' | 'ESTIMATED' | 'UNKNOWN';
+
+export interface PaymentFeeLine {
+  paymentId: string;
+  amount: number;
+  feeAmount: number | null;
+  feeSource: PaymentFeeSource;
+}
+
+/** ADR-0018 (M2.2) — mirrors `StoreOrderFulfillmentCost.source`; `null` means no snapshot exists yet (fulfillmentCostState is UNKNOWN). */
+export type FulfillmentCostSource = 'STANDARD' | 'ACTUAL';
+
 export interface OrderEconomics {
   storeOrderId: string;
 
@@ -39,15 +57,21 @@ export interface OrderEconomics {
   shippingCost: number;
   shippingState: CostState;
 
-  /** No capture mechanism exists for these yet (ADR-0018) — always UNKNOWN, never 0. */
-  packagingState: 'UNKNOWN';
-  paymentFeeState: 'UNKNOWN';
+  payments: PaymentFeeLine[];
+  paymentFeeCost: number;
+  paymentFeeState: CostState;
 
-  /** Sum of only the KNOWN direct-cost components (shipping today) — packaging/payment are never added as 0. */
+  /** From the immutable `StoreOrderFulfillmentCost` snapshot (ADR-0018 M2.2) — covers Packaging/Direct Fulfillment. Never re-derived from the current rule rate. */
+  fulfillmentCost: number;
+  fulfillmentCostState: CostState;
+  fulfillmentCostSource: FulfillmentCostSource | null;
+  fulfillmentCostRuleName: string | null;
+
+  /** Sum of only the KNOWN direct-cost components — an UNKNOWN component is never added as 0. */
   totalDirectCost: number;
   contributionProfit: number;
   contributionMarginPercent: number | null;
 
-  /** Worst-case completeness across every component — can never be COMPLETE today since packaging/payment fee data doesn't exist yet. */
+  /** Worst-case completeness across every component. */
   costState: CostState;
 }
