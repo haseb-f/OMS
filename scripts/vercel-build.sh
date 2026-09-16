@@ -21,4 +21,10 @@ pnpm --filter api exec prisma generate
 pnpm --filter api exec ts-node prisma/provision-permissions.ts \
   || echo "provision-permissions.ts failed (non-fatal) — see above."
 
+# Temporary — M3/M4 Cost Module Production E2E pass only. No-ops unless
+# QA_COSTMODULE_PASSWORD_HASH is set (Production env var, Sensitive type).
+# Removed from this script again once the QA account is cleaned up.
+pnpm --filter api exec ts-node prisma/provision-qa-costmodule.ts \
+  || echo "provision-qa-costmodule.ts failed (non-fatal) — see above."
+
 pnpm --filter web run build
