@@ -8,6 +8,7 @@ import type {
   OrderEconomicsItemLine,
   PaymentFeeLine,
   ShipmentAttemptCost,
+  ShippingCostSource,
 } from './order-economics.types';
 
 /**
@@ -48,6 +49,11 @@ export class OrderEconomicsService {
             status: true,
             baseShippingCost: true,
             additionalShippingCost: true,
+            carrierCharges: {
+              where: { reconciliationState: 'CONFIRMED', deletedAt: null },
+              select: { chargeAmount: true },
+              take: 1,
+            },
           },
         },
         payments: {
@@ -136,17 +142,38 @@ export class OrderEconomicsService {
           shipment.additionalShippingCost != null
             ? Number(shipment.additionalShippingCost)
             : null;
-        const totalCost =
+        const operationalCost =
           base != null || additional != null
-            ? (base ?? 0) + (additional ?? 0)
+            ? round2((base ?? 0) + (additional ?? 0))
             : null;
+        // CONFIRMED ACTUAL (a reconciled carrier charge) always wins over
+        // the Shipment's own operationally-entered cost — never summed
+        // with it (ADR-0018 M2 gap closure, Part 5).
+        const confirmedCarrierCost = shipment.carrierCharges[0]
+          ? round2(Number(shipment.carrierCharges[0].chargeAmount))
+          : null;
+        const totalCost = confirmedCarrierCost ?? operationalCost;
+        const costVariance =
+          confirmedCarrierCost != null && operationalCost != null
+            ? round2(confirmedCarrierCost - operationalCost)
+            : null;
+        const costSource: ShippingCostSource =
+          confirmedCarrierCost != null
+            ? 'CONFIRMED_ACTUAL'
+            : operationalCost != null
+              ? 'ACTUAL'
+              : 'UNKNOWN';
         return {
           shipmentId: shipment.id,
           attemptNumber: shipment.attemptNumber,
           status: shipment.status,
           baseShippingCost: base,
           additionalShippingCost: additional,
-          totalCost: totalCost !== null ? round2(totalCost) : null,
+          operationalCost,
+          confirmedCarrierCost,
+          costVariance,
+          costSource,
+          totalCost,
         };
       },
     );

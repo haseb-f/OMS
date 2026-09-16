@@ -36,6 +36,7 @@ describe('OrderEconomicsService.getForStoreOrder', () => {
             status: 'DELIVERY_FAILED',
             baseShippingCost: 30,
             additionalShippingCost: null,
+            carrierCharges: [],
           },
           {
             id: 'shipment-2',
@@ -43,6 +44,7 @@ describe('OrderEconomicsService.getForStoreOrder', () => {
             status: 'DELIVERED',
             baseShippingCost: 35,
             additionalShippingCost: null,
+            carrierCharges: [],
           },
         ],
         payments: [
@@ -72,6 +74,8 @@ describe('OrderEconomicsService.getForStoreOrder', () => {
     // Both shipment attempts count — a failed attempt's cost is never dropped.
     expect(result.shippingCost).toBe(65);
     expect(result.shippingState).toBe('COMPLETE');
+    expect(result.shippingAttempts[0].costSource).toBe('ACTUAL');
+    expect(result.shippingAttempts[0].confirmedCarrierCost).toBeNull();
 
     // ACTUAL fee always wins over an ESTIMATED one, even when both exist.
     expect(result.paymentFeeCost).toBe(15);
@@ -157,6 +161,7 @@ describe('OrderEconomicsService.getForStoreOrder', () => {
             status: 'DELIVERY_FAILED',
             baseShippingCost: 30,
             additionalShippingCost: null,
+            carrierCharges: [],
           },
           {
             id: 's2',
@@ -164,6 +169,7 @@ describe('OrderEconomicsService.getForStoreOrder', () => {
             status: 'DELIVERY_FAILED',
             baseShippingCost: 35,
             additionalShippingCost: null,
+            carrierCharges: [],
           },
           {
             id: 's3',
@@ -171,6 +177,7 @@ describe('OrderEconomicsService.getForStoreOrder', () => {
             status: 'DELIVERED',
             baseShippingCost: 40,
             additionalShippingCost: null,
+            carrierCharges: [],
           },
         ],
         payments: [],
@@ -181,6 +188,50 @@ describe('OrderEconomicsService.getForStoreOrder', () => {
     const result = await service.getForStoreOrder('order-2');
 
     expect(result.shippingCost).toBe(105);
+  });
+
+  it('CONFIRMED carrier charge replaces the operational shipping cost, never sums with it (ADR-0018 M2 gap closure)', async () => {
+    // Attempt 1: operational estimate 28, CONFIRMED carrier actual 30 ->
+    // must use 30, never 58. Attempt 2: no carrier charge yet -> operational
+    // 35 stands. Total shipping = 30 + 35 = 65.
+    const service = new OrderEconomicsService(
+      makePrisma({
+        id: 'order-carrier',
+        items: [{ productId: 'product-1', quantity: 1, agreedAmount: 500 }],
+        invoices: [],
+        shipments: [
+          {
+            id: 'shipment-1',
+            attemptNumber: 1,
+            status: 'DELIVERED',
+            baseShippingCost: 28,
+            additionalShippingCost: null,
+            carrierCharges: [{ chargeAmount: 30 }],
+          },
+          {
+            id: 'shipment-2',
+            attemptNumber: 2,
+            status: 'DELIVERED',
+            baseShippingCost: 35,
+            additionalShippingCost: null,
+            carrierCharges: [],
+          },
+        ],
+        payments: [],
+        fulfillmentCost: null,
+      }),
+    );
+
+    const result = await service.getForStoreOrder('order-carrier');
+
+    expect(result.shippingCost).toBe(65);
+    expect(result.shippingAttempts[0].operationalCost).toBe(28);
+    expect(result.shippingAttempts[0].confirmedCarrierCost).toBe(30);
+    expect(result.shippingAttempts[0].totalCost).toBe(30);
+    expect(result.shippingAttempts[0].costVariance).toBe(2);
+    expect(result.shippingAttempts[0].costSource).toBe('CONFIRMED_ACTUAL');
+    expect(result.shippingAttempts[1].costSource).toBe('ACTUAL');
+    expect(result.shippingAttempts[1].totalCost).toBe(35);
   });
 
   it('never treats a legacy (pre-cost-snapshot) invoice line as zero COGS — reports UNKNOWN instead', async () => {
