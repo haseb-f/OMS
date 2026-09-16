@@ -686,6 +686,14 @@ export const navigationConfig: NavigationItem[] = [
     order: 13,
   },
   {
+    id: "finance-fulfillment-cost-rules",
+    titleKey: "nav.financeFulfillmentCostRules",
+    parent: "finance",
+    route: "/finance/fulfillment-cost-rules",
+    icon: "package",
+    order: 13.5,
+  },
+  {
     id: "finance-projects",
     titleKey: "nav.financeProjects",
     parent: "finance",

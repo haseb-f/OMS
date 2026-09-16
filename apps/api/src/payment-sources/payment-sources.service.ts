@@ -1,51 +1,61 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { PaymentSource } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { MasterDataActivityLogService } from '../master-data/master-data-activity-log.service';
+import {
+  MasterDataCrudService,
+  MasterDataDelegate,
+} from '../master-data/master-data-crud.service';
 import { CreatePaymentSourceDto } from './dto/create-payment-source.dto';
 import { UpdatePaymentSourceDto } from './dto/update-payment-source.dto';
 
+/**
+ * "HOW the customer paid" — a reference-data label, migrated onto the
+ * shared `MasterDataCrudService` (matching every other Master Data entity's
+ * search/pagination/archive/restore/activity contract) when ADR-0018 gave
+ * it real fee-estimation fields worth a proper management page.
+ */
 @Injectable()
-export class PaymentSourcesService {
-  constructor(private readonly prisma: PrismaService) {}
+export class PaymentSourcesService extends MasterDataCrudService<PaymentSource> {
+  protected readonly entityType = 'PAYMENT_SOURCE';
+  protected readonly entityLabel = 'Payment Source';
+  protected readonly searchFields = ['name', 'code', 'description'];
+  protected readonly defaultSortField = 'sortOrder';
 
-  create(dto: CreatePaymentSourceDto) {
-    return this.prisma.paymentSource.create({ data: dto });
+  constructor(
+    prisma: PrismaService,
+    activityLog: MasterDataActivityLogService,
+  ) {
+    super(prisma, activityLog);
   }
 
-  findAll() {
-    return this.prisma.paymentSource.findMany({ where: { deletedAt: null } });
+  protected get delegate(): MasterDataDelegate<PaymentSource> {
+    return this.prisma
+      .paymentSource as unknown as MasterDataDelegate<PaymentSource>;
   }
 
-  async findOne(id: string) {
-    const paymentSource = await this.prisma.paymentSource.findFirst({
-      where: { id, deletedAt: null },
-    });
-    if (!paymentSource) {
-      throw new NotFoundException(`Payment source ${id} not found`);
-    }
-    return paymentSource;
+  create(dto: CreatePaymentSourceDto, userId?: string) {
+    return super.create(dto, userId);
   }
 
-  async update(id: string, dto: UpdatePaymentSourceDto) {
+  update(id: string, dto: UpdatePaymentSourceDto, userId?: string) {
+    return super.update(id, dto, userId);
+  }
+
+  /** "Deactivate" — distinct from "Archive": hides the source from new use without removing it. Reactivate via the generic update(). */
+  async deactivate(id: string, userId?: string) {
     await this.findOne(id);
-    return this.prisma.paymentSource.update({ where: { id }, data: dto });
-  }
-
-  /** "Deactivate" — distinct from "Archive" (remove/soft-delete below): hides the
-   *  source from new use without removing it. Reactivate via the generic update(). */
-  async deactivate(id: string) {
-    await this.findOne(id);
-    return this.prisma.paymentSource.update({
+    const entity = await this.prisma.paymentSource.update({
       where: { id },
-      data: { isActive: false },
+      data: { isActive: false, updatedBy: userId ?? null },
     });
-  }
-
-  /** "Archive". */
-  async remove(id: string) {
-    await this.findOne(id);
-    return this.prisma.paymentSource.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+    await this.activityLog.log(
+      this.entityType,
+      id,
+      'DEACTIVATED',
+      `${this.entityLabel} deactivated`,
+      userId,
+    );
+    return entity;
   }
 }

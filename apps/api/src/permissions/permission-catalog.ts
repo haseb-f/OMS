@@ -286,6 +286,13 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
       // never automatically see it, so this is its own action rather than
       // folded into `view`.
       { action: 'profitability_view', name: 'orders.profitability.view' },
+      // ADR-0018 (M2.2) — recording a Payment's ACTUAL transaction fee or a
+      // Fulfillment Cost override changes a financial input, not just a view;
+      // holding `profitability_view` alone must never be enough to edit one.
+      {
+        action: 'profitability_edit_costs',
+        name: 'orders.profitability.editCosts',
+      },
     ],
   },
   {
@@ -711,6 +718,12 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
     key: 'payment-sources',
     labelKey: 'permissions.modules.paymentSources',
     actions: masterData('payment-sources'),
+  },
+  {
+    // ADR-0018 (Order Economics M2.2).
+    key: 'fulfillment-cost-rules',
+    labelKey: 'permissions.modules.fulfillmentCostRules',
+    actions: masterData('fulfillment-cost-rules'),
   },
   {
     key: 'receiving-accounts',
@@ -1227,6 +1240,7 @@ export const IMPLIED_SECTION_PERMISSION: Record<
   'masterdata.expenses': 'finance.view',
   'masterdata.fixed-assets': 'finance.view',
   'masterdata.payment-sources': 'finance.view',
+  'masterdata.fulfillment-cost-rules': 'finance.view',
   'masterdata.receiving-accounts': 'finance.view',
   'accounting.fiscal-years': 'finance.view',
   expenses: 'expenses.view',

@@ -15,6 +15,8 @@ export const PaymentActivityType = {
   REJECTED: 'REJECTED',
   ATTACHMENT_ADDED: 'ATTACHMENT_ADDED',
   NOTE_ADDED: 'NOTE_ADDED',
+  /// ADR-0018 (Order Economics M2.2).
+  ACTUAL_FEE_RECORDED: 'ACTUAL_FEE_RECORDED',
 } as const;
 
 @Injectable()

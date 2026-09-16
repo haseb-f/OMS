@@ -179,6 +179,30 @@ export class PaymentsService {
     return payment;
   }
 
+  /**
+   * ADR-0018 (Order Economics M2.2) — records the ACTUAL provider
+   * transaction fee for this Payment. A plain, idempotent overwrite (not an
+   * append-only ledger): recording the same reconciled fee twice, or
+   * correcting an earlier value, never duplicates or sums — the field
+   * simply holds the current known-actual amount, same convention as
+   * `Shipment.baseShippingCost`. Callable by a future automated settlement
+   * import, not only this manual endpoint.
+   */
+  async setActualFee(id: string, actualFeeAmount: number, userId?: string) {
+    await this.findOne(id);
+    const payment = await this.prisma.payment.update({
+      where: { id },
+      data: { actualFeeAmount, updatedBy: userId ?? null },
+    });
+    await this.activityService.log(
+      id,
+      PaymentActivityType.ACTUAL_FEE_RECORDED,
+      `Actual transaction fee recorded: ${actualFeeAmount}`,
+      { actualFeeAmount },
+    );
+    return payment;
+  }
+
   /** Business operation: Reject Payment. Requires current status MATCHED (per the given
    *  diagram: PENDING -> MATCHED -> {VERIFIED or REJECTED}). */
   async reject(id: string, dto: RejectPaymentDto) {

@@ -12,6 +12,9 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionModule } from '../auth/decorators/permission-module.decorator';
+import { PermissionAction } from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 import { PaymentsService } from './payments.service';
@@ -22,6 +25,7 @@ import { ArchivePaymentAttachmentDto } from './dto/archive-payment-attachment.dt
 import { MatchPaymentDto } from './dto/match-payment.dto';
 import { VerifyPaymentDto } from './dto/verify-payment.dto';
 import { RejectPaymentDto } from './dto/reject-payment.dto';
+import { SetActualFeeDto } from './dto/set-actual-fee.dto';
 import { ATTACHMENT_MAX_BYTES } from '../common/storage/file-validation';
 import { AttachmentsService } from '../common/storage/attachments.service';
 
@@ -69,6 +73,25 @@ export class PaymentsController {
   @HttpCode(200)
   reject(@Param('id') id: string, @Body() dto: RejectPaymentDto) {
     return this.paymentsService.reject(id, dto);
+  }
+
+  /**
+   * ADR-0018 (M2.2) — the actual provider transaction fee, once known/
+   * reconciled: a financial input, not just a view, so it needs its own
+   * gate (`orders.profitability.editCosts`) rather than riding on this
+   * controller's otherwise-ungated routes or on `profitability_view`.
+   */
+  @Post(':id/fee')
+  @HttpCode(200)
+  @UseGuards(PermissionsGuard)
+  @PermissionModule('store-orders')
+  @PermissionAction('profitability_edit_costs')
+  setActualFee(
+    @Param('id') id: string,
+    @Body() dto: SetActualFeeDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.paymentsService.setActualFee(id, dto.actualFeeAmount, user.sub);
   }
 
   @Post(':id/attachments/from-staging')

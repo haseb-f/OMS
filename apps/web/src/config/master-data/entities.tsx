@@ -902,6 +902,146 @@ export const paymentMethodsToFormValues = (row: PaymentMethodRow) => ({
 export const paymentMethodRowLabel = (row: PaymentMethodRow) => row.name;
 
 // ---------------------------------------------------------------------------
+// Payment Sources (ADR-0018, Order Economics M2.2) — "HOW the customer
+// paid" (Visa, Mada, STC Pay, ...), distinct from the B2B-facing Payment
+// Method above. feePercentage/feeFixedAmount are an OPTIONAL fee
+// ESTIMATION config only — a real Payment's own actualFeeAmount always
+// supersedes it, never summed with it.
+// ---------------------------------------------------------------------------
+
+export interface PaymentSourceRow {
+  id: string;
+  name: string;
+  code: string | null;
+  description: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  defaultChartOfAccountId: string | null;
+  feePercentage: number | string | null;
+  feeFixedAmount: number | string | null;
+  deletedAt: string | null;
+}
+
+export const paymentSourcesColumns: ColumnDef<PaymentSourceRow, unknown>[] = [
+  textColumn("name", "masterData.fields.name", (r) => r.name),
+  textColumn("code", "masterData.fields.code", (r) => r.code),
+  textColumn("feePercentage", "masterData.fields.feePercentage", (r) =>
+    r.feePercentage != null ? `${r.feePercentage}%` : null,
+  ),
+  textColumn("feeFixedAmount", "masterData.fields.feeFixedAmount", (r) =>
+    r.feeFixedAmount != null ? String(r.feeFixedAmount) : null,
+  ),
+  statusColumn<PaymentSourceRow>(),
+];
+
+export const paymentSourcesFormFieldsHead: MasterDataFormField[] = [
+  { name: "name", label: "masterData.fields.name", type: "text", required: true },
+  { name: "code", label: "masterData.fields.code", type: "text" },
+];
+
+export const paymentSourcesFormFieldsTail: MasterDataFormField[] = [
+  { name: "feePercentage", label: "masterData.fields.feePercentage", type: "number" },
+  { name: "feeFixedAmount", label: "masterData.fields.feeFixedAmount", type: "number" },
+  { name: "sortOrder", label: "masterData.fields.sortOrder", type: "number" },
+  { name: "isActive", label: "masterData.fields.isActive", type: "boolean" },
+  { name: "description", label: "masterData.fields.description", type: "textarea" },
+];
+
+export const paymentSourcesSchema = z.object({
+  name: z.string().min(1),
+  code: z.string().optional().or(z.literal("")),
+  feePercentage: z.number().min(0).max(100).optional(),
+  feeFixedAmount: z.number().min(0).optional(),
+  defaultChartOfAccountId: z.string().optional().or(z.literal("")),
+  sortOrder: z.number().optional(),
+  isActive: z.boolean().optional(),
+  description: z.string().optional().or(z.literal("")),
+});
+
+export const paymentSourcesDefaultValues = {
+  name: "",
+  code: "",
+  feePercentage: undefined,
+  feeFixedAmount: undefined,
+  defaultChartOfAccountId: "",
+  sortOrder: 0,
+  isActive: true,
+  description: "",
+};
+export const paymentSourcesExportColumns = ["name", "code", "feePercentage", "feeFixedAmount"];
+export const paymentSourceRowLabel = (row: PaymentSourceRow) => row.name;
+
+// ---------------------------------------------------------------------------
+// Direct Fulfillment Cost Rules (ADR-0018, Order Economics M2.2) — the
+// Packaging/Fulfillment cost source. V1 scope: one flat cost per fulfilled
+// Order (no Country/Warehouse/Shipping Company applicability yet).
+// `costAmount` is the CURRENT configured rate; a change here never rewrites
+// an already-applied Order's immutable `StoreOrderFulfillmentCost` snapshot.
+// ---------------------------------------------------------------------------
+
+export interface DirectFulfillmentCostRuleRow {
+  id: string;
+  name: string;
+  nameEn: string | null;
+  costAmount: number | string;
+  currencyId: string;
+  currency?: { code: string } | null;
+  isActive: boolean;
+  effectiveFrom: string | null;
+  effectiveTo: string | null;
+  deletedAt: string | null;
+}
+
+export const fulfillmentCostRulesColumns: ColumnDef<DirectFulfillmentCostRuleRow, unknown>[] = [
+  textColumn("name", "masterData.fields.name", (r) => r.name),
+  textColumn("costAmount", "masterData.fields.costAmount", (r) =>
+    `${r.costAmount} ${r.currency?.code ?? ""}`.trim(),
+  ),
+  textColumn("effectiveFrom", "masterData.fields.effectiveFrom", (r) => r.effectiveFrom),
+  textColumn("effectiveTo", "masterData.fields.effectiveTo", (r) => r.effectiveTo),
+  statusColumn<DirectFulfillmentCostRuleRow>(),
+];
+
+export const fulfillmentCostRulesFormFieldsHead: MasterDataFormField[] = [
+  { name: "name", label: "masterData.fields.name", type: "text", required: true },
+  { name: "nameEn", label: "masterData.fields.nameEn", type: "text" },
+  { name: "costAmount", label: "masterData.fields.costAmount", type: "number", required: true },
+];
+
+export const fulfillmentCostRulesFormFieldsTail: MasterDataFormField[] = [
+  { name: "effectiveFrom", label: "masterData.fields.effectiveFrom", type: "date" },
+  { name: "effectiveTo", label: "masterData.fields.effectiveTo", type: "date" },
+  { name: "isActive", label: "masterData.fields.isActive", type: "boolean" },
+];
+
+export const fulfillmentCostRulesSchema = z.object({
+  name: z.string().min(1),
+  nameEn: z.string().optional().or(z.literal("")),
+  costAmount: z.number().min(0),
+  currencyId: z.string().uuid(),
+  effectiveFrom: z.string().optional().or(z.literal("")),
+  effectiveTo: z.string().optional().or(z.literal("")),
+  isActive: z.boolean().optional(),
+});
+
+export const fulfillmentCostRulesDefaultValues = {
+  name: "",
+  nameEn: "",
+  costAmount: undefined,
+  currencyId: "",
+  effectiveFrom: "",
+  effectiveTo: "",
+  isActive: true,
+};
+export const fulfillmentCostRulesExportColumns = [
+  "name",
+  "costAmount",
+  "effectiveFrom",
+  "effectiveTo",
+];
+export const fulfillmentCostRuleRowLabel = (row: DirectFulfillmentCostRuleRow) => row.name;
+
+// ---------------------------------------------------------------------------
 // Payment Terms (code is auto-generated — never in formFields/schema)
 // ---------------------------------------------------------------------------
 

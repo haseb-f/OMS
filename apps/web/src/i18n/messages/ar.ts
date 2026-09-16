@@ -268,6 +268,7 @@ const ar = {
       workflowTransitions: "انتقالات سير العمل",
       analyticDistributions: "التوزيعات التحليلية",
       paymentSources: "مصادر الدفع",
+      fulfillmentCostRules: "قواعد تكلفة التجهيز",
       receivingAccounts: "حسابات الاستلام",
       numbering: "ترقيم المستندات",
       costEngine: "محرك التكلفة",
@@ -332,6 +333,7 @@ const ar = {
     financeBankTransactions: "العمليات المالية",
     financeJournals: "دفاتر اليومية",
     financePaymentSources: "مصادر الدفع",
+    financeFulfillmentCostRules: "قواعد تكلفة التجهيز",
     financeReceivingAccounts: "الحسابات",
     financeProjects: "المشاريع",
     financeCostCenters: "مراكز التكلفة",
@@ -738,6 +740,11 @@ const ar = {
       branch: "الفرع",
       allowReconciliation: "السماح بالمطابقة",
       account: "الحساب المرتبط",
+      feePercentage: "نسبة الرسوم (%)",
+      feeFixedAmount: "الرسوم الثابتة",
+      costAmount: "قيمة التكلفة",
+      effectiveFrom: "ساري من",
+      effectiveTo: "ساري حتى",
     },
     colors: {
       neutral: "رمادي",
@@ -1035,6 +1042,16 @@ const ar = {
     paymentMethods: {
       title: "طرق الدفع",
       description: "إدارة طرق الدفع المقبولة.",
+    },
+    paymentSources: {
+      title: "مصادر الدفع",
+      description:
+        "إدارة طريقة دفع العملاء (فيزا، مدى، STC Pay، ...) وإعداد تقدير الرسوم الاختياري.",
+    },
+    fulfillmentCostRules: {
+      title: "قواعد تكلفة التجهيز",
+      description:
+        "إدارة تكلفة التغليف/التجهيز المباشر الثابتة التي تُطبَّق تلقائيًا عند إصدار فاتورة المبيعات للطلب.",
     },
     paymentTerms: {
       title: "شروط الدفع",
@@ -2890,7 +2907,7 @@ const ar = {
       grossMargin: "هامش الربح الإجمالي",
       directCosts: "التكاليف المباشرة",
       shipping: "الشحن",
-      packaging: "التغليف / التنفيذ",
+      fulfillmentCost: "التغليف / التنفيذ",
       paymentFee: "رسوم الدفع",
       contributionProfit: "ربح المساهمة",
       contributionMargin: "هامش المساهمة",
@@ -2901,6 +2918,15 @@ const ar = {
       itemBreakdown: "تفصيل العناصر",
       quantity: "الكمية",
       unitCost: "التكلفة التاريخية للوحدة",
+      paymentFees: "رسوم الدفع",
+      amount: "المبلغ",
+      fee: "الرسوم",
+      feeSource: "المصدر",
+      feeSourceValues: {
+        ACTUAL: "فعلي",
+        ESTIMATED: "تقديري",
+        UNKNOWN: "غير معروف",
+      },
       costStateValues: {
         COMPLETE: "مكتمل",
         PARTIAL: "جزئي",
@@ -2964,6 +2990,13 @@ const ar = {
         added: "تمت إضافة الدفعة.",
         orderTotal: "إجمالي الطلب",
         suggestedAmount: "المبلغ المقترح (المتبقي)",
+        fee: "الرسوم",
+        setFee: "تسجيل الرسوم",
+        setFeeTitle: "تسجيل رسوم المعاملة الفعلية",
+        setFeeDescription:
+          "هذه القيمة تتفوق دائمًا على تقدير رسوم مصدر الدفع لهذه الدفعة في اقتصاديات الطلب.",
+        feeAmount: "قيمة الرسوم",
+        feeSaved: "تم تسجيل رسوم المعاملة.",
         overpaymentWarning: "المبلغ أكبر من المتبقي — سيُسجَّل كزيادة.",
       },
       invoice: {

@@ -269,6 +269,7 @@ const en = {
       workflowTransitions: "Workflow Transitions",
       analyticDistributions: "Analytic Distributions",
       paymentSources: "Payment Sources",
+      fulfillmentCostRules: "Fulfillment Cost Rules",
       receivingAccounts: "Receiving Accounts",
       numbering: "Document Numbering",
       costEngine: "Cost Engine",
@@ -333,6 +334,7 @@ const en = {
     financeBankTransactions: "Financial Operations",
     financeJournals: "Journals",
     financePaymentSources: "Payment Sources",
+    financeFulfillmentCostRules: "Fulfillment Cost Rules",
     financeReceivingAccounts: "Accounts",
     financeProjects: "Projects",
     financeCostCenters: "Cost Centers",
@@ -740,6 +742,11 @@ const en = {
       branch: "Branch",
       allowReconciliation: "Allow Reconciliation",
       account: "Linked Account",
+      feePercentage: "Fee Percentage (%)",
+      feeFixedAmount: "Fee Fixed Amount",
+      costAmount: "Cost Amount",
+      effectiveFrom: "Effective From",
+      effectiveTo: "Effective To",
     },
     colors: {
       neutral: "Gray",
@@ -1039,6 +1046,16 @@ const en = {
     paymentMethods: {
       title: "Payment Methods",
       description: "Manage accepted payment methods.",
+    },
+    paymentSources: {
+      title: "Payment Sources",
+      description:
+        "Manage how customers pay (Visa, Mada, STC Pay, ...) and their optional fee estimation config.",
+    },
+    fulfillmentCostRules: {
+      title: "Fulfillment Cost Rules",
+      description:
+        "Manage the flat Packaging/Direct Fulfillment cost applied automatically when an Order's Sales Invoice is generated.",
     },
     paymentTerms: {
       title: "Payment Terms",
@@ -2917,7 +2934,7 @@ const en = {
       grossMargin: "Gross Margin",
       directCosts: "Direct Costs",
       shipping: "Shipping",
-      packaging: "Packaging / Fulfillment",
+      fulfillmentCost: "Packaging / Fulfillment",
       paymentFee: "Payment Fee",
       contributionProfit: "Contribution Profit",
       contributionMargin: "Contribution Margin",
@@ -2928,6 +2945,15 @@ const en = {
       itemBreakdown: "Item Breakdown",
       quantity: "Quantity",
       unitCost: "Historical Unit Cost",
+      paymentFees: "Payment Fees",
+      amount: "Amount",
+      fee: "Fee",
+      feeSource: "Source",
+      feeSourceValues: {
+        ACTUAL: "Actual",
+        ESTIMATED: "Estimated",
+        UNKNOWN: "Unknown",
+      },
       costStateValues: {
         COMPLETE: "Complete",
         PARTIAL: "Partial",
@@ -2993,6 +3019,13 @@ const en = {
         orderTotal: "Order total",
         suggestedAmount: "Suggested amount (outstanding)",
         overpaymentWarning: "Amount exceeds outstanding — it will be recorded as an overpayment.",
+        fee: "Fee",
+        setFee: "Set Fee",
+        setFeeTitle: "Record Actual Transaction Fee",
+        setFeeDescription:
+          "This always supersedes the Payment Source's fee estimate for this payment in Order Economics.",
+        feeAmount: "Fee Amount",
+        feeSaved: "Transaction fee recorded.",
       },
       invoice: {
         notGenerated: "No invoice has been generated for this order yet.",
