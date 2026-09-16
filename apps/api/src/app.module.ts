@@ -37,6 +37,7 @@ import { WorkflowModule } from './workflow/workflow.module';
 import { TransactionTypesModule } from './transaction-types/transaction-types.module';
 import { SalesOrdersModule } from './sales-orders/sales-orders.module';
 import { PaymentSourcesModule } from './payment-sources/payment-sources.module';
+import { FulfillmentCostRulesModule } from './fulfillment-cost-rules/fulfillment-cost-rules.module';
 import { PaymentsModule } from './payments/payments.module';
 import { ChartOfAccountsModule } from './chart-of-accounts/chart-of-accounts.module';
 import { ReceivingAccountsModule } from './receiving-accounts/receiving-accounts.module';
@@ -133,6 +134,7 @@ import { InvestorPortalModule } from './investor-portal/investor-portal.module';
     ChartOfAccountsModule,
     ReceivingAccountsModule,
     PaymentSourcesModule,
+    FulfillmentCostRulesModule,
     PaymentTermsModule,
     DepartmentsModule,
     CustomerClassificationsModule,
