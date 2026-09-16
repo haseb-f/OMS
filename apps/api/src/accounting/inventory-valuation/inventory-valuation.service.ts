@@ -55,6 +55,55 @@ export class InventoryValuationService {
     tx: Prisma.TransactionClient,
     userId?: string,
   ): Promise<{ previousCost: number; newCost: number }> {
+    return this.blendIntoAverage(
+      productId,
+      receivedQuantity,
+      unitCost,
+      tx,
+      userId,
+      'Purchase receipt — moving average recalculated',
+      'PURCHASE_INVOICE',
+    );
+  }
+
+  /**
+   * Sales Return valuation counterpart of `applyPurchaseReceipt` — same
+   * "add quantity at a known unit cost, reweight the average" formula, but
+   * the unit cost is never a fresh purchase price: it is the ORIGINAL
+   * sale's historical unit cost (`SalesInvoiceItem.unitCost`, the same
+   * snapshot `SalesReturnPostingProvider` already replays for the COGS/
+   * Inventory journal reversal), so the accounting reversal and the
+   * valuation pool stay consistent with each other. Must run after the
+   * physical `postSalesReturn` movement inside the same transaction —
+   * mirrors `applyPurchaseReceipt`'s own ordering requirement.
+   */
+  async applyReturnToStock(
+    productId: string,
+    returnedQuantity: number,
+    historicalUnitCost: number,
+    tx: Prisma.TransactionClient,
+    userId?: string,
+  ): Promise<{ previousCost: number; newCost: number }> {
+    return this.blendIntoAverage(
+      productId,
+      returnedQuantity,
+      historicalUnitCost,
+      tx,
+      userId,
+      'Sales return — moving average recalculated',
+      'SALES_RETURN',
+    );
+  }
+
+  private async blendIntoAverage(
+    productId: string,
+    addedQuantity: number,
+    unitCost: number,
+    tx: Prisma.TransactionClient,
+    userId: string | undefined,
+    reason: string,
+    referenceType: string,
+  ): Promise<{ previousCost: number; newCost: number }> {
     const [onHandBefore, product] = await Promise.all([
       this.getOnHandQuantity(tx, productId),
       tx.product.findUniqueOrThrow({
@@ -63,12 +112,12 @@ export class InventoryValuationService {
       }),
     ]);
     const previousCost = Number(product.currentCost ?? 0);
-    const quantityBeforeReceipt = onHandBefore - receivedQuantity;
+    const quantityBeforeAdd = onHandBefore - addedQuantity;
 
     const newCost =
-      quantityBeforeReceipt > 0
-        ? (quantityBeforeReceipt * previousCost + receivedQuantity * unitCost) /
-          (quantityBeforeReceipt + receivedQuantity)
+      quantityBeforeAdd > 0
+        ? (quantityBeforeAdd * previousCost + addedQuantity * unitCost) /
+          (quantityBeforeAdd + addedQuantity)
         : unitCost;
 
     await tx.product.update({
@@ -85,8 +134,8 @@ export class InventoryValuationService {
         productId,
         previousCost,
         newCost,
-        reason: 'Purchase receipt — moving average recalculated',
-        referenceType: 'PURCHASE_INVOICE',
+        reason,
+        referenceType,
         createdBy: userId ?? null,
       },
     });

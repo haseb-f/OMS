@@ -140,6 +140,21 @@ export class SalesReturnPostingProvider
           : await this.inventoryValuation.getUnitCost(item.productId, tx);
       const cost = unitCost * item.quantity;
       if (cost === 0) continue;
+      // M1 recovery — the physical InventoryMovement (created earlier in
+      // `SalesReturnsService.confirm()`) restored on-hand quantity, but
+      // never re-blended that quantity into the moving-average pool at
+      // this same historical cost, silently diverging Product.currentCost
+      // from the GL Inventory value this reversal just restored. Applying
+      // it here — after the movement, atomically with the journal entry —
+      // mirrors exactly how Purchase Receipt/Landed Cost apply their own
+      // valuation update inside their posting provider, never the caller.
+      await this.inventoryValuation.applyReturnToStock(
+        item.productId,
+        item.quantity,
+        unitCost,
+        tx,
+        undefined,
+      );
       const cogsAccountId = await this.accountMapping.resolveCogsAccount(
         item.product.categoryId,
         tx,

@@ -124,6 +124,27 @@ describe('InventoryValuationService — moving weighted-average acceptance scena
     // Historical COGS from the earlier sale must never be recalculated from
     // today's average — it stays exactly what it was when recognized.
     expect(cogs).toBe(3300);
+
+    // Return 5 of the ORIGINAL units sold — restored at that sale's
+    // historical unit cost (110), never today's average (117.407407...) and
+    // never a fresh "purchase" price, via applyReturnToStock.
+    const returnTx = makeTx(270);
+    Object.defineProperty(returnTx.tx, 'product', {
+      value: {
+        findUniqueOrThrow: jest
+          .fn()
+          .mockResolvedValue({ currentCost: step4.newCost }),
+        update: jest.fn().mockResolvedValue({}),
+      },
+    });
+    returnTx.setQuantity(275);
+    const step5 = await service.applyReturnToStock(
+      productId,
+      5,
+      110,
+      returnTx.tx,
+    );
+    expect(step5.newCost).toBeCloseTo(117.272727, 6); // (270*117.407407... + 5*110) / 275
   });
 
   it('never capitalizes landed cost into a zero on-hand balance', async () => {

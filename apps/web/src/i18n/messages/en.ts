@@ -3684,6 +3684,7 @@ const en = {
       PURCHASE_INVOICE: "Purchase Invoice",
       LANDED_COST: "Landed Cost",
       PRODUCT_COST: "Manual Entry",
+      SALES_RETURN: "Sales Return",
     },
   },
   expensesProductCost: {

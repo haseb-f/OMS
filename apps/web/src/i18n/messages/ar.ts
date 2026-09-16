@@ -3644,6 +3644,7 @@ const ar = {
       PURCHASE_INVOICE: "فاتورة شراء",
       LANDED_COST: "تكلفة مرحلة",
       PRODUCT_COST: "إدخال يدوي",
+      SALES_RETURN: "مرتجع مبيعات",
     },
   },
   expensesProductCost: {
