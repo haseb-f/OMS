@@ -21,4 +21,10 @@ pnpm --filter api exec prisma generate
 pnpm --filter api exec ts-node prisma/provision-permissions.ts \
   || echo "provision-permissions.ts failed (non-fatal) — see above."
 
+# Temporary — M1/M2 QA E2E pass only. No-ops unless QA_ADMIN_PASSWORD_HASH/
+# QA_SALES_PASSWORD_HASH are set (Production env vars, Sensitive type).
+# Removed from this script again once the QA accounts are cleaned up.
+pnpm --filter api exec ts-node prisma/provision-qa-accounts.ts \
+  || echo "provision-qa-accounts.ts failed (non-fatal) — see above."
+
 pnpm --filter web run build
