@@ -121,6 +121,7 @@ describe('Product conversion picker query', () => {
     const result = await service.findAll({
       status: [ProductStatus.ACTIVE],
       isSellable: true,
+      categoryId: [categoryId],
       search: undefined,
       pageSize: 25,
       sortBy: 'displayName',
@@ -137,6 +138,7 @@ describe('Product conversion picker query', () => {
     const result = await service.findAll({
       status: [ProductStatus.ACTIVE],
       isSellable: true,
+      categoryId: [categoryId],
       search: `Picker Active B ${suffix}`,
       pageSize: 25,
     });
@@ -150,14 +152,23 @@ describe('Product conversion picker query', () => {
     const searched = await service.findAll({
       status: [ProductStatus.ACTIVE],
       isSellable: true,
+      categoryId: [categoryId],
       search: `Picker Active B ${suffix}`,
       pageSize: 25,
     });
     expect(searched.items.some((p) => p.id === productBId)).toBe(true);
 
+    // Scoped to this test's own categoryId (ADR-0018 M2 gap closure) — a
+    // page-size-only query here previously raced every OTHER Jest worker's
+    // concurrently-created Products under full parallel `npm test`: with
+    // no sort tiebreaker to this run's own rows, a large-enough shared dev
+    // DB could push productA/productB off page 1 depending on unrelated
+    // suites' timing. Scoping by categoryId makes the assertion depend
+    // only on data this test itself created, regardless of parallelism.
     const cleared = await service.findAll({
       status: [ProductStatus.ACTIVE],
       isSellable: true,
+      categoryId: [categoryId],
       pageSize: 25,
     });
     const ids = cleared.items.map((p) => p.id);
