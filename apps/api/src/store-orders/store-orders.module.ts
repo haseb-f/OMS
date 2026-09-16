@@ -16,6 +16,8 @@ import { StoreOrderShipmentsService } from './shipments/store-order-shipments.se
 import { StoreOrderShipmentOperationsService } from './shipments/store-order-shipment-operations.service';
 import { StoreOrderShipmentsController } from './shipments/store-order-shipments.controller';
 import { ShippingController } from './shipments/shipping.controller';
+import { OrderEconomicsController } from './order-economics/order-economics.controller';
+import { OrderEconomicsService } from './order-economics/order-economics.service';
 
 @Module({
   imports: [
@@ -33,6 +35,7 @@ import { ShippingController } from './shipments/shipping.controller';
     StoreOrderActivitiesController,
     StoreOrderShipmentsController,
     ShippingController,
+    OrderEconomicsController,
   ],
   providers: [
     StoreOrdersService,
@@ -40,6 +43,7 @@ import { ShippingController } from './shipments/shipping.controller';
     StoreOrderPaymentSyncService,
     StoreOrderShipmentsService,
     StoreOrderShipmentOperationsService,
+    OrderEconomicsService,
   ],
   // `StoreOrderPaymentSyncService` is exported so `PaymentsModule` can keep
   // `StoreOrder.paymentStatus` in sync after Match/Verify/Reject without a
