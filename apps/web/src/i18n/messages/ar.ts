@@ -2955,6 +2955,7 @@ const ar = {
       READY_FOR_SHIPPING: "جاهز للشحن",
     },
     profitability: {
+      viewInCostExplorer: "عرض في مستكشف التكاليف",
       netRevenue: "صافي الإيراد",
       cogs: "تكلفة المنتج (COGS)",
       grossProfit: "إجمالي ربح المنتج",
@@ -3764,6 +3765,28 @@ const ar = {
       LANDED_COST: "تكلفة مرحلة",
       PRODUCT_COST: "إدخال يدوي",
       SALES_RETURN: "مرتجع مبيعات",
+    },
+    tabs: {
+      product: "المنتج",
+      order: "الطلب",
+    },
+    order: {
+      searchPlaceholder: "أدخل رقم الطلب…",
+      empty: "أدخل رقم طلب لتتبع تفصيل تكلفته.",
+      notFound: "لم يتم العثور على طلب بهذا الرقم.",
+      loadFailed: "تعذر تحميل تفصيل تكلفة هذا الطلب.",
+      viewOrder: "عرض الطلب",
+      viewProductCost: "عرض تكلفة المنتج",
+      productCogs: "تكلفة بضاعة المنتج المباعة",
+      operationalCost: "التكلفة التشغيلية",
+      confirmedCarrierCost: "تكلفة شركة الشحن المؤكدة",
+      costSource: "المصدر",
+      costSourceValues: {
+        CONFIRMED_ACTUAL: "مؤكد (شركة الشحن)",
+        ACTUAL: "فعلي (تشغيلي)",
+        UNKNOWN: "غير معروف",
+      },
+      fulfillmentRule: "القاعدة",
     },
   },
   expensesProductCost: {

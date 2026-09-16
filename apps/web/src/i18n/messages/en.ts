@@ -2982,6 +2982,7 @@ const en = {
       READY_FOR_SHIPPING: "Ready for Shipping",
     },
     profitability: {
+      viewInCostExplorer: "View in Cost Explorer",
       netRevenue: "Net Revenue",
       cogs: "Product Cost (COGS)",
       grossProfit: "Gross Product Profit",
@@ -3804,6 +3805,28 @@ const en = {
       LANDED_COST: "Landed Cost",
       PRODUCT_COST: "Manual Entry",
       SALES_RETURN: "Sales Return",
+    },
+    tabs: {
+      product: "Product",
+      order: "Order",
+    },
+    order: {
+      searchPlaceholder: "Enter Order Number…",
+      empty: "Enter an Order Number to trace its cost breakdown.",
+      notFound: "No Order found with that number.",
+      loadFailed: "Failed to load this Order's cost breakdown.",
+      viewOrder: "View Order",
+      viewProductCost: "View Product Cost",
+      productCogs: "Product Cost of Goods Sold",
+      operationalCost: "Operational Cost",
+      confirmedCarrierCost: "Confirmed Carrier Cost",
+      costSource: "Source",
+      costSourceValues: {
+        CONFIRMED_ACTUAL: "Confirmed (Carrier)",
+        ACTUAL: "Actual (Operational)",
+        UNKNOWN: "Unknown",
+      },
+      fulfillmentRule: "Rule",
     },
   },
   expensesProductCost: {

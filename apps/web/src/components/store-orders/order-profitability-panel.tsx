@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { DetailGroup, DetailFieldRow, DetailSection } from "@/components/shared/detail-workspace";
 import { StatusBadge } from "@/components/business/status-badge";
+import { EnterpriseButton } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -57,6 +59,7 @@ function CostStateBadge({ state }: { state: CostState }) {
  */
 export function OrderProfitabilityPanel({ storeOrderId }: { storeOrderId: string }) {
   const { t } = useLocale();
+  const router = useRouter();
   const [economics, setEconomics] = useState<OrderEconomics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -95,6 +98,18 @@ export function OrderProfitabilityPanel({ storeOrderId }: { storeOrderId: string
 
   return (
     <div className="flex flex-col gap-3">
+      <div className="flex justify-end">
+        <EnterpriseButton
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() =>
+            router.push(`/expenses/cost-explorer?mode=order&storeOrderId=${storeOrderId}`)
+          }
+        >
+          {t("storeOrders.profitability.viewInCostExplorer")}
+        </EnterpriseButton>
+      </div>
       <DetailGroup title={t("storeOrders.profitability.grossProfit")}>
         <DetailFieldRow
           label={t("storeOrders.profitability.netRevenue")}
@@ -177,6 +192,7 @@ export function OrderProfitabilityPanel({ storeOrderId }: { storeOrderId: string
                 <TableHead>{t("storeOrders.profitability.attempt")}</TableHead>
                 <TableHead>{t("shipping.fields.status")}</TableHead>
                 <TableHead>{t("storeOrders.profitability.cost")}</TableHead>
+                <TableHead>{t("costExplorer.order.costSource")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -185,6 +201,9 @@ export function OrderProfitabilityPanel({ storeOrderId }: { storeOrderId: string
                   <TableCell>#{attempt.attemptNumber}</TableCell>
                   <TableCell>{attempt.status ?? "—"}</TableCell>
                   <TableCell>{formatMoney(attempt.totalCost)}</TableCell>
+                  <TableCell>
+                    {t(`costExplorer.order.costSourceValues.${attempt.costSource}` as MessageKey)}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

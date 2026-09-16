@@ -12,12 +12,19 @@ export interface OrderEconomicsItemLine {
   cogs: number | null;
 }
 
+/** ADR-0018 (M2 gap closure) — CONFIRMED_ACTUAL (a reconciled carrier charge) always wins over ACTUAL (the Shipment's own operationally-entered cost) over UNKNOWN. No ESTIMATED tier — no shipping-estimate data source exists. */
+export type ShippingCostSource = "CONFIRMED_ACTUAL" | "ACTUAL" | "UNKNOWN";
+
 export interface ShipmentAttemptCost {
   shipmentId: string;
   attemptNumber: number;
   status: string | null;
   baseShippingCost: number | null;
   additionalShippingCost: number | null;
+  operationalCost: number | null;
+  confirmedCarrierCost: number | null;
+  costVariance: number | null;
+  costSource: ShippingCostSource;
   totalCost: number | null;
 }
 
