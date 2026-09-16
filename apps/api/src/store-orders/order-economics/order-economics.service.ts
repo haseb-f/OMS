@@ -11,15 +11,65 @@ import type {
   ShippingCostSource,
 } from './order-economics.types';
 
+/** The exact nested shape every economics calculation reads — shared by the single-Order and batched-summary paths so there is only ever one query shape to keep in sync with `computeEconomics`. */
+const ORDER_ECONOMICS_SELECT = {
+  id: true,
+  items: {
+    select: { productId: true, quantity: true, agreedAmount: true },
+  },
+  invoices: {
+    where: { deletedAt: null },
+    select: {
+      items: { select: { productId: true, unitCost: true } },
+    },
+  },
+  shipments: {
+    select: {
+      id: true,
+      attemptNumber: true,
+      status: true,
+      baseShippingCost: true,
+      additionalShippingCost: true,
+      carrierCharges: {
+        where: { reconciliationState: 'CONFIRMED' as const, deletedAt: null },
+        select: { chargeAmount: true },
+        take: 1,
+      },
+    },
+  },
+  payments: {
+    where: { deletedAt: null, status: { not: 'REJECTED' as const } },
+    select: {
+      id: true,
+      amount: true,
+      actualFeeAmount: true,
+      paymentSource: {
+        select: { feePercentage: true, feeFixedAmount: true },
+      },
+    },
+  },
+  fulfillmentCost: {
+    select: { amount: true, source: true, ruleName: true },
+  },
+} satisfies Prisma.StoreOrderSelect;
+
+type OrderEconomicsRow = Prisma.StoreOrderGetPayload<{
+  select: typeof ORDER_ECONOMICS_SELECT;
+}>;
+
 /**
- * ADR-0018 (Order Economics M2, extended M2.2) — the one canonical,
- * server-side calculation of direct-cost Order profitability. Never
- * computed a second time client-side. Consumes M1's historical COGS
- * (`SalesInvoiceItem.unitCost`, the same snapshot Sales Returns already
- * replay), `Shipment.baseShippingCost`/`additionalShippingCost`, per-Payment
- * fees (ACTUAL > ESTIMATED > UNKNOWN), and the immutable
- * `StoreOrderFulfillmentCost` snapshot — an UNKNOWN component is never
- * fabricated as 0.
+ * ADR-0018 (Order Economics M2, extended M2.2 + M2 gap closure) — the one
+ * canonical, server-side calculation of direct-cost Order profitability.
+ * Never computed a second time client-side, and never computed per-row in
+ * a loop of individual queries — `getSummaryForOrders` runs exactly one
+ * batched query for however many Order ids a caller (e.g. the Orders list,
+ * one page at a time) needs, so a paginated list page costs one query, not
+ * N. Consumes M1's historical COGS (`SalesInvoiceItem.unitCost`, the same
+ * snapshot Sales Returns already replay), `Shipment.baseShippingCost`/
+ * `additionalShippingCost` (overridden by a CONFIRMED carrier charge when
+ * one is reconciled), per-Payment fees (ACTUAL > ESTIMATED > UNKNOWN), and
+ * the immutable `StoreOrderFulfillmentCost` snapshot — an UNKNOWN
+ * component is never fabricated as 0.
  */
 @Injectable()
 export class OrderEconomicsService {
@@ -31,51 +81,37 @@ export class OrderEconomicsService {
   ): Promise<OrderEconomics> {
     const order = await tx.storeOrder.findFirst({
       where: { id: storeOrderId, deletedAt: null },
-      select: {
-        id: true,
-        items: {
-          select: { productId: true, quantity: true, agreedAmount: true },
-        },
-        invoices: {
-          where: { deletedAt: null },
-          select: {
-            items: { select: { productId: true, unitCost: true } },
-          },
-        },
-        shipments: {
-          select: {
-            id: true,
-            attemptNumber: true,
-            status: true,
-            baseShippingCost: true,
-            additionalShippingCost: true,
-            carrierCharges: {
-              where: { reconciliationState: 'CONFIRMED', deletedAt: null },
-              select: { chargeAmount: true },
-              take: 1,
-            },
-          },
-        },
-        payments: {
-          where: { deletedAt: null, status: { not: 'REJECTED' } },
-          select: {
-            id: true,
-            amount: true,
-            actualFeeAmount: true,
-            paymentSource: {
-              select: { feePercentage: true, feeFixedAmount: true },
-            },
-          },
-        },
-        fulfillmentCost: {
-          select: { amount: true, source: true, ruleName: true },
-        },
-      },
+      select: ORDER_ECONOMICS_SELECT,
     });
     if (!order) {
       throw new NotFoundException(`Store Order ${storeOrderId} not found.`);
     }
+    return this.computeEconomics(order);
+  }
 
+  /**
+   * Batched profitability summary (ADR-0018 M2 gap closure, Part 17) — the
+   * Orders list's profitability columns call this ONCE with the current
+   * page's ids, never `getForStoreOrder` in a per-row loop. Silently skips
+   * any id that doesn't resolve to a live Order rather than throwing, so a
+   * stale/racing id never fails the whole page.
+   */
+  async getSummaryForOrders(
+    storeOrderIds: string[],
+  ): Promise<Map<string, OrderEconomics>> {
+    if (storeOrderIds.length === 0) return new Map();
+    const orders = await this.prisma.storeOrder.findMany({
+      where: { id: { in: storeOrderIds }, deletedAt: null },
+      select: ORDER_ECONOMICS_SELECT,
+    });
+    const result = new Map<string, OrderEconomics>();
+    for (const order of orders) {
+      result.set(order.id, this.computeEconomics(order));
+    }
+    return result;
+  }
+
+  private computeEconomics(order: OrderEconomicsRow): OrderEconomics {
     // Historical unit cost per product, from the Order's own generated
     // invoice(s) — never Product.currentCost. Kept once per product; a
     // product line split across more than one generated invoice is an edge

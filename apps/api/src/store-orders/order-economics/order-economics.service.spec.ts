@@ -304,3 +304,63 @@ describe('OrderEconomicsService.getForStoreOrder', () => {
     expect(result.contributionMarginPercent).toBeNull();
   });
 });
+
+/**
+ * ADR-0018 (M2 gap closure, Part 17) — the batched path the Orders list's
+ * profitability columns call once per page, never `getForStoreOrder` in a
+ * per-row loop.
+ */
+describe('OrderEconomicsService.getSummaryForOrders', () => {
+  function makePrisma(rows: unknown[]) {
+    return {
+      storeOrder: {
+        findMany: jest.fn().mockResolvedValue(rows),
+      },
+    } as never;
+  }
+
+  it('computes economics for every requested id in a single query, keyed by id', async () => {
+    const prisma = makePrisma([
+      {
+        id: 'order-a',
+        items: [{ productId: 'p1', quantity: 1, agreedAmount: 100 }],
+        invoices: [{ items: [{ productId: 'p1', unitCost: 40 }] }],
+        shipments: [],
+        payments: [],
+        fulfillmentCost: null,
+      },
+      {
+        id: 'order-b',
+        items: [{ productId: 'p1', quantity: 1, agreedAmount: 50 }],
+        invoices: [],
+        shipments: [],
+        payments: [],
+        fulfillmentCost: null,
+      },
+    ]);
+    const service = new OrderEconomicsService(prisma);
+
+    const summary = await service.getSummaryForOrders(['order-a', 'order-b']);
+
+    expect(
+      (prisma as unknown as { storeOrder: { findMany: jest.Mock } }).storeOrder
+        .findMany,
+    ).toHaveBeenCalledTimes(1);
+    expect(summary.size).toBe(2);
+    expect(summary.get('order-a')?.contributionProfit).toBe(60);
+    expect(summary.get('order-b')?.cogsState).toBe('UNKNOWN');
+  });
+
+  it('returns an empty map without querying when given no ids', async () => {
+    const prisma = makePrisma([]);
+    const service = new OrderEconomicsService(prisma);
+
+    const summary = await service.getSummaryForOrders([]);
+
+    expect(summary.size).toBe(0);
+    expect(
+      (prisma as unknown as { storeOrder: { findMany: jest.Mock } }).storeOrder
+        .findMany,
+    ).not.toHaveBeenCalled();
+  });
+});

@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsIn,
@@ -14,6 +15,7 @@ import {
   StoreOrderShippingStage,
   StoreOrderSource,
 } from '@prisma/client';
+import type { CostState } from '../order-economics/order-economics.types';
 import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 import { TransformEnumList } from '../../common/query/enum-list';
 
@@ -90,4 +92,26 @@ export class FindStoreOrdersQueryDto {
   @Max(10_000)
   @IsOptional()
   limit?: number;
+
+  /**
+   * ADR-0018 (M2 gap closure, Part 15/22) — opts each row into a
+   * `profitability` summary block. Silently ignored server-side (never an
+   * error, never leaked data) unless the caller also holds
+   * `orders.profitability.view` — see `StoreOrdersController.findAll`.
+   */
+  @Type(() => Boolean)
+  @IsBoolean()
+  @IsOptional()
+  includeProfitability?: boolean;
+
+  /** Requires `includeProfitability` — filters to Orders whose overall `costState` matches. */
+  @IsIn(['COMPLETE', 'PARTIAL', 'UNKNOWN'])
+  @IsOptional()
+  costState?: CostState;
+
+  /** Requires `includeProfitability` — filters to Orders whose Contribution Profit is negative. */
+  @Type(() => Boolean)
+  @IsBoolean()
+  @IsOptional()
+  lossMaking?: boolean;
 }

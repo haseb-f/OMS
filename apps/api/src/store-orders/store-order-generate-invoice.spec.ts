@@ -107,6 +107,7 @@ describe('StoreOrdersService.generateInvoice — physical inventory delivery', (
       {} as never,
       inventoryService as never,
       fulfillmentCostService as never,
+      {} as never,
     );
     return { service, inventoryService, postingEngine, prisma };
   }

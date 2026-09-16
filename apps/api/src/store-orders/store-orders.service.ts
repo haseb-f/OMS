@@ -54,6 +54,7 @@ import { SalesScopeService } from '../sales-scope/sales-scope.service';
 import { ProductsService } from '../products/products.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { FulfillmentCostService } from '../fulfillment-cost-rules/fulfillment-cost.service';
+import { OrderEconomicsService } from './order-economics/order-economics.service';
 import { PAID_PAYMENT_CODES } from '../workflow/workflow-status-map';
 import { randomUUID } from 'node:crypto';
 
@@ -202,6 +203,7 @@ export class StoreOrdersService {
     private readonly productsService: ProductsService,
     private readonly inventoryService: InventoryService,
     private readonly fulfillmentCostService: FulfillmentCostService,
+    private readonly orderEconomicsService: OrderEconomicsService,
   ) {}
 
   /**
@@ -492,7 +494,19 @@ export class StoreOrdersService {
     return { AND: [where, this.salesScope.storeOrderWhere(scope)] };
   }
 
-  async findAll(query: FindStoreOrdersQueryDto, userId?: string) {
+  /**
+   * ADR-0018 (M2 gap closure, Part 15-22) — `includeProfitability` is the
+   * SERVER's already-permission-checked decision (`StoreOrdersController`
+   * resolves it from `orders.profitability.view`, never trusts the raw
+   * query param), never re-derived here. `query.costState`/`lossMaking`
+   * are only honored when it's true — a caller without the permission can
+   * never use them as an oracle into profitability data it can't see.
+   */
+  async findAll(
+    query: FindStoreOrdersQueryDto,
+    userId?: string,
+    includeProfitability = false,
+  ) {
     const where = await this.buildScopedFindWhere(query, userId);
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
@@ -502,6 +516,17 @@ export class StoreOrdersService {
       sortField === 'id'
         ? [{ id: sortDir }]
         : [{ [sortField]: sortDir }, { id: 'desc' as const }];
+
+    if (includeProfitability && (query.costState || query.lossMaking)) {
+      return this.findAllFilteredByProfitability(
+        where,
+        orderBy,
+        page,
+        pageSize,
+        query,
+      );
+    }
+
     const [items, total] = await Promise.all([
       this.prisma.storeOrder.findMany({
         where,
@@ -512,14 +537,102 @@ export class StoreOrdersService {
       }),
       this.prisma.storeOrder.count({ where }),
     ]);
+    const mapped = await Promise.all(
+      items.map((item) => this.attachCurrentShippingStatus(item)),
+    );
+
+    // One batched query for however many rows are on this page — never a
+    // per-row `getForStoreOrder` call (Part 17: no N+1).
+    const economicsById = includeProfitability
+      ? await this.orderEconomicsService.getSummaryForOrders(
+          mapped.map((item) => item.id),
+        )
+      : null;
 
     return {
-      items: await Promise.all(
-        items.map((item) => this.attachCurrentShippingStatus(item)),
-      ),
+      items: economicsById
+        ? mapped.map((item) => ({
+            ...item,
+            profitability: economicsById.get(item.id) ?? null,
+          }))
+        : mapped,
       total,
       page,
       pageSize,
+    };
+  }
+
+  /**
+   * Cost State / Loss-Making filtering has no materialized/denormalized
+   * column to filter on in SQL — both depend on the full Order Economics
+   * computation. Rather than compute it for every Order in the database,
+   * this bounds the candidate set to the first `PROFITABILITY_FILTER_CAP`
+   * matching rows (by the caller's own filters/sort) and filters/paginates
+   * within that bounded set. `profitabilityFilterCapped: true` tells the
+   * caller the result may be incomplete so it can prompt for a narrower
+   * filter — never presented as a silently-wrong total. An unbounded
+   * version would need a materialized summary table with its own write-
+   * path invalidation; out of scope for this pass (see ADR-0018 M2 gap
+   * closure report, Part 19/20).
+   */
+  private readonly PROFITABILITY_FILTER_CAP = 500;
+
+  private async findAllFilteredByProfitability(
+    where: Prisma.StoreOrderWhereInput,
+    orderBy: Prisma.StoreOrderOrderByWithRelationInput[],
+    page: number,
+    pageSize: number,
+    query: FindStoreOrdersQueryDto,
+  ) {
+    const candidates = await this.prisma.storeOrder.findMany({
+      where,
+      orderBy,
+      take: this.PROFITABILITY_FILTER_CAP,
+      select: { id: true },
+    });
+    const economicsById = await this.orderEconomicsService.getSummaryForOrders(
+      candidates.map((c) => c.id),
+    );
+    const filteredIds = candidates
+      .map((c) => c.id)
+      .filter((id) => {
+        const economics = economicsById.get(id);
+        if (!economics) return false;
+        if (query.costState && economics.costState !== query.costState) {
+          return false;
+        }
+        if (query.lossMaking && !(economics.contributionProfit < 0)) {
+          return false;
+        }
+        return true;
+      });
+
+    const total = filteredIds.length;
+    const pageIds = filteredIds.slice((page - 1) * pageSize, page * pageSize);
+    const rows = pageIds.length
+      ? await this.prisma.storeOrder.findMany({
+          where: { id: { in: pageIds } },
+          include: ORDER_LIST_INCLUDE,
+        })
+      : [];
+    const rowsById = new Map(rows.map((row) => [row.id, row]));
+    const orderedRows = pageIds
+      .map((id) => rowsById.get(id))
+      .filter((row): row is NonNullable<typeof row> => row != null);
+    const mapped = await Promise.all(
+      orderedRows.map((item) => this.attachCurrentShippingStatus(item)),
+    );
+
+    return {
+      items: mapped.map((item) => ({
+        ...item,
+        profitability: economicsById.get(item.id) ?? null,
+      })),
+      total,
+      page,
+      pageSize,
+      profitabilityFilterCapped:
+        candidates.length >= this.PROFITABILITY_FILTER_CAP,
     };
   }
 

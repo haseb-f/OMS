@@ -16,6 +16,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
 import { PermissionModule } from '../auth/decorators/permission-module.decorator';
 import { PermissionAction } from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -39,7 +40,10 @@ import { ATTACHMENT_MAX_BYTES } from '../common/storage/file-validation';
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @PermissionModule('store-orders')
 export class StoreOrdersController {
-  constructor(private readonly storeOrdersService: StoreOrdersService) {}
+  constructor(
+    private readonly storeOrdersService: StoreOrdersService,
+    private readonly permissionsResolver: PermissionsResolverService,
+  ) {}
 
   @Post()
   create(@Body() dto: CreateStoreOrderDto, @CurrentUser() user: JwtPayload) {
@@ -47,11 +51,25 @@ export class StoreOrdersController {
   }
 
   @Get()
-  findAll(
+  async findAll(
     @Query() query: FindStoreOrdersQueryDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.storeOrdersService.findAll(query, user.sub);
+    // ADR-0018 (M2 gap closure, Part 22) — the permission decision happens
+    // here, server-side, never trusted from `query.includeProfitability`
+    // itself. An unauthorized caller gets ordinary Order rows with no
+    // `profitability` field at all, not a hidden/empty one.
+    const includeProfitability =
+      !!query.includeProfitability &&
+      (await this.permissionsResolver.hasPermission(
+        user.sub,
+        'orders.profitability.view',
+      ));
+    return this.storeOrdersService.findAll(
+      query,
+      user.sub,
+      includeProfitability,
+    );
   }
 
   /** "Select all matching filters" — bare IDs only, same filter/search as `findAll`. */
