@@ -694,6 +694,15 @@ export const navigationConfig: NavigationItem[] = [
     order: 13.5,
   },
   {
+    id: "finance-carrier-reconciliation",
+    titleKey: "nav.financeCarrierReconciliation",
+    parent: "finance",
+    route: "/finance/carrier-reconciliation",
+    icon: "truck",
+    order: 13.6,
+    permissions: ["carrier-reconciliation.view"],
+  },
+  {
     id: "finance-projects",
     titleKey: "nav.financeProjects",
     parent: "finance",

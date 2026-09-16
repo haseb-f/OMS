@@ -269,6 +269,7 @@ const ar = {
       analyticDistributions: "التوزيعات التحليلية",
       paymentSources: "مصادر الدفع",
       fulfillmentCostRules: "قواعد تكلفة التجهيز",
+      carrierReconciliation: "مطابقة تكلفة شركة الشحن",
       receivingAccounts: "حسابات الاستلام",
       numbering: "ترقيم المستندات",
       costEngine: "محرك التكلفة",
@@ -334,6 +335,7 @@ const ar = {
     financeJournals: "دفاتر اليومية",
     financePaymentSources: "مصادر الدفع",
     financeFulfillmentCostRules: "قواعد تكلفة التجهيز",
+    financeCarrierReconciliation: "مطابقة تكلفة شركة الشحن",
     financeReceivingAccounts: "الحسابات",
     financeProjects: "المشاريع",
     financeCostCenters: "مراكز التكلفة",
@@ -2738,6 +2740,59 @@ const ar = {
         allStatuses: "كل الحالات",
         allCustomers: "كل العملاء",
       },
+    },
+  },
+  carrierReconciliation: {
+    title: "مطابقة تكلفة شركة الشحن",
+    description:
+      "مطابقة رسوم الشحن الفعلية المفوترة من شركة الشحن مع محاولات الشحن. الرسوم المؤكدة تصبح التكلفة الفعلية المعتمدة في اقتصاديات الطلب.",
+    empty: "لم يتم استيراد أي رسوم شحن بعد.",
+    searchPlaceholder: "بحث بشركة الشحن، المرجع، رقم التتبع…",
+    fields: {
+      carrier: "شركة الشحن",
+      reference: "المرجع / رقم التتبع",
+      order: "الطلب / المحاولة",
+      amount: "قيمة الرسوم",
+      chargeDate: "تاريخ الرسوم",
+    },
+    state: {
+      ALL: "كل الحالات",
+      UNMATCHED: "غير مطابق",
+      MATCHED: "مطابق",
+      REVIEW_REQUIRED: "يحتاج مراجعة",
+      CONFIRMED: "مؤكد",
+    },
+    actions: {
+      match: "مطابقة مع شحنة",
+      confirm: "تأكيد كتكلفة فعلية",
+      unmatch: "إلغاء المطابقة",
+    },
+    import: {
+      action: "استيراد رسوم شركة الشحن",
+      summary:
+        "تم الاستيراد: {matched} مطابق، {review} يحتاج مراجعة، {unmatched} غير مطابق، {duplicate} مكرر.",
+      errors: "فشل التحقق من {count} صف وتم تخطيها.",
+    },
+    match: {
+      title: "مطابقة رسوم شركة الشحن",
+      orderNumber: "رقم الطلب",
+      orderNumberPlaceholder: "أدخل رقم الطلب…",
+      noShipments: "لم يتم العثور على محاولات شحن لرقم الطلب هذا.",
+      shipmentAttempt: "محاولة الشحن",
+      selectAttempt: "اختر محاولة…",
+      saved: "تمت مطابقة الرسوم مع محاولة الشحن المحددة.",
+    },
+    confirmDialog: {
+      title: "تأكيد كتكلفة فعلية معتمدة؟",
+      description:
+        "ستصبح هذه القيمة التكلفة الفعلية المؤكدة للشحن لهذه المحاولة في اقتصاديات الطلب — وتتفوق دائمًا على التكلفة المُدخلة تشغيليًا.",
+      saved: "تم تأكيد رسوم شركة الشحن كتكلفة الشحن المعتمدة.",
+    },
+    unmatchDialog: {
+      title: "إلغاء مطابقة هذه الرسوم؟",
+      description:
+        "يلغي المطابقة (وإذا كانت مؤكدة، يزيلها كتكلفة الشحن المعتمدة) — تعود الرسوم إلى غير مطابقة.",
+      saved: "تم إلغاء مطابقة رسوم شركة الشحن.",
     },
   },
   storeOrders: {

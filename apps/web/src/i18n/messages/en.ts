@@ -270,6 +270,7 @@ const en = {
       analyticDistributions: "Analytic Distributions",
       paymentSources: "Payment Sources",
       fulfillmentCostRules: "Fulfillment Cost Rules",
+      carrierReconciliation: "Carrier Reconciliation",
       receivingAccounts: "Receiving Accounts",
       numbering: "Document Numbering",
       costEngine: "Cost Engine",
@@ -335,6 +336,7 @@ const en = {
     financeJournals: "Journals",
     financePaymentSources: "Payment Sources",
     financeFulfillmentCostRules: "Fulfillment Cost Rules",
+    financeCarrierReconciliation: "Carrier Reconciliation",
     financeReceivingAccounts: "Accounts",
     financeProjects: "Projects",
     financeCostCenters: "Cost Centers",
@@ -2762,6 +2764,59 @@ const en = {
         allStatuses: "All Statuses",
         allCustomers: "All Customers",
       },
+    },
+  },
+  carrierReconciliation: {
+    title: "Carrier Reconciliation",
+    description:
+      "Reconcile carrier-invoiced actual shipping charges against Shipment Attempts. A CONFIRMED charge becomes the authoritative shipping cost in Order Economics.",
+    empty: "No carrier charges imported yet.",
+    searchPlaceholder: "Search carrier, reference, tracking number…",
+    fields: {
+      carrier: "Carrier",
+      reference: "Reference / Tracking",
+      order: "Order / Attempt",
+      amount: "Charge Amount",
+      chargeDate: "Charge Date",
+    },
+    state: {
+      ALL: "All States",
+      UNMATCHED: "Unmatched",
+      MATCHED: "Matched",
+      REVIEW_REQUIRED: "Review Required",
+      CONFIRMED: "Confirmed",
+    },
+    actions: {
+      match: "Match to Shipment",
+      confirm: "Confirm as Actual Cost",
+      unmatch: "Unmatch",
+    },
+    import: {
+      action: "Import Carrier Charges",
+      summary:
+        "Imported: {matched} matched, {review} need review, {unmatched} unmatched, {duplicate} duplicate.",
+      errors: "{count} row(s) failed validation and were skipped.",
+    },
+    match: {
+      title: "Match Carrier Charge",
+      orderNumber: "Order Number",
+      orderNumberPlaceholder: "Enter the Order Number…",
+      noShipments: "No Shipment Attempts found for this Order Number.",
+      shipmentAttempt: "Shipment Attempt",
+      selectAttempt: "Select an attempt…",
+      saved: "Charge matched to the selected Shipment Attempt.",
+    },
+    confirmDialog: {
+      title: "Confirm as Authoritative Actual Cost?",
+      description:
+        "This becomes the CONFIRMED ACTUAL shipping cost for that Shipment Attempt in Order Economics — it always wins over the operationally-entered cost.",
+      saved: "Carrier charge confirmed as the authoritative shipping cost.",
+    },
+    unmatchDialog: {
+      title: "Unmatch this Charge?",
+      description:
+        "Clears the match (and, if CONFIRMED, removes it as the authoritative shipping cost) — the charge returns to Unmatched.",
+      saved: "Carrier charge unmatched.",
     },
   },
   storeOrders: {
