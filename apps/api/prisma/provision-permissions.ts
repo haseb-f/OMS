@@ -7,41 +7,58 @@
  * upserts demo users/reference data, unsafe to run against Production).
  * Idempotent: safe to run any number of times.
  *
- * Reuses the app's own `PrismaService` (not a second hand-rolled
- * PrismaClient/adapter) specifically so it inherits `withLibpqSslCompat` —
- * without it, `@prisma/adapter-pg`'s raw `pg` driver fails the TLS
- * certificate-chain check against Supabase's pooler that `prisma migrate
- * deploy`'s own engine binary tolerates transparently.
+ * Deliberately mirrors `seed.ts`'s own construction exactly: a bare
+ * `PrismaClient` + `PrismaPg` adapter, never an import of `PrismaService`
+ * or any other `@nestjs/common`-decorated class. This script runs via
+ * `ts-node` outside any Nest bootstrap (no `reflect-metadata` polyfill,
+ * no DI container) — `seed.ts` and `seed-countries.ts` are the two
+ * existing, already-proven-in-this-exact-build-pipeline precedents for
+ * that constraint, and neither imports a decorated class either.
+ *
+ * `withLibpqSslCompat` is duplicated (not imported) from
+ * `src/prisma/prisma.service.ts` for the same reason — see that file's
+ * own comment for why it's needed against Supabase's pooler.
  */
 import 'dotenv/config';
-import { PrismaService } from '../src/prisma/prisma.service';
+import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { ALL_PERMISSION_NAMES } from '../src/permissions/permission-catalog';
 
-async function main() {
-  const prisma = new PrismaService();
-  await prisma.$connect();
-  try {
-    let created = 0;
-    let existing = 0;
-    for (const name of ALL_PERMISSION_NAMES) {
-      const before = await prisma.permission.findUnique({ where: { name } });
-      await prisma.permission.upsert({
-        where: { name },
-        update: {},
-        create: { name, description: `Permission Matrix: ${name}` },
-      });
-      if (before) existing++;
-      else created++;
-    }
-    console.log(
-      `Permission catalog provisioned: ${created} created, ${existing} already existed (of ${ALL_PERMISSION_NAMES.length} total).`,
-    );
-  } finally {
-    await prisma.$disconnect();
+function withLibpqSslCompat(connectionString: string | undefined) {
+  if (!connectionString || connectionString.includes('uselibpqcompat')) {
+    return connectionString;
   }
+  const separator = connectionString.includes('?') ? '&' : '?';
+  return `${connectionString}${separator}uselibpqcompat=true`;
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({
+    connectionString: withLibpqSslCompat(process.env.DATABASE_URL),
+  }),
 });
+
+async function main() {
+  let created = 0;
+  let existing = 0;
+  for (const name of ALL_PERMISSION_NAMES) {
+    const before = await prisma.permission.findUnique({ where: { name } });
+    await prisma.permission.upsert({
+      where: { name },
+      update: {},
+      create: { name, description: `Permission Matrix: ${name}` },
+    });
+    if (before) existing++;
+    else created++;
+  }
+  console.log(
+    `Permission catalog provisioned: ${created} created, ${existing} already existed (of ${ALL_PERMISSION_NAMES.length} total).`,
+  );
+}
+
+main()
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  })
+  .finally(() => prisma.$disconnect());
