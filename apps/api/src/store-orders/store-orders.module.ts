@@ -54,12 +54,15 @@ import { FulfillmentCostRulesModule } from '../fulfillment-cost-rules/fulfillmen
   // `ImportCenterModule`'s `ShippingUpdatesImportHandler`/
   // `StoreOrdersImportHandler` can reuse them directly, the same "call the
   // real service, never a parallel write path" rule every other handler
-  // follows.
+  // follows. `OrderEconomicsService` is exported so `CostAnalyticsModule`
+  // (M3) can aggregate the same canonical per-Order economics Cost Explorer
+  // and the Orders list already read — never a second calculation.
   exports: [
     StoreOrdersService,
     StoreOrderPaymentSyncService,
     StoreOrderShipmentsService,
     StoreOrderActivityService,
+    OrderEconomicsService,
   ],
 })
 export class StoreOrdersModule {}

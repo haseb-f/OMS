@@ -2077,6 +2077,11 @@ model ChartOfAccount {
   postingSettingsInvestorPayable    PostingSettings[] @relation("PostingInvestorProfitPayable")
   postingSettingsCapitalReturn      PostingSettings[] @relation("PostingCapitalReturn")
 
+  /// M4 (Cost Module completion) — read-only reference from a
+  /// CostAllocationRun that sourced its pool from this account's GL
+  /// activity. Never written to by the allocation engine.
+  costAllocationRuns CostAllocationRun[]
+
   @@map("chart_of_accounts")
 }
 
@@ -3431,13 +3436,32 @@ enum CostAllocationMethod {
   MANUAL
 }
 
-/// Schema only — no DTO/service/controller in this task ("No calculation
-/// yet. Only architecture"), unlike CostComponent which the task explicitly
-/// gave business-operation endpoints for.
+/// M4 (Cost Module completion) — which order-side dimension a
+/// CostAllocationRule spreads its pool across. Mirrors the dimensions the
+/// Profitability Analytics endpoint already groups `OrderEconomicsService`
+/// output by, so a Run's per-dimension weights and the Analytics view speak
+/// the same vocabulary. COST_CENTER is deliberately absent: no order-side
+/// document carries a Cost Center today (see JournalEntry/Expense instead),
+/// so it would only ever produce UNASSIGNED rows.
+enum AllocationDimension {
+  PRODUCT
+  CHANNEL
+  CUSTOMER
+  EMPLOYEE
+  COUNTRY
+}
+
+/// M4 — was schema-only through ADR-0014 ("No calculation logic anywhere
+/// reads this yet"). `targetDimension` activates the rule for
+/// `CostAllocationRunsService`; nullable so any pre-existing row from that
+/// architecture-only era stays valid until an admin assigns one — a run can
+/// never be created from a rule with no `targetDimension` set.
 model CostAllocationRule {
   id     String               @id @default(uuid()) @db.Uuid
   name   String
   method CostAllocationMethod
+
+  targetDimension AllocationDimension? @map("target_dimension")
 
   costComponentId String?        @map("cost_component_id") @db.Uuid
   costComponent   CostComponent? @relation(fields: [costComponentId], references: [id])
@@ -3451,7 +3475,89 @@ model CostAllocationRule {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
+  runs CostAllocationRun[]
+
   @@map("cost_allocation_rules")
+}
+
+/// M4 — mirrors `LandedCostStatus`'s never-mutate-after-posted convention.
+/// DRAFT is freely re-computable/cancellable; POSTED is an immutable
+/// management-reporting fact (corrections require a new Run, never an edit);
+/// CANCELLED only reachable from DRAFT. A Run/Result NEVER creates a
+/// `JournalEntry` and never touches `ChartOfAccount` balances at any status —
+/// this is a management-only ledger, entirely separate from the GL that
+/// `AccountingReportsService`/the Posting Engine remain the sole authority
+/// over.
+enum CostAllocationRunStatus {
+  DRAFT
+  POSTED
+  CANCELLED
+}
+
+/// M4 — one execution of a CostAllocationRule over [periodStart, periodEnd]:
+/// spreads `totalAmount` (either summed live from a chosen GL EXPENSE
+/// `sourceAccountId` for that period, or a `manualPoolAmount` entered by the
+/// caller when no single GL account cleanly represents the pool) across
+/// every distinct value of the rule's `targetDimension` found among
+/// in-scope Store Orders for the period, weighted per `CostAllocationRule.method`.
+/// `CostAllocationResult.allocatedAmount` always reconciles exactly to
+/// `totalAmount` (deterministic largest-remainder rounding, same discipline
+/// `LandedCostAllocation` already uses) — never a silent rounding drift.
+model CostAllocationRun {
+  id String @id @default(uuid()) @db.Uuid
+
+  ruleId String             @map("rule_id") @db.Uuid
+  rule   CostAllocationRule @relation(fields: [ruleId], references: [id])
+
+  periodStart DateTime @map("period_start")
+  periodEnd   DateTime @map("period_end")
+
+  /// The GL EXPENSE account this Run's pool was summed from, when sourced
+  /// from GL rather than entered manually. Read-only reference — a Run never
+  /// writes back to this account or any JournalEntry.
+  sourceAccountId String?         @map("source_account_id") @db.Uuid
+  sourceAccount   ChartOfAccount? @relation(fields: [sourceAccountId], references: [id])
+
+  manualPoolAmount Decimal? @map("manual_pool_amount") @db.Decimal(14, 2)
+  totalAmount      Decimal  @map("total_amount") @db.Decimal(14, 2)
+
+  status CostAllocationRunStatus @default(DRAFT)
+  notes  String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  postedAt  DateTime? @map("posted_at")
+  postedBy  String?   @map("posted_by") @db.Uuid
+
+  results CostAllocationResult[]
+
+  @@index([ruleId])
+  @@map("cost_allocation_runs")
+}
+
+/// M4 — one dimension value's share of a `CostAllocationRun`.
+/// `dimensionLabel` is a denormalized display name captured AT RUN TIME
+/// (e.g. a Product's name) — deliberately never a live join, so a Run stays
+/// an accurate historical record even if the underlying Product/Customer/
+/// Employee is later renamed or archived, the same "never re-derive a
+/// historical snapshot from current master data" rule
+/// `StoreOrderFulfillmentCost`/`SalesInvoiceItem.unitCost` already follow.
+model CostAllocationResult {
+  id String @id @default(uuid()) @db.Uuid
+
+  runId String            @map("run_id") @db.Uuid
+  run   CostAllocationRun @relation(fields: [runId], references: [id])
+
+  dimensionValue String  @map("dimension_value")
+  dimensionLabel String? @map("dimension_label")
+
+  basisAmount     Decimal @map("basis_amount") @db.Decimal(14, 4)
+  allocatedAmount Decimal @map("allocated_amount") @db.Decimal(14, 2)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([runId])
+  @@map("cost_allocation_results")
 }
 
 /// ADR-0017 — mirrors `JournalEntryStatus`'s never-mutate-after-posted

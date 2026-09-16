@@ -356,6 +356,20 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
     actions: [{ action: 'view', name: 'cost-explorer.view' }],
   },
   {
+    // M3 (Cost Module completion) — two additive tabs on the same Cost
+    // Explorer page. `viewPnl` is deliberately narrower than `view`: the
+    // Management P&L exposes live company Operating Expenses/Net Profit
+    // (GL data), more sensitive than a dimensional Contribution Profit
+    // breakdown.
+    key: 'cost-analytics',
+    labelKey: 'permissions.modules.costAnalytics',
+    actions: [
+      { action: 'view', name: 'cost-analytics.view' },
+      { action: 'viewPnl', name: 'cost-analytics.viewPnl' },
+      { action: 'export', name: 'cost-analytics.export' },
+    ],
+  },
+  {
     key: 'supplier-payments',
     labelKey: 'permissions.modules.supplierPayments',
     actions: paymentActions('purchasing.payments'),
@@ -724,6 +738,20 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
     key: 'fulfillment-cost-rules',
     labelKey: 'permissions.modules.fulfillmentCostRules',
     actions: masterData('fulfillment-cost-rules'),
+  },
+  {
+    // M4 (Cost Module completion) — Rule CRUD via the standard Master Data
+    // shape, plus two Run-lifecycle actions: `run` (create/view Runs,
+    // reversible while DRAFT) and `post` (the one irreversible-lock action,
+    // same "confirm is separately gated from view" pattern
+    // `carrier-reconciliation.confirm` already uses).
+    key: 'cost-allocation-rules',
+    labelKey: 'permissions.modules.costAllocationRules',
+    actions: [
+      ...masterData('cost-allocation-rules'),
+      { action: 'run', name: 'masterdata.cost-allocation-rules.run' },
+      { action: 'post', name: 'masterdata.cost-allocation-rules.post' },
+    ],
   },
   {
     key: 'receiving-accounts',
@@ -1208,6 +1236,7 @@ export const IMPLIED_SECTION_PERMISSION: Record<
   'landed-cost': 'finance.view',
   'masterdata.cost-components': 'expenses.view',
   'cost-explorer': 'finance.view',
+  'cost-analytics': 'finance.view',
   'accounting.expense-payments': 'finance.view',
   products: 'products.view',
   inventory: 'inventory.view',
@@ -1261,6 +1290,7 @@ export const IMPLIED_SECTION_PERMISSION: Record<
   'masterdata.fixed-assets': 'finance.view',
   'masterdata.payment-sources': 'finance.view',
   'masterdata.fulfillment-cost-rules': 'finance.view',
+  'masterdata.cost-allocation-rules': 'finance.view',
   'masterdata.receiving-accounts': 'finance.view',
   'accounting.fiscal-years': 'finance.view',
   expenses: 'expenses.view',

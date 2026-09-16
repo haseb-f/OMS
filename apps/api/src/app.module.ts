@@ -79,6 +79,8 @@ import { YearClosingModule } from './accounting/year-closing/year-closing.module
 import { ImportCenterModule } from './import-center/import-center.module';
 import { BankTransactionsModule } from './bank-transactions/bank-transactions.module';
 import { StoreOrdersModule } from './store-orders/store-orders.module';
+import { CostAnalyticsModule } from './cost-analytics/cost-analytics.module';
+import { CostAllocationModule } from './cost-allocation/cost-allocation.module';
 import { EmployeesModule } from './employees/employees.module';
 import { PayrollComponentsModule } from './payroll-components/payroll-components.module';
 import { SalesTargetsModule } from './sales-targets/sales-targets.module';
@@ -181,6 +183,8 @@ import { InvestorPortalModule } from './investor-portal/investor-portal.module';
     ImportCenterModule,
     BankTransactionsModule,
     StoreOrdersModule,
+    CostAnalyticsModule,
+    CostAllocationModule,
     EmployeesModule,
     PayrollComponentsModule,
     SalesTargetsModule,
