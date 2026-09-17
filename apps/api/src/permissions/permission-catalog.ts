@@ -271,6 +271,7 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
       { action: 'view', name: 'store-orders.view' },
       { action: 'create', name: 'store-orders.create' },
       { action: 'edit', name: 'store-orders.edit' },
+      { action: 'generate_invoice', name: 'store-orders.generate_invoice' },
       { action: 'cancel', name: 'store-orders.cancel' },
       { action: 'delete', name: 'store-orders.archive' },
       { action: 'print', name: 'store-orders.print' },
@@ -1342,6 +1343,9 @@ export function withImpliedSectionPermissions(names: string[]): string[] {
     if (!implied) continue;
     if (typeof implied === 'string') expanded.add(implied);
     else for (const permission of implied) expanded.add(permission);
+  }
+  if (expanded.has('store-orders.edit')) {
+    expanded.add('store-orders.generate_invoice');
   }
   return [...expanded];
 }

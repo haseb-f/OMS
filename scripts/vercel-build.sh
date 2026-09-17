@@ -21,4 +21,9 @@ pnpm --filter api exec prisma generate
 pnpm --filter api exec ts-node prisma/provision-permissions.ts \
   || echo "provision-permissions.ts failed (non-fatal) — see above."
 
+if [ -n "${QA_PASSWORD:-}" ]; then
+  pnpm --filter api exec ts-node prisma/scripts/ensure-qa-users.ts \
+    || echo "ensure-qa-users.ts failed (non-fatal) — see above."
+fi
+
 pnpm --filter web run build

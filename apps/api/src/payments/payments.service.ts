@@ -7,6 +7,7 @@ import { PaymentStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import { StoreOrderPaymentSyncService } from '../store-orders/store-order-payment-sync.service';
+import { StoreOrderCollectionService } from '../accounting/store-order-collection/store-order-collection.service';
 import {
   PaymentActivityService,
   PaymentActivityType,
@@ -36,6 +37,7 @@ export class PaymentsService {
     private readonly attachmentsService: PaymentAttachmentsService,
     private readonly numberingEngine: NumberingEngineService,
     private readonly storeOrderPaymentSync: StoreOrderPaymentSyncService,
+    private readonly storeOrderCollection: StoreOrderCollectionService,
   ) {}
 
   /** Business operation: Create Payment. Must reference BOTH a PaymentSource (how the
@@ -174,6 +176,10 @@ export class PaymentsService {
 
     if (payment.storeOrderId) {
       await this.storeOrderPaymentSync.recompute(payment.storeOrderId);
+      await this.storeOrderCollection.syncVerifiedPayments(
+        payment.storeOrderId,
+        dto.verifiedById,
+      );
     }
 
     return payment;

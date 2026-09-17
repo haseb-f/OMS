@@ -1314,13 +1314,17 @@ const en = {
     },
     finance: {
       description:
-        "General Ledger, Trial Balance, Journal Report, and Account Statement — all read straight from posted Journal Entries.",
+        "General Ledger, Trial Balance, Journal Report, Account Statement, AR/AP Aging, and partner statements — all read straight from posted Journal Entries.",
       generalLedger: "General Ledger",
       trialBalance: "Trial Balance",
       journalReport: "Journal Report",
       balanceSheet: "Balance Sheet",
       incomeStatement: "Income Statement",
       cashFlow: "Cash Flow Statement",
+      arAging: "AR Aging",
+      apAging: "AP Aging",
+      customerStatement: "Customer Statement",
+      supplierStatement: "Supplier Statement",
       asOfDate: "As of",
       cashFlowHint:
         "Cash movements are grouped by source document type — every document this ERP currently posts is an operating activity, so no separate Investing/Financing sections are shown.",
@@ -1333,6 +1337,17 @@ const en = {
         title: "Account Statement",
         selectAccountTitle: "Select an account",
         selectAccountDescription: "Choose an account above to view its statement.",
+      },
+      partnerStatement: {
+        title: "Partner Statement",
+        selectTitle: "Select a partner",
+        selectDescription: "Choose a customer or supplier to view the subledger statement.",
+      },
+      aging: {
+        current: "0–30",
+        days31to60: "31–60",
+        days61to90: "61–90",
+        over90: "90+",
       },
       fields: {
         accountCode: "Account Code",
@@ -1364,6 +1379,8 @@ const en = {
         netIncome: "Net Income",
         sourceType: "Source Type",
         netChange: "Net Change",
+        partnerNumber: "Partner Number",
+        partnerName: "Partner",
       },
       filters: {
         company: "Company",
@@ -4281,6 +4298,7 @@ const en = {
         sales: "Sales Accounts",
         purchasing: "Purchasing Accounts",
         inventory: "Inventory Accounts",
+        operating: "Direct Operating Costs",
         tax: "Tax Accounts",
         customerDefaults: "Customer Defaults",
         supplierDefaults: "Supplier Defaults",
@@ -4320,6 +4338,11 @@ const en = {
         investorProfitDistribution: "Investor Profit Distribution Account",
         investorProfitPayable: "Investor Profit Payable Account",
         capitalReturn: "Capital Return Account",
+        shippingExpense: "Shipping / Carrier Expense",
+        accruedShipping: "Accrued Shipping",
+        paymentGatewayFee: "Payment Gateway Fees",
+        fulfillmentExpense: "Fulfillment / Packaging Expense",
+        accruedFulfillment: "Accrued Fulfillment",
       },
       picker: {
         select: "Select account",

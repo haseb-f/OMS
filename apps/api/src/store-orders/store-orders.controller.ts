@@ -172,7 +172,7 @@ export class StoreOrdersController {
 
   @Post(':id/generate-invoice')
   @HttpCode(200)
-  @PermissionAction('edit')
+  @PermissionAction('generate_invoice')
   generateInvoice(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.storeOrdersService.generateInvoice(id, user.sub);
   }

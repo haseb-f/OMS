@@ -1935,6 +1935,8 @@ model ChartOfAccount {
   id          String  @id @default(uuid()) @db.Uuid
   code        String  @unique
   name        String
+  /// English display name. Arabic `name` remains the primary label (RTL-first).
+  nameEn      String? @map("name_en")
   description String?
 
   /// TASK-044 Part 6 — required: no rows existed yet when this was added
@@ -2046,6 +2048,11 @@ model ChartOfAccount {
   postingSettingsSuspense            PostingSettings[] @relation("PostingSuspense")
   postingSettingsRetainedEarnings    PostingSettings[] @relation("PostingRetainedEarnings")
   postingSettingsLandedCostClearing  PostingSettings[] @relation("PostingLandedCostClearing")
+  postingSettingsShippingExpense     PostingSettings[] @relation("PostingShippingExpense")
+  postingSettingsAccruedShipping     PostingSettings[] @relation("PostingAccruedShipping")
+  postingSettingsPaymentGatewayFee   PostingSettings[] @relation("PostingPaymentGatewayFee")
+  postingSettingsFulfillmentExpense  PostingSettings[] @relation("PostingFulfillmentExpense")
+  postingSettingsAccruedFulfillment  PostingSettings[] @relation("PostingAccruedFulfillment")
 
   /// TASK-047 — Product Category / Customer Group / Supplier Group
   /// account-mapping overrides.
@@ -6506,6 +6513,24 @@ model PostingSettings {
   /// account" rule as every other resolver here.
   landedCostClearingAccountId String?         @map("landed_cost_clearing_account_id") @db.Uuid
   landedCostClearingAccount   ChartOfAccount? @relation("PostingLandedCostClearing", fields: [landedCostClearingAccountId], references: [id])
+
+  /// Direct operating-cost postings (shipping / gateway fees / fulfillment).
+  /// Accrual credits hit the accrued-* accounts so later cash settlement
+  /// can clear the liability without double-expensing.
+  shippingExpenseAccountId String?         @map("shipping_expense_account_id") @db.Uuid
+  shippingExpenseAccount   ChartOfAccount? @relation("PostingShippingExpense", fields: [shippingExpenseAccountId], references: [id])
+
+  accruedShippingAccountId String?         @map("accrued_shipping_account_id") @db.Uuid
+  accruedShippingAccount   ChartOfAccount? @relation("PostingAccruedShipping", fields: [accruedShippingAccountId], references: [id])
+
+  paymentGatewayFeeAccountId String?         @map("payment_gateway_fee_account_id") @db.Uuid
+  paymentGatewayFeeAccount   ChartOfAccount? @relation("PostingPaymentGatewayFee", fields: [paymentGatewayFeeAccountId], references: [id])
+
+  fulfillmentExpenseAccountId String?         @map("fulfillment_expense_account_id") @db.Uuid
+  fulfillmentExpenseAccount   ChartOfAccount? @relation("PostingFulfillmentExpense", fields: [fulfillmentExpenseAccountId], references: [id])
+
+  accruedFulfillmentAccountId String?         @map("accrued_fulfillment_account_id") @db.Uuid
+  accruedFulfillmentAccount   ChartOfAccount? @relation("PostingAccruedFulfillment", fields: [accruedFulfillmentAccountId], references: [id])
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

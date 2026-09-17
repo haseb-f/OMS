@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { LeadAssignmentMethod, Prisma, WorkflowType } from '@prisma/client';
@@ -113,6 +114,8 @@ export interface ImportedOrderDetails {
 
 @Injectable()
 export class LeadsService {
+  private readonly logger = new Logger(LeadsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly leadActivityService: LeadActivityService,
@@ -544,7 +547,12 @@ export class LeadsService {
         {},
         scope.isSuperAdmin,
       );
-    } catch {
+    } catch (error) {
+      this.logger.warn(
+        `Lead firstOpen NEW→IN_PROGRESS failed for ${id}: ${
+          error instanceof Error ? error.message : error
+        }`,
+      );
       return this.findOne(id, scope);
     }
     return this.prisma.lead.update({

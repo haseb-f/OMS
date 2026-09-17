@@ -777,6 +777,7 @@ export interface ChartOfAccountRow {
   id: string;
   code: string;
   name: string;
+  nameEn?: string | null;
   description: string | null;
   accountType: "ASSET" | "LIABILITY" | "EQUITY" | "REVENUE" | "EXPENSE";
   parentAccountId: string | null;
@@ -797,7 +798,8 @@ export interface ChartOfAccountRow {
   deletedAt: string | null;
 }
 
-export const chartOfAccountRowLabel = (row: ChartOfAccountRow) => `${row.code} — ${row.name}`;
+export const chartOfAccountRowLabel = (row: ChartOfAccountRow, locale?: string) =>
+  `${row.code} — ${locale === "en" && row.nameEn ? row.nameEn : row.name}`;
 
 // ---------------------------------------------------------------------------
 // Journals (TASK-053) — configuration only (Name/Code/Type/default Dr-Cr

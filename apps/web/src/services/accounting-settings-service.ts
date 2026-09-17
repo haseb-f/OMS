@@ -62,6 +62,16 @@ export interface AccountingSettingsRow {
   defaultDeductionAccount: AccountRef | null;
   landedCostClearingAccountId: string | null;
   landedCostClearingAccount: AccountRef | null;
+  shippingExpenseAccountId: string | null;
+  shippingExpenseAccount: AccountRef | null;
+  accruedShippingAccountId: string | null;
+  accruedShippingAccount: AccountRef | null;
+  paymentGatewayFeeAccountId: string | null;
+  paymentGatewayFeeAccount: AccountRef | null;
+  fulfillmentExpenseAccountId: string | null;
+  fulfillmentExpenseAccount: AccountRef | null;
+  accruedFulfillmentAccountId: string | null;
+  accruedFulfillmentAccount: AccountRef | null;
 }
 
 export type AccountingSettingsField = Extract<keyof AccountingSettingsRow, `${string}Id`>;

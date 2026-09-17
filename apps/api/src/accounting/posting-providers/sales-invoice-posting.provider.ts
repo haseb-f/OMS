@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PostingEngineService } from '../posting-engine/posting-engine.service';
@@ -69,7 +69,14 @@ export class SalesInvoicePostingProvider
         },
         items: {
           include: {
-            product: { select: { isInventoryItem: true, categoryId: true } },
+            product: {
+              select: {
+                isInventoryItem: true,
+                categoryId: true,
+                currentCost: true,
+                sku: true,
+              },
+            },
             tax: { select: { id: true } },
           },
         },
@@ -90,6 +97,17 @@ export class SalesInvoicePostingProvider
       partnerId: invoice.partner.id,
     });
 
+    const discountTotal = Number(invoice.discountTotal ?? 0);
+    const discountAccountId =
+      discountTotal > 0
+        ? await this.accountMapping.resolveSalesDiscountAccount(tx)
+        : null;
+    if (discountTotal > 0 && !discountAccountId) {
+      throw new BadRequestException(
+        `Sales Invoice ${invoice.invoiceNumber} has a discount of ${discountTotal} but no Sales Discount account is configured.`,
+      );
+    }
+
     const revenueByLine = new Map<string, number>();
     for (const item of invoice.items) {
       const netAmount = Number(item.lineTotal) - Number(item.taxAmount);
@@ -103,11 +121,25 @@ export class SalesInvoicePostingProvider
         (revenueByLine.get(accountId) ?? 0) + netAmount,
       );
     }
+    if (discountAccountId && discountTotal > 0 && revenueByLine.size > 0) {
+      const [firstAccount] = revenueByLine.keys();
+      revenueByLine.set(
+        firstAccount,
+        (revenueByLine.get(firstAccount) ?? 0) + discountTotal,
+      );
+    }
     for (const [accountId, amount] of revenueByLine) {
       lines.push({
         accountId,
         credit: amount,
         description: `Revenue — ${invoice.invoiceNumber}`,
+      });
+    }
+    if (discountAccountId && discountTotal > 0) {
+      lines.push({
+        accountId: discountAccountId,
+        debit: discountTotal,
+        description: `Sales discount — ${invoice.invoiceNumber}`,
       });
     }
 
@@ -139,6 +171,11 @@ export class SalesInvoicePostingProvider
     const inventoryByLine = new Map<string, number>();
     for (const item of invoice.items) {
       if (!item.product.isInventoryItem) continue;
+      if (item.product.currentCost == null) {
+        throw new BadRequestException(
+          `Product ${item.product.sku} has no recorded cost. Record a product cost or opening balance before invoicing — COGS cannot silently post as zero.`,
+        );
+      }
       const unitCost = await this.inventoryValuation.getUnitCost(
         item.productId,
         tx,

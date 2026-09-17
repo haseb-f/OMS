@@ -73,6 +73,7 @@ import { PostingProvidersModule } from './accounting/posting-providers/posting-p
 import { PostingSettingsModule } from './accounting/posting-settings/posting-settings.module';
 import { AccountingReportsModule } from './accounting/reports/accounting-reports.module';
 import { FiscalPeriodsModule } from './accounting/fiscal-periods/fiscal-periods.module';
+import { AccountingFoundationModule } from './accounting/foundation/accounting-foundation.module';
 import { JournalsModule } from './journals/journals.module';
 import { OpeningBalancesModule } from './accounting/opening-balances/opening-balances.module';
 import { YearClosingModule } from './accounting/year-closing/year-closing.module';
@@ -177,6 +178,7 @@ import { InvestorPortalModule } from './investor-portal/investor-portal.module';
     PostingSettingsModule,
     AccountingReportsModule,
     FiscalPeriodsModule,
+    AccountingFoundationModule,
     JournalsModule,
     OpeningBalancesModule,
     YearClosingModule,

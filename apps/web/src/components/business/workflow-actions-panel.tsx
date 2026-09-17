@@ -54,12 +54,13 @@ export function WorkflowActionsPanel({
     setLoading(true);
     try {
       setActions(await workflowService.availableActions(entityType, entityId));
-    } catch {
+    } catch (error) {
       setActions([]);
+      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
       setLoading(false);
     }
-  }, [entityType, entityId]);
+  }, [entityType, entityId, t]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

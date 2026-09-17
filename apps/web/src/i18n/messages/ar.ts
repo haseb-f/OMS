@@ -1305,13 +1305,17 @@ const ar = {
     },
     finance: {
       description:
-        "دفتر الأستاذ العام وميزان المراجعة وتقرير القيود وكشف الحساب — جميعها تُقرأ مباشرة من القيود المرحّلة.",
+        "دفتر الأستاذ العام وميزان المراجعة وتقرير القيود وكشف الحساب وأعمار الذمم وكشوف الشركاء — جميعها تُقرأ مباشرة من القيود المرحّلة.",
       generalLedger: "دفتر الأستاذ العام",
       trialBalance: "ميزان المراجعة",
       journalReport: "تقرير القيود",
       balanceSheet: "الميزانية العمومية",
       incomeStatement: "قائمة الدخل",
       cashFlow: "قائمة التدفقات النقدية",
+      arAging: "أعمار الذمم المدينة",
+      apAging: "أعمار الذمم الدائنة",
+      customerStatement: "كشف حساب العميل",
+      supplierStatement: "كشف حساب المورد",
       asOfDate: "كما في",
       cashFlowHint:
         "التدفقات النقدية مجمّعة حسب نوع المستند المصدر — كل مستند يرحّله هذا النظام حالياً هو نشاط تشغيلي، لذلك لا تظهر أقسام استثمارية أو تمويلية منفصلة.",
@@ -1324,6 +1328,17 @@ const ar = {
         title: "كشف حساب",
         selectAccountTitle: "اختر حسابًا",
         selectAccountDescription: "اختر حسابًا أعلاه لعرض كشف حسابه.",
+      },
+      partnerStatement: {
+        title: "كشف حساب الشريك",
+        selectTitle: "اختر شريكًا",
+        selectDescription: "اختر عميلًا أو موردًا لعرض كشف الحساب الفرعي.",
+      },
+      aging: {
+        current: "٠–٣٠",
+        days31to60: "٣١–٦٠",
+        days61to90: "٦١–٩٠",
+        over90: "٩٠+",
       },
       fields: {
         accountCode: "رمز الحساب",
@@ -1355,6 +1370,8 @@ const ar = {
         netIncome: "صافي الدخل",
         sourceType: "نوع المصدر",
         netChange: "صافي التغير",
+        partnerNumber: "رقم الشريك",
+        partnerName: "الشريك",
       },
       filters: {
         company: "الشركة",
@@ -4234,6 +4251,7 @@ const ar = {
         sales: "حسابات المبيعات",
         purchasing: "حسابات المشتريات",
         inventory: "حسابات المخزون",
+        operating: "التكاليف التشغيلية المباشرة",
         tax: "حسابات الضريبة",
         customerDefaults: "افتراضيات العملاء",
         supplierDefaults: "افتراضيات الموردين",
@@ -4273,6 +4291,11 @@ const ar = {
         investorProfitDistribution: "حساب توزيع أرباح المستثمرين",
         investorProfitPayable: "حساب مستحقات أرباح المستثمرين",
         capitalReturn: "حساب استرداد رأس المال",
+        shippingExpense: "مصروف الشحن / الناقل",
+        accruedShipping: "مستحقات الشحن",
+        paymentGatewayFee: "رسوم بوابة الدفع",
+        fulfillmentExpense: "مصروف التجهيز / التغليف",
+        accruedFulfillment: "مستحقات التجهيز",
       },
       picker: {
         select: "اختر الحساب",

@@ -39,6 +39,8 @@ describe('StoreOrderShipmentOperationsService attachments', () => {
     shipmentsService as unknown as StoreOrderShipmentsService,
     activityService as unknown as StoreOrderActivityService,
     attachments as unknown as AttachmentsService,
+    {} as never,
+    {} as never,
   );
 
   beforeEach(() => {

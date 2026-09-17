@@ -10,6 +10,8 @@ import { AccountStatementQueryDto } from './dto/account-statement-query.dto';
 import { BalanceSheetQueryDto } from './dto/balance-sheet-query.dto';
 import { IncomeStatementQueryDto } from './dto/income-statement-query.dto';
 import { CashFlowQueryDto } from './dto/cash-flow-query.dto';
+import { AgingQueryDto } from './dto/aging-query.dto';
+import { PartnerStatementQueryDto } from './dto/partner-statement-query.dto';
 
 /** TASK-047/051 Financial Reports & Statements — read-only endpoints only, no create/update/delete anywhere on this controller. */
 @Controller('accounting/reports')
@@ -51,5 +53,20 @@ export class AccountingReportsController {
   @Get('cash-flow')
   cashFlow(@Query() query: CashFlowQueryDto) {
     return this.reports.cashFlowStatement(query);
+  }
+
+  @Get('ar-aging')
+  arAging(@Query() query: AgingQueryDto) {
+    return this.reports.arAging(query);
+  }
+
+  @Get('ap-aging')
+  apAging(@Query() query: AgingQueryDto) {
+    return this.reports.apAging(query);
+  }
+
+  @Get('partner-statement')
+  partnerStatement(@Query() query: PartnerStatementQueryDto) {
+    return this.reports.partnerStatement(query);
   }
 }

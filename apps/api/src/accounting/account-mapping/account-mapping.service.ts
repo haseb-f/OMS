@@ -387,6 +387,82 @@ export class AccountMappingService {
     ]);
   }
 
+  async resolveSalesDiscountAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string | null> {
+    const settings = await this.getSettings(tx);
+    return settings?.salesDiscountAccountId ?? null;
+  }
+
+  async resolveSalesReturnAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string | null> {
+    const settings = await this.getSettings(tx);
+    return settings?.salesReturnAccountId ?? null;
+  }
+
+  async resolvePurchaseReturnAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string | null> {
+    const settings = await this.getSettings(tx);
+    return settings?.purchaseReturnAccountId ?? null;
+  }
+
+  async resolveShippingExpenseAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    return this.require(
+      settings?.shippingExpenseAccountId,
+      'Shipping Expense',
+      ['PostingSettings.shippingExpenseAccountId'],
+    );
+  }
+
+  async resolveAccruedShippingAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    return this.require(
+      settings?.accruedShippingAccountId,
+      'Accrued Shipping',
+      ['PostingSettings.accruedShippingAccountId'],
+    );
+  }
+
+  async resolvePaymentGatewayFeeAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    return this.require(
+      settings?.paymentGatewayFeeAccountId,
+      'Payment Gateway Fees',
+      ['PostingSettings.paymentGatewayFeeAccountId'],
+    );
+  }
+
+  async resolveFulfillmentExpenseAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    return this.require(
+      settings?.fulfillmentExpenseAccountId,
+      'Fulfillment Expense',
+      ['PostingSettings.fulfillmentExpenseAccountId'],
+    );
+  }
+
+  async resolveAccruedFulfillmentAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    return this.require(
+      settings?.accruedFulfillmentAccountId,
+      'Accrued Fulfillment',
+      ['PostingSettings.accruedFulfillmentAccountId'],
+    );
+  }
+
   private async getSettings(tx: Prisma.TransactionClient | PrismaService) {
     return tx.postingSettings.findFirst();
   }

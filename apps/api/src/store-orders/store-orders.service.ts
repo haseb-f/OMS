@@ -54,6 +54,7 @@ import { SalesScopeService } from '../sales-scope/sales-scope.service';
 import { ProductsService } from '../products/products.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { FulfillmentCostService } from '../fulfillment-cost-rules/fulfillment-cost.service';
+import { StoreOrderCollectionService } from '../accounting/store-order-collection/store-order-collection.service';
 import { OrderEconomicsService } from './order-economics/order-economics.service';
 import { PAID_PAYMENT_CODES } from '../workflow/workflow-status-map';
 import { randomUUID } from 'node:crypto';
@@ -203,6 +204,7 @@ export class StoreOrdersService {
     private readonly productsService: ProductsService,
     private readonly inventoryService: InventoryService,
     private readonly fulfillmentCostService: FulfillmentCostService,
+    private readonly storeOrderCollection: StoreOrderCollectionService,
     private readonly orderEconomicsService: OrderEconomicsService,
   ) {}
 
@@ -1539,6 +1541,7 @@ export class StoreOrdersService {
       await this.fulfillmentCostService.applyStandardCost(id, tx, userId);
 
       await this.postingEngine.post('SALES_INVOICE', created.id, userId, tx);
+      await this.postingEngine.post('FULFILLMENT_COST', id, userId, tx);
 
       await this.activityService.log(
         id,
@@ -1550,6 +1553,8 @@ export class StoreOrdersService {
 
       return created;
     });
+
+    await this.storeOrderCollection.syncVerifiedPayments(id, userId);
 
     return invoice;
   }

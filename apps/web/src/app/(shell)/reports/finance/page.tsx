@@ -10,6 +10,8 @@ import { AccountStatementTab } from "./account-statement-tab";
 import { BalanceSheetTab } from "./balance-sheet-tab";
 import { IncomeStatementTab } from "./income-statement-tab";
 import { CashFlowTab } from "./cash-flow-tab";
+import { AgingTab } from "./aging-tab";
+import { PartnerStatementTab } from "./partner-statement-tab";
 import { PermissionGate } from "@/components/shared/permission-gate";
 
 /**
@@ -36,6 +38,14 @@ function ReportsFinancePageContent() {
           <TabsTrigger value="balanceSheet">{t("reports.finance.balanceSheet")}</TabsTrigger>
           <TabsTrigger value="incomeStatement">{t("reports.finance.incomeStatement")}</TabsTrigger>
           <TabsTrigger value="cashFlow">{t("reports.finance.cashFlow")}</TabsTrigger>
+          <TabsTrigger value="arAging">{t("reports.finance.arAging")}</TabsTrigger>
+          <TabsTrigger value="apAging">{t("reports.finance.apAging")}</TabsTrigger>
+          <TabsTrigger value="customerStatement">
+            {t("reports.finance.customerStatement")}
+          </TabsTrigger>
+          <TabsTrigger value="supplierStatement">
+            {t("reports.finance.supplierStatement")}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="generalLedger">
@@ -58,6 +68,18 @@ function ReportsFinancePageContent() {
         </TabsContent>
         <TabsContent value="cashFlow">
           <CashFlowTab />
+        </TabsContent>
+        <TabsContent value="arAging">
+          <AgingTab side="AR" />
+        </TabsContent>
+        <TabsContent value="apAging">
+          <AgingTab side="AP" />
+        </TabsContent>
+        <TabsContent value="customerStatement">
+          <PartnerStatementTab role="CUSTOMER" />
+        </TabsContent>
+        <TabsContent value="supplierStatement">
+          <PartnerStatementTab role="SUPPLIER" />
         </TabsContent>
       </Tabs>
     </PageWorkspace>

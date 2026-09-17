@@ -48,6 +48,7 @@ describe('Sales catalog grouping', () => {
         'store-orders.view',
         'store-orders.create',
         'store-orders.edit',
+        'store-orders.generate_invoice',
         'store-orders.archive',
       ]),
     );
@@ -121,6 +122,17 @@ describe('Shipping quick-edit permission boundary', () => {
         'store-orders.view',
         'payments.verify',
         'payments.edit',
+      ]),
+    );
+  });
+
+  it('implies store-orders.generate_invoice from store-orders.edit', () => {
+    const expanded = withImpliedSectionPermissions(['store-orders.edit']);
+    expect(expanded).toEqual(
+      expect.arrayContaining([
+        'store-orders.edit',
+        'store-orders.generate_invoice',
+        'sales.view',
       ]),
     );
   });

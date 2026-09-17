@@ -48,7 +48,7 @@ const SYSTEM_ROOT_CODES = ['1', '2', '3', '4', '5'] as const;
 export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount> {
   protected readonly entityType = 'CHART_OF_ACCOUNT';
   protected readonly entityLabel = 'Chart of Account';
-  protected readonly searchFields = ['code', 'name', 'description'];
+  protected readonly searchFields = ['code', 'name', 'nameEn', 'description'];
   protected readonly defaultSortField = 'code';
 
   constructor(

@@ -53,6 +53,7 @@ describe('StoreOrdersService.findAll — profitability summary', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
       orderEconomicsService as never,
     );
     return { service, prisma, orderEconomicsService };

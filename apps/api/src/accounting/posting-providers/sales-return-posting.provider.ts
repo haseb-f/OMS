@@ -79,14 +79,18 @@ export class SalesReturnPostingProvider
       partnerId: salesReturn.partner.id,
     });
 
+    const returnAccountId =
+      await this.accountMapping.resolveSalesReturnAccount(tx);
     const revenueByLine = new Map<string, number>();
     for (const item of salesReturn.items) {
       const netAmount = Number(item.lineTotal) - Number(item.taxAmount);
-      const accountId = await this.accountMapping.resolveSalesRevenueAccount(
-        item.product.categoryId,
-        salesReturn.partner.customerProfile?.customerGroupId ?? null,
-        tx,
-      );
+      const accountId =
+        returnAccountId ??
+        (await this.accountMapping.resolveSalesRevenueAccount(
+          item.product.categoryId,
+          salesReturn.partner.customerProfile?.customerGroupId ?? null,
+          tx,
+        ));
       revenueByLine.set(
         accountId,
         (revenueByLine.get(accountId) ?? 0) + netAmount,

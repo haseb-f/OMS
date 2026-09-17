@@ -15,7 +15,8 @@ export type ProfitabilityDimension = (typeof PROFITABILITY_DIMENSIONS)[number];
 
 export class ProfitabilityQueryDto extends CostAnalyticsScopeDto {
   @IsIn(PROFITABILITY_DIMENSIONS)
-  dimension!: ProfitabilityDimension;
+  @IsOptional()
+  dimension: ProfitabilityDimension = 'PRODUCT';
 
   /** Only used when `dimension` is `PERIOD`. */
   @IsIn(['day', 'week', 'month'])

@@ -35,6 +35,10 @@ export class CreateChartOfAccountDto {
 
   @IsString()
   @IsOptional()
+  nameEn?: string;
+
+  @IsString()
+  @IsOptional()
   description?: string;
 
   @IsEnum(AccountType)

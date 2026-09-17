@@ -49,6 +49,8 @@ const SOURCE_TYPE_JOURNAL: Record<string, JournalType> = {
   INVESTOR_DISTRIBUTION: JournalType.GENERAL,
   INVESTOR_PROFIT_PAYMENT: JournalType.CASH,
   CAPITAL_RETURN: JournalType.CASH,
+  SHIPMENT_COST: JournalType.GENERAL,
+  FULFILLMENT_COST: JournalType.GENERAL,
 };
 
 @Injectable()
@@ -89,6 +91,22 @@ export class PostingEngineService {
     }
 
     const run = async (client: Prisma.TransactionClient) => {
+      const existingPosted = await client.journalEntry.findFirst({
+        where: {
+          sourceType,
+          sourceId,
+          status: JournalEntryStatus.POSTED,
+          reversalOfEntryId: null,
+          deletedAt: null,
+        },
+      });
+      if (existingPosted) {
+        this.logger.debug(
+          `Idempotent skip — ${sourceType} ${sourceId} already has posted journal ${existingPosted.entryNumber}.`,
+        );
+        return existingPosted;
+      }
+
       const result = await provider.buildEntries(
         sourceType,
         sourceId,

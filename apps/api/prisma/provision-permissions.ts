@@ -23,6 +23,7 @@ import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { ALL_PERMISSION_NAMES } from '../src/permissions/permission-catalog';
+import { activateAccountingFoundation } from '../src/accounting/foundation/accounting-foundation.bootstrap';
 
 function withLibpqSslCompat(connectionString: string | undefined) {
   if (!connectionString || connectionString.includes('uselibpqcompat')) {
@@ -53,6 +54,11 @@ async function main() {
   }
   console.log(
     `Permission catalog provisioned: ${created} created, ${existing} already existed (of ${ALL_PERMISSION_NAMES.length} total).`,
+  );
+
+  const foundation = await activateAccountingFoundation(prisma);
+  console.log(
+    `Accounting foundation: ${foundation.accountsCreated} accounts created, ${foundation.accountsReused} reused, settings filled [${foundation.postingSettingsFilled.join(', ')}], FY ${foundation.fiscalYear ?? 'existing'}.`,
   );
 }
 

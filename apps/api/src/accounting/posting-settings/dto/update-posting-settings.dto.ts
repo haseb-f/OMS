@@ -93,4 +93,19 @@ export class UpdatePostingSettingsDto {
 
   @IsOptionalUuid()
   landedCostClearingAccountId?: string;
+
+  @IsOptionalUuid()
+  shippingExpenseAccountId?: string;
+
+  @IsOptionalUuid()
+  accruedShippingAccountId?: string;
+
+  @IsOptionalUuid()
+  paymentGatewayFeeAccountId?: string;
+
+  @IsOptionalUuid()
+  fulfillmentExpenseAccountId?: string;
+
+  @IsOptionalUuid()
+  accruedFulfillmentAccountId?: string;
 }

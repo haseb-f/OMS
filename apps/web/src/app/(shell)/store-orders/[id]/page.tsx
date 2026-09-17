@@ -122,6 +122,7 @@ function StoreOrderDetailContent() {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
   const canEdit = hasPermission("store-orders.edit");
+  const canGenerateInvoiceAction = hasPermission("store-orders.generate_invoice") || canEdit;
   const canArchive = hasPermission("store-orders.archive");
   const canViewProfitability = hasPermission("orders.profitability.view");
   const canEditProfitabilityCosts = hasPermission("orders.profitability.editCosts");
@@ -953,7 +954,7 @@ function StoreOrderDetailContent() {
                 key: "generate-invoice",
                 label: t("storeOrders.detail.invoice.generate"),
                 icon: FileText,
-                hidden: !canEdit || !canGenerateInvoice,
+                hidden: !canGenerateInvoiceAction || !canGenerateInvoice,
                 disabled: isGeneratingInvoice,
                 onSelect: () => void handleGenerateInvoice(),
               },

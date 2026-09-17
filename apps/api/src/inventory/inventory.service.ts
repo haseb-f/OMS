@@ -432,7 +432,7 @@ export class InventoryService {
 
       if (quantityAfter < 0) {
         throw new BadRequestException(
-          'Delivery quantity exceeds on-hand stock.',
+          `Delivery quantity exceeds on-hand stock for ${product.sku} at warehouse ${warehouse.code} (on-hand ${quantityBefore}, requested ${dto.quantity}). Post an opening balance or inventory adjustment first.`,
         );
       }
 

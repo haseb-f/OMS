@@ -2,8 +2,11 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   AccountType,
   ChartOfAccount,
+  FinancialTransactionStatus,
   JournalEntryStatus,
   Prisma,
+  PurchaseDocumentStatus,
+  SalesDocumentStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { buildDateRangeFilter } from '../../sales/shared/sales-list-query.util';
@@ -15,6 +18,14 @@ import { AccountStatementQueryDto } from './dto/account-statement-query.dto';
 import { BalanceSheetQueryDto } from './dto/balance-sheet-query.dto';
 import { IncomeStatementQueryDto } from './dto/income-statement-query.dto';
 import { CashFlowQueryDto } from './dto/cash-flow-query.dto';
+import { AgingQueryDto } from './dto/aging-query.dto';
+import { PartnerStatementQueryDto } from './dto/partner-statement-query.dto';
+import {
+  agingBucket,
+  daysOutstanding,
+  emptyAgingBuckets,
+  type AgingBucket,
+} from './aging.util';
 
 export interface StatementRow {
   accountId: string;
@@ -637,5 +648,302 @@ export class AccountingReportsService {
 
   private sumRows(rows: StatementRow[]): number {
     return rows.reduce((sum, row) => sum + row.balance, 0);
+  }
+
+  async arAging(query: AgingQueryDto) {
+    return this.invoiceAging('AR', query);
+  }
+
+  async apAging(query: AgingQueryDto) {
+    return this.invoiceAging('AP', query);
+  }
+
+  async partnerStatement(query: PartnerStatementQueryDto) {
+    const partner = await this.prisma.partner.findFirst({
+      where: { id: query.partnerId, deletedAt: null },
+      select: { id: true, partnerNumber: true, name: true },
+    });
+    if (!partner) {
+      throw new NotFoundException(`Partner ${query.partnerId} not found`);
+    }
+
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 50;
+    const asOf = query.dateTo
+      ? new Date(new Date(query.dateTo).getTime() + (24 * 60 * 60 * 1000 - 1))
+      : undefined;
+    const dateFrom = query.dateFrom ? new Date(query.dateFrom) : undefined;
+
+    const lineWhere: Prisma.JournalEntryLineWhereInput = {
+      partnerId: partner.id,
+      journalEntry: {
+        ...this.buildEntryScopeWhere(query),
+        ...(dateFrom || asOf
+          ? {
+              entryDate: {
+                ...(dateFrom ? { gte: dateFrom } : {}),
+                ...(asOf ? { lte: asOf } : {}),
+              },
+            }
+          : {}),
+      },
+    };
+
+    const openingWhere: Prisma.JournalEntryLineWhereInput | null = dateFrom
+      ? {
+          partnerId: partner.id,
+          journalEntry: {
+            ...this.buildEntryScopeWhere(query),
+            entryDate: { lt: dateFrom },
+          },
+        }
+      : null;
+
+    const [openingAgg, lines, total] = await Promise.all([
+      openingWhere
+        ? this.prisma.journalEntryLine.aggregate({
+            where: openingWhere,
+            _sum: { debit: true, credit: true },
+          })
+        : Promise.resolve({ _sum: { debit: 0, credit: 0 } }),
+      this.prisma.journalEntryLine.findMany({
+        where: lineWhere,
+        include: {
+          account: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              nameEn: true,
+              partnerControlType: true,
+            },
+          },
+          journalEntry: {
+            select: {
+              id: true,
+              entryNumber: true,
+              entryDate: true,
+              description: true,
+              sourceType: true,
+              sourceId: true,
+              referenceNumber: true,
+              status: true,
+            },
+          },
+        },
+        orderBy: [{ journalEntry: { entryDate: 'asc' } }, { lineOrder: 'asc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.journalEntryLine.count({ where: lineWhere }),
+    ]);
+
+    let running =
+      Number(openingAgg._sum.debit ?? 0) - Number(openingAgg._sum.credit ?? 0);
+    const openingBalance = running;
+    const movements = lines.map((line) => {
+      const debit = Number(line.debit);
+      const credit = Number(line.credit);
+      running += debit - credit;
+      return {
+        journalEntryId: line.journalEntry.id,
+        entryNumber: line.journalEntry.entryNumber,
+        entryDate: line.journalEntry.entryDate,
+        description: line.description ?? line.journalEntry.description,
+        sourceType: line.journalEntry.sourceType,
+        sourceId: line.journalEntry.sourceId,
+        referenceNumber: line.journalEntry.referenceNumber,
+        status: line.journalEntry.status,
+        accountCode: line.account.code,
+        accountName: line.account.name,
+        partnerControlType: line.account.partnerControlType,
+        debit,
+        credit,
+        runningBalance: running,
+      };
+    });
+
+    return {
+      partner,
+      openingBalance,
+      closingBalance: running,
+      movements,
+      total,
+      page,
+      pageSize,
+    };
+  }
+
+  private async invoiceAging(side: 'AR' | 'AP', query: AgingQueryDto) {
+    const asOf = query.dateTo
+      ? new Date(new Date(query.dateTo).getTime() + (24 * 60 * 60 * 1000 - 1))
+      : new Date();
+    const invoiceKey = side === 'AR' ? 'salesInvoiceId' : 'purchaseInvoiceId';
+    const openStatuses =
+      side === 'AR'
+        ? [SalesDocumentStatus.CONFIRMED, SalesDocumentStatus.CLOSED]
+        : [PurchaseDocumentStatus.CONFIRMED, PurchaseDocumentStatus.CLOSED];
+
+    const invoices =
+      side === 'AR'
+        ? await this.prisma.salesInvoice.findMany({
+            where: {
+              deletedAt: null,
+              status: { in: openStatuses },
+              ...(query.partnerId ? { partnerId: query.partnerId } : {}),
+              ...(query.companyId ? { companyId: query.companyId } : {}),
+              ...(query.branchId ? { branchId: query.branchId } : {}),
+              ...(query.currencyId ? { currencyId: query.currencyId } : {}),
+              OR: [
+                { confirmedAt: { lte: asOf } },
+                { confirmedAt: null, createdAt: { lte: asOf } },
+              ],
+            },
+            select: {
+              id: true,
+              invoiceNumber: true,
+              partnerId: true,
+              grandTotal: true,
+              confirmedAt: true,
+              createdAt: true,
+              partner: {
+                select: { id: true, partnerNumber: true, name: true },
+              },
+            },
+          })
+        : await this.prisma.purchaseInvoice.findMany({
+            where: {
+              deletedAt: null,
+              status: { in: openStatuses },
+              ...(query.partnerId ? { partnerId: query.partnerId } : {}),
+              ...(query.companyId ? { companyId: query.companyId } : {}),
+              ...(query.branchId ? { branchId: query.branchId } : {}),
+              ...(query.currencyId ? { currencyId: query.currencyId } : {}),
+              OR: [
+                { confirmedAt: { lte: asOf } },
+                { confirmedAt: null, createdAt: { lte: asOf } },
+              ],
+            },
+            select: {
+              id: true,
+              invoiceNumber: true,
+              partnerId: true,
+              grandTotal: true,
+              confirmedAt: true,
+              createdAt: true,
+              partner: {
+                select: { id: true, partnerNumber: true, name: true },
+              },
+            },
+          });
+
+    const invoiceIds = invoices.map((row) => row.id);
+    const allocatedByInvoice = new Map<string, number>();
+    if (invoiceIds.length > 0) {
+      const grouped = await this.prisma.financialTransactionAllocation.groupBy({
+        by: [invoiceKey],
+        where: {
+          [invoiceKey]: { in: invoiceIds },
+          transaction: {
+            status: FinancialTransactionStatus.CONFIRMED,
+            deletedAt: null,
+            transactionDate: { lte: asOf },
+          },
+        },
+        _sum: { allocatedAmount: true },
+      });
+      for (const row of grouped) {
+        const id = row[invoiceKey];
+        if (id)
+          allocatedByInvoice.set(id, Number(row._sum.allocatedAmount ?? 0));
+      }
+    }
+
+    const byPartner = new Map<
+      string,
+      {
+        partnerId: string;
+        partnerNumber: string;
+        partnerName: string;
+        current: number;
+        days31to60: number;
+        days61to90: number;
+        over90: number;
+        total: number;
+      }
+    >();
+
+    const invoicesOut: Array<{
+      invoiceId: string;
+      invoiceNumber: string;
+      partnerId: string;
+      partnerName: string;
+      invoiceDate: Date;
+      daysOutstanding: number;
+      bucket: AgingBucket;
+      grandTotal: number;
+      allocated: number;
+      remaining: number;
+    }> = [];
+
+    for (const invoice of invoices) {
+      const grandTotal = Number(invoice.grandTotal);
+      const allocated = allocatedByInvoice.get(invoice.id) ?? 0;
+      const remaining = Math.max(
+        Math.round((grandTotal - allocated) * 100) / 100,
+        0,
+      );
+      if (remaining <= 0) continue;
+      const invoiceDate = invoice.confirmedAt ?? invoice.createdAt;
+      const days = daysOutstanding(asOf, invoiceDate);
+      const bucket = agingBucket(days);
+      invoicesOut.push({
+        invoiceId: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        partnerId: invoice.partnerId,
+        partnerName: invoice.partner.name,
+        invoiceDate,
+        daysOutstanding: days,
+        bucket,
+        grandTotal,
+        allocated,
+        remaining,
+      });
+      const existing = byPartner.get(invoice.partnerId) ?? {
+        partnerId: invoice.partner.id,
+        partnerNumber: invoice.partner.partnerNumber,
+        partnerName: invoice.partner.name,
+        ...emptyAgingBuckets(),
+        total: 0,
+      };
+      existing[bucket] += remaining;
+      existing.total += remaining;
+      byPartner.set(invoice.partnerId, existing);
+    }
+
+    const partners = [...byPartner.values()].sort((a, b) =>
+      a.partnerName.localeCompare(b.partnerName),
+    );
+    const totals = partners.reduce(
+      (acc, row) => {
+        acc.current += row.current;
+        acc.days31to60 += row.days31to60;
+        acc.days61to90 += row.days61to90;
+        acc.over90 += row.over90;
+        acc.total += row.total;
+        return acc;
+      },
+      { ...emptyAgingBuckets(), total: 0 },
+    );
+
+    return {
+      side,
+      asOfDate: asOf,
+      partners,
+      invoices: invoicesOut.sort(
+        (a, b) => b.daysOutstanding - a.daysOutstanding,
+      ),
+      totals,
+    };
   }
 }

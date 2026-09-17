@@ -89,7 +89,9 @@ function collectMatchIds(nodes: TreeNode[], query: string, ancestors: string[] =
   const matches = new Set<string>();
   for (const node of nodes) {
     const isMatch =
-      node.code.toLowerCase().includes(query) || node.name.toLowerCase().includes(query);
+      node.code.toLowerCase().includes(query) ||
+      node.name.toLowerCase().includes(query) ||
+      (node.nameEn ?? "").toLowerCase().includes(query);
     const childMatches = collectMatchIds(node.children, query, [...ancestors, node.id]);
     if (isMatch || childMatches.size > 0) {
       matches.add(node.id);
@@ -102,6 +104,7 @@ function collectMatchIds(nodes: TreeNode[], query: string, ancestors: string[] =
 
 interface FormState {
   name: string;
+  nameEn: string;
   accountType: (typeof ACCOUNT_TYPES)[number];
   nature: AccountNature;
   currencyId: string;
@@ -113,6 +116,7 @@ interface FormState {
 
 const emptyForm: FormState = {
   name: "",
+  nameEn: "",
   accountType: "ASSET",
   nature: "MAIN",
   currencyId: "",
@@ -123,7 +127,7 @@ const emptyForm: FormState = {
 
 /** TASK-053/CRITICAL-GAP-FIX — the accountant workflow: hierarchy tree (unlimited depth), collapse/expand, fast search, Account Type/Status filters, and a unified create/edit form with an explicit Main/Sub account-nature selector + searchable Parent Account picker. Reuses the tree-page pattern already established by Warehouse Locations. */
 function ChartOfAccountsPageContent() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const { printList } = usePrintEngine();
   const { activeCompany } = useCompany();
   const { user, hasPermission } = useUserContext();
@@ -242,6 +246,7 @@ function ChartOfAccountsPageContent() {
     setProposedCode(null);
     setForm({
       name: account.name,
+      nameEn: account.nameEn ?? "",
       accountType: account.accountType,
       nature: account.parentAccountId ? "SUB" : "MAIN",
       currencyId: account.currencyId ?? "",
@@ -279,6 +284,7 @@ function ChartOfAccountsPageContent() {
     try {
       const payload: Record<string, unknown> = {
         name: form.name,
+        nameEn: form.nameEn.trim() || undefined,
         accountType: form.accountType,
         currencyId: form.currencyId || undefined,
         allowReconciliation: form.allowReconciliation,
@@ -521,7 +527,9 @@ function ChartOfAccountsPageContent() {
           <code dir="ltr" className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
             {node.code}
           </code>
-          <span className="font-medium">{node.name}</span>
+          <span className="font-medium">
+            {locale === "en" && node.nameEn ? node.nameEn : node.name}
+          </span>
           <span className="text-caption text-muted-foreground">
             {t(ACCOUNT_TYPE_LABEL_KEY[node.accountType])}
           </span>
@@ -759,6 +767,16 @@ function ChartOfAccountsPageContent() {
             <Input
               value={form.name}
               onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <label className="text-sm font-medium">{t("masterData.fields.nameEn")}</label>
+            <Input
+              value={form.nameEn}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, nameEn: event.target.value }))
+              }
             />
           </div>
 

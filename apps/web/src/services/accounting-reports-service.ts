@@ -142,6 +142,67 @@ export interface CashFlowResult {
   totals: { netCashChange: number; closingBalance: number };
 }
 
+export type AgingBucket = "current" | "days31to60" | "days61to90" | "over90";
+
+export interface AgingPartnerRow {
+  partnerId: string;
+  partnerNumber: string;
+  partnerName: string;
+  current: number;
+  days31to60: number;
+  days61to90: number;
+  over90: number;
+  total: number;
+}
+
+export interface AgingInvoiceRow {
+  invoiceId: string;
+  invoiceNumber: string;
+  partnerId: string;
+  partnerName: string;
+  invoiceDate: string;
+  daysOutstanding: number;
+  bucket: AgingBucket;
+  grandTotal: number;
+  allocated: number;
+  remaining: number;
+}
+
+export interface AgingResult {
+  side: "AR" | "AP";
+  asOfDate: string;
+  partners: AgingPartnerRow[];
+  invoices: AgingInvoiceRow[];
+  totals: AgingPartnerRow & { partnerId?: string; partnerNumber?: string; partnerName?: string };
+}
+
+export interface PartnerStatementMovement {
+  journalEntryId: string;
+  entryNumber: string;
+  entryDate: string;
+  description: string | null;
+  sourceType: string | null;
+  sourceId: string | null;
+  referenceNumber: string | null;
+  status: JournalEntryStatusValue;
+  accountCode: string;
+  accountName: string;
+  partnerControlType: "RECEIVABLE" | "PAYABLE" | null;
+  debit: number;
+  credit: number;
+  runningBalance: number;
+}
+
+export interface PartnerStatementResult {
+  partner: { id: string; partnerNumber: string; name: string };
+  openingBalance: number;
+  closingBalance: number;
+  movements: PartnerStatementMovement[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 function buildQueryString(params: Record<string, unknown>): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -180,5 +241,17 @@ export const accountingReportsService = {
   cashFlow: (params: ReportFilterParams = {}) =>
     apiClient.get<CashFlowResult>(
       `/accounting/reports/cash-flow${buildQueryString(params as Record<string, unknown>)}`,
+    ),
+  arAging: (params: ReportFilterParams & { partnerId?: string } = {}) =>
+    apiClient.get<AgingResult>(
+      `/accounting/reports/ar-aging${buildQueryString(params as Record<string, unknown>)}`,
+    ),
+  apAging: (params: ReportFilterParams & { partnerId?: string } = {}) =>
+    apiClient.get<AgingResult>(
+      `/accounting/reports/ap-aging${buildQueryString(params as Record<string, unknown>)}`,
+    ),
+  partnerStatement: (partnerId: string, params: ReportFilterParams = {}) =>
+    apiClient.get<PartnerStatementResult>(
+      `/accounting/reports/partner-statement${buildQueryString({ ...params, partnerId } as Record<string, unknown>)}`,
     ),
 };

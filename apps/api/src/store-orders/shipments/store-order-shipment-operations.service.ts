@@ -3,7 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ShipmentStatus, ShippingCostPayer } from '@prisma/client';
+import {
+  Prisma,
+  ShipmentStatus,
+  ShippingCostPayer,
+  WorkflowType,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AttachmentsService } from '../../common/storage/attachments.service';
 import {
@@ -12,6 +17,8 @@ import {
   StoreOrderActivityType,
 } from '../activities/store-order-activity.service';
 import { StoreOrderShipmentsService } from './store-order-shipments.service';
+import { WorkflowStatusResolverService } from '../../workflow/workflow-status-resolver.service';
+import { PostingEngineService } from '../../accounting/posting-engine/posting-engine.service';
 
 const MANUAL = StoreOrderActivitySource.MANUAL;
 
@@ -37,6 +44,8 @@ export class StoreOrderShipmentOperationsService {
     private readonly shipmentsService: StoreOrderShipmentsService,
     private readonly activityService: StoreOrderActivityService,
     private readonly attachments: AttachmentsService,
+    private readonly statusResolver: WorkflowStatusResolverService,
+    private readonly postingEngine: PostingEngineService,
   ) {}
 
   private async assertOrderExists(storeOrderId: string) {
@@ -146,6 +155,7 @@ export class StoreOrderShipmentOperationsService {
         storeOrderId,
         tx,
       );
+      await this.syncOrderFulfillment(storeOrderId, shipment.status, tx);
       await this.activityService.log(
         storeOrderId,
         StoreOrderActivityType.SHIPPED,
@@ -169,6 +179,7 @@ export class StoreOrderShipmentOperationsService {
         storeOrderId,
         tx,
       );
+      await this.syncOrderFulfillment(storeOrderId, shipment.status, tx);
       await this.activityService.log(
         storeOrderId,
         StoreOrderActivityType.OUT_FOR_DELIVERY,
@@ -192,6 +203,8 @@ export class StoreOrderShipmentOperationsService {
         storeOrderId,
         tx,
       );
+      await this.syncOrderFulfillment(storeOrderId, shipment.status, tx);
+      await this.postShipmentCost(shipment, userId, tx);
       await this.activityService.log(
         storeOrderId,
         StoreOrderActivityType.DELIVERED,
@@ -262,6 +275,12 @@ export class StoreOrderShipmentOperationsService {
         target.code,
         tx,
       );
+      await this.syncOrderFulfillment(
+        storeOrderId,
+        shipment.status ?? target.code,
+        tx,
+      );
+      await this.postShipmentCost(shipment, userId, tx);
 
       const type =
         beforeBehavior === 'FINAL' && target.syncBehavior === 'UNDER_SYNC'
@@ -345,6 +364,7 @@ export class StoreOrderShipmentOperationsService {
         data,
         tx,
       );
+      await this.postShipmentCost(shipment, userId, tx);
       await this.activityService.log(
         storeOrderId,
         StoreOrderActivityType.SHIPPING_COST_ADDED,
@@ -619,5 +639,50 @@ export class StoreOrderShipmentOperationsService {
       }
     }
     return results;
+  }
+
+  private fulfillmentCodeForShipmentStatus(
+    status: ShipmentStatus | string | null | undefined,
+  ): string | null {
+    switch (status) {
+      case ShipmentStatus.SHIPPED:
+      case ShipmentStatus.OUT_FOR_DELIVERY:
+      case 'SHIPPED':
+      case 'OUT_FOR_DELIVERY':
+        return 'SHIPPED';
+      case ShipmentStatus.DELIVERED:
+      case 'DELIVERED':
+        return 'DELIVERED';
+      default:
+        return null;
+    }
+  }
+
+  private async syncOrderFulfillment(
+    storeOrderId: string,
+    shipmentStatus: ShipmentStatus | string | null | undefined,
+    tx: Prisma.TransactionClient,
+  ) {
+    const code = this.fulfillmentCodeForShipmentStatus(shipmentStatus);
+    if (!code) return;
+    const fulfillmentStatusId = this.statusResolver.requireId(
+      WorkflowType.FULFILLMENT,
+      code,
+    );
+    await tx.storeOrder.update({
+      where: { id: storeOrderId },
+      data: { fulfillmentStatusId },
+    });
+  }
+
+  private async postShipmentCost(
+    shipment: { id: string; status: ShipmentStatus | string | null },
+    userId: string | undefined,
+    tx: Prisma.TransactionClient,
+  ) {
+    const code =
+      typeof shipment.status === 'string' ? shipment.status : shipment.status;
+    if (code !== ShipmentStatus.DELIVERED && code !== 'DELIVERED') return;
+    await this.postingEngine.post('SHIPMENT_COST', shipment.id, userId, tx);
   }
 }

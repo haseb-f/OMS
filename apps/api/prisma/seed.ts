@@ -1,10 +1,5 @@
 import 'dotenv/config';
-import {
-  AccountType,
-  JournalType,
-  PrismaClient,
-  ShippingMethodType,
-} from '@prisma/client';
+import { PrismaClient, ShippingMethodType } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcryptjs';
 import { ALL_PERMISSION_NAMES } from '../src/permissions/permission-catalog';
@@ -12,6 +7,8 @@ import { INITIAL_SHIPPING_STATUSES } from '../src/shipping/shipping-status.catal
 import { INITIAL_WORKFLOW_STATUSES } from '../src/workflow/workflow.catalog';
 import { SYSTEM_TRANSACTION_TYPES } from '../src/transaction-types/transaction-type.catalog';
 import { seedCountries } from './scripts/seed-countries';
+import { activateAccountingFoundation } from '../src/accounting/foundation/accounting-foundation.bootstrap';
+import { ensureQaUsers } from './scripts/ensure-qa-users';
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
@@ -379,49 +376,6 @@ const taxes = [
 // default Posting Providers need to post anything at all. Without these
 // (and PostingSettings pointing at them, seeded below), every Sales/
 // Purchase Invoice confirm() would fail its now-mandatory posting step.
-const postingChartOfAccounts = [
-  { code: 'AR', name: 'Accounts Receivable', accountType: AccountType.ASSET },
-  { code: 'AP', name: 'Accounts Payable', accountType: AccountType.LIABILITY },
-  { code: 'INV', name: 'Inventory', accountType: AccountType.ASSET },
-  {
-    code: 'COGS',
-    name: 'Cost of Goods Sold',
-    accountType: AccountType.EXPENSE,
-  },
-  { code: 'REV', name: 'Sales Revenue', accountType: AccountType.REVENUE },
-  { code: 'EXP', name: 'General Expense', accountType: AccountType.EXPENSE },
-  {
-    code: 'VATOUT',
-    name: 'VAT Output (Payable)',
-    accountType: AccountType.LIABILITY,
-  },
-  {
-    code: 'VATIN',
-    name: 'VAT Input (Receivable)',
-    accountType: AccountType.ASSET,
-  },
-  { code: 'CASH', name: 'Cash / Bank', accountType: AccountType.ASSET },
-  // Investor Engine Milestone 3 — Investor Accounting Settings defaults.
-  // Legal/economic classification is a real accounting decision left to
-  // whoever configures these in a real deployment; LIABILITY is the
-  // reasonable neutral default for a seeded demo environment.
-  {
-    code: 'INVFUND',
-    name: 'Investor Funding',
-    accountType: AccountType.LIABILITY,
-  },
-  {
-    code: 'INVDIST',
-    name: 'Investor Profit Distribution',
-    accountType: AccountType.EXPENSE,
-  },
-  {
-    code: 'INVPAY',
-    name: 'Investor Profit Payable',
-    accountType: AccountType.LIABILITY,
-  },
-];
-
 const customerGroups = [
   { code: 'RETAIL', name: 'عملاء التجزئة' },
   { code: 'WHOLESALE', name: 'عملاء الجملة' },
@@ -732,179 +686,8 @@ async function main() {
     ),
   );
 
-  // --- Chart of Accounts: five protected roots, then operational leaves ---
-  const systemRoots = [
-    { code: '1', name: 'الأصول', accountType: AccountType.ASSET },
-    { code: '2', name: 'الالتزامات', accountType: AccountType.LIABILITY },
-    { code: '3', name: 'حقوق الملكية', accountType: AccountType.EQUITY },
-    { code: '4', name: 'الإيرادات', accountType: AccountType.REVENUE },
-    { code: '5', name: 'المصروفات', accountType: AccountType.EXPENSE },
-  ];
-  await Promise.all(
-    systemRoots.map((root) =>
-      prisma.chartOfAccount.upsert({
-        where: { code: root.code },
-        update: {
-          name: root.name,
-          accountType: root.accountType,
-          parentAccountId: null,
-          level: 1,
-          allowsPosting: false,
-          isSystemAccount: true,
-        },
-        create: {
-          ...root,
-          parentAccountId: null,
-          level: 1,
-          allowsPosting: false,
-          isSystemAccount: true,
-        },
-      }),
-    ),
-  );
-  const rootsByType = Object.fromEntries(
-    (
-      await prisma.chartOfAccount.findMany({
-        where: { code: { in: systemRoots.map((r) => r.code) } },
-      })
-    ).map((root) => [root.accountType, root.id]),
-  );
-
-  await Promise.all(
-    postingChartOfAccounts.map((account) =>
-      prisma.chartOfAccount.upsert({
-        where: { code: account.code },
-        update: {
-          name: account.name,
-          accountType: account.accountType,
-          parentAccountId: rootsByType[account.accountType],
-          level: 2,
-          allowsPosting: true,
-          isSystemAccount: false,
-        },
-        create: {
-          ...account,
-          parentAccountId: rootsByType[account.accountType],
-          level: 2,
-          allowsPosting: true,
-          isSystemAccount: false,
-        },
-      }),
-    ),
-  );
-  const accountsByCode = Object.fromEntries(
-    (
-      await prisma.chartOfAccount.findMany({
-        where: { code: { in: postingChartOfAccounts.map((a) => a.code) } },
-      })
-    ).map((account) => [account.code, account.id]),
-  );
-
-  await prisma.tax.update({
-    where: { code: 'VAT15' },
-    data: {
-      outputAccountId: accountsByCode.VATOUT,
-      inputAccountId: accountsByCode.VATIN,
-    },
-  });
-
-  const postingSettings = await prisma.postingSettings.findFirst();
-  const postingSettingsData = {
-    salesRevenueAccountId: accountsByCode.REV,
-    costOfGoodsSoldAccountId: accountsByCode.COGS,
-    inventoryAccountId: accountsByCode.INV,
-    accountsReceivableAccountId: accountsByCode.AR,
-    accountsPayableAccountId: accountsByCode.AP,
-    defaultExpenseAccountId: accountsByCode.EXP,
-    // TASK-047 — completes the Accounting Settings surface; Inventory
-    // Adjustment defaults to COGS (TASK-046's own prior behavior) and
-    // Purchase Account defaults to the same General Expense account as
-    // Default Expense, so existing confirm() flows keep resolving to the
-    // same accounts they did before this task.
-    inventoryAdjustmentAccountId: accountsByCode.COGS,
-    purchaseAccountId: accountsByCode.EXP,
-    vatOutputAccountId: accountsByCode.VATOUT,
-    vatInputAccountId: accountsByCode.VATIN,
-    cashAccountId: accountsByCode.CASH,
-    // Investor Engine Milestone 3 — capitalReturnAccountId is deliberately
-    // left unconfigured here so it exercises its documented fallback to
-    // investorFundingAccountId (AccountMappingService.resolveCapitalReturnAccount).
-    investorFundingAccountId: accountsByCode.INVFUND,
-    investorProfitDistributionAccountId: accountsByCode.INVDIST,
-    investorProfitPayableAccountId: accountsByCode.INVPAY,
-  };
-  if (postingSettings) {
-    await prisma.postingSettings.update({
-      where: { id: postingSettings.id },
-      data: postingSettingsData,
-    });
-  } else {
-    await prisma.postingSettings.create({ data: postingSettingsData });
-  }
-
-  await prisma.receivingAccount.upsert({
-    where: { code: 'CASH-01' },
-    update: { chartOfAccountId: accountsByCode.CASH },
-    create: {
-      code: 'CASH-01',
-      name: 'الصندوق الرئيسي',
-      chartOfAccountId: accountsByCode.CASH,
-    },
-  });
-
-  // --- Journals (TASK-053) — the 5 standard books of entry, configuration
-  // only. This seed data's Chart of Accounts has one combined "Cash / Bank"
-  // account (no separate Bank code), so Cash and Bank Journal both default
-  // to it; General Journal intentionally has no forced default accounts.
-  const journals = [
-    {
-      code: 'SJ',
-      name: 'Sales Journal',
-      type: JournalType.SALES,
-      sequencePrefix: 'SJ',
-      defaultDebitAccountId: accountsByCode.AR,
-      defaultCreditAccountId: accountsByCode.REV,
-    },
-    {
-      code: 'PJ',
-      name: 'Purchase Journal',
-      type: JournalType.PURCHASE,
-      sequencePrefix: 'PJ',
-      defaultDebitAccountId: accountsByCode.EXP,
-      defaultCreditAccountId: accountsByCode.AP,
-    },
-    {
-      code: 'CSH',
-      name: 'Cash Journal',
-      type: JournalType.CASH,
-      sequencePrefix: 'CSH',
-      defaultDebitAccountId: accountsByCode.CASH,
-      defaultCreditAccountId: accountsByCode.CASH,
-    },
-    {
-      code: 'BNK',
-      name: 'Bank Journal',
-      type: JournalType.BANK,
-      sequencePrefix: 'BNK',
-      defaultDebitAccountId: accountsByCode.CASH,
-      defaultCreditAccountId: accountsByCode.CASH,
-    },
-    {
-      code: 'GJ',
-      name: 'General Journal',
-      type: JournalType.GENERAL,
-      sequencePrefix: 'GJ',
-    },
-  ];
-  await Promise.all(
-    journals.map((journal) =>
-      prisma.journal.upsert({
-        where: { code: journal.code },
-        update: journal,
-        create: journal,
-      }),
-    ),
-  );
+  // --- Chart of Accounts, Posting Settings, journals, cash, VAT, FY ---
+  await activateAccountingFoundation(prisma);
 
   await Promise.all(
     customerGroups.map((group) =>
@@ -1476,6 +1259,16 @@ async function main() {
     'masterdata.receiving-accounts.edit',
     'masterdata.receiving-accounts.archive',
     'expenses.view',
+    'reports.view',
+    'reports.financial.view',
+    'reports.financial.print',
+    'reports.financial.export',
+    'cost-analytics.view',
+    'cost-analytics.viewPnl',
+    'store-orders.view',
+    'store-orders.generate_invoice',
+    'accounting.journal-entries.view',
+    'accounting.fiscal-years.manage',
     // Investor Engine Milestone 1, Phase 19 — Finance reviews/confirms
     // funding but does not create/manage Opportunities themselves.
     'investors.view',
@@ -1569,6 +1362,10 @@ async function main() {
     'shipping.print',
     'shipping.export',
   ]);
+
+  if (process.env.QA_PASSWORD) {
+    await ensureQaUsers(prisma, process.env.QA_PASSWORD);
+  }
 
   // HR test persona — administers Employees/Compensation/KPI/Commission
   // Plans/Sales Targets and can carry a Payroll Run through HR review, but

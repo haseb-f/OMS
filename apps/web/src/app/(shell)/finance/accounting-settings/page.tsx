@@ -101,6 +101,36 @@ const SECTIONS: SectionConfig[] = [
     ],
   },
   {
+    titleKey: "accounting.settings.sections.operating",
+    fields: [
+      {
+        key: "shippingExpenseAccountId",
+        labelKey: "accounting.settings.fields.shippingExpense",
+        required: true,
+      },
+      {
+        key: "accruedShippingAccountId",
+        labelKey: "accounting.settings.fields.accruedShipping",
+        required: true,
+      },
+      {
+        key: "paymentGatewayFeeAccountId",
+        labelKey: "accounting.settings.fields.paymentGatewayFee",
+        required: true,
+      },
+      {
+        key: "fulfillmentExpenseAccountId",
+        labelKey: "accounting.settings.fields.fulfillmentExpense",
+        required: true,
+      },
+      {
+        key: "accruedFulfillmentAccountId",
+        labelKey: "accounting.settings.fields.accruedFulfillment",
+        required: true,
+      },
+    ],
+  },
+  {
     titleKey: "accounting.settings.sections.tax",
     fields: [
       {

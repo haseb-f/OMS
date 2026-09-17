@@ -466,8 +466,10 @@ export class PartnersService extends MasterDataCrudService<
    */
   async findOrCreateWithRole(dto: FindOrCreatePartnerDto, userId?: string) {
     const { role, ...rest } = dto;
+    const phone = await this.normalizePartnerPhone(dto.phone, dto.countryId);
+    const mobile = await this.normalizePartnerPhone(dto.mobile, dto.countryId);
     const existing = await this.findDuplicate(
-      [dto.phone, dto.mobile],
+      [phone, mobile],
       dto.email,
       dto.taxNumber,
       dto.commercialRegistration,
@@ -521,7 +523,12 @@ export class PartnersService extends MasterDataCrudService<
     // country-agnostic behavior `findDuplicate`/`lookupByPhone` rely on for
     // Create/Update duplicate checks across every country.
     const normalized = this.phoneNumberService.normalizeToE164(phone, 'SA');
-    const [match] = await this.findPhoneMatches([phone], undefined, 'SA');
+    const matches =
+      (await this.findPhoneMatches([phone], undefined, 'SA'))[0] ??
+      (await this.findPhoneMatches([phone], undefined, 'EG'))[0] ??
+      (await this.findPhoneMatches([phone], undefined, 'AE'))[0] ??
+      (await this.findPhoneMatches([phone]))[0];
+    const match = matches ?? null;
 
     await this.prisma.globalLookupAudit.create({
       data: {
