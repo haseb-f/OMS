@@ -7,6 +7,7 @@
  *   node scripts/production-accounting-e2e.mjs
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -185,10 +186,19 @@ async function waitForJe(token, sourceType, sourceId, timeoutMs = 20000) {
 async function browserPersonas() {
   let chromium;
   try {
-    ({ chromium } = await import('playwright'));
+    const requireFromWeb = createRequire(resolve(ROOT, 'apps/web/package.json'));
+    ({ chromium } = requireFromWeb('playwright'));
   } catch {
-    record('Playwright available', false, 'playwright package missing — browser UI pass skipped');
-    return;
+    try {
+      ({ chromium } = await import('playwright'));
+    } catch {
+      record(
+        'Playwright available',
+        false,
+        'playwright package missing — browser UI pass skipped',
+      );
+      return;
+    }
   }
   mkdirSync(EVIDENCE_DIR, { recursive: true });
   const browser = await chromium.launch({ headless: true });

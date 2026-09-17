@@ -156,38 +156,81 @@ export async function ensureQaUsers(
     permissions.map((row) => [row.name, row.id]),
   );
 
+  const company = await prisma.company.findFirst({
+    where: { deletedAt: null },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true },
+  });
+  const branch = company
+    ? await prisma.branch.findFirst({
+        where: { companyId: company.id, deletedAt: null },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true },
+      })
+    : null;
+
   for (const persona of QA_USERS) {
     const jobTitle = await prisma.jobTitle.findFirst({
       where: { name: persona.jobTitleName },
       select: { id: true },
     });
-    const existing = await prisma.user.findUnique({
+    const byEmail = await prisma.user.findUnique({
       where: { email: persona.email },
       select: { id: true },
     });
-    const user = await prisma.user.upsert({
-      where: { email: persona.email },
-      update: {
-        username: persona.username,
-        fullName: persona.fullName,
-        isActive: true,
-        isLocked: false,
-        deletedAt: null,
-        isSuperAdmin: persona.isSuperAdmin,
-        jobTitleId: jobTitle?.id ?? undefined,
-        passwordHash,
-      },
-      create: {
-        email: persona.email,
-        username: persona.username,
-        fullName: persona.fullName,
-        passwordHash,
-        isActive: true,
-        isLocked: false,
-        isSuperAdmin: persona.isSuperAdmin,
-        jobTitleId: jobTitle?.id,
-      },
+    const byUsername = await prisma.user.findUnique({
+      where: { username: persona.username },
+      select: { id: true, email: true },
     });
+    if (byEmail && byUsername && byEmail.id !== byUsername.id) {
+      await prisma.user.update({
+        where: { id: byUsername.id },
+        data: {
+          username: `${persona.username}-moved-${Date.now().toString().slice(-6)}`,
+        },
+      });
+    }
+    const targetId = byEmail?.id ?? byUsername?.id;
+    const user = targetId
+      ? await prisma.user.update({
+          where: { id: targetId },
+          data: {
+            email: persona.email,
+            username: persona.username,
+            fullName: persona.fullName,
+            isActive: true,
+            isLocked: false,
+            deletedAt: null,
+            isSuperAdmin: persona.isSuperAdmin,
+            jobTitleId: jobTitle?.id ?? undefined,
+            passwordHash,
+          },
+        })
+      : await prisma.user.create({
+          data: {
+            email: persona.email,
+            username: persona.username,
+            fullName: persona.fullName,
+            passwordHash,
+            isActive: true,
+            isLocked: false,
+            isSuperAdmin: persona.isSuperAdmin,
+            jobTitleId: jobTitle?.id,
+          },
+        });
+    if (company) {
+      await prisma.companyMembership.upsert({
+        where: {
+          userId_companyId: { userId: user.id, companyId: company.id },
+        },
+        update: { branchId: branch?.id ?? undefined },
+        create: {
+          userId: user.id,
+          companyId: company.id,
+          branchId: branch?.id,
+        },
+      });
+    }
     for (const name of persona.permissions) {
       const permissionId = permissionByName.get(name);
       if (!permissionId) continue;
@@ -199,7 +242,7 @@ export async function ensureQaUsers(
         create: { userId: user.id, permissionId },
       });
     }
-    results.push({ email: persona.email, created: !existing });
+    results.push({ email: persona.email, created: !targetId });
   }
   return results;
 }
