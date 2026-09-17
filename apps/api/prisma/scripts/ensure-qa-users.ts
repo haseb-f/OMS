@@ -2,6 +2,7 @@ import 'dotenv/config';
 import type { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { ALL_PERMISSION_NAMES } from '../../src/permissions/permission-catalog';
+import { withLibpqSslCompat } from '../libpq-ssl-compat';
 
 /**
  * Permanent Production QA personas. Never disable or delete these users.
@@ -207,7 +208,9 @@ async function main() {
   const { PrismaClient } = await import('@prisma/client');
   const { PrismaPg } = await import('@prisma/adapter-pg');
   const prisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+    adapter: new PrismaPg({
+      connectionString: withLibpqSslCompat(process.env.DATABASE_URL),
+    }),
   });
   try {
     const created = await ensureQaUsers(prisma, process.env.QA_PASSWORD ?? '');

@@ -15,23 +15,15 @@
  * existing, already-proven-in-this-exact-build-pipeline precedents for
  * that constraint, and neither imports a decorated class either.
  *
- * `withLibpqSslCompat` is duplicated (not imported) from
- * `src/prisma/prisma.service.ts` for the same reason — see that file's
- * own comment for why it's needed against Supabase's pooler.
+ * SSL compat lives in `./libpq-ssl-compat` so this script stays free of
+ * Nest imports while matching PrismaService's Supabase pooler behavior.
  */
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { ALL_PERMISSION_NAMES } from '../src/permissions/permission-catalog';
 import { activateAccountingFoundation } from '../src/accounting/foundation/accounting-foundation.bootstrap';
-
-function withLibpqSslCompat(connectionString: string | undefined) {
-  if (!connectionString || connectionString.includes('uselibpqcompat')) {
-    return connectionString;
-  }
-  const separator = connectionString.includes('?') ? '&' : '?';
-  return `${connectionString}${separator}uselibpqcompat=true`;
-}
+import { withLibpqSslCompat } from './libpq-ssl-compat';
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({
