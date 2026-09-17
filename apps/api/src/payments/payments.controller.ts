@@ -14,7 +14,10 @@ import { memoryStorage } from 'multer';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { PermissionModule } from '../auth/decorators/permission-module.decorator';
-import { PermissionAction } from '../auth/decorators/permission-action.decorator';
+import {
+  PermissionAction,
+  SkipPermissionCheck,
+} from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 import { PaymentsService } from './payments.service';
@@ -30,12 +33,16 @@ import { ATTACHMENT_MAX_BYTES } from '../common/storage/file-validation';
 import { AttachmentsService } from '../common/storage/attachments.service';
 
 /**
- * Business operations, not generic CRUD. Creation via "Create Payment" only.
- * No generic PATCH — every mutation is one of the named operations below.
- * No delete endpoint — not in the required operations list.
+ * Store-Order Payment rows (PENDING → MATCHED → VERIFIED). Distinct from
+ * Customer Receipt vouchers (`/financial-transactions/receipts`), but the
+ * match/verify/reject decisions are the same Finance confirmation gate
+ * (`sales.receipts.confirm`). Attachment upload stays self-scoped to the
+ * authenticated user via AttachmentsService — Sales Agents attach proof
+ * after `report-payment` without holding Finance confirm.
  */
 @Controller('payments')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@PermissionModule('customer-receipts')
 export class PaymentsController {
   constructor(
     private readonly paymentsService: PaymentsService,
@@ -59,18 +66,21 @@ export class PaymentsController {
 
   @Post(':id/match')
   @HttpCode(200)
+  @PermissionAction('confirm')
   match(@Param('id') id: string, @Body() dto: MatchPaymentDto) {
     return this.paymentsService.match(id, dto);
   }
 
   @Post(':id/verify')
   @HttpCode(200)
+  @PermissionAction('confirm')
   verify(@Param('id') id: string, @Body() dto: VerifyPaymentDto) {
     return this.paymentsService.verify(id, dto);
   }
 
   @Post(':id/reject')
   @HttpCode(200)
+  @PermissionAction('confirm')
   reject(@Param('id') id: string, @Body() dto: RejectPaymentDto) {
     return this.paymentsService.reject(id, dto);
   }
@@ -96,7 +106,7 @@ export class PaymentsController {
 
   @Post(':id/attachments/from-staging')
   @HttpCode(200)
-  @UseGuards(JwtAuthGuard)
+  @SkipPermissionCheck()
   attachStaging(
     @Param('id') id: string,
     @Body() body: { stagingAttachmentIds?: string[] },
@@ -110,7 +120,7 @@ export class PaymentsController {
   }
 
   @Post(':id/attachments/upload')
-  @UseGuards(JwtAuthGuard)
+  @SkipPermissionCheck()
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
@@ -127,7 +137,7 @@ export class PaymentsController {
 
   @Post(':id/attachments/:attachmentId/archive')
   @HttpCode(200)
-  @UseGuards(JwtAuthGuard)
+  @SkipPermissionCheck()
   archiveReceipt(
     @Param('id') id: string,
     @Param('attachmentId') attachmentId: string,
@@ -143,7 +153,7 @@ export class PaymentsController {
   }
 
   @Post(':id/attachments')
-  @UseGuards(JwtAuthGuard)
+  @SkipPermissionCheck()
   attachReceipt(
     @Param('id') id: string,
     @Body() dto: CreatePaymentAttachmentDto,
@@ -157,7 +167,7 @@ export class PaymentsController {
   }
 
   @Post(':id/notes')
-  @UseGuards(JwtAuthGuard)
+  @SkipPermissionCheck()
   addNote(
     @Param('id') id: string,
     @Body() dto: CreatePaymentNoteDto,

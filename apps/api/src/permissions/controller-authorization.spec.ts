@@ -57,8 +57,6 @@ const INTENTIONALLY_UNGATED: Record<string, string> = {
     "Dashboard scoped to the caller's own performance (user.sub), not cross-user data.",
   'sales-orders/sales-orders.controller.ts':
     'KNOWN DEBT (TASK-062): legacy route family overlapping sales/orders + store-orders shipping flows; JwtAuthGuard added, granular permission module needs a product decision on which boundary to adopt.',
-  'payments/payments.controller.ts':
-    'KNOWN DEBT (TASK-062): no frontend caller references this generic /payments route (superseded by sales.receipts / purchasing.payments / accounting.expense-payments, all already guarded); JwtAuthGuard added, granular permission module needs a product decision on whether this is dead code to remove or a boundary to define.',
   'investor-portal/investor-portal-auth.controller.ts':
     'Pre-authentication Investor Portal endpoints (login/activate/forgot-password) — same shape as auth/auth.controller.ts above, for the external Investor identity instead of the internal User.',
   'investor-portal/investor-portal.controller.ts':
