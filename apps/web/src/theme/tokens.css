@@ -79,11 +79,15 @@
      className, same as every other component here). */
   --width-control-search: 300px;
   --width-control-date: 170px;
-  --width-control-quantity: 88px;
-  --width-control-discount: 88px;
-  --width-control-price: 120px;
-  --width-control-line-total: 140px;
-  --width-control-actions: 56px;
+  --width-control-quantity: 72px;
+  --width-control-discount: 72px;
+  --width-control-price: 96px;
+  --width-control-line-total: 104px;
+  --width-control-actions: 40px;
+  --width-control-unit: 56px;
+  --width-control-tax: 120px;
+  --width-control-warehouse: 180px;
+  --width-control-check: 36px;
   --width-picker-customer: 420px;
   --width-picker-product: 340px;
   --width-picker-warehouse: 300px;

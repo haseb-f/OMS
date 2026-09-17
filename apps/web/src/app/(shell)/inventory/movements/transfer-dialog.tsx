@@ -1,13 +1,27 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { WarehousePicker } from "@/components/business/warehouse-picker";
 import { ProductPicker } from "@/components/business/product-picker";
+import { IconActionButton } from "@/components/shared/icon-action-button";
+import {
+  DocumentLineTable,
+  DocumentLineTableAddFooter,
+  DocumentLineTableBody,
+  DocumentLineTableCell,
+  DocumentLineTableHead,
+  DocumentLineTableHeader,
+  DocumentLineTableRow,
+  documentLineCellClass,
+  documentLineHeadClass,
+  documentLineNumericCellClass,
+  documentLineNumericHeadClass,
+} from "@/components/documents/document-line-table";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
@@ -140,48 +154,78 @@ export function TransferDialog({
 
         <div className="flex flex-col gap-2">
           <Label>{t("inventory.transfer.lines")}</Label>
-          <div className="flex flex-col gap-2">
-            {lines.map((line) => (
-              <div key={line.key} className="flex items-center gap-2">
-                <ProductPicker
-                  value={line.product}
-                  onChange={(product) => updateLine(line.key, { product })}
-                  inventoryOnly
-                  className="w-full"
-                />
-                <Input
-                  type="number"
-                  dir="ltr"
-                  min={1}
-                  step={1}
-                  value={line.quantity}
-                  onChange={(event) => updateLine(line.key, { quantity: event.target.value })}
-                  placeholder={t("inventory.fields.quantity")}
-                  className="w-32 shrink-0"
-                />
-                <EnterpriseButton
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => removeLine(line.key)}
-                  disabled={lines.length === 1}
-                  aria-label={t("common.remove")}
-                >
-                  <Trash2 className="size-3.5" />
-                </EnterpriseButton>
-              </div>
-            ))}
-          </div>
-          <EnterpriseButton
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={addLine}
-            className="w-fit"
+          <DocumentLineTable
+            minWidthClass="min-w-[520px]"
+            footer={
+              <DocumentLineTableAddFooter
+                label={t("inventory.transfer.addLine")}
+                onClick={addLine}
+              />
+            }
           >
-            <Plus className="size-3.5" />
-            {t("inventory.transfer.addLine")}
-          </EnterpriseButton>
+            <colgroup>
+              <col />
+              <col className="w-(--width-control-quantity)" />
+              <col className="w-(--width-control-actions)" />
+            </colgroup>
+            <DocumentLineTableHeader>
+              <DocumentLineTableRow className="hover:bg-transparent">
+                <DocumentLineTableHead className={documentLineHeadClass}>
+                  {t("sales.editor.grid.product")}
+                </DocumentLineTableHead>
+                <DocumentLineTableHead
+                  className={`${documentLineNumericHeadClass} w-(--width-control-quantity)`}
+                >
+                  {t("inventory.fields.quantity")}
+                </DocumentLineTableHead>
+                <DocumentLineTableHead
+                  className={`${documentLineHeadClass} w-(--width-control-actions)`}
+                />
+              </DocumentLineTableRow>
+            </DocumentLineTableHeader>
+            <DocumentLineTableBody>
+              {lines.map((line) => (
+                <DocumentLineTableRow key={line.key} className="hover:bg-muted/40">
+                  <DocumentLineTableCell className={`${documentLineCellClass} min-w-0`}>
+                    <ProductPicker
+                      embedded
+                      className="min-w-0 w-full"
+                      value={line.product}
+                      onChange={(product) => updateLine(line.key, { product })}
+                      inventoryOnly
+                    />
+                  </DocumentLineTableCell>
+                  <DocumentLineTableCell
+                    className={`${documentLineNumericCellClass} w-(--width-control-quantity)`}
+                  >
+                    <Input
+                      type="number"
+                      dir="ltr"
+                      min={1}
+                      step={1}
+                      inputSize="compact-md"
+                      inputMode="decimal"
+                      className="px-2 text-end tabular-nums"
+                      value={line.quantity}
+                      onChange={(event) => updateLine(line.key, { quantity: event.target.value })}
+                      placeholder={t("inventory.fields.quantity")}
+                    />
+                  </DocumentLineTableCell>
+                  <DocumentLineTableCell
+                    className={`${documentLineCellClass} w-(--width-control-actions)`}
+                  >
+                    <IconActionButton
+                      label={t("common.remove")}
+                      disabled={lines.length === 1}
+                      onClick={() => removeLine(line.key)}
+                    >
+                      <Trash2 className="size-3.5 text-muted-foreground" />
+                    </IconActionButton>
+                  </DocumentLineTableCell>
+                </DocumentLineTableRow>
+              ))}
+            </DocumentLineTableBody>
+          </DocumentLineTable>
         </div>
 
         <div className="flex flex-col gap-2">

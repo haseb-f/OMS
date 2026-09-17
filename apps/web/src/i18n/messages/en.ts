@@ -2546,6 +2546,7 @@ const en = {
         productSearchPlaceholder: "Search by name, SKU, or barcode…",
         warehouseSearchPlaceholder: "Search warehouses…",
         warehouseRequired: "Warehouse is required.",
+        lineNote: "Line note",
         lineDetails: "More",
         loadingProducts: "Loading products...",
         noActiveProducts: "No active products",

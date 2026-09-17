@@ -225,7 +225,6 @@ export function SalesDocumentEditor<TDocument>({
             onChange={handlers.onLinesChange}
             requireWarehouse={config.requireWarehouse ?? true}
             disabled={!canEdit}
-            compact
           />
         </div>
 

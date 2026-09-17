@@ -4,8 +4,7 @@ import { useState } from "react";
 import { ArrowRightCircle } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { WarehousePicker } from "@/components/business/warehouse-picker";
+import { DocumentLineReviewTable } from "@/components/documents/document-line-review-table";
 import type { WarehouseRow } from "@/config/master-data/entities";
 import {
   salesQuotationsService,
@@ -75,7 +74,7 @@ export function ConvertToOrderDialog({
       icon={ArrowRightCircle}
       title={t("sales.quotations.convertToOrder.title")}
       description={t("sales.quotations.convertToOrder.description")}
-      size="md"
+      size="lg"
       footer={(requestClose) => (
         <>
           <EnterpriseButton type="button" variant="outline" onClick={requestClose}>
@@ -87,47 +86,21 @@ export function ConvertToOrderDialog({
         </>
       )}
     >
-      <div className="flex flex-col gap-4">
-        {quotation.items.map((item) => (
-          <div key={item.id} className="flex flex-col gap-2 rounded-md border border-border p-3">
-            <p className="text-sm font-medium">
-              {item.product?.displayName || item.product?.name || "—"}
-            </p>
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-caption text-muted-foreground">
-                  {t("sales.editor.grid.quantity")}
-                </label>
-                <Input
-                  type="number"
-                  min={1}
-                  dir="ltr"
-                  inputSize="compact-md"
-                  className="min-w-(--width-control-quantity)"
-                  value={quantities[item.id] ?? item.quantity}
-                  onChange={(event) =>
-                    setQuantities((prev) => ({
-                      ...prev,
-                      [item.id]: event.target.valueAsNumber || item.quantity,
-                    }))
-                  }
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-caption text-muted-foreground">
-                  {t("sales.editor.grid.warehouse")}
-                </label>
-                <WarehousePicker
-                  value={warehouses[item.id] ?? null}
-                  onChange={(warehouse) =>
-                    setWarehouses((prev) => ({ ...prev, [item.id]: warehouse }))
-                  }
-                />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+      <DocumentLineReviewTable
+        showWarehouse
+        rows={quotation.items.map((item) => ({
+          id: item.id,
+          productName: item.product?.displayName || item.product?.name || "—",
+          quantity: quantities[item.id] ?? item.quantity,
+          quantityMin: 1,
+          onQuantityChange: (quantity) =>
+            setQuantities((prev) => ({ ...prev, [item.id]: quantity })),
+          warehouse: warehouses[item.id] ?? null,
+          warehouseError: !warehouses[item.id],
+          onWarehouseChange: (warehouse) =>
+            setWarehouses((prev) => ({ ...prev, [item.id]: warehouse })),
+        }))}
+      />
     </EnterpriseModal>
   );
 }

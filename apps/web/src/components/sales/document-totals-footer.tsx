@@ -65,7 +65,10 @@ export function DocumentTotalsFooter({
             }
           >
             <span>{row.label}</span>
-            <span dir="ltr" className={row.emphasis ? "text-foreground" : undefined}>
+            <span
+              dir="ltr"
+              className={row.emphasis ? "tabular-nums text-foreground" : "tabular-nums"}
+            >
               {formatAmount(row.value)}
               {currency ? ` ${currency}` : ""}
             </span>

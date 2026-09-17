@@ -2523,6 +2523,7 @@ const ar = {
         productSearchPlaceholder: "ابحث بالاسم أو رمز الصنف أو الباركود…",
         warehouseSearchPlaceholder: "ابحث في المستودعات…",
         warehouseRequired: "المستودع مطلوب.",
+        lineNote: "ملاحظة السطر",
         lineDetails: "المزيد",
         loadingProducts: "جاري تحميل المنتجات...",
         noActiveProducts: "لا توجد منتجات نشطة",

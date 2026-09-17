@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
+import { DocumentLineReviewTable } from "@/components/documents/document-line-review-table";
 import { WarehousePicker } from "@/components/business/warehouse-picker";
 import type { WarehouseRow } from "@/config/master-data/entities";
 import { purchaseOrdersService, type PurchaseOrderRow } from "@/services/purchase-orders-service";
@@ -54,7 +55,7 @@ export function ConvertToInvoiceDialog({
     <EnterpriseModal
       open={open}
       onOpenChange={onOpenChange}
-      size="md"
+      size="lg"
       title={t("purchasing.orders.convertToInvoice.title")}
       description={t("purchasing.orders.convertToInvoice.description")}
       footer={(requestClose) => (
@@ -73,11 +74,27 @@ export function ConvertToInvoiceDialog({
         </>
       )}
     >
-      <div className="flex flex-col gap-1.5">
-        <label className="text-caption text-muted-foreground">
-          {t("purchasing.orders.convertToInvoice.warehouse")}
-        </label>
-        <WarehousePicker value={warehouse} onChange={setWarehouse} disabled={isSubmitting} />
+      <div className="flex flex-col gap-3">
+        <DocumentLineReviewTable
+          showQuantity
+          rows={order.items.map((item) => ({
+            id: item.id,
+            productName: item.product?.displayName || item.product?.name || "—",
+            quantity: item.quantity,
+            quantityDisabled: true,
+          }))}
+        />
+        <div className="flex flex-col gap-1.5">
+          <label className="text-caption text-muted-foreground">
+            {t("purchasing.orders.convertToInvoice.warehouse")}
+          </label>
+          <WarehousePicker
+            value={warehouse}
+            onChange={setWarehouse}
+            disabled={isSubmitting}
+            error={!warehouse}
+          />
+        </div>
       </div>
     </EnterpriseModal>
   );

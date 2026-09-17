@@ -4,8 +4,7 @@ import { useEffect, useState } from "react";
 import { Undo2 } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
+import { DocumentLineReviewTable } from "@/components/documents/document-line-review-table";
 import {
   salesReturnsService,
   type SalesReturnFormPayload,
@@ -117,7 +116,7 @@ export function CreateReturnDialog({
       icon={Undo2}
       title={t("sales.invoices.createReturn.title")}
       description={t("sales.invoices.createReturn.description")}
-      size="md"
+      size="lg"
       footer={(requestClose) => (
         <>
           <EnterpriseButton type="button" variant="outline" onClick={requestClose}>
@@ -133,61 +132,34 @@ export function CreateReturnDialog({
         </>
       )}
     >
-      <div className="flex flex-col gap-3">
-        {invoice.items.map((item) => {
+      <DocumentLineReviewTable
+        showSelect
+        isLoading={isLoadingSummary}
+        rows={invoice.items.map((item) => {
           const remaining = remainingFor(item.id, item.quantity);
           const returned = remainingById[item.id]?.returnedQuantity ?? 0;
           const fullyReturned = remaining <= 0;
-          return (
-            <div
-              key={item.id}
-              className="flex flex-wrap items-center gap-3 rounded-md border border-border p-3"
-            >
-              <Checkbox
-                checked={!fullyReturned && (included[item.id] ?? false)}
-                disabled={fullyReturned || isLoadingSummary}
-                onCheckedChange={(checked) =>
-                  setIncluded((prev) => ({ ...prev, [item.id]: !!checked }))
-                }
-              />
-              <p className="min-w-40 flex-1 text-sm font-medium">
-                {item.product?.displayName || item.product?.name || "—"}
-              </p>
-              <span className="text-caption text-muted-foreground">
-                {t("sales.invoices.createReturn.invoicedQuantity")}: {item.quantity}
-                {returned > 0 && (
-                  <>
-                    {" · "}
-                    {t("sales.invoices.createReturn.alreadyReturned")}: {returned}
-                  </>
-                )}
-                {fullyReturned && (
-                  <>
-                    {" · "}
-                    <span className="text-destructive">
-                      {t("sales.invoices.createReturn.fullyReturned")}
-                    </span>
-                  </>
-                )}
-              </span>
-              <Input
-                type="number"
-                min={1}
-                max={remaining}
-                dir="ltr"
-                inputSize="compact-md"
-                className="min-w-(--width-control-quantity)"
-                disabled={!included[item.id] || fullyReturned || isLoadingSummary}
-                value={quantities[item.id] ?? Math.max(1, remaining)}
-                onChange={(event) => {
-                  const raw = event.target.valueAsNumber || 1;
-                  setQuantities((prev) => ({ ...prev, [item.id]: Math.min(raw, remaining) }));
-                }}
-              />
-            </div>
-          );
+          return {
+            id: item.id,
+            productName: item.product?.displayName || item.product?.name || "—",
+            meta: fullyReturned
+              ? t("sales.invoices.createReturn.fullyReturned")
+              : returned > 0
+                ? `${t("sales.invoices.createReturn.invoicedQuantity")}: ${item.quantity} · ${t("sales.invoices.createReturn.alreadyReturned")}: ${returned}`
+                : `${t("sales.invoices.createReturn.invoicedQuantity")}: ${item.quantity}`,
+            selected: !fullyReturned && (included[item.id] ?? false),
+            selectDisabled: fullyReturned || isLoadingSummary,
+            onSelectedChange: (selected) =>
+              setIncluded((prev) => ({ ...prev, [item.id]: selected })),
+            quantity: quantities[item.id] ?? Math.max(1, remaining),
+            quantityMin: 1,
+            quantityMax: remaining,
+            quantityDisabled: !included[item.id] || fullyReturned || isLoadingSummary,
+            onQuantityChange: (quantity) =>
+              setQuantities((prev) => ({ ...prev, [item.id]: quantity })),
+          };
         })}
-      </div>
+      />
     </EnterpriseModal>
   );
 }

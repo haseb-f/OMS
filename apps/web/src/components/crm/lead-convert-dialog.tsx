@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { ShoppingCart, Trash2 } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import {
   CreateOperationFooter,
@@ -15,6 +15,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ProductPicker } from "@/components/business/product-picker";
+import { MoneyInput } from "@/components/shared/money-input";
+import { IconActionButton } from "@/components/shared/icon-action-button";
+import {
+  DocumentLineTable,
+  DocumentLineTableAddFooter,
+  DocumentLineTableBody,
+  DocumentLineTableCell,
+  DocumentLineTableHead,
+  DocumentLineTableHeader,
+  DocumentLineTableRow,
+  documentLineCellClass,
+  documentLineHeadClass,
+  documentLineNumericCellClass,
+  documentLineNumericHeadClass,
+} from "@/components/documents/document-line-table";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { useCurrencies, usePaymentMethods, useCountries } from "@/hooks/use-reference-data";
 import { leadsService, type LeadRow } from "@/services/leads-service";
@@ -235,84 +250,122 @@ export function LeadConvertDialog({
           </ModalSection>
 
           <ModalSection title={t("crm.leads.convert.sectionProducts")}>
-            <div className="flex flex-col gap-2">
-              {lines.map((line) => (
-                <div
-                  key={line.key}
-                  className="grid grid-cols-1 gap-2 rounded-md border border-border p-2 sm:grid-cols-[1fr_5.5rem_8rem_auto]"
-                >
-                  <ProductPicker
-                    value={line.product}
-                    onChange={(product) =>
-                      setLines((current) =>
-                        current.map((item) =>
-                          item.key === line.key ? { ...item, product } : item,
-                        ),
-                      )
-                    }
-                  />
-                  <Input
-                    dir="ltr"
-                    type="number"
-                    min={1}
-                    value={line.quantity}
-                    onChange={(event) =>
-                      setLines((current) =>
-                        current.map((item) =>
-                          item.key === line.key
-                            ? { ...item, quantity: Number(event.target.value) || 1 }
-                            : item,
-                        ),
-                      )
-                    }
-                    aria-label={t("crm.leads.convert.quantity")}
-                  />
-                  <Input
-                    dir="ltr"
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={line.agreedAmount}
-                    onChange={(event) =>
-                      setLines((current) =>
-                        current.map((item) =>
-                          item.key === line.key
-                            ? { ...item, agreedAmount: Number(event.target.value) || 0 }
-                            : item,
-                        ),
-                      )
-                    }
-                    aria-label={t("crm.leads.convert.agreedAmount")}
-                  />
-                  <EnterpriseButton
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    disabled={lines.length === 1}
-                    onClick={() =>
-                      setLines((current) => current.filter((item) => item.key !== line.key))
-                    }
+            <DocumentLineTable
+              minWidthClass="min-w-[640px]"
+              footer={
+                <DocumentLineTableAddFooter
+                  label={t("crm.leads.convert.addProduct")}
+                  onClick={() =>
+                    setLines((current) => [
+                      ...current,
+                      { key: `line-${Date.now()}`, product: null, quantity: 1, agreedAmount: 0 },
+                    ])
+                  }
+                />
+              }
+            >
+              <colgroup>
+                <col />
+                <col className="w-(--width-control-quantity)" />
+                <col className="w-(--width-control-line-total)" />
+                <col className="w-(--width-control-actions)" />
+              </colgroup>
+              <DocumentLineTableHeader>
+                <DocumentLineTableRow className="hover:bg-transparent">
+                  <DocumentLineTableHead className={documentLineHeadClass}>
+                    {t("sales.editor.grid.product")}
+                  </DocumentLineTableHead>
+                  <DocumentLineTableHead
+                    className={`${documentLineNumericHeadClass} w-(--width-control-quantity)`}
                   >
-                    <Trash2 />
-                  </EnterpriseButton>
-                </div>
-              ))}
-              <EnterpriseButton
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-fit"
-                onClick={() =>
-                  setLines((current) => [
-                    ...current,
-                    { key: `line-${Date.now()}`, product: null, quantity: 1, agreedAmount: 0 },
-                  ])
-                }
-              >
-                <Plus />
-                {t("crm.leads.convert.addProduct")}
-              </EnterpriseButton>
-            </div>
+                    {t("crm.leads.convert.quantity")}
+                  </DocumentLineTableHead>
+                  <DocumentLineTableHead
+                    className={`${documentLineNumericHeadClass} w-(--width-control-line-total)`}
+                  >
+                    {t("crm.leads.convert.agreedAmount")}
+                  </DocumentLineTableHead>
+                  <DocumentLineTableHead
+                    className={`${documentLineHeadClass} w-(--width-control-actions)`}
+                  />
+                </DocumentLineTableRow>
+              </DocumentLineTableHeader>
+              <DocumentLineTableBody>
+                {lines.map((line) => (
+                  <DocumentLineTableRow key={line.key} className="hover:bg-muted/40">
+                    <DocumentLineTableCell className={`${documentLineCellClass} min-w-0`}>
+                      <ProductPicker
+                        embedded
+                        className="min-w-0 w-full"
+                        value={line.product}
+                        onChange={(product) =>
+                          setLines((current) =>
+                            current.map((item) =>
+                              item.key === line.key ? { ...item, product } : item,
+                            ),
+                          )
+                        }
+                      />
+                    </DocumentLineTableCell>
+                    <DocumentLineTableCell
+                      className={`${documentLineNumericCellClass} w-(--width-control-quantity)`}
+                    >
+                      <Input
+                        dir="ltr"
+                        type="number"
+                        min={1}
+                        inputSize="compact-md"
+                        inputMode="decimal"
+                        className="px-2 text-end tabular-nums"
+                        value={line.quantity}
+                        onChange={(event) =>
+                          setLines((current) =>
+                            current.map((item) =>
+                              item.key === line.key
+                                ? { ...item, quantity: Number(event.target.value) || 1 }
+                                : item,
+                            ),
+                          )
+                        }
+                        aria-label={t("crm.leads.convert.quantity")}
+                      />
+                    </DocumentLineTableCell>
+                    <DocumentLineTableCell
+                      className={`${documentLineNumericCellClass} w-(--width-control-line-total)`}
+                    >
+                      <MoneyInput
+                        min={0}
+                        className="px-2"
+                        value={line.agreedAmount}
+                        onChange={(event) =>
+                          setLines((current) =>
+                            current.map((item) =>
+                              item.key === line.key
+                                ? { ...item, agreedAmount: Number(event.target.value) || 0 }
+                                : item,
+                            ),
+                          )
+                        }
+                        aria-label={t("crm.leads.convert.agreedAmount")}
+                      />
+                    </DocumentLineTableCell>
+                    <DocumentLineTableCell
+                      className={`${documentLineCellClass} w-(--width-control-actions)`}
+                    >
+                      <IconActionButton
+                        label={t("common.remove")}
+                        disabled={lines.length === 1}
+                        onClick={() =>
+                          setLines((current) => current.filter((item) => item.key !== line.key))
+                        }
+                      >
+                        <Trash2 className="size-3.5 text-muted-foreground" />
+                      </IconActionButton>
+                    </DocumentLineTableCell>
+                  </DocumentLineTableRow>
+                ))}
+              </DocumentLineTableBody>
+            </DocumentLineTable>
           </ModalSection>
 
           <ModalSection title={t("crm.leads.convert.sectionPayment")} columns={2}>

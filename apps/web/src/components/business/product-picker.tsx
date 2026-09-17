@@ -1,5 +1,6 @@
 "use client";
 
+import type { ButtonHTMLAttributes } from "react";
 import { Package } from "lucide-react";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { productsService, type ProductRow } from "@/services/products-service";
@@ -12,6 +13,8 @@ export function ProductPicker({
   onChange,
   disabled,
   className,
+  embedded = false,
+  triggerProps,
   inventoryOnly,
   sellableOnly = true,
   purchasableOnly = false,
@@ -21,6 +24,9 @@ export function ProductPicker({
   onChange: (product: ProductRow) => void;
   disabled?: boolean;
   className?: string;
+  /** Fill the parent cell — used inside document line-item tables. */
+  embedded?: boolean;
+  triggerProps?: ButtonHTMLAttributes<HTMLButtonElement>;
   /** Inventory movement pickers (Transfer/Adjustment/Opening) — only products a stock movement can legally apply to (ADR-0013). */
   inventoryOnly?: boolean;
   /**
@@ -56,7 +62,11 @@ export function ProductPicker({
       }}
       getId={(product) => product.id}
       getTitle={(product) => product.displayName || product.name}
-      getSubtitle={(product) => (product.salesPrice ? formatMoney(product.salesPrice) : undefined)}
+      getSubtitle={(product) => {
+        if (inventoryOnly) return product.sku;
+        const price = purchasableOnly ? product.purchasePrice : product.salesPrice;
+        return price ? formatMoney(price) : product.sku;
+      }}
       getSearchText={(product) =>
         `${product.sku} ${product.barcode ?? ""} ${product.internalName} ${product.name}`
       }
@@ -69,7 +79,8 @@ export function ProductPicker({
       errorText={t("sales.editor.grid.productsLoadError")}
       disabled={disabled}
       icon={<Package className="size-3.5 shrink-0 text-muted-foreground" />}
-      triggerClassName={cn("max-w-(--width-picker-product)", className)}
+      triggerProps={triggerProps}
+      triggerClassName={cn(!embedded && "max-w-(--width-picker-product)", className)}
     />
   );
 }

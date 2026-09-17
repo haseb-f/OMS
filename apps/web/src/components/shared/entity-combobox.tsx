@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ButtonHTMLAttributes,
+  type ReactNode,
+} from "react";
 import { ChevronDown, X } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { Popover, PopoverTrigger } from "@/components/ui/popover";
@@ -54,6 +61,7 @@ export function EntityCombobox<T>({
   groups,
   footer,
   triggerClassName,
+  triggerProps,
   subtitleDir,
   id,
 }: {
@@ -82,6 +90,7 @@ export function EntityCombobox<T>({
   groups?: EntityComboboxGroup<T>[];
   footer?: ReactNode;
   triggerClassName?: string;
+  triggerProps?: ButtonHTMLAttributes<HTMLButtonElement>;
   subtitleDir?: "ltr" | "rtl";
   id?: string;
 }) {
@@ -178,9 +187,11 @@ export function EntityCombobox<T>({
           aria-invalid={error || undefined}
           disabled={disabled}
           size="sm"
+          {...triggerProps}
           className={cn(
-            "h-(--control-height-sm) w-full justify-between text-body font-normal",
+            "h-(--control-height-sm) min-w-0 w-full justify-between text-body font-normal",
             triggerClassName,
+            triggerProps?.className,
           )}
         >
           <span className="flex min-w-0 items-center gap-2">

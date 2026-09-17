@@ -215,7 +215,6 @@ export function PurchasingDocumentEditor<TDocument>({
             onChange={handlers.onLinesChange}
             requireWarehouse={config.requireWarehouse ?? true}
             disabled={!canEdit}
-            compact
             sellableOnly={false}
             purchasableOnly
           />

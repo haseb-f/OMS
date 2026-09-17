@@ -1,10 +1,12 @@
 "use client";
 
+import type { ButtonHTMLAttributes } from "react";
 import { Warehouse as WarehouseIcon } from "lucide-react";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { createMasterDataService } from "@/services/master-data-service";
 import type { WarehouseRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
+import { cn } from "@/lib/utils";
 
 const warehousesService = createMasterDataService<WarehouseRow>("/warehouses");
 
@@ -12,10 +14,18 @@ export function WarehousePicker({
   value,
   onChange,
   disabled,
+  embedded = false,
+  error,
+  triggerProps,
+  className,
 }: {
   value: WarehouseRow | null | undefined;
   onChange: (warehouse: WarehouseRow) => void;
   disabled?: boolean;
+  embedded?: boolean;
+  error?: boolean;
+  triggerProps?: ButtonHTMLAttributes<HTMLButtonElement>;
+  className?: string;
 }) {
   const { t } = useLocale();
 
@@ -31,13 +41,16 @@ export function WarehousePicker({
       }}
       getId={(warehouse) => warehouse.id}
       getTitle={(warehouse) => warehouse.name}
-      getSearchText={(warehouse) => warehouse.code}
+      getSubtitle={(warehouse) => warehouse.code}
+      getSearchText={(warehouse) => `${warehouse.code} ${warehouse.name}`}
       placeholder={t("sales.editor.grid.selectWarehouse")}
       searchPlaceholder={t("sales.editor.grid.warehouseSearchPlaceholder")}
       emptyText={t("sales.customers.picker.noResults")}
       disabled={disabled}
+      error={error}
       icon={<WarehouseIcon className="size-3.5 shrink-0 text-muted-foreground" />}
-      triggerClassName="max-w-(--width-picker-warehouse)"
+      triggerProps={triggerProps}
+      triggerClassName={cn(!embedded && "max-w-(--width-picker-warehouse)", className)}
     />
   );
 }

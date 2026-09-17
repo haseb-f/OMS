@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Banknote, Globe, Loader2, Plus, Trash2, UserCheck } from "lucide-react";
+import { Banknote, Globe, Loader2, UserCheck } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
@@ -30,16 +30,11 @@ import {
   TextFormField,
 } from "@/components/shared/form-fields";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  ProductLineItemsGrid,
+  createEmptyLine,
+  type ProductLineItemsGridLine,
+} from "@/components/sales/product-line-items-grid";
 import { FieldLabel, FieldMessage, Form } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { ProductPicker } from "@/components/business/product-picker";
 import { PartnerPicker } from "@/components/business/partner-picker";
 import { AccountPicker } from "@/components/business/account-picker";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
@@ -53,7 +48,6 @@ import {
   type CustomerGlobalLookupResult,
   type PartnerRow,
 } from "@/services/partners-service";
-import type { ProductRow } from "@/services/products-service";
 import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import {
   buildStoreOrderCreateSchema,
@@ -75,18 +69,6 @@ import type {
   StoreOrderShippingStageValue,
 } from "@/services/store-orders-service";
 import { formatDate } from "@/lib/date";
-
-interface StoreOrderCreateLine {
-  id: string;
-  product: ProductRow | null;
-  quantity: number;
-  unitPrice: number;
-}
-
-let nextLineId = 1;
-function createEmptyLine(): StoreOrderCreateLine {
-  return { id: `line-${nextLineId++}`, product: null, quantity: 1, unitPrice: 0 };
-}
 
 export interface StoreOrderCreatePrefillCustomer {
   name: string;
@@ -112,7 +94,7 @@ export function StoreOrderCreateDialog({
   const currencies = useCurrencies();
   const countries = useCountries();
   const [selectedCustomer, setSelectedCustomer] = useState<PartnerRow | null>(null);
-  const [lines, setLines] = useState<StoreOrderCreateLine[]>([createEmptyLine()]);
+  const [lines, setLines] = useState<ProductLineItemsGridLine[]>([createEmptyLine()]);
   const [itemsError, setItemsError] = useState<string | null>(null);
   const [paymentSources, setPaymentSources] = useState<PaymentSourceOption[]>([]);
   const [paymentSource, setPaymentSource] = useState<PaymentSourceOption | null>(null);
@@ -259,16 +241,6 @@ export function StoreOrderCreateDialog({
       clearTimeout(timer);
     };
   }, [customerPhone, open, selectedCustomer, existingCustomerApplied]);
-
-  const updateLine = (id: string, patch: Partial<StoreOrderCreateLine>) => {
-    setLines((current) => current.map((line) => (line.id === id ? { ...line, ...patch } : line)));
-  };
-
-  const addLine = () => setLines((current) => [...current, createEmptyLine()]);
-  const removeLine = (id: string) =>
-    setLines((current) =>
-      current.length > 1 ? current.filter((line) => line.id !== id) : current,
-    );
 
   const submit = form.handleSubmit(async (values) => {
     const validLines = lines.filter((line) => line.product && line.quantity > 0);
@@ -540,101 +512,20 @@ export function StoreOrderCreateDialog({
 
           <ModalSection title={t("storeOrders.createDialog.items.title")} columns={2}>
             <div className="col-span-full flex flex-col gap-2">
-              <div className="overflow-x-auto rounded-md border border-border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("storeOrders.fields.product")}</TableHead>
-                      <TableHead className="w-24">{t("storeOrders.fields.quantity")}</TableHead>
-                      <TableHead className="w-32">{t("storeOrders.fields.unitPrice")}</TableHead>
-                      <TableHead className="w-32">
-                        {t("storeOrders.createDialog.items.lineTotal")}
-                      </TableHead>
-                      <TableHead className="w-10" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {lines.map((line) => (
-                      <TableRow key={line.id}>
-                        <TableCell className="min-w-52">
-                          <ProductPicker
-                            value={line.product}
-                            className="max-w-none"
-                            onChange={(product) => {
-                              const price = Number(product.salesPrice);
-                              updateLine(line.id, {
-                                product,
-                                unitPrice:
-                                  Number.isFinite(price) && price > 0 ? price : line.unitPrice,
-                              });
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            inputMode="numeric"
-                            dir="ltr"
-                            inputSize="compact-md"
-                            min={1}
-                            value={line.quantity}
-                            onChange={(event) =>
-                              updateLine(line.id, {
-                                quantity: Math.max(0, Number(event.target.value) || 0),
-                              })
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            inputMode="decimal"
-                            dir="ltr"
-                            inputSize="compact-md"
-                            min={0}
-                            step="0.01"
-                            value={line.unitPrice}
-                            onChange={(event) =>
-                              updateLine(line.id, {
-                                unitPrice: Number(event.target.value) || 0,
-                              })
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <MoneyValue
-                            value={line.quantity * line.unitPrice}
-                            currency={currencyCode}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <EnterpriseButton
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            disabled={lines.length === 1}
-                            onClick={() => removeLine(line.id)}
-                            aria-label={t("storeOrders.createDialog.items.remove")}
-                          >
-                            <Trash2 className="size-4" />
-                          </EnterpriseButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+              <ProductLineItemsGrid
+                lines={lines}
+                onChange={(next) => {
+                  setLines(next);
+                  setItemsError(null);
+                }}
+                requireWarehouse={false}
+                showWarehouse={false}
+                showUnit={false}
+                showDiscount={false}
+                showTax={false}
+                showDescription={false}
+              />
               <FieldMessage>{itemsError}</FieldMessage>
-              <EnterpriseButton
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-fit gap-1.5"
-                onClick={addLine}
-              >
-                <Plus className="size-3.5" />
-                {t("storeOrders.createDialog.items.add")}
-              </EnterpriseButton>
             </div>
           </ModalSection>
 

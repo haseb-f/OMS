@@ -4,8 +4,7 @@ import { useState } from "react";
 import { ArrowRightCircle } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
+import { DocumentLineReviewTable } from "@/components/documents/document-line-review-table";
 import { salesOrdersService, type SalesOrderRow } from "@/services/sales-orders-service";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
@@ -76,7 +75,7 @@ export function ConvertToInvoiceDialog({
       icon={ArrowRightCircle}
       title={t("sales.orders.convertToInvoice.title")}
       description={t("sales.orders.convertToInvoice.description")}
-      size="md"
+      size="lg"
       footer={(requestClose) => (
         <>
           <EnterpriseButton type="button" variant="outline" onClick={requestClose}>
@@ -88,51 +87,27 @@ export function ConvertToInvoiceDialog({
         </>
       )}
     >
-      <div className="flex flex-col gap-3">
-        {invoiceableItems.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            {t("sales.orders.convertToInvoice.noRemainingLines")}
-          </p>
-        )}
-        {invoiceableItems.map((item) => {
+      <DocumentLineReviewTable
+        showSelect
+        empty={t("sales.orders.convertToInvoice.noRemainingLines")}
+        rows={invoiceableItems.map((item) => {
           const remaining = item.quantity - item.deliveredQuantity;
-          return (
-            <div
-              key={item.id}
-              className="flex flex-wrap items-center gap-3 rounded-md border border-border p-3"
-            >
-              <Checkbox
-                checked={included[item.id] ?? false}
-                onCheckedChange={(checked) =>
-                  setIncluded((prev) => ({ ...prev, [item.id]: !!checked }))
-                }
-              />
-              <p className="min-w-40 flex-1 text-sm font-medium">
-                {item.product?.displayName || item.product?.name || "—"}
-              </p>
-              <span className="text-caption text-muted-foreground">
-                {t("sales.orders.convertToInvoice.remaining")}: {remaining}
-              </span>
-              <Input
-                type="number"
-                min={1}
-                max={remaining}
-                dir="ltr"
-                inputSize="compact-md"
-                className="min-w-(--width-control-quantity)"
-                disabled={!included[item.id]}
-                value={quantities[item.id] ?? remaining}
-                onChange={(event) =>
-                  setQuantities((prev) => ({
-                    ...prev,
-                    [item.id]: event.target.valueAsNumber || remaining,
-                  }))
-                }
-              />
-            </div>
-          );
+          return {
+            id: item.id,
+            productName: item.product?.displayName || item.product?.name || "—",
+            meta: `${t("sales.orders.convertToInvoice.remaining")}: ${remaining}`,
+            selected: included[item.id] ?? false,
+            onSelectedChange: (selected) =>
+              setIncluded((prev) => ({ ...prev, [item.id]: selected })),
+            quantity: quantities[item.id] ?? remaining,
+            quantityMin: 1,
+            quantityMax: remaining,
+            quantityDisabled: !included[item.id],
+            onQuantityChange: (quantity) =>
+              setQuantities((prev) => ({ ...prev, [item.id]: quantity })),
+          };
         })}
-      </div>
+      />
     </EnterpriseModal>
   );
 }
