@@ -60,13 +60,12 @@ export function AccountPicker({
       }
       getId={(account) => account.id}
       getTitle={(account) => account.name}
-      getSearchText={(account) => account.code}
+      getSearchText={(account) => `${account.code} ${account.parentAccount?.name ?? ""}`}
       getSubtitle={(account) =>
         account.parentAccount
-          ? `${account.code} · ${account.parentAccount.name}`
-          : `${account.code} · ${t(ACCOUNT_TYPE_LABEL_KEY[account.accountType])}`
+          ? account.parentAccount.name
+          : t(ACCOUNT_TYPE_LABEL_KEY[account.accountType])
       }
-      subtitleDir="ltr"
       placeholder={placeholder ?? t("accounting.settings.picker.select")}
       searchPlaceholder={t("accounting.settings.picker.searchPlaceholder")}
       emptyText={t("accounting.settings.picker.noResults")}

@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Archive, ChevronDown, ChevronRight, MapPin, Pencil, Plus, RotateCcw } from "lucide-react";
+import { Archive, MapPin, Pencil, Plus, RotateCcw } from "lucide-react";
+import { TreeToggleButton } from "@/components/shared/tree-toggle-button";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -212,18 +213,12 @@ function WarehouseLocationsPageContent() {
           style={{ paddingInlineStart: `${depth * 1.75 + 0.5}rem` }}
         >
           {node.children.length > 0 ? (
-            <button
-              type="button"
+            <TreeToggleButton
+              expanded={!isCollapsed}
               onClick={() => toggleCollapsed(node.id)}
-              className="flex size-5 shrink-0 items-center justify-center text-muted-foreground"
-              aria-label={isCollapsed ? t("common.expand") : t("common.collapse")}
-            >
-              {isCollapsed ? (
-                <ChevronRight className="size-4 rtl:rotate-180" />
-              ) : (
-                <ChevronDown className="size-4" />
-              )}
-            </button>
+              expandLabel={t("common.expand")}
+              collapseLabel={t("common.collapse")}
+            />
           ) : (
             <span className="size-5 shrink-0" />
           )}
@@ -302,7 +297,7 @@ function WarehouseLocationsPageContent() {
             <SelectContent>
               {warehouses.map((warehouse) => (
                 <SelectItem key={warehouse.id} value={warehouse.id}>
-                  {warehouse.code} — {warehouse.name}
+                  {warehouse.name}
                 </SelectItem>
               ))}
             </SelectContent>

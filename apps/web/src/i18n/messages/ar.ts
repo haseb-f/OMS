@@ -420,6 +420,12 @@ const ar = {
     clearDates: "مسح التواريخ",
     cancel: "إلغاء",
   },
+  monthPicker: {
+    open: "فتح منتقي الشهر",
+    previousYear: "السنة السابقة",
+    nextYear: "السنة التالية",
+    currentMonth: "الشهر الحالي",
+  },
   company: {
     switcherLabel: "الشركة النشطة",
     companies: "الشركات",
@@ -514,6 +520,8 @@ const ar = {
     filterColumn: "تصفية العمود",
     clearFilter: "إزالة التصفية",
     clearFilters: "مسح عوامل التصفية",
+    activeFilterCount: "{count} عوامل تصفية نشطة",
+    filterAll: "الكل",
     filterSelectedCount: "{count} محددة",
     resultCount: "{count} نتيجة",
     showMore: "عرض المزيد ({count})",

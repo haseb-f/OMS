@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronsUpDown, Loader2 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { Popover, PopoverTrigger } from "@/components/ui/popover";
 import {
   Command,
@@ -12,11 +12,10 @@ import {
   CommandList,
   CommandPopoverContent,
   CommandResultRow,
-  CommandSeparator,
 } from "@/components/ui/command";
-import { EnterpriseButton } from "@/components/ui/button";
+import { FilterPopoverFooter, FilterTrigger } from "@/components/shared/data-table/filter-popover";
+import { SEARCH_DEBOUNCE_MS } from "@/hooks/use-debounced-value";
 import { useLocale } from "@/providers/locale-provider";
-import { cn } from "@/lib/utils";
 
 /**
  * Searchable multi-select for long entity lists (customers, suppliers,
@@ -72,7 +71,7 @@ export function MultiEntityFilter<T>({
         }
       };
       void run();
-    }, 180);
+    }, SEARCH_DEBOUNCE_MS);
     return () => {
       cancelled = true;
       window.clearTimeout(handle);
@@ -115,30 +114,27 @@ export function MultiEntityFilter<T>({
       }}
     >
       <PopoverTrigger asChild>
-        <EnterpriseButton
-          type="button"
-          variant="outline"
-          size="sm"
-          role="combobox"
+        <FilterTrigger
+          label={triggerLabel}
+          isActive={values.length > 0}
+          count={values.length}
           aria-expanded={open}
-          aria-haspopup="listbox"
-          className={cn(
-            "min-w-36 justify-between font-normal",
-            values.length > 0 && "border-primary/40 bg-primary-soft",
-            className,
-          )}
-        >
-          <span className="min-w-0 truncate">{triggerLabel}</span>
-          <ChevronsUpDown className="size-3.5 shrink-0 opacity-50" />
-        </EnterpriseButton>
+          className={className}
+        />
       </PopoverTrigger>
       <CommandPopoverContent className="min-w-64">
         <Command shouldFilter={false}>
-          <CommandInput placeholder={t("common.search")} value={search} onValueChange={setSearch} />
+          <CommandInput
+            placeholder={t("common.search")}
+            value={search}
+            onValueChange={setSearch}
+            onClear={() => setSearch("")}
+            clearLabel={t("table.clearSearch")}
+          />
           <CommandList>
             {isLoading ? (
               <div className="flex items-center justify-center py-6 text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" />
+                <Spinner className="size-4 text-muted-foreground" />
               </div>
             ) : merged.length === 0 ? (
               <CommandEmpty>{t("common.noResults")}</CommandEmpty>
@@ -161,19 +157,10 @@ export function MultiEntityFilter<T>({
               </CommandGroup>
             )}
           </CommandList>
-          <CommandSeparator />
-          <div className="flex items-center justify-end gap-2 px-2 py-1.5">
-            <EnterpriseButton
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2"
-              disabled={values.length === 0}
-              onClick={() => onChange([])}
-            >
-              {t("common.deselectAll")}
-            </EnterpriseButton>
-          </div>
+          <FilterPopoverFooter
+            hasSelection={values.length > 0}
+            onDeselectAll={() => onChange([])}
+          />
         </Command>
       </CommandPopoverContent>
     </Popover>

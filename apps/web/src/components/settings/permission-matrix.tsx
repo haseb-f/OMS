@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronsDownUp, ChevronsUpDown, Search } from "lucide-react";
+import { ChevronDown, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/shared/search-input";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
   permissionsService,
@@ -120,16 +120,11 @@ export function PermissionMatrix({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="relative w-full max-w-64">
-          <Search className="pointer-events-none absolute start-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            inputSize="sm"
-            className="ps-7"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder={t("permissions.searchPlaceholder")}
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onValueChange={setSearch}
+          placeholder={t("permissions.searchPlaceholder")}
+        />
         <div className="flex items-center gap-2">
           <span className="text-caption text-muted-foreground">
             {t("permissions.totalGranted", { count: String(totalGrantedCount) })}
@@ -203,9 +198,11 @@ export function PermissionMatrix({
                           disabled={disabled}
                           onCheckedChange={(checked) => toggleModule(module, !!checked)}
                         />
-                        <button
+                        <EnterpriseButton
                           type="button"
-                          className="flex flex-1 items-center gap-1.5 text-start text-body"
+                          variant="ghost"
+                          size="inline"
+                          className="flex flex-1 items-center justify-start gap-1.5 font-normal"
                           onClick={() => toggleExpanded(module.key)}
                         >
                           <ChevronDown
@@ -215,7 +212,7 @@ export function PermissionMatrix({
                             )}
                           />
                           {t(module.labelKey as MessageKey)}
-                        </button>
+                        </EnterpriseButton>
                         <span
                           className={cn(
                             "w-16 shrink-0 text-end text-caption tabular-nums",

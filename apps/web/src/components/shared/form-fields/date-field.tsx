@@ -1,14 +1,7 @@
 import type { Control, FieldPath, FieldValues } from "react-hook-form";
 import { FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
-import { toISODate } from "@/lib/date";
-
-function dateFromISO(value: string | undefined): Date | null {
-  if (!value) return null;
-  const [year, month, day] = value.split("-").map(Number);
-  if (!year || !month || !day) return null;
-  return new Date(year, month - 1, day);
-}
+import { fromISODate, toISODate } from "@/lib/date";
 
 export function DateFormField<
   TFieldValues extends FieldValues,
@@ -40,7 +33,7 @@ export function DateFormField<
             {label}
           </FormLabel>
           <EnterpriseDatePicker
-            value={dateFromISO(field.value)}
+            value={fromISODate(field.value)}
             onChange={(date) => field.onChange(date ? toISODate(date) : "")}
             disabled={disabled}
             className="w-full"

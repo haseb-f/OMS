@@ -10,9 +10,7 @@ import {
   RefreshCw,
   RotateCcw,
   Rows3,
-  Search,
   Upload,
-  X,
 } from "lucide-react";
 import {
   type ColumnDef,
@@ -44,13 +42,8 @@ import {
   tableCellWrapClass,
 } from "@/components/ui/table";
 import { EnterpriseButton } from "@/components/ui/button";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from "@/components/ui/input-group";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SearchInput } from "@/components/shared/search-input";
 import { IconActionButton } from "@/components/shared/icon-action-button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
@@ -81,6 +74,7 @@ import { applySemanticCellContent } from "@/components/shared/data-table/semanti
 import { useLocale } from "@/providers/locale-provider";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useRestorableState } from "@/hooks/use-restorable-state";
+import { SEARCH_DEBOUNCE_MS } from "@/hooks/use-debounced-value";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
@@ -485,7 +479,7 @@ export function EnterpriseDataTable<TData>({
   const handleSearchInput = (value: string) => {
     setSearchDraft(value);
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-    searchDebounceRef.current = setTimeout(() => commitSearch(value), 350);
+    searchDebounceRef.current = setTimeout(() => commitSearch(value), SEARCH_DEBOUNCE_MS);
   };
 
   const handleSearchClear = () => {
@@ -938,28 +932,12 @@ export function EnterpriseDataTable<TData>({
             this one, which stacked two dividers directly on top of the sticky
             header and read as a single indistinct band. */}
         <ListToolbar>
-          <InputGroup className="h-(--control-height-sm) max-w-(--width-control-search)">
-            <InputGroupInput
-              value={searchDraft}
-              onChange={(event) => handleSearchInput(event.target.value)}
-              placeholder={searchPlaceholder ?? t("table.filterPlaceholder")}
-            />
-            <InputGroupAddon>
-              <Search className="size-4 shrink-0 opacity-50" />
-            </InputGroupAddon>
-            {searchDraft ? (
-              <InputGroupAddon align="inline-end">
-                <InputGroupButton
-                  type="button"
-                  size="icon-xs"
-                  aria-label={t("table.clearSearch")}
-                  onClick={handleSearchClear}
-                >
-                  <X />
-                </InputGroupButton>
-              </InputGroupAddon>
-            ) : null}
-          </InputGroup>
+          <SearchInput
+            value={searchDraft}
+            onValueChange={handleSearchInput}
+            onClear={handleSearchClear}
+            placeholder={searchPlaceholder ?? t("table.filterPlaceholder")}
+          />
           {filterBar}
           <div className="ms-auto flex items-center gap-1">
             {onRefresh && (

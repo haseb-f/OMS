@@ -81,9 +81,8 @@ export default function PayrollRunsPage() {
     {
       name: "period",
       label: "hr.payroll.fields.period",
-      type: "text",
+      type: "month",
       required: true,
-      placeholder: "YYYY-MM",
     },
   ];
 

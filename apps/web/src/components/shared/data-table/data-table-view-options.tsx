@@ -52,28 +52,32 @@ export function EnterpriseTableViewOptions<TData>({ table }: { table: Table<TDat
               >
                 {label}
               </DropdownMenuCheckboxItem>
-              <button
+              <EnterpriseButton
                 type="button"
+                variant="ghost"
+                size="icon-xs"
                 aria-label={t("table.moveColumnStart")}
-                className="rounded p-1 text-muted-foreground/60 hover:bg-accent hover:text-foreground"
+                className="text-muted-foreground/60"
                 onClick={(event) => {
                   event.preventDefault();
                   moveColumn(column.id, -1);
                 }}
               >
                 <ArrowLeft className="size-3 rtl:rotate-180" />
-              </button>
-              <button
+              </EnterpriseButton>
+              <EnterpriseButton
                 type="button"
+                variant="ghost"
+                size="icon-xs"
                 aria-label={t("table.moveColumnEnd")}
-                className="rounded p-1 text-muted-foreground/60 hover:bg-accent hover:text-foreground"
+                className="text-muted-foreground/60"
                 onClick={(event) => {
                   event.preventDefault();
                   moveColumn(column.id, 1);
                 }}
               >
                 <ArrowRight className="size-3 rtl:rotate-180" />
-              </button>
+              </EnterpriseButton>
             </div>
           );
         })}

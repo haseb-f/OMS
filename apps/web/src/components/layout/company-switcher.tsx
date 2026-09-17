@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useCompany } from "@/providers/company-provider";
 import { useLocale } from "@/providers/locale-provider";
+import { EnterpriseButton } from "@/components/ui/button";
 
 /**
  * Every future API request must know its Company (and Branch) context
@@ -30,10 +31,11 @@ export function CompanySwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
+        <EnterpriseButton
           type="button"
+          variant="ghost"
           aria-label={t("company.switcherLabel")}
-          className="flex h-16 w-full shrink-0 items-center gap-2 rounded-lg border border-sidebar-border bg-sidebar-accent/40 px-2.5 text-start text-sidebar-foreground outline-none transition-colors duration-(--duration-base) ease-(--ease-standard) hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+          className="h-16 w-full justify-start gap-2 rounded-lg border border-sidebar-border bg-sidebar-accent/40 px-2.5 text-sidebar-foreground hover:bg-sidebar-accent group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
         >
           <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
             <Building2 className="size-3.5" />
@@ -45,7 +47,7 @@ export function CompanySwitcher() {
             </span>
           </span>
           <ChevronsUpDown className="size-3.5 shrink-0 text-sidebar-foreground/50 group-data-[collapsible=icon]:hidden" />
-        </button>
+        </EnterpriseButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
         <DropdownMenuLabel>{t("company.companies")}</DropdownMenuLabel>

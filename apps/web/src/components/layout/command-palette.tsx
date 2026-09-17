@@ -12,6 +12,8 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { EnterpriseButton } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/kbd";
 import { navigationConfig } from "@/navigation/navigation.config";
 import {
   flattenNavigationTree,
@@ -71,17 +73,16 @@ export function CommandPalette() {
 
   return (
     <>
-      <button
+      <EnterpriseButton
         type="button"
+        variant="outline"
         onClick={() => setOpen(true)}
-        className="flex h-11 w-full items-center gap-2.5 rounded-lg border border-border bg-muted/40 px-4 text-body text-muted-foreground shadow-xs transition-all duration-(--duration-base) ease-(--ease-standard) hover:border-border hover:bg-muted/70 hover:text-foreground focus-visible:border-ring focus-visible:bg-card focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:outline-none"
+        className="h-11 w-full justify-start gap-2.5 rounded-lg px-4 font-normal text-muted-foreground"
       >
         <Search className="size-4 shrink-0" />
         <span className="flex-1 truncate text-start">{t("topbar.searchPlaceholder")}</span>
-        <kbd className="hidden shrink-0 items-center gap-0.5 rounded border bg-card px-1.5 font-mono text-[10px] text-muted-foreground sm:inline-flex">
-          <span>⌘</span>K
-        </kbd>
-      </button>
+        <Kbd className="hidden sm:inline-flex">⌘K</Kbd>
+      </EnterpriseButton>
 
       <CommandDialog
         open={open}

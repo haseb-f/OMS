@@ -253,13 +253,15 @@ export function ProductLineItemsGrid({
                       />
                     )}
                     {showWarehouseToggle && warehouseInvalid && !isExpanded && (
-                      <button
+                      <EnterpriseButton
                         type="button"
-                        className="mt-1 text-xs font-medium text-destructive underline-offset-2 hover:underline"
+                        variant="link"
+                        size="inline"
+                        className="mt-1 h-auto text-xs font-medium text-destructive"
                         onClick={() => toggleExpanded(line.id)}
                       >
                         {t("sales.editor.grid.warehouseRequired")}
-                      </button>
+                      </EnterpriseButton>
                     )}
                   </TableCell>
                   {showWarehouseColumn && (

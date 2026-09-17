@@ -27,6 +27,7 @@ import { leadsService, type LeadRow } from "@/services/leads-service";
 import type { MasterDataActivityEntry } from "@/services/master-data-service";
 import { DynamicStatusBadge } from "@/components/business/dynamic-status-badge";
 import { StatusBadge } from "@/components/business/status-badge";
+import { EnterpriseButton } from "@/components/ui/button";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
@@ -421,13 +422,14 @@ export default function CustomerProfilePage() {
                 ) : (
                   <div className="flex flex-col">
                     {orders.map((order) => (
-                      <button
+                      <EnterpriseButton
                         key={order.id}
                         type="button"
+                        variant="ghost"
                         onClick={() => router.push(`/crm/leads/${order.id}`)}
-                        className="flex items-center justify-between gap-4 border-b border-border py-3 text-start last:border-b-0 hover:bg-muted/40"
+                        className="h-auto w-full justify-between gap-4 rounded-none border-b border-border py-3 font-normal last:border-b-0"
                       >
-                        <div className="flex flex-col gap-0.5">
+                        <div className="flex flex-col gap-0.5 text-start">
                           <span className="text-sm font-medium">{order.leadNumber}</span>
                           <span className="text-caption text-muted-foreground">
                             {formatDate(order.createdAt)} · {order.quantity}
@@ -444,7 +446,7 @@ export default function CustomerProfilePage() {
                             colorKey={order.status?.color}
                           />
                         </div>
-                      </button>
+                      </EnterpriseButton>
                     ))}
                   </div>
                 )}

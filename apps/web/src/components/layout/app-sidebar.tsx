@@ -24,6 +24,7 @@ import { Separator } from "@/components/ui/separator";
 import { CompanySwitcher } from "./company-switcher";
 import { cn } from "@/lib/utils";
 import { EnterpriseBadge } from "@/components/ui/badge";
+import { EnterpriseButton } from "@/components/ui/button";
 import { BrandMark } from "@/components/brand/brand-logo";
 import { siteConfig } from "@/config/site";
 import { navigationConfig } from "@/navigation/navigation.config";
@@ -274,8 +275,10 @@ function NavTreeItem({
                     <Link href={child.route ?? "#"} onClick={onNavigate} className="group/pin">
                       <NavIcon name={child.icon} compact />
                       <span className="min-w-0 flex-1 truncate">{childTitle}</span>
-                      <button
+                      <EnterpriseButton
                         type="button"
+                        variant="ghost"
+                        size="icon-xs"
                         onClick={(event) => {
                           event.preventDefault();
                           event.stopPropagation();
@@ -293,7 +296,7 @@ function NavTreeItem({
                         ) : (
                           <Pin className="size-3" />
                         )}
-                      </button>
+                      </EnterpriseButton>
                     </Link>
                   </SidebarMenuSubButton>
                 </SidebarMenuSubItem>

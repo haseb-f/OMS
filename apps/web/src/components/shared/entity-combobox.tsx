@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, Loader2, X } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { Popover, PopoverTrigger } from "@/components/ui/popover";
 import {
   Command,
@@ -15,6 +16,7 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { EnterpriseButton } from "@/components/ui/button";
+import { SEARCH_DEBOUNCE_MS } from "@/hooks/use-debounced-value";
 import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +39,8 @@ export function EntityCombobox<T>({
   getTitle,
   getSubtitle,
   getSearchText,
+  getIcon,
+  rowLayout,
   placeholder,
   searchPlaceholder,
   emptyText,
@@ -61,6 +65,10 @@ export function EntityCombobox<T>({
   getTitle: (item: T) => string;
   getSubtitle?: (item: T) => ReactNode;
   getSearchText?: (item: T) => string;
+  /** Per-option leading glyph (a country flag, a type marker) — not an ID. */
+  getIcon?: (item: T) => ReactNode;
+  /** `"inline"` keeps title and metadata on one line for short pairs like a country and its calling code. */
+  rowLayout?: "stacked" | "inline";
   placeholder?: string;
   searchPlaceholder?: string;
   emptyText?: string;
@@ -115,7 +123,7 @@ export function EntityCombobox<T>({
         }
       };
       void run();
-    }, 200);
+    }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timeout);
   }, [open, search, isAsync]);
 
@@ -158,56 +166,72 @@ export function EntityCombobox<T>({
       }}
       modal={false}
     >
-      <div className="flex w-full items-center gap-1">
-        <PopoverTrigger asChild>
-          <EnterpriseButton
-            id={id}
-            type="button"
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            aria-haspopup="listbox"
-            aria-autocomplete="list"
-            aria-invalid={error || undefined}
-            disabled={disabled}
-            size="sm"
-            className={cn(
-              "h-(--control-height-sm) w-full justify-between text-body font-normal",
-              triggerClassName,
-            )}
-          >
-            <span className="flex min-w-0 items-center gap-2">
-              {icon}
-              <span className="min-w-0 truncate text-start">
-                {value ? getTitle(value) : (placeholder ?? t("common.select"))}
-              </span>
+      <PopoverTrigger asChild>
+        <EnterpriseButton
+          id={id}
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          aria-autocomplete="list"
+          aria-invalid={error || undefined}
+          disabled={disabled}
+          size="sm"
+          className={cn(
+            "h-(--control-height-sm) w-full justify-between text-body font-normal",
+            triggerClassName,
+          )}
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            {icon}
+            <span className="min-w-0 truncate text-start">
+              {value ? getTitle(value) : (placeholder ?? t("common.select"))}
             </span>
+          </span>
+          <span className="flex shrink-0 items-center gap-0.5">
+            {allowClear && value && !disabled ? (
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label={t("common.clearSelection")}
+                className="rounded-xs p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                }}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onChange(null);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onChange(null);
+                  }
+                }}
+              >
+                <X className="size-3.5" />
+              </span>
+            ) : null}
             {isLoading ? (
-              <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground motion-reduce:animate-none" />
+              <Spinner className="size-3.5 text-muted-foreground" />
             ) : (
-              <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+              <ChevronDown className="size-3.5 text-muted-foreground" />
             )}
-          </EnterpriseButton>
-        </PopoverTrigger>
-        {allowClear && value && !disabled ? (
-          <EnterpriseButton
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="size-8 shrink-0"
-            aria-label={t("common.clearSelection")}
-            onClick={() => onChange(null)}
-          >
-            <X className="size-3.5 text-muted-foreground" />
-          </EnterpriseButton>
-        ) : null}
-      </div>
+          </span>
+        </EnterpriseButton>
+      </PopoverTrigger>
       <CommandPopoverContent>
         <Command shouldFilter={false}>
           <CommandInput
             placeholder={searchPlaceholder ?? t("common.search")}
             value={search}
             onValueChange={setSearch}
+            onClear={() => setSearch("")}
+            clearLabel={t("table.clearSearch")}
           />
           <CommandList aria-busy={isLoading || undefined}>
             {isLoading ? (
@@ -230,9 +254,11 @@ export function EntityCombobox<T>({
                           data-checked={selectedId === getId(item)}
                         >
                           <CommandResultRow
+                            icon={getIcon?.(item)}
                             title={getTitle(item)}
                             subtitle={getSubtitle?.(item)}
                             subtitleDir={subtitleDir}
+                            layout={rowLayout}
                           />
                         </CommandItem>
                       ))}
@@ -249,9 +275,11 @@ export function EntityCombobox<T>({
                         data-checked={selectedId === getId(item)}
                       >
                         <CommandResultRow
+                          icon={getIcon?.(item)}
                           title={getTitle(item)}
                           subtitle={getSubtitle?.(item)}
                           subtitleDir={subtitleDir}
+                          layout={rowLayout}
                         />
                       </CommandItem>
                     ))}

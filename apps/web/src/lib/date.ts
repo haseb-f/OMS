@@ -162,6 +162,46 @@ export function fromISODate(value: string | null | undefined): Date | null {
   return new Date(year, month - 1, day);
 }
 
+/**
+ * Accounting/HR period values (`"2026-09"`) — the granularity a payroll run,
+ * a commission period or a sales target is defined at. Kept as a string
+ * end-to-end, matching the API contract, rather than a `Date` pinned to the
+ * 1st, so a period can never drift a day across timezones.
+ */
+export type MonthValue = string;
+
+const MONTH_VALUE_PATTERN = /^(\d{4})-(\d{2})$/;
+
+/** Splits `"2026-09"` into its parts; null for anything else. */
+export function parseMonthValue(
+  value: string | null | undefined,
+): { year: number; monthIndex: number } | null {
+  if (!value) return null;
+  const match = MONTH_VALUE_PATTERN.exec(value.trim());
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  if (month < 1 || month > 12) return null;
+  return { year, monthIndex: month - 1 };
+}
+
+/** For sending a period to the API — `"2026-09"`. */
+export function toMonthValue(year: number, monthIndex: number): MonthValue {
+  return `${year}-${pad2(monthIndex + 1)}`;
+}
+
+/** The one period display format: `"Sep 2026"`. Returns "" for invalid input. */
+export function formatMonthValue(value: string | null | undefined): string {
+  const parsed = parseMonthValue(value);
+  if (!parsed) return "";
+  return `${MONTH_ABBR[parsed.monthIndex]} ${parsed.year}`;
+}
+
+/** The period containing `now` — the sensible default for a period filter. */
+export function currentMonthValue(now: Date = new Date()): MonthValue {
+  return toMonthValue(now.getFullYear(), now.getMonth());
+}
+
 export function isSameDay(a: Date | null | undefined, b: Date | null | undefined): boolean {
   if (!a || !b) return false;
   return (

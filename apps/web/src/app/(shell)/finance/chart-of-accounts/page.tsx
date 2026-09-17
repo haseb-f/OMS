@@ -1,17 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Archive,
-  ChevronDown,
-  ChevronRight,
-  Download,
-  FileText,
-  Pencil,
-  Plus,
-  Printer,
-  RotateCcw,
-} from "lucide-react";
+import { Archive, Download, FileText, Pencil, Plus, Printer, RotateCcw } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,6 +15,8 @@ import {
 } from "@/components/ui/select";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { ListSurface, ListToolbar } from "@/components/shared/data-table/list-surface";
+import { SearchInput } from "@/components/shared/search-input";
+import { TreeToggleButton } from "@/components/shared/tree-toggle-button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
@@ -510,18 +502,12 @@ function ChartOfAccountsPageContent() {
           style={{ paddingInlineStart: `${depth * 1.75 + 0.5}rem` }}
         >
           {node.children.length > 0 ? (
-            <button
-              type="button"
+            <TreeToggleButton
+              expanded={!isCollapsed}
               onClick={() => toggleCollapsed(node.id)}
-              className="flex size-5 shrink-0 items-center justify-center text-muted-foreground"
-              aria-label={isCollapsed ? t("common.expand") : t("common.collapse")}
-            >
-              {isCollapsed ? (
-                <ChevronRight className="size-4 rtl:rotate-180" />
-              ) : (
-                <ChevronDown className="size-4" />
-              )}
-            </button>
+              expandLabel={t("common.expand")}
+              collapseLabel={t("common.collapse")}
+            />
           ) : (
             <span className="size-5 shrink-0" />
           )}
@@ -632,11 +618,10 @@ function ChartOfAccountsPageContent() {
       <ListSurface>
         {isMutating && <LoadingOverlay />}
         <ListToolbar>
-          <Input
+          <SearchInput
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onValueChange={setSearch}
             placeholder={t("masterData.chartOfAccounts.searchPlaceholder")}
-            className="h-(--control-height-sm) max-w-(--width-control-search)"
           />
           <Select
             value={typeFilter || "__all__"}

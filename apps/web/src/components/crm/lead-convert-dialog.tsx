@@ -366,7 +366,7 @@ export function LeadConvertDialog({
                 onChange={setCurrency}
                 items={currencies.filter((row) => !row.deletedAt)}
                 getId={(item) => item.id}
-                getTitle={(item) => `${item.code} — ${item.name}`}
+                getTitle={(item) => item.code}
                 getSearchText={(item) => `${item.code} ${item.name}`}
               />
             </div>

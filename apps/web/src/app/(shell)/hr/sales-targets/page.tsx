@@ -18,6 +18,9 @@ import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { ModalSection } from "@/components/shared/modal-section";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
+import { EnterpriseMonthPicker } from "@/components/shared/month-picker";
+import { SelectFilter } from "@/components/shared/data-table/select-filter";
+import { ClearFiltersButton } from "@/components/shared/data-table/clear-filters-button";
 import {
   salesTargetsService,
   type SalesTargetRow,
@@ -33,7 +36,6 @@ import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 
-const ALL = "__all__";
 const SCOPE_TYPES: TargetScopeType[] = ["EMPLOYEE", "TEAM"];
 const METRICS: TargetMetric[] = ["COLLECTED_SALES", "SALES_REVENUE", "ORDERS_COUNT"];
 
@@ -67,6 +69,15 @@ export default function SalesTargetsPage() {
   const [filterPeriod, setFilterPeriod] = useState("");
   const [filterScopeType, setFilterScopeType] = useState("");
   const [filterMetric, setFilterMetric] = useState("");
+
+  const activeFilterCount = [filterPeriod, filterScopeType, filterMetric].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setFilterPeriod("");
+    setFilterScopeType("");
+    setFilterMetric("");
+    setPage(1);
+  };
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -254,54 +265,40 @@ export default function SalesTargetsPage() {
         onRefresh={load}
         filterBar={
           <>
-            <Input
-              type="month"
+            <EnterpriseMonthPicker
               value={filterPeriod}
-              onChange={(event) => {
-                setFilterPeriod(event.target.value);
+              onChange={(value) => {
+                setFilterPeriod(value);
                 setPage(1);
               }}
-              className="h-(--control-height-sm) w-40"
+              allowClear
               aria-label={t("hr.salesTargets.fields.period")}
             />
-            <Select
-              value={filterScopeType || ALL}
-              onValueChange={(value) => {
-                setFilterScopeType(value === ALL ? "" : value);
+            <SelectFilter
+              label={t("hr.salesTargets.fields.scopeType")}
+              value={filterScopeType}
+              onChange={(value) => {
+                setFilterScopeType(value);
                 setPage(1);
               }}
-            >
-              <SelectTrigger size="sm" className="w-40">
-                <SelectValue placeholder={t("hr.salesTargets.fields.scopeType")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>{t("common.select")}</SelectItem>
-                {SCOPE_TYPES.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {t(`hr.salesTargets.scopeType.${value}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={filterMetric || ALL}
-              onValueChange={(value) => {
-                setFilterMetric(value === ALL ? "" : value);
+              options={SCOPE_TYPES.map((value) => ({
+                value,
+                label: t(`hr.salesTargets.scopeType.${value}`),
+              }))}
+            />
+            <SelectFilter
+              label={t("hr.salesTargets.fields.metric")}
+              value={filterMetric}
+              onChange={(value) => {
+                setFilterMetric(value);
                 setPage(1);
               }}
-            >
-              <SelectTrigger size="sm" className="w-48">
-                <SelectValue placeholder={t("hr.salesTargets.fields.metric")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>{t("common.select")}</SelectItem>
-                {METRICS.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {t(`hr.salesTargets.metric.${value}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              options={METRICS.map((value) => ({
+                value,
+                label: t(`hr.salesTargets.metric.${value}`),
+              }))}
+            />
+            <ClearFiltersButton activeCount={activeFilterCount} onClear={clearFilters} />
           </>
         }
       />
@@ -331,10 +328,9 @@ export default function SalesTargetsPage() {
         <ModalSection title={t("common.generalInformation")} columns={2}>
           <div className="flex flex-col gap-1.5">
             <label className="text-caption font-medium">{t("hr.salesTargets.fields.period")}</label>
-            <Input
-              type="month"
+            <EnterpriseMonthPicker
               value={createForm.period}
-              onChange={(event) => setCreateForm((f) => ({ ...f, period: event.target.value }))}
+              onChange={(value) => setCreateForm((f) => ({ ...f, period: value }))}
             />
           </div>
           <div className="flex flex-col gap-1.5">

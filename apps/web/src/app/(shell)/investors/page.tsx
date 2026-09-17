@@ -8,6 +8,7 @@ import { DetailSection } from "@/components/shared/detail-workspace";
 import { EmptyState } from "@/components/shared/empty-state";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { StatusBadge } from "@/components/business/status-badge";
+import { EnterpriseButton } from "@/components/ui/button";
 import {
   investmentOpportunitiesService,
   type InvestmentOpportunityRow,
@@ -94,10 +95,11 @@ export default function InvestorDashboardPage() {
         ) : (
           <div className="flex flex-col gap-2">
             {endingSoon.map((o) => (
-              <button
+              <EnterpriseButton
                 key={o.id}
                 type="button"
-                className="flex items-center justify-between rounded-md border border-border p-2 text-start hover:bg-muted"
+                variant="outline"
+                className="h-auto w-full justify-between px-2 py-2 font-normal"
                 onClick={() => router.push(`/investors/opportunities/${o.id}`)}
               >
                 <span className="font-medium">
@@ -113,7 +115,7 @@ export default function InvestorDashboardPage() {
                         : "neutral"
                   }
                 />
-              </button>
+              </EnterpriseButton>
             ))}
           </div>
         )}

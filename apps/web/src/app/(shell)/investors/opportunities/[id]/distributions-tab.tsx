@@ -169,13 +169,15 @@ export function DistributionsTab({
             <div key={distribution.id} className="rounded-md border border-border">
               <div className="flex flex-wrap items-center justify-between gap-2 p-3">
                 <div className="flex items-center gap-3">
-                  <button
+                  <EnterpriseButton
                     type="button"
-                    className="font-medium text-body underline-offset-2 hover:underline"
+                    variant="link"
+                    size="inline"
+                    className="h-auto px-0 font-medium"
                     onClick={() => toggleExpand(distribution)}
                   >
                     {distribution.code}
-                  </button>
+                  </EnterpriseButton>
                   <StatusBadge
                     label={t(`investors.distributions.status.${distribution.status}` as never)}
                     tone={DISTRIBUTION_TONE[distribution.status]}

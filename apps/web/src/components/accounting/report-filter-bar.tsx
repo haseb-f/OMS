@@ -1,14 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { SelectFilter } from "@/components/shared/data-table/select-filter";
 import {
   EnterpriseDateRangePicker,
   type DateRangeValue,
@@ -22,7 +16,6 @@ import { useCurrencies } from "@/hooks/use-reference-data";
 
 const costCentersService = createMasterDataService<CostCenterRow>("/cost-centers");
 const projectsService = createMasterDataService<ProjectRow>("/projects");
-const ALL = "__all__";
 
 export interface ReportFilterValue {
   companyId: string;
@@ -45,12 +38,9 @@ export const EMPTY_REPORT_FILTERS: ReportFilterValue = {
 };
 
 /**
- * TASK-047 Financial Reports — the ONE filter bar every report tab (General
- * Ledger, Trial Balance, Journal Report, Account Statement) reuses. Company/
- * Branch come from the already-loaded `useCompany()` context (no fetch);
- * Cost Center/Project have no master-data module yet, so they're fed by the
- * reports module's own lightweight read-only filter-option endpoints;
- * Currency reuses the existing `/currencies` master-data service.
+ * The ONE filter bar every finance report tab reuses. Company/Branch come
+ * from `useCompany()`; Cost Center/Project/Currency are searchable SelectFilters
+ * so the bar matches every other OMS list filter (height, search, clear).
  */
 export function AccountingReportFilterBar({
   value,
@@ -101,91 +91,58 @@ export function AccountingReportFilterBar({
         </div>
       )}
 
-      <Select
-        value={value.companyId || ALL}
-        onValueChange={(v) => onChange({ ...value, companyId: v === ALL ? "" : v, branchId: "" })}
-      >
-        <SelectTrigger size="sm" className="w-40">
-          <SelectValue placeholder={t("reports.finance.filters.company")} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL}>{t("reports.finance.filters.allCompanies")}</SelectItem>
-          {companies.map((c) => (
-            <SelectItem key={c.id} value={c.id}>
-              {c.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <SelectFilter
+        label={t("reports.finance.filters.company")}
+        value={value.companyId}
+        onChange={(companyId) => onChange({ ...value, companyId, branchId: "" })}
+        allLabel={t("reports.finance.filters.allCompanies")}
+        options={companies.map((c) => ({ value: c.id, label: c.name }))}
+      />
 
-      <Select
-        value={value.branchId || ALL}
-        onValueChange={(v) => onChange({ ...value, branchId: v === ALL ? "" : v })}
+      <SelectFilter
+        label={t("reports.finance.filters.branch")}
+        value={value.branchId}
+        onChange={(branchId) => onChange({ ...value, branchId })}
+        allLabel={t("reports.finance.filters.allBranches")}
+        options={branches.map((b) => ({ value: b.id, label: b.name }))}
         disabled={!value.companyId}
-      >
-        <SelectTrigger size="sm" className="w-40">
-          <SelectValue placeholder={t("reports.finance.filters.branch")} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL}>{t("reports.finance.filters.allBranches")}</SelectItem>
-          {branches.map((b) => (
-            <SelectItem key={b.id} value={b.id}>
-              {b.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      />
 
-      <Select
-        value={value.costCenterId || ALL}
-        onValueChange={(v) => onChange({ ...value, costCenterId: v === ALL ? "" : v })}
-      >
-        <SelectTrigger size="sm" className="w-40">
-          <SelectValue placeholder={t("reports.finance.filters.costCenter")} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL}>{t("reports.finance.filters.allCostCenters")}</SelectItem>
-          {costCenters.map((c) => (
-            <SelectItem key={c.id} value={c.id}>
-              {c.code} — {c.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <SelectFilter
+        label={t("reports.finance.filters.costCenter")}
+        value={value.costCenterId}
+        onChange={(costCenterId) => onChange({ ...value, costCenterId })}
+        allLabel={t("reports.finance.filters.allCostCenters")}
+        options={costCenters.map((c) => ({
+          value: c.id,
+          label: c.name,
+          searchText: c.code,
+        }))}
+      />
 
-      <Select
-        value={value.projectId || ALL}
-        onValueChange={(v) => onChange({ ...value, projectId: v === ALL ? "" : v })}
-      >
-        <SelectTrigger size="sm" className="w-40">
-          <SelectValue placeholder={t("reports.finance.filters.project")} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL}>{t("reports.finance.filters.allProjects")}</SelectItem>
-          {projects.map((p) => (
-            <SelectItem key={p.id} value={p.id}>
-              {p.code} — {p.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <SelectFilter
+        label={t("reports.finance.filters.project")}
+        value={value.projectId}
+        onChange={(projectId) => onChange({ ...value, projectId })}
+        allLabel={t("reports.finance.filters.allProjects")}
+        options={projects.map((p) => ({
+          value: p.id,
+          label: p.name,
+          searchText: p.code,
+        }))}
+      />
 
-      <Select
-        value={value.currencyId || ALL}
-        onValueChange={(v) => onChange({ ...value, currencyId: v === ALL ? "" : v })}
-      >
-        <SelectTrigger size="sm" className="w-40">
-          <SelectValue placeholder={t("reports.finance.filters.currency")} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL}>{t("reports.finance.filters.allCurrencies")}</SelectItem>
-          {currencies.map((c) => (
-            <SelectItem key={c.id} value={c.id}>
-              {c.code} — {c.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <SelectFilter
+        label={t("reports.finance.filters.currency")}
+        value={value.currencyId}
+        onChange={(currencyId) => onChange({ ...value, currencyId })}
+        allLabel={t("reports.finance.filters.allCurrencies")}
+        options={currencies.map((c) => ({
+          value: c.id,
+          label: c.code,
+          searchText: c.name,
+        }))}
+      />
 
       <EnterpriseDateRangePicker
         value={value.dateRange}

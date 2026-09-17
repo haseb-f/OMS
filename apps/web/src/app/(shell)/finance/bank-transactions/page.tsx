@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AccountPicker } from "@/components/business/account-picker";
+import { EntityCombobox } from "@/components/shared/entity-combobox";
 import {
   Select,
   SelectContent,
@@ -559,7 +560,7 @@ function ClassifyDialog({
               const result = await chartOfAccountsService.list({ search: query, pageSize: 20 });
               return result.items
                 .filter((a) => a.accountType === "EXPENSE")
-                .map((a) => ({ id: a.id, label: `${a.code} — ${a.name}` }));
+                .map((a) => ({ id: a.id, label: a.name, searchText: a.code }));
             }}
             onSelect={(id) => setExpenseAccountId(id)}
             selectedLabel={expenseAccountId ? expenseAccountId : undefined}
@@ -1132,7 +1133,8 @@ function ReconcileDialog({
                     const result = await storeOrdersService.list({ search: query, pageSize: 20 });
                     return (result.items as StoreOrderRow[]).map((o) => ({
                       id: o.id,
-                      label: `${o.internalOrderId} (${o.externalOrderId ?? "—"})`,
+                      label: o.internalOrderId,
+                      searchText: `${o.externalOrderId ?? ""} ${o.id}`,
                     }));
                   }}
                   onSelect={(id) =>
@@ -1264,68 +1266,36 @@ function EntitySearchPicker({
 }: {
   label: string;
   placeholder: string;
-  search: (query: string) => Promise<{ id: string; label: string }[]>;
+  search: (query: string) => Promise<{ id: string; label: string; searchText?: string }[]>;
   onSelect: (id: string) => void;
   selectedLabel?: string;
 }) {
   const { t } = useLocale();
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<{ id: string; label: string }[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!query.trim()) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setResults([]);
-      return;
-    }
-    setLoading(true);
-    const timer = setTimeout(() => {
-      search(query)
-        .then(setResults)
-        .catch(() => setResults([]))
-        .finally(() => setLoading(false));
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [query, search]);
+  const [selected, setSelected] = useState<{
+    id: string;
+    label: string;
+    searchText?: string;
+  } | null>(selectedLabel ? { id: selectedLabel, label: selectedLabel } : null);
 
   return (
     <div className="flex flex-col gap-1.5">
       <Label>{label}</Label>
-      <Input
-        dir="ltr"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
+      <EntityCombobox
+        value={selected}
+        onChange={(item) => {
+          setSelected(item);
+          if (item) onSelect(item.id);
+        }}
+        onSearch={search}
+        getId={(item) => item.id}
+        getTitle={(item) => item.label}
+        getSearchText={(item) => item.searchText ?? ""}
         placeholder={placeholder}
+        searchPlaceholder={placeholder}
+        emptyText={t("masterData.bankTransactions.manual.noResults")}
+        noMatchText={t("masterData.bankTransactions.manual.noResults")}
+        loadingText={t("common.loading")}
       />
-      {selectedLabel && (
-        <p className="text-caption text-muted-foreground" dir="ltr">
-          {selectedLabel}
-        </p>
-      )}
-      {query.trim() && (
-        <div className="flex max-h-40 flex-col gap-1 overflow-y-auto rounded-md border border-border p-1">
-          {loading ? (
-            <p className="p-2 text-caption text-muted-foreground">{t("common.loading")}</p>
-          ) : results.length === 0 ? (
-            <p className="p-2 text-caption text-muted-foreground">
-              {t("masterData.bankTransactions.manual.noResults")}
-            </p>
-          ) : (
-            results.map((result) => (
-              <button
-                key={result.id}
-                type="button"
-                className="rounded-sm px-2 py-1.5 text-start text-caption hover:bg-muted"
-                onClick={() => onSelect(result.id)}
-                dir="ltr"
-              >
-                {result.label}
-              </button>
-            ))
-          )}
-        </div>
-      )}
     </div>
   );
 }

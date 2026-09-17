@@ -29,6 +29,7 @@ import {
 import { StatusBadge } from "@/components/business/status-badge";
 import { AccountPicker } from "@/components/business/account-picker";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { EnterpriseDateRangePicker } from "@/components/shared/date-range-picker";
 import type { ChartOfAccountRow, CostAllocationRuleRow } from "@/config/master-data/entities";
 import {
   costAllocationService,
@@ -38,7 +39,7 @@ import {
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
-import { formatDate, formatDateTime } from "@/lib/date";
+import { formatDate, formatDateTime, fromISODate, toISODate } from "@/lib/date";
 import { formatMoney } from "@/lib/money";
 import type { MessageKey } from "@/i18n/translate";
 
@@ -102,19 +103,15 @@ function CreateRunDialog({
           <DialogTitle>{t("masterData.costAllocationRules.runs.newRunTitle")}</DialogTitle>
         </DialogHeader>
         <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <Label>{t("masterData.costAllocationRules.runs.periodStart")}</Label>
-              <Input
-                type="date"
-                value={periodStart}
-                onChange={(e) => setPeriodStart(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label>{t("masterData.costAllocationRules.runs.periodEnd")}</Label>
-              <Input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} />
-            </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>{t("masterData.costAllocationRules.runs.periodStart")}</Label>
+            <EnterpriseDateRangePicker
+              value={{ from: fromISODate(periodStart), to: fromISODate(periodEnd) }}
+              onChange={(range) => {
+                setPeriodStart(range.from ? toISODate(range.from) : "");
+                setPeriodEnd(range.to ? toISODate(range.to) : "");
+              }}
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">

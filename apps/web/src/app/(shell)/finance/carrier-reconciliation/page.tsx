@@ -19,7 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import {
   carrierReconciliationService,
   type CarrierChargeRow,
@@ -51,9 +50,12 @@ function CarrierReconciliationContent() {
   const canConfirm = hasPermission("carrier-reconciliation.confirm");
 
   const [items, setItems] = useState<CarrierChargeRow[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [stateFilter, setStateFilter] = useState<CarrierReconciliationStateValue | "ALL">("ALL");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
   const [matchTarget, setMatchTarget] = useState<CarrierChargeRow | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<CarrierChargeRow | null>(null);
   const [unmatchTarget, setUnmatchTarget] = useState<CarrierChargeRow | null>(null);
@@ -67,15 +69,17 @@ function CarrierReconciliationContent() {
       const result = await carrierReconciliationService.list({
         state: stateFilter === "ALL" ? undefined : stateFilter,
         search: search || undefined,
-        pageSize: 50,
+        page,
+        pageSize,
       });
       setItems(result.items);
+      setTotalCount(result.total);
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
     } finally {
       setIsLoading(false);
     }
-  }, [stateFilter, search, t]);
+  }, [stateFilter, search, page, pageSize, t]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -245,39 +249,51 @@ function CarrierReconciliationContent() {
         </EnterpriseButton>
       }
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <Select
-          value={stateFilter}
-          onValueChange={(value) =>
-            setStateFilter(value as CarrierReconciliationStateValue | "ALL")
-          }
-        >
-          <SelectTrigger className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">{t("carrierReconciliation.state.ALL")}</SelectItem>
-            <SelectItem value="UNMATCHED">{t("carrierReconciliation.state.UNMATCHED")}</SelectItem>
-            <SelectItem value="REVIEW_REQUIRED">
-              {t("carrierReconciliation.state.REVIEW_REQUIRED")}
-            </SelectItem>
-            <SelectItem value="MATCHED">{t("carrierReconciliation.state.MATCHED")}</SelectItem>
-            <SelectItem value="CONFIRMED">{t("carrierReconciliation.state.CONFIRMED")}</SelectItem>
-          </SelectContent>
-        </Select>
-        <Input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder={t("carrierReconciliation.searchPlaceholder")}
-          className="w-64"
-        />
-      </div>
-
       <EnterpriseDataTable
         tableId="carrier-reconciliation"
         printTitle={t("carrierReconciliation.title")}
         columns={columns}
         data={items}
+        totalCount={totalCount}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
+        search={search}
+        onSearchChange={(value) => {
+          setSearch(value);
+          setPage(1);
+        }}
+        searchPlaceholder={t("carrierReconciliation.searchPlaceholder")}
+        filterBar={
+          <Select
+            value={stateFilter}
+            onValueChange={(value) => {
+              setStateFilter(value as CarrierReconciliationStateValue | "ALL");
+              setPage(1);
+            }}
+          >
+            <SelectTrigger size="sm" className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">{t("carrierReconciliation.state.ALL")}</SelectItem>
+              <SelectItem value="UNMATCHED">
+                {t("carrierReconciliation.state.UNMATCHED")}
+              </SelectItem>
+              <SelectItem value="REVIEW_REQUIRED">
+                {t("carrierReconciliation.state.REVIEW_REQUIRED")}
+              </SelectItem>
+              <SelectItem value="MATCHED">{t("carrierReconciliation.state.MATCHED")}</SelectItem>
+              <SelectItem value="CONFIRMED">
+                {t("carrierReconciliation.state.CONFIRMED")}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        }
         isLoading={isLoading}
         getRowId={(row) => row.id}
         emptyTitle={t("carrierReconciliation.empty")}

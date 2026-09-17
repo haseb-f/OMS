@@ -13,6 +13,9 @@ export {
 export { documentRowAccess } from "./document-row-access";
 export { MultiSelectFilter, type MultiSelectFilterOption } from "./multi-select-filter";
 export { MultiEntityFilter } from "./multi-entity-filter";
+export { SelectFilter, type SelectFilterOption } from "./select-filter";
+export { ClearFiltersButton } from "./clear-filters-button";
+export { FilterTrigger, FilterPopoverFooter } from "./filter-popover";
 export { getColumnDisplayValue } from "./data-table-column-value";
 export {
   resolveColumnLayout,

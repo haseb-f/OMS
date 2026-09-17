@@ -27,6 +27,7 @@ import {
   exportRowsToCsv,
 } from "@/components/master-data/enterprise-data-table";
 import { MultiSelectFilter, MultiEntityFilter } from "@/components/shared/data-table";
+import { ClearFiltersButton } from "@/components/shared/data-table/clear-filters-button";
 import {
   supplierPaymentsService,
   type FinancialTransactionRow,
@@ -414,24 +415,19 @@ function SupplierPaymentsPageContent() {
                 setPage(1);
               }}
             />
-            {(statusFilter.length > 0 ||
-              supplierFilter.length > 0 ||
-              dateRange.from ||
-              dateRange.to) && (
-              <EnterpriseButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setStatusFilter([]);
-                  setSupplierFilter([]);
-                  setDateRange(EMPTY_DATE_RANGE);
-                  setPage(1);
-                }}
-              >
-                {t("table.clearFilters")}
-              </EnterpriseButton>
-            )}
+            <ClearFiltersButton
+              activeCount={
+                (statusFilter.length > 0 ? 1 : 0) +
+                (supplierFilter.length > 0 ? 1 : 0) +
+                (dateRange.from || dateRange.to ? 1 : 0)
+              }
+              onClear={() => {
+                setStatusFilter([]);
+                setSupplierFilter([]);
+                setDateRange(EMPTY_DATE_RANGE);
+                setPage(1);
+              }}
+            />
           </>
         }
 

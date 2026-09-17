@@ -12,13 +12,9 @@ import { getColumnDisplayValue } from "@/components/shared/data-table";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { EnterpriseMonthPicker } from "@/components/shared/month-picker";
+import { SelectFilter } from "@/components/shared/data-table/select-filter";
+import { ClearFiltersButton } from "@/components/shared/data-table/clear-filters-button";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import {
@@ -45,17 +41,12 @@ import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { toast } from "@/lib/toast";
+import { currentMonthValue } from "@/lib/date";
 import { ApiError } from "@/services/api-client";
 import type { MessageKey } from "@/i18n/translate";
 
 const PERIOD_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
-const ALL = "__all__";
 const STATUSES: CommissionStatus[] = ["CALCULATED", "APPROVED", "INCLUDED_IN_PAYROLL", "ADJUSTED"];
-
-function currentPeriod() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-}
 
 /**
  * Part T-X — Commission Calculation review/approval/adjustment surface.
@@ -82,9 +73,20 @@ export default function CommissionsPage() {
   const [pageSize, setPageSize] = usePathRestorableState("pageSize", 20);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [periodFilter, setPeriodFilter] = useState(currentPeriod());
+  const [defaultPeriod] = useState(currentMonthValue);
+  const [periodFilter, setPeriodFilter] = useState(defaultPeriod);
   const [employeeFilter, setEmployeeFilter] = useState<EmployeeRow | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
+
+  const activeFilterCount =
+    (periodFilter === defaultPeriod ? 0 : 1) + (employeeFilter ? 1 : 0) + (statusFilter ? 1 : 0);
+
+  const clearFilters = () => {
+    setPeriodFilter(defaultPeriod);
+    setEmployeeFilter(null);
+    setStatusFilter("");
+    setPage(1);
+  };
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -124,12 +126,12 @@ export default function CommissionsPage() {
   // -- Calculate new ------------------------------------------------------------
   const [calcOpen, setCalcOpen] = useState(false);
   const [calcEmployee, setCalcEmployee] = useState<EmployeeRow | null>(null);
-  const [calcPeriod, setCalcPeriod] = useState(currentPeriod());
+  const [calcPeriod, setCalcPeriod] = useState(currentMonthValue);
   const [isCalculating, setIsCalculating] = useState(false);
 
   const openCalculate = () => {
     setCalcEmployee(null);
-    setCalcPeriod(currentPeriod());
+    setCalcPeriod(currentMonthValue());
     setCalcOpen(true);
   };
 
@@ -303,15 +305,13 @@ export default function CommissionsPage() {
         getRowId={(row) => row.id}
         filterBar={
           <>
-            <Input
-              type="month"
-              inputSize="sm"
-              className="w-40"
+            <EnterpriseMonthPicker
               value={periodFilter}
-              onChange={(event) => {
-                setPeriodFilter(event.target.value);
+              onChange={(value) => {
+                setPeriodFilter(value);
                 setPage(1);
               }}
+              allowClear
               aria-label={t("hr.commissions.fields.period")}
             />
             <div className="w-56">
@@ -328,25 +328,19 @@ export default function CommissionsPage() {
                 allowClear
               />
             </div>
-            <Select
-              value={statusFilter || ALL}
-              onValueChange={(value) => {
-                setStatusFilter(value === ALL ? "" : value);
+            <SelectFilter
+              label={t("hr.commissions.fields.status")}
+              value={statusFilter}
+              onChange={(value) => {
+                setStatusFilter(value);
                 setPage(1);
               }}
-            >
-              <SelectTrigger size="sm" className="w-44">
-                <SelectValue placeholder={t("hr.commissions.fields.status")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>{t("common.select")}</SelectItem>
-                {STATUSES.map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {t(`hr.commissions.status.${status}` as MessageKey)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              options={STATUSES.map((status) => ({
+                value: status,
+                label: t(`hr.commissions.status.${status}` as MessageKey),
+              }))}
+            />
+            <ClearFiltersButton activeCount={activeFilterCount} onClear={clearFilters} />
           </>
         }
         exportColumns={exportColumnsFromKeys(columns, exportKeys, t)}
@@ -395,11 +389,7 @@ export default function CommissionsPage() {
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-caption font-medium">{t("hr.commissions.fields.period")}</label>
-            <Input
-              type="month"
-              value={calcPeriod}
-              onChange={(event) => setCalcPeriod(event.target.value)}
-            />
+            <EnterpriseMonthPicker value={calcPeriod} onChange={setCalcPeriod} />
           </div>
         </div>
       </EnterpriseModal>
@@ -599,11 +589,7 @@ export default function CommissionsPage() {
             <label className="text-caption font-medium">
               {t("hr.commissions.adjust.targetPeriod")}
             </label>
-            <Input
-              type="month"
-              value={futureTargetPeriod}
-              onChange={(event) => setFutureTargetPeriod(event.target.value)}
-            />
+            <EnterpriseMonthPicker value={futureTargetPeriod} onChange={setFutureTargetPeriod} />
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-caption font-medium">

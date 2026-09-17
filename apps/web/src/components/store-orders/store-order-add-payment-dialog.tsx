@@ -201,7 +201,8 @@ export function StoreOrderAddPaymentDialog({
               onChange={(row) => setCurrencyId(row?.id ?? orderCurrencyId)}
               items={currencies.filter((row) => !row.deletedAt)}
               getId={(item) => item.id}
-              getTitle={(item) => `${item.code} — ${item.name}`}
+              getTitle={(item) => item.code}
+              getSubtitle={(item) => item.name}
               getSearchText={(item) => `${item.code} ${item.name}`}
             />
           </div>

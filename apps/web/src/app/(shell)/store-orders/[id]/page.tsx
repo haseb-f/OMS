@@ -832,14 +832,16 @@ function StoreOrderDetailContent() {
                 <Receipt className="size-4 shrink-0 text-muted-foreground" />
               )}
               <div className="min-w-0 flex-1">
-                <button
+                <EnterpriseButton
                   type="button"
+                  variant="link"
+                  size="inline"
                   dir="ltr"
-                  className="block truncate text-start text-primary underline underline-offset-2"
+                  className="h-auto truncate px-0 font-normal"
                   onClick={() => void openReceipt(receipt)}
                 >
                   {receipt.fileName ?? receipt.fileUrl}
-                </button>
+                </EnterpriseButton>
                 <p className="text-caption text-muted-foreground">
                   {[
                     receipt.mimeType?.includes("pdf")

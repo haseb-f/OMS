@@ -9,6 +9,7 @@ import {
   SkipForward,
 } from "lucide-react";
 import { KpiCard } from "@/components/shared/kpi-card";
+import { EnterpriseButton } from "@/components/ui/button";
 import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
 import { countByStatus, type SyncReviewRow, type SyncReviewStatusFilter } from "./types";
@@ -124,21 +125,22 @@ export function SyncSummary({
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
       {cards.map((card) => (
-        <button
+        <EnterpriseButton
           key={card.id}
           type="button"
+          variant="ghost"
           disabled={!card.filterable}
           onClick={() => {
             if (card.filterable && card.id !== "SKIPPED") onFilterChange(card.id);
           }}
           className={cn(
-            "rounded-lg text-start outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "h-auto rounded-lg p-0 text-start font-normal",
             card.filterable && filter === card.id && "ring-2 ring-primary",
             !card.filterable && "cursor-default",
           )}
         >
           <KpiCard icon={card.icon} label={card.label} value={card.value} tone={card.tone} />
-        </button>
+        </EnterpriseButton>
       ))}
     </div>
   );

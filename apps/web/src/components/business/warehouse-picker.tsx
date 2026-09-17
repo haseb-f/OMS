@@ -31,6 +31,7 @@ export function WarehousePicker({
       }}
       getId={(warehouse) => warehouse.id}
       getTitle={(warehouse) => warehouse.name}
+      getSearchText={(warehouse) => warehouse.code}
       placeholder={t("sales.editor.grid.selectWarehouse")}
       searchPlaceholder={t("sales.editor.grid.warehouseSearchPlaceholder")}
       emptyText={t("sales.customers.picker.noResults")}

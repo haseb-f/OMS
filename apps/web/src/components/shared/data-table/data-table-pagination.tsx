@@ -2,7 +2,13 @@
 
 import type { Table } from "@tanstack/react-table";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
-import { EnterpriseButton } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+} from "@/components/ui/pagination";
 import {
   Select,
   SelectContent,
@@ -49,44 +55,46 @@ export function EnterprisePagination<TData>({ table }: { table: Table<TData> }) 
             pageCount: table.getPageCount() || 1,
           })}
         </div>
-        <div className="flex items-center gap-1">
-          <EnterpriseButton
-            variant="outline"
-            size="icon-sm"
-            aria-label={t("table.goToFirstPage")}
-            onClick={() => table.setPageIndex(0)}
-            disabled={!table.getCanPreviousPage()}
-          >
-            <ChevronsLeft className="rtl:rotate-180" />
-          </EnterpriseButton>
-          <EnterpriseButton
-            variant="outline"
-            size="icon-sm"
-            aria-label={t("table.goToPreviousPage")}
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            <ChevronLeft className="rtl:rotate-180" />
-          </EnterpriseButton>
-          <EnterpriseButton
-            variant="outline"
-            size="icon-sm"
-            aria-label={t("table.goToNextPage")}
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            <ChevronRight className="rtl:rotate-180" />
-          </EnterpriseButton>
-          <EnterpriseButton
-            variant="outline"
-            size="icon-sm"
-            aria-label={t("table.goToLastPage")}
-            onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-            disabled={!table.getCanNextPage()}
-          >
-            <ChevronsRight className="rtl:rotate-180" />
-          </EnterpriseButton>
-        </div>
+        <Pagination className="mx-0 w-auto justify-end">
+          <PaginationContent>
+            <PaginationItem>
+              <ButtonGroup>
+                <PaginationLink
+                  variant="outline"
+                  aria-label={t("table.goToFirstPage")}
+                  onClick={() => table.setPageIndex(0)}
+                  disabled={!table.getCanPreviousPage()}
+                >
+                  <ChevronsLeft className="rtl:rotate-180" />
+                </PaginationLink>
+                <PaginationLink
+                  variant="outline"
+                  aria-label={t("table.goToPreviousPage")}
+                  onClick={() => table.previousPage()}
+                  disabled={!table.getCanPreviousPage()}
+                >
+                  <ChevronLeft className="rtl:rotate-180" />
+                </PaginationLink>
+                <PaginationLink
+                  variant="outline"
+                  aria-label={t("table.goToNextPage")}
+                  onClick={() => table.nextPage()}
+                  disabled={!table.getCanNextPage()}
+                >
+                  <ChevronRight className="rtl:rotate-180" />
+                </PaginationLink>
+                <PaginationLink
+                  variant="outline"
+                  aria-label={t("table.goToLastPage")}
+                  onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                  disabled={!table.getCanNextPage()}
+                >
+                  <ChevronsRight className="rtl:rotate-180" />
+                </PaginationLink>
+              </ButtonGroup>
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
       </div>
     </div>
   );

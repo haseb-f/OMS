@@ -1,8 +1,8 @@
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
-import { Loader2 } from "lucide-react";
 import { Slot } from "radix-ui";
 
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 const enterpriseButtonVariants = cva(
@@ -90,7 +90,7 @@ const EnterpriseButton = React.forwardRef<
         children
       ) : (
         <>
-          {isLoading ? <Loader2 className="animate-spin motion-reduce:animate-none" /> : null}
+          {isLoading ? <Spinner /> : null}
           {children}
         </>
       )}

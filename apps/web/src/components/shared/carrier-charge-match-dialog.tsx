@@ -9,7 +9,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { EnterpriseButton } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/shared/search-input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -60,6 +60,25 @@ export function CarrierChargeMatchDialog({
     setSearched(false);
   };
 
+  const search = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed || isSearching) return;
+    setIsSearching(true);
+    carrierReconciliationService
+      .shipmentCandidates(trimmed)
+      .then((result) => {
+        setShipments(result.shipments);
+        setSearched(true);
+        if (result.shipments.length === 0) {
+          toast.error(t("carrierReconciliation.match.noShipments"));
+        }
+      })
+      .catch((error: unknown) => {
+        toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      })
+      .finally(() => setIsSearching(false));
+  };
+
   return (
     <Dialog
       open={open}
@@ -75,38 +94,15 @@ export function CarrierChargeMatchDialog({
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
             <Label>{t("carrierReconciliation.match.orderNumber")}</Label>
-            <div className="flex gap-2">
-              <Input
-                value={orderNumber}
-                onChange={(event) => setOrderNumber(event.target.value)}
-                placeholder={t("carrierReconciliation.match.orderNumberPlaceholder")}
-              />
-              <EnterpriseButton
-                type="button"
-                variant="outline"
-                disabled={!orderNumber.trim() || isSearching}
-                onClick={() => {
-                  setIsSearching(true);
-                  carrierReconciliationService
-                    .shipmentCandidates(orderNumber.trim())
-                    .then((result) => {
-                      setShipments(result.shipments);
-                      setSearched(true);
-                      if (result.shipments.length === 0) {
-                        toast.error(t("carrierReconciliation.match.noShipments"));
-                      }
-                    })
-                    .catch((error: unknown) => {
-                      toast.error(
-                        error instanceof ApiError ? error.message : t("common.failedToSave"),
-                      );
-                    })
-                    .finally(() => setIsSearching(false));
-                }}
-              >
-                {t("common.search")}
-              </EnterpriseButton>
-            </div>
+            <SearchInput
+              value={orderNumber}
+              onValueChange={setOrderNumber}
+              onSubmit={search}
+              onClear={reset}
+              isLoading={isSearching}
+              placeholder={t("carrierReconciliation.match.orderNumberPlaceholder")}
+              className="max-w-none"
+            />
           </div>
 
           {searched && shipments.length > 0 ? (

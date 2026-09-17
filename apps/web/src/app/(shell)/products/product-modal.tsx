@@ -1124,7 +1124,7 @@ export function ProductModal({
                         <SelectContent>
                           {warehouses.map((warehouse) => (
                             <SelectItem key={warehouse.id} value={warehouse.id}>
-                              {warehouse.code} — {warehouse.name}
+                              {warehouse.name}
                             </SelectItem>
                           ))}
                         </SelectContent>

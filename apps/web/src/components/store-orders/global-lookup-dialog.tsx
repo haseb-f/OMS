@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Phone, Search, UserCheck } from "lucide-react";
+import { Phone, UserCheck } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
+import { SearchInput } from "@/components/shared/search-input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { FieldLabel } from "@/components/ui/form";
 import {
   Table,
@@ -69,7 +69,7 @@ export function GlobalLookupDialog({
 
   const search = async () => {
     const value = query.trim();
-    if (!value) return;
+    if (!value || state === "loading") return;
     setState("loading");
     try {
       if (method === "phone") {
@@ -126,39 +126,20 @@ export function GlobalLookupDialog({
               ? t("storeOrders.globalLookup.methodPhone")
               : t("storeOrders.globalLookup.methodOrder")}
           </FieldLabel>
-          <div className="flex gap-2">
-            <InputGroup className="flex-1">
-              <InputGroupAddon>
-                <Search />
-              </InputGroupAddon>
-              <InputGroupInput
-                dir="ltr"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") void search();
-                }}
-                placeholder={
-                  method === "phone"
-                    ? t("storeOrders.globalLookup.phonePlaceholder")
-                    : t("storeOrders.globalLookup.orderPlaceholder")
-                }
-              />
-            </InputGroup>
-            <EnterpriseButton
-              type="button"
-              onClick={() => void search()}
-              disabled={state === "loading" || !query.trim()}
-              className="gap-1.5"
-            >
-              {state === "loading" ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Search className="size-4" />
-              )}
-              {t("storeOrders.globalLookup.search")}
-            </EnterpriseButton>
-          </div>
+          <SearchInput
+            dir="ltr"
+            value={query}
+            onValueChange={setQuery}
+            onSubmit={() => void search()}
+            onClear={reset}
+            isLoading={state === "loading"}
+            placeholder={
+              method === "phone"
+                ? t("storeOrders.globalLookup.phonePlaceholder")
+                : t("storeOrders.globalLookup.orderPlaceholder")
+            }
+            className="max-w-none"
+          />
         </div>
 
         {state === "error" && (

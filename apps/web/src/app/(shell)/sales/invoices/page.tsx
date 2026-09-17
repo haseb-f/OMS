@@ -25,6 +25,7 @@ import {
   documentDetailLabels,
   toDocumentLineItems,
 } from "@/components/shared/data-table";
+import { ClearFiltersButton } from "@/components/shared/data-table/clear-filters-button";
 import {
   salesInvoicesService,
   type SalesDocumentStatusValue,
@@ -310,24 +311,19 @@ function SalesInvoicesPageContent() {
                 setPage(1);
               }}
             />
-            {(statusFilter.length > 0 ||
-              customerFilter.length > 0 ||
-              dateRange.from ||
-              dateRange.to) && (
-              <EnterpriseButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setStatusFilter([]);
-                  setCustomerFilter([]);
-                  setDateRange(EMPTY_DATE_RANGE);
-                  setPage(1);
-                }}
-              >
-                {t("table.clearFilters")}
-              </EnterpriseButton>
-            )}
+            <ClearFiltersButton
+              activeCount={
+                (statusFilter.length > 0 ? 1 : 0) +
+                (customerFilter.length > 0 ? 1 : 0) +
+                (dateRange.from || dateRange.to ? 1 : 0)
+              }
+              onClear={() => {
+                setStatusFilter([]);
+                setCustomerFilter([]);
+                setDateRange(EMPTY_DATE_RANGE);
+                setPage(1);
+              }}
+            />
           </>
         }
 

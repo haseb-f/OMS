@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { EnterpriseButton } from "@/components/ui/button";
 import { useLocale } from "@/providers/locale-provider";
 import { useAuth } from "@/providers/auth-provider";
 
@@ -26,9 +27,11 @@ export function ProfileMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
+        <EnterpriseButton
           type="button"
-          className="flex items-center gap-2 rounded-full outline-none ring-ring focus-visible:ring-2"
+          variant="ghost"
+          size="icon-sm"
+          className="rounded-full"
           aria-label={t("topbar.profileMenu")}
         >
           <Avatar className="size-8">
@@ -36,7 +39,7 @@ export function ProfileMenu() {
               {user ? getInitials(user.fullName) : "GU"}
             </AvatarFallback>
           </Avatar>
-        </button>
+        </EnterpriseButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel className="flex flex-col gap-0.5 font-normal">

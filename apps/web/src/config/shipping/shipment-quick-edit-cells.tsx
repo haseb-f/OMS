@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/business/status-badge";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { EnterpriseButton } from "@/components/ui/button";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { useLocale } from "@/providers/locale-provider";
@@ -293,10 +294,11 @@ export function TrackingNumberQuickCell({
   }
 
   return (
-    <button
+    <EnterpriseButton
       type="button"
+      variant="ghost"
       onClick={() => setIsEditing(true)}
-      className="flex h-8 max-w-40 items-center gap-1.5 rounded-xs px-2 text-start hover:bg-muted/40"
+      className="h-8 max-w-40 justify-start gap-1.5 px-2 font-normal"
     >
       {row.trackingNumber ? (
         <SemanticValue kind="id">{row.trackingNumber}</SemanticValue>
@@ -304,6 +306,6 @@ export function TrackingNumberQuickCell({
         <span className="text-muted-foreground">{t("shipping.quickEdit.trackingPlaceholder")}</span>
       )}
       <SavingIndicator state={state} />
-    </button>
+    </EnterpriseButton>
   );
 }

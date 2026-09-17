@@ -5,7 +5,7 @@ import type { Column } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, ChevronsUpDown, EyeOff, Filter, PinOff, Pin, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EnterpriseButton } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/shared/search-input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   DropdownMenu,
@@ -195,26 +195,14 @@ function ColumnFilterPopover({
       </PopoverTrigger>
       <PopoverContent align="start" className="w-56 p-2">
         <p className="mb-1.5 text-caption font-medium text-muted-foreground">{title}</p>
-        <div className="flex items-center gap-1">
-          <Input
-            autoFocus
-            inputSize="sm"
-            value={value}
-            placeholder={t("table.filterPlaceholder")}
-            onChange={(event) => onChange(event.target.value)}
-          />
-          {value && (
-            <EnterpriseButton
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={t("table.clearFilter")}
-              onClick={() => onChange("")}
-            >
-              <X className="size-3.5" />
-            </EnterpriseButton>
-          )}
-        </div>
+        <SearchInput
+          autoFocus
+          value={value}
+          onValueChange={onChange}
+          placeholder={t("table.filterPlaceholder")}
+          clearLabel={t("table.clearFilter")}
+          className="max-w-none"
+        />
       </PopoverContent>
     </Popover>
   );

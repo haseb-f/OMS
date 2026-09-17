@@ -409,7 +409,8 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
               onChange={setCurrency}
               items={currencies}
               getId={(row) => row.id}
-              getTitle={(row) => `${row.code} — ${row.name}`}
+              getTitle={(row) => row.code}
+              getSearchText={(row) => `${row.code} ${row.name}`}
               placeholder={t("common.select")}
               searchPlaceholder={t("common.search")}
               emptyText={t("common.noResults")}

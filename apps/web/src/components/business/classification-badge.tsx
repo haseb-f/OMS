@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { DynamicStatusBadge } from "@/components/business/dynamic-status-badge";
+import { EnterpriseButton } from "@/components/ui/button";
 import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
 
@@ -41,19 +42,21 @@ export function ClassificationColorPicker({
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-1.5">
         {CLASSIFICATION_COLOR_TOKENS.map((option) => (
-          <button
+          <EnterpriseButton
             key={option}
             type="button"
+            variant="ghost"
+            size="icon-sm"
             aria-label={t(`masterData.colors.${option}` as MessageKey)}
             title={t(`masterData.colors.${option}` as MessageKey)}
             onClick={() => onChange(option)}
             className={cn(
-              "flex size-8 items-center justify-center rounded-sm border",
+              "border",
               token === option ? "border-foreground ring-2 ring-ring/40" : "border-border",
             )}
           >
             <span className={cn("size-4 rounded-full", TOKEN_SWATCH[option])} />
-          </button>
+          </EnterpriseButton>
         ))}
       </div>
       <div className="flex items-center gap-2">

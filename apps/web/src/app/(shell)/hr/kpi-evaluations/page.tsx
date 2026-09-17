@@ -2,17 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseButton } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   EnterpriseDataTable,
   exportColumnsFromKeys,
@@ -20,6 +12,9 @@ import {
 } from "@/components/master-data/enterprise-data-table";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
+import { EnterpriseMonthPicker } from "@/components/shared/month-picker";
+import { SelectFilter } from "@/components/shared/data-table/select-filter";
+import { ClearFiltersButton } from "@/components/shared/data-table/clear-filters-button";
 import { kpiEvaluationsService, type KpiEvaluationRow } from "@/services/kpi-evaluations-service";
 import { kpiTemplatesService } from "@/services/kpi-templates-service";
 import { employeesService, type EmployeeRow } from "@/services/employees-service";
@@ -53,6 +48,15 @@ export default function KpiEvaluationsPage() {
   const [periodFilter, setPeriodFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
+
+  const activeFilterCount = [periodFilter, statusFilter, departmentFilter].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setPeriodFilter("");
+    setStatusFilter("");
+    setDepartmentFilter("");
+    setPage(1);
+  };
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -147,67 +151,40 @@ export default function KpiEvaluationsPage() {
       <EnterpriseDataTable
         filterBar={
           <>
-            <Input
-              className="w-32 shrink-0"
-              placeholder={t("hr.kpiEvaluations.fields.period")}
+            <EnterpriseMonthPicker
               value={periodFilter}
-              onChange={(event) => {
-                setPeriodFilter(event.target.value);
+              onChange={(value) => {
+                setPeriodFilter(value);
                 setPage(1);
               }}
+              allowClear
+              aria-label={t("hr.kpiEvaluations.fields.period")}
             />
-            <Select
+            <SelectFilter
+              label={t("hr.kpiEvaluations.fields.status")}
               value={statusFilter}
-              onValueChange={(value) => {
+              onChange={(value) => {
                 setStatusFilter(value);
                 setPage(1);
               }}
-            >
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder={t("hr.kpiEvaluations.fields.status")} />
-              </SelectTrigger>
-              <SelectContent>
-                {KPI_EVALUATION_STATUSES.map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {t(`hr.kpiEvaluations.status.${status}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
+              options={KPI_EVALUATION_STATUSES.map((status) => ({
+                value: status,
+                label: t(`hr.kpiEvaluations.status.${status}`),
+              }))}
+            />
+            <SelectFilter
+              label={t("hr.employees.fields.department")}
               value={departmentFilter}
-              onValueChange={(value) => {
+              onChange={(value) => {
                 setDepartmentFilter(value);
                 setPage(1);
               }}
-            >
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder={t("hr.employees.fields.department")} />
-              </SelectTrigger>
-              <SelectContent>
-                {departments.map((department) => (
-                  <SelectItem key={department.id} value={department.id}>
-                    {department.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {(periodFilter || statusFilter || departmentFilter) && (
-              <EnterpriseButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setPeriodFilter("");
-                  setStatusFilter("");
-                  setDepartmentFilter("");
-                  setPage(1);
-                }}
-              >
-                <X className="size-3.5" />
-                {t("table.clearFilters")}
-              </EnterpriseButton>
-            )}
+              options={departments.map((department) => ({
+                value: department.id,
+                label: department.name,
+              }))}
+            />
+            <ClearFiltersButton activeCount={activeFilterCount} onClear={clearFilters} />
           </>
         }
         tableId="hr-kpi-evaluations"
@@ -279,11 +256,7 @@ export default function KpiEvaluationsPage() {
             <label className="text-caption text-muted-foreground">
               {t("hr.kpiEvaluations.fields.period")}
             </label>
-            <Input
-              placeholder="YYYY-MM"
-              value={startPeriod}
-              onChange={(event) => setStartPeriod(event.target.value)}
-            />
+            <EnterpriseMonthPicker value={startPeriod} onChange={setStartPeriod} />
           </div>
         </div>
       </EnterpriseModal>

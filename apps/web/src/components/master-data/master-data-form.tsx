@@ -32,6 +32,7 @@ import { AccountPicker } from "@/components/business/account-picker";
 import { ProductPicker } from "@/components/business/product-picker";
 import { ClassificationColorPicker } from "@/components/business/classification-badge";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
+import { EnterpriseMonthPicker } from "@/components/shared/month-picker";
 import { createMasterDataService } from "@/services/master-data-service";
 import { productsService, type ProductRow } from "@/services/products-service";
 import type { ChartOfAccountRow } from "@/config/master-data/entities";
@@ -50,6 +51,8 @@ export interface MasterDataFormField {
     | "textarea"
     | "number"
     | "date"
+    /** An accounting/HR period — the stored value is the API's `"YYYY-MM"` string, not a date. */
+    | "month"
     | "select"
     | "boolean"
     | "country"
@@ -328,6 +331,12 @@ function FormFieldGrid<TFieldValues extends FieldValues>({
                         // way, .slice(0, 10) is a no-op on the former.
                         value={fromISODate(String(rhfField.value ?? "").slice(0, 10) || null)}
                         onChange={(date) => rhfField.onChange(date ? toISODate(date) : "")}
+                        placeholder={field.placeholder}
+                      />
+                    ) : field.type === "month" ? (
+                      <EnterpriseMonthPicker
+                        value={String(rhfField.value ?? "")}
+                        onChange={rhfField.onChange}
                         placeholder={field.placeholder}
                       />
                     ) : (

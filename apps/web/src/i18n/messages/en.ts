@@ -421,6 +421,12 @@ const en = {
     clearDates: "Clear dates",
     cancel: "Cancel",
   },
+  monthPicker: {
+    open: "Open month picker",
+    previousYear: "Previous year",
+    nextYear: "Next year",
+    currentMonth: "Current month",
+  },
   company: {
     switcherLabel: "Active company",
     companies: "Companies",
@@ -515,6 +521,8 @@ const en = {
     filterColumn: "Filter column",
     clearFilter: "Clear filter",
     clearFilters: "Clear filters",
+    activeFilterCount: "{count} filters active",
+    filterAll: "All",
     filterSelectedCount: "{count} selected",
     resultCount: "{count} results",
     showMore: "Show {count} more",

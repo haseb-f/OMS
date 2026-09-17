@@ -12,8 +12,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { PopoverContent } from "@/components/ui/popover";
-import { InputGroup, InputGroupAddon } from "@/components/ui/input-group";
-import { SearchIcon, CheckIcon } from "lucide-react";
+import { InputGroup, InputGroupAddon, InputGroupButton } from "@/components/ui/input-group";
+import { SearchIcon, CheckIcon, XIcon } from "lucide-react";
 
 function Command({ className, ...props }: React.ComponentProps<typeof CommandPrimitive>) {
   return (
@@ -80,10 +80,23 @@ function CommandDialog({
   );
 }
 
+/**
+ * Same unified-search contract as `SearchInput`: magnifier, field and clear
+ * button share one border. Pass `onClear` (with the translated `clearLabel`)
+ * on any picker whose search is controlled, so a long query can be reset
+ * without selecting the whole string first.
+ */
 function CommandInput({
   className,
+  onClear,
+  clearLabel,
   ...props
-}: React.ComponentProps<typeof CommandPrimitive.Input>) {
+}: React.ComponentProps<typeof CommandPrimitive.Input> & {
+  onClear?: () => void;
+  clearLabel?: string;
+}) {
+  const hasQuery = typeof props.value === "string" && props.value.length > 0;
+
   return (
     <div data-slot="command-input-wrapper" className="sticky top-0 z-10 bg-popover p-1 pb-1">
       <InputGroup className="h-(--control-height-sm)! rounded-xs! border-input/30 bg-input/30 shadow-none! *:data-[slot=input-group-addon]:ps-2.5!">
@@ -98,6 +111,18 @@ function CommandInput({
         <InputGroupAddon>
           <SearchIcon className="size-4 shrink-0 opacity-50" />
         </InputGroupAddon>
+        {onClear && hasQuery ? (
+          <InputGroupAddon align="inline-end">
+            <InputGroupButton
+              type="button"
+              size="icon-xs"
+              aria-label={clearLabel}
+              onClick={onClear}
+            >
+              <XIcon />
+            </InputGroupButton>
+          </InputGroupAddon>
+        ) : null}
       </InputGroup>
     </div>
   );

@@ -17,7 +17,7 @@ import {
 import { DetailSummaryBar, DetailField, DetailSection } from "@/components/shared/detail-workspace";
 import { StatusBadge } from "@/components/business/status-badge";
 import { EnterpriseButton } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/shared/search-input";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { inventoryService, type StockCard } from "@/services/inventory-service";
 import { productCostService, type ProductCostHistoryEntry } from "@/services/product-cost-service";
@@ -156,18 +156,13 @@ function OrderCostTraceTab({ initialStoreOrderId }: { initialStoreOrderId: strin
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex max-w-sm gap-2">
-        <Input
+      <div className="max-w-sm">
+        <SearchInput
           value={orderNumberInput}
-          onChange={(event) => setOrderNumberInput(event.target.value)}
+          onValueChange={setOrderNumberInput}
+          onSubmit={() => handleSearch()}
           placeholder={t("costExplorer.order.searchPlaceholder")}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") handleSearch();
-          }}
         />
-        <EnterpriseButton type="button" variant="outline" onClick={handleSearch}>
-          {t("common.search")}
-        </EnterpriseButton>
       </div>
 
       {!storeOrderId && !isLoading ? (

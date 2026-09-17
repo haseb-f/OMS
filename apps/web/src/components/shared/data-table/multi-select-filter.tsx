@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronsUpDown } from "lucide-react";
 import { Popover, PopoverTrigger } from "@/components/ui/popover";
 import {
   Command,
@@ -11,11 +10,9 @@ import {
   CommandItem,
   CommandList,
   CommandPopoverContent,
-  CommandSeparator,
 } from "@/components/ui/command";
-import { EnterpriseButton } from "@/components/ui/button";
+import { FilterPopoverFooter, FilterTrigger } from "@/components/shared/data-table/filter-popover";
 import { useLocale } from "@/providers/locale-provider";
-import { cn } from "@/lib/utils";
 
 export interface MultiSelectFilterOption {
   value: string;
@@ -82,22 +79,13 @@ export function MultiSelectFilter({
       }}
     >
       <PopoverTrigger asChild>
-        <EnterpriseButton
-          type="button"
-          variant="outline"
-          size="sm"
-          role="combobox"
+        <FilterTrigger
+          label={triggerLabel}
+          isActive={values.length > 0}
+          count={values.length}
           aria-expanded={open}
-          aria-haspopup="listbox"
-          className={cn(
-            "min-w-36 justify-between font-normal",
-            values.length > 0 && "border-primary/40 bg-primary-soft",
-            className,
-          )}
-        >
-          <span className="min-w-0 truncate">{triggerLabel}</span>
-          <ChevronsUpDown className="size-3.5 shrink-0 opacity-50" />
-        </EnterpriseButton>
+          className={className}
+        />
       </PopoverTrigger>
       <CommandPopoverContent className="min-w-56">
         <Command shouldFilter={false}>
@@ -106,6 +94,8 @@ export function MultiSelectFilter({
               placeholder={t("common.search")}
               value={search}
               onValueChange={setSearch}
+              onClear={() => setSearch("")}
+              clearLabel={t("table.clearSearch")}
             />
           ) : null}
           <CommandList>
@@ -123,28 +113,11 @@ export function MultiSelectFilter({
               ))}
             </CommandGroup>
           </CommandList>
-          <CommandSeparator />
-          <div className="flex items-center justify-between gap-2 px-2 py-1.5">
-            <EnterpriseButton
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2"
-              onClick={() => onChange(options.map((option) => option.value))}
-            >
-              {t("common.selectAll")}
-            </EnterpriseButton>
-            <EnterpriseButton
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2"
-              disabled={values.length === 0}
-              onClick={() => onChange([])}
-            >
-              {t("common.deselectAll")}
-            </EnterpriseButton>
-          </div>
+          <FilterPopoverFooter
+            hasSelection={values.length > 0}
+            onSelectAll={() => onChange(options.map((option) => option.value))}
+            onDeselectAll={() => onChange([])}
+          />
         </Command>
       </CommandPopoverContent>
     </Popover>

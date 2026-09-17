@@ -44,8 +44,6 @@ export function CostCenterPicker({
       getId={(costCenter) => costCenter.id}
       getTitle={(costCenter) => costCenter.name}
       getSearchText={(costCenter) => costCenter.code}
-      getSubtitle={(costCenter) => costCenter.code}
-      subtitleDir="ltr"
       placeholder={placeholder ?? t("accounting.journalEntries.lines.selectCostCenter")}
       disabled={disabled}
       allowClear

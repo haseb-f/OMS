@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useLocale } from "@/providers/locale-provider";
-import { cn } from "@/lib/utils";
+import { IconActionButton } from "@/components/shared/icon-action-button";
 
 /**
  * Generic bulk-selection-scope menu (TASK-064) — omitted entirely falls back
@@ -112,17 +112,13 @@ function SelectionHeaderMenu({
       />
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-label={t("table.selectionMenuLabel")}
-            className={cn(
-              "flex size-4 shrink-0 items-center justify-center rounded-xs text-muted-foreground outline-none",
-              "transition-colors duration-(--duration-base) hover:bg-muted hover:text-foreground",
-              "focus-visible:ring-2 focus-visible:ring-ring/60",
-            )}
+          <IconActionButton
+            label={t("table.selectionMenuLabel")}
+            variant="ghost"
+            className="size-4"
           >
             <ChevronDown className="size-3" />
-          </button>
+          </IconActionButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-56">
           <DropdownMenuItem

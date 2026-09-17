@@ -44,8 +44,6 @@ export function ProjectPicker({
       getId={(project) => project.id}
       getTitle={(project) => project.name}
       getSearchText={(project) => project.code}
-      getSubtitle={(project) => project.code}
-      subtitleDir="ltr"
       placeholder={placeholder ?? t("accounting.journalEntries.lines.selectProject")}
       disabled={disabled}
       allowClear
