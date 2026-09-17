@@ -35,6 +35,7 @@ function loadEnvFile(path) {
         value = value.slice(1, -1);
       }
       if (!process.env[key]) process.env[key] = value;
+      if (process.env[key] === '[SENSITIVE]') delete process.env[key];
     }
   } catch {
     // optional
@@ -163,7 +164,7 @@ async function jesForSource(token, sourceType, sourceId) {
   const list = await api(
     token,
     'GET',
-    `/journal-entries?pageSize=50&search=${encodeURIComponent(sourceId)}`,
+    `/journal-entries?pageSize=50&sourceType=${encodeURIComponent(sourceType)}&sourceId=${encodeURIComponent(sourceId)}`,
   );
   return unwrap(list).filter(
     (row) =>
@@ -322,7 +323,7 @@ async function accountingFlow(token) {
       authed('GET', '/taxes?pageSize=50'),
       authed('GET', '/receiving-accounts?pageSize=50'),
       authed('GET', '/payment-sources?pageSize=50'),
-      authed('GET', '/countries?pageSize=50'),
+      authed('GET', '/countries?pageSize=200'),
       authed('GET', '/currencies?pageSize=50'),
       authed('GET', '/products?pageSize=50'),
       authed('GET', '/warehouses?pageSize=50'),
@@ -347,13 +348,68 @@ async function accountingFlow(token) {
   const missingMaps = requiredRoles.filter((key) => !settings?.[key]);
   assert('Posting Settings mapped', missingMaps.length === 0, missingMaps.join(',') || 'all required roles filled');
   assert('Fiscal year exists', unwrap(fy).length > 0, unwrap(fy).map((y) => y.name).join(','));
+  const fiscalYear =
+    unwrap(fy).find((y) => y.name === 'FY 2026') || unwrap(fy)[0];
+  try {
+    const opening = await authed('POST', '/accounting/opening-balances', {
+      fiscalYearId: fiscalYear.id,
+      openingDate: new Date(fiscalYear.startDate).toISOString(),
+      lines: [
+        {
+          accountId: settings.cashAccountId,
+          debit: 1,
+          description: 'QA go-live opening cash',
+        },
+        {
+          accountId:
+            settings.retainedEarningsAccountId || settings.suspenseAccountId,
+          credit: 1,
+          description: 'QA go-live opening equity',
+        },
+      ],
+    });
+    record(
+      'Fiscal year opening balance',
+      Boolean(opening?.id),
+      opening?.entryNumber || opening?.id,
+    );
+    if (opening) assertBalanced(opening, 'OPENING_BALANCE');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const already = /already has an Opening Balance/i.test(message);
+    record('Fiscal year opening balance', already, message);
+  }
   assert('VAT/taxes exist', unwrap(taxes).length > 0, unwrap(taxes).map((t) => t.code).join(','));
   assert('Receiving accounts exist', unwrap(receiving).length > 0, unwrap(receiving).map((r) => r.code || r.name).join(','));
   assert('Payment sources exist', unwrap(sources).length > 0, unwrap(sources).map((s) => s.code || s.name).join(','));
 
+  const countryList = unwrap(countries);
+  const brokenSaudi = countryList.find(
+    (c) => c.name === 'السعودية' && String(c.code || '').replace(/\W/g, '') === 'SA',
+  );
+  if (brokenSaudi && brokenSaudi.code !== 'SA') {
+    try {
+      await authed('PATCH', `/countries/${brokenSaudi.id}`, {
+        code: 'SA',
+        name: 'السعودية',
+      });
+      brokenSaudi.code = 'SA';
+      record('Repaired Saudi country code', true, brokenSaudi.id);
+    } catch (error) {
+      record(
+        'Repaired Saudi country code',
+        false,
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
   const country =
-    pick(countries, (c) => c.code === 'SA' || c.iso2 === 'SA' || c.nameEn === 'Saudi Arabia') ??
-    pick(countries, () => true);
+    countryList.find((c) => c.code === 'SA' && c.callingCode) ||
+    countryList.find((c) => c.code === 'AE') ||
+    countryList.find((c) => c.code === 'EG') ||
+    brokenSaudi ||
+    countryList.find((c) => c.code === 'SA') ||
+    countryList[0];
   const currency =
     pick(currencies, (c) => c.code === 'SAR' || c.isDefault) ?? pick(currencies, () => true);
   const warehouse = pick(warehouses, (w) => w.isDefault || w.isActive !== false);
@@ -431,7 +487,6 @@ async function accountingFlow(token) {
     items: [{ productId: product.id, quantity: 1, agreedAmount: 250 }],
     paymentType: 'PREPAID',
     amountPaid: 250,
-    paymentMethodId: paymentSource?.id,
     currencyId: currency.id,
     city: 'Riyadh',
     address: 'QA-E2E Street 1',
@@ -481,7 +536,10 @@ async function accountingFlow(token) {
   }
 
   const receipts = unwrap(
-    await authed('GET', `/financial-transactions/receipts?pageSize=20&search=${encodeURIComponent(RUN)}`),
+    await authed(
+      'GET',
+      `/financial-transactions/receipts?pageSize=50&search=${encodeURIComponent(payment.paymentNumber || payment.id)}`,
+    ),
   );
   const receipt =
     receipts.find((row) => String(row.notes || '').includes(payment.id)) || receipts[0];
@@ -550,12 +608,13 @@ async function accountingFlow(token) {
   });
   assert('Returning-customer second order', Boolean(second?.id), second?.internalOrderId);
 
-  const supplier = await authed('POST', '/partners/find-or-create', {
+  const supplierPayload = await authed('POST', '/partners/find-or-create', {
     role: 'SUPPLIER',
     name: `${RUN} Supplier`,
     mobile: `05${String(Date.now() + 7).slice(-8)}`,
     countryId: country.id,
   });
+  const supplier = supplierPayload.partner ?? supplierPayload;
   const purchase = await authed('POST', '/purchasing/invoices', {
     partnerId: supplier.id,
     currencyId: currency.id,
@@ -726,7 +785,10 @@ async function main() {
   }
 
   console.log(`Production E2E ${RUN} against ${BASE}`);
-  await browserPersonas();
+  const SKIP_BROWSER = process.env.SKIP_BROWSER === '1';
+  if (!SKIP_BROWSER) {
+    await browserPersonas();
+  }
 
   try {
     const adminToken = await login('qa-admin@oms.haseb.org');

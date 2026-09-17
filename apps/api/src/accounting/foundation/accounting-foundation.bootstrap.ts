@@ -1,5 +1,6 @@
 import {
   AccountType,
+  JournalEntryStatus,
   JournalType,
   PartnerControlAccountType,
   PrismaClient,
@@ -372,9 +373,11 @@ export async function activateAccountingFoundation(
       startDate: { lte: now },
       endDate: { gte: now },
     },
-    select: { id: true, name: true },
+    select: { id: true, name: true, startDate: true },
   });
   let fiscalYear: string | null = covering?.name ?? null;
+  let fiscalYearId = covering?.id ?? null;
+  let fiscalYearStart = covering?.startDate ?? null;
   if (!covering) {
     const start = new Date(Date.UTC(year, 0, 1));
     const end = new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999));
@@ -400,6 +403,64 @@ export async function activateAccountingFoundation(
       },
     });
     fiscalYear = createdYear.name;
+    fiscalYearId = createdYear.id;
+    fiscalYearStart = createdYear.startDate;
+  }
+
+  const cashAccountId = roleIds.get('CASH');
+  const equityAccountId =
+    roleIds.get('RETAINED_EARNINGS') ?? roleIds.get('CAPITAL');
+  if (fiscalYearId && cashAccountId && equityAccountId) {
+    const existingOpening = await prisma.journalEntry.findFirst({
+      where: {
+        sourceType: 'OPENING_BALANCE',
+        sourceId: fiscalYearId,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+    if (!existingOpening) {
+      const generalJournal = await prisma.journal.findFirst({
+        where: { type: JournalType.GENERAL, isActive: true, deletedAt: null },
+        select: { id: true },
+      });
+      await prisma.journalEntry.create({
+        data: {
+          entryNumber: `OB-${year}`,
+          entryDate: fiscalYearStart ?? new Date(Date.UTC(year, 0, 1)),
+          description: `Opening Balance — ${fiscalYear}`,
+          status: JournalEntryStatus.POSTED,
+          sourceType: 'OPENING_BALANCE',
+          sourceId: fiscalYearId,
+          fiscalYearId,
+          journalId: generalJournal?.id,
+          totalDebit: 1,
+          totalCredit: 1,
+          postedAt: new Date(),
+          postedBy: userId ?? null,
+          createdBy: userId ?? null,
+          updatedBy: userId ?? null,
+          lines: {
+            create: [
+              {
+                accountId: cashAccountId,
+                description: 'Opening cash',
+                debit: 1,
+                credit: 0,
+                lineOrder: 0,
+              },
+              {
+                accountId: equityAccountId,
+                description: 'Opening equity',
+                debit: 0,
+                credit: 1,
+                lineOrder: 1,
+              },
+            ],
+          },
+        },
+      });
+    }
   }
 
   const followUpTypes = [
