@@ -51,6 +51,14 @@ const SOURCE_TYPE_JOURNAL: Record<string, JournalType> = {
   CAPITAL_RETURN: JournalType.CASH,
   SHIPMENT_COST: JournalType.GENERAL,
   FULFILLMENT_COST: JournalType.GENERAL,
+  FIXED_ASSET_CAPITALIZATION: JournalType.GENERAL,
+  FIXED_ASSET_DEPRECIATION: JournalType.GENERAL,
+  FIXED_ASSET_DISPOSAL: JournalType.GENERAL,
+  PREPAID_EXPENSE: JournalType.CASH,
+  PREPAID_RECOGNITION: JournalType.GENERAL,
+  ACCRUED_EXPENSE: JournalType.GENERAL,
+  ACCRUED_EXPENSE_SETTLEMENT: JournalType.CASH,
+  FX_REVALUATION: JournalType.GENERAL,
 };
 
 @Injectable()
@@ -120,10 +128,11 @@ export class PostingEngineService {
         return null;
       }
 
-      this.assertBalanced(result.lines);
-      await this.assertPartnersRequired(result.lines, client);
+      const lines = this.applyExchangeRate(result.lines, result.exchangeRate);
+      this.assertBalanced(lines);
+      await this.assertPartnersRequired(lines, client);
 
-      const entryDate = new Date();
+      const entryDate = result.entryDate ?? new Date();
       await this.accountingPeriods.assertPeriodOpen(entryDate, client);
       await this.fiscalYears.assertPostingAllowed(
         entryDate,
@@ -136,7 +145,7 @@ export class PostingEngineService {
         undefined,
         client,
       );
-      const { totalDebit, totalCredit } = this.computeTotals(result.lines);
+      const { totalDebit, totalCredit } = this.computeTotals(lines);
       const journalId = await this.resolveJournalId(sourceType, client);
       const fiscalYearId = await this.fiscalYears.resolveFiscalYearId(
         entryDate,
@@ -157,6 +166,8 @@ export class PostingEngineService {
           fiscalYearId: fiscalYearId ?? undefined,
           referenceNumber: result.referenceNumber,
           currencyId: result.currencyId ?? undefined,
+          exchangeRate:
+            result.exchangeRate != null ? result.exchangeRate : undefined,
           companyId: result.companyId ?? undefined,
           branchId: result.branchId ?? undefined,
           projectId: result.projectId ?? undefined,
@@ -166,7 +177,7 @@ export class PostingEngineService {
           createdBy: userId ?? null,
           updatedBy: userId ?? null,
           lines: {
-            create: result.lines.map((line, index) => ({
+            create: lines.map((line, index) => ({
               accountId: line.accountId,
               debit: line.debit ?? 0,
               credit: line.credit ?? 0,
@@ -318,6 +329,53 @@ export class PostingEngineService {
       select: { id: true },
     });
     return journal?.id ?? null;
+  }
+
+  private round2(value: number): number {
+    return Math.round(value * 100) / 100;
+  }
+
+  /**
+   * Converts provider amounts (transaction currency) into functional
+   * currency using the document's snapshotted rate. Rounding residue of
+   * at most 0.05 is absorbed on the largest line so the JE stays balanced.
+   */
+  private applyExchangeRate(
+    lines: PostingLine[],
+    exchangeRate?: number | null,
+  ): PostingLine[] {
+    const rate = exchangeRate == null ? 1 : Number(exchangeRate);
+    if (!Number.isFinite(rate) || rate <= 0) {
+      throw new BadRequestException(
+        `Exchange rate must be a positive number, received ${exchangeRate}.`,
+      );
+    }
+    if (Math.abs(rate - 1) < 1e-12) return lines;
+
+    const converted = lines.map((line) => ({
+      ...line,
+      debit: line.debit ? this.round2(line.debit * rate) : line.debit,
+      credit: line.credit ? this.round2(line.credit * rate) : line.credit,
+    }));
+    const { totalDebit, totalCredit } = this.computeTotals(converted);
+    const diff = this.round2(totalDebit - totalCredit);
+    if (diff === 0) return converted;
+    if (Math.abs(diff) > 0.05) {
+      throw new BadRequestException(
+        `Posting is not balanced after FX conversion — total debit (${totalDebit}) must equal total credit (${totalCredit}).`,
+      );
+    }
+    const target = converted.reduce((best, line) => {
+      const amount = Math.max(line.debit ?? 0, line.credit ?? 0);
+      const bestAmount = Math.max(best.debit ?? 0, best.credit ?? 0);
+      return amount >= bestAmount ? line : best;
+    });
+    if ((target.debit ?? 0) >= (target.credit ?? 0)) {
+      target.debit = this.round2((target.debit ?? 0) - diff);
+    } else {
+      target.credit = this.round2((target.credit ?? 0) + diff);
+    }
+    return converted;
   }
 
   private computeTotals(lines: PostingLine[]) {

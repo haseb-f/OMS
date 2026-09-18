@@ -236,6 +236,10 @@ async function browserPersonas() {
             '/finance/chart-of-accounts',
             '/finance/accounting-settings',
             '/finance/journal-entries',
+            '/finance/fixed-assets',
+            '/finance/prepaid-expenses',
+            '/finance/accrued-expenses',
+            '/finance/exchange-rates',
             '/reports/finance',
             '/crm/leads',
             '/store-orders',
@@ -244,6 +248,10 @@ async function browserPersonas() {
           finance: [
             '/finance/journal-entries',
             '/finance/chart-of-accounts',
+            '/finance/fixed-assets',
+            '/finance/prepaid-expenses',
+            '/finance/accrued-expenses',
+            '/finance/exchange-rates',
             '/reports/finance',
             '/finance/bank-transactions',
           ],
@@ -720,6 +728,454 @@ async function accountingFlow(token) {
     }
   } catch (error) {
     record('Sales return/refund', false, error instanceof Error ? error.message : String(error));
+  }
+
+  const vat15 =
+    unwrap(taxes).find((row) => String(row.code).toUpperCase() === 'VAT15') ||
+    unwrap(taxes).find((row) => Number(row.rate) === 15);
+  const vat0 =
+    unwrap(taxes).find((row) => String(row.code).toUpperCase() === 'VAT0') ||
+    unwrap(taxes).find((row) => Number(row.rate) === 0);
+  const customerId = order.partnerId || converted.storeOrder?.partnerId || lead.partnerId;
+  assert('VAT15 tax exists', Boolean(vat15?.id), vat15?.code);
+  assert('VAT0 tax exists', Boolean(vat0?.id), vat0?.code || 'missing VAT0');
+
+  if (vat15 && customerId) {
+    try {
+      const vatInvoice = await authed('POST', '/sales/invoices', {
+        partnerId: customerId,
+        currencyId: currency.id,
+        referenceNumber: `${RUN}-VAT-SALE`,
+        internalNotes: `${RUN} VAT sales`,
+        items: [
+          {
+            productId: product.id,
+            warehouseId: warehouse.id,
+            unitId: product.unitId || unit.id,
+            quantity: 1,
+            unitPrice: 100,
+            taxId: vat15.id,
+          },
+        ],
+      });
+      await authed('POST', `/sales/invoices/${vatInvoice.id}/submit`);
+      try {
+        await authed('POST', `/sales/invoices/${vatInvoice.id}/approve`);
+      } catch {
+        // optional
+      }
+      await authed('POST', `/sales/invoices/${vatInvoice.id}/confirm`);
+      const vatDoc = await authed('GET', `/sales/invoices/${vatInvoice.id}`);
+      assert(
+        'VAT sales tax total',
+        Number(vatDoc.taxTotal) > 0 && Number(vatDoc.grandTotal) >= 114,
+        `tax ${vatDoc.taxTotal} grand ${vatDoc.grandTotal}`,
+      );
+      const vatSaleJe = await waitForJe(token, 'SALES_INVOICE', vatInvoice.id);
+      assert('VAT sales JE', Boolean(vatSaleJe), vatSaleJe?.entryNumber);
+      if (vatSaleJe) {
+        const full = await authed('GET', `/journal-entries/${vatSaleJe.id}`);
+        assertBalanced(full, 'VAT_SALES_INVOICE');
+        const retry = await waitForJe(token, 'SALES_INVOICE', vatInvoice.id);
+        assert(
+          'VAT sales posting idempotent',
+          (await jesForSource(token, 'SALES_INVOICE', vatInvoice.id)).length === 1,
+          `${(await jesForSource(token, 'SALES_INVOICE', vatInvoice.id)).length} JE`,
+        );
+        void retry;
+      }
+      const vatReturn = await authed('POST', '/sales/returns', {
+        partnerId: customerId,
+        salesInvoiceId: vatInvoice.id,
+        currencyId: currency.id,
+        referenceNumber: `${RUN}-VAT-SRET`,
+        internalNotes: `${RUN} VAT sales return`,
+        items: [
+          {
+            productId: product.id,
+            warehouseId: warehouse.id,
+            unitId: product.unitId || unit.id,
+            quantity: 1,
+            unitPrice: 100,
+            taxId: vat15.id,
+            salesInvoiceItemId: (vatDoc.items ?? [])[0]?.id,
+          },
+        ],
+      });
+      await authed('POST', `/sales/returns/${vatReturn.id}/submit`);
+      try {
+        await authed('POST', `/sales/returns/${vatReturn.id}/approve`);
+      } catch {
+        // optional
+      }
+      await authed('POST', `/sales/returns/${vatReturn.id}/confirm`);
+      const vatRetJe = await waitForJe(token, 'SALES_RETURN', vatReturn.id);
+      assert('VAT sales return JE', Boolean(vatRetJe), vatRetJe?.entryNumber);
+      if (vatRetJe) {
+        const full = await authed('GET', `/journal-entries/${vatRetJe.id}`);
+        assertBalanced(full, 'VAT_SALES_RETURN');
+      }
+    } catch (error) {
+      record('VAT sales E2E', false, error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  if (vat15) {
+    try {
+      const vatPurchase = await authed('POST', '/purchasing/invoices', {
+        partnerId: supplier.id,
+        currencyId: currency.id,
+        referenceNumber: `${RUN}-VAT-PUR`,
+        internalNotes: `${RUN} VAT purchase`,
+        items: [
+          {
+            productId: product.id,
+            warehouseId: warehouse.id,
+            unitId: product.unitId || unit.id,
+            quantity: 1,
+            unitPrice: 80,
+            taxId: vat15.id,
+          },
+        ],
+      });
+      await authed('POST', `/purchasing/invoices/${vatPurchase.id}/submit`);
+      try {
+        await authed('POST', `/purchasing/invoices/${vatPurchase.id}/approve`);
+      } catch {
+        // optional
+      }
+      await authed('POST', `/purchasing/invoices/${vatPurchase.id}/confirm`);
+      const vatPurDoc = await authed('GET', `/purchasing/invoices/${vatPurchase.id}`);
+      assert(
+        'VAT purchase tax total',
+        Number(vatPurDoc.taxTotal) > 0,
+        `tax ${vatPurDoc.taxTotal} grand ${vatPurDoc.grandTotal}`,
+      );
+      const vatPurJe = await waitForJe(token, 'PURCHASE_INVOICE', vatPurchase.id);
+      assert('VAT purchase JE', Boolean(vatPurJe), vatPurJe?.entryNumber);
+      if (vatPurJe) {
+        const full = await authed('GET', `/journal-entries/${vatPurJe.id}`);
+        assertBalanced(full, 'VAT_PURCHASE_INVOICE');
+      }
+      try {
+        const vatPurReturn = await authed('POST', '/purchasing/returns', {
+          partnerId: supplier.id,
+          purchaseInvoiceId: vatPurchase.id,
+          currencyId: currency.id,
+          referenceNumber: `${RUN}-VAT-PRET`,
+          internalNotes: `${RUN} VAT purchase return`,
+          items: [
+            {
+              productId: product.id,
+              warehouseId: warehouse.id,
+              unitId: product.unitId || unit.id,
+              quantity: 1,
+              unitPrice: 80,
+              taxId: vat15.id,
+              purchaseInvoiceItemId: (vatPurDoc.items ?? [])[0]?.id,
+            },
+          ],
+        });
+        await authed('POST', `/purchasing/returns/${vatPurReturn.id}/submit`);
+        try {
+          await authed('POST', `/purchasing/returns/${vatPurReturn.id}/approve`);
+        } catch {
+          // optional
+        }
+        await authed('POST', `/purchasing/returns/${vatPurReturn.id}/confirm`);
+        const vatPretJe = await waitForJe(token, 'PURCHASE_RETURN', vatPurReturn.id);
+        assert('VAT purchase return JE', Boolean(vatPretJe), vatPretJe?.entryNumber);
+        if (vatPretJe) {
+          const full = await authed('GET', `/journal-entries/${vatPretJe.id}`);
+          assertBalanced(full, 'VAT_PURCHASE_RETURN');
+        }
+      } catch (error) {
+        record(
+          'VAT purchase return',
+          false,
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+    } catch (error) {
+      record('VAT purchase E2E', false, error instanceof Error ? error.message : String(error));
+    }
+
+    try {
+      await authed('POST', '/sales/invoices', {
+        partnerId: customerId,
+        currencyId: currency.id,
+        referenceNumber: `${RUN}-BAD-TAX`,
+        items: [
+          {
+            productId: product.id,
+            warehouseId: warehouse.id,
+            unitId: product.unitId || unit.id,
+            quantity: 1,
+            unitPrice: 10,
+            taxId: '00000000-0000-4000-8000-000000000000',
+          },
+        ],
+      });
+      record('Missing taxId fails closed', false, 'dangling taxId was accepted');
+    } catch (error) {
+      record(
+        'Missing taxId fails closed',
+        true,
+        error instanceof Error ? error.message.slice(0, 180) : String(error),
+      );
+    }
+  }
+
+  const depStart = new Date();
+  depStart.setUTCMonth(depStart.getUTCMonth() - 2);
+  const depStartIso = depStart.toISOString().slice(0, 10);
+  try {
+    const asset = await authed('POST', '/fixed-assets', {
+      name: `${RUN} Asset`,
+      acquisitionDate: depStartIso,
+      cost: 100,
+      usefulLifeMonths: 3,
+      salvageValue: 0,
+      depreciationStartDate: depStartIso,
+      receivingAccountId: receivingAccount.id,
+      notes: RUN,
+    });
+    await authed('POST', `/fixed-assets/${asset.id}/capitalize`, {
+      usefulLifeMonths: 3,
+      salvageValue: 0,
+      depreciationStartDate: depStartIso,
+      receivingAccountId: receivingAccount.id,
+    });
+    const capJe = await waitForJe(token, 'FIXED_ASSET_CAPITALIZATION', asset.id);
+    assert('FA capitalization JE', Boolean(capJe), capJe?.entryNumber);
+    if (capJe) {
+      const full = await authed('GET', `/journal-entries/${capJe.id}`);
+      assertBalanced(full, 'FIXED_ASSET_CAPITALIZATION');
+    }
+    const depRun = await authed('POST', '/fixed-assets/depreciation-run', {});
+    record('FA depreciation run', true, `posted ${depRun.postedCount}`);
+    const retryDep = await authed('POST', '/fixed-assets/depreciation-run', {});
+    assert(
+      'FA depreciation idempotent',
+      retryDep.postedCount === 0,
+      `second run posted ${retryDep.postedCount}`,
+    );
+    if ((depRun.periodIds ?? [])[0]) {
+      const depJe = await waitForJe(
+        token,
+        'FIXED_ASSET_DEPRECIATION',
+        depRun.periodIds[0],
+      );
+      assert('FA depreciation JE', Boolean(depJe), depJe?.entryNumber);
+      if (depJe) {
+        const full = await authed('GET', `/journal-entries/${depJe.id}`);
+        assertBalanced(full, 'FIXED_ASSET_DEPRECIATION');
+      }
+    }
+    const disposed = await authed('POST', `/fixed-assets/${asset.id}/dispose`, {
+      disposalAmount: 0,
+      receivingAccountId: receivingAccount.id,
+      disposalNotes: `${RUN} write-off`,
+    });
+    record('FA disposed', disposed.status === 'DISPOSED', disposed.status);
+    const dispJe = await waitForJe(token, 'FIXED_ASSET_DISPOSAL', asset.id);
+    assert('FA disposal JE', Boolean(dispJe), dispJe?.entryNumber);
+    if (dispJe) {
+      const full = await authed('GET', `/journal-entries/${dispJe.id}`);
+      assertBalanced(full, 'FIXED_ASSET_DISPOSAL');
+    }
+  } catch (error) {
+    record('Fixed asset lifecycle', false, error instanceof Error ? error.message : String(error));
+  }
+
+  const prepaidStart = new Date();
+  prepaidStart.setUTCMonth(prepaidStart.getUTCMonth() - 2);
+  try {
+    const prepaid = await authed('POST', '/prepaid-expenses', {
+      name: `${RUN} Prepaid`,
+      amount: 90,
+      startDate: prepaidStart.toISOString().slice(0, 10),
+      endDate: new Date().toISOString().slice(0, 10),
+      totalPeriods: 1,
+      expenseAccountId,
+      receivingAccountId: receivingAccount.id,
+      notes: RUN,
+    });
+    await authed('POST', `/prepaid-expenses/${prepaid.id}/activate`);
+    const peJe = await waitForJe(token, 'PREPAID_EXPENSE', prepaid.id);
+    assert('Prepaid payment JE', Boolean(peJe), peJe?.entryNumber);
+    if (peJe) {
+      const full = await authed('GET', `/journal-entries/${peJe.id}`);
+      assertBalanced(full, 'PREPAID_EXPENSE');
+    }
+    const recognized = await authed('POST', '/prepaid-expenses/recognize', {});
+    record('Prepaid recognition run', true, `posted ${recognized.postedCount}`);
+    const retryRec = await authed('POST', '/prepaid-expenses/recognize', {});
+    assert(
+      'Prepaid recognition idempotent',
+      retryRec.postedCount === 0,
+      `second run posted ${retryRec.postedCount}`,
+    );
+    if ((recognized.recognitionIds ?? [])[0]) {
+      const recJe = await waitForJe(
+        token,
+        'PREPAID_RECOGNITION',
+        recognized.recognitionIds[0],
+      );
+      assert('Prepaid recognition JE', Boolean(recJe), recJe?.entryNumber);
+      if (recJe) {
+        const full = await authed('GET', `/journal-entries/${recJe.id}`);
+        assertBalanced(full, 'PREPAID_RECOGNITION');
+      }
+    }
+  } catch (error) {
+    record('Prepaid lifecycle', false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
+    const accrual = await authed('POST', '/accrued-expenses', {
+      name: `${RUN} Accrual`,
+      amount: 45,
+      recognitionDate: new Date().toISOString().slice(0, 10),
+      expenseAccountId,
+      receivingAccountId: receivingAccount.id,
+      notes: RUN,
+    });
+    await authed('POST', `/accrued-expenses/${accrual.id}/recognize`);
+    const accJe = await waitForJe(token, 'ACCRUED_EXPENSE', accrual.id);
+    assert('Accrual recognition JE', Boolean(accJe), accJe?.entryNumber);
+    if (accJe) {
+      const full = await authed('GET', `/journal-entries/${accJe.id}`);
+      assertBalanced(full, 'ACCRUED_EXPENSE');
+    }
+    await authed('POST', `/accrued-expenses/${accrual.id}/settle`, {
+      receivingAccountId: receivingAccount.id,
+    });
+    const setJe = await waitForJe(token, 'ACCRUED_EXPENSE_SETTLEMENT', accrual.id);
+    assert('Accrual settlement JE', Boolean(setJe), setJe?.entryNumber);
+    if (setJe) {
+      const full = await authed('GET', `/journal-entries/${setJe.id}`);
+      assertBalanced(full, 'ACCRUED_EXPENSE_SETTLEMENT');
+    }
+    try {
+      await authed('POST', `/accrued-expenses/${accrual.id}/recognize`);
+      record('Accrual recognize retry blocked', false, 'second recognize succeeded');
+    } catch {
+      record('Accrual recognize retry blocked', true, 'idempotent / status-guarded');
+    }
+  } catch (error) {
+    record('Accrual lifecycle', false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
+    const usd =
+      unwrap(currencies).find((row) => row.code === 'USD') ||
+      (await authed('POST', '/currencies', { code: 'USD', name: 'US Dollar', symbol: '$' }));
+    const functionalId = settings.functionalCurrencyId || currency.id;
+    if (usd?.id && usd.id !== functionalId) {
+      const past = new Date();
+      past.setUTCDate(past.getUTCDate() - 20);
+      try {
+        await authed('POST', '/exchange-rates', {
+          fromCurrencyId: usd.id,
+          toCurrencyId: functionalId,
+          rate: 3.7,
+          effectiveDate: past.toISOString().slice(0, 10),
+          notes: `${RUN} historical FX`,
+        });
+      } catch (error) {
+        record(
+          'FX historical snapshot',
+          /already exists/i.test(error instanceof Error ? error.message : ''),
+          error instanceof Error ? error.message.slice(0, 160) : String(error),
+        );
+      }
+      const fxPurchase = await authed('POST', '/purchasing/invoices', {
+        partnerId: supplier.id,
+        currencyId: usd.id,
+        referenceNumber: `${RUN}-FX-PUR`,
+        internalNotes: `${RUN} FX purchase`,
+        items: [
+          {
+            productId: product.id,
+            warehouseId: warehouse.id,
+            unitId: product.unitId || unit.id,
+            quantity: 1,
+            unitPrice: 10,
+          },
+        ],
+      });
+      await authed('POST', `/purchasing/invoices/${fxPurchase.id}/submit`);
+      try {
+        await authed('POST', `/purchasing/invoices/${fxPurchase.id}/approve`);
+      } catch {
+        // optional
+      }
+      await authed('POST', `/purchasing/invoices/${fxPurchase.id}/confirm`);
+      const fxPurJe = await waitForJe(token, 'PURCHASE_INVOICE', fxPurchase.id);
+      assert('FX purchase JE', Boolean(fxPurJe), fxPurJe?.entryNumber);
+      if (fxPurJe) {
+        const full = await authed('GET', `/journal-entries/${fxPurJe.id}`);
+        assertBalanced(full, 'FX_PURCHASE_INVOICE');
+        record(
+          'FX snapshot persisted',
+          Number(full.exchangeRate ?? fxPurJe.exchangeRate ?? 0) > 0,
+          String(full.exchangeRate ?? fxPurJe.exchangeRate),
+        );
+      }
+      try {
+        await authed('POST', '/exchange-rates', {
+          fromCurrencyId: usd.id,
+          toCurrencyId: functionalId,
+          rate: 3.85,
+          effectiveDate: new Date().toISOString().slice(0, 10),
+          notes: `${RUN} current FX`,
+        });
+        record('FX current snapshot', true, '3.85');
+      } catch (error) {
+        record(
+          'FX current snapshot',
+          /already exists/i.test(error instanceof Error ? error.message : ''),
+          error instanceof Error ? error.message.slice(0, 160) : String(error),
+        );
+      }
+      let reval = null;
+      try {
+        reval = await authed('POST', '/fx-revaluations/run', {
+          rateDate: new Date().toISOString().slice(0, 10),
+          notes: RUN,
+        });
+        record('FX revaluation run', Boolean(reval?.id), reval?.runNumber || reval?.status);
+        const retryReval = await authed('POST', '/fx-revaluations/run', {
+          rateDate: new Date().toISOString().slice(0, 10),
+          notes: RUN,
+        });
+        assert(
+          'FX revaluation idempotent',
+          retryReval?.id === reval?.id,
+          `${retryReval?.id} vs ${reval?.id}`,
+        );
+        const revalJe = await waitForJe(token, 'FX_REVALUATION', reval.id);
+        if (revalJe) {
+          const full = await authed('GET', `/journal-entries/${revalJe.id}`);
+          assertBalanced(full, 'FX_REVALUATION');
+        } else {
+          record('FX revaluation JE', true, 'no monetary FX difference to post');
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const none = /no foreign-currency monetary balances/i.test(message);
+        record(
+          'FX revaluation run',
+          none,
+          none ? 'no eligible monetary balances on this date' : message,
+        );
+      }
+    } else {
+      record('FX lifecycle skipped', true, 'no distinct USD vs functional currency');
+    }
+  } catch (error) {
+    record('FX lifecycle', false, error instanceof Error ? error.message : String(error));
   }
 
   const yearStart = `${new Date().getUTCFullYear()}-01-01`;

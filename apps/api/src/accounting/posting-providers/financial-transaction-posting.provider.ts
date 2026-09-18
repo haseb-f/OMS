@@ -3,6 +3,8 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PostingEngineService } from '../posting-engine/posting-engine.service';
 import { AccountMappingService } from '../account-mapping/account-mapping.service';
+import { ExchangeRatesService } from '../fx/exchange-rates.service';
+import { snapshotDocumentExchangeRate } from '../fx/snapshot-document-rate';
 import type {
   PostingProvider,
   PostingResult,
@@ -41,6 +43,7 @@ export class FinancialTransactionPostingProvider
     private readonly prisma: PrismaService,
     private readonly postingEngine: PostingEngineService,
     private readonly accountMapping: AccountMappingService,
+    private readonly exchangeRates: ExchangeRatesService,
   ) {}
 
   onModuleInit() {
@@ -57,8 +60,30 @@ export class FinancialTransactionPostingProvider
       include: {
         partner: { select: { id: true } },
         receivingAccount: { select: { chartOfAccountId: true } },
+        allocations: {
+          include: {
+            salesInvoice: {
+              select: { id: true, exchangeRate: true, currencyId: true },
+            },
+            purchaseInvoice: {
+              select: { id: true, exchangeRate: true, currencyId: true },
+            },
+          },
+        },
       },
     });
+    const payRate = await snapshotDocumentExchangeRate(
+      this.exchangeRates,
+      tx,
+      (rate) =>
+        tx.financialTransaction.update({
+          where: { id: transaction.id },
+          data: { exchangeRate: rate },
+        }),
+      transaction.currencyId,
+      transaction.exchangeRate,
+      transaction.confirmedAt ?? transaction.transactionDate,
+    );
     if (sourceType === 'EXPENSE_PAYMENT') {
       const amount = Number(transaction.amount);
       if (amount === 0) return null;
@@ -88,10 +113,12 @@ export class FinancialTransactionPostingProvider
         description: `Expense Payment Voucher ${transaction.transactionNumber}`,
         referenceNumber: transaction.transactionNumber,
         currencyId: transaction.currencyId,
+        exchangeRate: payRate,
         companyId: transaction.companyId,
         branchId: transaction.branchId,
         costCenterId: transaction.costCenterId,
         projectId: transaction.projectId,
+        entryDate: transaction.confirmedAt ?? transaction.transactionDate,
       };
     }
     const amount = Number(transaction.amount);
@@ -118,20 +145,29 @@ export class FinancialTransactionPostingProvider
       // the bank account; the difference debits `feeAccountId` (a Bank
       // Fees/Adjustment expense), never inflating the cash receipt.
       const feeAmount = Number(transaction.feeAmount ?? 0);
+      const cashFunctional = this.round2(amount * payRate);
+      const feeFunctional = this.round2(feeAmount * payRate);
+      const arFunctional = this.clearedFunctional(
+        transaction.allocations,
+        'sales',
+        amount,
+        payRate,
+      );
+      const fx = this.round2(cashFunctional - arFunctional);
       const lines = [
         {
           accountId: bankAccountId,
-          debit: amount,
+          debit: cashFunctional,
           description: `Customer Receipt Voucher ${transaction.transactionNumber}`,
         },
         {
           accountId: arAccountId,
-          credit: amount + feeAmount,
+          credit: this.round2(arFunctional + feeFunctional),
           description: `Customer Receipt Voucher ${transaction.transactionNumber}`,
           partnerId: transaction.partner!.id,
         },
       ];
-      if (feeAmount > 0) {
+      if (feeFunctional > 0) {
         if (!transaction.feeAccountId) {
           throw new BadRequestException(
             `Select a Bank Fee account before confirming ${transaction.transactionNumber} — a settlement fee was recorded but no fee account is set.`,
@@ -139,10 +175,16 @@ export class FinancialTransactionPostingProvider
         }
         lines.push({
           accountId: transaction.feeAccountId,
-          debit: feeAmount,
+          debit: feeFunctional,
           description: `Bank Fee — Customer Receipt Voucher ${transaction.transactionNumber}`,
         });
       }
+      await this.pushRealizedFx(
+        lines,
+        fx,
+        `Customer Receipt Voucher ${transaction.transactionNumber}`,
+        tx,
+      );
       return {
         lines,
         description: `Customer Receipt Voucher ${transaction.transactionNumber}`,
@@ -152,6 +194,7 @@ export class FinancialTransactionPostingProvider
         branchId: transaction.branchId,
         costCenterId: transaction.costCenterId,
         projectId: transaction.projectId,
+        entryDate: transaction.confirmedAt ?? transaction.transactionDate,
       };
     }
 
@@ -159,20 +202,35 @@ export class FinancialTransactionPostingProvider
       transaction.partner!.id,
       tx,
     );
+    const cashFunctional = this.round2(amount * payRate);
+    const apFunctional = this.clearedFunctional(
+      transaction.allocations,
+      'purchase',
+      amount,
+      payRate,
+    );
+    const fx = this.round2(apFunctional - cashFunctional);
+    const lines = [
+      {
+        accountId: apAccountId,
+        debit: apFunctional,
+        description: `Supplier Payment Voucher ${transaction.transactionNumber}`,
+        partnerId: transaction.partner!.id,
+      },
+      {
+        accountId: bankAccountId,
+        credit: cashFunctional,
+        description: `Supplier Payment Voucher ${transaction.transactionNumber}`,
+      },
+    ];
+    await this.pushRealizedFx(
+      lines,
+      fx,
+      `Supplier Payment Voucher ${transaction.transactionNumber}`,
+      tx,
+    );
     return {
-      lines: [
-        {
-          accountId: apAccountId,
-          debit: amount,
-          description: `Supplier Payment Voucher ${transaction.transactionNumber}`,
-          partnerId: transaction.partner!.id,
-        },
-        {
-          accountId: bankAccountId,
-          credit: amount,
-          description: `Supplier Payment Voucher ${transaction.transactionNumber}`,
-        },
-      ],
+      lines,
       description: `Supplier Payment Voucher ${transaction.transactionNumber}`,
       referenceNumber: transaction.transactionNumber,
       currencyId: transaction.currencyId,
@@ -180,6 +238,70 @@ export class FinancialTransactionPostingProvider
       branchId: transaction.branchId,
       costCenterId: transaction.costCenterId,
       projectId: transaction.projectId,
+      entryDate: transaction.confirmedAt ?? transaction.transactionDate,
     };
+  }
+
+  private round2(value: number) {
+    return Math.round(value * 100) / 100;
+  }
+
+  private clearedFunctional(
+    allocations: Array<{
+      allocatedAmount: unknown;
+      salesInvoice: { exchangeRate: unknown } | null;
+      purchaseInvoice: { exchangeRate: unknown } | null;
+    }>,
+    side: 'sales' | 'purchase',
+    transactionAmount: number,
+    payRate: number,
+  ) {
+    if (allocations.length === 0) {
+      return this.round2(transactionAmount * payRate);
+    }
+    let functional = 0;
+    let allocatedTx = 0;
+    for (const allocation of allocations) {
+      const invoice =
+        side === 'sales' ? allocation.salesInvoice : allocation.purchaseInvoice;
+      const invRate =
+        invoice?.exchangeRate != null ? Number(invoice.exchangeRate) : payRate;
+      const allocated = Number(allocation.allocatedAmount);
+      functional += this.round2(allocated * invRate);
+      allocatedTx += allocated;
+    }
+    const remainder = this.round2(transactionAmount - allocatedTx);
+    if (remainder > 0) functional += this.round2(remainder * payRate);
+    return this.round2(functional);
+  }
+
+  private async pushRealizedFx(
+    lines: Array<{
+      accountId: string;
+      debit?: number;
+      credit?: number;
+      description?: string;
+      partnerId?: string;
+    }>,
+    fx: number,
+    description: string,
+    tx: Prisma.TransactionClient,
+  ) {
+    if (Math.abs(fx) < 0.01) return;
+    const accountId =
+      await this.accountMapping.resolveExchangeDifferenceAccount(tx);
+    if (fx > 0) {
+      lines.push({
+        accountId,
+        credit: fx,
+        description: `Realized FX — ${description}`,
+      });
+    } else {
+      lines.push({
+        accountId,
+        debit: Math.abs(fx),
+        description: `Realized FX — ${description}`,
+      });
+    }
   }
 }

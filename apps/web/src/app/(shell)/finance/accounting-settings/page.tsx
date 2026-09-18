@@ -131,6 +131,25 @@ const SECTIONS: SectionConfig[] = [
     ],
   },
   {
+    titleKey: "accounting.settings.sections.assets",
+    fields: [
+      { key: "fixedAssetsAccountId", labelKey: "accounting.settings.fields.fixedAssets" },
+      {
+        key: "accumDepreciationAccountId",
+        labelKey: "accounting.settings.fields.accumDepreciation",
+      },
+      {
+        key: "depreciationExpenseAccountId",
+        labelKey: "accounting.settings.fields.depreciationExpense",
+      },
+      { key: "prepaymentsAccountId", labelKey: "accounting.settings.fields.prepayments" },
+      { key: "accruedExpensesAccountId", labelKey: "accounting.settings.fields.accruedExpenses" },
+      { key: "otherIncomeAccountId", labelKey: "accounting.settings.fields.otherIncome" },
+      { key: "otherExpenseAccountId", labelKey: "accounting.settings.fields.otherExpense" },
+      { key: "unrealizedFxAccountId", labelKey: "accounting.settings.fields.unrealizedFx" },
+    ],
+  },
+  {
     titleKey: "accounting.settings.sections.tax",
     fields: [
       {

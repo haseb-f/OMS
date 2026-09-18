@@ -11,6 +11,11 @@ import {
 import { FixedAssetsService } from './fixed-assets.service';
 import { CreateFixedAssetDto } from './dto/create-fixed-asset.dto';
 import { UpdateFixedAssetDto } from './dto/update-fixed-asset.dto';
+import {
+  CapitalizeFixedAssetDto,
+  DisposeFixedAssetDto,
+  RunDepreciationDto,
+} from './dto/lifecycle.dto';
 import { MasterDataQueryDto } from '../master-data/dto/master-data-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -22,7 +27,6 @@ import {
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 
-/** Fixed Assets — Create, Update, Archive, Restore, Search (same shape as Cost Centers/Expenses). */
 @Controller('fixed-assets')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @PermissionModule('fixed-assets')
@@ -32,6 +36,15 @@ export class FixedAssetsController {
   @Post()
   create(@Body() dto: CreateFixedAssetDto, @CurrentUser() user: JwtPayload) {
     return this.fixedAssetsService.create(dto, user.sub);
+  }
+
+  @Post('depreciation-run')
+  @PermissionAction('edit')
+  runDepreciation(
+    @Body() dto: RunDepreciationDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.fixedAssetsService.runDepreciation(dto, user.sub);
   }
 
   @Get()
@@ -57,6 +70,26 @@ export class FixedAssetsController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.fixedAssetsService.update(id, dto, user.sub);
+  }
+
+  @Post(':id/capitalize')
+  @PermissionAction('edit')
+  capitalize(
+    @Param('id') id: string,
+    @Body() dto: CapitalizeFixedAssetDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.fixedAssetsService.capitalize(id, dto, user.sub);
+  }
+
+  @Post(':id/dispose')
+  @PermissionAction('edit')
+  dispose(
+    @Param('id') id: string,
+    @Body() dto: DisposeFixedAssetDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.fixedAssetsService.dispose(id, dto, user.sub);
   }
 
   @Post(':id/archive')

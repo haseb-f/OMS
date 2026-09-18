@@ -12,6 +12,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
 import { ProductsService } from '../../products/products.service';
 import { PartnersService } from '../../partners/partners.service';
+import { resolveTaxesById } from '../../taxes/document-tax';
 import {
   PurchaseQuotationActivityService,
   PurchaseQuotationActivityType,
@@ -336,24 +337,22 @@ export class PurchaseQuotationsService {
 
   /** Resolves each line's tax rate, computes per-line + document totals — shared math, see sales/shared/sales-totals.util.ts. */
   private async computeLines(items: PurchaseLineItemInputDto[]) {
-    const taxIds = [
-      ...new Set(items.map((i) => i.taxId).filter((id): id is string => !!id)),
-    ];
-    const taxes =
-      taxIds.length > 0
-        ? await this.prisma.tax.findMany({ where: { id: { in: taxIds } } })
-        : [];
-    const taxRateById = new Map(taxes.map((t) => [t.id, Number(t.rate)]));
+    const taxById = await resolveTaxesById(
+      this.prisma,
+      items.map((i) => i.taxId),
+    );
 
-    const computedLines = items.map((item) =>
-      computeSalesLine({
+    const computedLines = items.map((item) => {
+      const tax = item.taxId ? taxById.get(item.taxId) : undefined;
+      return computeSalesLine({
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         discountPercent: item.discountPercent,
         discountValue: item.discountValue,
-        taxRatePercent: item.taxId ? taxRateById.get(item.taxId) : undefined,
-      }),
-    );
+        taxRatePercent: tax?.rate,
+        taxInclusive: tax?.inclusive,
+      });
+    });
 
     const lines = items.map((item, index) => ({
       productId: item.productId,

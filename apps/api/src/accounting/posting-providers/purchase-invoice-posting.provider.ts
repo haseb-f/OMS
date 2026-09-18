@@ -4,6 +4,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { PostingEngineService } from '../posting-engine/posting-engine.service';
 import { InventoryValuationService } from '../inventory-valuation/inventory-valuation.service';
 import { AccountMappingService } from '../account-mapping/account-mapping.service';
+import { ExchangeRatesService } from '../fx/exchange-rates.service';
+import { snapshotDocumentExchangeRate } from '../fx/snapshot-document-rate';
 import type {
   PostingLine,
   PostingProvider,
@@ -36,6 +38,7 @@ export class PurchaseInvoicePostingProvider
     private readonly postingEngine: PostingEngineService,
     private readonly inventoryValuation: InventoryValuationService,
     private readonly accountMapping: AccountMappingService,
+    private readonly exchangeRates: ExchangeRatesService,
   ) {}
 
   onModuleInit() {
@@ -61,6 +64,18 @@ export class PurchaseInvoicePostingProvider
       },
     });
     if (Number(invoice.grandTotal) === 0) return null;
+    const exchangeRate = await snapshotDocumentExchangeRate(
+      this.exchangeRates,
+      tx,
+      (rate) =>
+        tx.purchaseInvoice.update({
+          where: { id: invoice.id },
+          data: { exchangeRate: rate },
+        }),
+      invoice.currencyId,
+      invoice.exchangeRate,
+      invoice.confirmedAt ?? invoice.createdAt,
+    );
 
     const lines: PostingLine[] = [];
     const debitByAccount = new Map<string, number>();
@@ -144,10 +159,12 @@ export class PurchaseInvoicePostingProvider
       description: `Purchase Invoice ${invoice.invoiceNumber}`,
       referenceNumber: invoice.invoiceNumber,
       currencyId: invoice.currencyId,
+      exchangeRate,
       companyId: invoice.companyId,
       branchId: invoice.branchId,
       costCenterId: invoice.costCenterId,
       projectId: invoice.projectId,
+      entryDate: invoice.confirmedAt ?? invoice.createdAt,
     };
   }
 }

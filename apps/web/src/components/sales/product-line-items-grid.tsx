@@ -164,6 +164,10 @@ export function ProductLineItemsGrid({
     () => new Map(taxes.map((tax) => [tax.id, Number(tax.rate)])),
     [taxes],
   );
+  const taxInclusiveById = useMemo(
+    () => new Map(taxes.map((tax) => [tax.id, Boolean(tax.inclusive)])),
+    [taxes],
+  );
 
   const focusCell = (rowIndex: number, colIndex: number) => {
     const root = containerRef.current;
@@ -279,6 +283,7 @@ export function ProductLineItemsGrid({
               unitPrice: line.unitPrice,
               discountPercent: showDiscount ? line.discountPercent : 0,
               taxRatePercent: showTax && line.taxId ? taxRateById.get(line.taxId) : undefined,
+              taxInclusive: showTax && line.taxId ? taxInclusiveById.get(line.taxId) : undefined,
             });
             const quantityInvalid = line.product !== null && line.quantity <= 0;
             const warehouseInvalid = requireWarehouse && line.product !== null && !line.warehouse;

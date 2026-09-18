@@ -4,6 +4,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { PostingEngineService } from '../posting-engine/posting-engine.service';
 import { InventoryValuationService } from '../inventory-valuation/inventory-valuation.service';
 import { AccountMappingService } from '../account-mapping/account-mapping.service';
+import { ExchangeRatesService } from '../fx/exchange-rates.service';
+import { snapshotDocumentExchangeRate } from '../fx/snapshot-document-rate';
 import type {
   PostingLine,
   PostingProvider,
@@ -35,6 +37,7 @@ export class SalesReturnPostingProvider
     private readonly postingEngine: PostingEngineService,
     private readonly inventoryValuation: InventoryValuationService,
     private readonly accountMapping: AccountMappingService,
+    private readonly exchangeRates: ExchangeRatesService,
   ) {}
 
   onModuleInit() {
@@ -65,6 +68,18 @@ export class SalesReturnPostingProvider
       },
     });
     if (Number(salesReturn.grandTotal) === 0) return null;
+    const exchangeRate = await snapshotDocumentExchangeRate(
+      this.exchangeRates,
+      tx,
+      (rate) =>
+        tx.salesReturn.update({
+          where: { id: salesReturn.id },
+          data: { exchangeRate: rate },
+        }),
+      salesReturn.currencyId,
+      salesReturn.exchangeRate,
+      salesReturn.confirmedAt ?? salesReturn.createdAt,
+    );
 
     const lines: PostingLine[] = [];
 
@@ -197,10 +212,12 @@ export class SalesReturnPostingProvider
       description: `Sales Return ${salesReturn.returnNumber}`,
       referenceNumber: salesReturn.returnNumber,
       currencyId: salesReturn.currencyId,
+      exchangeRate,
       companyId: salesReturn.companyId,
       branchId: salesReturn.branchId,
       costCenterId: salesReturn.costCenterId,
       projectId: salesReturn.projectId,
+      entryDate: salesReturn.confirmedAt ?? salesReturn.createdAt,
     };
   }
 }

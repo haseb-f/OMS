@@ -17,6 +17,7 @@ import { WarehousesService } from '../../warehouses/warehouses.service';
 import { PartnersService } from '../../partners/partners.service';
 import { InventoryService } from '../../inventory/inventory.service';
 import { PostingEngineService } from '../../accounting/posting-engine/posting-engine.service';
+import { resolveTaxesById } from '../../taxes/document-tax';
 import {
   SalesInvoiceActivityService,
   SalesInvoiceActivityType,
@@ -691,24 +692,22 @@ export class SalesInvoicesService {
   private async computeLines(
     items: SalesLineItemInputDto[],
   ): Promise<ComputedInvoiceLines> {
-    const taxIds = [
-      ...new Set(items.map((i) => i.taxId).filter((id): id is string => !!id)),
-    ];
-    const taxes =
-      taxIds.length > 0
-        ? await this.prisma.tax.findMany({ where: { id: { in: taxIds } } })
-        : [];
-    const taxRateById = new Map(taxes.map((t) => [t.id, Number(t.rate)]));
+    const taxById = await resolveTaxesById(
+      this.prisma,
+      items.map((i) => i.taxId),
+    );
 
-    const computedLines = items.map((item) =>
-      computeSalesLine({
+    const computedLines = items.map((item) => {
+      const tax = item.taxId ? taxById.get(item.taxId) : undefined;
+      return computeSalesLine({
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         discountPercent: item.discountPercent,
         discountValue: item.discountValue,
-        taxRatePercent: item.taxId ? taxRateById.get(item.taxId) : undefined,
-      }),
-    );
+        taxRatePercent: tax?.rate,
+        taxInclusive: tax?.inclusive,
+      });
+    });
 
     const lines: Prisma.SalesInvoiceItemUncheckedCreateWithoutSalesInvoiceInput[] =
       items.map((item, index) => ({

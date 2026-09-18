@@ -13,6 +13,7 @@ import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import { PostingEngineService } from '../accounting/posting-engine/posting-engine.service';
 import { CostComponentsService } from '../cost-components/cost-components.service';
 import { computeSalesLine, round2 } from '../sales/shared/sales-totals.util';
+import { resolveTaxesById } from '../taxes/document-tax';
 import { allocateProportionally } from './landed-cost-allocation.util';
 import { CreateLandedCostDocumentDto } from './dto/create-landed-cost-document.dto';
 import { UpdateLandedCostDocumentDto } from './dto/update-landed-cost-document.dto';
@@ -77,28 +78,26 @@ export class LandedCostDocumentsService {
       );
     }
 
+    const taxById = await resolveTaxesById(
+      this.prisma,
+      dto.lines.map((line) => line.taxId),
+    );
     const lineInputs = await Promise.all(
       dto.lines.map(async (line) => {
         await this.costComponents.assertCapitalizable(line.costComponentId);
-        const taxRatePercent = line.taxId
-          ? Number(
-              (
-                await this.prisma.tax.findFirst({
-                  where: { id: line.taxId },
-                  select: { rate: true },
-                })
-              )?.rate ?? 0,
-            )
-          : 0;
+        const tax = line.taxId ? taxById.get(line.taxId) : undefined;
         const computed = computeSalesLine({
           quantity: 1,
           unitPrice: line.netAmount,
-          taxRatePercent,
+          taxRatePercent: tax?.rate,
+          taxInclusive: tax?.inclusive,
         });
         return {
           costComponentId: line.costComponentId,
           description: line.description,
-          netAmount: computed.lineSubtotal,
+          netAmount: tax?.inclusive
+            ? round2(computed.lineTotal - computed.taxAmount)
+            : computed.lineSubtotal,
           taxId: line.taxId,
           taxAmount: computed.taxAmount,
         };
@@ -173,29 +172,29 @@ export class LandedCostDocumentsService {
 
     let netTotal = Number(existing.netTotal);
     let taxTotal = Number(existing.taxTotal);
+    const taxById = dto.lines
+      ? await resolveTaxesById(
+          this.prisma,
+          dto.lines.map((line) => line.taxId),
+        )
+      : null;
     const lineInputs = dto.lines
       ? await Promise.all(
           dto.lines.map(async (line) => {
             await this.costComponents.assertCapitalizable(line.costComponentId);
-            const taxRatePercent = line.taxId
-              ? Number(
-                  (
-                    await this.prisma.tax.findFirst({
-                      where: { id: line.taxId },
-                      select: { rate: true },
-                    })
-                  )?.rate ?? 0,
-                )
-              : 0;
+            const tax = line.taxId ? taxById?.get(line.taxId) : undefined;
             const computed = computeSalesLine({
               quantity: 1,
               unitPrice: line.netAmount,
-              taxRatePercent,
+              taxRatePercent: tax?.rate,
+              taxInclusive: tax?.inclusive,
             });
             return {
               costComponentId: line.costComponentId,
               description: line.description,
-              netAmount: computed.lineSubtotal,
+              netAmount: tax?.inclusive
+                ? round2(computed.lineTotal - computed.taxAmount)
+                : computed.lineSubtotal,
               taxId: line.taxId,
               taxAmount: computed.taxAmount,
             };

@@ -42,6 +42,9 @@ describe('SalesReturnPostingProvider.buildEntries — valuation pool restoration
       returnNumber: 'SR-0001',
       grandTotal: 600,
       currencyId: 'currency-1',
+      exchangeRate: 1,
+      confirmedAt: new Date('2026-09-01'),
+      createdAt: new Date('2026-09-01'),
       companyId: null,
       branchId: null,
       costCenterId: null,
@@ -52,6 +55,7 @@ describe('SalesReturnPostingProvider.buildEntries — valuation pool restoration
     const tx = {
       salesReturn: {
         findUniqueOrThrow: jest.fn().mockResolvedValue(salesReturnRow),
+        update: jest.fn(),
       },
     };
     const postingEngine = { registerProvider: jest.fn() };
@@ -65,9 +69,13 @@ describe('SalesReturnPostingProvider.buildEntries — valuation pool restoration
       resolveSalesRevenueAccount: jest
         .fn()
         .mockResolvedValue('account-revenue'),
+      resolveSalesReturnAccount: jest.fn().mockResolvedValue('account-return'),
       resolveVatOutputAccount: jest.fn().mockResolvedValue('account-vat'),
       resolveCogsAccount: jest.fn().mockResolvedValue('account-cogs'),
       resolveInventoryAccount: jest.fn().mockResolvedValue('account-inventory'),
+    };
+    const exchangeRates = {
+      snapshotRate: jest.fn().mockResolvedValue(1),
     };
 
     const provider = new SalesReturnPostingProvider(
@@ -75,6 +83,7 @@ describe('SalesReturnPostingProvider.buildEntries — valuation pool restoration
       postingEngine as never,
       inventoryValuation as never,
       accountMapping as never,
+      exchangeRates as never,
     );
 
     return { provider, tx, inventoryValuation };

@@ -74,6 +74,9 @@ import { PostingSettingsModule } from './accounting/posting-settings/posting-set
 import { AccountingReportsModule } from './accounting/reports/accounting-reports.module';
 import { FiscalPeriodsModule } from './accounting/fiscal-periods/fiscal-periods.module';
 import { AccountingFoundationModule } from './accounting/foundation/accounting-foundation.module';
+import { FxModule } from './accounting/fx/fx.module';
+import { PrepaidExpensesModule } from './prepaid-expenses/prepaid-expenses.module';
+import { AccruedExpensesModule } from './accrued-expenses/accrued-expenses.module';
 import { JournalsModule } from './journals/journals.module';
 import { OpeningBalancesModule } from './accounting/opening-balances/opening-balances.module';
 import { YearClosingModule } from './accounting/year-closing/year-closing.module';
@@ -179,6 +182,9 @@ import { InvestorPortalModule } from './investor-portal/investor-portal.module';
     AccountingReportsModule,
     FiscalPeriodsModule,
     AccountingFoundationModule,
+    FxModule,
+    PrepaidExpensesModule,
+    AccruedExpensesModule,
     JournalsModule,
     OpeningBalancesModule,
     YearClosingModule,

@@ -72,6 +72,22 @@ export interface AccountingSettingsRow {
   fulfillmentExpenseAccount: AccountRef | null;
   accruedFulfillmentAccountId: string | null;
   accruedFulfillmentAccount: AccountRef | null;
+  fixedAssetsAccountId: string | null;
+  fixedAssetsAccount: AccountRef | null;
+  accumDepreciationAccountId: string | null;
+  accumDepreciationAccount: AccountRef | null;
+  depreciationExpenseAccountId: string | null;
+  depreciationExpenseAccount: AccountRef | null;
+  prepaymentsAccountId: string | null;
+  prepaymentsAccount: AccountRef | null;
+  accruedExpensesAccountId: string | null;
+  accruedExpensesAccount: AccountRef | null;
+  unrealizedFxAccountId: string | null;
+  unrealizedFxAccount: AccountRef | null;
+  otherIncomeAccountId: string | null;
+  otherIncomeAccount: AccountRef | null;
+  otherExpenseAccountId: string | null;
+  otherExpenseAccount: AccountRef | null;
 }
 
 export type AccountingSettingsField = Extract<keyof AccountingSettingsRow, `${string}Id`>;

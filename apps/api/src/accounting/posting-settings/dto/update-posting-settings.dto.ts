@@ -108,4 +108,31 @@ export class UpdatePostingSettingsDto {
 
   @IsOptionalUuid()
   accruedFulfillmentAccountId?: string;
+
+  @IsOptionalUuid()
+  fixedAssetsAccountId?: string;
+
+  @IsOptionalUuid()
+  accumDepreciationAccountId?: string;
+
+  @IsOptionalUuid()
+  depreciationExpenseAccountId?: string;
+
+  @IsOptionalUuid()
+  prepaymentsAccountId?: string;
+
+  @IsOptionalUuid()
+  accruedExpensesAccountId?: string;
+
+  @IsOptionalUuid()
+  unrealizedFxAccountId?: string;
+
+  @IsOptionalUuid()
+  otherIncomeAccountId?: string;
+
+  @IsOptionalUuid()
+  otherExpenseAccountId?: string;
+
+  @IsOptionalUuid()
+  functionalCurrencyId?: string;
 }

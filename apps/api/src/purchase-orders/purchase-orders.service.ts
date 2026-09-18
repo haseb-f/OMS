@@ -24,6 +24,7 @@ import { ConvertPurchaseOrderToInvoiceDto } from './dto/convert-purchase-order-t
 import { PurchaseInvoicesService } from '../purchasing/invoices/purchase-invoices.service';
 import { buildDateRangeFilter } from '../sales/shared/sales-list-query.util';
 import { round2 } from '../sales/shared/sales-totals.util';
+import { resolveTaxesById } from '../taxes/document-tax';
 import { PurchaseOrderItemInputDto } from './dto/purchase-order-item-input.dto';
 import type { CompanyContext } from '../common/decorators/current-company-context.decorator';
 import { assertActiveProduct } from '../products/assert-active-product.util';
@@ -166,18 +167,16 @@ export class PurchaseOrdersService {
    * 2.5+ — "Tax can also be left empty").
    */
   private async computeItems(items: PurchaseOrderItemInputDto[]) {
-    const taxIds = [
-      ...new Set(items.map((i) => i.taxId).filter((id): id is string => !!id)),
-    ];
-    const taxes =
-      taxIds.length > 0
-        ? await this.prisma.tax.findMany({ where: { id: { in: taxIds } } })
-        : [];
-    const taxRateById = new Map(taxes.map((t) => [t.id, Number(t.rate)]));
+    const taxById = await resolveTaxesById(
+      this.prisma,
+      items.map((i) => i.taxId),
+    );
 
     return items.map((item) => {
-      const ratePercent = item.taxId ? (taxRateById.get(item.taxId) ?? 0) : 0;
-      const taxAmount = round2(item.subtotal * (ratePercent / 100));
+      const tax = item.taxId ? taxById.get(item.taxId) : undefined;
+      const taxAmount = tax?.inclusive
+        ? round2(item.subtotal * ((tax.rate ?? 0) / (100 + (tax.rate ?? 0))))
+        : round2(item.subtotal * ((tax?.rate ?? 0) / 100));
       return {
         productId: item.productId,
         description: item.description,
@@ -189,7 +188,9 @@ export class PurchaseOrdersService {
         subtotal: item.subtotal,
         taxId: item.taxId,
         taxAmount,
-        lineTotal: round2(item.subtotal + taxAmount),
+        lineTotal: tax?.inclusive
+          ? item.subtotal
+          : round2(item.subtotal + taxAmount),
         notes: item.notes,
       };
     });

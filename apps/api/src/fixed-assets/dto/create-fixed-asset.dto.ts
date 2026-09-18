@@ -1,5 +1,6 @@
 import {
   IsDateString,
+  IsInt,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -26,6 +27,26 @@ export class CreateFixedAssetDto {
 
   @IsOptionalUuid()
   costCenterId?: string;
+
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  usefulLifeMonths?: number;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  salvageValue?: number;
+
+  @IsDateString()
+  @IsOptional()
+  depreciationStartDate?: string;
+
+  @IsOptionalUuid()
+  receivingAccountId?: string;
+
+  @IsOptionalUuid()
+  partnerId?: string;
 
   @IsString()
   @IsOptional()

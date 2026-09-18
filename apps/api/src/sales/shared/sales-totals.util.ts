@@ -18,6 +18,8 @@ export interface SalesLineInput {
   /** Resolved `Tax.rate` percent (e.g. 15 for 15%) — the caller looks this
    * up once per line before calling in, this util does no DB access. */
   taxRatePercent?: number;
+  /** When true, `unitPrice` (and therefore the taxable amount) already includes tax. */
+  taxInclusive?: boolean;
 }
 
 export interface ComputedSalesLine {
@@ -45,8 +47,13 @@ export function computeSalesLine(input: SalesLineInput): ComputedSalesLine {
   const percentDiscount = lineSubtotal * ((input.discountPercent ?? 0) / 100);
   const discountAmount = round2(percentDiscount + (input.discountValue ?? 0));
   const taxableAmount = Math.max(lineSubtotal - discountAmount, 0);
-  const taxAmount = round2(taxableAmount * ((input.taxRatePercent ?? 0) / 100));
-  const lineTotal = round2(taxableAmount + taxAmount);
+  const rate = input.taxRatePercent ?? 0;
+  const taxAmount = input.taxInclusive
+    ? round2(taxableAmount * (rate / (100 + rate)))
+    : round2(taxableAmount * (rate / 100));
+  const lineTotal = input.taxInclusive
+    ? taxableAmount
+    : round2(taxableAmount + taxAmount);
   return { lineSubtotal, discountAmount, taxAmount, lineTotal };
 }
 
@@ -58,6 +65,6 @@ export function computeSalesDocumentTotals(
     lines.reduce((sum, l) => sum + l.discountAmount, 0),
   );
   const taxTotal = round2(lines.reduce((sum, l) => sum + l.taxAmount, 0));
-  const grandTotal = round2(subtotal - discountTotal + taxTotal);
+  const grandTotal = round2(lines.reduce((sum, l) => sum + l.lineTotal, 0));
   return { subtotal, discountTotal, taxTotal, grandTotal };
 }

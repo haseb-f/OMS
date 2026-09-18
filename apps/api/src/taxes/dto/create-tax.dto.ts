@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -6,6 +7,7 @@ import {
   Max,
   Min,
 } from 'class-validator';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 export class CreateTaxDto {
   @IsString()
@@ -21,7 +23,17 @@ export class CreateTaxDto {
   @Max(100)
   rate!: number;
 
+  @IsBoolean()
+  @IsOptional()
+  inclusive?: boolean;
+
   @IsString()
   @IsOptional()
   description?: string;
+
+  @IsOptionalUuid()
+  outputAccountId?: string;
+
+  @IsOptionalUuid()
+  inputAccountId?: string;
 }

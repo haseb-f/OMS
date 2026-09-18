@@ -720,6 +720,42 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
     actions: masterData('fixed-assets'),
   },
   {
+    key: 'prepaid-expenses',
+    labelKey: 'permissions.modules.prepaidExpenses',
+    actions: [
+      { action: 'view', name: 'prepaid-expenses.view' },
+      { action: 'create', name: 'prepaid-expenses.create' },
+      { action: 'edit', name: 'prepaid-expenses.edit' },
+      { action: 'delete', name: 'prepaid-expenses.archive' },
+    ],
+  },
+  {
+    key: 'accrued-expenses',
+    labelKey: 'permissions.modules.accruedExpenses',
+    actions: [
+      { action: 'view', name: 'accrued-expenses.view' },
+      { action: 'create', name: 'accrued-expenses.create' },
+      { action: 'edit', name: 'accrued-expenses.edit' },
+      { action: 'delete', name: 'accrued-expenses.archive' },
+    ],
+  },
+  {
+    key: 'exchange-rates',
+    labelKey: 'permissions.modules.exchangeRates',
+    actions: [
+      { action: 'view', name: 'exchange-rates.view' },
+      { action: 'create', name: 'exchange-rates.create' },
+    ],
+  },
+  {
+    key: 'fx-revaluations',
+    labelKey: 'permissions.modules.fxRevaluations',
+    actions: [
+      { action: 'view', name: 'fx-revaluations.view' },
+      { action: 'post', name: 'fx-revaluations.post' },
+    ],
+  },
+  {
     key: 'shipping-companies',
     labelKey: 'permissions.modules.shippingCompanies',
     actions: masterData('shipping-companies'),
@@ -1289,6 +1325,10 @@ export const IMPLIED_SECTION_PERMISSION: Record<
   'masterdata.journals': 'finance.view',
   'masterdata.expenses': 'finance.view',
   'masterdata.fixed-assets': 'finance.view',
+  'prepaid-expenses': 'finance.view',
+  'accrued-expenses': 'finance.view',
+  'exchange-rates': 'finance.view',
+  'fx-revaluations': 'finance.view',
   'masterdata.payment-sources': 'finance.view',
   'masterdata.fulfillment-cost-rules': 'finance.view',
   'masterdata.cost-allocation-rules': 'finance.view',

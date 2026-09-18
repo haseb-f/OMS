@@ -72,6 +72,15 @@ export default function TaxesPage() {
       permissionPrefix="masterdata.taxes"
       rowLabel={taxRowLabel}
       onRecordsChanged={() => useTaxes.invalidate()}
+      toFormValues={(entity) => ({
+        code: entity.code,
+        name: entity.name,
+        rate: Number(entity.rate),
+        inclusive: Boolean(entity.inclusive),
+        description: entity.description ?? "",
+        outputAccountId: entity.outputAccountId ?? "",
+        inputAccountId: entity.inputAccountId ?? "",
+      })}
     />
   );
 }

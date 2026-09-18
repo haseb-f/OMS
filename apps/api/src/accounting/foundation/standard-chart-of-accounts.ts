@@ -52,7 +52,9 @@ export type PostingRole =
   | 'INVESTOR_DIST'
   | 'DEDUCTION'
   | 'CAPITAL_RETURN'
-  | 'OTHER_EXPENSE';
+  | 'OTHER_EXPENSE'
+  | 'DEPRECIATION_EXPENSE'
+  | 'UNREALIZED_FX';
 
 export interface StandardAccountDef {
   code: string;
@@ -574,6 +576,15 @@ export const STANDARD_CHART_OF_ACCOUNTS: StandardAccountDef[] = [
     role: 'ALLOWANCE_EXPENSE',
   },
   {
+    code: '536',
+    name: 'مصروف الإهلاك',
+    nameEn: 'Depreciation Expense',
+    accountType: AccountType.EXPENSE,
+    parentCode: '53',
+    allowsPosting: true,
+    role: 'DEPRECIATION_EXPENSE',
+  },
+  {
     code: '54',
     name: 'مصروفات أخرى',
     nameEn: 'Other Expenses',
@@ -628,12 +639,21 @@ export const STANDARD_CHART_OF_ACCOUNTS: StandardAccountDef[] = [
   },
   {
     code: '546',
-    name: 'فروقات العملة',
-    nameEn: 'Exchange Differences',
+    name: 'فروقات العملة المحققة',
+    nameEn: 'Realized Exchange Differences',
     accountType: AccountType.EXPENSE,
     parentCode: '54',
     allowsPosting: true,
     role: 'EXCHANGE_DIFF',
+  },
+  {
+    code: '553',
+    name: 'فروقات العملة غير المحققة',
+    nameEn: 'Unrealized Exchange Differences',
+    accountType: AccountType.EXPENSE,
+    parentCode: '54',
+    allowsPosting: true,
+    role: 'UNREALIZED_FX',
   },
   {
     code: '547',
@@ -697,15 +717,15 @@ export const POSTING_ROLE_SETTINGS: Record<PostingRole, string | null> = {
   BANK: 'bankAccountId',
   AR: 'accountsReceivableAccountId',
   INVENTORY: 'inventoryAccountId',
-  PREPAYMENTS: null,
-  FIXED_ASSETS: null,
-  ACCUM_DEPRECIATION: null,
+  PREPAYMENTS: 'prepaymentsAccountId',
+  FIXED_ASSETS: 'fixedAssetsAccountId',
+  ACCUM_DEPRECIATION: 'accumDepreciationAccountId',
   VAT_INPUT: 'vatInputAccountId',
   AP: 'accountsPayableAccountId',
   VAT_OUTPUT: 'vatOutputAccountId',
   ACCRUED_SHIPPING: 'accruedShippingAccountId',
   ACCRUED_FULFILLMENT: 'accruedFulfillmentAccountId',
-  ACCRUED_EXPENSES: null,
+  ACCRUED_EXPENSES: 'accruedExpensesAccountId',
   PAYROLL_PAYABLE: 'payrollPayableAccountId',
   INVESTOR_FUNDING: 'investorFundingAccountId',
   INVESTOR_PAYABLE: 'investorProfitPayableAccountId',
@@ -715,7 +735,7 @@ export const POSTING_ROLE_SETTINGS: Record<PostingRole, string | null> = {
   SERVICE_REVENUE: null,
   SALES_RETURNS: 'salesReturnAccountId',
   SALES_DISCOUNTS: 'salesDiscountAccountId',
-  OTHER_INCOME: null,
+  OTHER_INCOME: 'otherIncomeAccountId',
   COGS: 'costOfGoodsSoldAccountId',
   SHIPPING_EXPENSE: 'shippingExpenseAccountId',
   GATEWAY_FEES: 'paymentGatewayFeeAccountId',
@@ -736,5 +756,7 @@ export const POSTING_ROLE_SETTINGS: Record<PostingRole, string | null> = {
   INVESTOR_DIST: 'investorProfitDistributionAccountId',
   DEDUCTION: 'defaultDeductionAccountId',
   CAPITAL_RETURN: 'capitalReturnAccountId',
-  OTHER_EXPENSE: null,
+  OTHER_EXPENSE: 'otherExpenseAccountId',
+  DEPRECIATION_EXPENSE: 'depreciationExpenseAccountId',
+  UNREALIZED_FX: 'unrealizedFxAccountId',
 };

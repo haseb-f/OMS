@@ -31,6 +31,10 @@ export interface PostingResult {
   branchId?: string | null;
   projectId?: string | null;
   costCenterId?: string | null;
+  /** Document/period date the journal belongs to. Defaults to now when omitted. */
+  entryDate?: Date;
+  /** Transaction→functional snapshot. Historical rates are never rewritten. */
+  exchangeRate?: number | null;
 }
 
 /**

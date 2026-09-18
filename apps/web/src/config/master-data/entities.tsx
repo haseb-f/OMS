@@ -106,6 +106,13 @@ export interface FixedAssetRow {
   costCenterId: string | null;
   costCenter?: { id: string; code: string; name: string } | null;
   notes: string | null;
+  status: "DRAFT" | "CAPITALIZED" | "DISPOSED";
+  usefulLifeMonths: number | null;
+  salvageValue: string | number;
+  depreciationStartDate: string | null;
+  accumulatedDepreciation: string | number;
+  receivingAccountId: string | null;
+  partnerId: string | null;
   deletedAt: string | null;
 }
 
@@ -123,6 +130,7 @@ export interface TaxRow {
   name: string;
   rate: string | number;
   description: string | null;
+  inclusive?: boolean;
   /// Accounting Configuration (TASK-047 backend / TASK-053 frontend) — VAT Output/Input account overrides, resolved by AccountMappingService.
   outputAccountId: string | null;
   inputAccountId: string | null;
@@ -447,11 +455,14 @@ export const expensesDefaultValues = {
 export const expensesExportColumns = ["date", "description", "amount", "notes"];
 export const expenseRowLabel = (row: ExpenseRow) => `${formatDate(row.date)} — ${row.description}`;
 
-// ---------------------------------------------------------------------------
-// Fixed Assets — no depreciation calculation, no journal-entry posting
-// (architecture only, same scoping precedent as Expenses). costCenterId
-// options are resolved dynamically by the page.
-// ---------------------------------------------------------------------------
+function FixedAssetStatusCell({ status }: { status: FixedAssetRow["status"] }) {
+  const { t } = useLocale();
+  const tone =
+    status === "CAPITALIZED" ? "success" : status === "DISPOSED" ? "destructive" : "neutral";
+  return (
+    <StatusBadge label={t(`accounting.lifecycleStatus.${status}` as MessageKey)} tone={tone} />
+  );
+}
 
 export const fixedAssetsColumns: ColumnDef<FixedAssetRow, unknown>[] = [
   textColumn("name", "masterData.fields.name", (r) => r.name),
@@ -460,11 +471,25 @@ export const fixedAssetsColumns: ColumnDef<FixedAssetRow, unknown>[] = [
     formatDate(r.acquisitionDate),
   ),
   textColumn("cost", "masterData.fixedAssets.fields.cost", (r) => Number(r.cost).toLocaleString()),
+  textColumn("usefulLifeMonths", "masterData.fixedAssets.fields.usefulLifeMonths", (r) =>
+    r.usefulLifeMonths != null ? String(r.usefulLifeMonths) : null,
+  ),
+  textColumn(
+    "accumulatedDepreciation",
+    "masterData.fixedAssets.fields.accumulatedDepreciation",
+    (r) => Number(r.accumulatedDepreciation ?? 0).toLocaleString(),
+  ),
   textColumn(
     "costCenter",
     "masterData.expenses.fields.costCenter",
     (r) => r.costCenter?.name ?? null,
   ),
+  {
+    id: "assetStatus",
+    accessorFn: (row) => row.status,
+    meta: { titleKey: "masterData.fixedAssets.fields.status" },
+    cell: ({ row }) => <FixedAssetStatusCell status={row.original.status ?? "DRAFT"} />,
+  },
   statusColumn<FixedAssetRow>(),
 ];
 
@@ -478,6 +503,21 @@ export const fixedAssetsFormFields: MasterDataFormField[] = [
     required: true,
   },
   { name: "cost", label: "masterData.fixedAssets.fields.cost", type: "number", required: true },
+  {
+    name: "usefulLifeMonths",
+    label: "masterData.fixedAssets.fields.usefulLifeMonths",
+    type: "number",
+  },
+  {
+    name: "salvageValue",
+    label: "masterData.fixedAssets.fields.salvageValue",
+    type: "number",
+  },
+  {
+    name: "depreciationStartDate",
+    label: "masterData.fixedAssets.fields.depreciationStartDate",
+    type: "date",
+  },
   { name: "notes", label: "masterData.fields.notes", type: "textarea" },
 ];
 
@@ -486,7 +526,12 @@ export const fixedAssetsSchema = z.object({
   code: z.string().optional().or(z.literal("")),
   acquisitionDate: z.string().min(1),
   cost: z.number().min(0),
+  usefulLifeMonths: z.union([z.literal(0), z.number().min(1)]).optional(),
+  salvageValue: z.number().min(0).optional(),
+  depreciationStartDate: z.string().optional().or(z.literal("")),
   costCenterId: z.string().optional().or(z.literal("")),
+  receivingAccountId: z.string().optional().or(z.literal("")),
+  partnerId: z.string().optional().or(z.literal("")),
   notes: z.string().optional().or(z.literal("")),
 });
 
@@ -495,7 +540,12 @@ export const fixedAssetsDefaultValues = {
   code: "",
   acquisitionDate: "",
   cost: 0,
+  usefulLifeMonths: 0,
+  salvageValue: 0,
+  depreciationStartDate: "",
   costCenterId: "",
+  receivingAccountId: "",
+  partnerId: "",
   notes: "",
 };
 export const fixedAssetsExportColumns = ["name", "code", "acquisitionDate", "cost", "notes"];
@@ -532,10 +582,26 @@ export const projectRowLabel = (row: ProjectRow) => `${row.code} — ${row.name}
 // Taxes
 // ---------------------------------------------------------------------------
 
+function TaxInclusiveCell({ inclusive }: { inclusive: boolean }) {
+  const { t } = useLocale();
+  return (
+    <StatusBadge
+      label={inclusive ? t("common.yes") : t("common.no")}
+      tone={inclusive ? "info" : "neutral"}
+    />
+  );
+}
+
 export const taxesColumns: ColumnDef<TaxRow, unknown>[] = [
   textColumn("code", "masterData.fields.code", (r) => r.code),
   textColumn("name", "masterData.fields.name", (r) => r.name),
   textColumn("rate", "masterData.fields.rate", (r) => String(r.rate)),
+  {
+    id: "inclusive",
+    accessorFn: (row) => row.inclusive,
+    meta: { titleKey: "masterData.fields.inclusive" },
+    cell: ({ row }) => <TaxInclusiveCell inclusive={Boolean(row.original.inclusive)} />,
+  },
   statusColumn<TaxRow>(),
 ];
 
@@ -543,6 +609,7 @@ export const taxesFormFields: MasterDataFormField[] = [
   { name: "code", label: "masterData.fields.code", type: "text", required: true },
   { name: "name", label: "masterData.fields.name", type: "text", required: true },
   { name: "rate", label: "masterData.fields.rate", type: "number", required: true },
+  { name: "inclusive", label: "masterData.fields.inclusive", type: "boolean" },
   { name: "description", label: "masterData.fields.description", type: "textarea" },
 ];
 
@@ -550,6 +617,7 @@ export const taxesSchema = z.object({
   code: z.string().min(1),
   name: z.string().min(1),
   rate: z.number().min(0).max(100),
+  inclusive: z.boolean().optional(),
   description: z.string().optional().or(z.literal("")),
   outputAccountId: z.string().optional().or(z.literal("")),
   inputAccountId: z.string().optional().or(z.literal("")),
@@ -559,6 +627,7 @@ export const taxesDefaultValues = {
   code: "",
   name: "",
   rate: 0,
+  inclusive: false,
   description: "",
   outputAccountId: "",
   inputAccountId: "",

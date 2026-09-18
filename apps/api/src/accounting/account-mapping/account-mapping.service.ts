@@ -463,6 +463,98 @@ export class AccountMappingService {
     );
   }
 
+  async resolveFixedAssetsAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    return this.require(settings?.fixedAssetsAccountId, 'Fixed Assets', [
+      'PostingSettings.fixedAssetsAccountId',
+    ]);
+  }
+
+  async resolveAccumulatedDepreciationAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    return this.require(
+      settings?.accumDepreciationAccountId,
+      'Accumulated Depreciation',
+      ['PostingSettings.accumDepreciationAccountId'],
+    );
+  }
+
+  async resolveDepreciationExpenseAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    return this.require(
+      settings?.depreciationExpenseAccountId,
+      'Depreciation Expense',
+      ['PostingSettings.depreciationExpenseAccountId'],
+    );
+  }
+
+  async resolvePrepaymentsAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    return this.require(settings?.prepaymentsAccountId, 'Prepayments', [
+      'PostingSettings.prepaymentsAccountId',
+    ]);
+  }
+
+  async resolveAccruedExpensesAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    return this.require(
+      settings?.accruedExpensesAccountId,
+      'Accrued Expenses',
+      ['PostingSettings.accruedExpensesAccountId'],
+    );
+  }
+
+  async resolveExchangeDifferenceAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    return this.require(
+      settings?.exchangeDifferenceAccountId,
+      'Realized FX Gain/Loss',
+      ['PostingSettings.exchangeDifferenceAccountId'],
+    );
+  }
+
+  async resolveUnrealizedFxAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    const accountId =
+      settings?.unrealizedFxAccountId ?? settings?.exchangeDifferenceAccountId;
+    return this.require(accountId, 'Unrealized FX Gain/Loss', [
+      'PostingSettings.unrealizedFxAccountId',
+      'PostingSettings.exchangeDifferenceAccountId',
+    ]);
+  }
+
+  async resolveOtherIncomeAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    return this.require(settings?.otherIncomeAccountId, 'Other Income', [
+      'PostingSettings.otherIncomeAccountId',
+    ]);
+  }
+
+  async resolveOtherExpenseAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    return this.require(settings?.otherExpenseAccountId, 'Other Expense', [
+      'PostingSettings.otherExpenseAccountId',
+    ]);
+  }
+
   private async getSettings(tx: Prisma.TransactionClient | PrismaService) {
     return tx.postingSettings.findFirst();
   }

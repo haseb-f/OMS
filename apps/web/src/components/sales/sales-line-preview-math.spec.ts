@@ -15,6 +15,17 @@ describe("previewSalesLine", () => {
     expect(line.lineTotal).toBe(207);
   });
 
+  it("extracts inclusive VAT15 from a tax-inclusive unit price", () => {
+    const line = previewSalesLine({
+      quantity: 1,
+      unitPrice: 115,
+      taxRatePercent: 15,
+      taxInclusive: true,
+    });
+    expect(line.taxAmount).toBe(15);
+    expect(line.lineTotal).toBe(115);
+  });
+
   it("treats missing tax and discount as zero", () => {
     const line = previewSalesLine({ quantity: 3, unitPrice: 12.5 });
     expect(line.lineTotal).toBe(37.5);

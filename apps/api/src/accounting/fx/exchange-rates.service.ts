@@ -1,0 +1,148 @@
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '../../prisma/prisma.service';
+import { CreateExchangeRateDto, ExchangeRateQueryDto } from './dto/fx.dto';
+
+type DbClient = PrismaService | Prisma.TransactionClient;
+
+/**
+ * Historical exchange-rate snapshots. Existing rows are never updated —
+ * a new effectiveDate is added instead so posted documents keep the rate
+ * they were confirmed with.
+ */
+@Injectable()
+export class ExchangeRatesService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async create(dto: CreateExchangeRateDto, userId?: string) {
+    if (dto.fromCurrencyId === dto.toCurrencyId) {
+      throw new BadRequestException(
+        'From and To currencies must be different.',
+      );
+    }
+    const existing = await this.prisma.exchangeRate.findUnique({
+      where: {
+        fromCurrencyId_toCurrencyId_effectiveDate: {
+          fromCurrencyId: dto.fromCurrencyId,
+          toCurrencyId: dto.toCurrencyId,
+          effectiveDate: new Date(dto.effectiveDate),
+        },
+      },
+    });
+    if (existing) {
+      throw new BadRequestException(
+        'An exchange rate already exists for this currency pair and date. Add a new effective date instead of rewriting history.',
+      );
+    }
+    return this.prisma.exchangeRate.create({
+      data: {
+        fromCurrencyId: dto.fromCurrencyId,
+        toCurrencyId: dto.toCurrencyId,
+        rate: dto.rate,
+        effectiveDate: new Date(dto.effectiveDate),
+        notes: dto.notes,
+        createdBy: userId ?? null,
+      },
+      include: { fromCurrency: true, toCurrency: true },
+    });
+  }
+
+  async findAll(query: ExchangeRateQueryDto) {
+    return this.prisma.exchangeRate.findMany({
+      where: {
+        fromCurrencyId: query.fromCurrencyId,
+        toCurrencyId: query.toCurrencyId,
+        ...(query.asOf ? { effectiveDate: { lte: new Date(query.asOf) } } : {}),
+      },
+      include: { fromCurrency: true, toCurrency: true },
+      orderBy: [{ effectiveDate: 'desc' }, { createdAt: 'desc' }],
+      take: 200,
+    });
+  }
+
+  async findOne(id: string) {
+    const row = await this.prisma.exchangeRate.findUnique({
+      where: { id },
+      include: { fromCurrency: true, toCurrency: true },
+    });
+    if (!row) throw new NotFoundException(`Exchange rate ${id} not found`);
+    return row;
+  }
+
+  async resolveFunctionalCurrencyId(client: DbClient = this.prisma) {
+    const settings = await client.postingSettings.findFirst({
+      select: { functionalCurrencyId: true },
+    });
+    if (settings?.functionalCurrencyId) return settings.functionalCurrencyId;
+    const sar = await client.currency.findFirst({
+      where: { code: 'SAR', deletedAt: null },
+      select: { id: true },
+    });
+    if (sar) return sar.id;
+    const any = await client.currency.findFirst({
+      where: { deletedAt: null },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    });
+    return any?.id ?? null;
+  }
+
+  /**
+   * Transaction currency → functional currency rate as of `asOf`.
+   * Same currency (or no currency) snapshots as 1. Missing FX rates fail
+   * closed rather than silently becoming 1.
+   */
+  async snapshotRate(
+    currencyId: string | null | undefined,
+    asOf: Date,
+    client: DbClient = this.prisma,
+  ): Promise<number> {
+    const functionalId = await this.resolveFunctionalCurrencyId(client);
+    if (!currencyId || !functionalId || currencyId === functionalId) return 1;
+    return this.resolveRate(currencyId, functionalId, asOf, client);
+  }
+
+  async resolveRate(
+    fromCurrencyId: string,
+    toCurrencyId: string,
+    asOf: Date,
+    client: DbClient = this.prisma,
+  ): Promise<number> {
+    if (fromCurrencyId === toCurrencyId) return 1;
+    const direct = await client.exchangeRate.findFirst({
+      where: {
+        fromCurrencyId,
+        toCurrencyId,
+        effectiveDate: { lte: asOf },
+      },
+      orderBy: { effectiveDate: 'desc' },
+    });
+    if (direct) return Number(direct.rate);
+    const inverse = await client.exchangeRate.findFirst({
+      where: {
+        fromCurrencyId: toCurrencyId,
+        toCurrencyId: fromCurrencyId,
+        effectiveDate: { lte: asOf },
+      },
+      orderBy: { effectiveDate: 'desc' },
+    });
+    if (inverse && Number(inverse.rate) !== 0) {
+      return 1 / Number(inverse.rate);
+    }
+    const from = await client.currency.findUnique({
+      where: { id: fromCurrencyId },
+      select: { code: true },
+    });
+    const to = await client.currency.findUnique({
+      where: { id: toCurrencyId },
+      select: { code: true },
+    });
+    throw new BadRequestException(
+      `No exchange rate from ${from?.code ?? fromCurrencyId} to ${to?.code ?? toCurrencyId} on or before ${asOf.toISOString().slice(0, 10)}. Record a rate before posting a foreign-currency document.`,
+    );
+  }
+}

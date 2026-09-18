@@ -39,6 +39,15 @@ const INCLUDE = {
   paymentGatewayFeeAccount: true,
   fulfillmentExpenseAccount: true,
   accruedFulfillmentAccount: true,
+  fixedAssetsAccount: true,
+  accumDepreciationAccount: true,
+  depreciationExpenseAccount: true,
+  prepaymentsAccount: true,
+  accruedExpensesAccount: true,
+  unrealizedFxAccount: true,
+  otherIncomeAccount: true,
+  otherExpenseAccount: true,
+  functionalCurrency: true,
 } as const;
 
 /**

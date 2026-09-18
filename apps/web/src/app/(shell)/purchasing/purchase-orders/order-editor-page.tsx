@@ -98,6 +98,10 @@ export function OrderEditorPage({ id }: { id: string | null }) {
     () => new Map(taxes.map((tax) => [tax.id, Number(tax.rate)])),
     [taxes],
   );
+  const taxInclusiveById = useMemo(
+    () => new Map(taxes.map((tax) => [tax.id, Boolean(tax.inclusive)])),
+    [taxes],
+  );
 
   const applyOrder = useCallback((data: PurchaseOrderRow) => {
     setOrder(data);
@@ -240,10 +244,11 @@ export function OrderEditorPage({ id }: { id: string | null }) {
             unitPrice: line.unitPrice,
             discountPercent: line.discountPercent,
             taxRatePercent: line.taxId ? taxRateById.get(line.taxId) : undefined,
+            taxInclusive: line.taxId ? taxInclusiveById.get(line.taxId) : undefined,
           }),
         ),
       ),
-    [realLines, taxRateById],
+    [realLines, taxRateById, taxInclusiveById],
   );
 
   const config: PurchaseDocumentEditorConfig<PurchaseOrderRow> = useMemo(

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { PostingEngineModule } from '../posting-engine/posting-engine.module';
 import { InventoryValuationModule } from '../inventory-valuation/inventory-valuation.module';
 import { AccountMappingModule } from '../account-mapping/account-mapping.module';
+import { FxModule } from '../fx/fx.module';
 import { SalesInvoicePostingProvider } from './sales-invoice-posting.provider';
 import { SalesReturnPostingProvider } from './sales-return-posting.provider';
 import { PurchaseInvoicePostingProvider } from './purchase-invoice-posting.provider';
@@ -15,6 +16,10 @@ import { InvestorPostingProvider } from './investor-posting.provider';
 import { LandedCostPostingProvider } from './landed-cost-posting.provider';
 import { ShipmentCostPostingProvider } from './shipment-cost-posting.provider';
 import { FulfillmentCostPostingProvider } from './fulfillment-cost-posting.provider';
+import { FixedAssetPostingProvider } from './fixed-asset-posting.provider';
+import { PrepaidExpensePostingProvider } from './prepaid-expense-posting.provider';
+import { AccruedExpensePostingProvider } from './accrued-expense-posting.provider';
+import { FxRevaluationPostingProvider } from './fx-revaluation-posting.provider';
 
 /**
  * Accounting Posting Engine (TASK-046/047, HR Milestone 1) — every default
@@ -34,6 +39,7 @@ import { FulfillmentCostPostingProvider } from './fulfillment-cost-posting.provi
     PostingEngineModule,
     InventoryValuationModule,
     AccountMappingModule,
+    FxModule,
   ],
   providers: [
     SalesInvoicePostingProvider,
@@ -49,6 +55,10 @@ import { FulfillmentCostPostingProvider } from './fulfillment-cost-posting.provi
     LandedCostPostingProvider,
     ShipmentCostPostingProvider,
     FulfillmentCostPostingProvider,
+    FixedAssetPostingProvider,
+    PrepaidExpensePostingProvider,
+    AccruedExpensePostingProvider,
+    FxRevaluationPostingProvider,
   ],
 })
 export class PostingProvidersModule {}
