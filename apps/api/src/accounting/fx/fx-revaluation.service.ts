@@ -177,6 +177,7 @@ export class FxRevaluationService {
     type Bucket = {
       accountId: string;
       currencyId: string;
+      partnerId: string | null;
       foreign: number;
       functional: number;
     };
@@ -190,10 +191,12 @@ export class FxRevaluationService {
       if (sign === 0) continue;
       for (const line of entry.lines) {
         if (!monetary.has(line.accountId)) continue;
-        const key = `${line.accountId}:${entry.currencyId}`;
+        const partnerId = line.partnerId ?? null;
+        const key = `${line.accountId}:${entry.currencyId}:${partnerId ?? '_'}`;
         const bucket = buckets.get(key) ?? {
           accountId: line.accountId,
           currencyId: entry.currencyId,
+          partnerId,
           foreign: 0,
           functional: 0,
         };
@@ -231,6 +234,7 @@ export class FxRevaluationService {
         lines.push({
           accountId: bucket.accountId,
           debit: diff,
+          partnerId: bucket.partnerId ?? undefined,
           description: `FX revaluation ${run.runNumber} — ${account?.code}`,
         });
         lines.push({
@@ -247,6 +251,7 @@ export class FxRevaluationService {
         lines.push({
           accountId: bucket.accountId,
           credit: Math.abs(diff),
+          partnerId: bucket.partnerId ?? undefined,
           description: `FX revaluation ${run.runNumber} — ${account?.code}`,
         });
       }
