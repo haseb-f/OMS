@@ -115,9 +115,11 @@ export interface LeadFollowUpRow {
 }
 
 export interface LeadDistributionSnapshot {
+  status?: "CONTINUOUS" | "TIME_LIMITED" | "MANUAL" | "PAUSED";
+  isRunning?: boolean;
   policy: {
     id: string;
-    mode: "CONTINUOUS" | "TIME_LIMITED";
+    mode: "CONTINUOUS" | "TIME_LIMITED" | "MANUAL" | "PAUSED";
     isActive: boolean;
     startedAt: string;
     expiresAt: string | null;
@@ -125,6 +127,10 @@ export interface LeadDistributionSnapshot {
     teamId: string | null;
   } | null;
   eligible: { id: string; fullName: string; email: string }[];
+  held?: {
+    count: number;
+    batches: { importBatch: string | null; count: number; createdAt: string | null }[];
+  };
 }
 
 export interface LeadNoteRow {
@@ -166,7 +172,16 @@ export const leadsService = {
   distribution: () => apiClient.get<LeadDistributionSnapshot>("/leads/distribution"),
   activateContinuous: () => apiClient.post("/leads/distribution/activate-continuous"),
   activate24h: () => apiClient.post("/leads/distribution/activate-24h"),
-  deactivateDistribution: () => apiClient.post("/leads/distribution/deactivate"),
+  activateManual: () => apiClient.post("/leads/distribution/activate-manual"),
+  pauseDistribution: () => apiClient.post<LeadDistributionSnapshot>("/leads/distribution/pause"),
+  deactivateDistribution: () =>
+    apiClient.post<LeadDistributionSnapshot>("/leads/distribution/deactivate"),
+  releaseHeld: (body: {
+    importBatch?: string | null;
+    mode?: "CONTINUOUS" | "TIME_LIMITED" | "MANUAL";
+    salesEmployeeId?: string;
+  }) =>
+    apiClient.post<{ released: number; ids: string[] }>("/leads/distribution/release-held", body),
   firstOpen: (id: string) => apiClient.post<LeadRow>(`/leads/${id}/first-open`),
   followUps: (id: string) => apiClient.get<LeadFollowUpRow[]>(`/leads/${id}/follow-ups`),
   addFollowUp: (

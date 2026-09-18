@@ -1,148 +1,97 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
-import {
-  EnterpriseDataTable,
-  exportColumnsFromKeys,
-  exportRowsToCsv,
-} from "@/components/master-data/enterprise-data-table";
-import {
-  AccountingReportFilterBar,
-  EMPTY_REPORT_FILTERS,
-  type ReportFilterValue,
-} from "@/components/accounting/report-filter-bar";
+import { useCallback, useEffect, useState } from "react";
+import { FinancialReport } from "@/components/accounting/financial-report";
 import {
   accountingReportsService,
-  type TrialBalanceRow,
+  type HierarchicalReportLine,
 } from "@/services/accounting-reports-service";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
-import { toISODate } from "@/lib/date";
-import { MoneyCell, toExportRows } from "./shared";
+import { useReportQuery } from "./use-report-query";
 
 export function TrialBalanceTab() {
   const { t } = useLocale();
-  const [filters, setFilters] = useState<ReportFilterValue>(EMPTY_REPORT_FILTERS);
-  const [items, setItems] = useState<TrialBalanceRow[]>([]);
-  const [total, setTotal] = useState(0);
-  const [totals, setTotals] = useState({ debitTotal: 0, creditTotal: 0 });
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
+  const { filters, setFilters, params } = useReportQuery();
+  const [includeOpeningBalance, setIncludeOpeningBalance] = useState(true);
+  const [lines, setLines] = useState<HierarchicalReportLine[]>([]);
+  const [totals, setTotals] = useState({
+    debitTotal: 0,
+    creditTotal: 0,
+    openingBalance: 0,
+    closingBalance: 0,
+  });
+  const [balanced, setBalanced] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
 
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
       const result = await accountingReportsService.trialBalance({
-        companyId: filters.companyId || undefined,
-        branchId: filters.branchId || undefined,
-        costCenterId: filters.costCenterId || undefined,
-        projectId: filters.projectId || undefined,
-        currencyId: filters.currencyId || undefined,
-        dateFrom: filters.dateRange.from ? toISODate(filters.dateRange.from) : undefined,
-        dateTo: filters.dateRange.to ? toISODate(filters.dateRange.to) : undefined,
-        postedOnly: filters.postedOnly,
-        page,
-        pageSize,
+        ...params,
+        includeOpeningBalance,
       });
-      setItems(result.items);
-      setTotal(result.total);
-      setTotals(result.totals);
+      setLines(result.lines ?? []);
+      setTotals({
+        debitTotal: result.totals.debitTotal,
+        creditTotal: result.totals.creditTotal,
+        openingBalance: result.totals.openingBalance ?? 0,
+        closingBalance: result.totals.closingBalance ?? 0,
+      });
+      setBalanced(
+        result.balanced ?? Math.abs(result.totals.debitTotal - result.totals.creditTotal) < 0.01,
+      );
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
     } finally {
       setIsLoading(false);
     }
-  }, [filters, page, pageSize, t]);
+  }, [params, includeOpeningBalance, t]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
-  const columns = useMemo<ColumnDef<TrialBalanceRow, unknown>[]>(
-    () => [
-      {
-        id: "accountCode",
-        meta: { titleKey: "reports.finance.fields.accountCode" },
-        accessorFn: (row) => row.accountCode,
-      },
-      {
-        id: "accountName",
-        meta: { titleKey: "reports.finance.fields.accountName" },
-        accessorFn: (row) => row.accountName,
-      },
-      {
-        id: "debitTotal",
-        meta: { titleKey: "reports.finance.fields.debitTotal" },
-        accessorFn: (row) => row.debitTotal,
-        cell: (info) => <MoneyCell value={info.getValue() as number} />,
-      },
-      {
-        id: "creditTotal",
-        meta: { titleKey: "reports.finance.fields.creditTotal" },
-        accessorFn: (row) => row.creditTotal,
-        cell: (info) => <MoneyCell value={info.getValue() as number} />,
-      },
-      {
-        id: "balance",
-        meta: { titleKey: "reports.finance.fields.balance" },
-        accessorFn: (row) => row.balance,
-        cell: (info) => <MoneyCell value={info.getValue() as number} />,
-      },
-    ],
-    [],
-  );
-
-  const exportKeys = ["accountCode", "accountName", "debitTotal", "creditTotal", "balance"];
-  const isBalanced = Math.abs(totals.debitTotal - totals.creditTotal) < 0.01;
+  const columns = includeOpeningBalance
+    ? [
+        { key: "opening", labelKey: "reports.finance.fields.openingBalance" },
+        { key: "debit", labelKey: "reports.finance.fields.debit" },
+        { key: "credit", labelKey: "reports.finance.fields.credit" },
+        { key: "closing", labelKey: "reports.finance.fields.closingBalance", emphasize: true },
+      ]
+    : [
+        { key: "debit", labelKey: "reports.finance.fields.debit" },
+        { key: "credit", labelKey: "reports.finance.fields.credit" },
+        { key: "closing", labelKey: "reports.finance.fields.closingBalance", emphasize: true },
+      ];
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-end gap-4 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
-        <span className="text-muted-foreground">{t("reports.finance.totals")}:</span>
-        <span className="flex items-center gap-1">
-          {t("reports.finance.fields.debitTotal")} <MoneyCell value={totals.debitTotal} />
-        </span>
-        <span className="flex items-center gap-1">
-          {t("reports.finance.fields.creditTotal")} <MoneyCell value={totals.creditTotal} />
-        </span>
-        <span className={isBalanced ? "text-success font-medium" : "text-destructive font-medium"}>
-          {isBalanced ? t("reports.finance.balanced") : t("reports.finance.unbalanced")}
-        </span>
-      </div>
-
-      <EnterpriseDataTable
-        filterBar={
-          <AccountingReportFilterBar
-            value={filters}
-            onChange={(next) => {
-              setFilters(next);
-              setPage(1);
-            }}
-          />
-        }
-        tableId="reports-finance-trial-balance"
-        printTitle={t("reports.finance.trialBalance")}
-        columns={columns}
-        data={items}
-        totalCount={total}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={(size) => {
-          setPageSize(size);
-          setPage(1);
-        }}
-        isLoading={isLoading}
-        getRowId={(row) => row.accountId}
-        exportColumns={exportColumnsFromKeys(columns, exportKeys, t)}
-        onExport={(keys) =>
-          exportRowsToCsv(toExportRows(columns, items), keys, "trial-balance.csv")
-        }
-      />
-    </div>
+    <FinancialReport
+      lines={lines}
+      columns={columns}
+      isLoading={isLoading}
+      filters={filters}
+      onFiltersChange={setFilters}
+      includeOpeningBalance={includeOpeningBalance}
+      onIncludeOpeningBalanceChange={setIncludeOpeningBalance}
+      printTitle={t("reports.finance.trialBalance")}
+      exportFileName="trial-balance.csv"
+      status={{
+        balanced,
+        extras: includeOpeningBalance
+          ? [
+              { label: t("reports.finance.fields.openingBalance"), value: totals.openingBalance },
+              { label: t("reports.finance.fields.debitTotal"), value: totals.debitTotal },
+              { label: t("reports.finance.fields.creditTotal"), value: totals.creditTotal },
+              { label: t("reports.finance.fields.closingBalance"), value: totals.closingBalance },
+            ]
+          : [
+              { label: t("reports.finance.fields.debitTotal"), value: totals.debitTotal },
+              { label: t("reports.finance.fields.creditTotal"), value: totals.creditTotal },
+            ],
+      }}
+    />
   );
 }

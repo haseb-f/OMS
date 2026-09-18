@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Download, RefreshCw } from "lucide-react";
+import { Download, FileSpreadsheet, RefreshCw, Sheet, Upload } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,12 +83,14 @@ export function ImportJobWizard({
   onOpenChange,
   typeDef,
   initialJobId,
+  initialUploadMode = "file",
   onDone,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   typeDef: ImportTypeDefinition;
   initialJobId?: string;
+  initialUploadMode?: "file" | "sheets";
   onDone: () => void;
 }) {
   const { t } = useLocale();
@@ -111,9 +113,7 @@ export function ImportJobWizard({
   useEffect(() => {
     if (!open) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setFile(null);
-    setSheetsUrl("");
-    setUploadMode("file");
+    setUploadMode(initialUploadMode);
     setPreview(null);
     setMapping({});
     setTemplateName("");
@@ -154,7 +154,7 @@ export function ImportJobWizard({
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initialJobId, typeDef.type]);
+  }, [open, initialJobId, typeDef.type, initialUploadMode]);
 
   useEffect(() => {
     if (!open || step !== "mapping") return;
@@ -410,59 +410,66 @@ export function ImportJobWizard({
 
         {step === "upload" && (
           <div className="flex flex-col gap-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="flex flex-col gap-1">
-                <h2 className="text-card-title font-semibold">
-                  {t("importCenter.wizard.upload.title")}
-                </h2>
-                <p className="text-body text-muted-foreground">
-                  {t("importCenter.wizard.upload.description")}
-                </p>
-              </div>
-              <EnterpriseButton
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleDownloadTemplate}
-              >
-                <Download />
-                {t("importCenter.downloadTemplate")}
-              </EnterpriseButton>
+            <div className="flex flex-col gap-1">
+              <h2 className="text-card-title font-semibold">
+                {uploadMode === "sheets"
+                  ? t("importCenter.actions.googleSheets")
+                  : t("importCenter.actions.uploadDevice")}
+              </h2>
+              <p className="text-body text-muted-foreground">
+                {uploadMode === "sheets"
+                  ? t("importCenter.wizard.googleSheets.urlHint")
+                  : t("importCenter.wizard.upload.dropHint")}
+              </p>
             </div>
-            <div className="flex gap-2">
+
+            <div className="grid gap-2 sm:grid-cols-3">
+              <EnterpriseButton type="button" variant="outline" onClick={handleDownloadTemplate}>
+                <Download />
+                {t("importCenter.actions.downloadTemplate")}
+              </EnterpriseButton>
               <EnterpriseButton
                 type="button"
-                size="sm"
                 variant={uploadMode === "file" ? "default" : "outline"}
                 onClick={() => setUploadMode("file")}
               >
-                {t("importCenter.wizard.upload.sourceFile")}
+                <Upload />
+                {t("importCenter.actions.uploadDevice")}
               </EnterpriseButton>
               <EnterpriseButton
                 type="button"
-                size="sm"
                 variant={uploadMode === "sheets" ? "default" : "outline"}
                 onClick={() => setUploadMode("sheets")}
               >
-                {t("importCenter.wizard.upload.sourceGoogleSheets")}
+                <Sheet />
+                {t("importCenter.actions.googleSheets")}
               </EnterpriseButton>
             </div>
 
             {uploadMode === "file" ? (
-              <div className="flex flex-col gap-2">
-                <Label>{t("importCenter.wizard.upload.chooseFile")}</Label>
+              <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-md border border-dashed border-primary/40 bg-primary-soft/20 px-4 py-8 text-center hover:border-primary hover:bg-primary-soft/40">
+                <FileSpreadsheet className="size-8 text-primary" />
+                <span className="text-body font-medium">
+                  {file
+                    ? t("importCenter.wizard.upload.selectedFile")
+                    : t("importCenter.wizard.upload.dropHint")}
+                </span>
+                {file ? (
+                  <span dir="ltr" className="text-caption text-muted-foreground">
+                    {file.name}
+                  </span>
+                ) : (
+                  <span className="text-caption text-muted-foreground">
+                    {t("importCenter.wizard.upload.chooseFile")}
+                  </span>
+                )}
                 <Input
                   type="file"
                   accept=".csv,.xlsx"
+                  className="hidden"
                   onChange={(event) => setFile(event.target.files?.[0] ?? null)}
                 />
-                {file && (
-                  <p className="text-caption text-muted-foreground">
-                    {t("importCenter.wizard.upload.selectedFile")}:{" "}
-                    <span dir="ltr">{file.name}</span>
-                  </p>
-                )}
-              </div>
+              </label>
             ) : (
               <div className="flex flex-col gap-2">
                 <Label>{t("importCenter.wizard.googleSheets.urlLabel")}</Label>
@@ -472,9 +479,6 @@ export function ImportJobWizard({
                   onChange={(event) => setSheetsUrl(event.target.value)}
                   placeholder="https://docs.google.com/spreadsheets/d/…/edit"
                 />
-                <p className="text-xs text-muted-foreground">
-                  {t("importCenter.wizard.googleSheets.urlHint")}
-                </p>
               </div>
             )}
           </div>

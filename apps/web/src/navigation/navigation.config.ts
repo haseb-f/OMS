@@ -661,6 +661,15 @@ export const navigationConfig: NavigationItem[] = [
     permissions: ["purchasing.payments.view"],
   },
   {
+    id: "finance-payment-review",
+    titleKey: "nav.financePaymentReview",
+    parent: "finance",
+    route: "/finance/payment-review",
+    icon: "clipboard-check",
+    order: 10.5,
+    permissions: ["sales.receipts.view"],
+  },
+  {
     id: "finance-bank-transactions",
     titleKey: "nav.financeBankTransactions",
     parent: "finance",

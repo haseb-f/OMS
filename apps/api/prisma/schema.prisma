@@ -1476,6 +1476,12 @@ model Lead {
   /// for manually entered leads.
   importBatch String? @map("import_batch")
 
+  /// Set when a Lead is created without an owner while automatic distribution
+  /// is not running (PAUSED / MANUAL / expired 24h). Held leads stay
+  /// unassigned even after a later Continuous/24h activation — the manager
+  /// must release the batch intentionally.
+  distributionHeld Boolean @default(false) @map("distribution_held")
+
   /// TASK-061 — the source system's own order identifier (e.g. an e-commerce
   /// platform's order number), supplied on manual entry or import. Used to
   /// detect a re-imported duplicate order (same External Order ID) without
@@ -1512,6 +1518,7 @@ model Lead {
   payments    Payment[]
 
   @@index([externalOrderId])
+  @@index([distributionHeld, importBatch])
   @@index([statusId])
   @@index([salesEmployeeId, statusId])
   @@index([createdAt])
@@ -1541,6 +1548,8 @@ enum LeadAssignmentMethod {
 enum LeadDistributionMode {
   CONTINUOUS
   TIME_LIMITED
+  MANUAL
+  PAUSED
 }
 
 enum LeadDistributionScope {

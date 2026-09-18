@@ -426,7 +426,11 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
             if (action.key === "approve" && !canApprove) return false;
             if (action.key === "cancel" && !canCancel) return false;
             if (action.key === "confirm" && !canConfirm) return false;
-            if (action.key === "recordPayment" && !canRecordPayment) return false;
+            if (
+              action.key === "recordPayment" &&
+              (!canRecordPayment || invoice?.paymentStatus === "PAID")
+            )
+              return false;
             if (action.key === "print" && !invoice) return false;
             return true;
           }),

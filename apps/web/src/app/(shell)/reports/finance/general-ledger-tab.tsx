@@ -1,178 +1,80 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
-import { Eye, ScrollText } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { ScrollText } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
-import {
-  EnterpriseDataTable,
-  exportColumnsFromKeys,
-  exportRowsToCsv,
-} from "@/components/master-data/enterprise-data-table";
-import { RowActionsMenu } from "@/components/shared/data-table";
-import {
-  AccountingReportFilterBar,
-  EMPTY_REPORT_FILTERS,
-  type ReportFilterValue,
-} from "@/components/accounting/report-filter-bar";
+import { FinancialReport } from "@/components/accounting/financial-report";
+import type { FinancialReportLine } from "@/components/accounting/financial-report";
 import {
   accountingReportsService,
   type AccountLedger,
+  type HierarchicalReportLine,
 } from "@/services/accounting-reports-service";
-import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
-import { formatDate, toISODate } from "@/lib/date";
-import { MoneyCell, toExportRows } from "./shared";
+import { formatDate } from "@/lib/date";
+import { MoneyCell } from "./shared";
+import { useReportQuery } from "./use-report-query";
 
 export function GeneralLedgerTab() {
   const { t } = useLocale();
-  const [filters, setFilters] = useState<ReportFilterValue>(EMPTY_REPORT_FILTERS);
-  const [account, setAccount] = useState<ChartOfAccountRow | null>(null);
-  const [items, setItems] = useState<AccountLedger[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const { filters, setFilters, params } = useReportQuery();
+  const [lines, setLines] = useState<HierarchicalReportLine[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [detail, setDetail] = useState<AccountLedger | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const result = await accountingReportsService.generalLedger({
-        accountId: account?.id,
-        companyId: filters.companyId || undefined,
-        branchId: filters.branchId || undefined,
-        costCenterId: filters.costCenterId || undefined,
-        projectId: filters.projectId || undefined,
-        currencyId: filters.currencyId || undefined,
-        dateFrom: filters.dateRange.from ? toISODate(filters.dateRange.from) : undefined,
-        dateTo: filters.dateRange.to ? toISODate(filters.dateRange.to) : undefined,
-        postedOnly: filters.postedOnly,
-        page,
-        pageSize,
-      });
-      setItems(result.items);
-      setTotal(result.total);
+      const result = await accountingReportsService.trialBalance(params);
+      setLines(result.lines ?? []);
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
     } finally {
       setIsLoading(false);
     }
-  }, [account, filters, page, pageSize, t]);
+  }, [params, t]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
-  const columns = useMemo<ColumnDef<AccountLedger, unknown>[]>(
-    () => [
-      {
-        id: "accountCode",
-        meta: { titleKey: "reports.finance.fields.accountCode" },
-        accessorFn: (row) => row.account.code,
-      },
-      {
-        id: "accountName",
-        meta: { titleKey: "reports.finance.fields.accountName" },
-        accessorFn: (row) => row.account.name,
-      },
-      {
-        id: "openingBalance",
-        meta: { titleKey: "reports.finance.fields.openingBalance" },
-        accessorFn: (row) => row.openingBalance,
-        cell: (info) => <MoneyCell value={info.getValue() as number} />,
-      },
-      {
-        id: "periodDebit",
-        meta: { titleKey: "reports.finance.fields.debit" },
-        accessorFn: (row) => row.periodDebit,
-        cell: (info) => <MoneyCell value={info.getValue() as number} />,
-      },
-      {
-        id: "periodCredit",
-        meta: { titleKey: "reports.finance.fields.credit" },
-        accessorFn: (row) => row.periodCredit,
-        cell: (info) => <MoneyCell value={info.getValue() as number} />,
-      },
-      {
-        id: "closingBalance",
-        meta: { titleKey: "reports.finance.fields.closingBalance" },
-        accessorFn: (row) => row.closingBalance,
-        cell: (info) => <MoneyCell value={info.getValue() as number} />,
-      },
-      {
-        id: "__actions",
-        meta: { titleKey: "common.actions" },
-        enableSorting: false,
-        enableHiding: false,
-        cell: ({ row }) => (
-          <RowActionsMenu
-            label={t("common.actions")}
-            actions={[
-              {
-                key: "view",
-                label: t("reports.finance.viewMovements"),
-                icon: Eye,
-                onSelect: () => setDetail(row.original),
-              },
-            ]}
-          />
-        ),
-      },
-    ],
-    [t],
-  );
-
-  const exportKeys = [
-    "accountCode",
-    "accountName",
-    "openingBalance",
-    "periodDebit",
-    "periodCredit",
-    "closingBalance",
-  ];
+  const openAccount = async (line: FinancialReportLine) => {
+    if (!line.accountId) return;
+    setDetailLoading(true);
+    try {
+      const statement = await accountingReportsService.accountStatement(line.accountId, params);
+      setDetail(statement);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+    } finally {
+      setDetailLoading(false);
+    }
+  };
 
   return (
     <>
-      <EnterpriseDataTable
-        filterBar={
-          <AccountingReportFilterBar
-            value={filters}
-            onChange={(next) => {
-              setFilters(next);
-              setPage(1);
-            }}
-            accountFilter={{
-              value: account,
-              onChange: (a) => {
-                setAccount(a);
-                setPage(1);
-              },
-            }}
-          />
-        }
-        tableId="reports-finance-general-ledger"
+      <FinancialReport
+        lines={lines}
+        columns={[
+          { key: "opening", labelKey: "reports.finance.fields.openingBalance" },
+          { key: "debit", labelKey: "reports.finance.fields.debit" },
+          { key: "credit", labelKey: "reports.finance.fields.credit" },
+          { key: "closing", labelKey: "reports.finance.fields.closingBalance", emphasize: true },
+        ]}
+        isLoading={isLoading || detailLoading}
+        filters={filters}
+        onFiltersChange={setFilters}
         printTitle={t("reports.finance.generalLedger")}
-        columns={columns}
-        data={items}
-        totalCount={total}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={(size) => {
-          setPageSize(size);
-          setPage(1);
+        exportFileName="general-ledger.csv"
+        onPostingClick={(line) => {
+          void openAccount(line);
         }}
-        isLoading={isLoading}
-        getRowId={(row) => row.account.id}
-        exportColumns={exportColumnsFromKeys(columns, exportKeys, t)}
-        onExport={(keys) =>
-          exportRowsToCsv(toExportRows(columns, items), keys, "general-ledger.csv")
-        }
       />
 
       <EnterpriseModal
@@ -187,7 +89,7 @@ export function GeneralLedgerTab() {
           </EnterpriseButton>
         )}
       >
-        {detail && (
+        {detail ? (
           <div className="flex flex-col gap-3">
             <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
               <div>
@@ -222,7 +124,7 @@ export function GeneralLedgerTab() {
                       {t("reports.finance.fields.entryNumber")}
                     </th>
                     <th className="p-2 text-start font-medium">
-                      {t("reports.finance.fields.description")}
+                      {t("reports.finance.fields.sourceDocument")}
                     </th>
                     <th className="p-2 text-end font-medium">
                       {t("reports.finance.fields.debit")}
@@ -236,36 +138,39 @@ export function GeneralLedgerTab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {detail.movements.map((m, index) => (
-                    <tr key={`${m.journalEntryId}-${index}`} className="border-t border-border">
-                      <td className="p-2">{formatDate(m.entryDate)}</td>
+                  {detail.movements.map((movement, index) => (
+                    <tr
+                      key={`${movement.journalEntryId}-${index}`}
+                      className="border-t border-border"
+                    >
+                      <td className="p-2">{formatDate(movement.entryDate)}</td>
                       <td className="p-2">
-                        <code dir="ltr">{m.entryNumber}</code>
+                        <Link
+                          href={`/finance/journal-entries?entry=${movement.journalEntryId}`}
+                          className="text-primary underline-offset-2 hover:underline"
+                        >
+                          <code dir="ltr">{movement.entryNumber}</code>
+                        </Link>
                       </td>
-                      <td className="p-2">{m.description ?? "—"}</td>
-                      <td className="p-2 text-end">
-                        <MoneyCell value={m.debit} />
+                      <td className="p-2">
+                        {movement.sourceType ?? movement.referenceNumber ?? "—"}
                       </td>
                       <td className="p-2 text-end">
-                        <MoneyCell value={m.credit} />
+                        <MoneyCell value={movement.debit} />
                       </td>
                       <td className="p-2 text-end">
-                        <MoneyCell value={m.runningBalance} />
+                        <MoneyCell value={movement.credit} />
+                      </td>
+                      <td className="p-2 text-end">
+                        <MoneyCell value={movement.runningBalance} />
                       </td>
                     </tr>
                   ))}
-                  {detail.movements.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="p-4 text-center text-muted-foreground">
-                        {t("common.noResults")}
-                      </td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </div>
           </div>
-        )}
+        ) : null}
       </EnterpriseModal>
     </>
   );

@@ -5,6 +5,7 @@ import {
   HttpCode,
   Param,
   Post,
+  Query,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -28,6 +29,7 @@ import { ArchivePaymentAttachmentDto } from './dto/archive-payment-attachment.dt
 import { MatchPaymentDto } from './dto/match-payment.dto';
 import { VerifyPaymentDto } from './dto/verify-payment.dto';
 import { RejectPaymentDto } from './dto/reject-payment.dto';
+import { FindPaymentsQueryDto } from './dto/find-payments-query.dto';
 import { SetActualFeeDto } from './dto/set-actual-fee.dto';
 import { ATTACHMENT_MAX_BYTES } from '../common/storage/file-validation';
 import { AttachmentsService } from '../common/storage/attachments.service';
@@ -55,8 +57,8 @@ export class PaymentsController {
   }
 
   @Get()
-  findAll() {
-    return this.paymentsService.findAll();
+  findAll(@Query() query: FindPaymentsQueryDto) {
+    return this.paymentsService.findAll(query);
   }
 
   @Get(':id')

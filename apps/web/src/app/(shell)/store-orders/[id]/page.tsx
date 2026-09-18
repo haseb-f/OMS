@@ -142,6 +142,13 @@ function StoreOrderDetailContent() {
   const [removeReceiptId, setRemoveReceiptId] = useState<string | null>(null);
   const [isRemovingReceipt, setIsRemovingReceipt] = useState(false);
   const [addPaymentOpen, setAddPaymentOpen] = useState(false);
+  const [paymentContext, setPaymentContext] = useState<{
+    total: string;
+    paid: string;
+    outstanding: string;
+    fullySettled?: boolean;
+    canAcceptPayment?: boolean;
+  } | null>(null);
   const [feeDialogPayment, setFeeDialogPayment] = useState<StoreOrderPaymentRow | null>(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
@@ -162,6 +169,10 @@ function StoreOrderDetailContent() {
     setIsLoading(true);
     try {
       setOrder(await storeOrdersService.get(params.id));
+      storeOrdersService
+        .paymentContext(params.id)
+        .then(setPaymentContext)
+        .catch(() => setPaymentContext(null));
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
       setOrder(null);
@@ -345,11 +356,13 @@ function StoreOrderDetailContent() {
 
   const invoice = order.invoices?.[0] ?? null;
   const canGenerateInvoice = order.paymentStatus === "FULLY_PAID_RECONCILED" && !invoice;
-  const paidAmount = (order.payments ?? []).reduce(
-    (sum, payment) => sum + Number(payment.amount),
-    0,
+  const paidAmount = Number(paymentContext?.paid ?? 0);
+  const remainingAmount = Number(
+    paymentContext?.outstanding ?? Math.max(Number(order.total ?? 0) - paidAmount, 0),
   );
-  const remainingAmount = Number(order.total ?? 0) - paidAmount;
+  const canAcceptPayment = paymentContext
+    ? Boolean(paymentContext.canAcceptPayment) && !paymentContext.fullySettled
+    : order.paymentStatus !== "FULLY_PAID_RECONCILED" && order.paymentStatus !== "OVERPAID";
   const latestPayment = order.payments?.[0] ?? null;
   const latestShipmentRow = order.shipments?.[0] ?? null;
   const phone = order.partner?.phone || order.partner?.mobile || null;
@@ -932,11 +945,13 @@ function StoreOrderDetailContent() {
           </>
         }
         primaryActions={
-          canEdit ? (
+          canEdit && canAcceptPayment ? (
             <EnterpriseButton type="button" size="sm" onClick={() => setAddPaymentOpen(true)}>
               <Wallet className="size-3.5" />
               {t("storeOrders.detail.payments.add")}
             </EnterpriseButton>
+          ) : canEdit && paymentContext?.fullySettled ? (
+            <StatusBadge label={t("storeOrders.detail.payments.settled")} tone="success" />
           ) : null
         }
         moreActions={

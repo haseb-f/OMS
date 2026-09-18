@@ -26,6 +26,16 @@ import {
   emptyAgingBuckets,
   type AgingBucket,
 } from './aging.util';
+import {
+  buildAccountForest,
+  classifyCashFlowSource,
+  leafLine,
+  roundReportMoney,
+  wrapSection,
+  type AccountAmounts,
+  type CoaNode,
+  type HierarchicalReportLine,
+} from './financial-report-tree';
 
 export interface StatementRow {
   accountId: string;
@@ -344,70 +354,96 @@ export class AccountingReportsService {
   }
 
   async trialBalance(query: TrialBalanceQueryDto) {
-    const page = query.page ?? 1;
-    const pageSize = query.pageSize ?? 50;
-
-    const lineWhere: Prisma.JournalEntryLineWhereInput = {
-      journalEntry: {
-        ...this.buildEntryScopeWhere(query),
-        entryDate: buildDateRangeFilter(query.dateFrom, query.dateTo),
-      },
+    const includeOpening = query.includeOpeningBalance !== false;
+    const scopeWhere = this.buildEntryScopeWhere(query);
+    const periodWhere: Prisma.JournalEntryWhereInput = {
+      ...scopeWhere,
+      entryDate: buildDateRangeFilter(query.dateFrom, query.dateTo),
     };
+    const openingWhere: Prisma.JournalEntryWhereInput | null =
+      includeOpening && query.dateFrom
+        ? { ...scopeWhere, entryDate: { lt: new Date(query.dateFrom) } }
+        : null;
 
-    const grouped = await this.prisma.journalEntryLine.groupBy({
-      by: ['accountId'],
-      where: lineWhere,
-      _sum: { debit: true, credit: true },
+    const [periodAgg, openingAgg, accounts] = await Promise.all([
+      this.aggregateAccountDebitCredit(periodWhere),
+      openingWhere
+        ? this.aggregateAccountDebitCredit(openingWhere)
+        : Promise.resolve(new Map<string, { debit: number; credit: number }>()),
+      this.loadCoaNodes(),
+    ]);
+
+    const leafAmounts: AccountAmounts = {};
+    const accountIds = new Set([...periodAgg.keys(), ...openingAgg.keys()]);
+    const postingRows = [];
+
+    for (const accountId of accountIds) {
+      const period = periodAgg.get(accountId) ?? { debit: 0, credit: 0 };
+      const openingRaw = openingAgg.get(accountId) ?? { debit: 0, credit: 0 };
+      const opening = roundReportMoney(openingRaw.debit - openingRaw.credit);
+      const debit = roundReportMoney(period.debit);
+      const credit = roundReportMoney(period.credit);
+      const closing = roundReportMoney(opening + debit - credit);
+      leafAmounts[accountId] = { opening, debit, credit, closing };
+    }
+
+    const valueKeys = ['opening', 'debit', 'credit', 'closing'];
+    const forest = buildAccountForest(accounts, leafAmounts, valueKeys, {
+      hideZero: true,
     });
+    const lines = this.filterReportForest(forest, query.search);
 
-    const accountIds = grouped.map((g) => g.accountId);
-    const accounts = await this.prisma.chartOfAccount.findMany({
-      where: { id: { in: accountIds } },
-    });
-    const accountMap = new Map(accounts.map((a) => [a.id, a]));
-
-    const allRows = grouped
-      .filter((g) => accountMap.has(g.accountId))
-      .map((g) => {
-        const account = accountMap.get(g.accountId)!;
-        const debitTotal = Number(g._sum.debit ?? 0);
-        const creditTotal = Number(g._sum.credit ?? 0);
-        return {
-          accountId: account.id,
-          accountCode: account.code,
-          accountName: account.name,
-          accountType: account.accountType,
-          debitTotal,
-          creditTotal,
-          balance: debitTotal - creditTotal,
-        };
-      })
-      .sort((a, b) => a.accountCode.localeCompare(b.accountCode));
-
-    const totals = allRows.reduce(
-      (acc, r) => ({
-        debitTotal: acc.debitTotal + r.debitTotal,
-        creditTotal: acc.creditTotal + r.creditTotal,
-      }),
-      { debitTotal: 0, creditTotal: 0 },
-    );
+    for (const account of accounts) {
+      const amounts = leafAmounts[account.id];
+      if (!amounts || !account.allowsPosting) continue;
+      postingRows.push({
+        accountId: account.id,
+        accountCode: account.code,
+        accountName: account.name,
+        accountType: account.accountType,
+        openingBalance: amounts.opening,
+        debitTotal: amounts.debit,
+        creditTotal: amounts.credit,
+        closingBalance: amounts.closing,
+        balance: amounts.closing,
+      });
+    }
+    postingRows.sort((a, b) => a.accountCode.localeCompare(b.accountCode));
 
     const search = query.search?.toLowerCase();
     const filteredRows = search
-      ? allRows.filter(
+      ? postingRows.filter(
           (r) =>
             r.accountCode.toLowerCase().includes(search) ||
             r.accountName.toLowerCase().includes(search),
         )
-      : allRows;
+      : postingRows;
 
-    const total = filteredRows.length;
-    const items = filteredRows.slice(
-      (page - 1) * pageSize,
-      (page - 1) * pageSize + pageSize,
+    const totals = filteredRows.reduce(
+      (acc, r) => ({
+        openingBalance: acc.openingBalance + r.openingBalance,
+        debitTotal: acc.debitTotal + r.debitTotal,
+        creditTotal: acc.creditTotal + r.creditTotal,
+        closingBalance: acc.closingBalance + r.closingBalance,
+      }),
+      { openingBalance: 0, debitTotal: 0, creditTotal: 0, closingBalance: 0 },
     );
 
-    return { items, total, page, pageSize, totals };
+    return {
+      items: filteredRows,
+      total: filteredRows.length,
+      page: 1,
+      pageSize: filteredRows.length,
+      totals: {
+        debitTotal: totals.debitTotal,
+        creditTotal: totals.creditTotal,
+        openingBalance: totals.openingBalance,
+        closingBalance: totals.closingBalance,
+      },
+      includeOpeningBalance: includeOpening,
+      balanced: Math.abs(totals.debitTotal - totals.creditTotal) < 0.01,
+      lines,
+    };
   }
 
   async journalReport(query: JournalReportQueryDto) {
@@ -465,10 +501,13 @@ export class AccountingReportsService {
       : new Date();
     const scopeWhere = this.buildEntryScopeWhere(query);
 
-    const rowsByType = await this.groupBalancesByAccountType({
-      ...scopeWhere,
-      entryDate: { lte: asOfDate },
-    });
+    const [rowsByType, accounts] = await Promise.all([
+      this.groupBalancesByAccountType({
+        ...scopeWhere,
+        entryDate: { lte: asOfDate },
+      }),
+      this.loadCoaNodes(),
+    ]);
 
     const totalAssets = this.sumRows(rowsByType.ASSET);
     const totalLiabilities = this.sumRows(rowsByType.LIABILITY);
@@ -476,6 +515,75 @@ export class AccountingReportsService {
     const currentEarnings =
       this.sumRows(rowsByType.REVENUE) - this.sumRows(rowsByType.EXPENSE);
     const totalEquity = totalEquityAccounts + currentEarnings;
+    const valueKeys = ['balance'];
+
+    const assetsForest = buildAccountForest(
+      accounts,
+      this.statementRowsToAmounts(rowsByType.ASSET),
+      valueKeys,
+      { accountType: AccountType.ASSET },
+    );
+    const liabilitiesForest = buildAccountForest(
+      accounts,
+      this.statementRowsToAmounts(rowsByType.LIABILITY),
+      valueKeys,
+      { accountType: AccountType.LIABILITY },
+    );
+    const equityForest = buildAccountForest(
+      accounts,
+      this.statementRowsToAmounts(rowsByType.EQUITY),
+      valueKeys,
+      { accountType: AccountType.EQUITY },
+    );
+    if (Math.abs(currentEarnings) >= 0.005) {
+      equityForest.push(
+        leafLine({
+          id: 'current-earnings',
+          kind: 'result',
+          label: 'Current Earnings (unclosed)',
+          labelEn: 'Current Earnings (unclosed)',
+          values: { balance: roundReportMoney(currentEarnings) },
+          level: 1,
+        }),
+      );
+    }
+
+    const lines = [
+      wrapSection({
+        id: 'assets',
+        label: 'Assets',
+        labelEn: 'Assets',
+        children: assetsForest,
+        valueKeys,
+        totalLabel: 'Total Assets',
+        totalLabelEn: 'Total Assets',
+      }),
+      wrapSection({
+        id: 'liabilities',
+        label: 'Liabilities',
+        labelEn: 'Liabilities',
+        children: liabilitiesForest,
+        valueKeys,
+        totalLabel: 'Total Liabilities',
+        totalLabelEn: 'Total Liabilities',
+      }),
+      wrapSection({
+        id: 'equity',
+        label: 'Equity',
+        labelEn: 'Equity',
+        children: equityForest,
+        valueKeys,
+        totalLabel: 'Total Equity',
+        totalLabelEn: 'Total Equity',
+      }),
+      leafLine({
+        id: 'liabilities-equity',
+        kind: 'grand_total',
+        label: 'Total Liabilities and Equity',
+        labelEn: 'Total Liabilities and Equity',
+        values: { balance: roundReportMoney(totalLiabilities + totalEquity) },
+      }),
+    ];
 
     return {
       asOfDate,
@@ -490,19 +598,63 @@ export class AccountingReportsService {
         balanced:
           Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 0.01,
       },
+      lines,
     };
   }
 
   /** TASK-051 Phase 3 — Revenue and Expense activity over [dateFrom, dateTo]. */
   async incomeStatement(query: IncomeStatementQueryDto) {
     const scopeWhere = this.buildEntryScopeWhere(query);
-    const rowsByType = await this.groupBalancesByAccountType({
-      ...scopeWhere,
-      entryDate: buildDateRangeFilter(query.dateFrom, query.dateTo),
-    });
+    const [rowsByType, accounts] = await Promise.all([
+      this.groupBalancesByAccountType({
+        ...scopeWhere,
+        entryDate: buildDateRangeFilter(query.dateFrom, query.dateTo),
+      }),
+      this.loadCoaNodes(),
+    ]);
 
     const totalRevenue = this.sumRows(rowsByType.REVENUE);
     const totalExpense = this.sumRows(rowsByType.EXPENSE);
+    const netIncome = totalRevenue - totalExpense;
+    const valueKeys = ['balance'];
+
+    const lines = [
+      wrapSection({
+        id: 'revenue',
+        label: 'Revenue',
+        labelEn: 'Revenue',
+        children: buildAccountForest(
+          accounts,
+          this.statementRowsToAmounts(rowsByType.REVENUE),
+          valueKeys,
+          { accountType: AccountType.REVENUE },
+        ),
+        valueKeys,
+        totalLabel: 'Total Revenue',
+        totalLabelEn: 'Total Revenue',
+      }),
+      wrapSection({
+        id: 'expense',
+        label: 'Expenses',
+        labelEn: 'Expenses',
+        children: buildAccountForest(
+          accounts,
+          this.statementRowsToAmounts(rowsByType.EXPENSE),
+          valueKeys,
+          { accountType: AccountType.EXPENSE },
+        ),
+        valueKeys,
+        totalLabel: 'Total Expenses',
+        totalLabelEn: 'Total Expenses',
+      }),
+      leafLine({
+        id: 'net-income',
+        kind: 'result',
+        label: netIncome >= 0 ? 'Net Profit' : 'Net Loss',
+        labelEn: netIncome >= 0 ? 'Net Profit' : 'Net Loss',
+        values: { balance: roundReportMoney(netIncome) },
+      }),
+    ];
 
     return {
       revenue: rowsByType.REVENUE,
@@ -510,8 +662,9 @@ export class AccountingReportsService {
       totals: {
         totalRevenue,
         totalExpense,
-        netIncome: totalRevenue - totalExpense,
+        netIncome,
       },
+      lines,
     };
   }
 
@@ -543,6 +696,46 @@ export class AccountingReportsService {
         openingBalance: 0,
         movements: [],
         totals: { netCashChange: 0, closingBalance: 0 },
+        lines: [
+          leafLine({
+            id: 'cf-opening',
+            kind: 'opening',
+            label: 'Opening cash',
+            values: { balance: 0 },
+          }),
+          wrapSection({
+            id: 'cf-operating',
+            label: 'Operating Activities',
+            children: [],
+            valueKeys: ['balance'],
+            totalLabel: 'Net cash from operating activities',
+          }),
+          wrapSection({
+            id: 'cf-investing',
+            label: 'Investing Activities',
+            children: [],
+            valueKeys: ['balance'],
+            totalLabel: 'Net cash from investing activities',
+          }),
+          wrapSection({
+            id: 'cf-financing',
+            label: 'Financing Activities',
+            children: [],
+            valueKeys: ['balance'],
+            totalLabel: 'Net cash from financing activities',
+          }),
+          leafLine({
+            id: 'cf-closing',
+            kind: 'closing',
+            label: 'Closing cash',
+            values: { balance: 0 },
+          }),
+        ],
+        sections: [
+          { section: 'OPERATING', netChange: 0 },
+          { section: 'INVESTING', netChange: 0 },
+          { section: 'FINANCING', netChange: 0 },
+        ],
       };
     }
 
@@ -587,6 +780,81 @@ export class AccountingReportsService {
       .sort((a, b) => a.sourceType.localeCompare(b.sourceType));
 
     const netCashChange = movements.reduce((sum, m) => sum + m.netChange, 0);
+    const valueKeys = ['balance'];
+    const sectionOrder = [
+      'OPERATING',
+      'INVESTING',
+      'FINANCING',
+      'OTHER',
+    ] as const;
+    const sectionLabels: Record<
+      (typeof sectionOrder)[number],
+      { ar: string; en: string }
+    > = {
+      OPERATING: { ar: 'Operating Activities', en: 'Operating Activities' },
+      INVESTING: { ar: 'Investing Activities', en: 'Investing Activities' },
+      FINANCING: { ar: 'Financing Activities', en: 'Financing Activities' },
+      OTHER: { ar: 'Other', en: 'Other' },
+    };
+
+    const grouped = new Map<(typeof sectionOrder)[number], typeof movements>();
+    for (const movement of movements) {
+      const section = classifyCashFlowSource(movement.sourceType);
+      const list = grouped.get(section) ?? [];
+      list.push(movement);
+      grouped.set(section, list);
+    }
+
+    const sectionLines: HierarchicalReportLine[] = sectionOrder
+      .filter(
+        (section) =>
+          section !== 'OTHER' || (grouped.get(section)?.length ?? 0) > 0,
+      )
+      .map((section) => {
+        const children = (grouped.get(section) ?? []).map((movement) =>
+          leafLine({
+            id: `cf:${section}:${movement.sourceType}`,
+            kind: 'posting',
+            label: movement.sourceType,
+            values: { balance: roundReportMoney(movement.netChange) },
+            level: 1,
+          }),
+        );
+        return wrapSection({
+          id: `cf-${section.toLowerCase()}`,
+          label: sectionLabels[section].en,
+          labelEn: sectionLabels[section].en,
+          children,
+          valueKeys,
+          totalLabel: `Net cash from ${sectionLabels[section].en.toLowerCase()}`,
+          totalLabelEn: `Net cash from ${sectionLabels[section].en.toLowerCase()}`,
+        });
+      });
+
+    const reportLines: HierarchicalReportLine[] = [
+      leafLine({
+        id: 'cf-opening',
+        kind: 'opening',
+        label: 'Opening cash',
+        labelEn: 'Opening cash',
+        values: { balance: roundReportMoney(openingBalance) },
+      }),
+      ...sectionLines,
+      leafLine({
+        id: 'cf-net',
+        kind: 'result',
+        label: 'Net increase (decrease) in cash',
+        labelEn: 'Net increase (decrease) in cash',
+        values: { balance: roundReportMoney(netCashChange) },
+      }),
+      leafLine({
+        id: 'cf-closing',
+        kind: 'closing',
+        label: 'Closing cash',
+        labelEn: 'Closing cash',
+        values: { balance: roundReportMoney(openingBalance + netCashChange) },
+      }),
+    ];
 
     return {
       openingBalance,
@@ -595,6 +863,16 @@ export class AccountingReportsService {
         netCashChange,
         closingBalance: openingBalance + netCashChange,
       },
+      lines: reportLines,
+      sections: sectionOrder.map((section) => ({
+        section,
+        netChange: roundReportMoney(
+          (grouped.get(section) ?? []).reduce(
+            (sum, row) => sum + row.netChange,
+            0,
+          ),
+        ),
+      })),
     };
   }
 
@@ -648,6 +926,73 @@ export class AccountingReportsService {
 
   private sumRows(rows: StatementRow[]): number {
     return rows.reduce((sum, row) => sum + row.balance, 0);
+  }
+
+  private async loadCoaNodes(): Promise<CoaNode[]> {
+    const accounts = await this.prisma.chartOfAccount.findMany({
+      where: { deletedAt: null },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        nameEn: true,
+        accountType: true,
+        parentAccountId: true,
+        level: true,
+        allowsPosting: true,
+      },
+      orderBy: { code: 'asc' },
+    });
+    return accounts;
+  }
+
+  private async aggregateAccountDebitCredit(
+    entryWhere: Prisma.JournalEntryWhereInput,
+  ) {
+    const grouped = await this.prisma.journalEntryLine.groupBy({
+      by: ['accountId'],
+      where: { journalEntry: entryWhere },
+      _sum: { debit: true, credit: true },
+    });
+    return new Map(
+      grouped.map((row) => [
+        row.accountId,
+        {
+          debit: Number(row._sum.debit ?? 0),
+          credit: Number(row._sum.credit ?? 0),
+        },
+      ]),
+    );
+  }
+
+  private statementRowsToAmounts(rows: StatementRow[]): AccountAmounts {
+    return Object.fromEntries(
+      rows.map((row) => [row.accountId, { balance: row.balance }]),
+    );
+  }
+
+  private filterReportForest(
+    lines: HierarchicalReportLine[],
+    search?: string,
+  ): HierarchicalReportLine[] {
+    const term = search?.trim().toLowerCase();
+    if (!term) return lines;
+    const match = (
+      line: HierarchicalReportLine,
+    ): HierarchicalReportLine | null => {
+      const children = line.children
+        .map((child) => match(child))
+        .filter((child): child is HierarchicalReportLine => child !== null);
+      const self =
+        (line.code ?? '').toLowerCase().includes(term) ||
+        line.label.toLowerCase().includes(term) ||
+        (line.labelEn ?? '').toLowerCase().includes(term);
+      if (!self && children.length === 0) return null;
+      return { ...line, children, expandable: children.length > 0 };
+    };
+    return lines
+      .map((line) => match(line))
+      .filter((line): line is HierarchicalReportLine => line !== null);
   }
 
   async arAging(query: AgingQueryDto) {

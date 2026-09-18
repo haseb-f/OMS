@@ -30,6 +30,7 @@ export function WorkflowActionsPanel({
   onTransitionComplete,
   convertDefaults,
   hideConvert,
+  hideTargetCodes,
 }: {
   entityType: string;
   entityId: string;
@@ -37,6 +38,7 @@ export function WorkflowActionsPanel({
   onTransitionComplete: () => void;
   convertDefaults?: Partial<LeadConvertPayload>;
   hideConvert?: boolean;
+  hideTargetCodes?: string[];
 }) {
   const { t, locale } = useLocale();
   const [actions, setActions] = useState<WorkflowAction[]>([]);
@@ -117,9 +119,11 @@ export function WorkflowActionsPanel({
 
   if (loading) return null;
 
-  const visibleActions = hideConvert
-    ? actions.filter((action) => action.businessAction !== "LEAD_CONVERT")
-    : actions;
+  const visibleActions = actions.filter((action) => {
+    if (hideConvert && action.businessAction === "LEAD_CONVERT") return false;
+    if (hideTargetCodes?.includes(action.toStatusCode)) return false;
+    return true;
+  });
   const convert = visibleActions.find((a) => a.businessAction === "LEAD_CONVERT");
   const primary = convert ?? visibleActions.find((a) => a.isPrimary) ?? visibleActions[0];
   const secondary = visibleActions.filter((a) => a !== primary);

@@ -1,17 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
-import {
-  EnterpriseDataTable,
-  exportColumnsFromKeys,
-  exportRowsToCsv,
-} from "@/components/master-data/enterprise-data-table";
-import {
-  AccountingReportFilterBar,
-  EMPTY_REPORT_FILTERS,
-  type ReportFilterValue,
-} from "@/components/accounting/report-filter-bar";
+import { FinancialReport } from "@/components/accounting/financial-report";
+import type { FinancialReportLine } from "@/components/accounting/financial-report";
 import {
   accountingReportsService,
   type AgingPartnerRow,
@@ -19,12 +10,11 @@ import {
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
-import { toISODate } from "@/lib/date";
-import { MoneyCell, toExportRows } from "./shared";
+import { useReportQuery } from "./use-report-query";
 
 export function AgingTab({ side }: { side: "AR" | "AP" }) {
   const { t } = useLocale();
-  const [filters, setFilters] = useState<ReportFilterValue>(EMPTY_REPORT_FILTERS);
+  const { filters, setFilters, params } = useReportQuery();
   const [items, setItems] = useState<AgingPartnerRow[]>([]);
   const [totals, setTotals] = useState<AgingPartnerRow | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,12 +22,6 @@ export function AgingTab({ side }: { side: "AR" | "AP" }) {
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const params = {
-        companyId: filters.companyId || undefined,
-        branchId: filters.branchId || undefined,
-        currencyId: filters.currencyId || undefined,
-        dateTo: filters.dateRange.to ? toISODate(filters.dateRange.to) : undefined,
-      };
       const result =
         side === "AR"
           ? await accountingReportsService.arAging(params)
@@ -58,88 +42,86 @@ export function AgingTab({ side }: { side: "AR" | "AP" }) {
     } finally {
       setIsLoading(false);
     }
-  }, [filters, side, t]);
+  }, [params, side, t]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
-  const columns = useMemo<ColumnDef<AgingPartnerRow, unknown>[]>(
-    () => [
+  const lines = useMemo<FinancialReportLine[]>(() => {
+    const partners: FinancialReportLine[] = items.map((item) => ({
+      id: item.partnerId,
+      parentId: "aging",
+      kind: "posting",
+      level: 1,
+      code: item.partnerNumber,
+      label: item.partnerName,
+      expandable: false,
+      values: {
+        current: item.current,
+        days31to60: item.days31to60,
+        days61to90: item.days61to90,
+        over90: item.over90,
+        total: item.total,
+      },
+      children: [],
+    }));
+    return [
       {
-        id: "partnerNumber",
-        meta: { titleKey: "reports.finance.fields.partnerNumber" },
-        accessorFn: (row) => row.partnerNumber,
+        id: "aging",
+        parentId: null,
+        kind: "section",
+        level: 0,
+        label: side === "AR" ? t("reports.finance.arAging") : t("reports.finance.apAging"),
+        expandable: partners.length > 0,
+        values: {
+          current: totals?.current ?? 0,
+          days31to60: totals?.days31to60 ?? 0,
+          days61to90: totals?.days61to90 ?? 0,
+          over90: totals?.over90 ?? 0,
+          total: totals?.total ?? 0,
+        },
+        children: partners,
       },
       {
-        id: "partnerName",
-        meta: { titleKey: "reports.finance.fields.partnerName" },
-        accessorFn: (row) => row.partnerName,
+        id: "aging-total",
+        parentId: null,
+        kind: "grand_total",
+        level: 0,
+        label: t("reports.finance.totals"),
+        expandable: false,
+        values: {
+          current: totals?.current ?? 0,
+          days31to60: totals?.days31to60 ?? 0,
+          days61to90: totals?.days61to90 ?? 0,
+          over90: totals?.over90 ?? 0,
+          total: totals?.total ?? 0,
+        },
+        children: [],
       },
-      {
-        id: "current",
-        meta: { titleKey: "reports.finance.aging.current" },
-        accessorFn: (row) => row.current,
-        cell: (info) => <MoneyCell value={info.getValue() as number} />,
-      },
-      {
-        id: "days31to60",
-        meta: { titleKey: "reports.finance.aging.days31to60" },
-        accessorFn: (row) => row.days31to60,
-        cell: (info) => <MoneyCell value={info.getValue() as number} />,
-      },
-      {
-        id: "days61to90",
-        meta: { titleKey: "reports.finance.aging.days61to90" },
-        accessorFn: (row) => row.days61to90,
-        cell: (info) => <MoneyCell value={info.getValue() as number} />,
-      },
-      {
-        id: "over90",
-        meta: { titleKey: "reports.finance.aging.over90" },
-        accessorFn: (row) => row.over90,
-        cell: (info) => <MoneyCell value={info.getValue() as number} />,
-      },
-      {
-        id: "total",
-        meta: { titleKey: "reports.finance.fields.balance" },
-        accessorFn: (row) => row.total,
-        cell: (info) => <MoneyCell value={info.getValue() as number} />,
-      },
-    ],
-    [],
-  );
-
-  const exportKeys = [
-    "partnerNumber",
-    "partnerName",
-    "current",
-    "days31to60",
-    "days61to90",
-    "over90",
-    "total",
-  ];
+    ];
+  }, [items, totals, side, t]);
 
   return (
-    <EnterpriseDataTable
-      filterBar={
-        <AccountingReportFilterBar value={filters} onChange={(next) => setFilters(next)} />
-      }
-      tableId={`reports-finance-${side.toLowerCase()}-aging`}
-      printTitle={side === "AR" ? t("reports.finance.arAging") : t("reports.finance.apAging")}
-      columns={columns}
-      data={items}
-      totalCount={items.length}
+    <FinancialReport
+      lines={lines}
+      columns={[
+        { key: "current", labelKey: "reports.finance.aging.current" },
+        { key: "days31to60", labelKey: "reports.finance.aging.days31to60" },
+        { key: "days61to90", labelKey: "reports.finance.aging.days61to90" },
+        { key: "over90", labelKey: "reports.finance.aging.over90" },
+        { key: "total", labelKey: "reports.finance.fields.balance", emphasize: true },
+      ]}
       isLoading={isLoading}
-      getRowId={(row) => row.partnerId}
-      exportColumns={exportColumnsFromKeys(columns, exportKeys, t)}
-      onExport={(keys) =>
-        exportRowsToCsv(
-          toExportRows(columns, totals ? [...items, totals] : items),
-          keys,
-          `${side.toLowerCase()}-aging.csv`,
-        )
-      }
+      filters={filters}
+      onFiltersChange={setFilters}
+      printTitle={side === "AR" ? t("reports.finance.arAging") : t("reports.finance.apAging")}
+      exportFileName={`${side.toLowerCase()}-aging.csv`}
+      nameHeaderKey="reports.finance.fields.partnerName"
+      status={{
+        extras: totals ? [{ label: t("reports.finance.totals"), value: totals.total }] : [],
+      }}
     />
   );
 }

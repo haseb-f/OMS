@@ -15,7 +15,7 @@
  * reports `CANCELLED` regardless of what it had allocated beforehand).
  */
 
-import type { PrismaClient } from '@prisma/client';
+import type { PrismaClient, Prisma } from '@prisma/client';
 
 export type InvoicePaymentStatusValue =
   'UNPAID' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELLED';
@@ -101,4 +101,26 @@ export async function sumConfirmedAllocations(
         Number(row._sum.allocatedAmount ?? 0),
       ]),
   );
+}
+
+export async function lockInvoiceRow(
+  tx: Prisma.TransactionClient,
+  type: 'CUSTOMER_RECEIPT' | 'SUPPLIER_PAYMENT' | 'EXPENSE_PAYMENT',
+  invoiceId: string,
+): Promise<void> {
+  if (type === 'CUSTOMER_RECEIPT') {
+    await tx.$queryRaw`
+      SELECT id FROM sales_invoices
+      WHERE id = ${invoiceId}::uuid
+      FOR UPDATE
+    `;
+    return;
+  }
+  if (type === 'SUPPLIER_PAYMENT') {
+    await tx.$queryRaw`
+      SELECT id FROM purchase_invoices
+      WHERE id = ${invoiceId}::uuid
+      FOR UPDATE
+    `;
+  }
 }

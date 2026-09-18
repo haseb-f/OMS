@@ -20,6 +20,12 @@ import { CreatePaymentAttachmentDto } from './dto/create-payment-attachment.dto'
 import { MatchPaymentDto } from './dto/match-payment.dto';
 import { VerifyPaymentDto } from './dto/verify-payment.dto';
 import { RejectPaymentDto } from './dto/reject-payment.dto';
+import { FindPaymentsQueryDto } from './dto/find-payments-query.dto';
+import {
+  assertCanVerifyPayment,
+  computeStoreOrderSettlement,
+  lockStoreOrderRow,
+} from '../store-orders/store-order-payment-settlement.util';
 
 /**
  * Payment Workflow: Customer sends payment -> Payment record created ->
@@ -102,8 +108,90 @@ export class PaymentsService {
     }
   }
 
-  findAll() {
-    return this.prisma.payment.findMany({ where: { deletedAt: null } });
+  findAll(query?: FindPaymentsQueryDto) {
+    return this.findQueue(query ?? {});
+  }
+
+  async findQueue(query: FindPaymentsQueryDto) {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 50;
+    const where: Prisma.PaymentWhereInput = {
+      deletedAt: null,
+      ...(query.status ? { status: query.status } : {}),
+    };
+    const [items, total] = await Promise.all([
+      this.prisma.payment.findMany({
+        where,
+        include: {
+          currency: { select: { id: true, code: true, name: true } },
+          paymentSource: { select: { id: true, name: true } },
+          receivingAccount: { select: { id: true, name: true } },
+          storeOrder: {
+            select: {
+              id: true,
+              internalOrderId: true,
+              paymentStatus: true,
+              partner: {
+                select: { id: true, name: true, partnerNumber: true },
+              },
+            },
+          },
+          lead: {
+            select: {
+              id: true,
+              leadNumber: true,
+              customerName: true,
+            },
+          },
+          attachments: {
+            where: { deletedAt: null },
+            select: {
+              id: true,
+              fileName: true,
+              attachmentType: true,
+            },
+            take: 8,
+          },
+          matchedBy: { select: { id: true, fullName: true } },
+          verifiedBy: { select: { id: true, fullName: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.payment.count({ where }),
+    ]);
+
+    const orderIds = [
+      ...new Set(
+        items
+          .map((item) => item.storeOrderId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const settlements = new Map(
+      await Promise.all(
+        orderIds.map(
+          async (orderId) =>
+            [
+              orderId,
+              await computeStoreOrderSettlement(this.prisma, orderId),
+            ] as const,
+        ),
+      ),
+    );
+
+    return {
+      items: items.map((item) => ({
+        ...item,
+        settlement: item.storeOrderId
+          ? (settlements.get(item.storeOrderId) ?? null)
+          : null,
+      })),
+      total,
+      page,
+      pageSize,
+    };
   }
 
   async findOne(id: string) {
@@ -123,6 +211,12 @@ export class PaymentsService {
       throw new BadRequestException('Only a PENDING payment can be matched.');
     }
     const payment = await this.prisma.$transaction(async (tx) => {
+      const current = await tx.payment.findFirst({
+        where: { id, deletedAt: null },
+      });
+      if (!current || current.status !== PaymentStatus.PENDING) {
+        throw new BadRequestException('Only a PENDING payment can be matched.');
+      }
       const updated = await tx.payment.update({
         where: { id },
         data: {
@@ -156,6 +250,23 @@ export class PaymentsService {
       throw new BadRequestException('Only a MATCHED payment can be verified.');
     }
     const payment = await this.prisma.$transaction(async (tx) => {
+      const current = await tx.payment.findFirst({
+        where: { id, deletedAt: null },
+      });
+      if (!current || current.status !== PaymentStatus.MATCHED) {
+        throw new BadRequestException(
+          'Only a MATCHED payment can be verified.',
+        );
+      }
+      if (current.storeOrderId) {
+        await lockStoreOrderRow(tx, current.storeOrderId);
+        const settlement = await computeStoreOrderSettlement(
+          tx,
+          current.storeOrderId,
+          { excludePaymentId: id },
+        );
+        assertCanVerifyPayment(settlement, Number(current.amount));
+      }
       const updated = await tx.payment.update({
         where: { id },
         data: {
@@ -213,10 +324,27 @@ export class PaymentsService {
    *  diagram: PENDING -> MATCHED -> {VERIFIED or REJECTED}). */
   async reject(id: string, dto: RejectPaymentDto) {
     const existing = await this.findOne(id);
-    if (existing.status !== PaymentStatus.MATCHED) {
-      throw new BadRequestException('Only a MATCHED payment can be rejected.');
+    if (
+      existing.status !== PaymentStatus.MATCHED &&
+      existing.status !== PaymentStatus.PENDING
+    ) {
+      throw new BadRequestException(
+        'Only a PENDING or MATCHED payment can be rejected.',
+      );
     }
     const payment = await this.prisma.$transaction(async (tx) => {
+      const current = await tx.payment.findFirst({
+        where: { id, deletedAt: null },
+      });
+      if (
+        !current ||
+        (current.status !== PaymentStatus.MATCHED &&
+          current.status !== PaymentStatus.PENDING)
+      ) {
+        throw new BadRequestException(
+          'Only a PENDING or MATCHED payment can be rejected.',
+        );
+      }
       const updated = await tx.payment.update({
         where: { id },
         data: {

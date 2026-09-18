@@ -242,6 +242,10 @@ export class LeadsService {
     const importMethod = dto.importBatch
       ? LeadAssignmentMethod.IMPORT
       : LeadAssignmentMethod.MANUAL;
+    const autoPolicy = explicitOwnerId
+      ? null
+      : await this.leadAutoDistributionService.getEffectivePolicy();
+    const distributionHeld = !explicitOwnerId && !autoPolicy;
 
     if (explicitOwnerId && userId && explicitOwnerId !== userId) {
       const scope = await this.salesScope.resolve(userId);
@@ -268,6 +272,7 @@ export class LeadsService {
             currencyId,
             source: dto.source,
             importBatch: dto.importBatch,
+            distributionHeld,
             externalOrderId: dto.externalOrderId,
             leadNumber,
             statusId: defaultStatusId,

@@ -1,6 +1,13 @@
 "use client";
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useMemo, useState } from "react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { useLocale } from "@/providers/locale-provider";
 import { GeneralLedgerTab } from "./general-ledger-tab";
@@ -14,74 +21,65 @@ import { AgingTab } from "./aging-tab";
 import { PartnerStatementTab } from "./partner-statement-tab";
 import { PermissionGate } from "@/components/shared/permission-gate";
 
-/**
- * TASK-047 Financial Reports (General Ledger Foundation) — read-only
- * reports over the Journal Entries the Posting Engine (TASK-046) already
- * produces. Same shape as `reports/inventory/page.tsx` (TASK-029): one page,
- * one Tabs shell, each tab a self-contained report. Never creates or
- * modifies accounting data — every figure here is derived from
- * `JournalEntryLine` rows at request time.
- */
+const REPORTS = [
+  "generalLedger",
+  "trialBalance",
+  "journalReport",
+  "accountStatement",
+  "balanceSheet",
+  "incomeStatement",
+  "cashFlow",
+  "arAging",
+  "apAging",
+  "customerStatement",
+  "supplierStatement",
+] as const;
+
+type ReportKey = (typeof REPORTS)[number];
+
 function ReportsFinancePageContent() {
   const { t } = useLocale();
+  const [report, setReport] = useState<ReportKey>("trialBalance");
+  const title = useMemo(() => {
+    if (report === "accountStatement") return t("reports.finance.accountStatement.title");
+    if (report === "customerStatement") return t("reports.finance.customerStatement");
+    if (report === "supplierStatement") return t("reports.finance.supplierStatement");
+    return t(`reports.finance.${report}` as never);
+  }, [report, t]);
 
   return (
-    <PageWorkspace title={t("nav.reportsFinance")} description={t("reports.finance.description")}>
-      <Tabs defaultValue="generalLedger">
-        <TabsList variant="line" className="flex-wrap">
-          <TabsTrigger value="generalLedger">{t("reports.finance.generalLedger")}</TabsTrigger>
-          <TabsTrigger value="trialBalance">{t("reports.finance.trialBalance")}</TabsTrigger>
-          <TabsTrigger value="journalReport">{t("reports.finance.journalReport")}</TabsTrigger>
-          <TabsTrigger value="accountStatement">
-            {t("reports.finance.accountStatement.title")}
-          </TabsTrigger>
-          <TabsTrigger value="balanceSheet">{t("reports.finance.balanceSheet")}</TabsTrigger>
-          <TabsTrigger value="incomeStatement">{t("reports.finance.incomeStatement")}</TabsTrigger>
-          <TabsTrigger value="cashFlow">{t("reports.finance.cashFlow")}</TabsTrigger>
-          <TabsTrigger value="arAging">{t("reports.finance.arAging")}</TabsTrigger>
-          <TabsTrigger value="apAging">{t("reports.finance.apAging")}</TabsTrigger>
-          <TabsTrigger value="customerStatement">
-            {t("reports.finance.customerStatement")}
-          </TabsTrigger>
-          <TabsTrigger value="supplierStatement">
-            {t("reports.finance.supplierStatement")}
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="generalLedger">
-          <GeneralLedgerTab />
-        </TabsContent>
-        <TabsContent value="trialBalance">
-          <TrialBalanceTab />
-        </TabsContent>
-        <TabsContent value="journalReport">
-          <JournalReportTab />
-        </TabsContent>
-        <TabsContent value="accountStatement">
-          <AccountStatementTab />
-        </TabsContent>
-        <TabsContent value="balanceSheet">
-          <BalanceSheetTab />
-        </TabsContent>
-        <TabsContent value="incomeStatement">
-          <IncomeStatementTab />
-        </TabsContent>
-        <TabsContent value="cashFlow">
-          <CashFlowTab />
-        </TabsContent>
-        <TabsContent value="arAging">
-          <AgingTab side="AR" />
-        </TabsContent>
-        <TabsContent value="apAging">
-          <AgingTab side="AP" />
-        </TabsContent>
-        <TabsContent value="customerStatement">
-          <PartnerStatementTab role="CUSTOMER" />
-        </TabsContent>
-        <TabsContent value="supplierStatement">
-          <PartnerStatementTab role="SUPPLIER" />
-        </TabsContent>
-      </Tabs>
+    <PageWorkspace dense title={title}>
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <Select value={report} onValueChange={(value) => setReport(value as ReportKey)}>
+          <SelectTrigger className="w-full sm:w-72">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {REPORTS.map((key) => (
+              <SelectItem key={key} value={key}>
+                {key === "accountStatement"
+                  ? t("reports.finance.accountStatement.title")
+                  : key === "customerStatement"
+                    ? t("reports.finance.customerStatement")
+                    : key === "supplierStatement"
+                      ? t("reports.finance.supplierStatement")
+                      : t(`reports.finance.${key}` as never)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      {report === "generalLedger" ? <GeneralLedgerTab /> : null}
+      {report === "trialBalance" ? <TrialBalanceTab /> : null}
+      {report === "journalReport" ? <JournalReportTab /> : null}
+      {report === "accountStatement" ? <AccountStatementTab /> : null}
+      {report === "balanceSheet" ? <BalanceSheetTab /> : null}
+      {report === "incomeStatement" ? <IncomeStatementTab /> : null}
+      {report === "cashFlow" ? <CashFlowTab /> : null}
+      {report === "arAging" ? <AgingTab side="AR" /> : null}
+      {report === "apAging" ? <AgingTab side="AP" /> : null}
+      {report === "customerStatement" ? <PartnerStatementTab role="CUSTOMER" /> : null}
+      {report === "supplierStatement" ? <PartnerStatementTab role="SUPPLIER" /> : null}
     </PageWorkspace>
   );
 }

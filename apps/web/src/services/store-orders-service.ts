@@ -355,6 +355,10 @@ export const storeOrdersService = {
       total: string;
       paid: string;
       outstanding: string;
+      claimed?: string;
+      remainingToClaim?: string;
+      fullySettled?: boolean;
+      canAcceptPayment?: boolean;
       currencyId: string;
       paymentStatus: string;
     }>(`/store-orders/${id}/payment-context`),

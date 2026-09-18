@@ -1,35 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
+import { useRouter } from "next/navigation";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Landmark } from "lucide-react";
-import {
-  EnterpriseDataTable,
-  exportColumnsFromKeys,
-  exportRowsToCsv,
-} from "@/components/master-data/enterprise-data-table";
-import {
-  AccountingReportFilterBar,
-  EMPTY_REPORT_FILTERS,
-  type ReportFilterValue,
-} from "@/components/accounting/report-filter-bar";
-import { FilterSurface } from "@/components/shared/data-table/list-surface";
+import { FinancialReport } from "@/components/accounting/financial-report";
+import type { FinancialReportLine } from "@/components/accounting/financial-report";
 import {
   accountingReportsService,
   type AccountLedger,
-  type AccountLedgerMovement,
 } from "@/services/accounting-reports-service";
 import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
-import { formatDate, toISODate } from "@/lib/date";
-import { MoneyCell, toExportRows } from "./shared";
+import { formatDate } from "@/lib/date";
+import { useReportQuery } from "./use-report-query";
 
 export function AccountStatementTab() {
   const { t } = useLocale();
-  const [filters, setFilters] = useState<ReportFilterValue>(EMPTY_REPORT_FILTERS);
+  const router = useRouter();
+  const { filters, setFilters, params } = useReportQuery();
   const [account, setAccount] = useState<ChartOfAccountRow | null>(null);
   const [statement, setStatement] = useState<AccountLedger | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -41,132 +32,138 @@ export function AccountStatementTab() {
     }
     setIsLoading(true);
     try {
-      const result = await accountingReportsService.accountStatement(account.id, {
-        companyId: filters.companyId || undefined,
-        branchId: filters.branchId || undefined,
-        costCenterId: filters.costCenterId || undefined,
-        projectId: filters.projectId || undefined,
-        currencyId: filters.currencyId || undefined,
-        dateFrom: filters.dateRange.from ? toISODate(filters.dateRange.from) : undefined,
-        dateTo: filters.dateRange.to ? toISODate(filters.dateRange.to) : undefined,
-        postedOnly: filters.postedOnly,
-      });
-      setStatement(result);
+      setStatement(await accountingReportsService.accountStatement(account.id, params));
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
     } finally {
       setIsLoading(false);
     }
-  }, [account, filters, t]);
+  }, [account, params, t]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
-  const columns = useMemo<ColumnDef<AccountLedgerMovement, unknown>[]>(
-    () => [
+  const lines = useMemo<FinancialReportLine[]>(() => {
+    if (!statement) return [];
+    const movements: FinancialReportLine[] = statement.movements.map((movement, index) => ({
+      id: `${movement.journalEntryId}-${index}`,
+      parentId: "statement",
+      kind: "posting",
+      level: 1,
+      code: movement.entryNumber,
+      label: `${formatDate(movement.entryDate)} · ${movement.description ?? movement.sourceType ?? ""}`,
+      expandable: false,
+      values: {
+        debit: movement.debit,
+        credit: movement.credit,
+        running: movement.runningBalance,
+      },
+      children: [],
+    }));
+    return [
       {
-        id: "entryDate",
-        meta: { titleKey: "reports.finance.fields.entryDate" },
-        accessorFn: (row) => formatDate(row.entryDate),
+        id: "opening",
+        parentId: null,
+        kind: "opening",
+        level: 0,
+        label: t("reports.finance.fields.openingBalance"),
+        expandable: false,
+        values: { debit: 0, credit: 0, running: statement.openingBalance },
+        children: [],
       },
       {
-        id: "entryNumber",
-        meta: { titleKey: "reports.finance.fields.entryNumber" },
-        accessorFn: (row) => row.entryNumber,
-        cell: (info) => (
-          <code dir="ltr" className="rounded bg-muted px-1.5 py-0.5 text-xs">
-            {info.getValue() as string}
-          </code>
-        ),
+        id: "statement",
+        parentId: null,
+        kind: "group",
+        level: 0,
+        code: statement.account.code,
+        label: statement.account.name,
+        expandable: movements.length > 0,
+        values: {
+          debit: statement.periodDebit,
+          credit: statement.periodCredit,
+          running: statement.closingBalance,
+        },
+        children: movements,
       },
       {
-        id: "description",
-        meta: { titleKey: "reports.finance.fields.description" },
-        accessorFn: (row) => row.description ?? "—",
+        id: "closing",
+        parentId: null,
+        kind: "closing",
+        level: 0,
+        label: t("reports.finance.fields.closingBalance"),
+        expandable: false,
+        values: { debit: 0, credit: 0, running: statement.closingBalance },
+        children: [],
       },
-      {
-        id: "debit",
-        meta: { titleKey: "reports.finance.fields.debit" },
-        accessorFn: (row) => row.debit,
-        cell: (info) => <MoneyCell value={info.getValue() as number} />,
-      },
-      {
-        id: "credit",
-        meta: { titleKey: "reports.finance.fields.credit" },
-        accessorFn: (row) => row.credit,
-        cell: (info) => <MoneyCell value={info.getValue() as number} />,
-      },
-      {
-        id: "runningBalance",
-        meta: { titleKey: "reports.finance.fields.runningBalance" },
-        accessorFn: (row) => row.runningBalance,
-        cell: (info) => <MoneyCell value={info.getValue() as number} />,
-      },
-    ],
-    [],
-  );
-
-  const exportKeys = [
-    "entryDate",
-    "entryNumber",
-    "description",
-    "debit",
-    "credit",
-    "runningBalance",
-  ];
-  const movements = statement?.movements ?? [];
+    ];
+  }, [statement, t]);
 
   return (
     <div className="flex flex-col gap-3">
-      <FilterSurface>
-        <AccountingReportFilterBar
-          value={filters}
-          onChange={setFilters}
-          accountFilter={{ value: account, onChange: setAccount, required: true }}
-        />
-      </FilterSurface>
-
       {!account ? (
-        <EmptyState
-          icon={Landmark}
-          title={t("reports.finance.accountStatement.selectAccountTitle")}
-          description={t("reports.finance.accountStatement.selectAccountDescription")}
-        />
-      ) : (
         <>
-          {statement && (
-            <div className="flex flex-wrap items-center justify-end gap-4 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
-              <span className="flex items-center gap-1">
-                {t("reports.finance.fields.openingBalance")}{" "}
-                <MoneyCell value={statement.openingBalance} />
-              </span>
-              <span className="flex items-center gap-1">
-                {t("reports.finance.fields.debit")} <MoneyCell value={statement.periodDebit} />
-              </span>
-              <span className="flex items-center gap-1">
-                {t("reports.finance.fields.credit")} <MoneyCell value={statement.periodCredit} />
-              </span>
-              <span className="flex items-center gap-1 font-medium">
-                {t("reports.finance.fields.closingBalance")}{" "}
-                <MoneyCell value={statement.closingBalance} />
-              </span>
-            </div>
-          )}
-          <EnterpriseDataTable
-            tableId="reports-finance-account-statement"
-            printTitle={t("reports.finance.accountStatement.title")}
-            columns={columns}
-            data={movements}
+          <FinancialReport
+            lines={[]}
+            columns={[
+              { key: "debit", labelKey: "reports.finance.fields.debit" },
+              { key: "credit", labelKey: "reports.finance.fields.credit" },
+              {
+                key: "running",
+                labelKey: "reports.finance.fields.runningBalance",
+                emphasize: true,
+              },
+            ]}
             isLoading={isLoading}
-            getRowId={(row, index) => `${row.journalEntryId}-${index}`}
-            exportColumns={exportColumnsFromKeys(columns, exportKeys, t)}
-            onExport={(keys) =>
-              exportRowsToCsv(toExportRows(columns, movements), keys, "account-statement.csv")
-            }
+            filters={filters}
+            onFiltersChange={setFilters}
+            accountFilter={{ value: account, onChange: setAccount, required: true }}
+            printTitle={t("reports.finance.accountStatement.title")}
+            exportFileName="account-statement.csv"
+          />
+          <EmptyState
+            icon={Landmark}
+            title={t("reports.finance.accountStatement.selectAccountTitle")}
+            description={t("reports.finance.accountStatement.selectAccountDescription")}
           />
         </>
+      ) : (
+        <FinancialReport
+          lines={lines}
+          columns={[
+            { key: "debit", labelKey: "reports.finance.fields.debit" },
+            { key: "credit", labelKey: "reports.finance.fields.credit" },
+            { key: "running", labelKey: "reports.finance.fields.runningBalance", emphasize: true },
+          ]}
+          isLoading={isLoading}
+          filters={filters}
+          onFiltersChange={setFilters}
+          accountFilter={{ value: account, onChange: setAccount, required: true }}
+          printTitle={t("reports.finance.accountStatement.title")}
+          exportFileName="account-statement.csv"
+          status={{
+            extras: statement
+              ? [
+                  {
+                    label: t("reports.finance.fields.openingBalance"),
+                    value: statement.openingBalance,
+                  },
+                  {
+                    label: t("reports.finance.fields.closingBalance"),
+                    value: statement.closingBalance,
+                  },
+                ]
+              : [],
+          }}
+          onPostingClick={(line) => {
+            const movement = statement?.movements.find(
+              (row, index) => `${row.journalEntryId}-${index}` === line.id,
+            );
+            if (movement) router.push(`/finance/journal-entries?entry=${movement.journalEntryId}`);
+          }}
+        />
       )}
     </div>
   );

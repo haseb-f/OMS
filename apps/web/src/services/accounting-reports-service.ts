@@ -17,6 +17,7 @@ export interface ReportFilterParams {
   pageSize?: number;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
+  includeOpeningBalance?: boolean;
 }
 
 export interface AccountLedgerAccount {
@@ -60,13 +61,41 @@ export interface GeneralLedgerResult {
   pageSize: number;
 }
 
+export interface HierarchicalReportLine {
+  id: string;
+  parentId: string | null;
+  kind:
+    | "section"
+    | "group"
+    | "posting"
+    | "subtotal"
+    | "section_total"
+    | "opening"
+    | "closing"
+    | "grand_total"
+    | "result"
+    | "spacer";
+  level: number;
+  code?: string;
+  label: string;
+  labelEn?: string | null;
+  accountId?: string;
+  accountType?: string;
+  allowsPosting?: boolean;
+  expandable: boolean;
+  values: Record<string, number>;
+  children: HierarchicalReportLine[];
+}
+
 export interface TrialBalanceRow {
   accountId: string;
   accountCode: string;
   accountName: string;
   accountType: string;
+  openingBalance?: number;
   debitTotal: number;
   creditTotal: number;
+  closingBalance?: number;
   balance: number;
 }
 
@@ -75,7 +104,15 @@ export interface TrialBalanceResult {
   total: number;
   page: number;
   pageSize: number;
-  totals: { debitTotal: number; creditTotal: number };
+  totals: {
+    debitTotal: number;
+    creditTotal: number;
+    openingBalance?: number;
+    closingBalance?: number;
+  };
+  includeOpeningBalance?: boolean;
+  balanced?: boolean;
+  lines: HierarchicalReportLine[];
 }
 
 export interface JournalReportLine {
@@ -123,12 +160,14 @@ export interface BalanceSheetResult {
   equity: StatementRow[];
   currentEarnings: number;
   totals: { totalAssets: number; totalLiabilities: number; totalEquity: number; balanced: boolean };
+  lines: HierarchicalReportLine[];
 }
 
 export interface IncomeStatementResult {
   revenue: StatementRow[];
   expense: StatementRow[];
   totals: { totalRevenue: number; totalExpense: number; netIncome: number };
+  lines: HierarchicalReportLine[];
 }
 
 export interface CashFlowMovement {
@@ -140,6 +179,8 @@ export interface CashFlowResult {
   openingBalance: number;
   movements: CashFlowMovement[];
   totals: { netCashChange: number; closingBalance: number };
+  lines: HierarchicalReportLine[];
+  sections?: Array<{ section: string; netChange: number }>;
 }
 
 export type AgingBucket = "current" | "days31to60" | "days61to90" | "over90";

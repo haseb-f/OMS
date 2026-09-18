@@ -29,6 +29,7 @@ import { PermissionsResolverService } from '../permissions/permissions-resolver.
 import { CreateLeadAssignmentDto } from './assignments/dto/create-lead-assignment.dto';
 import { FindLeadsQueryDto } from './dto/find-leads-query.dto';
 import { ActivateDistributionDto } from './dto/activate-distribution.dto';
+import { ReleaseHeldDistributionDto } from './dto/release-held-distribution.dto';
 import { CreateLeadFollowUpDto } from './dto/create-lead-follow-up.dto';
 import {
   CloseLeadWithoutPurchaseDto,
@@ -124,7 +125,36 @@ export class LeadsController {
   @HttpCode(200)
   @PermissionAction('manage')
   deactivateDistribution(@CurrentUser() user: JwtPayload) {
-    return this.leadAutoDistributionService.deactivate(user.sub);
+    return this.leadAutoDistributionService.pause(user.sub);
+  }
+
+  @Post('distribution/pause')
+  @HttpCode(200)
+  @PermissionAction('manage')
+  pauseDistribution(@CurrentUser() user: JwtPayload) {
+    return this.leadAutoDistributionService.pause(user.sub);
+  }
+
+  @Post('distribution/activate-manual')
+  @HttpCode(200)
+  @PermissionAction('manage')
+  activateManualDistribution(@CurrentUser() user: JwtPayload) {
+    return this.leadAutoDistributionService.activateManual(user.sub);
+  }
+
+  @Post('distribution/release-held')
+  @HttpCode(200)
+  @PermissionAction('manage')
+  releaseHeldDistribution(
+    @Body() dto: ReleaseHeldDistributionDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.leadAutoDistributionService.releaseHeld({
+      importBatch: dto.importBatch,
+      mode: dto.mode,
+      salesEmployeeId: dto.salesEmployeeId,
+      actorId: user.sub,
+    });
   }
 
   @Post('distribution/activate-continuous')

@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Shuffle } from "lucide-react";
+import { Pause, Play, Clock, Hand, Shuffle } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
+import { EnterpriseBadge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -35,13 +36,6 @@ export function LeadDistributionModal({
 }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
-  // The "continuous"/"hours" auto-distribution POLICY tabs call
-  // activateContinuous/activate24h/deactivateDistribution — all gated
-  // server-side on crm.leads.manage specifically, a stronger permission
-  // than the crm.leads.manage-OR-TEAM-scope check (assertCanAssign) that
-  // lets a plain Team Manager open this modal at all for manual bulk
-  // assignment. Without this, a Team Manager with TEAM scope but no
-  // explicit crm.leads.manage would see policy buttons that then 403.
   const canManagePolicy = hasPermission("crm.leads.manage");
   const availableTabs: Tab[] = canManagePolicy ? ["continuous", "hours", "manual"] : ["manual"];
   const [tab, setTab] = useState<Tab>(
@@ -60,14 +54,19 @@ export function LeadDistributionModal({
     leadsService
       .distribution()
       .then(setSnapshot)
-      .catch(() => setSnapshot({ policy: null, eligible: [] }));
+      .catch(() => setSnapshot({ policy: null, eligible: [], status: "PAUSED", isRunning: false }));
   }, [open, selectedLeadIds.length, canManagePolicy]);
 
   const remainingHours = snapshot?.policy?.remainingMs
     ? Math.ceil(snapshot.policy.remainingMs / 3_600_000)
     : null;
-  const isContinuous = snapshot?.policy?.mode === "CONTINUOUS";
-  const is24h = snapshot?.policy?.mode === "TIME_LIMITED";
+  const status =
+    snapshot?.status ?? (snapshot?.policy?.mode === "CONTINUOUS" ? "CONTINUOUS" : "PAUSED");
+  const isContinuous = status === "CONTINUOUS";
+  const is24h = status === "TIME_LIMITED";
+  const isManual = status === "MANUAL";
+  const isPaused = status === "PAUSED";
+  const running = isContinuous || is24h;
 
   const run = async (action: () => Promise<unknown>, successKey: string) => {
     setBusy(true);
@@ -75,8 +74,7 @@ export function LeadDistributionModal({
       await action();
       toast.success(t(successKey as never));
       onChanged?.();
-      const next = await leadsService.distribution();
-      setSnapshot(next);
+      setSnapshot(await leadsService.distribution());
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
@@ -131,6 +129,129 @@ export function LeadDistributionModal({
       )}
     >
       <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-3 py-2">
+          <div className="flex flex-col gap-0.5">
+            <p className="text-caption text-muted-foreground">
+              {t("crm.leads.distribution.status")}
+            </p>
+            <p className="text-body font-semibold">
+              {running
+                ? t("crm.leads.distribution.running")
+                : isManual
+                  ? t("crm.leads.distribution.states.manual")
+                  : t("crm.leads.distribution.paused")}
+            </p>
+          </div>
+          {running && canManagePolicy ? (
+            <EnterpriseButton
+              size="sm"
+              variant="warning"
+              disabled={busy}
+              onClick={() =>
+                void run(
+                  () => leadsService.pauseDistribution(),
+                  "crm.leads.distribution.pausedToast",
+                )
+              }
+            >
+              <Pause />
+              {t("crm.leads.distribution.pause")}
+            </EnterpriseButton>
+          ) : null}
+        </div>
+
+        {canManagePolicy ? (
+          <div className="grid gap-2 sm:grid-cols-3">
+            <EnterpriseButton
+              type="button"
+              variant={isContinuous ? "success" : "outline"}
+              disabled={busy || isContinuous}
+              onClick={() =>
+                void run(
+                  () => leadsService.activateContinuous(),
+                  "crm.leads.distribution.activated",
+                )
+              }
+            >
+              <Play />
+              {t("crm.leads.distribution.states.continuous")}
+            </EnterpriseButton>
+            <EnterpriseButton
+              type="button"
+              variant={is24h ? "default" : "outline"}
+              disabled={busy}
+              onClick={() =>
+                void run(() => leadsService.activate24h(), "crm.leads.distribution.activated24h")
+              }
+            >
+              <Clock />
+              {t("crm.leads.distribution.states.hours")}
+            </EnterpriseButton>
+            <EnterpriseButton
+              type="button"
+              variant={isManual ? "secondary" : "outline"}
+              disabled={busy || isManual}
+              onClick={() =>
+                void run(
+                  () => leadsService.activateManual(),
+                  "crm.leads.distribution.activatedManual",
+                )
+              }
+            >
+              <Hand />
+              {t("crm.leads.distribution.states.manual")}
+            </EnterpriseButton>
+          </div>
+        ) : null}
+
+        {(snapshot?.held?.batches.length ?? 0) > 0 && canManagePolicy ? (
+          <div className="flex flex-col gap-2 rounded-md border border-warning/30 bg-warning-soft/40 p-3">
+            <p className="text-body font-medium">{t("crm.leads.distribution.heldTitle")}</p>
+            <p className="text-caption text-muted-foreground">
+              {t("crm.leads.distribution.heldHint")}
+            </p>
+            {snapshot!.held!.batches.map((batch) => (
+              <div
+                key={batch.importBatch ?? "none"}
+                className="flex flex-wrap items-center justify-between gap-2"
+              >
+                <div className="flex items-center gap-2">
+                  <EnterpriseBadge variant="outline">
+                    {batch.importBatch || t("crm.leads.distribution.noBatch")}
+                  </EnterpriseBadge>
+                  <span className="text-caption">{batch.count}</span>
+                </div>
+                <div className="flex gap-1.5">
+                  <EnterpriseButton
+                    size="xs"
+                    disabled={busy}
+                    onClick={() =>
+                      void run(
+                        () =>
+                          leadsService.releaseHeld({
+                            importBatch: batch.importBatch,
+                            mode: "CONTINUOUS",
+                          }),
+                        "crm.leads.distribution.released",
+                      )
+                    }
+                  >
+                    {t("crm.leads.distribution.releaseAuto")}
+                  </EnterpriseButton>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {is24h && snapshot?.policy ? (
+          <p className="text-caption text-muted-foreground">
+            {t("crm.leads.distribution.remaining")}: {remainingHours}{" "}
+            {t("crm.leads.distribution.hours")}
+            {snapshot.policy.expiresAt ? ` · ${formatDateTime(snapshot.policy.expiresAt)}` : ""}
+          </p>
+        ) : null}
+
         <div className="flex gap-2 rounded-md border border-border bg-muted/30 p-1">
           {availableTabs.map((item) => (
             <EnterpriseButton
@@ -147,86 +268,14 @@ export function LeadDistributionModal({
         </div>
 
         {tab === "continuous" && canManagePolicy ? (
-          <div className="flex flex-col gap-3">
-            <p className="text-caption text-muted-foreground">
-              {t("crm.leads.distribution.continuousHint")}
-            </p>
-            <p className="text-body">
-              {t("crm.leads.distribution.status")}:{" "}
-              {isContinuous
-                ? t("crm.leads.distribution.active")
-                : t("crm.leads.distribution.inactive")}
-            </p>
-            <p className="text-caption text-muted-foreground">
-              {t("crm.leads.distribution.strategy")}: {t("crm.leads.distribution.roundRobin")}
-            </p>
-            <p className="text-caption">
-              {t("crm.leads.distribution.eligible")}:{" "}
-              {snapshot?.eligible.map((e) => e.fullName).join("، ") || "—"}
-            </p>
-            <div className="flex gap-2">
-              <EnterpriseButton
-                size="sm"
-                disabled={busy || isContinuous}
-                onClick={() =>
-                  void run(
-                    () => leadsService.activateContinuous(),
-                    "crm.leads.distribution.activated",
-                  )
-                }
-              >
-                {t("crm.leads.distribution.activate")}
-              </EnterpriseButton>
-              <EnterpriseButton
-                size="sm"
-                variant="outline"
-                disabled={busy || !isContinuous}
-                onClick={() =>
-                  void run(
-                    () => leadsService.deactivateDistribution(),
-                    "crm.leads.distribution.deactivated",
-                  )
-                }
-              >
-                {t("crm.leads.distribution.deactivate")}
-              </EnterpriseButton>
-            </div>
-          </div>
+          <p className="text-caption text-muted-foreground">
+            {t("crm.leads.distribution.continuousHint")}
+          </p>
         ) : null}
-
         {tab === "hours" && canManagePolicy ? (
-          <div className="flex flex-col gap-3">
-            <p className="text-caption text-muted-foreground">
-              {t("crm.leads.distribution.hoursHint")}
-            </p>
-            {is24h && snapshot?.policy ? (
-              <>
-                <p className="text-body">
-                  {t("crm.leads.distribution.startedAt")}:{" "}
-                  {formatDateTime(snapshot.policy.startedAt)}
-                </p>
-                <p className="text-body">
-                  {t("crm.leads.distribution.expiresAt")}:{" "}
-                  {snapshot.policy.expiresAt ? formatDateTime(snapshot.policy.expiresAt) : "—"}
-                </p>
-                <p className="text-body">
-                  {t("crm.leads.distribution.remaining")}: {remainingHours}{" "}
-                  {t("crm.leads.distribution.hours")}
-                </p>
-              </>
-            ) : (
-              <p className="text-body">{t("crm.leads.distribution.inactive")}</p>
-            )}
-            <EnterpriseButton
-              size="sm"
-              disabled={busy}
-              onClick={() =>
-                void run(() => leadsService.activate24h(), "crm.leads.distribution.activated24h")
-              }
-            >
-              {t("crm.leads.distribution.activate24h")}
-            </EnterpriseButton>
-          </div>
+          <p className="text-caption text-muted-foreground">
+            {t("crm.leads.distribution.hoursHint")}
+          </p>
         ) : null}
 
         {tab === "manual" ? (
@@ -274,6 +323,12 @@ export function LeadDistributionModal({
               {t("crm.leads.assignDialog.confirm")}
             </EnterpriseButton>
           </div>
+        ) : null}
+
+        {isPaused ? (
+          <p className="text-caption text-warning-foreground">
+            {t("crm.leads.distribution.pausedHint")}
+          </p>
         ) : null}
       </div>
     </EnterpriseModal>

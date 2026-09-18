@@ -23,6 +23,7 @@ import { PostingEngineService } from '../accounting/posting-engine/posting-engin
 import type { CompanyContext } from '../common/decorators/current-company-context.decorator';
 import {
   computeInvoicePaymentSummary,
+  lockInvoiceRow,
   sumConfirmedAllocations,
 } from './shared/invoice-payment.util';
 import type { AllocationInputDto } from './shared/allocation-input.dto';
@@ -324,19 +325,20 @@ export class FinancialTransactionsService {
       where: { id },
       include: { allocations: true },
     });
-    for (const allocation of full.allocations) {
-      const invoiceId =
-        allocation.salesInvoiceId ?? allocation.purchaseInvoiceId;
-      if (!invoiceId) continue;
-      await this.assertAllocationWithinRemaining(
-        existing.type,
-        invoiceId,
-        Number(allocation.allocatedAmount),
-        id,
-      );
-    }
 
     return this.prisma.$transaction(async (tx) => {
+      for (const allocation of full.allocations) {
+        const invoiceId =
+          allocation.salesInvoiceId ?? allocation.purchaseInvoiceId;
+        if (!invoiceId) continue;
+        await lockInvoiceRow(tx, existing.type, invoiceId);
+        await this.assertAllocationWithinRemaining(
+          existing.type,
+          invoiceId,
+          Number(allocation.allocatedAmount),
+          id,
+        );
+      }
       const transaction = await tx.financialTransaction.update({
         where: { id },
         data: {
@@ -466,13 +468,14 @@ export class FinancialTransactionsService {
         `Cannot allocate ${dto.allocatedAmount} — only ${Number(existing.amount) - alreadyAllocated} remains unallocated on this ${this.label(existing.type).toLowerCase()}.`,
       );
     }
-    await this.assertAllocationWithinRemaining(
-      existing.type,
-      dto.invoiceId,
-      dto.allocatedAmount,
-    );
 
     return this.prisma.$transaction(async (tx) => {
+      await lockInvoiceRow(tx, existing.type, dto.invoiceId);
+      await this.assertAllocationWithinRemaining(
+        existing.type,
+        dto.invoiceId,
+        dto.allocatedAmount,
+      );
       await tx.financialTransactionAllocation.create({
         data: {
           transactionId: id,

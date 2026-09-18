@@ -372,6 +372,54 @@ describe('Sales Funnel Engine', () => {
     await distribution.deactivate(actor.id);
   });
 
+  liveIt(
+    'paused imports stay unassigned until held batches are released',
+    async () => {
+      const manager = await managerUser('Pause Manager');
+      const agent = await salesUser('Pause Agent');
+      const team = await makeTeam(manager.id, [agent.id]);
+      await distribution.pause(manager.id);
+      const { countryId, currencyId } = await refs();
+      const batch = `HELD-${suffix()}`;
+      const lead = await leads.create({
+        customerName: `Held Lead ${suffix()}`,
+        mobileNumber: saMobile(),
+        countryId,
+        currencyId,
+        source: LeadSource.EXCEL,
+        importBatch: batch,
+        quantity: 1,
+      });
+      createdLeadIds.push(lead.id);
+      expect(lead.salesEmployeeId).toBeNull();
+      expect(lead.distributionHeld).toBe(true);
+
+      await distribution.activate({
+        mode: LeadDistributionMode.CONTINUOUS,
+        actorId: manager.id,
+        teamId: team.id,
+      });
+      const stillHeld = await prisma.lead.findUniqueOrThrow({
+        where: { id: lead.id },
+      });
+      expect(stillHeld.salesEmployeeId).toBeNull();
+      expect(stillHeld.distributionHeld).toBe(true);
+
+      const released = await distribution.releaseHeld({
+        importBatch: batch,
+        mode: LeadDistributionMode.CONTINUOUS,
+        actorId: manager.id,
+      });
+      expect(released.released).toBe(1);
+      const assigned = await prisma.lead.findUniqueOrThrow({
+        where: { id: lead.id },
+      });
+      expect(assigned.salesEmployeeId).toBe(agent.id);
+      expect(assigned.distributionHeld).toBe(false);
+      await distribution.pause(manager.id);
+    },
+  );
+
   liveIt('custom N assigns exactly N unassigned leads', async () => {
     const manager = await salesUser('N Manager');
     await users.setPermissions(manager.id, {

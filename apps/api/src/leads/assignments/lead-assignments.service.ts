@@ -127,7 +127,11 @@ export class LeadAssignmentsService {
       });
       await client.lead.update({
         where: { id: leadId },
-        data: { salesEmployeeId: dto.salesEmployeeId, assignedAt },
+        data: {
+          salesEmployeeId: dto.salesEmployeeId,
+          assignedAt,
+          distributionHeld: false,
+        },
       });
       await this.leadActivityService.log(
         leadId,

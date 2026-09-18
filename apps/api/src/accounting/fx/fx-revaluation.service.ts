@@ -213,6 +213,7 @@ export class FxRevaluationService {
       debit?: number;
       credit?: number;
       description?: string;
+      partnerId?: string;
     }> = [];
     const unrealizedId = await this.requireUnrealizedAccount(tx);
 

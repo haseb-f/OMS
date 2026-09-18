@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsDateString,
@@ -46,7 +46,11 @@ export class ReportQueryBaseDto {
    * separate POSTED reversing entry would asymmetrically corrupt computed
    * balances, so DRAFT is the only status this toggle ever excludes.
    */
-  @Type(() => Boolean)
+  @Transform(({ value }) =>
+    value === undefined || value === null || value === ''
+      ? undefined
+      : value === true || value === 'true',
+  )
   @IsBoolean()
   @IsOptional()
   postedOnly?: boolean = true;

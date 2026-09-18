@@ -35,6 +35,12 @@ import {
   storeOrderItemsTotal,
   storeOrderLineAmount,
 } from './store-order-line-amount';
+import {
+  assertCanAcceptPayment,
+  computeStoreOrderSettlement,
+  lockStoreOrderRow,
+  serializeSettlement,
+} from './store-order-payment-settlement.util';
 import { CreateStoreOrderDto } from './dto/create-store-order.dto';
 import { UpdateStoreOrderDto } from './dto/update-store-order.dto';
 import { FindStoreOrdersQueryDto } from './dto/find-store-orders-query.dto';
@@ -906,8 +912,21 @@ export class StoreOrdersService {
     dto: CreateStoreOrderPaymentDto,
     userId?: string,
   ) {
-    const order = await this.findOne(id, userId);
     const payment = await this.prisma.$transaction(async (tx) => {
+      await lockStoreOrderRow(tx, id);
+      const order = await tx.storeOrder.findFirst({
+        where: { id, deletedAt: null },
+        include: {
+          items: {
+            select: { quantity: true, unitPrice: true, agreedAmount: true },
+          },
+        },
+      });
+      if (!order) {
+        throw new NotFoundException(`Store Order ${id} not found`);
+      }
+      const settlement = await computeStoreOrderSettlement(tx, id);
+      assertCanAcceptPayment(settlement, dto.amount);
       const created = await this.createPaymentRow(
         id,
         order.currencyId,
@@ -938,11 +957,8 @@ export class StoreOrdersService {
     userId?: string,
   ) {
     const order = await this.findOne(id, userId);
-    if (order.paymentStatus === StoreOrderPaymentStatus.FULLY_PAID_RECONCILED) {
-      throw new BadRequestException(
-        'Order is already fully paid and reconciled — no payment report needed.',
-      );
-    }
+    const settlement = await computeStoreOrderSettlement(this.prisma, id);
+    assertCanAcceptPayment(settlement, dto.reportedAmount);
 
     let receivingAccountId = dto.receivingAccountId;
     if (!receivingAccountId) {
@@ -959,6 +975,9 @@ export class StoreOrdersService {
     }
 
     const payment = await this.prisma.$transaction(async (tx) => {
+      await lockStoreOrderRow(tx, id);
+      const lockedSettlement = await computeStoreOrderSettlement(tx, id);
+      assertCanAcceptPayment(lockedSettlement, dto.reportedAmount);
       const paymentSourceId = await this.resolvePaymentSourceId(dto, tx);
       const created = await this.createPaymentRow(
         id,
@@ -1375,24 +1394,14 @@ export class StoreOrdersService {
    * do not reduce what Finance still needs to confirm.
    */
   async paymentContext(id: string, userId?: string) {
-    const order = await this.findOne(id, userId);
-    const total = storeOrderItemsTotal(order.items);
-    const verified = await this.prisma.payment.aggregate({
-      where: {
-        storeOrderId: id,
-        status: PaymentStatus.VERIFIED,
-        deletedAt: null,
-      },
-      _sum: { amount: true },
-    });
-    const paid = Number(verified._sum.amount ?? 0);
-    const outstanding = Math.max(Math.round((total - paid) * 100) / 100, 0);
+    await this.findOne(id, userId);
+    const settlement = await computeStoreOrderSettlement(this.prisma, id);
     return {
-      total: total.toFixed(2),
-      paid: paid.toFixed(2),
-      outstanding: outstanding.toFixed(2),
-      currencyId: order.currencyId,
-      paymentStatus: order.paymentStatus,
+      ...serializeSettlement(settlement),
+      currencyId: (await this.prisma.storeOrder.findFirst({
+        where: { id },
+        select: { currencyId: true },
+      }))!.currencyId,
     };
   }
 

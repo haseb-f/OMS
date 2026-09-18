@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Contact, Archive, Eye, Plus, UserPlus, Shuffle, Workflow, Download } from "lucide-react";
+import { Contact, Archive, Eye, Plus, UserPlus, Workflow, Download } from "lucide-react";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
 import type { MasterDataFormSection } from "@/components/master-data/master-data-form";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
@@ -27,6 +27,7 @@ import { LeadCloseWithoutPurchaseDialog } from "@/components/crm/lead-close-dial
 import { AssignLeadDialog } from "@/components/business/assign-lead-dialog";
 import { LeadOrderCreateDialog } from "@/components/business/lead-order-create-dialog";
 import { LeadDistributionModal } from "@/components/crm/lead-distribution-modal";
+import { LeadDistributionControl } from "@/components/crm/lead-distribution-control";
 import { BulkLeadStatusDialog } from "@/components/crm/bulk-lead-status-dialog";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
@@ -349,14 +350,10 @@ function CrmLeadsPageContent() {
         extraActions={
           <>
             {canAssign ? (
-              <EnterpriseButton
-                type="button"
-                variant="outline"
-                onClick={() => setDistributionOpen(true)}
-              >
-                <Shuffle />
-                {t("crm.leads.distribution.action")}
-              </EnterpriseButton>
+              <LeadDistributionControl
+                onOpenModes={() => setDistributionOpen(true)}
+                onChanged={() => setRefreshToken((n) => n + 1)}
+              />
             ) : null}
             <SyncButton sourceType="LEADS" onSynced={() => setRefreshToken((n) => n + 1)} />
             <ModuleImportButtons

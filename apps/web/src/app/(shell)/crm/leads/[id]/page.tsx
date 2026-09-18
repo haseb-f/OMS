@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { CalendarClock, FileText, ShoppingCart, UserCheck } from "lucide-react";
+import { FileText } from "lucide-react";
 import {
   DetailField,
   DetailFieldGrid,
@@ -20,6 +20,7 @@ import { AssignLeadDialog } from "@/components/business/assign-lead-dialog";
 import { LeadFollowUpDialog } from "@/components/crm/lead-follow-up-dialog";
 import { LeadConvertDialog } from "@/components/crm/lead-convert-dialog";
 import { LeadCloseWithoutPurchaseDialog } from "@/components/crm/lead-close-dialog";
+import { LeadNextActions } from "@/components/crm/lead-next-actions";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
@@ -208,31 +209,16 @@ function LeadDetailContent() {
         </div>
       }
       actions={
-        <div className="flex flex-wrap items-center gap-1.5">
-          {canConvert && operational ? (
-            <EnterpriseButton size="sm" variant="success" onClick={() => setConvertOpen(true)}>
-              <ShoppingCart />
-              {t("crm.leads.convert.cta")}
-            </EnterpriseButton>
-          ) : null}
-          {canEdit && operational ? (
-            <EnterpriseButton size="sm" variant="outline" onClick={() => setFollowUpOpen(true)}>
-              <CalendarClock />
-              {t("crm.leads.actions.addFollowUp")}
-            </EnterpriseButton>
-          ) : null}
-          {canAssign && operational ? (
-            <EnterpriseButton size="sm" variant="outline" onClick={() => setAssignOpen(true)}>
-              <UserCheck />
-              {lead.salesEmployee ? t("crm.leads.actions.transfer") : t("crm.leads.actions.assign")}
-            </EnterpriseButton>
-          ) : null}
-          {canEdit && operational ? (
-            <EnterpriseButton size="sm" variant="outline" onClick={() => setCloseOpen(true)}>
-              {t("crm.leads.actions.closeWithoutPurchase")}
-            </EnterpriseButton>
-          ) : null}
-        </div>
+        <LeadNextActions
+          lead={lead}
+          canEdit={canEdit}
+          canConvert={canConvert}
+          canAssign={canAssign}
+          onFollowUp={() => setFollowUpOpen(true)}
+          onConvert={() => setConvertOpen(true)}
+          onAssign={() => setAssignOpen(true)}
+          onClose={() => setCloseOpen(true)}
+        />
       }
     >
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -302,6 +288,7 @@ function LeadDetailContent() {
         entityType="LEAD"
         entityId={lead.id}
         hideConvert
+        hideTargetCodes={["FOLLOW_UP", "LOST", "DISQUALIFIED"]}
         onTransitionComplete={() => {
           void load();
           reloadSidePanels();

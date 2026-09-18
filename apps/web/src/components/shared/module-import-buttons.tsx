@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, UploadCloud } from "lucide-react";
+import { Download, Sheet, Upload } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ImportJobWizard } from "@/app/(shell)/data-management/import-center/import-job-wizard";
 import { importTypesService, type ImportTypeDefinition } from "@/services/import-types-service";
@@ -10,17 +10,7 @@ import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { downloadBlob } from "@/lib/download";
 import { ApiError } from "@/services/api-client";
-import type { MessageKey } from "@/i18n/translate";
 
-/**
- * TASK-060B Part 5 — "User should import directly from module without
- * opening Import Center." Drop this into any module list page's toolbar
- * (alongside the existing "+ New" button) to get Import + Download Excel
- * Template without leaving the page — reuses the exact same
- * `ImportTypeRegistryService` type definition, `ImportJobWizard`, and
- * `import-center/types/:type/template` endpoint the Import Center itself
- * uses, never a second import pipeline.
- */
 export function ModuleImportButtons({
   importType,
   onImported,
@@ -34,6 +24,7 @@ export function ModuleImportButtons({
 
   const [typeDef, setTypeDef] = useState<ImportTypeDefinition | null>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardSource, setWizardSource] = useState<"file" | "sheets">("file");
 
   useEffect(() => {
     if (!canImport) return;
@@ -50,8 +41,15 @@ export function ModuleImportButtons({
       const blob = await importTypesService.downloadTemplate(typeDef.type);
       downloadBlob(blob, `${typeDef.type.toLowerCase().replace(/_/g, "-")}-import-template.xlsx`);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to download template.");
+      toast.error(
+        error instanceof ApiError ? error.message : t("importCenter.downloadTemplateFailed"),
+      );
     }
+  };
+
+  const openWizard = (source: "file" | "sheets") => {
+    setWizardSource(source);
+    setWizardOpen(true);
   };
 
   return (
@@ -61,10 +59,21 @@ export function ModuleImportButtons({
         variant="outline"
         size="sm"
         className="gap-1.5"
-        onClick={handleDownloadTemplate}
+        onClick={() => void handleDownloadTemplate()}
       >
         <Download className="size-3.5" />
-        {t("importCenter.downloadTemplate")}
+        {t("importCenter.actions.downloadTemplate")}
+      </EnterpriseButton>
+      <EnterpriseButton
+        type="button"
+        variant="default"
+        size="sm"
+        className="gap-1.5"
+        disabled={!typeDef.isAvailable}
+        onClick={() => openWizard("file")}
+      >
+        <Upload className="size-3.5" />
+        {t("importCenter.actions.uploadDevice")}
       </EnterpriseButton>
       <EnterpriseButton
         type="button"
@@ -72,15 +81,16 @@ export function ModuleImportButtons({
         size="sm"
         className="gap-1.5"
         disabled={!typeDef.isAvailable}
-        onClick={() => setWizardOpen(true)}
+        onClick={() => openWizard("sheets")}
       >
-        <UploadCloud className="size-3.5" />
-        {t("importCenter.wizard.title", { type: t(typeDef.labelKey as MessageKey) })}
+        <Sheet className="size-3.5" />
+        {t("importCenter.actions.googleSheets")}
       </EnterpriseButton>
       <ImportJobWizard
         open={wizardOpen}
         onOpenChange={setWizardOpen}
         typeDef={typeDef}
+        initialUploadMode={wizardSource}
         onDone={onImported ?? (() => {})}
       />
     </>
