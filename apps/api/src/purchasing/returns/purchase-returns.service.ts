@@ -15,7 +15,7 @@ import { WarehousesService } from '../../warehouses/warehouses.service';
 import { PartnersService } from '../../partners/partners.service';
 import { InventoryService } from '../../inventory/inventory.service';
 import { PostingEngineService } from '../../accounting/posting-engine/posting-engine.service';
-import { resolveTaxesById } from '../../taxes/document-tax';
+import { resolveLineTaxes } from '../../taxes/document-tax';
 import {
   PurchaseReturnActivityService,
   PurchaseReturnActivityType,
@@ -580,13 +580,11 @@ export class PurchaseReturnsService {
   private async computeLines(
     items: PurchaseLineItemInputDto[],
   ): Promise<ComputedReturnLines> {
-    const taxById = await resolveTaxesById(
-      this.prisma,
-      items.map((i) => i.taxId),
-    );
+    const { taxIds, taxById } = await resolveLineTaxes(this.prisma, items);
 
-    const computedLines = items.map((item) => {
-      const tax = item.taxId ? taxById.get(item.taxId) : undefined;
+    const computedLines = items.map((item, index) => {
+      const taxId = taxIds[index];
+      const tax = taxId ? taxById.get(taxId) : undefined;
       return computeSalesLine({
         quantity: item.quantity,
         unitPrice: item.unitPrice,
@@ -607,7 +605,7 @@ export class PurchaseReturnsService {
         unitPrice: item.unitPrice,
         discountPercent: item.discountPercent ?? 0,
         discountValue: item.discountValue ?? 0,
-        taxId: item.taxId,
+        taxId: taxIds[index],
         purchaseInvoiceItemId: item.purchaseInvoiceItemId,
         taxAmount: computedLines[index].taxAmount,
         lineTotal: computedLines[index].lineTotal,

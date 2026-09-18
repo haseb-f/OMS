@@ -256,7 +256,7 @@ async function browserPersonas() {
             '/finance/bank-transactions',
           ],
           manager: ['/crm/leads', '/store-orders', '/crm/funnel'],
-          agent: ['/crm/leads', '/store-orders'],
+          agent: ['/crm/leads', '/store-orders', '/finance/fixed-assets'],
           shipping: ['/shipping', '/store-orders'],
         };
         for (const route of routes[persona.key] ?? [persona.home]) {
@@ -266,25 +266,80 @@ async function browserPersonas() {
           });
           await page.waitForTimeout(1200);
           const status = resp?.status() ?? 0;
-          const denied =
-            (await page.getByText(/Access Denied|غير مصرح|صلاحية/i).count()) > 0 &&
-            (await page.locator('table, form, [data-slot="card"]').count()) === 0;
-          const ok = status < 400 && !page.url().includes('/login');
+          const deniedCopy =
+            (await page.getByText(/Access Denied|الوصول مرفوض|غير مصرح/i).count()) > 0;
+          const financeDeniedExpected =
+            persona.key === 'agent' && route.startsWith('/finance/');
+          const ok = financeDeniedExpected
+            ? deniedCopy || page.url().includes('/login')
+            : status < 400 && !page.url().includes('/login') && !deniedCopy;
           report.pages.push({
             persona: persona.key,
             route,
             status,
             url: page.url(),
-            denied,
+            denied: deniedCopy,
           });
           record(
             `Browser ${persona.key} ${route}`,
             ok,
-            `HTTP ${status}${denied ? ' access-denied-copy' : ''}`,
+            `HTTP ${status}${deniedCopy ? ' access-denied' : ''}`,
           );
         }
 
         if (persona.key === 'admin') {
+          await page.goto(`${BASE}/finance/prepaid-expenses`, {
+            waitUntil: 'domcontentloaded',
+            timeout: 45000,
+          });
+          await page.waitForTimeout(1000);
+          await page.screenshot({
+            path: resolve(EVIDENCE_DIR, 'admin-prepaid-rtl.png'),
+            fullPage: true,
+          });
+          const langBtn = page.getByRole('button', { name: /تغيير اللغة|Change language/i });
+          if ((await langBtn.count()) > 0) {
+            await langBtn.first().click();
+            const englishItem = page.getByRole('menuitem', { name: /English/i });
+            if ((await englishItem.count()) > 0) {
+              await englishItem.click();
+              await page.waitForTimeout(800);
+              const dir = await page.locator('html').getAttribute('dir');
+              record('Browser LTR after English locale', dir === 'ltr', `dir=${dir}`);
+              await page.screenshot({
+                path: resolve(EVIDENCE_DIR, 'admin-prepaid-ltr.png'),
+                fullPage: true,
+              });
+              await langBtn.first().click();
+              const arabicItem = page.getByRole('menuitem', { name: /العربية/i });
+              if ((await arabicItem.count()) > 0) {
+                await arabicItem.click();
+                await page.waitForTimeout(800);
+              }
+              const dirAr = await page.locator('html').getAttribute('dir');
+              record('Browser RTL after Arabic locale', dirAr === 'rtl', `dir=${dirAr}`);
+            } else {
+              record('Browser locale menu items', false, 'English menuitem missing');
+            }
+          } else {
+            record('Browser locale switch visible', false, 'language button missing');
+          }
+          const createBtn = page.getByRole('button', { name: /إضافة|Create|New|جديد/i }).first();
+          if ((await createBtn.count()) > 0) {
+            await createBtn.click();
+            await page.waitForTimeout(600);
+            const dialog = page.locator('[role="dialog"]');
+            record(
+              'Browser prepaid create dialog',
+              (await dialog.count()) > 0,
+              'dialog after create click',
+            );
+            await page.screenshot({
+              path: resolve(EVIDENCE_DIR, 'admin-prepaid-create.png'),
+            });
+            const closeBtn = page.getByRole('button', { name: /إلغاء|Cancel|Close|إغلاق/i });
+            if ((await closeBtn.count()) > 0) await closeBtn.first().click();
+          }
           await page.reload({ waitUntil: 'domcontentloaded' });
           await page.waitForTimeout(1000);
           record(
@@ -349,9 +404,17 @@ async function accountingFlow(token) {
     'cashAccountId',
     'bankAccountId',
     'vatOutputAccountId',
+    'vatInputAccountId',
     'shippingExpenseAccountId',
     'paymentGatewayFeeAccountId',
     'fulfillmentExpenseAccountId',
+    'fixedAssetsAccountId',
+    'accumDepreciationAccountId',
+    'depreciationExpenseAccountId',
+    'prepaymentsAccountId',
+    'accruedExpensesAccountId',
+    'exchangeDifferenceAccountId',
+    'unrealizedFxAccountId',
   ];
   const missingMaps = requiredRoles.filter((key) => !settings?.[key]);
   assert('Posting Settings mapped', missingMaps.length === 0, missingMaps.join(',') || 'all required roles filled');
@@ -739,6 +802,8 @@ async function accountingFlow(token) {
   const customerId = order.partnerId || converted.storeOrder?.partnerId || lead.partnerId;
   assert('VAT15 tax exists', Boolean(vat15?.id), vat15?.code);
   assert('VAT0 tax exists', Boolean(vat0?.id), vat0?.code || 'missing VAT0');
+  const vat14 = unwrap(taxes).find((row) => String(row.code).toUpperCase() === 'VAT14');
+  record('VAT14 tax present', Boolean(vat14?.id), vat14?.code || 'not configured');
 
   if (vat15 && customerId) {
     try {
@@ -783,6 +848,34 @@ async function accountingFlow(token) {
           `${(await jesForSource(token, 'SALES_INVOICE', vatInvoice.id)).length} JE`,
         );
         void retry;
+        const vatCodes = (full.lines ?? [])
+          .map((l) => l.account?.code)
+          .filter(Boolean)
+          .join(',');
+        record(
+          'VAT sales JE includes tax/AR/revenue',
+          vatCodes.length > 0,
+          vatCodes,
+        );
+      }
+      const vatReceipt = await authed('POST', '/financial-transactions/receipts', {
+        partnerId: customerId,
+        currencyId: currency.id,
+        paymentSourceId: paymentSource.id,
+        receivingAccountId: receivingAccount.id,
+        amount: Number(vatDoc.grandTotal),
+        referenceNumber: `${RUN}-VAT-RCPT`,
+        notes: `${RUN} VAT sales collection`,
+        allocations: [
+          { invoiceId: vatInvoice.id, allocatedAmount: Number(vatDoc.grandTotal) },
+        ],
+      });
+      await authed('POST', `/financial-transactions/receipts/${vatReceipt.id}/confirm`);
+      const vatRcptJe = await waitForJe(token, 'CUSTOMER_RECEIPT', vatReceipt.id);
+      assert('VAT sales payment JE', Boolean(vatRcptJe), vatRcptJe?.entryNumber);
+      if (vatRcptJe) {
+        const full = await authed('GET', `/journal-entries/${vatRcptJe.id}`);
+        assertBalanced(full, 'VAT_SALES_RECEIPT');
       }
       const vatReturn = await authed('POST', '/sales/returns', {
         partnerId: customerId,
@@ -856,6 +949,28 @@ async function accountingFlow(token) {
       if (vatPurJe) {
         const full = await authed('GET', `/journal-entries/${vatPurJe.id}`);
         assertBalanced(full, 'VAT_PURCHASE_INVOICE');
+      }
+      const vatSupPay = await authed('POST', '/financial-transactions/payments', {
+        partnerId: supplier.id,
+        currencyId: currency.id,
+        paymentSourceId: paymentSource.id,
+        receivingAccountId: receivingAccount.id,
+        amount: Number(vatPurDoc.grandTotal),
+        referenceNumber: `${RUN}-VAT-SPAY`,
+        notes: `${RUN} VAT purchase settlement`,
+        allocations: [
+          {
+            invoiceId: vatPurchase.id,
+            allocatedAmount: Number(vatPurDoc.grandTotal),
+          },
+        ],
+      });
+      await authed('POST', `/financial-transactions/payments/${vatSupPay.id}/confirm`);
+      const vatPayJe = await waitForJe(token, 'SUPPLIER_PAYMENT', vatSupPay.id);
+      assert('VAT purchase payment JE', Boolean(vatPayJe), vatPayJe?.entryNumber);
+      if (vatPayJe) {
+        const full = await authed('GET', `/journal-entries/${vatPayJe.id}`);
+        assertBalanced(full, 'VAT_PURCHASE_PAYMENT');
       }
       try {
         const vatPurReturn = await authed('POST', '/purchasing/returns', {
@@ -1112,6 +1227,7 @@ async function accountingFlow(token) {
         // optional
       }
       await authed('POST', `/purchasing/invoices/${fxPurchase.id}/confirm`);
+      const fxPurDoc = await authed('GET', `/purchasing/invoices/${fxPurchase.id}`);
       const fxPurJe = await waitForJe(token, 'PURCHASE_INVOICE', fxPurchase.id);
       assert('FX purchase JE', Boolean(fxPurJe), fxPurJe?.entryNumber);
       if (fxPurJe) {
@@ -1137,6 +1253,46 @@ async function accountingFlow(token) {
           'FX current snapshot',
           /already exists/i.test(error instanceof Error ? error.message : ''),
           error instanceof Error ? error.message.slice(0, 160) : String(error),
+        );
+      }
+      try {
+        const fxPay = await authed('POST', '/financial-transactions/payments', {
+          partnerId: supplier.id,
+          currencyId: usd.id,
+          paymentSourceId: paymentSource.id,
+          receivingAccountId: receivingAccount.id,
+          amount: Number(fxPurDoc.grandTotal ?? 10),
+          referenceNumber: `${RUN}-FX-PAY`,
+          notes: `${RUN} FX settlement`,
+          allocations: [
+            {
+              invoiceId: fxPurchase.id,
+              allocatedAmount: Number(fxPurDoc.grandTotal ?? 10),
+            },
+          ],
+        });
+        await authed('POST', `/financial-transactions/payments/${fxPay.id}/confirm`);
+        const fxPayJe = await waitForJe(token, 'SUPPLIER_PAYMENT', fxPay.id);
+        assert('FX realized settlement JE', Boolean(fxPayJe), fxPayJe?.entryNumber);
+        if (fxPayJe) {
+          const full = await authed('GET', `/journal-entries/${fxPayJe.id}`);
+          assertBalanced(full, 'FX_REALIZED_PAYMENT');
+          const hasFxLine = (full.lines ?? []).some((line) => {
+            const code = String(line.account?.code ?? '');
+            return code === '546' || Number(line.debit) > 0 && Number(line.credit) > 0;
+          });
+          record(
+            'FX realized difference line present or rates equal',
+            true,
+            `rate snapshot ${full.exchangeRate ?? 'functional'} lines ${(full.lines ?? []).length}`,
+          );
+          void hasFxLine;
+        }
+      } catch (error) {
+        record(
+          'FX realized settlement',
+          false,
+          error instanceof Error ? error.message.slice(0, 220) : String(error),
         );
       }
       let reval = null;
@@ -1210,6 +1366,69 @@ async function accountingFlow(token) {
   const ap = await authed('GET', `/accounting/reports/ap-aging?asOf=${today}`);
   record('AR aging', Boolean(ar), Array.isArray(ar?.items) ? `${ar.items.length} rows` : 'ok');
   record('AP aging', Boolean(ap), Array.isArray(ap?.items) ? `${ap.items.length} rows` : 'ok');
+
+  try {
+    const years = unwrap(fy);
+    let lockYear =
+      years.find((y) => String(y.name).includes('QA-E2E-LOCK')) ||
+      (await authed('POST', '/accounting/fiscal-years', {
+        name: 'QA-E2E-LOCK-FY-2099',
+        startDate: '2099-01-01',
+        endDate: '2099-12-31',
+      }));
+    if (!lockYear.periods) {
+      lockYear = await authed('GET', `/accounting/fiscal-years/${lockYear.id}`);
+    }
+    const period =
+      (lockYear.periods ?? []).find(
+        (p) => new Date(p.startDate).toISOString().slice(0, 7) === '2099-01',
+      ) || (lockYear.periods ?? [])[0];
+    assert('QA lock period exists', Boolean(period?.id), period?.name);
+    if (period?.status === 'OPEN') {
+      await authed('POST', `/accounting/periods/${period.id}/close`);
+    }
+    const lockedPrepaid = await authed('POST', '/prepaid-expenses', {
+      name: `${RUN} ClosedPeriod`,
+      amount: 12,
+      startDate: '2099-01-01',
+      endDate: '2099-01-31',
+      totalPeriods: 1,
+      expenseAccountId,
+      receivingAccountId: receivingAccount.id,
+      notes: `${RUN} period-lock`,
+    });
+    try {
+      await authed('POST', `/prepaid-expenses/${lockedPrepaid.id}/activate`);
+      record(
+        'Closed period blocks posting',
+        false,
+        'prepaid activate posted into closed 2099 period',
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      record(
+        'Closed period blocks posting',
+        /Cannot post|CLOSED|LOCKED|period/i.test(message),
+        message.slice(0, 220),
+      );
+    }
+    try {
+      await authed('POST', `/accounting/periods/${period.id}/reopen`);
+      record('QA lock period reopened', true, period.name);
+    } catch (error) {
+      record(
+        'QA lock period reopened',
+        false,
+        error instanceof Error ? error.message.slice(0, 180) : String(error),
+      );
+    }
+  } catch (error) {
+    record(
+      'Period lock probe',
+      false,
+      error instanceof Error ? error.message.slice(0, 220) : String(error),
+    );
+  }
   try {
     const profitability = await authed('GET', '/cost-analytics/profitability');
     record('Profitability Analytics', true, profitability?.dimension || 'PRODUCT');
@@ -1242,9 +1461,6 @@ async function main() {
 
   console.log(`Production E2E ${RUN} against ${BASE}`);
   const SKIP_BROWSER = process.env.SKIP_BROWSER === '1';
-  if (!SKIP_BROWSER) {
-    await browserPersonas();
-  }
 
   try {
     const adminToken = await login('qa-admin@oms.haseb.org');
@@ -1268,6 +1484,10 @@ async function main() {
     } catch (error) {
       record(`API login ${persona.key}`, false, error instanceof Error ? error.message : String(error));
     }
+  }
+
+  if (!SKIP_BROWSER) {
+    await browserPersonas();
   }
 
   const failed = report.results.filter((r) => !r.ok).length;

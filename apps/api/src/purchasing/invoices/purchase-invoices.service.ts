@@ -18,7 +18,7 @@ import { WarehousesService } from '../../warehouses/warehouses.service';
 import { PartnersService } from '../../partners/partners.service';
 import { InventoryService } from '../../inventory/inventory.service';
 import { PostingEngineService } from '../../accounting/posting-engine/posting-engine.service';
-import { resolveTaxesById } from '../../taxes/document-tax';
+import { resolveLineTaxes } from '../../taxes/document-tax';
 import {
   PurchaseInvoiceActivityService,
   PurchaseInvoiceActivityType,
@@ -106,11 +106,8 @@ export class PurchaseInvoicesService {
    * Called by PurchaseOrdersService.convertToInvoice — every PO line
    * converts as-is (no partial receipt tracking on PurchaseOrderItem), at
    * the single `warehouseId` the caller supplied for the whole receipt.
-   * Copies price/discount from the PO line; PurchaseOrderItem carries no
-   * tax field (Phase 1), so `taxId` is left unset on every converted line —
-   * still editable afterward while the Invoice stays Draft, same as the
-   * "flat discountValue not prorated" simplification Sales documents this
-   * exact bridge-point limitation with.
+   * Copies price/discount/tax from the PO line. Missing line tax inherits
+   * Product.taxId in `computeLines` — never silently zero when a tax exists.
    */
   async createFromOrder(
     order: PurchaseOrder,
@@ -129,6 +126,7 @@ export class PurchaseInvoicesService {
       unitPrice: Number(item.unitPrice),
       discountPercent: Number(item.discountPercent),
       discountValue: Number(item.discountValue),
+      taxId: item.taxId ?? undefined,
     })) as PurchaseLineItemInputDto[];
 
     for (const line of lineInputs) {
@@ -618,13 +616,11 @@ export class PurchaseInvoicesService {
   private async computeLines(
     items: PurchaseLineItemInputDto[],
   ): Promise<ComputedInvoiceLines> {
-    const taxById = await resolveTaxesById(
-      this.prisma,
-      items.map((i) => i.taxId),
-    );
+    const { taxIds, taxById } = await resolveLineTaxes(this.prisma, items);
 
-    const computedLines = items.map((item) => {
-      const tax = item.taxId ? taxById.get(item.taxId) : undefined;
+    const computedLines = items.map((item, index) => {
+      const taxId = taxIds[index];
+      const tax = taxId ? taxById.get(taxId) : undefined;
       return computeSalesLine({
         quantity: item.quantity,
         unitPrice: item.unitPrice,
@@ -645,7 +641,7 @@ export class PurchaseInvoicesService {
         unitPrice: item.unitPrice,
         discountPercent: item.discountPercent ?? 0,
         discountValue: item.discountValue ?? 0,
-        taxId: item.taxId,
+        taxId: taxIds[index],
         taxAmount: computedLines[index].taxAmount,
         lineTotal: computedLines[index].lineTotal,
         notes: item.notes,

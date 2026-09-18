@@ -23,6 +23,7 @@ import {
   computeSalesDocumentTotals,
   computeSalesLine,
 } from '../sales/shared/sales-totals.util';
+import { resolveTaxesById } from '../taxes/document-tax';
 import { buildDateRangeFilter } from '../sales/shared/sales-list-query.util';
 import { prismaEnumFilter } from '../common/query/enum-list';
 import {
@@ -1467,13 +1468,20 @@ export class StoreOrdersService {
       );
     }
 
-    const computedLines = order.items.map((item) =>
-      computeSalesLine({
+    const taxIds = order.items.map((item) => item.product.taxId);
+    const taxById = await resolveTaxesById(this.prisma, taxIds);
+    const computedLines = order.items.map((item) => {
+      const tax = item.product.taxId
+        ? taxById.get(item.product.taxId)
+        : undefined;
+      return computeSalesLine({
         quantity: item.quantity,
         unitPrice: Number(item.unitPrice),
         agreedAmount: storeOrderLineAmount(item),
-      }),
-    );
+        taxRatePercent: tax?.rate,
+        taxInclusive: tax?.inclusive,
+      });
+    });
     const totals = computeSalesDocumentTotals(computedLines);
     const resolvedWarehouseIds = order.items.map(
       (item) => item.product.preferredWarehouseId ?? defaultWarehouse!.id,
@@ -1503,6 +1511,7 @@ export class StoreOrdersService {
               unitId: item.product.unitId,
               quantity: item.quantity,
               unitPrice: item.unitPrice,
+              taxId: item.product.taxId,
               taxAmount: computedLines[index].taxAmount,
               lineTotal: computedLines[index].lineTotal,
             })),

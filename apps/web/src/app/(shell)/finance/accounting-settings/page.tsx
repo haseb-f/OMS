@@ -10,7 +10,8 @@ import {
   EnterpriseCardTitle,
 } from "@/components/ui/card";
 import { AccountPicker } from "@/components/business/account-picker";
-import type { ChartOfAccountRow } from "@/config/master-data/entities";
+import { EntityCombobox } from "@/components/shared/entity-combobox";
+import type { ChartOfAccountRow, CurrencyRow } from "@/config/master-data/entities";
 import {
   accountingSettingsService,
   type AccountRef,
@@ -24,9 +25,11 @@ import {
 } from "@/services/investor-accounting-settings-service";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
+import { useCurrencies } from "@/hooks/use-reference-data";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import type { MessageKey } from "@/i18n/translate";
+import { Banknote } from "lucide-react";
 
 interface FieldConfig {
   key: AccountingSettingsField;
@@ -264,10 +267,12 @@ function toChartRow(ref: AccountRef | null): ChartOfAccountRow | null {
 export default function AccountingSettingsPage() {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
+  const currencies = useCurrencies();
   const canViewInvestorSettings = hasPermission("investment-accounting.view");
   const canConfigureInvestorSettings = hasPermission("investment-accounting.configure");
   const [settings, setSettings] = useState<AccountingSettingsRow | null>(null);
   const [values, setValues] = useState<Record<string, ChartOfAccountRow | null>>({});
+  const [functionalCurrency, setFunctionalCurrency] = useState<CurrencyRow | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
@@ -322,6 +327,17 @@ export default function AccountingSettingsPage() {
           }
         }
         setValues(next);
+        setFunctionalCurrency(
+          row.functionalCurrency
+            ? {
+                id: row.functionalCurrency.id,
+                code: row.functionalCurrency.code,
+                name: row.functionalCurrency.name,
+                symbol: null,
+                deletedAt: null,
+              }
+            : null,
+        );
       })
       .catch((error) =>
         toast.error(
@@ -360,6 +376,7 @@ export default function AccountingSettingsPage() {
           payload[field.key] = values[field.key]?.id ?? null;
         }
       }
+      payload.functionalCurrencyId = functionalCurrency?.id ?? null;
       const updated = await accountingSettingsService.update(payload);
       setSettings(updated);
       setShowErrors(false);
@@ -408,6 +425,23 @@ export default function AccountingSettingsPage() {
               <EnterpriseCardTitle className="text-body">{t(section.titleKey)}</EnterpriseCardTitle>
             </EnterpriseCardHeader>
             <EnterpriseCardContent className="flex flex-col gap-2.5 px-4">
+              {section.titleKey === "accounting.settings.sections.general" && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-caption text-muted-foreground">
+                    {t("accounting.settings.fields.functionalCurrency")}
+                  </label>
+                  <EntityCombobox
+                    items={currencies}
+                    value={functionalCurrency}
+                    onChange={setFunctionalCurrency}
+                    getId={(currency) => currency.id}
+                    getTitle={(currency) => `${currency.code} — ${currency.name}`}
+                    allowClear
+                    placeholder={t("common.select")}
+                    icon={<Banknote className="size-3.5 shrink-0 text-muted-foreground" />}
+                  />
+                </div>
+              )}
               {section.fields.map((field) => {
                 const isMissing = showErrors && field.required && !values[field.key];
                 return (

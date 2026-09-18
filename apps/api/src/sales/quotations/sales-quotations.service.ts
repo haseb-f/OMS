@@ -9,7 +9,7 @@ import { NumberingEngineService } from '../../numbering/numbering-engine.service
 import { ProductsService } from '../../products/products.service';
 import { WarehousesService } from '../../warehouses/warehouses.service';
 import { PartnersService } from '../../partners/partners.service';
-import { resolveTaxesById } from '../../taxes/document-tax';
+import { resolveLineTaxes } from '../../taxes/document-tax';
 import {
   SalesQuotationActivityService,
   SalesQuotationActivityType,
@@ -387,13 +387,11 @@ export class SalesQuotationsService {
 
   /** Resolves each line's tax rate, computes per-line + document totals — shared math, see sales-totals.util.ts. */
   private async computeLines(items: SalesLineItemInputDto[]) {
-    const taxById = await resolveTaxesById(
-      this.prisma,
-      items.map((i) => i.taxId),
-    );
+    const { taxIds, taxById } = await resolveLineTaxes(this.prisma, items);
 
-    const computedLines = items.map((item) => {
-      const tax = item.taxId ? taxById.get(item.taxId) : undefined;
+    const computedLines = items.map((item, index) => {
+      const taxId = taxIds[index];
+      const tax = taxId ? taxById.get(taxId) : undefined;
       return computeSalesLine({
         quantity: item.quantity,
         unitPrice: item.unitPrice,
@@ -413,7 +411,7 @@ export class SalesQuotationsService {
       unitPrice: item.unitPrice,
       discountPercent: item.discountPercent ?? 0,
       discountValue: item.discountValue ?? 0,
-      taxId: item.taxId,
+      taxId: taxIds[index],
       taxAmount: computedLines[index].taxAmount,
       lineTotal: computedLines[index].lineTotal,
       notes: item.notes,

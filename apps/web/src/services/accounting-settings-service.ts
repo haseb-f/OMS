@@ -88,6 +88,8 @@ export interface AccountingSettingsRow {
   otherIncomeAccount: AccountRef | null;
   otherExpenseAccountId: string | null;
   otherExpenseAccount: AccountRef | null;
+  functionalCurrencyId: string | null;
+  functionalCurrency: AccountRef | null;
 }
 
 export type AccountingSettingsField = Extract<keyof AccountingSettingsRow, `${string}Id`>;

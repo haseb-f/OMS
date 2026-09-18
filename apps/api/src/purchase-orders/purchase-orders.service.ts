@@ -24,7 +24,7 @@ import { ConvertPurchaseOrderToInvoiceDto } from './dto/convert-purchase-order-t
 import { PurchaseInvoicesService } from '../purchasing/invoices/purchase-invoices.service';
 import { buildDateRangeFilter } from '../sales/shared/sales-list-query.util';
 import { round2 } from '../sales/shared/sales-totals.util';
-import { resolveTaxesById } from '../taxes/document-tax';
+import { resolveLineTaxes } from '../taxes/document-tax';
 import { PurchaseOrderItemInputDto } from './dto/purchase-order-item-input.dto';
 import type { CompanyContext } from '../common/decorators/current-company-context.decorator';
 import { assertActiveProduct } from '../products/assert-active-product.util';
@@ -167,13 +167,11 @@ export class PurchaseOrdersService {
    * 2.5+ — "Tax can also be left empty").
    */
   private async computeItems(items: PurchaseOrderItemInputDto[]) {
-    const taxById = await resolveTaxesById(
-      this.prisma,
-      items.map((i) => i.taxId),
-    );
+    const { taxIds, taxById } = await resolveLineTaxes(this.prisma, items);
 
-    return items.map((item) => {
-      const tax = item.taxId ? taxById.get(item.taxId) : undefined;
+    return items.map((item, index) => {
+      const taxId = taxIds[index];
+      const tax = taxId ? taxById.get(taxId) : undefined;
       const taxAmount = tax?.inclusive
         ? round2(item.subtotal * ((tax.rate ?? 0) / (100 + (tax.rate ?? 0))))
         : round2(item.subtotal * ((tax?.rate ?? 0) / 100));
@@ -186,7 +184,7 @@ export class PurchaseOrdersService {
         discountValue: item.discountValue ?? 0,
         discountPercent: item.discountPercent ?? 0,
         subtotal: item.subtotal,
-        taxId: item.taxId,
+        taxId: taxId,
         taxAmount,
         lineTotal: tax?.inclusive
           ? item.subtotal

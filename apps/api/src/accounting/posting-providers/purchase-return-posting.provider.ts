@@ -5,6 +5,7 @@ import { PostingEngineService } from '../posting-engine/posting-engine.service';
 import { AccountMappingService } from '../account-mapping/account-mapping.service';
 import { ExchangeRatesService } from '../fx/exchange-rates.service';
 import { snapshotDocumentExchangeRate } from '../fx/snapshot-document-rate';
+import { assertPostedTaxAmountsHaveTax } from '../../taxes/document-tax';
 import type {
   PostingLine,
   PostingProvider,
@@ -115,6 +116,10 @@ export class PurchaseReturnPostingProvider
     }
 
     const taxAmounts = new Map<string, number>();
+    assertPostedTaxAmountsHaveTax(
+      purchaseReturn.items,
+      `Purchase Return ${purchaseReturn.returnNumber}`,
+    );
     for (const item of purchaseReturn.items) {
       if (!item.tax || Number(item.taxAmount) === 0) continue;
       taxAmounts.set(

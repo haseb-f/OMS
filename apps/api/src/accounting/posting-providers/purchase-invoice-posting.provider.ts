@@ -6,6 +6,7 @@ import { InventoryValuationService } from '../inventory-valuation/inventory-valu
 import { AccountMappingService } from '../account-mapping/account-mapping.service';
 import { ExchangeRatesService } from '../fx/exchange-rates.service';
 import { snapshotDocumentExchangeRate } from '../fx/snapshot-document-rate';
+import { assertPostedTaxAmountsHaveTax } from '../../taxes/document-tax';
 import type {
   PostingLine,
   PostingProvider,
@@ -120,6 +121,10 @@ export class PurchaseInvoicePostingProvider
     }
 
     const taxAmounts = new Map<string, number>();
+    assertPostedTaxAmountsHaveTax(
+      invoice.items,
+      `Purchase Invoice ${invoice.invoiceNumber}`,
+    );
     for (const item of invoice.items) {
       if (!item.tax || Number(item.taxAmount) === 0) continue;
       taxAmounts.set(
