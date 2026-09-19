@@ -34,8 +34,10 @@ function loadEnvFile(path) {
       ) {
         value = value.slice(1, -1);
       }
-      if (!process.env[key]) process.env[key] = value;
-      if (process.env[key] === "[SENSITIVE]") delete process.env[key];
+      if (value === "[SENSITIVE]") continue;
+      if (!process.env[key] || process.env[key] === "[SENSITIVE]") {
+        process.env[key] = value;
+      }
     }
   } catch {
     // optional
@@ -44,6 +46,7 @@ function loadEnvFile(path) {
 
 loadEnvFile(resolve(ROOT, ".env.production.local"));
 loadEnvFile(resolve(ROOT, ".env.local"));
+loadEnvFile(resolve(ROOT, "tmp/.qa.env"));
 
 const QA_PASSWORD = process.env.QA_PASSWORD ?? "";
 const PERSONAS = [

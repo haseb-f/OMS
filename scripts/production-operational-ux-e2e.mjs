@@ -246,10 +246,13 @@ async function runApi() {
     record("held import flow", false, String(error.message ?? error));
   } finally {
     const restored = await restoreDistribution(manager, before);
+    const after = await api(manager, "GET", "/leads/distribution");
     assert(
       "distribution restored",
-      restored.status === before.status || restored.policy?.mode === before.policy?.mode,
-      `now=${restored.status} was=${before.status}`,
+      after.status === before.status ||
+        after.policy?.mode === before.policy?.mode ||
+        restored?.status === before.status,
+      `now=${after.status ?? restored?.status} was=${before.status}`,
     );
     if (createdLeadId) {
       try {
@@ -760,12 +763,24 @@ async function runBrowser(sampleLeadId) {
 
     async function readTheme(page) {
       return page.evaluate(() => {
-        const bg = getComputedStyle(document.body).backgroundColor;
-        const match = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-        const r = match ? Number(match[1]) : 255;
-        const g = match ? Number(match[2]) : 255;
-        const b = match ? Number(match[3]) : 255;
-        const luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+        const htmlBg = getComputedStyle(document.documentElement).backgroundColor;
+        const bodyBg = getComputedStyle(document.body).backgroundColor;
+        const bg =
+          htmlBg && htmlBg !== "rgba(0, 0, 0, 0)" && htmlBg !== "transparent" ? htmlBg : bodyBg;
+        const lab = bg.match(/lab\(\s*([0-9.]+)/i);
+        const lch = bg.match(/lch\(\s*([0-9.]+)/i);
+        const oklch = bg.match(/oklch\(\s*([0-9.]+)/i);
+        const rgb = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+        let luma = null;
+        if (lab) luma = Number(lab[1]) / 100;
+        else if (lch) luma = Number(lch[1]) / 100;
+        else if (oklch) {
+          const L = Number(oklch[1]);
+          luma = L > 1 ? L / 100 : L;
+        } else if (rgb) {
+          luma =
+            (0.2126 * Number(rgb[1]) + 0.7152 * Number(rgb[2]) + 0.0722 * Number(rgb[3])) / 255;
+        }
         return {
           darkClass: document.documentElement.classList.contains("dark"),
           luma,
@@ -788,7 +803,7 @@ async function runBrowser(sampleLeadId) {
     );
     assert(
       "dark theme luminance is actually dark",
-      darkState.luma < 0.45,
+      darkState.luma != null && darkState.luma < 0.45,
       `luma=${darkState.luma} bg=${darkState.bg}`,
     );
     await financePage.screenshot({
@@ -805,7 +820,7 @@ async function runBrowser(sampleLeadId) {
     );
     assert(
       "light theme luminance is actually light",
-      lightState.luma > 0.7,
+      lightState.luma != null && lightState.luma > 0.7,
       `luma=${lightState.luma} bg=${lightState.bg}`,
     );
     await financePage.screenshot({
