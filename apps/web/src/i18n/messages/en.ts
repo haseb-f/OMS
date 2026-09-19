@@ -1358,7 +1358,7 @@ const en = {
       supplierStatement: "Supplier Statement",
       asOfDate: "As of",
       cashFlowHint:
-        "Cash movements are grouped by source document type — every document this ERP currently posts is an operating activity, so no separate Investing/Financing sections are shown.",
+        "Cash movements are classified into Operating, Investing, and Financing from posted journal sources. Unsupported financing/investing documents stay in Other rather than being invented.",
       viewMovements: "View movements",
       viewLines: "View lines",
       totals: "Totals",
@@ -4778,7 +4778,7 @@ const en = {
         title: "Upload a File",
         description:
           "Upload the filled-in Excel Template (.xlsx), a CSV file, or paste a Google Sheets URL.",
-        dropHint: "Choose a file to upload",
+        dropHint: "Drop an Excel or CSV file here, or click to choose from your device.",
         chooseFile: "Choose File",
         selectedFile: "Selected file",
         uploadButton: "Upload & Continue",
