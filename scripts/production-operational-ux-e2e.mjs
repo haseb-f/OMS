@@ -81,8 +81,7 @@ async function rawApi(token, method, path, body) {
 async function api(token, method, path, body) {
   const result = await rawApi(token, method, path, body);
   if (result.status < 200 || result.status >= 300) {
-    const message =
-      result.json?.message || result.json?.error || result.json?.code || "";
+    const message = result.json?.message || result.json?.error || result.json?.code || "";
     throw new Error(`${method} ${path} → ${result.status} ${message}`);
   }
   return result.json;
@@ -282,7 +281,11 @@ async function runApi() {
       "GET",
       `/accounting/reports/general-ledger?pageSize=50&dateTo=${asOf}`,
     ),
-    journal: await api(finance, "GET", `/accounting/reports/journal-report?pageSize=5&dateTo=${asOf}`),
+    journal: await api(
+      finance,
+      "GET",
+      `/accounting/reports/journal-report?pageSize=5&dateTo=${asOf}`,
+    ),
     arAging: await api(finance, "GET", `/accounting/reports/ar-aging?dateTo=${asOf}`),
     apAging: await api(finance, "GET", `/accounting/reports/ap-aging?dateTo=${asOf}`),
   };
@@ -326,7 +329,9 @@ async function runApi() {
   );
 
   const plIds = flattenLines(reports.incomeStatement.lines).map((line) => line.id);
-  const plKinds = [...new Set(flattenLines(reports.incomeStatement.lines).map((line) => line.kind))];
+  const plKinds = [
+    ...new Set(flattenLines(reports.incomeStatement.lines).map((line) => line.kind)),
+  ];
   assert(
     "P&L is one statement with net result",
     plIds.includes("revenue") && plIds.includes("expense") && plIds.includes("net-income"),
@@ -347,12 +352,19 @@ async function runApi() {
     unwrap(reports.generalLedger).length > 0,
     `accounts=${unwrap(reports.generalLedger).length}`,
   );
-  assert("journal report reachable", unwrap(reports.journal).length >= 0, `rows=${unwrap(reports.journal).length}`);
+  assert(
+    "journal report reachable",
+    unwrap(reports.journal).length >= 0,
+    `rows=${unwrap(reports.journal).length}`,
+  );
   assert("AR aging reachable", reports.arAging != null, `items=${unwrap(reports.arAging).length}`);
   assert("AP aging reachable", reports.apAging != null, `items=${unwrap(reports.apAging).length}`);
 
   const tbClosing = new Map(
-    (reports.trialBalance.items ?? []).map((row) => [row.accountId, Number(row.closingBalance ?? 0)]),
+    (reports.trialBalance.items ?? []).map((row) => [
+      row.accountId,
+      Number(row.closingBalance ?? 0),
+    ]),
   );
   const glSample = unwrap(reports.generalLedger);
   let glMatches = 0;
@@ -373,7 +385,9 @@ async function runApi() {
   );
 
   const plNet = Number(reports.incomeStatement.totals?.netIncome ?? 0);
-  const bsEarnings = flattenLines(reports.balanceSheet.lines).find((line) => line.id === "current-earnings");
+  const bsEarnings = flattenLines(reports.balanceSheet.lines).find(
+    (line) => line.id === "current-earnings",
+  );
   if (bsEarnings) {
     assert(
       "P&L net income ties to BS current earnings",
@@ -381,7 +395,11 @@ async function runApi() {
       `pl=${plNet} bs=${bsEarnings.values?.balance}`,
     );
   } else {
-    record("P&L net income ties to BS current earnings", true, "no unclosed earnings line (FY closed or zero)");
+    record(
+      "P&L net income ties to BS current earnings",
+      true,
+      "no unclosed earnings line (FY closed or zero)",
+    );
   }
 
   const queue = await api(finance, "GET", "/payments?status=PENDING&pageSize=5");
@@ -397,7 +415,8 @@ async function runApi() {
     const context = await api(manager, "GET", `/store-orders/${settled.id}/payment-context`);
     assert(
       "settled order exposes total/paid/remaining",
-      context.fullySettled === true && Number(context.remainingToClaim ?? context.outstanding ?? 1) <= 0.005,
+      context.fullySettled === true &&
+        Number(context.remainingToClaim ?? context.outstanding ?? 1) <= 0.005,
       JSON.stringify({
         total: context.total,
         paid: context.paid,
@@ -419,12 +438,14 @@ async function runApi() {
       `http=${blocked.status} ${message}`,
     );
   } else {
-    record("backend blocks payment on fully settled order", false, "no FULLY_PAID_RECONCILED store order");
+    record(
+      "backend blocks payment on fully settled order",
+      false,
+      "no FULLY_PAID_RECONCILED store order",
+    );
   }
 
-  const sampleLead = unwrap(
-    await api(manager, "GET", "/leads?pageSize=5&lifecycle=active"),
-  )[0];
+  const sampleLead = unwrap(await api(manager, "GET", "/leads?pageSize=5&lifecycle=active"))[0];
 
   return { manager, finance, agent, admin, sampleLeadId: sampleLead?.id ?? null };
 }
@@ -448,7 +469,10 @@ async function runBrowser(sampleLeadId) {
 
   async function loginPage(page, email, locale = "en") {
     await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded", timeout: 60000 });
-    await page.evaluate((value) => localStorage.setItem("oms.locale", JSON.stringify(value)), locale);
+    await page.evaluate(
+      (value) => localStorage.setItem("oms.locale", JSON.stringify(value)),
+      locale,
+    );
     await page.reload({ waitUntil: "domcontentloaded", timeout: 60000 });
     await page.locator('input[name="email"], input[type="email"]').first().fill(email);
     await page.locator('input[name="password"], input[type="password"]').first().fill(QA_PASSWORD);
@@ -539,10 +563,15 @@ async function runBrowser(sampleLeadId) {
       /drop|choose file|select file|browse|csv|xlsx/i.test(wizardText),
       wizardText.slice(0, 180).replace(/\s+/g, " "),
     );
-    await managerPage.screenshot({ path: resolve(EVIDENCE_DIR, "leads-import-device.png"), fullPage: true });
+    await managerPage.screenshot({
+      path: resolve(EVIDENCE_DIR, "leads-import-device.png"),
+      fullPage: true,
+    });
     await managerPage.keyboard.press("Escape");
 
-    await managerPage.getByRole("button", { name: /Import from Google Sheets|استيراد من Google Sheets/ }).click();
+    await managerPage
+      .getByRole("button", { name: /Import from Google Sheets|استيراد من Google Sheets/ })
+      .click();
     await managerPage.waitForTimeout(500);
     const sheetsText = await managerPage.locator("body").innerText();
     assert(
@@ -561,11 +590,17 @@ async function runBrowser(sampleLeadId) {
       const leadText = await managerPage.locator("body").innerText();
       assert(
         "lead workspace shows a next action",
-        /Follow up|Follow-up|Convert|Create Order|Assign|Schedule|متابعة|تحويل|تعيين|طلب/i.test(leadText),
-        leadText.match(/Follow up|Follow-up|Convert|Create Order|Assign|Schedule|متابعة|تحويل/)?.[0] ??
-          "missing",
+        /Follow up|Follow-up|Convert|Create Order|Assign|Schedule|متابعة|تحويل|تعيين|طلب/i.test(
+          leadText,
+        ),
+        leadText.match(
+          /Follow up|Follow-up|Convert|Create Order|Assign|Schedule|متابعة|تحويل/,
+        )?.[0] ?? "missing",
       );
-      await managerPage.screenshot({ path: resolve(EVIDENCE_DIR, "lead-workspace.png"), fullPage: true });
+      await managerPage.screenshot({
+        path: resolve(EVIDENCE_DIR, "lead-workspace.png"),
+        fullPage: true,
+      });
     } else {
       record("lead workspace shows a next action", false, "no lead available");
     }
@@ -586,7 +621,9 @@ async function runBrowser(sampleLeadId) {
     const reportText = await financePage.locator("body").innerText();
     assert(
       "financial report page loads trial balance",
-      /Trial Balance|Opening|Debit|Credit|Closing|ميزان المراجعة|مدين|دائن|افتتاح/i.test(reportText),
+      /Trial Balance|Opening|Debit|Credit|Closing|ميزان المراجعة|مدين|دائن|افتتاح/i.test(
+        reportText,
+      ),
       reportText.match(/Trial Balance|Opening|Debit|Credit|ميزان المراجعة|مدين/)?.[0] ?? "missing",
     );
     assert(
@@ -594,7 +631,10 @@ async function runBrowser(sampleLeadId) {
       !/Supplier Account Statement[\s\S]{0,40}Trial Balance/.test(reportText),
       "no overlapping supplier title",
     );
-    await financePage.screenshot({ path: resolve(EVIDENCE_DIR, "finance-trial-balance.png"), fullPage: true });
+    await financePage.screenshot({
+      path: resolve(EVIDENCE_DIR, "finance-trial-balance.png"),
+      fullPage: true,
+    });
     const tbHeaders = (await financePage.locator("thead tr").first().locator("th").allInnerTexts())
       .map((value) => value.trim())
       .filter(Boolean);
@@ -625,16 +665,34 @@ async function runBrowser(sampleLeadId) {
     const reportSelect = financePage.locator("button[role='combobox']").first();
     async function openReport(label, check) {
       await reportSelect.click();
-      await financePage.getByRole("option", { name: new RegExp(label, "i") }).first().click();
+      await financePage
+        .getByRole("option", { name: new RegExp(label, "i") })
+        .first()
+        .click();
       await financePage.waitForTimeout(900);
       const text = await financePage.locator("body").innerText();
       assert(`report ${label} renders`, check.test(text), text.match(check)?.[0] ?? "missing");
     }
-    await openReport("Income Statement|Profit|قائمة الدخل", /Revenue|Expense|Net Profit|Net Loss|Net Income|إيراد|مصروف|صافي/i);
-    await financePage.screenshot({ path: resolve(EVIDENCE_DIR, "finance-pnl.png"), fullPage: true });
-    await openReport("Balance Sheet|الميزانية العمومية", /Assets|Liabilities|Equity|أصول|خصوم|حقوق الملكية/i);
-    await openReport("Cash Flow|التدفقات النقدية", /Operating|Investing|Financing|تشغيل|استثمار|تمويل/i);
-    await openReport("General Ledger|دفتر الأستاذ", /General Ledger|Account|Debit|Credit|أستاذ|مدين|دائن/i);
+    await openReport(
+      "Income Statement|Profit|قائمة الدخل",
+      /Revenue|Expense|Net Profit|Net Loss|Net Income|إيراد|مصروف|صافي/i,
+    );
+    await financePage.screenshot({
+      path: resolve(EVIDENCE_DIR, "finance-pnl.png"),
+      fullPage: true,
+    });
+    await openReport(
+      "Balance Sheet|الميزانية العمومية",
+      /Assets|Liabilities|Equity|أصول|خصوم|حقوق الملكية/i,
+    );
+    await openReport(
+      "Cash Flow|التدفقات النقدية",
+      /Operating|Investing|Financing|تشغيل|استثمار|تمويل/i,
+    );
+    await openReport(
+      "General Ledger|دفتر الأستاذ",
+      /General Ledger|Account|Debit|Credit|أستاذ|مدين|دائن/i,
+    );
 
     const expand = financePage.getByRole("button", { name: /Expand all|توسيع الكل/i });
     if (await expand.count()) {
@@ -655,25 +713,33 @@ async function runBrowser(sampleLeadId) {
       /Match|Verify|Reject|Review queue|Remaining/i.test(reviewText),
       reviewText.match(/Match|Verify|Reject|Review queue/)?.[0] ?? "missing",
     );
-    await financePage.screenshot({ path: resolve(EVIDENCE_DIR, "payment-review.png"), fullPage: true });
+    await financePage.screenshot({
+      path: resolve(EVIDENCE_DIR, "payment-review.png"),
+      fullPage: true,
+    });
 
     await financePage.evaluate(() => {
       localStorage.setItem("oms.locale", JSON.stringify("ar"));
     });
     await financePage.reload({ waitUntil: "networkidle", timeout: 60000 });
-    await financePage.waitForFunction(
-      () => document.documentElement.dir === "rtl",
-      null,
-      { timeout: 15000 },
-    );
+    await financePage.waitForFunction(() => document.documentElement.dir === "rtl", null, {
+      timeout: 15000,
+    });
     const rtlDir = await financePage.locator("html").getAttribute("dir");
     assert("Arabic RTL after locale switch", rtlDir === "rtl", `dir=${rtlDir}`);
     const rtlSidebarSide = await financePage
       .locator("[data-slot='sidebar'][data-side], [data-slot='sidebar-container']")
       .first()
       .getAttribute("data-side");
-    assert("Arabic desktop sidebar is on the right", rtlSidebarSide === "right", `side=${rtlSidebarSide}`);
-    await financePage.screenshot({ path: resolve(EVIDENCE_DIR, "finance-rtl.png"), fullPage: true });
+    assert(
+      "Arabic desktop sidebar is on the right",
+      rtlSidebarSide === "right",
+      `side=${rtlSidebarSide}`,
+    );
+    await financePage.screenshot({
+      path: resolve(EVIDENCE_DIR, "finance-rtl.png"),
+      fullPage: true,
+    });
 
     await financePage.evaluate(() => {
       localStorage.setItem("oms.locale", JSON.stringify("en"));
@@ -686,7 +752,11 @@ async function runBrowser(sampleLeadId) {
       .locator("[data-slot='sidebar'][data-side], [data-slot='sidebar-container']")
       .first()
       .getAttribute("data-side");
-    assert("English desktop sidebar is on the left", ltrSidebarSide === "left" || ltrSidebarSide == null, `side=${ltrSidebarSide}`);
+    assert(
+      "English desktop sidebar is on the left",
+      ltrSidebarSide === "left" || ltrSidebarSide == null,
+      `side=${ltrSidebarSide}`,
+    );
 
     async function readTheme(page) {
       return page.evaluate(() => {
@@ -711,23 +781,37 @@ async function runBrowser(sampleLeadId) {
 
     await chooseTheme(financePage, "Dark|داكن");
     const darkState = await readTheme(financePage);
-    assert("dark theme class applied via ThemeSwitch", darkState.darkClass === true, JSON.stringify(darkState));
+    assert(
+      "dark theme class applied via ThemeSwitch",
+      darkState.darkClass === true,
+      JSON.stringify(darkState),
+    );
     assert(
       "dark theme luminance is actually dark",
       darkState.luma < 0.45,
       `luma=${darkState.luma} bg=${darkState.bg}`,
     );
-    await financePage.screenshot({ path: resolve(EVIDENCE_DIR, "finance-dark.png"), fullPage: true });
+    await financePage.screenshot({
+      path: resolve(EVIDENCE_DIR, "finance-dark.png"),
+      fullPage: true,
+    });
 
     await chooseTheme(financePage, "Light|فاتح");
     const lightState = await readTheme(financePage);
-    assert("light theme class applied via ThemeSwitch", lightState.darkClass === false, JSON.stringify(lightState));
+    assert(
+      "light theme class applied via ThemeSwitch",
+      lightState.darkClass === false,
+      JSON.stringify(lightState),
+    );
     assert(
       "light theme luminance is actually light",
       lightState.luma > 0.7,
       `luma=${lightState.luma} bg=${lightState.bg}`,
     );
-    await financePage.screenshot({ path: resolve(EVIDENCE_DIR, "finance-light.png"), fullPage: true });
+    await financePage.screenshot({
+      path: resolve(EVIDENCE_DIR, "finance-light.png"),
+      fullPage: true,
+    });
 
     const tablet = await browser.newContext({
       locale: "ar-SA",
@@ -744,7 +828,11 @@ async function runBrowser(sampleLeadId) {
     const tabletOverflow = await tabletPage.evaluate(
       () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 8,
     );
-    assert("Arabic tablet leads has no horizontal overflow", !tabletOverflow, `overflow=${tabletOverflow}`);
+    assert(
+      "Arabic tablet leads has no horizontal overflow",
+      !tabletOverflow,
+      `overflow=${tabletOverflow}`,
+    );
     const tabletSidebarSide = await tabletPage
       .locator("[data-slot='sidebar'][data-side], [data-slot='sidebar-container']")
       .first()
@@ -754,7 +842,10 @@ async function runBrowser(sampleLeadId) {
       tabletSidebarSide === "right",
       `side=${tabletSidebarSide}`,
     );
-    await tabletPage.screenshot({ path: resolve(EVIDENCE_DIR, "leads-tablet-rtl.png"), fullPage: true });
+    await tabletPage.screenshot({
+      path: resolve(EVIDENCE_DIR, "leads-tablet-rtl.png"),
+      fullPage: true,
+    });
 
     const mobile = await browser.newContext({
       locale: "en-US",
@@ -770,7 +861,10 @@ async function runBrowser(sampleLeadId) {
       () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 8,
     );
     assert("mobile leads page has no horizontal overflow", !overflow, `overflow=${overflow}`);
-    await mobilePage.screenshot({ path: resolve(EVIDENCE_DIR, "leads-mobile.png"), fullPage: true });
+    await mobilePage.screenshot({
+      path: resolve(EVIDENCE_DIR, "leads-mobile.png"),
+      fullPage: true,
+    });
 
     const mobileAr = await browser.newContext({
       locale: "ar-SA",
@@ -787,10 +881,16 @@ async function runBrowser(sampleLeadId) {
     const mobileArOverflow = await mobileArPage.evaluate(
       () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 8,
     );
-    assert("Arabic mobile leads has no horizontal overflow", !mobileArOverflow, `overflow=${mobileArOverflow}`);
+    assert(
+      "Arabic mobile leads has no horizontal overflow",
+      !mobileArOverflow,
+      `overflow=${mobileArOverflow}`,
+    );
     await mobileArPage.getByRole("button", { name: /Open navigation|فتح التنقل/i }).click();
     await mobileArPage.waitForTimeout(600);
-    const mobileSheet = mobileArPage.locator("[data-mobile='true'][data-sidebar='sidebar']").first();
+    const mobileSheet = mobileArPage
+      .locator("[data-mobile='true'][data-sidebar='sidebar']")
+      .first();
     const mobileSheetSide = await mobileSheet.getAttribute("data-side");
     const mobileSheetBox = await mobileSheet.boundingBox();
     const mobileOnRight =
@@ -801,7 +901,10 @@ async function runBrowser(sampleLeadId) {
       mobileOnRight,
       `side=${mobileSheetSide} x=${mobileSheetBox?.x}`,
     );
-    await mobileArPage.screenshot({ path: resolve(EVIDENCE_DIR, "leads-mobile-rtl.png"), fullPage: true });
+    await mobileArPage.screenshot({
+      path: resolve(EVIDENCE_DIR, "leads-mobile-rtl.png"),
+      fullPage: true,
+    });
 
     await managerCtx.close();
     await financeCtx.close();
