@@ -97,6 +97,13 @@ export class JournalEntriesController {
     return this.journalEntries.post(id, user.sub);
   }
 
+  @Post(':id/reset-to-draft')
+  @HttpCode(200)
+  @PermissionAction('post')
+  resetToDraft(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.journalEntries.resetToDraft(id, user.sub);
+  }
+
   @Post(':id/reverse')
   @HttpCode(200)
   @PermissionAction('reverse')

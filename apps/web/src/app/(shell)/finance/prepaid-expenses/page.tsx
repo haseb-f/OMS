@@ -6,6 +6,7 @@ import { Play } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
 import type { MasterDataFormField } from "@/components/master-data/master-data-form";
+import { JournalTraceCell } from "@/components/accounting/journal-trace-cell";
 import { textColumn } from "@/config/master-data/shared-columns";
 import { StatusBadge } from "@/components/business/status-badge";
 import { PermissionGate } from "@/components/shared/permission-gate";
@@ -72,6 +73,16 @@ const columns: ColumnDef<PrepaidExpenseRow, unknown>[] = [
     accessorFn: (row) => row.status,
     meta: { titleKey: "accounting.prepaid.fields.status" },
     cell: ({ row }) => <PrepaidStatusCell status={row.original.status} />,
+  },
+  {
+    id: "journal",
+    meta: { titleKey: "accounting.journalEntries.fields.viewJournalEntry" },
+    cell: ({ row }) =>
+      row.original.status === "DRAFT" ? (
+        <span className="text-muted-foreground">—</span>
+      ) : (
+        <JournalTraceCell sourceType="PREPAID_EXPENSE" sourceId={row.original.id} expected />
+      ),
   },
 ];
 

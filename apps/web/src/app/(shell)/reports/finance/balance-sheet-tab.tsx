@@ -50,13 +50,9 @@ export function BalanceSheetTab() {
       onFiltersChange={setFilters}
       printTitle={t("reports.finance.balanceSheet")}
       exportFileName="balance-sheet.csv"
-      status={{
+      footer={{
         balanced: totals.balanced,
-        extras: [
-          { label: t("reports.finance.fields.totalAssets"), value: totals.totalAssets },
-          { label: t("reports.finance.fields.totalLiabilities"), value: totals.totalLiabilities },
-          { label: t("reports.finance.fields.totalEquity"), value: totals.totalEquity },
-        ],
+        values: { balance: totals.totalAssets },
       }}
     />
   );

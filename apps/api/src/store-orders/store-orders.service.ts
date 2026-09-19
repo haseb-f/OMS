@@ -63,6 +63,7 @@ import { InventoryService } from '../inventory/inventory.service';
 import { FulfillmentCostService } from '../fulfillment-cost-rules/fulfillment-cost.service';
 import { StoreOrderCollectionService } from '../accounting/store-order-collection/store-order-collection.service';
 import { OrderEconomicsService } from './order-economics/order-economics.service';
+import { AccountMappingService } from '../accounting/account-mapping/account-mapping.service';
 import { PAID_PAYMENT_CODES } from '../workflow/workflow-status-map';
 import { randomUUID } from 'node:crypto';
 
@@ -213,6 +214,7 @@ export class StoreOrdersService {
     private readonly fulfillmentCostService: FulfillmentCostService,
     private readonly storeOrderCollection: StoreOrderCollectionService,
     private readonly orderEconomicsService: OrderEconomicsService,
+    private readonly accountMapping: AccountMappingService,
   ) {}
 
   /**
@@ -1499,6 +1501,27 @@ export class StoreOrdersService {
     const invoiceNumber =
       await this.numberingEngine.generateNumber('SALES_INVOICE');
 
+    const fulfillmentRule =
+      await this.prisma.directFulfillmentCostRule.findFirst({
+        where: {
+          deletedAt: null,
+          isActive: true,
+        },
+        select: { id: true },
+      });
+    await this.accountMapping.assertSalesInvoiceMappings({
+      partnerId: order.partnerId,
+      items: order.items.map((item, index) => ({
+        categoryId: item.product.categoryId,
+        isInventoryItem: item.product.isInventoryItem,
+        sku: item.product.sku,
+        currentCost: item.product.currentCost,
+        taxId: item.product.taxId,
+        taxAmount: computedLines[index].taxAmount,
+      })),
+      includeFulfillment: Boolean(fulfillmentRule),
+    });
+
     const invoice = await this.prisma.$transaction(async (tx) => {
       const created = await tx.salesInvoice.create({
         data: {
@@ -1572,7 +1595,17 @@ export class StoreOrdersService {
       return created;
     });
 
-    await this.storeOrderCollection.syncVerifiedPayments(id, userId);
+    try {
+      await this.storeOrderCollection.syncVerifiedPayments(id, userId);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Customer receipt posting failed.';
+      throw new BadRequestException(
+        `Sales Invoice ${invoice.invoiceNumber} was created, but customer receipt posting failed: ${message}. Open the invoice and retry the receipt — do not generate the invoice again.`,
+      );
+    }
 
     return invoice;
   }

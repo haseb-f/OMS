@@ -604,6 +604,41 @@ async function accountingFlow(token) {
   if (invoiceJe) {
     const full = await authed('GET', `/journal-entries/${invoiceJe.id}`);
     assertBalanced(full, 'SALES_INVOICE');
+    assert(
+      'Sales invoice JE sourceType/sourceId',
+      full.sourceType === 'SALES_INVOICE' && full.sourceId === invoiceId,
+      `${full.sourceType}:${full.sourceId}`,
+    );
+    const cogsId = settings.costOfGoodsSoldAccountId;
+    const inventoryId = settings.inventoryAccountId;
+    const revenueId = settings.salesRevenueAccountId;
+    const lines = full.lines ?? [];
+    const hasRevenue = lines.some(
+      (line) => line.accountId === revenueId || line.account?.id === revenueId,
+    );
+    const hasCogs = lines.some(
+      (line) => line.accountId === cogsId || line.account?.id === cogsId,
+    );
+    const hasInventory = lines.some(
+      (line) => line.accountId === inventoryId || line.account?.id === inventoryId,
+    );
+    assert('Sales invoice JE has revenue', hasRevenue, `lines=${lines.length}`);
+    assert(
+      'Sales invoice JE has Inventory/COGS',
+      hasCogs && hasInventory,
+      `cogs=${hasCogs} inventory=${hasInventory}`,
+    );
+    try {
+      await authed('POST', `/journal-entries/${invoiceJe.id}/reset-to-draft`);
+      record('Generated JE cannot reset to draft', false, 'system JE was unposted');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      record(
+        'Generated JE cannot reset to draft',
+        /system-generated|Correct the source/i.test(message),
+        message.slice(0, 180),
+      );
+    }
   }
 
   const receipts = unwrap(
@@ -1442,6 +1477,62 @@ async function accountingFlow(token) {
     Boolean(retryInvoice) && (await jesForSource(token, 'SALES_INVOICE', invoiceId)).length === 1,
     `${(await jesForSource(token, 'SALES_INVOICE', invoiceId)).length} JE(s)`,
   );
+
+  const fulfillmentJes = await jesForSource(token, 'FULFILLMENT_COST', storeOrderId);
+  assert(
+    'Fulfillment cost JE is not duplicated',
+    fulfillmentJes.length <= 1,
+    `${fulfillmentJes.length} JE(s)`,
+  );
+
+  try {
+    const journals = unwrap(await authed('GET', '/journals?pageSize=50'));
+    const journal = journals.find((row) => row.code === 'GJ') || journals[0];
+      const postingAccounts = accounts.filter(
+        (account) => account.allowsPosting && !account.partnerControlType,
+      );
+    const debitAccount = postingAccounts.find((account) => account.accountType === 'EXPENSE')
+      ?? postingAccounts[0];
+    const creditAccount = postingAccounts.find(
+      (account) => account.id !== debitAccount?.id && account.accountType === 'ASSET',
+    ) ?? postingAccounts.find((account) => account.id !== debitAccount?.id);
+    assert(
+      'Manual JE accounts available',
+      Boolean(journal?.id && debitAccount?.id && creditAccount?.id),
+      journal?.code,
+    );
+    if (journal?.id && debitAccount?.id && creditAccount?.id) {
+      const manual = await authed('POST', '/journal-entries', {
+        journalId: journal.id,
+        description: `${RUN} manual reset cycle`,
+        lines: [
+          { accountId: debitAccount.id, debit: 15, credit: 0, description: 'Dr' },
+          { accountId: creditAccount.id, debit: 0, credit: 15, description: 'Cr' },
+        ],
+      });
+      const posted = await authed('POST', `/journal-entries/${manual.id}/post`);
+      assert('Manual JE posted', posted.status === 'POSTED', posted.entryNumber);
+      const drafted = await authed('POST', `/journal-entries/${manual.id}/reset-to-draft`);
+      assert('Manual JE returned to Draft', drafted.status === 'DRAFT', drafted.status);
+      await authed('PATCH', `/journal-entries/${manual.id}`, {
+        description: `${RUN} edited after unpost`,
+      });
+      const reposted = await authed('POST', `/journal-entries/${manual.id}/post`);
+      assert('Manual JE reposted', reposted.status === 'POSTED', reposted.entryNumber);
+      const activities = unwrap(await authed('GET', `/journal-entries/${manual.id}/activities`));
+      assert(
+        'Manual JE unpost is in the audit trail',
+        activities.some((row) => row.type === 'ENTRY_UNPOSTED'),
+        activities.map((row) => row.type).join(','),
+      );
+    }
+  } catch (error) {
+    record(
+      'Manual JE reset-to-draft cycle',
+      false,
+      error instanceof Error ? error.message.slice(0, 220) : String(error),
+    );
+  }
 
   report.evidence = {
     leadNumber: lead.leadNumber,

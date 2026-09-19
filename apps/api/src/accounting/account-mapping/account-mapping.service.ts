@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -555,6 +555,44 @@ export class AccountMappingService {
     ]);
   }
 
+  async assertSalesInvoiceMappings(input: {
+    partnerId: string;
+    items: Array<{
+      categoryId: string | null;
+      customerGroupId?: string | null;
+      isInventoryItem: boolean;
+      sku?: string | null;
+      currentCost: Prisma.Decimal | number | null;
+      taxId?: string | null;
+      taxAmount?: number;
+    }>;
+    includeFulfillment?: boolean;
+  }): Promise<void> {
+    await this.resolveReceivableAccount(input.partnerId);
+    for (const item of input.items) {
+      await this.resolveSalesRevenueAccount(
+        item.categoryId,
+        item.customerGroupId ?? null,
+      );
+      if (item.isInventoryItem) {
+        if (item.currentCost == null) {
+          throw new BadRequestException(
+            `Product ${item.sku ?? ''} has no recorded cost. Record a product cost or opening balance before invoicing — COGS cannot silently post as zero.`,
+          );
+        }
+        await this.resolveCogsAccount(item.categoryId);
+        await this.resolveInventoryAccount(item.categoryId);
+      }
+      if (item.taxId && Number(item.taxAmount ?? 0) !== 0) {
+        await this.resolveVatOutputAccount(item.taxId);
+      }
+    }
+    if (input.includeFulfillment) {
+      await this.resolveFulfillmentExpenseAccount();
+      await this.resolveAccruedFulfillmentAccount();
+    }
+  }
+
   private async getSettings(tx: Prisma.TransactionClient | PrismaService) {
     return tx.postingSettings.findFirst();
   }
@@ -565,7 +603,7 @@ export class AccountMappingService {
     checkedIn: string[],
   ): string {
     if (!accountId) {
-      throw new Error(
+      throw new BadRequestException(
         `No ${label} account configured. Checked, in order: ${checkedIn.join(' → ')}.`,
       );
     }

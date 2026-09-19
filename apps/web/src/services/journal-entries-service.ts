@@ -149,6 +149,8 @@ export const journalEntriesService = {
   update: (id: string, dto: Partial<JournalEntryFormPayload>) =>
     apiClient.patch<JournalEntryRow>(`/journal-entries/${id}`, dto),
   post: (id: string) => apiClient.post<JournalEntryRow>(`/journal-entries/${id}/post`),
+  resetToDraft: (id: string) =>
+    apiClient.post<JournalEntryRow>(`/journal-entries/${id}/reset-to-draft`),
   reverse: (id: string) => apiClient.post<JournalEntryRow>(`/journal-entries/${id}/reverse`),
   /** Soft-delete — Draft only (enforced server-side). A Posted entry is permanent ledger history; use Reverse instead. */
   archive: (id: string) => apiClient.post<JournalEntryRow>(`/journal-entries/${id}/archive`),

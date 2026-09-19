@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Pause, Play, Shuffle, Clock, Hand, CircleOff } from "lucide-react";
+import { Pause, Play, Clock, Hand, CircleOff } from "lucide-react";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { EnterpriseButton } from "@/components/ui/button";
 import { leadsService, type LeadDistributionSnapshot } from "@/services/leads-service";
@@ -100,16 +100,18 @@ export function LeadDistributionControl({
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <EnterpriseBadge
-        variant={badge.variant}
-        className={cn("h-7 gap-1 px-2", running && "border-success/40")}
-      >
-        <Icon className="size-3.5" />
-        {badge.label}
-        {status === "TIME_LIMITED" && remainingHours != null ? (
-          <span dir="ltr">· {remainingHours}h</span>
-        ) : null}
-      </EnterpriseBadge>
+      <button type="button" onClick={onOpenModes} className="rounded-md">
+        <EnterpriseBadge
+          variant={badge.variant}
+          className={cn("h-7 cursor-pointer gap-1 px-2", running && "border-success/40")}
+        >
+          <Icon className="size-3.5" />
+          {badge.label}
+          {status === "TIME_LIMITED" && remainingHours != null ? (
+            <span dir="ltr">· {remainingHours}h</span>
+          ) : null}
+        </EnterpriseBadge>
+      </button>
       {heldCount > 0 ? (
         <EnterpriseBadge variant="outline" className="h-7">
           {t("crm.leads.distribution.heldCount", { count: heldCount })}
@@ -132,10 +134,6 @@ export function LeadDistributionControl({
           {t("crm.leads.distribution.start")}
         </EnterpriseButton>
       )}
-      <EnterpriseButton type="button" size="sm" variant="outline" onClick={onOpenModes}>
-        <Shuffle className="size-3.5" />
-        {t("crm.leads.distribution.action")}
-      </EnterpriseButton>
     </div>
   );
 }

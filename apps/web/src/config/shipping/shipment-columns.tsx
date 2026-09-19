@@ -5,6 +5,7 @@ import { Eye, Truck } from "lucide-react";
 import { RowActionsMenu } from "@/components/shared/data-table";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
+import { JournalTraceCell } from "@/components/accounting/journal-trace-cell";
 import { ShipmentAttachmentsPopover } from "@/components/shipping/shipment-attachments-popover";
 import { formatDate } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
@@ -153,6 +154,12 @@ export function buildShipmentColumns(
       id: "shippedAt",
       meta: { titleKey: "shipping.fields.shippedAt" },
       accessorFn: (row) => (row.shippedAt ? formatDate(row.shippedAt) : "—"),
+    },
+    {
+      id: "journal",
+      meta: { titleKey: "accounting.journalEntries.fields.viewJournalEntry" },
+      enableSorting: false,
+      cell: ({ row }) => <JournalTraceCell sourceType="SHIPMENT_COST" sourceId={row.original.id} />,
     },
     {
       id: "__actions",

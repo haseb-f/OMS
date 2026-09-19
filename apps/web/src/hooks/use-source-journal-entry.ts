@@ -9,50 +9,56 @@ import {
 } from "@/config/accounting/status";
 import { useLocale } from "@/providers/locale-provider";
 
+export type JournalTraceState = "idle" | "loading" | "found" | "missing";
+
 /**
- * TASK-054 (Related Documents Part 7) — "Journal ↔ Source Document" reverse
- * lookup every posted operational document's editor uses to show its own
- * auto-posted Journal Entry. Never creates or duplicates anything: reads the
- * one JournalEntry the Posting Engine already created for this
- * `sourceType`/`sourceId` via the existing `journalEntriesService.list`
- * filter (TASK-054 added `sourceType`/`sourceId` to that one query, nothing
- * else). Returns an empty array while loading, before posting, or if the
- * source has no id yet — `RelatedDocuments` already renders nothing for an
- * empty group.
+ * Canonical Journal ↔ Source Document lookup. Reads POSTED entries for the
+ * given sourceType/sourceId. Callers that set `expected` can distinguish
+ * "not posted yet" from "this document never posts a journal".
  */
 export function useSourceJournalEntryLinks(
   sourceType: string,
   sourceId: string | null | undefined,
 ): RelatedDocumentLink[] {
+  return useSourceJournalTrace(sourceType, sourceId).links;
+}
+
+export function useSourceJournalTrace(
+  sourceType: string,
+  sourceId: string | null | undefined,
+): { links: RelatedDocumentLink[]; state: JournalTraceState } {
   const { t } = useLocale();
   const [links, setLinks] = useState<RelatedDocumentLink[]>([]);
+  const [state, setState] = useState<JournalTraceState>(sourceId ? "loading" : "idle");
 
   useEffect(() => {
     if (!sourceId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setLinks([]);
+      setState("idle");
       return;
     }
+    setState("loading");
     journalEntriesService
-      .list({ sourceType, sourceId, pageSize: 1 })
+      .list({ sourceType, sourceId, status: "POSTED", pageSize: 5 })
       .then((result) => {
-        const entry = result.items[0];
+        const items = result.items;
         setLinks(
-          entry
-            ? [
-                {
-                  id: entry.id,
-                  number: entry.entryNumber,
-                  href: `/finance/journal-entries/${entry.id}`,
-                  statusLabel: t(JOURNAL_ENTRY_STATUS_LABEL_KEY[entry.status]),
-                  statusTone: JOURNAL_ENTRY_STATUS_TONE[entry.status],
-                },
-              ]
-            : [],
+          items.map((entry) => ({
+            id: entry.id,
+            number: entry.entryNumber,
+            href: `/finance/journal-entries/${entry.id}`,
+            statusLabel: t(JOURNAL_ENTRY_STATUS_LABEL_KEY[entry.status]),
+            statusTone: JOURNAL_ENTRY_STATUS_TONE[entry.status],
+          })),
         );
+        setState(items.length > 0 ? "found" : "missing");
       })
-      .catch(() => setLinks([]));
+      .catch(() => {
+        setLinks([]);
+        setState("missing");
+      });
   }, [sourceType, sourceId, t]);
 
-  return links;
+  return { links, state };
 }

@@ -119,9 +119,6 @@ export function AgingTab({ side }: { side: "AR" | "AP" }) {
       printTitle={side === "AR" ? t("reports.finance.arAging") : t("reports.finance.apAging")}
       exportFileName={`${side.toLowerCase()}-aging.csv`}
       nameHeaderKey="reports.finance.fields.partnerName"
-      status={{
-        extras: totals ? [{ label: t("reports.finance.totals"), value: totals.total }] : [],
-      }}
     />
   );
 }

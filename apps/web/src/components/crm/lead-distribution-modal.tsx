@@ -20,8 +20,17 @@ import { useUserContext } from "@/providers/user-context";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import { formatDateTime } from "@/lib/date";
+import { cn } from "@/lib/utils";
 
-type Tab = "continuous" | "hours" | "manual";
+type Mode = "CONTINUOUS" | "TIME_LIMITED" | "MANUAL";
+
+function resolveMode(snapshot: LeadDistributionSnapshot | null): Mode | "PAUSED" {
+  if (snapshot?.status) return snapshot.status;
+  if (!snapshot?.policy) return "PAUSED";
+  if (snapshot.policy.mode === "CONTINUOUS") return "CONTINUOUS";
+  if (snapshot.policy.mode === "TIME_LIMITED") return "TIME_LIMITED";
+  return "PAUSED";
+}
 
 export function LeadDistributionModal({
   open,
@@ -37,44 +46,108 @@ export function LeadDistributionModal({
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
   const canManagePolicy = hasPermission("crm.leads.manage");
-  const availableTabs: Tab[] = canManagePolicy ? ["continuous", "hours", "manual"] : ["manual"];
-  const [tab, setTab] = useState<Tab>(
-    selectedLeadIds.length || !canManagePolicy ? "manual" : "continuous",
-  );
   const [snapshot, setSnapshot] = useState<LeadDistributionSnapshot | null>(null);
+  const [draftMode, setDraftMode] = useState<Mode | "PAUSED">("PAUSED");
   const [employeeId, setEmployeeId] = useState("");
   const [customN, setCustomN] = useState("");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [opened, setOpened] = useState(open);
+  if (open !== opened) {
+    setOpened(open);
+    if (open) {
+      setEmployeeId("");
+      setCustomN("");
+      setReason("");
+    }
+  }
 
   useEffect(() => {
     if (!open) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setTab(selectedLeadIds.length || !canManagePolicy ? "manual" : "continuous");
+    let cancelled = false;
     leadsService
       .distribution()
-      .then(setSnapshot)
-      .catch(() => setSnapshot({ policy: null, eligible: [], status: "PAUSED", isRunning: false }));
+      .then((next) => {
+        if (cancelled) return;
+        setSnapshot(next);
+        const current = resolveMode(next);
+        setDraftMode(
+          selectedLeadIds.length || !canManagePolicy
+            ? "MANUAL"
+            : current === "PAUSED"
+              ? "CONTINUOUS"
+              : current,
+        );
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSnapshot({ policy: null, eligible: [], status: "PAUSED", isRunning: false });
+        setDraftMode("PAUSED");
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [open, selectedLeadIds.length, canManagePolicy]);
 
   const remainingHours = snapshot?.policy?.remainingMs
     ? Math.ceil(snapshot.policy.remainingMs / 3_600_000)
     : null;
-  const status =
-    snapshot?.status ?? (snapshot?.policy?.mode === "CONTINUOUS" ? "CONTINUOUS" : "PAUSED");
-  const isContinuous = status === "CONTINUOUS";
-  const is24h = status === "TIME_LIMITED";
-  const isManual = status === "MANUAL";
-  const isPaused = status === "PAUSED";
-  const running = isContinuous || is24h;
+  const currentMode = resolveMode(snapshot);
+  const dirty = draftMode !== currentMode;
 
-  const run = async (action: () => Promise<unknown>, successKey: string) => {
+  const applyMode = async (mode: Mode | "PAUSED") => {
+    if (mode === "CONTINUOUS") return leadsService.activateContinuous();
+    if (mode === "TIME_LIMITED") return leadsService.activate24h();
+    if (mode === "MANUAL") return leadsService.activateManual();
+    return leadsService.pauseDistribution();
+  };
+
+  const handleDone = async (requestClose: () => void) => {
+    const assigning = draftMode === "MANUAL" && Boolean(employeeId);
+    if (!dirty && !assigning) {
+      requestClose();
+      return;
+    }
     setBusy(true);
     try {
-      await action();
-      toast.success(t(successKey as never));
+      if (canManagePolicy && dirty) {
+        await applyMode(draftMode);
+      }
+      if (draftMode === "MANUAL" && employeeId) {
+        const count = Number(customN);
+        if (selectedLeadIds.length > 0) {
+          await leadsService.bulkAssign({
+            leadIds: selectedLeadIds,
+            salesEmployeeId: employeeId,
+            reason: reason || undefined,
+          });
+        } else if (count > 0) {
+          await leadsService.bulkAssign({
+            salesEmployeeId: employeeId,
+            count,
+            unassignedOnly: true,
+            reason: reason || undefined,
+          });
+        } else if (!dirty) {
+          toast.error(t("crm.leads.distribution.manualNeedSelection"));
+          return;
+        }
+        toast.success(t("crm.leads.assignDialog.success"));
+      } else if (dirty) {
+        toast.success(
+          draftMode === "CONTINUOUS"
+            ? t("crm.leads.distribution.activated")
+            : draftMode === "TIME_LIMITED"
+              ? t("crm.leads.distribution.activated24h")
+              : draftMode === "MANUAL"
+                ? t("crm.leads.distribution.activatedManual")
+                : t("crm.leads.distribution.pausedToast"),
+        );
+      } else {
+        toast.success(t("common.saved"));
+      }
       onChanged?.();
-      setSnapshot(await leadsService.distribution());
+      requestClose();
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
     } finally {
@@ -82,36 +155,11 @@ export function LeadDistributionModal({
     }
   };
 
-  const confirmManual = async () => {
-    if (!employeeId) return;
-    const count = Number(customN);
-    setBusy(true);
-    try {
-      if (selectedLeadIds.length > 0) {
-        await leadsService.bulkAssign({
-          leadIds: selectedLeadIds,
-          salesEmployeeId: employeeId,
-          reason: reason || undefined,
-        });
-      } else if (count > 0) {
-        await leadsService.bulkAssign({
-          salesEmployeeId: employeeId,
-          count,
-          unassignedOnly: true,
-          reason: reason || undefined,
-        });
-      } else {
-        toast.error(t("crm.leads.distribution.manualNeedSelection"));
-        return;
-      }
-      toast.success(t("crm.leads.assignDialog.success"));
-      onChanged?.();
-      onOpenChange(false);
-    } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
-    } finally {
-      setBusy(false);
+  const handleClose = (requestClose: () => void) => {
+    if (dirty) {
+      toast.info(t("crm.leads.distribution.unsavedDiscarded"));
     }
+    requestClose();
   };
 
   return (
@@ -123,9 +171,18 @@ export function LeadDistributionModal({
       title={t("crm.leads.distribution.title")}
       description={t("crm.leads.distribution.description")}
       footer={(requestClose) => (
-        <EnterpriseButton variant="outline" onClick={requestClose}>
-          {t("common.close")}
-        </EnterpriseButton>
+        <>
+          <EnterpriseButton
+            variant="outline"
+            disabled={busy}
+            onClick={() => handleClose(requestClose)}
+          >
+            {t("common.close")}
+          </EnterpriseButton>
+          <EnterpriseButton disabled={busy} onClick={() => void handleDone(requestClose)}>
+            {t("common.done")}
+          </EnterpriseButton>
+        </>
       )}
     >
       <div className="flex flex-col gap-4">
@@ -135,24 +192,19 @@ export function LeadDistributionModal({
               {t("crm.leads.distribution.status")}
             </p>
             <p className="text-body font-semibold">
-              {running
+              {currentMode === "CONTINUOUS" || currentMode === "TIME_LIMITED"
                 ? t("crm.leads.distribution.running")
-                : isManual
+                : currentMode === "MANUAL"
                   ? t("crm.leads.distribution.states.manual")
                   : t("crm.leads.distribution.paused")}
             </p>
           </div>
-          {running && canManagePolicy ? (
+          {(currentMode === "CONTINUOUS" || currentMode === "TIME_LIMITED") && canManagePolicy ? (
             <EnterpriseButton
               size="sm"
               variant="warning"
               disabled={busy}
-              onClick={() =>
-                void run(
-                  () => leadsService.pauseDistribution(),
-                  "crm.leads.distribution.pausedToast",
-                )
-              }
+              onClick={() => setDraftMode("PAUSED")}
             >
               <Pause />
               {t("crm.leads.distribution.pause")}
@@ -164,44 +216,48 @@ export function LeadDistributionModal({
           <div className="grid gap-2 sm:grid-cols-3">
             <EnterpriseButton
               type="button"
-              variant={isContinuous ? "success" : "outline"}
-              disabled={busy || isContinuous}
-              onClick={() =>
-                void run(
-                  () => leadsService.activateContinuous(),
-                  "crm.leads.distribution.activated",
-                )
-              }
+              variant={draftMode === "CONTINUOUS" ? "success" : "outline"}
+              className={cn(draftMode === "CONTINUOUS" && "ring-1 ring-success/40")}
+              disabled={busy}
+              onClick={() => setDraftMode("CONTINUOUS")}
             >
               <Play />
               {t("crm.leads.distribution.states.continuous")}
             </EnterpriseButton>
             <EnterpriseButton
               type="button"
-              variant={is24h ? "default" : "outline"}
+              variant={draftMode === "TIME_LIMITED" ? "default" : "outline"}
               disabled={busy}
-              onClick={() =>
-                void run(() => leadsService.activate24h(), "crm.leads.distribution.activated24h")
-              }
+              onClick={() => setDraftMode("TIME_LIMITED")}
             >
               <Clock />
               {t("crm.leads.distribution.states.hours")}
             </EnterpriseButton>
             <EnterpriseButton
               type="button"
-              variant={isManual ? "secondary" : "outline"}
-              disabled={busy || isManual}
-              onClick={() =>
-                void run(
-                  () => leadsService.activateManual(),
-                  "crm.leads.distribution.activatedManual",
-                )
-              }
+              variant={draftMode === "MANUAL" ? "secondary" : "outline"}
+              disabled={busy}
+              onClick={() => setDraftMode("MANUAL")}
             >
               <Hand />
               {t("crm.leads.distribution.states.manual")}
             </EnterpriseButton>
           </div>
+        ) : null}
+
+        {draftMode === "CONTINUOUS" && canManagePolicy ? (
+          <p className="text-caption text-muted-foreground">
+            {t("crm.leads.distribution.continuousHint")}
+          </p>
+        ) : null}
+        {draftMode === "TIME_LIMITED" && canManagePolicy ? (
+          <p className="text-caption text-muted-foreground">
+            {t("crm.leads.distribution.hoursHint")}
+            {remainingHours != null
+              ? ` · ${t("crm.leads.distribution.remaining")}: ${remainingHours} ${t("crm.leads.distribution.hours")}`
+              : ""}
+            {snapshot?.policy?.expiresAt ? ` · ${formatDateTime(snapshot.policy.expiresAt)}` : ""}
+          </p>
         ) : null}
 
         {(snapshot?.held?.batches.length ?? 0) > 0 && canManagePolicy ? (
@@ -221,64 +277,38 @@ export function LeadDistributionModal({
                   </EnterpriseBadge>
                   <span className="text-caption">{batch.count}</span>
                 </div>
-                <div className="flex gap-1.5">
-                  <EnterpriseButton
-                    size="xs"
-                    disabled={busy}
-                    onClick={() =>
-                      void run(
-                        () =>
-                          leadsService.releaseHeld({
-                            importBatch: batch.importBatch,
-                            mode: "CONTINUOUS",
-                          }),
-                        "crm.leads.distribution.released",
-                      )
-                    }
-                  >
-                    {t("crm.leads.distribution.releaseAuto")}
-                  </EnterpriseButton>
-                </div>
+                <EnterpriseButton
+                  size="xs"
+                  disabled={busy}
+                  onClick={() =>
+                    void (async () => {
+                      setBusy(true);
+                      try {
+                        await leadsService.releaseHeld({
+                          importBatch: batch.importBatch,
+                          mode: "CONTINUOUS",
+                        });
+                        toast.success(t("crm.leads.distribution.released"));
+                        onChanged?.();
+                        setSnapshot(await leadsService.distribution());
+                      } catch (error) {
+                        toast.error(
+                          error instanceof ApiError ? error.message : t("common.failedToSave"),
+                        );
+                      } finally {
+                        setBusy(false);
+                      }
+                    })()
+                  }
+                >
+                  {t("crm.leads.distribution.releaseAuto")}
+                </EnterpriseButton>
               </div>
             ))}
           </div>
         ) : null}
 
-        {is24h && snapshot?.policy ? (
-          <p className="text-caption text-muted-foreground">
-            {t("crm.leads.distribution.remaining")}: {remainingHours}{" "}
-            {t("crm.leads.distribution.hours")}
-            {snapshot.policy.expiresAt ? ` · ${formatDateTime(snapshot.policy.expiresAt)}` : ""}
-          </p>
-        ) : null}
-
-        <div className="flex gap-2 rounded-md border border-border bg-muted/30 p-1">
-          {availableTabs.map((item) => (
-            <EnterpriseButton
-              key={item}
-              type="button"
-              size="sm"
-              variant={tab === item ? "default" : "ghost"}
-              className="flex-1"
-              onClick={() => setTab(item)}
-            >
-              {t(`crm.leads.distribution.tabs.${item}`)}
-            </EnterpriseButton>
-          ))}
-        </div>
-
-        {tab === "continuous" && canManagePolicy ? (
-          <p className="text-caption text-muted-foreground">
-            {t("crm.leads.distribution.continuousHint")}
-          </p>
-        ) : null}
-        {tab === "hours" && canManagePolicy ? (
-          <p className="text-caption text-muted-foreground">
-            {t("crm.leads.distribution.hoursHint")}
-          </p>
-        ) : null}
-
-        {tab === "manual" ? (
+        {draftMode === "MANUAL" ? (
           <div className="flex flex-col gap-3">
             <p className="text-caption text-muted-foreground">
               {t("crm.leads.distribution.manualHint")}
@@ -315,20 +345,7 @@ export function LeadDistributionModal({
               <Label>{t("crm.leads.distribution.reason")}</Label>
               <Input value={reason} onChange={(e) => setReason(e.target.value)} />
             </div>
-            <EnterpriseButton
-              size="sm"
-              disabled={busy || !employeeId}
-              onClick={() => void confirmManual()}
-            >
-              {t("crm.leads.assignDialog.confirm")}
-            </EnterpriseButton>
           </div>
-        ) : null}
-
-        {isPaused ? (
-          <p className="text-caption text-warning-foreground">
-            {t("crm.leads.distribution.pausedHint")}
-          </p>
         ) : null}
       </div>
     </EnterpriseModal>

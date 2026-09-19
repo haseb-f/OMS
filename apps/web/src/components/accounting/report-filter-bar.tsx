@@ -76,9 +76,9 @@ export function AccountingReportFilterBar({
   const branches = companies.find((c) => c.id === value.companyId)?.branches ?? [];
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-1.5">
       {accountFilter && (
-        <div className="w-64">
+        <div className="w-56">
           <AccountPicker
             value={accountFilter.value}
             onChange={accountFilter.onChange}

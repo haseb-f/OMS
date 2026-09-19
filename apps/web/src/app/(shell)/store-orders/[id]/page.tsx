@@ -39,6 +39,8 @@ import { TableCell } from "@/components/ui/table";
 import { StatusBadge } from "@/components/business/status-badge";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
 import { PermissionGate } from "@/components/shared/permission-gate";
+import { JournalTraceLinks } from "@/components/accounting/journal-trace-links";
+import Link from "next/link";
 import { IconActionButton } from "@/components/shared/icon-action-button";
 import { FileDropField } from "@/components/shared/form-fields";
 import { AttachmentPreviewDialog } from "@/components/business/attachment-preview-dialog";
@@ -613,10 +615,25 @@ function StoreOrderDetailContent() {
         {invoice ? (
           <DetailFieldRow
             label={t("storeOrders.detail.sections.invoice")}
-            value={<SemanticValue kind="id">{invoice.invoiceNumber}</SemanticValue>}
+            value={
+              <Link href={`/sales/invoices/${invoice.id}`} className="hover:underline">
+                <SemanticValue kind="id">{invoice.invoiceNumber}</SemanticValue>
+              </Link>
+            }
           />
         ) : null}
       </DetailGroup>
+      <JournalTraceLinks
+        sourceType="SALES_INVOICE"
+        sourceId={invoice?.id}
+        expected={Boolean(invoice)}
+        labelKey="accounting.journalEntries.fields.viewJournalEntry"
+      />
+      <JournalTraceLinks
+        sourceType="FULFILLMENT_COST"
+        sourceId={order.id}
+        expected={Boolean(invoice)}
+      />
 
       {order.payments && order.payments.length > 0 ? (
         <div className="overflow-hidden rounded-md border border-border bg-card">

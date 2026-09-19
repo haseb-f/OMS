@@ -7,7 +7,7 @@ import { EnterpriseButton } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EditorWorkspace } from "@/components/shared/detail-workspace";
 import { RelatedDocuments } from "@/components/shared/related-documents";
-import { useSourceJournalEntryLinks } from "@/hooks/use-source-journal-entry";
+import { useSourceJournalTrace } from "@/hooks/use-source-journal-entry";
 import { PartnerPicker } from "@/components/business/partner-picker";
 import { FinancialTransactionEditor } from "@/components/financial-transactions/financial-transaction-editor";
 import { OpenInvoicesTable } from "@/components/financial-transactions/open-invoices-table";
@@ -493,7 +493,7 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
   const canEdit = !payment || payment.status === "DRAFT";
   const canConfirm = hasPermission("purchasing.payments.confirm");
   const canCancel = hasPermission("purchasing.payments.cancel");
-  const journalEntryLinks = useSourceJournalEntryLinks("SUPPLIER_PAYMENT", payment?.id);
+  const journalTrace = useSourceJournalTrace("SUPPLIER_PAYMENT", payment?.id);
 
   useBreadcrumbLabel(payment?.transactionNumber ?? t("purchasing.payments.addNew"));
 
@@ -513,7 +513,11 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
           },
           {
             labelKey: "purchasing.payments.relatedJournalEntry",
-            links: journalEntryLinks,
+            links: journalTrace.links,
+            emptyLabel:
+              payment?.status === "CONFIRMED" && journalTrace.state === "missing"
+                ? t("accounting.journalEntries.missingJournal")
+                : undefined,
           },
         ]}
       />

@@ -2,7 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Copy, FileStack, Printer, Save, Send, Trash2, Undo2 } from "lucide-react";
+import {
+  ChevronDown,
+  Copy,
+  FileStack,
+  Printer,
+  RotateCcw,
+  Save,
+  Send,
+  Trash2,
+  Undo2,
+} from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -55,21 +65,19 @@ import { CreateOperationSummary } from "@/components/shared/create-operation";
 import { MoneyValue } from "@/components/shared/money-value";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
+import {
+  isGeneratedJournalSource,
+  isManualJournalSource,
+  journalSourceHref,
+  journalSourceLabelKey,
+} from "@/config/accounting/journal-source";
 
 const accountsService = createMasterDataService<ChartOfAccountRow>("/chart-of-accounts");
 
 /** The entry's own `currency` include is a slim `{id,code,name}` projection (see ENTRY_INCLUDE server-side), not a full CurrencyRow — the selector only ever needs these three fields. */
 type CurrencyOption = { id: string; code: string; name: string };
 
-/** TASK-054 (Related Documents Part 7) — "Journal ↔ Source Document": which editor route each auto-posting sourceType navigates back to. Manual entries and any future sourceType with no dedicated detail route are left unlinked, never a dead link. */
-const SOURCE_DOCUMENT_ROUTE: Record<string, (id: string) => string> = {
-  SALES_INVOICE: (id) => `/sales/invoices/${id}`,
-  PURCHASE_INVOICE: (id) => `/purchasing/purchase-invoices/${id}`,
-  SALES_RETURN: (id) => `/sales/returns/${id}`,
-  PURCHASE_RETURN: (id) => `/purchasing/purchase-returns/${id}`,
-  CUSTOMER_RECEIPT: (id) => `/sales/payments/${id}`,
-  SUPPLIER_PAYMENT: (id) => `/purchasing/payments/${id}`,
-};
+/** Accounting Foundation (TASK-044 Part 6) — bespoke editor. */
 const journalsService = createMasterDataService<JournalRow>("/journals");
 const costCentersService = createMasterDataService<CostCenterRow>("/cost-centers");
 const projectsService = createMasterDataService<ProjectRow>("/projects");
@@ -141,6 +149,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
 
   const [postTarget, setPostTarget] = useState(false);
+  const [resetToDraftTarget, setResetToDraftTarget] = useState(false);
   const [reverseTarget, setReverseTarget] = useState(false);
   const [archiveTarget, setArchiveTarget] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(false);
@@ -364,11 +373,16 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
     }
   };
 
-  const canEdit = !entry || entry.status === "DRAFT";
+  const isGenerated = isGeneratedJournalSource(entry?.sourceType);
+  const isManual = isManualJournalSource(entry?.sourceType);
+  const canEdit = (!entry || entry.status === "DRAFT") && !isGenerated;
   const canPost = hasPermission("accounting.journal-entries.post");
-  const canReverse = hasPermission("accounting.journal-entries.reverse");
+  const canReverse = hasPermission("accounting.journal-entries.reverse") && isManual;
+  const canResetToDraft = hasPermission("accounting.journal-entries.post") && isManual;
   const canArchive = hasPermission("accounting.journal-entries.archive");
   const canDelete = hasPermission("accounting.journal-entries.archive");
+
+  const sourceHref = journalSourceHref(entry?.sourceType, entry?.sourceId);
 
   const activityEntries: TimelineEntry[] = (activity ?? []).map((a) => ({
     id: a.id,
@@ -405,15 +419,19 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
           {
             labelKey: "accounting.journalEntries.fields.sourceDocument",
             links:
-              entry?.sourceType && entry.sourceId && SOURCE_DOCUMENT_ROUTE[entry.sourceType]
+              entry?.sourceType && entry.sourceId && sourceHref
                 ? [
                     {
                       id: entry.sourceId,
-                      number: entry.referenceNumber ?? entry.sourceType,
-                      href: SOURCE_DOCUMENT_ROUTE[entry.sourceType](entry.sourceId),
+                      number: entry.referenceNumber ?? t(journalSourceLabelKey(entry.sourceType)),
+                      href: sourceHref,
                     },
                   ]
                 : [],
+            emptyLabel:
+              entry && isGenerated && !sourceHref
+                ? `${t(journalSourceLabelKey(entry.sourceType))}${entry.referenceNumber ? ` · ${entry.referenceNumber}` : ""}`
+                : undefined,
           },
         ]}
       />
@@ -486,6 +504,19 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
                       {t("accounting.journalEntries.actions.post")}
                     </EnterpriseButton>
                   )}
+                  {entry?.status === "POSTED" && canResetToDraft && (
+                    <EnterpriseButton
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      disabled={isTransitioning}
+                      onClick={() => setResetToDraftTarget(true)}
+                    >
+                      <RotateCcw className="size-3.5" />
+                      {t("accounting.journalEntries.actions.resetToDraft")}
+                    </EnterpriseButton>
+                  )}
                   {entry?.status === "POSTED" && canReverse && (
                     <EnterpriseButton
                       type="button"
@@ -552,6 +583,12 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
                 </>
               }
             />
+
+            {isGenerated ? (
+              <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-caption text-muted-foreground">
+                {t("accounting.journalEntries.systemGeneratedHint")}
+              </p>
+            ) : null}
 
             {/* Main form — compact grid */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -740,6 +777,22 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
           await runTransition(
             (eid) => journalEntriesService.post(eid),
             "accounting.journalEntries.toasts.posted",
+          );
+        }}
+      />
+
+      <ConfirmationDialog
+        open={resetToDraftTarget}
+        onOpenChange={setResetToDraftTarget}
+        title={t("accounting.journalEntries.confirmResetToDraftTitle")}
+        description={t("accounting.journalEntries.confirmResetToDraftDescription")}
+        confirmLabel={t("accounting.journalEntries.actions.resetToDraft")}
+        cancelLabel={t("common.close")}
+        onConfirm={async () => {
+          setResetToDraftTarget(false);
+          await runTransition(
+            (eid) => journalEntriesService.resetToDraft(eid),
+            "accounting.journalEntries.toasts.resetToDraft",
           );
         }}
       />

@@ -128,22 +128,6 @@ export function PartnerStatementTab({ role }: { role: PartnerRoleValue }) {
         exportFileName={`${role.toLowerCase()}-statement.csv`}
         nameHeaderKey="reports.finance.fields.partnerName"
         toolbarExtra={<PartnerPicker role={role} value={partner} onChange={setPartner} />}
-        status={
-          statement
-            ? {
-                extras: [
-                  {
-                    label: t("reports.finance.fields.openingBalance"),
-                    value: statement.openingBalance,
-                  },
-                  {
-                    label: t("reports.finance.fields.closingBalance"),
-                    value: statement.closingBalance,
-                  },
-                ],
-              }
-            : undefined
-        }
         onPostingClick={(line) => {
           const movement = statement?.movements.find(
             (row, index) => `${row.journalEntryId}-${row.accountCode}-${index}` === line.id,

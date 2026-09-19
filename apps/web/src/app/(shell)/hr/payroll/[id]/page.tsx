@@ -9,6 +9,7 @@ import {
   DetailSection,
   DetailWorkspace,
 } from "@/components/shared/detail-workspace";
+import { JournalTraceLinks } from "@/components/accounting/journal-trace-links";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -253,6 +254,11 @@ export default function PayrollRunDetailPage() {
       actions={actionButtons}
       width="wide"
     >
+      <JournalTraceLinks
+        sourceType="PAYROLL_RUN"
+        sourceId={run.id}
+        expected={run.status === "POSTED" || run.status === "PAID"}
+      />
       <DetailSection title={t("hr.payroll.title")}>
         <DetailFieldGrid columns={3}>
           <DetailField

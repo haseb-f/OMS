@@ -32,7 +32,7 @@ import {
   TRANSACTION_STATUS_TONE,
 } from "@/config/financial-transactions/status";
 import { RelatedDocuments } from "@/components/shared/related-documents";
-import { useSourceJournalEntryLinks } from "@/hooks/use-source-journal-entry";
+import { useSourceJournalTrace } from "@/hooks/use-source-journal-entry";
 import { buildInvoicePrintPayload } from "@/config/purchasing/invoice-print";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
@@ -369,7 +369,7 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
   const canCancel = hasPermission("purchasing.invoices.cancel");
   const canConfirm = hasPermission("purchasing.invoices.confirm");
   const canRecordPayment = hasPermission("purchasing.payments.create");
-  const journalEntryLinks = useSourceJournalEntryLinks("PURCHASE_INVOICE", invoice?.id);
+  const journalTrace = useSourceJournalTrace("PURCHASE_INVOICE", invoice?.id);
 
   useBreadcrumbLabel(invoice?.invoiceNumber ?? t("purchasing.invoices.addNew"));
 
@@ -414,7 +414,12 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
           },
           {
             labelKey: "purchasing.invoices.relatedJournalEntry",
-            links: journalEntryLinks,
+            links: journalTrace.links,
+            emptyLabel:
+              (invoice?.status === "CONFIRMED" || invoice?.status === "CLOSED") &&
+              journalTrace.state === "missing"
+                ? t("accounting.journalEntries.missingJournal")
+                : undefined,
           },
         ]}
       />

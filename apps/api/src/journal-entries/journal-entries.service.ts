@@ -204,6 +204,7 @@ export class JournalEntriesService {
 
   async update(id: string, dto: UpdateJournalEntryDto, userId?: string) {
     const existing = await this.findOneById(id);
+    this.assertManualJournal(existing, 'edit');
     if (existing.status !== JournalEntryStatus.DRAFT) {
       throw new BadRequestException(
         `Only a Draft journal entry can be edited.`,
@@ -311,6 +312,56 @@ export class JournalEntriesService {
   }
 
   /**
+   * Returns a posted MANUAL journal to Draft so an authorized Finance user
+   * can correct it and post again. The same document number is kept; the
+   * unpost is written to the activity log. System-generated journals cannot
+   * use this path — they must be corrected from the source document.
+   */
+  async resetToDraft(id: string, userId?: string) {
+    const existing = await this.findOne(id);
+    this.assertManualJournal(existing, 'return to draft');
+    if (existing.status !== JournalEntryStatus.POSTED) {
+      throw new BadRequestException(
+        `Cannot return journal entry ${existing.entryNumber} to Draft from ${existing.status}.`,
+      );
+    }
+    if (existing.reversalOfEntryId || existing.reversedByEntry) {
+      throw new BadRequestException(
+        `Cannot return journal entry ${existing.entryNumber} to Draft — it is part of a reversal pair.`,
+      );
+    }
+    this.assertBalanced(
+      Number(existing.totalDebit),
+      Number(existing.totalCredit),
+    );
+
+    return this.prisma.$transaction(async (tx) => {
+      await this.accountingPeriods.assertPeriodOpen(existing.entryDate, tx);
+      const entry = await tx.journalEntry.update({
+        where: { id },
+        data: {
+          status: JournalEntryStatus.DRAFT,
+          postedAt: null,
+          postedBy: null,
+          updatedBy: userId ?? null,
+        },
+        include: ENTRY_INCLUDE,
+      });
+      await this.activityService.log(
+        id,
+        JournalEntryActivityType.ENTRY_UNPOSTED,
+        `Journal entry ${entry.entryNumber} returned to Draft`,
+        {
+          previousPostedAt: existing.postedAt,
+          previousPostedBy: existing.postedBy,
+        },
+        tx,
+      );
+      return entry;
+    });
+  }
+
+  /**
    * Creates a new Posted entry with every line's debit/credit swapped, links
    * it back to the original, and marks the original Reversed (terminal — the
    * original stays in the ledger untouched, it is never deleted or edited).
@@ -328,6 +379,7 @@ export class JournalEntriesService {
         `Cannot reverse journal entry ${existing.entryNumber} from ${existing.status}.`,
       );
     }
+    this.assertManualJournal(existing, 'reverse');
 
     const reversalNumber =
       await this.numberingEngine.generateNumber('JOURNAL_ENTRY');
@@ -586,6 +638,17 @@ export class JournalEntriesService {
     if (Math.abs(totalDebit - totalCredit) > 0.001) {
       throw new BadRequestException(
         `Journal entry is not balanced — total debit (${totalDebit}) must equal total credit (${totalCredit}).`,
+      );
+    }
+  }
+
+  private assertManualJournal(
+    entry: { entryNumber: string; sourceType: string | null },
+    action: string,
+  ) {
+    if (entry.sourceType && entry.sourceType !== 'MANUAL') {
+      throw new BadRequestException(
+        `Cannot ${action} system-generated journal ${entry.entryNumber}. Correct the source ${entry.sourceType} document instead.`,
       );
     }
   }

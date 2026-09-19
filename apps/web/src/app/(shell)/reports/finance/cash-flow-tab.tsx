@@ -15,7 +15,6 @@ export function CashFlowTab() {
   const { t } = useLocale();
   const { filters, setFilters, params } = useReportQuery();
   const [lines, setLines] = useState<HierarchicalReportLine[]>([]);
-  const [totals, setTotals] = useState({ netCashChange: 0, closingBalance: 0, openingBalance: 0 });
   const [isLoading, setIsLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -23,11 +22,6 @@ export function CashFlowTab() {
     try {
       const result = await accountingReportsService.cashFlow(params);
       setLines(result.lines ?? []);
-      setTotals({
-        netCashChange: result.totals.netCashChange,
-        closingBalance: result.totals.closingBalance,
-        openingBalance: result.openingBalance,
-      });
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
     } finally {
@@ -49,17 +43,6 @@ export function CashFlowTab() {
       onFiltersChange={setFilters}
       printTitle={t("reports.finance.cashFlow")}
       exportFileName="cash-flow.csv"
-      status={{
-        extras: [
-          { label: t("reports.finance.fields.openingBalance"), value: totals.openingBalance },
-          {
-            label: t("reports.finance.fields.netChange"),
-            value: totals.netCashChange,
-            tone: totals.netCashChange >= 0 ? "success" : "danger",
-          },
-          { label: t("reports.finance.fields.closingBalance"), value: totals.closingBalance },
-        ],
-      }}
     />
   );
 }

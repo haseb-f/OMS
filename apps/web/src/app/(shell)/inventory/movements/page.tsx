@@ -46,8 +46,9 @@ import { ApiError } from "@/services/api-client";
 import { formatDateTime } from "@/lib/date";
 import { siteConfig } from "@/config/site";
 import type { MessageKey } from "@/i18n/translate";
-import { PermissionGate } from "@/components/shared/permission-gate";
+import { JournalTraceCell } from "@/components/accounting/journal-trace-cell";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
+import { PermissionGate } from "@/components/shared/permission-gate";
 
 const EMPTY_DATE_RANGE: DateRangeValue = { from: null, to: null };
 const warehousesService = createMasterDataService<WarehouseRow>("/warehouses");
@@ -189,6 +190,16 @@ function InventoryMovementsPageContent() {
           ) : (
             "—"
           );
+        },
+      },
+      {
+        id: "journal",
+        header: t("accounting.journalEntries.fields.viewJournalEntry"),
+        meta: { titleKey: "accounting.journalEntries.fields.viewJournalEntry" },
+        cell: (info) => {
+          const row = info.row.original;
+          if (row.type !== "ADJUSTMENT") return "—";
+          return <JournalTraceCell sourceType="INVENTORY_ADJUSTMENT" sourceId={row.id} expected />;
         },
       },
       {

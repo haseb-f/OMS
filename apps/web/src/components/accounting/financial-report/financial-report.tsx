@@ -24,9 +24,9 @@ import {
   defaultExpandedIds,
   flattenVisibleLines,
   type FinancialReportColumn,
+  type FinancialReportFooter,
   type FinancialReportLine,
 } from "./types";
-import { ReportMoney } from "./report-money";
 
 export function FinancialReport({
   lines,
@@ -40,8 +40,8 @@ export function FinancialReport({
   onPostingClick,
   printTitle,
   exportFileName,
-  status,
-  compactFilters,
+  footer,
+  compactFilters = true,
   toolbarExtra,
   nameHeaderKey,
 }: {
@@ -60,10 +60,7 @@ export function FinancialReport({
   onPostingClick?: (line: FinancialReportLine) => void;
   printTitle: string;
   exportFileName: string;
-  status?: {
-    balanced?: boolean;
-    extras?: Array<{ label: string; value: number; tone?: "success" | "danger" }>;
-  };
+  footer?: FinancialReportFooter;
   compactFilters?: boolean;
   toolbarExtra?: ReactNode;
   nameHeaderKey?: MessageKey;
@@ -140,7 +137,7 @@ export function FinancialReport({
 
   return (
     <ListSurface className="print:border-0 print:shadow-none">
-      <ListToolbar className={cn(compactFilters && "py-1")}>
+      <ListToolbar className={cn("py-1", compactFilters && "gap-1")}>
         {toolbarExtra}
         <AccountingReportFilterBar
           value={filters}
@@ -148,7 +145,7 @@ export function FinancialReport({
           accountFilter={accountFilter}
         />
         {onIncludeOpeningBalanceChange ? (
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          <label className="flex items-center gap-1.5 text-caption text-muted-foreground">
             <Checkbox
               checked={includeOpeningBalance}
               onCheckedChange={(checked) => onIncludeOpeningBalanceChange(checked === true)}
@@ -156,7 +153,7 @@ export function FinancialReport({
             {t("reports.finance.filters.includeOpeningBalance")}
           </label>
         ) : null}
-        <div className="ms-auto flex flex-wrap items-center gap-1.5">
+        <div className="ms-auto flex flex-wrap items-center gap-1">
           {expandableIds.length > 0 ? (
             <>
               <EnterpriseButton
@@ -189,26 +186,7 @@ export function FinancialReport({
           </EnterpriseButton>
         </div>
       </ListToolbar>
-      {status ? (
-        <div className="flex flex-wrap items-center justify-end gap-4 border-b border-border px-3 py-1.5 text-caption">
-          {status.extras?.map((item) => (
-            <span key={item.label} className="flex items-center gap-1">
-              {item.label}
-              <ReportMoney value={item.value} emphasize tone={item.tone} />
-            </span>
-          ))}
-          {status.balanced != null ? (
-            <span
-              className={
-                status.balanced ? "font-medium text-success" : "font-medium text-destructive"
-              }
-            >
-              {status.balanced ? t("reports.finance.balanced") : t("reports.finance.unbalanced")}
-            </span>
-          ) : null}
-        </div>
-      ) : null}
-      <div className={cn("min-h-[24rem]", isLoading && "opacity-60")}>
+      <div className={cn(isLoading && "opacity-60")}>
         <FinancialReportTable
           lines={lines}
           columns={columns}
@@ -217,6 +195,7 @@ export function FinancialReport({
           onPostingClick={onPostingClick}
           emptyLabel={isLoading ? t("common.loading") : t("common.noResults")}
           nameHeaderKey={nameHeaderKey}
+          footer={footer}
         />
       </div>
     </ListSurface>

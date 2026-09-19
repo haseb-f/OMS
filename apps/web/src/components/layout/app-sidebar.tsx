@@ -137,7 +137,12 @@ export function AppSidebar() {
   // logical properties — "Sidebar on the RIGHT" for Arabic requires
   // explicitly flipping `side`, not just setting `dir` on the document.
   return (
-    <Sidebar collapsible="icon" variant="floating" side={direction === "rtl" ? "right" : "left"}>
+    <Sidebar
+      collapsible="icon"
+      variant="floating"
+      side={direction === "rtl" ? "right" : "left"}
+      dir={direction}
+    >
       <SidebarHeader className="gap-1.5 p-2 pb-1.5">
         <div className="flex items-center gap-2 px-1 py-0.5 group-data-[collapsible=icon]:justify-center">
           <BrandMark />

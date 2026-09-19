@@ -78,19 +78,20 @@ export function TrialBalanceTab() {
       onIncludeOpeningBalanceChange={setIncludeOpeningBalance}
       printTitle={t("reports.finance.trialBalance")}
       exportFileName="trial-balance.csv"
-      status={{
+      footer={{
         balanced,
-        extras: includeOpeningBalance
-          ? [
-              { label: t("reports.finance.fields.openingBalance"), value: totals.openingBalance },
-              { label: t("reports.finance.fields.debitTotal"), value: totals.debitTotal },
-              { label: t("reports.finance.fields.creditTotal"), value: totals.creditTotal },
-              { label: t("reports.finance.fields.closingBalance"), value: totals.closingBalance },
-            ]
-          : [
-              { label: t("reports.finance.fields.debitTotal"), value: totals.debitTotal },
-              { label: t("reports.finance.fields.creditTotal"), value: totals.creditTotal },
-            ],
+        values: includeOpeningBalance
+          ? {
+              opening: totals.openingBalance,
+              debit: totals.debitTotal,
+              credit: totals.creditTotal,
+              closing: totals.closingBalance,
+            }
+          : {
+              debit: totals.debitTotal,
+              credit: totals.creditTotal,
+              closing: totals.closingBalance,
+            },
       }}
     />
   );

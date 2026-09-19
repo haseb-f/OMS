@@ -6,7 +6,7 @@ import { EnterpriseButton } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EditorWorkspace } from "@/components/shared/detail-workspace";
 import { RelatedDocuments } from "@/components/shared/related-documents";
-import { useSourceJournalEntryLinks } from "@/hooks/use-source-journal-entry";
+import { useSourceJournalTrace } from "@/hooks/use-source-journal-entry";
 import {
   SalesDocumentEditor,
   createEmptyLine,
@@ -330,7 +330,7 @@ export function ReturnEditorPage({ id }: { id: string }) {
   const canApprove = hasPermission("sales.returns.approve");
   const canConfirm = hasPermission("sales.returns.confirm");
   const canCancel = hasPermission("sales.returns.cancel");
-  const journalEntryLinks = useSourceJournalEntryLinks("SALES_RETURN", salesReturn?.id);
+  const journalTrace = useSourceJournalTrace("SALES_RETURN", salesReturn?.id);
 
   useBreadcrumbLabel(salesReturn?.returnNumber ?? t("sales.returns.addNew"));
 
@@ -353,7 +353,11 @@ export function ReturnEditorPage({ id }: { id: string }) {
           },
           {
             labelKey: "sales.returns.relatedJournalEntry",
-            links: journalEntryLinks,
+            links: journalTrace.links,
+            emptyLabel:
+              salesReturn?.status === "CONFIRMED" && journalTrace.state === "missing"
+                ? t("accounting.journalEntries.missingJournal")
+                : undefined,
           },
         ]}
       />

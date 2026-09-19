@@ -20,6 +20,7 @@ import { OrderEconomicsController } from './order-economics/order-economics.cont
 import { OrderEconomicsService } from './order-economics/order-economics.service';
 import { FulfillmentCostRulesModule } from '../fulfillment-cost-rules/fulfillment-cost-rules.module';
 import { StoreOrderCollectionModule } from '../accounting/store-order-collection/store-order-collection.module';
+import { AccountMappingModule } from '../accounting/account-mapping/account-mapping.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { StoreOrderCollectionModule } from '../accounting/store-order-collection
     InventoryModule,
     FulfillmentCostRulesModule,
     StoreOrderCollectionModule,
+    AccountMappingModule,
   ],
   controllers: [
     StoreOrdersController,

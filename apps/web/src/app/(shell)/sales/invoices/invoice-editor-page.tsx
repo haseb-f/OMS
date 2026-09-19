@@ -39,7 +39,7 @@ import {
   TRANSACTION_STATUS_TONE,
 } from "@/config/financial-transactions/status";
 import { RelatedDocuments } from "@/components/shared/related-documents";
-import { useSourceJournalEntryLinks } from "@/hooks/use-source-journal-entry";
+import { useSourceJournalTrace } from "@/hooks/use-source-journal-entry";
 import { buildInvoicePrintPayload } from "@/config/sales/invoice-print";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
@@ -376,7 +376,7 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
   const canConfirm = hasPermission("sales.invoices.confirm");
   const canCancel = hasPermission("sales.invoices.cancel");
   const canReceivePayment = hasPermission("sales.receipts.create");
-  const journalEntryLinks = useSourceJournalEntryLinks("SALES_INVOICE", invoice?.id);
+  const journalTrace = useSourceJournalTrace("SALES_INVOICE", invoice?.id);
 
   useBreadcrumbLabel(invoice?.invoiceNumber ?? t("sales.invoices.addNew"));
 
@@ -421,7 +421,11 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
           },
           {
             labelKey: "sales.invoices.relatedJournalEntry",
-            links: journalEntryLinks,
+            links: journalTrace.links,
+            emptyLabel:
+              invoice?.status === "CONFIRMED" && journalTrace.state === "missing"
+                ? t("accounting.journalEntries.missingJournal")
+                : undefined,
           },
         ]}
       />

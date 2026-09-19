@@ -9,6 +9,7 @@ import { WarehousesModule } from '../../warehouses/warehouses.module';
 import { InventoryModule } from '../../inventory/inventory.module';
 import { NumberingModule } from '../../numbering/numbering.module';
 import { PostingEngineModule } from '../../accounting/posting-engine/posting-engine.module';
+import { AccountMappingModule } from '../../accounting/account-mapping/account-mapping.module';
 
 /**
  * No dependency on SalesOrdersModule — that module depends on this one (for
@@ -25,6 +26,7 @@ import { PostingEngineModule } from '../../accounting/posting-engine/posting-eng
     InventoryModule,
     NumberingModule,
     PostingEngineModule,
+    AccountMappingModule,
   ],
   controllers: [SalesInvoicesController, SalesInvoiceActivitiesController],
   providers: [SalesInvoicesService, SalesInvoiceActivityService],

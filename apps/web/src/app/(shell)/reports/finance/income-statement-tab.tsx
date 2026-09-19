@@ -15,7 +15,6 @@ export function IncomeStatementTab() {
   const { t } = useLocale();
   const { filters, setFilters, params } = useReportQuery();
   const [lines, setLines] = useState<HierarchicalReportLine[]>([]);
-  const [netIncome, setNetIncome] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -23,7 +22,6 @@ export function IncomeStatementTab() {
     try {
       const result = await accountingReportsService.incomeStatement(params);
       setLines(result.lines ?? []);
-      setNetIncome(result.totals.netIncome);
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
     } finally {
@@ -45,18 +43,6 @@ export function IncomeStatementTab() {
       onFiltersChange={setFilters}
       printTitle={t("reports.finance.incomeStatement")}
       exportFileName="income-statement.csv"
-      status={{
-        extras: [
-          {
-            label:
-              netIncome >= 0
-                ? t("reports.finance.fields.netProfit")
-                : t("reports.finance.fields.netLoss"),
-            value: netIncome,
-            tone: netIncome >= 0 ? "success" : "danger",
-          },
-        ],
-      }}
     />
   );
 }

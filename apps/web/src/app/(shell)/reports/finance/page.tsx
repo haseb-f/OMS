@@ -48,10 +48,12 @@ function ReportsFinancePageContent() {
   }, [report, t]);
 
   return (
-    <PageWorkspace dense title={title}>
-      <div className="mb-2 flex flex-wrap items-center gap-2">
+    <PageWorkspace
+      dense
+      title={title}
+      actions={
         <Select value={report} onValueChange={(value) => setReport(value as ReportKey)}>
-          <SelectTrigger className="w-full sm:w-72">
+          <SelectTrigger className="w-56 sm:w-72">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -68,7 +70,8 @@ function ReportsFinancePageContent() {
             ))}
           </SelectContent>
         </Select>
-      </div>
+      }
+    >
       {report === "generalLedger" ? <GeneralLedgerTab /> : null}
       {report === "trialBalance" ? <TrialBalanceTab /> : null}
       {report === "journalReport" ? <JournalReportTab /> : null}

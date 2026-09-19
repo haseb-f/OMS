@@ -17,6 +17,7 @@ import { WarehousesService } from '../../warehouses/warehouses.service';
 import { PartnersService } from '../../partners/partners.service';
 import { InventoryService } from '../../inventory/inventory.service';
 import { PostingEngineService } from '../../accounting/posting-engine/posting-engine.service';
+import { AccountMappingService } from '../../accounting/account-mapping/account-mapping.service';
 import { resolveLineTaxes } from '../../taxes/document-tax';
 import {
   SalesInvoiceActivityService,
@@ -60,6 +61,7 @@ export class SalesInvoicesService {
     private readonly activityService: SalesInvoiceActivityService,
     private readonly numberingEngine: NumberingEngineService,
     private readonly postingEngine: PostingEngineService,
+    private readonly accountMapping: AccountMappingService,
   ) {}
 
   async create(
@@ -225,7 +227,13 @@ export class SalesInvoicesService {
     const invoice = await this.prisma.salesInvoice.findFirst({
       where: { id, deletedAt: null },
       include: {
-        partner: true,
+        partner: {
+          include: {
+            customerProfile: {
+              select: { customerGroupId: true, paymentTermId: true },
+            },
+          },
+        },
         currency: true,
         salesOrder: { select: { orderNumber: true } },
         items: {
@@ -389,6 +397,20 @@ export class SalesInvoicesService {
         `Cannot confirm Sales Invoice ${invoice.invoiceNumber} from ${invoice.status}.`,
       );
     }
+
+    await this.accountMapping.assertSalesInvoiceMappings({
+      partnerId: invoice.partnerId,
+      items: invoice.items.map((item) => ({
+        categoryId: item.product.categoryId,
+        customerGroupId:
+          invoice.partner?.customerProfile?.customerGroupId ?? null,
+        isInventoryItem: item.product.isInventoryItem,
+        sku: item.product.sku,
+        currentCost: item.product.currentCost,
+        taxId: item.taxId,
+        taxAmount: Number(item.taxAmount),
+      })),
+    });
 
     return this.prisma.$transaction(async (tx) => {
       for (const item of invoice.items) {

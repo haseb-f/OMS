@@ -28,9 +28,13 @@ describe('StoreOrdersService.generateInvoice — physical inventory delivery', (
     agreedAmount: 200,
     product: {
       id: 'product-inventory',
+      sku: 'SKU-INV',
       isInventoryItem: true,
       preferredWarehouseId: warehouseId,
       unitId: 'unit-1',
+      categoryId: null,
+      currentCost: 40,
+      taxId: null,
     },
   };
   const serviceItem = {
@@ -41,9 +45,13 @@ describe('StoreOrdersService.generateInvoice — physical inventory delivery', (
     agreedAmount: 50,
     product: {
       id: 'product-service',
+      sku: 'SKU-SVC',
       isInventoryItem: false,
       preferredWarehouseId: warehouseId,
       unitId: 'unit-1',
+      categoryId: null,
+      currentCost: null,
+      taxId: null,
     },
   };
 
@@ -74,6 +82,10 @@ describe('StoreOrdersService.generateInvoice — physical inventory delivery', (
       storeOrder: { findFirst: jest.fn().mockResolvedValue(orderRow) },
       salesInvoice: { findFirst: jest.fn().mockResolvedValue(null) },
       shippingStatus: { findFirst: jest.fn().mockResolvedValue(null) },
+      warehouse: { findFirst: jest.fn() },
+      directFulfillmentCostRule: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
       $transaction: jest.fn((cb: (tx: unknown) => unknown) => cb(txClient)),
     };
     const numberingEngine = {
@@ -91,6 +103,12 @@ describe('StoreOrdersService.generateInvoice — physical inventory delivery', (
     const fulfillmentCostService = {
       applyStandardCost: jest.fn().mockResolvedValue(undefined),
     };
+    const collection = {
+      syncVerifiedPayments: jest.fn().mockResolvedValue([]),
+    };
+    const accountMapping = {
+      assertSalesInvoiceMappings: jest.fn().mockResolvedValue(undefined),
+    };
 
     const service = new StoreOrdersService(
       prisma as unknown as PrismaService,
@@ -107,10 +125,18 @@ describe('StoreOrdersService.generateInvoice — physical inventory delivery', (
       {} as never,
       inventoryService as never,
       fulfillmentCostService as never,
-      { syncVerifiedPayments: jest.fn().mockResolvedValue([]) } as never,
+      collection as never,
       {} as never,
+      accountMapping as never,
     );
-    return { service, inventoryService, postingEngine, prisma };
+    return {
+      service,
+      inventoryService,
+      postingEngine,
+      prisma,
+      accountMapping,
+      collection,
+    };
   }
 
   it('delivers physical stock for every inventory-item line, and posts the accounting entry', async () => {
@@ -160,5 +186,29 @@ describe('StoreOrdersService.generateInvoice — physical inventory delivery', (
     await expect(service.generateInvoice(orderId, userId)).rejects.toThrow(
       BadRequestException,
     );
+  });
+
+  it('preflights account mappings before opening the invoice transaction', async () => {
+    const { service, prisma, accountMapping } = makeService();
+    accountMapping.assertSalesInvoiceMappings.mockRejectedValue(
+      new BadRequestException('No Inventory Asset account configured.'),
+    );
+
+    await expect(service.generateInvoice(orderId, userId)).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('does not regenerate the invoice when customer receipt posting fails after commit', async () => {
+    const { service, prisma, collection } = makeService();
+    collection.syncVerifiedPayments.mockRejectedValue(
+      new Error('receipt boom'),
+    );
+
+    await expect(service.generateInvoice(orderId, userId)).rejects.toThrow(
+      /was created, but customer receipt posting failed/,
+    );
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 });

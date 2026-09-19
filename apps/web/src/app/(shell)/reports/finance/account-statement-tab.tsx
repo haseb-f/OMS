@@ -143,20 +143,6 @@ export function AccountStatementTab() {
           accountFilter={{ value: account, onChange: setAccount, required: true }}
           printTitle={t("reports.finance.accountStatement.title")}
           exportFileName="account-statement.csv"
-          status={{
-            extras: statement
-              ? [
-                  {
-                    label: t("reports.finance.fields.openingBalance"),
-                    value: statement.openingBalance,
-                  },
-                  {
-                    label: t("reports.finance.fields.closingBalance"),
-                    value: statement.closingBalance,
-                  },
-                ]
-              : [],
-          }}
           onPostingClick={(line) => {
             const movement = statement?.movements.find(
               (row, index) => `${row.journalEntryId}-${index}` === line.id,

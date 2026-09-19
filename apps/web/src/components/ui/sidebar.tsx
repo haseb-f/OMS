@@ -523,7 +523,11 @@ function SidebarMenuButton({
     <Tooltip>
       <TooltipTrigger asChild>{button}</TooltipTrigger>
       <TooltipContent
-        side="right"
+        side={
+          typeof document !== "undefined" && document.documentElement.dir === "rtl"
+            ? "left"
+            : "right"
+        }
         align="center"
         hidden={state !== "collapsed" || isMobile}
         {...tooltip}

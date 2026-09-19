@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Landmark, Trash2 } from "lucide-react";
+import { Landmark, ScrollText, Trash2 } from "lucide-react";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
 import { createMasterDataService } from "@/services/master-data-service";
 import type { MasterDataFormField } from "@/components/master-data/master-data-form";
@@ -24,7 +24,9 @@ import { Input } from "@/components/ui/input";
 import type { RowAction } from "@/components/shared/data-table";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
-import { ApiError, apiClient } from "@/services/api-client";
+import { apiClient, ApiError } from "@/services/api-client";
+import { useRouter } from "next/navigation";
+import { journalEntriesService } from "@/services/journal-entries-service";
 
 const costCentersService = createMasterDataService<CostCenterRow>("/cost-centers");
 
@@ -36,6 +38,7 @@ interface ReceivingAccountOption {
 
 function FixedAssetsPageContent() {
   const { t } = useLocale();
+  const router = useRouter();
   const [costCenters, setCostCenters] = useState<CostCenterRow[]>([]);
   const [receivingAccounts, setReceivingAccounts] = useState<ReceivingAccountOption[]>([]);
   const [suppliers, setSuppliers] = useState<
@@ -205,6 +208,28 @@ function FixedAssetsPageContent() {
             onSelect: () => {
               setDisposeAmount("0");
               setDisposeTarget(entity);
+            },
+          },
+          {
+            key: "journal",
+            label: t("accounting.journalEntries.fields.viewJournalEntry"),
+            icon: ScrollText,
+            hidden: entity.status === "DRAFT" || Boolean(entity.deletedAt),
+            onSelect: () => {
+              const sourceType =
+                entity.status === "DISPOSED"
+                  ? "FIXED_ASSET_DISPOSAL"
+                  : "FIXED_ASSET_CAPITALIZATION";
+              void journalEntriesService
+                .list({ sourceType, sourceId: entity.id, status: "POSTED", pageSize: 1 })
+                .then((result) => {
+                  const entry = result.items[0];
+                  if (entry) router.push(`/finance/journal-entries/${entry.id}`);
+                  else toast.error(t("accounting.journalEntries.missingJournal"));
+                })
+                .catch((error: unknown) => {
+                  toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+                });
             },
           },
         ]}

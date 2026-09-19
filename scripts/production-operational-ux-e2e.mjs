@@ -478,6 +478,44 @@ async function runBrowser(sampleLeadId) {
         /Continuous|Every 24 Hours|Paused|Manual|Pause Distribution|Start Distribution|مستمر|متوقف|إيقاف التوزيع|بدء التوزيع/,
       )?.[0] ?? "not found",
     );
+    const distributeAction = managerPage.getByRole("button", {
+      name: /^Distribute Leads$|^توزيع العملاء المحتملين$/,
+    });
+    assert(
+      "legacy Distribute Leads action is gone",
+      (await distributeAction.count()) === 0,
+      `count=${await distributeAction.count()}`,
+    );
+    const startOrBadge = managerPage.getByRole("button", {
+      name: /Start Distribution|Pause Distribution|Continuous|Every 24 Hours|Manual|Paused|بدء التوزيع|إيقاف التوزيع|مستمر|كل 24 ساعة|يدوي|متوقف/,
+    });
+    if ((await startOrBadge.count()) > 0) {
+      await startOrBadge.first().click();
+      await managerPage.waitForTimeout(600);
+      const dialog = managerPage.locator("[role='dialog']");
+      const dialogText = (await dialog.count()) > 0 ? await dialog.innerText() : "";
+      assert(
+        "distribution dialog has Done and Close",
+        /Done|تم/.test(dialogText) && /Close|إغلاق/.test(dialogText),
+        dialogText.slice(0, 160).replace(/\s+/g, " "),
+      );
+      const modeButtons = dialog.getByRole("button", {
+        name: /Continuous|Every 24 Hours|Manual|مستمر|كل 24 ساعة|يدوي/,
+      });
+      assert(
+        "distribution dialog has one mode control set",
+        (await modeButtons.count()) >= 3 && (await modeButtons.count()) <= 6,
+        `modeButtons=${await modeButtons.count()}`,
+      );
+      await managerPage.screenshot({
+        path: resolve(EVIDENCE_DIR, "lead-distribution-dialog.png"),
+      });
+      const closeBtn = dialog.getByRole("button", { name: /^Close$|^إغلاق$/ });
+      if ((await closeBtn.count()) > 0) await closeBtn.first().click();
+      else await managerPage.keyboard.press("Escape");
+    } else {
+      record("distribution dialog has Done and Close", false, "start/status control missing");
+    }
     assert(
       "import actions are explicit",
       (distText.includes("Download Excel Template") &&
@@ -556,6 +594,32 @@ async function runBrowser(sampleLeadId) {
       "no overlapping supplier title",
     );
     await financePage.screenshot({ path: resolve(EVIDENCE_DIR, "finance-trial-balance.png"), fullPage: true });
+    const tbHeaders = (await financePage.locator("thead tr").first().locator("th").allInnerTexts())
+      .map((value) => value.trim())
+      .filter(Boolean);
+    const headerJoined = tbHeaders.join(" | ");
+    assert(
+      "trial balance has one Opening/Debit/Credit/Closing header row",
+      /Opening|افتتاح/i.test(headerJoined) &&
+        /Debit|مدين/i.test(headerJoined) &&
+        /Credit|دائن/i.test(headerJoined) &&
+        /Closing|إقفال|ختام/i.test(headerJoined),
+      headerJoined,
+    );
+    const tableBox = await financePage.locator("table").first().boundingBox();
+    assert(
+      "financial report table starts high in the viewport",
+      Boolean(tableBox) && tableBox.y < 360,
+      `y=${tableBox?.y}`,
+    );
+    const duplicateTotals = await financePage.locator("body").innerText();
+    assert(
+      "trial balance does not repeat Total Debit/Total Credit labels",
+      !/Total Debit[\s\S]{0,40}Total Debit|إجمالي المدين[\s\S]{0,40}إجمالي المدين/i.test(
+        duplicateTotals,
+      ),
+      "no duplicated total labels",
+    );
 
     const reportSelect = financePage.locator("button[role='combobox']").first();
     async function openReport(label, check) {
@@ -603,19 +667,93 @@ async function runBrowser(sampleLeadId) {
     );
     const rtlDir = await financePage.locator("html").getAttribute("dir");
     assert("Arabic RTL after locale switch", rtlDir === "rtl", `dir=${rtlDir}`);
+    const rtlSidebarSide = await financePage
+      .locator("[data-slot='sidebar'][data-side], [data-slot='sidebar-container']")
+      .first()
+      .getAttribute("data-side");
+    assert("Arabic desktop sidebar is on the right", rtlSidebarSide === "right", `side=${rtlSidebarSide}`);
     await financePage.screenshot({ path: resolve(EVIDENCE_DIR, "finance-rtl.png"), fullPage: true });
 
     await financePage.evaluate(() => {
       localStorage.setItem("oms.locale", JSON.stringify("en"));
-      localStorage.setItem("theme", "dark");
-      document.documentElement.classList.add("dark");
     });
     await financePage.reload({ waitUntil: "networkidle", timeout: 60000 });
     await financePage.waitForTimeout(800);
     const ltrDir = await financePage.locator("html").getAttribute("dir");
-    const dark = await financePage.locator("html").evaluate((el) => el.classList.contains("dark"));
     assert("English LTR after locale switch", ltrDir === "ltr" || ltrDir == null, `dir=${ltrDir}`);
-    record("dark class after theme switch", true, `dark=${dark}`);
+    const ltrSidebarSide = await financePage
+      .locator("[data-slot='sidebar'][data-side], [data-slot='sidebar-container']")
+      .first()
+      .getAttribute("data-side");
+    assert("English desktop sidebar is on the left", ltrSidebarSide === "left" || ltrSidebarSide == null, `side=${ltrSidebarSide}`);
+
+    async function readTheme(page) {
+      return page.evaluate(() => {
+        const bg = getComputedStyle(document.body).backgroundColor;
+        const match = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+        const r = match ? Number(match[1]) : 255;
+        const g = match ? Number(match[2]) : 255;
+        const b = match ? Number(match[3]) : 255;
+        const luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+        return {
+          darkClass: document.documentElement.classList.contains("dark"),
+          luma,
+          bg,
+        };
+      });
+    }
+    async function chooseTheme(page, label) {
+      await page.getByRole("button", { name: /Change theme|تغيير المظهر/i }).click();
+      await page.getByRole("menuitem", { name: new RegExp(label, "i") }).click();
+      await page.waitForTimeout(500);
+    }
+
+    await chooseTheme(financePage, "Dark|داكن");
+    const darkState = await readTheme(financePage);
+    assert("dark theme class applied via ThemeSwitch", darkState.darkClass === true, JSON.stringify(darkState));
+    assert(
+      "dark theme luminance is actually dark",
+      darkState.luma < 0.45,
+      `luma=${darkState.luma} bg=${darkState.bg}`,
+    );
+    await financePage.screenshot({ path: resolve(EVIDENCE_DIR, "finance-dark.png"), fullPage: true });
+
+    await chooseTheme(financePage, "Light|فاتح");
+    const lightState = await readTheme(financePage);
+    assert("light theme class applied via ThemeSwitch", lightState.darkClass === false, JSON.stringify(lightState));
+    assert(
+      "light theme luminance is actually light",
+      lightState.luma > 0.7,
+      `luma=${lightState.luma} bg=${lightState.bg}`,
+    );
+    await financePage.screenshot({ path: resolve(EVIDENCE_DIR, "finance-light.png"), fullPage: true });
+
+    const tablet = await browser.newContext({
+      locale: "ar-SA",
+      viewport: { width: 768, height: 1024 },
+    });
+    await tablet.addInitScript(() => {
+      localStorage.setItem("oms.locale", JSON.stringify("ar"));
+    });
+    const tabletPage = await tablet.newPage();
+    await loginPage(tabletPage, "qa-sales-manager@oms.haseb.org", "ar");
+    await tabletPage.goto(`${BASE}/crm/leads`, { waitUntil: "networkidle", timeout: 60000 });
+    const tabletDir = await tabletPage.locator("html").getAttribute("dir");
+    assert("Arabic tablet is RTL", tabletDir === "rtl", `dir=${tabletDir}`);
+    const tabletOverflow = await tabletPage.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 8,
+    );
+    assert("Arabic tablet leads has no horizontal overflow", !tabletOverflow, `overflow=${tabletOverflow}`);
+    const tabletSidebarSide = await tabletPage
+      .locator("[data-slot='sidebar'][data-side], [data-slot='sidebar-container']")
+      .first()
+      .getAttribute("data-side");
+    assert(
+      "Arabic tablet sidebar is on the right",
+      tabletSidebarSide === "right",
+      `side=${tabletSidebarSide}`,
+    );
+    await tabletPage.screenshot({ path: resolve(EVIDENCE_DIR, "leads-tablet-rtl.png"), fullPage: true });
 
     const mobile = await browser.newContext({
       locale: "en-US",
@@ -633,9 +771,42 @@ async function runBrowser(sampleLeadId) {
     assert("mobile leads page has no horizontal overflow", !overflow, `overflow=${overflow}`);
     await mobilePage.screenshot({ path: resolve(EVIDENCE_DIR, "leads-mobile.png"), fullPage: true });
 
+    const mobileAr = await browser.newContext({
+      locale: "ar-SA",
+      viewport: { width: 390, height: 844 },
+    });
+    await mobileAr.addInitScript(() => {
+      localStorage.setItem("oms.locale", JSON.stringify("ar"));
+    });
+    const mobileArPage = await mobileAr.newPage();
+    await loginPage(mobileArPage, "qa-sales-manager@oms.haseb.org", "ar");
+    await mobileArPage.goto(`${BASE}/crm/leads`, { waitUntil: "networkidle", timeout: 60000 });
+    const mobileArDir = await mobileArPage.locator("html").getAttribute("dir");
+    assert("Arabic mobile is RTL", mobileArDir === "rtl", `dir=${mobileArDir}`);
+    const mobileArOverflow = await mobileArPage.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 8,
+    );
+    assert("Arabic mobile leads has no horizontal overflow", !mobileArOverflow, `overflow=${mobileArOverflow}`);
+    await mobileArPage.getByRole("button", { name: /Open navigation|فتح التنقل/i }).click();
+    await mobileArPage.waitForTimeout(600);
+    const mobileSheet = mobileArPage.locator("[data-mobile='true'][data-sidebar='sidebar']").first();
+    const mobileSheetSide = await mobileSheet.getAttribute("data-side");
+    const mobileSheetBox = await mobileSheet.boundingBox();
+    const mobileOnRight =
+      mobileSheetSide === "right" ||
+      (mobileSheetBox != null && mobileSheetBox.x + mobileSheetBox.width > 390 * 0.55);
+    assert(
+      "Arabic mobile drawer is on the right",
+      mobileOnRight,
+      `side=${mobileSheetSide} x=${mobileSheetBox?.x}`,
+    );
+    await mobileArPage.screenshot({ path: resolve(EVIDENCE_DIR, "leads-mobile-rtl.png"), fullPage: true });
+
     await managerCtx.close();
     await financeCtx.close();
+    await tablet.close();
     await mobile.close();
+    await mobileAr.close();
   } finally {
     await browser.close();
   }

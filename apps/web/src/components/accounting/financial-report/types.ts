@@ -30,6 +30,13 @@ export interface FinancialReportColumn {
   key: string;
   labelKey: string;
   emphasize?: boolean;
+  /** When false, negative values stay dark (unsigned debit/credit columns). */
+  signed?: boolean;
+}
+
+export interface FinancialReportFooter {
+  values: Record<string, number>;
+  balanced?: boolean;
 }
 
 export function flattenVisibleLines(
