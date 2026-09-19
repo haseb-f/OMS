@@ -2,6 +2,7 @@
  * Production operational UX + financial reporting E2E against https://oms.haseb.org
  * Password is read from QA_PASSWORD / .env.production.local. Never logged.
  */
+/* global localStorage, document, getComputedStyle */
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
