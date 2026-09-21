@@ -10,16 +10,21 @@ import {
   Loader2Icon,
 } from "lucide-react";
 import { useLocale } from "@/providers/locale-provider";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme();
   const { direction } = useLocale();
+  // Phones pin the document action bar to the bottom edge; toasts go to the
+  // top there so feedback never covers (or steals taps from) the next step.
+  const isMobile = useIsMobile();
 
   return (
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
       dir={direction}
+      position={isMobile ? "top-center" : "bottom-right"}
       icons={{
         success: <CircleCheckIcon className="size-4" />,
         info: <InfoIcon className="size-4" />,

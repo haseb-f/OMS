@@ -32,7 +32,10 @@ function loadEnvFile(path) {
     // optional
   }
 }
+// QA persona secrets first (tmp/.qa.env), then deployment env files.
+loadEnvFile("tmp/.qa.env");
 loadEnvFile(".env.production.local");
+loadEnvFile(".env.local");
 
 const BASE = process.env.BASE ?? "https://oms.haseb.org";
 const API = process.env.API ?? `${BASE}/api`;
@@ -649,6 +652,86 @@ async function main() {
         );
         await noCrash(page, `reports ${variant.locale}/${variant.theme}`);
         await page.screenshot({ path: `${OUT}/reports-${variant.locale}-${variant.theme}.png` });
+        await context.close();
+      }
+    }
+
+    // =====================================================================
+    // 7) Foreign-currency posting: missing rate detected before posting,
+    //    recoverable in place; never invented, never a partial post.
+    // =====================================================================
+    if (stocked) {
+      const currencies = items(await api("GET", "/currencies?pageSize=100"));
+      const probe = await api("GET", `/exchange-rates/check?currencyId=${currencies[0].id}`);
+      const baseId = probe.json.toCurrencyId;
+      const foreign =
+        currencies.find((c) => c.id !== baseId && c.code === "USD") ??
+        currencies.find((c) => c.id !== baseId);
+      if (foreign) {
+        const check = await api("GET", `/exchange-rates/check?currencyId=${foreign.id}`);
+        const customers = items(
+          await api(
+            "GET",
+            "/partners/catalog?role=CUSTOMER&pageSize=1&search=" + encodeURIComponent(RUN),
+          ),
+        );
+        const draft = await api("POST", "/sales/invoices", {
+          partnerId: customers[0]?.id,
+          currencyId: foreign.id,
+          referenceNumber: `${RUN}-FX`,
+          items: [
+            {
+              productId: stocked.id,
+              warehouseId: warehouse.id,
+              unitId: stocked.unitId,
+              quantity: 1,
+              unitPrice: 10,
+            },
+          ],
+        });
+        const { context, page } = await newPage(browser, {
+          width: 1440,
+          height: 900,
+          locale: "en",
+        });
+        await page.goto(`${BASE}/sales/invoices/${draft.json.id}`, { waitUntil: "networkidle" });
+        await visibleButton(page, "Confirm").click();
+        await confirmDialog(page, "Confirm");
+        if (!check.json.available) {
+          const fxDialog = page.getByRole("alertdialog").filter({ hasText: foreign.code });
+          await fxDialog.waitFor({ timeout: 20000 });
+          record(
+            `FX: missing ${foreign.code} rate detected before posting, recovery dialog offered`,
+            true,
+            check.json.asOf,
+          );
+          await page.screenshot({ path: `${OUT}/fx-rate-required.png` });
+          await fxDialog
+            .getByRole("button", { name: /Close|Cancel/ })
+            .first()
+            .click();
+          await page.waitForTimeout(1500);
+          const after = await api("GET", `/sales/invoices/${draft.json.id}`);
+          const jes = await api(
+            "GET",
+            `/journal-entries?sourceType=SALES_INVOICE&sourceId=${draft.json.id}`,
+          );
+          record(
+            "FX: backing out leaves the invoice unposted (no JE, no stock, no invented rate)",
+            after.json.status !== "CONFIRMED" && items(jes).length === 0,
+            after.json.status,
+          );
+        } else {
+          await page.waitForTimeout(3000);
+          const after = await api("GET", `/sales/invoices/${draft.json.id}`);
+          record(
+            `FX: ${foreign.code} invoice posts with the recorded rate`,
+            after.json.status === "CONFIRMED" &&
+              Number(after.json.exchangeRate) === Number(check.json.rate),
+            `${after.json.exchangeRate} vs ${check.json.rate}`,
+          );
+        }
+        evidence("fxInvoice", draft.json.invoiceNumber);
         await context.close();
       }
     }
