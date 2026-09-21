@@ -5,6 +5,7 @@ import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
 import { DocumentLineReviewTable } from "@/components/documents/document-line-review-table";
 import { WarehousePicker } from "@/components/business/warehouse-picker";
+import { useWarehouses } from "@/hooks/use-reference-data";
 import type { WarehouseRow } from "@/config/master-data/entities";
 import { purchaseOrdersService, type PurchaseOrderRow } from "@/services/purchase-orders-service";
 import { useLocale } from "@/providers/locale-provider";
@@ -30,7 +31,10 @@ export function ConvertToInvoiceDialog({
   onConverted: (invoice: { id: string; invoiceNumber: string }) => void;
 }) {
   const { t } = useLocale();
-  const [warehouse, setWarehouse] = useState<WarehouseRow | null>(null);
+  const activeWarehouses = useWarehouses();
+  const [chosenWarehouse, setWarehouse] = useState<WarehouseRow | null>(null);
+  // Smart default: the first active warehouse until the user picks one.
+  const warehouse = chosenWarehouse ?? activeWarehouses[0] ?? null;
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const submit = async () => {

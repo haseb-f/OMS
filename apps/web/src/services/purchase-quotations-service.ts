@@ -131,6 +131,11 @@ export const purchaseQuotationsService = {
     apiClient.post<PurchaseQuotationRow>(`/purchasing/quotations/${id}/submit`),
   approve: (id: string) =>
     apiClient.post<PurchaseQuotationRow>(`/purchasing/quotations/${id}/approve`),
+  /** New Draft copy (business fields only). */
+  duplicate: (id: string) =>
+    apiClient.post<PurchaseQuotationRow>(`/purchasing/quotations/${id}/duplicate`),
+  returnToDraft: (id: string) =>
+    apiClient.post<PurchaseQuotationRow>(`/purchasing/quotations/${id}/return-to-draft`),
   cancel: (id: string) =>
     apiClient.post<PurchaseQuotationRow>(`/purchasing/quotations/${id}/cancel`),
   archive: (id: string) =>

@@ -49,26 +49,34 @@ const SECTION_LABELS: Record<string, MessageKey> = {
   "cf-closing": "reports.finance.cashFlowSections.closingCash",
 };
 
+/** Hierarchy through weight and rules, not color: sections and final
+ *  results read as structure; ordinary account rows stay plain. */
 function rowClass(kind: FinancialReportLineKind): string {
   switch (kind) {
     case "section":
-      return "bg-muted/70 font-semibold";
+      return "bg-muted/40 font-semibold text-foreground [&>td]:border-t [&>td]:border-border";
     case "group":
-      return "bg-muted/30 font-medium";
-    case "section_total":
+      return "font-medium";
     case "subtotal":
-      return "border-t border-border font-semibold";
+      return "font-medium [&>td]:border-t [&>td]:border-border";
+    case "section_total":
+      return "font-semibold [&>td]:border-t [&>td]:border-border";
     case "grand_total":
-      return "border-t-2 border-foreground/40 bg-muted/60 font-bold";
     case "result":
-      return "border-t-2 border-foreground/40 bg-primary/5 text-body font-bold";
+      return "bg-muted/40 font-semibold [&>td]:border-t-2 [&>td]:border-double [&>td]:border-foreground/50";
     case "opening":
     case "closing":
-      return "bg-muted/20 font-medium";
+      return "font-medium text-muted-foreground";
     default:
       return "";
   }
 }
+
+const TOTAL_KINDS = new Set<FinancialReportLineKind>(["section_total", "grand_total", "result"]);
+
+/** Identical horizontal padding for header, body and footer cells — the
+ *  single source of column alignment. */
+const CELL_X = "px-3";
 
 function columnSigned(column: FinancialReportColumn): boolean {
   if (column.signed != null) return column.signed;
@@ -98,20 +106,26 @@ export function FinancialReportTable({
   const rows = flattenVisibleLines(lines, expanded);
 
   return (
-    <div className="financial-report-print">
-      <Table className="table-fixed">
+    <div className="financial-report-print overflow-x-auto">
+      <Table
+        className="table-fixed"
+        style={{ minWidth: `calc(16rem + ${columns.length} * 8.5rem)` }}
+      >
+        <colgroup>
+          <col />
+          {columns.map((column) => (
+            <col key={column.key} className="w-[8.5rem]" />
+          ))}
+        </colgroup>
         <TableHeader className="sticky top-0 z-10 bg-card">
           <TableRow className="hover:bg-transparent">
-            <TableHead className="min-w-[14rem] w-[42%]">
+            <TableHead className={CELL_X}>
               {t(nameHeaderKey ?? "reports.finance.fields.accountName")}
             </TableHead>
             {columns.map((column) => (
               <TableHead
                 key={column.key}
-                className={cn(
-                  "w-[7.5rem] min-w-[7.5rem] text-end",
-                  column.emphasize && "font-semibold text-foreground",
-                )}
+                className={cn(CELL_X, "text-end", column.emphasize && "text-foreground")}
               >
                 {t(column.labelKey as MessageKey)}
               </TableHead>
@@ -151,7 +165,7 @@ export function FinancialReportTable({
                     if (canDrill) onPostingClick?.(line);
                   }}
                 >
-                  <TableCell className="py-1">
+                  <TableCell className={cn(CELL_X, "py-1")}>
                     <div
                       className="flex min-w-0 items-center gap-1.5"
                       style={{ paddingInlineStart: `${Math.max(line.level, 0) * 1.1}rem` }}
@@ -180,28 +194,23 @@ export function FinancialReportTable({
                           {line.code}
                         </code>
                       ) : null}
-                      <span
-                        className={cn(
-                          "truncate",
-                          (line.kind === "grand_total" ||
-                            line.kind === "result" ||
-                            line.kind === "section_total") &&
-                            "font-semibold",
-                        )}
-                      >
+                      <span className="truncate" title={label}>
                         {label}
                       </span>
                     </div>
                   </TableCell>
                   {columns.map((column) => (
-                    <TableCell key={column.key} className="py-1 text-end">
+                    <TableCell key={column.key} className={cn(CELL_X, "py-1 text-end")}>
                       <ReportMoney
                         value={line.values[column.key] ?? 0}
-                        emphasize={
-                          column.emphasize ||
-                          line.kind === "section_total" ||
-                          line.kind === "grand_total" ||
-                          line.kind === "result"
+                        emphasize={TOTAL_KINDS.has(line.kind)}
+                        // An expanded parent's figure is the sum of the rows
+                        // right below it — shown quietly so it is never read
+                        // (or re-added) as a separate amount.
+                        quiet={
+                          (line.kind === "group" || line.kind === "section") &&
+                          expanded.has(line.id) &&
+                          line.children.length > 0
                         }
                         signed={columnSigned(column)}
                         tone={line.kind === "result" ? (net < 0 ? "danger" : "success") : undefined}
@@ -215,25 +224,12 @@ export function FinancialReportTable({
         </TableBody>
         {footer ? (
           <TableFooter>
-            <TableRow className="hover:bg-transparent">
-              <TableCell className="py-1.5">
-                {footer.balanced != null ? (
-                  <span
-                    className={cn(
-                      "text-body font-semibold",
-                      footer.balanced ? "text-success" : "text-destructive",
-                    )}
-                  >
-                    {footer.balanced
-                      ? t("reports.finance.balanced")
-                      : t("reports.finance.unbalanced")}
-                  </span>
-                ) : (
-                  <span className="font-semibold">{t("reports.finance.totals")}</span>
-                )}
+            <TableRow className="hover:bg-transparent [&>td]:border-t-2 [&>td]:border-double [&>td]:border-foreground/50">
+              <TableCell className={cn(CELL_X, "py-1.5 font-semibold")}>
+                {t("reports.finance.totals")}
               </TableCell>
               {columns.map((column) => (
-                <TableCell key={column.key} className="py-1.5 text-end">
+                <TableCell key={column.key} className={cn(CELL_X, "py-1.5 text-end")}>
                   <ReportMoney
                     value={footer.values[column.key] ?? 0}
                     emphasize

@@ -34,7 +34,11 @@ export function ConvertToOrderDialog({
   onConverted: (order: { id: string; orderNumber: string }) => void;
 }) {
   const { t } = useLocale();
-  const [warehouses, setWarehouses] = useState<Record<string, WarehouseRow | null>>({});
+  // Smart default: each order line starts from the quotation line's own
+  // warehouse, so accepting the conversion is a single click.
+  const [warehouses, setWarehouses] = useState<Record<string, WarehouseRow | null>>(() =>
+    Object.fromEntries(quotation.items.map((item) => [item.id, item.warehouse ?? null])),
+  );
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 

@@ -9,8 +9,12 @@ import {
 import type { InvoicePaymentStatusValue } from "@/services/financial-transactions-service";
 import { useLocale } from "@/providers/locale-provider";
 
-function formatMoney(value: number): string {
-  return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function formatMoney(value: number | null | undefined): string {
+  const amount = Number(value ?? 0);
+  return (Number.isFinite(amount) ? amount : 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 /**
@@ -53,6 +57,9 @@ export function InvoicePaymentSummary({
   currencyCode?: string;
 }) {
   const { t } = useLocale();
+  // Payment status is server-derived; a partially loaded document (e.g. a
+  // transition response) has none yet — render nothing rather than crash.
+  if (!paymentStatus) return null;
   const percentPaid =
     grandTotal > 0 ? Math.min(100, Math.round((allocatedTotal / grandTotal) * 100)) : 0;
 

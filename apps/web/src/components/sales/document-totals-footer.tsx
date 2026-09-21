@@ -44,7 +44,10 @@ export function DocumentTotalsFooter({
 
   const rows: { label: string; value: number; emphasis?: boolean }[] = [
     { label: t("sales.editor.totals.subtotal"), value: totals.subtotal },
-    { label: t("sales.editor.totals.discount"), value: -totals.discountTotal },
+    {
+      label: t("sales.editor.totals.discount"),
+      value: totals.discountTotal ? -totals.discountTotal : 0,
+    },
     { label: t("sales.editor.totals.tax"), value: totals.taxTotal },
     ...(totals.shippingTotal
       ? [{ label: t("sales.editor.totals.shipping"), value: totals.shippingTotal }]

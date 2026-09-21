@@ -49,24 +49,40 @@ export function DocumentLineTableAddFooter({
   onClick,
   disabled,
   label,
+  secondary,
 }: {
   onClick: () => void;
   disabled?: boolean;
   label: string;
+  /** Optional second entry point (e.g. "Browse products" multi-select). */
+  secondary?: { label: string; icon?: ReactNode; onClick: () => void };
 }) {
   return (
-    <div className="border-t border-border bg-muted/20 px-2 py-1.5">
+    <div className="flex flex-wrap items-center gap-1 border-t border-border bg-muted/20 px-2 py-1.5">
       <EnterpriseButton
         type="button"
         variant="ghost"
         size="sm"
-        className="h-7 gap-1.5 text-muted-foreground"
+        className="h-9 gap-1.5 text-muted-foreground md:h-7"
         disabled={disabled}
         onClick={onClick}
       >
         <Plus className="size-3.5" />
         {label}
       </EnterpriseButton>
+      {secondary ? (
+        <EnterpriseButton
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-9 gap-1.5 text-muted-foreground md:h-7"
+          disabled={disabled}
+          onClick={secondary.onClick}
+        >
+          {secondary.icon}
+          {secondary.label}
+        </EnterpriseButton>
+      ) : null}
     </div>
   );
 }

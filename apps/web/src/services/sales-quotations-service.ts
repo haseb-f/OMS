@@ -147,6 +147,10 @@ export const salesQuotationsService = {
     apiClient.patch<SalesQuotationRow>(`/sales/quotations/${id}`, dto),
   submit: (id: string) => apiClient.post<SalesQuotationRow>(`/sales/quotations/${id}/submit`),
   approve: (id: string) => apiClient.post<SalesQuotationRow>(`/sales/quotations/${id}/approve`),
+  /** New Draft copy (business fields only). */
+  duplicate: (id: string) => apiClient.post<SalesQuotationRow>(`/sales/quotations/${id}/duplicate`),
+  returnToDraft: (id: string) =>
+    apiClient.post<SalesQuotationRow>(`/sales/quotations/${id}/return-to-draft`),
   cancel: (id: string) => apiClient.post<SalesQuotationRow>(`/sales/quotations/${id}/cancel`),
   /** Soft-delete — hides the quotation from the list without destroying data. Only allowed from Draft/Cancelled/Closed (enforced server-side). */
   archive: (id: string) => apiClient.post<SalesQuotationRow>(`/sales/quotations/${id}/archive`),

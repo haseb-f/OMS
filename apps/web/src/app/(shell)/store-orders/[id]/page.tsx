@@ -39,7 +39,7 @@ import { TableCell } from "@/components/ui/table";
 import { StatusBadge } from "@/components/business/status-badge";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
 import { PermissionGate } from "@/components/shared/permission-gate";
-import { JournalTraceLinks } from "@/components/accounting/journal-trace-links";
+import { RelatedRecordsPanel } from "@/components/shared/related-records-panel";
 import Link from "next/link";
 import { IconActionButton } from "@/components/shared/icon-action-button";
 import { FileDropField } from "@/components/shared/form-fields";
@@ -623,17 +623,7 @@ function StoreOrderDetailContent() {
           />
         ) : null}
       </DetailGroup>
-      <JournalTraceLinks
-        sourceType="SALES_INVOICE"
-        sourceId={invoice?.id}
-        expected={Boolean(invoice)}
-        labelKey="accounting.journalEntries.fields.viewJournalEntry"
-      />
-      <JournalTraceLinks
-        sourceType="FULFILLMENT_COST"
-        sourceId={order.id}
-        expected={Boolean(invoice)}
-      />
+      <RelatedRecordsPanel kind="STORE_ORDER" id={order.id} refreshKey={order.paymentStatus} />
 
       {order.payments && order.payments.length > 0 ? (
         <div className="overflow-hidden rounded-md border border-border bg-card">

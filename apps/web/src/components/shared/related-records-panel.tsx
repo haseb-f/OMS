@@ -147,7 +147,11 @@ function TraceGroups({
                     : "text-muted-foreground",
                 )}
               >
-                {t(STATE_TEXT[group.state])}
+                {t(
+                  group.key === "PAYMENTS" && group.state === "PENDING"
+                    ? "docFlow.trace.state.AWAITING_PAYMENT"
+                    : STATE_TEXT[group.state],
+                )}
               </span>
             )}
           </dd>
@@ -238,5 +242,39 @@ function RelatedRecordDialog({ record, onClose }: { record: TraceRecord; onClose
       )}
       {nested ? <RelatedRecordDialog record={nested} onClose={() => setNested(null)} /> : null}
     </EnterpriseModal>
+  );
+}
+
+/** Compact table-cell trigger that opens a record's related records in place. */
+export function RelatedRecordsButton({
+  kind,
+  id,
+  number,
+}: {
+  kind: TraceKind;
+  id: string;
+  number: string;
+}) {
+  const { t } = useLocale();
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <EnterpriseButton
+        type="button"
+        variant="ghost"
+        size="xs"
+        className="gap-1 text-muted-foreground"
+        onClick={() => setOpen(true)}
+      >
+        <Link2 className="size-3" />
+        {t("docFlow.trace.view")}
+      </EnterpriseButton>
+      {open ? (
+        <RelatedRecordDialog
+          record={{ kind, id, number, status: null }}
+          onClose={() => setOpen(false)}
+        />
+      ) : null}
+    </>
   );
 }

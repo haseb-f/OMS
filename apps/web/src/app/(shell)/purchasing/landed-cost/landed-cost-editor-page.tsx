@@ -1,5 +1,6 @@
 "use client";
 
+import { RelatedRecordsPanel } from "@/components/shared/related-records-panel";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Ban, CheckCircle2, PackageCheck, Plus, Save, Trash2 } from "lucide-react";
@@ -32,8 +33,6 @@ import { CostCategoryPicker } from "@/components/business/cost-category-picker";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EditorWorkspace, EditorHeader, DetailSection } from "@/components/shared/detail-workspace";
-import { RelatedDocuments } from "@/components/shared/related-documents";
-import { useSourceJournalTrace } from "@/hooks/use-source-journal-entry";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import {
   landedCostService,
@@ -270,37 +269,13 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
     !!record &&
     LANDED_COST_CANCELLABLE_STATUSES.includes(record.status);
 
-  const journalTrace = useSourceJournalTrace("LANDED_COST", record?.id);
   useBreadcrumbLabel(record?.documentNumber ?? t("purchasing.landedCost.addNew"));
 
   const netTotal = realLines.reduce((sum, line) => sum + (Number(line.netAmount) || 0), 0);
 
   return (
     <EditorWorkspace>
-      <RelatedDocuments
-        groups={[
-          {
-            labelKey: "purchasing.landedCost.relatedPurchaseInvoice",
-            links: record?.purchaseInvoice
-              ? [
-                  {
-                    id: record.purchaseInvoiceId,
-                    number: record.purchaseInvoice.invoiceNumber,
-                    href: `/purchasing/purchase-invoices/${record.purchaseInvoiceId}`,
-                  },
-                ]
-              : [],
-          },
-          {
-            labelKey: "purchasing.landedCost.relatedJournalEntry",
-            links: journalTrace.links,
-            emptyLabel:
-              record?.status === "POSTED" && journalTrace.state === "missing"
-                ? t("accounting.journalEntries.missingJournal")
-                : undefined,
-          },
-        ]}
-      />
+      <RelatedRecordsPanel kind="LANDED_COST" id={id} refreshKey={record?.status} />
 
       <EditorHeader
         title={t("purchasing.landedCost.editorTitle")}

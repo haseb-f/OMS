@@ -1,3 +1,4 @@
+import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import { apiClient } from "./api-client";
 import { buildQueryString } from "@/lib/query-string";
 import type { PartnerRow } from "./partners-service";
@@ -42,6 +43,13 @@ export interface PurchaseInvoiceItemRow {
   taxAmount: string;
   lineTotal: string;
   notes: string | null;
+  /** Fixed-asset / prepaid-expense recognition of this line (Purchase Invoice only). */
+  treatment?: "STANDARD" | "FIXED_ASSET" | "PREPAID_EXPENSE";
+  assetUsefulLifeMonths?: number | null;
+  assetDepreciationMethod?: "STRAIGHT_LINE" | "DECLINING_BALANCE" | null;
+  scheduleStartDate?: string | null;
+  prepaidMonths?: number | null;
+  prepaidExpenseAccount?: ChartOfAccountRow | null;
 }
 
 export interface PurchaseInvoiceRow {
@@ -130,6 +138,11 @@ export const purchaseInvoicesService = {
     apiClient.patch<PurchaseInvoiceRow>(`/purchasing/invoices/${id}`, dto),
   submit: (id: string) => apiClient.post<PurchaseInvoiceRow>(`/purchasing/invoices/${id}/submit`),
   approve: (id: string) => apiClient.post<PurchaseInvoiceRow>(`/purchasing/invoices/${id}/approve`),
+  /** New Draft copy (business fields only). */
+  duplicate: (id: string) =>
+    apiClient.post<PurchaseInvoiceRow>(`/purchasing/invoices/${id}/duplicate`),
+  returnToDraft: (id: string) =>
+    apiClient.post<PurchaseInvoiceRow>(`/purchasing/invoices/${id}/return-to-draft`),
   cancel: (id: string) => apiClient.post<PurchaseInvoiceRow>(`/purchasing/invoices/${id}/cancel`),
   /** Confirm = Goods Receipt: increases inventory. */
   confirm: (id: string) => apiClient.post<PurchaseInvoiceRow>(`/purchasing/invoices/${id}/confirm`),

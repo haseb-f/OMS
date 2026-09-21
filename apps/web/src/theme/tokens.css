@@ -59,6 +59,8 @@
      stacking and don't need an entry here; this is for OMS's own
      shell-level Topbar. Referenced as `z-(--z-topbar)`. */
   --z-topbar: 40;
+  /* Phone document action bar pinned to the bottom edge (same layer as the Topbar). */
+  --z-action-bar: 40;
 
   /* Motion — one animation language only (ADR-0019): 170ms, ease-out,
      never a bounce/overshoot curve. */

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { FinancialReport } from "@/components/accounting/financial-report";
+import { FinancialReport, findLine } from "@/components/accounting/financial-report";
 import {
   accountingReportsService,
   type HierarchicalReportLine,
@@ -43,6 +43,26 @@ export function IncomeStatementTab() {
       onFiltersChange={setFilters}
       printTitle={t("reports.finance.incomeStatement")}
       exportFileName="income-statement.csv"
+      summary={{
+        items: [
+          {
+            label: t("reports.finance.fields.totalRevenue"),
+            value: findLine(lines, "revenue:total")?.values.balance ?? 0,
+          },
+          {
+            label: t("reports.finance.fields.totalExpense"),
+            value: findLine(lines, "expense:total")?.values.balance ?? 0,
+          },
+          {
+            label:
+              (findLine(lines, "net-income")?.values.balance ?? 0) < 0
+                ? t("reports.finance.fields.netLoss")
+                : t("reports.finance.fields.netProfit"),
+            value: findLine(lines, "net-income")?.values.balance ?? 0,
+            emphasize: true,
+          },
+        ],
+      }}
     />
   );
 }

@@ -14,6 +14,8 @@ import { STORAGE_KEYS } from "@/constants/storage-keys";
 import { PartnerQuickCreateDialog } from "./partner-quick-create-dialog";
 import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
+import { cachedLookup, invalidateLookups } from "@/lib/lookup-cache";
+import { useUserContext } from "@/providers/user-context";
 import type { MessageKey } from "@/i18n/translate";
 
 const ROLE_ICON: Record<PartnerRoleValue, typeof UserCircle> = {
@@ -97,6 +99,8 @@ export function PartnerPicker({
   className?: string;
 }) {
   const { t } = useLocale();
+  const { hasPermission } = useUserContext();
+  const canCreate = hasPermission("partners.create");
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const text = ROLE_TEXT[role];
   const Icon = ROLE_ICON[role];
@@ -106,19 +110,23 @@ export function PartnerPicker({
   useEffect(() => {
     if (recentIds.length === 0) return;
     let cancelled = false;
-    const loadRecent = async () => {
-      const rows = await Promise.all(
-        recentIds.slice(0, 5).map((id) => partnersService.get(id).catch(() => null)),
-      );
-      if (!cancelled) {
-        setRecentPartners(rows.filter((row): row is PartnerRow => !!row));
-      }
-    };
-    void loadRecent();
+    const ids = recentIds.slice(0, 5);
+    // One batched request for all recent partners (was one GET per id).
+    cachedLookup(`partners:recent:${role}:${ids.join(",")}`, () =>
+      partnersService.catalog({ ids, pageSize: ids.length, role: [role] }),
+    )
+      .then((result) => {
+        if (cancelled) return;
+        const byId = new Map(result.items.map((row) => [row.id, row]));
+        setRecentPartners(ids.map((id) => byId.get(id)).filter((row): row is PartnerRow => !!row));
+      })
+      .catch(() => {
+        if (!cancelled) setRecentPartners([]);
+      });
     return () => {
       cancelled = true;
     };
-  }, [recentIds]);
+  }, [recentIds, role]);
 
   const selectPartner = (partner: PartnerRow) => {
     onChange(partner);
@@ -135,11 +143,10 @@ export function PartnerPicker({
           if (partner) selectPartner(partner);
         }}
         onSearch={async (search) => {
-          const result = await partnersService.catalog({
-            search: search || undefined,
-            pageSize: 8,
-            role: [role],
-          });
+          const params = { search: search || undefined, pageSize: 8, role: [role] };
+          const result = await cachedLookup(`partners:${JSON.stringify(params)}`, () =>
+            partnersService.catalog(params),
+          );
           return result.items;
         }}
         getId={(partner) => partner.id}
@@ -156,17 +163,22 @@ export function PartnerPicker({
             : undefined
         }
         footer={
-          <CommandItem value="__quick_create__" onSelect={() => setQuickCreateOpen(true)}>
-            <Plus className="size-4" />
-            {t(text.quickCreate)}
-          </CommandItem>
+          canCreate ? (
+            <CommandItem value="__quick_create__" onSelect={() => setQuickCreateOpen(true)}>
+              <Plus className="size-4" />
+              {t(text.quickCreate)}
+            </CommandItem>
+          ) : undefined
         }
       />
       <PartnerQuickCreateDialog
         role={role}
         open={quickCreateOpen}
         onOpenChange={setQuickCreateOpen}
-        onCreated={selectPartner}
+        onCreated={(partner) => {
+          invalidateLookups("partners:");
+          selectPartner(partner);
+        }}
       />
     </>
   );

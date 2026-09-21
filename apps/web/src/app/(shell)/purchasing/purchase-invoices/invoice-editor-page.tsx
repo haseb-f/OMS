@@ -9,6 +9,7 @@ import { EditorWorkspace } from "@/components/shared/detail-workspace";
 import { PurchasingDocumentEditor } from "@/components/purchasing/purchasing-document-editor";
 import {
   createEmptyLine,
+  lineTreatmentPayload,
   type ProductLineItemsGridLine,
 } from "@/components/sales/product-line-items-grid";
 import type { DocumentTotals } from "@/components/sales/document-totals-footer";
@@ -26,13 +27,6 @@ import {
 import type { PartnerRow } from "@/services/partners-service";
 import type { CurrencyRow } from "@/config/master-data/entities";
 import { buildInvoiceStatusOptions } from "@/config/purchasing/invoice-status";
-import { RETURN_STATUS_LABEL_KEY, RETURN_STATUS_TONE } from "@/config/purchasing/return-status";
-import {
-  TRANSACTION_STATUS_LABEL_KEY,
-  TRANSACTION_STATUS_TONE,
-} from "@/config/financial-transactions/status";
-import { RelatedDocuments } from "@/components/shared/related-documents";
-import { useSourceJournalTrace } from "@/hooks/use-source-journal-entry";
 import { buildInvoicePrintPayload } from "@/config/purchasing/invoice-print";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
@@ -40,6 +34,8 @@ import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { toast } from "@/lib/toast";
+import { useExchangeRateRecovery } from "@/hooks/use-exchange-rate-recovery";
+import { lifecycleActions } from "@/config/documents/lifecycle-actions";
 import { ApiError } from "@/services/api-client";
 import { CreateReturnDialog } from "./create-return-dialog";
 import { InvoicePaymentSummary } from "@/components/business/invoice-payment-summary";
@@ -56,6 +52,12 @@ function itemToLine(item: PurchaseInvoiceItemRow): ProductLineItemsGridLine {
     taxId: item.taxId,
     unitId: item.unitId,
     unitName: item.unit?.name ?? null,
+    treatment: item.treatment ?? "STANDARD",
+    assetUsefulLifeMonths: item.assetUsefulLifeMonths ?? null,
+    assetDepreciationMethod: item.assetDepreciationMethod ?? null,
+    scheduleStartDate: item.scheduleStartDate ? item.scheduleStartDate.slice(0, 10) : null,
+    prepaidMonths: item.prepaidMonths ?? null,
+    prepaidExpenseAccount: item.prepaidExpenseAccount ?? null,
   };
 }
 
@@ -69,6 +71,7 @@ function lineToPayload(line: ProductLineItemsGridLine) {
     unitPrice: line.unitPrice,
     discountPercent: line.discountPercent,
     taxId: line.taxId ?? undefined,
+    ...lineTreatmentPayload(line),
   };
 }
 
@@ -79,6 +82,7 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
   const { printDocument } = usePrintEngine();
   const { activeCompany } = useCompany();
   const { user, hasPermission } = useUserContext();
+  const fx = useExchangeRateRecovery();
 
   const [invoice, setInvoice] = useState<PurchaseInvoiceRow | null>(null);
   const [isLoading, setIsLoading] = useState(!!id);
@@ -186,14 +190,17 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
   };
 
   const runTransition = async (
-    action: (invoiceId: string) => Promise<PurchaseInvoiceRow>,
+    action: (invoiceId: string) => Promise<PurchaseInvoiceRow | null>,
     successKey: Parameters<typeof t>[0],
   ) => {
     if (!id) return;
     setIsTransitioning(true);
     try {
       const updated = await action(id);
-      applyInvoice(updated);
+      if (!updated) return;
+      // Transition responses are partial (no payment summary / related
+      // documents); always re-read the full document before rendering it.
+      applyInvoice(await purchaseInvoicesService.get(id));
       toast.success(t(successKey));
       refreshActivity(id);
     } catch (error) {
@@ -238,6 +245,7 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
       statusOptions: buildInvoiceStatusOptions(t),
       numbering: { documentType: "PURCHASE_INVOICE", docCodePreview: "PI" },
       requireWarehouse: true,
+      enableLineTreatment: true,
       toolbarExtra: (
         <EnterpriseButton
           type="button"
@@ -250,12 +258,13 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
           {t("common.save")}
         </EnterpriseButton>
       ),
+      trace: { kind: "PURCHASE_INVOICE", id },
       workflowActions: [
         {
           key: "submit",
+          primary: true,
           label: t("purchasing.invoices.actions.submit"),
           icon: Send,
-          variant: "outline",
           visibleForStatuses: ["DRAFT"],
           onAction: () =>
             runTransition(
@@ -265,10 +274,10 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
         },
         {
           key: "approve",
+          primary: true,
           label: t("purchasing.invoices.actions.approve"),
           icon: CheckCircle2,
-          variant: "outline",
-          visibleForStatuses: ["PENDING_APPROVAL"],
+          visibleForStatuses: ["DRAFT", "PENDING_APPROVAL"],
           onAction: () =>
             runTransition(
               (iid) => purchaseInvoicesService.approve(iid),
@@ -277,13 +286,21 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
         },
         {
           key: "confirm",
+          primary: true,
           label: t("purchasing.invoices.actions.confirm"),
           icon: PackageCheck,
           variant: "default",
-          visibleForStatuses: ["APPROVED"],
+          visibleForStatuses: ["DRAFT", "PENDING_APPROVAL", "APPROVED"],
+          confirm: {
+            title: t("docFlow.flow.purchaseInvoiceTitle"),
+            description: t("docFlow.flow.purchaseInvoiceDescription"),
+          },
           onAction: () =>
             runTransition(
-              (iid) => purchaseInvoicesService.confirm(iid),
+              (iid) =>
+                fx.run(() => purchaseInvoicesService.confirm(iid), {
+                  currencyId: currency?.id ?? null,
+                }),
               "purchasing.invoices.toasts.confirmed",
             ),
         },
@@ -291,15 +308,15 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
           key: "cancel",
           label: t("purchasing.invoices.actions.cancel"),
           icon: Ban,
-          variant: "destructive",
+          destructive: true,
           visibleForStatuses: ["DRAFT", "PENDING_APPROVAL", "APPROVED"],
           onAction: () => setCancelTarget(true),
         },
         {
           key: "recordPayment",
+          primary: true,
           label: t("purchasing.invoices.actions.recordPayment"),
           icon: Wallet,
-          variant: "outline",
           visibleForStatuses: ["CONFIRMED"],
           onAction: () =>
             router.push(
@@ -310,7 +327,6 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
           key: "convert",
           label: t("purchasing.invoices.actions.createReturn"),
           icon: Undo2,
-          variant: "outline",
           visibleForStatuses: ["CONFIRMED"],
           onAction: () => setReturnOpen(true),
         },
@@ -318,9 +334,30 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
           key: "print",
           label: t("table.print"),
           icon: Printer,
-          variant: "outline",
           onAction: () => handlePrint(),
         },
+        ...lifecycleActions({
+          t,
+          documentLabel: invoice?.invoiceNumber ?? "",
+          canCreate: hasPermission("purchasing.invoices.create"),
+          canEdit: hasPermission("purchasing.invoices.edit"),
+          returnToDraftStatuses: ["PENDING_APPROVAL", "APPROVED", "CANCELLED"],
+          onDuplicate: async () => {
+            if (!id) return;
+            try {
+              const copy = await purchaseInvoicesService.duplicate(id);
+              toast.success(t("docFlow.lifecycle.duplicated", { number: copy.invoiceNumber }));
+              router.push(`/purchasing/purchase-invoices/${copy.id}`);
+            } catch (error) {
+              toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+            }
+          },
+          onReturnToDraft: () =>
+            runTransition(
+              (docId) => purchaseInvoicesService.returnToDraft(docId),
+              "docFlow.lifecycle.returnedToDraft",
+            ),
+        }),
       ],
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -337,6 +374,7 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
       notes,
       terms,
       router,
+      id,
     ],
   );
 
@@ -369,76 +407,34 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
   const canCancel = hasPermission("purchasing.invoices.cancel");
   const canConfirm = hasPermission("purchasing.invoices.confirm");
   const canRecordPayment = hasPermission("purchasing.payments.create");
-  const journalTrace = useSourceJournalTrace("PURCHASE_INVOICE", invoice?.id);
 
   useBreadcrumbLabel(invoice?.invoiceNumber ?? t("purchasing.invoices.addNew"));
 
   return (
     <EditorWorkspace>
-      <RelatedDocuments
-        groups={[
-          {
-            labelKey: "purchasing.invoices.fromOrder",
-            links:
-              invoice?.purchaseOrder && invoice.purchaseOrderId
-                ? [
-                    {
-                      id: invoice.purchaseOrderId,
-                      number: invoice.purchaseOrder.poNumber,
-                      href: `/purchasing/purchase-orders/${invoice.purchaseOrderId}`,
-                    },
-                  ]
-                : [],
-          },
-          {
-            labelKey: "purchasing.invoices.relatedPayments",
-            links: (invoice?.allocations ?? [])
-              .filter((allocation) => allocation.transaction)
-              .map((allocation) => ({
-                id: allocation.transaction!.id,
-                number: allocation.transaction!.transactionNumber,
-                href: `/purchasing/payments/${allocation.transaction!.id}`,
-                statusLabel: t(TRANSACTION_STATUS_LABEL_KEY[allocation.transaction!.status]),
-                statusTone: TRANSACTION_STATUS_TONE[allocation.transaction!.status],
-              })),
-          },
-          {
-            labelKey: "purchasing.invoices.relatedReturns",
-            links: (invoice?.returns ?? []).map((purchaseReturn) => ({
-              id: purchaseReturn.id,
-              number: purchaseReturn.returnNumber,
-              href: `/purchasing/purchase-returns/${purchaseReturn.id}`,
-              statusLabel: t(RETURN_STATUS_LABEL_KEY[purchaseReturn.status]),
-              statusTone: RETURN_STATUS_TONE[purchaseReturn.status],
-            })),
-          },
-          {
-            labelKey: "purchasing.invoices.relatedJournalEntry",
-            links: journalTrace.links,
-            emptyLabel:
-              (invoice?.status === "CONFIRMED" || invoice?.status === "CLOSED") &&
-              journalTrace.state === "missing"
-                ? t("accounting.journalEntries.missingJournal")
-                : undefined,
-          },
-        ]}
-      />
-
       <PurchasingDocumentEditor
         config={{
           ...config,
-          workflowActions: config.workflowActions.filter((action) => {
-            if (action.key === "approve" && !canApprove) return false;
-            if (action.key === "cancel" && !canCancel) return false;
-            if (action.key === "confirm" && !canConfirm) return false;
-            if (
-              action.key === "recordPayment" &&
-              (!canRecordPayment || invoice?.paymentStatus === "PAID")
+          workflowActions: config.workflowActions
+            .map((action) =>
+              action.key === "confirm" && !canApprove
+                ? { ...action, visibleForStatuses: ["APPROVED"] }
+                : action,
             )
-              return false;
-            if (action.key === "print" && !invoice) return false;
-            return true;
-          }),
+            .filter((action) => {
+              if (action.key === "submit" && canApprove) return false;
+              if (action.key === "approve" && canConfirm) return false;
+              if (action.key === "approve" && !canApprove) return false;
+              if (action.key === "cancel" && !canCancel) return false;
+              if (action.key === "confirm" && !canConfirm) return false;
+              if (
+                action.key === "recordPayment" &&
+                (!canRecordPayment || invoice?.paymentStatus === "PAID")
+              )
+                return false;
+              if (action.key === "print" && !invoice) return false;
+              return true;
+            }),
         }}
         state={state}
         handlers={handlers}
@@ -486,6 +482,7 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
           }
         />
       )}
+      {fx.dialog}
     </EditorWorkspace>
   );
 }

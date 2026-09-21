@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
 import { ChevronDown, Plus } from "lucide-react";
@@ -46,7 +47,12 @@ import { ApiError } from "@/services/api-client";
 import { formatDateTime } from "@/lib/date";
 import { siteConfig } from "@/config/site";
 import type { MessageKey } from "@/i18n/translate";
-import { JournalTraceCell } from "@/components/accounting/journal-trace-cell";
+import { RelatedRecordsButton } from "@/components/shared/related-records-panel";
+import {
+  MOVEMENT_REFERENCE_KIND,
+  RECORD_ROUTES,
+  recordHref,
+} from "@/config/traceability/record-routes";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import { PermissionGate } from "@/components/shared/permission-gate";
 
@@ -183,6 +189,15 @@ function InventoryMovementsPageContent() {
         accessorFn: (row) => row.referenceType ?? "",
         cell: (info) => {
           const row = info.row.original;
+          const kind = row.referenceType ? MOVEMENT_REFERENCE_KIND[row.referenceType] : undefined;
+          const href = kind && row.referenceId ? recordHref(kind, row.referenceId) : null;
+          if (kind && href) {
+            return (
+              <Link href={href} className="text-caption text-primary hover:underline">
+                {t(RECORD_ROUTES[kind].labelKey)}
+              </Link>
+            );
+          }
           return row.referenceType ? (
             <span dir="ltr" className="text-caption text-muted-foreground">
               {row.referenceType}
@@ -194,12 +209,17 @@ function InventoryMovementsPageContent() {
       },
       {
         id: "journal",
-        header: t("accounting.journalEntries.fields.viewJournalEntry"),
-        meta: { titleKey: "accounting.journalEntries.fields.viewJournalEntry" },
+        header: t("docFlow.trace.title"),
+        meta: { titleKey: "docFlow.trace.title" },
         cell: (info) => {
           const row = info.row.original;
-          if (row.type !== "ADJUSTMENT") return "—";
-          return <JournalTraceCell sourceType="INVENTORY_ADJUSTMENT" sourceId={row.id} expected />;
+          return (
+            <RelatedRecordsButton
+              kind="INVENTORY_MOVEMENT"
+              id={row.id}
+              number={row.movementNumber}
+            />
+          );
         },
       },
       {
@@ -334,8 +354,10 @@ function InventoryMovementsPageContent() {
       description={t("inventory.movements.description")}
       actions={
         <>
-          <ModuleImportButtons importType="OPENING_STOCK" onImported={load} />
-          <ModuleImportButtons importType="INVENTORY_ADJUSTMENTS" onImported={load} />
+          <ModuleImportButtons
+            importType={["OPENING_STOCK", "INVENTORY_ADJUSTMENTS"]}
+            onImported={load}
+          />
           {canCreate && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

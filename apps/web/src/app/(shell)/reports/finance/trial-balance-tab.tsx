@@ -78,8 +78,23 @@ export function TrialBalanceTab() {
       onIncludeOpeningBalanceChange={setIncludeOpeningBalance}
       printTitle={t("reports.finance.trialBalance")}
       exportFileName="trial-balance.csv"
+      summary={{
+        items: [
+          { label: t("reports.finance.fields.debit"), value: totals.debitTotal },
+          { label: t("reports.finance.fields.credit"), value: totals.creditTotal },
+          {
+            label: t("reports.finance.fields.closingBalance"),
+            value: totals.closingBalance,
+            emphasize: true,
+          },
+        ],
+        check: {
+          balanced,
+          difference: totals.debitTotal - totals.creditTotal,
+          label: t("docFlow.reports.debitsEqualCredits"),
+        },
+      }}
       footer={{
-        balanced,
         values: includeOpeningBalance
           ? {
               opening: totals.openingBalance,

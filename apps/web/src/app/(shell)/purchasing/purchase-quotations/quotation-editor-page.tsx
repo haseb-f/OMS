@@ -33,6 +33,7 @@ import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { toast } from "@/lib/toast";
+import { lifecycleActions } from "@/config/documents/lifecycle-actions";
 import { ApiError } from "@/services/api-client";
 
 function itemToLine(item: PurchaseQuotationItemRow): ProductLineItemsGridLine {
@@ -181,14 +182,17 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
   };
 
   const runTransition = async (
-    action: (quotationId: string) => Promise<PurchaseQuotationRow>,
+    action: (quotationId: string) => Promise<PurchaseQuotationRow | null>,
     successKey: Parameters<typeof t>[0],
   ) => {
     if (!id) return;
     setIsTransitioning(true);
     try {
       const updated = await action(id);
-      applyQuotation(updated);
+      if (!updated) return;
+      // Transition responses are partial (no payment summary / related
+      // documents); always re-read the full document before rendering it.
+      applyQuotation(await purchaseQuotationsService.get(id));
       toast.success(t(successKey));
       refreshActivity(id);
     } catch (error) {
@@ -258,12 +262,13 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
           {t("common.save")}
         </EnterpriseButton>
       ),
+      trace: { kind: "PURCHASE_QUOTATION", id },
       workflowActions: [
         {
           key: "submit",
+          primary: true,
           label: t("purchasing.quotations.actions.submit"),
           icon: Send,
-          variant: "outline",
           visibleForStatuses: ["DRAFT"],
           onAction: () =>
             runTransition(
@@ -273,10 +278,10 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
         },
         {
           key: "approve",
+          primary: true,
           label: t("purchasing.quotations.actions.approve"),
           icon: CheckCircle2,
-          variant: "outline",
-          visibleForStatuses: ["PENDING_APPROVAL"],
+          visibleForStatuses: ["DRAFT", "PENDING_APPROVAL"],
           onAction: () =>
             runTransition(
               (qid) => purchaseQuotationsService.approve(qid),
@@ -285,9 +290,9 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
         },
         {
           key: "convert",
+          primary: true,
           label: t("purchasing.quotations.actions.convertToOrder"),
           icon: ArrowRightCircle,
-          variant: "outline",
           visibleForStatuses: ["APPROVED"],
           onAction: () => setConvertTarget(true),
         },
@@ -295,7 +300,7 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
           key: "cancel",
           label: t("purchasing.quotations.actions.cancel"),
           icon: Ban,
-          variant: "destructive",
+          destructive: true,
           visibleForStatuses: ["DRAFT", "PENDING_APPROVAL", "APPROVED"],
           onAction: () => setCancelTarget(true),
         },
@@ -303,9 +308,30 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
           key: "print",
           label: t("table.print"),
           icon: Printer,
-          variant: "outline",
           onAction: () => handlePrint(),
         },
+        ...lifecycleActions({
+          t,
+          documentLabel: quotation?.quotationNumber ?? "",
+          canCreate: hasPermission("purchasing.quotations.create"),
+          canEdit: hasPermission("purchasing.quotations.edit"),
+          returnToDraftStatuses: ["PENDING_APPROVAL", "APPROVED", "CANCELLED"],
+          onDuplicate: async () => {
+            if (!id) return;
+            try {
+              const copy = await purchaseQuotationsService.duplicate(id);
+              toast.success(t("docFlow.lifecycle.duplicated", { number: copy.quotationNumber }));
+              router.push(`/purchasing/purchase-quotations/${copy.id}`);
+            } catch (error) {
+              toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+            }
+          },
+          onReturnToDraft: () =>
+            runTransition(
+              (docId) => purchaseQuotationsService.returnToDraft(docId),
+              "docFlow.lifecycle.returnedToDraft",
+            ),
+        }),
       ],
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -321,6 +347,7 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
       referenceNumber,
       notes,
       terms,
+      id,
     ],
   );
 
@@ -360,6 +387,7 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
         config={{
           ...config,
           workflowActions: config.workflowActions.filter((action) => {
+            if (action.key === "submit" && canApprove) return false;
             if (action.key === "approve" && !canApprove) return false;
             if (action.key === "cancel" && !canCancel) return false;
             if (action.key === "print" && !quotation) return false;

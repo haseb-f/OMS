@@ -1,13 +1,12 @@
 "use client";
 
+import { RelatedRecordsPanel } from "@/components/shared/related-records-panel";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Ban, CheckCircle2, Printer, Save, Trash2 } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EditorWorkspace } from "@/components/shared/detail-workspace";
-import { RelatedDocuments } from "@/components/shared/related-documents";
-import { useSourceJournalTrace } from "@/hooks/use-source-journal-entry";
 import { PartnerPicker } from "@/components/business/partner-picker";
 import { FinancialTransactionEditor } from "@/components/financial-transactions/financial-transaction-editor";
 import { OpenInvoicesTable } from "@/components/financial-transactions/open-invoices-table";
@@ -493,34 +492,12 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
   const canEdit = !payment || payment.status === "DRAFT";
   const canConfirm = hasPermission("purchasing.payments.confirm");
   const canCancel = hasPermission("purchasing.payments.cancel");
-  const journalTrace = useSourceJournalTrace("SUPPLIER_PAYMENT", payment?.id);
 
   useBreadcrumbLabel(payment?.transactionNumber ?? t("purchasing.payments.addNew"));
 
   return (
     <EditorWorkspace>
-      <RelatedDocuments
-        groups={[
-          {
-            labelKey: "purchasing.payments.allocatedInvoices",
-            links: (payment?.allocations ?? [])
-              .filter((allocation) => allocation.purchaseInvoice)
-              .map((allocation) => ({
-                id: allocation.purchaseInvoice!.id,
-                number: allocation.purchaseInvoice!.invoiceNumber,
-                href: `/purchasing/purchase-invoices/${allocation.purchaseInvoice!.id}`,
-              })),
-          },
-          {
-            labelKey: "purchasing.payments.relatedJournalEntry",
-            links: journalTrace.links,
-            emptyLabel:
-              payment?.status === "CONFIRMED" && journalTrace.state === "missing"
-                ? t("accounting.journalEntries.missingJournal")
-                : undefined,
-          },
-        ]}
-      />
+      <RelatedRecordsPanel kind="SUPPLIER_PAYMENT" id={id} refreshKey={payment?.status} />
 
       <FinancialTransactionEditor
         config={{

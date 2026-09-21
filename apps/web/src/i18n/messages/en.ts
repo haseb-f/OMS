@@ -6214,6 +6214,111 @@ const en = {
   },
   // docFlow:begin
   docFlow: {
+    products: {
+      browse: "Browse products",
+      browseTitle: "Add products",
+      selectedCount: "{count} selected",
+      addSelected: "Add {count} lines",
+      allCategories: "All categories",
+      pageOf: "Page {page} of {pages} · {total} products",
+      previousPage: "Previous page",
+      nextPage: "Next page",
+      createNew: "Create new product",
+      activateFailed:
+        "The product was created but couldn't be activated. Complete its details in Products, then select it.",
+      noInvestmentEligible:
+        'No products are marked available for investment opportunities. Enable "Available for investment opportunities" on a product first.',
+    },
+    lines: {
+      options: "Line options",
+      treatment: "Recognize as",
+      treatments: {
+        STANDARD: "Standard purchase",
+        FIXED_ASSET: "Fixed asset",
+        PREPAID_EXPENSE: "Prepaid expense",
+      },
+      usefulLife: "Useful life (months)",
+      method: "Depreciation method",
+      methods: {
+        STRAIGHT_LINE: "Straight line",
+        DECLINING_BALANCE: "Declining balance",
+      },
+      prepaidMonths: "Months covered",
+      expenseAccount: "Expense account",
+      startDate: "First month",
+      assetHint:
+        "Posting the invoice capitalizes this line and creates the asset with its depreciation schedule. Due months post automatically.",
+      prepaidHint:
+        "Posting the invoice defers this line to Prepayments and recognizes it monthly into the expense account.",
+    },
+    actions: {
+      more: "More",
+    },
+    flow: {
+      quotationApproveTitle: "Approve this quotation?",
+      quotationApproveDescription:
+        "The quotation becomes Approved and can be converted into an order in one step. Nothing is posted or reserved.",
+      orderTitle: "Confirm this sales order?",
+      orderDescription:
+        "The order becomes Confirmed and reserves stock for its stocked lines. No accounting entry is created. Next step: create the invoice.",
+      salesInvoiceTitle: "Post this invoice?",
+      salesInvoiceDescription:
+        "Posting records the revenue and the customer receivable, delivers stocked lines from the warehouse with their cost (COGS), and creates one journal entry. A posted invoice is corrected only with a sales return.",
+      purchaseOrderTitle: "Approve this purchase order?",
+      purchaseOrderDescription:
+        "Approving commits the order to the supplier. No stock, cost or accounting entry is created until the goods are invoiced.",
+      purchaseInvoiceTitle: "Post this purchase invoice?",
+      purchaseInvoiceDescription:
+        "Posting records the supplier payable, receives stocked lines into inventory at moving-average cost, capitalizes fixed-asset lines, defers prepaid lines, and creates one journal entry. A posted invoice is corrected only with a purchase return.",
+    },
+    lifecycle: {
+      duplicate: "Duplicate",
+      duplicateTitle: "Create a draft copy?",
+      duplicateDescription:
+        "A new draft with a new number is created from {document} — same party, currency and lines. Payments, postings, stock movements and approvals are never copied; the original is unchanged.",
+      duplicated: "Draft {number} created.",
+      returnToDraft: "Return to draft",
+      returnToDraftTitle: "Return to draft?",
+      returnToDraftDescription:
+        "{document} goes back to Draft so it can be edited; it must be approved again. Reservations are released where applicable. Posted documents cannot return to draft — correct them with a return or a reversal.",
+      returnedToDraft: "Returned to draft.",
+    },
+    import: {
+      menu: "Import",
+    },
+    payments: {
+      verifiedPosted: "Payment verified — receipt {receipts} posted to the ledger.",
+      verifiedPendingInvoice:
+        "Payment verified. The customer receipt posts automatically once the order's invoice is generated.",
+      verifiedPostingFailed:
+        "Payment verified, but the receipt could not be posted: {message} Fix the cause, then use “Sync receipt”.",
+      syncReceipt: "Sync receipt",
+    },
+    trace: {
+      view: "Related",
+      state: {
+        AWAITING_PAYMENT: "No payments yet",
+        PENDING: "Pending — created when the document is posted",
+        FAILED: "Missing — this should exist but doesn't. Retry the posting or contact finance.",
+        UNAUTHORIZED: "Restricted — you don't have permission to view these records",
+      },
+      title: "Related records",
+      none: "No related records yet.",
+      loadFailed: "Couldn't load related records.",
+      groups: {
+        SOURCE: "Source",
+        DOCUMENTS: "Documents",
+        PAYMENTS: "Payments",
+        JOURNAL_ENTRIES: "Journal entries",
+        STOCK_MOVEMENTS: "Stock movements",
+        ASSETS: "Assets & prepayments",
+      },
+    },
+    reports: {
+      unbalancedBy: "Unbalanced by",
+      debitsEqualCredits: "Debits = Credits",
+      assetsEqualLiabilitiesEquity: "Assets = Liabilities + Equity",
+    },
     fx: {
       title: "Exchange rate needed: {from} → {to}",
       description:
@@ -6246,24 +6351,6 @@ const en = {
       INVENTORY_MOVEMENT: "Stock movement",
       FIXED_ASSET: "Fixed asset",
       PREPAID_EXPENSE: "Prepaid expense",
-    },
-    trace: {
-      title: "Related records",
-      none: "No related records yet.",
-      loadFailed: "Couldn't load related records.",
-      groups: {
-        SOURCE: "Source",
-        DOCUMENTS: "Documents",
-        PAYMENTS: "Payments",
-        JOURNAL_ENTRIES: "Journal entries",
-        STOCK_MOVEMENTS: "Stock movements",
-        ASSETS: "Assets & prepayments",
-      },
-      state: {
-        PENDING: "Pending — created when the document is posted",
-        FAILED: "Missing — this should exist but doesn't. Retry the posting or contact finance.",
-        UNAUTHORIZED: "Restricted — you don't have permission to view these records",
-      },
     },
     status: {
       DRAFT: "Draft",

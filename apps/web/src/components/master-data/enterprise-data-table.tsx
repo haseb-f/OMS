@@ -1009,7 +1009,7 @@ export function EnterpriseDataTable<TData>({
           </div>
         )}
 
-        {renderMobileRow && (
+        {
           <div className="max-h-[70vh] overflow-auto @3xl/enterprise-table:hidden">
             {isLoading ? (
               Array.from({ length: 4 }).map((_, index) => (
@@ -1025,20 +1025,86 @@ export function EnterpriseDataTable<TData>({
             ) : table.getRowModel().rows.length === 0 ? (
               <EmptyState icon={Inbox} {...emptyStateProps} />
             ) : (
-              table.getRowModel().rows.map((row) => (
-                <div key={row.id}>
-                  {renderMobileRow({
-                    row: row.original,
-                    selected: row.getIsSelected(),
-                    onToggleSelected: () => row.toggleSelected(),
-                    expanded: row.getIsExpanded(),
-                    onToggleExpanded: () => row.toggleExpanded(),
-                  })}
-                </div>
-              ))
+              table.getRowModel().rows.map((row) =>
+                renderMobileRow ? (
+                  <div key={row.id}>
+                    {renderMobileRow({
+                      row: row.original,
+                      selected: row.getIsSelected(),
+                      onToggleSelected: () => row.toggleSelected(),
+                      expanded: row.getIsExpanded(),
+                      onToggleExpanded: () => row.toggleExpanded(),
+                    })}
+                  </div>
+                ) : (
+                  // Automatic phone card: the identity column is the title,
+                  // the row's own actions stay in reach, and the next
+                  // visible columns read as label/value pairs — the same
+                  // cell renderers as the desktop table, never a copy.
+                  (() => {
+                    const cells = row.getVisibleCells();
+                    const renderCell = (cell: (typeof cells)[number]) => {
+                      const layout = layoutById.get(cell.column.id);
+                      const raw = columnsWithExplicitCell.has(cell.column.id)
+                        ? flexRender(cell.column.columnDef.cell, cell.getContext())
+                        : cell.renderValue<ReactNode>();
+                      return applySemanticCellContent(raw, layout?.type);
+                    };
+                    const selectCell = cells.find((cell) => cell.column.id === "select");
+                    const actionsCell = cells.find((cell) => cell.column.id === "__actions");
+                    const dataCells = cells.filter(
+                      (cell) => cell.column.id !== "select" && !cell.column.id.startsWith("__"),
+                    );
+                    const titleCell =
+                      dataCells.find((cell) => cell.column.columnDef.meta?.identity) ??
+                      dataCells[0];
+                    const detailCells = dataCells.filter((cell) => cell !== titleCell).slice(0, 6);
+                    const rowHref = getRowHref?.(row.original) ?? null;
+                    return (
+                      <div
+                        key={row.id}
+                        data-state={row.getIsSelected() ? "selected" : undefined}
+                        className="flex flex-col gap-2 border-b border-border px-3 py-2.5 data-[state=selected]:bg-primary-soft"
+                      >
+                        <div className="flex min-h-9 items-start gap-2">
+                          {selectCell ? <div className="pt-1">{renderCell(selectCell)}</div> : null}
+                          <div className="min-w-0 flex-1 text-body font-medium">
+                            {titleCell ? (
+                              rowHref ? (
+                                <RowIdentityLink href={rowHref}>
+                                  {renderCell(titleCell)}
+                                </RowIdentityLink>
+                              ) : (
+                                renderCell(titleCell)
+                              )
+                            ) : null}
+                          </div>
+                          {actionsCell ? (
+                            <div className="shrink-0">{renderCell(actionsCell)}</div>
+                          ) : null}
+                        </div>
+                        {detailCells.length > 0 ? (
+                          <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                            {detailCells.map((cell) => (
+                              <div key={cell.id} className="min-w-0">
+                                <dt className="truncate text-caption text-muted-foreground">
+                                  {cell.column.columnDef.meta?.titleKey
+                                    ? t(cell.column.columnDef.meta.titleKey)
+                                    : cell.column.id}
+                                </dt>
+                                <dd className="min-w-0 truncate text-body">{renderCell(cell)}</dd>
+                              </div>
+                            ))}
+                          </dl>
+                        ) : null}
+                      </div>
+                    );
+                  })()
+                ),
+              )
             )}
           </div>
-        )}
+        }
 
         {/* Smart Column Engine — a real `<table>` with one `<colgroup>`
             geometry. `table-layout: fixed` makes THEAD and TBODY inherit
@@ -1047,10 +1113,7 @@ export function EnterpriseDataTable<TData>({
             after the responsive hide classes drop low/medium columns. */}
         <div
           ref={scrollAreaRef}
-          className={cn(
-            "min-w-0 max-h-[70vh] overflow-auto",
-            renderMobileRow && "hidden @3xl/enterprise-table:block",
-          )}
+          className={cn("min-w-0 max-h-[70vh] overflow-auto", "hidden @3xl/enterprise-table:block")}
           style={maxBodyHeight ? { maxHeight: maxBodyHeight } : undefined}
         >
           <Table

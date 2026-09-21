@@ -19,6 +19,7 @@ import { exportRowsToCsv } from "@/components/master-data/enterprise-data-table"
 import { cn } from "@/lib/utils";
 import type { MessageKey } from "@/i18n/translate";
 import { FinancialReportTable } from "./financial-report-table";
+import { FinancialReportSummary } from "./financial-report-summary";
 import {
   collectExpandableIds,
   defaultExpandedIds,
@@ -26,6 +27,7 @@ import {
   type FinancialReportColumn,
   type FinancialReportFooter,
   type FinancialReportLine,
+  type FinancialReportSummary as FinancialReportSummaryData,
 } from "./types";
 
 export function FinancialReport({
@@ -41,6 +43,7 @@ export function FinancialReport({
   printTitle,
   exportFileName,
   footer,
+  summary,
   compactFilters = true,
   toolbarExtra,
   nameHeaderKey,
@@ -61,6 +64,7 @@ export function FinancialReport({
   printTitle: string;
   exportFileName: string;
   footer?: FinancialReportFooter;
+  summary?: FinancialReportSummaryData;
   compactFilters?: boolean;
   toolbarExtra?: ReactNode;
   nameHeaderKey?: MessageKey;
@@ -186,6 +190,7 @@ export function FinancialReport({
           </EnterpriseButton>
         </div>
       </ListToolbar>
+      {summary && !isLoading ? <FinancialReportSummary summary={summary} /> : null}
       <div className={cn(isLoading && "opacity-60")}>
         <FinancialReportTable
           lines={lines}

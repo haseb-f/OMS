@@ -1,12 +1,11 @@
 "use client";
 
+import { RelatedRecordsPanel } from "@/components/shared/related-records-panel";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Ban, CheckCircle2, PackageMinus, Printer, Save, Send } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EditorWorkspace } from "@/components/shared/detail-workspace";
-import { RelatedDocuments } from "@/components/shared/related-documents";
-import { useSourceJournalTrace } from "@/hooks/use-source-journal-entry";
 import { PurchasingDocumentEditor } from "@/components/purchasing/purchasing-document-editor";
 import {
   createEmptyLine,
@@ -334,37 +333,12 @@ export function ReturnEditorPage({ id }: { id: string }) {
   const canApprove = hasPermission("purchasing.returns.approve");
   const canCancel = hasPermission("purchasing.returns.cancel");
   const canConfirm = hasPermission("purchasing.returns.confirm");
-  const journalTrace = useSourceJournalTrace("PURCHASE_RETURN", purchaseReturn?.id);
 
   useBreadcrumbLabel(purchaseReturn?.returnNumber ?? t("purchasing.returns.addNew"));
 
   return (
     <EditorWorkspace>
-      <RelatedDocuments
-        groups={[
-          {
-            labelKey: "purchasing.returns.fromInvoice",
-            links:
-              purchaseReturn?.purchaseInvoice && purchaseReturn.purchaseInvoiceId
-                ? [
-                    {
-                      id: purchaseReturn.purchaseInvoiceId,
-                      number: purchaseReturn.purchaseInvoice.invoiceNumber,
-                      href: `/purchasing/purchase-invoices/${purchaseReturn.purchaseInvoiceId}`,
-                    },
-                  ]
-                : [],
-          },
-          {
-            labelKey: "purchasing.returns.relatedJournalEntry",
-            links: journalTrace.links,
-            emptyLabel:
-              purchaseReturn?.status === "CONFIRMED" && journalTrace.state === "missing"
-                ? t("accounting.journalEntries.missingJournal")
-                : undefined,
-          },
-        ]}
-      />
+      <RelatedRecordsPanel kind="PURCHASE_RETURN" id={id} refreshKey={purchaseReturn?.status} />
 
       <PurchasingDocumentEditor
         config={{

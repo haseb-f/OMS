@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Check, Link2, X } from "lucide-react";
+import { Check, Link2, RefreshCw, X } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
@@ -13,6 +13,7 @@ import { SelectFilter } from "@/components/shared/data-table/select-filter";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
+import { RelatedRecordsPanel } from "@/components/shared/related-records-panel";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { toast } from "@/lib/toast";
@@ -79,13 +80,30 @@ function PaymentReviewPageContent() {
       if (!user?.id) return;
       setBusyId(row.id);
       try {
-        if (action === "match") await paymentsReviewService.match(row.id, user.id);
-        else await paymentsReviewService.verify(row.id, user.id);
-        toast.success(
-          action === "match"
-            ? t("finance.paymentReview.toasts.matched")
-            : t("finance.paymentReview.toasts.verified"),
-        );
+        if (action === "match") {
+          await paymentsReviewService.match(row.id, user.id);
+          toast.success(t("finance.paymentReview.toasts.matched"));
+        } else {
+          const result = await paymentsReviewService.verify(row.id, user.id);
+          const collection = result.collection;
+          if (collection.status === "POSTED") {
+            toast.success(
+              t("docFlow.payments.verifiedPosted", {
+                receipts: collection.receipts
+                  .map((receipt) => receipt.transactionNumber)
+                  .join(", "),
+              }),
+            );
+          } else if (collection.status === "FAILED") {
+            toast.warning(
+              t("docFlow.payments.verifiedPostingFailed", { message: collection.message }),
+            );
+          } else if (collection.status === "PENDING_INVOICE") {
+            toast.success(t("docFlow.payments.verifiedPendingInvoice"));
+          } else {
+            toast.success(t("finance.paymentReview.toasts.verified"));
+          }
+        }
         await load();
       } catch (error) {
         toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
@@ -239,6 +257,17 @@ function PaymentReviewPageContent() {
                   {t("finance.paymentReview.actions.verify")}
                 </EnterpriseButton>
               ) : null}
+              {payment.status === "VERIFIED" && payment.storeOrder ? (
+                <EnterpriseButton
+                  size="xs"
+                  variant="outline"
+                  disabled={busyId === payment.id}
+                  onClick={() => void act(payment, "verify")}
+                >
+                  <RefreshCw className="size-3" />
+                  {t("docFlow.payments.syncReceipt")}
+                </EnterpriseButton>
+              ) : null}
               {payment.status === "PENDING" || payment.status === "MATCHED" ? (
                 <EnterpriseButton
                   size="xs"
@@ -366,6 +395,7 @@ function PaymentReviewDetail({ payment }: { payment: PaymentReviewRow }) {
           <span dir="ltr">{payment.settlement.outstanding.toFixed(2)}</span>
         </p>
       ) : null}
+      <RelatedRecordsPanel kind="PAYMENT" id={payment.id} refreshKey={payment.status} />
     </div>
   );
 }

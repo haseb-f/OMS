@@ -19,7 +19,11 @@ export type {
   SalesDocumentActivityEntry,
 } from "./sales-document-editor.types";
 
-export { ProductLineItemsGrid, createEmptyLine } from "./product-line-items-grid";
+export {
+  ProductLineItemsGrid,
+  createEmptyLine,
+  lineTreatmentPayload,
+} from "./product-line-items-grid";
 export type { ProductLineItemsGridLine } from "./product-line-items-grid";
 
 export { DocumentTotalsFooter } from "./document-totals-footer";

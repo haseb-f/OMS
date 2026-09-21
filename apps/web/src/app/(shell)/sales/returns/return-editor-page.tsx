@@ -1,12 +1,11 @@
 "use client";
 
+import { RelatedRecordsPanel } from "@/components/shared/related-records-panel";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Ban, CheckCircle2, PackagePlus, Printer, Save, Send } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EditorWorkspace } from "@/components/shared/detail-workspace";
-import { RelatedDocuments } from "@/components/shared/related-documents";
-import { useSourceJournalTrace } from "@/hooks/use-source-journal-entry";
 import {
   SalesDocumentEditor,
   createEmptyLine,
@@ -330,37 +329,12 @@ export function ReturnEditorPage({ id }: { id: string }) {
   const canApprove = hasPermission("sales.returns.approve");
   const canConfirm = hasPermission("sales.returns.confirm");
   const canCancel = hasPermission("sales.returns.cancel");
-  const journalTrace = useSourceJournalTrace("SALES_RETURN", salesReturn?.id);
 
   useBreadcrumbLabel(salesReturn?.returnNumber ?? t("sales.returns.addNew"));
 
   return (
     <EditorWorkspace>
-      <RelatedDocuments
-        groups={[
-          {
-            labelKey: "sales.returns.fromInvoice",
-            links:
-              salesReturn?.salesInvoice && salesReturn.salesInvoiceId
-                ? [
-                    {
-                      id: salesReturn.salesInvoiceId,
-                      number: salesReturn.salesInvoice.invoiceNumber,
-                      href: `/sales/invoices/${salesReturn.salesInvoiceId}`,
-                    },
-                  ]
-                : [],
-          },
-          {
-            labelKey: "sales.returns.relatedJournalEntry",
-            links: journalTrace.links,
-            emptyLabel:
-              salesReturn?.status === "CONFIRMED" && journalTrace.state === "missing"
-                ? t("accounting.journalEntries.missingJournal")
-                : undefined,
-          },
-        ]}
-      />
+      <RelatedRecordsPanel kind="SALES_RETURN" id={id} refreshKey={salesReturn?.status} />
 
       <SalesDocumentEditor
         config={{

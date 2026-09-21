@@ -1,5 +1,6 @@
+import type { DocumentAction } from "@/components/documents/document-action-bar";
+import type { TraceKind } from "@/services/traceability-service";
 import type { ReactNode } from "react";
-import type { LucideIcon } from "lucide-react";
 import type { StatusTone } from "@/components/business/status-badge";
 import type { PartnerRow } from "@/services/partners-service";
 import type { CurrencyRow } from "@/config/master-data/entities";
@@ -36,8 +37,7 @@ export interface SalesDocumentStatusOption {
   tone: StatusTone;
 }
 
-export type SalesDocumentWorkflowActionKey =
-  "submit" | "approve" | "reject" | "confirm" | "cancel" | "convert" | "receivePayment" | "print";
+export type SalesDocumentWorkflowActionKey = string;
 
 export interface SalesDocumentEditorActionContext<TDocument> {
   document: TDocument | null;
@@ -50,15 +50,9 @@ export interface SalesDocumentEditorActionContext<TDocument> {
  * document type wires a real `onAction` yet; the shell renders whatever
  * actions a config supplies and calls them on click, nothing more.
  */
-export interface SalesDocumentWorkflowAction<TDocument> {
-  key: SalesDocumentWorkflowActionKey;
-  label: string;
-  icon?: LucideIcon;
-  variant?: "default" | "outline" | "destructive" | "ghost";
-  /** Only rendered when the document's current status is one of these — omit to always show. */
-  visibleForStatuses?: string[];
-  onAction: (context: SalesDocumentEditorActionContext<TDocument>) => void | Promise<void>;
-}
+export type SalesDocumentWorkflowAction<TDocument> = DocumentAction<
+  SalesDocumentEditorActionContext<TDocument>
+>;
 
 export interface SalesDocumentNumberingConfig {
   /** NumberSeries `documentType` key — reference/display only. The shell never calls the Numbering Engine; the consuming document's own backend does, on save. */
@@ -87,6 +81,8 @@ export type SalesDocumentPrintPayloadBuilder<TDocument> = (
 ) => DocumentPrintPayload;
 
 export interface SalesDocumentEditorConfig<TDocument> {
+  /** Related-records panel for the saved document (canonical traceability). */
+  trace?: { kind: TraceKind; id: string | null };
   title: string;
   documentType: string;
   permissions: SalesDocumentPermissions;

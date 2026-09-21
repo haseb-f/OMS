@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRightCircle, Ban, CheckCircle2, Printer, Save, Send } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
-import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EditorWorkspace } from "@/components/shared/detail-workspace";
 import {
   SalesDocumentEditor,
@@ -33,6 +32,7 @@ import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import { ConvertToOrderDialog } from "./convert-to-order-dialog";
+import { lifecycleActions } from "@/config/documents/lifecycle-actions";
 
 function itemToLine(item: SalesQuotationItemRow): ProductLineItemsGridLine {
   return {
@@ -76,7 +76,6 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
   const [activity, setActivity] = useState<SalesDocumentActivityEntry[] | null | undefined>(
     undefined,
   );
-  const [cancelTarget, setCancelTarget] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
 
   const [customer, setCustomer] = useState<PartnerRow | null>(null);
@@ -130,6 +129,7 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
     if (id) refreshActivity(id);
   }, [id, refreshActivity]);
 
+  const canApprove = hasPermission("sales.quotations.approve");
   const realLines = lines.filter((line) => line.product !== null);
 
   /** "No empty customer / No empty product / Quantity > 0 / Warehouse required" — client-side, per TASK-040. Server re-validates all of it independently. */
@@ -185,7 +185,10 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
     setIsTransitioning(true);
     try {
       const updated = await action(id);
-      applyQuotation(updated);
+      if (!updated) return;
+      // Transition responses are partial (no payment summary / related
+      // documents); always re-read the full document before rendering it.
+      applyQuotation(await salesQuotationsService.get(id));
       toast.success(t(successKey));
       refreshActivity(id);
     } catch (error) {
@@ -240,53 +243,88 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
           {t("common.save")}
         </EnterpriseButton>
       ),
+      trace: { kind: "SALES_QUOTATION", id },
       workflowActions: [
-        {
-          key: "submit",
-          label: t("sales.quotations.actions.submit"),
-          icon: Send,
-          variant: "outline",
-          visibleForStatuses: ["DRAFT"],
-          onAction: () =>
-            runTransition(
-              (qid) => salesQuotationsService.submit(qid),
-              "sales.quotations.toasts.submitted",
-            ),
-        },
-        {
-          key: "approve",
-          label: t("sales.quotations.actions.approve"),
-          icon: CheckCircle2,
-          variant: "outline",
-          visibleForStatuses: ["PENDING_APPROVAL"],
-          onAction: () =>
-            runTransition(
-              (qid) => salesQuotationsService.approve(qid),
-              "sales.quotations.toasts.approved",
-            ),
-        },
+        canApprove
+          ? {
+              key: "approve",
+              label: t("sales.quotations.actions.approve"),
+              icon: CheckCircle2,
+              primary: true,
+              visibleForStatuses: ["DRAFT", "PENDING_APPROVAL"],
+              confirm: {
+                title: t("docFlow.flow.quotationApproveTitle"),
+                description: t("docFlow.flow.quotationApproveDescription"),
+              },
+              onAction: () =>
+                runTransition(
+                  (qid) => salesQuotationsService.approve(qid),
+                  "sales.quotations.toasts.approved",
+                ),
+            }
+          : {
+              key: "submit",
+              label: t("sales.quotations.actions.submit"),
+              icon: Send,
+              primary: true,
+              visibleForStatuses: ["DRAFT"],
+              onAction: () =>
+                runTransition(
+                  (qid) => salesQuotationsService.submit(qid),
+                  "sales.quotations.toasts.submitted",
+                ),
+            },
         {
           key: "convert",
           label: t("sales.quotations.actions.convertToOrder"),
           icon: ArrowRightCircle,
-          variant: "outline",
+          primary: true,
           visibleForStatuses: ["APPROVED"],
           onAction: () => setConvertOpen(true),
-        },
-        {
-          key: "cancel",
-          label: t("sales.quotations.actions.cancel"),
-          icon: Ban,
-          variant: "destructive",
-          visibleForStatuses: ["DRAFT", "PENDING_APPROVAL", "APPROVED"],
-          onAction: () => setCancelTarget(true),
         },
         {
           key: "print",
           label: t("table.print"),
           icon: Printer,
-          variant: "outline",
           onAction: () => handlePrint(),
+        },
+        ...lifecycleActions({
+          t,
+          documentLabel: quotation?.quotationNumber ?? "",
+          canCreate: hasPermission("sales.quotations.create"),
+          canEdit: hasPermission("sales.quotations.edit"),
+          returnToDraftStatuses: ["PENDING_APPROVAL", "APPROVED", "CANCELLED"],
+          onDuplicate: async () => {
+            if (!id) return;
+            try {
+              const copy = await salesQuotationsService.duplicate(id);
+              toast.success(t("docFlow.lifecycle.duplicated", { number: copy.quotationNumber }));
+              router.push(`/sales/quotations/${copy.id}`);
+            } catch (error) {
+              toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+            }
+          },
+          onReturnToDraft: () =>
+            runTransition(
+              (qid) => salesQuotationsService.returnToDraft(qid),
+              "docFlow.lifecycle.returnedToDraft",
+            ),
+        }),
+        {
+          key: "cancel",
+          label: t("sales.quotations.actions.cancel"),
+          icon: Ban,
+          destructive: true,
+          visibleForStatuses: ["DRAFT", "PENDING_APPROVAL", "APPROVED"],
+          confirm: {
+            title: t("sales.quotations.confirmCancelTitle"),
+            description: t("sales.quotations.confirmCancelDescription"),
+          },
+          onAction: () =>
+            runTransition(
+              (qid) => salesQuotationsService.cancel(qid),
+              "sales.quotations.toasts.cancelled",
+            ),
         },
       ],
     }),
@@ -303,6 +341,8 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
       referenceNumber,
       notes,
       terms,
+      id,
+      canApprove,
     ],
   );
 
@@ -333,46 +373,19 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
   };
 
   const canEdit = !quotation || quotation.status === "DRAFT";
-  const canApprove = hasPermission("sales.quotations.approve");
-  const canCancel = hasPermission("sales.quotations.cancel");
 
   useBreadcrumbLabel(quotation?.quotationNumber ?? t("sales.quotations.addNew"));
 
   return (
     <EditorWorkspace>
       <SalesDocumentEditor
-        config={{
-          ...config,
-          workflowActions: config.workflowActions.filter((action) => {
-            if (action.key === "approve" && !canApprove) return false;
-            if (action.key === "cancel" && !canCancel) return false;
-            if (action.key === "print" && !quotation) return false;
-            return true;
-          }),
-        }}
+        config={config}
         state={state}
         handlers={handlers}
         activity={activity}
         isLoading={isLoading}
         disabled={!canEdit || isSaving}
         isBusy={isSaving || isTransitioning}
-      />
-
-      <ConfirmationDialog
-        open={cancelTarget}
-        onOpenChange={setCancelTarget}
-        tone="destructive"
-        title={t("sales.quotations.confirmCancelTitle")}
-        description={t("sales.quotations.confirmCancelDescription")}
-        confirmLabel={t("sales.quotations.actions.cancel")}
-        cancelLabel={t("common.close")}
-        onConfirm={async () => {
-          setCancelTarget(false);
-          await runTransition(
-            (qid) => salesQuotationsService.cancel(qid),
-            "sales.quotations.toasts.cancelled",
-          );
-        }}
       />
 
       {quotation && (

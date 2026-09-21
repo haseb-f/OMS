@@ -1,5 +1,6 @@
+import type { DocumentAction } from "@/components/documents/document-action-bar";
+import type { TraceKind } from "@/services/traceability-service";
 import type { ReactNode } from "react";
-import type { LucideIcon } from "lucide-react";
 import type { StatusTone } from "@/components/business/status-badge";
 import type { PartnerRow } from "@/services/partners-service";
 import type { CurrencyRow } from "@/config/master-data/entities";
@@ -26,8 +27,7 @@ export interface PurchaseDocumentStatusOption {
   tone: StatusTone;
 }
 
-export type PurchaseDocumentWorkflowActionKey =
-  "submit" | "approve" | "reject" | "confirm" | "cancel" | "convert" | "recordPayment" | "print";
+export type PurchaseDocumentWorkflowActionKey = string;
 
 export interface PurchaseDocumentEditorActionContext<TDocument> {
   document: TDocument | null;
@@ -35,14 +35,9 @@ export interface PurchaseDocumentEditorActionContext<TDocument> {
   supplier: PartnerRow | null;
 }
 
-export interface PurchaseDocumentWorkflowAction<TDocument> {
-  key: PurchaseDocumentWorkflowActionKey;
-  label: string;
-  icon?: LucideIcon;
-  variant?: "default" | "outline" | "destructive" | "ghost";
-  visibleForStatuses?: string[];
-  onAction: (context: PurchaseDocumentEditorActionContext<TDocument>) => void | Promise<void>;
-}
+export type PurchaseDocumentWorkflowAction<TDocument> = DocumentAction<
+  PurchaseDocumentEditorActionContext<TDocument>
+>;
 
 export interface PurchaseDocumentNumberingConfig {
   documentType: string;
@@ -63,6 +58,10 @@ export type PurchaseDocumentPrintPayloadBuilder<TDocument> = (
 ) => DocumentPrintPayload;
 
 export interface PurchaseDocumentEditorConfig<TDocument> {
+  /** Related-records panel for the saved document (canonical traceability). */
+  trace?: { kind: TraceKind; id: string | null };
+  /** Purchase Invoice: lines may be capitalized as fixed assets or deferred as prepaid expenses. */
+  enableLineTreatment?: boolean;
   title: string;
   documentType: string;
   permissions: PurchaseDocumentPermissions;

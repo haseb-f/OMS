@@ -32,6 +32,18 @@ export interface PaymentReviewRow {
   } | null;
 }
 
+/** What happened to the Customer Receipt / JE after verification. */
+export type PaymentCollectionResult =
+  | { status: "NOT_APPLICABLE" | "PENDING_INVOICE" }
+  | { status: "POSTED"; receipts: Array<{ id: string; transactionNumber: string }> }
+  | { status: "FAILED"; message: string };
+
+export interface PaymentVerifyResult {
+  id: string;
+  status: PaymentReviewStatus;
+  collection: PaymentCollectionResult;
+}
+
 export interface PaymentReviewResult {
   items: PaymentReviewRow[];
   total: number;
@@ -54,8 +66,9 @@ export const paymentsReviewService = {
     apiClient.get<PaymentReviewResult>(`/payments${qs(params)}`),
   match: (id: string, matchedById: string) =>
     apiClient.post(`/payments/${id}/match`, { matchedById }),
+  /** Idempotent — re-verifying a VERIFIED payment only retries the receipt posting. */
   verify: (id: string, verifiedById: string) =>
-    apiClient.post(`/payments/${id}/verify`, { verifiedById }),
+    apiClient.post<PaymentVerifyResult>(`/payments/${id}/verify`, { verifiedById }),
   reject: (id: string, rejectedById: string, rejectionReason?: string) =>
     apiClient.post(`/payments/${id}/reject`, { rejectedById, rejectionReason }),
 };

@@ -60,3 +60,12 @@ export const RECORD_ROUTES: Record<
 export function recordHref(kind: TraceKind, id: string): string | null {
   return RECORD_ROUTES[kind]?.href?.(id) ?? null;
 }
+
+/** Stock movement `referenceType` → the document kind that created it. */
+export const MOVEMENT_REFERENCE_KIND: Record<string, TraceKind> = {
+  SALES_ORDER_DOC: "SALES_ORDER",
+  SALES_INVOICE: "SALES_INVOICE",
+  SALES_RETURN: "SALES_RETURN",
+  PURCHASE_INVOICE: "PURCHASE_INVOICE",
+  PURCHASE_RETURN: "PURCHASE_RETURN",
+};

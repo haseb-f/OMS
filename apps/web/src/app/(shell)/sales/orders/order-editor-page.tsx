@@ -32,8 +32,6 @@ import {
 import type { PartnerRow } from "@/services/partners-service";
 import type { CurrencyRow } from "@/config/master-data/entities";
 import { buildOrderStatusOptions } from "@/config/sales/order-status";
-import { INVOICE_STATUS_LABEL_KEY, INVOICE_STATUS_TONE } from "@/config/sales/invoice-status";
-import { RelatedDocuments } from "@/components/shared/related-documents";
 import { buildOrderPrintPayload } from "@/config/sales/order-print";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
@@ -41,6 +39,7 @@ import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { toast } from "@/lib/toast";
+import { lifecycleActions } from "@/config/documents/lifecycle-actions";
 import { ApiError } from "@/services/api-client";
 import { ConvertToInvoiceDialog } from "./convert-to-invoice-dialog";
 
@@ -184,14 +183,17 @@ export function OrderEditorPage({ id }: { id: string | null }) {
   };
 
   const runTransition = async (
-    action: (orderId: string) => Promise<SalesOrderRow>,
+    action: (orderId: string) => Promise<SalesOrderRow | null>,
     successKey: Parameters<typeof t>[0],
   ) => {
     if (!id) return;
     setIsTransitioning(true);
     try {
       const updated = await action(id);
-      applyOrder(updated);
+      if (!updated) return;
+      // Transition responses are partial (no payment summary / related
+      // documents); always re-read the full document before rendering it.
+      applyOrder(await salesOrdersService.get(id));
       toast.success(t(successKey));
       refreshActivity(id);
     } catch (error) {
@@ -247,31 +249,36 @@ export function OrderEditorPage({ id }: { id: string | null }) {
           {t("common.save")}
         </EnterpriseButton>
       ),
+      trace: { kind: "SALES_ORDER", id },
       workflowActions: [
         {
           key: "submit",
+          primary: true,
           label: t("sales.orders.actions.submit"),
           icon: Send,
-          variant: "outline",
           visibleForStatuses: ["DRAFT"],
           onAction: () =>
             runTransition((oid) => salesOrdersService.submit(oid), "sales.orders.toasts.submitted"),
         },
         {
           key: "approve",
+          primary: true,
           label: t("sales.orders.actions.approve"),
           icon: CheckCircle2,
-          variant: "outline",
-          visibleForStatuses: ["PENDING_APPROVAL"],
+          visibleForStatuses: ["DRAFT", "PENDING_APPROVAL"],
           onAction: () =>
             runTransition((oid) => salesOrdersService.approve(oid), "sales.orders.toasts.approved"),
         },
         {
           key: "confirm",
+          primary: true,
           label: t("sales.orders.actions.confirm"),
           icon: PackageCheck,
-          variant: "outline",
-          visibleForStatuses: ["APPROVED"],
+          visibleForStatuses: ["DRAFT", "PENDING_APPROVAL", "APPROVED"],
+          confirm: {
+            title: t("docFlow.flow.orderTitle"),
+            description: t("docFlow.flow.orderDescription"),
+          },
           onAction: () =>
             runTransition(
               (oid) => salesOrdersService.confirm(oid),
@@ -280,9 +287,9 @@ export function OrderEditorPage({ id }: { id: string | null }) {
         },
         {
           key: "convert",
+          primary: true,
           label: t("sales.orders.actions.convertToInvoice"),
           icon: ArrowRightCircle,
-          variant: "outline",
           visibleForStatuses: ["CONFIRMED", "PARTIALLY_DELIVERED"],
           onAction: () => setConvertOpen(true),
         },
@@ -290,7 +297,7 @@ export function OrderEditorPage({ id }: { id: string | null }) {
           key: "cancel",
           label: t("sales.orders.actions.cancel"),
           icon: Ban,
-          variant: "destructive",
+          destructive: true,
           visibleForStatuses: ["DRAFT", "PENDING_APPROVAL", "APPROVED", "CONFIRMED"],
           onAction: () => setCancelTarget(true),
         },
@@ -298,13 +305,46 @@ export function OrderEditorPage({ id }: { id: string | null }) {
           key: "print",
           label: t("table.print"),
           icon: Printer,
-          variant: "outline",
           onAction: () => handlePrint(),
         },
+        ...lifecycleActions({
+          t,
+          documentLabel: order?.orderNumber ?? "",
+          canCreate: hasPermission("sales.orders.create"),
+          canEdit: hasPermission("sales.orders.edit"),
+          returnToDraftStatuses: ["PENDING_APPROVAL", "APPROVED", "CONFIRMED", "CANCELLED"],
+          onDuplicate: async () => {
+            if (!id) return;
+            try {
+              const copy = await salesOrdersService.duplicate(id);
+              toast.success(t("docFlow.lifecycle.duplicated", { number: copy.orderNumber }));
+              router.push(`/sales/orders/${copy.id}`);
+            } catch (error) {
+              toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+            }
+          },
+          onReturnToDraft: () =>
+            runTransition(
+              (docId) => salesOrdersService.returnToDraft(docId),
+              "docFlow.lifecycle.returnedToDraft",
+            ),
+        }),
       ],
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, isSaving, isTransitioning, order, customer, currency, lines, referenceNumber, notes, terms],
+    [
+      t,
+      isSaving,
+      isTransitioning,
+      order,
+      customer,
+      currency,
+      lines,
+      referenceNumber,
+      notes,
+      terms,
+      id,
+    ],
   );
 
   const state: SalesDocumentEditorState<SalesOrderRow> = {
@@ -343,44 +383,24 @@ export function OrderEditorPage({ id }: { id: string | null }) {
 
   return (
     <EditorWorkspace>
-      <RelatedDocuments
-        groups={[
-          {
-            labelKey: "sales.orders.fromQuotation",
-            links:
-              order?.quotation && order.quotationId
-                ? [
-                    {
-                      id: order.quotationId,
-                      number: order.quotation.quotationNumber,
-                      href: `/sales/quotations/${order.quotationId}`,
-                    },
-                  ]
-                : [],
-          },
-          {
-            labelKey: "sales.orders.relatedInvoices",
-            links: (order?.invoices ?? []).map((invoice) => ({
-              id: invoice.id,
-              number: invoice.invoiceNumber,
-              href: `/sales/invoices/${invoice.id}`,
-              statusLabel: t(INVOICE_STATUS_LABEL_KEY[invoice.status]),
-              statusTone: INVOICE_STATUS_TONE[invoice.status],
-            })),
-          },
-        ]}
-      />
-
       <SalesDocumentEditor
         config={{
           ...config,
-          workflowActions: config.workflowActions.filter((action) => {
-            if (action.key === "approve" && !canApprove) return false;
-            if (action.key === "confirm" && !canConfirm) return false;
-            if (action.key === "cancel" && !canCancel) return false;
-            if (action.key === "print" && !order) return false;
-            return true;
-          }),
+          workflowActions: config.workflowActions
+            .map((action) =>
+              action.key === "confirm" && !canApprove
+                ? { ...action, visibleForStatuses: ["APPROVED"] }
+                : action,
+            )
+            .filter((action) => {
+              if (action.key === "submit" && canApprove) return false;
+              if (action.key === "approve" && canConfirm) return false;
+              if (action.key === "approve" && !canApprove) return false;
+              if (action.key === "confirm" && !canConfirm) return false;
+              if (action.key === "cancel" && !canCancel) return false;
+              if (action.key === "print" && !order) return false;
+              return true;
+            }),
         }}
         state={state}
         handlers={handlers}

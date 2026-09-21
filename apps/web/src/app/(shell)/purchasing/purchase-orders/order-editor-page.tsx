@@ -31,8 +31,6 @@ import {
 } from "@/services/purchase-orders-service";
 import type { PartnerRow } from "@/services/partners-service";
 import { buildOrderStatusOptions } from "@/config/purchasing/order-status";
-import { INVOICE_STATUS_LABEL_KEY, INVOICE_STATUS_TONE } from "@/config/purchasing/invoice-status";
-import { RelatedDocuments } from "@/components/shared/related-documents";
 import { buildOrderPrintPayload } from "@/config/purchasing/order-print";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
@@ -40,6 +38,7 @@ import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { toast } from "@/lib/toast";
+import { lifecycleActions } from "@/config/documents/lifecycle-actions";
 import { ApiError } from "@/services/api-client";
 import { ConvertToInvoiceDialog } from "./convert-to-invoice-dialog";
 
@@ -206,14 +205,17 @@ export function OrderEditorPage({ id }: { id: string | null }) {
   };
 
   const runTransition = async (
-    action: (orderId: string) => Promise<PurchaseOrderRow>,
+    action: (orderId: string) => Promise<PurchaseOrderRow | null>,
     successKey: Parameters<typeof t>[0],
   ) => {
     if (!id) return;
     setIsTransitioning(true);
     try {
       const updated = await action(id);
-      applyOrder(updated);
+      if (!updated) return;
+      // Transition responses are partial (no payment summary / related
+      // documents); always re-read the full document before rendering it.
+      applyOrder(await purchaseOrdersService.get(id));
       toast.success(t(successKey));
       refreshActivity(id);
     } catch (error) {
@@ -277,13 +279,18 @@ export function OrderEditorPage({ id }: { id: string | null }) {
             {t("common.save")}
           </EnterpriseButton>
         ) : undefined,
+      trace: { kind: "PURCHASE_ORDER", id },
       workflowActions: [
         {
           key: "approve",
+          primary: true,
           label: t("purchasing.orders.actions.approve"),
           icon: CheckCircle2,
-          variant: "outline",
           visibleForStatuses: ["DRAFT"],
+          confirm: {
+            title: t("docFlow.flow.purchaseOrderTitle"),
+            description: t("docFlow.flow.purchaseOrderDescription"),
+          },
           onAction: () =>
             runTransition(
               (oid) => purchaseOrdersService.approve(oid),
@@ -292,9 +299,9 @@ export function OrderEditorPage({ id }: { id: string | null }) {
         },
         {
           key: "convert",
+          primary: true,
           label: t("purchasing.orders.actions.convertToInvoice"),
           icon: ArrowRightCircle,
-          variant: "outline",
           visibleForStatuses: ["APPROVED"],
           onAction: () => setConvertOpen(true),
         },
@@ -302,7 +309,7 @@ export function OrderEditorPage({ id }: { id: string | null }) {
           key: "cancel",
           label: t("purchasing.orders.actions.cancel"),
           icon: Ban,
-          variant: "destructive",
+          destructive: true,
           visibleForStatuses: ["DRAFT", "APPROVED"],
           onAction: () => setCancelTarget(true),
         },
@@ -310,7 +317,6 @@ export function OrderEditorPage({ id }: { id: string | null }) {
           key: "reject",
           label: t("common.close"),
           icon: Lock,
-          variant: "outline",
           visibleForStatuses: ["APPROVED"],
           onAction: () => setCloseTarget(true),
         },
@@ -318,9 +324,30 @@ export function OrderEditorPage({ id }: { id: string | null }) {
           key: "print",
           label: t("table.print"),
           icon: Printer,
-          variant: "outline",
           onAction: () => handlePrint(),
         },
+        ...lifecycleActions({
+          t,
+          documentLabel: order?.poNumber ?? "",
+          canCreate: hasPermission("purchasing.orders.create"),
+          canEdit: hasPermission("purchasing.orders.edit"),
+          returnToDraftStatuses: ["APPROVED", "CANCELLED"],
+          onDuplicate: async () => {
+            if (!id) return;
+            try {
+              const copy = await purchaseOrdersService.duplicate(id);
+              toast.success(t("docFlow.lifecycle.duplicated", { number: copy.poNumber }));
+              router.push(`/purchasing/purchase-orders/${copy.id}`);
+            } catch (error) {
+              toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+            }
+          },
+          onReturnToDraft: () =>
+            runTransition(
+              (docId) => purchaseOrdersService.returnToDraft(docId),
+              "docFlow.lifecycle.returnedToDraft",
+            ),
+        }),
       ],
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -372,34 +399,6 @@ export function OrderEditorPage({ id }: { id: string | null }) {
 
   return (
     <EditorWorkspace>
-      <RelatedDocuments
-        groups={[
-          {
-            labelKey: "purchasing.orders.fromQuotation",
-            links:
-              order?.quotation && order.quotationId
-                ? [
-                    {
-                      id: order.quotationId,
-                      number: order.quotation.quotationNumber,
-                      href: `/purchasing/purchase-quotations/${order.quotationId}`,
-                    },
-                  ]
-                : [],
-          },
-          {
-            labelKey: "purchasing.orders.relatedInvoices",
-            links: (order?.invoices ?? []).map((invoice) => ({
-              id: invoice.id,
-              number: invoice.invoiceNumber,
-              href: `/purchasing/purchase-invoices/${invoice.id}`,
-              statusLabel: t(INVOICE_STATUS_LABEL_KEY[invoice.status]),
-              statusTone: INVOICE_STATUS_TONE[invoice.status],
-            })),
-          },
-        ]}
-      />
-
       <PurchasingDocumentEditor
         config={{
           ...config,

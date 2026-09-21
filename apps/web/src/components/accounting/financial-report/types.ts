@@ -36,7 +36,26 @@ export interface FinancialReportColumn {
 
 export interface FinancialReportFooter {
   values: Record<string, number>;
-  balanced?: boolean;
+}
+
+/**
+ * The deliberate summary above a report: its key final figures, and — for
+ * reports that must balance (Trial Balance, Balance Sheet) — the check with
+ * the exact discrepancy, so an imbalance is never a single red word.
+ */
+export interface FinancialReportSummary {
+  items: Array<{ label: string; value: number; emphasize?: boolean }>;
+  check?: { balanced: boolean; difference: number; label: string };
+}
+
+/** Finds a line anywhere in the tree by id (e.g. "revenue:total"). */
+export function findLine(lines: FinancialReportLine[], id: string): FinancialReportLine | null {
+  for (const line of lines) {
+    if (line.id === id) return line;
+    const nested = findLine(line.children, id);
+    if (nested) return nested;
+  }
+  return null;
 }
 
 export function flattenVisibleLines(

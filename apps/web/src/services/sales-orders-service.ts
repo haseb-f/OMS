@@ -157,6 +157,10 @@ export const salesOrdersService = {
   submit: (id: string) => apiClient.post<SalesOrderRow>(`/sales/orders/${id}/submit`),
   approve: (id: string) => apiClient.post<SalesOrderRow>(`/sales/orders/${id}/approve`),
   confirm: (id: string) => apiClient.post<SalesOrderRow>(`/sales/orders/${id}/confirm`),
+  /** New Draft copy (business fields only). */
+  duplicate: (id: string) => apiClient.post<SalesOrderRow>(`/sales/orders/${id}/duplicate`),
+  returnToDraft: (id: string) =>
+    apiClient.post<SalesOrderRow>(`/sales/orders/${id}/return-to-draft`),
   cancel: (id: string) => apiClient.post<SalesOrderRow>(`/sales/orders/${id}/cancel`),
   /** Soft-delete — hides the order from the list without destroying data. Only allowed from Draft/Cancelled/Delivered/Closed (enforced server-side). */
   archive: (id: string) => apiClient.post<SalesOrderRow>(`/sales/orders/${id}/archive`),

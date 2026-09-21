@@ -1,5 +1,6 @@
 "use client";
 
+import { RelatedRecordsPanel } from "@/components/shared/related-records-panel";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -29,7 +30,6 @@ import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EditorHeader, EditorWorkspace } from "@/components/shared/detail-workspace";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
-import { RelatedDocuments } from "@/components/shared/related-documents";
 import { StatusBadge } from "@/components/business/status-badge";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
 import {
@@ -68,8 +68,6 @@ import { ApiError } from "@/services/api-client";
 import {
   isGeneratedJournalSource,
   isManualJournalSource,
-  journalSourceHref,
-  journalSourceLabelKey,
 } from "@/config/accounting/journal-source";
 
 const accountsService = createMasterDataService<ChartOfAccountRow>("/chart-of-accounts");
@@ -382,8 +380,6 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
   const canArchive = hasPermission("accounting.journal-entries.archive");
   const canDelete = hasPermission("accounting.journal-entries.archive");
 
-  const sourceHref = journalSourceHref(entry?.sourceType, entry?.sourceId);
-
   const activityEntries: TimelineEntry[] = (activity ?? []).map((a) => ({
     id: a.id,
     title: a.description,
@@ -414,27 +410,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
 
   return (
     <EditorWorkspace>
-      <RelatedDocuments
-        groups={[
-          {
-            labelKey: "accounting.journalEntries.fields.sourceDocument",
-            links:
-              entry?.sourceType && entry.sourceId && sourceHref
-                ? [
-                    {
-                      id: entry.sourceId,
-                      number: entry.referenceNumber ?? t(journalSourceLabelKey(entry.sourceType)),
-                      href: sourceHref,
-                    },
-                  ]
-                : [],
-            emptyLabel:
-              entry && isGenerated && !sourceHref
-                ? `${t(journalSourceLabelKey(entry.sourceType))}${entry.referenceNumber ? ` · ${entry.referenceNumber}` : ""}`
-                : undefined,
-          },
-        ]}
-      />
+      <RelatedRecordsPanel kind="JOURNAL_ENTRY" id={id} refreshKey={entry?.status} />
 
       {isLoading ? (
         <div className="p-8 text-caption text-muted-foreground">{t("common.loading")}</div>

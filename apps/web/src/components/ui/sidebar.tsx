@@ -175,6 +175,10 @@ function Sidebar({
   }
 
   if (isMobile) {
+    // `side` is PHYSICAL here (the desktop rail uses left/right CSS), but the
+    // Sheet positions itself LOGICALLY (left = start, right = end). Convert
+    // so the Arabic drawer slides in from the right edge, not the left.
+    const sheetSide = dir === "rtl" ? (side === "right" ? "left" : "right") : side;
     return (
       <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
         <SheetContent
@@ -188,7 +192,7 @@ function Sidebar({
               "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
             } as React.CSSProperties
           }
-          side={side}
+          side={sheetSide}
         >
           <SheetHeader className="sr-only">
             <SheetTitle>Sidebar</SheetTitle>

@@ -126,6 +126,10 @@ export const purchaseOrdersService = {
   update: (id: string, dto: Partial<PurchaseOrderFormPayload>) =>
     apiClient.patch<PurchaseOrderRow>(`/purchase-orders/${id}`, dto),
   approve: (id: string) => apiClient.post<PurchaseOrderRow>(`/purchase-orders/${id}/approve`),
+  /** New Draft copy (business fields only). */
+  duplicate: (id: string) => apiClient.post<PurchaseOrderRow>(`/purchase-orders/${id}/duplicate`),
+  returnToDraft: (id: string) =>
+    apiClient.post<PurchaseOrderRow>(`/purchase-orders/${id}/return-to-draft`),
   cancel: (id: string) => apiClient.post<PurchaseOrderRow>(`/purchase-orders/${id}/cancel`),
   close: (id: string) => apiClient.post<PurchaseOrderRow>(`/purchase-orders/${id}/close`),
   /** Soft-delete — hides the PO from the list without destroying data. Only allowed from Draft/Cancelled/Closed (enforced server-side). */
