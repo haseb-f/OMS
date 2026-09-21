@@ -90,6 +90,8 @@ async function newPage(browser, { width = 1440, height = 900, locale = "en", the
     [locale, theme],
   );
   const page = await context.newPage();
+  page.setDefaultTimeout(60000);
+  page.setDefaultNavigationTimeout(90000);
   page.errors = [];
   page.on("pageerror", (error) => page.errors.push(error.message));
   return { context, page };
@@ -283,7 +285,7 @@ async function main() {
       record("guard: a payment cannot be reported against a 0.00 order", blocked.status === 400, blocked.json.message);
 
       const { context, page } = await newPage(browser, { locale: "en" });
-      await page.goto(`${BASE}/store-orders/${orderId}`, { waitUntil: "networkidle" });
+      await page.goto(`${BASE}/store-orders/${orderId}`, { waitUntil: "domcontentloaded" });
       await settle(page);
       const fixButton = page.getByRole("button", { name: "Correct agreed amounts" }).first();
       await fixButton.waitFor({ timeout: 30000 });
@@ -304,7 +306,7 @@ async function main() {
       evidence("p1Payment", payment?.paymentNumber);
 
       const review = await newPage(browser, { locale: "en" });
-      await review.page.goto(`${BASE}/finance/payment-review`, { waitUntil: "networkidle" });
+      await review.page.goto(`${BASE}/finance/payment-review`, { waitUntil: "domcontentloaded" });
       const row = review.page.locator("tr", { hasText: payment.paymentNumber });
       await row.waitFor({ timeout: 60000 });
       const hasMatchButton = await row.getByRole("button", { name: /^(Match|Verify)$/ }).count();
@@ -317,7 +319,7 @@ async function main() {
       const posted = await toastText(review.page);
       await review.page.screenshot({ path: `${OUT}/p1-confirmed-toast.png` });
       record("one confirmation: success message names receipt + JE", /confirmed — receipt CR-.* journal entry JV-/i.test(posted), posted);
-      await review.page.reload({ waitUntil: "networkidle" });
+      await review.page.reload({ waitUntil: "domcontentloaded" });
       await settle(review.page);
       record("confirmed payment leaves the queue after reload", (await review.page.locator("tr", { hasText: payment.paymentNumber }).count()) === 0);
 
@@ -359,7 +361,7 @@ async function main() {
       const order3 = await createOrder(300, "Reject");
       await reportPayment(order3.json.id, 300);
       const pay3 = await findPayment(order3.json.id);
-      await review.page.reload({ waitUntil: "networkidle" });
+      await review.page.reload({ waitUntil: "domcontentloaded" });
       const row3 = review.page.locator("tr", { hasText: pay3.paymentNumber });
       await row3.waitFor({ timeout: 60000 });
       await row3.getByTestId("payment-reject").click();
@@ -462,7 +464,7 @@ async function main() {
       }
       evidence(`${flow.kind}Invoice`, flow.doc.invoiceNumber);
       const { context, page } = await newPage(browser, { locale: "en" });
-      await page.goto(`${BASE}${flow.pagePath}`, { waitUntil: "networkidle" });
+      await page.goto(`${BASE}${flow.pagePath}`, { waitUntil: "domcontentloaded" });
       const btn = page.getByRole("button", { name: flow.button }).first();
       await btn.waitFor({ timeout: 60000 });
       await btn.click();
@@ -485,7 +487,7 @@ async function main() {
       await page.waitForURL(/\/payments\/[0-9a-f-]{36}$/, { timeout: 60000 }).catch(() => {});
       await settle(page);
       const voucherId = page.url().split("/").pop();
-      await page.reload({ waitUntil: "networkidle" });
+      await page.reload({ waitUntil: "domcontentloaded" });
       await settle(page, 2000);
       await page.screenshot({ path: `${OUT}/p2-${flow.kind}-voucher-posted.png`, fullPage: true });
       const voucher = await api("GET", `${flow.voucherApi}/${voucherId}`);
@@ -504,7 +506,7 @@ async function main() {
       record(`${flow.kind}: voucher JE exposed + balanced`, jes.length === 1 && je.ok, `${je.entryNumber} dr=${je.dr} cr=${je.cr}`);
       evidence(`${flow.kind}Voucher`, `${BASE}${flow.kind === "sales" ? "/sales/payments/" : "/purchasing/payments/"}${voucherId}`);
       evidence(`${flow.kind}VoucherJe`, je.entryNumber);
-      await page.goto(`${BASE}${flow.pagePath}`, { waitUntil: "networkidle" });
+      await page.goto(`${BASE}${flow.pagePath}`, { waitUntil: "domcontentloaded" });
       await settle(page);
       const paidShown = await page.getByText(/^(Paid|Fully paid)$/i).first().isVisible().catch(() => false);
       record(`${flow.kind}: invoice page shows Paid, no crash`, paidShown && page.errors.length === 0, page.errors.join(" | "));
@@ -520,7 +522,7 @@ async function main() {
       ["mobile sales quotation", { width: 390, height: 844 }, "/sales/quotations/new"],
     ]) {
       const { context, page } = await newPage(browser, { ...viewport, locale: "en" });
-      await page.goto(`${BASE}${path}`, { waitUntil: "networkidle" });
+      await page.goto(`${BASE}${path}`, { waitUntil: "domcontentloaded" });
       await settle(page);
       const partyTrigger = page.getByRole("combobox").filter({ hasText: /Select (Customer|Supplier)/ }).filter({ visible: true }).first();
       await partyTrigger.click();
@@ -556,7 +558,7 @@ async function main() {
     // inline quick-create keeps the document and selects the new record
     {
       const { context, page } = await newPage(browser, { locale: "en" });
-      await page.goto(`${BASE}/sales/quotations/new`, { waitUntil: "networkidle" });
+      await page.goto(`${BASE}/sales/quotations/new`, { waitUntil: "domcontentloaded" });
       await settle(page);
       await page.getByTestId("browse-products").filter({ visible: true }).first().click();
       const dialog = page.getByRole("dialog").last();
@@ -590,7 +592,7 @@ async function main() {
       if (!salesFlow) break;
       const { context, page } = await newPage(browser, opts);
       const invoiceUrl = `${BASE}${salesFlow.pagePath}`;
-      await page.goto(`${invoiceUrl}?tab=overview`, { waitUntil: "networkidle" });
+      await page.goto(`${invoiceUrl}?tab=overview`, { waitUntil: "domcontentloaded" });
       await settle(page, 1500);
       await page.evaluate(() => window.scrollTo(0, 240));
       await page.waitForTimeout(300);
@@ -629,7 +631,7 @@ async function main() {
     const exportSummary = {};
     for (const locale of ["ar", "en"]) {
       const { context, page } = await newPage(browser, { locale });
-      await page.goto(`${BASE}/reports/finance?report=trialBalance`, { waitUntil: "networkidle" });
+      await page.goto(`${BASE}/reports/finance?report=trialBalance`, { waitUntil: "domcontentloaded" });
       await settle(page, 2500);
       for (const format of ["xlsx", "csv"]) {
         await page.getByRole("button", { name: locale === "ar" ? "تصدير" : "Export" }).filter({ visible: true }).first().click();
@@ -666,7 +668,7 @@ async function main() {
       ["AR mobile", { locale: "ar", width: 390, height: 844 }],
     ]) {
       const { context, page } = await newPage(browser, opts);
-      await page.goto(`${BASE}/reports/finance?report=incomeStatement`, { waitUntil: "networkidle" });
+      await page.goto(`${BASE}/reports/finance?report=incomeStatement`, { waitUntil: "domcontentloaded" });
       await settle(page, 2500);
       const tones = await page.evaluate(() =>
         Array.from(document.querySelectorAll("[data-tone]")).map((el) => el.getAttribute("data-tone")),
@@ -683,7 +685,7 @@ async function main() {
       );
       record(`${label}: income statement numeric headers/body/footer aligned`, align.checked > 0 && align.issues.length === 0, `${align.checked} columns ${align.issues.join("; ")}`);
       record(`${label}: no horizontal page scroll`, await noOverflow(page));
-      await page.goto(`${BASE}/reports/finance?report=trialBalance`, { waitUntil: "networkidle" });
+      await page.goto(`${BASE}/reports/finance?report=trialBalance`, { waitUntil: "domcontentloaded" });
       await settle(page, 2500);
       const tb = await alignmentReport(page);
       const balanced = await page.getByText(/Balanced|متوازن/).first().isVisible().catch(() => false);
@@ -696,7 +698,7 @@ async function main() {
     ]) {
       for (const locale of ["ar", "en"]) {
         const { context, page } = await newPage(browser, { locale });
-        await page.goto(`${BASE}${path}`, { waitUntil: "networkidle" });
+        await page.goto(`${BASE}${path}`, { waitUntil: "domcontentloaded" });
         await settle(page, 2000);
         const align = await alignmentReport(page);
         record(`${label} ${locale}: numeric header/body alignment`, align.issues.length === 0, `${align.checked} columns ${align.issues.join("; ")}`);
@@ -725,7 +727,7 @@ async function main() {
       evidence("cashFlowTotals", { movement: m, activities: a, trialBalanceStatus: tbRes.status });
 
       const { context, page } = await newPage(browser, { locale: "en" });
-      await page.goto(`${BASE}/reports/finance?report=cashFlow&view=movement`, { waitUntil: "networkidle" });
+      await page.goto(`${BASE}/reports/finance?report=cashFlow&view=movement`, { waitUntil: "domcontentloaded" });
       await settle(page, 2500);
       const text = await page.locator("main").last().innerText();
       await page.screenshot({ path: `${OUT}/p7-cash-flow-movement.png`, fullPage: true });
