@@ -1,5 +1,7 @@
+import { DepreciationMethod } from '@prisma/client';
 import {
   IsDateString,
+  IsEnum,
   IsInt,
   IsNumber,
   IsOptional,
@@ -36,6 +38,10 @@ export class CapitalizeFixedAssetDto {
   @IsInt()
   @Min(1)
   usefulLifeMonths!: number;
+
+  @IsEnum(DepreciationMethod)
+  @IsOptional()
+  depreciationMethod?: DepreciationMethod;
 
   @IsNumber()
   @Min(0)

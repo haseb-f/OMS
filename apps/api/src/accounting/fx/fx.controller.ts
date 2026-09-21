@@ -10,12 +10,16 @@ import {
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { PermissionModule } from '../../auth/decorators/permission-module.decorator';
-import { PermissionAction } from '../../auth/decorators/permission-action.decorator';
+import {
+  PermissionAction,
+  SkipPermissionCheck,
+} from '../../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../../auth/guards/jwt-auth.guard';
 import { ExchangeRatesService } from './exchange-rates.service';
 import { FxRevaluationService } from './fx-revaluation.service';
 import {
+  CheckExchangeRateQueryDto,
   CreateExchangeRateDto,
   ExchangeRateQueryDto,
   RunFxRevaluationDto,
@@ -35,6 +39,18 @@ export class ExchangeRatesController {
   @Get()
   findAll(@Query() query: ExchangeRateQueryDto) {
     return this.exchangeRates.findAll(query);
+  }
+
+  /** Read-only "is a rate on record?" probe used before posting any
+   *  foreign-currency document — open to every signed-in user who can post
+   *  documents, not only exchange-rate administrators. */
+  @Get('check')
+  @SkipPermissionCheck()
+  check(@Query() query: CheckExchangeRateQueryDto) {
+    return this.exchangeRates.checkRate(
+      query.currencyId,
+      query.asOf ? new Date(query.asOf) : new Date(),
+    );
   }
 
   @Get(':id')

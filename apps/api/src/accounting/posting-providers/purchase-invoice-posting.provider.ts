@@ -1,5 +1,5 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, PurchaseLineTreatment } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PostingEngineService } from '../posting-engine/posting-engine.service';
 import { InventoryValuationService } from '../inventory-valuation/inventory-valuation.service';
@@ -81,8 +81,29 @@ export class PurchaseInvoicePostingProvider
     const lines: PostingLine[] = [];
     const debitByAccount = new Map<string, number>();
 
+    // Capitalized / deferred lines post one debit line each (never merged),
+    // so each linked Fixed Asset / Prepaid Expense carries exactly the base
+    // amount this entry recorded for it.
+    const recognitionLines: PostingLine[] = [];
     for (const item of invoice.items) {
       const netAmount = Number(item.lineTotal) - Number(item.taxAmount);
+      const roundedNet = Math.round(netAmount * 100) / 100;
+      if (item.treatment === PurchaseLineTreatment.FIXED_ASSET) {
+        recognitionLines.push({
+          accountId: await this.accountMapping.resolveFixedAssetsAccount(tx),
+          debit: roundedNet,
+          description: `Fixed asset — ${invoice.invoiceNumber}`,
+        });
+        continue;
+      }
+      if (item.treatment === PurchaseLineTreatment.PREPAID_EXPENSE) {
+        recognitionLines.push({
+          accountId: await this.accountMapping.resolvePrepaymentsAccount(tx),
+          debit: roundedNet,
+          description: `Prepaid expense — ${invoice.invoiceNumber}`,
+        });
+        continue;
+      }
       if (item.product.isInventoryItem) {
         const accountId = await this.accountMapping.resolveInventoryAccount(
           item.product.categoryId,
@@ -119,6 +140,7 @@ export class PurchaseInvoicePostingProvider
         description: `Purchase Invoice ${invoice.invoiceNumber}`,
       });
     }
+    lines.push(...recognitionLines.filter((line) => line.debit !== 0));
 
     const taxAmounts = new Map<string, number>();
     assertPostedTaxAmountsHaveTax(

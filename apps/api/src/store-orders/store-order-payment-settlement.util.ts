@@ -55,6 +55,11 @@ export function assertCanAcceptPayment(
   if (roundedAmount <= 0) {
     throw new BadRequestException('Payment amount must be greater than zero.');
   }
+  if (settlement.total <= 0.005) {
+    throw new BadRequestException(
+      'This order has no priced lines (total 0.00) — set the agreed line amounts before recording a payment.',
+    );
+  }
   if (settlement.fullySettled) {
     throw new BadRequestException(
       'This document is fully paid and settled — another payment cannot be accepted.',
@@ -70,13 +75,53 @@ export function assertCanAcceptPayment(
 export function assertCanVerifyPayment(
   settlement: StoreOrderSettlement,
   amount: number,
+  verifiedPaymentNumbers: string[] = [],
 ): void {
   const roundedAmount = roundMoney(amount);
-  if (settlement.paid + roundedAmount > settlement.total + 0.005) {
+  if (settlement.paid + roundedAmount <= settlement.total + 0.005) return;
+  if (settlement.total <= 0.005) {
     throw new BadRequestException(
-      `Verifying ${roundedAmount.toFixed(2)} would overpay this document — only ${settlement.outstanding.toFixed(2)} remains.`,
+      `Verifying ${roundedAmount.toFixed(2)} is not possible — the order total is 0.00. Set the agreed line amounts on the order first.`,
     );
   }
+  const already =
+    verifiedPaymentNumbers.length > 0
+      ? ` Already verified: ${verifiedPaymentNumbers.join(', ')} (${settlement.paid.toFixed(2)} of ${settlement.total.toFixed(2)}).`
+      : '';
+  throw new BadRequestException(
+    `Verifying ${roundedAmount.toFixed(2)} would overpay this document — only ${settlement.outstanding.toFixed(2)} remains.${already} Reject this payment if it duplicates one already verified.`,
+  );
+}
+
+/** Store Order money is single-currency: a payment in another currency would
+ *  be summed against the order total as if it were the same unit. */
+export function assertPaymentCurrency(
+  orderCurrencyId: string,
+  paymentCurrencyId: string | null | undefined,
+): void {
+  if (paymentCurrencyId && paymentCurrencyId !== orderCurrencyId) {
+    throw new BadRequestException(
+      "Payment currency must match the order's currency.",
+    );
+  }
+}
+
+export async function verifiedPaymentNumbers(
+  client: Prisma.TransactionClient | Prisma.DefaultPrismaClient,
+  storeOrderId: string,
+  excludePaymentId?: string,
+): Promise<string[]> {
+  const rows = await client.payment.findMany({
+    where: {
+      storeOrderId,
+      deletedAt: null,
+      status: PaymentStatus.VERIFIED,
+      ...(excludePaymentId ? { id: { not: excludePaymentId } } : {}),
+    },
+    select: { paymentNumber: true },
+    orderBy: { verifiedAt: 'asc' },
+  });
+  return rows.map((row) => row.paymentNumber);
 }
 
 export async function lockStoreOrderRow(
@@ -99,6 +144,7 @@ export async function computeStoreOrderSettlement(
     where: { id: storeOrderId, deletedAt: null },
     include: {
       items: {
+        where: { deletedAt: null },
         select: { quantity: true, unitPrice: true, agreedAmount: true },
       },
     },

@@ -295,11 +295,18 @@ export class InventoryService {
     );
   }
 
-  async reserve(dto: ReserveDto, userId?: string) {
+  /** Accepts an optional caller-supplied `tx` so a multi-line reservation
+   *  (Sales Order confirm) is all-or-nothing — a retry after a failed line
+   *  must never double-reserve the lines that had already succeeded. */
+  async reserve(
+    dto: ReserveDto,
+    userId?: string,
+    outerTx?: Prisma.TransactionClient,
+  ) {
     const product = await this.assertInventoryProduct(dto.productId);
     const warehouse = await this.assertActiveWarehouse(dto.warehouseId);
 
-    return this.prisma.$transaction(async (tx) => {
+    const run = async (tx: Prisma.TransactionClient) => {
       const onHand = await this.getOnHandQuantity(
         tx,
         dto.productId,
@@ -314,7 +321,7 @@ export class InventoryService {
 
       if (dto.quantity > available) {
         throw new BadRequestException(
-          'Reservation quantity exceeds available stock.',
+          `Cannot reserve ${dto.quantity} of ${product.sku} at ${warehouse.code} — only ${Math.max(available, 0)} available.`,
         );
       }
 
@@ -345,7 +352,8 @@ export class InventoryService {
       );
 
       return movement;
-    });
+    };
+    return outerTx ? run(outerTx) : this.prisma.$transaction(run);
   }
 
   /** Accepts an optional caller-supplied `tx` (TASK-057) — see `postPurchaseReceipt`'s doc comment for why. */

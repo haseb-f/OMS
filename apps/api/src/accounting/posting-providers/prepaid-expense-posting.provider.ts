@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PostingEngineService } from '../posting-engine/posting-engine.service';
@@ -46,6 +46,14 @@ export class PrepaidExpensePostingProvider
     });
     const amount = Number(prepaid.amount);
     if (amount === 0) return null;
+    // Deferred by a Purchase Invoice line: that invoice's JE already debited
+    // Prepayments against AP — activation must never post it a second time.
+    if (prepaid.purchaseInvoiceItemId) return null;
+    if (!prepaid.receivingAccount) {
+      throw new BadRequestException(
+        `Prepaid ${prepaid.prepaidNumber} has no receiving account to pay it from.`,
+      );
+    }
     const prepaidAccount =
       await this.accountMapping.resolvePrepaymentsAccount(tx);
     const lines: PostingLine[] = [

@@ -3,6 +3,7 @@ import { PurchaseInvoicesController } from './purchase-invoices.controller';
 import { PurchaseInvoicesService } from './purchase-invoices.service';
 import { PurchaseInvoiceActivitiesController } from './activities/purchase-invoice-activities.controller';
 import { PurchaseInvoiceActivityService } from './activities/purchase-invoice-activity.service';
+import { PurchaseLineRecognitionService } from './purchase-line-recognition.service';
 import { PartnersModule } from '../../partners/partners.module';
 import { ProductsModule } from '../../products/products.module';
 import { WarehousesModule } from '../../warehouses/warehouses.module';
@@ -23,7 +24,11 @@ import { PostingEngineModule } from '../../accounting/posting-engine/posting-eng
     PurchaseInvoicesController,
     PurchaseInvoiceActivitiesController,
   ],
-  providers: [PurchaseInvoicesService, PurchaseInvoiceActivityService],
+  providers: [
+    PurchaseInvoicesService,
+    PurchaseInvoiceActivityService,
+    PurchaseLineRecognitionService,
+  ],
   // PurchaseOrdersModule imports this to reach createFromOrder (Convert to Invoice).
   exports: [PurchaseInvoicesService],
 })

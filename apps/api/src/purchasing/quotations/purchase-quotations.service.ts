@@ -235,10 +235,11 @@ export class PurchaseQuotationsService {
     );
   }
 
+  /** Approvers approve a Draft directly — Submit is only for non-approvers. */
   approve(id: string) {
     return this.transition(
       id,
-      [PurchaseDocumentStatus.PENDING_APPROVAL],
+      [PurchaseDocumentStatus.DRAFT, PurchaseDocumentStatus.PENDING_APPROVAL],
       PurchaseDocumentStatus.APPROVED,
       PurchaseQuotationActivityType.QUOTATION_APPROVED,
       'approved',

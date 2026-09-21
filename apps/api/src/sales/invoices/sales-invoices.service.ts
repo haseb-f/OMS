@@ -10,6 +10,8 @@ import {
   SalesOrderDocument,
   SalesOrderDocumentItem,
 } from '@prisma/client';
+import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
+import { assertApprovalAuthority } from '../../common/workflow/approval-authority';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
 import { ProductsService } from '../../products/products.service';
@@ -62,6 +64,7 @@ export class SalesInvoicesService {
     private readonly numberingEngine: NumberingEngineService,
     private readonly postingEngine: PostingEngineService,
     private readonly accountMapping: AccountMappingService,
+    private readonly permissions: PermissionsResolverService,
   ) {}
 
   async create(
@@ -392,9 +395,26 @@ export class SalesInvoicesService {
    */
   async confirm(id: string, userId?: string) {
     const invoice = await this.findOne(id);
-    if (invoice.status !== SalesDocumentStatus.APPROVED) {
+    // Retry after a reload/timeout: the invoice is already posted — return
+    // it instead of failing (and never post twice).
+    if (invoice.status === SalesDocumentStatus.CONFIRMED) return invoice;
+    const postableFrom: SalesDocumentStatus[] = [
+      SalesDocumentStatus.DRAFT,
+      SalesDocumentStatus.PENDING_APPROVAL,
+      SalesDocumentStatus.APPROVED,
+    ];
+    if (!postableFrom.includes(invoice.status)) {
       throw new BadRequestException(
         `Cannot confirm Sales Invoice ${invoice.invoiceNumber} from ${invoice.status}.`,
+      );
+    }
+    const implicitApproval = invoice.status !== SalesDocumentStatus.APPROVED;
+    if (implicitApproval) {
+      await assertApprovalAuthority(
+        this.permissions,
+        userId,
+        'sales.invoices.approve',
+        `Sales Invoice ${invoice.invoiceNumber}`,
       );
     }
 
@@ -413,7 +433,29 @@ export class SalesInvoicesService {
     });
 
     return this.prisma.$transaction(async (tx) => {
+      // Optimistic status claim: two concurrent confirms (double click,
+      // two tabs) serialize here and the loser fails before touching stock.
+      const claimed = await tx.salesInvoice.updateMany({
+        where: { id, status: invoice.status },
+        data: { status: SalesDocumentStatus.CONFIRMED },
+      });
+      if (claimed.count === 0) {
+        throw new BadRequestException(
+          `Sales Invoice ${invoice.invoiceNumber} was changed by someone else — reload and try again.`,
+        );
+      }
+      if (implicitApproval) {
+        await this.activityService.log(
+          id,
+          SalesInvoiceActivityType.INVOICE_APPROVED,
+          `Sales Invoice ${invoice.invoiceNumber} approved`,
+          undefined,
+          tx,
+        );
+      }
       for (const item of invoice.items) {
+        // Services / non-stock lines deliver nothing and were never reserved.
+        if (!item.product.isInventoryItem) continue;
         await this.inventoryService.postSalesDelivery(
           {
             productId: item.productId,

@@ -14,7 +14,8 @@ export type ErrorCode =
   | 'DEPENDENCY_ERROR'
   | 'INVALID_CREDENTIALS'
   | 'ACCOUNT_DISABLED'
-  | 'ACCOUNT_LOCKED';
+  | 'ACCOUNT_LOCKED'
+  | 'MISSING_EXCHANGE_RATE';
 
 export interface ErrorFieldDetail {
   field: string;
@@ -25,4 +26,7 @@ export interface ErrorResponseBody {
   code: ErrorCode;
   message: string;
   fields?: ErrorFieldDetail[];
+  /** Machine-readable context for codes the UI can recover from in place
+   *  (e.g. MISSING_EXCHANGE_RATE carries the currency pair and date). */
+  details?: Record<string, unknown>;
 }

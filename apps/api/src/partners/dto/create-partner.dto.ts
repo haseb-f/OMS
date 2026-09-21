@@ -3,7 +3,6 @@ import {
   ArrayMinSize,
   ArrayUnique,
   IsArray,
-  IsEmail,
   IsEnum,
   IsNotEmpty,
   IsOptional,
@@ -17,6 +16,7 @@ import {
   PartnerStatus,
 } from '@prisma/client';
 import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
+import { IsOptionalEmail } from '../../common/decorators/is-optional-email.decorator';
 import { CustomerProfileInputDto } from './customer-profile-input.dto';
 import { SupplierProfileInputDto } from './supplier-profile-input.dto';
 import { EmployeeProfileInputDto } from './employee-profile-input.dto';
@@ -56,9 +56,8 @@ export class CreatePartnerDto {
   @IsOptional()
   mobile?: string;
 
-  @IsEmail()
-  @IsOptional()
-  email?: string;
+  @IsOptionalEmail()
+  email?: string | null;
 
   @IsString()
   @IsOptional()

@@ -25,7 +25,7 @@ import {
 } from './dto/lifecycle.dto';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import { PostingEngineService } from '../accounting/posting-engine/posting-engine.service';
-import { buildStraightLineSchedule } from './depreciation-schedule';
+import { buildDepreciationSchedule } from './depreciation-schedule';
 
 const INCLUDE = {
   costCenter: true,
@@ -123,7 +123,9 @@ export class FixedAssetsService extends MasterDataCrudService<FixedAsset> {
         asset.acquisitionDate,
     );
     const salvage = dto.salvageValue ?? Number(asset.salvageValue);
-    const periods = buildStraightLineSchedule(
+    const method = dto.depreciationMethod ?? asset.depreciationMethod;
+    const periods = buildDepreciationSchedule(
+      method,
       Number(asset.cost),
       salvage,
       dto.usefulLifeMonths,
@@ -139,6 +141,7 @@ export class FixedAssetsService extends MasterDataCrudService<FixedAsset> {
         data: {
           status: FixedAssetStatus.CAPITALIZED,
           usefulLifeMonths: dto.usefulLifeMonths,
+          depreciationMethod: method,
           salvageValue: salvage,
           depreciationStartDate: start,
           receivingAccountId,
@@ -192,35 +195,64 @@ export class FixedAssetsService extends MasterDataCrudService<FixedAsset> {
     });
 
     const posted: string[] = [];
+    const failures: Array<{ id: string; assetId: string; error: string }> = [];
     for (const period of pending) {
-      await this.prisma.$transaction(async (tx) => {
-        await this.postingEngine.post(
-          'FIXED_ASSET_DEPRECIATION',
-          period.id,
-          userId,
-          tx,
-        );
-        await tx.fixedAssetDepreciationPeriod.update({
+      try {
+        await this.prisma.$transaction(async (tx) => {
+          await this.postingEngine.post(
+            'FIXED_ASSET_DEPRECIATION',
+            period.id,
+            userId,
+            tx,
+          );
+          await tx.fixedAssetDepreciationPeriod.update({
+            where: { id: period.id },
+            data: {
+              status: AccountingScheduleStatus.POSTED,
+              postedAt: new Date(),
+              postedBy: userId ?? null,
+              lastError: null,
+              lastAttemptAt: new Date(),
+            },
+          });
+          await tx.fixedAsset.update({
+            where: { id: period.fixedAssetId },
+            data: {
+              accumulatedDepreciation: {
+                increment: period.amount,
+              },
+              updatedBy: userId ?? null,
+            },
+          });
+        });
+        posted.push(period.id);
+      } catch (error) {
+        // One bad period (locked month, missing mapping) must not block the
+        // rest of the run; it stays PENDING with the reason recorded, and a
+        // later run retries it — the posting engine's idempotency guarantees
+        // no duplicate JE if a previous attempt already posted.
+        const message = error instanceof Error ? error.message : String(error);
+        await this.prisma.fixedAssetDepreciationPeriod.update({
           where: { id: period.id },
           data: {
-            status: AccountingScheduleStatus.POSTED,
-            postedAt: new Date(),
-            postedBy: userId ?? null,
+            lastError: message.slice(0, 1000),
+            lastAttemptAt: new Date(),
           },
         });
-        await tx.fixedAsset.update({
-          where: { id: period.fixedAssetId },
-          data: {
-            accumulatedDepreciation: {
-              increment: period.amount,
-            },
-            updatedBy: userId ?? null,
-          },
+        failures.push({
+          id: period.id,
+          assetId: period.fixedAssetId,
+          error: message,
         });
-      });
-      posted.push(period.id);
+      }
     }
-    return { asOf, postedCount: posted.length, periodIds: posted };
+    return {
+      asOf,
+      postedCount: posted.length,
+      periodIds: posted,
+      failedCount: failures.length,
+      failures,
+    };
   }
 
   async dispose(id: string, dto: DisposeFixedAssetDto, userId?: string) {

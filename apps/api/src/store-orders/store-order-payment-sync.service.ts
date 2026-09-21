@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { WorkflowStatusResolverService } from '../workflow/workflow-status-resolver.service';
 import { PAID_PAYMENT_CODES } from '../workflow/workflow-status-map';
 import { storeOrderItemsTotal } from './store-order-line-amount';
+import { roundMoney } from './store-order-payment-settlement.util';
 
 /**
  * Keeps Store Order payment + fulfillment StatusDefinitions in sync with
@@ -27,6 +28,7 @@ export class StoreOrderPaymentSyncService {
       where: { id: storeOrderId },
       include: {
         items: {
+          where: { deletedAt: null },
           select: { quantity: true, unitPrice: true, agreedAmount: true },
         },
         shipments: {
@@ -39,7 +41,7 @@ export class StoreOrderPaymentSyncService {
     });
     if (!order) return;
 
-    const orderTotal = storeOrderItemsTotal(order.items);
+    const orderTotal = roundMoney(storeOrderItemsTotal(order.items));
     const verified = await client.payment.aggregate({
       where: {
         storeOrderId,
@@ -48,7 +50,7 @@ export class StoreOrderPaymentSyncService {
       },
       _sum: { amount: true },
     });
-    const verifiedTotal = Number(verified._sum.amount ?? 0);
+    const verifiedTotal = roundMoney(Number(verified._sum.amount ?? 0));
 
     // Preserve manual PAYMENT_REVIEW / UNMATCHED until real verified money arrives.
     const currentCode = order.paymentStatusDef?.code;

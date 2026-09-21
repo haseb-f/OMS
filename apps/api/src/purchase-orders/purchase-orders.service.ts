@@ -168,6 +168,19 @@ export class PurchaseOrdersService {
    */
   private async computeItems(items: PurchaseOrderItemInputDto[]) {
     const { taxIds, taxById } = await resolveLineTaxes(this.prisma, items);
+    // Smart default: a line without an explicit unit uses the product's own
+    // unit — otherwise the PO could be approved but never received.
+    const missingUnit = items.filter((item) => !item.unitId);
+    const productUnits = missingUnit.length
+      ? new Map(
+          (
+            await this.prisma.product.findMany({
+              where: { id: { in: missingUnit.map((item) => item.productId) } },
+              select: { id: true, unitId: true },
+            })
+          ).map((product) => [product.id, product.unitId]),
+        )
+      : new Map<string, string | null>();
 
     return items.map((item, index) => {
       const taxId = taxIds[index];
@@ -179,7 +192,7 @@ export class PurchaseOrdersService {
         productId: item.productId,
         description: item.description,
         quantity: item.quantity,
-        unitId: item.unitId,
+        unitId: item.unitId ?? productUnits.get(item.productId) ?? undefined,
         unitPrice: item.unitPrice,
         discountValue: item.discountValue ?? 0,
         discountPercent: item.discountPercent ?? 0,
@@ -212,6 +225,14 @@ export class PurchaseOrdersService {
       throw new NotFoundException(
         `Purchase Quotation ${quotationId} not found`,
       );
+    }
+    if (quotation.status === PurchaseDocumentStatus.CLOSED) {
+      const existing = await this.prisma.purchaseOrder.findFirst({
+        where: { quotationId, deletedAt: null },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true },
+      });
+      if (existing) return this.findOne(existing.id);
     }
     if (quotation.status !== PurchaseDocumentStatus.APPROVED) {
       throw new BadRequestException(
@@ -432,6 +453,19 @@ export class PurchaseOrdersService {
     userId?: string,
   ) {
     const po = await this.findOne(id);
+    // One open invoice per PO: a double click or a retry after a timeout
+    // reopens the invoice already created instead of billing twice.
+    const openInvoice = await this.prisma.purchaseInvoice.findFirst({
+      where: {
+        purchaseOrderId: id,
+        deletedAt: null,
+        status: { not: PurchaseDocumentStatus.CANCELLED },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (openInvoice) {
+      return this.invoicesService.findOne(openInvoice.id);
+    }
     if (po.status !== PurchaseOrderStatus.APPROVED) {
       throw new BadRequestException(
         `Cannot receive goods for Purchase Order ${po.poNumber} from ${po.status}.`,

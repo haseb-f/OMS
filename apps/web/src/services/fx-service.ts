@@ -20,8 +20,30 @@ export interface FxRevaluationRunRow {
   notes: string | null;
 }
 
+/** A currency pair + date the Posting Engine needs a rate for — returned by
+ *  the pre-posting check and carried by a MISSING_EXCHANGE_RATE error. */
+export interface RequiredExchangeRate {
+  fromCurrencyId: string;
+  toCurrencyId: string | null;
+  fromCurrencyCode: string | null;
+  toCurrencyCode: string | null;
+  asOf: string;
+}
+
+export interface ExchangeRateCheck extends RequiredExchangeRate {
+  required: boolean;
+  available: boolean;
+  rate: number | null;
+}
+
 export const exchangeRatesService = {
   list: () => apiClient.get<ExchangeRateRow[]>("/exchange-rates"),
+  check: (currencyId: string, asOf?: string) =>
+    apiClient.get<ExchangeRateCheck>(
+      `/exchange-rates/check?currencyId=${encodeURIComponent(currencyId)}${
+        asOf ? `&asOf=${encodeURIComponent(asOf)}` : ""
+      }`,
+    ),
   create: (dto: Record<string, unknown>) =>
     apiClient.post<ExchangeRateRow>("/exchange-rates", compactPayload(dto)),
 };

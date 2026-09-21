@@ -136,7 +136,7 @@ export class PartnersService extends MasterDataCrudService<
     const mobile = await this.normalizePartnerPhone(dto.mobile, dto.countryId);
     await this.assertNoDuplicate(
       [phone, mobile],
-      dto.email,
+      dto.email ?? undefined,
       dto.taxNumber,
       dto.commercialRegistration,
     );
@@ -470,7 +470,7 @@ export class PartnersService extends MasterDataCrudService<
     const mobile = await this.normalizePartnerPhone(dto.mobile, dto.countryId);
     const existing = await this.findDuplicate(
       [phone, mobile],
-      dto.email,
+      dto.email ?? undefined,
       dto.taxNumber,
       dto.commercialRegistration,
     );
@@ -594,6 +594,7 @@ export class PartnersService extends MasterDataCrudService<
       {
         status: prismaEnumFilter(query.status),
         source: prismaEnumFilter(query.source),
+        ...(query.ids?.length ? { id: { in: query.ids } } : {}),
         ...roleWhere,
       },
       { include: PARTNER_INCLUDE },

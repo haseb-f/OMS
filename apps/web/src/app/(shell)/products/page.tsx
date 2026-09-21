@@ -21,7 +21,7 @@ import {
 import { RowActionsMenu } from "@/components/shared/data-table";
 import { productsColumns, productsExportColumns } from "@/config/products/columns";
 import { ProductModal } from "./product-modal";
-import { ProductCreateDialog } from "./product-create-dialog";
+import { ProductCreateDialog } from "@/components/business/product-create-dialog";
 import { ProductSuccessDialog } from "./product-success-dialog";
 import { ProductOpeningBalanceDialog } from "./product-opening-balance-dialog";
 import { productsService, type ProductRow } from "@/services/products-service";

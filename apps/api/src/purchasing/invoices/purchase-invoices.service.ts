@@ -11,6 +11,13 @@ import {
   PurchaseOrderItem,
   PurchaseOrderStatus,
 } from '@prisma/client';
+import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
+import { assertApprovalAuthority } from '../../common/workflow/approval-authority';
+import {
+  assertLineTreatments,
+  lineTreatmentData,
+} from './purchase-line-treatment';
+import { PurchaseLineRecognitionService } from './purchase-line-recognition.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
 import { ProductsService } from '../../products/products.service';
@@ -61,6 +68,8 @@ export class PurchaseInvoicesService {
     private readonly activityService: PurchaseInvoiceActivityService,
     private readonly numberingEngine: NumberingEngineService,
     private readonly postingEngine: PostingEngineService,
+    private readonly permissions: PermissionsResolverService,
+    private readonly lineRecognition: PurchaseLineRecognitionService,
   ) {}
 
   async create(
@@ -117,11 +126,27 @@ export class PurchaseInvoicesService {
   ) {
     await this.assertInvoiceWarehouse(warehouseId);
 
+    // Older PO lines were saved without a unit; receive them in the
+    // product's own unit rather than blocking the receipt.
+    const productUnits = new Map(
+      (
+        await this.prisma.product.findMany({
+          where: {
+            id: {
+              in: items
+                .filter((item) => !item.unitId)
+                .map((item) => item.productId),
+            },
+          },
+          select: { id: true, unitId: true },
+        })
+      ).map((product) => [product.id, product.unitId]),
+    );
     const lineInputs: PurchaseLineItemInputDto[] = items.map((item) => ({
       productId: item.productId,
       description: item.description ?? undefined,
       warehouseId,
-      unitId: item.unitId ?? undefined,
+      unitId: item.unitId ?? productUnits.get(item.productId) ?? undefined,
       quantity: item.quantity,
       unitPrice: Number(item.unitPrice),
       discountPercent: Number(item.discountPercent),
@@ -391,14 +416,50 @@ export class PurchaseInvoicesService {
    */
   async confirm(id: string, userId?: string) {
     const invoice = await this.findOne(id);
-    if (invoice.status !== PurchaseDocumentStatus.APPROVED) {
+    if (invoice.status === PurchaseDocumentStatus.CONFIRMED) return invoice;
+    const postableFrom: PurchaseDocumentStatus[] = [
+      PurchaseDocumentStatus.DRAFT,
+      PurchaseDocumentStatus.PENDING_APPROVAL,
+      PurchaseDocumentStatus.APPROVED,
+    ];
+    if (!postableFrom.includes(invoice.status)) {
       throw new BadRequestException(
         `Cannot confirm Purchase Invoice ${invoice.invoiceNumber} from ${invoice.status}.`,
       );
     }
+    const implicitApproval = invoice.status !== PurchaseDocumentStatus.APPROVED;
+    if (implicitApproval) {
+      await assertApprovalAuthority(
+        this.permissions,
+        userId,
+        'purchasing.invoices.approve',
+        `Purchase Invoice ${invoice.invoiceNumber}`,
+      );
+    }
 
     return this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.purchaseInvoice.updateMany({
+        where: { id, status: invoice.status },
+        data: { status: PurchaseDocumentStatus.CONFIRMED },
+      });
+      if (claimed.count === 0) {
+        throw new BadRequestException(
+          `Purchase Invoice ${invoice.invoiceNumber} was changed by someone else — reload and try again.`,
+        );
+      }
+      if (implicitApproval) {
+        await this.activityService.log(
+          id,
+          PurchaseInvoiceActivityType.INVOICE_APPROVED,
+          `Purchase Invoice ${invoice.invoiceNumber} approved`,
+          undefined,
+          tx,
+        );
+      }
       for (const item of invoice.items) {
+        // Non-stock lines (services, assets, prepayments) have no goods to
+        // receive — posting them to inventory would be rejected outright.
+        if (!item.product.isInventoryItem) continue;
         await this.inventoryService.postPurchaseReceipt(
           {
             productId: item.productId,
@@ -452,6 +513,7 @@ export class PurchaseInvoicesService {
       }
 
       await this.postingEngine.post('PURCHASE_INVOICE', id, userId, tx);
+      await this.lineRecognition.recognize(id, tx, userId);
 
       return updated;
     });
@@ -616,6 +678,20 @@ export class PurchaseInvoicesService {
   private async computeLines(
     items: PurchaseLineItemInputDto[],
   ): Promise<ComputedInvoiceLines> {
+    if (items.some((item) => item.treatment && item.treatment !== 'STANDARD')) {
+      const stocked = new Set(
+        (
+          await this.prisma.product.findMany({
+            where: {
+              id: { in: items.map((item) => item.productId) },
+              isInventoryItem: true,
+            },
+            select: { id: true },
+          })
+        ).map((product) => product.id),
+      );
+      assertLineTreatments(items, (productId) => stocked.has(productId));
+    }
     const { taxIds, taxById } = await resolveLineTaxes(this.prisma, items);
 
     const computedLines = items.map((item, index) => {
@@ -645,6 +721,7 @@ export class PurchaseInvoicesService {
         taxAmount: computedLines[index].taxAmount,
         lineTotal: computedLines[index].lineTotal,
         notes: item.notes,
+        ...lineTreatmentData(item),
       }));
 
     const totals = computeSalesDocumentTotals(computedLines);

@@ -47,3 +47,12 @@ export class RunFxRevaluationDto {
   @IsOptional()
   notes?: string;
 }
+
+export class CheckExchangeRateQueryDto {
+  @IsUUID()
+  currencyId!: string;
+
+  @IsDateString()
+  @IsOptional()
+  asOf?: string;
+}

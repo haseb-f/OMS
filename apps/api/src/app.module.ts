@@ -76,6 +76,8 @@ import { FiscalPeriodsModule } from './accounting/fiscal-periods/fiscal-periods.
 import { AccountingFoundationModule } from './accounting/foundation/accounting-foundation.module';
 import { FxModule } from './accounting/fx/fx.module';
 import { PrepaidExpensesModule } from './prepaid-expenses/prepaid-expenses.module';
+import { AccountingSchedulesModule } from './accounting/schedules/accounting-schedules.module';
+import { TraceabilityModule } from './traceability/traceability.module';
 import { AccruedExpensesModule } from './accrued-expenses/accrued-expenses.module';
 import { JournalsModule } from './journals/journals.module';
 import { OpeningBalancesModule } from './accounting/opening-balances/opening-balances.module';
@@ -184,6 +186,8 @@ import { InvestorPortalModule } from './investor-portal/investor-portal.module';
     AccountingFoundationModule,
     FxModule,
     PrepaidExpensesModule,
+    AccountingSchedulesModule,
+    TraceabilityModule,
     AccruedExpensesModule,
     JournalsModule,
     OpeningBalancesModule,

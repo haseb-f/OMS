@@ -4,6 +4,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PartnerRoleType, Prisma, SalesDocumentStatus } from '@prisma/client';
+import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
+import { assertApprovalAuthority } from '../../common/workflow/approval-authority';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
 import { ProductsService } from '../../products/products.service';
@@ -44,6 +46,7 @@ export class SalesOrdersService {
     private readonly invoicesService: SalesInvoicesService,
     private readonly activityService: SalesOrderDocumentActivityService,
     private readonly numberingEngine: NumberingEngineService,
+    private readonly permissions: PermissionsResolverService,
   ) {}
 
   async create(
@@ -102,6 +105,15 @@ export class SalesOrdersService {
     });
     if (!quotation) {
       throw new NotFoundException(`Quotation ${quotationId} not found`);
+    }
+    if (quotation.status === SalesDocumentStatus.CLOSED) {
+      // Retry after a reload/timeout — open the order already created.
+      const existing = await this.prisma.salesOrderDocument.findFirst({
+        where: { quotationId, deletedAt: null },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true },
+      });
+      if (existing) return this.findOne(existing.id);
     }
     if (quotation.status !== SalesDocumentStatus.APPROVED) {
       throw new BadRequestException(
@@ -367,35 +379,61 @@ export class SalesOrdersService {
     );
   }
 
-  /** Confirm = Reserve Inventory. Reservations are attempted line-by-line
-   * before the status flips — see the class-level note on partial-failure
-   * risk if one line's reservation fails partway through. */
+  /** Confirm = Reserve Inventory, in ONE transaction with the status flip —
+   * a failed line rolls every reservation back, so a retry can never
+   * double-reserve. From Draft/Pending Approval it is the single "Confirm
+   * order" action: allowed only for users who hold the approval permission,
+   * and the implicit approval is recorded in the activity log. */
   async confirm(id: string, userId?: string) {
     const order = await this.findOne(id);
-    if (order.status !== SalesDocumentStatus.APPROVED) {
+    if (order.status === SalesDocumentStatus.CONFIRMED) return order;
+    const confirmableFrom: SalesDocumentStatus[] = [
+      SalesDocumentStatus.DRAFT,
+      SalesDocumentStatus.PENDING_APPROVAL,
+      SalesDocumentStatus.APPROVED,
+    ];
+    if (!confirmableFrom.includes(order.status)) {
       throw new BadRequestException(
         `Cannot confirm Sales Order ${order.orderNumber} from ${order.status}.`,
       );
     }
-
-    for (const item of order.items) {
-      await this.inventoryService.reserve(
-        {
-          productId: item.productId,
-          warehouseId: item.warehouseId,
-          quantity: item.quantity,
-          referenceType: REFERENCE_TYPE,
-          referenceId: order.id,
-        },
+    const implicitApproval = order.status !== SalesDocumentStatus.APPROVED;
+    if (implicitApproval) {
+      await assertApprovalAuthority(
+        this.permissions,
         userId,
+        'sales.orders.approve',
+        `Sales Order ${order.orderNumber}`,
       );
     }
 
     return this.prisma.$transaction(async (tx) => {
+      const locked = await tx.salesOrderDocument.updateMany({
+        where: { id, status: order.status },
+        data: { status: SalesDocumentStatus.CONFIRMED },
+      });
+      if (locked.count === 0) {
+        throw new BadRequestException(
+          `Sales Order ${order.orderNumber} was changed by someone else — reload and try again.`,
+        );
+      }
+      for (const item of order.items) {
+        if (!item.product.isInventoryItem) continue;
+        await this.inventoryService.reserve(
+          {
+            productId: item.productId,
+            warehouseId: item.warehouseId,
+            quantity: item.quantity,
+            referenceType: REFERENCE_TYPE,
+            referenceId: order.id,
+          },
+          userId,
+          tx,
+        );
+      }
       const updated = await tx.salesOrderDocument.update({
         where: { id },
         data: {
-          status: SalesDocumentStatus.CONFIRMED,
           confirmedAt: new Date(),
           confirmedBy: userId ?? null,
         },
@@ -407,6 +445,15 @@ export class SalesOrdersService {
           },
         },
       });
+      if (implicitApproval) {
+        await this.activityService.log(
+          id,
+          SalesOrderDocumentActivityType.ORDER_APPROVED,
+          `Sales Order ${order.orderNumber} approved`,
+          undefined,
+          tx,
+        );
+      }
       await this.activityService.log(
         id,
         SalesOrderDocumentActivityType.ORDER_CONFIRMED,
@@ -436,7 +483,7 @@ export class SalesOrdersService {
     if (order.status === SalesDocumentStatus.CONFIRMED) {
       for (const item of order.items) {
         const remaining = item.quantity - item.deliveredQuantity;
-        if (remaining > 0) {
+        if (remaining > 0 && item.product.isInventoryItem) {
           await this.inventoryService.release(
             {
               productId: item.productId,
@@ -539,6 +586,31 @@ export class SalesOrdersService {
     }
 
     const itemById = new Map(order.items.map((item) => [item.id, item]));
+    // Quantities already on an open (not yet posted) invoice count as billed:
+    // converting twice must reopen that draft, never bill the lines again.
+    const openInvoiceLines = await this.prisma.salesInvoiceItem.groupBy({
+      by: ['salesOrderItemId'],
+      where: {
+        salesOrderItemId: { in: order.items.map((item) => item.id) },
+        salesInvoice: {
+          deletedAt: null,
+          status: {
+            in: [
+              SalesDocumentStatus.DRAFT,
+              SalesDocumentStatus.PENDING_APPROVAL,
+              SalesDocumentStatus.APPROVED,
+            ],
+          },
+        },
+      },
+      _sum: { quantity: true },
+    });
+    const pendingByItem = new Map(
+      openInvoiceLines.map((row) => [
+        row.salesOrderItemId,
+        Number(row._sum.quantity ?? 0),
+      ]),
+    );
     const lines = dto.items.map((line) => {
       const orderItem = itemById.get(line.salesOrderItemId);
       if (!orderItem) {
@@ -546,14 +618,37 @@ export class SalesOrdersService {
           `Order item ${line.salesOrderItemId} does not belong to this Sales Order.`,
         );
       }
-      const remaining = orderItem.quantity - orderItem.deliveredQuantity;
-      if (line.quantity > remaining) {
+      const remaining =
+        orderItem.quantity -
+        orderItem.deliveredQuantity -
+        (pendingByItem.get(orderItem.id) ?? 0);
+      return { orderItem, quantity: line.quantity, remaining };
+    });
+    if (lines.every((line) => line.remaining <= 0)) {
+      const draft = await this.prisma.salesInvoice.findFirst({
+        where: {
+          salesOrderId: id,
+          deletedAt: null,
+          status: {
+            in: [
+              SalesDocumentStatus.DRAFT,
+              SalesDocumentStatus.PENDING_APPROVAL,
+              SalesDocumentStatus.APPROVED,
+            ],
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true },
+      });
+      if (draft) return this.invoicesService.findOne(draft.id);
+    }
+    for (const line of lines) {
+      if (line.quantity > line.remaining) {
         throw new BadRequestException(
-          `Cannot invoice ${line.quantity} of ${orderItem.productId} — only ${remaining} remains undelivered.`,
+          `Cannot invoice ${line.quantity} of ${line.orderItem.productId} — only ${Math.max(line.remaining, 0)} remains uninvoiced.`,
         );
       }
-      return { orderItem, quantity: line.quantity };
-    });
+    }
 
     return this.invoicesService.createFromOrder(order, lines, userId);
   }

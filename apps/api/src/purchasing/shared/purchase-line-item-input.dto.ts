@@ -1,4 +1,7 @@
+import { DepreciationMethod, PurchaseLineTreatment } from '@prisma/client';
 import {
+  IsDateString,
+  IsEnum,
   IsInt,
   IsNumber,
   IsOptional,
@@ -7,6 +10,7 @@ import {
   IsUUID,
   Min,
 } from 'class-validator';
+import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 
 /**
  * Purchasing (TASK-048) — the line-item shape shared by the three new
@@ -64,4 +68,31 @@ export class PurchaseLineItemInputDto {
   @IsUUID()
   @IsOptional()
   purchaseInvoiceItemId?: string;
+
+  /** Purchase Invoice only — capitalize as a Fixed Asset or defer as a
+   *  Prepaid Expense instead of the standard inventory/expense posting. */
+  @IsEnum(PurchaseLineTreatment)
+  @IsOptional()
+  treatment?: PurchaseLineTreatment;
+
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  assetUsefulLifeMonths?: number;
+
+  @IsEnum(DepreciationMethod)
+  @IsOptional()
+  assetDepreciationMethod?: DepreciationMethod;
+
+  @IsDateString()
+  @IsOptional()
+  scheduleStartDate?: string;
+
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  prepaidMonths?: number;
+
+  @IsOptionalUuid()
+  prepaidExpenseAccountId?: string;
 }

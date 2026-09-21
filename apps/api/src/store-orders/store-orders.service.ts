@@ -37,6 +37,7 @@ import {
 } from './store-order-line-amount';
 import {
   assertCanAcceptPayment,
+  assertPaymentCurrency,
   computeStoreOrderSettlement,
   lockStoreOrderRow,
   serializeSettlement,
@@ -316,6 +317,10 @@ export class StoreOrdersService {
         );
 
         if (dto.payment) {
+          assertCanAcceptPayment(
+            await computeStoreOrderSettlement(tx, created.id),
+            dto.payment.amount,
+          );
           await this.createPaymentRow(
             created.id,
             created.currencyId,
@@ -1315,6 +1320,7 @@ export class StoreOrdersService {
     userId: string | undefined,
     tx: Prisma.TransactionClient,
   ) {
+    assertPaymentCurrency(orderCurrencyId, dto.currencyId);
     const paymentSourceId = await this.resolvePaymentSourceId(dto, tx);
     const receivingAccount = await tx.receivingAccount.findFirst({
       where: { id: dto.receivingAccountId, deletedAt: null, isActive: true },

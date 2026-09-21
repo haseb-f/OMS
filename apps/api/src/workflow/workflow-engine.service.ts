@@ -30,6 +30,10 @@ import {
 import { AttachmentsService } from '../common/storage/attachments.service';
 import { derivedUnitPrice } from '../store-orders/store-order-line-amount';
 import {
+  assertCanAcceptPayment,
+  computeStoreOrderSettlement,
+} from '../store-orders/store-order-payment-settlement.util';
+import {
   type WorkflowEntityType,
   isWorkflowEntityType,
 } from './workflow.catalog';
@@ -882,6 +886,13 @@ export class WorkflowEngineService {
     userId: string,
     tx: Prisma.TransactionClient,
   ) {
+    // Same guard as every other payment entry point: a conversion claim can
+    // never exceed (or exist without) the order's own priced total, or it
+    // would later fail verification as an "overpayment".
+    assertCanAcceptPayment(
+      await computeStoreOrderSettlement(tx, storeOrderId),
+      amount,
+    );
     const paymentSourceId = await this.resolvePaymentSourceId(
       payload?.paymentMethodId,
       payload?.paymentSourceId,
@@ -907,7 +918,7 @@ export class WorkflowEngineService {
         storeOrderId,
         paymentDate: new Date(),
         amount,
-        currencyId: payload?.currencyId ?? orderCurrencyId,
+        currencyId: orderCurrencyId,
         paymentSourceId,
         receivingAccountId: receivingAccount.id,
         referenceNumber: payload?.paymentReference,

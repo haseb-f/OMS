@@ -55,6 +55,9 @@ export class FixedAssetPostingProvider
     });
     const cost = Number(asset.cost);
     if (cost === 0) return null;
+    // Capitalized by a Purchase Invoice line: the invoice JE already debited
+    // Fixed Assets against AP — never capitalize the same cost twice.
+    if (asset.purchaseInvoiceItemId) return null;
     const faAccount = await this.accountMapping.resolveFixedAssetsAccount(tx);
     const creditAccountId = asset.receivingAccount?.chartOfAccountId
       ? asset.receivingAccount.chartOfAccountId

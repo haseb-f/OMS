@@ -47,6 +47,10 @@ const INTENTIONALLY_UNGATED: Record<string, string> = {
   'auth/auth.controller.ts':
     'Pre-authentication endpoints (login/forgot-password/reset-password); logout/me are self-scoped to the caller.',
   'health/health.controller.ts': 'Public health check — no data, no auth.',
+  'accounting/schedules/accounting-schedules-cron.controller.ts':
+    'Vercel Cron target — authenticated by the CRON_SECRET bearer (timing-safe compare), refuses to run when unset; only posts schedule rows already due, idempotently.',
+  'traceability/traceability.controller.ts':
+    "Read-only related-records view for any signed-in user; every linked record is filtered by the caller's own view permission inside TraceabilityService (hidden groups return UNAUTHORIZED).",
   'common/storage/attachments.controller.ts':
     'Generic staging upload/download; JwtAuthGuard + per-file ownership check inside AttachmentsService.getFile().',
   'financial-transactions/financial-transaction-types.controller.ts':
@@ -94,6 +98,11 @@ describe('Controller authorization coverage (TASK-062 safety net)', () => {
     "%s requires authentication (JwtAuthGuard or the Investor Portal's own InvestorPortalAuthGuard)",
     (_label, { relPath, content }) => {
       if (relPath === 'health/health.controller.ts') return; // deliberately public
+      if (
+        relPath ===
+        'accounting/schedules/accounting-schedules-cron.controller.ts'
+      )
+        return; // CRON_SECRET bearer, see INTENTIONALLY_UNGATED
       if (relPath === 'investor-portal/investor-portal-auth.controller.ts')
         return; // pre-authentication Portal endpoints, see INTENTIONALLY_UNGATED
       // Investor Engine Milestone 4, Part C — the Investor Portal is a

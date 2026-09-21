@@ -34,7 +34,8 @@ export type ErrorCode =
   | "NETWORK_ERROR"
   | "INVALID_CREDENTIALS"
   | "ACCOUNT_DISABLED"
-  | "ACCOUNT_LOCKED";
+  | "ACCOUNT_LOCKED"
+  | "MISSING_EXCHANGE_RATE";
 
 export interface ErrorFieldDetail {
   field: string;
@@ -45,6 +46,7 @@ interface StructuredErrorBody {
   code?: ErrorCode;
   message?: string;
   fields?: ErrorFieldDetail[];
+  details?: Record<string, unknown>;
 }
 
 /**
@@ -97,6 +99,9 @@ function friendlyMessage(
   if (code === "VALIDATION_ERROR" && fields === undefined && rawMessage) {
     return rawMessage;
   }
+  if (code === "MISSING_EXCHANGE_RATE" && rawMessage) {
+    return rawMessage;
+  }
 
   // A multi-field "can't activate yet" batch (see `ProductsService.
   // assertActivationReady`) — every field shares this one constraint, so
@@ -134,6 +139,8 @@ export class ApiError extends Error {
     message: string,
     public readonly code: ErrorCode = "SERVER_ERROR",
     public readonly fields?: ErrorFieldDetail[],
+    /** Machine-readable context for recoverable codes (see MISSING_EXCHANGE_RATE). */
+    public readonly details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "ApiError";
@@ -182,7 +189,7 @@ async function requestRaw(path: string, init?: RequestInit): Promise<Response> {
       body?.fields,
     );
     const message = friendlyMessage(code, body?.message, body?.fields, locale);
-    throw new ApiError(response.status, message, code, body?.fields);
+    throw new ApiError(response.status, message, code, body?.fields, body?.details);
   }
 
   return response;

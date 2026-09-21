@@ -25,7 +25,16 @@ import {
   assertCanVerifyPayment,
   computeStoreOrderSettlement,
   lockStoreOrderRow,
+  verifiedPaymentNumbers,
 } from '../store-orders/store-order-payment-settlement.util';
+
+export type CollectionSyncResult =
+  | { status: 'NOT_APPLICABLE' | 'PENDING_INVOICE' }
+  | {
+      status: 'POSTED';
+      receipts: Array<{ id: string; transactionNumber: string }>;
+    }
+  | { status: 'FAILED'; message: string };
 
 /**
  * Payment Workflow: Customer sends payment -> Payment record created ->
@@ -243,29 +252,44 @@ export class PaymentsService {
   }
 
   /** Business operation: Verify Payment. Requires current status MATCHED.
-   *  Store Order payment status is recomputed; Leads are never marked paid. */
+   *  Store Order payment status is recomputed; Leads are never marked paid.
+   *  Idempotent: re-verifying an already VERIFIED payment (a retry after a
+   *  reload or a failed receipt posting) never re-counts the money — it only
+   *  re-runs the idempotent receipt/journal sync. */
   async verify(id: string, dto: VerifyPaymentDto) {
     const existing = await this.findOne(id);
+    if (existing.status === PaymentStatus.VERIFIED) {
+      return this.syncVerifiedCollection(existing, dto.verifiedById);
+    }
     if (existing.status !== PaymentStatus.MATCHED) {
       throw new BadRequestException('Only a MATCHED payment can be verified.');
     }
     const payment = await this.prisma.$transaction(async (tx) => {
+      if (existing.storeOrderId) {
+        await lockStoreOrderRow(tx, existing.storeOrderId);
+      }
+      // Read status only after the order lock, so two concurrent verifies of
+      // the same payment serialize and the second sees VERIFIED.
       const current = await tx.payment.findFirst({
         where: { id, deletedAt: null },
       });
+      if (current?.status === PaymentStatus.VERIFIED) return current;
       if (!current || current.status !== PaymentStatus.MATCHED) {
         throw new BadRequestException(
           'Only a MATCHED payment can be verified.',
         );
       }
       if (current.storeOrderId) {
-        await lockStoreOrderRow(tx, current.storeOrderId);
         const settlement = await computeStoreOrderSettlement(
           tx,
           current.storeOrderId,
           { excludePaymentId: id },
         );
-        assertCanVerifyPayment(settlement, Number(current.amount));
+        assertCanVerifyPayment(
+          settlement,
+          Number(current.amount),
+          await verifiedPaymentNumbers(tx, current.storeOrderId, id),
+        );
       }
       const updated = await tx.payment.update({
         where: { id },
@@ -285,15 +309,53 @@ export class PaymentsService {
       return updated;
     });
 
-    if (payment.storeOrderId) {
-      await this.storeOrderPaymentSync.recompute(payment.storeOrderId);
-      await this.storeOrderCollection.syncVerifiedPayments(
-        payment.storeOrderId,
-        dto.verifiedById,
-      );
-    }
+    return this.syncVerifiedCollection(payment, dto.verifiedById);
+  }
 
-    return payment;
+  /** Recompute the order's payment status and post the Customer Receipt for
+   *  any verified payment that has none yet. The payment stays VERIFIED if
+   *  posting fails; the failure is returned (not swallowed) so the UI can
+   *  say exactly what is pending and the user can retry Verify safely. */
+  private async syncVerifiedCollection<
+    T extends { storeOrderId: string | null },
+  >(
+    payment: T,
+    userId: string,
+  ): Promise<T & { collection: CollectionSyncResult }> {
+    if (!payment.storeOrderId) {
+      return { ...payment, collection: { status: 'NOT_APPLICABLE' } };
+    }
+    await this.storeOrderPaymentSync.recompute(payment.storeOrderId);
+    try {
+      const receipts = await this.storeOrderCollection.syncVerifiedPayments(
+        payment.storeOrderId,
+        userId,
+      );
+      return {
+        ...payment,
+        collection:
+          receipts.length > 0
+            ? {
+                status: 'POSTED',
+                receipts: receipts.map((receipt) => ({
+                  id: receipt.id,
+                  transactionNumber: receipt.transactionNumber,
+                })),
+              }
+            : { status: 'PENDING_INVOICE' },
+      };
+    } catch (error) {
+      return {
+        ...payment,
+        collection: {
+          status: 'FAILED',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Customer receipt posting failed.',
+        },
+      };
+    }
   }
 
   /**

@@ -22,6 +22,7 @@ import { WorkflowStatusResolverService } from '../workflow/workflow-status-resol
 import { PostingEngineService } from '../accounting/posting-engine/posting-engine.service';
 import type { CompanyContext } from '../common/decorators/current-company-context.decorator';
 
+const ADOPTED_BY_RECONCILIATION = 'ADOPTED_BY_RECONCILIATION';
 const INTERNAL_TRANSFER_SOURCE_TYPE = 'BANK_TRANSACTION_TRANSFER';
 
 export interface ReconciliationCandidate {
@@ -398,29 +399,66 @@ export class CashFlowReconciliationService {
       });
     }
 
-    const payment = await this.storeOrdersService.addPayment(
+    const bankAmount = Math.abs(Number(transaction.amount));
+    // The customer's money usually already exists as a reported claim
+    // (agent report or lead-conversion claim). Reconciling it must adopt
+    // that claim — creating a second Payment for the same money is what
+    // later made verification see the order as already paid.
+    const reportedClaim = await this.findAdoptableClaim(
       dto.storeOrderId,
-      {
-        paymentDate: transaction.transactionDate.toISOString(),
-        amount: Math.abs(Number(transaction.amount)),
-        currencyId: transaction.currencyId ?? undefined,
-        paymentSourceId: dto.paymentSourceId,
-        receivingAccountId,
-        referenceNumber:
-          dto.referenceNumber ??
-          transaction.transactionId ??
-          transaction.reference ??
-          undefined,
-        senderName:
-          dto.senderName ||
-          transaction.description ||
-          transaction.reference ||
-          transaction.bankName ||
-          'Cash Flow Sync',
-      },
-      userId,
+      bankAmount,
     );
-    await this.paymentsService.match(payment.id, { matchedById: userId });
+    const payment =
+      reportedClaim ??
+      (await this.storeOrdersService.addPayment(
+        dto.storeOrderId,
+        {
+          paymentDate: transaction.transactionDate.toISOString(),
+          amount: bankAmount,
+          currencyId: transaction.currencyId ?? undefined,
+          paymentSourceId: dto.paymentSourceId,
+          receivingAccountId,
+          referenceNumber:
+            dto.referenceNumber ??
+            transaction.transactionId ??
+            transaction.reference ??
+            undefined,
+          senderName:
+            dto.senderName ||
+            transaction.description ||
+            transaction.reference ||
+            transaction.bankName ||
+            'Cash Flow Sync',
+        },
+        userId,
+      ));
+    if (reportedClaim) {
+      await this.prisma.payment.update({
+        where: { id: reportedClaim.id },
+        data: {
+          paymentSourceId: dto.paymentSourceId,
+          receivingAccountId,
+          receivedDate: transaction.transactionDate,
+          referenceNumber:
+            dto.referenceNumber ??
+            transaction.transactionId ??
+            transaction.reference ??
+            undefined,
+          updatedBy: userId,
+        },
+      });
+      await this.prisma.paymentActivity.create({
+        data: {
+          paymentId: reportedClaim.id,
+          type: ADOPTED_BY_RECONCILIATION,
+          description: `Reported claim reconciled to Cash Flow transaction ${transaction.transactionId ?? id}`,
+          metadata: { bankTransactionId: id, performedById: userId },
+        },
+      });
+    }
+    if (!reportedClaim || reportedClaim.status === PaymentStatus.PENDING) {
+      await this.paymentsService.match(payment.id, { matchedById: userId });
+    }
 
     if (dto.acknowledgeMethodMismatch || isMismatch) {
       await this.storeOrdersService.addNote(
@@ -447,6 +485,29 @@ export class CashFlowReconciliationService {
         matchedById: userId,
       },
     });
+  }
+
+  /** An open (PENDING/MATCHED, not yet verified) claim on the order for exactly this amount that no
+   *  other bank transaction has already matched. */
+  private async findAdoptableClaim(storeOrderId: string, amount: number) {
+    const claims = await this.prisma.payment.findMany({
+      where: {
+        storeOrderId,
+        deletedAt: null,
+        status: { in: [PaymentStatus.PENDING, PaymentStatus.MATCHED] },
+        amount: { gte: amount - 0.005, lte: amount + 0.005 },
+      },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, status: true },
+    });
+    for (const claim of claims) {
+      const linked = await this.prisma.bankTransaction.findFirst({
+        where: { matchedPaymentId: claim.id, deletedAt: null },
+        select: { id: true },
+      });
+      if (!linked) return claim;
+    }
+    return null;
   }
 
   // ---------------------------------------------------------------------
@@ -1192,19 +1253,36 @@ export class CashFlowReconciliationService {
       );
     }
 
+    // A claim the agent reported before reconciliation belongs to the
+    // order, not to the bank line: unreconciling returns it to PENDING
+    // instead of deleting the customer's reported payment.
+    const adopted =
+      payment.status !== PaymentStatus.VERIFIED &&
+      (await this.prisma.paymentActivity.findFirst({
+        where: { paymentId, type: ADOPTED_BY_RECONCILIATION },
+        select: { id: true },
+      }));
+
     await this.prisma.$transaction(async (tx) => {
       await tx.payment.update({
         where: { id: paymentId },
-        data: {
-          deletedAt: new Date(),
-          updatedBy: userId,
-          status: PaymentStatus.REJECTED,
-          rejectedAt: new Date(),
-          rejectedById: userId,
-          rejectionReason:
-            reason?.trim() ||
-            'Unreconciled from Cash Flow — allocation reversed',
-        },
+        data: adopted
+          ? {
+              status: PaymentStatus.PENDING,
+              matchedAt: null,
+              matchedById: null,
+              updatedBy: userId,
+            }
+          : {
+              deletedAt: new Date(),
+              updatedBy: userId,
+              status: PaymentStatus.REJECTED,
+              rejectedAt: new Date(),
+              rejectedById: userId,
+              rejectionReason:
+                reason?.trim() ||
+                'Unreconciled from Cash Flow — allocation reversed',
+            },
       });
       await tx.paymentActivity.create({
         data: {

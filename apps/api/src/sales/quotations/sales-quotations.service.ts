@@ -243,10 +243,12 @@ export class SalesQuotationsService {
     );
   }
 
+  /** Approvers approve a Draft directly — the separate Submit click is only
+   *  needed by users who cannot approve themselves. */
   approve(id: string) {
     return this.transition(
       id,
-      [SalesDocumentStatus.PENDING_APPROVAL],
+      [SalesDocumentStatus.DRAFT, SalesDocumentStatus.PENDING_APPROVAL],
       SalesDocumentStatus.APPROVED,
       SalesQuotationActivityType.QUOTATION_APPROVED,
       'approved',

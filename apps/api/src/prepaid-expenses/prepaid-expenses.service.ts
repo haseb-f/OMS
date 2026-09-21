@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { AccountingScheduleStatus, PrepaidExpenseStatus } from '@prisma/client';
+import { buildMonthlyRecognitionSchedule } from './prepaid-schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import { PostingEngineService } from '../accounting/posting-engine/posting-engine.service';
@@ -42,7 +43,7 @@ export class PrepaidExpensesService {
       dto.currencyId,
       new Date(dto.startDate),
     );
-    const periods = this.buildSchedule(
+    const periods = buildMonthlyRecognitionSchedule(
       dto.amount,
       dto.totalPeriods,
       new Date(dto.startDate),
@@ -137,9 +138,11 @@ export class PrepaidExpensesService {
           where: { prepaidExpenseId: id },
         });
         await tx.prepaidRecognition.createMany({
-          data: this.buildSchedule(amount, totalPeriods, startDate).map(
-            (period) => ({ ...period, prepaidExpenseId: id }),
-          ),
+          data: buildMonthlyRecognitionSchedule(
+            amount,
+            totalPeriods,
+            startDate,
+          ).map((period) => ({ ...period, prepaidExpenseId: id })),
         });
       }
       return tx.prepaidExpense.update({
@@ -189,45 +192,74 @@ export class PrepaidExpensesService {
       orderBy: { periodEnd: 'asc' },
     });
     const posted: string[] = [];
+    const failures: Array<{
+      id: string;
+      prepaidExpenseId: string;
+      error: string;
+    }> = [];
     for (const row of pending) {
-      await this.prisma.$transaction(async (tx) => {
-        await this.postingEngine.post(
-          'PREPAID_RECOGNITION',
-          row.id,
-          userId,
-          tx,
-        );
-        await tx.prepaidRecognition.update({
+      try {
+        await this.prisma.$transaction(async (tx) => {
+          await this.postingEngine.post(
+            'PREPAID_RECOGNITION',
+            row.id,
+            userId,
+            tx,
+          );
+          await tx.prepaidRecognition.update({
+            where: { id: row.id },
+            data: {
+              status: AccountingScheduleStatus.POSTED,
+              postedAt: new Date(),
+              postedBy: userId ?? null,
+              lastError: null,
+              lastAttemptAt: new Date(),
+            },
+          });
+          const parent = await tx.prepaidExpense.update({
+            where: { id: row.prepaidExpenseId },
+            data: {
+              recognizedAmount: { increment: row.amount },
+              updatedBy: userId ?? null,
+            },
+          });
+          const remaining = await tx.prepaidRecognition.count({
+            where: {
+              prepaidExpenseId: row.prepaidExpenseId,
+              status: AccountingScheduleStatus.PENDING,
+            },
+          });
+          if (remaining === 0) {
+            await tx.prepaidExpense.update({
+              where: { id: parent.id },
+              data: { status: PrepaidExpenseStatus.COMPLETED },
+            });
+          }
+        });
+        posted.push(row.id);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        await this.prisma.prepaidRecognition.update({
           where: { id: row.id },
           data: {
-            status: AccountingScheduleStatus.POSTED,
-            postedAt: new Date(),
-            postedBy: userId ?? null,
+            lastError: message.slice(0, 1000),
+            lastAttemptAt: new Date(),
           },
         });
-        const parent = await tx.prepaidExpense.update({
-          where: { id: row.prepaidExpenseId },
-          data: {
-            recognizedAmount: { increment: row.amount },
-            updatedBy: userId ?? null,
-          },
+        failures.push({
+          id: row.id,
+          prepaidExpenseId: row.prepaidExpenseId,
+          error: message,
         });
-        const remaining = await tx.prepaidRecognition.count({
-          where: {
-            prepaidExpenseId: row.prepaidExpenseId,
-            status: AccountingScheduleStatus.PENDING,
-          },
-        });
-        if (remaining === 0) {
-          await tx.prepaidExpense.update({
-            where: { id: parent.id },
-            data: { status: PrepaidExpenseStatus.COMPLETED },
-          });
-        }
-      });
-      posted.push(row.id);
+      }
     }
-    return { asOf, postedCount: posted.length, recognitionIds: posted };
+    return {
+      asOf,
+      postedCount: posted.length,
+      recognitionIds: posted,
+      failedCount: failures.length,
+      failures,
+    };
   }
 
   async archive(id: string, userId?: string) {
@@ -241,35 +273,5 @@ export class PrepaidExpensesService {
       where: { id },
       data: { deletedAt: new Date(), updatedBy: userId ?? null },
     });
-  }
-
-  private buildSchedule(amount: number, periods: number, start: Date) {
-    const monthly = Math.round((amount / periods) * 100) / 100;
-    const rows: Array<{ periodStart: Date; periodEnd: Date; amount: number }> =
-      [];
-    let recognized = 0;
-    for (let i = 0; i < periods; i += 1) {
-      const periodStart = this.addMonths(start, i);
-      const periodEnd = new Date(
-        this.addMonths(start, i + 1).getTime() - 86400000,
-      );
-      const lineAmount =
-        i === periods - 1
-          ? Math.round((amount - recognized) * 100) / 100
-          : monthly;
-      recognized = Math.round((recognized + lineAmount) * 100) / 100;
-      rows.push({ periodStart, periodEnd, amount: lineAmount });
-    }
-    return rows;
-  }
-
-  private addMonths(date: Date, months: number) {
-    return new Date(
-      Date.UTC(
-        date.getUTCFullYear(),
-        date.getUTCMonth() + months,
-        date.getUTCDate(),
-      ),
-    );
   }
 }

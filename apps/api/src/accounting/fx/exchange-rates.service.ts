@@ -73,6 +73,44 @@ export class ExchangeRatesService {
     return row;
   }
 
+  /** Pre-posting check: does this document need a rate, and is one on
+   *  record for its date? Lets the UI ask for the rate before posting
+   *  instead of failing mid-transition. Never invents a rate. */
+  async checkRate(currencyId: string, asOf: Date) {
+    const functionalId = await this.resolveFunctionalCurrencyId();
+    const [currency, functional] = await Promise.all([
+      this.prisma.currency.findUnique({
+        where: { id: currencyId },
+        select: { id: true, code: true },
+      }),
+      functionalId
+        ? this.prisma.currency.findUnique({
+            where: { id: functionalId },
+            select: { id: true, code: true },
+          })
+        : null,
+    ]);
+    const base = {
+      fromCurrencyId: currencyId,
+      toCurrencyId: functionalId,
+      fromCurrencyCode: currency?.code ?? null,
+      toCurrencyCode: functional?.code ?? null,
+      asOf: asOf.toISOString().slice(0, 10),
+    };
+    if (!functionalId || currencyId === functionalId) {
+      return { ...base, required: false, available: true, rate: 1 };
+    }
+    try {
+      const rate = await this.resolveRate(currencyId, functionalId, asOf);
+      return { ...base, required: true, available: true, rate };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        return { ...base, required: true, available: false, rate: null };
+      }
+      throw error;
+    }
+  }
+
   async resolveFunctionalCurrencyId(client: DbClient = this.prisma) {
     const settings = await client.postingSettings.findFirst({
       select: { functionalCurrencyId: true },
@@ -133,16 +171,27 @@ export class ExchangeRatesService {
     if (inverse && Number(inverse.rate) !== 0) {
       return 1 / Number(inverse.rate);
     }
-    const from = await client.currency.findUnique({
-      where: { id: fromCurrencyId },
-      select: { code: true },
+    const [from, to] = await Promise.all([
+      client.currency.findUnique({
+        where: { id: fromCurrencyId },
+        select: { code: true },
+      }),
+      client.currency.findUnique({
+        where: { id: toCurrencyId },
+        select: { code: true },
+      }),
+    ]);
+    const asOfDate = asOf.toISOString().slice(0, 10);
+    throw new BadRequestException({
+      code: 'MISSING_EXCHANGE_RATE',
+      message: `No exchange rate from ${from?.code ?? fromCurrencyId} to ${to?.code ?? toCurrencyId} on or before ${asOfDate}. Record the rate for that date, then post again.`,
+      details: {
+        fromCurrencyId,
+        toCurrencyId,
+        fromCurrencyCode: from?.code ?? null,
+        toCurrencyCode: to?.code ?? null,
+        asOf: asOfDate,
+      },
     });
-    const to = await client.currency.findUnique({
-      where: { id: toCurrencyId },
-      select: { code: true },
-    });
-    throw new BadRequestException(
-      `No exchange rate from ${from?.code ?? fromCurrencyId} to ${to?.code ?? toCurrencyId} on or before ${asOf.toISOString().slice(0, 10)}. Record a rate before posting a foreign-currency document.`,
-    );
   }
 }
