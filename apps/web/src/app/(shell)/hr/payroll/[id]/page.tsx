@@ -285,8 +285,8 @@ export default function PayrollRunDetailPage() {
           getRowId={(row) => row.id}
           emptyTitle={t("common.noResults")}
           exportColumns={exportColumnsFromKeys(columns, exportKeys, t)}
-          onExport={(keys) =>
-            exportRowsToCsv(lines.map(toExportRow), keys, `payroll-${run.period}-lines.csv`)
+          onExport={(keys, labels) =>
+            exportRowsToCsv(lines.map(toExportRow), keys, `payroll-${run.period}-lines.csv`, labels)
           }
         />
       </div>

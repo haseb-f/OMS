@@ -328,11 +328,12 @@ function PurchaseReturnsPageContent() {
         }
         onRefresh={load}
         exportColumns={exportColumnsFromKeys(returnColumns, returnExportColumns, t)}
-        onExport={(selectedKeys) =>
+        onExport={(selectedKeys, labels) =>
           exportRowsToCsv(
             items.map((item) => toPrintRow(item)) as unknown as Record<string, unknown>[],
             selectedKeys,
             "purchase-returns.csv",
+            labels,
           )
         }
         emptyTitle={t("purchasing.returns.empty")}

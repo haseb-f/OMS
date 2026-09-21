@@ -1,4 +1,7 @@
+"use client";
+
 import type { ReactNode } from "react";
+import { useLocale } from "@/providers/locale-provider";
 import type { PrintOrientation } from "@/types/print-engine";
 
 /**
@@ -12,13 +15,22 @@ import type { PrintOrientation } from "@/types/print-engine";
  */
 export function PrintPage({
   orientation,
+  direction,
   children,
 }: {
   orientation: PrintOrientation;
+  /** Explicit sheet direction; omitted → inherits the print tab's `<html dir>` (the UI language). */
+  direction?: "rtl" | "ltr";
   children: ReactNode;
 }) {
+  const { t } = useLocale();
+  // CSS `content` strings — quotes escaped so a translation can never break the rule.
+  const cssText = (value: string) => JSON.stringify(value);
   return (
-    <div className="min-h-screen bg-white px-[12mm] pt-[12mm] pb-[22mm] text-slate-900">
+    <div
+      dir={direction}
+      className="min-h-screen bg-white px-[12mm] pt-[12mm] pb-[22mm] text-slate-900"
+    >
       {/* `@page` is document-scoped by spec — safe here because this route renders nothing else. */}
       <style>{`
         @page {
@@ -30,7 +42,7 @@ export function PrintPage({
         }
         @media print {
           .print-page-counter::after {
-            content: "Page " counter(page) " of " counter(pages);
+            content: ${cssText(`${t("reportExport.page")} `)} counter(page) ${cssText(` ${t("reportExport.of")} `)} counter(pages);
           }
         }
       `}</style>

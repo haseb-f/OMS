@@ -716,11 +716,12 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
           onRefresh={load}
           getRowHref={getRowHref}
           exportColumns={exportColumnsFromKeys(columns, exportColumnKeys, t)}
-          onExport={(selectedKeys) =>
+          onExport={(selectedKeys, labels) =>
             exportRowsToCsv(
               items as unknown as Record<string, unknown>[],
               selectedKeys,
               `${tableId}.csv`,
+              labels,
             )
           }
         />

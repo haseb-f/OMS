@@ -32,16 +32,19 @@ export interface PaymentReviewRow {
   } | null;
 }
 
-/** What happened to the Customer Receipt / JE after verification. */
-export type PaymentCollectionResult =
-  | { status: "NOT_APPLICABLE" | "PENDING_INVOICE" }
-  | { status: "POSTED"; receipts: Array<{ id: string; transactionNumber: string }> }
-  | { status: "FAILED"; message: string };
-
-export interface PaymentVerifyResult {
+/** Result of Confirm & Post — the payment is VERIFIED and exactly one receipt + JE exist. */
+export interface PaymentConfirmResult {
   id: string;
+  paymentNumber: string;
   status: PaymentReviewStatus;
-  collection: PaymentCollectionResult;
+  /** True when a retry found the receipt already posted (nothing posted twice). */
+  alreadyPosted: boolean;
+  receipt: {
+    id: string;
+    transactionNumber: string;
+    status: string;
+    journalEntry: { id: string; entryNumber: string } | null;
+  };
 }
 
 export interface PaymentReviewResult {
@@ -64,11 +67,9 @@ function qs(params: Record<string, unknown>): string {
 export const paymentsReviewService = {
   list: (params: { status?: PaymentReviewStatus; page?: number; pageSize?: number } = {}) =>
     apiClient.get<PaymentReviewResult>(`/payments${qs(params)}`),
-  match: (id: string, matchedById: string) =>
-    apiClient.post(`/payments/${id}/match`, { matchedById }),
-  /** Idempotent — re-verifying a VERIFIED payment only retries the receipt posting. */
-  verify: (id: string, verifiedById: string) =>
-    apiClient.post<PaymentVerifyResult>(`/payments/${id}/verify`, { verifiedById }),
-  reject: (id: string, rejectedById: string, rejectionReason?: string) =>
-    apiClient.post(`/payments/${id}/reject`, { rejectedById, rejectionReason }),
+  /** One atomic step: validate → verify → post receipt + JE. Idempotent on retry. */
+  confirm: (id: string) => apiClient.post<PaymentConfirmResult>(`/payments/${id}/confirm`),
+  /** The reason is required and saved on the payment; nothing is posted. */
+  reject: (id: string, rejectionReason: string) =>
+    apiClient.post(`/payments/${id}/reject`, { rejectionReason }),
 };

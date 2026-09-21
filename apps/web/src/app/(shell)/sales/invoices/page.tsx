@@ -368,11 +368,12 @@ function SalesInvoicesPageContent() {
         }
         onRefresh={load}
         exportColumns={exportColumnsFromKeys(invoiceColumns, invoiceExportColumns, t)}
-        onExport={(selectedKeys) =>
+        onExport={(selectedKeys, labels) =>
           exportRowsToCsv(
             items.map((item) => toPrintRow(item)) as unknown as Record<string, unknown>[],
             selectedKeys,
             "sales-invoices.csv",
+            labels,
           )
         }
         emptyTitle={t("sales.invoices.empty")}

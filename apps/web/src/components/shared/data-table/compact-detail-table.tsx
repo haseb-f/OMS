@@ -19,6 +19,14 @@ export interface CompactDetailColumn<T> {
   header: ReactNode;
   align?: CompactDetailAlign;
   cell: (row: T) => ReactNode;
+  /** Totals cell — rendered with the exact header/body geometry so a total
+   *  always sits under its own column's values. */
+  footer?: ReactNode;
+}
+
+/** One cell geometry for header, body and footer (padding + alignment). */
+function cellAlignClass(align?: CompactDetailAlign) {
+  return align === "end" ? "text-end tabular-nums" : "text-start";
 }
 
 /**
@@ -56,7 +64,7 @@ export function CompactDetailTable<T>({
                 key={column.id}
                 className={cn(
                   "h-8 bg-muted px-2 font-medium text-foreground",
-                  column.align === "end" && "text-end",
+                  cellAlignClass(column.align),
                 )}
               >
                 {column.header}
@@ -82,7 +90,7 @@ export function CompactDetailTable<T>({
                     key={column.id}
                     className={cn(
                       "min-w-0 px-2 py-1.5 leading-normal",
-                      column.align === "end" && "text-end tabular-nums",
+                      cellAlignClass(column.align),
                     )}
                   >
                     {column.cell(row)}
@@ -92,9 +100,22 @@ export function CompactDetailTable<T>({
             ))
           )}
         </TableBody>
-        {footer ? (
+        {footer || columns.some((column) => column.footer != null) ? (
           <TableFooter>
-            <TableRow className="hover:bg-transparent">{footer}</TableRow>
+            <TableRow className="hover:bg-transparent">
+              {footer ??
+                columns.map((column) => (
+                  <TableCell
+                    key={column.id}
+                    className={cn(
+                      "min-w-0 px-2 py-1.5 font-semibold leading-normal",
+                      cellAlignClass(column.align),
+                    )}
+                  >
+                    {column.footer}
+                  </TableCell>
+                ))}
+            </TableRow>
           </TableFooter>
         ) : null}
       </Table>

@@ -43,8 +43,19 @@ export interface FinancialReportFooter {
  * reports that must balance (Trial Balance, Balance Sheet) — the check with
  * the exact discrepancy, so an imbalance is never a single red word.
  */
+export type FinancialReportSummaryTone = "revenue" | "expense" | "result";
+
+export interface FinancialReportSummaryItem {
+  label: string;
+  value: number;
+  /** A final balance/total — weighted and framed as the figure that counts. */
+  emphasize?: boolean;
+  /** Category color (summary only). "result" is green/red/neutral by sign. */
+  tone?: FinancialReportSummaryTone;
+}
+
 export interface FinancialReportSummary {
-  items: Array<{ label: string; value: number; emphasize?: boolean }>;
+  items: FinancialReportSummaryItem[];
   check?: { balanced: boolean; difference: number; label: string };
 }
 

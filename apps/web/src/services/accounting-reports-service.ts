@@ -175,10 +175,20 @@ export interface CashFlowMovement {
   netChange: number;
 }
 
+/** `activities` = operating/investing/financing; `movement` = cash-account movement detail. */
+export type CashFlowView = "activities" | "movement";
+
 export interface CashFlowResult {
+  view?: CashFlowView;
   openingBalance: number;
-  movements: CashFlowMovement[];
-  totals: { netCashChange: number; closingBalance: number };
+  movements?: CashFlowMovement[];
+  totals: {
+    netCashChange: number;
+    closingBalance: number;
+    openingBalance?: number;
+    inflows?: number;
+    outflows?: number;
+  };
   lines: HierarchicalReportLine[];
   sections?: Array<{ section: string; netChange: number }>;
 }
@@ -279,7 +289,7 @@ export const accountingReportsService = {
     apiClient.get<IncomeStatementResult>(
       `/accounting/reports/income-statement${buildQueryString(params as Record<string, unknown>)}`,
     ),
-  cashFlow: (params: ReportFilterParams = {}) =>
+  cashFlow: (params: ReportFilterParams & { view?: CashFlowView } = {}) =>
     apiClient.get<CashFlowResult>(
       `/accounting/reports/cash-flow${buildQueryString(params as Record<string, unknown>)}`,
     ),

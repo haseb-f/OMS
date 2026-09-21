@@ -21,7 +21,6 @@ import { StatusBadge } from "@/components/business/status-badge";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
 import { AllocationGrid } from "./allocation-grid";
 import { PaymentSummary } from "./payment-summary";
-import { apiClient } from "@/services/api-client";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { formatDateTime, formatDate } from "@/lib/date";
@@ -38,14 +37,16 @@ import type {
   FinancialTransactionActivityEntry,
 } from "./financial-transaction-editor.types";
 
+import { paymentSourcesService } from "@/services/payment-sources-service";
+import {
+  receivingAccountsService,
+  type ReceivingAccountOption,
+} from "@/services/receiving-accounts-service";
+
 interface LookupRow {
   id: string;
   name: string;
 }
-
-/** Both endpoints return a bare array (no pagination — small, always-fetch-all config lists), unlike `createMasterDataService`'s paginated `{items,...}` contract. */
-const paymentSourcesService = { list: () => apiClient.get<LookupRow[]>("/payment-sources") };
-const receivingAccountsService = { list: () => apiClient.get<LookupRow[]>("/receiving-accounts") };
 
 /**
  * Financial Transactions & Matching Engine (TASK-043, compacted TASK-056A)
@@ -91,7 +92,7 @@ export function FinancialTransactionEditor({
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
   const [paymentSources, setPaymentSources] = useState<LookupRow[]>([]);
-  const [receivingAccounts, setReceivingAccounts] = useState<LookupRow[]>([]);
+  const [receivingAccounts, setReceivingAccounts] = useState<ReceivingAccountOption[]>([]);
   const [transactionTypes, setTransactionTypes] = useState<FinancialTransactionTypeRow[]>(() =>
     typesForDirection(config.direction).map((type) => ({
       code: type.code,
@@ -124,6 +125,17 @@ export function FinancialTransactionEditor({
         ),
       );
   }, [config.direction]);
+
+  /** Smart default for a new voucher: the account flagged default, or the only one. */
+  const { document: currentDocument, receivingAccountId: currentReceivingAccountId } = state;
+  const { onReceivingAccountChange } = handlers;
+  useEffect(() => {
+    if (currentDocument || currentReceivingAccountId || receivingAccounts.length === 0) return;
+    const preferred =
+      receivingAccounts.find((account) => account.isDefault) ??
+      (receivingAccounts.length === 1 ? receivingAccounts[0] : undefined);
+    if (preferred) onReceivingAccountChange(preferred.id);
+  }, [currentDocument, currentReceivingAccountId, receivingAccounts, onReceivingAccountChange]);
 
   const currentStatusOption = config.statusOptions.find((option) => option.value === state.status);
   const visibleActions = config.workflowActions.filter(

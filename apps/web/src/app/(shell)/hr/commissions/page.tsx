@@ -344,7 +344,9 @@ export default function CommissionsPage() {
           </>
         }
         exportColumns={exportColumnsFromKeys(columns, exportKeys, t)}
-        onExport={(keys) => exportRowsToCsv(rows.map(toExportRow), keys, "commissions.csv")}
+        onExport={(keys, labels) =>
+          exportRowsToCsv(rows.map(toExportRow), keys, "commissions.csv", labels)
+        }
       />
 
       <EnterpriseModal

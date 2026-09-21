@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, UserCircle, Truck, User } from "lucide-react";
-import { CommandItem } from "@/components/ui/command";
+import { UserCircle, Truck, User } from "lucide-react";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
 import {
   partnersService,
@@ -102,6 +101,7 @@ export function PartnerPicker({
   const { hasPermission } = useUserContext();
   const canCreate = hasPermission("partners.create");
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [quickCreateName, setQuickCreateName] = useState("");
   const text = ROLE_TEXT[role];
   const Icon = ROLE_ICON[role];
   const [recentIds, setRecentIds] = useLocalStorage<string[]>(text.storageKey, []);
@@ -162,19 +162,23 @@ export function PartnerPicker({
             ? [{ heading: t(text.recent), items: recentPartners }]
             : undefined
         }
-        footer={
-          canCreate ? (
-            <CommandItem value="__quick_create__" onSelect={() => setQuickCreateOpen(true)}>
-              <Plus className="size-4" />
-              {t(text.quickCreate)}
-            </CommandItem>
-          ) : undefined
+        createAction={
+          canCreate
+            ? {
+                label: t(text.quickCreate),
+                onSelect: (search) => {
+                  setQuickCreateName(search);
+                  setQuickCreateOpen(true);
+                },
+              }
+            : undefined
         }
       />
       <PartnerQuickCreateDialog
         role={role}
         open={quickCreateOpen}
         onOpenChange={setQuickCreateOpen}
+        initialName={quickCreateName}
         onCreated={(partner) => {
           invalidateLookups("partners:");
           selectPartner(partner);

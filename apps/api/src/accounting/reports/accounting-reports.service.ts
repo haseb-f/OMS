@@ -28,6 +28,7 @@ import {
 } from './aging.util';
 import {
   buildAccountForest,
+  buildCashMovementReport,
   classifyCashFlowSource,
   leafLine,
   roundReportMoney,
@@ -695,8 +696,12 @@ export class AccountingReportsService {
     const cashAccountIds = [
       ...new Set(cashAccounts.map((a) => a.chartOfAccountId)),
     ];
+    if (query.view === 'movement') {
+      return this.cashMovement(query, cashAccountIds);
+    }
     if (cashAccountIds.length === 0) {
       return {
+        view: 'activities' as const,
         openingBalance: 0,
         movements: [],
         totals: { netCashChange: 0, closingBalance: 0 },
@@ -861,6 +866,7 @@ export class AccountingReportsService {
     ];
 
     return {
+      view: 'activities' as const,
       openingBalance,
       movements,
       totals: {
@@ -877,6 +883,73 @@ export class AccountingReportsService {
           ),
         ),
       })),
+    };
+  }
+
+  /**
+   * Cash Flow — "movement" view: per cash/bank account opening balance,
+   * period inflows (debits), outflows (credits), net change and closing
+   * balance, all from journal lines with the same scope as the activities
+   * view, so both views agree on opening, net change and closing cash.
+   */
+  private async cashMovement(
+    query: CashFlowQueryDto,
+    cashAccountIds: string[],
+  ) {
+    const scopeWhere = this.buildEntryScopeWhere(query);
+    const [accounts, opening, period] = await Promise.all([
+      this.prisma.chartOfAccount.findMany({
+        where: { id: { in: cashAccountIds } },
+        select: { id: true, code: true, name: true, nameEn: true },
+      }),
+      query.dateFrom
+        ? this.prisma.journalEntryLine.groupBy({
+            by: ['accountId'],
+            where: {
+              accountId: { in: cashAccountIds },
+              journalEntry: {
+                ...scopeWhere,
+                entryDate: { lt: new Date(query.dateFrom) },
+              },
+            },
+            _sum: { debit: true, credit: true },
+          })
+        : Promise.resolve([]),
+      this.prisma.journalEntryLine.groupBy({
+        by: ['accountId'],
+        where: {
+          accountId: { in: cashAccountIds },
+          journalEntry: {
+            ...scopeWhere,
+            entryDate: buildDateRangeFilter(query.dateFrom, query.dateTo),
+          },
+        },
+        _sum: { debit: true, credit: true },
+      }),
+    ]);
+    const { lines, totals } = buildCashMovementReport(
+      accounts,
+      new Map(
+        opening.map((row) => [
+          row.accountId,
+          Number(row._sum.debit ?? 0) - Number(row._sum.credit ?? 0),
+        ]),
+      ),
+      new Map(
+        period.map((row) => [
+          row.accountId,
+          {
+            debit: Number(row._sum.debit ?? 0),
+            credit: Number(row._sum.credit ?? 0),
+          },
+        ]),
+      ),
+    );
+    return {
+      view: 'movement' as const,
+      openingBalance: totals.openingBalance,
+      totals,
+      lines,
     };
   }
 

@@ -80,6 +80,8 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
   const [openInvoices, setOpenInvoices] = useState<OpenInvoiceRow[]>([]);
   const [isLoadingOpenInvoices, setIsLoadingOpenInvoices] = useState(false);
   const appliedInvoicePrefillRef = useRef(false);
+  /** Synchronous double-click guard for Confirm on a new voucher. */
+  const confirmingRef = useRef(false);
 
   const applyReceipt = useCallback((data: FinancialTransactionRow) => {
     setReceipt(data);
@@ -161,6 +163,10 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
     return null;
   };
 
+  /** Posting needs to know where the money went/came from — checked before any request so Confirm never half-succeeds. */
+  const validateForPosting = (): string | null =>
+    receivingAccountId ? null : t("financialTransactions.validation.receivingAccountRequired");
+
   const buildPayload = () => ({
     partnerId: customer!.id,
     transactionDate: transactionDate ? transactionDate.toISOString() : undefined,
@@ -218,21 +224,35 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
   };
 
   /** "Confirm" on a brand-new, not-yet-saved receipt must create it first — `runTransition` alone silently no-ops with no `id` yet. Reuses the exact same `create()`/`confirm()` calls Save and a post-save Confirm already use, never a parallel path. */
+  const handleConfirmExisting = async () => {
+    const postingError = validateForPosting();
+    if (postingError) {
+      toast.error(postingError);
+      return;
+    }
+    await runTransition(
+      (transactionId) => customerReceiptsService.confirm(transactionId),
+      "financialTransactions.toasts.confirmed",
+    );
+  };
+
   const handleConfirmNew = async () => {
-    const error = validate();
+    const error = validate() ?? validateForPosting();
     if (error) {
       toast.error(error);
       return;
     }
+    if (confirmingRef.current) return;
+    confirmingRef.current = true;
     setIsTransitioning(true);
     try {
-      const created = await customerReceiptsService.create(buildPayload());
-      const confirmed = await customerReceiptsService.confirm(created.id);
+      const confirmed = await customerReceiptsService.createConfirmed(buildPayload());
       toast.success(t("financialTransactions.toasts.confirmed"));
       router.replace(`/sales/payments/${confirmed.id}`);
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
     } finally {
+      confirmingRef.current = false;
       setIsTransitioning(false);
     }
   };
@@ -416,13 +436,7 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
           icon: CheckCircle2,
           variant: "default",
           visibleForStatuses: ["DRAFT"],
-          onAction: () =>
-            id
-              ? runTransition(
-                  (rid) => customerReceiptsService.confirm(rid),
-                  "financialTransactions.toasts.confirmed",
-                )
-              : handleConfirmNew(),
+          onAction: () => (id ? handleConfirmExisting() : handleConfirmNew()),
         },
         {
           key: "cancel",
@@ -502,6 +516,8 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
       <FinancialTransactionEditor
         config={{
           ...config,
+          // confirmingRef is only read inside click handlers, never during render.
+          // eslint-disable-next-line react-hooks/refs
           workflowActions: config.workflowActions.filter((action) => {
             if (action.key === "confirm" && !canConfirm) return false;
             if (action.key === "cancel" && !canCancel) return false;

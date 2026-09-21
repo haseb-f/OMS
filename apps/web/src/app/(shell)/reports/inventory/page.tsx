@@ -322,11 +322,12 @@ function ReportsInventoryPageContent() {
               movementColumns.map((c) => c.id!),
               t,
             )}
-            onExport={(keys) =>
+            onExport={(keys, labels) =>
               exportRowsToCsv(
                 toExportRows(movementColumns, filteredMovements),
                 keys,
                 "inventory-movements-report.csv",
+                labels,
               )
             }
           />
@@ -344,11 +345,12 @@ function ReportsInventoryPageContent() {
               valuationColumns.map((c) => c.id!),
               t,
             )}
-            onExport={(keys) =>
+            onExport={(keys, labels) =>
               exportRowsToCsv(
                 toExportRows(valuationColumns, stockCards),
                 keys,
                 "inventory-valuation.csv",
+                labels,
               )
             }
           />
@@ -366,11 +368,12 @@ function ReportsInventoryPageContent() {
               stockColumns.map((c) => c.id!),
               t,
             )}
-            onExport={(keys) =>
+            onExport={(keys, labels) =>
               exportRowsToCsv(
                 toExportRows(stockColumns, stockCards),
                 keys,
                 "inventory-current-stock.csv",
+                labels,
               )
             }
           />
@@ -389,11 +392,12 @@ function ReportsInventoryPageContent() {
               stockColumns.map((c) => c.id!),
               t,
             )}
-            onExport={(keys) =>
+            onExport={(keys, labels) =>
               exportRowsToCsv(
                 toExportRows(stockColumns, negativeStock),
                 keys,
                 "inventory-negative-stock.csv",
+                labels,
               )
             }
           />
@@ -411,11 +415,12 @@ function ReportsInventoryPageContent() {
               warehouseBalanceColumns.map((c) => c.id!),
               t,
             )}
-            onExport={(keys) =>
+            onExport={(keys, labels) =>
               exportRowsToCsv(
                 toExportRows(warehouseBalanceColumns, warehouseBalances),
                 keys,
                 "inventory-warehouse-balance.csv",
+                labels,
               )
             }
           />

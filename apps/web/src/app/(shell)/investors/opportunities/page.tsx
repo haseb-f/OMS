@@ -186,11 +186,12 @@ export default function InvestmentOpportunitiesPage() {
         isLoading={isLoading}
         onRefresh={load}
         exportColumns={exportColumnsFromKeys(columns, opportunityExportColumns, t)}
-        onExport={(selectedKeys) =>
+        onExport={(selectedKeys, labels) =>
           exportRowsToCsv(
             items.map((item) => toPrintRow(item)) as unknown as Record<string, unknown>[],
             selectedKeys,
             "investment-opportunities.csv",
+            labels,
           )
         }
         getRowId={(row) => row.id}

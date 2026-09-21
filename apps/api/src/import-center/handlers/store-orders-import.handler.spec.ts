@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { ExchangeRatesService } from '../../accounting/fx/exchange-rates.service';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
@@ -113,7 +114,14 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
       },
     });
 
-    const currency = await prisma.currency.findFirstOrThrow();
+    // The functional currency posts without an exchange rate — an arbitrary
+    // first row could be a leftover test currency from another suite.
+    const functionalId = await moduleRef
+      .get(ExchangeRatesService)
+      .resolveFunctionalCurrencyId();
+    const currency = await prisma.currency.findFirstOrThrow({
+      where: functionalId ? { id: functionalId } : {},
+    });
     currencyCode = currency.code;
     currencyId = currency.id;
 

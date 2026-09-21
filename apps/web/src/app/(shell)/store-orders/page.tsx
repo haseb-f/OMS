@@ -565,11 +565,12 @@ function StoreOrdersPageContent() {
         }
         onRefresh={load}
         exportColumns={storeOrderExportColumnList(t)}
-        onExport={(selectedKeys) =>
+        onExport={(selectedKeys, labels) =>
           exportRowsToCsv(
             items.map((item) => toPrintRow(item)) as unknown as Record<string, unknown>[],
             selectedKeys,
             "store-orders.csv",
+            labels,
           )
         }
         emptyTitle={t("storeOrders.empty")}

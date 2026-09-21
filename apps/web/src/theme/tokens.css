@@ -81,8 +81,8 @@
      className, same as every other component here). */
   --width-control-search: 300px;
   --width-control-date: 170px;
-  --width-control-quantity: 72px;
-  --width-control-discount: 72px;
+  --width-control-quantity: 80px;
+  --width-control-discount: 80px;
   --width-control-price: 96px;
   --width-control-line-total: 104px;
   --width-control-actions: 40px;

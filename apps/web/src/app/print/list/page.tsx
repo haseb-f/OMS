@@ -5,9 +5,11 @@ import { useSearchParams } from "next/navigation";
 import { GenericListPrintTemplate } from "@/components/print/templates";
 import { useTriggerPrint } from "@/components/print/use-trigger-print";
 import { readPrintJob } from "@/lib/print-bridge";
+import { useLocale } from "@/providers/locale-provider";
 import type { GenericListPrintPayload } from "@/types/print-engine";
 
 function PrintListContent() {
+  const { t } = useLocale();
   const searchParams = useSearchParams();
   const jobId = searchParams.get("job");
   const [payload, setPayload] = useState<GenericListPrintPayload | null | undefined>(undefined);
@@ -23,7 +25,7 @@ function PrintListContent() {
   if (!payload) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-slate-500">
-        This print job has expired. Close this tab and print again.
+        {t("reportExport.printExpired")}
       </div>
     );
   }

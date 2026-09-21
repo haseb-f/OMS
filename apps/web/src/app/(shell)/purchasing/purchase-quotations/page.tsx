@@ -377,11 +377,12 @@ function PurchaseQuotationsPageContent() {
         }
         onRefresh={load}
         exportColumns={exportColumnsFromKeys(quotationColumns, quotationExportColumns, t)}
-        onExport={(selectedKeys) =>
+        onExport={(selectedKeys, labels) =>
           exportRowsToCsv(
             items.map((item) => toPrintRow(item)) as unknown as Record<string, unknown>[],
             selectedKeys,
             "purchase-quotations.csv",
+            labels,
           )
         }
         emptyTitle={t("purchasing.quotations.empty")}

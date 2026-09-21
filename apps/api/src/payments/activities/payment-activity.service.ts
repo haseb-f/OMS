@@ -12,6 +12,8 @@ export const PaymentActivityType = {
   PAYMENT_CREATED: 'PAYMENT_CREATED',
   MATCHED: 'MATCHED',
   VERIFIED: 'VERIFIED',
+  /** Single-step Match + Verify + Customer Receipt/JE posting. */
+  CONFIRMED_AND_POSTED: 'CONFIRMED_AND_POSTED',
   REJECTED: 'REJECTED',
   ATTACHMENT_ADDED: 'ATTACHMENT_ADDED',
   NOTE_ADDED: 'NOTE_ADDED',

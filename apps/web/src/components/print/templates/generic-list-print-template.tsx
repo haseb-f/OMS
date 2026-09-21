@@ -18,7 +18,7 @@ function ListPrintTemplate({ payload }: { payload: GenericListPrintPayload }) {
   const printedAt = formatDateTime(new Date());
 
   return (
-    <PrintPage orientation={orientation}>
+    <PrintPage orientation={orientation} direction={payload.direction}>
       <PrintCompanyHeader
         company={payload.company}
         title={payload.title}

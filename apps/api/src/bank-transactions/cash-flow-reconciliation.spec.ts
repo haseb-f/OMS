@@ -17,6 +17,7 @@ import { StoreOrdersImportHandler } from '../import-center/handlers/store-orders
 import { ImportCenterModule } from '../import-center/import-center.module';
 import { StoreOrderPaymentSyncService } from '../store-orders/store-order-payment-sync.service';
 import { PaymentsService } from '../payments/payments.service';
+import { ExchangeRatesService } from '../accounting/fx/exchange-rates.service';
 import { PartnersService } from '../partners/partners.service';
 import { PermissionsCoreModule } from '../permissions/permissions-core.module';
 import { PhoneModule } from '../common/phone/phone.module';
@@ -97,7 +98,14 @@ describe('Cash Flow Reconciliation', () => {
     });
     unitId = unit.id;
 
-    const currency = await prisma.currency.findFirst();
+    // The functional currency needs no exchange rate to post — an arbitrary
+    // first row could be a leftover test currency from another suite.
+    const functionalId = await moduleRef
+      .get(ExchangeRatesService)
+      .resolveFunctionalCurrencyId();
+    const currency = functionalId
+      ? await prisma.currency.findUnique({ where: { id: functionalId } })
+      : await prisma.currency.findFirst();
     if (!currency) throw new Error('Expected at least one seeded Currency.');
     currencyId = currency.id;
     currencyCode = currency.code;
@@ -239,9 +247,20 @@ describe('Cash Flow Reconciliation', () => {
       where: { cashSourceId: { in: [cashSourceId, cashSourceId2] } },
       select: { id: true, matchedFinancialTransactionId: true },
     });
-    const financialTransactionIds = bankTxns
-      .map((t) => t.matchedFinancialTransactionId)
-      .filter((id): id is string => !!id);
+    // Confirm & Post also creates Customer Receipts for store-order payments
+    // (not linked to a bank row) — sweep every voucher on the test accounts.
+    const accountVouchers = await prisma.financialTransaction.findMany({
+      where: { receivingAccountId: { in: [cashSourceId, cashSourceId2] } },
+      select: { id: true },
+    });
+    const financialTransactionIds = [
+      ...new Set([
+        ...bankTxns
+          .map((t) => t.matchedFinancialTransactionId)
+          .filter((id): id is string => !!id),
+        ...accountVouchers.map((v) => v.id),
+      ]),
+    ];
     const bankTxnIds = bankTxns.map((t) => t.id);
 
     // Internal Transfer entries — clear the self-referencing link first
@@ -516,9 +535,7 @@ describe('Cash Flow Reconciliation', () => {
         userId,
       );
       expect(result.matchedPaymentId).toBeTruthy();
-      await paymentsService.verify(result.matchedPaymentId!, {
-        verifiedById: userId,
-      });
+      await paymentsService.confirm(result.matchedPaymentId!, userId);
 
       const finalOrder = await prisma.storeOrder.findUniqueOrThrow({
         where: { id: order.id },
@@ -538,9 +555,7 @@ describe('Cash Flow Reconciliation', () => {
         { storeOrderId: order.id, paymentSourceId },
         userId,
       );
-      await paymentsService.verify(result.matchedPaymentId!, {
-        verifiedById: userId,
-      });
+      await paymentsService.confirm(result.matchedPaymentId!, userId);
 
       const finalOrder = await prisma.storeOrder.findUniqueOrThrow({
         where: { id: order.id },
@@ -560,9 +575,7 @@ describe('Cash Flow Reconciliation', () => {
         { storeOrderId: order.id, paymentSourceId },
         userId,
       );
-      await paymentsService.verify(r1.matchedPaymentId!, {
-        verifiedById: userId,
-      });
+      await paymentsService.confirm(r1.matchedPaymentId!, userId);
 
       const second = await importIncoming({ amount: 300 });
       const r2 = await reconciliation.confirmStoreOrderPayment(
@@ -570,9 +583,7 @@ describe('Cash Flow Reconciliation', () => {
         { storeOrderId: order.id, paymentSourceId },
         userId,
       );
-      await paymentsService.verify(r2.matchedPaymentId!, {
-        verifiedById: userId,
-      });
+      await paymentsService.confirm(r2.matchedPaymentId!, userId);
 
       let finalOrder = await prisma.storeOrder.findUniqueOrThrow({
         where: { id: order.id },
@@ -585,9 +596,7 @@ describe('Cash Flow Reconciliation', () => {
         { storeOrderId: order.id, paymentSourceId },
         userId,
       );
-      await paymentsService.verify(r3.matchedPaymentId!, {
-        verifiedById: userId,
-      });
+      await paymentsService.confirm(r3.matchedPaymentId!, userId);
 
       finalOrder = await prisma.storeOrder.findUniqueOrThrow({
         where: { id: order.id },

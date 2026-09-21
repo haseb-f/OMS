@@ -33,6 +33,7 @@ import {
   previewSalesLine,
 } from "@/components/sales/sales-line-preview-math";
 import { useCurrencies, useTaxes } from "@/hooks/use-reference-data";
+import { useNavigationDraft } from "@/hooks/use-navigation-draft";
 import { useCompany } from "@/providers/company-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { formatDateTime } from "@/lib/date";
@@ -115,6 +116,30 @@ export function CommercialDocumentEditor<TContext>(props: CommercialDocumentEdit
   const currencies = useCurrencies();
   const taxes = useTaxes();
   const { canEdit, lines, totals: serverTotals, status, statusOptions, activity } = props;
+
+  // Unsaved edits survive "Open full record" from a related-record preview.
+  useNavigationDraft({
+    enabled: canEdit,
+    ready: !props.isLoading,
+    snapshot: () => ({
+      party: props.party.value,
+      documentDate: props.documentDate,
+      currency: props.currency,
+      referenceNumber: props.referenceNumber,
+      notes: props.notes,
+      terms: props.terms,
+      lines,
+    }),
+    restore: (draft) => {
+      if (draft.party) props.party.onChange(draft.party);
+      props.onDocumentDateChange(draft.documentDate ? new Date(draft.documentDate) : null);
+      props.onCurrencyChange(draft.currency);
+      props.onReferenceNumberChange(draft.referenceNumber);
+      props.onNotesChange(draft.notes);
+      props.onTermsChange(draft.terms);
+      props.onLinesChange(draft.lines);
+    },
+  });
 
   const activeBranch = activeCompany?.branches.find(
     (branch) => branch.id === activeCompany?.defaultBranchId,
@@ -249,20 +274,16 @@ export function CommercialDocumentEditor<TContext>(props: CommercialDocumentEdit
           {props.headerFields}
         </div>
 
-        <div className="flex min-w-0 flex-col gap-2">
-          <h2 className="text-card-title font-heading">
-            {t("sales.editor.sections.productLines")}
-          </h2>
-          <ProductLineItemsGrid
-            lines={lines}
-            onChange={props.onLinesChange}
-            requireWarehouse={props.requireWarehouse}
-            disabled={!canEdit}
-            sellableOnly={props.lineMode === "sales"}
-            purchasableOnly={props.lineMode === "purchase"}
-            enableLineTreatment={props.enableLineTreatment}
-          />
-        </div>
+        <ProductLineItemsGrid
+          title={t("sales.editor.sections.productLines")}
+          lines={lines}
+          onChange={props.onLinesChange}
+          requireWarehouse={props.requireWarehouse}
+          disabled={!canEdit}
+          sellableOnly={props.lineMode === "sales"}
+          purchasableOnly={props.lineMode === "purchase"}
+          enableLineTreatment={props.enableLineTreatment}
+        />
 
         <DocumentTotalsFooter
           totals={previewTotals ?? serverTotals}

@@ -36,7 +36,8 @@ export function ExportDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   columns: ExportColumn[];
-  onExport: (selectedKeys: string[]) => void;
+  /** `selectedColumns` carries the translated header labels, so the exported file speaks the active UI language. */
+  onExport: (selectedKeys: string[], selectedColumns: ExportColumn[]) => void;
 }) {
   const { t } = useLocale();
   const [selected, setSelected] = useState<Set<string>>(() => new Set(columns.map((c) => c.key)));
@@ -88,7 +89,11 @@ export function ExportDialog({
             type="button"
             disabled={selected.size === 0}
             onClick={() => {
-              onExport(columns.map((c) => c.key).filter((key) => selected.has(key)));
+              const kept = columns.filter((c) => selected.has(c.key));
+              onExport(
+                kept.map((c) => c.key),
+                kept,
+              );
               onOpenChange(false);
             }}
           >

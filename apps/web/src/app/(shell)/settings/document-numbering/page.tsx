@@ -431,11 +431,12 @@ export default function SettingsDocumentNumberingPage() {
           { key: "padding", label: t("settings.documentNumbering.table.padding") },
           { key: "active", label: t("settings.documentNumbering.table.status") },
         ]}
-        onExport={(selectedKeys) =>
+        onExport={(selectedKeys, labels) =>
           exportRowsToCsv(
             filteredSorted as unknown as Record<string, unknown>[],
             selectedKeys,
             "number-series.csv",
+            labels,
           )
         }
       />

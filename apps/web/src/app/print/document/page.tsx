@@ -10,6 +10,7 @@ import {
 } from "@/components/print/templates";
 import { useTriggerPrint } from "@/components/print/use-trigger-print";
 import { readPrintJob } from "@/lib/print-bridge";
+import { useLocale } from "@/providers/locale-provider";
 import type { DocumentPrintPayload } from "@/types/print-engine";
 
 const TEMPLATES_BY_VARIANT = {
@@ -20,6 +21,7 @@ const TEMPLATES_BY_VARIANT = {
 } as const;
 
 function PrintDocumentContent() {
+  const { t } = useLocale();
   const searchParams = useSearchParams();
   const jobId = searchParams.get("job");
   const [payload, setPayload] = useState<DocumentPrintPayload | null | undefined>(undefined);
@@ -35,7 +37,7 @@ function PrintDocumentContent() {
   if (!payload) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-slate-500">
-        This print job has expired. Close this tab and print again.
+        {t("reportExport.printExpired")}
       </div>
     );
   }

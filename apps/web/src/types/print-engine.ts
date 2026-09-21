@@ -42,6 +42,8 @@ export interface GenericListPrintPayload {
   documentNumber?: string;
   /** Defaults to "landscape" — every list/report in the Print Policy is landscape. */
   orientation?: PrintOrientation;
+  /** Reading direction of the printed sheet — the UI language's direction at print time. Defaults to the print tab's own document direction. */
+  direction?: "rtl" | "ltr";
   company: PrintCompanyInfo;
   printedByName: string | null;
   columns: PrintColumn[];

@@ -370,11 +370,12 @@ function QuotationsPageContent() {
         }
         onRefresh={load}
         exportColumns={exportColumnsFromKeys(quotationColumns, quotationExportColumns, t)}
-        onExport={(selectedKeys) =>
+        onExport={(selectedKeys, labels) =>
           exportRowsToCsv(
             items.map((item) => toPrintRow(item)) as unknown as Record<string, unknown>[],
             selectedKeys,
             "quotations.csv",
+            labels,
           )
         }
         emptyTitle={t("sales.quotations.empty")}

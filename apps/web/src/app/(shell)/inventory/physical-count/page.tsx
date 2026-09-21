@@ -228,11 +228,12 @@ function PhysicalCountPageContent() {
           />
         }
         exportColumns={exportColumnsFromKeys(columns, exportKeys, t)}
-        onExport={(keys) =>
+        onExport={(keys, labels) =>
           exportRowsToCsv(
             filteredRows.map((row) => toExportRow(row)),
             keys,
             "physical-count.csv",
+            labels,
           )
         }
       />

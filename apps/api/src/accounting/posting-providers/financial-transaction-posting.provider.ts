@@ -147,13 +147,15 @@ export class FinancialTransactionPostingProvider
       const feeAmount = Number(transaction.feeAmount ?? 0);
       const cashFunctional = this.round2(amount * payRate);
       const feeFunctional = this.round2(feeAmount * payRate);
+      // AR clears the full settled value (cash + fee) exactly once; only a
+      // genuine rate difference between invoice and receipt is realized FX.
       const arFunctional = this.clearedFunctional(
         transaction.allocations,
         'sales',
-        amount,
+        amount + feeAmount,
         payRate,
       );
-      const fx = this.round2(cashFunctional - arFunctional);
+      const fx = this.round2(cashFunctional + feeFunctional - arFunctional);
       const lines = [
         {
           accountId: bankAccountId,
@@ -162,7 +164,7 @@ export class FinancialTransactionPostingProvider
         },
         {
           accountId: arAccountId,
-          credit: this.round2(arFunctional + feeFunctional),
+          credit: arFunctional,
           description: `Customer Receipt Voucher ${transaction.transactionNumber}`,
           partnerId: transaction.partner!.id,
         },

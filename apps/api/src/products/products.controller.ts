@@ -39,6 +39,15 @@ const CATALOG_READ_PERMISSIONS = [
   'store-orders.edit',
   'purchasing.orders.create',
   'purchasing.orders.edit',
+  // Every commercial document editor lines products (quotations, orders,
+  // invoices, returns) — the same set PartnersController grants lookup to.
+  'sales.quotations.create',
+  'sales.orders.create',
+  'sales.invoices.create',
+  'sales.returns.create',
+  'purchasing.quotations.create',
+  'purchasing.invoices.create',
+  'purchasing.returns.create',
   'inventory.movements.create',
   // Investor Engine Milestone 4, Part 11 — root cause of "the Investment
   // Opportunity Product dropdown shows nothing": an Investor-module user

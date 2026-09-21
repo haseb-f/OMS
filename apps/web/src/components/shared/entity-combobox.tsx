@@ -8,7 +8,7 @@ import {
   type ButtonHTMLAttributes,
   type ReactNode,
 } from "react";
-import { ChevronDown, X } from "lucide-react";
+import { ChevronDown, Plus, X } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { Popover, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -30,6 +30,16 @@ import { cn } from "@/lib/utils";
 export type EntityComboboxGroup<T> = {
   heading: string;
   items: T[];
+};
+
+/**
+ * Inline "+ New …" entry, pinned above the results (always visible, never
+ * scrolled away). Closes the list before `onSelect` runs and hands over the
+ * current search text so the create form can prefill it.
+ */
+export type EntityComboboxCreateAction = {
+  label: string;
+  onSelect: (search: string) => void;
 };
 
 /**
@@ -60,6 +70,7 @@ export function EntityCombobox<T>({
   error,
   groups,
   footer,
+  createAction,
   triggerClassName,
   triggerProps,
   subtitleDir,
@@ -89,6 +100,7 @@ export function EntityCombobox<T>({
   error?: boolean;
   groups?: EntityComboboxGroup<T>[];
   footer?: ReactNode;
+  createAction?: EntityComboboxCreateAction;
   triggerClassName?: string;
   triggerProps?: ButtonHTMLAttributes<HTMLButtonElement>;
   subtitleDir?: "ltr" | "rtl";
@@ -244,6 +256,28 @@ export function EntityCombobox<T>({
             onClear={() => setSearch("")}
             clearLabel={t("table.clearSearch")}
           />
+          {createAction ? (
+            // Outside the scrolling list so it never scrolls away, and outside
+            // cmdk's item set so Enter still picks the first search result.
+            <div className="border-b border-border p-1">
+              <EnterpriseButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 w-full justify-start gap-2 px-2.5 font-medium text-primary"
+                data-testid="entity-combobox-create"
+                onClick={() => {
+                  const typed = search.trim();
+                  setOpen(false);
+                  setSearch("");
+                  createAction.onSelect(typed);
+                }}
+              >
+                <Plus className="size-3.5" />
+                <span className="min-w-0 truncate">{createAction.label}</span>
+              </EnterpriseButton>
+            </div>
+          ) : null}
           <CommandList aria-busy={isLoading || undefined}>
             {isLoading ? (
               <div className="px-2.5 py-2.5 text-center text-caption text-muted-foreground">

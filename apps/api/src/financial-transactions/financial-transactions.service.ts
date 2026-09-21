@@ -30,6 +30,8 @@ import type { AllocationInputDto } from './shared/allocation-input.dto';
 import type { FindFinancialTransactionsQueryDto } from './shared/find-financial-transactions-query.dto';
 import { prismaEnumFilter } from '../common/query/enum-list';
 
+type DbClient = Prisma.TransactionClient | PrismaService;
+
 const NUMBERING_DOCUMENT_TYPE: Record<FinancialTransactionType, string> = {
   CUSTOMER_RECEIPT: 'CUSTOMER_RECEIPT',
   SUPPLIER_PAYMENT: 'SUPPLIER_PAYMENT',
@@ -117,6 +119,8 @@ export class FinancialTransactionsService {
     dto: FinancialTransactionCreateInput,
     userId?: string,
     context: CompanyContext = { companyId: null, branchId: null },
+    /** Joins the caller's transaction (e.g. Payment Confirm & Post) instead of opening its own. */
+    outerTx?: Prisma.TransactionClient,
   ) {
     const partyId = await this.assertActiveParty(type, dto);
     const feeAmount = dto.feeAmount ?? 0;
@@ -138,14 +142,17 @@ export class FinancialTransactionsService {
       type,
       partyId,
       allocations,
+      outerTx,
     );
 
     const transactionNumber = await this.numberingEngine.generateNumber(
       NUMBERING_DOCUMENT_TYPE[type],
+      undefined,
+      outerTx,
     );
 
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      return await this.inTransaction(outerTx, async (tx) => {
         const transaction = await tx.financialTransaction.create({
           data: {
             transactionNumber,
@@ -194,6 +201,22 @@ export class FinancialTransactionsService {
       }
       throw error;
     }
+  }
+
+  /** Create + Confirm (+ Posting Engine) atomically — all or nothing. */
+  createConfirmed(
+    type: FinancialTransactionType,
+    dto: FinancialTransactionCreateInput,
+    userId?: string,
+    context: CompanyContext = { companyId: null, branchId: null },
+  ) {
+    return this.prisma.$transaction(
+      async (tx) => {
+        const created = await this.create(type, dto, userId, context, tx);
+        return this.confirm(created.id, userId, tx);
+      },
+      { maxWait: 10_000, timeout: 30_000 },
+    );
   }
 
   async findAll(
@@ -313,20 +336,23 @@ export class FinancialTransactionsService {
   }
 
   /** Locks the header and makes its allocations "real" — invoice payment status is derived from CONFIRMED transactions only. */
-  async confirm(id: string, userId?: string) {
-    const existing = await this.findOneById(id);
+  async confirm(
+    id: string,
+    userId?: string,
+    outerTx?: Prisma.TransactionClient,
+  ) {
+    const existing = await this.findOneById(id, outerTx);
     if (existing.status !== FinancialTransactionStatus.DRAFT) {
       throw new BadRequestException(
         `Cannot confirm ${this.label(existing.type)} ${existing.transactionNumber} from ${existing.status}.`,
       );
     }
 
-    const full = await this.prisma.financialTransaction.findUniqueOrThrow({
-      where: { id },
-      include: { allocations: true },
-    });
-
-    return this.prisma.$transaction(async (tx) => {
+    return this.inTransaction(outerTx, async (tx) => {
+      const full = await tx.financialTransaction.findUniqueOrThrow({
+        where: { id },
+        include: { allocations: true },
+      });
       for (const allocation of full.allocations) {
         const invoiceId =
           allocation.salesInvoiceId ?? allocation.purchaseInvoiceId;
@@ -337,6 +363,7 @@ export class FinancialTransactionsService {
           invoiceId,
           Number(allocation.allocatedAmount),
           id,
+          tx,
         );
       }
       const transaction = await tx.financialTransaction.update({
@@ -443,8 +470,13 @@ export class FinancialTransactionsService {
   }
 
   /** Adds one allocation to a Confirmed transaction — the standalone "Allocate" business operation. */
-  async allocate(id: string, dto: AllocationInputDto, userId?: string) {
-    const existing = await this.findOneById(id);
+  async allocate(
+    id: string,
+    dto: AllocationInputDto,
+    userId?: string,
+    outerTx?: Prisma.TransactionClient,
+  ) {
+    const existing = await this.findOneById(id, outerTx);
     if (existing.status !== FinancialTransactionStatus.CONFIRMED) {
       throw new BadRequestException(
         `Cannot allocate against ${this.label(existing.type)} ${existing.transactionNumber} while it is ${existing.status}.`,
@@ -455,26 +487,34 @@ export class FinancialTransactionsService {
       existing.type,
       partyId as string,
       [dto],
+      outerTx,
     );
 
-    const currentAllocated =
-      await this.prisma.financialTransactionAllocation.aggregate({
-        where: { transactionId: id },
-        _sum: { allocatedAmount: true },
-      });
-    const alreadyAllocated = Number(currentAllocated._sum.allocatedAmount ?? 0);
-    if (alreadyAllocated + dto.allocatedAmount > Number(existing.amount)) {
-      throw new BadRequestException(
-        `Cannot allocate ${dto.allocatedAmount} — only ${Number(existing.amount) - alreadyAllocated} remains unallocated on this ${this.label(existing.type).toLowerCase()}.`,
-      );
-    }
-
-    return this.prisma.$transaction(async (tx) => {
+    return this.inTransaction(outerTx, async (tx) => {
       await lockInvoiceRow(tx, existing.type, dto.invoiceId);
+      const currentAllocated =
+        await tx.financialTransactionAllocation.aggregate({
+          where: { transactionId: id },
+          _sum: { allocatedAmount: true },
+        });
+      const alreadyAllocated = Number(
+        currentAllocated._sum.allocatedAmount ?? 0,
+      );
+      // Same capacity rule as create(): a fee the bank kept still settles
+      // the invoice, so a receipt can clear `amount + feeAmount`.
+      const capacity =
+        Number(existing.amount) + Number(existing.feeAmount ?? 0);
+      if (alreadyAllocated + dto.allocatedAmount > capacity + 0.005) {
+        throw new BadRequestException(
+          `Cannot allocate ${dto.allocatedAmount} — only ${this.round2(capacity - alreadyAllocated)} remains unallocated on this ${this.label(existing.type).toLowerCase()}.`,
+        );
+      }
       await this.assertAllocationWithinRemaining(
         existing.type,
         dto.invoiceId,
         dto.allocatedAmount,
+        undefined,
+        tx,
       );
       await tx.financialTransactionAllocation.create({
         data: {
@@ -610,8 +650,8 @@ export class FinancialTransactionsService {
       .filter((row) => row.remainingBalance > 0);
   }
 
-  private async findOneById(id: string) {
-    const transaction = await this.prisma.financialTransaction.findFirst({
+  private async findOneById(id: string, client: DbClient = this.prisma) {
+    const transaction = await client.financialTransaction.findFirst({
       where: { id, deletedAt: null },
     });
     if (!transaction) {
@@ -693,6 +733,7 @@ export class FinancialTransactionsService {
     type: FinancialTransactionType,
     partyId: string,
     allocations: AllocationInputDto[],
+    client: DbClient = this.prisma,
   ): Promise<
     Prisma.FinancialTransactionAllocationUncheckedCreateWithoutTransactionInput[]
   > {
@@ -700,7 +741,7 @@ export class FinancialTransactionsService {
       [];
     for (const allocation of allocations) {
       if (type === 'CUSTOMER_RECEIPT') {
-        const invoice = await this.prisma.salesInvoice.findFirst({
+        const invoice = await client.salesInvoice.findFirst({
           where: { id: allocation.invoiceId, deletedAt: null },
         });
         if (!invoice || invoice.partnerId !== partyId) {
@@ -719,7 +760,7 @@ export class FinancialTransactionsService {
           allocatedAmount: allocation.allocatedAmount,
         });
       } else {
-        const invoice = await this.prisma.purchaseInvoice.findFirst({
+        const invoice = await client.purchaseInvoice.findFirst({
           where: { id: allocation.invoiceId, deletedAt: null },
         });
         if (!invoice || invoice.partnerId !== partyId) {
@@ -748,40 +789,51 @@ export class FinancialTransactionsService {
     invoiceId: string,
     amount: number,
     excludeTransactionId?: string,
+    client: DbClient = this.prisma,
   ) {
     const invoiceKey =
       type === 'CUSTOMER_RECEIPT' ? 'salesInvoiceId' : 'purchaseInvoiceId';
     const invoice =
       type === 'CUSTOMER_RECEIPT'
-        ? await this.prisma.salesInvoice.findUniqueOrThrow({
+        ? await client.salesInvoice.findUniqueOrThrow({
             where: { id: invoiceId },
           })
-        : await this.prisma.purchaseInvoice.findUniqueOrThrow({
+        : await client.purchaseInvoice.findUniqueOrThrow({
             where: { id: invoiceId },
           });
 
-    const aggregate =
-      await this.prisma.financialTransactionAllocation.aggregate({
-        where: {
-          [invoiceKey]: invoiceId,
-          transaction: {
-            status: FinancialTransactionStatus.CONFIRMED,
-            ...(excludeTransactionId
-              ? { id: { not: excludeTransactionId } }
-              : {}),
-          },
+    const aggregate = await client.financialTransactionAllocation.aggregate({
+      where: {
+        [invoiceKey]: invoiceId,
+        transaction: {
+          status: FinancialTransactionStatus.CONFIRMED,
+          ...(excludeTransactionId
+            ? { id: { not: excludeTransactionId } }
+            : {}),
         },
-        _sum: { allocatedAmount: true },
-      });
+      },
+      _sum: { allocatedAmount: true },
+    });
     const summary = computeInvoicePaymentSummary(
       Number(invoice.grandTotal),
       Number(aggregate._sum.allocatedAmount ?? 0),
     );
-    if (amount > summary.remainingBalance) {
+    if (amount > summary.remainingBalance + 0.005) {
       throw new BadRequestException(
         `Cannot allocate ${amount} to invoice ${invoiceId} — only ${summary.remainingBalance} remains unpaid.`,
       );
     }
+  }
+
+  private inTransaction<T>(
+    outerTx: Prisma.TransactionClient | undefined,
+    work: (tx: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
+    return outerTx ? work(outerTx) : this.prisma.$transaction(work);
+  }
+
+  private round2(value: number): number {
+    return Math.round(value * 100) / 100;
   }
 
   private label(type: FinancialTransactionType): string {

@@ -7,4 +7,6 @@ export type {
   FinancialReportFooter,
   FinancialReportLine,
   FinancialReportSummary,
+  FinancialReportSummaryItem,
+  FinancialReportSummaryTone,
 } from "./types";

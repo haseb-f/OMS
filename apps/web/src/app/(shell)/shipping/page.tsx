@@ -364,11 +364,12 @@ function ShippingPageContent() {
         }
         onRefresh={load}
         exportColumns={exportColumnsFromKeys(columns, shipmentExportColumns, t)}
-        onExport={(selectedKeys) =>
+        onExport={(selectedKeys, labels) =>
           exportRowsToCsv(
             items.map((item) => toPrintRow(item)) as unknown as Record<string, unknown>[],
             selectedKeys,
             "shipping.csv",
+            labels,
           )
         }
         emptyTitle={t("shipping.empty")}

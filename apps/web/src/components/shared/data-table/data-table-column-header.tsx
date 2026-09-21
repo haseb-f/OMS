@@ -18,6 +18,12 @@ import { useLocale } from "@/providers/locale-provider";
 
 type HeaderAlign = "start" | "center" | "end";
 
+const TEXT_ALIGN: Record<HeaderAlign, string> = {
+  start: "text-start",
+  center: "text-center",
+  end: "text-end",
+};
+
 /** Sortable + hideable + pinnable + filterable column header — the standard TanStack Table pairing with shadcn, extended (TASK-060B Part 3) with pinning, multi-sort, and a per-column sticky filter popover. */
 export function EnterpriseTableColumnHeader<TData, TValue>({
   column,
@@ -42,13 +48,23 @@ export function EnterpriseTableColumnHeader<TData, TValue>({
   const filterValue = (column.getFilterValue() as string | undefined) ?? "";
   const showFilterAffordance = canFilter && column.getCanFilter();
 
+  const textAlign = TEXT_ALIGN[align];
+
   if (!column.getCanSort()) {
     if (!showFilterAffordance) {
-      return <span className={cn("block min-w-0 w-full truncate", className)}>{title}</span>;
+      return (
+        <span className={cn("block min-w-0 w-full truncate", textAlign, className)}>{title}</span>
+      );
     }
     return (
-      <div className={cn("flex min-w-0 w-full items-center gap-1", className)}>
-        <span className="min-w-0 flex-1 truncate">{title}</span>
+      <div
+        className={cn(
+          "flex min-w-0 w-full items-center gap-1",
+          align === "end" && "flex-row-reverse",
+          className,
+        )}
+      >
+        <span className={cn("min-w-0 flex-1 truncate", textAlign)}>{title}</span>
         <ColumnFilterPopover
           open={filterOpen}
           onOpenChange={setFilterOpen}
@@ -73,28 +89,34 @@ export function EnterpriseTableColumnHeader<TData, TValue>({
   );
   const pinIcon = isPinned ? <Pin className="size-3 shrink-0 text-muted-foreground/70" /> : null;
 
+  // The title always sits flush on the column's own alignment edge — the
+  // same edge the body cells use. Sort/pin/filter affordances go on the
+  // opposite side (or both sides when centered), so a hidden or visible
+  // sort icon never shifts the title off the value axis.
   return (
-    <div className={cn("group/sort min-w-0 w-full", className)}>
+    <div
+      className={cn(
+        "group/sort flex min-w-0 w-full items-center gap-0.5",
+        align === "end" && "flex-row-reverse",
+        className,
+      )}
+    >
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <EnterpriseButton
             variant="ghost"
             size="inline"
-            className="flex min-w-0 w-full max-w-full items-center gap-0.5 justify-start font-medium text-caption leading-normal text-muted-foreground hover:bg-transparent hover:text-foreground hover:shadow-none data-[state=open]:bg-transparent data-[state=open]:text-foreground"
-          >
-            {align === "end" ? (
-              <>
-                {sortIcon}
-                {pinIcon}
-                <span className="min-w-0 flex-1 truncate text-end">{title}</span>
-              </>
-            ) : (
-              <>
-                <span className="min-w-0 truncate">{title}</span>
-                {pinIcon}
-                {sortIcon}
-              </>
+            className={cn(
+              "flex min-w-0 flex-1 max-w-full items-center gap-0.5 font-medium text-caption leading-normal text-muted-foreground hover:bg-transparent hover:text-foreground hover:shadow-none data-[state=open]:bg-transparent data-[state=open]:text-foreground",
+              align === "end" && "flex-row-reverse",
+              align === "center" && "justify-center",
+              align === "start" && "justify-start",
             )}
+          >
+            {align === "center" ? <span aria-hidden className="size-3.5 shrink-0" /> : null}
+            <span className={cn("min-w-0 truncate", textAlign)}>{title}</span>
+            {pinIcon}
+            {sortIcon}
           </EnterpriseButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">

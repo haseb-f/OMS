@@ -14,6 +14,7 @@ import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
 import type { MessageKey } from "@/i18n/translate";
 import { ReportMoney } from "./report-money";
+import { resolveFinancialLineLabel } from "./line-label";
 import {
   flattenVisibleLines,
   type FinancialReportColumn,
@@ -21,33 +22,6 @@ import {
   type FinancialReportLine,
   type FinancialReportLineKind,
 } from "./types";
-
-const SECTION_LABELS: Record<string, MessageKey> = {
-  assets: "reports.finance.fields.assets",
-  "assets:total": "reports.finance.fields.totalAssets",
-  liabilities: "reports.finance.fields.liabilities",
-  "liabilities:total": "reports.finance.fields.totalLiabilities",
-  equity: "reports.finance.fields.equity",
-  "equity:total": "reports.finance.fields.totalEquity",
-  "liabilities-equity": "reports.finance.fields.totalLiabilitiesAndEquity",
-  "current-earnings": "reports.finance.fields.currentEarnings",
-  revenue: "reports.finance.fields.revenue",
-  "revenue:total": "reports.finance.fields.totalRevenue",
-  expense: "reports.finance.fields.expense",
-  "expense:total": "reports.finance.fields.totalExpense",
-  "net-income": "reports.finance.fields.netIncome",
-  "cf-opening": "reports.finance.cashFlowSections.openingCash",
-  "cf-operating": "reports.finance.cashFlowSections.operating",
-  "cf-operating:total": "reports.finance.cashFlowSections.operatingNet",
-  "cf-investing": "reports.finance.cashFlowSections.investing",
-  "cf-investing:total": "reports.finance.cashFlowSections.investingNet",
-  "cf-financing": "reports.finance.cashFlowSections.financing",
-  "cf-financing:total": "reports.finance.cashFlowSections.financingNet",
-  "cf-other": "reports.finance.cashFlowSections.other",
-  "cf-other:total": "reports.finance.cashFlowSections.otherNet",
-  "cf-net": "reports.finance.cashFlowSections.netChange",
-  "cf-closing": "reports.finance.cashFlowSections.closingCash",
-};
 
 /** Hierarchy through weight and rules, not color: sections and final
  *  results read as structure; ordinary account rows stay plain. */
@@ -144,18 +118,7 @@ export function FinancialReportTable({
             </TableRow>
           ) : (
             rows.map((line) => {
-              const net = line.values.balance ?? line.values.closing ?? 0;
-              const translated =
-                line.id === "net-income"
-                  ? net < 0
-                    ? "reports.finance.fields.netLoss"
-                    : "reports.finance.fields.netProfit"
-                  : SECTION_LABELS[line.id];
-              const label = translated
-                ? t(translated)
-                : locale === "ar"
-                  ? line.label
-                  : (line.labelEn ?? line.label);
+              const label = resolveFinancialLineLabel(line, locale, t);
               const canDrill = Boolean(onPostingClick && line.kind === "posting");
               return (
                 <TableRow
@@ -213,7 +176,6 @@ export function FinancialReportTable({
                           line.children.length > 0
                         }
                         signed={columnSigned(column)}
-                        tone={line.kind === "result" ? (net < 0 ? "danger" : "success") : undefined}
                       />
                     </TableCell>
                   ))}

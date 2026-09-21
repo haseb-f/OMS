@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   Select,
   SelectContent,
@@ -20,6 +20,7 @@ import { CashFlowTab } from "./cash-flow-tab";
 import { AgingTab } from "./aging-tab";
 import { PartnerStatementTab } from "./partner-statement-tab";
 import { PermissionGate } from "@/components/shared/permission-gate";
+import { useReportUrlParam } from "./use-report-query";
 
 const REPORTS = [
   "generalLedger",
@@ -39,7 +40,7 @@ type ReportKey = (typeof REPORTS)[number];
 
 function ReportsFinancePageContent() {
   const { t } = useLocale();
-  const [report, setReport] = useState<ReportKey>("trialBalance");
+  const [report, setReport] = useReportUrlParam<ReportKey>("report", REPORTS, "trialBalance");
   const title = useMemo(() => {
     if (report === "accountStatement") return t("reports.finance.accountStatement.title");
     if (report === "customerStatement") return t("reports.finance.customerStatement");

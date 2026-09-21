@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { StatusBadge, type StatusTone } from "@/components/business/status-badge";
+import { RelatedRecordLink } from "@/components/shared/record-preview";
 import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
+import type { TraceKind } from "@/services/traceability-service";
 
 export interface RelatedDocumentLink {
   id: string;
@@ -11,6 +13,9 @@ export interface RelatedDocumentLink {
   href: string;
   statusLabel?: string;
   statusTone?: StatusTone;
+  /** When set, the link opens the shared record preview instead of navigating. */
+  kind?: TraceKind;
+  status?: string | null;
 }
 
 export interface RelatedDocumentGroup {
@@ -35,20 +40,31 @@ export function RelatedDocuments({ groups }: { groups: RelatedDocumentGroup[] })
         <div key={group.labelKey} className="flex flex-wrap items-center gap-1.5">
           <span className="text-muted-foreground">{t(group.labelKey)}:</span>
           {group.links.length > 0 ? (
-            group.links.map((link) => (
-              <Link
-                key={link.id}
-                href={link.href}
-                className="inline-flex items-center gap-1.5 rounded bg-card px-1.5 py-0.5 hover:underline"
-              >
-                <code dir="ltr" className="text-caption">
-                  {link.number}
-                </code>
-                {link.statusLabel && (
-                  <StatusBadge label={link.statusLabel} tone={link.statusTone} />
-                )}
-              </Link>
-            ))
+            group.links.map((link) =>
+              link.kind ? (
+                <RelatedRecordLink
+                  key={link.id}
+                  kind={link.kind}
+                  id={link.id}
+                  number={link.number}
+                  status={link.status}
+                  showKind={false}
+                />
+              ) : (
+                <Link
+                  key={link.id}
+                  href={link.href}
+                  className="inline-flex items-center gap-1.5 rounded bg-card px-1.5 py-0.5 hover:underline"
+                >
+                  <code dir="ltr" className="text-caption">
+                    {link.number}
+                  </code>
+                  {link.statusLabel && (
+                    <StatusBadge label={link.statusLabel} tone={link.statusTone} />
+                  )}
+                </Link>
+              ),
+            )
           ) : (
             <span className="text-warning-foreground">{group.emptyLabel}</span>
           )}

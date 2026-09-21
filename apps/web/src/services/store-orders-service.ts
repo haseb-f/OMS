@@ -299,6 +299,9 @@ export const storeOrdersService = {
   update: (id: string, dto: { notes?: string; employeeId?: string; sourceChannel?: string }) =>
     apiClient.patch<StoreOrderRow>(`/store-orders/${id}`, dto),
   archive: (id: string) => apiClient.post<StoreOrderRow>(`/store-orders/${id}/archive`),
+  /** Pricing correction — only before any invoice or verified payment (server-enforced). */
+  setLineAmounts: (id: string, items: { itemId: string; agreedAmount: number }[]) =>
+    apiClient.post<StoreOrderRow>(`/store-orders/${id}/line-amounts`, { items }),
   create: (dto: {
     externalOrderId?: string;
     partner: {

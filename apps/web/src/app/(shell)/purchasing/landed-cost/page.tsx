@@ -157,13 +157,14 @@ function LandedCostPageContent() {
           columns.map((c) => c.id!),
           t,
         )}
-        onExport={(keys) =>
+        onExport={(keys, labels) =>
           exportRowsToCsv(
             filteredItems.map((item) =>
               Object.fromEntries(columns.map((c) => [c.id!, getColumnDisplayValue(c, item)])),
             ),
             keys,
             "landed-cost.csv",
+            labels,
           )
         }
         emptyTitle={t("purchasing.landedCost.empty")}

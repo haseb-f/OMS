@@ -124,6 +124,9 @@ export function createFinancialTransactionService(basePath: string) {
     update: (id: string, dto: Partial<FinancialTransactionFormPayload>) =>
       apiClient.patch<FinancialTransactionRow>(`${basePath}/${id}`, dto),
     confirm: (id: string) => apiClient.post<FinancialTransactionRow>(`${basePath}/${id}/confirm`),
+    /** Create + Confirm + Post atomically — a posting failure leaves nothing behind. */
+    createConfirmed: (dto: FinancialTransactionFormPayload) =>
+      apiClient.post<FinancialTransactionRow>(`${basePath}/confirmed`, dto),
     cancel: (id: string) => apiClient.post<FinancialTransactionRow>(`${basePath}/${id}/cancel`),
     /** Soft-delete — hides the transaction from the list without destroying data. Only allowed from Draft/Cancelled (enforced server-side). */
     archive: (id: string) => apiClient.post<FinancialTransactionRow>(`${basePath}/${id}/archive`),

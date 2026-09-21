@@ -381,11 +381,12 @@ function PurchaseInvoicesPageContent() {
         }
         onRefresh={load}
         exportColumns={exportColumnsFromKeys(invoiceColumns, invoiceExportColumns, t)}
-        onExport={(selectedKeys) =>
+        onExport={(selectedKeys, labels) =>
           exportRowsToCsv(
             items.map((item) => toPrintRow(item)) as unknown as Record<string, unknown>[],
             selectedKeys,
             "purchase-invoices.csv",
+            labels,
           )
         }
         emptyTitle={t("purchasing.invoices.empty")}

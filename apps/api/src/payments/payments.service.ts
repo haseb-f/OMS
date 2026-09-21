@@ -7,7 +7,10 @@ import { PaymentStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import { StoreOrderPaymentSyncService } from '../store-orders/store-order-payment-sync.service';
-import { StoreOrderCollectionService } from '../accounting/store-order-collection/store-order-collection.service';
+import {
+  StoreOrderCollectionService,
+  type PostedPaymentReceipt,
+} from '../accounting/store-order-collection/store-order-collection.service';
 import {
   PaymentActivityService,
   PaymentActivityType,
@@ -18,23 +21,24 @@ import { CreatePaymentDto } from './dto/create-payment.dto';
 import { CreatePaymentNoteDto } from './dto/create-payment-note.dto';
 import { CreatePaymentAttachmentDto } from './dto/create-payment-attachment.dto';
 import { MatchPaymentDto } from './dto/match-payment.dto';
-import { VerifyPaymentDto } from './dto/verify-payment.dto';
 import { RejectPaymentDto } from './dto/reject-payment.dto';
 import { FindPaymentsQueryDto } from './dto/find-payments-query.dto';
 import {
   assertCanVerifyPayment,
+  assertPaymentCurrency,
   computeStoreOrderSettlement,
   lockStoreOrderRow,
   verifiedPaymentNumbers,
 } from '../store-orders/store-order-payment-settlement.util';
 
-export type CollectionSyncResult =
-  | { status: 'NOT_APPLICABLE' | 'PENDING_INVOICE' }
-  | {
-      status: 'POSTED';
-      receipts: Array<{ id: string; transactionNumber: string }>;
-    }
-  | { status: 'FAILED'; message: string };
+export interface PaymentConfirmResult {
+  id: string;
+  paymentNumber: string;
+  status: PaymentStatus;
+  /** True when this call found the receipt already posted (a retry). */
+  alreadyPosted: boolean;
+  receipt: PostedPaymentReceipt;
+}
 
 /**
  * Payment Workflow: Customer sends payment -> Payment record created ->
@@ -251,110 +255,174 @@ export class PaymentsService {
     return payment;
   }
 
-  /** Business operation: Verify Payment. Requires current status MATCHED.
-   *  Store Order payment status is recomputed; Leads are never marked paid.
-   *  Idempotent: re-verifying an already VERIFIED payment (a retry after a
-   *  reload or a failed receipt posting) never re-counts the money — it only
-   *  re-runs the idempotent receipt/journal sync. */
-  async verify(id: string, dto: VerifyPaymentDto) {
-    const existing = await this.findOne(id);
-    if (existing.status === PaymentStatus.VERIFIED) {
-      return this.syncVerifiedCollection(existing, dto.verifiedById);
-    }
-    if (existing.status !== PaymentStatus.MATCHED) {
-      throw new BadRequestException('Only a MATCHED payment can be verified.');
-    }
-    const payment = await this.prisma.$transaction(async (tx) => {
-      if (existing.storeOrderId) {
-        await lockStoreOrderRow(tx, existing.storeOrderId);
-      }
-      // Read status only after the order lock, so two concurrent verifies of
-      // the same payment serialize and the second sees VERIFIED.
-      const current = await tx.payment.findFirst({
-        where: { id, deletedAt: null },
-      });
-      if (current?.status === PaymentStatus.VERIFIED) return current;
-      if (!current || current.status !== PaymentStatus.MATCHED) {
-        throw new BadRequestException(
-          'Only a MATCHED payment can be verified.',
-        );
-      }
-      if (current.storeOrderId) {
-        const settlement = await computeStoreOrderSettlement(
-          tx,
-          current.storeOrderId,
-          { excludePaymentId: id },
-        );
-        assertCanVerifyPayment(
-          settlement,
-          Number(current.amount),
-          await verifiedPaymentNumbers(tx, current.storeOrderId, id),
-        );
-      }
-      const updated = await tx.payment.update({
-        where: { id },
-        data: {
-          status: PaymentStatus.VERIFIED,
-          verifiedAt: new Date(),
-          verifiedById: dto.verifiedById,
-        },
-      });
-      await this.activityService.log(
-        id,
-        PaymentActivityType.VERIFIED,
-        'Verified',
-        { verifiedById: dto.verifiedById },
-        tx,
+  /**
+   * Business operation: Confirm & Post. One decision replaces Match →
+   * Verify: validates the payment's order allocation, receiving account and
+   * currency, marks it VERIFIED and posts exactly one Customer Receipt with
+   * its balanced Journal Entry — all in ONE database transaction, so it
+   * either fully succeeds or changes nothing (no "verified but not posted"
+   * half state). Retries and double-clicks are safe: the Store Order row
+   * lock serializes them and a second call returns the already-posted
+   * receipt instead of posting again.
+   */
+  async confirm(id: string, userId: string): Promise<PaymentConfirmResult> {
+    const head = await this.findOne(id);
+    if (!head.storeOrderId) {
+      throw new BadRequestException(
+        `Payment ${head.paymentNumber} is not linked to a Store Order — there is no customer or order to post it against. Reject it with a reason, or record it from the order.`,
       );
-      return updated;
-    });
+    }
+    const storeOrderId = head.storeOrderId;
 
-    return this.syncVerifiedCollection(payment, dto.verifiedById);
+    const result = await this.prisma.$transaction(
+      async (tx) => {
+        await lockStoreOrderRow(tx, storeOrderId);
+        const payment = await tx.payment.findFirstOrThrow({
+          where: { id, deletedAt: null },
+          include: {
+            receivingAccount: {
+              select: {
+                name: true,
+                isActive: true,
+                deletedAt: true,
+                currencyId: true,
+                chartOfAccount: {
+                  select: {
+                    code: true,
+                    name: true,
+                    allowsPosting: true,
+                    deletedAt: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+        if (payment.status === PaymentStatus.REJECTED) {
+          throw new BadRequestException(
+            `Payment ${payment.paymentNumber} was rejected${payment.rejectionReason ? ` (${payment.rejectionReason})` : ''} and cannot be confirmed.`,
+          );
+        }
+        const alreadyVerified = payment.status === PaymentStatus.VERIFIED;
+        const existingReceipt =
+          await this.storeOrderCollection.findReceiptForPayment(tx, id);
+        if (alreadyVerified && existingReceipt?.status === 'CONFIRMED') {
+          return {
+            payment,
+            receipt: await this.storeOrderCollection.describeReceipt(
+              tx,
+              existingReceipt,
+            ),
+            alreadyPosted: true,
+          };
+        }
+
+        const order = await tx.storeOrder.findFirst({
+          where: { id: storeOrderId, deletedAt: null },
+          select: { currencyId: true, internalOrderId: true },
+        });
+        if (!order) {
+          throw new BadRequestException(
+            `The Store Order of payment ${payment.paymentNumber} no longer exists.`,
+          );
+        }
+        assertPaymentCurrency(order.currencyId, payment.currencyId);
+        this.assertReceivingAccountPostable(payment);
+
+        if (!alreadyVerified) {
+          const settlement = await computeStoreOrderSettlement(
+            tx,
+            storeOrderId,
+            { excludePaymentId: id },
+          );
+          assertCanVerifyPayment(
+            settlement,
+            Number(payment.amount),
+            await verifiedPaymentNumbers(tx, storeOrderId, id),
+          );
+        }
+
+        const now = new Date();
+        const verified = alreadyVerified
+          ? payment
+          : await tx.payment.update({
+              where: { id },
+              data: {
+                status: PaymentStatus.VERIFIED,
+                matchedAt: payment.matchedAt ?? now,
+                matchedById: payment.matchedById ?? userId,
+                verifiedAt: now,
+                verifiedById: userId,
+                updatedBy: userId,
+              },
+            });
+        const receipt = await this.storeOrderCollection.postPaymentReceipt(
+          tx,
+          id,
+          userId,
+        );
+        await this.activityService.log(
+          id,
+          PaymentActivityType.CONFIRMED_AND_POSTED,
+          `Confirmed & posted — Customer Receipt ${receipt.transactionNumber}${receipt.journalEntry ? `, Journal Entry ${receipt.journalEntry.entryNumber}` : ''}`,
+          {
+            userId,
+            receiptId: receipt.id,
+            journalEntryId: receipt.journalEntry?.id ?? null,
+          },
+          tx,
+        );
+        await this.storeOrderPaymentSync.recompute(storeOrderId, tx);
+        return { payment: verified, receipt, alreadyPosted: false };
+      },
+      { maxWait: 10_000, timeout: 30_000 },
+    );
+
+    return {
+      id: result.payment.id,
+      paymentNumber: result.payment.paymentNumber,
+      status: PaymentStatus.VERIFIED,
+      alreadyPosted: result.alreadyPosted,
+      receipt: result.receipt,
+    };
   }
 
-  /** Recompute the order's payment status and post the Customer Receipt for
-   *  any verified payment that has none yet. The payment stays VERIFIED if
-   *  posting fails; the failure is returned (not swallowed) so the UI can
-   *  say exactly what is pending and the user can retry Verify safely. */
-  private async syncVerifiedCollection<
-    T extends { storeOrderId: string | null },
-  >(
-    payment: T,
-    userId: string,
-  ): Promise<T & { collection: CollectionSyncResult }> {
-    if (!payment.storeOrderId) {
-      return { ...payment, collection: { status: 'NOT_APPLICABLE' } };
-    }
-    await this.storeOrderPaymentSync.recompute(payment.storeOrderId);
-    try {
-      const receipts = await this.storeOrderCollection.syncVerifiedPayments(
-        payment.storeOrderId,
-        userId,
+  private assertReceivingAccountPostable(payment: {
+    paymentNumber: string;
+    currencyId: string | null;
+    receivingAccount: {
+      name: string;
+      isActive: boolean;
+      deletedAt: Date | null;
+      currencyId: string | null;
+      chartOfAccount: {
+        code: string;
+        name: string;
+        allowsPosting: boolean;
+        deletedAt: Date | null;
+      } | null;
+    } | null;
+  }) {
+    const account = payment.receivingAccount;
+    if (!account || account.deletedAt || !account.isActive) {
+      throw new BadRequestException(
+        `Payment ${payment.paymentNumber} has no active receiving account — choose where the money arrived before confirming.`,
       );
-      return {
-        ...payment,
-        collection:
-          receipts.length > 0
-            ? {
-                status: 'POSTED',
-                receipts: receipts.map((receipt) => ({
-                  id: receipt.id,
-                  transactionNumber: receipt.transactionNumber,
-                })),
-              }
-            : { status: 'PENDING_INVOICE' },
-      };
-    } catch (error) {
-      return {
-        ...payment,
-        collection: {
-          status: 'FAILED',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Customer receipt posting failed.',
-        },
-      };
+    }
+    const gl = account.chartOfAccount;
+    if (!gl || gl.deletedAt || !gl.allowsPosting) {
+      throw new BadRequestException(
+        `Receiving account "${account.name}" is not linked to a postable ledger account${gl ? ` (${gl.code} ${gl.name} is a header account)` : ''} — fix it in Receiving Accounts, then confirm again.`,
+      );
+    }
+    if (
+      account.currencyId &&
+      payment.currencyId &&
+      account.currencyId !== payment.currencyId
+    ) {
+      throw new BadRequestException(
+        `Receiving account "${account.name}" holds a different currency than payment ${payment.paymentNumber}.`,
+      );
     }
   }
 
@@ -384,7 +452,7 @@ export class PaymentsService {
 
   /** Business operation: Reject Payment. Requires current status MATCHED (per the given
    *  diagram: PENDING -> MATCHED -> {VERIFIED or REJECTED}). */
-  async reject(id: string, dto: RejectPaymentDto) {
+  async reject(id: string, dto: RejectPaymentDto & { rejectedById: string }) {
     const existing = await this.findOne(id);
     if (
       existing.status !== PaymentStatus.MATCHED &&

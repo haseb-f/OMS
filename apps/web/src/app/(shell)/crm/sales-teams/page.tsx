@@ -171,7 +171,7 @@ function SalesTeamsPageContent() {
           ["code", "name", "department", "manager", "members"],
           t,
         )}
-        onExport={(keys) =>
+        onExport={(keys, labels) =>
           exportRowsToCsv(
             teams.map((row) => ({
               code: row.code,
@@ -182,6 +182,7 @@ function SalesTeamsPageContent() {
             })),
             keys,
             "sales-teams.csv",
+            labels,
           )
         }
         emptyTitle={t("crm.salesTeams.empty")}

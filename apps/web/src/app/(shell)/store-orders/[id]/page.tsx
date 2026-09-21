@@ -17,6 +17,7 @@ import { SetPaymentFeeDialog } from "@/components/store-orders/set-payment-fee-d
 import { StoreOrderEditAssignmentDialog } from "@/components/store-orders/store-order-edit-assignment-dialog";
 import { StoreOrderEditCustomerDialog } from "@/components/store-orders/store-order-edit-customer-dialog";
 import { StoreOrderEditNotesDialog } from "@/components/store-orders/store-order-edit-notes-dialog";
+import { StoreOrderLineAmountsDialog } from "@/components/store-orders/store-order-line-amounts-dialog";
 import { ShipmentManageDialog } from "@/components/shipping/shipment-manage-dialog";
 import {
   DetailField,
@@ -40,7 +41,7 @@ import { StatusBadge } from "@/components/business/status-badge";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { RelatedRecordsPanel } from "@/components/shared/related-records-panel";
-import Link from "next/link";
+import { RelatedRecordLink } from "@/components/shared/record-preview";
 import { IconActionButton } from "@/components/shared/icon-action-button";
 import { FileDropField } from "@/components/shared/form-fields";
 import { AttachmentPreviewDialog } from "@/components/business/attachment-preview-dialog";
@@ -157,6 +158,7 @@ function StoreOrderDetailContent() {
   const [assignmentOpen, setAssignmentOpen] = useState(false);
   const [customerEditOpen, setCustomerEditOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
+  const [lineAmountsOpen, setLineAmountsOpen] = useState(false);
   const [shippingEditOpen, setShippingEditOpen] = useState(false);
   const [shippingCompanies, setShippingCompanies] = useState<ShippingCompanyOption[]>([]);
   const [preview, setPreview] = useState<{
@@ -374,6 +376,11 @@ function StoreOrderDetailContent() {
   const hiddenActivityCount = Math.max(0, timelineEntries.length - ACTIVITY_PREVIEW);
   const shipmentForDialog = latestShipmentRow ? toShipmentListRow(order, latestShipmentRow) : null;
 
+  /** A 0.00 order that is not invoiced yet is missing its agreed price — offer the correction. */
+  const needsAgreedAmounts =
+    Number(order.total ?? 0) <= 0 &&
+    !(order.invoices ?? []).some((invoice) => invoice.status !== "CANCELLED");
+
   const editButton = (label: string, onClick: () => void) =>
     canEdit ? (
       <IconActionButton label={label} onClick={onClick}>
@@ -386,10 +393,13 @@ function StoreOrderDetailContent() {
       main={
         <>
           <div className="overflow-hidden rounded-md border border-border bg-card">
-            <div className="border-b border-border/70 px-3 py-1.5">
+            <div className="flex items-center justify-between gap-2 border-b border-border/70 px-3 py-1.5">
               <h2 className="text-caption font-semibold">
                 {t("storeOrders.detail.sections.items")}
               </h2>
+              {needsAgreedAmounts
+                ? editButton(t("storeOrders.lineAmounts.action"), () => setLineAmountsOpen(true))
+                : null}
             </div>
             {order.items.length > 0 ? (
               <div className="overflow-x-auto px-1 pb-1">
@@ -616,9 +626,14 @@ function StoreOrderDetailContent() {
           <DetailFieldRow
             label={t("storeOrders.detail.sections.invoice")}
             value={
-              <Link href={`/sales/invoices/${invoice.id}`} className="hover:underline">
-                <SemanticValue kind="id">{invoice.invoiceNumber}</SemanticValue>
-              </Link>
+              <RelatedRecordLink
+                kind="SALES_INVOICE"
+                id={invoice.id}
+                number={invoice.invoiceNumber}
+                status={invoice.status}
+                variant="inline"
+                originLabel={`${t("docFlow.kinds.STORE_ORDER")} ${order.internalOrderId}`}
+              />
             }
           />
         ) : null}
@@ -1060,6 +1075,12 @@ function StoreOrderDetailContent() {
           onSaved={() => void refreshOrder()}
         />
       ) : null}
+      <StoreOrderLineAmountsDialog
+        orderId={order.id}
+        open={lineAmountsOpen}
+        onOpenChange={setLineAmountsOpen}
+        onSaved={() => void refreshOrder()}
+      />
       <StoreOrderEditNotesDialog
         orderId={order.id}
         notes={order.notes}

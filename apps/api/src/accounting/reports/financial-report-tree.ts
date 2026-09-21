@@ -344,3 +344,84 @@ export function splitSignedBalance(amount: number): {
   if (rounded >= 0) return { debit: rounded, credit: 0 };
   return { debit: 0, credit: roundReportMoney(-rounded) };
 }
+
+export type CashFlowView = 'activities' | 'movement';
+
+export const CASH_MOVEMENT_VALUE_KEYS = [
+  'opening',
+  'inflow',
+  'outflow',
+  'netChange',
+  'closing',
+] as const;
+
+export interface CashMovementTotals {
+  openingBalance: number;
+  inflows: number;
+  outflows: number;
+  netCashChange: number;
+  closingBalance: number;
+}
+
+/**
+ * Cash-account movement detail — one row per cash/bank account with the
+ * period's debits (inflows) and credits (outflows) on that account. This is
+ * NOT the operating/investing/financing classification: a transfer between
+ * two cash accounts appears as an outflow on one row and an inflow on the
+ * other, netting to zero in the totals. Every figure comes from journal
+ * lines, and each row satisfies opening + inflow − outflow = closing.
+ */
+export function buildCashMovementReport(
+  accounts: Array<Pick<CoaNode, 'id' | 'code' | 'name' | 'nameEn'>>,
+  openingByAccount: Map<string, number>,
+  periodByAccount: Map<string, { debit: number; credit: number }>,
+): { lines: HierarchicalReportLine[]; totals: CashMovementTotals } {
+  const rows = [...accounts]
+    .sort((a, b) => a.code.localeCompare(b.code))
+    .map((account) => {
+      const opening = openingByAccount.get(account.id) ?? 0;
+      const period = periodByAccount.get(account.id) ?? {
+        debit: 0,
+        credit: 0,
+      };
+      const netChange = period.debit - period.credit;
+      return {
+        account,
+        values: {
+          opening: roundReportMoney(opening),
+          inflow: roundReportMoney(period.debit),
+          outflow: roundReportMoney(period.credit),
+          netChange: roundReportMoney(netChange),
+          closing: roundReportMoney(opening + netChange),
+        },
+      };
+    })
+    .filter((row) => !isZero(row.values));
+
+  const lines = rows.map(({ account, values }) => ({
+    ...leafLine({
+      id: `cfm:${account.id}`,
+      kind: 'posting',
+      code: account.code,
+      label: account.name,
+      labelEn: account.nameEn ?? account.name,
+      values,
+    }),
+    accountId: account.id,
+  }));
+
+  const summed = sumValueMaps(
+    [...CASH_MOVEMENT_VALUE_KEYS],
+    ...rows.map((row) => row.values),
+  );
+  return {
+    lines,
+    totals: {
+      openingBalance: summed.opening,
+      inflows: summed.inflow,
+      outflows: summed.outflow,
+      netCashChange: summed.netChange,
+      closingBalance: summed.closing,
+    },
+  };
+}

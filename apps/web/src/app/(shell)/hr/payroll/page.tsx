@@ -136,7 +136,9 @@ export default function PayrollRunsPage() {
         getRowHref={(row) => `/hr/payroll/${row.id}`}
         onRefresh={load}
         exportColumns={exportColumnsFromKeys(columns, exportKeys, t)}
-        onExport={(keys) => exportRowsToCsv(rows.map(toExportRow), keys, "payroll-runs.csv")}
+        onExport={(keys, labels) =>
+          exportRowsToCsv(rows.map(toExportRow), keys, "payroll-runs.csv", labels)
+        }
       />
 
       <EnterpriseModal

@@ -360,11 +360,12 @@ function SalesReturnsPageContent() {
         }
         onRefresh={load}
         exportColumns={exportColumnsFromKeys(returnColumns, returnExportColumns, t)}
-        onExport={(selectedKeys) =>
+        onExport={(selectedKeys, labels) =>
           exportRowsToCsv(
             items.map((item) => toPrintRow(item)) as unknown as Record<string, unknown>[],
             selectedKeys,
             "sales-returns.csv",
+            labels,
           )
         }
         emptyTitle={t("sales.returns.empty")}

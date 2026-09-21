@@ -109,7 +109,7 @@ function UsersPageContent() {
         onSearchChange={setSearch}
         onRefresh={load}
         exportColumns={exportColumnsFromKeys(columns, userExportColumns, t)}
-        onExport={(keys) =>
+        onExport={(keys, labels) =>
           exportRowsToCsv(
             filtered.map((row) => ({
               fullName: row.fullName,
@@ -128,6 +128,7 @@ function UsersPageContent() {
             })),
             keys,
             "users.csv",
+            labels,
           )
         }
         emptyTitle={t("settings.users.empty")}

@@ -472,11 +472,12 @@ function CustomerReceiptsPageContent() {
         }
         onRefresh={load}
         exportColumns={exportColumnsFromKeys(columns, exportColumnKeys, t)}
-        onExport={(selectedKeys) =>
+        onExport={(selectedKeys, labels) =>
           exportRowsToCsv(
             items.map((item) => toPrintRow(item)) as unknown as Record<string, unknown>[],
             selectedKeys,
             "customer-receipt-vouchers.csv",
+            labels,
           )
         }
         emptyTitle={t("sales.receipts.empty")}

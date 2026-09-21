@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { storeOrdersService } from "@/services/store-orders-service";
+import { receivingAccountsService } from "@/services/receiving-accounts-service";
 import { apiClient, ApiError } from "@/services/api-client";
 import { useLocale } from "@/providers/locale-provider";
 import { useCurrencies, usePaymentMethods } from "@/hooks/use-reference-data";
@@ -31,8 +32,6 @@ interface LookupRow {
   id: string;
   name: string;
 }
-
-const receivingAccountsService = { list: () => apiClient.get<LookupRow[]>("/receiving-accounts") };
 
 /**
  * Manual "Add Payment" (Part 4 of the four-gaps task) — creates a normal

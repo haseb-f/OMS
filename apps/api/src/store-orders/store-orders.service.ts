@@ -32,6 +32,7 @@ import {
 } from './activities/store-order-activity.service';
 import { StoreOrderPaymentSyncService } from './store-order-payment-sync.service';
 import {
+  derivedUnitPrice,
   storeOrderItemsTotal,
   storeOrderLineAmount,
 } from './store-order-line-amount';
@@ -53,6 +54,7 @@ import {
 import { CreateStoreOrderReceiptDto } from './dto/create-store-order-receipt.dto';
 import { SetPaymentReviewStatusDto } from './dto/set-payment-review-status.dto';
 import { ReportStoreOrderPaymentDto } from './dto/report-store-order-payment.dto';
+import { SetStoreOrderLineAmountsDto } from './dto/set-line-amounts.dto';
 import { ObjectStorageService } from '../common/storage/object-storage.service';
 import { AttachmentsService } from '../common/storage/attachments.service';
 import { validateAttachmentUpload } from '../common/storage/file-validation';
@@ -880,6 +882,103 @@ export class StoreOrdersService {
       );
       return updated;
     });
+  }
+
+  /**
+   * Business operation: Correct Agreed Amounts. The only way to price a
+   * Store Order after creation, and only while nothing has been settled or
+   * invoiced against the current price — no confirmed Sales Invoice and no
+   * verified payment. Amounts are entered by the user (never derived from a
+   * catalogue price) and every change is written to the order timeline.
+   */
+  async setLineAmounts(
+    id: string,
+    dto: SetStoreOrderLineAmountsDto,
+    userId?: string,
+  ) {
+    await this.findOne(id, userId);
+    await this.prisma.$transaction(async (tx) => {
+      await lockStoreOrderRow(tx, id);
+      const order = await tx.storeOrder.findFirstOrThrow({
+        where: { id, deletedAt: null },
+        include: {
+          items: {
+            where: { deletedAt: null },
+            include: { product: { select: { name: true } } },
+          },
+          invoices: {
+            where: {
+              deletedAt: null,
+              status: { not: SalesDocumentStatus.CANCELLED },
+            },
+            select: { invoiceNumber: true },
+          },
+          payments: {
+            where: { deletedAt: null, status: PaymentStatus.VERIFIED },
+            select: { paymentNumber: true },
+          },
+        },
+      });
+      if (order.invoices.length > 0) {
+        throw new BadRequestException(
+          `Store Order ${order.internalOrderId} is already invoiced (${order.invoices.map((i) => i.invoiceNumber).join(', ')}) — its prices can no longer change.`,
+        );
+      }
+      if (order.payments.length > 0) {
+        throw new BadRequestException(
+          `Store Order ${order.internalOrderId} already has verified payments (${order.payments.map((p) => p.paymentNumber).join(', ')}) — its prices can no longer change.`,
+        );
+      }
+      const itemsById = new Map(order.items.map((item) => [item.id, item]));
+      const nextAmounts = new Map(
+        order.items.map((item) => [item.id, storeOrderLineAmount(item)]),
+      );
+      for (const line of dto.items) {
+        if (!itemsById.has(line.itemId)) {
+          throw new BadRequestException(
+            `Line ${line.itemId} does not belong to Store Order ${order.internalOrderId}.`,
+          );
+        }
+        nextAmounts.set(line.itemId, line.agreedAmount);
+      }
+      const nextTotal = [...nextAmounts.values()].reduce((a, b) => a + b, 0);
+      if (nextTotal <= 0.005) {
+        throw new BadRequestException(
+          'The order total must be greater than 0.00 — enter the agreed amount for at least one line.',
+        );
+      }
+
+      const changes: string[] = [];
+      for (const line of dto.items) {
+        const item = itemsById.get(line.itemId)!;
+        const before = storeOrderLineAmount(item);
+        if (Math.abs(before - line.agreedAmount) < 0.005) continue;
+        await tx.storeOrderItem.update({
+          where: { id: item.id },
+          data: {
+            agreedAmount: line.agreedAmount,
+            unitPrice: derivedUnitPrice(item.quantity, line.agreedAmount),
+          },
+        });
+        changes.push(
+          `${item.product?.name ?? item.productId}: ${before.toFixed(2)} → ${line.agreedAmount.toFixed(2)}`,
+        );
+      }
+      if (changes.length === 0) return;
+      await tx.storeOrder.update({
+        where: { id },
+        data: { updatedBy: userId },
+      });
+      await this.activityService.log(
+        id,
+        StoreOrderActivityType.ORDER_UPDATED,
+        `Agreed amounts corrected — ${changes.join('; ')}`,
+        userId,
+        tx,
+      );
+    });
+    await this.paymentSync.recompute(id);
+    return this.findOne(id, userId);
   }
 
   /** Business operation: Archive. Soft-delete only — schema has no hard delete anywhere in this pipeline. */

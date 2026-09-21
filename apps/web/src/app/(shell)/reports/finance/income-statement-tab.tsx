@@ -48,10 +48,12 @@ export function IncomeStatementTab() {
           {
             label: t("reports.finance.fields.totalRevenue"),
             value: findLine(lines, "revenue:total")?.values.balance ?? 0,
+            tone: "revenue",
           },
           {
             label: t("reports.finance.fields.totalExpense"),
             value: findLine(lines, "expense:total")?.values.balance ?? 0,
+            tone: "expense",
           },
           {
             label:
@@ -60,6 +62,7 @@ export function IncomeStatementTab() {
                 : t("reports.finance.fields.netProfit"),
             value: findLine(lines, "net-income")?.values.balance ?? 0,
             emphasize: true,
+            tone: "result",
           },
         ],
       }}

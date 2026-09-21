@@ -89,6 +89,14 @@
   --color-info-foreground: var(--info-foreground);
   --color-info-soft: var(--info-soft);
   --color-destructive-soft: var(--destructive-soft);
+  --color-report-revenue: var(--report-revenue);
+  --color-report-revenue-soft: var(--report-revenue-soft);
+  --color-report-expense: var(--report-expense);
+  --color-report-expense-soft: var(--report-expense-soft);
+  --color-report-profit: var(--report-profit);
+  --color-report-profit-soft: var(--report-profit-soft);
+  --color-report-loss: var(--report-loss);
+  --color-report-loss-soft: var(--report-loss-soft);
   --color-primary-hover: var(--primary-hover);
   --color-primary-active: var(--primary-active);
   --color-primary-soft: var(--primary-soft);
@@ -137,6 +145,16 @@
   --info-soft: color-mix(in oklab, var(--info) 12%, transparent);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-soft: color-mix(in oklab, var(--destructive) 12%, transparent);
+  /* Financial-report summary categories ONLY (revenue / expenses / net
+     result) — never report rows. Text tones hold >= 4.5:1 on the card. */
+  --report-revenue: oklch(0.48 0.12 250);
+  --report-revenue-soft: color-mix(in oklab, var(--report-revenue) 8%, transparent);
+  --report-expense: oklch(0.52 0.16 42);
+  --report-expense-soft: color-mix(in oklab, var(--report-expense) 8%, transparent);
+  --report-profit: oklch(0.47 0.12 158);
+  --report-profit-soft: color-mix(in oklab, var(--report-profit) 9%, transparent);
+  --report-loss: oklch(0.5 0.19 27);
+  --report-loss-soft: color-mix(in oklab, var(--report-loss) 8%, transparent);
   --border: oklch(0.928 0.006 90);
   --input: oklch(0.928 0.006 90);
   --ring: color-mix(in oklab, var(--primary) 40%, transparent);
@@ -215,6 +233,14 @@
   --info-soft: color-mix(in oklab, var(--info) 18%, transparent);
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-soft: color-mix(in oklab, var(--destructive) 18%, transparent);
+  --report-revenue: oklch(0.78 0.1 250);
+  --report-revenue-soft: color-mix(in oklab, var(--report-revenue) 12%, transparent);
+  --report-expense: oklch(0.78 0.13 50);
+  --report-expense-soft: color-mix(in oklab, var(--report-expense) 12%, transparent);
+  --report-profit: oklch(0.78 0.14 158);
+  --report-profit-soft: color-mix(in oklab, var(--report-profit) 12%, transparent);
+  --report-loss: oklch(0.74 0.16 25);
+  --report-loss-soft: color-mix(in oklab, var(--report-loss) 12%, transparent);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: color-mix(in oklab, var(--primary) 50%, transparent);

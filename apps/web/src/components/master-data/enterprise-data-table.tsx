@@ -216,7 +216,7 @@ export function EnterpriseDataTable<TData>({
   /** Columns offered in the Export dialog's picker — omit to hide the Export button entirely. */
   exportColumns?: ExportColumn[];
   /** Foundation only — exports the current page's visible rows for the columns the user kept checked. */
-  onExport?: (selectedKeys: string[]) => void;
+  onExport?: (selectedKeys: string[], selectedColumns: ExportColumn[]) => void;
   /** Opt-in — no Master Data entity has a real bulk-import endpoint yet, so this only renders an Import button when a caller supplies one. */
   onImport?: (rows: Record<string, string>[]) => Promise<void> | void;
   /** Manual reload — omit to hide the Refresh button. */
@@ -1498,13 +1498,22 @@ export function EnterpriseDataTable<TData>({
   );
 }
 
-/** Foundation CSV export — client-side only, current page's data. */
+/**
+ * Foundation CSV export — client-side only, current page's data. Pass the
+ * Export dialog's `selectedColumns` as `headerLabels` so the header row is
+ * the translated column title (active UI language), not the internal key;
+ * cell values and document references are written unchanged.
+ */
 export function exportRowsToCsv<TData extends Record<string, unknown>>(
   rows: TData[],
   columnKeys: string[],
   filename: string,
+  headerLabels?: ExportColumn[],
 ) {
-  const header = columnKeys.join(",");
+  const labelFor = new Map((headerLabels ?? []).map((column) => [column.key, column.label]));
+  const header = columnKeys
+    .map((key) => `"${(labelFor.get(key) ?? key).replace(/"/g, '""')}"`)
+    .join(",");
   const body = rows
     .map((row) =>
       columnKeys

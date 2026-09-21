@@ -1,22 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Check, Link2, RefreshCw, X } from "lucide-react";
+import { CheckCheck, RefreshCw, Tags, X } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
 import { EnterpriseButton } from "@/components/ui/button";
 import { StatusBadge } from "@/components/business/status-badge";
 import { SelectFilter } from "@/components/shared/data-table/select-filter";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
+import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { RelatedRecordsPanel } from "@/components/shared/related-records-panel";
+import { RelatedRecordLink } from "@/components/shared/record-preview";
+import { StoreOrderLineAmountsDialog } from "@/components/store-orders/store-order-line-amounts-dialog";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { toast } from "@/lib/toast";
+import { formatMoney } from "@/lib/money";
 import { ApiError } from "@/services/api-client";
 import { formatDate } from "@/lib/date";
 import {
@@ -25,10 +28,16 @@ import {
   type PaymentReviewStatus,
 } from "@/services/payments-review-service";
 
+/** A store-order payment can only be confirmed once its order carries an agreed price. */
+function needsPrice(payment: PaymentReviewRow): boolean {
+  return !!payment.storeOrder && !!payment.settlement && payment.settlement.total <= 0;
+}
+
 function PaymentReviewPageContent() {
   const { t } = useLocale();
-  const { user, hasPermission } = useUserContext();
+  const { hasPermission } = useUserContext();
   const canConfirm = hasPermission("sales.receipts.confirm");
+  const canEditOrders = hasPermission("store-orders.edit");
   const [status, setStatus] = useState<PaymentReviewStatus | "">("");
   const [items, setItems] = useState<PaymentReviewRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -36,14 +45,18 @@ function PaymentReviewPageContent() {
   const [pageSize, setPageSize] = useState(50);
   const [isLoading, setIsLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  /** Synchronous in-flight guard — a double-click lands before React re-renders `busyId`. */
+  const inFlight = useRef(new Set<string>());
+  const [confirmTarget, setConfirmTarget] = useState<PaymentReviewRow | null>(null);
   const [rejectTarget, setRejectTarget] = useState<PaymentReviewRow | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [rejectError, setRejectError] = useState<string | null>(null);
+  const [priceTarget, setPriceTarget] = useState<PaymentReviewRow | null>(null);
   const [detail, setDetail] = useState<PaymentReviewRow | null>(null);
 
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const statuses: PaymentReviewStatus[] = status === "" ? ["PENDING", "MATCHED"] : [status];
       if (status === "") {
         const [pending, matched] = await Promise.all([
           paymentsReviewService.list({ status: "PENDING", page: 1, pageSize: 100 }),
@@ -55,16 +68,12 @@ function PaymentReviewPageContent() {
         setItems(merged.slice((page - 1) * pageSize, page * pageSize));
         setTotal(pending.total + matched.total);
       } else {
-        const result = await paymentsReviewService.list({
-          status: statuses[0],
-          page,
-          pageSize,
-        });
+        const result = await paymentsReviewService.list({ status, page, pageSize });
         setItems(result.items);
         setTotal(result.total);
       }
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
     } finally {
       setIsLoading(false);
     }
@@ -75,59 +84,66 @@ function PaymentReviewPageContent() {
     void load();
   }, [load]);
 
-  const act = useCallback(
-    async (row: PaymentReviewRow, action: "match" | "verify") => {
-      if (!user?.id) return;
-      setBusyId(row.id);
-      try {
-        if (action === "match") {
-          await paymentsReviewService.match(row.id, user.id);
-          toast.success(t("finance.paymentReview.toasts.matched"));
-        } else {
-          const result = await paymentsReviewService.verify(row.id, user.id);
-          const collection = result.collection;
-          if (collection.status === "POSTED") {
-            toast.success(
-              t("docFlow.payments.verifiedPosted", {
-                receipts: collection.receipts
-                  .map((receipt) => receipt.transactionNumber)
-                  .join(", "),
-              }),
-            );
-          } else if (collection.status === "FAILED") {
-            toast.warning(
-              t("docFlow.payments.verifiedPostingFailed", { message: collection.message }),
-            );
-          } else if (collection.status === "PENDING_INVOICE") {
-            toast.success(t("docFlow.payments.verifiedPendingInvoice"));
-          } else {
-            toast.success(t("finance.paymentReview.toasts.verified"));
-          }
+  const runExclusive = useCallback(async (id: string, work: () => Promise<void>) => {
+    if (inFlight.current.has(id)) return;
+    inFlight.current.add(id);
+    setBusyId(id);
+    try {
+      await work();
+    } finally {
+      inFlight.current.delete(id);
+      setBusyId(null);
+    }
+  }, []);
+
+  const confirmAndPost = useCallback(
+    (payment: PaymentReviewRow) =>
+      runExclusive(payment.id, async () => {
+        try {
+          const result = await paymentsReviewService.confirm(payment.id);
+          const receipt = result.receipt;
+          toast.success(
+            t(
+              result.alreadyPosted
+                ? "finance.paymentReview.toasts.alreadyPosted"
+                : "finance.paymentReview.toasts.confirmedPosted",
+              {
+                payment: result.paymentNumber,
+                receipt: receipt.transactionNumber,
+                journal: receipt.journalEntry?.entryNumber ?? "—",
+              },
+            ),
+          );
+        } catch (error) {
+          toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+        } finally {
+          await load();
         }
-        await load();
-      } catch (error) {
-        toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
-      } finally {
-        setBusyId(null);
-      }
-    },
-    [user, t, load],
+      }),
+    [runExclusive, t, load],
   );
 
   const submitReject = async () => {
-    if (!rejectTarget || !user?.id) return;
-    setBusyId(rejectTarget.id);
-    try {
-      await paymentsReviewService.reject(rejectTarget.id, user.id, rejectReason || undefined);
-      toast.success(t("finance.paymentReview.toasts.rejected"));
-      setRejectTarget(null);
-      setRejectReason("");
-      await load();
-    } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
-    } finally {
-      setBusyId(null);
+    const target = rejectTarget;
+    if (!target) return;
+    const reason = rejectReason.trim();
+    if (!reason) {
+      setRejectError(t("finance.paymentReview.rejectDialog.reasonRequired"));
+      return;
     }
+    await runExclusive(target.id, async () => {
+      try {
+        await paymentsReviewService.reject(target.id, reason);
+        toast.success(
+          t("finance.paymentReview.toasts.rejected", { payment: target.paymentNumber }),
+        );
+        setRejectTarget(null);
+        setRejectReason("");
+        await load();
+      } catch (error) {
+        toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      }
+    });
   };
 
   const columns = useMemo<ColumnDef<PaymentReviewRow, unknown>[]>(
@@ -135,7 +151,15 @@ function PaymentReviewPageContent() {
       {
         id: "paymentNumber",
         meta: { titleKey: "finance.paymentReview.fields.number" },
-        accessorFn: (row) => row.paymentNumber,
+        cell: ({ row }) => (
+          <RelatedRecordLink
+            kind="PAYMENT"
+            id={row.original.id}
+            number={row.original.paymentNumber}
+            status={row.original.status}
+            variant="inline"
+          />
+        ),
       },
       {
         id: "customer",
@@ -148,40 +172,31 @@ function PaymentReviewPageContent() {
         meta: { titleKey: "finance.paymentReview.fields.order" },
         cell: ({ row }) =>
           row.original.storeOrder ? (
-            <Link
-              className="text-primary hover:underline"
-              href={`/store-orders/${row.original.storeOrder.id}`}
-            >
-              {row.original.storeOrder.internalOrderId}
-            </Link>
+            <RelatedRecordLink
+              kind="STORE_ORDER"
+              id={row.original.storeOrder.id}
+              number={row.original.storeOrder.internalOrderId}
+              variant="inline"
+            />
           ) : (
             (row.original.lead?.leadNumber ?? "—")
           ),
       },
       {
         id: "amount",
-        meta: { titleKey: "finance.paymentReview.fields.amount" },
+        meta: { titleKey: "finance.paymentReview.fields.amount", align: "end" },
         cell: ({ row }) => (
           <span dir="ltr" className="tabular-nums">
-            {Number(row.original.amount).toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}{" "}
-            {row.original.currency?.code}
+            {formatMoney(row.original.amount, row.original.currency?.code)}
           </span>
         ),
       },
       {
         id: "remaining",
-        meta: { titleKey: "finance.paymentReview.fields.remaining" },
+        meta: { titleKey: "finance.paymentReview.fields.remaining", align: "end" },
         cell: ({ row }) => (
           <span dir="ltr" className="tabular-nums">
-            {row.original.settlement
-              ? row.original.settlement.outstanding.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })
-              : "—"}
+            {row.original.settlement ? formatMoney(row.original.settlement.outstanding) : "—"}
           </span>
         ),
       },
@@ -221,9 +236,7 @@ function PaymentReviewPageContent() {
                 ? "success"
                 : row.original.status === "REJECTED"
                   ? "destructive"
-                  : row.original.status === "MATCHED"
-                    ? "info"
-                    : "warning"
+                  : "warning"
             }
           />
         ),
@@ -233,47 +246,67 @@ function PaymentReviewPageContent() {
         meta: { titleKey: "common.actions" },
         cell: ({ row }) => {
           const payment = row.original;
-          if (!canConfirm) return null;
+          const busy = busyId === payment.id;
+          const open = payment.status === "PENDING" || payment.status === "MATCHED";
+          const missingPrice = needsPrice(payment);
           return (
-            <div className="flex flex-wrap gap-1">
-              {payment.status === "PENDING" ? (
-                <EnterpriseButton
-                  size="xs"
-                  disabled={busyId === payment.id}
-                  onClick={() => void act(payment, "match")}
-                >
-                  <Link2 className="size-3" />
-                  {t("finance.paymentReview.actions.match")}
-                </EnterpriseButton>
-              ) : null}
-              {payment.status === "MATCHED" ? (
-                <EnterpriseButton
-                  size="xs"
-                  variant="success"
-                  disabled={busyId === payment.id}
-                  onClick={() => void act(payment, "verify")}
-                >
-                  <Check className="size-3" />
-                  {t("finance.paymentReview.actions.verify")}
-                </EnterpriseButton>
-              ) : null}
-              {payment.status === "VERIFIED" && payment.storeOrder ? (
+            <div className="flex flex-wrap items-center gap-1">
+              {canConfirm && open && missingPrice && canEditOrders ? (
                 <EnterpriseButton
                   size="xs"
                   variant="outline"
-                  disabled={busyId === payment.id}
-                  onClick={() => void act(payment, "verify")}
+                  disabled={busy}
+                  data-testid="payment-set-price"
+                  title={t("finance.paymentReview.needsPrice", {
+                    order: payment.storeOrder?.internalOrderId ?? "",
+                  })}
+                  onClick={() => setPriceTarget(payment)}
+                >
+                  <Tags className="size-3" />
+                  {t("finance.paymentReview.actions.setPrice")}
+                </EnterpriseButton>
+              ) : null}
+              {canConfirm && open ? (
+                <EnterpriseButton
+                  size="xs"
+                  variant="success"
+                  disabled={busy || missingPrice}
+                  data-testid="payment-confirm-post"
+                  title={
+                    missingPrice
+                      ? t("finance.paymentReview.needsPrice", {
+                          order: payment.storeOrder?.internalOrderId ?? "",
+                        })
+                      : undefined
+                  }
+                  onClick={() => setConfirmTarget(payment)}
+                >
+                  <CheckCheck className="size-3" />
+                  {t("finance.paymentReview.actions.confirmPost")}
+                </EnterpriseButton>
+              ) : null}
+              {canConfirm && payment.status === "VERIFIED" && payment.storeOrder ? (
+                <EnterpriseButton
+                  size="xs"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => void confirmAndPost(payment)}
                 >
                   <RefreshCw className="size-3" />
                   {t("docFlow.payments.syncReceipt")}
                 </EnterpriseButton>
               ) : null}
-              {payment.status === "PENDING" || payment.status === "MATCHED" ? (
+              {canConfirm && open ? (
                 <EnterpriseButton
                   size="xs"
                   variant="destructive"
-                  disabled={busyId === payment.id}
-                  onClick={() => setRejectTarget(payment)}
+                  disabled={busy}
+                  data-testid="payment-reject"
+                  onClick={() => {
+                    setRejectReason("");
+                    setRejectError(null);
+                    setRejectTarget(payment);
+                  }}
                 >
                   <X className="size-3" />
                   {t("finance.paymentReview.actions.reject")}
@@ -287,7 +320,7 @@ function PaymentReviewPageContent() {
         },
       },
     ],
-    [act, busyId, canConfirm, t],
+    [busyId, canConfirm, canEditOrders, confirmAndPost, t],
   );
 
   return (
@@ -329,26 +362,75 @@ function PaymentReviewPageContent() {
         }
       />
 
+      <ConfirmationDialog
+        open={!!confirmTarget}
+        onOpenChange={(open) => !open && setConfirmTarget(null)}
+        title={t("finance.paymentReview.confirmDialog.title", {
+          payment: confirmTarget?.paymentNumber ?? "",
+        })}
+        description={t("finance.paymentReview.confirmDialog.description", {
+          amount: confirmTarget
+            ? formatMoney(confirmTarget.amount, confirmTarget.currency?.code)
+            : "",
+          order: confirmTarget?.storeOrder?.internalOrderId ?? "—",
+        })}
+        confirmLabel={t("finance.paymentReview.actions.confirmPost")}
+        cancelLabel={t("common.close")}
+        onConfirm={() => {
+          const target = confirmTarget;
+          setConfirmTarget(null);
+          if (target) void confirmAndPost(target);
+        }}
+      />
+
       <EnterpriseModal
         open={!!rejectTarget}
         onOpenChange={(open) => !open && setRejectTarget(null)}
-        title={t("finance.paymentReview.actions.reject")}
-        footer={() => (
+        size="md"
+        title={`${t("finance.paymentReview.actions.reject")} ${rejectTarget?.paymentNumber ?? ""}`}
+        description={t("finance.paymentReview.rejectDialog.description")}
+        isDirty={rejectReason.trim().length > 0}
+        footer={(requestClose) => (
           <>
-            <EnterpriseButton variant="outline" onClick={() => setRejectTarget(null)}>
+            <EnterpriseButton variant="ghost" size="sm" onClick={requestClose}>
               {t("common.close")}
             </EnterpriseButton>
-            <EnterpriseButton variant="destructive" onClick={() => void submitReject()}>
+            <EnterpriseButton
+              variant="destructive"
+              size="sm"
+              data-testid="payment-reject-submit"
+              disabled={!rejectTarget || busyId === rejectTarget.id}
+              onClick={() => void submitReject()}
+            >
               {t("finance.paymentReview.actions.reject")}
             </EnterpriseButton>
           </>
         )}
       >
-        <div className="flex flex-col gap-2">
-          <Label>{t("finance.paymentReview.fields.reason")}</Label>
-          <Input value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} />
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="payment-reject-reason">{t("finance.paymentReview.fields.reason")}</Label>
+          <Textarea
+            id="payment-reject-reason"
+            rows={3}
+            maxLength={500}
+            value={rejectReason}
+            placeholder={t("finance.paymentReview.rejectDialog.placeholder")}
+            aria-invalid={!!rejectError}
+            onChange={(event) => {
+              setRejectReason(event.target.value);
+              if (rejectError) setRejectError(null);
+            }}
+          />
+          {rejectError ? <p className="text-caption text-destructive">{rejectError}</p> : null}
         </div>
       </EnterpriseModal>
+
+      <StoreOrderLineAmountsDialog
+        orderId={priceTarget?.storeOrder?.id ?? null}
+        open={!!priceTarget}
+        onOpenChange={(open) => !open && setPriceTarget(null)}
+        onSaved={() => void load()}
+      />
 
       <EnterpriseModal
         open={!!detail}
@@ -368,31 +450,44 @@ function PaymentReviewPageContent() {
 
 function PaymentReviewDetail({ payment }: { payment: PaymentReviewRow }) {
   const { t } = useLocale();
+  const rows: Array<[string, React.ReactNode]> = [
+    [
+      t("finance.paymentReview.fields.customer"),
+      payment.storeOrder?.partner?.name ?? payment.lead?.customerName ?? payment.senderName,
+    ],
+    [
+      t("finance.paymentReview.fields.amount"),
+      <span key="amount" dir="ltr" className="tabular-nums">
+        {formatMoney(payment.amount, payment.currency?.code)}
+      </span>,
+    ],
+    [t("finance.paymentReview.fields.source"), payment.paymentSource?.name ?? "—"],
+    [t("finance.paymentReview.fields.account"), payment.receivingAccount?.name ?? "—"],
+    [t("finance.paymentReview.fields.proof"), payment.attachments.length],
+  ];
+  if (payment.settlement) {
+    rows.push([
+      t("finance.paymentReview.fields.remaining"),
+      <span key="remaining" dir="ltr" className="tabular-nums">
+        {formatMoney(payment.settlement.outstanding)}
+      </span>,
+    ]);
+  }
   return (
     <div className="flex flex-col gap-3 text-body">
-      <p>
-        {t("finance.paymentReview.fields.customer")}:{" "}
-        {payment.storeOrder?.partner?.name ?? payment.lead?.customerName ?? payment.senderName}
-      </p>
-      <p>
-        {t("finance.paymentReview.fields.amount")}:{" "}
-        <span dir="ltr">
-          {payment.amount} {payment.currency?.code}
-        </span>
-      </p>
-      <p>
-        {t("finance.paymentReview.fields.source")}: {payment.paymentSource?.name ?? "—"}
-      </p>
-      <p>
-        {t("finance.paymentReview.fields.account")}: {payment.receivingAccount?.name ?? "—"}
-      </p>
-      <p>
-        {t("finance.paymentReview.fields.proof")}: {payment.attachments.length}
-      </p>
-      {payment.settlement ? (
-        <p>
-          {t("finance.paymentReview.fields.remaining")}:{" "}
-          <span dir="ltr">{payment.settlement.outstanding.toFixed(2)}</span>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
+        {rows.map(([label, value]) => (
+          <div key={label} className="contents">
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {needsPrice(payment) ? (
+        <p className="text-caption text-warning-foreground">
+          {t("finance.paymentReview.needsPrice", {
+            order: payment.storeOrder?.internalOrderId ?? "",
+          })}
         </p>
       ) : null}
       <RelatedRecordsPanel kind="PAYMENT" id={payment.id} refreshKey={payment.status} />

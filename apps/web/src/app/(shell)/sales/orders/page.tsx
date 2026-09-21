@@ -409,11 +409,12 @@ function SalesOrdersPageContent() {
         }
         onRefresh={load}
         exportColumns={exportColumnsFromKeys(orderColumns, orderExportColumns, t)}
-        onExport={(selectedKeys) =>
+        onExport={(selectedKeys, labels) =>
           exportRowsToCsv(
             items.map((item) => toPrintRow(item)) as unknown as Record<string, unknown>[],
             selectedKeys,
             "sales-orders.csv",
+            labels,
           )
         }
         emptyTitle={t("sales.orders.empty")}

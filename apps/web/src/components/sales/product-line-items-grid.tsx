@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { LayoutList, SlidersHorizontal, StickyNote, Trash2 } from "lucide-react";
 import {
   DocumentLineTable,
@@ -343,6 +343,7 @@ export function ProductLineItemsGrid({
   showDescription = true,
   unitPriceLabel,
   enableLineTreatment = false,
+  title,
 }: {
   lines: ProductLineItemsGridLine[];
   onChange: (lines: ProductLineItemsGridLine[]) => void;
@@ -361,6 +362,8 @@ export function ProductLineItemsGrid({
   unitPriceLabel?: string;
   /** Purchase invoices: allow capitalizing / deferring non-stock lines. */
   enableLineTreatment?: boolean;
+  /** Section heading rendered in the lines toolbar, beside "Browse products". */
+  title?: ReactNode;
 }) {
   const { t } = useLocale();
   const taxes = useTaxes();
@@ -474,12 +477,28 @@ export function ProductLineItemsGrid({
       disabled={disabled}
       label={t("sales.editor.grid.addLine")}
       onClick={() => onChange([...lines, createEmptyLine()])}
-      secondary={{
-        label: t("docFlow.products.browse"),
-        icon: <LayoutList className="size-3.5" />,
-        onClick: () => setBrowseOpen(true),
-      }}
     />
+  );
+
+  // The expanded picker sits above the lines — visible without scrolling
+  // past a long document, on phones and desktop alike.
+  const toolbar = (
+    <div className="flex min-h-8 flex-wrap items-center justify-between gap-2">
+      {title ? <h2 className="text-card-title font-heading">{title}</h2> : <span />}
+      {disabled ? null : (
+        <EnterpriseButton
+          type="button"
+          variant="outline"
+          size="sm"
+          className={cn("gap-1.5", isMobile && "h-10")}
+          data-testid="browse-products"
+          onClick={() => setBrowseOpen(true)}
+        >
+          <LayoutList className="size-3.5" />
+          {t("docFlow.products.browse")}
+        </EnterpriseButton>
+      )}
+    </div>
   );
 
   const taxSelect = (line: ProductLineItemsGridLine, extra?: { rowIndex: number; col: number }) => (
@@ -519,6 +538,7 @@ export function ProductLineItemsGrid({
   if (isMobile) {
     return (
       <div ref={containerRef} className="flex min-w-0 flex-col gap-2">
+        {toolbar}
         {lines.map((line, index) => {
           const preview = previewFor(line);
           const quantityInvalid = line.product !== null && line.quantity <= 0;
@@ -526,6 +546,7 @@ export function ProductLineItemsGrid({
           return (
             <div
               key={line.id}
+              data-testid="document-line"
               className="flex flex-col gap-2 rounded-sm border border-border bg-card p-2.5"
             >
               <div className="flex items-center gap-1.5">
@@ -664,7 +685,8 @@ export function ProductLineItemsGrid({
   }
 
   return (
-    <div ref={containerRef} className="min-w-0">
+    <div ref={containerRef} className="flex min-w-0 flex-col gap-2">
+      {toolbar}
       <DocumentLineTable
         minWidthClass={warehouseColumn ? "min-w-[1080px]" : "min-w-[800px]"}
         footer={footer}
@@ -747,7 +769,11 @@ export function ProductLineItemsGrid({
             const taxCol = showTax ? col++ : -1;
 
             return (
-              <DocumentLineTableRow key={line.id} className="hover:bg-muted/40">
+              <DocumentLineTableRow
+                key={line.id}
+                data-testid="document-line"
+                className="hover:bg-muted/40"
+              >
                 <DocumentLineTableCell
                   data-row={rowIndex}
                   data-col={productCol}

@@ -78,11 +78,14 @@ export function PartnerQuickCreateDialog({
   role,
   open,
   onOpenChange,
+  initialName,
   onCreated,
 }: {
   role: PartnerRoleValue;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Prefill from the picker's search text — a typed-but-unmatched name. */
+  initialName?: string;
   onCreated: (partner: PartnerRow) => void;
 }) {
   const { t } = useLocale();
@@ -96,7 +99,7 @@ export function PartnerQuickCreateDialog({
   });
 
   useEffect(() => {
-    if (open) form.reset(partnerQuickCreateDefaultValues);
+    if (open) form.reset({ ...partnerQuickCreateDefaultValues, name: initialName ?? "" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 

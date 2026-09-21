@@ -79,6 +79,7 @@ export function ProductCreateDialog({
   taxes,
   suppliers,
   warehouses,
+  initialName,
   onCreated,
 }: {
   open: boolean;
@@ -89,6 +90,8 @@ export function ProductCreateDialog({
   taxes?: TaxRow[];
   suppliers?: PartnerRow[];
   warehouses?: WarehouseRow[];
+  /** Prefill from the picker's search text — a typed-but-unmatched name. */
+  initialName?: string;
   onCreated: (product: ProductRow) => void;
 }) {
   const { t } = useLocale();
@@ -102,7 +105,11 @@ export function ProductCreateDialog({
 
   useEffect(() => {
     if (open) {
-      form.reset(productCreateDefaultValues);
+      form.reset(
+        initialName
+          ? { ...productCreateDefaultValues, name: initialName }
+          : productCreateDefaultValues,
+      );
       setStep("basics");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

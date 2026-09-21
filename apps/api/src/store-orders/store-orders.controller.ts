@@ -24,6 +24,7 @@ import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 import { StoreOrdersService } from './store-orders.service';
 import { CreateStoreOrderDto } from './dto/create-store-order.dto';
 import { UpdateStoreOrderDto } from './dto/update-store-order.dto';
+import { SetStoreOrderLineAmountsDto } from './dto/set-line-amounts.dto';
 import { FindStoreOrdersQueryDto } from './dto/find-store-orders-query.dto';
 import { CreateStoreOrderNoteDto } from './dto/create-store-order-note.dto';
 import { CreateStoreOrderPaymentDto } from './dto/create-store-order-payment.dto';
@@ -114,6 +115,18 @@ export class StoreOrdersController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.storeOrdersService.update(id, dto, user.sub);
+  }
+
+  /** Pricing correction — only before any invoice or verified payment. */
+  @Post(':id/line-amounts')
+  @HttpCode(200)
+  @PermissionAction('edit')
+  setLineAmounts(
+    @Param('id') id: string,
+    @Body() dto: SetStoreOrderLineAmountsDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.storeOrdersService.setLineAmounts(id, dto, user.sub);
   }
 
   @Post(':id/archive')

@@ -6,6 +6,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -280,6 +281,27 @@ export function JournalEntryLinesGrid({
               ))
             )}
           </TableBody>
+          {lines.length > 0 ? (
+            // Totals sit in the debit/credit columns themselves (same width
+            // and centering as the headers and inputs), never off to the side.
+            <TableFooter>
+              <TableRow className="hover:bg-transparent">
+                <TableCell
+                  colSpan={columnCount - 3}
+                  className="text-end text-caption font-medium text-muted-foreground"
+                >
+                  {t("reports.finance.totals")}
+                </TableCell>
+                <TableCell className="text-center font-semibold tabular-nums" dir="ltr">
+                  {formatMoney(totalDebit)}
+                </TableCell>
+                <TableCell className="text-center font-semibold tabular-nums" dir="ltr">
+                  {formatMoney(totalCredit)}
+                </TableCell>
+                <TableCell />
+              </TableRow>
+            </TableFooter>
+          ) : null}
         </Table>
       </div>
 
@@ -297,14 +319,6 @@ export function JournalEntryLinesGrid({
         </EnterpriseButton>
 
         <div className="flex items-center gap-4 text-body">
-          <span className="text-muted-foreground">
-            {t("accounting.journalEntries.lines.totalDebit")}:{" "}
-            <span dir="ltr">{formatMoney(totalDebit)}</span>
-          </span>
-          <span className="text-muted-foreground">
-            {t("accounting.journalEntries.lines.totalCredit")}:{" "}
-            <span dir="ltr">{formatMoney(totalCredit)}</span>
-          </span>
           {lines.length > 0 && (
             <span className={cn("font-medium", isBalanced ? "text-success" : "text-destructive")}>
               {isBalanced

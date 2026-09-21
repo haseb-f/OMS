@@ -472,11 +472,12 @@ function SupplierPaymentsPageContent() {
         }
         onRefresh={load}
         exportColumns={exportColumnsFromKeys(columns, exportColumnKeys, t)}
-        onExport={(selectedKeys) =>
+        onExport={(selectedKeys, labels) =>
           exportRowsToCsv(
             items.map((item) => toPrintRow(item)) as unknown as Record<string, unknown>[],
             selectedKeys,
             "supplier-payment-vouchers.csv",
+            labels,
           )
         }
         emptyTitle={t("purchasing.payments.empty")}

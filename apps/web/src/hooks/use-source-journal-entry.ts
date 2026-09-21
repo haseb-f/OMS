@@ -48,6 +48,8 @@ export function useSourceJournalTrace(
             id: entry.id,
             number: entry.entryNumber,
             href: `/finance/journal-entries/${entry.id}`,
+            kind: "JOURNAL_ENTRY" as const,
+            status: entry.status,
             statusLabel: t(JOURNAL_ENTRY_STATUS_LABEL_KEY[entry.status]),
             statusTone: JOURNAL_ENTRY_STATUS_TONE[entry.status],
           })),

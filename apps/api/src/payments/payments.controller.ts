@@ -73,18 +73,38 @@ export class PaymentsController {
     return this.paymentsService.match(id, dto);
   }
 
+  /**
+   * Confirm & Post — the single Finance decision: validates, verifies and
+   * posts the Customer Receipt + Journal Entry atomically. Idempotent.
+   */
+  @Post(':id/confirm')
+  @HttpCode(200)
+  @PermissionAction('confirm')
+  confirm(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.paymentsService.confirm(id, user.sub);
+  }
+
+  /** Legacy alias of Confirm & Post (kept for existing API clients). */
   @Post(':id/verify')
   @HttpCode(200)
   @PermissionAction('confirm')
-  verify(@Param('id') id: string, @Body() dto: VerifyPaymentDto) {
-    return this.paymentsService.verify(id, dto);
+  verify(
+    @Param('id') id: string,
+    @Body() _dto: VerifyPaymentDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.paymentsService.confirm(id, user.sub);
   }
 
   @Post(':id/reject')
   @HttpCode(200)
   @PermissionAction('confirm')
-  reject(@Param('id') id: string, @Body() dto: RejectPaymentDto) {
-    return this.paymentsService.reject(id, dto);
+  reject(
+    @Param('id') id: string,
+    @Body() dto: RejectPaymentDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.paymentsService.reject(id, { ...dto, rejectedById: user.sub });
   }
 
   /**

@@ -146,6 +146,10 @@ export function LeadConvertDialog({
       setFieldError(t("crm.leads.convert.validation.amount"));
       return false;
     }
+    if (orderTotal <= 0) {
+      setFieldError(t("crm.leads.convert.validation.total"));
+      return false;
+    }
     if (paymentType === "PREPAID" && paid > 0 && !paymentMethod) {
       setFieldError(t("crm.leads.convert.validation.paymentMethod"));
       return false;

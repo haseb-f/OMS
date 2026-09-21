@@ -1,3 +1,6 @@
+"use client";
+
+import { useLocale } from "@/providers/locale-provider";
 import type { PrintCompanyInfo } from "@/types/print-engine";
 
 /**
@@ -22,6 +25,7 @@ export function PrintCompanyHeader({
   /** Optional per-company brand color (from DocumentBranding) for the title/border accent — falls back to a neutral ink color. */
   accentColor?: string;
 }) {
+  const { t } = useLocale();
   const contactLine = [company.phone, company.email, company.website].filter(Boolean).join("  ·  ");
 
   return (
@@ -53,9 +57,17 @@ export function PrintCompanyHeader({
       </div>
       <div className="flex flex-col items-end gap-0.5 text-end text-[10px] text-slate-600">
         <h1 className="text-base font-semibold text-slate-900">{title}</h1>
-        {documentNumber && <span>No. {documentNumber}</span>}
-        <span>Printed By: {printedByName ?? "—"}</span>
-        <span>Printed Date: {printedAt}</span>
+        {documentNumber && (
+          <span>
+            {t("reportExport.documentNumber")} {documentNumber}
+          </span>
+        )}
+        <span>
+          {t("reportExport.printedBy")}: {printedByName ?? "—"}
+        </span>
+        <span>
+          {t("reportExport.printedAt")}: {printedAt}
+        </span>
       </div>
     </header>
   );

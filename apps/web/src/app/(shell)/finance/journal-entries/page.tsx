@@ -552,11 +552,12 @@ function JournalEntriesPageContent() {
         }
         onRefresh={load}
         exportColumns={exportColumnsFromKeys(columns, exportColumnKeys, t)}
-        onExport={(selectedKeys) =>
+        onExport={(selectedKeys, labels) =>
           exportRowsToCsv(
             items.map((item) => toPrintRow(item)) as unknown as Record<string, unknown>[],
             selectedKeys,
             "journal-entries.csv",
+            labels,
           )
         }
         emptyTitle={t("accounting.journalEntries.empty")}

@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, type ButtonHTMLAttributes } from "react";
-import { Package, Plus } from "lucide-react";
-import { CommandItem } from "@/components/ui/command";
+import { Package } from "lucide-react";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { ProductCreateDialog } from "@/components/business/product-create-dialog";
 import { productsService, type ProductRow } from "@/services/products-service";
@@ -21,18 +20,26 @@ import { ApiError } from "@/services/api-client";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 
-const CREATE_PRODUCT_PERMISSION = "products.create";
+export const CREATE_PRODUCT_PERMISSION = "products.create";
 
-/** Reference data for the create wizard — only mounted once a user opens it. */
-function InlineProductCreate({
+/**
+ * Inline "New product" from a document: the create wizard (its reference
+ * data loads only once opened), then activation — new products start as
+ * Draft and a document line needs an ACTIVE one — so `onReady` receives a
+ * product the caller can line immediately, without losing the document.
+ */
+export function InlineProductCreate({
   open,
   onOpenChange,
-  onCreated,
+  initialName,
+  onReady,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreated: (product: ProductRow) => void;
+  initialName?: string;
+  onReady: (product: ProductRow) => void;
 }) {
+  const { t } = useLocale();
   const categories = useProductCategories();
   const units = useUnits();
   const taxes = useTaxes();
@@ -48,7 +55,22 @@ function InlineProductCreate({
       taxes={taxes}
       suppliers={suppliers}
       warehouses={warehouses}
-      onCreated={onCreated}
+      initialName={initialName}
+      onCreated={(product) => {
+        invalidateLookups("products:");
+        onOpenChange(false);
+        const ready =
+          product.status === "ACTIVE"
+            ? Promise.resolve(product)
+            : productsService.activate(product.id);
+        ready
+          .then(onReady)
+          .catch((error: unknown) =>
+            toast.error(
+              error instanceof ApiError ? error.message : t("docFlow.products.activateFailed"),
+            ),
+          );
+      }}
     />
   );
 }
@@ -90,6 +112,7 @@ export function ProductPicker({
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
   const [createOpen, setCreateOpen] = useState(false);
+  const [createName, setCreateName] = useState("");
   const canCreate =
     allowCreate &&
     !inventoryOnly &&
@@ -144,36 +167,24 @@ export function ProductPicker({
         icon={<Package className="size-3.5 shrink-0 text-muted-foreground" />}
         triggerProps={triggerProps}
         triggerClassName={cn(!embedded && "max-w-(--width-picker-product)", className)}
-        footer={
-          canCreate ? (
-            <CommandItem value="__create_product__" onSelect={() => setCreateOpen(true)}>
-              <Plus className="size-4" />
-              {t("docFlow.products.createNew")}
-            </CommandItem>
-          ) : undefined
+        createAction={
+          canCreate
+            ? {
+                label: t("docFlow.products.createNew"),
+                onSelect: (search) => {
+                  setCreateName(search);
+                  setCreateOpen(true);
+                },
+              }
+            : undefined
         }
       />
       {canCreate && createOpen ? (
         <InlineProductCreate
           open={createOpen}
           onOpenChange={setCreateOpen}
-          onCreated={(product) => {
-            invalidateLookups("products:");
-            setCreateOpen(false);
-            // New products start as Draft; a document line needs an active
-            // one, so activate it here and select it without losing the form.
-            const ready =
-              product.status === "ACTIVE"
-                ? Promise.resolve(product)
-                : productsService.activate(product.id);
-            ready
-              .then((active) => onChange(active))
-              .catch((error: unknown) =>
-                toast.error(
-                  error instanceof ApiError ? error.message : t("docFlow.products.activateFailed"),
-                ),
-              );
-          }}
+          initialName={createName}
+          onReady={onChange}
         />
       ) : null}
     </>

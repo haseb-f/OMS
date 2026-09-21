@@ -219,13 +219,14 @@ function InventoryStockPageContent() {
           columns.map((column) => column.id!),
           t,
         )}
-        onExport={(keys) =>
+        onExport={(keys, labels) =>
           exportRowsToCsv(
             rows.map((row) =>
               Object.fromEntries(columns.map((c) => [c.id!, getColumnDisplayValue(c, row)])),
             ),
             keys,
             "inventory-stock.csv",
+            labels,
           )
         }
       />

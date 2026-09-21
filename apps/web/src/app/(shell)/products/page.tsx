@@ -287,11 +287,12 @@ function ProductsPageContent() {
         onRefresh={load}
         getRowHref={(row) => `/products/${row.id}`}
         exportColumns={exportColumnsFromKeys(productsColumns, productsExportColumns, t)}
-        onExport={(selectedKeys) =>
+        onExport={(selectedKeys, labels) =>
           exportRowsToCsv(
             items as unknown as Record<string, unknown>[],
             selectedKeys,
             "products.csv",
+            labels,
           )
         }
       />

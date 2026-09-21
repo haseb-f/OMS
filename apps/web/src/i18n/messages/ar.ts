@@ -473,6 +473,20 @@ const ar = {
     commandPalettePlaceholder: "البحث في الوحدات والصفحات…",
     commandPaletteGroupNavigate: "التنقل",
   },
+  reportExport: {
+    excel: "Excel (.xlsx)",
+    csv: "CSV (.csv)",
+    company: "الشركة",
+    period: "الفترة",
+    allDates: "كل التواريخ",
+    printedAt: "تاريخ الطباعة",
+    printedBy: "طُبع بواسطة",
+    documentNumber: "رقم",
+    generatedBy: "أُنشئ بواسطة OMS",
+    page: "صفحة",
+    of: "من",
+    printExpired: "انتهت صلاحية مهمة الطباعة. أغلق هذا التبويب وأعد الطباعة.",
+  },
   table: {
     sortAscending: "ترتيب تصاعدي",
     sortDescending: "ترتيب تنازلي",
@@ -1371,6 +1385,16 @@ const ar = {
         openingCash: "النقد الافتتاحي",
         closingCash: "النقد الختامي",
         netChange: "صافي الزيادة (النقص) في النقد",
+        inflows: "المقبوضات النقدية",
+        outflows: "المدفوعات النقدية",
+        inflowsDebit: "المقبوضات (مدين)",
+        outflowsCredit: "المدفوعات (دائن)",
+        cashAccount: "حساب النقدية / البنك",
+      },
+      cashFlowView: {
+        label: "عرض التدفق النقدي",
+        activities: "حسب النشاط",
+        movement: "حركة حسابات النقدية",
       },
       accountStatement: {
         title: "كشف حساب",
@@ -2276,6 +2300,7 @@ const ar = {
           quantity: "أدخل الكمية",
           amount: "أدخل المبلغ",
           paymentMethod: "اختر طريقة الدفع",
+          total: "أدخل المبلغ المتفق عليه — لا يمكن أن يكون إجمالي الطلب 0.00",
           shipping: "أدخل عنوان الشحن",
         },
       },
@@ -2514,7 +2539,7 @@ const ar = {
         placeholder: "ابحث بالرمز أو الاسم أو الهاتف أو البريد الإلكتروني…",
         noResults: "لا يوجد عملاء مطابقون.",
         recent: "الأخيرة",
-        quickCreate: "إنشاء عميل سريع",
+        quickCreate: "عميل جديد",
         selectCustomer: "اختر عميلاً",
       },
       quickCreate: {
@@ -2971,6 +2996,17 @@ const ar = {
     viewOrder: "عرض الطلب",
     toasts: {
       archived: "تم أرشفة الطلب.",
+    },
+    lineAmounts: {
+      title: "المبالغ المتفق عليها",
+      description:
+        "أدخل المبالغ المتفق عليها مع العميل للطلب {order}. مسموح فقط قبل أي فاتورة أو دفعة مؤكدة، ويُسجَّل كل تغيير في سجل الطلب.",
+      quantity: "الكمية {quantity}",
+      agreedAmount: "المبلغ المتفق عليه",
+      total: "إجمالي الطلب",
+      totalRequired: "أدخل المبلغ المتفق عليه — لا يمكن أن يكون إجمالي الطلب 0.00.",
+      saved: "تم حفظ المبالغ المتفق عليها للطلب {order} — الإجمالي {total}.",
+      action: "تصحيح المبالغ المتفق عليها",
     },
     createDialog: {
       trigger: "طلب جديد",
@@ -3500,7 +3536,7 @@ const ar = {
         placeholder: "ابحث بالرمز أو الاسم أو الهاتف أو البريد الإلكتروني…",
         noResults: "لا يوجد موردون مطابقون.",
         recent: "الأخيرة",
-        quickCreate: "إنشاء مورد سريع",
+        quickCreate: "مورد جديد",
         selectSupplier: "اختر مورداً",
       },
       quickCreate: {
@@ -4024,7 +4060,7 @@ const ar = {
   finance: {
     paymentReview: {
       description:
-        "طابق أو تحقق أو ارفض المدفوعات المبلّغ عنها من العميل قبل ترحيل سند القبض وقيد اليومية.",
+        "أكّد ورحّل أو ارفض المدفوعات المبلّغ عنها من العميل. التأكيد يرحّل سند قبض واحدًا وقيد يوميته في خطوة واحدة.",
       queue: "قائمة المراجعة",
       fields: {
         number: "الدفعة",
@@ -4041,14 +4077,27 @@ const ar = {
         reason: "السبب",
       },
       actions: {
-        match: "مطابقة",
-        verify: "تحقق",
+        confirmPost: "تأكيد وترحيل",
         reject: "رفض",
+        setPrice: "تحديد المبالغ المتفق عليها",
       },
+      confirmDialog: {
+        title: "تأكيد وترحيل {payment}؟",
+        description:
+          "سيتم التحقق من {amount} مقابل الطلب {order} وترحيله كسند قبض واحد مع قيد يوميته (مدين الحساب المستلم، دائن ذمم العميل).",
+      },
+      rejectDialog: {
+        description: "يُحفظ السبب على الدفعة ويظهر لموظف المبيعات. لا يتم ترحيل أي شيء.",
+        placeholder: "مثال: التحويل غير موجود في كشف الحساب البنكي",
+        reasonRequired: "أدخل سبب رفض هذه الدفعة.",
+      },
+      needsPrice:
+        "لا يوجد سعر متفق عليه للطلب {order} (الإجمالي 0.00) — حدّد المبالغ المتفق عليها ثم أكّد.",
       toasts: {
-        matched: "تمت مطابقة الدفعة.",
-        verified: "تم التحقق من الدفعة وترحيلها.",
-        rejected: "تم رفض الدفعة.",
+        confirmedPosted:
+          "تم تأكيد {payment} — تم ترحيل سند القبض {receipt} وقيد اليومية {journal}.",
+        alreadyPosted: "{payment} مرحّلة مسبقًا (سند القبض {receipt}). لم يتم الترحيل مرتين.",
+        rejected: "تم رفض {payment} وحفظ السبب.",
       },
     },
   },
@@ -4138,6 +4187,7 @@ const ar = {
       partyRequired: "اختر طرفاً قبل الحفظ.",
       amountRequired: "أدخل مبلغاً أكبر من صفر.",
       allocationExceedsAmount: "لا يمكن أن يتجاوز إجمالي المخصص المبلغ.",
+      receivingAccountRequired: "اختر الحساب المستلم (نقدي أو بنكي) قبل التأكيد.",
       allocationExceedsRemaining: "المبلغ يتجاوز الرصيد المتبقي على الفاتورة.",
     },
     confirmCancelTitle: "إلغاء هذه المعاملة؟",
@@ -6158,10 +6208,14 @@ const ar = {
       selectedCount: "تم اختيار {count}",
       addSelected: "إضافة {count} بنود",
       allCategories: "كل التصنيفات",
+      allBrands: "كل العلامات التجارية",
+      allTypes: "كل الأنواع",
+      selectPage: "تحديد كل منتجات الصفحة",
+      clearSelection: "إلغاء التحديد",
       pageOf: "صفحة {page} من {pages} · {total} منتج",
       previousPage: "الصفحة السابقة",
       nextPage: "الصفحة التالية",
-      createNew: "إنشاء منتج جديد",
+      createNew: "منتج جديد",
       activateFailed: "تم إنشاء المنتج لكن تعذر تفعيله. أكمل بياناته من شاشة المنتجات ثم اختره.",
       noInvestmentEligible:
         'لا توجد منتجات مفعّل لها "متاح للفرص الاستثمارية". فعّل هذا الخيار على المنتج أولاً.',
@@ -6230,6 +6284,35 @@ const ar = {
       verifiedPostingFailed:
         'تم التحقق من الدفعة لكن تعذر ترحيل سند القبض: {message} عالج السبب ثم استخدم "مزامنة السند".',
       syncReceipt: "مزامنة السند",
+    },
+    preview: {
+      openFull: "فتح السجل كاملاً",
+      loadFailed: "تعذر تحميل المعاينة.",
+      status: "الحالة",
+      party: "الطرف",
+      date: "التاريخ",
+      total: "الإجمالي",
+      paid: "المسدد",
+      outstanding: "المتبقي",
+      lines: "عدد البنود",
+      reference: "المرجع",
+      amount: "المبلغ",
+      allocatedTo: "مخصص إلى",
+      paymentSource: "مصدر الدفع",
+      journal: "اليومية",
+      currency: "العملة",
+      description: "البيان",
+      account: "الحساب",
+      debit: "مدين",
+      credit: "دائن",
+      totals: "الإجمالي",
+      balanced: "متوازن",
+      unbalanced: "غير متوازن",
+    },
+    return: {
+      backTo: "العودة إلى {label}",
+      trail: "مسار التنقل",
+      previous: "الصفحة السابقة",
     },
     trace: {
       view: "المرتبط",

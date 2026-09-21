@@ -48,6 +48,21 @@ export class SupplierPaymentsController {
     return this.transactions.create(TYPE, dto, user.sub, context);
   }
 
+  /**
+   * Create + Confirm + Post in ONE database transaction — used by "Confirm"
+   * on a not-yet-saved voucher, so a posting failure never leaves an orphan
+   * Draft behind (and a retry never piles up duplicate Drafts).
+   */
+  @Post('confirmed')
+  @PermissionAction('confirm')
+  createConfirmed(
+    @Body() dto: CreateSupplierPaymentDto,
+    @CurrentUser() user: JwtPayload,
+    @CurrentCompanyContext() context: CompanyContext,
+  ) {
+    return this.transactions.createConfirmed(TYPE, dto, user.sub, context);
+  }
+
   @Get()
   findAll(@Query() query: FindSupplierPaymentsQueryDto) {
     return this.transactions.findAll(TYPE, query);

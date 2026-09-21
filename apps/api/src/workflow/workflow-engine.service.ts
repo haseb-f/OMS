@@ -687,6 +687,13 @@ export class WorkflowEngineService {
         'Conversion requires a product on the Lead or in the conversion payload.',
       );
     }
+    // A sale with no agreed price is missing business input, not a free
+    // order: a 0.00 Store Order can never be invoiced or accept a payment.
+    if (lines.reduce((sum, line) => sum + line.agreedAmount, 0) <= 0.005) {
+      throw new BadRequestException(
+        'Enter the agreed amount for the order — a Store Order cannot be created with a total of 0.00.',
+      );
+    }
 
     if (
       payload?.countryId ||

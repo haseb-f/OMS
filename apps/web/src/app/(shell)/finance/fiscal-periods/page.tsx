@@ -236,13 +236,14 @@ export default function FiscalPeriodsPage() {
         isLoading={isLoading}
         getRowId={(row) => row.id}
         exportColumns={exportColumnsFromKeys(columns, exportKeys, t)}
-        onExport={(keys) =>
+        onExport={(keys, labels) =>
           exportRowsToCsv(
             rows.map((row) =>
               Object.fromEntries(columns.map((c) => [c.id!, getColumnDisplayValue(c, row)])),
             ),
             keys,
             "fiscal-years.csv",
+            labels,
           )
         }
       />

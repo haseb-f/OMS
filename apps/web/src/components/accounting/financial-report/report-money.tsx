@@ -26,9 +26,10 @@ export function ReportMoney({
   const zero = Math.abs(value) < 0.005;
   const negative = signed && value < -0.005;
   const resolvedTone = tone ?? (negative ? "danger" : undefined);
+  // The block owns alignment in the page direction (so it shares the
+  // header's end edge in RTL too); only the digits run is isolated LTR.
   return (
     <span
-      dir="ltr"
       className={cn(
         "block w-full text-end tabular-nums whitespace-nowrap text-foreground",
         emphasize && "font-semibold",
@@ -39,9 +40,11 @@ export function ReportMoney({
         zero && "font-normal text-muted-foreground",
       )}
     >
-      {zero
-        ? "—"
-        : value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      <span dir="ltr" className="[unicode-bidi:isolate]">
+        {zero
+          ? "—"
+          : value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      </span>
     </span>
   );
 }

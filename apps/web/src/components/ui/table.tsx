@@ -66,13 +66,27 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
   );
 }
 
-function TableCell({ className, ...props }: React.ComponentProps<"td">) {
+/**
+ * `dir` on a cell isolates its CONTENT only (LTR IDs, amounts, dates). The
+ * cell itself keeps the table's direction, so `text-start`/`text-end` resolve
+ * against the same edge as the header — putting `dir="ltr"` on the <td>
+ * itself flips its alignment to the opposite side in an RTL table.
+ */
+function TableCell({ className, dir, children, ...props }: React.ComponentProps<"td">) {
   return (
     <td
       data-slot="table-cell"
       className={cn("px-3 py-2 align-middle whitespace-nowrap", className)}
       {...props}
-    />
+    >
+      {dir ? (
+        <span dir={dir} className="[unicode-bidi:isolate]">
+          {children}
+        </span>
+      ) : (
+        children
+      )}
+    </td>
   );
 }
 

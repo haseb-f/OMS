@@ -203,11 +203,12 @@ export default function KpiEvaluationsPage() {
         onRefresh={load}
         getRowHref={(row) => `/hr/kpi-evaluations/${row.id}`}
         exportColumns={exportColumnsFromKeys(columns, kpiEvaluationsExportColumns, t)}
-        onExport={(selectedKeys) =>
+        onExport={(selectedKeys, labels) =>
           exportRowsToCsv(
             items as unknown as Record<string, unknown>[],
             selectedKeys,
             "kpi-evaluations.csv",
+            labels,
           )
         }
       />

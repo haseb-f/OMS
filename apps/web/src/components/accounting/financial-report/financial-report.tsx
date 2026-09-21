@@ -15,11 +15,19 @@ import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { siteConfig } from "@/config/site";
-import { exportRowsToCsv } from "@/components/master-data/enterprise-data-table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { downloadReport, type ReportExportFormat } from "@/lib/report-export";
+import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import type { MessageKey } from "@/i18n/translate";
 import { FinancialReportTable } from "./financial-report-table";
 import { FinancialReportSummary } from "./financial-report-summary";
+import { buildFinancialReportDocument, toReportPrintPayload } from "./financial-report-export";
 import {
   collectExpandableIds,
   defaultExpandedIds,
@@ -69,7 +77,7 @@ export function FinancialReport({
   toolbarExtra?: ReactNode;
   nameHeaderKey?: MessageKey;
 }) {
-  const { t } = useLocale();
+  const { t, locale, direction } = useLocale();
   const { printList } = usePrintEngine();
   const { activeCompany } = useCompany();
   const { user } = useUserContext();
@@ -93,50 +101,41 @@ export function FinancialReport({
 
   const visible = flattenVisibleLines(lines, expanded);
 
-  const handleExport = () => {
-    exportRowsToCsv(
-      visible.map((line) => ({
-        code: line.code ?? "",
-        account: line.labelEn ?? line.label,
-        ...Object.fromEntries(columns.map((column) => [column.key, line.values[column.key] ?? 0])),
-      })),
-      ["code", "account", ...columns.map((column) => column.key)],
-      exportFileName,
-    );
+  const companyName = activeCompany?.name ?? siteConfig.fullName;
+  const printedByName = user?.fullName ?? null;
+
+  /** One language-resolved document behind Excel, CSV and print alike. */
+  const buildDocument = () =>
+    buildFinancialReportDocument({
+      title: printTitle,
+      lines: visible,
+      columns,
+      footer,
+      locale,
+      direction,
+      t,
+      nameHeaderKey,
+      companyName,
+      printedByName,
+      dateRange: filters.dateRange,
+    });
+
+  const handleExport = async (format: ReportExportFormat) => {
+    try {
+      await downloadReport(buildDocument(), format, exportFileName);
+    } catch {
+      toast.error(t("common.failedToSave"));
+    }
   };
 
   const handlePrint = () => {
-    printList({
-      variant: "report",
-      title: printTitle,
-      company: {
-        name: activeCompany?.name ?? siteConfig.fullName,
-        logoUrl: activeCompany?.logoUrl ?? null,
-      },
-      printedByName: user?.fullName ?? null,
-      columns: [
-        { key: "code", label: t("reports.finance.fields.accountCode") },
-        { key: "account", label: t(nameHeaderKey ?? "reports.finance.fields.accountName") },
-        ...columns.map((column) => ({
-          key: column.key,
-          label: t(column.labelKey as never),
-          align: "end" as const,
-        })),
-      ],
-      rows: visible.map((line) => ({
-        code: line.code ?? "",
-        account: `${"  ".repeat(Math.max(line.level, 0))}${line.labelEn ?? line.label}`,
-        ...Object.fromEntries(
-          columns.map((column) => [
-            column.key,
-            (line.values[column.key] ?? 0).toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            }),
-          ]),
-        ),
-      })),
-    });
+    printList(
+      toReportPrintPayload(
+        buildDocument(),
+        { name: companyName, logoUrl: activeCompany?.logoUrl ?? null },
+        printedByName,
+      ),
+    );
   };
 
   return (
@@ -180,10 +179,22 @@ export function FinancialReport({
               </EnterpriseButton>
             </>
           ) : null}
-          <EnterpriseButton type="button" size="sm" variant="outline" onClick={handleExport}>
-            <Download className="size-3.5" />
-            {t("table.export")}
-          </EnterpriseButton>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <EnterpriseButton type="button" size="sm" variant="outline">
+                <Download className="size-3.5" />
+                {t("table.export")}
+              </EnterpriseButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-40">
+              <DropdownMenuItem onSelect={() => void handleExport("xlsx")}>
+                {t("reportExport.excel")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void handleExport("csv")}>
+                {t("reportExport.csv")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <EnterpriseButton type="button" size="sm" variant="outline" onClick={handlePrint}>
             <Printer className="size-3.5" />
             {t("table.print")}
