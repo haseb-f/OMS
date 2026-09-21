@@ -117,4 +117,19 @@ export class SalesOrdersController {
   ) {
     return this.ordersService.convertToInvoice(id, dto, user.sub);
   }
+
+  /** New Draft copy — business fields only (never postings/payments/approvals). */
+  @Post(':id/duplicate')
+  @HttpCode(200)
+  @PermissionAction('create')
+  duplicate(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.ordersService.duplicate(id, user.sub);
+  }
+
+  @Post(':id/return-to-draft')
+  @HttpCode(200)
+  @PermissionAction('edit')
+  returnToDraft(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.ordersService.returnToDraft(id, user.sub);
+  }
 }

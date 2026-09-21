@@ -18,6 +18,11 @@ import {
   lineTreatmentData,
 } from './purchase-line-treatment';
 import { PurchaseLineRecognitionService } from './purchase-line-recognition.service';
+import {
+  copyPurchaseLines,
+  DUPLICATED_FROM,
+  RETURNED_TO_DRAFT,
+} from '../../common/workflow/document-copy';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
 import { ProductsService } from '../../products/products.service';
@@ -257,7 +262,15 @@ export class PurchaseInvoicesService {
         currency: true,
         purchaseOrder: { select: { id: true, poNumber: true } },
         items: {
-          include: { product: true, warehouse: true, unit: true, tax: true },
+          include: {
+            product: true,
+            warehouse: true,
+            unit: true,
+            tax: true,
+            prepaidExpenseAccount: {
+              select: { id: true, code: true, name: true, accountType: true },
+            },
+          },
         },
         // TASK-050 — Related Documents: Purchase Return(s) and Supplier
         // Payment(s) issued against this invoice, for the editor's
@@ -348,7 +361,15 @@ export class PurchaseInvoicesService {
           partner: true,
           currency: true,
           items: {
-            include: { product: true, warehouse: true, unit: true, tax: true },
+            include: {
+              product: true,
+              warehouse: true,
+              unit: true,
+              tax: true,
+              prepaidExpenseAccount: {
+                select: { id: true, code: true, name: true, accountType: true },
+              },
+            },
           },
         },
       });
@@ -485,7 +506,15 @@ export class PurchaseInvoicesService {
           partner: true,
           currency: true,
           items: {
-            include: { product: true, warehouse: true, unit: true, tax: true },
+            include: {
+              product: true,
+              warehouse: true,
+              unit: true,
+              tax: true,
+              prepaidExpenseAccount: {
+                select: { id: true, code: true, name: true, accountType: true },
+              },
+            },
           },
         },
       });
@@ -548,7 +577,15 @@ export class PurchaseInvoicesService {
           partner: true,
           currency: true,
           items: {
-            include: { product: true, warehouse: true, unit: true, tax: true },
+            include: {
+              product: true,
+              warehouse: true,
+              unit: true,
+              tax: true,
+              prepaidExpenseAccount: {
+                select: { id: true, code: true, name: true, accountType: true },
+              },
+            },
           },
         },
       });
@@ -561,6 +598,56 @@ export class PurchaseInvoicesService {
       );
       return updated;
     });
+  }
+
+  /** New Draft with the same supplier, currency and lines (including each
+   *  line's asset/prepaid treatment) — never the receipt, posting,
+   *  payments, created assets or the PO link. */
+  async duplicate(id: string, userId?: string) {
+    const source = await this.findOne(id);
+    const copy = await this.create(
+      {
+        partnerId: source.partnerId,
+        currencyId: source.currencyId ?? undefined,
+        costCenterId: source.costCenterId ?? undefined,
+        projectId: source.projectId ?? undefined,
+        referenceNumber: source.referenceNumber ?? undefined,
+        internalNotes: source.internalNotes ?? undefined,
+        supplierNotes: source.supplierNotes ?? undefined,
+        items: copyPurchaseLines(source.items),
+      },
+      { companyId: source.companyId, branchId: source.branchId },
+    );
+    await this.activityService.log(
+      copy.id,
+      DUPLICATED_FROM,
+      `Purchase Invoice ${copy.invoiceNumber} duplicated from ${source.invoiceNumber}`,
+      { sourceId: id, userId },
+    );
+    return copy;
+  }
+
+  /** Only an unposted invoice can go back to Draft — a posted one is
+   *  corrected through a Purchase Return. */
+  async returnToDraft(id: string, userId?: string) {
+    const invoice = await this.findOne(id);
+    if (invoice.status === PurchaseDocumentStatus.CONFIRMED) {
+      throw new BadRequestException(
+        `Purchase Invoice ${invoice.invoiceNumber} is posted — correct it with a Purchase Return, or Duplicate it to record a corrected invoice.`,
+      );
+    }
+    return this.transition(
+      id,
+      [
+        PurchaseDocumentStatus.PENDING_APPROVAL,
+        PurchaseDocumentStatus.APPROVED,
+        PurchaseDocumentStatus.CANCELLED,
+      ],
+      PurchaseDocumentStatus.DRAFT,
+      RETURNED_TO_DRAFT,
+      'returned to draft',
+      { cancelledAt: null, cancelledBy: null, updatedBy: userId ?? null },
+    );
   }
 
   private async transition(
@@ -585,7 +672,15 @@ export class PurchaseInvoicesService {
           partner: true,
           currency: true,
           items: {
-            include: { product: true, warehouse: true, unit: true, tax: true },
+            include: {
+              product: true,
+              warehouse: true,
+              unit: true,
+              tax: true,
+              prepaidExpenseAccount: {
+                select: { id: true, code: true, name: true, accountType: true },
+              },
+            },
           },
         },
       });
@@ -636,6 +731,14 @@ export class PurchaseInvoicesService {
                 warehouse: true,
                 unit: true,
                 tax: true,
+                prepaidExpenseAccount: {
+                  select: {
+                    id: true,
+                    code: true,
+                    name: true,
+                    accountType: true,
+                  },
+                },
               },
             },
           },

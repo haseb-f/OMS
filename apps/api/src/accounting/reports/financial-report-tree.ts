@@ -110,6 +110,7 @@ function buildAccountLine(
   valueKeys: string[],
   hideZero: boolean,
   parentLineId: string | null,
+  leafAmounts: AccountAmounts,
 ): HierarchicalReportLine | null {
   const childAccounts = childrenOf(accounts, account.id);
   const childLines = childAccounts
@@ -121,9 +122,35 @@ function buildAccountLine(
         valueKeys,
         hideZero,
         account.id,
+        leafAmounts,
       ),
     )
     .filter((line): line is HierarchicalReportLine => line !== null);
+  // A header account that received postings directly (legacy data, or a
+  // mapping later turned into a group) shows that amount as its own child
+  // row — so the parent always equals the sum of the rows beneath it.
+  const direct = leafAmounts[account.id];
+  if (
+    !account.allowsPosting &&
+    direct &&
+    !isZero(sumValueMaps(valueKeys, direct))
+  ) {
+    childLines.unshift({
+      id: `${account.id}:direct`,
+      parentId: account.id,
+      kind: 'posting',
+      level: Math.max(account.level, 1) + 1,
+      code: account.code,
+      label: `${account.name} — ترحيل مباشر`,
+      labelEn: `${account.nameEn ?? account.name} — direct postings`,
+      accountId: account.id,
+      accountType: account.accountType,
+      allowsPosting: false,
+      expandable: false,
+      values: sumValueMaps(valueKeys, direct),
+      children: [],
+    });
+  }
   const values = sumValueMaps(valueKeys, rolled[account.id]);
   if (hideZero && isZero(values) && childLines.length === 0) return null;
 
@@ -191,7 +218,15 @@ export function buildAccountForest(
 
   return uniqueRoots
     .map((account) =>
-      buildAccountLine(account, accounts, rolled, valueKeys, hideZero, null),
+      buildAccountLine(
+        account,
+        accounts,
+        rolled,
+        valueKeys,
+        hideZero,
+        null,
+        leafAmounts,
+      ),
     )
     .filter((line): line is HierarchicalReportLine => line !== null);
 }

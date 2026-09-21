@@ -209,10 +209,31 @@ export async function activateAccountingFoundation(
 
   const existingSettings = await prisma.postingSettings.findFirst();
   if (existingSettings) {
+    // A mapping that points at a header (group) or archived account can
+    // never post — the Posting Engine rejects it — so it is treated like an
+    // empty one and re-pointed to that role's standard posting account.
+    // Valid posting-account mappings are never changed.
+    const mappedIds = Object.keys(postingSettingsData)
+      .map((field) => (existingSettings as Record<string, unknown>)[field])
+      .filter((value): value is string => typeof value === 'string');
+    const unusable = new Set(
+      (
+        await prisma.chartOfAccount.findMany({
+          where: {
+            id: { in: mappedIds },
+            OR: [{ allowsPosting: false }, { deletedAt: { not: null } }],
+          },
+          select: { id: true },
+        })
+      ).map((account) => account.id),
+    );
     const patch: Record<string, string> = {};
     for (const [field, accountId] of Object.entries(postingSettingsData)) {
       const current = (existingSettings as Record<string, unknown>)[field];
-      if (current == null) {
+      if (
+        current == null ||
+        (typeof current === 'string' && unusable.has(current))
+      ) {
         patch[field] = accountId;
         postingSettingsFilled.push(field);
       }

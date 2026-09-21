@@ -12,6 +12,11 @@ import {
 } from '@prisma/client';
 import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 import { assertApprovalAuthority } from '../../common/workflow/approval-authority';
+import {
+  copySalesLines,
+  DUPLICATED_FROM,
+  RETURNED_TO_DRAFT,
+} from '../../common/workflow/document-copy';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
 import { ProductsService } from '../../products/products.service';
@@ -638,6 +643,56 @@ export class SalesInvoicesService {
       })),
       grandTotal: Number(invoice.grandTotal),
     };
+  }
+
+  /** New Draft invoice with the same customer, currency and lines. Never
+   *  copies postings, stock deliveries, payments or the order link. */
+  async duplicate(id: string, userId?: string) {
+    const source = await this.findOne(id);
+    const copy = await this.create(
+      {
+        partnerId: source.partnerId,
+        currencyId: source.currencyId ?? undefined,
+        costCenterId: source.costCenterId ?? undefined,
+        projectId: source.projectId ?? undefined,
+        referenceNumber: source.referenceNumber ?? undefined,
+        internalNotes: source.internalNotes ?? undefined,
+        customerNotes: source.customerNotes ?? undefined,
+        items: copySalesLines(source.items),
+      },
+      { companyId: source.companyId, branchId: source.branchId },
+    );
+    await this.activityService.log(
+      copy.id,
+      DUPLICATED_FROM,
+      `Sales Invoice ${copy.invoiceNumber} duplicated from ${source.invoiceNumber}`,
+      { sourceId: id, userId },
+    );
+    return copy;
+  }
+
+  /** Only an unposted invoice can go back to Draft. A posted invoice is
+   *  corrected through a Sales Return (its JE and stock delivery stay in
+   *  the audit trail) — use Duplicate to issue a corrected invoice. */
+  async returnToDraft(id: string, userId?: string) {
+    const invoice = await this.findOne(id);
+    if (invoice.status === SalesDocumentStatus.CONFIRMED) {
+      throw new BadRequestException(
+        `Sales Invoice ${invoice.invoiceNumber} is posted — correct it with a Sales Return, or Duplicate it to issue a corrected invoice.`,
+      );
+    }
+    return this.transition(
+      id,
+      [
+        SalesDocumentStatus.PENDING_APPROVAL,
+        SalesDocumentStatus.APPROVED,
+        SalesDocumentStatus.CANCELLED,
+      ],
+      SalesDocumentStatus.DRAFT,
+      RETURNED_TO_DRAFT,
+      'returned to draft',
+      { cancelledAt: null, cancelledBy: null, updatedBy: userId ?? null },
+    );
   }
 
   private async transition(

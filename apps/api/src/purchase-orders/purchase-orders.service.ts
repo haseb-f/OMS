@@ -9,6 +9,10 @@ import {
   PurchaseDocumentStatus,
   PurchaseOrderStatus,
 } from '@prisma/client';
+import {
+  DUPLICATED_FROM,
+  RETURNED_TO_DRAFT,
+} from '../common/workflow/document-copy';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import { PartnersService } from '../partners/partners.service';
@@ -480,6 +484,63 @@ export class PurchaseOrdersService {
   }
 
   /** Status management only — never touches inventory, cost, or accounting. */
+  async duplicate(id: string, userId?: string) {
+    const source = await this.findOne(id);
+    const copy = await this.create(
+      {
+        partnerId: source.partnerId,
+        projectId: source.projectId ?? undefined,
+        costCenterId: source.costCenterId ?? undefined,
+        currencyId: source.currencyId ?? undefined,
+        purchaseType: source.purchaseType,
+        referenceNumber: source.referenceNumber ?? undefined,
+        internalNotes: source.internalNotes ?? undefined,
+        supplierNotes: source.supplierNotes ?? undefined,
+        items: source.items.map((item) => ({
+          productId: item.productId,
+          description: item.description ?? undefined,
+          quantity: item.quantity,
+          unitId: item.unitId ?? undefined,
+          unitPrice: Number(item.unitPrice),
+          discountValue: Number(item.discountValue),
+          discountPercent: Number(item.discountPercent),
+          subtotal: Number(item.subtotal),
+          taxId: item.taxId ?? undefined,
+          notes: item.notes ?? undefined,
+        })),
+      },
+      { companyId: source.companyId, branchId: source.branchId },
+    );
+    await this.activityService.log(
+      copy.id,
+      DUPLICATED_FROM,
+      `Purchase Order ${copy.poNumber} duplicated from ${source.poNumber}`,
+      { sourceId: id, userId },
+    );
+    return copy;
+  }
+
+  /** Back to Draft while no invoice/receipt exists for this PO. */
+  async returnToDraft(id: string) {
+    const po = await this.findOne(id);
+    if (
+      po.invoices.some(
+        (invoice) => invoice.status !== PurchaseDocumentStatus.CANCELLED,
+      )
+    ) {
+      throw new BadRequestException(
+        `Purchase Order ${po.poNumber} already has an invoice — it can no longer return to Draft.`,
+      );
+    }
+    return this.transition(
+      id,
+      [PurchaseOrderStatus.APPROVED, PurchaseOrderStatus.CANCELLED],
+      PurchaseOrderStatus.DRAFT,
+      RETURNED_TO_DRAFT,
+      'returned to draft',
+    );
+  }
+
   private async transition(
     id: string,
     allowedFrom: PurchaseOrderStatus[],

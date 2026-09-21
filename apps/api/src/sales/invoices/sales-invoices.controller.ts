@@ -96,4 +96,19 @@ export class SalesInvoicesController {
   archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.invoicesService.archive(id, user.sub);
   }
+
+  /** New Draft copy — business fields only (never postings/payments/approvals). */
+  @Post(':id/duplicate')
+  @HttpCode(200)
+  @PermissionAction('create')
+  duplicate(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.invoicesService.duplicate(id, user.sub);
+  }
+
+  @Post(':id/return-to-draft')
+  @HttpCode(200)
+  @PermissionAction('edit')
+  returnToDraft(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.invoicesService.returnToDraft(id, user.sub);
+  }
 }

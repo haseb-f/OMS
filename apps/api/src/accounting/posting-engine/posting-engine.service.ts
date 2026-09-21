@@ -130,6 +130,7 @@ export class PostingEngineService {
 
       const lines = this.applyExchangeRate(result.lines, result.exchangeRate);
       this.assertBalanced(lines);
+      await this.assertPostableAccounts(lines, client);
       await this.assertPartnersRequired(lines, client);
 
       const entryDate = result.entryDate ?? new Date();
@@ -383,6 +384,43 @@ export class PostingEngineService {
       totalDebit: lines.reduce((sum, l) => sum + (l.debit ?? 0), 0),
       totalCredit: lines.reduce((sum, l) => sum + (l.credit ?? 0), 0),
     };
+  }
+
+  /**
+   * A generated entry may only hit posting (leaf) accounts that still exist
+   * — the same rule manual journals already enforce. A mapping that points
+   * at a header account would otherwise post "into" a group, where the
+   * Trial Balance can no longer show it against a real account.
+   */
+  private async assertPostableAccounts(
+    lines: PostingLine[],
+    client: Prisma.TransactionClient,
+  ) {
+    const accountIds = [...new Set(lines.map((line) => line.accountId))];
+    const accounts = await client.chartOfAccount.findMany({
+      where: { id: { in: accountIds } },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        allowsPosting: true,
+        deletedAt: true,
+      },
+    });
+    const byId = new Map(accounts.map((account) => [account.id, account]));
+    for (const accountId of accountIds) {
+      const account = byId.get(accountId);
+      if (!account || account.deletedAt) {
+        throw new BadRequestException(
+          'A posting rule points to an account that no longer exists — review Accounting Settings mappings.',
+        );
+      }
+      if (!account.allowsPosting) {
+        throw new BadRequestException(
+          `Account ${account.code} ${account.name} is a group (header) account and cannot receive postings — map a posting account under it in Accounting Settings.`,
+        );
+      }
+    }
   }
 
   private assertBalanced(lines: PostingLine[]) {

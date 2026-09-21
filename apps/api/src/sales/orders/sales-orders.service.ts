@@ -6,6 +6,11 @@ import {
 import { PartnerRoleType, Prisma, SalesDocumentStatus } from '@prisma/client';
 import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 import { assertApprovalAuthority } from '../../common/workflow/approval-authority';
+import {
+  copySalesLines,
+  DUPLICATED_FROM,
+  RETURNED_TO_DRAFT,
+} from '../../common/workflow/document-copy';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
 import { ProductsService } from '../../products/products.service';
@@ -651,6 +656,114 @@ export class SalesOrdersService {
     }
 
     return this.invoicesService.createFromOrder(order, lines, userId);
+  }
+
+  async duplicate(id: string, userId?: string) {
+    const source = await this.findOne(id);
+    const copy = await this.create(
+      {
+        partnerId: source.partnerId,
+        currencyId: source.currencyId ?? undefined,
+        referenceNumber: source.referenceNumber ?? undefined,
+        internalNotes: source.internalNotes ?? undefined,
+        customerNotes: source.customerNotes ?? undefined,
+        items: copySalesLines(source.items),
+      },
+      { companyId: source.companyId, branchId: source.branchId },
+    );
+    await this.activityService.log(
+      copy.id,
+      DUPLICATED_FROM,
+      `Sales Order ${copy.orderNumber} duplicated from ${source.orderNumber}`,
+      { sourceId: id, userId },
+    );
+    return copy;
+  }
+
+  /** Back to Draft. A Confirmed order qualifies only while nothing has been
+   *  invoiced or delivered; its reservations are released in the same
+   *  transaction (the reservation history stays in the stock ledger). */
+  async returnToDraft(id: string, userId?: string) {
+    const order = await this.findOne(id);
+    const allowed: SalesDocumentStatus[] = [
+      SalesDocumentStatus.PENDING_APPROVAL,
+      SalesDocumentStatus.APPROVED,
+      SalesDocumentStatus.CONFIRMED,
+      SalesDocumentStatus.CANCELLED,
+    ];
+    if (!allowed.includes(order.status)) {
+      throw new BadRequestException(
+        `Cannot return Sales Order ${order.orderNumber} to Draft from ${order.status}.`,
+      );
+    }
+    if (order.status === SalesDocumentStatus.CONFIRMED) {
+      const invoiced = await this.prisma.salesInvoice.count({
+        where: {
+          salesOrderId: id,
+          deletedAt: null,
+          status: { not: SalesDocumentStatus.CANCELLED },
+        },
+      });
+      if (
+        invoiced > 0 ||
+        order.items.some((item) => item.deliveredQuantity > 0)
+      ) {
+        throw new BadRequestException(
+          `Sales Order ${order.orderNumber} already has invoices or deliveries — it can no longer return to Draft.`,
+        );
+      }
+    }
+    return this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.salesOrderDocument.updateMany({
+        where: { id, status: order.status },
+        data: {
+          status: SalesDocumentStatus.DRAFT,
+          confirmedAt: null,
+          confirmedBy: null,
+          cancelledAt: null,
+          cancelledBy: null,
+          updatedBy: userId ?? null,
+        },
+      });
+      if (claimed.count === 0) {
+        throw new BadRequestException(
+          `Sales Order ${order.orderNumber} was changed by someone else — reload and try again.`,
+        );
+      }
+      if (order.status === SalesDocumentStatus.CONFIRMED) {
+        for (const item of order.items) {
+          if (!item.product.isInventoryItem) continue;
+          await this.inventoryService.release(
+            {
+              productId: item.productId,
+              warehouseId: item.warehouseId,
+              quantity: item.quantity,
+              referenceType: REFERENCE_TYPE,
+              referenceId: order.id,
+            },
+            userId,
+            tx,
+          );
+        }
+      }
+      await this.activityService.log(
+        id,
+        RETURNED_TO_DRAFT,
+        `Sales Order ${order.orderNumber} returned to draft`,
+        undefined,
+        tx,
+      );
+      return tx.salesOrderDocument.findUniqueOrThrow({
+        where: { id },
+        include: {
+          partner: true,
+          currency: true,
+          items: {
+            include: { product: true, warehouse: true, unit: true, tax: true },
+          },
+        },
+      });
+    });
   }
 
   private async transition(

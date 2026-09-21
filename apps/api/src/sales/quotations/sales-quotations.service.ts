@@ -4,6 +4,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PartnerRoleType, Prisma, SalesDocumentStatus } from '@prisma/client';
+import {
+  copySalesLines,
+  DUPLICATED_FROM,
+  RETURNED_TO_DRAFT,
+} from '../../common/workflow/document-copy';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
 import { ProductsService } from '../../products/products.service';
@@ -325,6 +330,51 @@ export class SalesQuotationsService {
       'Converted to Sales Order',
       undefined,
       tx,
+    );
+  }
+
+  /** New Draft with the same customer, currency and lines — never its
+   *  status, approval or conversion links (see document-copy.ts). */
+  async duplicate(id: string, userId?: string) {
+    const source = await this.findOne(id);
+    const copy = await this.create(
+      {
+        partnerId: source.partnerId,
+        currencyId: source.currencyId ?? undefined,
+        referenceNumber: source.referenceNumber ?? undefined,
+        internalNotes: source.internalNotes ?? undefined,
+        customerNotes: source.customerNotes ?? undefined,
+        items: copySalesLines(source.items),
+      },
+      { companyId: source.companyId, branchId: source.branchId },
+    );
+    await this.activityService.log(
+      copy.id,
+      DUPLICATED_FROM,
+      `Quotation ${copy.quotationNumber} duplicated from ${source.quotationNumber}`,
+      { sourceId: id, userId },
+    );
+    return copy;
+  }
+
+  /** Back to Draft for editing — not once converted (Closed) to an order. */
+  returnToDraft(id: string, userId?: string) {
+    return this.transition(
+      id,
+      [
+        SalesDocumentStatus.PENDING_APPROVAL,
+        SalesDocumentStatus.APPROVED,
+        SalesDocumentStatus.CANCELLED,
+      ],
+      SalesDocumentStatus.DRAFT,
+      RETURNED_TO_DRAFT,
+      'returned to draft',
+      {
+        confirmedAt: null,
+        cancelledAt: null,
+        cancelledBy: null,
+        updatedBy: userId ?? null,
+      },
     );
   }
 

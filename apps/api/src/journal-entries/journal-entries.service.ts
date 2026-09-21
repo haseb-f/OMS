@@ -502,6 +502,9 @@ export class JournalEntriesService {
     if (!existing) {
       throw new NotFoundException(`Journal entry ${id} not found`);
     }
+    // Generated entries stay source-controlled: they are corrected by
+    // reversing/reposting their source document, never by a manual copy.
+    this.assertManualJournal(existing, 'duplicate');
 
     const entryNumber =
       await this.numberingEngine.generateNumber('JOURNAL_ENTRY');

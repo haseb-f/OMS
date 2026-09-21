@@ -393,9 +393,13 @@ export class AccountingReportsService {
     });
     const lines = this.filterReportForest(forest, query.search);
 
+    // Every account that actually carries postings is a TB row — including a
+    // group account that (legacy data, or a mapping later changed to a
+    // header) received postings directly. Leaving those out made debit and
+    // credit totals disagree even though the ledger itself balances.
     for (const account of accounts) {
       const amounts = leafAmounts[account.id];
-      if (!amounts || !account.allowsPosting) continue;
+      if (!amounts) continue;
       postingRows.push({
         accountId: account.id,
         accountCode: account.code,

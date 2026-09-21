@@ -1,9 +1,11 @@
 import type { IncomingMessage, ServerResponse } from "http";
 import { NestFactory } from "@nestjs/core";
 import { ExpressAdapter } from "@nestjs/platform-express";
-import { ValidationPipe } from "@nestjs/common";
+import { BadRequestException, ValidationPipe } from "@nestjs/common";
 import express, { type Express } from "express";
 import { AppModule } from "../apps/api/src/app.module";
+import { AllExceptionsFilter } from "../apps/api/src/common/errors/all-exceptions.filter";
+import { formatValidationErrors } from "../apps/api/src/common/errors/format-validation-errors";
 
 /**
  * TASK-062 — Vercel Functions entry point. Lives at the repo-root `/api`
@@ -34,7 +36,22 @@ import { AppModule } from "../apps/api/src/app.module";
 async function bootstrap(): Promise<Express> {
   const server = express();
   const app = await NestFactory.create(AppModule, new ExpressAdapter(server));
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  // Same global error contract as apps/api/src/main.ts: every error reaches
+  // the client as { code, message, fields?, details? } (e.g. the
+  // recoverable MISSING_EXCHANGE_RATE), never a raw framework payload.
+  app.useGlobalFilters(new AllExceptionsFilter());
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      exceptionFactory: (errors) =>
+        new BadRequestException({
+          code: "VALIDATION_ERROR",
+          message: "Validation failed.",
+          fields: formatValidationErrors(errors),
+        }),
+    }),
+  );
   app.enableCors({
     origin: process.env.WEB_APP_URL ?? "http://localhost:3001",
     credentials: true,
