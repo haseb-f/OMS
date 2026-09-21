@@ -62,11 +62,21 @@ const evidence = (key, value) => {
 
 let token = null;
 async function api(method, path, body) {
-  const res = await fetch(`${API}${path}`, {
-    method,
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let res;
+  // Reads retry on transient network failures; writes are sent once.
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      res = await fetch(`${API}${path}`, {
+        method,
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      break;
+    } catch (error) {
+      if (method !== "GET" || attempt >= 4) throw error;
+      await new Promise((done) => setTimeout(done, 1500 * attempt));
+    }
+  }
   const text = await res.text();
   let json;
   try {
@@ -664,9 +674,15 @@ async function main() {
       const currencies = items(await api("GET", "/currencies?pageSize=100"));
       const probe = await api("GET", `/exchange-rates/check?currencyId=${currencies[0].id}`);
       const baseId = probe.json.toCurrencyId;
+      // Prefer a currency that has NO rate today (the reported EGP→SAR case),
+      // so the recovery path is exercised; never records a rate itself.
+      const candidates = currencies.filter((c) => c.id !== baseId);
+      const checks = await Promise.all(
+        candidates.map((c) => api("GET", `/exchange-rates/check?currencyId=${c.id}`)),
+      );
+      const missingIndex = checks.findIndex((c) => c.json.required && !c.json.available);
       const foreign =
-        currencies.find((c) => c.id !== baseId && c.code === "USD") ??
-        currencies.find((c) => c.id !== baseId);
+        missingIndex >= 0 ? candidates[missingIndex] : candidates.find((c) => c.code === "USD");
       if (foreign) {
         const check = await api("GET", `/exchange-rates/check?currencyId=${foreign.id}`);
         const customers = items(
@@ -696,7 +712,12 @@ async function main() {
         });
         await page.goto(`${BASE}/sales/invoices/${draft.json.id}`, { waitUntil: "networkidle" });
         await visibleButton(page, "Confirm").click();
-        await confirmDialog(page, "Confirm");
+        // The confirmation stays open underneath while a missing rate is requested.
+        await page
+          .getByRole("alertdialog")
+          .first()
+          .getByRole("button", { name: "Confirm", exact: true })
+          .click();
         if (!check.json.available) {
           const fxDialog = page.getByRole("alertdialog").filter({ hasText: foreign.code });
           await fxDialog.waitFor({ timeout: 20000 });

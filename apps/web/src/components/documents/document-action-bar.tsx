@@ -171,18 +171,21 @@ export function DocumentActionBar<TContext>({
       <ConfirmationDialog
         open={pending !== null}
         onOpenChange={(open) => {
-          if (!open && !running) setPending(null);
+          if (!open) setPending(null);
         }}
         tone={pending?.confirm?.tone ?? (pending?.destructive ? "destructive" : "default")}
         title={pending?.confirm?.title ?? ""}
         description={pending?.confirm?.description}
         confirmLabel={pending?.confirm?.confirmLabel ?? pending?.label}
         cancelLabel={t("common.close")}
-        isConfirming={Boolean(pending && running === pending.key)}
         onConfirm={() => {
           if (!pending) return;
+          // Close the confirmation before running: a follow-up step (e.g. an
+          // exchange-rate request) then appears on its own, and the primary
+          // button shows progress meanwhile.
           const action = pending;
-          void execute(action).finally(() => setPending(null));
+          setPending(null);
+          void execute(action);
         }}
       />
     </>
