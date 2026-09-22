@@ -585,6 +585,17 @@ export const navigationConfig: NavigationItem[] = [
     order: 1,
     permissions: ["accounting.journal-entries.view"],
   },
+  /// The General Ledger is one report of the Finance reports page — linked
+  /// here (next to Journal Entries) so accountants find it where they work.
+  {
+    id: "finance-general-ledger",
+    titleKey: "reports.finance.generalLedger",
+    parent: "finance",
+    route: "/reports/finance?report=generalLedger",
+    icon: "library",
+    order: 1.5,
+    permissions: ["reports.financial.view"],
+  },
   {
     id: "finance-chart-of-accounts",
     titleKey: "nav.financeChartOfAccounts",

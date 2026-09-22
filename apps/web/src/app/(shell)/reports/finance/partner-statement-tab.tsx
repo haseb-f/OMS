@@ -1,34 +1,75 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { EmptyState } from "@/components/shared/empty-state";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { UsersRound } from "lucide-react";
+import { EmptyState } from "@/components/shared/empty-state";
 import { FinancialReport } from "@/components/accounting/financial-report";
-import type { FinancialReportLine } from "@/components/accounting/financial-report";
+import { useOpenFullRecord } from "@/components/shared/record-preview";
 import {
   accountingReportsService,
   type PartnerStatementResult,
 } from "@/services/accounting-reports-service";
 import { PartnerPicker } from "@/components/business/partner-picker";
-import type { PartnerRoleValue, PartnerRow } from "@/services/partners-service";
+import {
+  partnersService,
+  type PartnerRoleValue,
+  type PartnerRow,
+} from "@/services/partners-service";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
-import { formatDate } from "@/lib/date";
+import { buildLedgerBlock, indexLedgerMovements, ledgerTextColumns } from "./ledger-lines";
 import { useReportQuery } from "./use-report-query";
 
+/** The URL key that keeps the selected partner across reloads and shared links. */
+const PARTNER_PARAM = "partner";
+
+/**
+ * Customer / Supplier Statement — the partner's Receivable (customer) or
+ * Payable (supplier) control-account lines from Journal Entries: opening
+ * balance, invoices, receipts/payments, returns/credits with a running
+ * balance, and the closing balance (debit-positive, like the General
+ * Ledger). Always the full statement for the period — never a page of it.
+ */
 export function PartnerStatementTab({ role }: { role: PartnerRoleValue }) {
   const { t } = useLocale();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const openFullRecord = useOpenFullRecord();
   const { filters, setFilters, params } = useReportQuery();
   const [partner, setPartner] = useState<PartnerRow | null>(null);
   const [statement, setStatement] = useState<PartnerStatementResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const controlType = role === "SUPPLIER" ? "PAYABLE" : "RECEIVABLE";
   const statementTitle =
     role === "CUSTOMER"
       ? t("reports.finance.customerStatement")
       : t("reports.finance.supplierStatement");
+  const partnerIdFromUrl = searchParams.get(PARTNER_PARAM);
+
+  // Restore the partner chosen before a reload / from a shared link.
+  useEffect(() => {
+    if (!partnerIdFromUrl || partner?.id === partnerIdFromUrl) return;
+    let cancelled = false;
+    partnersService
+      .catalog({ ids: [partnerIdFromUrl], pageSize: 1 })
+      .then((result) => {
+        if (!cancelled && result.items[0]) setPartner(result.items[0]);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [partnerIdFromUrl, partner?.id]);
+
+  const selectPartner = (next: PartnerRow) => {
+    setPartner(next);
+    const query = new URLSearchParams(searchParams.toString());
+    query.set(PARTNER_PARAM, next.id);
+    router.replace(`${pathname}?${query.toString()}`, { scroll: false });
+  };
 
   const load = useCallback(async () => {
     if (!partner) {
@@ -38,79 +79,47 @@ export function PartnerStatementTab({ role }: { role: PartnerRoleValue }) {
     setIsLoading(true);
     try {
       setStatement(
-        await accountingReportsService.partnerStatement(partner.id, {
-          ...params,
-          page: 1,
-          pageSize: 500,
-        }),
+        await accountingReportsService.partnerStatement(partner.id, { ...params, controlType }),
       );
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
     } finally {
       setIsLoading(false);
     }
-  }, [partner, params, t]);
+  }, [partner, params, controlType, t]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
-  const lines = useMemo<FinancialReportLine[]>(() => {
-    if (!statement) return [];
-    const movements: FinancialReportLine[] = statement.movements.map((movement, index) => ({
-      id: `${movement.journalEntryId}-${movement.accountCode}-${index}`,
-      parentId: "statement",
-      kind: "posting",
-      level: 1,
-      code: movement.accountCode,
-      label: `${formatDate(movement.entryDate)} · ${movement.entryNumber} · ${movement.description ?? movement.sourceType ?? ""}`,
-      expandable: false,
-      values: {
-        debit: movement.debit,
-        credit: movement.credit,
-        running: movement.runningBalance,
-      },
-      children: [],
-    }));
-    return [
-      {
-        id: "opening",
-        parentId: null,
-        kind: "opening",
-        level: 0,
-        label: t("reports.finance.fields.openingBalance"),
-        expandable: false,
-        values: { debit: 0, credit: 0, running: statement.openingBalance },
-        children: [],
-      },
-      {
-        id: "statement",
-        parentId: null,
-        kind: "group",
-        level: 0,
-        code: statement.partner.partnerNumber,
-        label: statement.partner.name,
-        expandable: movements.length > 0,
-        values: {
-          debit: statement.movements.reduce((sum, row) => sum + row.debit, 0),
-          credit: statement.movements.reduce((sum, row) => sum + row.credit, 0),
-          running: statement.closingBalance,
-        },
-        children: movements,
-      },
-      {
-        id: "closing",
-        parentId: null,
-        kind: "closing",
-        level: 0,
-        label: t("reports.finance.fields.closingBalance"),
-        expandable: false,
-        values: { debit: 0, credit: 0, running: statement.closingBalance },
-        children: [],
-      },
-    ];
-  }, [statement, t]);
+  const blocks = useMemo(
+    () =>
+      statement
+        ? [
+            {
+              id: `partner:${statement.partner.id}`,
+              code: statement.partner.partnerNumber,
+              label: statement.partner.name,
+              openingBalance: statement.openingBalance,
+              periodDebit: statement.periodDebit,
+              periodCredit: statement.periodCredit,
+              closingBalance: statement.closingBalance,
+              movements: statement.movements,
+            },
+          ]
+        : [],
+    [statement],
+  );
+  const lines = useMemo(
+    () => blocks.map((block) => buildLedgerBlock(block, t, { showAccount: true })),
+    [blocks, t],
+  );
+  const movementIndex = useMemo(() => indexLedgerMovements(blocks), [blocks]);
+  const textColumns = useMemo(
+    () => ledgerTextColumns(movementIndex, { showPartner: false }),
+    [movementIndex],
+  );
 
   return (
     <div className="flex flex-col gap-3">
@@ -119,20 +128,46 @@ export function PartnerStatementTab({ role }: { role: PartnerRoleValue }) {
         columns={[
           { key: "debit", labelKey: "reports.finance.fields.debit" },
           { key: "credit", labelKey: "reports.finance.fields.credit" },
-          { key: "running", labelKey: "reports.finance.fields.runningBalance", emphasize: true },
+          { key: "balance", labelKey: "reports.finance.fields.runningBalance", emphasize: true },
         ]}
+        textColumns={textColumns}
+        nameHeaderKey="reports.finance.fields.description"
+        defaultExpanded="all"
+        exportAllLines
         isLoading={isLoading}
         filters={filters}
         onFiltersChange={setFilters}
-        printTitle={statementTitle}
-        exportFileName={`${role.toLowerCase()}-statement.csv`}
-        nameHeaderKey="reports.finance.fields.partnerName"
-        toolbarExtra={<PartnerPicker role={role} value={partner} onChange={setPartner} />}
+        printTitle={statement ? `${statementTitle} — ${statement.partner.name}` : statementTitle}
+        exportFileName={`${role.toLowerCase()}-statement.xlsx`}
+        toolbarExtra={<PartnerPicker role={role} value={partner} onChange={selectPartner} />}
+        summary={
+          statement
+            ? {
+                items: [
+                  {
+                    label: t("reports.finance.fields.openingBalance"),
+                    value: statement.openingBalance,
+                  },
+                  { label: t("reports.finance.fields.debit"), value: statement.periodDebit },
+                  { label: t("reports.finance.fields.credit"), value: statement.periodCredit },
+                  {
+                    label: t("reports.finance.fields.closingBalance"),
+                    value: statement.closingBalance,
+                    emphasize: true,
+                  },
+                ],
+              }
+            : undefined
+        }
         onPostingClick={(line) => {
-          const movement = statement?.movements.find(
-            (row, index) => `${row.journalEntryId}-${row.accountCode}-${index}` === line.id,
-          );
-          if (movement) router.push(`/finance/journal-entries?entry=${movement.journalEntryId}`);
+          const movement = movementIndex.get(line.id);
+          if (movement) {
+            openFullRecord({
+              kind: "JOURNAL_ENTRY",
+              id: movement.journalEntryId,
+              number: movement.entryNumber,
+            });
+          }
         }}
       />
       {!partner ? (

@@ -9,6 +9,7 @@ import type {
   FinancialReportFooter,
   FinancialReportLine,
   FinancialReportLineKind,
+  FinancialReportTextColumn,
 } from "./types";
 
 const EMPHASIZED_KINDS = new Set<FinancialReportLineKind>([
@@ -27,6 +28,8 @@ export interface FinancialReportExportInput {
   /** Already-visible (expanded) lines, in display order. */
   lines: FinancialReportLine[];
   columns: FinancialReportColumn[];
+  /** Descriptive columns (date, entry, partner…) exported as text. */
+  textColumns?: FinancialReportTextColumn[];
   footer?: FinancialReportFooter;
   locale: Locale;
   direction: "rtl" | "ltr";
@@ -71,6 +74,10 @@ export function buildFinancialReportDocument(
     columns: [
       { key: "code", label: t("reports.finance.fields.accountCode") },
       { key: "account", label: t(input.nameHeaderKey ?? "reports.finance.fields.accountName") },
+      ...(input.textColumns ?? []).map((column) => ({
+        key: `text:${column.key}`,
+        label: t(column.labelKey as MessageKey),
+      })),
       ...input.columns.map((column) => ({
         key: column.key,
         label: t(column.labelKey as MessageKey),
@@ -86,6 +93,12 @@ export function buildFinancialReportDocument(
         cells: {
           code: line.code ?? "",
           account: resolveFinancialLineLabel(line, input.locale, t),
+          ...Object.fromEntries(
+            (input.textColumns ?? []).map((column) => [
+              `text:${column.key}`,
+              line.text?.[column.key] ?? "",
+            ]),
+          ),
           ...Object.fromEntries(
             input.columns.map((column) => [column.key, line.values[column.key] ?? 0]),
           ),

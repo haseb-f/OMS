@@ -37,6 +37,12 @@ import {
   type CoaNode,
   type HierarchicalReportLine,
 } from './financial-report-tree';
+import {
+  buildLedgerMovements,
+  LEDGER_LINE_INCLUDE,
+  LEDGER_LINE_ORDER,
+  type LedgerLine,
+} from './ledger-movements';
 
 export interface StatementRow {
   accountId: string;
@@ -95,152 +101,134 @@ export class AccountingReportsService {
     };
   }
 
+  /**
+   * One account's ledger (Account Statement) — the same math as the
+   * General Ledger, so a single-account statement always equals that
+   * account's General Ledger block.
+   */
   private async computeAccountLedger(
     accountId: string,
     filters: ReportQueryBaseDto,
-    preloadedAccount?: ChartOfAccount,
   ) {
-    const account =
-      preloadedAccount ??
-      (await this.prisma.chartOfAccount.findUnique({
-        where: { id: accountId },
-      }));
+    const account = await this.prisma.chartOfAccount.findUnique({
+      where: { id: accountId },
+    });
     if (!account) {
       throw new NotFoundException(`Account ${accountId} not found`);
     }
-
-    const scopeWhere = this.buildEntryScopeWhere(filters);
-
-    const openingBalance = filters.dateFrom
-      ? await this.prisma.journalEntryLine
-          .aggregate({
-            where: {
-              accountId,
-              journalEntry: {
-                ...scopeWhere,
-                entryDate: { lt: new Date(filters.dateFrom) },
-              },
-            },
-            _sum: { debit: true, credit: true },
-          })
-          .then(
-            (agg) => Number(agg._sum.debit ?? 0) - Number(agg._sum.credit ?? 0),
-          )
-      : 0;
-
-    const lines = await this.prisma.journalEntryLine.findMany({
-      where: {
-        accountId,
-        journalEntry: {
-          ...scopeWhere,
-          entryDate: buildDateRangeFilter(filters.dateFrom, filters.dateTo),
-        },
-      },
-      include: {
-        journalEntry: {
-          select: {
-            id: true,
-            entryNumber: true,
-            entryDate: true,
-            description: true,
-            sourceType: true,
-            sourceId: true,
-            referenceNumber: true,
-            status: true,
-          },
-        },
-      },
-      orderBy: [
-        { journalEntry: { entryDate: 'asc' } },
-        { journalEntry: { entryNumber: 'asc' } },
-        { lineOrder: 'asc' },
-      ],
-    });
-
-    let runningBalance = openingBalance;
-    const movements = lines.map((line) => {
-      const debit = Number(line.debit);
-      const credit = Number(line.credit);
-      runningBalance += debit - credit;
-      return {
-        journalEntryId: line.journalEntry.id,
-        entryNumber: line.journalEntry.entryNumber,
-        entryDate: line.journalEntry.entryDate,
-        description: line.description ?? line.journalEntry.description,
-        sourceType: line.journalEntry.sourceType,
-        sourceId: line.journalEntry.sourceId,
-        referenceNumber: line.journalEntry.referenceNumber,
-        status: line.journalEntry.status,
-        debit,
-        credit,
-        runningBalance,
-      };
-    });
-
-    const periodDebit = movements.reduce((sum, m) => sum + m.debit, 0);
-    const periodCredit = movements.reduce((sum, m) => sum + m.credit, 0);
-    const closingBalance = openingBalance + periodDebit - periodCredit;
-
-    return {
-      account: {
-        id: account.id,
-        code: account.code,
-        name: account.name,
-        accountType: account.accountType,
-      },
-      openingBalance,
-      periodDebit,
-      periodCredit,
-      closingBalance,
-      movements,
-    };
+    const [ledger] = await this.computeAccountLedgers([account], filters);
+    return ledger;
   }
 
+  /**
+   * General Ledger — per account: opening balance (everything before
+   * `dateFrom`), every dated movement in the period with its running
+   * balance, and the closing balance. Debit-positive throughout (the same
+   * sign convention as the Trial Balance) and amounts are the functional
+   * currency figures stored on the Journal Entry lines.
+   *
+   * By default only accounts that carry an opening balance or a movement are
+   * listed — exactly the Trial Balance's account set — and `totals` covers
+   * every matched account (not only the current page), computed through the
+   * same aggregation the Trial Balance uses, so GL totals = TB totals.
+   */
   async generalLedger(query: GeneralLedgerQueryDto) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
+    const selectedIds = [
+      ...new Set([
+        ...(query.accountIds ?? []),
+        ...(query.accountId ? [query.accountId] : []),
+      ]),
+    ];
+    const scopeWhere = this.buildEntryScopeWhere(query);
 
-    const accountWhere: Prisma.ChartOfAccountWhereInput = {
-      deletedAt: null,
-      ...(query.accountId && { id: query.accountId }),
-      ...(query.search && {
+    const [periodAgg, openingAgg] = await Promise.all([
+      this.aggregateAccountDebitCredit({
+        ...scopeWhere,
+        entryDate: buildDateRangeFilter(query.dateFrom, query.dateTo),
+      }),
+      query.dateFrom
+        ? this.aggregateAccountDebitCredit({
+            ...scopeWhere,
+            entryDate: { lt: new Date(query.dateFrom) },
+          })
+        : Promise.resolve(new Map<string, { debit: number; credit: number }>()),
+    ]);
+
+    const conditions: Prisma.ChartOfAccountWhereInput[] = [];
+    if (selectedIds.length > 0) conditions.push({ id: { in: selectedIds } });
+    if (!query.includeEmpty) {
+      conditions.push({
+        id: { in: [...new Set([...periodAgg.keys(), ...openingAgg.keys()])] },
+      });
+    }
+    if (query.search) {
+      conditions.push({
         OR: [
           { code: { contains: query.search, mode: 'insensitive' } },
           { name: { contains: query.search, mode: 'insensitive' } },
+          { nameEn: { contains: query.search, mode: 'insensitive' } },
         ],
-      }),
+      });
+    }
+    const accountWhere: Prisma.ChartOfAccountWhereInput = {
+      deletedAt: null,
+      ...(conditions.length > 0 && { AND: conditions }),
     };
 
-    const [accounts, total] = await Promise.all([
+    const [matched, accounts] = await Promise.all([
+      this.prisma.chartOfAccount.findMany({
+        where: accountWhere,
+        select: { id: true },
+      }),
       this.prisma.chartOfAccount.findMany({
         where: accountWhere,
         orderBy: { code: 'asc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
-      this.prisma.chartOfAccount.count({ where: accountWhere }),
     ]);
+
+    const totals = matched.reduce(
+      (acc, { id }) => {
+        const period = periodAgg.get(id) ?? { debit: 0, credit: 0 };
+        const openingRaw = openingAgg.get(id) ?? { debit: 0, credit: 0 };
+        const opening = roundReportMoney(openingRaw.debit - openingRaw.credit);
+        const debit = roundReportMoney(period.debit);
+        const credit = roundReportMoney(period.credit);
+        acc.openingBalance += opening;
+        acc.periodDebit += debit;
+        acc.periodCredit += credit;
+        acc.closingBalance += roundReportMoney(opening + debit - credit);
+        return acc;
+      },
+      { openingBalance: 0, periodDebit: 0, periodCredit: 0, closingBalance: 0 },
+    );
 
     const items = await this.computeAccountLedgers(accounts, query);
 
-    return { items, total, page, pageSize };
+    return {
+      items,
+      total: matched.length,
+      page,
+      pageSize,
+      totals: {
+        openingBalance: roundReportMoney(totals.openingBalance),
+        periodDebit: roundReportMoney(totals.periodDebit),
+        periodCredit: roundReportMoney(totals.periodCredit),
+        closingBalance: roundReportMoney(totals.closingBalance),
+      },
+      balanced: Math.abs(totals.periodDebit - totals.periodCredit) < 0.01,
+    };
   }
 
   /**
-   * Batched variant of `computeAccountLedger` for `generalLedger`'s
-   * per-page account list — the single-account version (still used
-   * unchanged by `accountStatement`, which only ever has one account) did
-   * 2 queries per account, so a page of `pageSize` accounts ran
-   * `1 + 2*pageSize` queries. Same math per account (opening balance +
-   * running balance over the same date-sorted lines), just computed from
-   * one batched opening-balance groupBy and one batched lines findMany
-   * instead of one pair of queries per account.
-   *
-   * Splitting a single entryDate/entryNumber/lineOrder-sorted result set by
-   * accountId preserves each account's relative order — a subsequence of a
-   * sorted sequence is itself sorted — so the per-account movement order
-   * (and therefore every running balance) is identical to running the
-   * single-account query per account.
+   * Batched ledger for a list of accounts: one opening-balance groupBy and
+   * one date-sorted lines findMany for all of them (never 2 queries per
+   * account). Splitting a single entryDate/entryNumber/lineOrder-sorted
+   * result set by accountId preserves each account's relative order, so
+   * every running balance equals the single-account computation.
    */
   private async computeAccountLedgers(
     accounts: ChartOfAccount[],
@@ -272,35 +260,20 @@ export class AccountingReportsService {
             entryDate: buildDateRangeFilter(filters.dateFrom, filters.dateTo),
           },
         },
-        include: {
-          journalEntry: {
-            select: {
-              id: true,
-              entryNumber: true,
-              entryDate: true,
-              description: true,
-              sourceType: true,
-              sourceId: true,
-              referenceNumber: true,
-              status: true,
-            },
-          },
-        },
-        orderBy: [
-          { journalEntry: { entryDate: 'asc' } },
-          { journalEntry: { entryNumber: 'asc' } },
-          { lineOrder: 'asc' },
-        ],
+        include: LEDGER_LINE_INCLUDE,
+        orderBy: LEDGER_LINE_ORDER,
       }),
     ]);
 
     const openingByAccount = new Map(
       openingGroups.map((g) => [
         g.accountId,
-        Number(g._sum.debit ?? 0) - Number(g._sum.credit ?? 0),
+        roundReportMoney(
+          Number(g._sum.debit ?? 0) - Number(g._sum.credit ?? 0),
+        ),
       ]),
     );
-    const linesByAccount = new Map<string, typeof lines>();
+    const linesByAccount = new Map<string, LedgerLine[]>();
     for (const line of lines) {
       const existing = linesByAccount.get(line.accountId);
       if (existing) {
@@ -312,37 +285,17 @@ export class AccountingReportsService {
 
     return accounts.map((account) => {
       const openingBalance = openingByAccount.get(account.id) ?? 0;
-      const accountLines = linesByAccount.get(account.id) ?? [];
-
-      let runningBalance = openingBalance;
-      const movements = accountLines.map((line) => {
-        const debit = Number(line.debit);
-        const credit = Number(line.credit);
-        runningBalance += debit - credit;
-        return {
-          journalEntryId: line.journalEntry.id,
-          entryNumber: line.journalEntry.entryNumber,
-          entryDate: line.journalEntry.entryDate,
-          description: line.description ?? line.journalEntry.description,
-          sourceType: line.journalEntry.sourceType,
-          sourceId: line.journalEntry.sourceId,
-          referenceNumber: line.journalEntry.referenceNumber,
-          status: line.journalEntry.status,
-          debit,
-          credit,
-          runningBalance,
-        };
-      });
-
-      const periodDebit = movements.reduce((sum, m) => sum + m.debit, 0);
-      const periodCredit = movements.reduce((sum, m) => sum + m.credit, 0);
-      const closingBalance = openingBalance + periodDebit - periodCredit;
-
+      const { movements, periodDebit, periodCredit, closingBalance } =
+        buildLedgerMovements(
+          linesByAccount.get(account.id) ?? [],
+          openingBalance,
+        );
       return {
         account: {
           id: account.id,
           code: account.code,
           name: account.name,
+          nameEn: account.nameEn,
           accountType: account.accountType,
         },
         openingBalance,
@@ -1080,6 +1033,16 @@ export class AccountingReportsService {
     return this.invoiceAging('AP', query);
   }
 
+  /**
+   * Customer / Supplier Statement — the partner's control-account lines
+   * (Receivable for a customer, Payable for a supplier, via `controlType`)
+   * read straight from Journal Entries: opening balance before `dateFrom`,
+   * every invoice / receipt / payment / return / credit in the period with a
+   * running balance, and the closing balance. Debit-positive, like the
+   * General Ledger, so a supplier's payable shows as a negative (credit)
+   * balance. Always returned in full: a paged slice would restart the
+   * running balance and report a wrong closing balance.
+   */
   async partnerStatement(query: PartnerStatementQueryDto) {
     const partner = await this.prisma.partner.findFirst({
       where: { id: query.partnerId, deletedAt: null },
@@ -1089,110 +1052,56 @@ export class AccountingReportsService {
       throw new NotFoundException(`Partner ${query.partnerId} not found`);
     }
 
-    const page = query.page ?? 1;
-    const pageSize = query.pageSize ?? 50;
-    const asOf = query.dateTo
-      ? new Date(new Date(query.dateTo).getTime() + (24 * 60 * 60 * 1000 - 1))
-      : undefined;
-    const dateFrom = query.dateFrom ? new Date(query.dateFrom) : undefined;
+    const scopeWhere = this.buildEntryScopeWhere(query);
+    const accountFilter: Prisma.JournalEntryLineWhereInput = query.controlType
+      ? { account: { partnerControlType: query.controlType } }
+      : {};
 
-    const lineWhere: Prisma.JournalEntryLineWhereInput = {
-      partnerId: partner.id,
-      journalEntry: {
-        ...this.buildEntryScopeWhere(query),
-        ...(dateFrom || asOf
-          ? {
-              entryDate: {
-                ...(dateFrom ? { gte: dateFrom } : {}),
-                ...(asOf ? { lte: asOf } : {}),
-              },
-            }
-          : {}),
-      },
-    };
-
-    const openingWhere: Prisma.JournalEntryLineWhereInput | null = dateFrom
-      ? {
-          partnerId: partner.id,
-          journalEntry: {
-            ...this.buildEntryScopeWhere(query),
-            entryDate: { lt: dateFrom },
-          },
-        }
-      : null;
-
-    const [openingAgg, lines, total] = await Promise.all([
-      openingWhere
+    const [openingAgg, lines] = await Promise.all([
+      query.dateFrom
         ? this.prisma.journalEntryLine.aggregate({
-            where: openingWhere,
+            where: {
+              partnerId: partner.id,
+              ...accountFilter,
+              journalEntry: {
+                ...scopeWhere,
+                entryDate: { lt: new Date(query.dateFrom) },
+              },
+            },
             _sum: { debit: true, credit: true },
           })
         : Promise.resolve({ _sum: { debit: 0, credit: 0 } }),
       this.prisma.journalEntryLine.findMany({
-        where: lineWhere,
-        include: {
-          account: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              nameEn: true,
-              partnerControlType: true,
-            },
-          },
+        where: {
+          partnerId: partner.id,
+          ...accountFilter,
           journalEntry: {
-            select: {
-              id: true,
-              entryNumber: true,
-              entryDate: true,
-              description: true,
-              sourceType: true,
-              sourceId: true,
-              referenceNumber: true,
-              status: true,
-            },
+            ...scopeWhere,
+            entryDate: buildDateRangeFilter(query.dateFrom, query.dateTo),
           },
         },
-        orderBy: [{ journalEntry: { entryDate: 'asc' } }, { lineOrder: 'asc' }],
-        skip: (page - 1) * pageSize,
-        take: pageSize,
+        include: LEDGER_LINE_INCLUDE,
+        orderBy: LEDGER_LINE_ORDER,
       }),
-      this.prisma.journalEntryLine.count({ where: lineWhere }),
     ]);
 
-    let running =
-      Number(openingAgg._sum.debit ?? 0) - Number(openingAgg._sum.credit ?? 0);
-    const openingBalance = running;
-    const movements = lines.map((line) => {
-      const debit = Number(line.debit);
-      const credit = Number(line.credit);
-      running += debit - credit;
-      return {
-        journalEntryId: line.journalEntry.id,
-        entryNumber: line.journalEntry.entryNumber,
-        entryDate: line.journalEntry.entryDate,
-        description: line.description ?? line.journalEntry.description,
-        sourceType: line.journalEntry.sourceType,
-        sourceId: line.journalEntry.sourceId,
-        referenceNumber: line.journalEntry.referenceNumber,
-        status: line.journalEntry.status,
-        accountCode: line.account.code,
-        accountName: line.account.name,
-        partnerControlType: line.account.partnerControlType,
-        debit,
-        credit,
-        runningBalance: running,
-      };
-    });
+    const openingBalance = roundReportMoney(
+      Number(openingAgg._sum.debit ?? 0) - Number(openingAgg._sum.credit ?? 0),
+    );
+    const { movements, periodDebit, periodCredit, closingBalance } =
+      buildLedgerMovements(lines, openingBalance);
 
     return {
       partner,
+      controlType: query.controlType ?? null,
       openingBalance,
-      closingBalance: running,
+      periodDebit,
+      periodCredit,
+      closingBalance,
       movements,
-      total,
-      page,
-      pageSize,
+      total: movements.length,
+      page: 1,
+      pageSize: movements.length,
     };
   }
 

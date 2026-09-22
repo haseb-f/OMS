@@ -149,7 +149,10 @@ export function AccountingReportFilterBar({
         onChange={(range) => onChange({ ...value, dateRange: range })}
       />
 
-      <label className="flex items-center gap-2 text-sm text-muted-foreground">
+      <label
+        className="flex items-center gap-2 text-sm text-muted-foreground"
+        title={t("reports.finance.filters.postedOnlyHint")}
+      >
         <Checkbox
           checked={value.postedOnly}
           onCheckedChange={(checked) => onChange({ ...value, postedOnly: checked === true })}

@@ -21,7 +21,18 @@ import {
   type FinancialReportFooter,
   type FinancialReportLine,
   type FinancialReportLineKind,
+  type FinancialReportTextColumn,
 } from "./types";
+
+/** Static class names (Tailwind must see them literally). */
+const HIDE_BELOW_CELL: Record<NonNullable<FinancialReportTextColumn["hideBelow"]>, string> = {
+  md: "hidden md:table-cell",
+  lg: "hidden lg:table-cell",
+};
+const HIDE_BELOW_COL: Record<NonNullable<FinancialReportTextColumn["hideBelow"]>, string> = {
+  md: "hidden md:table-column",
+  lg: "hidden lg:table-column",
+};
 
 /** Hierarchy through weight and rules, not color: sections and final
  *  results read as structure; ordinary account rows stay plain. */
@@ -66,9 +77,11 @@ export function FinancialReportTable({
   emptyLabel,
   nameHeaderKey,
   footer,
+  textColumns = [],
 }: {
   lines: FinancialReportLine[];
   columns: FinancialReportColumn[];
+  textColumns?: FinancialReportTextColumn[];
   expanded: Set<string>;
   onToggle: (id: string) => void;
   onPostingClick?: (line: FinancialReportLine) => void;
@@ -78,15 +91,28 @@ export function FinancialReportTable({
 }) {
   const { t, locale } = useLocale();
   const rows = flattenVisibleLines(lines, expanded);
+  // Only always-visible text columns count toward the scroll width, so the
+  // narrow-screen layout never grows for columns it hides.
+  const textWidth = textColumns
+    .filter((column) => !column.hideBelow)
+    .reduce((sum, column) => sum + (column.width ?? 8), 0);
+  const colSpan = columns.length + textColumns.length + 1;
 
   return (
     <div className="financial-report-print overflow-x-auto">
       <Table
         className="table-fixed"
-        style={{ minWidth: `calc(16rem + ${columns.length} * 8.5rem)` }}
+        style={{ minWidth: `calc(16rem + ${textWidth}rem + ${columns.length} * 8.5rem)` }}
       >
         <colgroup>
           <col />
+          {textColumns.map((column) => (
+            <col
+              key={column.key}
+              className={column.hideBelow ? HIDE_BELOW_COL[column.hideBelow] : undefined}
+              style={{ width: `${column.width ?? 8}rem` }}
+            />
+          ))}
           {columns.map((column) => (
             <col key={column.key} className="w-[8.5rem]" />
           ))}
@@ -96,6 +122,14 @@ export function FinancialReportTable({
             <TableHead className={CELL_X}>
               {t(nameHeaderKey ?? "reports.finance.fields.accountName")}
             </TableHead>
+            {textColumns.map((column) => (
+              <TableHead
+                key={column.key}
+                className={cn(CELL_X, column.hideBelow && HIDE_BELOW_CELL[column.hideBelow])}
+              >
+                {t(column.labelKey as MessageKey)}
+              </TableHead>
+            ))}
             {columns.map((column) => (
               <TableHead
                 key={column.key}
@@ -109,10 +143,7 @@ export function FinancialReportTable({
         <TableBody>
           {rows.length === 0 ? (
             <TableRow>
-              <TableCell
-                colSpan={columns.length + 1}
-                className="py-6 text-center text-muted-foreground"
-              >
+              <TableCell colSpan={colSpan} className="py-6 text-center text-muted-foreground">
                 {emptyLabel}
               </TableCell>
             </TableRow>
@@ -162,6 +193,19 @@ export function FinancialReportTable({
                       </span>
                     </div>
                   </TableCell>
+                  {textColumns.map((column) => (
+                    <TableCell
+                      key={column.key}
+                      className={cn(
+                        CELL_X,
+                        "truncate py-1",
+                        column.hideBelow && HIDE_BELOW_CELL[column.hideBelow],
+                      )}
+                      title={line.text?.[column.key] || undefined}
+                    >
+                      {column.render ? column.render(line) : (line.text?.[column.key] ?? "")}
+                    </TableCell>
+                  ))}
                   {columns.map((column) => (
                     <TableCell key={column.key} className={cn(CELL_X, "py-1 text-end")}>
                       <ReportMoney
@@ -190,6 +234,12 @@ export function FinancialReportTable({
               <TableCell className={cn(CELL_X, "py-1.5 font-semibold")}>
                 {t("reports.finance.totals")}
               </TableCell>
+              {textColumns.map((column) => (
+                <TableCell
+                  key={column.key}
+                  className={cn(CELL_X, column.hideBelow && HIDE_BELOW_CELL[column.hideBelow])}
+                />
+              ))}
               {columns.map((column) => (
                 <TableCell key={column.key} className={cn(CELL_X, "py-1.5 text-end")}>
                   <ReportMoney

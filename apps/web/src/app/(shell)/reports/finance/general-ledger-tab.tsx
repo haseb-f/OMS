@@ -1,177 +1,213 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
-import { ScrollText } from "lucide-react";
-import { EnterpriseModal } from "@/components/shared/enterprise-modal";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { FinancialReport } from "@/components/accounting/financial-report";
-import type { FinancialReportLine } from "@/components/accounting/financial-report";
+import type { ReportFilterValue } from "@/components/accounting/report-filter-bar";
+import { MultiEntityFilter } from "@/components/shared/data-table/multi-entity-filter";
+import { useOpenFullRecord } from "@/components/shared/record-preview";
 import {
   accountingReportsService,
-  type AccountLedger,
-  type HierarchicalReportLine,
+  type GeneralLedgerResult,
 } from "@/services/accounting-reports-service";
+import { createMasterDataService } from "@/services/master-data-service";
+import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
-import { formatDate } from "@/lib/date";
-import { MoneyCell } from "./shared";
+import { buildLedgerBlock, indexLedgerMovements, ledgerTextColumns } from "./ledger-lines";
 import { useReportQuery } from "./use-report-query";
 
+const accountsService = createMasterDataService<ChartOfAccountRow>("/chart-of-accounts");
+
+/** Accounts per page — each carries its full movement list for the period. */
+const ACCOUNTS_PER_PAGE = 100;
+
+/**
+ * General Ledger (Odoo-style) — every account (or the selected ones) with
+ * opening balance, each dated Journal Entry line (journal, entry, source
+ * document, partner, debit, credit, running balance) and closing balance.
+ * Read from posted Journal Entries only (drafts via the Posted Only
+ * toggle); totals cover every matched account and equal the Trial Balance.
+ */
 export function GeneralLedgerTab() {
   const { t } = useLocale();
+  const openFullRecord = useOpenFullRecord();
   const { filters, setFilters, params } = useReportQuery();
-  const [lines, setLines] = useState<HierarchicalReportLine[]>([]);
+  const [accounts, setAccounts] = useState<ChartOfAccountRow[]>([]);
+  const [page, setPage] = useState(1);
+  const [result, setResult] = useState<GeneralLedgerResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [detail, setDetail] = useState<AccountLedger | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
+
+  const accountIds = useMemo(() => accounts.map((account) => account.id), [accounts]);
 
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const result = await accountingReportsService.trialBalance(params);
-      setLines(result.lines ?? []);
+      setResult(
+        await accountingReportsService.generalLedger({
+          ...params,
+          accountIds,
+          page,
+          pageSize: ACCOUNTS_PER_PAGE,
+        }),
+      );
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
     } finally {
       setIsLoading(false);
     }
-  }, [params, t]);
+  }, [params, accountIds, page, t]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
-  const openAccount = async (line: FinancialReportLine) => {
-    if (!line.accountId) return;
-    setDetailLoading(true);
-    try {
-      const statement = await accountingReportsService.accountStatement(line.accountId, params);
-      setDetail(statement);
-    } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
-    } finally {
-      setDetailLoading(false);
-    }
+  const changeFilters = (next: ReportFilterValue) => {
+    setPage(1);
+    setFilters(next);
+  };
+  const changeAccounts = (next: ChartOfAccountRow[]) => {
+    setPage(1);
+    setAccounts(next);
   };
 
-  return (
-    <>
-      <FinancialReport
-        lines={lines}
-        columns={[
-          { key: "opening", labelKey: "reports.finance.fields.openingBalance" },
-          { key: "debit", labelKey: "reports.finance.fields.debit" },
-          { key: "credit", labelKey: "reports.finance.fields.credit" },
-          { key: "closing", labelKey: "reports.finance.fields.closingBalance", emphasize: true },
-        ]}
-        isLoading={isLoading || detailLoading}
-        filters={filters}
-        onFiltersChange={setFilters}
-        printTitle={t("reports.finance.generalLedger")}
-        exportFileName="general-ledger.csv"
-        onPostingClick={(line) => {
-          void openAccount(line);
-        }}
-      />
+  const blocks = useMemo(
+    () =>
+      (result?.items ?? []).map((ledger) => ({
+        id: `account:${ledger.account.id}`,
+        code: ledger.account.code,
+        label: ledger.account.name,
+        labelEn: ledger.account.nameEn,
+        openingBalance: ledger.openingBalance,
+        periodDebit: ledger.periodDebit,
+        periodCredit: ledger.periodCredit,
+        closingBalance: ledger.closingBalance,
+        movements: ledger.movements,
+      })),
+    [result],
+  );
+  const lines = useMemo(() => blocks.map((block) => buildLedgerBlock(block, t)), [blocks, t]);
+  const movementIndex = useMemo(() => indexLedgerMovements(blocks), [blocks]);
+  const textColumns = useMemo(() => ledgerTextColumns(movementIndex), [movementIndex]);
 
-      <EnterpriseModal
-        open={!!detail}
-        onOpenChange={(open) => !open && setDetail(null)}
-        icon={ScrollText}
-        title={detail ? `${detail.account.code} — ${detail.account.name}` : ""}
-        size="lg"
-        footer={(requestClose) => (
-          <EnterpriseButton type="button" variant="outline" onClick={requestClose}>
-            {t("common.close")}
-          </EnterpriseButton>
-        )}
-      >
-        {detail ? (
-          <div className="flex flex-col gap-3">
-            <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-              <div>
-                <div className="text-muted-foreground">
-                  {t("reports.finance.fields.openingBalance")}
-                </div>
-                <MoneyCell value={detail.openingBalance} />
-              </div>
-              <div>
-                <div className="text-muted-foreground">{t("reports.finance.fields.debit")}</div>
-                <MoneyCell value={detail.periodDebit} />
-              </div>
-              <div>
-                <div className="text-muted-foreground">{t("reports.finance.fields.credit")}</div>
-                <MoneyCell value={detail.periodCredit} />
-              </div>
-              <div>
-                <div className="text-muted-foreground">
-                  {t("reports.finance.fields.closingBalance")}
-                </div>
-                <MoneyCell value={detail.closingBalance} />
-              </div>
-            </div>
-            <div className="max-h-96 overflow-y-auto rounded-md border border-border">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-start">
-                  <tr>
-                    <th className="p-2 text-start font-medium">
-                      {t("reports.finance.fields.entryDate")}
-                    </th>
-                    <th className="p-2 text-start font-medium">
-                      {t("reports.finance.fields.entryNumber")}
-                    </th>
-                    <th className="p-2 text-start font-medium">
-                      {t("reports.finance.fields.sourceDocument")}
-                    </th>
-                    <th className="p-2 text-end font-medium">
-                      {t("reports.finance.fields.debit")}
-                    </th>
-                    <th className="p-2 text-end font-medium">
-                      {t("reports.finance.fields.credit")}
-                    </th>
-                    <th className="p-2 text-end font-medium">
-                      {t("reports.finance.fields.runningBalance")}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {detail.movements.map((movement, index) => (
-                    <tr
-                      key={`${movement.journalEntryId}-${index}`}
-                      className="border-t border-border"
-                    >
-                      <td className="p-2">{formatDate(movement.entryDate)}</td>
-                      <td className="p-2">
-                        <Link
-                          href={`/finance/journal-entries?entry=${movement.journalEntryId}`}
-                          className="text-primary underline-offset-2 hover:underline"
-                        >
-                          <code dir="ltr">{movement.entryNumber}</code>
-                        </Link>
-                      </td>
-                      <td className="p-2">
-                        {movement.sourceType ?? movement.referenceNumber ?? "—"}
-                      </td>
-                      <td className="p-2 text-end">
-                        <MoneyCell value={movement.debit} />
-                      </td>
-                      <td className="p-2 text-end">
-                        <MoneyCell value={movement.credit} />
-                      </td>
-                      <td className="p-2 text-end">
-                        <MoneyCell value={movement.runningBalance} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+  const totals = result?.totals ?? {
+    openingBalance: 0,
+    periodDebit: 0,
+    periodCredit: 0,
+    closingBalance: 0,
+  };
+  const total = result?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / ACCOUNTS_PER_PAGE));
+
+  return (
+    <FinancialReport
+      lines={lines}
+      columns={[
+        { key: "debit", labelKey: "reports.finance.fields.debit" },
+        { key: "credit", labelKey: "reports.finance.fields.credit" },
+        { key: "balance", labelKey: "reports.finance.fields.runningBalance", emphasize: true },
+      ]}
+      textColumns={textColumns}
+      nameHeaderKey="reports.finance.fields.account"
+      // A handful of selected accounts open straight to their movements; the
+      // full ledger starts collapsed to one row per account.
+      defaultExpanded={accounts.length > 0 && blocks.length <= 3 ? "all" : "none"}
+      exportAllLines
+      isLoading={isLoading}
+      filters={filters}
+      onFiltersChange={changeFilters}
+      toolbarExtra={
+        <MultiEntityFilter
+          label={t("reports.finance.ledger.accounts")}
+          values={accounts}
+          onChange={changeAccounts}
+          onSearch={async (search) => {
+            const found = await accountsService.list({ search: search || undefined, pageSize: 20 });
+            return found.items;
+          }}
+          getId={(account) => account.id}
+          getTitle={(account) => `${account.code} · ${account.name}`}
+        />
+      }
+      printTitle={t("reports.finance.generalLedger")}
+      exportFileName="general-ledger.xlsx"
+      onPostingClick={(line) => {
+        const movement = movementIndex.get(line.id);
+        if (movement) {
+          openFullRecord({
+            kind: "JOURNAL_ENTRY",
+            id: movement.journalEntryId,
+            number: movement.entryNumber,
+          });
+        }
+      }}
+      summary={
+        result
+          ? {
+              items: [
+                { label: t("reports.finance.fields.openingBalance"), value: totals.openingBalance },
+                { label: t("reports.finance.fields.debit"), value: totals.periodDebit },
+                { label: t("reports.finance.fields.credit"), value: totals.periodCredit },
+                {
+                  label: t("reports.finance.fields.closingBalance"),
+                  value: totals.closingBalance,
+                  emphasize: true,
+                },
+              ],
+              check:
+                accounts.length === 0
+                  ? {
+                      balanced: result.balanced,
+                      difference: totals.periodDebit - totals.periodCredit,
+                      label: t("docFlow.reports.debitsEqualCredits"),
+                    }
+                  : undefined,
+            }
+          : undefined
+      }
+      footer={{
+        values: {
+          debit: totals.periodDebit,
+          credit: totals.periodCredit,
+          balance: totals.closingBalance,
+        },
+      }}
+      pagination={
+        pageCount > 1 ? (
+          <div className="flex items-center justify-end gap-2 border-t border-border px-3 py-2 text-caption text-muted-foreground">
+            <span>
+              {t("reports.finance.ledger.accountsRange", {
+                from: (page - 1) * ACCOUNTS_PER_PAGE + 1,
+                to: Math.min(page * ACCOUNTS_PER_PAGE, total),
+                total,
+              })}
+            </span>
+            <EnterpriseButton
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={page <= 1 || isLoading}
+              onClick={() => setPage((current) => current - 1)}
+              aria-label={t("common.previous")}
+            >
+              <ChevronRight className="size-3.5 ltr:rotate-180" />
+            </EnterpriseButton>
+            <EnterpriseButton
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={page >= pageCount || isLoading}
+              onClick={() => setPage((current) => current + 1)}
+              aria-label={t("common.next")}
+            >
+              <ChevronLeft className="size-3.5 ltr:rotate-180" />
+            </EnterpriseButton>
           </div>
-        ) : null}
-      </EnterpriseModal>
-    </>
+        ) : null
+      }
+    />
   );
 }

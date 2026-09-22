@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Archive, FileText, Pencil, Printer } from "lucide-react";
+import { Archive, FileText, Pencil, Printer, ScrollText } from "lucide-react";
 import {
   DetailField,
   DetailFieldGrid,
@@ -227,6 +227,15 @@ export default function SupplierProfilePage() {
               label: t("purchasing.suppliers.profile.print"),
               icon: Printer,
               onSelect: handlePrint,
+            },
+            {
+              // The Journal-Entry-based statement (opening, invoices,
+              // payments, returns, running and closing balance).
+              key: "statement",
+              label: t("reports.finance.supplierStatement"),
+              icon: ScrollText,
+              hidden: !hasPermission("reports.financial.view"),
+              onSelect: () => router.push(`/reports/suppliers?partner=${supplier.id}`),
             },
             {
               key: "edit",

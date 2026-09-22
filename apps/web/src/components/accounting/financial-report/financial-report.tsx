@@ -36,6 +36,7 @@ import {
   type FinancialReportFooter,
   type FinancialReportLine,
   type FinancialReportSummary as FinancialReportSummaryData,
+  type FinancialReportTextColumn,
 } from "./types";
 
 export function FinancialReport({
@@ -55,9 +56,24 @@ export function FinancialReport({
   compactFilters = true,
   toolbarExtra,
   nameHeaderKey,
+  textColumns,
+  defaultExpanded = "auto",
+  pagination,
+  exportAllLines = false,
 }: {
   lines: FinancialReportLine[];
   columns: FinancialReportColumn[];
+  /** Descriptive columns between the name and the amounts (ledger-style reports). */
+  textColumns?: FinancialReportTextColumn[];
+  /**
+   * Initial expansion: "auto" (sections + top groups — statements), "none"
+   * (everything collapsed — long ledgers) or "all".
+   */
+  defaultExpanded?: "auto" | "none" | "all";
+  /** Rendered under the table (e.g. account-page pagination for the General Ledger). */
+  pagination?: ReactNode;
+  /** Export/print every line (fully expanded) instead of only the visible ones — ledgers. */
+  exportAllLines?: boolean;
   isLoading?: boolean;
   filters: ReportFilterValue;
   onFiltersChange: (next: ReportFilterValue) => void;
@@ -85,8 +101,14 @@ export function FinancialReport({
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setExpanded(defaultExpandedIds(lines));
-  }, [lines]);
+    setExpanded(
+      defaultExpanded === "none"
+        ? new Set()
+        : defaultExpanded === "all"
+          ? new Set(collectExpandableIds(lines))
+          : defaultExpandedIds(lines),
+    );
+  }, [lines, defaultExpanded]);
 
   const expandableIds = useMemo(() => collectExpandableIds(lines), [lines]);
 
@@ -108,8 +130,9 @@ export function FinancialReport({
   const buildDocument = () =>
     buildFinancialReportDocument({
       title: printTitle,
-      lines: visible,
+      lines: exportAllLines ? flattenVisibleLines(lines, new Set(expandableIds)) : visible,
       columns,
+      textColumns,
       footer,
       locale,
       direction,
@@ -212,8 +235,10 @@ export function FinancialReport({
           emptyLabel={isLoading ? t("common.loading") : t("common.noResults")}
           nameHeaderKey={nameHeaderKey}
           footer={footer}
+          textColumns={textColumns}
         />
       </div>
+      {pagination}
     </ListSurface>
   );
 }

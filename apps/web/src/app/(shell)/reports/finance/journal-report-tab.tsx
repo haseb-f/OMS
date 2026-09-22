@@ -99,7 +99,7 @@ export function JournalReportTab() {
               <EnterpriseButton
                 type="button"
                 variant="outline"
-                onClick={() => router.push(`/finance/journal-entries?entry=${detail.id}`)}
+                onClick={() => router.push(`/finance/journal-entries/${detail.id}`)}
               >
                 <Eye />
                 {t("common.view")}

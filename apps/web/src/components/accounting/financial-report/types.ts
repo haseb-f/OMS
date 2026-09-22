@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 export type FinancialReportLineKind =
   | "section"
   | "group"
@@ -23,7 +25,25 @@ export interface FinancialReportLine {
   allowsPosting?: boolean;
   expandable: boolean;
   values: Record<string, number>;
+  /** Plain-text values for `textColumns` (also what Excel/CSV/print export). */
+  text?: Record<string, string>;
   children: FinancialReportLine[];
+}
+
+/**
+ * A descriptive (non-money) column shown between the name and the amount
+ * columns — date, journal, entry, reference, partner in ledger-style
+ * reports. `render` may return a drill-down link; `line.text[key]` is the
+ * exported value either way.
+ */
+export interface FinancialReportTextColumn {
+  key: string;
+  labelKey: string;
+  /** Column width in rem (default 8). */
+  width?: number;
+  /** Hidden on narrow screens below this breakpoint (still exported/printed). */
+  hideBelow?: "md" | "lg";
+  render?: (line: FinancialReportLine) => ReactNode;
 }
 
 export interface FinancialReportColumn {

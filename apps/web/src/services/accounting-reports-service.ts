@@ -24,10 +24,13 @@ export interface AccountLedgerAccount {
   id: string;
   code: string;
   name: string;
+  nameEn?: string | null;
   accountType: string;
 }
 
+/** One Journal Entry line as every ledger-style report returns it (GL, Account/Partner Statement). */
 export interface AccountLedgerMovement {
+  lineId: string;
   journalEntryId: string;
   entryNumber: string;
   entryDate: string;
@@ -36,6 +39,13 @@ export interface AccountLedgerMovement {
   sourceId: string | null;
   referenceNumber: string | null;
   status: JournalEntryStatusValue;
+  journal: { id: string; code: string; name: string } | null;
+  partner: { id: string; partnerNumber: string; name: string } | null;
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  accountNameEn: string | null;
+  partnerControlType: "RECEIVABLE" | "PAYABLE" | null;
   debit: number;
   credit: number;
   runningBalance: number;
@@ -52,13 +62,26 @@ export interface AccountLedger {
 
 export interface GeneralLedgerParams extends ReportFilterParams {
   accountId?: string;
+  /** Sent comma-separated. */
+  accountIds?: string[];
+  /** Also list accounts with no opening balance and no movement. */
+  includeEmpty?: boolean;
 }
 
 export interface GeneralLedgerResult {
   items: AccountLedger[];
+  /** Matched accounts (all pages). */
   total: number;
   page: number;
   pageSize: number;
+  /** Across every matched account, not only this page — equals the Trial Balance. */
+  totals: {
+    openingBalance: number;
+    periodDebit: number;
+    periodCredit: number;
+    closingBalance: number;
+  };
+  balanced: boolean;
 }
 
 export interface HierarchicalReportLine {
@@ -227,37 +250,35 @@ export interface AgingResult {
   totals: AgingPartnerRow & { partnerId?: string; partnerNumber?: string; partnerName?: string };
 }
 
-export interface PartnerStatementMovement {
-  journalEntryId: string;
-  entryNumber: string;
-  entryDate: string;
-  description: string | null;
-  sourceType: string | null;
-  sourceId: string | null;
-  referenceNumber: string | null;
-  status: JournalEntryStatusValue;
-  accountCode: string;
-  accountName: string;
-  partnerControlType: "RECEIVABLE" | "PAYABLE" | null;
-  debit: number;
-  credit: number;
-  runningBalance: number;
+export type PartnerStatementMovement = AccountLedgerMovement;
+
+export type PartnerControlType = "RECEIVABLE" | "PAYABLE";
+
+export interface PartnerStatementParams extends ReportFilterParams {
+  /** Receivable (customer) or Payable (supplier) control-account lines only. */
+  controlType?: PartnerControlType;
 }
 
+/** Always the full statement for the date range — never paged. */
 export interface PartnerStatementResult {
   partner: { id: string; partnerNumber: string; name: string };
+  controlType: PartnerControlType | null;
   openingBalance: number;
+  periodDebit: number;
+  periodCredit: number;
   closingBalance: number;
   movements: PartnerStatementMovement[];
   total: number;
-  page: number;
-  pageSize: number;
 }
 
 function buildQueryString(params: Record<string, unknown>): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === null || value === "") continue;
+    if (Array.isArray(value)) {
+      if (value.length > 0) search.set(key, value.join(","));
+      continue;
+    }
     search.set(key, String(value));
   }
   const qs = search.toString();
@@ -301,7 +322,7 @@ export const accountingReportsService = {
     apiClient.get<AgingResult>(
       `/accounting/reports/ap-aging${buildQueryString(params as Record<string, unknown>)}`,
     ),
-  partnerStatement: (partnerId: string, params: ReportFilterParams = {}) =>
+  partnerStatement: (partnerId: string, params: PartnerStatementParams = {}) =>
     apiClient.get<PartnerStatementResult>(
       `/accounting/reports/partner-statement${buildQueryString({ ...params, partnerId } as Record<string, unknown>)}`,
     ),
