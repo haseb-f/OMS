@@ -48,6 +48,8 @@ export const RECORD_ROUTES: Record<
   },
   STORE_ORDER: { labelKey: "docFlow.kinds.STORE_ORDER", href: (id) => `/store-orders/${id}` },
   PAYMENT: { labelKey: "docFlow.kinds.PAYMENT" },
+  // No page of its own — opens in place, linking back to its Store Order.
+  SHIPMENT: { labelKey: "docFlow.kinds.SHIPMENT" },
   JOURNAL_ENTRY: {
     labelKey: "docFlow.kinds.JOURNAL_ENTRY",
     href: (id) => `/finance/journal-entries/${id}`,

@@ -19,6 +19,7 @@ export type TraceKind =
   | 'LANDED_COST'
   | 'STORE_ORDER'
   | 'PAYMENT'
+  | 'SHIPMENT'
   | 'JOURNAL_ENTRY'
   | 'INVENTORY_MOVEMENT'
   | 'FIXED_ASSET'
@@ -30,17 +31,21 @@ export type TraceGroupKey =
   | 'PAYMENTS'
   | 'JOURNAL_ENTRIES'
   | 'STOCK_MOVEMENTS'
+  | 'SHIPMENTS'
+  | 'RETURNS'
   | 'ASSETS';
 
 /**
  * FOUND — linked records exist. PENDING — the document has not reached the
  * state that creates them yet (e.g. a Draft invoice has no JE). FAILED — the
  * document says they should exist but they do not (posted without a JE).
- * NOT_APPLICABLE — this document type never creates them. UNAUTHORIZED —
- * they may exist but the viewer may not see them.
+ * NOT_APPLICABLE — this document type never creates them. NONE — they
+ * could exist but none has been recorded (e.g. an order with no returns).
+ * UNAUTHORIZED — they may exist but the viewer may not see them. A FAILED
+ * group may still carry items: the ones that exist, with others missing.
  */
 export type TraceState =
-  'FOUND' | 'PENDING' | 'FAILED' | 'NOT_APPLICABLE' | 'UNAUTHORIZED';
+  'FOUND' | 'PENDING' | 'FAILED' | 'NONE' | 'NOT_APPLICABLE' | 'UNAUTHORIZED';
 
 export interface TraceRecord {
   kind: TraceKind;

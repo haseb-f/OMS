@@ -33,7 +33,7 @@ export function RelatedRecordsPanel({
   className?: string;
 }) {
   const { t } = useLocale();
-  const { result, error, loading, reload } = useTrace(kind, id, refreshKey);
+  const { result, error, forbidden, loading, reload } = useTrace(kind, id, refreshKey);
 
   if (!id) return null;
   const originLabel = result?.record ? recordTitle(t, kind, result.record.number) : undefined;
@@ -52,6 +52,10 @@ export function RelatedRecordsPanel({
           <Skeleton className="h-7 w-32" />
           <Skeleton className="h-7 w-28" />
         </div>
+      ) : error && forbidden ? (
+        <p className="text-caption text-warning-foreground">
+          {t("docFlow.trace.state.UNAUTHORIZED")}
+        </p>
       ) : error ? (
         <p className="flex items-center gap-2 text-caption text-destructive">
           {t("docFlow.trace.loadFailed")}

@@ -41,6 +41,9 @@ import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { MoneyInput } from "@/components/shared/money-input";
 import { useTaxes } from "@/hooks/use-reference-data";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useElementWidth } from "@/hooks/use-element-width";
+import { CreateOperationTotals } from "@/components/shared/create-operation";
+import { MoneyValue } from "@/components/shared/money-value";
 import type { ProductRow } from "@/services/products-service";
 import type { ChartOfAccountRow, WarehouseRow } from "@/config/master-data/entities";
 import { previewSalesLine } from "./sales-line-preview-math";
@@ -58,6 +61,12 @@ export interface ProductLineItemsGridLine {
   warehouse: WarehouseRow | null;
   quantity: number;
   unitPrice: number;
+  /**
+   * `priceMode="lineAmount"` only — the amount agreed for the whole line
+   * (Store Orders / Lead conversion), independent of quantity. `null`
+   * means not entered yet; it is never silently treated as 0.
+   */
+  lineAmount?: number | null;
   discountPercent: number;
   taxId: string | null;
   /**
@@ -86,12 +95,39 @@ export function createEmptyLine(): ProductLineItemsGridLine {
     warehouse: null,
     quantity: 1,
     unitPrice: 0,
+    lineAmount: null,
     discountPercent: 0,
     taxId: null,
     unitId: null,
     unitName: null,
     treatment: "STANDARD",
   };
+}
+
+export type LinePriceMode = "unit" | "lineAmount";
+
+/** The price the user entered for a line — unit price, or the agreed line amount. */
+export function linePrice(line: ProductLineItemsGridLine, mode: LinePriceMode = "unit"): number {
+  return mode === "lineAmount" ? (line.lineAmount ?? 0) : line.unitPrice;
+}
+
+/** A product line whose required price is blank or not greater than 0. */
+export function isLinePriceMissing(
+  line: ProductLineItemsGridLine,
+  mode: LinePriceMode = "unit",
+): boolean {
+  if (!line.product) return false;
+  const price = linePrice(line, mode);
+  return !Number.isFinite(price) || price <= 0;
+}
+
+/** Columns of the table layout, as width tokens — the product column is the flexible one. */
+function requiredTableWidth(columns: string[]): number {
+  const style = getComputedStyle(document.documentElement);
+  return ["--width-control-product-min", ...columns].reduce(
+    (sum, token) => sum + (Number.parseFloat(style.getPropertyValue(token)) || 0),
+    0,
+  );
 }
 
 /** API payload fields for a line's fixed-asset / prepaid treatment. */
@@ -323,8 +359,13 @@ function LineOptions({
  *
  * Desktop: one horizontal row per product —
  * Product | Warehouse | Qty | Unit | Unit Price | Discount | Tax | Line Total | Actions.
- * Phone: one stacked card per product with full-width, touch-sized fields,
- * so a document is completed without zooming or sideways scrolling.
+ * Phone — or any container too narrow for the table's columns (a dialog,
+ * a tablet): one stacked card per product with full-width, touch-sized
+ * fields, so a document is completed without zooming or sideways scrolling.
+ *
+ * `priceMode="lineAmount"` edits one agreed amount per line (Store Orders)
+ * instead of a unit price; `requirePrice` + `showErrors` flag every product
+ * line whose price is blank or not greater than 0, inline.
  *
  * Line totals are an instant preview only (`previewSalesLine`) — never
  * submitted as an authoritative total.
@@ -344,6 +385,11 @@ export function ProductLineItemsGrid({
   unitPriceLabel,
   enableLineTreatment = false,
   title,
+  priceMode = "unit",
+  requirePrice = false,
+  showErrors = false,
+  totalLabel,
+  currencyCode,
 }: {
   lines: ProductLineItemsGridLine[];
   onChange: (lines: ProductLineItemsGridLine[]) => void;
@@ -364,13 +410,39 @@ export function ProductLineItemsGrid({
   enableLineTreatment?: boolean;
   /** Section heading rendered in the lines toolbar, beside "Browse products". */
   title?: ReactNode;
+  /** "lineAmount": the price field is the agreed amount for the whole line. */
+  priceMode?: LinePriceMode;
+  /** Every product line needs a price greater than 0 (validated when `showErrors`). */
+  requirePrice?: boolean;
+  /** Show validation for required fields — set once the user tries to submit. */
+  showErrors?: boolean;
+  /** When set, an order-total row is shown under the lines. */
+  totalLabel?: string;
+  currencyCode?: string;
 }) {
   const { t } = useLocale();
   const taxes = useTaxes();
   const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
+  const containerWidth = useElementWidth(containerRef);
   const [browseOpen, setBrowseOpen] = useState(false);
   const warehouseColumn = showWarehouse ?? requireWarehouse;
+  const lineAmountMode = priceMode === "lineAmount";
+  const priceLabel =
+    unitPriceLabel ??
+    t(lineAmountMode ? "sales.editor.grid.agreedAmount" : "sales.editor.grid.unitPrice");
+  const tableColumns = [
+    warehouseColumn && "--width-control-warehouse",
+    "--width-control-quantity",
+    showUnit && "--width-control-unit",
+    "--width-control-price",
+    showDiscount && "--width-control-discount",
+    showTax && "--width-control-tax",
+    !lineAmountMode && "--width-control-line-total",
+    "--width-control-actions",
+  ].filter((token): token is string => Boolean(token));
+  const stacked =
+    isMobile || (containerWidth !== null && containerWidth < requiredTableWidth(tableColumns));
 
   const updateLine = (id: string, patch: Partial<ProductLineItemsGridLine>) => {
     const index = lines.findIndex((line) => line.id === id);
@@ -394,7 +466,8 @@ export function ProductLineItemsGrid({
     const catalogPrice = purchasableOnly ? product.purchasePrice : product.salesPrice;
     return {
       product,
-      unitPrice: catalogPrice ? Number(catalogPrice) : 0,
+      // An agreed line amount is what the customer agreed to — never a catalogue price.
+      unitPrice: catalogPrice && !lineAmountMode ? Number(catalogPrice) : 0,
       taxId: product.taxId ?? null,
       unitId: product.unitId,
       unitName: product.unit?.name ?? null,
@@ -427,6 +500,23 @@ export function ProductLineItemsGrid({
     [taxes],
   );
 
+  const priceInvalid = (line: ProductLineItemsGridLine) =>
+    requirePrice && showErrors && isLinePriceMissing(line, priceMode);
+  const anyPriceInvalid = lines.some(priceInvalid);
+
+  /** Blank stays blank (null) in line-amount mode, so it can never be sent as 0. */
+  const priceValue = (line: ProductLineItemsGridLine) =>
+    lineAmountMode ? (line.lineAmount ?? "") : line.unitPrice;
+  const priceChange = (line: ProductLineItemsGridLine, raw: string, valueAsNumber: number) =>
+    updateLine(
+      line.id,
+      lineAmountMode
+        ? { lineAmount: raw === "" || Number.isNaN(valueAsNumber) ? null : valueAsNumber }
+        : { unitPrice: valueAsNumber || 0 },
+    );
+
+  const lineTotalFor = (line: ProductLineItemsGridLine) =>
+    lineAmountMode ? (line.lineAmount ?? 0) : previewFor(line).lineTotal;
   const previewFor = (line: ProductLineItemsGridLine) =>
     previewSalesLine({
       quantity: line.quantity,
@@ -435,6 +525,8 @@ export function ProductLineItemsGrid({
       taxRatePercent: showTax && line.taxId ? taxRateById.get(line.taxId) : undefined,
       taxInclusive: showTax && line.taxId ? taxInclusiveById.get(line.taxId) : undefined,
     });
+
+  const orderTotal = lines.reduce((sum, line) => sum + (line.product ? lineTotalFor(line) : 0), 0);
 
   const focusCell = (rowIndex: number, colIndex: number) => {
     const root = containerRef.current;
@@ -535,7 +627,25 @@ export function ProductLineItemsGrid({
     />
   );
 
-  if (isMobile) {
+  const priceError = anyPriceInvalid ? (
+    <p role="alert" className="text-caption text-destructive" data-testid="line-price-error">
+      {t(lineAmountMode ? "docFlow.lines.amountRequired" : "docFlow.lines.priceRequired")}
+    </p>
+  ) : null;
+
+  const totals = totalLabel ? (
+    <CreateOperationTotals
+      rows={[
+        {
+          label: totalLabel,
+          value: <MoneyValue value={orderTotal} currency={currencyCode} />,
+          emphasis: "strong",
+        },
+      ]}
+    />
+  ) : null;
+
+  if (stacked) {
     return (
       <div ref={containerRef} className="flex min-w-0 flex-col gap-2">
         {toolbar}
@@ -607,14 +717,18 @@ export function ProductLineItemsGrid({
                     </label>
                     <label className="flex flex-col gap-1">
                       <span className="text-caption text-muted-foreground">
-                        {unitPriceLabel ?? t("sales.editor.grid.unitPrice")}
+                        {priceLabel}
+                        {requirePrice ? <span className="text-destructive"> *</span> : null}
                       </span>
                       <MoneyInput
-                        className="h-10"
-                        value={line.unitPrice}
+                        className={cn("h-10", priceInvalid(line) && "border-destructive")}
+                        aria-invalid={priceInvalid(line) || undefined}
+                        aria-required={requirePrice || undefined}
+                        placeholder="0.00"
+                        value={priceValue(line)}
                         disabled={disabled}
                         onChange={(event) =>
-                          updateLine(line.id, { unitPrice: event.target.valueAsNumber || 0 })
+                          priceChange(line, event.target.value, event.target.valueAsNumber)
                         }
                       />
                     </label>
@@ -663,22 +777,34 @@ export function ProductLineItemsGrid({
                       </div>
                     ) : null}
                   </div>
-                  <div className="flex items-center justify-between border-t border-border pt-1.5">
-                    <span className="text-caption text-muted-foreground">
-                      {line.treatment && line.treatment !== "STANDARD"
-                        ? t(`docFlow.lines.treatments.${line.treatment}`)
-                        : t("sales.editor.grid.lineTotal")}
-                    </span>
-                    <span dir="ltr" className="text-body font-semibold tabular-nums">
-                      {formatLineTotal(preview.lineTotal)}
-                    </span>
-                  </div>
+                  {priceInvalid(line) ? (
+                    <p className="text-caption text-destructive">
+                      {t(
+                        lineAmountMode
+                          ? "docFlow.lines.amountRequired"
+                          : "docFlow.lines.priceRequired",
+                      )}
+                    </p>
+                  ) : null}
+                  {lineAmountMode ? null : (
+                    <div className="flex items-center justify-between border-t border-border pt-1.5">
+                      <span className="text-caption text-muted-foreground">
+                        {line.treatment && line.treatment !== "STANDARD"
+                          ? t(`docFlow.lines.treatments.${line.treatment}`)
+                          : t("sales.editor.grid.lineTotal")}
+                      </span>
+                      <span dir="ltr" className="text-body font-semibold tabular-nums">
+                        {formatLineTotal(preview.lineTotal)}
+                      </span>
+                    </div>
+                  )}
                 </>
               ) : null}
             </div>
           );
         })}
         <div className="overflow-hidden rounded-sm border border-border">{footer}</div>
+        {totals}
         {browser}
       </div>
     );
@@ -687,10 +813,9 @@ export function ProductLineItemsGrid({
   return (
     <div ref={containerRef} className="flex min-w-0 flex-col gap-2">
       {toolbar}
-      <DocumentLineTable
-        minWidthClass={warehouseColumn ? "min-w-[1080px]" : "min-w-[800px]"}
-        footer={footer}
-      >
+      {/* Stacked cards take over below the columns' combined width, so the
+          table never needs a minimum width (or a sideways scroll) of its own. */}
+      <DocumentLineTable minWidthClass="min-w-0" footer={footer}>
         <colgroup>
           <col />
           {warehouseColumn ? <col className="w-(--width-control-warehouse)" /> : null}
@@ -699,7 +824,7 @@ export function ProductLineItemsGrid({
           <col className="w-(--width-control-price)" />
           {showDiscount ? <col className="w-(--width-control-discount)" /> : null}
           {showTax ? <col className="w-(--width-control-tax)" /> : null}
-          <col className="w-(--width-control-line-total)" />
+          {lineAmountMode ? null : <col className="w-(--width-control-line-total)" />}
           <col className="w-(--width-control-actions)" />
         </colgroup>
         <DocumentLineTableHeader>
@@ -729,7 +854,8 @@ export function ProductLineItemsGrid({
             <DocumentLineTableHead
               className={cn(documentLineNumericHeadClass, "w-(--width-control-price)")}
             >
-              {unitPriceLabel ?? t("sales.editor.grid.unitPrice")}
+              {priceLabel}
+              {requirePrice ? <span className="text-destructive"> *</span> : null}
             </DocumentLineTableHead>
             {showDiscount && (
               <DocumentLineTableHead
@@ -745,11 +871,13 @@ export function ProductLineItemsGrid({
                 {t("sales.editor.grid.tax")}
               </DocumentLineTableHead>
             )}
-            <DocumentLineTableHead
-              className={cn(documentLineNumericHeadClass, "w-(--width-control-line-total)")}
-            >
-              {t("sales.editor.grid.lineTotal")}
-            </DocumentLineTableHead>
+            {lineAmountMode ? null : (
+              <DocumentLineTableHead
+                className={cn(documentLineNumericHeadClass, "w-(--width-control-line-total)")}
+              >
+                {t("sales.editor.grid.lineTotal")}
+              </DocumentLineTableHead>
+            )}
             <DocumentLineTableHead
               className={cn(documentLineHeadClass, "w-(--width-control-actions)")}
             />
@@ -861,12 +989,16 @@ export function ProductLineItemsGrid({
                     data-row={rowIndex}
                     data-col={priceCol}
                     align="end"
-                    className="px-2"
-                    value={line.unitPrice}
+                    className={cn("px-2", priceInvalid(line) && "border-destructive")}
+                    aria-label={priceLabel}
+                    aria-invalid={priceInvalid(line) || undefined}
+                    aria-required={requirePrice || undefined}
+                    placeholder="0.00"
+                    value={priceValue(line)}
                     disabled={disabled}
                     onKeyDown={(event) => handleArrowNav(event, rowIndex, priceCol)}
                     onChange={(event) =>
-                      updateLine(line.id, { unitPrice: event.target.valueAsNumber || 0 })
+                      priceChange(line, event.target.value, event.target.valueAsNumber)
                     }
                   />
                 </DocumentLineTableCell>
@@ -906,15 +1038,17 @@ export function ProductLineItemsGrid({
                     {taxSelect(line, { rowIndex, col: taxCol })}
                   </DocumentLineTableCell>
                 )}
-                <DocumentLineTableCell
-                  className={cn(
-                    documentLineNumericCellClass,
-                    "w-(--width-control-line-total) font-medium tabular-nums",
-                  )}
-                  dir="ltr"
-                >
-                  {formatLineTotal(preview.lineTotal)}
-                </DocumentLineTableCell>
+                {lineAmountMode ? null : (
+                  <DocumentLineTableCell
+                    className={cn(
+                      documentLineNumericCellClass,
+                      "w-(--width-control-line-total) font-medium tabular-nums",
+                    )}
+                    dir="ltr"
+                  >
+                    {formatLineTotal(preview.lineTotal)}
+                  </DocumentLineTableCell>
+                )}
                 <DocumentLineTableCell
                   className={cn(documentLineCellClass, "w-(--width-control-actions)")}
                 >
@@ -931,6 +1065,8 @@ export function ProductLineItemsGrid({
           })}
         </DocumentLineTableBody>
       </DocumentLineTable>
+      {priceError}
+      {totals}
       {browser}
     </div>
   );

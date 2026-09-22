@@ -375,6 +375,13 @@ function StoreOrderDetailContent() {
     : timelineEntries.slice(0, ACTIVITY_PREVIEW);
   const hiddenActivityCount = Math.max(0, timelineEntries.length - ACTIVITY_PREVIEW);
   const shipmentForDialog = latestShipmentRow ? toShipmentListRow(order, latestShipmentRow) : null;
+  const relatedRefreshKey = [
+    order.paymentStatus,
+    order.updatedAt,
+    order.invoices?.map((row) => row.status).join(),
+    order.payments?.map((row) => row.status).join(),
+    order.shipments?.map((row) => row.status).join(),
+  ].join("|");
 
   /** A 0.00 order that is not invoiced yet is missing its agreed price — offer the correction. */
   const needsAgreedAmounts =
@@ -460,6 +467,11 @@ function StoreOrderDetailContent() {
               </p>
             )}
           </div>
+
+          {/* Invoice, payments + receipts, JEs (invoice, receipts, COGS/fulfilment),
+              shipments, stock movements and returns — each opens in place and
+              round-trips back here. */}
+          <RelatedRecordsPanel kind="STORE_ORDER" id={order.id} refreshKey={relatedRefreshKey} />
 
           <DetailGroup
             title={t("storeOrders.detail.sections.payments")}
@@ -638,7 +650,6 @@ function StoreOrderDetailContent() {
           />
         ) : null}
       </DetailGroup>
-      <RelatedRecordsPanel kind="STORE_ORDER" id={order.id} refreshKey={order.paymentStatus} />
 
       {order.payments && order.payments.length > 0 ? (
         <div className="overflow-hidden rounded-md border border-border bg-card">

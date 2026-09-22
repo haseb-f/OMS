@@ -32,6 +32,7 @@ import {
 import {
   ProductLineItemsGrid,
   createEmptyLine,
+  isLinePriceMissing,
   type ProductLineItemsGridLine,
 } from "@/components/sales/product-line-items-grid";
 import { FieldLabel, FieldMessage, Form } from "@/components/ui/form";
@@ -96,6 +97,7 @@ export function StoreOrderCreateDialog({
   const [selectedCustomer, setSelectedCustomer] = useState<PartnerRow | null>(null);
   const [lines, setLines] = useState<ProductLineItemsGridLine[]>([createEmptyLine()]);
   const [itemsError, setItemsError] = useState<string | null>(null);
+  const [showLineErrors, setShowLineErrors] = useState(false);
   const [paymentSources, setPaymentSources] = useState<PaymentSourceOption[]>([]);
   const [paymentSource, setPaymentSource] = useState<PaymentSourceOption | null>(null);
   const [receivingAccount, setReceivingAccount] = useState<ChartOfAccountRow | null>(null);
@@ -249,6 +251,11 @@ export function StoreOrderCreateDialog({
       return;
     }
     setItemsError(null);
+    // The agreed price is required — a blank or 0 price is never sent as a 0.00 order.
+    if (validLines.some((line) => isLinePriceMissing(line))) {
+      setShowLineErrors(true);
+      return;
+    }
 
     const wantsPayment = typeof values.paymentAmount === "number" && values.paymentAmount > 0;
     if (wantsPayment && (!paymentSource || !receivingAccount || !values.senderName?.trim())) {
@@ -442,7 +449,11 @@ export function StoreOrderCreateDialog({
               items={countries}
               getId={(country) => country.id}
               getTitle={(country) => country.name}
-              getSearchText={(country) => `${country.name} ${country.code}`}
+              getSearchText={(country) =>
+                [country.name, country.nameEn, country.code, country.iso3, country.callingCode]
+                  .filter(Boolean)
+                  .join(" ")
+              }
               allowClear
               icon={<Globe className="size-3.5 shrink-0 text-muted-foreground" />}
             />
@@ -524,6 +535,11 @@ export function StoreOrderCreateDialog({
                 showDiscount={false}
                 showTax={false}
                 showDescription={false}
+                unitPriceLabel={t("storeOrders.createDialog.items.agreedUnitPrice")}
+                requirePrice
+                showErrors={showLineErrors}
+                totalLabel={t("storeOrders.fields.total")}
+                currencyCode={currencyCode}
               />
               <FieldMessage>{itemsError}</FieldMessage>
             </div>

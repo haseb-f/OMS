@@ -16,15 +16,25 @@ export type TraceKind =
   | "LANDED_COST"
   | "STORE_ORDER"
   | "PAYMENT"
+  | "SHIPMENT"
   | "JOURNAL_ENTRY"
   | "INVENTORY_MOVEMENT"
   | "FIXED_ASSET"
   | "PREPAID_EXPENSE";
 
 export type TraceGroupKey =
-  "SOURCE" | "DOCUMENTS" | "PAYMENTS" | "JOURNAL_ENTRIES" | "STOCK_MOVEMENTS" | "ASSETS";
+  | "SOURCE"
+  | "DOCUMENTS"
+  | "PAYMENTS"
+  | "JOURNAL_ENTRIES"
+  | "STOCK_MOVEMENTS"
+  | "SHIPMENTS"
+  | "RETURNS"
+  | "ASSETS";
 
-export type TraceState = "FOUND" | "PENDING" | "FAILED" | "NOT_APPLICABLE" | "UNAUTHORIZED";
+/** NONE — could exist, none recorded. A FAILED group may still list the records that do exist. */
+export type TraceState =
+  "FOUND" | "PENDING" | "FAILED" | "NONE" | "NOT_APPLICABLE" | "UNAUTHORIZED";
 
 export interface TraceRecord {
   kind: TraceKind;

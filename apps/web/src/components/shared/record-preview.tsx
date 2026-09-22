@@ -16,6 +16,7 @@ import {
 import { pushOrigin } from "@/lib/navigation-origin";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
+import { ApiError } from "@/services/api-client";
 import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
 import {
@@ -48,6 +49,13 @@ export const RECORD_STATUS_TONE: Record<string, StatusTone> = {
   CANCELLED: "destructive",
   REJECTED: "destructive",
   DISPOSED: "neutral",
+  LABEL_CREATED: "neutral",
+  SHIPPED: "info",
+  OUT_FOR_DELIVERY: "info",
+  DELIVERY_FAILED: "destructive",
+  NEEDS_RESHIPMENT: "warning",
+  RETURN_BEFORE_DELIVERY: "warning",
+  RETURN_AFTER_DELIVERY: "warning",
 };
 
 export function recordStatusLabel(
@@ -104,16 +112,21 @@ export function useOpenFullRecord() {
 export function useTrace(kind: TraceKind, id: string | null | undefined, refreshKey?: unknown) {
   const [result, setResult] = useState<TraceResult | null>(null);
   const [error, setError] = useState(false);
+  const [forbidden, setForbidden] = useState(false);
   const [loading, setLoading] = useState(Boolean(id));
 
   const load = useCallback(() => {
     if (!id) return;
     setLoading(true);
     setError(false);
+    setForbidden(false);
     traceabilityService
       .get(kind, id)
       .then(setResult)
-      .catch(() => setError(true))
+      .catch((cause: unknown) => {
+        setError(true);
+        setForbidden(cause instanceof ApiError && cause.status === 403);
+      })
       .finally(() => setLoading(false));
   }, [kind, id]);
 
@@ -122,15 +135,33 @@ export function useTrace(kind: TraceKind, id: string | null | undefined, refresh
     load();
   }, [load, refreshKey]);
 
-  return { result, error, loading, reload: load };
+  /** `forbidden` — the viewer may not see this record's links (HTTP 403), not a failure. */
+  return { result, error, forbidden, loading, reload: load };
 }
 
 const STATE_TEXT: Record<Exclude<TraceGroup["state"], "FOUND">, MessageKey> = {
   PENDING: "docFlow.trace.state.PENDING",
   FAILED: "docFlow.trace.state.FAILED",
+  NONE: "docFlow.trace.state.NONE",
   UNAUTHORIZED: "docFlow.trace.state.UNAUTHORIZED",
   NOT_APPLICABLE: "docFlow.trace.none",
 };
+
+/** Group-specific wording for "not created yet", where the generic text would mislead. */
+const PENDING_TEXT: Partial<Record<TraceGroup["key"], MessageKey>> = {
+  DOCUMENTS: "docFlow.trace.state.AWAITING_DOCUMENT",
+  PAYMENTS: "docFlow.trace.state.AWAITING_PAYMENT",
+  SHIPMENTS: "docFlow.trace.state.AWAITING_SHIPMENT",
+};
+
+function groupStateText(group: TraceGroup): MessageKey | null {
+  if (group.state === "FOUND") return null;
+  if (group.state === "FAILED" && group.items.length > 0) {
+    return "docFlow.trace.state.FAILED_PARTIAL";
+  }
+  if (group.state === "PENDING") return PENDING_TEXT[group.key] ?? STATE_TEXT.PENDING;
+  return STATE_TEXT[group.state];
+}
 
 /**
  * The ONE related-record control: a compact chip (or inline reference)
@@ -205,14 +236,21 @@ export function TraceGroups({
   }
   return (
     <dl className="flex flex-col gap-2">
-      {visible.map((group) => (
-        <div key={group.key} className="flex flex-col gap-1 sm:flex-row sm:items-start sm:gap-3">
-          <dt className="shrink-0 pt-1 text-caption text-muted-foreground sm:w-36">
-            {t(`docFlow.trace.groups.${group.key}` as MessageKey)}
-          </dt>
-          <dd className="flex min-w-0 flex-wrap gap-1.5">
-            {group.state === "FOUND" ? (
-              group.items.map((record) => (
+      {visible.map((group) => {
+        const stateText = groupStateText(group);
+        return (
+          <div
+            key={group.key}
+            data-testid="trace-group"
+            data-group={group.key}
+            data-state={group.state}
+            className="flex flex-col gap-1 sm:flex-row sm:items-start sm:gap-3"
+          >
+            <dt className="shrink-0 pt-1 text-caption text-muted-foreground sm:w-36">
+              {t(`docFlow.trace.groups.${group.key}` as MessageKey)}
+            </dt>
+            <dd className="flex min-w-0 flex-wrap gap-1.5">
+              {group.items.map((record) => (
                 <RelatedRecordLink
                   key={`${record.kind}-${record.id}`}
                   kind={record.kind}
@@ -221,26 +259,25 @@ export function TraceGroups({
                   status={record.status}
                   originLabel={originLabel}
                 />
-              ))
-            ) : (
-              <span
-                className={cn(
-                  "pt-1 text-caption",
-                  group.state === "FAILED"
-                    ? "font-medium text-destructive"
-                    : "text-muted-foreground",
-                )}
-              >
-                {t(
-                  group.key === "PAYMENTS" && group.state === "PENDING"
-                    ? "docFlow.trace.state.AWAITING_PAYMENT"
-                    : STATE_TEXT[group.state],
-                )}
-              </span>
-            )}
-          </dd>
-        </div>
-      ))}
+              ))}
+              {stateText ? (
+                <span
+                  className={cn(
+                    "pt-1 text-caption",
+                    group.state === "FAILED"
+                      ? "font-medium text-destructive"
+                      : group.state === "UNAUTHORIZED"
+                        ? "text-warning-foreground"
+                        : "text-muted-foreground",
+                  )}
+                >
+                  {t(stateText)}
+                </span>
+              ) : null}
+            </dd>
+          </div>
+        );
+      })}
     </dl>
   );
 }

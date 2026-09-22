@@ -89,6 +89,9 @@
   --width-control-unit: 56px;
   --width-control-tax: 120px;
   --width-control-warehouse: 180px;
+  /* Narrowest a document line's product column may get before the line
+     editor switches from table rows to stacked cards (no sideways scroll). */
+  --width-control-product-min: 220px;
   --width-control-check: 36px;
   --width-picker-customer: 420px;
   --width-picker-product: 340px;

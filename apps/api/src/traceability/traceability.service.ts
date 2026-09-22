@@ -1,5 +1,4 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
 import type {
@@ -14,6 +13,22 @@ import type {
 /** Notes prefix the Store Order collection service stamps on the Customer
  *  Receipt it creates for a verified Payment (one receipt per payment). */
 export const STORE_ORDER_PAYMENT_NOTE_PREFIX = 'STORE_ORDER_PAYMENT:';
+
+/** Drops the internal sourceId used for per-source JE checks. */
+function withoutSource({
+  kind,
+  id,
+  number,
+  status,
+  sourceType,
+}: TraceRecord): TraceRecord {
+  return { kind, id, number, status, sourceType };
+}
+
+/** A shipment has no document number of its own: "#<attempt> · <tracking>". */
+function shipmentNumber(attempt: number, tracking: string | null): string {
+  return tracking ? `#${attempt} · ${tracking}` : `#${attempt}`;
+}
 
 /** Who may see each kind of linked record. */
 const VIEW_PERMISSION: Record<TraceKind, string> = {
@@ -31,6 +46,7 @@ const VIEW_PERMISSION: Record<TraceKind, string> = {
   LANDED_COST: 'landed-cost.view',
   STORE_ORDER: 'store-orders.view',
   PAYMENT: 'sales.receipts.view',
+  SHIPMENT: 'shipping.view',
   JOURNAL_ENTRY: 'accounting.journal-entries.view',
   INVENTORY_MOVEMENT: 'inventory.view',
   FIXED_ASSET: 'masterdata.fixed-assets.view',
@@ -148,6 +164,8 @@ export class TraceabilityService {
         return this.storeOrder(id);
       case 'PAYMENT':
         return this.payment(id);
+      case 'SHIPMENT':
+        return this.shipment(id);
       case 'JOURNAL_ENTRY':
         return this.journalEntry(id);
       case 'INVENTORY_MOVEMENT':
@@ -193,6 +211,15 @@ export class TraceabilityService {
     sourceTypes: string[],
     sourceIds: string[],
   ): Promise<TraceRecord[]> {
+    const rows = await this.journalEntriesWithSource(sourceTypes, sourceIds);
+    return rows.map(withoutSource);
+  }
+
+  /** As `journalEntriesFor`, keeping each entry's sourceId for per-source checks. */
+  private async journalEntriesWithSource(
+    sourceTypes: string[],
+    sourceIds: string[],
+  ): Promise<(TraceRecord & { sourceId: string | null })[]> {
     if (sourceIds.length === 0) return [];
     const rows = await this.prisma.journalEntry.findMany({
       where: {
@@ -200,7 +227,13 @@ export class TraceabilityService {
         sourceId: { in: sourceIds },
         deletedAt: null,
       },
-      select: { id: true, entryNumber: true, status: true, sourceType: true },
+      select: {
+        id: true,
+        entryNumber: true,
+        status: true,
+        sourceType: true,
+        sourceId: true,
+      },
       orderBy: { createdAt: 'asc' },
     });
     return rows.map((row) => ({
@@ -209,6 +242,31 @@ export class TraceabilityService {
       number: row.entryNumber,
       status: row.status,
       sourceType: row.sourceType,
+      sourceId: row.sourceId,
+    }));
+  }
+
+  /** Stock movements of several source documents at once. */
+  private async movementsForReferences(
+    references: { type: string; id: string }[],
+  ): Promise<TraceRecord[]> {
+    if (references.length === 0) return [];
+    const rows = await this.prisma.inventoryMovement.findMany({
+      where: {
+        OR: references.map((ref) => ({
+          referenceType: ref.type,
+          referenceId: ref.id,
+        })),
+      },
+      select: { id: true, movementNumber: true, type: true },
+      orderBy: { createdAt: 'asc' },
+      take: 100,
+    });
+    return rows.map((row) => ({
+      kind: 'INVENTORY_MOVEMENT' as const,
+      id: row.id,
+      number: row.movementNumber,
+      status: row.type,
     }));
   }
 
@@ -249,7 +307,7 @@ export class TraceabilityService {
       where: {
         [field]: invoiceId,
         transaction: { deletedAt: null },
-      } as Prisma.FinancialTransactionAllocationWhereInput,
+      },
       select: {
         transaction: {
           select: {
@@ -267,7 +325,7 @@ export class TraceabilityService {
       if (seen.has(row.transaction.id)) continue;
       seen.add(row.transaction.id);
       records.push({
-        kind: row.transaction.type as TraceKind,
+        kind: row.transaction.type,
         id: row.transaction.id,
         number: row.transaction.transactionNumber,
         status: row.transaction.status,
@@ -841,22 +899,142 @@ export class TraceabilityService {
       select: { id: true, internalOrderId: true, paymentStatus: true },
     });
     if (!order) return null;
-    const [invoices, payments] = await Promise.all([
+    const [invoices, payments, shipments] = await Promise.all([
       this.prisma.salesInvoice.findMany({
         where: { storeOrderId: id, deletedAt: null },
-        select: { id: true, invoiceNumber: true, status: true },
+        select: {
+          id: true,
+          invoiceNumber: true,
+          status: true,
+          grandTotal: true,
+        },
+        orderBy: { createdAt: 'asc' },
       }),
       this.prisma.payment.findMany({
         where: { storeOrderId: id, deletedAt: null },
         select: { id: true, paymentNumber: true, status: true },
         orderBy: { createdAt: 'asc' },
       }),
+      this.prisma.shipment.findMany({
+        where: { storeOrderId: id, deletedAt: null },
+        select: {
+          id: true,
+          attemptNumber: true,
+          trackingNumber: true,
+          status: true,
+        },
+        orderBy: { attemptNumber: 'asc' },
+      }),
     ]);
     const invoiceIds = invoices.map((invoice) => invoice.id);
-    const entries = await this.journalEntriesFor(
-      ['SALES_INVOICE', 'FULFILLMENT_COST'],
-      [...invoiceIds, id],
+    const [returns, receipts] = await Promise.all([
+      invoiceIds.length > 0
+        ? this.prisma.salesReturn.findMany({
+            where: { salesInvoiceId: { in: invoiceIds }, deletedAt: null },
+            select: { id: true, returnNumber: true, status: true },
+            orderBy: { createdAt: 'asc' },
+          })
+        : Promise.resolve(
+            [] as { id: string; returnNumber: string; status: string }[],
+          ),
+      // Customer receipts: the one the collection service stamps per verified
+      // Payment, plus any receipt allocated to this order's invoices.
+      this.prisma.financialTransaction.findMany({
+        where: {
+          deletedAt: null,
+          OR: [
+            {
+              notes: {
+                in: payments.map(
+                  (p) => `${STORE_ORDER_PAYMENT_NOTE_PREFIX}${p.id}`,
+                ),
+              },
+            },
+            ...(invoiceIds.length > 0
+              ? [
+                  {
+                    allocations: {
+                      some: { salesInvoiceId: { in: invoiceIds } },
+                    },
+                  },
+                ]
+              : []),
+          ],
+        },
+        select: {
+          id: true,
+          transactionNumber: true,
+          status: true,
+          type: true,
+          notes: true,
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+    ]);
+    const returnIds = returns.map((r) => r.id);
+    const receiptIds = receipts.map((r) => r.id);
+
+    const entries = await this.journalEntriesWithSource(
+      ['SALES_INVOICE', 'FULFILLMENT_COST', 'CUSTOMER_RECEIPT', 'SALES_RETURN'],
+      [...invoiceIds, id, ...receiptIds, ...returnIds],
     );
+    const journaled = new Set(
+      entries.map((entry) => `${entry.sourceType}:${entry.sourceId}`),
+    );
+    // Every posted, non-zero source must have its own JE — one missing is FAILED
+    // even when others (e.g. the receipt JE) exist.
+    const expected = [
+      ...invoices
+        .filter(
+          (i) =>
+            POSTED_STATUSES.has(i.status) &&
+            Math.abs(Number(i.grandTotal)) >= 0.005,
+        )
+        .map((i) => `SALES_INVOICE:${i.id}`),
+      ...receipts
+        .filter((r) => POSTED_STATUSES.has(r.status))
+        .map((r) => `${r.type}:${r.id}`),
+      ...returns
+        .filter((r) => POSTED_STATUSES.has(r.status))
+        .map((r) => `SALES_RETURN:${r.id}`),
+    ];
+    const journalMissing = expected.some((key) => !journaled.has(key));
+    const journalState: TraceState = journalMissing
+      ? 'FAILED'
+      : entries.length > 0
+        ? 'FOUND'
+        : 'PENDING';
+
+    // A verified payment on an invoiced order must have produced a receipt.
+    const invoiced = invoices.some((i) => POSTED_STATUSES.has(i.status));
+    const receiptNotes = new Set(receipts.map((r) => r.notes));
+    const receiptMissing =
+      invoiced &&
+      payments.some(
+        (p) =>
+          p.status === 'VERIFIED' &&
+          !receiptNotes.has(`${STORE_ORDER_PAYMENT_NOTE_PREFIX}${p.id}`),
+      );
+    const paymentItems: TraceRecord[] = [
+      ...payments.map((p) => ({
+        kind: 'PAYMENT' as const,
+        id: p.id,
+        number: p.paymentNumber,
+        status: p.status,
+      })),
+      ...receipts.map((r) => ({
+        kind: r.type,
+        id: r.id,
+        number: r.transactionNumber,
+        status: r.status,
+      })),
+    ];
+
+    const movements = await this.movementsForReferences([
+      ...invoiceIds.map((refId) => ({ type: 'SALES_INVOICE', id: refId })),
+      ...returnIds.map((refId) => ({ type: 'SALES_RETURN', id: refId })),
+    ]);
+
     return {
       record: {
         kind: 'STORE_ORDER' as const,
@@ -875,20 +1053,79 @@ export class TraceabilityService {
           })),
           'PENDING',
         ),
+        {
+          key: 'PAYMENTS' as const,
+          state: receiptMissing
+            ? ('FAILED' as const)
+            : paymentItems.length > 0
+              ? ('FOUND' as const)
+              : ('PENDING' as const),
+          items: paymentItems,
+        },
+        {
+          key: 'JOURNAL_ENTRIES' as const,
+          state: journalState,
+          items: entries.map(withoutSource),
+        },
         this.group(
-          'PAYMENTS',
-          payments.map((p) => ({
-            kind: 'PAYMENT' as const,
-            id: p.id,
-            number: p.paymentNumber,
-            status: p.status,
+          'SHIPMENTS',
+          shipments.map((s) => ({
+            kind: 'SHIPMENT' as const,
+            id: s.id,
+            number: shipmentNumber(s.attemptNumber, s.trackingNumber),
+            status: s.status,
           })),
           'PENDING',
         ),
+        this.group('STOCK_MOVEMENTS', movements, invoiced ? 'NONE' : 'PENDING'),
         this.group(
-          'JOURNAL_ENTRIES',
-          entries,
-          invoices.length > 0 ? 'FAILED' : 'PENDING',
+          'RETURNS',
+          returns.map((r) => ({
+            kind: 'SALES_RETURN' as const,
+            id: r.id,
+            number: r.returnNumber,
+            status: r.status,
+          })),
+          'NONE',
+        ),
+      ],
+    };
+  }
+
+  private async shipment(id: string) {
+    const shipment = await this.prisma.shipment.findFirst({
+      where: { id, deletedAt: null },
+      select: {
+        id: true,
+        attemptNumber: true,
+        trackingNumber: true,
+        status: true,
+        storeOrder: {
+          select: { id: true, internalOrderId: true, paymentStatus: true },
+        },
+      },
+    });
+    if (!shipment) return null;
+    return {
+      record: {
+        kind: 'SHIPMENT' as const,
+        id: shipment.id,
+        number: shipmentNumber(shipment.attemptNumber, shipment.trackingNumber),
+        status: shipment.status,
+      },
+      groups: [
+        this.group(
+          'SOURCE',
+          shipment.storeOrder
+            ? [
+                {
+                  kind: 'STORE_ORDER' as const,
+                  id: shipment.storeOrder.id,
+                  number: shipment.storeOrder.internalOrderId,
+                  status: shipment.storeOrder.paymentStatus,
+                },
+              ]
+            : [],
         ),
       ],
     };
@@ -953,7 +1190,7 @@ export class TraceabilityService {
         receipt
           ? this.group('PAYMENTS', [
               {
-                kind: receipt.type as TraceKind,
+                kind: receipt.type,
                 id: receipt.id,
                 number: receipt.transactionNumber,
                 status: receipt.status,

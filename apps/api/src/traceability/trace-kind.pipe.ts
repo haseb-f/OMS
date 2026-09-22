@@ -16,6 +16,7 @@ export const TRACE_KINDS: readonly TraceKind[] = [
   'LANDED_COST',
   'STORE_ORDER',
   'PAYMENT',
+  'SHIPMENT',
   'JOURNAL_ENTRY',
   'INVENTORY_MOVEMENT',
   'FIXED_ASSET',

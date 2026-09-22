@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ShoppingCart, Trash2 } from "lucide-react";
+import { ShoppingCart } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import {
   CreateOperationFooter,
@@ -14,22 +14,12 @@ import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ProductPicker } from "@/components/business/product-picker";
-import { MoneyInput } from "@/components/shared/money-input";
-import { IconActionButton } from "@/components/shared/icon-action-button";
 import {
-  DocumentLineTable,
-  DocumentLineTableAddFooter,
-  DocumentLineTableBody,
-  DocumentLineTableCell,
-  DocumentLineTableHead,
-  DocumentLineTableHeader,
-  DocumentLineTableRow,
-  documentLineCellClass,
-  documentLineHeadClass,
-  documentLineNumericCellClass,
-  documentLineNumericHeadClass,
-} from "@/components/documents/document-line-table";
+  ProductLineItemsGrid,
+  createEmptyLine,
+  isLinePriceMissing,
+  type ProductLineItemsGridLine,
+} from "@/components/sales/product-line-items-grid";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { useCurrencies, usePaymentMethods, useCountries } from "@/hooks/use-reference-data";
 import { leadsService, type LeadRow } from "@/services/leads-service";
@@ -47,13 +37,6 @@ import {
 import { attachmentsService } from "@/services/attachments-service";
 
 const citiesService = createMasterDataService<CityRow>("/cities");
-
-type ConvertLine = {
-  key: string;
-  product: ProductRow | null;
-  quantity: number;
-  agreedAmount: number;
-};
 
 export function LeadConvertDialog({
   lead,
@@ -73,7 +56,8 @@ export function LeadConvertDialog({
 
   const [step, setStep] = useState<"form" | "summary">("form");
   const [isSaving, setIsSaving] = useState(false);
-  const [lines, setLines] = useState<ConvertLine[]>([]);
+  const [lines, setLines] = useState<ProductLineItemsGridLine[]>([]);
+  const [showLineErrors, setShowLineErrors] = useState(false);
   const [paymentType, setPaymentType] = useState<"PREPAID" | "CASH_ON_DELIVERY">("PREPAID");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodRow | null>(null);
   const [currency, setCurrency] = useState<CurrencyRow | null>(null);
@@ -92,9 +76,10 @@ export function LeadConvertDialog({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setStep("form");
     setFieldError(null);
+    setShowLineErrors(false);
     setLines([
       {
-        key: "line-1",
+        ...createEmptyLine(),
         product: lead.product
           ? ({
               id: lead.product.id,
@@ -104,7 +89,8 @@ export function LeadConvertDialog({
             } as ProductRow)
           : null,
         quantity: lead.quantity || 1,
-        agreedAmount: 0,
+        // The agreed amount is entered by the user — blank, never a silent 0.
+        lineAmount: null,
       },
     ]);
     setPaymentType("PREPAID");
@@ -127,22 +113,24 @@ export function LeadConvertDialog({
       .catch(() => setCities([]));
   }, [open, countryId]);
 
-  const orderTotal = lines.reduce((sum, line) => sum + Number(line.agreedAmount || 0), 0);
+  const productLines = lines.filter((line) => line.product);
+  const orderTotal = productLines.reduce((sum, line) => sum + (line.lineAmount ?? 0), 0);
   const paid = Number(amountPaid) || 0;
   const remaining = Math.max(orderTotal - paid, 0);
   const selectedCountry = countries.find((c) => c.id === countryId) ?? null;
   const selectedCity = cities.find((c) => c.name === city) ?? null;
 
   const validate = (): boolean => {
-    if (lines.some((line) => !line.product)) {
+    if (productLines.length === 0) {
       setFieldError(t("crm.leads.convert.validation.product"));
       return false;
     }
-    if (lines.some((line) => !line.quantity || line.quantity < 1)) {
+    if (productLines.some((line) => !Number.isInteger(line.quantity) || line.quantity < 1)) {
       setFieldError(t("crm.leads.convert.validation.quantity"));
       return false;
     }
-    if (lines.some((line) => line.agreedAmount < 0 || Number.isNaN(line.agreedAmount))) {
+    if (productLines.some((line) => isLinePriceMissing(line, "lineAmount"))) {
+      setShowLineErrors(true);
       setFieldError(t("crm.leads.convert.validation.amount"));
       return false;
     }
@@ -167,10 +155,10 @@ export function LeadConvertDialog({
     setIsSaving(true);
     try {
       const result = await leadsService.convert(lead.id, {
-        items: lines.map((line) => ({
+        items: productLines.map((line) => ({
           productId: line.product!.id,
           quantity: line.quantity,
-          agreedAmount: line.agreedAmount,
+          agreedAmount: line.lineAmount!,
         })),
         paymentType,
         paymentMethodId: paymentMethod?.id,
@@ -254,122 +242,25 @@ export function LeadConvertDialog({
           </ModalSection>
 
           <ModalSection title={t("crm.leads.convert.sectionProducts")}>
-            <DocumentLineTable
-              minWidthClass="min-w-[640px]"
-              footer={
-                <DocumentLineTableAddFooter
-                  label={t("crm.leads.convert.addProduct")}
-                  onClick={() =>
-                    setLines((current) => [
-                      ...current,
-                      { key: `line-${Date.now()}`, product: null, quantity: 1, agreedAmount: 0 },
-                    ])
-                  }
-                />
-              }
-            >
-              <colgroup>
-                <col />
-                <col className="w-(--width-control-quantity)" />
-                <col className="w-(--width-control-line-total)" />
-                <col className="w-(--width-control-actions)" />
-              </colgroup>
-              <DocumentLineTableHeader>
-                <DocumentLineTableRow className="hover:bg-transparent">
-                  <DocumentLineTableHead className={documentLineHeadClass}>
-                    {t("sales.editor.grid.product")}
-                  </DocumentLineTableHead>
-                  <DocumentLineTableHead
-                    className={`${documentLineNumericHeadClass} w-(--width-control-quantity)`}
-                  >
-                    {t("crm.leads.convert.quantity")}
-                  </DocumentLineTableHead>
-                  <DocumentLineTableHead
-                    className={`${documentLineNumericHeadClass} w-(--width-control-line-total)`}
-                  >
-                    {t("crm.leads.convert.agreedAmount")}
-                  </DocumentLineTableHead>
-                  <DocumentLineTableHead
-                    className={`${documentLineHeadClass} w-(--width-control-actions)`}
-                  />
-                </DocumentLineTableRow>
-              </DocumentLineTableHeader>
-              <DocumentLineTableBody>
-                {lines.map((line) => (
-                  <DocumentLineTableRow key={line.key} className="hover:bg-muted/40">
-                    <DocumentLineTableCell className={`${documentLineCellClass} min-w-0`}>
-                      <ProductPicker
-                        embedded
-                        className="min-w-0 w-full"
-                        value={line.product}
-                        onChange={(product) =>
-                          setLines((current) =>
-                            current.map((item) =>
-                              item.key === line.key ? { ...item, product } : item,
-                            ),
-                          )
-                        }
-                      />
-                    </DocumentLineTableCell>
-                    <DocumentLineTableCell
-                      className={`${documentLineNumericCellClass} w-(--width-control-quantity)`}
-                    >
-                      <Input
-                        dir="ltr"
-                        type="number"
-                        min={1}
-                        inputSize="compact-md"
-                        inputMode="decimal"
-                        className="px-2 text-end tabular-nums"
-                        value={line.quantity}
-                        onChange={(event) =>
-                          setLines((current) =>
-                            current.map((item) =>
-                              item.key === line.key
-                                ? { ...item, quantity: Number(event.target.value) || 1 }
-                                : item,
-                            ),
-                          )
-                        }
-                        aria-label={t("crm.leads.convert.quantity")}
-                      />
-                    </DocumentLineTableCell>
-                    <DocumentLineTableCell
-                      className={`${documentLineNumericCellClass} w-(--width-control-line-total)`}
-                    >
-                      <MoneyInput
-                        min={0}
-                        className="px-2"
-                        value={line.agreedAmount}
-                        onChange={(event) =>
-                          setLines((current) =>
-                            current.map((item) =>
-                              item.key === line.key
-                                ? { ...item, agreedAmount: Number(event.target.value) || 0 }
-                                : item,
-                            ),
-                          )
-                        }
-                        aria-label={t("crm.leads.convert.agreedAmount")}
-                      />
-                    </DocumentLineTableCell>
-                    <DocumentLineTableCell
-                      className={`${documentLineCellClass} w-(--width-control-actions)`}
-                    >
-                      <IconActionButton
-                        label={t("common.remove")}
-                        disabled={lines.length === 1}
-                        onClick={() =>
-                          setLines((current) => current.filter((item) => item.key !== line.key))
-                        }
-                      >
-                        <Trash2 className="size-3.5 text-muted-foreground" />
-                      </IconActionButton>
-                    </DocumentLineTableCell>
-                  </DocumentLineTableRow>
-                ))}
-              </DocumentLineTableBody>
-            </DocumentLineTable>
+            <ProductLineItemsGrid
+              lines={lines}
+              onChange={(next) => {
+                setLines(next);
+                if (fieldError) setFieldError(null);
+              }}
+              requireWarehouse={false}
+              showWarehouse={false}
+              showUnit={false}
+              showDiscount={false}
+              showTax={false}
+              showDescription={false}
+              priceMode="lineAmount"
+              unitPriceLabel={t("crm.leads.convert.agreedAmount")}
+              requirePrice
+              showErrors={showLineErrors}
+              totalLabel={t("crm.leads.convert.orderTotal")}
+              currencyCode={currency?.code}
+            />
           </ModalSection>
 
           <ModalSection title={t("crm.leads.convert.sectionPayment")} columns={2}>
@@ -528,10 +419,10 @@ export function LeadConvertDialog({
               { label: t("crm.leads.fields.source"), value: lead.source },
               {
                 label: t("crm.leads.convert.sectionProducts"),
-                value: lines
+                value: productLines
                   .map(
                     (line) =>
-                      `${line.product?.displayName ?? line.product?.name} × ${line.quantity} = ${line.agreedAmount}`,
+                      `${line.product?.displayName ?? line.product?.name} × ${line.quantity} = ${(line.lineAmount ?? 0).toFixed(2)}`,
                   )
                   .join(" · "),
               },
