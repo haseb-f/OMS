@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -41,18 +42,18 @@ export class CountriesController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.countriesService.findOne(id);
   }
 
   @Get(':id/activity')
-  activity(@Param('id') id: string) {
+  activity(@Param('id', ParseUUIDPipe) id: string) {
     return this.countriesService.activityFor(id);
   }
 
   @Patch(':id')
   update(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateCountryDto,
     @CurrentUser() user: JwtPayload,
   ) {
@@ -61,12 +62,18 @@ export class CountriesController {
 
   @Post(':id/archive')
   @PermissionAction('delete')
-  archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+  archive(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
     return this.countriesService.archive(id, user.sub);
   }
 
   @Post(':id/restore')
-  restore(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+  restore(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
     return this.countriesService.restore(id, user.sub);
   }
 }

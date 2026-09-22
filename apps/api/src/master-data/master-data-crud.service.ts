@@ -2,6 +2,12 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { uniqueFieldFromPrismaError } from '../common/errors/prisma-unique-field';
+import {
+  containsArabic,
+  escapeLikePattern,
+  normalizeArabicSearch,
+  normalizedArabicColumnSql,
+} from '../common/text/arabic-search';
 import { MasterDataActivityLogService } from './master-data-activity-log.service';
 import { MasterDataQueryDto } from './dto/master-data-query.dto';
 
@@ -51,6 +57,14 @@ export abstract class MasterDataCrudService<
   protected abstract readonly entityLabel: string;
   protected abstract readonly searchFields: string[];
   protected readonly defaultSortField: string = 'name';
+  /**
+   * Optional Arabic-normalized search (see `common/text/arabic-search.ts`):
+   * the physical table and DB column names whose stored text is normalized
+   * in SQL, so "أحمد" finds "احمد" and "السعوديه" finds "السعودية". Runs
+   * only when the search text contains Arabic, in addition to (never
+   * instead of) the plain `searchFields` match.
+   */
+  protected readonly normalizedSearch?: { table: string; columns: string[] };
 
   constructor(
     protected readonly prisma: PrismaService,
@@ -59,20 +73,41 @@ export abstract class MasterDataCrudService<
 
   protected abstract get delegate(): MasterDataDelegate<TEntity>;
 
-  private buildWhere(
+  private async buildWhere(
     query: MasterDataQueryDto,
     extraWhere: Record<string, unknown>,
-  ): Record<string, unknown> {
+  ): Promise<Record<string, unknown>> {
     const where: Record<string, unknown> = {
       ...extraWhere,
       deletedAt: query.includeArchived ? undefined : null,
     };
     if (query.search && this.searchFields.length) {
-      where.OR = this.searchFields.map((field) => ({
+      const or: Record<string, unknown>[] = this.searchFields.map((field) => ({
         [field]: { contains: query.search, mode: 'insensitive' },
       }));
+      const normalizedIds = await this.findNormalizedSearchIds(query.search);
+      if (normalizedIds?.length) or.push({ id: { in: normalizedIds } });
+      where.OR = or;
     }
     return where;
+  }
+
+  /** IDs whose `normalizedSearch.columns` match the Arabic-normalized search text; null when not applicable. Capped like "select all matching". */
+  private async findNormalizedSearchIds(
+    search: string,
+  ): Promise<string[] | null> {
+    if (!this.normalizedSearch || !containsArabic(search)) return null;
+    const needle = normalizeArabicSearch(search);
+    if (!needle) return null;
+    const pattern = `%${escapeLikePattern(needle)}%`;
+    const conditions = this.normalizedSearch.columns.map(
+      (column) =>
+        Prisma.sql`${normalizedArabicColumnSql(`"${column}"`)} LIKE ${pattern}`,
+    );
+    const rows = await this.prisma.$queryRaw<{ id: string }[]>(
+      Prisma.sql`SELECT id::text AS id FROM ${Prisma.raw(`"${this.normalizedSearch.table}"`)} WHERE ${Prisma.join(conditions, ' OR ')} LIMIT ${SELECT_ALL_MATCHING_CAP}`,
+    );
+    return rows.map((row) => row.id);
   }
 
   async findAll(
@@ -83,7 +118,7 @@ export abstract class MasterDataCrudService<
   ): Promise<MasterDataListResult<TEntity>> {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
-    const where = this.buildWhere(query, extraWhere);
+    const where = await this.buildWhere(query, extraWhere);
     const orderBy = {
       [query.sortBy || this.defaultSortField]: query.sortOrder ?? 'asc',
     };
@@ -113,7 +148,7 @@ export abstract class MasterDataCrudService<
     query: MasterDataQueryDto,
     extraWhere: Record<string, unknown> = {},
   ): Promise<MasterDataIdsResult> {
-    const where = this.buildWhere(query, extraWhere);
+    const where = await this.buildWhere(query, extraWhere);
     const [rows, total] = await Promise.all([
       this.delegate.findMany({
         where,

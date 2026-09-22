@@ -89,6 +89,11 @@ export class PartnersService extends MasterDataCrudService<
     'mobile',
     'email',
   ];
+  /** Arabic-normalized name search — "أحمد محمد صالح" finds "احمد محمد صالح". */
+  protected readonly normalizedSearch = {
+    table: 'partners',
+    columns: ['name', 'commercial_name'],
+  };
 
   constructor(
     prisma: PrismaService,

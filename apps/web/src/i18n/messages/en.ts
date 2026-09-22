@@ -1282,6 +1282,9 @@ const en = {
     countries: {
       title: "Countries",
       description: "Manage countries referenced across OMS.",
+      codeHint:
+        'ISO 3166-1 two-letter code (e.g. SA). If a country is missing, check "Show archived" and restore it instead of creating a duplicate.',
+      codeInvalid: "Code must be exactly two Latin letters A–Z (e.g. SA).",
     },
     cities: {
       title: "Cities",
@@ -1457,6 +1460,16 @@ const en = {
         netChange: "Net Change",
         partnerNumber: "Partner Number",
         partnerName: "Partner",
+        journal: "Journal",
+        reference: "Reference",
+        account: "Account",
+      },
+      ledger: {
+        accounts: "Accounts",
+        accountsRange: "Accounts {from}–{to} of {total}",
+        periodMovement: "Period movement",
+        signHint:
+          "Balances are debit-positive (debit − credit); a credit balance shows as negative.",
       },
       filters: {
         company: "Company",
@@ -1470,6 +1483,7 @@ const en = {
         currency: "Currency",
         allCurrencies: "All Currencies",
         postedOnly: "Posted Only",
+        postedOnlyHint: "Uncheck to include draft journal entries.",
         includeOpeningBalance: "Include Opening Balance",
         allAccounts: "All Accounts",
         selectAccountRequired: "Select account",
@@ -1685,9 +1699,9 @@ const en = {
       purchaseDescription: "Purchase Description",
       availableForPurchase: "Available For Purchase",
       trackInventory: "Track Inventory",
-      availableForInvestmentOpportunities: "Available For Investment Opportunities",
+      availableForInvestmentOpportunities: "Available for investment opportunities",
       availableForInvestmentOpportunitiesHint:
-        "When enabled, this Product can be used inside Investment Opportunities.",
+        "When enabled, this product (if active) appears in the Investment Opportunity product selector. Disabling it later keeps it on existing opportunities but blocks selecting it for new ones.",
       reorderLevel: "Reorder Point",
       reorderQuantity: "Reorder Quantity",
       safetyStock: "Safety Stock",
@@ -2322,7 +2336,7 @@ const en = {
         validation: {
           product: "Select the product",
           quantity: "Enter the quantity",
-          amount: "Enter the amount",
+          amount: "Enter the agreed amount (greater than 0) for every product",
           total: "Enter the agreed amount — the order total cannot be 0.00",
           paymentMethod: "Select the payment method",
           shipping: "Enter the shipping address",
@@ -2652,6 +2666,7 @@ const en = {
         noActiveProducts: "No active products",
         noMatchingProducts: "No matching results",
         productsLoadError: "Could not load products",
+        agreedAmount: "Agreed amount",
       },
       totals: {
         subtotal: "Subtotal",
@@ -3076,7 +3091,7 @@ const en = {
         title: "Order summary",
         product: "Product",
         quantity: "Quantity",
-        paymentAwaitingMatch: "Awaiting match",
+        paymentAwaitingMatch: "Awaiting confirmation",
       },
       items: {
         title: "Line Items",
@@ -3084,6 +3099,7 @@ const en = {
         remove: "Remove row",
         required: "Add at least one line item with a product and quantity.",
         lineTotal: "Line Total",
+        agreedUnitPrice: "Agreed unit price",
       },
       paymentIncomplete:
         "Complete payment method, receiving account, and sender name to record a payment with the order.",
@@ -3259,9 +3275,9 @@ const en = {
         paid: "Paid",
         remaining: "Remaining",
         recordStatus: {
-          PENDING: "Pending",
-          MATCHED: "Matched",
-          VERIFIED: "Verified",
+          PENDING: "Awaiting confirmation",
+          MATCHED: "Matched — not posted",
+          VERIFIED: "Confirmed & posted",
           REJECTED: "Rejected",
         },
         add: "Add Payment",
@@ -4546,6 +4562,12 @@ const en = {
         rateDate: "Rate Date",
         status: "Status",
       },
+      ratePreview:
+        "Meaning: 1 {from} = {rate} {to} · 1 {to} = {inverse} {from}. Enter how many units of the To currency one unit of the From currency buys.",
+      baseCurrencyNote:
+        "Company base currency: {base}. Documents in {base} post at their own amounts; rates convert other currencies into {base}.",
+      baseCurrencyMissing:
+        "The company base currency is not set. Set it in Accounting Settings before posting documents that carry a currency — OMS will not guess one.",
       toasts: {
         rateCreated: "Exchange rate snapshot saved.",
         revalued: "FX revaluation posted.",
@@ -4626,6 +4648,10 @@ const en = {
         otherIncome: "Other Income",
         otherExpense: "Other Expense",
         functionalCurrency: "Functional Currency",
+        functionalCurrencyHint:
+          "The unit every posted amount is stored in. It cannot be changed after journal entries have been posted.",
+        functionalCurrencyMissing:
+          "Not set — documents that carry a currency cannot be posted until the company base currency is chosen.",
       },
       picker: {
         select: "Select account",
@@ -5718,6 +5744,8 @@ const en = {
       create: {
         sectionDetails: "Opportunity Details",
         sectionProducts: "Products",
+        productsEligibilityHint:
+          'Only active products marked "Available for investment opportunities" are listed. Products disabled later stay on existing opportunities but cannot be selected again.',
         sectionSummary: "Summary",
         addProduct: "Add Product",
         fundedUnits: "Funded Units",
@@ -6305,6 +6333,8 @@ const en = {
         "Posting the invoice capitalizes this line and creates the asset with its depreciation schedule. Due months post automatically.",
       prepaidHint:
         "Posting the invoice defers this line to Prepayments and recognizes it monthly into the expense account.",
+      priceRequired: "Enter a price greater than 0 for every product.",
+      amountRequired: "Enter the agreed amount (greater than 0) for every product.",
     },
     actions: {
       more: "More",
@@ -6385,6 +6415,11 @@ const en = {
         PENDING: "Pending — created when the document is posted",
         FAILED: "Missing — this should exist but doesn't. Retry the posting or contact finance.",
         UNAUTHORIZED: "Restricted — you don't have permission to view these records",
+        NONE: "None recorded",
+        FAILED_PARTIAL:
+          "Incomplete — some expected records are missing. Retry the posting or contact finance.",
+        AWAITING_DOCUMENT: "Not created yet",
+        AWAITING_SHIPMENT: "Not shipped yet",
       },
       title: "Related records",
       none: "No related records yet.",
@@ -6396,6 +6431,8 @@ const en = {
         JOURNAL_ENTRIES: "Journal entries",
         STOCK_MOVEMENTS: "Stock movements",
         ASSETS: "Assets & prepayments",
+        SHIPMENTS: "Deliveries & shipments",
+        RETURNS: "Returns",
       },
     },
     reports: {
@@ -6435,6 +6472,7 @@ const en = {
       INVENTORY_MOVEMENT: "Stock movement",
       FIXED_ASSET: "Fixed asset",
       PREPAID_EXPENSE: "Prepaid expense",
+      SHIPMENT: "Shipment",
     },
     status: {
       DRAFT: "Draft",
@@ -6464,6 +6502,13 @@ const en = {
       PARTIALLY_PAID: "Partially paid",
       PAYMENT_PENDING: "Unpaid",
       PAYMENT_REVIEW: "Payment review",
+      LABEL_CREATED: "Label created",
+      SHIPPED: "Shipped",
+      OUT_FOR_DELIVERY: "Out for delivery",
+      DELIVERY_FAILED: "Delivery failed",
+      NEEDS_RESHIPMENT: "Needs reshipment",
+      RETURN_BEFORE_DELIVERY: "Returned before delivery",
+      RETURN_AFTER_DELIVERY: "Returned after delivery",
     },
   },
   // docFlow:end

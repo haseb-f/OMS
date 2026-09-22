@@ -104,8 +104,9 @@ export const useCurrencies = createReferenceDataHook<CurrencyRow>(() =>
   currenciesService.list({ pageSize: 200 }).then((r) => r.items),
 );
 
+/** The whole ISO list (~250 rows) — the page size must never truncate it, or a country silently vanishes from every picker. */
 export const useCountries = createReferenceDataHook<CountryRow>(() =>
-  countriesService.list({ pageSize: 300 }).then((r) => r.items),
+  countriesService.list({ pageSize: 1000 }).then((r) => r.items),
 );
 
 /**

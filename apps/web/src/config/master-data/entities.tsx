@@ -268,6 +268,9 @@ export interface CountryRow {
   id: string;
   code: string;
   name: string;
+  nameEn?: string | null;
+  iso3?: string | null;
+  callingCode?: string | null;
   deletedAt: string | null;
 }
 
@@ -1708,6 +1711,7 @@ export const supplierGroupRowLabel = (row: SupplierGroupRow) => `${row.code} —
 export const countriesColumns: ColumnDef<CountryRow, unknown>[] = [
   textColumn("code", "masterData.fields.code", (r) => r.code),
   textColumn("name", "masterData.fields.name", (r) => r.name),
+  textColumn("nameEn", "masterData.fields.nameEn", (r) => r.nameEn ?? ""),
   statusColumn<CountryRow>(),
 ];
 
@@ -1717,18 +1721,25 @@ export const countriesFormFields: MasterDataFormField[] = [
     label: "masterData.fields.code",
     type: "text",
     required: true,
-    placeholder: "EG",
+    placeholder: "SA",
   },
   { name: "name", label: "masterData.fields.name", type: "text", required: true },
+  { name: "nameEn", label: "masterData.fields.nameEn", type: "text" },
 ];
 
-export const countriesSchema = z.object({
-  code: z.string().min(1),
-  name: z.string().min(1),
-});
+/** ISO 3166-1 alpha-2 — mirrors the API rule (`countries/country-code.util.ts`); the API stays authoritative. */
+export const buildCountriesSchema = (t: (key: MessageKey) => string) =>
+  z.object({
+    code: z
+      .string()
+      .transform((value) => value.trim().toUpperCase())
+      .pipe(z.string().regex(/^[A-Z]{2}$/, t("masterData.countries.codeInvalid"))),
+    name: z.string().trim().min(1),
+    nameEn: z.string().trim().optional(),
+  });
 
-export const countriesDefaultValues = { code: "", name: "" };
-export const countriesExportColumns = ["code", "name"];
+export const countriesDefaultValues = { code: "", name: "", nameEn: "" };
+export const countriesExportColumns = ["code", "name", "nameEn"];
 export const countryRowLabel = (row: CountryRow) => `${row.code} — ${row.name}`;
 
 // ---------------------------------------------------------------------------

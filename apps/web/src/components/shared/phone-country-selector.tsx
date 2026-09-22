@@ -12,6 +12,10 @@ export interface PhoneCountryOption {
   code: string;
   /** The Country entity's own display name (Arabic by default in this app) — always shown and always searchable, even for a `code` libphonenumber-js doesn't recognize. */
   name: string;
+  /** Optional row fields (API `Country`) — searched when present so "Saudi", "SAU" and "+966" still match if the phone library lacks metadata. */
+  nameEn?: string | null;
+  iso3?: string | null;
+  callingCode?: string | null;
 }
 
 /**
@@ -69,7 +73,16 @@ export function PhoneCountrySelector({
       }}
       getSearchText={(country) => {
         const meta = getCountryPhoneMetadata(country.code);
-        return [country.id, meta?.nameAr, meta?.nameEn, country.code, meta?.callingCode]
+        return [
+          country.id,
+          meta?.nameAr,
+          meta?.nameEn,
+          country.nameEn,
+          country.code,
+          country.iso3,
+          country.callingCode,
+          meta?.callingCode ? `+${meta.callingCode}` : undefined,
+        ]
           .filter(Boolean)
           .join(" ");
       }}

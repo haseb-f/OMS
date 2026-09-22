@@ -1275,6 +1275,9 @@ const ar = {
     countries: {
       title: "الدول",
       description: "إدارة الدول المستخدمة في النظام.",
+      codeHint:
+        "رمز ISO 3166-1 من حرفين (مثل SA). إذا لم تجد دولة فاعرض المؤرشف واستعدها بدلًا من إنشاء نسخة مكررة.",
+      codeInvalid: "الرمز يجب أن يكون حرفين لاتينيين فقط (A–Z)، مثل SA.",
     },
     cities: {
       title: "المدن",
@@ -1447,6 +1450,15 @@ const ar = {
         netChange: "صافي التغير",
         partnerNumber: "رقم الشريك",
         partnerName: "الشريك",
+        journal: "اليومية",
+        reference: "المرجع",
+        account: "الحساب",
+      },
+      ledger: {
+        accounts: "الحسابات",
+        accountsRange: "الحسابات {from}–{to} من {total}",
+        periodMovement: "حركة الفترة",
+        signHint: "الأرصدة مدينة موجبة (مدين − دائن)؛ الرصيد الدائن يظهر بالسالب.",
       },
       filters: {
         company: "الشركة",
@@ -1460,6 +1472,7 @@ const ar = {
         currency: "العملة",
         allCurrencies: "جميع العملات",
         postedOnly: "المرحّل فقط",
+        postedOnlyHint: "ألغِ التحديد لتضمين القيود المسودة.",
         includeOpeningBalance: "تضمين الرصيد الافتتاحي",
         allAccounts: "جميع الحسابات",
         selectAccountRequired: "اختر حسابًا",
@@ -1673,9 +1686,9 @@ const ar = {
       purchaseDescription: "وصف الشراء",
       availableForPurchase: "متاح للشراء",
       trackInventory: "تتبع المخزون",
-      availableForInvestmentOpportunities: "متاح للفرص الاستثمارية",
+      availableForInvestmentOpportunities: "متاح لفرص الاستثمار",
       availableForInvestmentOpportunitiesHint:
-        "عند تفعيل هذا الخيار يمكن استخدام المنتج داخل الفرص الاستثمارية.",
+        "عند التفعيل يظهر المنتج (إذا كان نشطًا) في اختيار منتجات الفرص الاستثمارية. إلغاء التفعيل لاحقًا لا يزيله من الفرص القائمة، لكنه يمنع اختياره في أي فرصة جديدة.",
       reorderLevel: "نقطة إعادة الطلب",
       reorderQuantity: "كمية إعادة الطلب",
       safetyStock: "مخزون الأمان",
@@ -2298,7 +2311,7 @@ const ar = {
         validation: {
           product: "اختر المنتج",
           quantity: "أدخل الكمية",
-          amount: "أدخل المبلغ",
+          amount: "أدخل المبلغ المتفق عليه (أكبر من 0) لكل منتج",
           paymentMethod: "اختر طريقة الدفع",
           total: "أدخل المبلغ المتفق عليه — لا يمكن أن يكون إجمالي الطلب 0.00",
           shipping: "أدخل عنوان الشحن",
@@ -2627,6 +2640,7 @@ const ar = {
         noActiveProducts: "لا توجد منتجات نشطة",
         noMatchingProducts: "لا توجد نتائج مطابقة",
         productsLoadError: "تعذر تحميل المنتجات",
+        agreedAmount: "المبلغ المتفق عليه",
       },
       totals: {
         subtotal: "الإجمالي الفرعي",
@@ -3049,7 +3063,7 @@ const ar = {
         title: "ملخص الطلب",
         product: "المنتج",
         quantity: "الكمية",
-        paymentAwaitingMatch: "في انتظار المطابقة",
+        paymentAwaitingMatch: "بانتظار التأكيد",
       },
       items: {
         title: "بنود الطلب",
@@ -3057,6 +3071,7 @@ const ar = {
         remove: "حذف السطر",
         required: "أضف بنداً واحداً على الأقل يحتوي على منتج وكمية.",
         lineTotal: "الإجمالي",
+        agreedUnitPrice: "سعر الوحدة المتفق عليه",
       },
       paymentIncomplete: "أكمل طريقة الدفع وحساب الاستلام واسم المُرسل لتسجيل دفعة مع الطلب.",
       receiptIncomplete: "أدخل اسم الملف والرابط معاً، أو اترك المرفق فارغاً.",
@@ -3229,9 +3244,9 @@ const ar = {
         paid: "المدفوع",
         remaining: "المتبقي",
         recordStatus: {
-          PENDING: "قيد الانتظار",
-          MATCHED: "مطابقة",
-          VERIFIED: "مؤكدة",
+          PENDING: "بانتظار التأكيد",
+          MATCHED: "مطابقة — غير مرحّلة",
+          VERIFIED: "مؤكدة ومرحّلة",
           REJECTED: "مرفوضة",
         },
         add: "إضافة دفعة",
@@ -4496,6 +4511,12 @@ const ar = {
         rateDate: "تاريخ السعر",
         status: "الحالة",
       },
+      ratePreview:
+        "المعنى: 1 {from} = {rate} {to} · 1 {to} = {inverse} {from}. أدخل عدد وحدات العملة «إلى» التي تعادل وحدة واحدة من العملة «من».",
+      baseCurrencyNote:
+        "العملة الأساسية للشركة: {base}. مستندات {base} تُرحَّل بمبالغها كما هي، والأسعار تحوّل العملات الأخرى إلى {base}.",
+      baseCurrencyMissing:
+        "لم يتم تحديد العملة الأساسية للشركة. حدّدها من إعدادات المحاسبة قبل ترحيل مستندات بعملة — لن يخمّن النظام عملة أساسية.",
       toasts: {
         rateCreated: "تم حفظ لقطة سعر الصرف.",
         revalued: "تم ترحيل إعادة تقييم العملة.",
@@ -4576,6 +4597,10 @@ const ar = {
         otherIncome: "إيرادات أخرى",
         otherExpense: "مصروفات أخرى",
         functionalCurrency: "العملة الوظيفية",
+        functionalCurrencyHint:
+          "العملة التي تُخزَّن بها جميع المبالغ المرحّلة. لا يمكن تغييرها بعد ترحيل قيود يومية.",
+        functionalCurrencyMissing:
+          "غير محددة — لا يمكن ترحيل المستندات التي تحمل عملة حتى يتم اختيار العملة الأساسية للشركة.",
       },
       picker: {
         select: "اختر الحساب",
@@ -5657,6 +5682,8 @@ const ar = {
       create: {
         sectionDetails: "بيانات الفرصة",
         sectionProducts: "المنتجات",
+        productsEligibilityHint:
+          "تظهر هنا المنتجات النشطة المفعّل عليها «متاح لفرص الاستثمار» فقط. المنتجات التي أُلغي تفعيلها تبقى في الفرص القائمة ولا يمكن اختيارها من جديد.",
         sectionSummary: "الملخص",
         addProduct: "إضافة منتج",
         fundedUnits: "عدد الوحدات المموَّلة",
@@ -6241,6 +6268,8 @@ const ar = {
         "ترحيل الفاتورة يرسمل هذا البند وينشئ الأصل مع جدول الإهلاك. تُرحّل الأشهر المستحقة تلقائياً.",
       prepaidHint:
         "ترحيل الفاتورة يؤجل هذا البند إلى المدفوعات المقدمة ويُعترف به شهرياً في حساب المصروف.",
+      priceRequired: "أدخل سعراً أكبر من 0 لكل منتج.",
+      amountRequired: "أدخل المبلغ المتفق عليه (أكبر من 0) لكل منتج.",
     },
     actions: {
       more: "المزيد",
@@ -6321,6 +6350,11 @@ const ar = {
         PENDING: "قيد الانتظار — يُنشأ عند ترحيل المستند",
         FAILED: "غير موجود — كان يجب إنشاؤه. أعد محاولة الترحيل أو تواصل مع المالية.",
         UNAUTHORIZED: "محجوب — ليست لديك صلاحية عرض هذه السجلات",
+        NONE: "لا يوجد",
+        FAILED_PARTIAL:
+          "غير مكتمل — بعض السجلات المتوقعة غير موجودة. أعد محاولة الترحيل أو تواصل مع المالية.",
+        AWAITING_DOCUMENT: "لم يُنشأ بعد",
+        AWAITING_SHIPMENT: "لم يُشحن بعد",
       },
       title: "السجلات المرتبطة",
       none: "لا توجد سجلات مرتبطة بعد.",
@@ -6332,6 +6366,8 @@ const ar = {
         JOURNAL_ENTRIES: "القيود",
         STOCK_MOVEMENTS: "حركات المخزون",
         ASSETS: "الأصول والمدفوعات المقدمة",
+        SHIPMENTS: "التوصيل والشحنات",
+        RETURNS: "المرتجعات",
       },
     },
     reports: {
@@ -6371,6 +6407,7 @@ const ar = {
       INVENTORY_MOVEMENT: "حركة مخزون",
       FIXED_ASSET: "أصل ثابت",
       PREPAID_EXPENSE: "مصروف مدفوع مقدماً",
+      SHIPMENT: "شحنة",
     },
     status: {
       DRAFT: "مسودة",
@@ -6400,6 +6437,13 @@ const ar = {
       PARTIALLY_PAID: "مدفوع جزئياً",
       PAYMENT_PENDING: "غير مدفوع",
       PAYMENT_REVIEW: "مراجعة الدفع",
+      LABEL_CREATED: "تم إنشاء البوليصة",
+      SHIPPED: "تم الشحن",
+      OUT_FOR_DELIVERY: "خرج للتوصيل",
+      DELIVERY_FAILED: "فشل التوصيل",
+      NEEDS_RESHIPMENT: "يحتاج إعادة شحن",
+      RETURN_BEFORE_DELIVERY: "مرتجع قبل التسليم",
+      RETURN_AFTER_DELIVERY: "مرتجع بعد التسليم",
     },
   },
   // docFlow:end

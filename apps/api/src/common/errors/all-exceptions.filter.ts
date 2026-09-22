@@ -110,6 +110,18 @@ export class AllExceptionsFilter implements ExceptionFilter {
           },
         };
       }
+      // Malformed value for a typed column — e.g. a non-UUID reaching a
+      // `@db.Uuid` id lookup (`GET /countries/lookup`). Client input, not a
+      // server fault. (P2007 via the pg driver adapter, P2023 natively.)
+      case 'P2007':
+      case 'P2023':
+        return {
+          statusCode: 400,
+          body: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid identifier or field value.',
+          },
+        };
       case 'P2025':
         return {
           statusCode: 404,

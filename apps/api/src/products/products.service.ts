@@ -223,6 +223,8 @@ export class ProductsService {
       isInventoryItem: query.isInventoryItem,
       isSellable: query.isSellable,
       isPurchasable: query.isPurchasable,
+      // Investment Opportunity selector: together with ACTIVE + not deleted
+      // above, this is exactly `isInvestmentEligible` (investment-opportunities/shared).
       availableForInvestmentOpportunities: query.investmentEligible,
     };
 

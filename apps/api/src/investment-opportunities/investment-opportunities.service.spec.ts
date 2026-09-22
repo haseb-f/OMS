@@ -258,6 +258,57 @@ describe('InvestmentOpportunitiesService', () => {
     }
   });
 
+  it('rejects NEWLY adding an ineligible Product to an existing Opportunity with a clear 400', async () => {
+    const created = await service.create(baseDto());
+    const attempt = service.update(created.id, {
+      products: [
+        ...baseDto().products,
+        { productId: productCId, fundedUnits: 10, fundedUnitCost: 5 },
+      ],
+    });
+    const error = await attempt.catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(BadRequestException);
+    const body = (error as BadRequestException).getResponse() as {
+      code: string;
+      message: string;
+    };
+    expect(body.code).toBe('VALIDATION_ERROR');
+    expect(body.message).toContain('غير متاح لفرص الاستثمار');
+  });
+
+  it('rejects a flagged Product that is not ACTIVE or is archived (eligibility = active + not deleted + flag)', async () => {
+    const productCDto = () => ({
+      ...baseDto(),
+      products: [{ productId: productCId, fundedUnits: 10, fundedUnitCost: 5 }],
+    });
+    try {
+      await prisma.product.update({
+        where: { id: productCId },
+        data: { availableForInvestmentOpportunities: true, status: 'DRAFT' },
+      });
+      await expect(service.create(productCDto())).rejects.toThrow(
+        BadRequestException,
+      );
+
+      await prisma.product.update({
+        where: { id: productCId },
+        data: { status: 'ACTIVE', deletedAt: new Date() },
+      });
+      await expect(service.create(productCDto())).rejects.toThrow(
+        BadRequestException,
+      );
+    } finally {
+      await prisma.product.update({
+        where: { id: productCId },
+        data: {
+          availableForInvestmentOpportunities: false,
+          status: 'ACTIVE',
+          deletedAt: null,
+        },
+      });
+    }
+  });
+
   it('DRAFT -> OPEN -> terms lock once confirmed funding exists', async () => {
     const created = await service.create(baseDto());
     const opened = await service.open(created.id);

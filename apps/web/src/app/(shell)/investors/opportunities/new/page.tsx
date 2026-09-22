@@ -189,6 +189,9 @@ export default function NewInvestmentOpportunityPage() {
         }
       >
         <div className="flex flex-col gap-2">
+          <p className="text-caption text-muted-foreground">
+            {t("investors.opportunities.create.productsEligibilityHint")}
+          </p>
           <div className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 px-1 text-caption text-muted-foreground">
             <span>{t("investors.opportunities.create.addProduct")}</span>
             <span>{t("investors.opportunities.create.fundedUnits")}</span>

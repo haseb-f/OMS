@@ -10,6 +10,7 @@ import {
 } from "react";
 import { ChevronDown, Plus, X } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
+import { normalizeArabicSearch } from "@/lib/arabic-search";
 import { Popover, PopoverTrigger } from "@/components/ui/popover";
 import {
   Command,
@@ -151,10 +152,10 @@ export function EntityCombobox<T>({
   const filteredItems = useMemo(() => {
     const sourceItems = isAsync ? remoteItems : (items ?? []);
     if (isAsync) return sourceItems;
-    const needle = search.trim().toLowerCase();
+    const needle = normalizeArabicSearch(search);
     if (!needle) return sourceItems;
     return sourceItems.filter((item) => {
-      const haystack = `${getTitle(item)} ${getSearchText?.(item) ?? ""}`.toLowerCase();
+      const haystack = normalizeArabicSearch(`${getTitle(item)} ${getSearchText?.(item) ?? ""}`);
       return haystack.includes(needle);
     });
   }, [isAsync, remoteItems, items, search, getTitle, getSearchText]);

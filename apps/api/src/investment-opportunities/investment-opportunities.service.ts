@@ -11,13 +11,16 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
-import { assertActiveProduct } from '../products/assert-active-product.util';
 import { MasterDataActivityLogService } from '../master-data/master-data-activity-log.service';
 import { CreateInvestmentOpportunityDto } from './dto/create-investment-opportunity.dto';
 import { UpdateInvestmentOpportunityDto } from './dto/update-investment-opportunity.dto';
 import { FindInvestmentOpportunitiesQueryDto } from './dto/find-investment-opportunities-query.dto';
 import { OpportunityProductInputDto } from './dto/opportunity-product-input.dto';
 import { computeTargetCapital, round2 } from './shared/opportunity-totals.util';
+import {
+  investmentIneligibleMessage,
+  isInvestmentEligible,
+} from './shared/investment-eligibility.util';
 
 const ENTITY_TYPE = 'INVESTMENT_OPPORTUNITY';
 const DOCUMENT_TYPE = 'INVESTMENT_OPPORTUNITY';
@@ -141,11 +144,14 @@ export class InvestmentOpportunitiesService {
 
   /**
    * `existingProductIds` — Products already attached to THIS Opportunity
-   * before the current edit (empty on create). Investment eligibility
-   * (Part B #13/#66) only gates NEW assignment: a Product already funded
-   * here keeps working even after being made ineligible for future
-   * Opportunities, so re-saving an edit that still includes it must never
-   * fail.
+   * before the current edit (empty on create).
+   *
+   * Rule (see `isInvestmentEligible`): a NEW selection must be an ACTIVE,
+   * non-archived Product with `availableForInvestmentOpportunities = true`,
+   * otherwise 400. A Product that loses eligibility after this Opportunity
+   * already references it is grandfathered — the Opportunity keeps it and
+   * re-saving an edit that still includes it never fails (history is never
+   * broken) — but it cannot be newly added to this or any other Opportunity.
    */
   private async computeProductRows(
     products: OpportunityProductInputDto[],
@@ -158,25 +164,27 @@ export class InvestmentOpportunitiesService {
       );
     }
     const rows = await this.prisma.product.findMany({
-      where: { id: { in: ids }, deletedAt: null },
+      where: { id: { in: ids } },
       select: {
         id: true,
         status: true,
+        deletedAt: true,
         displayName: true,
         availableForInvestmentOpportunities: true,
       },
     });
     const byId = new Map(rows.map((r) => [r.id, r]));
     return products.map((p) => {
-      assertActiveProduct(p.productId, byId);
-      const full = byId.get(p.productId)!;
-      if (
-        !full.availableForInvestmentOpportunities &&
-        !existingProductIds.has(p.productId)
-      ) {
-        throw new BadRequestException(
-          `Product "${full.displayName}" is not available for Investment Opportunities.`,
-        );
+      const full = byId.get(p.productId);
+      if (!full) {
+        throw new NotFoundException(`Product ${p.productId} not found`);
+      }
+      if (!existingProductIds.has(p.productId) && !isInvestmentEligible(full)) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: investmentIneligibleMessage(full),
+          fields: [{ field: 'products', constraints: ['investmentEligible'] }],
+        });
       }
       return {
         productId: p.productId,

@@ -321,6 +321,70 @@ describe('Products — Draft Activation & Creation Wizard', () => {
     expect(updated.description).toBe('Updated description');
   });
 
+  // -----------------------------------------------------------------
+  // Investment eligibility — "Available for investment opportunities"
+  // persists through create/update and drives the Opportunity selector.
+  // -----------------------------------------------------------------
+  describe('investment eligibility', () => {
+    it('rejects a non-boolean availableForInvestmentOpportunities', async () => {
+      const errors = await dtoErrors({
+        name: 'X',
+        categoryId,
+        unitId,
+        availableForInvestmentOpportunities: 'yes',
+      });
+      expect(
+        errors.some(
+          (e) => e.property === 'availableForInvestmentOpportunities',
+        ),
+      ).toBe(true);
+    });
+
+    it('persists the flag on create and update, and the selector lists only eligible products', async () => {
+      const enabled = await service.create({
+        name: `Investment Enabled ${suffix}`,
+        categoryId,
+        unitId,
+        status: ProductStatus.ACTIVE,
+        availableForInvestmentOpportunities: true,
+      });
+      expect(enabled.availableForInvestmentOpportunities).toBe(true);
+      const disabled = await service.create({
+        name: `Investment Disabled ${suffix}`,
+        categoryId,
+        unitId,
+        status: ProductStatus.ACTIVE,
+      });
+      expect(disabled.availableForInvestmentOpportunities).toBe(false);
+
+      const listed = async () =>
+        (
+          await service.findSellableCatalog({
+            investmentEligible: true,
+            search: suffix,
+            pageSize: 100,
+          })
+        ).items.map((p) => p.id);
+
+      let ids = await listed();
+      expect(ids).toContain(enabled.id);
+      expect(ids).not.toContain(disabled.id);
+
+      await service.update(disabled.id, {
+        availableForInvestmentOpportunities: true,
+      });
+      await service.update(enabled.id, {
+        availableForInvestmentOpportunities: false,
+      });
+      const reloaded = await service.findOne(disabled.id);
+      expect(reloaded.availableForInvestmentOpportunities).toBe(true);
+
+      ids = await listed();
+      expect(ids).toContain(disabled.id);
+      expect(ids).not.toContain(enabled.id);
+    });
+  });
+
   it('rejects a product missing required fields with a clear, catchable error (defense-in-depth at the service layer)', async () => {
     await expect(
       service.create({ categoryId, unitId } as CreateProductDto),
