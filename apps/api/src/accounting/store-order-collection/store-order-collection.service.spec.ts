@@ -119,6 +119,7 @@ describe('StoreOrderCollectionService.postPaymentReceipt', () => {
 
     expect(tx.salesInvoice.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- jest asymmetric matcher
         where: expect.objectContaining({
           storeOrderId: 'so-1',
           status: {

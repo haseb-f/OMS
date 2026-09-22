@@ -642,7 +642,7 @@ export class StoreOrderShipmentOperationsService {
   }
 
   private fulfillmentCodeForShipmentStatus(
-    status: ShipmentStatus | string | null | undefined,
+    status: string | null | undefined,
   ): string | null {
     switch (status) {
       case ShipmentStatus.SHIPPED:
@@ -660,7 +660,7 @@ export class StoreOrderShipmentOperationsService {
 
   private async syncOrderFulfillment(
     storeOrderId: string,
-    shipmentStatus: ShipmentStatus | string | null | undefined,
+    shipmentStatus: string | null | undefined,
     tx: Prisma.TransactionClient,
   ) {
     const code = this.fulfillmentCodeForShipmentStatus(shipmentStatus);
@@ -676,7 +676,7 @@ export class StoreOrderShipmentOperationsService {
   }
 
   private async postShipmentCost(
-    shipment: { id: string; status: ShipmentStatus | string | null },
+    shipment: { id: string; status: string | null },
     userId: string | undefined,
     tx: Prisma.TransactionClient,
   ) {

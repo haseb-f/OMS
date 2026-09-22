@@ -317,8 +317,9 @@ describe('Lead ownership scope (Ahmed/Sara regression)', () => {
         .set('Authorization', `Bearer ${ahmedToken}`);
 
       expect(res.status).toBe(200);
-      expect(res.body.ids).toEqual([ahmedLead1Id]);
-      expect(res.body.total).toBe(1);
+      const body = res.body as { ids: string[]; total: number };
+      expect(body.ids).toEqual([ahmedLead1Id]);
+      expect(body.total).toBe(1);
     });
 
     it('unrecognized scope=all / ownerId params are silently stripped, not honored', async () => {

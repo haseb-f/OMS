@@ -110,7 +110,7 @@ export class PurchaseOrdersController {
   @Post(':id/return-to-draft')
   @HttpCode(200)
   @PermissionAction('edit')
-  returnToDraft(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+  returnToDraft(@Param('id') id: string) {
     return this.purchaseOrdersService.returnToDraft(id);
   }
 }
