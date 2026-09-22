@@ -1568,14 +1568,19 @@ export class StoreOrdersService {
     }
 
     // Default warehouse resolution (rule 7): Product.preferredWarehouseId
-    // when set, else the first active Warehouse ordered by name.
+    // when set, else the active Warehouse marked default, else the first
+    // active Warehouse by name.
     const needsDefaultWarehouse = order.items.some(
       (item) => !item.product.preferredWarehouseId,
     );
     const defaultWarehouse = needsDefaultWarehouse
       ? await this.prisma.warehouse.findFirst({
           where: { isActive: true, deletedAt: null },
-          orderBy: [{ name: 'asc' }, { createdAt: 'asc' }],
+          orderBy: [
+            { isDefault: 'desc' },
+            { name: 'asc' },
+            { createdAt: 'asc' },
+          ],
         })
       : null;
     if (needsDefaultWarehouse && !defaultWarehouse) {

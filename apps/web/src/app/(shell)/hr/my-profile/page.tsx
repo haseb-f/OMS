@@ -50,7 +50,13 @@ export default function MyProfilePage() {
     return <p className="text-caption text-muted-foreground">{t("common.loading")}</p>;
   }
   if (!employee) {
-    return <EmptyState icon={FileText} title={t("common.noResults")} />;
+    return (
+      <EmptyState
+        icon={FileText}
+        title={t("hr.myProfile.noEmployeeTitle")}
+        description={t("hr.myProfile.noEmployeeDescription")}
+      />
+    );
   }
 
   return (

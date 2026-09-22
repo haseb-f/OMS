@@ -15,6 +15,13 @@ export class UnitConversionsService extends MasterDataCrudService<UnitConversion
   protected readonly searchFields = ['description'];
   /** No `name` column on this entity — override the base class's default. */
   protected readonly defaultSortField = 'createdAt';
+  protected readonly sortableFields = [
+    'createdAt',
+    'updatedAt',
+    'conversionRatio',
+    'description',
+    'isActive',
+  ] as const;
 
   constructor(
     prisma: PrismaService,

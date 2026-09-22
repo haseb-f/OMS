@@ -57,6 +57,8 @@ export abstract class MasterDataCrudService<
   protected abstract readonly entityLabel: string;
   protected abstract readonly searchFields: string[];
   protected readonly defaultSortField: string = 'name';
+  /** When set, a requested `sortBy` outside this list falls back to `defaultSortField` instead of reaching Prisma as an unknown column (a 500). */
+  protected readonly sortableFields?: readonly string[];
   /**
    * Optional Arabic-normalized search (see `common/text/arabic-search.ts`):
    * the physical table and DB column names whose stored text is normalized
@@ -119,9 +121,12 @@ export abstract class MasterDataCrudService<
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
     const where = await this.buildWhere(query, extraWhere);
-    const orderBy = {
-      [query.sortBy || this.defaultSortField]: query.sortOrder ?? 'asc',
-    };
+    const sortBy =
+      query.sortBy &&
+      (!this.sortableFields || this.sortableFields.includes(query.sortBy))
+        ? query.sortBy
+        : this.defaultSortField;
+    const orderBy = { [sortBy]: query.sortOrder ?? 'asc' };
 
     const [items, total] = await Promise.all([
       this.delegate.findMany({

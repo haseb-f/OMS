@@ -183,11 +183,10 @@ async function requestRaw(path: string, init?: RequestInit): Promise<Response> {
     const code = body?.code ?? codeForStatus(response.status);
     // The technical detail (constraint names, the original English message)
     // stays in the console for developers — never in the toast the user sees.
-    console.error(
-      `[api-client] ${response.status} ${code} on ${path}:`,
-      body?.message,
-      body?.fields,
-    );
+    // A 404 is often an expected state (e.g. "no employee linked to me"),
+    // not a fault — keep it visible for developers without flagging it red.
+    const log = response.status === 404 ? console.warn : console.error;
+    log(`[api-client] ${response.status} ${code} on ${path}:`, body?.message, body?.fields);
     const message = friendlyMessage(code, body?.message, body?.fields, locale);
     throw new ApiError(response.status, message, code, body?.fields, body?.details);
   }

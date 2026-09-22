@@ -5238,6 +5238,11 @@ const en = {
     },
   },
   hr: {
+    myProfile: {
+      noEmployeeTitle: "No employee record linked",
+      noEmployeeDescription:
+        "Your user account is not linked to an employee record yet. Ask HR to link it to see your profile and sales ranking.",
+    },
     employees: {
       title: "Employees",
       description: "The central Employee record — job info, compensation, and login account.",
