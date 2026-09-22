@@ -43,3 +43,48 @@ describe('PostingEngineService idempotency', () => {
     expect(numberingEngine.next).not.toHaveBeenCalled();
   });
 });
+
+describe('PostingEngineService FX conversion', () => {
+  const service = new PostingEngineService(
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  );
+  const convert = (
+    lines: Array<Record<string, unknown>>,
+    rate: number | null,
+  ): Array<{ debit?: number; credit?: number }> =>
+    (
+      service as unknown as {
+        applyExchangeRate: (l: unknown, r: number | null) => never;
+      }
+    ).applyExchangeRate(lines, rate);
+
+  it('keeps same-currency (rate 1 / no rate) postings unchanged', () => {
+    const lines = [
+      { accountId: 'cash', debit: 1300 },
+      { accountId: 'ar', credit: 1300 },
+    ];
+    expect(convert(lines, 1)).toEqual(lines);
+    expect(convert(lines, null)).toEqual(lines);
+  });
+
+  it('converts transaction-currency lines but never re-converts functional COGS/inventory', () => {
+    // 1,000 units sold at 760 (foreign) with a moving-average cost of 400
+    // already in functional currency; rate 0.5.
+    const out = convert(
+      [
+        { accountId: 'ar', debit: 760000 },
+        { accountId: 'revenue', credit: 760000 },
+        { accountId: 'cogs', debit: 400000, functionalAmount: true },
+        { accountId: 'inventory', credit: 400000, functionalAmount: true },
+      ],
+      0.5,
+    );
+    expect(out.map((l) => l.debit ?? l.credit)).toEqual([
+      380000, 380000, 400000, 400000,
+    ]);
+  });
+});

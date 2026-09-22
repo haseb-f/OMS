@@ -128,7 +128,9 @@ export class PostingEngineService {
         return null;
       }
 
-      const lines = this.applyExchangeRate(result.lines, result.exchangeRate);
+      const lines = result.linesInFunctionalCurrency
+        ? result.lines
+        : this.applyExchangeRate(result.lines, result.exchangeRate);
       this.assertBalanced(lines);
       await this.assertPostableAccounts(lines, client);
       await this.assertPartnersRequired(lines, client);
@@ -353,11 +355,17 @@ export class PostingEngineService {
     }
     if (Math.abs(rate - 1) < 1e-12) return lines;
 
-    const converted = lines.map((line) => ({
-      ...line,
-      debit: line.debit ? this.round2(line.debit * rate) : line.debit,
-      credit: line.credit ? this.round2(line.credit * rate) : line.credit,
-    }));
+    // Lines flagged `functionalAmount` (COGS / inventory at cost) are already
+    // in base currency — multiplying them would inflate cost by the rate.
+    const converted = lines.map((line) =>
+      line.functionalAmount
+        ? { ...line }
+        : {
+            ...line,
+            debit: line.debit ? this.round2(line.debit * rate) : line.debit,
+            credit: line.credit ? this.round2(line.credit * rate) : line.credit,
+          },
+    );
     const { totalDebit, totalCredit } = this.computeTotals(converted);
     const diff = this.round2(totalDebit - totalCredit);
     if (diff === 0) return converted;
@@ -366,11 +374,14 @@ export class PostingEngineService {
         `Posting is not balanced after FX conversion — total debit (${totalDebit}) must equal total credit (${totalCredit}).`,
       );
     }
-    const target = converted.reduce((best, line) => {
-      const amount = Math.max(line.debit ?? 0, line.credit ?? 0);
-      const bestAmount = Math.max(best.debit ?? 0, best.credit ?? 0);
-      return amount >= bestAmount ? line : best;
-    });
+    const candidates = converted.filter((line) => !line.functionalAmount);
+    const target = (candidates.length ? candidates : converted).reduce(
+      (best, line) => {
+        const amount = Math.max(line.debit ?? 0, line.credit ?? 0);
+        const bestAmount = Math.max(best.debit ?? 0, best.credit ?? 0);
+        return amount >= bestAmount ? line : best;
+      },
+    );
     if ((target.debit ?? 0) >= (target.credit ?? 0)) {
       target.debit = this.round2((target.debit ?? 0) - diff);
     } else {

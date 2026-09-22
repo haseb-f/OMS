@@ -1,10 +1,13 @@
 import {
+  IsBoolean,
   IsDateString,
   IsNumber,
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   Min,
+  MinLength,
 } from 'class-validator';
 import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.decorator';
 
@@ -55,4 +58,15 @@ export class CheckExchangeRateQueryDto {
   @IsDateString()
   @IsOptional()
   asOf?: string;
+}
+
+export class FxCorrectionDto {
+  @IsString()
+  @MinLength(5)
+  @MaxLength(500)
+  reason!: string;
+
+  @IsBoolean()
+  @IsOptional()
+  dryRun?: boolean;
 }

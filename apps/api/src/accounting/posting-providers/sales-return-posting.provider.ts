@@ -202,6 +202,7 @@ export class SalesReturnPostingProvider
         accountId,
         debit: amount,
         description: `Inventory increased — ${salesReturn.returnNumber}`,
+        functionalAmount: true,
       });
     }
     for (const [accountId, amount] of costByLine) {
@@ -209,6 +210,7 @@ export class SalesReturnPostingProvider
         accountId,
         credit: amount,
         description: `COGS reversal — ${salesReturn.returnNumber}`,
+        functionalAmount: true,
       });
     }
 

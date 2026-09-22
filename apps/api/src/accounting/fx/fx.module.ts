@@ -3,6 +3,7 @@ import { NumberingModule } from '../../numbering/numbering.module';
 import { PostingEngineModule } from '../posting-engine/posting-engine.module';
 import { ExchangeRatesService } from './exchange-rates.service';
 import { FxRevaluationService } from './fx-revaluation.service';
+import { FxCorrectionService } from './fx-correction.service';
 import {
   ExchangeRatesController,
   FxRevaluationsController,
@@ -11,7 +12,7 @@ import {
 @Module({
   imports: [NumberingModule, PostingEngineModule],
   controllers: [ExchangeRatesController, FxRevaluationsController],
-  providers: [ExchangeRatesService, FxRevaluationService],
+  providers: [ExchangeRatesService, FxRevaluationService, FxCorrectionService],
   exports: [ExchangeRatesService, FxRevaluationService],
 })
 export class FxModule {}

@@ -113,10 +113,17 @@ export class PurchaseInvoicePostingProvider
           accountId,
           (debitByAccount.get(accountId) ?? 0) + netAmount,
         );
+        // Moving-average cost lives in functional currency and must equal
+        // what this entry debits to Inventory (net of discount, converted).
+        const functionalUnitCost =
+          item.quantity > 0
+            ? Math.round((netAmount / item.quantity) * exchangeRate * 10000) /
+              10000
+            : Number(item.unitPrice) * exchangeRate;
         await this.inventoryValuation.applyPurchaseReceipt(
           item.productId,
           item.quantity,
-          Number(item.unitPrice),
+          functionalUnitCost,
           tx,
           userId,
         );

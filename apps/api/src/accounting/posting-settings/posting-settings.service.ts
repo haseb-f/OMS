@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { JournalEntryStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpdatePostingSettingsDto } from './dto/update-posting-settings.dto';
 
@@ -71,10 +72,36 @@ export class PostingSettingsService {
 
   async update(dto: UpdatePostingSettingsDto, userId?: string) {
     const existing = await this.get();
+    await this.assertFunctionalCurrencyChangeAllowed(
+      existing.functionalCurrencyId,
+      dto.functionalCurrencyId,
+    );
     return this.prisma.postingSettings.update({
       where: { id: existing.id },
       data: { ...dto, updatedBy: userId ?? null },
       include: INCLUDE,
     });
+  }
+
+  /**
+   * The base currency is the unit every posted amount is stored in. Once it
+   * is set and entries have been posted, changing it would silently
+   * re-denominate history — so it can only be set the first time, or
+   * changed while nothing has been posted yet.
+   */
+  private async assertFunctionalCurrencyChangeAllowed(
+    current: string | null,
+    next: string | null | undefined,
+  ) {
+    if (next === undefined || next === current || current === null) return;
+    const posted = await this.prisma.journalEntry.count({
+      where: { deletedAt: null, status: { not: JournalEntryStatus.DRAFT } },
+    });
+    if (posted > 0) {
+      throw new BadRequestException({
+        code: 'FUNCTIONAL_CURRENCY_LOCKED',
+        message: `The base currency cannot be changed after ${posted} journal entries have been posted in it.`,
+      });
+    }
   }
 }

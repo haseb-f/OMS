@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { z } from "zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { StatusBadge } from "@/components/business/status-badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { toISODate, formatDate } from "@/lib/date";
 import {
@@ -26,6 +27,7 @@ import {
   type FxRevaluationRunRow,
 } from "@/services/fx-service";
 import { createMasterDataService } from "@/services/master-data-service";
+import { accountingSettingsService } from "@/services/accounting-settings-service";
 import type { CurrencyRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
@@ -56,6 +58,7 @@ function FxPageContent() {
   const [revalueOpen, setRevalueOpen] = useState(false);
   const [rateDate, setRateDate] = useState<Date | undefined>(new Date());
   const [busy, setBusy] = useState(false);
+  const [baseCurrencyId, setBaseCurrencyId] = useState<string | null | undefined>(undefined);
 
   const form = useForm({
     resolver: zodResolver(rateSchema),
@@ -70,11 +73,13 @@ function FxPageContent() {
 
   const load = useCallback(async () => {
     try {
-      const [rateRows, runRows, currencyRows] = await Promise.all([
+      const [rateRows, runRows, currencyRows, settings] = await Promise.all([
         exchangeRatesService.list(),
         fxRevaluationsService.list().catch(() => [] as FxRevaluationRunRow[]),
         currenciesService.list({ pageSize: 200 }).then((r) => r.items),
+        accountingSettingsService.get().catch(() => null),
       ]);
+      setBaseCurrencyId(settings ? settings.functionalCurrencyId : null);
       setRates(rateRows);
       setRuns(runRows);
       setCurrencies(currencyRows);
@@ -87,6 +92,35 @@ function FxPageContent() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+
+  const codeOf = (id: string | null | undefined) =>
+    currencies.find((currency) => currency.id === id)?.code ?? "";
+  const baseCode = codeOf(baseCurrencyId);
+  const [fromId, toId, rateValue] = useWatch({
+    control: form.control,
+    name: ["fromCurrencyId", "toCurrencyId", "rate"],
+  });
+  const rateNumber = Number(rateValue);
+  const ratePreview =
+    fromId && toId && rateNumber > 0
+      ? t("accounting.fx.ratePreview", {
+          from: codeOf(fromId),
+          to: codeOf(toId),
+          rate: String(rateNumber),
+          inverse: String(Math.round((1 / rateNumber) * 1_000_000) / 1_000_000),
+        })
+      : null;
+
+  const openRateForm = () => {
+    form.reset({
+      fromCurrencyId: "",
+      toCurrencyId: baseCurrencyId ?? "",
+      rate: 1,
+      effectiveDate: "",
+      notes: "",
+    });
+    setRateOpen(true);
+  };
 
   const currencyOptions = currencies.map((currency) => ({
     value: currency.id,
@@ -130,7 +164,7 @@ function FxPageContent() {
       actions={
         <div className="flex flex-wrap gap-2">
           {canCreateRate && (
-            <EnterpriseButton type="button" size="sm" onClick={() => setRateOpen(true)}>
+            <EnterpriseButton type="button" size="sm" onClick={openRateForm}>
               {t("accounting.fx.addRate")}
             </EnterpriseButton>
           )}
@@ -147,6 +181,15 @@ function FxPageContent() {
         </div>
       }
     >
+      {baseCurrencyId !== undefined ? (
+        <Alert tone={baseCurrencyId ? "info" : "warning"} className="mb-3">
+          <AlertDescription>
+            {baseCurrencyId
+              ? t("accounting.fx.baseCurrencyNote", { base: baseCode })
+              : t("accounting.fx.baseCurrencyMissing")}
+          </AlertDescription>
+        </Alert>
+      ) : null}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <EnterpriseCard className="gap-0 py-3">
           <EnterpriseCardHeader className="px-4 pb-2">
@@ -177,7 +220,9 @@ function FxPageContent() {
                       <td className="py-2">{formatDate(row.effectiveDate)}</td>
                       <td className="py-2">{row.fromCurrency?.code ?? row.fromCurrencyId}</td>
                       <td className="py-2">{row.toCurrency?.code ?? row.toCurrencyId}</td>
-                      <td className="py-2 text-end">{Number(row.rate)}</td>
+                      <td className="py-2 text-end tabular-nums" dir="ltr">
+                        {`1 ${row.fromCurrency?.code ?? ""} = ${Number(row.rate)} ${row.toCurrency?.code ?? ""}`}
+                      </td>
                     </tr>
                   ))
                 )}
@@ -277,6 +322,11 @@ function FxPageContent() {
             { name: "notes", label: "masterData.fields.notes", type: "textarea" },
           ]}
         />
+        {ratePreview ? (
+          <p className="mt-2 text-caption text-muted-foreground" data-testid="fx-rate-preview">
+            {ratePreview}
+          </p>
+        ) : null}
       </EnterpriseModal>
 
       <ConfirmationDialog

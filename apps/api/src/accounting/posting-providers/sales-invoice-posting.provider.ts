@@ -232,6 +232,7 @@ export class SalesInvoicePostingProvider
         accountId,
         debit: amount,
         description: `COGS — ${invoice.invoiceNumber}`,
+        functionalAmount: true,
       });
     }
     for (const [accountId, amount] of inventoryByLine) {
@@ -239,6 +240,7 @@ export class SalesInvoicePostingProvider
         accountId,
         credit: amount,
         description: `Inventory relieved — ${invoice.invoiceNumber}`,
+        functionalAmount: true,
       });
     }
 

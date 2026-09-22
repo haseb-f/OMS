@@ -111,22 +111,30 @@ export class ExchangeRatesService {
     }
   }
 
-  async resolveFunctionalCurrencyId(client: DbClient = this.prisma) {
+  /** The company's configured functional (base) currency, or null when it
+   *  has not been set. Never guessed — a guessed base currency silently
+   *  converts same-currency documents at an unrelated rate. */
+  async resolveFunctionalCurrencyId(
+    client: DbClient = this.prisma,
+  ): Promise<string | null> {
     const settings = await client.postingSettings.findFirst({
       select: { functionalCurrencyId: true },
     });
-    if (settings?.functionalCurrencyId) return settings.functionalCurrencyId;
-    const sar = await client.currency.findFirst({
-      where: { code: 'SAR', deletedAt: null },
-      select: { id: true },
-    });
-    if (sar) return sar.id;
-    const any = await client.currency.findFirst({
-      where: { deletedAt: null },
-      orderBy: { createdAt: 'asc' },
-      select: { id: true },
-    });
-    return any?.id ?? null;
+    return settings?.functionalCurrencyId ?? null;
+  }
+
+  async requireFunctionalCurrencyId(
+    client: DbClient = this.prisma,
+  ): Promise<string> {
+    const id = await this.resolveFunctionalCurrencyId(client);
+    if (!id) {
+      throw new BadRequestException({
+        code: 'FUNCTIONAL_CURRENCY_NOT_CONFIGURED',
+        message:
+          'The company base (functional) currency is not configured. Set it in Accounting Settings before posting documents that carry a currency.',
+      });
+    }
+    return id;
   }
 
   /**
@@ -139,8 +147,9 @@ export class ExchangeRatesService {
     asOf: Date,
     client: DbClient = this.prisma,
   ): Promise<number> {
-    const functionalId = await this.resolveFunctionalCurrencyId(client);
-    if (!currencyId || !functionalId || currencyId === functionalId) return 1;
+    if (!currencyId) return 1;
+    const functionalId = await this.requireFunctionalCurrencyId(client);
+    if (currencyId === functionalId) return 1;
     return this.resolveRate(currencyId, functionalId, asOf, client);
   }
 

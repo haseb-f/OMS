@@ -117,4 +117,24 @@ describe('SalesReturnPostingProvider.buildEntries — valuation pool restoration
       expect.anything(),
     );
   });
+
+  it('marks COGS / inventory reversal lines as functional so FX never multiplies cost', async () => {
+    const { provider, tx } = makeProvider();
+
+    const result = await provider.buildEntries(
+      'SALES_RETURN',
+      'return-1',
+      tx as never,
+    );
+
+    const costLines = result!.lines.filter((line) =>
+      ['account-cogs', 'account-inventory'].includes(line.accountId),
+    );
+    expect(costLines).toHaveLength(2);
+    expect(costLines.every((line) => line.functionalAmount === true)).toBe(
+      true,
+    );
+    const arLine = result!.lines.find((l) => l.accountId === 'account-ar');
+    expect(arLine?.functionalAmount).toBeUndefined();
+  });
 });

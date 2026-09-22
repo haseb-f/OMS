@@ -434,6 +434,26 @@ async function main() {
     ),
   );
 
+  // Local/dev fixtures are SAR-denominated, so the dev ledger's base
+  // currency is set explicitly (the engine no longer guesses one). Only
+  // fills an unset value — never re-denominates an existing ledger.
+  const devBaseCurrency = await prisma.currency.findUnique({
+    where: { code: 'SAR' },
+  });
+  const postingSettings = await prisma.postingSettings.findFirst();
+  if (devBaseCurrency && !postingSettings?.functionalCurrencyId) {
+    if (postingSettings) {
+      await prisma.postingSettings.update({
+        where: { id: postingSettings.id },
+        data: { functionalCurrencyId: devBaseCurrency.id },
+      });
+    } else {
+      await prisma.postingSettings.create({
+        data: { functionalCurrencyId: devBaseCurrency.id },
+      });
+    }
+  }
+
   // Curated Arabic names for the 3 countries the business actually operates
   // in — seeded first so `seedCountries()` below (Part 2: full ISO 3166-1
   // dataset) finds `name` already set and never overwrites it with the

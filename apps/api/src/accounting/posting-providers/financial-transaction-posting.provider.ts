@@ -192,6 +192,10 @@ export class FinancialTransactionPostingProvider
         description: `Customer Receipt Voucher ${transaction.transactionNumber}`,
         referenceNumber: transaction.transactionNumber,
         currencyId: transaction.currencyId,
+        // Lines are already in functional currency (FX realized against
+        // invoice rates above) — record the rate, never re-convert.
+        exchangeRate: payRate,
+        linesInFunctionalCurrency: true,
         companyId: transaction.companyId,
         branchId: transaction.branchId,
         costCenterId: transaction.costCenterId,
@@ -236,6 +240,10 @@ export class FinancialTransactionPostingProvider
       description: `Supplier Payment Voucher ${transaction.transactionNumber}`,
       referenceNumber: transaction.transactionNumber,
       currencyId: transaction.currencyId,
+      // Lines are already in functional currency (FX realized against
+      // invoice rates above) — record the rate, never re-convert.
+      exchangeRate: payRate,
+      linesInFunctionalCurrency: true,
       companyId: transaction.companyId,
       branchId: transaction.branchId,
       costCenterId: transaction.costCenterId,

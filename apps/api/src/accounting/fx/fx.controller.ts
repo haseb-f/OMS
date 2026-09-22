@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Post,
   Query,
   UseGuards,
@@ -18,10 +19,12 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../../auth/guards/jwt-auth.guard';
 import { ExchangeRatesService } from './exchange-rates.service';
 import { FxRevaluationService } from './fx-revaluation.service';
+import { FxCorrectionService } from './fx-correction.service';
 import {
   CheckExchangeRateQueryDto,
   CreateExchangeRateDto,
   ExchangeRateQueryDto,
+  FxCorrectionDto,
   RunFxRevaluationDto,
 } from './dto/fx.dto';
 
@@ -63,7 +66,10 @@ export class ExchangeRatesController {
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @PermissionModule('fx-revaluations')
 export class FxRevaluationsController {
-  constructor(private readonly fxRevaluation: FxRevaluationService) {}
+  constructor(
+    private readonly fxRevaluation: FxRevaluationService,
+    private readonly fxCorrection: FxCorrectionService,
+  ) {}
 
   @Get()
   findAll() {
@@ -79,5 +85,16 @@ export class FxRevaluationsController {
   @PermissionAction('post')
   run(@Body() dto: RunFxRevaluationDto, @CurrentUser() user: JwtPayload) {
     return this.fxRevaluation.run(dto, user.sub);
+  }
+
+  /** Audited reverse + re-post of a document posted at a wrong rate. */
+  @Post('corrections/:journalEntryId')
+  @PermissionAction('post')
+  correct(
+    @Param('journalEntryId', ParseUUIDPipe) journalEntryId: string,
+    @Body() dto: FxCorrectionDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.fxCorrection.repost(journalEntryId, dto, user.sub);
   }
 }

@@ -14,6 +14,12 @@ export interface PostingLine {
   description?: string;
   /** Unified Partner Architecture — required whenever `accountId` resolves to a RECEIVABLE/PAYABLE control account (PostingEngineService.assertPartnersRequired enforces this), omitted on every other line. */
   partnerId?: string;
+  /**
+   * The amount is already in functional (base) currency — e.g. COGS and
+   * inventory relief valued at moving-average cost. The engine books it as
+   * is instead of multiplying it by the document's exchange rate.
+   */
+  functionalAmount?: boolean;
 }
 
 /**
@@ -35,6 +41,12 @@ export interface PostingResult {
   entryDate?: Date;
   /** Transaction→functional snapshot. Historical rates are never rewritten. */
   exchangeRate?: number | null;
+  /**
+   * Every line is already converted to functional currency by the provider
+   * (e.g. receipts that realize FX against invoice rates). The engine still
+   * records `exchangeRate` on the entry for audit but never re-converts.
+   */
+  linesInFunctionalCurrency?: boolean;
 }
 
 /**

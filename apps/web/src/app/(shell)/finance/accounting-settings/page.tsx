@@ -436,10 +436,23 @@ export default function AccountingSettingsPage() {
                     onChange={setFunctionalCurrency}
                     getId={(currency) => currency.id}
                     getTitle={(currency) => `${currency.code} — ${currency.name}`}
-                    allowClear
+                    allowClear={!functionalCurrency}
                     placeholder={t("common.select")}
                     icon={<Banknote className="size-3.5 shrink-0 text-muted-foreground" />}
                   />
+                  <p
+                    className={
+                      functionalCurrency
+                        ? "text-caption text-muted-foreground"
+                        : "text-caption text-warning-foreground"
+                    }
+                  >
+                    {t(
+                      functionalCurrency
+                        ? "accounting.settings.fields.functionalCurrencyHint"
+                        : "accounting.settings.fields.functionalCurrencyMissing",
+                    )}
+                  </p>
                 </div>
               )}
               {section.fields.map((field) => {
