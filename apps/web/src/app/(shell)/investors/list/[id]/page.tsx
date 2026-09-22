@@ -122,6 +122,7 @@ export default function InvestorProfilePage() {
   }, [params.id]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
 

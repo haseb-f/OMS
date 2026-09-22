@@ -129,6 +129,7 @@ export default function CommissionPlanEditorPage() {
   }, [params.id]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 

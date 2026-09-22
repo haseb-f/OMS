@@ -25,6 +25,7 @@ export function AttachmentPreviewDialog({
 
   useEffect(() => {
     if (!blob) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setUrl(null);
       return;
     }

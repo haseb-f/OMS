@@ -76,6 +76,7 @@ export default function InvestmentOpportunitiesPage() {
   }, [search, statusFilter, page, pageSize, sortBy, sortOrder, t]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 

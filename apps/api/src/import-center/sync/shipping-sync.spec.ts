@@ -16,6 +16,7 @@ import { PhoneModule } from '../../common/phone/phone.module';
 import { AuthModule } from '../../auth/auth.module';
 import { GoogleSheetsService } from '../google-sheets.service';
 import { ObjectStorageModule } from '../../common/storage/object-storage.module';
+import { PostingProvidersModule } from '../../accounting/posting-providers/posting-providers.module';
 import {
   SyncOrchestratorService,
   type ShippingSyncRowReport,
@@ -69,6 +70,7 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
         ImportCenterModule,
         StoreOrdersModule,
         ObjectStorageModule,
+        PostingProvidersModule,
       ],
     }).compile();
     await moduleRef.init();
@@ -655,6 +657,7 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
           ImportCenterModule,
           StoreOrdersModule,
           ObjectStorageModule,
+          PostingProvidersModule,
         ],
       })
         .overrideProvider(GoogleSheetsService)

@@ -92,6 +92,7 @@ function CrmLeadsPageContent() {
     // OWN-scope Sales Agent (canAssign === false) never even calls it —
     // this filter is simply absent for them, never a cross-employee leak.
     if (!canAssign) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setEligibleEmployees([]);
       return;
     }

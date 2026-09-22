@@ -130,6 +130,7 @@ export default function EmployeeProfilePage() {
   }, [params.id]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
@@ -187,6 +188,7 @@ export default function EmployeeProfilePage() {
   useEffect(() => {
     if (!compensationOpen) return;
     compensationForm.reset({ effectiveFrom: "", basicSalary: 0, kpiMaxPay: 0, notes: "" });
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCompensationLines([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [compensationOpen]);

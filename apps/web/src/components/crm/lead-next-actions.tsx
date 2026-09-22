@@ -39,9 +39,8 @@ export function LeadNextActions({
 
   // Follow-up urgency is evaluated at render time against the current clock.
   // eslint-disable-next-line react-hooks/purity -- overdue state is time-based
-  const overdue = Boolean(
-    lead.nextFollowUpAt && new Date(lead.nextFollowUpAt).getTime() < Date.now(),
-  );
+  const now = Date.now();
+  const overdue = Boolean(lead.nextFollowUpAt && new Date(lead.nextFollowUpAt).getTime() < now);
   const qualified = lead.status?.code === "QUALIFIED";
   const unassigned = !lead.salesEmployeeId;
 
