@@ -123,12 +123,76 @@ export function flattenNavigationTree(items: NavigationItem[]): NavigationItem[]
   );
 }
 
-/** Finds the item whose `route` exactly matches the given pathname, if any. */
+type SearchParamsInput = URLSearchParams | string | null | undefined;
+
+/** Splits a nav `route` like `/reports/finance?report=generalLedger` into its path and query params. */
+function parseRoute(route: string): { path: string; query: URLSearchParams } {
+  const index = route.indexOf("?");
+  return index === -1
+    ? { path: route, query: new URLSearchParams() }
+    : { path: route.slice(0, index), query: new URLSearchParams(route.slice(index + 1)) };
+}
+
+function toSearchParams(searchParams: SearchParamsInput): URLSearchParams {
+  if (!searchParams) return new URLSearchParams();
+  return typeof searchParams === "string" ? new URLSearchParams(searchParams) : searchParams;
+}
+
+/**
+ * Query-aware route matching: a route with a query string (e.g.
+ * `/reports/finance?report=generalLedger`) only matches when EVERY param it
+ * declares has the same value in the current URL; extra URL params are
+ * ignored. Returns the number of matched params (its specificity), or -1.
+ */
+function routeQuerySpecificity(route: string, current: URLSearchParams): number {
+  const { query } = parseRoute(route);
+  let matched = 0;
+  for (const [key, value] of query) {
+    if (current.get(key) !== value) return -1;
+    matched += 1;
+  }
+  return matched;
+}
+
+/** Most specific candidate: longest path first, then most matched query params. */
+function mostSpecific(
+  candidates: NavigationItem[],
+  current: URLSearchParams,
+): NavigationItem | undefined {
+  let best: NavigationItem | undefined;
+  let bestPath = -1;
+  let bestQuery = -1;
+  for (const candidate of candidates) {
+    const pathLength = parseRoute(candidate.route ?? "").path.length;
+    const querySpecificity = routeQuerySpecificity(candidate.route ?? "", current);
+    if (pathLength > bestPath || (pathLength === bestPath && querySpecificity > bestQuery)) {
+      best = candidate;
+      bestPath = pathLength;
+      bestQuery = querySpecificity;
+    }
+  }
+  return best;
+}
+
+/**
+ * Finds the item whose `route` matches the given pathname (and, for routes
+ * that declare a query string, the current search params). When several
+ * match, the most specific wins — `/reports/finance?report=generalLedger`
+ * beats plain `/reports/finance` on `?report=generalLedger`.
+ */
 export function findNavigationItemByRoute(
   items: NavigationItem[],
   pathname: string,
+  searchParams?: SearchParamsInput,
 ): NavigationItem | undefined {
-  return flattenNavigationTree(items).find((item) => item.route === pathname);
+  const current = toSearchParams(searchParams);
+  const candidates = flattenNavigationTree(items).filter(
+    (item) =>
+      item.route &&
+      parseRoute(item.route).path === pathname &&
+      routeQuerySpecificity(item.route, current) >= 0,
+  );
+  return mostSpecific(candidates, current);
 }
 
 /**
@@ -138,22 +202,25 @@ export function findNavigationItemByRoute(
  * right "you are here" trail root. Only ever matches on a `/`-boundary
  * prefix (`/crm/leads` matches `/crm/leads/123`, never `/crm/leadsx`), and
  * picks the LONGEST such match so a more specific nested route always wins
- * over a shorter parent one.
+ * over a shorter parent one (query-bearing routes must also match the
+ * current search params, same rule as `findNavigationItemByRoute`).
  */
 export function findNavigationAncestorByRoute(
   items: NavigationItem[],
   pathname: string,
+  searchParams?: SearchParamsInput,
 ): NavigationItem | undefined {
-  const candidates = flattenNavigationTree(items).filter(
-    (item) =>
-      item.route &&
-      item.route !== "/" &&
-      (pathname === item.route || pathname.startsWith(`${item.route}/`)),
-  );
-  if (candidates.length === 0) return undefined;
-  return candidates.reduce((longest, candidate) =>
-    (candidate.route?.length ?? 0) > (longest.route?.length ?? 0) ? candidate : longest,
-  );
+  const current = toSearchParams(searchParams);
+  const candidates = flattenNavigationTree(items).filter((item) => {
+    if (!item.route) return false;
+    const { path } = parseRoute(item.route);
+    return (
+      path !== "/" &&
+      (pathname === path || pathname.startsWith(`${path}/`)) &&
+      routeQuerySpecificity(item.route, current) >= 0
+    );
+  });
+  return mostSpecific(candidates, current);
 }
 
 /**

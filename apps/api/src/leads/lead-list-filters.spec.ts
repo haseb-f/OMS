@@ -41,7 +41,10 @@ describe('LeadsService list filters', () => {
   function makeService() {
     const findMany = jest.fn().mockResolvedValue([]);
     const count = jest.fn().mockResolvedValue(0);
-    const prisma = { lead: { findMany, count } };
+    const $queryRaw = jest
+      .fn()
+      .mockResolvedValue([{ id: 'lead-normalized-1' }]);
+    const prisma = { lead: { findMany, count }, $queryRaw };
     const service = new LeadsService(
       prisma as unknown as PrismaService,
       {} as never,
@@ -54,15 +57,56 @@ describe('LeadsService list filters', () => {
       salesScope,
       {} as never,
     );
-    return { service, findMany };
+    return { service, findMany, $queryRaw };
   }
 
-  async function whereFor(query: Partial<FindLeadsQueryDto>) {
+  async function whereFor(
+    query: Partial<FindLeadsQueryDto>,
+    scope: SalesScope = allScope,
+  ) {
     const { service, findMany } = makeService();
-    await service.findAll(query, allScope);
+    await service.findAll(query, scope);
     const call = findMany.mock.calls[0] as [{ where: unknown }];
     return call[0].where as { AND: Record<string, unknown>[] };
   }
+
+  function searchClause(where: { AND: Record<string, unknown>[] }) {
+    return where.AND.find((part) => 'OR' in part) as {
+      OR: Record<string, unknown>[];
+    };
+  }
+
+  it('Arabic search adds the normalized-name id match as one more OR branch', async () => {
+    const where = await whereFor({ search: 'أحمد محمد صالح' });
+    const clause = searchClause(where);
+    expect(clause.OR).toContainEqual({
+      customerName: { contains: 'أحمد محمد صالح', mode: 'insensitive' },
+    });
+    expect(clause.OR).toContainEqual({ id: { in: ['lead-normalized-1'] } });
+  });
+
+  it('Arabic search keeps the lead scope AND-ed on (never widens visibility)', async () => {
+    const ownScope: SalesScope = {
+      ...allScope,
+      kind: 'OWN',
+      ownerIds: ['actor-1'],
+    };
+    const where = await whereFor({ search: 'أحمد' }, ownScope);
+    expect(where.AND[0]).toEqual(salesScope.leadWhere(ownScope));
+    expect(searchClause(where).OR).toContainEqual({
+      id: { in: ['lead-normalized-1'] },
+    });
+  });
+
+  it('non-Arabic search never runs the normalized query', async () => {
+    const { service, findMany, $queryRaw } = makeService();
+    await service.findAll({ search: 'LEAD-00012' }, allScope);
+    expect($queryRaw).not.toHaveBeenCalled();
+    const where = (findMany.mock.calls[0] as [{ where: unknown }])[0].where as {
+      AND: Record<string, unknown>[];
+    };
+    expect(searchClause(where).OR.some((branch) => 'id' in branch)).toBe(false);
+  });
 
   it('AND-composes classificationIds independently of lifecycle/status filters', async () => {
     const where = await whereFor({

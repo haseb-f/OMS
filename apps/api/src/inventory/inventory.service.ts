@@ -661,6 +661,7 @@ export class InventoryService {
         productId: prismaEnumFilter(query.productId),
         warehouseId: prismaEnumFilter(query.warehouseId),
         type: prismaEnumFilter(query.type),
+        referenceId: prismaEnumFilter(query.referenceId),
       },
       orderBy: { createdAt: 'desc' },
       include: {

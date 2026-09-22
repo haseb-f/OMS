@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
-import { ChevronDown, Plus } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { ChevronDown, Plus, X } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -103,6 +104,18 @@ function InventoryMovementsPageContent() {
   const [productFilter, setProductFilter] = useState<ProductRow[]>([]);
   const [warehouseFilter, setWarehouseFilter] = useState<WarehouseRow[]>([]);
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
+  // Source-document filter, set only from the URL — the traceability
+  // panel's "View all" link for a document with more movements than it lists.
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [referenceFilter, setReferenceFilter] = useState<string[]>(() =>
+    searchParams.getAll("referenceId"),
+  );
+  const clearReferenceFilter = () => {
+    setReferenceFilter([]);
+    if (searchParams.has("referenceId")) router.replace(pathname);
+  };
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -111,6 +124,7 @@ function InventoryMovementsPageContent() {
         productId: productFilter.map((product) => product.id),
         warehouseId: warehouseFilter.map((warehouse) => warehouse.id),
         type: typeFilter,
+        referenceId: referenceFilter,
       });
       setRows(items);
     } catch (error) {
@@ -118,7 +132,7 @@ function InventoryMovementsPageContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [productFilter, warehouseFilter, typeFilter]);
+  }, [productFilter, warehouseFilter, typeFilter, referenceFilter]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -424,7 +438,22 @@ function InventoryMovementsPageContent() {
               }))}
             />
             <EnterpriseDateRangePicker value={dateRange} onChange={setDateRange} />
+            {referenceFilter.length > 0 ? (
+              <EnterpriseButton
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-label={`${t("inventory.movements.sourceDocumentsFilter", {
+                  count: referenceFilter.length,
+                })} — ${t("table.clearFilters")}`}
+                onClick={clearReferenceFilter}
+              >
+                {t("inventory.movements.sourceDocumentsFilter", { count: referenceFilter.length })}
+                <X />
+              </EnterpriseButton>
+            ) : null}
             {(productFilter.length > 0 ||
+              referenceFilter.length > 0 ||
               warehouseFilter.length > 0 ||
               typeFilter.length > 0 ||
               dateRange.from ||
@@ -438,6 +467,7 @@ function InventoryMovementsPageContent() {
                   setWarehouseFilter([]);
                   setTypeFilter([]);
                   setDateRange(EMPTY_DATE_RANGE);
+                  clearReferenceFilter();
                 }}
               >
                 {t("table.clearFilters")}

@@ -82,9 +82,19 @@ describe('Products — Draft Activation & Creation Wizard', () => {
         where: { productId: { in: productIds } },
       });
     }
-    await prisma.product.deleteMany({ where: { name: { contains: suffix } } });
-    await prisma.unit.deleteMany({ where: { id: unitId } });
-    await prisma.productCategory.deleteMany({ where: { id: categoryId } });
+    // Specs running in parallel against the shared local DB may have picked a
+    // product created here for a store order — leave those rows (and the
+    // unit/category they need) instead of failing teardown on the FK.
+    await prisma.product.deleteMany({
+      where: { name: { contains: suffix }, storeOrderItems: { none: {} } },
+    });
+    const leftover = await prisma.product.count({
+      where: { name: { contains: suffix } },
+    });
+    if (!leftover) {
+      await prisma.unit.deleteMany({ where: { id: unitId } });
+      await prisma.productCategory.deleteMany({ where: { id: categoryId } });
+    }
     await prisma.$disconnect();
     await moduleRef.close();
   });

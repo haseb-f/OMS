@@ -69,6 +69,13 @@ import { OrderEconomicsService } from './order-economics/order-economics.service
 import { AccountMappingService } from '../accounting/account-mapping/account-mapping.service';
 import { PAID_PAYMENT_CODES } from '../workflow/workflow-status-map';
 import { randomUUID } from 'node:crypto';
+import { findArabicNormalizedIds } from '../common/text/arabic-search.query';
+
+/** Customer (Partner) name for the shared Arabic-normalized search (`common/text/arabic-search.ts`). */
+export const CUSTOMER_NAME_NORMALIZED_SEARCH = {
+  table: 'partners',
+  columns: ['name'],
+} as const;
 
 const STATUS_DEF_SELECT = {
   id: true,
@@ -449,7 +456,7 @@ export class StoreOrdersService {
     }
   }
 
-  private buildFindWhere(
+  private async buildFindWhere(
     query: Pick<
       FindStoreOrdersQueryDto,
       | 'partnerId'
@@ -461,7 +468,7 @@ export class StoreOrdersService {
       | 'dateFrom'
       | 'dateTo'
     >,
-  ): Prisma.StoreOrderWhereInput {
+  ): Promise<Prisma.StoreOrderWhereInput> {
     const where: Prisma.StoreOrderWhereInput = {
       deletedAt: null,
       partnerId: query.partnerId,
@@ -486,7 +493,7 @@ export class StoreOrdersService {
       // "564345678", "0564345678", "966564345678", and "+966564345678"
       // all find a partner stored as "+966564345678".
       const phoneCandidates = this.phoneNumberService.searchCandidates(search);
-      where.OR = [
+      const or: Prisma.StoreOrderWhereInput[] = [
         { internalOrderId: { contains: search, mode: 'insensitive' } },
         { externalOrderId: { contains: search, mode: 'insensitive' } },
         { partner: { name: { contains: search, mode: 'insensitive' } } },
@@ -495,6 +502,15 @@ export class StoreOrdersService {
           { partner: { mobile: { contains: digits } } },
         ]),
       ];
+      // Arabic-normalized customer name ("أحمد" finds "احمد") — one more OR
+      // branch; the sales scope is still AND-ed on in buildScopedFindWhere.
+      const partnerIds = await findArabicNormalizedIds(
+        this.prisma,
+        CUSTOMER_NAME_NORMALIZED_SEARCH,
+        search,
+      );
+      if (partnerIds?.length) or.push({ partnerId: { in: partnerIds } });
+      where.OR = or;
     }
     if (query.dateFrom || query.dateTo) {
       where.orderDate = buildDateRangeFilter(query.dateFrom, query.dateTo);
@@ -506,7 +522,7 @@ export class StoreOrdersService {
     query: FindStoreOrdersQueryDto,
     userId?: string,
   ): Promise<Prisma.StoreOrderWhereInput> {
-    const where = this.buildFindWhere(query);
+    const where = await this.buildFindWhere(query);
     if (!userId) return where;
     const scope = await this.salesScope.resolve(userId);
     return { AND: [where, this.salesScope.storeOrderWhere(scope)] };

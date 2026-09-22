@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 import { navigationConfig } from "@/navigation/navigation.config";
 import {
@@ -21,12 +21,15 @@ import {
  */
 export function useCurrentNavigation() {
   const pathname = usePathname();
+  // Query-aware so entries like `/reports/finance?report=generalLedger`
+  // highlight themselves instead of their plain-path sibling.
+  const search = useSearchParams()?.toString() ?? "";
 
   return useMemo(() => {
-    const exact = findNavigationItemByRoute(navigationConfig, pathname);
-    const current = exact ?? findNavigationAncestorByRoute(navigationConfig, pathname);
+    const exact = findNavigationItemByRoute(navigationConfig, pathname, search);
+    const current = exact ?? findNavigationAncestorByRoute(navigationConfig, pathname, search);
     const breadcrumb = current ? getNavigationBreadcrumb(navigationConfig, current) : [];
     const parentRoute = findNavigationParentRoute(navigationConfig, pathname);
     return { pathname, current, breadcrumb, parentRoute, isExactMatch: Boolean(exact) };
-  }, [pathname]);
+  }, [pathname, search]);
 }

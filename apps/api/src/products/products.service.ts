@@ -16,6 +16,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { FindProductsQueryDto } from './dto/find-products-query.dto';
 import { CreateProductAttachmentDto } from './dto/create-product-attachment.dto';
 import { prismaEnumFilter } from '../common/query/enum-list';
+import { findArabicNormalizedIds } from '../common/text/arabic-search.query';
 
 /**
  * Product Business Behavior defaults (TASK-028) — each behavior has
@@ -66,6 +67,12 @@ const DEFAULT_FLAGS_BY_TYPE: Record<
 };
 
 const DOCUMENT_TYPE = 'PRODUCT';
+
+/** Arabic-bearing product columns for the shared Arabic-normalized search (`common/text/arabic-search.ts`). */
+export const PRODUCT_NORMALIZED_SEARCH = {
+  table: 'products',
+  columns: ['name', 'internal_name', 'display_name', 'search_keywords'],
+} as const;
 
 @Injectable()
 export class ProductsService {
@@ -148,6 +155,34 @@ export class ProductsService {
   }
 
   /**
+   * Shared by the management list and the picker catalog: plain
+   * case-insensitive `contains` on SKU/Name/NameEn/Barcode/InternalName/
+   * DisplayName/SearchKeywords, plus (for Arabic text) the shared
+   * Arabic-normalized match on the Arabic-bearing columns, so "أحمد" finds
+   * "احمد" and "مصطفى" finds "مصطفي".
+   */
+  private async buildSearchOr(
+    search: string,
+  ): Promise<Prisma.ProductWhereInput[]> {
+    const or: Prisma.ProductWhereInput[] = [
+      { sku: { contains: search, mode: 'insensitive' } },
+      { name: { contains: search, mode: 'insensitive' } },
+      { nameEn: { contains: search, mode: 'insensitive' } },
+      { barcode: { contains: search, mode: 'insensitive' } },
+      { internalName: { contains: search, mode: 'insensitive' } },
+      { displayName: { contains: search, mode: 'insensitive' } },
+      { searchKeywords: { contains: search, mode: 'insensitive' } },
+    ];
+    const normalizedIds = await findArabicNormalizedIds(
+      this.prisma,
+      PRODUCT_NORMALIZED_SEARCH,
+      search,
+    );
+    if (normalizedIds?.length) or.push({ id: { in: normalizedIds } });
+    return or;
+  }
+
+  /**
    * Real server-side pagination (TASK-027) — Products is the first "rich
    * entity" module in this codebase to get one; Suppliers/Leads still
    * return everything unpaginated. Filtering by Category/Brand/Tax/Status/
@@ -167,17 +202,7 @@ export class ProductsService {
       isPurchasable: query.isPurchasable,
     };
 
-    if (query.search) {
-      where.OR = [
-        { sku: { contains: query.search, mode: 'insensitive' } },
-        { name: { contains: query.search, mode: 'insensitive' } },
-        { nameEn: { contains: query.search, mode: 'insensitive' } },
-        { barcode: { contains: query.search, mode: 'insensitive' } },
-        { internalName: { contains: query.search, mode: 'insensitive' } },
-        { displayName: { contains: query.search, mode: 'insensitive' } },
-        { searchKeywords: { contains: query.search, mode: 'insensitive' } },
-      ];
-    }
+    if (query.search) where.OR = await this.buildSearchOr(query.search);
 
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
@@ -228,17 +253,7 @@ export class ProductsService {
       availableForInvestmentOpportunities: query.investmentEligible,
     };
 
-    if (query.search) {
-      where.OR = [
-        { sku: { contains: query.search, mode: 'insensitive' } },
-        { name: { contains: query.search, mode: 'insensitive' } },
-        { nameEn: { contains: query.search, mode: 'insensitive' } },
-        { barcode: { contains: query.search, mode: 'insensitive' } },
-        { internalName: { contains: query.search, mode: 'insensitive' } },
-        { displayName: { contains: query.search, mode: 'insensitive' } },
-        { searchKeywords: { contains: query.search, mode: 'insensitive' } },
-      ];
-    }
+    if (query.search) where.OR = await this.buildSearchOr(query.search);
 
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;

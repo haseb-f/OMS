@@ -2,12 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { uniqueFieldFromPrismaError } from '../common/errors/prisma-unique-field';
-import {
-  containsArabic,
-  escapeLikePattern,
-  normalizeArabicSearch,
-  normalizedArabicColumnSql,
-} from '../common/text/arabic-search';
+import { findArabicNormalizedIds } from '../common/text/arabic-search.query';
 import { MasterDataActivityLogService } from './master-data-activity-log.service';
 import { MasterDataQueryDto } from './dto/master-data-query.dto';
 
@@ -98,18 +93,13 @@ export abstract class MasterDataCrudService<
   private async findNormalizedSearchIds(
     search: string,
   ): Promise<string[] | null> {
-    if (!this.normalizedSearch || !containsArabic(search)) return null;
-    const needle = normalizeArabicSearch(search);
-    if (!needle) return null;
-    const pattern = `%${escapeLikePattern(needle)}%`;
-    const conditions = this.normalizedSearch.columns.map(
-      (column) =>
-        Prisma.sql`${normalizedArabicColumnSql(`"${column}"`)} LIKE ${pattern}`,
+    if (!this.normalizedSearch) return null;
+    return findArabicNormalizedIds(
+      this.prisma,
+      this.normalizedSearch,
+      search,
+      SELECT_ALL_MATCHING_CAP,
     );
-    const rows = await this.prisma.$queryRaw<{ id: string }[]>(
-      Prisma.sql`SELECT id::text AS id FROM ${Prisma.raw(`"${this.normalizedSearch.table}"`)} WHERE ${Prisma.join(conditions, ' OR ')} LIMIT ${SELECT_ALL_MATCHING_CAP}`,
-    );
-    return rows.map((row) => row.id);
   }
 
   async findAll(

@@ -37,6 +37,7 @@ import {
   SalesScopeService,
   type SalesScope,
 } from '../sales-scope/sales-scope.service';
+import { findArabicNormalizedIds } from '../common/text/arabic-search.query';
 
 const SEARCH_FIELDS = [
   'leadNumber',
@@ -44,6 +45,12 @@ const SEARCH_FIELDS = [
   'mobileNumber',
   'externalOrderId',
 ] as const;
+
+/** Arabic-normalized search target — "أحمد محمد صالح" finds "احمد محمد صالح" (`common/text/arabic-search.ts`). */
+export const LEAD_NORMALIZED_SEARCH = {
+  table: 'leads',
+  columns: ['customer_name'],
+} as const;
 
 /** List/detail views need these display names — the Customer Master link, in particular, is what the frontend uses for "Existing Customer Found" and Customer Order History. */
 const LEAD_INCLUDE = {
@@ -904,11 +911,17 @@ export class LeadsService {
       });
     }
     if (query.search) {
-      parts.push({
-        OR: SEARCH_FIELDS.map((field) => ({
-          [field]: { contains: query.search, mode: 'insensitive' as const },
-        })),
-      });
+      const or: Prisma.LeadWhereInput[] = SEARCH_FIELDS.map((field) => ({
+        [field]: { contains: query.search, mode: 'insensitive' as const },
+      }));
+      // Extra OR branch only — scope/filters above still AND-constrain it.
+      const normalizedIds = await findArabicNormalizedIds(
+        this.prisma,
+        LEAD_NORMALIZED_SEARCH,
+        query.search,
+      );
+      if (normalizedIds?.length) or.push({ id: { in: normalizedIds } });
+      parts.push({ OR: or });
     }
     if (query.followUpFilter) {
       const now = new Date();

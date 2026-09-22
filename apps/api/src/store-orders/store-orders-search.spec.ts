@@ -33,7 +33,9 @@ describe('Store Orders — Complete Search', () => {
 
   const suffix = randomUUID().slice(0, 8);
   const externalOrderId = `SEARCH-TEST-EXT-${suffix}`;
-  const arabicCustomerName = `عميل اختبار البحث ${suffix}`;
+  // Stored WITHOUT hamza and WITH taa-marbuta/alef-maqsura spellings the
+  // Arabic-normalized search must bridge ("أحمد" → "احمد", "ه" → "ة", ...).
+  const arabicCustomerName = `احمد محمد صالح مؤسسة مصطفي ${suffix}`;
   // A fresh, randomized Saudi mobile per run — never a fixed literal, so a
   // prior run's leftover fixture (same phone) can never dedup-merge into
   // this run's customer via `CustomersService.findOrCreate`'s phone match
@@ -167,6 +169,22 @@ describe('Store Orders — Complete Search', () => {
       search: arabicCustomerName.split(' ')[1],
     });
     expect(result.items.map((i) => i.id)).toContain(orderId);
+  });
+
+  it.each(['أحمد محمد صالح', 'إحمد مُحَمَّد', 'مؤسسه مصطفى'])(
+    'finds the order by an Arabic spelling variant of the customer name ("%s")',
+    async (variant) => {
+      const result = await service.findAll({ search: variant, pageSize: 100 });
+      expect(result.items.map((i) => i.id)).toContain(orderId);
+    },
+  );
+
+  it('an Arabic variant search still honors the other filters', async () => {
+    const result = await service.findAll({
+      search: 'أحمد محمد صالح',
+      shippingStage: [StoreOrderShippingStage.READY_FOR_SHIPPING],
+    });
+    expect(result.items.map((i) => i.id)).not.toContain(orderId);
   });
 
   it('trims surrounding spaces before searching', async () => {

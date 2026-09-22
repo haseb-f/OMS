@@ -109,6 +109,8 @@ export const inventoryService = {
       productId?: string | string[];
       warehouseId?: string | string[];
       type?: string | string[];
+      /** Source-document ids (traceability "View all"). */
+      referenceId?: string | string[];
     } = {},
   ) => apiClient.get<InventoryMovementRow[]>(`/inventory/movements${buildQueryString(params)}`),
   getStockCards: () => apiClient.get<StockCard[]>("/inventory/stock-cards"),

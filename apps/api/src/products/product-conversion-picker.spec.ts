@@ -185,6 +185,42 @@ describe('Product conversion picker query', () => {
    * `products.view`-gated `/products/:id`. Locks in that the `ids` filter
    * actually narrows the catalog result to just the requested row(s).
    */
+  it('list and picker catalog both find an Arabic product by a hamza/taa-marbuta/alef-maqsura variant', async () => {
+    const name = `مكتبة احمد مصطفي ${suffix}`;
+    const arabic = await prisma.product.create({
+      data: {
+        categoryId,
+        unitId,
+        type: ProductType.PURCHASE_AND_SALE,
+        isPurchasable: true,
+        isInventoryItem: true,
+        name,
+        displayName: name,
+        internalName: name,
+        sku: `PKD-${suffix}`,
+        status: ProductStatus.ACTIVE,
+        isSellable: true,
+      },
+    });
+    try {
+      const search = 'مكتبه أحمد مصطفى';
+      const listed = await service.findAll({
+        categoryId: [categoryId],
+        search,
+        pageSize: 25,
+      });
+      expect(listed.items.map((p) => p.id)).toEqual([arabic.id]);
+      const picked = await service.findSellableCatalog({
+        categoryId: [categoryId],
+        search,
+        pageSize: 25,
+      });
+      expect(picked.items.map((p) => p.id)).toEqual([arabic.id]);
+    } finally {
+      await prisma.product.deleteMany({ where: { id: arabic.id } });
+    }
+  });
+
   it('findSellableCatalog(ids) resolves an exact product by id, ignoring other filters', async () => {
     const result = await service.findSellableCatalog({
       ids: [productAId],
