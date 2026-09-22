@@ -13,6 +13,7 @@ import { purchaseOrdersService } from "@/services/purchase-orders-service";
 import { purchaseInvoicesService } from "@/services/purchase-invoices-service";
 import { purchaseReturnsService } from "@/services/purchase-returns-service";
 import { customerReceiptsService } from "@/services/customer-receipts-service";
+import { customerRefundsService } from "@/services/customer-refunds-service";
 import { supplierPaymentsService } from "@/services/supplier-payments-service";
 import { storeOrdersService } from "@/services/store-orders-service";
 import { landedCostService } from "@/services/landed-cost-service";
@@ -99,7 +100,9 @@ function transactionPreview(row: FinancialTransactionRow): RecordPreview {
   const invoices = row.allocations
     .map(
       (allocation) =>
-        allocation.salesInvoice?.invoiceNumber ?? allocation.purchaseInvoice?.invoiceNumber,
+        allocation.salesInvoice?.invoiceNumber ??
+        allocation.purchaseInvoice?.invoiceNumber ??
+        allocation.salesReturn?.returnNumber,
     )
     .filter(Boolean)
     .join(", ");
@@ -159,6 +162,7 @@ const PREVIEW_FETCHERS: Partial<Record<TraceKind, PreviewFetcher>> = {
     return commercialPreview(row.returnNumber, row);
   },
   CUSTOMER_RECEIPT: async (id) => transactionPreview(await customerReceiptsService.get(id)),
+  CUSTOMER_REFUND: async (id) => transactionPreview(await customerRefundsService.get(id)),
   SUPPLIER_PAYMENT: async (id) => transactionPreview(await supplierPaymentsService.get(id)),
   STORE_ORDER: async (id) => {
     const row = await storeOrdersService.get(id);

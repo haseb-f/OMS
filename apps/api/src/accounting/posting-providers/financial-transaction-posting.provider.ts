@@ -10,6 +10,14 @@ import type {
   PostingResult,
 } from '../posting-engine/posting-provider.interface';
 
+/** The allocation fields posting needs: amount + the settled document's snapshotted rate. */
+interface AllocationRateView {
+  allocatedAmount: unknown;
+  salesInvoice: { exchangeRate: unknown } | null;
+  purchaseInvoice: { exchangeRate: unknown } | null;
+  salesReturn?: { exchangeRate: unknown } | null;
+}
+
 /**
  * Financial Transaction Posting Provider (TASK-046/047, extended by the
  * Cash Flow module for Expense) — one provider handling Customer Receipt,
@@ -19,6 +27,13 @@ import type {
  * Customer Receipt:  Dr Bank/Cash            Cr Accounts Receivable
  * Supplier Payment:  Dr Accounts Payable     Cr Bank/Cash
  * Expense Payment:   Dr expenseAccountId     Cr Bank/Cash
+ * Customer Refund:   Dr Accounts Receivable  Cr Bank/Cash
+ *
+ * A Customer Refund pays back the credit a posted Sales Return left on the
+ * customer's AR, so its AR debit is valued at each refunded return's own
+ * snapshotted rate (the rate that return credited AR at) — the mirror of
+ * a receipt clearing invoices at their rates; any difference to the cash
+ * paid out at the refund's rate is realized FX, never an AR residue.
  *
  * The Bank/Cash account is always `ReceivingAccount.chartOfAccountId` — the
  * one already-required, already-real account this codebase resolves
@@ -37,6 +52,7 @@ export class FinancialTransactionPostingProvider
     'CUSTOMER_RECEIPT',
     'SUPPLIER_PAYMENT',
     'EXPENSE_PAYMENT',
+    'CUSTOMER_REFUND',
   ];
 
   constructor(
@@ -66,6 +82,9 @@ export class FinancialTransactionPostingProvider
               select: { id: true, exchangeRate: true, currencyId: true },
             },
             purchaseInvoice: {
+              select: { id: true, exchangeRate: true, currencyId: true },
+            },
+            salesReturn: {
               select: { id: true, exchangeRate: true, currencyId: true },
             },
           },
@@ -204,6 +223,16 @@ export class FinancialTransactionPostingProvider
       };
     }
 
+    if (sourceType === 'CUSTOMER_REFUND') {
+      return this.buildRefundEntries(
+        transaction,
+        amount,
+        payRate,
+        bankAccountId,
+        tx,
+      );
+    }
+
     const apAccountId = await this.accountMapping.resolvePayableAccount(
       transaction.partner!.id,
       tx,
@@ -252,17 +281,76 @@ export class FinancialTransactionPostingProvider
     };
   }
 
+  /** Customer Refund: Dr AR (partner, at the refunded returns' rates) / Cr Bank (at the refund's rate). */
+  private async buildRefundEntries(
+    transaction: {
+      transactionNumber: string;
+      partner: { id: string } | null;
+      allocations: AllocationRateView[];
+      currencyId: string | null;
+      companyId: string | null;
+      branchId: string | null;
+      costCenterId: string | null;
+      projectId: string | null;
+      confirmedAt: Date | null;
+      transactionDate: Date;
+    },
+    amount: number,
+    payRate: number,
+    bankAccountId: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<PostingResult> {
+    const description = `Customer Refund ${transaction.transactionNumber}`;
+    const arAccountId = await this.accountMapping.resolveReceivableAccount(
+      transaction.partner!.id,
+      tx,
+    );
+    const cashFunctional = this.round2(amount * payRate);
+    const arFunctional = this.clearedFunctional(
+      transaction.allocations,
+      'return',
+      amount,
+      payRate,
+    );
+    const fx = this.round2(arFunctional - cashFunctional);
+    const lines = [
+      {
+        accountId: arAccountId,
+        debit: arFunctional,
+        description,
+        partnerId: transaction.partner!.id,
+      },
+      {
+        accountId: bankAccountId,
+        credit: cashFunctional,
+        description,
+      },
+    ];
+    await this.pushRealizedFx(lines, fx, description, tx);
+    return {
+      lines,
+      description,
+      referenceNumber: transaction.transactionNumber,
+      currencyId: transaction.currencyId,
+      // Already functional (FX realized against return rates above) —
+      // record the rate, never re-convert.
+      exchangeRate: payRate,
+      linesInFunctionalCurrency: true,
+      companyId: transaction.companyId,
+      branchId: transaction.branchId,
+      costCenterId: transaction.costCenterId,
+      projectId: transaction.projectId,
+      entryDate: transaction.confirmedAt ?? transaction.transactionDate,
+    };
+  }
+
   private round2(value: number) {
     return Math.round(value * 100) / 100;
   }
 
   private clearedFunctional(
-    allocations: Array<{
-      allocatedAmount: unknown;
-      salesInvoice: { exchangeRate: unknown } | null;
-      purchaseInvoice: { exchangeRate: unknown } | null;
-    }>,
-    side: 'sales' | 'purchase',
+    allocations: AllocationRateView[],
+    side: 'sales' | 'purchase' | 'return',
     transactionAmount: number,
     payRate: number,
   ) {
@@ -273,7 +361,11 @@ export class FinancialTransactionPostingProvider
     let allocatedTx = 0;
     for (const allocation of allocations) {
       const invoice =
-        side === 'sales' ? allocation.salesInvoice : allocation.purchaseInvoice;
+        side === 'sales'
+          ? allocation.salesInvoice
+          : side === 'purchase'
+            ? allocation.purchaseInvoice
+            : (allocation.salesReturn ?? null);
       const invRate =
         invoice?.exchangeRate != null ? Number(invoice.exchangeRate) : payRate;
       const allocated = Number(allocation.allocatedAmount);

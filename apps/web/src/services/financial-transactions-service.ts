@@ -2,7 +2,8 @@ import { apiClient } from "./api-client";
 import { buildQueryString } from "@/lib/query-string";
 import type { PartnerRow } from "./partners-service";
 
-export type FinancialTransactionTypeValue = "CUSTOMER_RECEIPT" | "SUPPLIER_PAYMENT";
+export type FinancialTransactionTypeValue =
+  "CUSTOMER_RECEIPT" | "SUPPLIER_PAYMENT" | "EXPENSE_PAYMENT" | "CUSTOMER_REFUND";
 export type FinancialTransactionStatusValue = "DRAFT" | "CONFIRMED" | "CANCELLED";
 /** TASK-060B Part 6 — independent from document Workflow Status (Draft/Confirmed/Cancelled); `CANCELLED` here means the invoice itself was cancelled, never set manually. */
 export type InvoicePaymentStatusValue = "UNPAID" | "PARTIALLY_PAID" | "PAID" | "CANCELLED";
@@ -24,6 +25,9 @@ export interface FinancialTransactionAllocationRow {
   salesInvoice?: { id: string; invoiceNumber: string; grandTotal: string } | null;
   purchaseInvoiceId: string | null;
   purchaseInvoice?: { id: string; invoiceNumber: string; grandTotal: string } | null;
+  /** CUSTOMER_REFUND — the posted Sales Return (credit note) this refund pays back. */
+  salesReturnId?: string | null;
+  salesReturn?: { id: string; returnNumber: string; grandTotal: string } | null;
   allocatedAmount: string;
   allocationDate: string;
 }
@@ -79,6 +83,8 @@ export interface FinancialTransactionListParams {
   search?: string;
   status?: FinancialTransactionStatusValue | FinancialTransactionStatusValue[];
   partnerId?: string | string[];
+  /** Customer Refunds only — refunds paying back this Sales Return. */
+  salesReturnId?: string;
   dateFrom?: string;
   dateTo?: string;
   page?: number;

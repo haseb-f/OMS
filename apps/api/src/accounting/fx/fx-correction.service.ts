@@ -14,6 +14,7 @@ const CORRECTABLE = {
   CUSTOMER_RECEIPT: 'financialTransaction',
   SUPPLIER_PAYMENT: 'financialTransaction',
   EXPENSE_PAYMENT: 'financialTransaction',
+  CUSTOMER_REFUND: 'financialTransaction',
 } as const;
 type CorrectableSource = keyof typeof CORRECTABLE;
 

@@ -10,6 +10,8 @@ export type TraceKind =
   | 'SALES_INVOICE'
   | 'SALES_RETURN'
   | 'CUSTOMER_RECEIPT'
+  | 'CUSTOMER_REFUND'
+  | 'CUSTOMER'
   | 'PURCHASE_QUOTATION'
   | 'PURCHASE_ORDER'
   | 'PURCHASE_INVOICE'
@@ -60,6 +62,15 @@ export interface TraceGroup {
   key: TraceGroupKey;
   state: TraceState;
   items: TraceRecord[];
+  /**
+   * Set only when `items` is a bounded subset (never a silent cut):
+   * `total` is the full count, and `referenceIds` are the source-document
+   * ids the full list is filtered by (e.g. the inventory movements page's
+   * `referenceId` filter for STOCK_MOVEMENTS).
+   */
+  truncated?: boolean;
+  total?: number;
+  referenceIds?: string[];
 }
 
 export interface TraceResult {

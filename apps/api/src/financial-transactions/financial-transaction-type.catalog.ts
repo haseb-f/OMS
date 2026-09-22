@@ -17,18 +17,30 @@ export const FINANCIAL_TRANSACTION_TYPE_CATALOG = [
     label: 'تحصيل من عميل',
     direction: 'IN',
     isSystem: true,
+    importable: true,
   },
   {
     code: 'SUPPLIER_PAYMENT',
     label: 'سداد مورد',
     direction: 'OUT',
     isSystem: true,
+    importable: true,
   },
   {
     code: 'EXPENSE_PAYMENT',
     label: 'مصروف تشغيلي',
     direction: 'OUT',
     isSystem: true,
+    importable: true,
+  },
+  {
+    code: 'CUSTOMER_REFUND',
+    label: 'رد مبلغ لعميل',
+    direction: 'OUT',
+    isSystem: true,
+    // Created only from a posted Sales Return (never imported from a
+    // sheet row), so it is not offered in the List Sheet import column.
+    importable: false,
   },
 ] as const;
 
@@ -38,9 +50,12 @@ export type FinancialTransactionTypeCode =
 export type FinancialTransactionDirection =
   (typeof FINANCIAL_TRANSACTION_TYPE_CATALOG)[number]['direction'];
 
+/** List Sheet import-column values — importable voucher types only. */
 export const FINANCIAL_TRANSACTION_TYPE_SHEET_LABELS: Record<string, string> =
   Object.fromEntries(
-    FINANCIAL_TRANSACTION_TYPE_CATALOG.map((type) => [type.code, type.label]),
+    FINANCIAL_TRANSACTION_TYPE_CATALOG.filter((type) => type.importable).map(
+      (type) => [type.code, type.label],
+    ),
   );
 
 export function typesForDirection(direction: FinancialTransactionDirection) {

@@ -1,7 +1,7 @@
 import type { MessageKey } from "@/i18n/translate";
 
 export type FinancialTransactionTypeCode =
-  "CUSTOMER_RECEIPT" | "SUPPLIER_PAYMENT" | "EXPENSE_PAYMENT";
+  "CUSTOMER_RECEIPT" | "SUPPLIER_PAYMENT" | "EXPENSE_PAYMENT" | "CUSTOMER_REFUND";
 
 export type FinancialTransactionDirection = "IN" | "OUT";
 
@@ -13,6 +13,7 @@ export const FINANCIAL_TRANSACTION_TYPE_CATALOG = [
   { code: "CUSTOMER_RECEIPT" as const, direction: "IN" as const },
   { code: "SUPPLIER_PAYMENT" as const, direction: "OUT" as const },
   { code: "EXPENSE_PAYMENT" as const, direction: "OUT" as const },
+  { code: "CUSTOMER_REFUND" as const, direction: "OUT" as const },
 ];
 
 export const FINANCIAL_TRANSACTION_TYPE_LABEL_KEY: Record<
@@ -22,6 +23,7 @@ export const FINANCIAL_TRANSACTION_TYPE_LABEL_KEY: Record<
   CUSTOMER_RECEIPT: "financialTransactions.types.CUSTOMER_RECEIPT",
   SUPPLIER_PAYMENT: "financialTransactions.types.SUPPLIER_PAYMENT",
   EXPENSE_PAYMENT: "financialTransactions.types.EXPENSE_PAYMENT",
+  CUSTOMER_REFUND: "financialTransactions.types.CUSTOMER_REFUND",
 };
 
 export const FINANCIAL_TRANSACTION_DIRECTION_LABEL_KEY: Record<

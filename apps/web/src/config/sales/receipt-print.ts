@@ -4,7 +4,7 @@ import type { FinancialTransactionRow } from "@/services/financial-transactions-
 import { formatDate } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
 
-/** Feeds the existing Print Engine's dedicated "receipt" variant/template — no new template built, per "reuse the Print Engine" instruction. */
+/** Feeds the existing Print Engine's dedicated "receipt" variant/template — no new template built, per "reuse the Print Engine" instruction. A Customer Refund (money out) prints through the same builder as a payment voucher. */
 export function buildReceiptPrintPayload(
   receipt: FinancialTransactionRow,
   options: {
@@ -15,9 +15,10 @@ export function buildReceiptPrintPayload(
   },
 ): DocumentPrintPayload {
   const { companyName, companyLogoUrl, printedByName, t } = options;
+  const isRefund = receipt.type === "CUSTOMER_REFUND";
 
   const data: DocumentData = {
-    type: "receipt-voucher",
+    type: isRefund ? "payment-voucher" : "receipt-voucher",
     documentNumber: receipt.transactionNumber,
     documentDate: formatDate(receipt.transactionDate),
     currency: receipt.currency?.code ?? "",
@@ -58,7 +59,8 @@ export function buildReceiptPrintPayload(
     ],
     lineItems: receipt.allocations.map((allocation) => ({
       id: allocation.id,
-      description: allocation.salesInvoice?.invoiceNumber ?? "",
+      description:
+        allocation.salesInvoice?.invoiceNumber ?? allocation.salesReturn?.returnNumber ?? "",
       quantity: 1,
       unitPrice: Number(allocation.allocatedAmount),
       total: Number(allocation.allocatedAmount),
@@ -75,14 +77,18 @@ export function buildReceiptPrintPayload(
 
   return {
     variant: "receipt",
-    title: `${t("sales.receipts.title")} — ${receipt.transactionNumber}`,
+    title: `${t(isRefund ? "sales.refunds.title" : "sales.receipts.title")} — ${receipt.transactionNumber}`,
     printedByName,
     data,
     labels: {
-      documentNumber: t("sales.receipts.fields.number"),
+      documentNumber: t(isRefund ? "sales.refunds.fields.number" : "sales.receipts.fields.number"),
       documentDate: t("financialTransactions.fields.transactionDate"),
       billTo: t("sales.customers.picker.selectCustomer"),
-      description: t("financialTransactions.allocationGrid.invoice"),
+      description: t(
+        isRefund
+          ? "sales.refunds.fields.salesReturn"
+          : "financialTransactions.allocationGrid.invoice",
+      ),
       quantity: "",
       unitPrice: "",
       lineTotal: t("financialTransactions.allocationGrid.amount"),

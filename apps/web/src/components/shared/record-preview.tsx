@@ -260,6 +260,9 @@ export function TraceGroups({
                   originLabel={originLabel}
                 />
               ))}
+              {group.truncated ? (
+                <TraceGroupOverflow group={group} originLabel={originLabel} />
+              ) : null}
               {stateText ? (
                 <span
                   className={cn(
@@ -279,6 +282,46 @@ export function TraceGroups({
         );
       })}
     </dl>
+  );
+}
+
+/** Full-list page for a group whose inline items were bounded (only stock movements are bounded today). */
+function groupListHref(group: TraceGroup): string | null {
+  if (group.key !== "STOCK_MOVEMENTS" || !group.referenceIds?.length) return null;
+  const params = new URLSearchParams();
+  for (const referenceId of group.referenceIds) params.append("referenceId", referenceId);
+  return `/inventory/movements?${params.toString()}`;
+}
+
+/** "Showing N of M" for a bounded group, with a link to the full filtered list (origin recorded like "Open full record"). */
+function TraceGroupOverflow({ group, originLabel }: { group: TraceGroup; originLabel?: string }) {
+  const { t } = useLocale();
+  const router = useRouter();
+  const href = groupListHref(group);
+  return (
+    <span className="flex items-center gap-2 pt-1 text-caption text-muted-foreground">
+      {t("docFlow.trace.showingOf", {
+        shown: group.items.length,
+        total: group.total ?? group.items.length,
+      })}
+      {href ? (
+        <EnterpriseButton
+          type="button"
+          variant="link"
+          size="inline"
+          onClick={() => {
+            pushOrigin({
+              label: originLabel ?? currentPageLabel(t("docFlow.return.previous")),
+              target: href,
+              targetLabel: t(`docFlow.trace.groups.${group.key}` as MessageKey),
+            });
+            router.push(href);
+          }}
+        >
+          {t("docFlow.trace.viewAll")}
+        </EnterpriseButton>
+      ) : null}
+    </span>
   );
 }
 

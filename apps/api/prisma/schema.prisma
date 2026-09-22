@@ -5134,8 +5134,10 @@ model SalesReturn {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  items      SalesReturnItem[]
-  activities SalesReturnActivity[]
+  items             SalesReturnItem[]
+  activities        SalesReturnActivity[]
+  /// Customer Refunds paid against this return's credit (CUSTOMER_REFUND).
+  refundAllocations FinancialTransactionAllocation[]
 
   @@map("sales_returns")
 }
@@ -6231,6 +6233,11 @@ enum FinancialTransactionType {
   /// `supplierId`/`customerId` both stay null. Reuses this exact model/
   /// service/Confirm-posts workflow — never a second "Expense Journal".
   EXPENSE_PAYMENT
+  /// Customer Refund — money paid back to a customer against the unrefunded
+  /// credit of a posted Sales Return (credit note): Dr Accounts Receivable
+  /// (partner-tagged) / Cr Cash-Bank. Allocations target `salesReturnId`,
+  /// never an invoice, and must cover the full amount (no unallocated refund).
+  CUSTOMER_REFUND
 }
 
 /// Deliberately minimal — no Submit/Approve step was requested for
@@ -6362,6 +6369,11 @@ model FinancialTransactionAllocation {
   purchaseInvoiceId String?          @map("purchase_invoice_id") @db.Uuid
   purchaseInvoice   PurchaseInvoice? @relation(fields: [purchaseInvoiceId], references: [id])
 
+  /// CUSTOMER_REFUND only — the posted Sales Return (credit note) whose
+  /// unrefunded credit this refund pays back.
+  salesReturnId String?      @map("sales_return_id") @db.Uuid
+  salesReturn   SalesReturn? @relation(fields: [salesReturnId], references: [id])
+
   allocatedAmount Decimal  @map("allocated_amount") @db.Decimal(12, 2)
   allocationDate  DateTime @default(now()) @map("allocation_date")
 
@@ -6370,6 +6382,7 @@ model FinancialTransactionAllocation {
   createdBy String?  @map("created_by") @db.Uuid
   updatedBy String?  @map("updated_by") @db.Uuid
 
+  @@index([salesReturnId])
   @@map("financial_transaction_allocations")
 }
 

@@ -29,6 +29,7 @@ import {
 import type { AllocationInputDto } from './shared/allocation-input.dto';
 import type { FindFinancialTransactionsQueryDto } from './shared/find-financial-transactions-query.dto';
 import { prismaEnumFilter } from '../common/query/enum-list';
+import { partnerLedgerBalances } from '../accounting/reports/partner-ledger-balance';
 
 type DbClient = Prisma.TransactionClient | PrismaService;
 
@@ -36,7 +37,14 @@ const NUMBERING_DOCUMENT_TYPE: Record<FinancialTransactionType, string> = {
   CUSTOMER_RECEIPT: 'CUSTOMER_RECEIPT',
   SUPPLIER_PAYMENT: 'SUPPLIER_PAYMENT',
   EXPENSE_PAYMENT: 'EXPENSE_PAYMENT',
+  CUSTOMER_REFUND: 'CUSTOMER_REFUND',
 };
+
+/** Sales Return statuses whose credit note is posted — the only ones a Customer Refund may pay back. */
+const REFUNDABLE_RETURN_STATUSES: SalesDocumentStatus[] = [
+  SalesDocumentStatus.CONFIRMED,
+  SalesDocumentStatus.CLOSED,
+];
 
 const TRANSACTION_INCLUDE = {
   partner: true,
@@ -51,6 +59,9 @@ const TRANSACTION_INCLUDE = {
       },
       purchaseInvoice: {
         select: { id: true, invoiceNumber: true, grandTotal: true },
+      },
+      salesReturn: {
+        select: { id: true, returnNumber: true, grandTotal: true },
       },
     },
   },
@@ -80,6 +91,26 @@ export interface FinancialTransactionCreateInput {
   referenceNumber?: string;
   notes?: string;
   allocations?: AllocationInputDto[];
+}
+
+/**
+ * What can still be refunded on one posted Sales Return: its unrefunded
+ * credit (document currency) capped by the customer's actual credit on the
+ * posted ledger — a return that only offset an unpaid invoice leaves no
+ * money to give back.
+ */
+export interface RefundableReturnSummary {
+  salesReturnId: string;
+  returnNumber: string;
+  partnerId: string;
+  currencyId: string | null;
+  status: SalesDocumentStatus;
+  grandTotal: number;
+  refundedTotal: number;
+  unrefundedCredit: number;
+  /** Customer's AR credit on the ledger, expressed in the return's currency (0 when the customer owes us). */
+  customerCreditBalance: number;
+  refundableAmount: number;
 }
 
 export interface OpenInvoiceRow {
@@ -137,12 +168,20 @@ export class FinancialTransactionsService {
       }
     }
     const allocations = dto.allocations ?? [];
-    this.assertAllocationsWithinAmount(dto.amount, allocations, feeAmount);
+    let currencyId = dto.currencyId;
+    if (type === 'CUSTOMER_REFUND') {
+      this.assertRefundFullyAllocated(dto.amount, allocations);
+      // A refund pays back a credit note in that note's own currency.
+      currencyId ??= await this.firstReturnCurrency(allocations, outerTx);
+    } else {
+      this.assertAllocationsWithinAmount(dto.amount, allocations, feeAmount);
+    }
     const resolvedAllocations = await this.resolveAllocations(
       type,
       partyId,
       allocations,
       outerTx,
+      currencyId ?? null,
     );
 
     const transactionNumber = await this.numberingEngine.generateNumber(
@@ -160,7 +199,7 @@ export class FinancialTransactionsService {
             partnerId: type !== 'EXPENSE_PAYMENT' ? dto.partnerId : undefined,
             expenseAccountId:
               type === 'EXPENSE_PAYMENT' ? dto.expenseAccountId : undefined,
-            currencyId: dto.currencyId,
+            currencyId,
             companyId: context.companyId ?? undefined,
             branchId: context.branchId ?? undefined,
             costCenterId: dto.costCenterId,
@@ -223,6 +262,8 @@ export class FinancialTransactionsService {
     type: FinancialTransactionType,
     query: FindFinancialTransactionsQueryDto & {
       partnerId?: string | string[];
+      /** CUSTOMER_REFUND — only refunds paying back this Sales Return. */
+      salesReturnId?: string;
     },
   ) {
     const where: Prisma.FinancialTransactionWhereInput = {
@@ -230,6 +271,9 @@ export class FinancialTransactionsService {
       deletedAt: null,
       status: prismaEnumFilter(query.status),
       partnerId: prismaEnumFilter(query.partnerId),
+      ...(query.salesReturnId
+        ? { allocations: { some: { salesReturnId: query.salesReturnId } } }
+        : {}),
     };
     if (query.search) {
       where.OR = [
@@ -283,7 +327,21 @@ export class FinancialTransactionsService {
     const partyId = existing.partnerId ?? undefined;
     if (dto.amount !== undefined || dto.allocations !== undefined) {
       const amount = dto.amount ?? Number(existing.amount);
-      this.assertAllocationsWithinAmount(amount, dto.allocations ?? []);
+      if (existing.type === 'CUSTOMER_REFUND') {
+        const lines =
+          dto.allocations ??
+          (
+            await this.prisma.financialTransactionAllocation.findMany({
+              where: { transactionId: id },
+            })
+          ).map((a) => ({
+            invoiceId: a.salesReturnId ?? '',
+            allocatedAmount: Number(a.allocatedAmount),
+          }));
+        this.assertRefundFullyAllocated(amount, lines);
+      } else {
+        this.assertAllocationsWithinAmount(amount, dto.allocations ?? []);
+      }
     }
 
     const resolvedAllocations =
@@ -292,6 +350,8 @@ export class FinancialTransactionsService {
             existing.type,
             partyId as string,
             dto.allocations,
+            this.prisma,
+            dto.currencyId ?? existing.currencyId,
           )
         : undefined;
 
@@ -341,21 +401,47 @@ export class FinancialTransactionsService {
     userId?: string,
     outerTx?: Prisma.TransactionClient,
   ) {
-    const existing = await this.findOneById(id, outerTx);
-    if (existing.status !== FinancialTransactionStatus.DRAFT) {
-      throw new BadRequestException(
-        `Cannot confirm ${this.label(existing.type)} ${existing.transactionNumber} from ${existing.status}.`,
-      );
-    }
+    await this.findOneById(id, outerTx);
 
     return this.inTransaction(outerTx, async (tx) => {
-      const full = await tx.financialTransaction.findUniqueOrThrow({
+      // Serialize concurrent confirms (double-click, client retry) on this
+      // row; the loser then sees CONFIRMED below and returns without
+      // posting a second Journal Entry.
+      await tx.$queryRaw`
+        SELECT id FROM financial_transactions
+        WHERE id = ${id}::uuid
+        FOR UPDATE
+      `;
+      const existing = await tx.financialTransaction.findUniqueOrThrow({
         where: { id },
         include: { allocations: true },
       });
-      for (const allocation of full.allocations) {
+      if (existing.status === FinancialTransactionStatus.CONFIRMED) {
+        // Idempotent retry — already confirmed and posted exactly once.
+        return tx.financialTransaction.findUniqueOrThrow({
+          where: { id },
+          include: TRANSACTION_INCLUDE,
+        });
+      }
+      if (existing.status !== FinancialTransactionStatus.DRAFT) {
+        throw new BadRequestException(
+          `Cannot confirm ${this.label(existing.type)} ${existing.transactionNumber} from ${existing.status}.`,
+        );
+      }
+      if (existing.type === 'CUSTOMER_REFUND') {
+        this.assertRefundFullyAllocated(
+          Number(existing.amount),
+          existing.allocations.map((a) => ({
+            invoiceId: a.salesReturnId ?? '',
+            allocatedAmount: Number(a.allocatedAmount),
+          })),
+        );
+      }
+      for (const allocation of existing.allocations) {
         const invoiceId =
-          allocation.salesInvoiceId ?? allocation.purchaseInvoiceId;
+          allocation.salesInvoiceId ??
+          allocation.purchaseInvoiceId ??
+          allocation.salesReturnId;
         if (!invoiceId) continue;
         await lockInvoiceRow(tx, existing.type, invoiceId);
         await this.assertAllocationWithinRemaining(
@@ -365,6 +451,9 @@ export class FinancialTransactionsService {
           id,
           tx,
         );
+      }
+      if (existing.type === 'CUSTOMER_REFUND') {
+        await this.assertRefundWithinCustomerCredit(existing, tx);
       }
       const transaction = await tx.financialTransaction.update({
         where: { id },
@@ -482,6 +571,7 @@ export class FinancialTransactionsService {
         `Cannot allocate against ${this.label(existing.type)} ${existing.transactionNumber} while it is ${existing.status}.`,
       );
     }
+    this.assertAllocationsEditable(existing);
     const partyId = existing.partnerId ?? undefined;
     const [resolved] = await this.resolveAllocations(
       existing.type,
@@ -547,6 +637,7 @@ export class FinancialTransactionsService {
         `Cannot unallocate on ${this.label(existing.type)} ${existing.transactionNumber} while it is ${existing.status}.`,
       );
     }
+    this.assertAllocationsEditable(existing);
     const allocation =
       await this.prisma.financialTransactionAllocation.findFirst({
         where: { id: allocationId, transactionId: id },
@@ -667,10 +758,10 @@ export class FinancialTransactionsService {
       expenseAccountId?: string;
     },
   ): Promise<string> {
-    if (type === 'CUSTOMER_RECEIPT') {
+    if (type === 'CUSTOMER_RECEIPT' || type === 'CUSTOMER_REFUND') {
       if (!dto.partnerId) {
         throw new BadRequestException(
-          'partnerId is required for a Customer Receipt Voucher.',
+          `partnerId is required for a ${this.label(type)}.`,
         );
       }
       await this.partnersService.assertActiveForRole(
@@ -734,12 +825,54 @@ export class FinancialTransactionsService {
     partyId: string,
     allocations: AllocationInputDto[],
     client: DbClient = this.prisma,
+    /** CUSTOMER_REFUND — the refund's currency every refunded return must share. */
+    refundCurrencyId: string | null = null,
   ): Promise<
     Prisma.FinancialTransactionAllocationUncheckedCreateWithoutTransactionInput[]
   > {
     const resolved: Prisma.FinancialTransactionAllocationUncheckedCreateWithoutTransactionInput[] =
       [];
+    const seenReturns = new Set<string>();
     for (const allocation of allocations) {
+      if (type === 'CUSTOMER_REFUND') {
+        const salesReturn = await client.salesReturn.findFirst({
+          where: { id: allocation.invoiceId, deletedAt: null },
+        });
+        if (!salesReturn || salesReturn.partnerId !== partyId) {
+          throw new BadRequestException(
+            `المرتجع غير تابع لهذا العميل — Sales Return ${allocation.invoiceId} does not belong to this customer.`,
+          );
+        }
+        if (!REFUNDABLE_RETURN_STATUSES.includes(salesReturn.status)) {
+          throw new BadRequestException(
+            `لا يمكن رد مبلغ إلا لمرتجع مُرحّل — Only a posted (Confirmed) Sales Return can be refunded; ${salesReturn.returnNumber} is ${salesReturn.status}.`,
+          );
+        }
+        if (seenReturns.has(salesReturn.id)) {
+          throw new BadRequestException(
+            `المرتجع ${salesReturn.returnNumber} مكرر في الرد — Sales Return ${salesReturn.returnNumber} appears more than once on this refund.`,
+          );
+        }
+        seenReturns.add(salesReturn.id);
+        if ((salesReturn.currencyId ?? null) !== refundCurrencyId) {
+          throw new BadRequestException(
+            `عملة الرد يجب أن تطابق عملة المرتجع ${salesReturn.returnNumber} — The refund currency must match the currency of Sales Return ${salesReturn.returnNumber}.`,
+          );
+        }
+        // Fail fast at Draft too; re-checked under a row lock at Confirm.
+        await this.assertAllocationWithinRemaining(
+          type,
+          salesReturn.id,
+          allocation.allocatedAmount,
+          undefined,
+          client,
+        );
+        resolved.push({
+          salesReturnId: salesReturn.id,
+          allocatedAmount: allocation.allocatedAmount,
+        });
+        continue;
+      }
       if (type === 'CUSTOMER_RECEIPT') {
         const invoice = await client.salesInvoice.findFirst({
           where: { id: allocation.invoiceId, deletedAt: null },
@@ -791,6 +924,28 @@ export class FinancialTransactionsService {
     excludeTransactionId?: string,
     client: DbClient = this.prisma,
   ) {
+    if (type === 'CUSTOMER_REFUND') {
+      const salesReturn = await client.salesReturn.findUniqueOrThrow({
+        where: { id: invoiceId },
+      });
+      const refunded = await this.sumConfirmedRefunds(
+        [invoiceId],
+        client,
+        excludeTransactionId,
+      );
+      const remaining = Math.max(
+        this.round2(
+          Number(salesReturn.grandTotal) - (refunded.get(invoiceId) ?? 0),
+        ),
+        0,
+      );
+      if (amount > remaining + 0.005) {
+        throw new BadRequestException(
+          `لا يمكن رد ${amount} — المتبقي القابل للرد على المرتجع ${salesReturn.returnNumber} هو ${remaining} فقط. — Cannot refund ${amount} against Sales Return ${salesReturn.returnNumber}: only ${remaining} of its credit remains unrefunded.`,
+        );
+      }
+      return;
+    }
     const invoiceKey =
       type === 'CUSTOMER_RECEIPT' ? 'salesInvoiceId' : 'purchaseInvoiceId';
     const invoice =
@@ -825,6 +980,209 @@ export class FinancialTransactionsService {
     }
   }
 
+  /**
+   * Refundable position of one Sales Return — its unrefunded credit, capped
+   * by the customer's credit on the posted ledger (see
+   * `RefundableReturnSummary`). Drives the "Refund" prefill; Confirm
+   * re-enforces both limits under row locks.
+   */
+  async getRefundableReturn(
+    salesReturnId: string,
+  ): Promise<RefundableReturnSummary> {
+    const salesReturn = await this.prisma.salesReturn.findFirst({
+      where: { id: salesReturnId, deletedAt: null },
+    });
+    if (!salesReturn) {
+      throw new NotFoundException(`Sales Return ${salesReturnId} not found`);
+    }
+    const [summary] = await this.buildRefundableSummaries([salesReturn]);
+    return summary;
+  }
+
+  /** Every posted Sales Return of this customer that still has money to refund. */
+  async listRefundableReturns(
+    partnerId: string,
+  ): Promise<RefundableReturnSummary[]> {
+    const returns = await this.prisma.salesReturn.findMany({
+      where: {
+        partnerId,
+        deletedAt: null,
+        status: { in: REFUNDABLE_RETURN_STATUSES },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    const summaries = await this.buildRefundableSummaries(returns);
+    return summaries.filter((row) => row.refundableAmount > 0);
+  }
+
+  private async buildRefundableSummaries(
+    returns: Prisma.SalesReturnGetPayload<object>[],
+  ): Promise<RefundableReturnSummary[]> {
+    if (returns.length === 0) return [];
+    const [refunded, balances] = await Promise.all([
+      this.sumConfirmedRefunds(
+        returns.map((r) => r.id),
+        this.prisma,
+      ),
+      partnerLedgerBalances(this.prisma, [
+        ...new Set(returns.map((r) => r.partnerId)),
+      ]),
+    ]);
+    return returns.map((salesReturn) => {
+      const grandTotal = this.round2(Number(salesReturn.grandTotal));
+      const refundedTotal = this.round2(refunded.get(salesReturn.id) ?? 0);
+      const unrefundedCredit = Math.max(
+        this.round2(grandTotal - refundedTotal),
+        0,
+      );
+      const receivable = balances.get(salesReturn.partnerId)?.receivable ?? 0;
+      const rate =
+        salesReturn.exchangeRate != null ? Number(salesReturn.exchangeRate) : 1;
+      const customerCreditBalance =
+        receivable < 0 && rate > 0 ? this.round2(-receivable / rate) : 0;
+      const posted = REFUNDABLE_RETURN_STATUSES.includes(salesReturn.status);
+      return {
+        salesReturnId: salesReturn.id,
+        returnNumber: salesReturn.returnNumber,
+        partnerId: salesReturn.partnerId,
+        currencyId: salesReturn.currencyId,
+        status: salesReturn.status,
+        grandTotal,
+        refundedTotal,
+        unrefundedCredit,
+        customerCreditBalance,
+        refundableAmount: posted
+          ? Math.min(unrefundedCredit, customerCreditBalance)
+          : 0,
+      };
+    });
+  }
+
+  /** CONFIRMED refund allocations per Sales Return (the "refunded" side of a credit note). */
+  private async sumConfirmedRefunds(
+    salesReturnIds: string[],
+    client: DbClient,
+    excludeTransactionId?: string,
+  ): Promise<Map<string, number>> {
+    const grouped = await client.financialTransactionAllocation.groupBy({
+      by: ['salesReturnId'],
+      where: {
+        salesReturnId: { in: salesReturnIds },
+        transaction: {
+          status: FinancialTransactionStatus.CONFIRMED,
+          ...(excludeTransactionId
+            ? { id: { not: excludeTransactionId } }
+            : {}),
+        },
+      },
+      _sum: { allocatedAmount: true },
+    });
+    return new Map(
+      grouped
+        .filter((row) => row.salesReturnId)
+        .map((row) => [
+          row.salesReturnId as string,
+          Number(row._sum.allocatedAmount ?? 0),
+        ]),
+    );
+  }
+
+  /** A refund pays back exactly what it allocates to returns — never an unallocated payout. */
+  private assertRefundFullyAllocated(
+    amount: number,
+    allocations: AllocationInputDto[],
+  ) {
+    if (allocations.length === 0 || allocations.some((a) => !a.invoiceId)) {
+      throw new BadRequestException(
+        'حدد المرتجع الذي يُرد مبلغه — A Customer Refund must be allocated to the posted Sales Return(s) it pays back.',
+      );
+    }
+    const total = this.round2(
+      allocations.reduce((sum, a) => sum + Number(a.allocatedAmount), 0),
+    );
+    if (Math.abs(total - this.round2(amount)) > 0.005) {
+      throw new BadRequestException(
+        `مبلغ الرد (${amount}) يجب أن يساوي إجمالي المخصص للمرتجعات (${total}) — The refund amount (${amount}) must equal the total allocated to Sales Returns (${total}); an unallocated or over-allocated refund is not allowed.`,
+      );
+    }
+  }
+
+  /**
+   * Last line of defence at Confirm: the refund (valued at the refunded
+   * returns' own rates — exactly what it will debit AR) may not exceed the
+   * credit the customer actually holds on the posted ledger. A return that
+   * only offset an unpaid invoice leaves nothing to refund. The partner row
+   * is locked so two refunds for the same customer serialize.
+   */
+  private async assertRefundWithinCustomerCredit(
+    refund: {
+      partnerId: string | null;
+      transactionNumber: string;
+      allocations: { salesReturnId: string | null; allocatedAmount: unknown }[];
+    },
+    tx: Prisma.TransactionClient,
+  ) {
+    if (!refund.partnerId) return;
+    await tx.$queryRaw`
+      SELECT id FROM partners WHERE id = ${refund.partnerId}::uuid FOR UPDATE
+    `;
+    const returnIds = refund.allocations
+      .map((a) => a.salesReturnId)
+      .filter((value): value is string => !!value);
+    const rates = new Map(
+      (
+        await tx.salesReturn.findMany({
+          where: { id: { in: returnIds } },
+          select: { id: true, exchangeRate: true },
+        })
+      ).map((r) => [r.id, r.exchangeRate != null ? Number(r.exchangeRate) : 1]),
+    );
+    const refundFunctional = this.round2(
+      refund.allocations.reduce(
+        (sum, a) =>
+          sum +
+          this.round2(
+            Number(a.allocatedAmount) * (rates.get(a.salesReturnId ?? '') ?? 1),
+          ),
+        0,
+      ),
+    );
+    const balances = await partnerLedgerBalances(tx, [refund.partnerId]);
+    const receivable = balances.get(refund.partnerId)?.receivable ?? 0;
+    const credit = Math.max(this.round2(-receivable), 0);
+    if (refundFunctional > credit + 0.005) {
+      throw new BadRequestException(
+        `رصيد العميل الدائن (${credit}) لا يغطي مبلغ الرد (${refundFunctional}) — The customer's credit balance on the ledger (${credit}) does not cover refund ${refund.transactionNumber} (${refundFunctional}). A return that only offset an unpaid invoice leaves nothing to refund.`,
+      );
+    }
+  }
+
+  /** The currency of the first refunded return — a refund's default currency. */
+  private async firstReturnCurrency(
+    allocations: AllocationInputDto[],
+    client: DbClient = this.prisma,
+  ): Promise<string | undefined> {
+    const first = allocations[0]?.invoiceId;
+    if (!first) return undefined;
+    const salesReturn = await client.salesReturn.findFirst({
+      where: { id: first, deletedAt: null },
+      select: { currencyId: true },
+    });
+    return salesReturn?.currencyId ?? undefined;
+  }
+
+  /** A confirmed refund's allocation is its whole meaning — fixed once posted. */
+  private assertAllocationsEditable(transaction: {
+    type: FinancialTransactionType;
+    transactionNumber: string;
+  }) {
+    if (transaction.type === 'CUSTOMER_REFUND') {
+      throw new BadRequestException(
+        `لا يمكن تعديل تخصيص رد مؤكد — The allocation of confirmed refund ${transaction.transactionNumber} is fixed. Cancel it and record a new refund instead.`,
+      );
+    }
+  }
+
   private inTransaction<T>(
     outerTx: Prisma.TransactionClient | undefined,
     work: (tx: Prisma.TransactionClient) => Promise<T>,
@@ -838,6 +1196,7 @@ export class FinancialTransactionsService {
 
   private label(type: FinancialTransactionType): string {
     if (type === 'CUSTOMER_RECEIPT') return 'Customer Receipt Voucher';
+    if (type === 'CUSTOMER_REFUND') return 'Customer Refund';
     if (type === 'EXPENSE_PAYMENT') return 'Expense Payment Voucher';
     return 'Supplier Payment Voucher';
   }

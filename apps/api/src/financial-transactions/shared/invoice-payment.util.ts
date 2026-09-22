@@ -15,7 +15,11 @@
  * reports `CANCELLED` regardless of what it had allocated beforehand).
  */
 
-import type { PrismaClient, Prisma } from '@prisma/client';
+import type {
+  FinancialTransactionType,
+  PrismaClient,
+  Prisma,
+} from '@prisma/client';
 
 export type InvoicePaymentStatusValue =
   'UNPAID' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELLED';
@@ -105,9 +109,19 @@ export async function sumConfirmedAllocations(
 
 export async function lockInvoiceRow(
   tx: Prisma.TransactionClient,
-  type: 'CUSTOMER_RECEIPT' | 'SUPPLIER_PAYMENT' | 'EXPENSE_PAYMENT',
+  type: FinancialTransactionType,
   invoiceId: string,
 ): Promise<void> {
+  // CUSTOMER_REFUND allocates against a Sales Return (credit note), never an
+  // invoice — lock that row so two concurrent refunds serialize on it.
+  if (type === 'CUSTOMER_REFUND') {
+    await tx.$queryRaw`
+      SELECT id FROM sales_returns
+      WHERE id = ${invoiceId}::uuid
+      FOR UPDATE
+    `;
+    return;
+  }
   if (type === 'CUSTOMER_RECEIPT') {
     await tx.$queryRaw`
       SELECT id FROM sales_invoices

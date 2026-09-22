@@ -48,6 +48,12 @@ export const JOURNAL_SOURCE_DEFINITIONS: Record<string, JournalSourceDefinition>
     labelKey: "accounting.journalEntries.sourceTypes.CUSTOMER_RECEIPT",
     generated: true,
   },
+  CUSTOMER_REFUND: {
+    sourceType: "CUSTOMER_REFUND",
+    href: (id) => `/sales/refunds/${id}`,
+    labelKey: "accounting.journalEntries.sourceTypes.CUSTOMER_REFUND",
+    generated: true,
+  },
   SUPPLIER_PAYMENT: {
     sourceType: "SUPPLIER_PAYMENT",
     href: (id) => `/purchasing/payments/${id}`,

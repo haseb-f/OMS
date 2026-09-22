@@ -43,6 +43,7 @@ const SOURCE_TYPE_JOURNAL: Record<string, JournalType> = {
   PURCHASE_RETURN: JournalType.PURCHASE,
   CUSTOMER_RECEIPT: JournalType.CASH,
   SUPPLIER_PAYMENT: JournalType.CASH,
+  CUSTOMER_REFUND: JournalType.CASH,
   INVENTORY_ADJUSTMENT: JournalType.GENERAL,
   // Investor Engine Milestone 3.
   CAPITAL_CONTRIBUTION: JournalType.CASH,

@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
 import type {
@@ -37,6 +38,8 @@ const VIEW_PERMISSION: Record<TraceKind, string> = {
   SALES_INVOICE: 'sales.invoices.view',
   SALES_RETURN: 'sales.returns.view',
   CUSTOMER_RECEIPT: 'sales.receipts.view',
+  CUSTOMER_REFUND: 'sales.refunds.view',
+  CUSTOMER: 'partners.view',
   PURCHASE_QUOTATION: 'purchasing.quotations.view',
   PURCHASE_ORDER: 'purchasing.orders.view',
   PURCHASE_INVOICE: 'purchasing.invoices.view',
@@ -61,6 +64,7 @@ const JOURNAL_SOURCE_KIND: Record<string, TraceKind> = {
   PURCHASE_INVOICE: 'PURCHASE_INVOICE',
   PURCHASE_RETURN: 'PURCHASE_RETURN',
   CUSTOMER_RECEIPT: 'CUSTOMER_RECEIPT',
+  CUSTOMER_REFUND: 'CUSTOMER_REFUND',
   SUPPLIER_PAYMENT: 'SUPPLIER_PAYMENT',
   EXPENSE_PAYMENT: 'EXPENSE_PAYMENT',
   LANDED_COST: 'LANDED_COST',
@@ -90,6 +94,13 @@ const POSTED_STATUSES = new Set([
   'ACTIVE',
   'COMPLETED',
 ]);
+
+/**
+ * Upper bound on stock movements listed inline per traceability group. A
+ * document past it is reported with `truncated`/`total` (never cut
+ * silently) and the panel links to the full, filtered movements list.
+ */
+export const TRACE_MOVEMENT_LIMIT = 200;
 
 /**
  * One canonical "what is this record connected to?" read model. Every
@@ -155,6 +166,7 @@ export class TraceabilityService {
       case 'PURCHASE_RETURN':
         return this.purchaseReturn(id);
       case 'CUSTOMER_RECEIPT':
+      case 'CUSTOMER_REFUND':
       case 'SUPPLIER_PAYMENT':
       case 'EXPENSE_PAYMENT':
         return this.financialTransaction(id);
@@ -246,28 +258,47 @@ export class TraceabilityService {
     }));
   }
 
-  /** Stock movements of several source documents at once. */
+  /**
+   * Stock movements of several source documents at once. Bounded at
+   * `TRACE_MOVEMENT_LIMIT` for the panel, but never silently: past the
+   * bound the result carries `truncated`/`total` plus the reference ids the
+   * full, filtered inventory movements list can be opened with.
+   */
   private async movementsForReferences(
-    references: { type: string; id: string }[],
-  ): Promise<TraceRecord[]> {
-    if (references.length === 0) return [];
+    references: { types: string[]; id: string }[],
+  ): Promise<{
+    items: TraceRecord[];
+    truncated?: true;
+    total?: number;
+    referenceIds?: string[];
+  }> {
+    if (references.length === 0) return { items: [] };
+    const where: Prisma.InventoryMovementWhereInput = {
+      OR: references.map((ref) => ({
+        referenceType: { in: ref.types },
+        referenceId: ref.id,
+      })),
+    };
     const rows = await this.prisma.inventoryMovement.findMany({
-      where: {
-        OR: references.map((ref) => ({
-          referenceType: ref.type,
-          referenceId: ref.id,
-        })),
-      },
+      where,
       select: { id: true, movementNumber: true, type: true },
-      orderBy: { createdAt: 'asc' },
-      take: 100,
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: TRACE_MOVEMENT_LIMIT + 1,
     });
-    return rows.map((row) => ({
+    const items = rows.slice(0, TRACE_MOVEMENT_LIMIT).map((row) => ({
       kind: 'INVENTORY_MOVEMENT' as const,
       id: row.id,
       number: row.movementNumber,
       status: row.type,
     }));
+    if (rows.length <= TRACE_MOVEMENT_LIMIT) return { items };
+    const total = await this.prisma.inventoryMovement.count({ where });
+    return {
+      items,
+      truncated: true,
+      total,
+      referenceIds: [...new Set(references.map((ref) => ref.id))],
+    };
   }
 
   private async movementsFor(
@@ -275,20 +306,11 @@ export class TraceabilityService {
     referenceId: string,
     documentStatus: string | null,
   ): Promise<TraceGroup> {
-    const rows = await this.prisma.inventoryMovement.findMany({
-      where: { referenceType: { in: referenceTypes }, referenceId },
-      select: { id: true, movementNumber: true, type: true },
-      orderBy: { createdAt: 'asc' },
-      take: 100,
-    });
-    const items = rows.map((row) => ({
-      kind: 'INVENTORY_MOVEMENT' as const,
-      id: row.id,
-      number: row.movementNumber,
-      status: row.type,
-    }));
+    const { items, ...bounds } = await this.movementsForReferences([
+      { types: referenceTypes, id: referenceId },
+    ]);
     if (items.length > 0)
-      return { key: 'STOCK_MOVEMENTS', state: 'FOUND', items };
+      return { key: 'STOCK_MOVEMENTS', state: 'FOUND', items, ...bounds };
     return {
       key: 'STOCK_MOVEMENTS',
       state:
@@ -332,6 +354,26 @@ export class TraceabilityService {
       });
     }
     return records;
+  }
+
+  /** Customer Refunds paying back these Sales Returns (credit notes). */
+  private async refundsFor(salesReturnIds: string[]): Promise<TraceRecord[]> {
+    if (salesReturnIds.length === 0) return [];
+    const rows = await this.prisma.financialTransaction.findMany({
+      where: {
+        deletedAt: null,
+        type: 'CUSTOMER_REFUND',
+        allocations: { some: { salesReturnId: { in: salesReturnIds } } },
+      },
+      select: { id: true, transactionNumber: true, status: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map((row) => ({
+      kind: 'CUSTOMER_REFUND' as const,
+      id: row.id,
+      number: row.transactionNumber,
+      status: row.status,
+    }));
   }
 
   // ---- Sales ---------------------------------------------------------------
@@ -522,6 +564,32 @@ export class TraceabilityService {
       },
     });
     if (!r) return null;
+    const refunds = await this.refundsFor([id]);
+    const returnJournal = await this.journalGroup(
+      ['SALES_RETURN'],
+      [id],
+      r.status,
+      Number(r.grandTotal),
+    );
+    // The return's own JE state (PENDING/FAILED) is authoritative; posted
+    // refunds add their JEs next to it.
+    const refundEntries = await this.journalEntriesFor(
+      ['CUSTOMER_REFUND'],
+      refunds.map((refund) => refund.id),
+    );
+    const journal: TraceGroup =
+      refundEntries.length === 0
+        ? returnJournal
+        : {
+            key: 'JOURNAL_ENTRIES',
+            state:
+              returnJournal.state === 'FAILED'
+                ? 'FAILED'
+                : returnJournal.state === 'PENDING'
+                  ? 'PENDING'
+                  : 'FOUND',
+            items: [...returnJournal.items, ...refundEntries],
+          };
     return {
       record: {
         kind: 'SALES_RETURN' as const,
@@ -543,12 +611,12 @@ export class TraceabilityService {
               ]
             : [],
         ),
-        await this.journalGroup(
-          ['SALES_RETURN'],
-          [id],
-          r.status,
-          Number(r.grandTotal),
+        this.group(
+          'PAYMENTS',
+          refunds,
+          POSTED_STATUSES.has(r.status) ? 'NONE' : 'NOT_APPLICABLE',
         ),
+        journal,
         await this.movementsFor(['SALES_RETURN'], id, r.status),
       ],
     };
@@ -832,6 +900,7 @@ export class TraceabilityService {
         status: true,
         amount: true,
         notes: true,
+        partner: { select: { id: true, partnerNumber: true, status: true } },
         allocations: {
           select: {
             salesInvoice: {
@@ -840,13 +909,33 @@ export class TraceabilityService {
             purchaseInvoice: {
               select: { id: true, invoiceNumber: true, status: true },
             },
+            salesReturn: {
+              select: { id: true, returnNumber: true, status: true },
+            },
           },
         },
       },
     });
     if (!tx) return null;
     const documents: TraceRecord[] = [];
+    // A refund has no document of its own to hang the customer on — link it.
+    if (tx.type === 'CUSTOMER_REFUND' && tx.partner) {
+      documents.push({
+        kind: 'CUSTOMER',
+        id: tx.partner.id,
+        number: tx.partner.partnerNumber,
+        status: tx.partner.status,
+      });
+    }
     for (const allocation of tx.allocations) {
+      if (allocation.salesReturn) {
+        documents.push({
+          kind: 'SALES_RETURN',
+          id: allocation.salesReturn.id,
+          number: allocation.salesReturn.returnNumber,
+          status: allocation.salesReturn.status,
+        });
+      }
       if (allocation.salesInvoice) {
         documents.push({
           kind: 'SALES_INVOICE',
@@ -973,10 +1062,18 @@ export class TraceabilityService {
     ]);
     const returnIds = returns.map((r) => r.id);
     const receiptIds = receipts.map((r) => r.id);
+    const refunds = await this.refundsFor(returnIds);
+    const refundIds = refunds.map((r) => r.id);
 
     const entries = await this.journalEntriesWithSource(
-      ['SALES_INVOICE', 'FULFILLMENT_COST', 'CUSTOMER_RECEIPT', 'SALES_RETURN'],
-      [...invoiceIds, id, ...receiptIds, ...returnIds],
+      [
+        'SALES_INVOICE',
+        'FULFILLMENT_COST',
+        'CUSTOMER_RECEIPT',
+        'SALES_RETURN',
+        'CUSTOMER_REFUND',
+      ],
+      [...invoiceIds, id, ...receiptIds, ...returnIds, ...refundIds],
     );
     const journaled = new Set(
       entries.map((entry) => `${entry.sourceType}:${entry.sourceId}`),
@@ -997,6 +1094,9 @@ export class TraceabilityService {
       ...returns
         .filter((r) => POSTED_STATUSES.has(r.status))
         .map((r) => `SALES_RETURN:${r.id}`),
+      ...refunds
+        .filter((r) => POSTED_STATUSES.has(r.status ?? ''))
+        .map((r) => `CUSTOMER_REFUND:${r.id}`),
     ];
     const journalMissing = expected.some((key) => !journaled.has(key));
     const journalState: TraceState = journalMissing
@@ -1030,10 +1130,11 @@ export class TraceabilityService {
       })),
     ];
 
-    const movements = await this.movementsForReferences([
-      ...invoiceIds.map((refId) => ({ type: 'SALES_INVOICE', id: refId })),
-      ...returnIds.map((refId) => ({ type: 'SALES_RETURN', id: refId })),
-    ]);
+    const { items: movementItems, ...movementBounds } =
+      await this.movementsForReferences([
+        ...invoiceIds.map((refId) => ({ types: ['SALES_INVOICE'], id: refId })),
+        ...returnIds.map((refId) => ({ types: ['SALES_RETURN'], id: refId })),
+      ]);
 
     return {
       record: {
@@ -1077,15 +1178,25 @@ export class TraceabilityService {
           })),
           'PENDING',
         ),
-        this.group('STOCK_MOVEMENTS', movements, invoiced ? 'NONE' : 'PENDING'),
+        {
+          ...this.group(
+            'STOCK_MOVEMENTS',
+            movementItems,
+            invoiced ? 'NONE' : 'PENDING',
+          ),
+          ...movementBounds,
+        },
         this.group(
           'RETURNS',
-          returns.map((r) => ({
-            kind: 'SALES_RETURN' as const,
-            id: r.id,
-            number: r.returnNumber,
-            status: r.status,
-          })),
+          [
+            ...returns.map((r) => ({
+              kind: 'SALES_RETURN' as const,
+              id: r.id,
+              number: r.returnNumber,
+              status: r.status,
+            })),
+            ...refunds,
+          ],
           'NONE',
         ),
       ],

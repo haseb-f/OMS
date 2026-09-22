@@ -311,6 +311,7 @@ export function FinancialTransactionEditor({
             lines={state.allocations}
             onChange={handlers.onAllocationsChange}
             disabled={!canEdit}
+            documentLabel={config.allocationDocumentLabel}
           />
         </div>
 

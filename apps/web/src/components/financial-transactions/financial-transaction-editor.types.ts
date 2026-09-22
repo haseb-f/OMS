@@ -53,6 +53,8 @@ export interface FinancialTransactionEditorConfig {
   statusOptions: TransactionStatusOption[];
   workflowActions: TransactionWorkflowAction[];
   toolbarExtra?: ReactNode;
+  /** Allocation grid column header when the settled documents are not invoices (Customer Refund → Sales Returns). */
+  allocationDocumentLabel?: string;
 }
 
 export interface FinancialTransactionEditorState {

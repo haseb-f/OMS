@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
 import { Ban, Eye, Pencil, Plus, Printer, Archive } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
@@ -27,12 +27,14 @@ import {
   exportRowsToCsv,
 } from "@/components/master-data/enterprise-data-table";
 import { MultiSelectFilter, MultiEntityFilter } from "@/components/shared/data-table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClearFiltersButton } from "@/components/shared/data-table/clear-filters-button";
 import {
   customerReceiptsService,
   type FinancialTransactionRow,
 } from "@/services/customer-receipts-service";
 import type { FinancialTransactionStatusValue } from "@/services/financial-transactions-service";
+import { customerRefundsService } from "@/services/customer-refunds-service";
 import { partnersService, type PartnerRow } from "@/services/partners-service";
 import { useUsersLookup } from "@/hooks/use-reference-data";
 import {
@@ -55,11 +57,32 @@ import { PermissionGate } from "@/components/shared/permission-gate";
 
 const EMPTY_DATE_RANGE: DateRangeValue = { from: null, to: null };
 
-/** Fills the pre-provisioned `/sales/payments` nav stub — mirrors `sales/quotations/page.tsx` exactly. */
+type CustomerMoneyView = "receipts" | "refunds";
+
+/**
+ * Fills the pre-provisioned `/sales/payments` nav stub — mirrors
+ * `sales/quotations/page.tsx`. A second tab lists Customer Refunds (money
+ * paid back against posted Sales Returns) through the same table, filters
+ * and actions — only the service, permission prefix and detail route
+ * change. Refunds are created from the Sales Return ("Refund"), not here.
+ */
 function CustomerReceiptsPageContent() {
   const { t } = useLocale();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { hasPermission, user } = useUserContext();
+  const [view, setView] = usePathRestorableState<CustomerMoneyView>(
+    "view",
+    searchParams.get("view") === "refunds" ? "refunds" : "receipts",
+  );
+  const canViewRefunds = hasPermission("sales.refunds.view");
+  const isRefunds = view === "refunds" && canViewRefunds;
+  const service = isRefunds ? customerRefundsService : customerReceiptsService;
+  const permissionPrefix = isRefunds ? "sales.refunds" : "sales.receipts";
+  const detailHref = useCallback(
+    (id: string) => (isRefunds ? `/sales/refunds/${id}` : `/sales/payments/${id}`),
+    [isRefunds],
+  );
   const { activeCompany } = useCompany();
   const { printList, printDocument } = usePrintEngine();
 
@@ -86,7 +109,7 @@ function CustomerReceiptsPageContent() {
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const result = await customerReceiptsService.list({
+      const result = await service.list({
         search: search || undefined,
         status: statusFilter as FinancialTransactionStatusValue[],
         partnerId: customerFilter.map((customer) => customer.id),
@@ -104,14 +127,14 @@ function CustomerReceiptsPageContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [search, statusFilter, customerFilter, dateRange, page, pageSize, sortBy, sortOrder]);
+  }, [service, search, statusFilter, customerFilter, dateRange, page, pageSize, sortBy, sortOrder]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
-  const canCreate = hasPermission("sales.receipts.create");
+  const canCreate = !isRefunds && hasPermission("sales.receipts.create");
 
   const toPrintRow = useCallback(
     (item: FinancialTransactionRow): Record<string, string> => ({
@@ -128,7 +151,7 @@ function CustomerReceiptsPageContent() {
 
   const handlePrintRow = async (row: FinancialTransactionRow) => {
     try {
-      const full = await customerReceiptsService.get(row.id);
+      const full = await service.get(row.id);
       printDocument(
         buildReceiptPrintPayload(full, {
           companyName: activeCompany?.name ?? siteConfig.fullName,
@@ -145,7 +168,7 @@ function CustomerReceiptsPageContent() {
   const handleCancelConfirmed = async () => {
     if (!cancelTarget) return;
     try {
-      await customerReceiptsService.cancel(cancelTarget.id);
+      await service.cancel(cancelTarget.id);
       toast.success(t("financialTransactions.toasts.cancelled"));
       void load();
     } catch (error) {
@@ -158,7 +181,7 @@ function CustomerReceiptsPageContent() {
   const handleArchiveConfirmed = async () => {
     if (!archiveTarget) return;
     try {
-      await customerReceiptsService.archive(archiveTarget.id);
+      await service.archive(archiveTarget.id);
       toast.success(t("financialTransactions.toasts.archived"));
       void load();
     } catch (error) {
@@ -172,7 +195,10 @@ function CustomerReceiptsPageContent() {
     () => [
       {
         id: "transactionNumber",
-        meta: { titleKey: "sales.receipts.fields.number", identity: true },
+        meta: {
+          titleKey: isRefunds ? "sales.refunds.fields.number" : "sales.receipts.fields.number",
+          identity: true,
+        },
         accessorFn: (row) => row.transactionNumber,
         cell: ({ row }) => (
           <StackedCell
@@ -187,16 +213,23 @@ function CustomerReceiptsPageContent() {
         id: "customer",
         meta: { titleKey: "sales.receipts.fields.customer" },
         accessorFn: (row) => row.partner?.name ?? "—",
-        cell: ({ row }) => (
-          <StackedCell
-            primary={row.original.partner?.name ?? "—"}
-            secondary={
-              row.original.referenceNumber ? (
-                <SemanticValue kind="id">{row.original.referenceNumber}</SemanticValue>
-              ) : undefined
-            }
-          />
-        ),
+        cell: ({ row }) => {
+          // A refund names the Sales Return(s) it pays back; a receipt its reference.
+          const secondary = isRefunds
+            ? row.original.allocations
+                .map((allocation) => allocation.salesReturn?.returnNumber)
+                .filter(Boolean)
+                .join(", ")
+            : row.original.referenceNumber;
+          return (
+            <StackedCell
+              primary={row.original.partner?.name ?? "—"}
+              secondary={
+                secondary ? <SemanticValue kind="id">{secondary}</SemanticValue> : undefined
+              }
+            />
+          );
+        },
       },
       {
         id: "referenceNumber",
@@ -245,25 +278,25 @@ function CustomerReceiptsPageContent() {
         cell: ({ row }) => {
           const item = row.original;
           const isDraft = item.status === "DRAFT";
-          const canView = hasPermission("sales.receipts.view");
-          const canEdit = hasPermission("sales.receipts.edit");
-          const canPrint = hasPermission("sales.receipts.print");
-          const canCancel = hasPermission("sales.receipts.cancel");
-          const canArchive = hasPermission("sales.receipts.archive");
+          const canView = hasPermission(`${permissionPrefix}.view`);
+          const canEdit = hasPermission(`${permissionPrefix}.edit`);
+          const canPrint = hasPermission(`${permissionPrefix}.print`);
+          const canCancel = hasPermission(`${permissionPrefix}.cancel`);
+          const canArchive = hasPermission(`${permissionPrefix}.archive`);
           const actions: SalesDocumentRowAction[] = [
             {
               key: "view",
               label: t("common.view"),
               icon: Eye,
               hidden: !canView,
-              onSelect: () => router.push(`/sales/payments/${item.id}`),
+              onSelect: () => router.push(detailHref(item.id)),
             },
             {
               key: "edit",
               label: t("common.edit"),
               icon: Pencil,
               hidden: !isDraft || !canEdit,
-              onSelect: () => router.push(`/sales/payments/${item.id}`),
+              onSelect: () => router.push(detailHref(item.id)),
             },
             {
               key: "print",
@@ -295,7 +328,7 @@ function CustomerReceiptsPageContent() {
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, usersById, router, activeCompany, user],
+    [t, usersById, router, activeCompany, user, isRefunds, permissionPrefix, detailHref],
   );
 
   const exportColumnKeys = [
@@ -342,7 +375,7 @@ function CustomerReceiptsPageContent() {
     let failures = 0;
     for (const item of selectedArchivable) {
       try {
-        await customerReceiptsService.archive(item.id);
+        await service.archive(item.id);
       } catch {
         failures += 1;
       }
@@ -361,11 +394,11 @@ function CustomerReceiptsPageContent() {
   return (
     <PageWorkspace
       dense
-      title={t("sales.receipts.title")}
-      description={t("sales.receipts.description")}
+      title={t(isRefunds ? "sales.refunds.title" : "sales.receipts.title")}
+      description={t(isRefunds ? "sales.refunds.description" : "sales.receipts.description")}
       actions={
         <>
-          <ModuleImportButtons importType="CUSTOMER_RECEIPTS" onImported={load} />
+          {!isRefunds && <ModuleImportButtons importType="CUSTOMER_RECEIPTS" onImported={load} />}
           {canCreate && (
             <EnterpriseButton type="button" onClick={() => router.push("/sales/payments/new")}>
               <Plus />
@@ -375,6 +408,22 @@ function CustomerReceiptsPageContent() {
         </>
       }
     >
+      {canViewRefunds && (
+        <Tabs
+          value={isRefunds ? "refunds" : "receipts"}
+          onValueChange={(value) => {
+            setView(value as CustomerMoneyView);
+            setRowSelection({});
+            setPage(1);
+          }}
+        >
+          <TabsList>
+            <TabsTrigger value="receipts">{t("sales.refunds.tabs.receipts")}</TabsTrigger>
+            <TabsTrigger value="refunds">{t("sales.refunds.tabs.refunds")}</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
+
       <EnterpriseDataTable
         filterBar={
           <>
@@ -431,8 +480,8 @@ function CustomerReceiptsPageContent() {
           </>
         }
 
-        tableId="sales-receipts"
-        printTitle={t("sales.receipts.title")}
+        tableId={isRefunds ? "sales-refunds" : "sales-receipts"}
+        printTitle={t(isRefunds ? "sales.refunds.title" : "sales.receipts.title")}
         columns={columns}
         data={items}
         totalCount={total}
@@ -480,9 +529,9 @@ function CustomerReceiptsPageContent() {
             labels,
           )
         }
-        emptyTitle={t("sales.receipts.empty")}
+        emptyTitle={t(isRefunds ? "sales.refunds.empty" : "sales.receipts.empty")}
         getRowId={(row) => row.id}
-        getRowHref={(row) => `/sales/payments/${row.id}`}
+        getRowHref={(row) => detailHref(row.id)}
       />
 
       <ConfirmationDialog

@@ -21,6 +21,11 @@ export const RECORD_ROUTES: Record<
     labelKey: "docFlow.kinds.CUSTOMER_RECEIPT",
     href: (id) => `/sales/payments/${id}`,
   },
+  CUSTOMER_REFUND: {
+    labelKey: "docFlow.kinds.CUSTOMER_REFUND",
+    href: (id) => `/sales/refunds/${id}`,
+  },
+  CUSTOMER: { labelKey: "docFlow.kinds.CUSTOMER", href: (id) => `/sales/customers/${id}` },
   PURCHASE_QUOTATION: {
     labelKey: "docFlow.kinds.PURCHASE_QUOTATION",
     href: (id) => `/purchasing/purchase-quotations/${id}`,

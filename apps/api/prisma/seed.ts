@@ -1216,6 +1216,11 @@ async function main() {
     'sales.receipts.create',
     'sales.receipts.edit',
     'sales.receipts.confirm',
+    // Customer Refund (paying a posted Sales Return's credit back out).
+    'sales.refunds.view',
+    'sales.refunds.create',
+    'sales.refunds.edit',
+    'sales.refunds.confirm',
     'purchasing.payments.view',
     'purchasing.payments.create',
     'purchasing.payments.edit',
@@ -1853,6 +1858,14 @@ async function main() {
       documentType: 'EXPENSE_PAYMENT',
       label: 'Expense Payment',
       docCode: 'EP',
+      template: '{DOC}-{YEAR}-{SEQ}',
+    },
+    {
+      // Customer Refund against a posted Sales Return (migration
+      // 20260922150000_customer_refund inserts the same row).
+      documentType: 'CUSTOMER_REFUND',
+      label: 'Customer Refund',
+      docCode: 'CRF',
       template: '{DOC}-{YEAR}-{SEQ}',
     },
     {

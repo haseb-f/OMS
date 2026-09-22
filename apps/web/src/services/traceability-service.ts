@@ -7,6 +7,8 @@ export type TraceKind =
   | "SALES_INVOICE"
   | "SALES_RETURN"
   | "CUSTOMER_RECEIPT"
+  | "CUSTOMER_REFUND"
+  | "CUSTOMER"
   | "PURCHASE_QUOTATION"
   | "PURCHASE_ORDER"
   | "PURCHASE_INVOICE"
@@ -48,6 +50,10 @@ export interface TraceGroup {
   key: TraceGroupKey;
   state: TraceState;
   items: TraceRecord[];
+  /** Set only when `items` is a bounded subset: `total` is the full count, `referenceIds` filter the full list. */
+  truncated?: boolean;
+  total?: number;
+  referenceIds?: string[];
 }
 
 export interface TraceResult {

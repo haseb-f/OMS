@@ -4,6 +4,7 @@ import { CustomerReceiptActivitiesController } from './receipts/activities/custo
 import { SupplierPaymentsController } from './payments/supplier-payments.controller';
 import { SupplierPaymentActivitiesController } from './payments/activities/supplier-payment-activities.controller';
 import { ExpensePaymentsController } from './expenses/expense-payments.controller';
+import { CustomerRefundsController } from './refunds/customer-refunds.controller';
 import { FinancialTransactionTypesController } from './financial-transaction-types.controller';
 import { FinancialTransactionsService } from './financial-transactions.service';
 import { FinancialTransactionActivityService } from './activities/financial-transaction-activity.service';
@@ -26,6 +27,7 @@ import { PostingEngineModule } from '../accounting/posting-engine/posting-engine
     SupplierPaymentsController,
     SupplierPaymentActivitiesController,
     ExpensePaymentsController,
+    CustomerRefundsController,
     FinancialTransactionTypesController,
   ],
   providers: [

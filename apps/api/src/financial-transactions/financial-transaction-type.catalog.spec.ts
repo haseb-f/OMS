@@ -7,12 +7,13 @@ import {
 } from './financial-transaction-type.catalog';
 
 describe('financial-transaction-type catalog', () => {
-  it('exposes the three closed Prisma enum values with Arabic sheet labels', () => {
+  it('exposes the four closed Prisma enum values with Arabic sheet labels', () => {
     expect(FINANCIAL_TRANSACTION_TYPE_CATALOG.map((type) => type.code)).toEqual(
       [
         FinancialTransactionType.CUSTOMER_RECEIPT,
         FinancialTransactionType.SUPPLIER_PAYMENT,
         FinancialTransactionType.EXPENSE_PAYMENT,
+        FinancialTransactionType.CUSTOMER_REFUND,
       ],
     );
     expect(FINANCIAL_TRANSACTION_TYPE_SHEET_LABELS).toEqual({
@@ -35,6 +36,9 @@ describe('financial-transaction-type catalog', () => {
     expect(resolveFinancialTransactionType('مصروف تشغيلي')).toBe(
       'EXPENSE_PAYMENT',
     );
+    expect(resolveFinancialTransactionType('رد مبلغ لعميل')).toBe(
+      'CUSTOMER_REFUND',
+    );
     expect(resolveFinancialTransactionType('uuid-not-a-type')).toBeNull();
     expect(resolveFinancialTransactionType(undefined)).toBeNull();
   });
@@ -46,6 +50,7 @@ describe('financial-transaction-type catalog', () => {
     expect(typesForDirection('OUT').map((type) => type.code)).toEqual([
       'SUPPLIER_PAYMENT',
       'EXPENSE_PAYMENT',
+      'CUSTOMER_REFUND',
     ]);
   });
 });

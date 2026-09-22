@@ -79,8 +79,9 @@ export interface PartnerRow {
   customerProfile: CustomerProfileRow | null;
   supplierProfile: SupplierProfileRow | null;
   employeeProfile: EmployeeProfileRow | null;
-  /** Confirmed/closed Sales Invoices minus confirmed/closed Sales Returns minus CONFIRMED Customer Receipt allocations — independent from `payableBalance`, never netted (spec sections 25/26). */
+  /** Posted-ledger balance on the Receivable control accounts (functional currency, debit − credit; negative = customer credit) — equals the Customer Statement closing balance. Independent from `payableBalance`, never netted (spec sections 25/26). */
   receivableBalance: number;
+  /** Posted-ledger balance on the Payable control accounts (credit − debit) — equals the Supplier Statement closing balance (sign flipped). */
   payableBalance: number;
   createdAt: string;
   updatedAt: string;

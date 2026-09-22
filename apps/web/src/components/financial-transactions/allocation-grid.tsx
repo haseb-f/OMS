@@ -45,10 +45,13 @@ export function AllocationGrid({
   lines,
   onChange,
   disabled,
+  documentLabel,
 }: {
   lines: AllocationGridLine[];
   onChange: (lines: AllocationGridLine[]) => void;
   disabled?: boolean;
+  /** Column header for the settled document — "Invoice" by default; a Customer Refund settles Sales Returns. */
+  documentLabel?: string;
 }) {
   const { t } = useLocale();
 
@@ -73,7 +76,9 @@ export function AllocationGrid({
       <Table className="w-full table-fixed border-separate border-spacing-0">
         <TableHeader className="bg-muted/50">
           <TableRow className="hover:bg-transparent">
-            <TableHead>{t("financialTransactions.allocationGrid.invoice")}</TableHead>
+            <TableHead>
+              {documentLabel ?? t("financialTransactions.allocationGrid.invoice")}
+            </TableHead>
             <TableHead className="w-40 text-end">
               {t("financialTransactions.allocationGrid.remaining")}
             </TableHead>

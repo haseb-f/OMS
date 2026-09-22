@@ -314,6 +314,14 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
     actions: paymentActions('sales.receipts'),
   },
   {
+    // Customer Refund — money paid back out against a posted Sales Return's
+    // credit. Its own row (never folded into `sales.receipts`): paying money
+    // out is a different authority from collecting it.
+    key: 'customer-refunds',
+    labelKey: 'permissions.modules.customerRefunds',
+    actions: paymentActions('sales.refunds'),
+  },
+  {
     key: 'purchase-quotations',
     labelKey: 'permissions.modules.purchaseQuotations',
     actions: documentActions('purchasing.quotations'),
@@ -1265,6 +1273,7 @@ export const IMPLIED_SECTION_PERMISSION: Record<
   'sales.invoices': 'sales.view',
   'sales.returns': 'sales.view',
   'sales.receipts': 'finance.view',
+  'sales.refunds': 'finance.view',
   'purchasing.quotations': 'purchasing.view',
   'purchasing.orders': 'purchasing.view',
   'purchasing.invoices': 'purchasing.view',

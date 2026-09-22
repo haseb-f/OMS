@@ -4,13 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
-  FinancialTransactionStatus,
   PartnerRoleType,
   PartnerSource,
   PartnerStatus,
   Prisma,
-  PurchaseDocumentStatus,
-  SalesDocumentStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -25,20 +22,13 @@ import {
 } from '../master-data/master-data-crud.service';
 import { prismaEnumFilter } from '../common/query/enum-list';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
+import { partnerLedgerBalances } from '../accounting/reports/partner-ledger-balance';
 import { CreatePartnerDto } from './dto/create-partner.dto';
 import { UpdatePartnerDto } from './dto/update-partner.dto';
 import { FindOrCreatePartnerDto } from './dto/find-or-create-partner.dto';
 import { FindPartnersQueryDto } from './dto/find-partners-query.dto';
 
 const DOCUMENT_TYPE = 'PARTNER';
-const SALES_BALANCE_STATUSES: SalesDocumentStatus[] = [
-  SalesDocumentStatus.CONFIRMED,
-  SalesDocumentStatus.CLOSED,
-];
-const PURCHASE_BALANCE_STATUSES: PurchaseDocumentStatus[] = [
-  PurchaseDocumentStatus.CONFIRMED,
-  PurchaseDocumentStatus.CLOSED,
-];
 
 const PARTNER_INCLUDE = {
   roles: true,
@@ -785,136 +775,28 @@ export class PartnersService extends MasterDataCrudService<
   }
 
   /**
-   * Receivable = confirmed/closed Sales Invoices minus confirmed/closed
-   * Sales Returns minus CONFIRMED Customer Receipt allocations. Payable =
-   * the same shape on the Purchasing side. Computed independently and never
-   * netted (spec sections 25/26 — Net Exposure is a display-only concern,
-   * left to the frontend/Partner Statement, never collapsed here).
+   * Receivable / Payable balances come from the posted ledger — the
+   * partner-tagged lines on the AR/AP control accounts, in functional
+   * currency (`partnerLedgerBalances`) — the exact figures the Customer /
+   * Supplier Statement closes on. They were formerly re-derived from
+   * documents (invoices − returns − allocations), which silently drifted from
+   * the statement for unallocated advances, refunds, foreign-currency
+   * documents, bank fees, opening balances and legacy documents confirmed
+   * without a Journal Entry. Computed independently and never netted (spec
+   * sections 25/26 — Net Exposure is a display-only concern).
    */
   private async attachBalances<T extends { id: string }>(
     partners: T[],
   ): Promise<PartnerWithBalance<T>[]> {
     if (partners.length === 0) return [];
-    const ids = partners.map((p) => p.id);
-
-    const [
-      invoiceSums,
-      returnSums,
-      arAllocations,
-      poInvoiceSums,
-      poReturnSums,
-      apAllocations,
-    ] = await Promise.all([
-      this.prisma.salesInvoice.groupBy({
-        by: ['partnerId'],
-        where: {
-          partnerId: { in: ids },
-          status: { in: SALES_BALANCE_STATUSES },
-        },
-        _sum: { grandTotal: true },
-      }),
-      this.prisma.salesReturn.groupBy({
-        by: ['partnerId'],
-        where: {
-          partnerId: { in: ids },
-          status: { in: SALES_BALANCE_STATUSES },
-        },
-        _sum: { grandTotal: true },
-      }),
-      this.prisma.financialTransactionAllocation.findMany({
-        where: {
-          transaction: { status: FinancialTransactionStatus.CONFIRMED },
-          salesInvoice: { partnerId: { in: ids } },
-        },
-        select: {
-          allocatedAmount: true,
-          salesInvoice: { select: { partnerId: true } },
-        },
-      }),
-      this.prisma.purchaseInvoice.groupBy({
-        by: ['partnerId'],
-        where: {
-          partnerId: { in: ids },
-          status: { in: PURCHASE_BALANCE_STATUSES },
-        },
-        _sum: { grandTotal: true },
-      }),
-      this.prisma.purchaseReturn.groupBy({
-        by: ['partnerId'],
-        where: {
-          partnerId: { in: ids },
-          status: { in: PURCHASE_BALANCE_STATUSES },
-        },
-        _sum: { grandTotal: true },
-      }),
-      this.prisma.financialTransactionAllocation.findMany({
-        where: {
-          transaction: { status: FinancialTransactionStatus.CONFIRMED },
-          purchaseInvoice: { partnerId: { in: ids } },
-        },
-        select: {
-          allocatedAmount: true,
-          purchaseInvoice: { select: { partnerId: true } },
-        },
-      }),
-    ]);
-
-    const invoicedByPartner = new Map(
-      invoiceSums.map((row) => [
-        row.partnerId,
-        Number(row._sum.grandTotal ?? 0),
-      ]),
+    const balances = await partnerLedgerBalances(
+      this.prisma,
+      partners.map((p) => p.id),
     );
-    const returnedByPartner = new Map(
-      returnSums.map((row) => [
-        row.partnerId,
-        Number(row._sum.grandTotal ?? 0),
-      ]),
-    );
-    const receiptsByPartner = new Map<string, number>();
-    for (const allocation of arAllocations) {
-      const partnerId = allocation.salesInvoice?.partnerId;
-      if (!partnerId) continue;
-      receiptsByPartner.set(
-        partnerId,
-        (receiptsByPartner.get(partnerId) ?? 0) +
-          Number(allocation.allocatedAmount),
-      );
-    }
-
-    const purchasedByPartner = new Map(
-      poInvoiceSums.map((row) => [
-        row.partnerId,
-        Number(row._sum.grandTotal ?? 0),
-      ]),
-    );
-    const purchaseReturnedByPartner = new Map(
-      poReturnSums.map((row) => [
-        row.partnerId,
-        Number(row._sum.grandTotal ?? 0),
-      ]),
-    );
-    const paymentsByPartner = new Map<string, number>();
-    for (const allocation of apAllocations) {
-      const partnerId = allocation.purchaseInvoice?.partnerId;
-      if (!partnerId) continue;
-      paymentsByPartner.set(
-        partnerId,
-        (paymentsByPartner.get(partnerId) ?? 0) +
-          Number(allocation.allocatedAmount),
-      );
-    }
-
     return partners.map((partner) => ({
       ...partner,
-      receivableBalance:
-        (invoicedByPartner.get(partner.id) ?? 0) -
-        (returnedByPartner.get(partner.id) ?? 0) -
-        (receiptsByPartner.get(partner.id) ?? 0),
-      payableBalance:
-        (purchasedByPartner.get(partner.id) ?? 0) -
-        (purchaseReturnedByPartner.get(partner.id) ?? 0) -
-        (paymentsByPartner.get(partner.id) ?? 0),
+      receivableBalance: balances.get(partner.id)?.receivable ?? 0,
+      payableBalance: balances.get(partner.id)?.payable ?? 0,
     }));
   }
 }

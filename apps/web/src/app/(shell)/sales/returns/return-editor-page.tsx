@@ -2,9 +2,10 @@
 
 import { RelatedRecordsPanel } from "@/components/shared/related-records-panel";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Ban, CheckCircle2, PackagePlus, Printer, Save, Send } from "lucide-react";
+import { Ban, CheckCircle2, PackagePlus, Printer, Save, Send, Undo2 } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { CustomerRefundDialog } from "@/components/financial-transactions/customer-refund-dialog";
 import { EditorWorkspace } from "@/components/shared/detail-workspace";
 import {
   SalesDocumentEditor,
@@ -81,6 +82,8 @@ export function ReturnEditorPage({ id }: { id: string }) {
     undefined,
   );
   const [cancelTarget, setCancelTarget] = useState(false);
+  const [refundOpen, setRefundOpen] = useState(false);
+  const [relatedRefreshKey, setRelatedRefreshKey] = useState(0);
 
   const [customer, setCustomer] = useState<PartnerRow | null>(null);
   const [currency, setCurrency] = useState<CurrencyRow | null>(null);
@@ -275,6 +278,15 @@ export function ReturnEditorPage({ id }: { id: string }) {
           onAction: () => setCancelTarget(true),
         },
         {
+          // Pays the posted return's credit back to the customer (Customer Refund).
+          key: "refund",
+          label: t("sales.returns.actions.refund"),
+          icon: Undo2,
+          variant: "outline",
+          visibleForStatuses: ["CONFIRMED", "CLOSED"],
+          onAction: () => setRefundOpen(true),
+        },
+        {
           key: "print",
           label: t("table.print"),
           icon: Printer,
@@ -329,12 +341,17 @@ export function ReturnEditorPage({ id }: { id: string }) {
   const canApprove = hasPermission("sales.returns.approve");
   const canConfirm = hasPermission("sales.returns.confirm");
   const canCancel = hasPermission("sales.returns.cancel");
+  const canRefund = hasPermission("sales.refunds.create") && hasPermission("sales.refunds.confirm");
 
   useBreadcrumbLabel(salesReturn?.returnNumber ?? t("sales.returns.addNew"));
 
   return (
     <EditorWorkspace>
-      <RelatedRecordsPanel kind="SALES_RETURN" id={id} refreshKey={salesReturn?.status} />
+      <RelatedRecordsPanel
+        kind="SALES_RETURN"
+        id={id}
+        refreshKey={`${salesReturn?.status ?? ""}:${relatedRefreshKey}`}
+      />
 
       <SalesDocumentEditor
         config={{
@@ -343,6 +360,7 @@ export function ReturnEditorPage({ id }: { id: string }) {
             if (action.key === "approve" && !canApprove) return false;
             if (action.key === "confirm" && !canConfirm) return false;
             if (action.key === "cancel" && !canCancel) return false;
+            if (action.key === "refund" && !canRefund) return false;
             if (action.key === "print" && !salesReturn) return false;
             return true;
           }),
@@ -354,6 +372,21 @@ export function ReturnEditorPage({ id }: { id: string }) {
         disabled={!canEdit || isSaving}
         isBusy={isSaving || isTransitioning}
       />
+
+      {salesReturn && refundOpen && (
+        <CustomerRefundDialog
+          open={refundOpen}
+          onOpenChange={setRefundOpen}
+          salesReturnId={salesReturn.id}
+          partnerId={salesReturn.partnerId}
+          currencyId={salesReturn.currencyId}
+          currencyCode={salesReturn.currency?.code}
+          onRefunded={() => {
+            setRelatedRefreshKey((key) => key + 1);
+            refreshActivity(id);
+          }}
+        />
+      )}
 
       <ConfirmationDialog
         open={cancelTarget}
