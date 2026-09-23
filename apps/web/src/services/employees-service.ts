@@ -110,7 +110,8 @@ export const employeesService = {
   list: (params: MasterDataListParams = {}) =>
     apiClient.get<MasterDataListResult<EmployeeRow>>(`${basePath}${buildQueryString(params)}`),
   get: (id: string) => apiClient.get<EmployeeRow>(`${basePath}/${id}`),
-  me: () => apiClient.get<EmployeeRow>(`${basePath}/me`),
+  /** `null` when no Employee record is linked to the signed-in account. */
+  me: () => apiClient.get<EmployeeRow | null>(`${basePath}/me`),
   create: (dto: CreateEmployeePayload) => apiClient.post<EmployeeRow>(basePath, dto),
   update: (id: string, dto: UpdateEmployeePayload) =>
     apiClient.patch<EmployeeRow>(`${basePath}/${id}`, dto),

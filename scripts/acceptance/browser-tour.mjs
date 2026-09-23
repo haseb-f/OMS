@@ -306,6 +306,8 @@ async function setupData() {
   check("demo product resolved", demo.productId ? "PASS" : "SKIP", demo.product?.sku ?? "none — product edit check will be skipped");
 
   // lead for conversion dialog (open RUN lead; created via API if missing)
+  demo.salesReturnId = process.env.DEMO_SALES_RETURN_ID;
+  demo.refundId = process.env.DEMO_REFUND_ID;
   if (process.env.DEMO_LEAD_ID) demo.leadId = process.env.DEMO_LEAD_ID;
   else {
     const list = items((await api("GET", `/leads?search=DEMO-ACCEPTANCE&pageSize=20`)).json);
@@ -418,6 +420,8 @@ async function pageSweep(context, page) {
 
 // ------------------------------------------------------------------ (b) workflows
 const TXT = {
+  refund: /^(Refund|رد المبلغ)$/,
+  more: /^(More|المزيد|إجراءات)$/,
   newOrder: /^(New Order|طلب جديد)$/,
   convert: /Convert to Order|تحويل إلى طلب/,
   addLine: /Add Line|إضافة سطر/,
@@ -626,6 +630,55 @@ const WORKFLOWS = [
       const stateOk = checked == null || !expectChecked || /checked|true/.test(checked);
       const dOverflow = await dialogOverflow(dialog);
       return { ok: vis.ok && stateOk && dOverflow.ok, detail: JSON.stringify({ toggle: vis, checked, expectChecked, dialogOverflow: dOverflow }) };
+    },
+  },
+  {
+    // Opens the Refund dialog on the demo posted return — never submits it.
+    id: "sales-return-refund-dialog",
+    needs: "salesReturnId",
+    run: async (page) => {
+      await page.goto(`${BASE}/sales/returns/${demo.salesReturnId}`, { waitUntil: "domcontentloaded" });
+      await settle(page);
+      // Non-primary document actions live in the "More" menu, like Cancel.
+      let btn = await visible(page.getByRole("button", { name: TXT.refund }), 5000);
+      if (!btn) {
+        const more = await visible(page.getByRole("button", { name: TXT.more }), 20000);
+        if (!more) return { ok: false, detail: "document actions menu not visible" };
+        await more.click();
+        btn = await visible(page.getByRole("menuitem", { name: TXT.refund }), 8000);
+      }
+      if (!btn) return { ok: false, detail: "Refund action not offered on posted return" };
+      await btn.click();
+      const dialog = page.getByRole("dialog").last();
+      await dialog.waitFor();
+      await settle(page, { maxMs: 8000 });
+      const amount = await dialog.locator('input[inputmode="decimal"], input[type="number"]').first().inputValue().catch(() => "");
+      const dOverflow = await dialogOverflow(dialog);
+      await page.keyboard.press("Escape").catch(() => {});
+      // The prefilled amount is the return's remaining credit — 0 once it is fully refunded.
+      return { ok: dOverflow.ok, detail: JSON.stringify({ prefilled: amount, dialogOverflow: dOverflow }) };
+    },
+  },
+  {
+    id: "customer-refund-detail",
+    needs: "refundId",
+    run: async (page) => {
+      await page.goto(`${BASE}/sales/refunds/${demo.refundId}`, { waitUntil: "domcontentloaded" });
+      await settle(page);
+      const text = await page.locator("body").innerText().catch(() => "");
+      return { ok: /CRF-\d{4}-\d+/.test(text), detail: (text.match(/CRF-\d{4}-\d+/) ?? ["no refund number on page"])[0] };
+    },
+  },
+  {
+    id: "gl-sidebar-highlight",
+    run: async (page) => {
+      await page.goto(`${BASE}/reports/finance?report=generalLedger`, { waitUntil: "domcontentloaded" });
+      await settle(page);
+      const active = await page
+        .locator('[data-sidebar] [data-active="true"], [data-slot="sidebar"] [data-active="true"]')
+        .evaluateAll((els) => els.map((e) => (e.textContent || "").trim()).filter(Boolean));
+      const ok = active.some((t) => /General Ledger|الأستاذ العام|دفتر الأستاذ/.test(t));
+      return { ok: active.length ? ok : null, detail: JSON.stringify(active) };
     },
   },
   {

@@ -311,10 +311,9 @@ export class SalesTargetsService {
     const employee = await this.prisma.employeeProfile.findFirst({
       where: { userId, deletedAt: null },
     });
-    if (!employee)
-      throw new NotFoundException(
-        'No Employee record is linked to your account.',
-      );
+    // Same as `/employees/me`: no linked Employee record is an empty
+    // ranking, not an error.
+    if (!employee) return null;
     const { leaderboard } = await this.ranking(period, metric, {});
     const mine = leaderboard.find(
       (row) => row.employeeProfileId === employee.id,

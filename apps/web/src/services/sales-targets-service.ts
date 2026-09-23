@@ -110,5 +110,5 @@ export const salesTargetsService = {
     apiClient.get<RankingResult>(`${basePath}/ranking${buildQueryString(params)}`),
   /** Part S "ترتيبك #3" — every authenticated employee may see their own rank, unguarded. */
   myRanking: (params: { period?: string; metric?: TargetMetric } = {}) =>
-    apiClient.get<MyRankingResult>(`${basePath}/me${buildQueryString(params)}`),
+    apiClient.get<MyRankingResult | null>(`${basePath}/me${buildQueryString(params)}`),
 };

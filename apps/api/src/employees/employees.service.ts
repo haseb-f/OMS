@@ -329,10 +329,10 @@ export class EmployeesService {
       where: { userId },
       include: EMPLOYEE_INCLUDE,
     });
-    if (!row)
-      throw new NotFoundException(
-        'No Employee record is linked to your account.',
-      );
+    // Having no linked Employee record is a legitimate state for an
+    // account (an owner or an integration user), not a fault — the caller
+    // renders an empty state, so this stays a 200 with `null`.
+    if (!row) return null;
     return toEmployeeView(row);
   }
 
