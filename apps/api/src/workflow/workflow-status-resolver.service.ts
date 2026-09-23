@@ -80,6 +80,10 @@ export class WorkflowStatusResolverService implements OnModuleInit {
     );
   }
 
+  fulfillmentStatusIdByCode(code: string): string {
+    return this.requireId(WORKFLOW_FOR_FULFILLMENT, code);
+  }
+
   matchingStatusId(status: BankTransactionMatchStatus): string {
     return this.requireId(WORKFLOW_FOR_MATCHING, MATCHING_STATUS_CODE[status]);
   }

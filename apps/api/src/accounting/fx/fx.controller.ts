@@ -23,6 +23,7 @@ import { FxCorrectionService } from './fx-correction.service';
 import {
   CheckExchangeRateQueryDto,
   CreateExchangeRateDto,
+  BulkImportExchangeRatesDto,
   ExchangeRateQueryDto,
   FxCorrectionDto,
   RunFxRevaluationDto,
@@ -37,6 +38,15 @@ export class ExchangeRatesController {
   @Post()
   create(@Body() dto: CreateExchangeRateDto, @CurrentUser() user: JwtPayload) {
     return this.exchangeRates.create(dto, user.sub);
+  }
+
+  @Post('bulk-import')
+  @PermissionAction('create')
+  bulkImport(
+    @Body() dto: BulkImportExchangeRatesDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.exchangeRates.bulkImport(dto.rows ?? [], user.sub);
   }
 
   @Get()

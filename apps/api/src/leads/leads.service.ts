@@ -763,6 +763,7 @@ export class LeadsService {
     await this.workflowEngine.convertLead(id, userId, {
       items: dto.items,
       paymentType: dto.paymentType,
+      fulfillmentMethod: dto.fulfillmentMethod,
       paymentMethodId: dto.paymentMethodId,
       currencyId: dto.currencyId,
       amountPaid: dto.amountPaid,

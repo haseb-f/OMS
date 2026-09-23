@@ -12,6 +12,7 @@ import {
   PaymentStatus,
   Prisma,
   StatusChangeSource,
+  StoreOrderFulfillmentMethod,
   StoreOrderPaymentStatus,
   StoreOrderPaymentType,
   StoreOrderShippingStage,
@@ -68,6 +69,7 @@ export interface LeadConvertPayload {
     agreedAmount: number;
   }>;
   paymentType?: 'PREPAID' | 'CASH_ON_DELIVERY';
+  fulfillmentMethod?: 'SHIPPING' | 'PICKUP';
   paymentSourceId?: string;
   paymentMethodId?: string;
   currencyId?: string;
@@ -751,10 +753,24 @@ export class WorkflowEngineService {
       payload?.paymentType === 'CASH_ON_DELIVERY'
         ? StoreOrderPaymentType.CASH_ON_DELIVERY
         : StoreOrderPaymentType.PREPAID;
-    const shippingStage =
-      paymentType === StoreOrderPaymentType.CASH_ON_DELIVERY
-        ? StoreOrderShippingStage.READY_FOR_SHIPPING
-        : StoreOrderShippingStage.NOT_READY;
+    const fulfillmentMethod =
+      payload?.fulfillmentMethod === 'PICKUP' ||
+      lead.fulfillmentMethod === StoreOrderFulfillmentMethod.PICKUP
+        ? StoreOrderFulfillmentMethod.PICKUP
+        : StoreOrderFulfillmentMethod.SHIPPING;
+
+    // Confirmed shipping orders start Ready for Shipping. Pickup never enters
+    // the carrier pipeline. Payment status never drives these transitions.
+    let shippingStage: StoreOrderShippingStage =
+      StoreOrderShippingStage.NOT_READY;
+    let fulfillmentCode = 'UNFULFILLED';
+    if (fulfillmentMethod === StoreOrderFulfillmentMethod.PICKUP) {
+      shippingStage = StoreOrderShippingStage.NOT_READY;
+      fulfillmentCode = 'AWAITING_PREPARATION';
+    } else {
+      shippingStage = StoreOrderShippingStage.READY_FOR_SHIPPING;
+      fulfillmentCode = 'READY';
+    }
 
     const currencyId = payload?.currencyId ?? lead.currencyId;
     if (payload?.currencyId) {
@@ -780,17 +796,13 @@ export class WorkflowEngineService {
         currencyId,
         employeeId: lead.salesEmployeeId,
         paymentType,
+        fulfillmentMethod,
         shippingStage,
         paymentStatusId: await this.statusDefinitions
           .findByCode(WorkflowType.PAYMENT, 'UNPAID')
           .then((s) => s?.id),
         fulfillmentStatusId: await this.statusDefinitions
-          .findByCode(
-            WorkflowType.FULFILLMENT,
-            shippingStage === StoreOrderShippingStage.READY_FOR_SHIPPING
-              ? 'READY'
-              : 'UNFULFILLED',
-          )
+          .findByCode(WorkflowType.FULFILLMENT, fulfillmentCode)
           .then((s) => s?.id),
         notes: payload?.notes,
         createdBy: userId,

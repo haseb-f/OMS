@@ -1,19 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import {
-  Prisma,
-  PaymentStatus,
-  StoreOrderPaymentStatus,
-  StoreOrderShippingStage,
-} from '@prisma/client';
+import { Prisma, PaymentStatus, StoreOrderPaymentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { WorkflowStatusResolverService } from '../workflow/workflow-status-resolver.service';
-import { PAID_PAYMENT_CODES } from '../workflow/workflow-status-map';
 import { storeOrderItemsTotal } from './store-order-line-amount';
 import { roundMoney } from './store-order-payment-settlement.util';
 
 /**
- * Keeps Store Order payment + fulfillment StatusDefinitions in sync with
- * verified Payment allocations. Dual-writes legacy enums during cutover.
+ * Keeps Store Order payment StatusDefinitions in sync with verified Payment
+ * allocations. Dual-writes legacy enums during cutover.
+ *
+ * Payment status is independent of fulfillment/shipping. Marking an order
+ * Paid MUST NEVER advance shippingStage or fulfillmentStatus.
  */
 @Injectable()
 export class StoreOrderPaymentSyncService {
@@ -30,11 +27,6 @@ export class StoreOrderPaymentSyncService {
         items: {
           where: { deletedAt: null },
           select: { quantity: true, unitPrice: true, agreedAmount: true },
-        },
-        shipments: {
-          where: { deletedAt: null },
-          select: { id: true },
-          take: 1,
         },
         paymentStatusDef: { select: { code: true } },
       },
@@ -73,32 +65,12 @@ export class StoreOrderPaymentSyncService {
     }
 
     const paymentStatusId = this.statusResolver.paymentStatusId(paymentStatus);
-    const data: Prisma.StoreOrderUpdateInput = {
-      paymentStatus,
-      paymentStatusDef: { connect: { id: paymentStatusId } },
-    };
-
-    if (
-      PAID_PAYMENT_CODES.has(
-        paymentStatus === StoreOrderPaymentStatus.FULLY_PAID_RECONCILED
-          ? 'PAID'
-          : paymentStatus === StoreOrderPaymentStatus.OVERPAID
-            ? 'OVERPAID'
-            : '',
-      ) &&
-      order.shippingStage === StoreOrderShippingStage.NOT_READY &&
-      order.shipments.length === 0
-    ) {
-      data.shippingStage = StoreOrderShippingStage.READY_FOR_SHIPPING;
-      data.fulfillmentStatus = {
-        connect: {
-          id: this.statusResolver.fulfillmentStatusId(
-            StoreOrderShippingStage.READY_FOR_SHIPPING,
-          ),
-        },
-      };
-    }
-
-    await client.storeOrder.update({ where: { id: storeOrderId }, data });
+    await client.storeOrder.update({
+      where: { id: storeOrderId },
+      data: {
+        paymentStatus,
+        paymentStatusDef: { connect: { id: paymentStatusId } },
+      },
+    });
   }
 }

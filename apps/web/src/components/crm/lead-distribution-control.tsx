@@ -60,6 +60,8 @@ export function LeadDistributionControl({
       ? Math.ceil(snapshot.policy.remainingMs / 3_600_000)
       : null;
   const heldCount = snapshot?.held?.count ?? 0;
+  const pendingCount = snapshot?.pendingEligibleCount ?? 0;
+  const failureReason = snapshot?.failureReason ?? snapshot?.lastRun?.failureMessage ?? null;
 
   const pause = async () => {
     setBusy(true);
@@ -106,16 +108,38 @@ export function LeadDistributionControl({
           className={cn("h-7 cursor-pointer gap-1 px-2", running && "border-success/40")}
         >
           <Icon className="size-3.5" />
-          {badge.label}
+          {running ? t("crm.leads.distribution.running") : badge.label}
           {status === "TIME_LIMITED" && remainingHours != null ? (
             <span dir="ltr">· {remainingHours}h</span>
           ) : null}
         </EnterpriseBadge>
       </button>
+      {pendingCount > 0 ? (
+        <EnterpriseBadge variant="outline" className="h-7">
+          {t("crm.leads.distribution.pendingCount", { count: pendingCount })}
+        </EnterpriseBadge>
+      ) : null}
       {heldCount > 0 ? (
         <EnterpriseBadge variant="outline" className="h-7">
           {t("crm.leads.distribution.heldCount", { count: heldCount })}
         </EnterpriseBadge>
+      ) : null}
+      {failureReason ? (
+        <EnterpriseBadge
+          variant="destructive"
+          className="h-7 max-w-[18rem] truncate"
+          title={failureReason}
+        >
+          {t("crm.leads.distribution.failureReason")}
+        </EnterpriseBadge>
+      ) : null}
+      {snapshot?.lastRun?.at ? (
+        <span className="text-caption text-muted-foreground" dir="ltr">
+          {t("crm.leads.distribution.lastRun")}:{" "}
+          {t("crm.leads.distribution.lastRunAssigned", {
+            count: snapshot.lastRun.assigned,
+          })}
+        </span>
       ) : null}
       {running ? (
         <EnterpriseButton

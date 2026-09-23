@@ -36,6 +36,11 @@ export class ConvertLeadDto {
   @IsString()
   paymentType!: 'PREPAID' | 'CASH_ON_DELIVERY';
 
+  /** Shipping vs Pickup — independent of payment. Defaults to SHIPPING. */
+  @IsOptional()
+  @IsString()
+  fulfillmentMethod?: 'SHIPPING' | 'PICKUP';
+
   @IsOptionalUuid()
   paymentMethodId?: string;
 

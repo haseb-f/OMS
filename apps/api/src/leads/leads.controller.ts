@@ -160,21 +160,23 @@ export class LeadsController {
   @Post('distribution/activate-continuous')
   @HttpCode(200)
   @PermissionAction('manage')
-  activateContinuous(@CurrentUser() user: JwtPayload) {
-    return this.leadAutoDistributionService.activate({
+  async activateContinuous(@CurrentUser() user: JwtPayload) {
+    await this.leadAutoDistributionService.activate({
       mode: LeadDistributionMode.CONTINUOUS,
       actorId: user.sub,
     });
+    return this.leadAutoDistributionService.getPolicySnapshot();
   }
 
   @Post('distribution/activate-24h')
   @HttpCode(200)
   @PermissionAction('manage')
-  activate24h(@CurrentUser() user: JwtPayload) {
-    return this.leadAutoDistributionService.activate({
+  async activate24h(@CurrentUser() user: JwtPayload) {
+    await this.leadAutoDistributionService.activate({
       mode: LeadDistributionMode.TIME_LIMITED,
       actorId: user.sub,
     });
+    return this.leadAutoDistributionService.getPolicySnapshot();
   }
 
   @Post('bulk-assign')

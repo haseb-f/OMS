@@ -75,6 +75,7 @@ export type StoreOrderPaymentStatusValue =
   | "PAYMENT_REVIEW";
 
 export type StoreOrderPaymentTypeValue = "PREPAID" | "CASH_ON_DELIVERY";
+export type StoreOrderFulfillmentMethodValue = "SHIPPING" | "PICKUP";
 
 export type StoreOrderShippingStageValue = "NOT_READY" | "READY_FOR_SHIPPING";
 
@@ -206,6 +207,7 @@ export interface StoreOrderRow {
   employee?: { id: string; fullName: string } | null;
   paymentStatus: StoreOrderPaymentStatusValue;
   paymentType: StoreOrderPaymentTypeValue;
+  fulfillmentMethod?: StoreOrderFulfillmentMethodValue;
   shippingStage: StoreOrderShippingStageValue;
   shippingStatus?: { id: string; code: string; name: string; color: string } | null;
   currency: { id: string; code: string; name: string; symbol: string | null } | null;

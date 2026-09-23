@@ -127,6 +127,14 @@ export interface LeadDistributionSnapshot {
     teamId: string | null;
   } | null;
   eligible: { id: string; fullName: string; email: string }[];
+  pendingEligibleCount?: number;
+  failureReason?: string | null;
+  lastRun?: {
+    at: string | null;
+    assigned: number;
+    failureCode: string | null;
+    failureMessage: string | null;
+  } | null;
   held?: {
     count: number;
     batches: { importBatch: string | null; count: number; createdAt: string | null }[];

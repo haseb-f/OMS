@@ -11,6 +11,7 @@ import {
   ProductStatus,
   SalesDocumentStatus,
   ShipmentStatus,
+  StoreOrderFulfillmentMethod,
   StoreOrderPaymentStatus,
   StoreOrderPaymentType,
   StoreOrderShippingStage,
@@ -268,10 +269,18 @@ export class StoreOrdersService {
       await this.numberingEngine.generateNumber('STORE_ORDER');
 
     const paymentType = dto.paymentType ?? StoreOrderPaymentType.PREPAID;
+    const fulfillmentMethod =
+      dto.fulfillmentMethod ?? StoreOrderFulfillmentMethod.SHIPPING;
+    // Confirmed orders: shipping → Ready for Shipping; pickup → Awaiting Preparation.
+    // Payment status never sets these.
     const shippingStage =
-      paymentType === StoreOrderPaymentType.CASH_ON_DELIVERY
-        ? StoreOrderShippingStage.READY_FOR_SHIPPING
-        : StoreOrderShippingStage.NOT_READY;
+      fulfillmentMethod === StoreOrderFulfillmentMethod.PICKUP
+        ? StoreOrderShippingStage.NOT_READY
+        : StoreOrderShippingStage.READY_FOR_SHIPPING;
+    const fulfillmentCode =
+      fulfillmentMethod === StoreOrderFulfillmentMethod.PICKUP
+        ? 'AWAITING_PREPARATION'
+        : 'READY';
 
     let employeeId = dto.employeeId;
     if (userId) {
@@ -297,12 +306,13 @@ export class StoreOrdersService {
             employeeId,
             currencyId: dto.currencyId,
             paymentType,
+            fulfillmentMethod,
             shippingStage,
             paymentStatusId: this.statusResolver.paymentStatusId(
               StoreOrderPaymentStatus.PAYMENT_PENDING,
             ),
             fulfillmentStatusId:
-              this.statusResolver.fulfillmentStatusId(shippingStage),
+              this.statusResolver.fulfillmentStatusIdByCode(fulfillmentCode),
             notes: dto.notes,
             createdBy: userId,
             updatedBy: userId,
@@ -1172,6 +1182,58 @@ export class StoreOrdersService {
       reason:
         'Prepaid orders require verified reconciled payment before fulfillment.',
     };
+  }
+
+  /**
+   * Pickup workflow transitions. Never creates shipment/label rows.
+   * Allowed codes: AWAITING_PREPARATION → READY_FOR_PICKUP → COLLECTED
+   * (+ CANCELLED / RETURNED where applicable via fulfillment StatusDefinition).
+   */
+  async transitionPickup(
+    id: string,
+    code: 'READY_FOR_PICKUP' | 'COLLECTED' | 'CANCELLED' | 'RETURNED',
+    userId?: string,
+  ) {
+    const order = await this.findOne(id, userId);
+    if (order.fulfillmentMethod !== StoreOrderFulfillmentMethod.PICKUP) {
+      throw new BadRequestException(
+        'Only pickup orders use the pickup workflow.',
+      );
+    }
+    const allowedFrom: Record<string, string[]> = {
+      READY_FOR_PICKUP: ['AWAITING_PREPARATION'],
+      COLLECTED: ['READY_FOR_PICKUP'],
+      CANCELLED: ['AWAITING_PREPARATION', 'READY_FOR_PICKUP'],
+      RETURNED: ['COLLECTED'],
+    };
+    const current = order.fulfillmentStatus?.code ?? 'AWAITING_PREPARATION';
+    if (!allowedFrom[code]?.includes(current)) {
+      throw new BadRequestException(
+        `Cannot move pickup from ${current} to ${code}.`,
+      );
+    }
+    if (code === 'COLLECTED' || code === 'READY_FOR_PICKUP') {
+      const gate = await this.canFulfill(id);
+      if (!gate.allowed && code === 'COLLECTED') {
+        throw new BadRequestException(gate.reason ?? 'Payment required.');
+      }
+    }
+    const statusId = this.statusResolver.fulfillmentStatusIdByCode(code);
+    await this.prisma.storeOrder.update({
+      where: { id },
+      data: {
+        fulfillmentStatusId: statusId,
+        shippingStage: StoreOrderShippingStage.NOT_READY,
+        updatedBy: userId ?? null,
+      },
+    });
+    await this.activityService.log(
+      id,
+      StoreOrderActivityType.SHIPPING_STAGE_CHANGED,
+      `Pickup status → ${code}`,
+      userId,
+    );
+    return this.findOne(id, userId);
   }
 
   /** Business operation: Attach Receipt — URL metadata and/or an uploaded file. */

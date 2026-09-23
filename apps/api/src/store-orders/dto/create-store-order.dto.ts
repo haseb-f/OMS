@@ -11,7 +11,11 @@ import {
   IsUUID,
   ValidateNested,
 } from 'class-validator';
-import { StoreOrderSource, StoreOrderPaymentType } from '@prisma/client';
+import {
+  StoreOrderSource,
+  StoreOrderPaymentType,
+  StoreOrderFulfillmentMethod,
+} from '@prisma/client';
 import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 import { FindOrCreatePartnerDto } from '../../partners/dto/find-or-create-partner.dto';
 import { CreateStoreOrderItemDto } from './create-store-order-item.dto';
@@ -61,6 +65,10 @@ export class CreateStoreOrderDto {
   @IsEnum(StoreOrderPaymentType)
   @IsOptional()
   paymentType?: StoreOrderPaymentType;
+
+  @IsEnum(StoreOrderFulfillmentMethod)
+  @IsOptional()
+  fulfillmentMethod?: StoreOrderFulfillmentMethod;
 
   @Transform(emptyToUndefined)
   @IsString()

@@ -291,7 +291,7 @@ function CrmLeadsPageContent() {
                 getTitle={(employee) => employee.fullName}
                 getSearchText={(employee) => employee.email}
                 placeholder={t("crm.leads.filters.employee")}
-                searchPlaceholder={t("common.search")}
+                searchPlaceholder={t("crm.leads.searchPlaceholder")}
                 allowClear
                 triggerClassName="h-(--control-height-sm) w-52"
               />

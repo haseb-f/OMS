@@ -59,6 +59,7 @@ export function LeadConvertDialog({
   const [lines, setLines] = useState<ProductLineItemsGridLine[]>([]);
   const [showLineErrors, setShowLineErrors] = useState(false);
   const [paymentType, setPaymentType] = useState<"PREPAID" | "CASH_ON_DELIVERY">("PREPAID");
+  const [fulfillmentMethod, setFulfillmentMethod] = useState<"SHIPPING" | "PICKUP">("SHIPPING");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodRow | null>(null);
   const [currency, setCurrency] = useState<CurrencyRow | null>(null);
   const [amountPaid, setAmountPaid] = useState("0");
@@ -161,6 +162,7 @@ export function LeadConvertDialog({
           agreedAmount: line.lineAmount!,
         })),
         paymentType,
+        fulfillmentMethod,
         paymentMethodId: paymentMethod?.id,
         currencyId: currency?.id ?? lead.currencyId,
         amountPaid: paymentType === "CASH_ON_DELIVERY" ? 0 : paid,
@@ -290,6 +292,25 @@ export function LeadConvertDialog({
                 items={[
                   { id: "PREPAID", name: t("crm.leads.convert.prepaid") },
                   { id: "CASH_ON_DELIVERY", name: t("crm.leads.convert.cod") },
+                ]}
+                getId={(item) => item.id}
+                getTitle={(item) => item.name}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label>{t("crm.leads.convert.fulfillmentMethod")}</Label>
+              <EntityCombobox
+                value={
+                  fulfillmentMethod === "PICKUP"
+                    ? { id: "PICKUP", name: t("crm.leads.convert.pickup") }
+                    : { id: "SHIPPING", name: t("crm.leads.convert.shipping") }
+                }
+                onChange={(value) => {
+                  setFulfillmentMethod((value?.id as "SHIPPING" | "PICKUP") ?? "SHIPPING");
+                }}
+                items={[
+                  { id: "SHIPPING", name: t("crm.leads.convert.shipping") },
+                  { id: "PICKUP", name: t("crm.leads.convert.pickup") },
                 ]}
                 getId={(item) => item.id}
                 getTitle={(item) => item.name}

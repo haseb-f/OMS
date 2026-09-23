@@ -399,23 +399,12 @@ describe('Sales Funnel Engine', () => {
         actorId: manager.id,
         teamId: team.id,
       });
-      const stillHeld = await prisma.lead.findUniqueOrThrow({
+      const afterActivate = await prisma.lead.findUniqueOrThrow({
         where: { id: lead.id },
       });
-      expect(stillHeld.salesEmployeeId).toBeNull();
-      expect(stillHeld.distributionHeld).toBe(true);
-
-      const released = await distribution.releaseHeld({
-        importBatch: batch,
-        mode: LeadDistributionMode.CONTINUOUS,
-        actorId: manager.id,
-      });
-      expect(released.released).toBe(1);
-      const assigned = await prisma.lead.findUniqueOrThrow({
-        where: { id: lead.id },
-      });
-      expect(assigned.salesEmployeeId).toBe(agent.id);
-      expect(assigned.distributionHeld).toBe(false);
+      // Continuous activate drains pending unowned/held leads (safe: owned never reassigned).
+      expect(afterActivate.salesEmployeeId).toBe(agent.id);
+      expect(afterActivate.distributionHeld).toBe(false);
       await distribution.pause(manager.id);
     },
   );
@@ -582,6 +571,13 @@ describe('Sales Funnel Engine', () => {
         actorId: manager.id,
         teamId: team.id,
       });
+      // Activate drains held offLead first (Round Robin starts at A).
+      const drained = await prisma.lead.findUniqueOrThrow({
+        where: { id: offLead.id },
+      });
+      expect(drained.salesEmployeeId).toBe(a.id);
+      expect(drained.distributionHeld).toBe(false);
+
       const onLead = await leads.create({
         customerName: `Excel ON ${suffix()}`,
         mobileNumber: saMobile(),
@@ -592,7 +588,8 @@ describe('Sales Funnel Engine', () => {
         quantity: 1,
       });
       createdLeadIds.push(onLead.id);
-      expect(onLead.salesEmployeeId).toBe(a.id);
+      // Next Round Robin slot after the drain assignment.
+      expect(onLead.salesEmployeeId).toBe(b.id);
 
       const externalOrderId = `EXT-${suffix()}`;
       const owned = await leads.create({

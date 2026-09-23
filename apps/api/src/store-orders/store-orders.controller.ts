@@ -172,6 +172,18 @@ export class StoreOrdersController {
     return this.storeOrdersService.canFulfill(id);
   }
 
+  @Post(':id/pickup/:code')
+  @HttpCode(200)
+  @PermissionAction('edit')
+  transitionPickup(
+    @Param('id') id: string,
+    @Param('code')
+    code: 'READY_FOR_PICKUP' | 'COLLECTED' | 'CANCELLED' | 'RETURNED',
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.storeOrdersService.transitionPickup(id, code, user.sub);
+  }
+
   @Post(':id/payment-review-status')
   @HttpCode(200)
   @PermissionAction('manage')

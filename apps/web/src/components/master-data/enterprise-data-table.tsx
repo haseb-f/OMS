@@ -932,14 +932,17 @@ export function EnterpriseDataTable<TData>({
             this one, which stacked two dividers directly on top of the sticky
             header and read as a single indistinct band. */}
         <ListToolbar>
-          <SearchInput
-            value={searchDraft}
-            onValueChange={handleSearchInput}
-            onClear={handleSearchClear}
-            placeholder={searchPlaceholder ?? t("table.filterPlaceholder")}
-          />
+          <div className="min-w-0 w-full basis-full sm:w-auto sm:min-w-[12rem] sm:max-w-[22rem] sm:flex-1 md:max-w-[28rem]">
+            <SearchInput
+              value={searchDraft}
+              onValueChange={handleSearchInput}
+              onClear={handleSearchClear}
+              placeholder={searchPlaceholder ?? t("table.filterPlaceholder")}
+              className="w-full max-w-none"
+            />
+          </div>
           {filterBar}
-          <div className="ms-auto flex items-center gap-1">
+          <div className="ms-auto flex shrink-0 items-center gap-1">
             {onRefresh && (
               <IconActionButton
                 label={t("table.refresh")}

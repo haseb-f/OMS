@@ -70,10 +70,19 @@ export class StoreOrderShipmentsService {
   ) {
     const order = await tx.storeOrder.findFirst({
       where: { id: storeOrderId, deletedAt: null },
-      select: { paymentType: true, paymentStatus: true },
+      select: {
+        paymentType: true,
+        paymentStatus: true,
+        fulfillmentMethod: true,
+      },
     });
     if (!order) {
       throw new BadRequestException('Store Order not found.');
+    }
+    if (order.fulfillmentMethod === 'PICKUP') {
+      throw new BadRequestException(
+        'Pickup orders do not create shipping labels or enter carrier queues. Record collection on the pickup workflow instead.',
+      );
     }
     // Central fulfillment gate: PREPAID requires verified reconciled payment;
     // COD may ship before payment.

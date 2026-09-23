@@ -69,4 +69,34 @@ export class AccountingReportsController {
   partnerStatement(@Query() query: PartnerStatementQueryDto) {
     return this.reports.partnerStatement(query);
   }
+
+  @Get('cash-availability')
+  cashAvailability(
+    @Query('asOf') asOf?: string,
+    @Query('currencyId') currencyId?: string,
+    @Query('accountId') accountId?: string,
+  ) {
+    return this.reports.cashAvailability({ asOf, currencyId, accountId });
+  }
+
+  @Get('period-profit')
+  periodProfit(
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+    @Query('targetCurrencyIds') targetCurrencyIds?: string | string[],
+  ) {
+    const ids = Array.isArray(targetCurrencyIds)
+      ? targetCurrencyIds
+      : targetCurrencyIds
+        ? targetCurrencyIds
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : undefined;
+    return this.reports.periodProfitEquivalents({
+      dateFrom,
+      dateTo,
+      targetCurrencyIds: ids,
+    });
+  }
 }

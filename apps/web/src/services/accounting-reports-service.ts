@@ -326,4 +326,62 @@ export const accountingReportsService = {
     apiClient.get<PartnerStatementResult>(
       `/accounting/reports/partner-statement${buildQueryString({ ...params, partnerId } as Record<string, unknown>)}`,
     ),
+  cashAvailability: (params: { asOf?: string; currencyId?: string; accountId?: string } = {}) =>
+    apiClient.get<CashAvailabilityResult>(
+      `/accounting/reports/cash-availability${buildQueryString(params as Record<string, unknown>)}`,
+    ),
+  periodProfit: (
+    params: {
+      dateFrom?: string;
+      dateTo?: string;
+      targetCurrencyIds?: string;
+    } = {},
+  ) =>
+    apiClient.get<PeriodProfitResult>(
+      `/accounting/reports/period-profit${buildQueryString(params as Record<string, unknown>)}`,
+    ),
 };
+
+export interface CashAvailabilityResult {
+  asOfDate: string;
+  formula: string;
+  limitations: string[];
+  accounts: Array<{
+    receivingAccountId: string;
+    accountCode: string;
+    accountName: string;
+    currencyCode: string;
+    bookBalance: number;
+    recordedHolds: number;
+    committedOutgoing: number;
+    availableToSpend: number;
+    availabilityKind: "ESTIMATE";
+    bankConfirmedAvailable: number | null;
+    egpEquivalent: {
+      bookBalance: number | null;
+      availableToSpend: number | null;
+      rate: number | null;
+      rateEffectiveDate: string | null;
+      rateSource: string | null;
+      convention: string | null;
+    };
+  }>;
+  totalsByCurrency: Array<{ currencyCode: string; book: number; available: number }>;
+  egpConsolidated: { bookBalance: number; availableToSpend: number; note: string };
+}
+
+export interface PeriodProfitResult {
+  netProfitEgp: number;
+  functionalCurrencyCode: string;
+  asOfDate: string;
+  equivalents: Array<{
+    currencyCode: string;
+    amount: number | null;
+    rate: number | null;
+    rateEffectiveDate: string | null;
+    source: string | null;
+    convention: string | null;
+    presentationOnly: boolean;
+  }>;
+  note: string;
+}

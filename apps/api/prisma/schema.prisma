@@ -912,6 +912,8 @@ model AccruedExpense {
 
 /// Historical exchange-rate snapshots. Never updated after create — a new
 /// effectiveDate row is added instead so posted documents keep their original rate.
+/// Convention: `rate` means "1 unit of fromCurrency = rate units of toCurrency"
+/// (e.g. from=USD, to=EGP, rate=48.5 → 1 USD = 48.5 EGP). Never silently inverted.
 model ExchangeRate {
   id String @id @default(uuid()) @db.Uuid
 
@@ -923,6 +925,9 @@ model ExchangeRate {
 
   rate          Decimal  @db.Decimal(18, 8)
   effectiveDate DateTime @map("effective_date") @db.Date
+  /// MANUAL | IMPORT | PROVIDER — never guessed by the resolver.
+  source        String   @default("MANUAL")
+  provider      String?
   notes         String?
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -1514,10 +1519,13 @@ model Lead {
   importBatch String? @map("import_batch")
 
   /// Set when a Lead is created without an owner while automatic distribution
-  /// is not running (PAUSED / MANUAL / expired 24h). Held leads stay
-  /// unassigned even after a later Continuous/24h activation — the manager
-  /// must release the batch intentionally.
+  /// is not running (PAUSED / MANUAL / expired 24h). Activating Continuous or
+  /// 24h distribution drains pending held / orphaned unowned leads safely
+  /// (owned leads are never reassigned).
   distributionHeld Boolean @default(false) @map("distribution_held")
+
+  /// Preferred fulfillment method captured at lead entry; preserved on convert.
+  fulfillmentMethod StoreOrderFulfillmentMethod? @map("fulfillment_method")
 
   /// TASK-061 — the source system's own order identifier (e.g. an e-commerce
   /// platform's order number), supplied on manual entry or import. Used to
@@ -1723,7 +1731,12 @@ model LeadDistributionState {
 
   lastAssignedEmployeeId String?  @map("last_assigned_employee_id") @db.Uuid
   cursorPosition         Int      @default(0) @map("cursor_position")
-  updatedAt              DateTime @updatedAt @map("updated_at")
+  /// Last distribute/drain attempt diagnostics (visible in Distribution UI).
+  lastRunAt              DateTime? @map("last_run_at")
+  lastRunAssigned        Int       @default(0) @map("last_run_assigned")
+  lastFailureCode        String?   @map("last_failure_code")
+  lastFailureMessage     String?   @map("last_failure_message")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
 
   @@map("lead_distribution_states")
 }
@@ -4470,10 +4483,17 @@ enum StoreOrderPaymentType {
 /// Shipment is created, the order's effective shipping state is read from
 /// its current (latest, non-superseded) Shipment.status instead — this enum
 /// only covers the pre-shipment stage, not the full 7-state lifecycle
-/// (that lifecycle lives on ShipmentStatus).
+/// (that lifecycle lives on ShipmentStatus). Independent of payment status.
 enum StoreOrderShippingStage {
   NOT_READY
   READY_FOR_SHIPPING
+}
+
+/// How the customer receives the order. Independent of payment status and of
+/// shipping-carrier stages. PICKUP orders never enter label/carrier queues.
+enum StoreOrderFulfillmentMethod {
+  SHIPPING
+  PICKUP
 }
 
 model StoreOrder {
@@ -4512,9 +4532,11 @@ model StoreOrder {
   paymentStatusDef    StatusDefinition?       @relation("StoreOrderPaymentStatusDef", fields: [paymentStatusId], references: [id])
   /// Fixed catalog (PREPAID / CASH_ON_DELIVERY) — not financial confirmation.
   paymentType         StoreOrderPaymentType   @default(PREPAID) @map("payment_type")
+  /// Shipping vs Pickup — independent of paymentStatus and shippingStage.
+  fulfillmentMethod   StoreOrderFulfillmentMethod @default(SHIPPING) @map("fulfillment_method")
   shippingStage       StoreOrderShippingStage @default(NOT_READY) @map("shipping_stage")
   /// Authoritative Fulfillment StatusDefinition — dual-written with `shippingStage`
-  /// (and advanced by shipment events). ShippingStatus on Shipment remains the
+  /// (and advanced by shipment / pickup events). ShippingStatus on Shipment remains the
   /// carrier-attempt catalog (sync behavior) — not a second order identity.
   fulfillmentStatusId String?                 @map("fulfillment_status_id") @db.Uuid
   fulfillmentStatus   StatusDefinition?       @relation("StoreOrderFulfillmentStatusDef", fields: [fulfillmentStatusId], references: [id])
@@ -4551,6 +4573,7 @@ model StoreOrder {
   @@index([paymentStatus, createdAt])
   @@index([paymentStatusId])
   @@index([shippingStage, createdAt])
+  @@index([fulfillmentMethod])
   @@index([fulfillmentStatusId])
   @@index([orderDate])
   @@index([employeeId])

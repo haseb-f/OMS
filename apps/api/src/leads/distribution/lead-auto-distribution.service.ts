@@ -20,6 +20,8 @@ export interface ActivatePolicyInput {
   departmentId?: string | null;
   actorId?: string;
   now?: Date;
+  /** When true (default for Continuous/24h), drain pending unowned leads. */
+  distributePending?: boolean;
 }
 
 function isAutoMode(mode: LeadDistributionMode) {
@@ -34,6 +36,10 @@ function isAutoMode(mode: LeadDistributionMode) {
  * Round Robin with a row-locked cursor. Manual assignment is a separate
  * action on LeadAssignmentsService. PAUSED / MANUAL are first-class
  * runtime states — not the absence of a policy.
+ *
+ * Timing: assignment runs synchronously on Lead create when Continuous/24h
+ * is effective, and on Continuous/24h activate (drains pending unowned /
+ * held leads). There is no cron — latency is in-request (typically <2s).
  */
 @Injectable()
 export class LeadAutoDistributionService {
@@ -124,12 +130,43 @@ export class LeadAutoDistributionService {
       );
   }
 
+  /** Unowned leads that Continuous mode should assign (held + orphaned). */
+  async countPendingEligible() {
+    return this.prisma.lead.count({
+      where: {
+        deletedAt: null,
+        salesEmployeeId: null,
+      },
+    });
+  }
+
   async getPolicySnapshot(now = new Date()) {
     const policy = await this.getLatestPolicy();
     const status = this.resolveRuntimeStatus(policy, now);
     const eligible = await this.getEligibleEmployees(policy?.teamId);
     const heldBatches = await this.getHeldBatches();
     const heldCount = heldBatches.reduce((sum, batch) => sum + batch.count, 0);
+    const pendingEligibleCount = await this.countPendingEligible();
+    const state = policy
+      ? await this.prisma.leadDistributionState.findUnique({
+          where: { policyId: policy.id },
+        })
+      : null;
+
+    let failureReason: string | null = state?.lastFailureMessage ?? null;
+    if (!failureReason && eligible.length === 0 && status !== 'PAUSED') {
+      failureReason =
+        'No eligible sales employees. Grant crm.leads.edit to active, unlocked users (and ensure they are in the selected team when team-scoped).';
+    } else if (
+      !failureReason &&
+      pendingEligibleCount > 0 &&
+      status !== 'CONTINUOUS' &&
+      status !== 'TIME_LIMITED'
+    ) {
+      failureReason =
+        'Distribution is paused or manual. Pending unowned leads will not assign until Continuous or 24-hour mode is activated (or a batch is released).';
+    }
+
     return {
       status,
       isRunning: status === 'CONTINUOUS' || status === 'TIME_LIMITED',
@@ -144,6 +181,16 @@ export class LeadAutoDistributionService {
           }
         : null,
       eligible,
+      pendingEligibleCount,
+      lastRun: state
+        ? {
+            at: state.lastRunAt,
+            assigned: state.lastRunAssigned,
+            failureCode: state.lastFailureCode,
+            failureMessage: state.lastFailureMessage,
+          }
+        : null,
+      failureReason,
       held: {
         count: heldCount,
         batches: heldBatches,
@@ -157,13 +204,15 @@ export class LeadAutoDistributionService {
       input.mode === LeadDistributionMode.TIME_LIMITED
         ? new Date(now.getTime() + 24 * 60 * 60 * 1000)
         : null;
+    const shouldDrain =
+      input.distributePending !== false && isAutoMode(input.mode);
 
-    return this.prisma.$transaction(async (tx) => {
+    const policy = await this.prisma.$transaction(async (tx) => {
       await tx.leadDistributionPolicy.updateMany({
         where: { isActive: true, deletedAt: null },
         data: { isActive: false, updatedBy: input.actorId ?? null },
       });
-      const policy = await tx.leadDistributionPolicy.create({
+      const created = await tx.leadDistributionPolicy.create({
         data: {
           mode: input.mode,
           isActive: true,
@@ -182,17 +231,24 @@ export class LeadAutoDistributionService {
       });
       if (isAutoMode(input.mode)) {
         await tx.leadDistributionState.create({
-          data: { policyId: policy.id, cursorPosition: 0 },
+          data: { policyId: created.id, cursorPosition: 0 },
         });
       }
-      return policy;
+      return created;
     });
+
+    if (shouldDrain) {
+      await this.distributePending({ now, includeHeld: true });
+    }
+
+    return policy;
   }
 
   async pause(actorId?: string) {
     await this.activate({
       mode: LeadDistributionMode.PAUSED,
       actorId,
+      distributePending: false,
     });
     return this.getPolicySnapshot();
   }
@@ -201,6 +257,7 @@ export class LeadAutoDistributionService {
     await this.activate({
       mode: LeadDistributionMode.MANUAL,
       actorId,
+      distributePending: false,
     });
     return this.getPolicySnapshot();
   }
@@ -210,20 +267,169 @@ export class LeadAutoDistributionService {
     return this.pause(actorId);
   }
 
+  /**
+   * Assign every currently unowned Lead under the effective auto policy.
+   * Owned leads are never touched (safe to re-run).
+   */
+  async distributePending(options?: {
+    now?: Date;
+    includeHeld?: boolean;
+    importBatch?: string | null;
+  }): Promise<{
+    assigned: number;
+    skipped: number;
+    failureReason: string | null;
+  }> {
+    const now = options?.now ?? new Date();
+    const policy = await this.getEffectivePolicy(now);
+    if (!policy) {
+      return {
+        assigned: 0,
+        skipped: 0,
+        failureReason:
+          'No effective Continuous or 24-hour distribution policy.',
+      };
+    }
+
+    const pending = await this.prisma.lead.findMany({
+      where: {
+        deletedAt: null,
+        salesEmployeeId: null,
+        ...(options?.includeHeld === false ? { distributionHeld: false } : {}),
+        ...(options?.importBatch !== undefined
+          ? { importBatch: options.importBatch || null }
+          : {}),
+      },
+      select: { id: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (pending.length === 0) {
+      await this.recordRun(policy.id, {
+        assigned: 0,
+        failureCode: null,
+        failureMessage: null,
+        now,
+      });
+      return { assigned: 0, skipped: 0, failureReason: null };
+    }
+
+    const eligible = await this.getEligibleEmployeeIds(policy.teamId);
+    if (eligible.length === 0) {
+      const message =
+        'No eligible sales employees. Grant crm.leads.edit to active, unlocked users' +
+        (policy.teamId ? ' who belong to the selected team' : '') +
+        '.';
+      // Park them as held so the UI surfaces the backlog instead of silent orphans.
+      await this.prisma.lead.updateMany({
+        where: { id: { in: pending.map((p) => p.id) } },
+        data: { distributionHeld: true },
+      });
+      await this.recordRun(policy.id, {
+        assigned: 0,
+        failureCode: 'NO_ELIGIBLE_EMPLOYEES',
+        failureMessage: message,
+        now,
+      });
+      return {
+        assigned: 0,
+        skipped: pending.length,
+        failureReason: message,
+      };
+    }
+
+    let assigned = 0;
+    await this.prisma.$transaction(
+      async (tx) => {
+        for (const lead of pending) {
+          const before = await tx.lead.findFirst({
+            where: { id: lead.id, deletedAt: null },
+            select: { salesEmployeeId: true },
+          });
+          if (before?.salesEmployeeId) continue;
+          await this.distributeInTx(tx, lead.id, policy, now, {
+            includeHeld: true,
+          });
+          const after = await tx.lead.findFirst({
+            where: { id: lead.id },
+            select: { salesEmployeeId: true },
+          });
+          if (after?.salesEmployeeId) assigned += 1;
+        }
+        await this.recordRunTx(tx, policy.id, {
+          assigned,
+          failureCode: null,
+          failureMessage: null,
+          now,
+        });
+      },
+      { timeout: 120_000 },
+    );
+
+    return {
+      assigned,
+      skipped: pending.length - assigned,
+      failureReason: null,
+    };
+  }
+
   /** Assigns one unowned Lead when an effective automatic policy exists. */
   async distribute(
     leadId: string,
     now = new Date(),
     options?: { includeHeld?: boolean },
-  ): Promise<void> {
+  ): Promise<{ assigned: boolean; failureReason: string | null }> {
     const policy = await this.getEffectivePolicy(now);
-    if (!policy) return;
+    if (!policy) return { assigned: false, failureReason: null };
+
+    let assigned = false;
+    let failureReason: string | null = null;
+
     await this.prisma.$transaction(
       async (tx) => {
+        const eligible = await this.getEligibleEmployeeIds(policy.teamId);
+        if (eligible.length === 0) {
+          failureReason =
+            'No eligible sales employees. Grant crm.leads.edit to active, unlocked users.';
+          await tx.lead.updateMany({
+            where: { id: leadId, salesEmployeeId: null, deletedAt: null },
+            data: { distributionHeld: true },
+          });
+          await this.recordRunTx(tx, policy.id, {
+            assigned: 0,
+            failureCode: 'NO_ELIGIBLE_EMPLOYEES',
+            failureMessage: failureReason,
+            now,
+          });
+          return;
+        }
+
+        const before = await tx.lead.findFirst({
+          where: { id: leadId, deletedAt: null },
+          select: { salesEmployeeId: true },
+        });
+        if (before?.salesEmployeeId) {
+          assigned = true;
+          return;
+        }
+
         await this.distributeInTx(tx, leadId, policy, now, options);
+        const after = await tx.lead.findFirst({
+          where: { id: leadId },
+          select: { salesEmployeeId: true },
+        });
+        assigned = Boolean(after?.salesEmployeeId);
+        await this.recordRunTx(tx, policy.id, {
+          assigned: assigned ? 1 : 0,
+          failureCode: null,
+          failureMessage: null,
+          now,
+        });
       },
       { timeout: 20_000 },
     );
+
+    return { assigned, failureReason };
   }
 
   async distributeMany(
@@ -235,9 +441,26 @@ export class LeadAutoDistributionService {
     const policy = await this.getEffectivePolicy(now);
     if (!policy) return;
     await this.prisma.$transaction(async (tx) => {
+      let assigned = 0;
       for (const leadId of leadIds) {
+        const before = await tx.lead.findFirst({
+          where: { id: leadId, deletedAt: null },
+          select: { salesEmployeeId: true },
+        });
+        if (before?.salesEmployeeId) continue;
         await this.distributeInTx(tx, leadId, policy, now, options);
+        const after = await tx.lead.findFirst({
+          where: { id: leadId },
+          select: { salesEmployeeId: true },
+        });
+        if (after?.salesEmployeeId) assigned += 1;
       }
+      await this.recordRunTx(tx, policy.id, {
+        assigned,
+        failureCode: null,
+        failureMessage: null,
+        now,
+      });
     });
   }
 
@@ -258,6 +481,8 @@ export class LeadAutoDistributionService {
         actorId: input.actorId,
         teamId: current?.teamId,
         departmentId: current?.departmentId,
+        // releaseHeld already distributes below — avoid double drain.
+        distributePending: false,
       });
     }
 
@@ -303,6 +528,47 @@ export class LeadAutoDistributionService {
     return { released: held.length, ids: held.map((row) => row.id) };
   }
 
+  private async recordRun(
+    policyId: string,
+    input: {
+      assigned: number;
+      failureCode: string | null;
+      failureMessage: string | null;
+      now: Date;
+    },
+  ) {
+    await this.prisma.leadDistributionState.updateMany({
+      where: { policyId },
+      data: {
+        lastRunAt: input.now,
+        lastRunAssigned: input.assigned,
+        lastFailureCode: input.failureCode,
+        lastFailureMessage: input.failureMessage,
+      },
+    });
+  }
+
+  private async recordRunTx(
+    tx: Prisma.TransactionClient,
+    policyId: string,
+    input: {
+      assigned: number;
+      failureCode: string | null;
+      failureMessage: string | null;
+      now: Date;
+    },
+  ) {
+    await tx.leadDistributionState.updateMany({
+      where: { policyId },
+      data: {
+        lastRunAt: input.now,
+        lastRunAssigned: input.assigned,
+        lastFailureCode: input.failureCode,
+        lastFailureMessage: input.failureMessage,
+      },
+    });
+  }
+
   private async distributeInTx(
     tx: Prisma.TransactionClient,
     leadId: string,
@@ -339,7 +605,13 @@ export class LeadAutoDistributionService {
     if (!state) return;
 
     const eligible = await this.getEligibleEmployeeIds(policy.teamId);
-    if (eligible.length === 0) return;
+    if (eligible.length === 0) {
+      await tx.lead.update({
+        where: { id: leadId },
+        data: { distributionHeld: true },
+      });
+      return;
+    }
 
     const next = this.nextRoundRobin(eligible, state.lastAssignedEmployeeId);
     const method =

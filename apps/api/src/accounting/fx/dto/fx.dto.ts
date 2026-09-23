@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsBoolean,
   IsDateString,
   IsNumber,
@@ -25,9 +26,29 @@ export class CreateExchangeRateDto {
   @IsDateString()
   effectiveDate!: string;
 
+  /** MANUAL | IMPORT | PROVIDER — defaults to MANUAL. */
+  @IsString()
+  @IsOptional()
+  source?: string;
+
+  @IsString()
+  @IsOptional()
+  provider?: string;
+
   @IsString()
   @IsOptional()
   notes?: string;
+}
+
+export class BulkImportExchangeRatesDto {
+  @IsArray()
+  rows!: Array<{
+    fromCurrencyId: string;
+    toCurrencyId: string;
+    rate: number;
+    effectiveDate: string;
+    notes?: string;
+  }>;
 }
 
 export class ExchangeRateQueryDto {

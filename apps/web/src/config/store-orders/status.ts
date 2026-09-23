@@ -40,6 +40,11 @@ export const PAYMENT_TYPE_LABEL_KEY: Record<StoreOrderPaymentTypeValue, MessageK
 
 export const PAYMENT_TYPE_VALUES: StoreOrderPaymentTypeValue[] = ["PREPAID", "CASH_ON_DELIVERY"];
 
+export const FULFILLMENT_METHOD_LABEL_KEY: Record<"SHIPPING" | "PICKUP", MessageKey> = {
+  SHIPPING: "storeOrders.fulfillmentMethod.SHIPPING",
+  PICKUP: "storeOrders.fulfillmentMethod.PICKUP",
+};
+
 /**
  * Status of an individual Payment record attached to an order (Prisma
  * `PaymentStatus`), which is a different enum from the order-level

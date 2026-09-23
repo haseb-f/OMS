@@ -17,6 +17,7 @@ import { AccountStatementTab } from "./account-statement-tab";
 import { BalanceSheetTab } from "./balance-sheet-tab";
 import { IncomeStatementTab } from "./income-statement-tab";
 import { CashFlowTab } from "./cash-flow-tab";
+import { CashAvailabilityTab } from "./cash-availability-tab";
 import { AgingTab } from "./aging-tab";
 import { PartnerStatementTab } from "./partner-statement-tab";
 import { PermissionGate } from "@/components/shared/permission-gate";
@@ -30,6 +31,7 @@ const REPORTS = [
   "balanceSheet",
   "incomeStatement",
   "cashFlow",
+  "cashAvailability",
   "arAging",
   "apAging",
   "customerStatement",
@@ -80,6 +82,7 @@ function ReportsFinancePageContent() {
       {report === "balanceSheet" ? <BalanceSheetTab /> : null}
       {report === "incomeStatement" ? <IncomeStatementTab /> : null}
       {report === "cashFlow" ? <CashFlowTab /> : null}
+      {report === "cashAvailability" ? <CashAvailabilityTab /> : null}
       {report === "arAging" ? <AgingTab side="AR" /> : null}
       {report === "apAging" ? <AgingTab side="AP" /> : null}
       {report === "customerStatement" ? <PartnerStatementTab role="CUSTOMER" /> : null}

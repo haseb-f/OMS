@@ -457,7 +457,8 @@ describe('Data Synchronization', () => {
     expect(updated.paymentStatus).toBe(
       StoreOrderPaymentStatus.FULLY_PAID_RECONCILED,
     );
-    expect(updated.shippingStage).toBe('READY_FOR_SHIPPING');
+    // Payment must never advance shipping/fulfillment.
+    expect(updated.shippingStage).toBe('NOT_READY');
   });
 
   // ---------------------------------------------------------------------

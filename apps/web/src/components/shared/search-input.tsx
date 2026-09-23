@@ -76,7 +76,10 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(functi
 
   return (
     <InputGroup
-      className={cn("h-(--control-height-sm) max-w-(--width-control-search)", className)}
+      className={cn(
+        "h-(--control-height-sm) w-full min-w-0 max-w-full sm:max-w-(--width-control-search) md:min-w-[14rem] md:max-w-[22rem] lg:max-w-[28rem]",
+        className,
+      )}
       data-slot="search-input"
     >
       <InputGroupInput

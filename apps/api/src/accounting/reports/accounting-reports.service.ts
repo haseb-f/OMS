@@ -1277,4 +1277,307 @@ export class AccountingReportsService {
       totals,
     };
   }
+
+  /**
+   * Available Cash & Bank Balances — treasury view answering
+   * "How much can we currently spend from each cash/bank account?"
+   *
+   * Formula (documented estimate):
+   *   availableToSpend = bookBalance − recordedHolds − committedOutgoing
+   * where:
+   *   bookBalance = posted GL debit−credit as of date (ReceivingAccount CoA)
+   *   recordedHolds = 0 (holds/restrictions are not tracked in OMS yet)
+   *   committedOutgoing = DRAFT FinancialTransactions that credit this cash CoA
+   *
+   * bankConfirmedAvailable is not tracked — availability is an ESTIMATE only.
+   */
+  async cashAvailability(query: {
+    asOf?: string;
+    currencyId?: string;
+    accountId?: string;
+  }) {
+    const asOf = query.asOf ? new Date(query.asOf) : new Date();
+    const receiving = await this.prisma.receivingAccount.findMany({
+      where: {
+        deletedAt: null,
+        isActive: true,
+        ...(query.accountId ? { id: query.accountId } : {}),
+        ...(query.currencyId ? { currencyId: query.currencyId } : {}),
+      },
+      include: {
+        currency: { select: { id: true, code: true, name: true } },
+        chartOfAccount: {
+          select: { id: true, code: true, name: true, nameEn: true },
+        },
+      },
+      orderBy: { code: 'asc' },
+    });
+
+    const coaIds = [...new Set(receiving.map((r) => r.chartOfAccountId))];
+    const balances = new Map<string, { debit: number; credit: number }>();
+    if (coaIds.length > 0) {
+      const grouped = await this.prisma.journalEntryLine.groupBy({
+        by: ['accountId'],
+        where: {
+          accountId: { in: coaIds },
+          journalEntry: {
+            deletedAt: null,
+            status: this.buildStatusFilter(true),
+            entryDate: { lte: asOf },
+          },
+        },
+        _sum: { debit: true, credit: true },
+      });
+      for (const row of grouped) {
+        balances.set(row.accountId, {
+          debit: Number(row._sum.debit ?? 0),
+          credit: Number(row._sum.credit ?? 0),
+        });
+      }
+    }
+
+    // DRAFT supplier payments / cash outs against these receiving accounts.
+    const draftOutgoing = await this.prisma.financialTransaction.findMany({
+      where: {
+        deletedAt: null,
+        status: FinancialTransactionStatus.DRAFT,
+        receivingAccountId: { in: receiving.map((r) => r.id) },
+        type: {
+          in: ['SUPPLIER_PAYMENT', 'CUSTOMER_REFUND', 'EXPENSE_PAYMENT'],
+        },
+      },
+      select: {
+        id: true,
+        amount: true,
+        receivingAccountId: true,
+        currencyId: true,
+      },
+    });
+    const committedByAccount = new Map<string, number>();
+    for (const row of draftOutgoing) {
+      if (!row.receivingAccountId) continue;
+      committedByAccount.set(
+        row.receivingAccountId,
+        roundReportMoney(
+          (committedByAccount.get(row.receivingAccountId) ?? 0) +
+            Number(row.amount),
+        ),
+      );
+    }
+
+    const exchangeRates = this.prisma.exchangeRate;
+    const functionalId = (
+      await this.prisma.postingSettings.findFirst({
+        select: { functionalCurrencyId: true },
+      })
+    )?.functionalCurrencyId;
+
+    const accounts = [];
+    const totalsByCurrency = new Map<
+      string,
+      { currencyCode: string; book: number; available: number }
+    >();
+    let egpBook = 0;
+    let egpAvailable = 0;
+
+    for (const ra of receiving) {
+      const agg = balances.get(ra.chartOfAccountId) ?? { debit: 0, credit: 0 };
+      const bookBalance = roundReportMoney(agg.debit - agg.credit);
+      const recordedHolds = 0;
+      const committedOutgoing = committedByAccount.get(ra.id) ?? 0;
+      const availableToSpend = roundReportMoney(
+        bookBalance - recordedHolds - committedOutgoing,
+      );
+      const currencyCode = ra.currency?.code ?? 'EGP';
+      const currencyId = ra.currencyId ?? functionalId ?? null;
+
+      let rateToEgp = 1;
+      let rateEffectiveDate: string | null = null;
+      let rateSource: string | null = 'IDENTITY';
+      if (functionalId && currencyId && currencyId !== functionalId) {
+        const rateRow = await exchangeRates.findFirst({
+          where: {
+            fromCurrencyId: currencyId,
+            toCurrencyId: functionalId,
+            effectiveDate: { lte: asOf },
+          },
+          orderBy: { effectiveDate: 'desc' },
+        });
+        if (rateRow) {
+          rateToEgp = Number(rateRow.rate);
+          rateEffectiveDate = rateRow.effectiveDate.toISOString().slice(0, 10);
+          rateSource = rateRow.source;
+        } else {
+          rateToEgp = NaN;
+          rateSource = null;
+        }
+      }
+
+      const egpBookEq = Number.isFinite(rateToEgp)
+        ? roundReportMoney(bookBalance * rateToEgp)
+        : null;
+      const egpAvailEq = Number.isFinite(rateToEgp)
+        ? roundReportMoney(availableToSpend * rateToEgp)
+        : null;
+      if (egpBookEq != null) egpBook += egpBookEq;
+      if (egpAvailEq != null) egpAvailable += egpAvailEq;
+
+      const bucket = totalsByCurrency.get(currencyCode) ?? {
+        currencyCode,
+        book: 0,
+        available: 0,
+      };
+      bucket.book = roundReportMoney(bucket.book + bookBalance);
+      bucket.available = roundReportMoney(bucket.available + availableToSpend);
+      totalsByCurrency.set(currencyCode, bucket);
+
+      accounts.push({
+        receivingAccountId: ra.id,
+        accountCode: ra.code,
+        accountName: ra.name,
+        chartOfAccountId: ra.chartOfAccountId,
+        chartOfAccountCode: ra.chartOfAccount.code,
+        chartOfAccountName: ra.chartOfAccount.name,
+        currencyId,
+        currencyCode,
+        asOfDate: asOf.toISOString().slice(0, 10),
+        bookBalance,
+        recordedHolds,
+        committedOutgoing,
+        availableToSpend,
+        availabilityKind: 'ESTIMATE' as const,
+        bankConfirmedAvailable: null as number | null,
+        egpEquivalent: {
+          bookBalance: egpBookEq,
+          availableToSpend: egpAvailEq,
+          rate: Number.isFinite(rateToEgp) ? rateToEgp : null,
+          rateEffectiveDate,
+          rateSource,
+          convention: Number.isFinite(rateToEgp)
+            ? `1 ${currencyCode} = ${rateToEgp} EGP`
+            : null,
+        },
+      });
+    }
+
+    return {
+      asOfDate: asOf.toISOString().slice(0, 10),
+      formula:
+        'availableToSpend = bookBalance − recordedHolds − committedOutgoing (DRAFT cash-out FTs)',
+      limitations: [
+        'recordedHolds are not tracked in OMS — always 0.',
+        'bankConfirmedAvailable is not tracked — do not treat availableToSpend as guaranteed spendable cash.',
+        'EGP equivalents use the latest directed rate on or before as-of; missing rates omit that account from the EGP total.',
+      ],
+      accounts,
+      totalsByCurrency: [...totalsByCurrency.values()],
+      egpConsolidated: {
+        bookBalance: roundReportMoney(egpBook),
+        availableToSpend: roundReportMoney(egpAvailable),
+        note: 'Presentation total only — never sum unlike currencies into an unlabeled total.',
+      },
+    };
+  }
+
+  /**
+   * Period net profit with optional presentation equivalents in other
+   * currencies at the period-end rate. Equivalents are NOT additional profit
+   * and are never posted.
+   */
+  async periodProfitEquivalents(query: {
+    dateFrom?: string;
+    dateTo?: string;
+    targetCurrencyIds?: string[];
+  }) {
+    const income = await this.incomeStatement({
+      dateFrom: query.dateFrom,
+      dateTo: query.dateTo,
+    });
+    const netProfitEgp = income.totals.netIncome;
+    const asOf = query.dateTo ? new Date(query.dateTo) : new Date();
+    const functionalId = (
+      await this.prisma.postingSettings.findFirst({
+        select: { functionalCurrencyId: true },
+      })
+    )?.functionalCurrencyId;
+    const functional = functionalId
+      ? await this.prisma.currency.findUnique({
+          where: { id: functionalId },
+          select: { id: true, code: true },
+        })
+      : null;
+
+    const targets =
+      query.targetCurrencyIds?.length && functionalId
+        ? await this.prisma.currency.findMany({
+            where: {
+              id: { in: query.targetCurrencyIds },
+              deletedAt: null,
+            },
+            select: { id: true, code: true },
+          })
+        : [];
+
+    const equivalents = [];
+    for (const currency of targets) {
+      if (functionalId && currency.id === functionalId) {
+        equivalents.push({
+          currencyId: currency.id,
+          currencyCode: currency.code,
+          amount: netProfitEgp,
+          rate: 1,
+          rateEffectiveDate: asOf.toISOString().slice(0, 10),
+          source: 'IDENTITY',
+          convention: '1 EGP = 1 EGP',
+          presentationOnly: true,
+        });
+        continue;
+      }
+      if (!functionalId) continue;
+      // Profit is in functional (EGP). Equivalent in target = EGP / (1 target = X EGP)
+      // i.e. need rate from target→EGP: amount_target = egp / rate.
+      const rateRow = await this.prisma.exchangeRate.findFirst({
+        where: {
+          fromCurrencyId: currency.id,
+          toCurrencyId: functionalId,
+          effectiveDate: { lte: asOf },
+        },
+        orderBy: { effectiveDate: 'desc' },
+      });
+      if (!rateRow || Number(rateRow.rate) === 0) {
+        equivalents.push({
+          currencyId: currency.id,
+          currencyCode: currency.code,
+          amount: null,
+          rate: null,
+          rateEffectiveDate: null,
+          source: null,
+          convention: null,
+          presentationOnly: true,
+          error: 'MISSING_EXCHANGE_RATE',
+        });
+        continue;
+      }
+      const rate = Number(rateRow.rate);
+      equivalents.push({
+        currencyId: currency.id,
+        currencyCode: currency.code,
+        amount: roundReportMoney(netProfitEgp / rate),
+        rate,
+        rateEffectiveDate: rateRow.effectiveDate.toISOString().slice(0, 10),
+        source: rateRow.source,
+        convention: `1 ${currency.code} = ${rate} ${functional?.code ?? 'EGP'}`,
+        presentationOnly: true,
+      });
+    }
+
+    return {
+      netProfitEgp,
+      functionalCurrencyCode: functional?.code ?? 'EGP',
+      asOfDate: asOf.toISOString().slice(0, 10),
+      income,
+      equivalents,
+      note: 'Equivalents are presentation values using the period-end directed rate. They are not additional profit or accounting postings, and are not available cash.',
+    };
+  }
 }
