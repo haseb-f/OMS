@@ -1,0 +1,29 @@
+{
+  "tour": "gap-closure-browser",
+  "run": "DEMO-GUIDE-GAP-20260924",
+  "base": "https://oms.haseb.org",
+  "api": "https://oms.haseb.org/api",
+  "user": "qa-admin@oms.haseb.org",
+  "startedAt": "2026-09-24T09:37:26.541Z",
+  "checks": [
+    {
+      "id": "QA_PASSWORD present",
+      "status": "PASS",
+      "detail": "loaded"
+    },
+    {
+      "id": "refundable sales return resolved for UI refund",
+      "status": "PASS",
+      "detail": "SR-2026-000016 refundable=200"
+    },
+    {
+      "id": "existing customer refund readable (CRF)",
+      "status": "PASS",
+      "detail": "CRF-2026-000001 CONFIRMED 450"
+    }
+  ],
+  "finishedAt": "2026-09-24T09:38:06.490Z",
+  "summary": {
+    "PASS": 3
+  }
+}

@@ -1,0 +1,133 @@
+﻿{
+  "partner": {
+    "id": "0fb76b0c-5a8d-4d8f-837c-a17ce94afccc",
+    "partnerNumber": "PT-2026-000092",
+    "name": "DEMO-GUIDE-GAP-20260924 Refund UI Customer C"
+  },
+  "controlType": "RECEIVABLE",
+  "openingBalance": 0,
+  "periodDebit": 400,
+  "periodCredit": 400,
+  "closingBalance": 0,
+  "movements": [
+    {
+      "lineId": "adaded4a-4158-4dba-918a-0d99d52da23b",
+      "journalEntryId": "6982566e-8144-44fd-9dcd-e22b495b5372",
+      "entryNumber": "JV-2026-000258",
+      "entryDate": "2026-09-24T09:36:36.993Z",
+      "description": "Customer Receipt Voucher CR-2026-000045",
+      "sourceType": "CUSTOMER_RECEIPT",
+      "sourceId": "aeeb38b3-948a-4068-a767-8c80b529c963",
+      "referenceNumber": "CR-2026-000045",
+      "status": "POSTED",
+      "journal": {
+        "id": "a83f5c2b-f918-45e6-b5bf-1c07ce23bf20",
+        "code": "CSH",
+        "name": "دفتر الصندوق"
+      },
+      "partner": {
+        "id": "0fb76b0c-5a8d-4d8f-837c-a17ce94afccc",
+        "partnerNumber": "PT-2026-000092",
+        "name": "DEMO-GUIDE-GAP-20260924 Refund UI Customer C"
+      },
+      "accountId": "4b27e365-66a9-4afd-834e-5ff7081d678f",
+      "accountCode": "121",
+      "accountName": "الذمم المدينة التجارية",
+      "accountNameEn": "Trade Receivables",
+      "partnerControlType": "RECEIVABLE",
+      "debit": 0,
+      "credit": 200,
+      "runningBalance": -200
+    },
+    {
+      "lineId": "9c8eab41-e0e2-42af-aa6b-401a2ecb7b06",
+      "journalEntryId": "884394b7-c31f-4cfa-bc5a-ef881be3f5ce",
+      "entryNumber": "JV-2026-000259",
+      "entryDate": "2026-09-24T09:36:37.584Z",
+      "description": "Sales Invoice INV-2026-000064",
+      "sourceType": "SALES_INVOICE",
+      "sourceId": "05882770-f95e-4049-b1cf-b946c6477be6",
+      "referenceNumber": "INV-2026-000064",
+      "status": "POSTED",
+      "journal": {
+        "id": "0c95f087-1476-477e-81b4-e4e5775c5c17",
+        "code": "SJ",
+        "name": "دفتر المبيعات"
+      },
+      "partner": {
+        "id": "0fb76b0c-5a8d-4d8f-837c-a17ce94afccc",
+        "partnerNumber": "PT-2026-000092",
+        "name": "DEMO-GUIDE-GAP-20260924 Refund UI Customer C"
+      },
+      "accountId": "4b27e365-66a9-4afd-834e-5ff7081d678f",
+      "accountCode": "121",
+      "accountName": "الذمم المدينة التجارية",
+      "accountNameEn": "Trade Receivables",
+      "partnerControlType": "RECEIVABLE",
+      "debit": 200,
+      "credit": 0,
+      "runningBalance": 0
+    },
+    {
+      "lineId": "d3c18692-338c-4013-a688-69c259223d13",
+      "journalEntryId": "91ea7f29-03c6-4817-bd0d-c5f5be5f447e",
+      "entryNumber": "JV-2026-000260",
+      "entryDate": "2026-09-24T09:37:08.056Z",
+      "description": "Sales Return SR-2026-000016",
+      "sourceType": "SALES_RETURN",
+      "sourceId": "0100c156-884a-4812-8108-0cad35db1fae",
+      "referenceNumber": "SR-2026-000016",
+      "status": "POSTED",
+      "journal": {
+        "id": "0c95f087-1476-477e-81b4-e4e5775c5c17",
+        "code": "SJ",
+        "name": "دفتر المبيعات"
+      },
+      "partner": {
+        "id": "0fb76b0c-5a8d-4d8f-837c-a17ce94afccc",
+        "partnerNumber": "PT-2026-000092",
+        "name": "DEMO-GUIDE-GAP-20260924 Refund UI Customer C"
+      },
+      "accountId": "4b27e365-66a9-4afd-834e-5ff7081d678f",
+      "accountCode": "121",
+      "accountName": "الذمم المدينة التجارية",
+      "accountNameEn": "Trade Receivables",
+      "partnerControlType": "RECEIVABLE",
+      "debit": 0,
+      "credit": 200,
+      "runningBalance": -200
+    },
+    {
+      "lineId": "03bb1c39-ef63-4e6f-808b-daca561abdb8",
+      "journalEntryId": "52f745b3-6bb2-4f31-902e-50d918f1d18e",
+      "entryNumber": "JV-2026-000270",
+      "entryDate": "2026-09-24T09:46:47.174Z",
+      "description": "Customer Refund CRF-2026-000003",
+      "sourceType": "CUSTOMER_REFUND",
+      "sourceId": "f0411870-1db0-4a13-8e24-2697568cb22e",
+      "referenceNumber": "CRF-2026-000003",
+      "status": "POSTED",
+      "journal": {
+        "id": "a83f5c2b-f918-45e6-b5bf-1c07ce23bf20",
+        "code": "CSH",
+        "name": "دفتر الصندوق"
+      },
+      "partner": {
+        "id": "0fb76b0c-5a8d-4d8f-837c-a17ce94afccc",
+        "partnerNumber": "PT-2026-000092",
+        "name": "DEMO-GUIDE-GAP-20260924 Refund UI Customer C"
+      },
+      "accountId": "4b27e365-66a9-4afd-834e-5ff7081d678f",
+      "accountCode": "121",
+      "accountName": "الذمم المدينة التجارية",
+      "accountNameEn": "Trade Receivables",
+      "partnerControlType": "RECEIVABLE",
+      "debit": 200,
+      "credit": 0,
+      "runningBalance": 0
+    }
+  ],
+  "total": 4,
+  "page": 1,
+  "pageSize": 4
+}

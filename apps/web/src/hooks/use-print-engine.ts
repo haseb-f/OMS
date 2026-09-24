@@ -13,10 +13,8 @@ import type { GenericListPrintPayload, DocumentPrintPayload } from "@/types/prin
 export function usePrintEngine() {
   const printList = useCallback((payload: GenericListPrintPayload) => {
     const jobId = createPrintJob(payload);
-    // No "noopener": the print tab depends on inheriting the opener's
-    // sessionStorage (see print-bridge.ts) to read the job payload —
-    // "noopener" severs that browsing-context relationship and the tab
-    // would just see the job as "expired".
+    // Payload is in localStorage (see print-bridge.ts) so the print tab
+    // works even when the browser opens with noopener / without opener.
     window.open(`/print/list?job=${jobId}`, "_blank");
   }, []);
 

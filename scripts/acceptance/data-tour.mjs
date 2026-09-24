@@ -59,7 +59,9 @@ const ALLOW_GLOBAL_RUNS =
 
 const pad = (v) => String(v).padStart(2, "0");
 const started = new Date();
-const RUN = `DEMO-ACCEPTANCE-${started.getFullYear()}${pad(started.getMonth() + 1)}${pad(started.getDate())}-${pad(started.getHours())}${pad(started.getMinutes())}`;
+const RUN =
+  process.env.RUN ??
+  `DEMO-ACCEPTANCE-${started.getFullYear()}${pad(started.getMonth() + 1)}${pad(started.getDate())}-${pad(started.getHours())}${pad(started.getMinutes())}`;
 const OUT = resolve(ROOT, process.env.OUT_ROOT ?? "tmp/acceptance", RUN);
 const WEB_APP_DIR = resolve(ROOT, "apps/web/src/app/(shell)");
 
@@ -150,6 +152,7 @@ const ROUTES = {
   storeOrder: "/store-orders/[id]",
   paymentReview: "/finance/payment-review",
   customerReceipt: "/sales/payments/[id]",
+  customerRefund: "/sales/refunds/[id]",
   supplierPayment: "/purchasing/payments/[id]",
   salesQuotation: "/sales/quotations/[id]",
   salesOrder: "/sales/orders/[id]",
@@ -767,14 +770,88 @@ async function flowShippingAndReturn(f) {
   const retry = await api("POST", `/sales/returns/${ret.id}/confirm`);
   const retJes2 = await jesFor("SALES_RETURN", ret.id);
   f.check("re-confirming the return posts nothing new", retJes2.length === 1, `${retry.status}; ${retJes2.length} JE(s)`);
-  // Refund: there is no customer-refund endpoint (store orders / receipts). The credit stays on the customer.
-  f.evidence("refund", "No customer-refund API exists (no /refund route; supplier-payment vouchers are AP-side). The return leaves a 450 credit balance on the customer — verified in flow 7.");
 
-  f.rec({ type: "StoreOrder", id: orderC.id, number: orderC.internalOrderId, route: "storeOrder", expected: { total: PRICE, paid: PRICE, returned: PRICE, customerCreditAfterReturn: PRICE } });
+  // Customer Refund — pays the posted return's credit back (Dr AR / Cr cash).
+  const refundable = must(
+    await api("GET", `/financial-transactions/refunds/refundable/${ret.id}`),
+    "refundable summary for returned order",
+  );
+  f.check(
+    "refundable amount equals return total (unrefunded credit)",
+    eq(refundable.refundableAmount, PRICE) && eq(refundable.unrefundedCredit, PRICE),
+    JSON.stringify(refundable),
+  );
+  const refund = must(
+    await api("POST", "/financial-transactions/refunds/confirmed", {
+      partnerId: orderC.partnerId,
+      currencyId: ctx.currency.id,
+      transactionDate: TODAY,
+      paymentSourceId: ctx.paymentSource.id,
+      receivingAccountId: ctx.receivingAccount.id,
+      amount: PRICE,
+      referenceNumber: `${RUN} customer refund`,
+      notes: `${RUN} cash refund against return`,
+      allocations: [{ invoiceId: ret.id, allocatedAmount: PRICE }],
+    }),
+    "create+confirm customer refund",
+  );
+  const refundDup = await api("POST", `/financial-transactions/refunds/${refund.id}/confirm`);
+  const refundJes = await waitJes("CUSTOMER_REFUND", refund.id);
+  const refundJe = refundJes[0] ? await jeInfo(refundJes[0].id) : null;
+  f.check(
+    "customer refund: one balanced JE of return amount (retry-safe)",
+    refundJes.length === 1 && refundJe?.balanced && eq(refundJe.dr, PRICE),
+    `${refundJe?.number} Dr ${refundJe?.dr}; retry ${refundDup.status}`,
+  );
+  f.check(
+    "refund JE: Dr AR / Cr receiving account = 450",
+    refundJe &&
+      eq(sumLines(refundJe, onAccount(ctx.settings.accountsReceivableAccountId), "debit"), PRICE) &&
+      eq(sumLines(refundJe, onAccount(ctx.receivingGlId), "credit"), PRICE),
+    refundJe ? refundJe.lines.map((l) => `${l.code} ${l.debit}/${l.credit}`).join(" | ") : "no JE",
+  );
+  const afterRefundable = must(
+    await api("GET", `/financial-transactions/refunds/refundable/${ret.id}`),
+    "refundable after refund",
+  );
+  f.check(
+    "after full refund: refundableAmount 0",
+    eq(afterRefundable.refundableAmount, 0) && eq(afterRefundable.refundedTotal, PRICE),
+    JSON.stringify(afterRefundable),
+  );
+  f.evidence(
+    "refund",
+    `Customer Refund ${refund.transactionNumber} CONFIRMED for ${PRICE} against ${retDoc.returnNumber ?? ret.id}; JE ${refundJe?.number ?? "?"}`,
+  );
+
+  f.rec({ type: "StoreOrder", id: orderC.id, number: orderC.internalOrderId, route: "storeOrder", expected: { total: PRICE, paid: PRICE, returned: PRICE, refunded: PRICE } });
   f.rec({ type: "SalesInvoice", id: invC.id, number: invC.invoiceNumber, route: "salesInvoice", expected: { grandTotal: PRICE } });
-  f.rec({ type: "SalesReturn", id: ret.id, number: retDoc.returnNumber ?? retDoc.documentNumber, route: "salesReturn", journalEntries: retJe ? [jeRef(retJe)] : [], stockMovements: retMoves.map((m) => ({ id: m.id, number: m.movementNumber, type: m.type, quantity: n(m.quantity) })), expected: { total: PRICE, stockBack: 1, cogsReversed: 40, refund: "not supported by API — customer holds 450 credit" } });
+  f.rec({
+    type: "SalesReturn",
+    id: ret.id,
+    number: retDoc.returnNumber ?? retDoc.documentNumber,
+    route: "salesReturn",
+    journalEntries: retJe ? [jeRef(retJe)] : [],
+    stockMovements: retMoves.map((m) => ({ id: m.id, number: m.movementNumber, type: m.type, quantity: n(m.quantity) })),
+    expected: { total: PRICE, stockBack: 1, cogsReversed: 40, refund: refund.transactionNumber },
+  });
+  f.rec({
+    type: "CustomerRefund",
+    id: refund.id,
+    number: refund.transactionNumber,
+    route: "customerRefund",
+    url: `${BASE}/sales/refunds/${refund.id}`,
+    journalEntries: refundJe ? [jeRef(refundJe)] : [],
+    expected: { amount: PRICE, status: "CONFIRMED", againstReturn: retDoc.returnNumber },
+  });
   if (retJe) f.rec({ type: "JournalEntry", id: retJe.id, number: retJe.number, route: "journalEntry", notes: "Sales return reversal JE" });
-  ctx.expectedPartnerClosing[orderC.partnerId] = { control: "RECEIVABLE", closing: -PRICE, open: 0, label: "Customer C Return (credit after return, no refund API)" };
+  if (refundJe) f.rec({ type: "JournalEntry", id: refundJe.id, number: refundJe.number, route: "journalEntry", notes: "Customer refund JE" });
+  ctx.expectedPartnerClosing[orderC.partnerId] = {
+    control: "RECEIVABLE",
+    closing: 0,
+    open: 0,
+    label: "Customer C Return (return then full cash refund)",
+  };
 }
 
 // ================================================================== FLOW 3

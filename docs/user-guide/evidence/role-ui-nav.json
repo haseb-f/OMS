@@ -1,0 +1,35 @@
+[
+  {
+    "email": "qa-shipping@oms.haseb.org",
+    "url": "https://oms.haseb.org/",
+    "expect": {
+      "الشحن": true
+    },
+    "deny": {
+      "المالية": true,
+      "الإعدادات": true
+    },
+    "screenshot": "docs/user-guide/screenshots/role-qa-shipping-nav-ar.png"
+  },
+  {
+    "email": "qa-finance@oms.haseb.org",
+    "url": "https://oms.haseb.org/",
+    "expect": {
+      "المالية": true
+    },
+    "deny": {},
+    "screenshot": "docs/user-guide/screenshots/role-qa-finance-nav-ar.png"
+  },
+  {
+    "email": "qa-sales-agent@oms.haseb.org",
+    "url": "https://oms.haseb.org/",
+    "expect": {
+      "المبيعات": true,
+      "إدارة علاقات العملاء": true
+    },
+    "deny": {
+      "الإعدادات": true
+    },
+    "screenshot": "docs/user-guide/screenshots/role-qa-sales-agent-nav-ar.png"
+  }
+]

@@ -1,0 +1,23 @@
+﻿{
+  "run": "DEMO-GUIDE-GAP-20260924",
+  "finishedAt": "2026-09-24T10:00:00Z",
+  "productionShaAtVerification": "f52828c17696ae9e0e65fe0aa6500b6b5fb58b64",
+  "checks": {
+    "versionRefundContradiction": "RESOLVED — false negative in old data-tour; refunds live since acfe68a",
+    "leadUiCreateSave": "PASS — LD-2026-000081",
+    "customerRefundUi": "PASS — CRF-2026-000003 + JV-2026-000270; refundableAmount=0; statement closing=0",
+    "investorTourApi": "PASS — 82/82",
+    "reportsFilterExport": "PASS — TB filter/export CSV",
+    "reportsPrint": "FAIL on f52828c sessionStorage; fix print-bridge localStorage pending deploy",
+    "settingsAccounting": "PAGE LOAD — form visible",
+    "settingsDocumentNumbering": "PAGE LOAD — view-only without numbering.manage",
+    "qaPersonasPurchasingInvestorsHr": "PENDING deploy/seed",
+    "allowGlobalRuns": "OFF"
+  },
+  "demoLinks": {
+    "leadUi": "https://oms.haseb.org/crm/leads/2f3339af-a80f-41c9-9d55-9e9dcbc9016b",
+    "crf003": "https://oms.haseb.org/sales/refunds/f0411870-1db0-4a13-8e24-2697568cb22e",
+    "sr016": "https://oms.haseb.org/sales/returns/0100c156-884a-4812-8108-0cad35db1fae",
+    "jv270": "https://oms.haseb.org/finance/journal-entries/52f745b3-6bb2-4f31-902e-50d918f1d18e"
+  }
+}

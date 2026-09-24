@@ -1,0 +1,132 @@
+[
+  {
+    "email": "qa-admin@oms.haseb.org",
+    "login": true,
+    "status": 200,
+    "permCount": 0,
+    "leads": {
+      "status": 404,
+      "ok": false
+    },
+    "shipping": {
+      "status": 400,
+      "ok": false
+    },
+    "journals": {
+      "status": 404,
+      "ok": false
+    },
+    "users": {
+      "status": 200,
+      "ok": true
+    },
+    "storeOrders": {
+      "status": 200,
+      "ok": true
+    }
+  },
+  {
+    "email": "qa-finance@oms.haseb.org",
+    "login": true,
+    "status": 200,
+    "permCount": 0,
+    "leads": {
+      "status": 404,
+      "ok": false
+    },
+    "shipping": {
+      "status": 400,
+      "ok": false
+    },
+    "journals": {
+      "status": 404,
+      "ok": false
+    },
+    "users": {
+      "status": 403,
+      "ok": false
+    },
+    "storeOrders": {
+      "status": 200,
+      "ok": true
+    }
+  },
+  {
+    "email": "qa-sales-manager@oms.haseb.org",
+    "login": true,
+    "status": 200,
+    "permCount": 0,
+    "leads": {
+      "status": 404,
+      "ok": false
+    },
+    "shipping": {
+      "status": 400,
+      "ok": false
+    },
+    "journals": {
+      "status": 404,
+      "ok": false
+    },
+    "users": {
+      "status": 403,
+      "ok": false
+    },
+    "storeOrders": {
+      "status": 200,
+      "ok": true
+    }
+  },
+  {
+    "email": "qa-sales-agent@oms.haseb.org",
+    "login": true,
+    "status": 200,
+    "permCount": 0,
+    "leads": {
+      "status": 404,
+      "ok": false
+    },
+    "shipping": {
+      "status": 400,
+      "ok": false
+    },
+    "journals": {
+      "status": 404,
+      "ok": false
+    },
+    "users": {
+      "status": 403,
+      "ok": false
+    },
+    "storeOrders": {
+      "status": 200,
+      "ok": true
+    }
+  },
+  {
+    "email": "qa-shipping@oms.haseb.org",
+    "login": true,
+    "status": 200,
+    "permCount": 0,
+    "leads": {
+      "status": 404,
+      "ok": false
+    },
+    "shipping": {
+      "status": 400,
+      "ok": false
+    },
+    "journals": {
+      "status": 404,
+      "ok": false
+    },
+    "users": {
+      "status": 403,
+      "ok": false
+    },
+    "storeOrders": {
+      "status": 200,
+      "ok": true
+    }
+  }
+]

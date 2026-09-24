@@ -1,0 +1,2645 @@
+{
+  "tour": "browser-tour",
+  "run": "DEMO-GUIDE-20260924",
+  "base": "https://oms.haseb.org",
+  "api": "https://oms.haseb.org/api",
+  "user": "qa-admin@oms.haseb.org",
+  "startedAt": "2026-09-24T09:09:53.760Z",
+  "checks": [
+    {
+      "id": "api login",
+      "status": "PASS",
+      "detail": "qa-admin@oms.haseb.org"
+    },
+    {
+      "id": "demo store order resolved",
+      "status": "PASS",
+      "detail": "bfcdbd05-325b-47d7-bdbd-4e596397b950"
+    },
+    {
+      "id": "demo product resolved",
+      "status": "PASS",
+      "detail": "PRD-2026-000015"
+    },
+    {
+      "id": "demo lead resolved",
+      "status": "PASS",
+      "detail": "f64db056-f016-4fa0-a262-a1693734c2e0"
+    },
+    {
+      "id": "UI login form",
+      "status": "PASS",
+      "detail": "landed on /"
+    },
+    {
+      "id": "sweep / (dashboard)",
+      "status": "PASS",
+      "detail": "http 200; 2410ms",
+      "evidence": {
+        "route": "/",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/home.png",
+        "status": 200,
+        "finalPath": "/",
+        "settleMs": 2410,
+        "settleAfterDomMs": 1708,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /crm/leads (crm-leads)",
+      "status": "PASS",
+      "detail": "http 200; 6042ms",
+      "evidence": {
+        "route": "/crm/leads",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/crm__leads.png",
+        "status": 200,
+        "finalPath": "/crm/leads",
+        "settleMs": 6042,
+        "settleAfterDomMs": 3864,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /crm/funnel (crm-funnel)",
+      "status": "PASS",
+      "detail": "http 200; 2647ms",
+      "evidence": {
+        "route": "/crm/funnel",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/crm__funnel.png",
+        "status": 200,
+        "finalPath": "/crm/funnel",
+        "settleMs": 2647,
+        "settleAfterDomMs": 2056,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /crm/sales-teams (crm-sales-teams)",
+      "status": "PASS",
+      "detail": "http 200; 3431ms",
+      "evidence": {
+        "route": "/crm/sales-teams",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/crm__sales-teams.png",
+        "status": 200,
+        "finalPath": "/crm/sales-teams",
+        "settleMs": 3431,
+        "settleAfterDomMs": 2243,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /sales/customers (sales-customers)",
+      "status": "PASS",
+      "detail": "http 200; 3708ms",
+      "evidence": {
+        "route": "/sales/customers",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/sales__customers.png",
+        "status": 200,
+        "finalPath": "/sales/customers",
+        "settleMs": 3708,
+        "settleAfterDomMs": 2792,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/customer-groups (master-data-customer-groups)",
+      "status": "PASS",
+      "detail": "http 200; 2481ms",
+      "evidence": {
+        "route": "/master-data/customer-groups",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__customer-groups.png",
+        "status": 200,
+        "finalPath": "/master-data/customer-groups",
+        "settleMs": 2481,
+        "settleAfterDomMs": 1637,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /sales/quotations (sales-quotations)",
+      "status": "PASS",
+      "detail": "http 200; 5016ms",
+      "evidence": {
+        "route": "/sales/quotations",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/sales__quotations.png",
+        "status": 200,
+        "finalPath": "/sales/quotations",
+        "settleMs": 5016,
+        "settleAfterDomMs": 3087,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /sales/orders (sales-orders)",
+      "status": "PASS",
+      "detail": "http 200; 3647ms",
+      "evidence": {
+        "route": "/sales/orders",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/sales__orders.png",
+        "status": 200,
+        "finalPath": "/sales/orders",
+        "settleMs": 3647,
+        "settleAfterDomMs": 2891,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /store-orders (store-orders-list)",
+      "status": "PASS",
+      "detail": "http 200; 8107ms",
+      "evidence": {
+        "route": "/store-orders",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/store-orders.png",
+        "status": 200,
+        "finalPath": "/store-orders",
+        "settleMs": 8107,
+        "settleAfterDomMs": 6735,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /store-orders/import (store-orders-import)",
+      "status": "PASS",
+      "detail": "http 200; 5172ms",
+      "evidence": {
+        "route": "/store-orders/import",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/store-orders__import.png",
+        "status": 200,
+        "finalPath": "/store-orders/import",
+        "settleMs": 5172,
+        "settleAfterDomMs": 4660,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /store-orders/needs-review (store-orders-needs-review)",
+      "status": "PASS",
+      "detail": "http 200; 3546ms",
+      "evidence": {
+        "route": "/store-orders/needs-review",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/store-orders__needs-review.png",
+        "status": 200,
+        "finalPath": "/store-orders/needs-review",
+        "settleMs": 3546,
+        "settleAfterDomMs": 2837,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /sales/invoices (sales-invoices)",
+      "status": "PASS",
+      "detail": "http 200; 2845ms",
+      "evidence": {
+        "route": "/sales/invoices",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/sales__invoices.png",
+        "status": 200,
+        "finalPath": "/sales/invoices",
+        "settleMs": 2845,
+        "settleAfterDomMs": 2287,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /sales/returns (sales-returns)",
+      "status": "PASS",
+      "detail": "http 200; 4116ms",
+      "evidence": {
+        "route": "/sales/returns",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/sales__returns.png",
+        "status": 200,
+        "finalPath": "/sales/returns",
+        "settleMs": 4116,
+        "settleAfterDomMs": 2980,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /shipping (store-orders-shipping)",
+      "status": "PASS",
+      "detail": "http 200; 5590ms",
+      "evidence": {
+        "route": "/shipping",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/shipping.png",
+        "status": 200,
+        "finalPath": "/shipping",
+        "settleMs": 5590,
+        "settleAfterDomMs": 4605,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /shipping/import (store-orders-shipping-import)",
+      "status": "PASS",
+      "detail": "http 200; 3284ms",
+      "evidence": {
+        "route": "/shipping/import",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/shipping__import.png",
+        "status": 200,
+        "finalPath": "/shipping/import",
+        "settleMs": 3284,
+        "settleAfterDomMs": 2570,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/shipping-statuses (master-data-shipping-statuses)",
+      "status": "PASS",
+      "detail": "http 200; 2743ms",
+      "evidence": {
+        "route": "/master-data/shipping-statuses",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__shipping-statuses.png",
+        "status": 200,
+        "finalPath": "/master-data/shipping-statuses",
+        "settleMs": 2743,
+        "settleAfterDomMs": 1930,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/workflow-statuses (master-data-workflow-statuses)",
+      "status": "PASS",
+      "detail": "http 200; 3115ms",
+      "evidence": {
+        "route": "/master-data/workflow-statuses",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__workflow-statuses.png",
+        "status": 200,
+        "finalPath": "/master-data/workflow-statuses",
+        "settleMs": 3115,
+        "settleAfterDomMs": 1898,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/workflow-transitions (master-data-workflow-transitions)",
+      "status": "PASS",
+      "detail": "http 200; 3666ms",
+      "evidence": {
+        "route": "/master-data/workflow-transitions",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__workflow-transitions.png",
+        "status": 200,
+        "finalPath": "/master-data/workflow-transitions",
+        "settleMs": 3666,
+        "settleAfterDomMs": 2101,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/shipping-companies (master-data-shipping-companies)",
+      "status": "PASS",
+      "detail": "http 200; 3602ms",
+      "evidence": {
+        "route": "/master-data/shipping-companies",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__shipping-companies.png",
+        "status": 200,
+        "finalPath": "/master-data/shipping-companies",
+        "settleMs": 3602,
+        "settleAfterDomMs": 2073,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /purchasing/suppliers (purchasing-suppliers)",
+      "status": "PASS",
+      "detail": "http 200; 3679ms",
+      "evidence": {
+        "route": "/purchasing/suppliers",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/purchasing__suppliers.png",
+        "status": 200,
+        "finalPath": "/purchasing/suppliers",
+        "settleMs": 3679,
+        "settleAfterDomMs": 2965,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/supplier-groups (master-data-supplier-groups)",
+      "status": "PASS",
+      "detail": "http 200; 2637ms",
+      "evidence": {
+        "route": "/master-data/supplier-groups",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__supplier-groups.png",
+        "status": 200,
+        "finalPath": "/master-data/supplier-groups",
+        "settleMs": 2637,
+        "settleAfterDomMs": 2072,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /purchasing/purchase-quotations (purchasing-quotations)",
+      "status": "PASS",
+      "detail": "http 200; 3714ms",
+      "evidence": {
+        "route": "/purchasing/purchase-quotations",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/purchasing__purchase-quotations.png",
+        "status": 200,
+        "finalPath": "/purchasing/purchase-quotations",
+        "settleMs": 3714,
+        "settleAfterDomMs": 2587,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /purchasing/purchase-orders (purchasing-orders)",
+      "status": "PASS",
+      "detail": "http 200; 3475ms",
+      "evidence": {
+        "route": "/purchasing/purchase-orders",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/purchasing__purchase-orders.png",
+        "status": 200,
+        "finalPath": "/purchasing/purchase-orders",
+        "settleMs": 3475,
+        "settleAfterDomMs": 2496,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /purchasing/purchase-invoices (purchasing-invoices)",
+      "status": "PASS",
+      "detail": "http 200; 4591ms",
+      "evidence": {
+        "route": "/purchasing/purchase-invoices",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/purchasing__purchase-invoices.png",
+        "status": 200,
+        "finalPath": "/purchasing/purchase-invoices",
+        "settleMs": 4591,
+        "settleAfterDomMs": 2611,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /purchasing/purchase-returns (purchasing-returns)",
+      "status": "PASS",
+      "detail": "http 200; 6049ms",
+      "evidence": {
+        "route": "/purchasing/purchase-returns",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/purchasing__purchase-returns.png",
+        "status": 200,
+        "finalPath": "/purchasing/purchase-returns",
+        "settleMs": 6049,
+        "settleAfterDomMs": 5244,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /purchasing/landed-cost (purchasing-landed-cost)",
+      "status": "PASS",
+      "detail": "http 200; 4160ms",
+      "evidence": {
+        "route": "/purchasing/landed-cost",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/purchasing__landed-cost.png",
+        "status": 200,
+        "finalPath": "/purchasing/landed-cost",
+        "settleMs": 4160,
+        "settleAfterDomMs": 3029,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /products (products-list)",
+      "status": "PASS",
+      "detail": "http 200; 3967ms",
+      "evidence": {
+        "route": "/products",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/products.png",
+        "status": 200,
+        "finalPath": "/products",
+        "settleMs": 3967,
+        "settleAfterDomMs": 2971,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/warehouses (master-data-warehouses)",
+      "status": "PASS",
+      "detail": "http 200; 3792ms",
+      "evidence": {
+        "route": "/master-data/warehouses",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__warehouses.png",
+        "status": 200,
+        "finalPath": "/master-data/warehouses",
+        "settleMs": 3792,
+        "settleAfterDomMs": 2005,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/warehouse-locations (master-data-warehouse-locations)",
+      "status": "PASS",
+      "detail": "http 200; 4265ms",
+      "evidence": {
+        "route": "/master-data/warehouse-locations",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__warehouse-locations.png",
+        "status": 200,
+        "finalPath": "/master-data/warehouse-locations",
+        "settleMs": 4265,
+        "settleAfterDomMs": 3399,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/units (master-data-units)",
+      "status": "PASS",
+      "detail": "http 200; 3057ms",
+      "evidence": {
+        "route": "/master-data/units",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__units.png",
+        "status": 200,
+        "finalPath": "/master-data/units",
+        "settleMs": 3057,
+        "settleAfterDomMs": 1889,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/unit-conversions (master-data-unit-conversions)",
+      "status": "PASS",
+      "detail": "http 200; 2964ms",
+      "evidence": {
+        "route": "/master-data/unit-conversions",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__unit-conversions.png",
+        "status": 200,
+        "finalPath": "/master-data/unit-conversions",
+        "settleMs": 2964,
+        "settleAfterDomMs": 1836,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/categories (master-data-categories)",
+      "status": "PASS",
+      "detail": "http 200; 2636ms",
+      "evidence": {
+        "route": "/master-data/categories",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__categories.png",
+        "status": 200,
+        "finalPath": "/master-data/categories",
+        "settleMs": 2636,
+        "settleAfterDomMs": 1935,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/brands (master-data-brands)",
+      "status": "PASS",
+      "detail": "http 200; 3405ms",
+      "evidence": {
+        "route": "/master-data/brands",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__brands.png",
+        "status": 200,
+        "finalPath": "/master-data/brands",
+        "settleMs": 3405,
+        "settleAfterDomMs": 1996,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /inventory/movements (inventory-movements)",
+      "status": "PASS",
+      "detail": "http 200; 4514ms",
+      "evidence": {
+        "route": "/inventory/movements",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/inventory__movements.png",
+        "status": 200,
+        "finalPath": "/inventory/movements",
+        "settleMs": 4514,
+        "settleAfterDomMs": 3843,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /inventory/stock (inventory-stock)",
+      "status": "PASS",
+      "detail": "http 200; 4556ms",
+      "evidence": {
+        "route": "/inventory/stock",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/inventory__stock.png",
+        "status": 200,
+        "finalPath": "/inventory/stock",
+        "settleMs": 4556,
+        "settleAfterDomMs": 3374,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /inventory/physical-count (inventory-physical-count)",
+      "status": "PASS",
+      "detail": "http 200; 4771ms",
+      "evidence": {
+        "route": "/inventory/physical-count",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/inventory__physical-count.png",
+        "status": 200,
+        "finalPath": "/inventory/physical-count",
+        "settleMs": 4771,
+        "settleAfterDomMs": 3323,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /hr/my-profile (hr-my-profile)",
+      "status": "PASS",
+      "detail": "http 200; 4559ms",
+      "evidence": {
+        "route": "/hr/my-profile",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/hr__my-profile.png",
+        "status": 200,
+        "finalPath": "/hr/my-profile",
+        "settleMs": 4559,
+        "settleAfterDomMs": 3369,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /hr/employees (hr-employees)",
+      "status": "PASS",
+      "detail": "http 200; 6980ms",
+      "evidence": {
+        "route": "/hr/employees",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/hr__employees.png",
+        "status": 200,
+        "finalPath": "/hr/employees",
+        "settleMs": 6980,
+        "settleAfterDomMs": 4008,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /hr/kpi-templates (hr-kpi-templates)",
+      "status": "PASS",
+      "detail": "http 200; 3517ms",
+      "evidence": {
+        "route": "/hr/kpi-templates",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/hr__kpi-templates.png",
+        "status": 200,
+        "finalPath": "/hr/kpi-templates",
+        "settleMs": 3517,
+        "settleAfterDomMs": 2088,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /hr/kpi-evaluations (hr-kpi-evaluations)",
+      "status": "PASS",
+      "detail": "http 200; 3576ms",
+      "evidence": {
+        "route": "/hr/kpi-evaluations",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/hr__kpi-evaluations.png",
+        "status": 200,
+        "finalPath": "/hr/kpi-evaluations",
+        "settleMs": 3576,
+        "settleAfterDomMs": 2637,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /hr/sales-targets (hr-sales-targets)",
+      "status": "PASS",
+      "detail": "http 200; 3648ms",
+      "evidence": {
+        "route": "/hr/sales-targets",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/hr__sales-targets.png",
+        "status": 200,
+        "finalPath": "/hr/sales-targets",
+        "settleMs": 3648,
+        "settleAfterDomMs": 2694,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /hr/ranking (hr-ranking)",
+      "status": "PASS",
+      "detail": "http 200; 3966ms",
+      "evidence": {
+        "route": "/hr/ranking",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/hr__ranking.png",
+        "status": 200,
+        "finalPath": "/hr/ranking",
+        "settleMs": 3966,
+        "settleAfterDomMs": 2433,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /hr/commission-plans (hr-commission-plans)",
+      "status": "PASS",
+      "detail": "http 200; 3354ms",
+      "evidence": {
+        "route": "/hr/commission-plans",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/hr__commission-plans.png",
+        "status": 200,
+        "finalPath": "/hr/commission-plans",
+        "settleMs": 3354,
+        "settleAfterDomMs": 2438,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /hr/commissions (hr-commissions)",
+      "status": "PASS",
+      "detail": "http 200; 3675ms",
+      "evidence": {
+        "route": "/hr/commissions",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/hr__commissions.png",
+        "status": 200,
+        "finalPath": "/hr/commissions",
+        "settleMs": 3675,
+        "settleAfterDomMs": 2755,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /hr/payroll (hr-payroll)",
+      "status": "PASS",
+      "detail": "http 200; 3576ms",
+      "evidence": {
+        "route": "/hr/payroll",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/hr__payroll.png",
+        "status": 200,
+        "finalPath": "/hr/payroll",
+        "settleMs": 3576,
+        "settleAfterDomMs": 2827,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /hr/payroll-components (hr-payroll-components)",
+      "status": "PASS",
+      "detail": "http 200; 3247ms",
+      "evidence": {
+        "route": "/hr/payroll-components",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/hr__payroll-components.png",
+        "status": 200,
+        "finalPath": "/hr/payroll-components",
+        "settleMs": 3247,
+        "settleAfterDomMs": 2391,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /investors (investors-dashboard)",
+      "status": "PASS",
+      "detail": "http 200; 3009ms",
+      "evidence": {
+        "route": "/investors",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/investors.png",
+        "status": 200,
+        "finalPath": "/investors",
+        "settleMs": 3009,
+        "settleAfterDomMs": 1971,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /investors/list (investors-list)",
+      "status": "PASS",
+      "detail": "http 200; 2888ms",
+      "evidence": {
+        "route": "/investors/list",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/investors__list.png",
+        "status": 200,
+        "finalPath": "/investors/list",
+        "settleMs": 2888,
+        "settleAfterDomMs": 2061,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /investors/opportunities (investors-opportunities)",
+      "status": "PASS",
+      "detail": "http 200; 2950ms",
+      "evidence": {
+        "route": "/investors/opportunities",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/investors__opportunities.png",
+        "status": 200,
+        "finalPath": "/investors/opportunities",
+        "settleMs": 2950,
+        "settleAfterDomMs": 2151,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /investors/settings/investor-types (investors-settings)",
+      "status": "PASS",
+      "detail": "http 200; 2979ms",
+      "evidence": {
+        "route": "/investors/settings/investor-types",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/investors__settings__investor-types.png",
+        "status": 200,
+        "finalPath": "/investors/settings/investor-types",
+        "settleMs": 2979,
+        "settleAfterDomMs": 2212,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /expenses/cost-components (expenses-components)",
+      "status": "PASS",
+      "detail": "http 200; 3140ms",
+      "evidence": {
+        "route": "/expenses/cost-components",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/expenses__cost-components.png",
+        "status": 200,
+        "finalPath": "/expenses/cost-components",
+        "settleMs": 3140,
+        "settleAfterDomMs": 2494,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /expenses/product-cost (expenses-product-cost)",
+      "status": "PASS",
+      "detail": "http 200; 2554ms",
+      "evidence": {
+        "route": "/expenses/product-cost",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/expenses__product-cost.png",
+        "status": 200,
+        "finalPath": "/expenses/product-cost",
+        "settleMs": 2554,
+        "settleAfterDomMs": 1745,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /expenses/cost-explorer (expenses-cost-explorer)",
+      "status": "PASS",
+      "detail": "http 200; 2730ms",
+      "evidence": {
+        "route": "/expenses/cost-explorer",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/expenses__cost-explorer.png",
+        "status": 200,
+        "finalPath": "/expenses/cost-explorer",
+        "settleMs": 2730,
+        "settleAfterDomMs": 2106,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /finance/receiving-accounts (finance-receiving-accounts)",
+      "status": "PASS",
+      "detail": "http 200; 2818ms",
+      "evidence": {
+        "route": "/finance/receiving-accounts",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/finance__receiving-accounts.png",
+        "status": 200,
+        "finalPath": "/finance/receiving-accounts",
+        "settleMs": 2818,
+        "settleAfterDomMs": 2036,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /finance/journal-entries (finance-journal-entries)",
+      "status": "PASS",
+      "detail": "http 200; 3612ms",
+      "evidence": {
+        "route": "/finance/journal-entries",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/finance__journal-entries.png",
+        "status": 200,
+        "finalPath": "/finance/journal-entries",
+        "settleMs": 3612,
+        "settleAfterDomMs": 2990,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /reports/finance?report=generalLedger (finance-general-ledger)",
+      "status": "PASS",
+      "detail": "http 200; 6060ms",
+      "evidence": {
+        "route": "/reports/finance?report=generalLedger",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/reports__finance__report__generalLedger.png",
+        "status": 200,
+        "finalPath": "/reports/finance",
+        "settleMs": 6060,
+        "settleAfterDomMs": 5396,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /finance/chart-of-accounts (finance-chart-of-accounts)",
+      "status": "PASS",
+      "detail": "http 200; 3549ms",
+      "evidence": {
+        "route": "/finance/chart-of-accounts",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/finance__chart-of-accounts.png",
+        "status": 200,
+        "finalPath": "/finance/chart-of-accounts",
+        "settleMs": 3549,
+        "settleAfterDomMs": 2708,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /finance/cost-centers (finance-cost-centers)",
+      "status": "PASS",
+      "detail": "http 200; 2570ms",
+      "evidence": {
+        "route": "/finance/cost-centers",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/finance__cost-centers.png",
+        "status": 200,
+        "finalPath": "/finance/cost-centers",
+        "settleMs": 2570,
+        "settleAfterDomMs": 1903,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/analytic-accounts (master-data-analytic-accounts)",
+      "status": "PASS",
+      "detail": "http 200; 2821ms",
+      "evidence": {
+        "route": "/master-data/analytic-accounts",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__analytic-accounts.png",
+        "status": 200,
+        "finalPath": "/master-data/analytic-accounts",
+        "settleMs": 2821,
+        "settleAfterDomMs": 2059,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/analytic-plans (master-data-analytic-plans)",
+      "status": "PASS",
+      "detail": "http 200; 2893ms",
+      "evidence": {
+        "route": "/master-data/analytic-plans",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__analytic-plans.png",
+        "status": 200,
+        "finalPath": "/master-data/analytic-plans",
+        "settleMs": 2893,
+        "settleAfterDomMs": 2123,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/payment-methods (master-data-payment-methods)",
+      "status": "PASS",
+      "detail": "http 200; 2752ms",
+      "evidence": {
+        "route": "/master-data/payment-methods",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__payment-methods.png",
+        "status": 200,
+        "finalPath": "/master-data/payment-methods",
+        "settleMs": 2752,
+        "settleAfterDomMs": 2019,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/payment-terms (master-data-payment-terms)",
+      "status": "PASS",
+      "detail": "http 200; 2878ms",
+      "evidence": {
+        "route": "/master-data/payment-terms",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__payment-terms.png",
+        "status": 200,
+        "finalPath": "/master-data/payment-terms",
+        "settleMs": 2878,
+        "settleAfterDomMs": 1937,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /finance/expenses (finance-expenses)",
+      "status": "PASS",
+      "detail": "http 200; 4211ms",
+      "evidence": {
+        "route": "/finance/expenses",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/finance__expenses.png",
+        "status": 200,
+        "finalPath": "/finance/expenses",
+        "settleMs": 4211,
+        "settleAfterDomMs": 2979,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /sales/payments (finance-customer-receipts)",
+      "status": "PASS",
+      "detail": "http 200; 3772ms",
+      "evidence": {
+        "route": "/sales/payments",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/sales__payments.png",
+        "status": 200,
+        "finalPath": "/sales/payments",
+        "settleMs": 3772,
+        "settleAfterDomMs": 3121,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /purchasing/payments (finance-supplier-payments)",
+      "status": "PASS",
+      "detail": "http 200; 3734ms",
+      "evidence": {
+        "route": "/purchasing/payments",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/purchasing__payments.png",
+        "status": 200,
+        "finalPath": "/purchasing/payments",
+        "settleMs": 3734,
+        "settleAfterDomMs": 2721,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /finance/payment-review (finance-payment-review)",
+      "status": "PASS",
+      "detail": "http 200; 3661ms",
+      "evidence": {
+        "route": "/finance/payment-review",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/finance__payment-review.png",
+        "status": 200,
+        "finalPath": "/finance/payment-review",
+        "settleMs": 3661,
+        "settleAfterDomMs": 2819,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /finance/bank-transactions (finance-bank-transactions)",
+      "status": "PASS",
+      "detail": "http 200; 3452ms",
+      "evidence": {
+        "route": "/finance/bank-transactions",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/finance__bank-transactions.png",
+        "status": 200,
+        "finalPath": "/finance/bank-transactions",
+        "settleMs": 3452,
+        "settleAfterDomMs": 2607,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /finance/journals (finance-journals)",
+      "status": "PASS",
+      "detail": "http 200; 3020ms",
+      "evidence": {
+        "route": "/finance/journals",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/finance__journals.png",
+        "status": 200,
+        "finalPath": "/finance/journals",
+        "settleMs": 3020,
+        "settleAfterDomMs": 2255,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /finance/payment-sources (finance-payment-sources)",
+      "status": "PASS",
+      "detail": "http 200; 3492ms",
+      "evidence": {
+        "route": "/finance/payment-sources",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/finance__payment-sources.png",
+        "status": 200,
+        "finalPath": "/finance/payment-sources",
+        "settleMs": 3492,
+        "settleAfterDomMs": 2238,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /finance/fulfillment-cost-rules (finance-fulfillment-cost-rules)",
+      "status": "PASS",
+      "detail": "http 200; 3154ms",
+      "evidence": {
+        "route": "/finance/fulfillment-cost-rules",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/finance__fulfillment-cost-rules.png",
+        "status": 200,
+        "finalPath": "/finance/fulfillment-cost-rules",
+        "settleMs": 3154,
+        "settleAfterDomMs": 2474,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /finance/carrier-reconciliation (finance-carrier-reconciliation)",
+      "status": "PASS",
+      "detail": "http 200; 4725ms",
+      "evidence": {
+        "route": "/finance/carrier-reconciliation",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/finance__carrier-reconciliation.png",
+        "status": 200,
+        "finalPath": "/finance/carrier-reconciliation",
+        "settleMs": 4725,
+        "settleAfterDomMs": 2156,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /finance/cost-allocation-rules (finance-cost-allocation-rules)",
+      "status": "PASS",
+      "detail": "http 200; 2324ms",
+      "evidence": {
+        "route": "/finance/cost-allocation-rules",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/finance__cost-allocation-rules.png",
+        "status": 200,
+        "finalPath": "/finance/cost-allocation-rules",
+        "settleMs": 2324,
+        "settleAfterDomMs": 1789,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /finance/projects (finance-projects)",
+      "status": "PASS",
+      "detail": "http 200; 2618ms",
+      "evidence": {
+        "route": "/finance/projects",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/finance__projects.png",
+        "status": 200,
+        "finalPath": "/finance/projects",
+        "settleMs": 2618,
+        "settleAfterDomMs": 1596,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /finance/fixed-assets (finance-fixed-assets)",
+      "status": "PASS",
+      "detail": "http 200; 2942ms",
+      "evidence": {
+        "route": "/finance/fixed-assets",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/finance__fixed-assets.png",
+        "status": 200,
+        "finalPath": "/finance/fixed-assets",
+        "settleMs": 2942,
+        "settleAfterDomMs": 2514,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /finance/prepaid-expenses (finance-prepaid-expenses)",
+      "status": "PASS",
+      "detail": "http 200; 3271ms",
+      "evidence": {
+        "route": "/finance/prepaid-expenses",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/finance__prepaid-expenses.png",
+        "status": 200,
+        "finalPath": "/finance/prepaid-expenses",
+        "settleMs": 3271,
+        "settleAfterDomMs": 2659,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /finance/accrued-expenses (finance-accrued-expenses)",
+      "status": "PASS",
+      "detail": "http 200; 3517ms",
+      "evidence": {
+        "route": "/finance/accrued-expenses",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/finance__accrued-expenses.png",
+        "status": 200,
+        "finalPath": "/finance/accrued-expenses",
+        "settleMs": 3517,
+        "settleAfterDomMs": 2879,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /finance/exchange-rates (finance-fx)",
+      "status": "PASS",
+      "detail": "http 200; 2522ms",
+      "evidence": {
+        "route": "/finance/exchange-rates",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/finance__exchange-rates.png",
+        "status": 200,
+        "finalPath": "/finance/exchange-rates",
+        "settleMs": 2522,
+        "settleAfterDomMs": 1884,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /finance/fiscal-periods (finance-fiscal-periods)",
+      "status": "PASS",
+      "detail": "http 200; 2534ms",
+      "evidence": {
+        "route": "/finance/fiscal-periods",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/finance__fiscal-periods.png",
+        "status": 200,
+        "finalPath": "/finance/fiscal-periods",
+        "settleMs": 2534,
+        "settleAfterDomMs": 1568,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /finance/opening-balances (finance-opening-balances)",
+      "status": "PASS",
+      "detail": "http 200; 2638ms",
+      "evidence": {
+        "route": "/finance/opening-balances",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/finance__opening-balances.png",
+        "status": 200,
+        "finalPath": "/finance/opening-balances",
+        "settleMs": 2638,
+        "settleAfterDomMs": 2050,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /finance/year-closing (finance-year-closing)",
+      "status": "PASS",
+      "detail": "http 200; 2057ms",
+      "evidence": {
+        "route": "/finance/year-closing",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/finance__year-closing.png",
+        "status": 200,
+        "finalPath": "/finance/year-closing",
+        "settleMs": 2057,
+        "settleAfterDomMs": 1463,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /finance/accounting-settings (finance-accounting-settings)",
+      "status": "PASS",
+      "detail": "http 200; 2568ms",
+      "evidence": {
+        "route": "/finance/accounting-settings",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/finance__accounting-settings.png",
+        "status": 200,
+        "finalPath": "/finance/accounting-settings",
+        "settleMs": 2568,
+        "settleAfterDomMs": 2019,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/currencies (master-data-currencies)",
+      "status": "PASS",
+      "detail": "http 200; 1767ms",
+      "evidence": {
+        "route": "/master-data/currencies",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__currencies.png",
+        "status": 200,
+        "finalPath": "/master-data/currencies",
+        "settleMs": 1767,
+        "settleAfterDomMs": 1280,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/taxes (master-data-taxes)",
+      "status": "PASS",
+      "detail": "http 200; 2364ms",
+      "evidence": {
+        "route": "/master-data/taxes",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__taxes.png",
+        "status": 200,
+        "finalPath": "/master-data/taxes",
+        "settleMs": 2364,
+        "settleAfterDomMs": 1221,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /data-management/import-center (data-management-import-center)",
+      "status": "PASS",
+      "detail": "http 200; 4289ms",
+      "evidence": {
+        "route": "/data-management/import-center",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/data-management__import-center.png",
+        "status": 200,
+        "finalPath": "/data-management/import-center",
+        "settleMs": 4289,
+        "settleAfterDomMs": 3673,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/countries (master-data-countries)",
+      "status": "PASS",
+      "detail": "http 200; 2590ms",
+      "evidence": {
+        "route": "/master-data/countries",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__countries.png",
+        "status": 200,
+        "finalPath": "/master-data/countries",
+        "settleMs": 2590,
+        "settleAfterDomMs": 1635,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/cities (master-data-cities)",
+      "status": "PASS",
+      "detail": "http 200; 2333ms",
+      "evidence": {
+        "route": "/master-data/cities",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__cities.png",
+        "status": 200,
+        "finalPath": "/master-data/cities",
+        "settleMs": 2333,
+        "settleAfterDomMs": 1658,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/languages (master-data-languages)",
+      "status": "PASS",
+      "detail": "http 200; 2280ms",
+      "evidence": {
+        "route": "/master-data/languages",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__languages.png",
+        "status": 200,
+        "finalPath": "/master-data/languages",
+        "settleMs": 2280,
+        "settleAfterDomMs": 1668,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/transaction-types (master-data-transaction-types)",
+      "status": "PASS",
+      "detail": "http 200; 2368ms",
+      "evidence": {
+        "route": "/master-data/transaction-types",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__transaction-types.png",
+        "status": 200,
+        "finalPath": "/master-data/transaction-types",
+        "settleMs": 2368,
+        "settleAfterDomMs": 1764,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /reports/executive (reports-executive)",
+      "status": "PASS",
+      "detail": "http 200; 1923ms",
+      "evidence": {
+        "route": "/reports/executive",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/reports__executive.png",
+        "status": 200,
+        "finalPath": "/reports/executive",
+        "settleMs": 1923,
+        "settleAfterDomMs": 1402,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /reports/sales (reports-sales)",
+      "status": "PASS",
+      "detail": "http 200; 2052ms",
+      "evidence": {
+        "route": "/reports/sales",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/reports__sales.png",
+        "status": 200,
+        "finalPath": "/reports/sales",
+        "settleMs": 2052,
+        "settleAfterDomMs": 1497,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /reports/crm (reports-crm)",
+      "status": "PASS",
+      "detail": "http 200; 2033ms",
+      "evidence": {
+        "route": "/reports/crm",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/reports__crm.png",
+        "status": 200,
+        "finalPath": "/reports/crm",
+        "settleMs": 2033,
+        "settleAfterDomMs": 1396,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /reports/purchasing (reports-purchasing)",
+      "status": "PASS",
+      "detail": "http 200; 2321ms",
+      "evidence": {
+        "route": "/reports/purchasing",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/reports__purchasing.png",
+        "status": 200,
+        "finalPath": "/reports/purchasing",
+        "settleMs": 2321,
+        "settleAfterDomMs": 1690,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /reports/inventory (reports-inventory)",
+      "status": "PASS",
+      "detail": "http 200; 2369ms",
+      "evidence": {
+        "route": "/reports/inventory",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/reports__inventory.png",
+        "status": 200,
+        "finalPath": "/reports/inventory",
+        "settleMs": 2369,
+        "settleAfterDomMs": 1964,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /reports/finance (reports-finance)",
+      "status": "PASS",
+      "detail": "http 200; 2235ms",
+      "evidence": {
+        "route": "/reports/finance",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/reports__finance.png",
+        "status": 200,
+        "finalPath": "/reports/finance",
+        "settleMs": 2235,
+        "settleAfterDomMs": 1624,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /reports/expenses (reports-expenses)",
+      "status": "PASS",
+      "detail": "http 200; 1938ms",
+      "evidence": {
+        "route": "/reports/expenses",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/reports__expenses.png",
+        "status": 200,
+        "finalPath": "/reports/expenses",
+        "settleMs": 1938,
+        "settleAfterDomMs": 1425,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /reports/customers (reports-customers)",
+      "status": "PASS",
+      "detail": "http 200; 2632ms",
+      "evidence": {
+        "route": "/reports/customers",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/reports__customers.png",
+        "status": 200,
+        "finalPath": "/reports/customers",
+        "settleMs": 2632,
+        "settleAfterDomMs": 2030,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /reports/suppliers (reports-suppliers)",
+      "status": "PASS",
+      "detail": "http 200; 2539ms",
+      "evidence": {
+        "route": "/reports/suppliers",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/reports__suppliers.png",
+        "status": 200,
+        "finalPath": "/reports/suppliers",
+        "settleMs": 2539,
+        "settleAfterDomMs": 1883,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /reports/shipping (reports-shipping)",
+      "status": "PASS",
+      "detail": "http 200; 1845ms",
+      "evidence": {
+        "route": "/reports/shipping",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/reports__shipping.png",
+        "status": 200,
+        "finalPath": "/reports/shipping",
+        "settleMs": 1845,
+        "settleAfterDomMs": 1449,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /reports/custom (reports-custom)",
+      "status": "PASS",
+      "detail": "http 200; 1951ms",
+      "evidence": {
+        "route": "/reports/custom",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/reports__custom.png",
+        "status": 200,
+        "finalPath": "/reports/custom",
+        "settleMs": 1951,
+        "settleAfterDomMs": 1535,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /reports/analytics (reports-analytics)",
+      "status": "PASS",
+      "detail": "http 200; 1916ms",
+      "evidence": {
+        "route": "/reports/analytics",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/reports__analytics.png",
+        "status": 200,
+        "finalPath": "/reports/analytics",
+        "settleMs": 1916,
+        "settleAfterDomMs": 1465,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /settings/general (settings-general)",
+      "status": "PASS",
+      "detail": "http 200; 2118ms",
+      "evidence": {
+        "route": "/settings/general",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/settings__general.png",
+        "status": 200,
+        "finalPath": "/settings/general",
+        "settleMs": 2118,
+        "settleAfterDomMs": 1417,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /settings/users (settings-users)",
+      "status": "PASS",
+      "detail": "http 200; 2162ms",
+      "evidence": {
+        "route": "/settings/users",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/settings__users.png",
+        "status": 200,
+        "finalPath": "/settings/users",
+        "settleMs": 2162,
+        "settleAfterDomMs": 1739,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/departments (master-data-departments)",
+      "status": "PASS",
+      "detail": "http 200; 1955ms",
+      "evidence": {
+        "route": "/master-data/departments",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__departments.png",
+        "status": 200,
+        "finalPath": "/master-data/departments",
+        "settleMs": 1955,
+        "settleAfterDomMs": 1408,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/job-titles (master-data-job-titles)",
+      "status": "PASS",
+      "detail": "http 200; 5564ms",
+      "evidence": {
+        "route": "/master-data/job-titles",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__job-titles.png",
+        "status": 200,
+        "finalPath": "/master-data/job-titles",
+        "settleMs": 5564,
+        "settleAfterDomMs": 2007,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/customer-classifications (master-data-customer-classifications)",
+      "status": "PASS",
+      "detail": "http 200; 2440ms",
+      "evidence": {
+        "route": "/master-data/customer-classifications",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__customer-classifications.png",
+        "status": 200,
+        "finalPath": "/master-data/customer-classifications",
+        "settleMs": 2440,
+        "settleAfterDomMs": 1599,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/no-purchase-reasons (master-data-no-purchase-reasons)",
+      "status": "PASS",
+      "detail": "http 200; 1807ms",
+      "evidence": {
+        "route": "/master-data/no-purchase-reasons",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__no-purchase-reasons.png",
+        "status": 200,
+        "finalPath": "/master-data/no-purchase-reasons",
+        "settleMs": 1807,
+        "settleAfterDomMs": 1363,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /master-data/lead-follow-up-types (master-data-lead-follow-up-types)",
+      "status": "PASS",
+      "detail": "http 200; 1964ms",
+      "evidence": {
+        "route": "/master-data/lead-follow-up-types",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/master-data__lead-follow-up-types.png",
+        "status": 200,
+        "finalPath": "/master-data/lead-follow-up-types",
+        "settleMs": 1964,
+        "settleAfterDomMs": 1516,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /settings/document-numbering (settings-document-numbering)",
+      "status": "PASS",
+      "detail": "http 200; 2018ms",
+      "evidence": {
+        "route": "/settings/document-numbering",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/settings__document-numbering.png",
+        "status": 200,
+        "finalPath": "/settings/document-numbering",
+        "settleMs": 2018,
+        "settleAfterDomMs": 1593,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /settings/print-settings (settings-print-settings)",
+      "status": "PASS",
+      "detail": "http 200; 1996ms",
+      "evidence": {
+        "route": "/settings/print-settings",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/settings__print-settings.png",
+        "status": 200,
+        "finalPath": "/settings/print-settings",
+        "settleMs": 1996,
+        "settleAfterDomMs": 1373,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /settings/notifications (settings-notifications)",
+      "status": "PASS",
+      "detail": "http 200; 1789ms",
+      "evidence": {
+        "route": "/settings/notifications",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/settings__notifications.png",
+        "status": 200,
+        "finalPath": "/settings/notifications",
+        "settleMs": 1789,
+        "settleAfterDomMs": 1329,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /settings/integrations (settings-integrations)",
+      "status": "PASS",
+      "detail": "http 200; 1811ms",
+      "evidence": {
+        "route": "/settings/integrations",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/settings__integrations.png",
+        "status": 200,
+        "finalPath": "/settings/integrations",
+        "settleMs": 1811,
+        "settleAfterDomMs": 1385,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /settings/security (settings-security)",
+      "status": "PASS",
+      "detail": "http 200; 1878ms",
+      "evidence": {
+        "route": "/settings/security",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/settings__security.png",
+        "status": 200,
+        "finalPath": "/settings/security",
+        "settleMs": 1878,
+        "settleAfterDomMs": 1454,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "sweep /settings/backup (settings-backup)",
+      "status": "PASS",
+      "detail": "http 200; 1999ms",
+      "evidence": {
+        "route": "/settings/backup",
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/pages/settings__backup.png",
+        "status": 200,
+        "finalPath": "/settings/backup",
+        "settleMs": 1999,
+        "settleAfterDomMs": 1419,
+        "errorUi": [],
+        "devOverlay": null,
+        "devIssues": 0,
+        "errorToasts": [],
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedApi": [],
+        "routeFile": "present"
+      }
+    },
+    {
+      "id": "workflow store-order-detail [desktop-ar-light]",
+      "status": "PASS",
+      "detail": "related-record groups=6",
+      "evidence": {
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/workflows/store-order-detail-desktop-ar-light.png",
+        "scroll": {
+          "ok": true,
+          "scrollWidth": 1440,
+          "clientWidth": 1440
+        },
+        "dir": "rtl",
+        "dark": false,
+        "failedApi": [],
+        "consoleErrors": []
+      }
+    },
+    {
+      "id": "workflow store-order-create-lines [desktop-ar-light]",
+      "status": "PASS",
+      "detail": "{\"line\":{\"ok\":true,\"checks\":{\"product\":{\"ok\":true,\"reason\":\"x=695 w=370 y=728 vw=1440\"},\"quantity\":{\"ok\":true,\"reason\":\"x=615 w=64 y=728 vw=1440\"},\"price\":{\"ok\":true,\"reason\":\"x=519 w=80 y=728 vw=1440\"}},\"values\":{\"quantity\":\"2\",\"price\":\"150\"}},\"dialogOverflow\":{\"ok\":true,\"scrollWidth\":766,\"clientWidth\":766}}",
+      "evidence": {
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/workflows/store-order-create-lines-desktop-ar-light.png",
+        "scroll": {
+          "ok": true,
+          "scrollWidth": 1440,
+          "clientWidth": 1440
+        },
+        "dir": "rtl",
+        "dark": false,
+        "failedApi": [],
+        "consoleErrors": []
+      }
+    },
+    {
+      "id": "workflow store-order-edit-lines [desktop-ar-light]",
+      "status": "SKIP",
+      "detail": "order state offers no line editor (invoiced/verified orders are locked)",
+      "evidence": {
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/workflows/store-order-edit-lines-desktop-ar-light.png",
+        "scroll": {
+          "ok": true,
+          "scrollWidth": 1440,
+          "clientWidth": 1440
+        },
+        "dir": "rtl",
+        "dark": false,
+        "failedApi": [],
+        "consoleErrors": []
+      }
+    },
+    {
+      "id": "workflow lead-conversion-dialog [desktop-ar-light]",
+      "status": "PASS",
+      "detail": "{\"line\":{\"ok\":true,\"checks\":{\"product\":{\"ok\":true,\"reason\":\"x=951 w=242 y=431 vw=1440\"},\"quantity\":{\"ok\":true,\"reason\":\"x=871 w=64 y=431 vw=1440\"},\"price\":{\"ok\":true,\"reason\":\"x=775 w=80 y=431 vw=1440\"}},\"values\":{\"quantity\":\"2\",\"price\":\"150\"}},\"dialogOverflow\":{\"ok\":true,\"scrollWidth\":1022,\"clientWidth\":1022}}",
+      "evidence": {
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/workflows/lead-conversion-dialog-desktop-ar-light.png",
+        "scroll": {
+          "ok": true,
+          "scrollWidth": 1440,
+          "clientWidth": 1440
+        },
+        "dir": "rtl",
+        "dark": false,
+        "failedApi": [],
+        "consoleErrors": []
+      }
+    },
+    {
+      "id": "workflow reports-generalLedger [desktop-ar-light]",
+      "status": "PASS",
+      "detail": "visible tables=1",
+      "evidence": {
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/workflows/reports-generalLedger-desktop-ar-light.png",
+        "scroll": {
+          "ok": true,
+          "scrollWidth": 1440,
+          "clientWidth": 1440
+        },
+        "dir": "rtl",
+        "dark": false,
+        "failedApi": [],
+        "consoleErrors": []
+      }
+    },
+    {
+      "id": "workflow reports-customerStatement [desktop-ar-light]",
+      "status": "PASS",
+      "detail": "visible tables=1",
+      "evidence": {
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/workflows/reports-customerStatement-desktop-ar-light.png",
+        "scroll": {
+          "ok": true,
+          "scrollWidth": 1440,
+          "clientWidth": 1440
+        },
+        "dir": "rtl",
+        "dark": false,
+        "failedApi": [],
+        "consoleErrors": []
+      }
+    },
+    {
+      "id": "workflow reports-supplierStatement [desktop-ar-light]",
+      "status": "PASS",
+      "detail": "visible tables=1",
+      "evidence": {
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/workflows/reports-supplierStatement-desktop-ar-light.png",
+        "scroll": {
+          "ok": true,
+          "scrollWidth": 1440,
+          "clientWidth": 1440
+        },
+        "dir": "rtl",
+        "dark": false,
+        "failedApi": [],
+        "consoleErrors": []
+      }
+    },
+    {
+      "id": "workflow exchange-rates [desktop-ar-light]",
+      "status": "PASS",
+      "detail": "",
+      "evidence": {
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/workflows/exchange-rates-desktop-ar-light.png",
+        "scroll": {
+          "ok": true,
+          "scrollWidth": 1440,
+          "clientWidth": 1440
+        },
+        "dir": "rtl",
+        "dark": false,
+        "failedApi": [],
+        "consoleErrors": []
+      }
+    },
+    {
+      "id": "workflow product-create-toggle [desktop-ar-light]",
+      "status": "PASS",
+      "detail": "{\"toggle\":{\"ok\":true,\"reason\":\"x=952 w=98 y=385 vw=1440\"},\"dialogOverflow\":{\"ok\":true,\"scrollWidth\":766,\"clientWidth\":766}}",
+      "evidence": {
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/workflows/product-create-toggle-desktop-ar-light.png",
+        "scroll": {
+          "ok": true,
+          "scrollWidth": 1440,
+          "clientWidth": 1440
+        },
+        "dir": "rtl",
+        "dark": false,
+        "failedApi": [],
+        "consoleErrors": []
+      }
+    },
+    {
+      "id": "workflow product-edit-toggle [desktop-ar-light]",
+      "status": "PASS",
+      "detail": "{\"toggle\":{\"ok\":true,\"reason\":\"x=1072 w=106 y=584 vw=1440\"},\"checked\":\"checked\",\"expectChecked\":true,\"dialogOverflow\":{\"ok\":true,\"scrollWidth\":1022,\"clientWidth\":1022}}",
+      "evidence": {
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/workflows/product-edit-toggle-desktop-ar-light.png",
+        "scroll": {
+          "ok": true,
+          "scrollWidth": 1440,
+          "clientWidth": 1440
+        },
+        "dir": "rtl",
+        "dark": false,
+        "failedApi": [],
+        "consoleErrors": []
+      }
+    },
+    {
+      "id": "workflow sales-return-refund-dialog",
+      "status": "BLOCKED",
+      "detail": "missing demo salesReturnId"
+    },
+    {
+      "id": "workflow customer-refund-detail",
+      "status": "BLOCKED",
+      "detail": "missing demo refundId"
+    },
+    {
+      "id": "workflow gl-sidebar-highlight [desktop-ar-light]",
+      "status": "PASS",
+      "detail": "[\"دفتر الأستاذ العام\"]",
+      "evidence": {
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/workflows/gl-sidebar-highlight-desktop-ar-light.png",
+        "scroll": {
+          "ok": true,
+          "scrollWidth": 1440,
+          "clientWidth": 1440
+        },
+        "dir": "rtl",
+        "dark": false,
+        "failedApi": [],
+        "consoleErrors": []
+      }
+    },
+    {
+      "id": "workflow countries-search [desktop-ar-light]",
+      "status": "PASS",
+      "detail": "{\"السعودية\":true,\"Saudi\":true}",
+      "evidence": {
+        "screenshot": "tmp/acceptance/DEMO-GUIDE-20260924/workflows/countries-search-desktop-ar-light.png",
+        "scroll": {
+          "ok": true,
+          "scrollWidth": 1440,
+          "clientWidth": 1440
+        },
+        "dir": "rtl",
+        "dark": false,
+        "failedApi": [],
+        "consoleErrors": []
+      }
+    }
+  ],
+  "networkLog": "D:\\Systems\\OMS\\tmp\\acceptance\\DEMO-GUIDE-20260924\\browser-tour-network.log",
+  "createdRecords": [
+    {
+      "run": "DEMO-GUIDE-20260924",
+      "type": "Lead",
+      "id": "f64db056-f016-4fa0-a262-a1693734c2e0",
+      "number": "LD-2026-000077",
+      "webUrl": "https://oms.haseb.org/crm/leads/f64db056-f016-4fa0-a262-a1693734c2e0"
+    }
+  ],
+  "demo": {
+    "storeOrderId": "bfcdbd05-325b-47d7-bdbd-4e596397b950",
+    "productId": "266c7325-f957-4ea9-acfe-7b5588be8cdc",
+    "leadId": "f64db056-f016-4fa0-a262-a1693734c2e0",
+    "lineProductSku": "PRD-2026-000015"
+  },
+  "sweepRoutes": 113,
+  "finishedAt": "2026-09-24T09:17:37.376Z",
+  "summary": {
+    "PASS": 129,
+    "SKIP": 1,
+    "BLOCKED": 2
+  }
+}

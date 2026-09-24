@@ -1,0 +1,21 @@
+{
+  "run": "DEMO-GUIDE-GAP-20260924",
+  "api": "https://oms.haseb.org/api",
+  "return": {
+    "id": "0100c156-884a-4812-8108-0cad35db1fae",
+    "number": "SR-2026-000016",
+    "status": "CONFIRMED"
+  },
+  "refundable": {
+    "salesReturnId": "0100c156-884a-4812-8108-0cad35db1fae",
+    "returnNumber": "SR-2026-000016",
+    "partnerId": "0fb76b0c-5a8d-4d8f-837c-a17ce94afccc",
+    "currencyId": "f176ab0e-8132-4584-b188-b2e590608212",
+    "status": "CONFIRMED",
+    "grandTotal": 200,
+    "refundedTotal": 0,
+    "unrefundedCredit": 200,
+    "customerCreditBalance": 200,
+    "refundableAmount": 200
+  }
+}

@@ -1,0 +1,988 @@
+{
+  "run": "DEMO-GUIDE-20260924",
+  "base": "https://oms.haseb.org",
+  "currency": "EGP",
+  "records": [
+    {
+      "type": "Product",
+      "id": "14743ed8-3e40-4063-915c-650ed8fc7612",
+      "number": "PRD-2026-000017",
+      "name": "DEMO-GUIDE-20260924 Book",
+      "flow": "SETUP",
+      "url": "https://oms.haseb.org/products/14743ed8-3e40-4063-915c-650ed8fc7612",
+      "routeTemplate": "/products/[id]",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {
+        "openingStock": "100 @ 40",
+        "note": "shared demo product for flows 1-4"
+      },
+      "notes": null
+    },
+    {
+      "type": "Product",
+      "id": "c36133d4-3310-4110-ab13-4701f47b4064",
+      "number": "PRD-2026-000018",
+      "name": "DEMO-GUIDE-20260924 Book Lab",
+      "flow": "SETUP",
+      "url": "https://oms.haseb.org/products/c36133d4-3310-4110-ab13-4701f47b4064",
+      "routeTemplate": "/products/[id]",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [
+        {
+          "id": "ca559bfa-f5c2-4ec0-94ba-0e51c9cb839e",
+          "number": "MV/09/2026/000113",
+          "type": "SALES_DELIVERY",
+          "quantity": -4
+        },
+        {
+          "id": "b0b2cc5f-6359-48eb-98f3-ce277ed071cb",
+          "number": "MV/09/2026/000112",
+          "type": "PURCHASE_RECEIPT",
+          "quantity": 10
+        },
+        {
+          "id": "3fcf7f5e-f12e-4d99-a47b-e225231b53a0",
+          "number": "OPN-2026-000019",
+          "type": "OPENING_BALANCE",
+          "quantity": 10
+        }
+      ],
+      "expected": {
+        "onHand": 16,
+        "currentCost": 33,
+        "stockValue": 528,
+        "cogsOnSaleOf4": 132
+      },
+      "notes": null
+    },
+    {
+      "type": "Customer",
+      "id": "f60fec6e-54a5-4d92-a8c8-c2db28d7feb1",
+      "number": "PT-2026-000085",
+      "name": "DEMO-GUIDE-20260924 Customer B2B",
+      "flow": "SETUP",
+      "url": "https://oms.haseb.org/sales/customers/f60fec6e-54a5-4d92-a8c8-c2db28d7feb1",
+      "routeTemplate": "/sales/customers/[id]",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {},
+      "notes": null
+    },
+    {
+      "type": "Supplier",
+      "id": "4147041a-83d7-41c8-860d-02e1f63ad8d3",
+      "number": "PT-2026-000086",
+      "name": "DEMO-GUIDE-20260924 Supplier",
+      "flow": "SETUP",
+      "url": "https://oms.haseb.org/purchasing/suppliers/4147041a-83d7-41c8-860d-02e1f63ad8d3",
+      "routeTemplate": "/purchasing/suppliers/[id]",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {},
+      "notes": null
+    },
+    {
+      "type": "Lead",
+      "id": "07b032ef-1e6e-48a9-a238-e343c02f8ce1",
+      "number": "LD-2026-000073",
+      "name": "DEMO-GUIDE-20260924 Customer A",
+      "flow": "F1",
+      "url": "https://oms.haseb.org/crm/leads/07b032ef-1e6e-48a9-a238-e343c02f8ce1",
+      "routeTemplate": "/crm/leads/[id]",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {
+        "convertedToOrder": "STO-2026-000083"
+      },
+      "notes": null
+    },
+    {
+      "type": "Customer",
+      "id": "eb5456f7-a259-464e-8db0-f6428b349e31",
+      "number": "PT-2026-000087",
+      "name": "DEMO-GUIDE-20260924 Customer A",
+      "flow": "F1",
+      "url": "https://oms.haseb.org/sales/customers/eb5456f7-a259-464e-8db0-f6428b349e31",
+      "routeTemplate": "/sales/customers/[id]",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {},
+      "notes": null
+    },
+    {
+      "type": "StoreOrder",
+      "id": "e5cf5e89-c276-49b4-9f13-ce969fa6cafa",
+      "number": "STO-2026-000083",
+      "name": null,
+      "flow": "F1",
+      "url": "https://oms.haseb.org/store-orders/e5cf5e89-c276-49b4-9f13-ce969fa6cafa",
+      "routeTemplate": "/store-orders/[id]",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {
+        "total": 900,
+        "paid": 900,
+        "outstanding": 0,
+        "currency": "EGP",
+        "paymentStatus": "FULLY_PAID_RECONCILED"
+      },
+      "notes": null
+    },
+    {
+      "type": "Payment",
+      "id": "29e5935e-43ba-4de1-91ff-7a53178f8788",
+      "number": "PAY-2026-000040",
+      "name": null,
+      "flow": "F1",
+      "url": "https://oms.haseb.org/store-orders/e5cf5e89-c276-49b4-9f13-ce969fa6cafa",
+      "routeTemplate": "/store-orders/[id]",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {
+        "amount": 900,
+        "status": "VERIFIED"
+      },
+      "notes": "Store-order payment of STO-2026-000083 (Payments tab of the order; the review queue only lists unconfirmed payments)"
+    },
+    {
+      "type": "CustomerReceipt",
+      "id": "9ff8cdf7-71c3-4b7b-bec5-762bb3f9a950",
+      "number": "CR-2026-000039",
+      "name": null,
+      "flow": "F1",
+      "url": "https://oms.haseb.org/sales/payments/9ff8cdf7-71c3-4b7b-bec5-762bb3f9a950",
+      "routeTemplate": "/sales/payments/[id]",
+      "routeVerified": true,
+      "journalEntries": [
+        {
+          "id": "cf98525d-774c-419a-a368-522539b30813",
+          "number": "JV-2026-000235",
+          "sourceType": "CUSTOMER_RECEIPT",
+          "total": 900
+        }
+      ],
+      "stockMovements": [],
+      "expected": {
+        "amount": 900
+      },
+      "notes": null
+    },
+    {
+      "type": "SalesInvoice",
+      "id": "f7ed0531-f186-4148-b5b3-8a0d1bedf800",
+      "number": "INV-2026-000057",
+      "name": null,
+      "flow": "F1",
+      "url": "https://oms.haseb.org/sales/invoices/f7ed0531-f186-4148-b5b3-8a0d1bedf800",
+      "routeTemplate": "/sales/invoices/[id]",
+      "routeVerified": true,
+      "journalEntries": [
+        {
+          "id": "acbaddfe-78d9-4dbb-bdad-56d9e15b2238",
+          "number": "JV-2026-000236",
+          "sourceType": "SALES_INVOICE",
+          "total": 980
+        }
+      ],
+      "stockMovements": [
+        {
+          "id": "114e0e63-d121-480e-9b97-67c30c0659a5",
+          "number": "MV/09/2026/000103",
+          "type": "SALES_DELIVERY",
+          "quantity": -2
+        }
+      ],
+      "expected": {
+        "grandTotal": 900,
+        "cogs": 80,
+        "paymentStatus": "PAID"
+      },
+      "notes": null
+    },
+    {
+      "type": "JournalEntry",
+      "id": "cf98525d-774c-419a-a368-522539b30813",
+      "number": "JV-2026-000235",
+      "name": null,
+      "flow": "F1",
+      "url": "https://oms.haseb.org/finance/journal-entries/cf98525d-774c-419a-a368-522539b30813",
+      "routeTemplate": "/finance/journal-entries/[id]",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {
+        "debit": 900,
+        "credit": 900
+      },
+      "notes": "Customer receipt JE (Confirm & Post)"
+    },
+    {
+      "type": "JournalEntry",
+      "id": "acbaddfe-78d9-4dbb-bdad-56d9e15b2238",
+      "number": "JV-2026-000236",
+      "name": null,
+      "flow": "F1",
+      "url": "https://oms.haseb.org/finance/journal-entries/acbaddfe-78d9-4dbb-bdad-56d9e15b2238",
+      "routeTemplate": "/finance/journal-entries/[id]",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {
+        "debit": 980
+      },
+      "notes": "Store-order invoice JE"
+    },
+    {
+      "type": "Lead",
+      "id": "01b6e38f-13c8-4e7c-8948-f2c40a8f755c",
+      "number": "LD-2026-000074",
+      "name": "DEMO-GUIDE-20260924 Customer Zero",
+      "flow": "F1",
+      "url": "https://oms.haseb.org/crm/leads/01b6e38f-13c8-4e7c-8948-f2c40a8f755c",
+      "routeTemplate": "/crm/leads/[id]",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {},
+      "notes": "Validation probe — conversion with 0.00 must be refused; stays a lead"
+    },
+    {
+      "type": "Lead",
+      "id": "8220d5ea-da6c-482a-9cbd-d2585b3a99bb",
+      "number": "LD-2026-000075",
+      "name": "DEMO-GUIDE-20260924 Customer B",
+      "flow": "F2",
+      "url": "https://oms.haseb.org/crm/leads/8220d5ea-da6c-482a-9cbd-d2585b3a99bb",
+      "routeTemplate": "/crm/leads/[id]",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {
+        "convertedToOrder": "STO-2026-000084"
+      },
+      "notes": null
+    },
+    {
+      "type": "Customer",
+      "id": "514b1ee3-669d-4cf8-85e5-29e8c1e34638",
+      "number": "PT-2026-000088",
+      "name": "DEMO-GUIDE-20260924 Customer B",
+      "flow": "F2",
+      "url": "https://oms.haseb.org/sales/customers/514b1ee3-669d-4cf8-85e5-29e8c1e34638",
+      "routeTemplate": "/sales/customers/[id]",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {},
+      "notes": null
+    },
+    {
+      "type": "StoreOrder",
+      "id": "5fc98c37-6071-429d-818d-606b97d7aa96",
+      "number": "STO-2026-000084",
+      "name": null,
+      "flow": "F2",
+      "url": "https://oms.haseb.org/store-orders/5fc98c37-6071-429d-818d-606b97d7aa96",
+      "routeTemplate": "/store-orders/[id]",
+      "routeVerified": true,
+      "journalEntries": [
+        {
+          "id": "0769e417-cc2e-43c8-ba85-85f28845d589",
+          "number": "JV-2026-000238",
+          "sourceType": "SALES_INVOICE",
+          "total": 490
+        },
+        {
+          "id": "5b3d187b-ac5f-4e20-b715-3615731f919d",
+          "number": "JV-2026-000239",
+          "sourceType": "SHIPMENT_COST",
+          "total": 30
+        }
+      ],
+      "stockMovements": [
+        {
+          "id": "d915492d-a214-4bad-a4c3-618be3ef1063",
+          "number": "MV/09/2026/000104",
+          "type": "SALES_DELIVERY",
+          "quantity": -1
+        }
+      ],
+      "expected": {
+        "total": 450,
+        "paid": 450,
+        "shippingCost": 30,
+        "cogs": 40,
+        "shipment": "DELIVERED"
+      },
+      "notes": null
+    },
+    {
+      "type": "SalesInvoice",
+      "id": "506521c0-855c-4b79-b698-9891dc7c6815",
+      "number": "INV-2026-000058",
+      "name": null,
+      "flow": "F2",
+      "url": "https://oms.haseb.org/sales/invoices/506521c0-855c-4b79-b698-9891dc7c6815",
+      "routeTemplate": "/sales/invoices/[id]",
+      "routeVerified": true,
+      "journalEntries": [
+        {
+          "id": "0769e417-cc2e-43c8-ba85-85f28845d589",
+          "number": "JV-2026-000238",
+          "sourceType": "SALES_INVOICE",
+          "total": 490
+        }
+      ],
+      "stockMovements": [],
+      "expected": {
+        "grandTotal": 450,
+        "cogs": 40
+      },
+      "notes": null
+    },
+    {
+      "type": "Shipment",
+      "id": "c1634cf7-074c-46da-8004-c9c8a0401e75",
+      "number": "Shipment #1 of STO-2026-000084",
+      "name": null,
+      "flow": "F2",
+      "url": "https://oms.haseb.org/store-orders/5fc98c37-6071-429d-818d-606b97d7aa96",
+      "routeTemplate": "/store-orders/[id]",
+      "routeVerified": true,
+      "journalEntries": [
+        {
+          "id": "5b3d187b-ac5f-4e20-b715-3615731f919d",
+          "number": "JV-2026-000239",
+          "sourceType": "SHIPMENT_COST",
+          "total": 30
+        }
+      ],
+      "stockMovements": [],
+      "expected": {
+        "status": "DELIVERED",
+        "shippingCost": 30
+      },
+      "notes": null
+    },
+    {
+      "type": "Lead",
+      "id": "2d158a5a-cfd1-4201-946f-8ae4af4f524b",
+      "number": "LD-2026-000076",
+      "name": "DEMO-GUIDE-20260924 Customer C Return",
+      "flow": "F2",
+      "url": "https://oms.haseb.org/crm/leads/2d158a5a-cfd1-4201-946f-8ae4af4f524b",
+      "routeTemplate": "/crm/leads/[id]",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {
+        "convertedToOrder": "STO-2026-000085"
+      },
+      "notes": null
+    },
+    {
+      "type": "Customer",
+      "id": "be51a876-64f1-4da0-b609-815ec12a8b27",
+      "number": "PT-2026-000089",
+      "name": "DEMO-GUIDE-20260924 Customer C Return",
+      "flow": "F2",
+      "url": "https://oms.haseb.org/sales/customers/be51a876-64f1-4da0-b609-815ec12a8b27",
+      "routeTemplate": "/sales/customers/[id]",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {},
+      "notes": null
+    },
+    {
+      "type": "StoreOrder",
+      "id": "ce8522e5-b246-4175-9292-eb9033bf5fcd",
+      "number": "STO-2026-000085",
+      "name": null,
+      "flow": "F2",
+      "url": "https://oms.haseb.org/store-orders/ce8522e5-b246-4175-9292-eb9033bf5fcd",
+      "routeTemplate": "/store-orders/[id]",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {
+        "total": 450,
+        "paid": 450,
+        "returned": 450,
+        "customerCreditAfterReturn": 450
+      },
+      "notes": null
+    },
+    {
+      "type": "SalesInvoice",
+      "id": "f3ad97b4-9858-44c1-a080-53033e2350c1",
+      "number": "INV-2026-000059",
+      "name": null,
+      "flow": "F2",
+      "url": "https://oms.haseb.org/sales/invoices/f3ad97b4-9858-44c1-a080-53033e2350c1",
+      "routeTemplate": "/sales/invoices/[id]",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {
+        "grandTotal": 450
+      },
+      "notes": null
+    },
+    {
+      "type": "SalesReturn",
+      "id": "fae668c0-7eb5-4ed0-a866-0b19bd09c17d",
+      "number": "SR-2026-000015",
+      "name": null,
+      "flow": "F2",
+      "url": "https://oms.haseb.org/sales/returns/fae668c0-7eb5-4ed0-a866-0b19bd09c17d",
+      "routeTemplate": "/sales/returns/[id]",
+      "routeVerified": true,
+      "journalEntries": [
+        {
+          "id": "90f40266-017d-41a3-94a7-0eb1956e13b6",
+          "number": "JV-2026-000242",
+          "sourceType": "SALES_RETURN",
+          "total": 490
+        }
+      ],
+      "stockMovements": [
+        {
+          "id": "71cd93db-0531-46bf-addc-c1ac65148ab0",
+          "number": "MV/09/2026/000106",
+          "type": "SALES_RETURN",
+          "quantity": 1
+        }
+      ],
+      "expected": {
+        "total": 450,
+        "stockBack": 1,
+        "cogsReversed": 40,
+        "refund": "not supported by API — customer holds 450 credit"
+      },
+      "notes": null
+    },
+    {
+      "type": "JournalEntry",
+      "id": "90f40266-017d-41a3-94a7-0eb1956e13b6",
+      "number": "JV-2026-000242",
+      "name": null,
+      "flow": "F2",
+      "url": "https://oms.haseb.org/finance/journal-entries/90f40266-017d-41a3-94a7-0eb1956e13b6",
+      "routeTemplate": "/finance/journal-entries/[id]",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {},
+      "notes": "Sales return reversal JE"
+    },
+    {
+      "type": "CustomerReceipt",
+      "id": "75491670-310c-4679-a0d6-4dc1be6dde41",
+      "number": "CR-2026-000042",
+      "name": null,
+      "flow": "F3",
+      "url": "https://oms.haseb.org/sales/payments/75491670-310c-4679-a0d6-4dc1be6dde41",
+      "routeTemplate": "/sales/payments/[id]",
+      "routeVerified": true,
+      "journalEntries": [
+        {
+          "id": "f57d1884-9bb2-459e-b4e0-15f2f4c1e1e1",
+          "number": "JV-2026-000244",
+          "sourceType": "CUSTOMER_RECEIPT",
+          "total": 600
+        }
+      ],
+      "stockMovements": [],
+      "expected": {
+        "amount": 600,
+        "allocatedTo": "INV-2026-000060"
+      },
+      "notes": null
+    },
+    {
+      "type": "CustomerReceipt",
+      "id": "0b40440b-ebfe-44bc-9371-76c8b1ee3cac",
+      "number": "CR-2026-000043",
+      "name": null,
+      "flow": "F3",
+      "url": "https://oms.haseb.org/sales/payments/0b40440b-ebfe-44bc-9371-76c8b1ee3cac",
+      "routeTemplate": "/sales/payments/[id]",
+      "routeVerified": true,
+      "journalEntries": [
+        {
+          "id": "16348788-de1a-456f-a8c4-d0bf686d063d",
+          "number": "JV-2026-000245",
+          "sourceType": "CUSTOMER_RECEIPT",
+          "total": 900
+        }
+      ],
+      "stockMovements": [],
+      "expected": {
+        "amount": 900,
+        "allocatedTo": "INV-2026-000060"
+      },
+      "notes": null
+    },
+    {
+      "type": "SalesQuotation",
+      "id": "877deb70-7729-4373-bd5e-5a0db32be8fb",
+      "number": "QT-2026-000014",
+      "name": null,
+      "flow": "F3",
+      "url": "https://oms.haseb.org/sales/quotations/877deb70-7729-4373-bd5e-5a0db32be8fb",
+      "routeTemplate": "/sales/quotations/[id]",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {
+        "total": 1500,
+        "status": "APPROVED"
+      },
+      "notes": null
+    },
+    {
+      "type": "SalesOrder",
+      "id": "be3c74b6-b902-4379-8600-c428169258ab",
+      "number": "SO-2026-000012",
+      "name": null,
+      "flow": "F3",
+      "url": "https://oms.haseb.org/sales/orders/be3c74b6-b902-4379-8600-c428169258ab",
+      "routeTemplate": "/sales/orders/[id]",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {
+        "total": 1500
+      },
+      "notes": null
+    },
+    {
+      "type": "SalesInvoice",
+      "id": "d2f60051-6ccd-4b71-87fe-33d2e0e4da89",
+      "number": "INV-2026-000060",
+      "name": null,
+      "flow": "F3",
+      "url": "https://oms.haseb.org/sales/invoices/d2f60051-6ccd-4b71-87fe-33d2e0e4da89",
+      "routeTemplate": "/sales/invoices/[id]",
+      "routeVerified": true,
+      "journalEntries": [
+        {
+          "id": "d3bcc930-2184-4c2d-a7e4-a7783fa95699",
+          "number": "JV-2026-000243",
+          "sourceType": "SALES_INVOICE",
+          "total": 1620
+        }
+      ],
+      "stockMovements": [],
+      "expected": {
+        "grandTotal": 1500,
+        "paymentStatus": "PAID",
+        "cogs": 120
+      },
+      "notes": null
+    },
+    {
+      "type": "PartnerStatement",
+      "id": "f60fec6e-54a5-4d92-a8c8-c2db28d7feb1",
+      "number": "PT-2026-000085",
+      "name": "DEMO-GUIDE-20260924 Customer B2B statement",
+      "flow": "F3",
+      "url": "https://oms.haseb.org/reports/finance?report=customerStatement&partner=f60fec6e-54a5-4d92-a8c8-c2db28d7feb1",
+      "routeTemplate": "/reports/finance",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {
+        "opening": 0,
+        "closing": 0
+      },
+      "notes": null
+    },
+    {
+      "type": "SupplierPayment",
+      "id": "22ea5f78-5246-4553-b6a7-760d079622c8",
+      "number": "SP-2026-000023",
+      "name": null,
+      "flow": "F4",
+      "url": "https://oms.haseb.org/purchasing/payments/22ea5f78-5246-4553-b6a7-760d079622c8",
+      "routeTemplate": "/purchasing/payments/[id]",
+      "routeVerified": true,
+      "journalEntries": [
+        {
+          "id": "2b1b6f15-eeea-4459-91da-a9d7416673aa",
+          "number": "JV-2026-000247",
+          "sourceType": "SUPPLIER_PAYMENT",
+          "total": 200
+        }
+      ],
+      "stockMovements": [],
+      "expected": {
+        "amount": 200
+      },
+      "notes": null
+    },
+    {
+      "type": "SupplierPayment",
+      "id": "21bba09e-d1aa-4e1c-97a0-83276cbc07d9",
+      "number": "SP-2026-000024",
+      "name": null,
+      "flow": "F4",
+      "url": "https://oms.haseb.org/purchasing/payments/21bba09e-d1aa-4e1c-97a0-83276cbc07d9",
+      "routeTemplate": "/purchasing/payments/[id]",
+      "routeVerified": true,
+      "journalEntries": [
+        {
+          "id": "9d425a35-c403-43ab-afed-fd859c536be6",
+          "number": "JV-2026-000248",
+          "sourceType": "SUPPLIER_PAYMENT",
+          "total": 150
+        }
+      ],
+      "stockMovements": [],
+      "expected": {
+        "amount": 150
+      },
+      "notes": null
+    },
+    {
+      "type": "PurchaseQuotation",
+      "id": "e294e7fe-dc49-40d3-97df-670328a93d6b",
+      "number": "PQ-2026-000003",
+      "name": null,
+      "flow": "F4",
+      "url": "https://oms.haseb.org/purchasing/purchase-quotations/e294e7fe-dc49-40d3-97df-670328a93d6b",
+      "routeTemplate": "/purchasing/purchase-quotations/[id]",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {
+        "total": 350
+      },
+      "notes": null
+    },
+    {
+      "type": "PurchaseOrder",
+      "id": "f98d36f9-01cb-4653-94d2-ee3a26d75256",
+      "number": "PO-2026-000004",
+      "name": null,
+      "flow": "F4",
+      "url": "https://oms.haseb.org/purchasing/purchase-orders/f98d36f9-01cb-4653-94d2-ee3a26d75256",
+      "routeTemplate": "/purchasing/purchase-orders/[id]",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {
+        "total": 350,
+        "status": "APPROVED"
+      },
+      "notes": null
+    },
+    {
+      "type": "PurchaseInvoice",
+      "id": "9b454c23-67af-44df-aca6-aa2d6332609e",
+      "number": "PI-2026-000032",
+      "name": null,
+      "flow": "F4",
+      "url": "https://oms.haseb.org/purchasing/purchase-invoices/9b454c23-67af-44df-aca6-aa2d6332609e",
+      "routeTemplate": "/purchasing/purchase-invoices/[id]",
+      "routeVerified": true,
+      "journalEntries": [
+        {
+          "id": "2a0482bb-e763-49a7-8595-d325f62069d7",
+          "number": "JV-2026-000246",
+          "sourceType": "PURCHASE_INVOICE",
+          "total": 350
+        }
+      ],
+      "stockMovements": [
+        {
+          "id": "8bbb6bbd-3d6f-4a34-9d87-2dd06c4a2703",
+          "number": "MV/09/2026/000110",
+          "type": "PURCHASE_RECEIPT",
+          "quantity": 10
+        }
+      ],
+      "expected": {
+        "grandTotal": 350,
+        "paymentStatus": "PAID"
+      },
+      "notes": null
+    },
+    {
+      "type": "PurchaseReturn",
+      "id": "56ef4bfd-8db5-45db-b987-edf791d0a691",
+      "number": "PR-2026-000008",
+      "name": null,
+      "flow": "F4",
+      "url": "https://oms.haseb.org/purchasing/purchase-returns/56ef4bfd-8db5-45db-b987-edf791d0a691",
+      "routeTemplate": "/purchasing/purchase-returns/[id]",
+      "routeVerified": true,
+      "journalEntries": [
+        {
+          "id": "f41a23a8-d358-41a5-a685-6f6f1025f9dc",
+          "number": "JV-2026-000249",
+          "sourceType": "PURCHASE_RETURN",
+          "total": 70
+        }
+      ],
+      "stockMovements": [
+        {
+          "id": "c94c0114-a82c-4398-a0a9-7f4062434f7a",
+          "number": "MV/09/2026/000111",
+          "type": "PURCHASE_RETURN",
+          "quantity": -2
+        }
+      ],
+      "expected": {
+        "total": 70
+      },
+      "notes": null
+    },
+    {
+      "type": "PartnerStatement",
+      "id": "4147041a-83d7-41c8-860d-02e1f63ad8d3",
+      "number": "PT-2026-000086",
+      "name": "DEMO-GUIDE-20260924 Supplier statement",
+      "flow": "F4",
+      "url": "https://oms.haseb.org/reports/finance?report=supplierStatement&partner=4147041a-83d7-41c8-860d-02e1f63ad8d3",
+      "routeTemplate": "/reports/finance",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {
+        "closing": 70,
+        "closingMeaning": "supplier owes 70 (return after full payment)"
+      },
+      "notes": null
+    },
+    {
+      "type": "PurchaseInvoice",
+      "id": "299cc744-379c-4794-8482-4a403ea1ed7f",
+      "number": "PI-2026-000033",
+      "name": null,
+      "flow": "F5",
+      "url": "https://oms.haseb.org/purchasing/purchase-invoices/299cc744-379c-4794-8482-4a403ea1ed7f",
+      "routeTemplate": "/purchasing/purchase-invoices/[id]",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {
+        "grandTotal": 360,
+        "layer": "10 @ 36"
+      },
+      "notes": null
+    },
+    {
+      "type": "SalesInvoice",
+      "id": "9ee7b23f-4e3c-49bb-a24d-35bfd99fde7b",
+      "number": "INV-2026-000061",
+      "name": null,
+      "flow": "F5",
+      "url": "https://oms.haseb.org/sales/invoices/9ee7b23f-4e3c-49bb-a24d-35bfd99fde7b",
+      "routeTemplate": "/sales/invoices/[id]",
+      "routeVerified": true,
+      "journalEntries": [
+        {
+          "id": "04ae5e5d-445b-4014-a8a4-9dfcc9594a29",
+          "number": "JV-2026-000251",
+          "sourceType": "SALES_INVOICE",
+          "total": 372
+        }
+      ],
+      "stockMovements": [],
+      "expected": {
+        "grandTotal": 240,
+        "cogs": 132
+      },
+      "notes": null
+    },
+    {
+      "type": "InventoryMovements",
+      "id": "movements-c36133d4-3310-4110-ab13-4701f47b4064",
+      "number": null,
+      "name": "DEMO-GUIDE-20260924 Book Lab movements",
+      "flow": "F5",
+      "url": "https://oms.haseb.org/inventory/movements",
+      "routeTemplate": "/inventory/movements",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {
+        "onHand": 16
+      },
+      "notes": null
+    },
+    {
+      "type": "SalesInvoice",
+      "id": "842d44d3-d4ff-446a-bde5-51ed0ed61631",
+      "number": "INV-2026-000062",
+      "name": null,
+      "flow": "F6",
+      "url": "https://oms.haseb.org/sales/invoices/842d44d3-d4ff-446a-bde5-51ed0ed61631",
+      "routeTemplate": "/sales/invoices/[id]",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {
+        "status": "DRAFT",
+        "grandTotal": 1500
+      },
+      "notes": "Duplicated draft — never posted"
+    },
+    {
+      "type": "JournalEntry",
+      "id": "31d9f015-e7e9-4a9e-9275-73f8e35a59e5",
+      "number": "JV-2026-000252",
+      "name": null,
+      "flow": "F6",
+      "url": "https://oms.haseb.org/finance/journal-entries/31d9f015-e7e9-4a9e-9275-73f8e35a59e5",
+      "routeTemplate": "/finance/journal-entries/[id]",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {
+        "debit": 20,
+        "credit": 20,
+        "status": "POSTED"
+      },
+      "notes": "Manual JE: draft → edit → post → reset → repost"
+    },
+    {
+      "type": "FixedAsset",
+      "id": "0ebb7e52-bfaa-40d8-9a19-8e46b9b82318",
+      "number": "FA-2026-000013",
+      "name": "DEMO-GUIDE-20260924 Laptop Asset",
+      "flow": "F6",
+      "url": "https://oms.haseb.org/finance/fixed-assets",
+      "routeTemplate": "/finance/fixed-assets",
+      "routeVerified": true,
+      "journalEntries": [
+        {
+          "id": "4171ca21-d0f3-4795-8b58-3fb1ce571519",
+          "number": "JV-2026-000253",
+          "sourceType": "FIXED_ASSET_CAPITALIZATION",
+          "total": 1200
+        }
+      ],
+      "stockMovements": [],
+      "expected": {
+        "cost": 1200,
+        "monthlyDepreciation": 100,
+        "usefulLifeMonths": 12
+      },
+      "notes": null
+    },
+    {
+      "type": "PrepaidExpense",
+      "id": "2bd29e95-4c72-403f-8b24-c129ac58c95f",
+      "number": "PE-2026-000018",
+      "name": "DEMO-GUIDE-20260924 Prepaid Insurance",
+      "flow": "F6",
+      "url": "https://oms.haseb.org/finance/prepaid-expenses",
+      "routeTemplate": "/finance/prepaid-expenses",
+      "routeVerified": true,
+      "journalEntries": [
+        {
+          "id": "0f808600-3da6-4a7b-bbd8-ae945c52f186",
+          "number": "JV-2026-000254",
+          "sourceType": "PREPAID_EXPENSE",
+          "total": 300
+        }
+      ],
+      "stockMovements": [],
+      "expected": {
+        "amount": 300,
+        "periods": 3,
+        "perPeriod": 100
+      },
+      "notes": null
+    },
+    {
+      "type": "Report",
+      "id": "trial-balance",
+      "number": null,
+      "name": "Trial Balance (RUN range)",
+      "flow": "F7",
+      "url": "https://oms.haseb.org/reports/finance?report=trialBalance",
+      "routeTemplate": "/reports/finance",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {
+        "balanced": true,
+        "debit": 8922
+      },
+      "notes": null
+    },
+    {
+      "type": "Report",
+      "id": "general-ledger",
+      "number": null,
+      "name": "General Ledger",
+      "flow": "F7",
+      "url": "https://oms.haseb.org/reports/finance?report=generalLedger",
+      "routeTemplate": "/reports/finance",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {
+        "glEqualsTb": true
+      },
+      "notes": null
+    },
+    {
+      "type": "Report",
+      "id": "balance-sheet",
+      "number": null,
+      "name": "Balance Sheet",
+      "flow": "F7",
+      "url": "https://oms.haseb.org/reports/finance?report=balanceSheet",
+      "routeTemplate": "/reports/finance",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {
+        "balanced": true
+      },
+      "notes": null
+    },
+    {
+      "type": "Report",
+      "id": "income-statement",
+      "number": null,
+      "name": "Income Statement",
+      "flow": "F7",
+      "url": "https://oms.haseb.org/reports/finance?report=incomeStatement",
+      "routeTemplate": "/reports/finance",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {},
+      "notes": null
+    },
+    {
+      "type": "Report",
+      "id": "cash-flow",
+      "number": null,
+      "name": "Cash Flow",
+      "flow": "F7",
+      "url": "https://oms.haseb.org/reports/finance?report=cashFlow",
+      "routeTemplate": "/reports/finance",
+      "routeVerified": true,
+      "journalEntries": [],
+      "stockMovements": [],
+      "expected": {},
+      "notes": null
+    }
+  ]
+}

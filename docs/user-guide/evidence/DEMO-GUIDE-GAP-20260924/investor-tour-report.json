@@ -1,0 +1,804 @@
+{
+  "tour": "investor-tour",
+  "run": "DEMO-GUIDE-GAP-20260924",
+  "base": "https://oms.haseb.org",
+  "api": "https://oms.haseb.org/api",
+  "user": "qa-admin@oms.haseb.org",
+  "startedAt": "2026-09-24T09:37:05.088Z",
+  "checks": [
+    {
+      "id": "login",
+      "status": "PASS",
+      "detail": "qa-admin@oms.haseb.org"
+    },
+    {
+      "id": "master data available",
+      "status": "PASS",
+      "detail": "{\"currency\":\"EGP\",\"category\":\"منتجات بيع\",\"unit\":\"حبة\",\"warehouse\":\"المخزن الرئيسي (مقر الدقي)\",\"receivingAccount\":\"الصندوق الرئيسي\",\"paymentSource\":\"تحويل بنكي\"}"
+    },
+    {
+      "id": "investment accounting settings configured",
+      "status": "PASS",
+      "detail": "funding/distribution/payable/bank mapped"
+    },
+    {
+      "id": "create eligible product",
+      "status": "PASS",
+      "detail": "PRD-2026-000019 DEMO-GUIDE-GAP-20260924 Investment Product"
+    },
+    {
+      "id": "product persists availableForInvestmentOpportunities=true",
+      "status": "PASS",
+      "detail": "returned true"
+    },
+    {
+      "id": "eligible product listed by investmentEligible=true filter",
+      "status": "PASS",
+      "detail": "1 hit(s)"
+    },
+    {
+      "id": "create ineligible product",
+      "status": "PASS",
+      "detail": "PRD-2026-000020"
+    },
+    {
+      "id": "opening stock posted",
+      "status": "PASS",
+      "detail": "20 @ 100 into المخزن الرئيسي (مقر الدقي)"
+    },
+    {
+      "id": "stock on hand reflects opening balance",
+      "status": "PASS",
+      "detail": "onHand=20 @ المخزن الرئيسي (مقر الدقي)",
+      "evidence": [
+        {
+          "productId": "85bf5343-b137-46e6-afe7-9406af216a71",
+          "warehouseId": "db3ce440-7b3d-4bf9-8cef-60d194d23df8",
+          "onHand": 20,
+          "reserved": 0,
+          "available": 20
+        }
+      ]
+    },
+    {
+      "id": "product current cost set",
+      "status": "PASS",
+      "detail": "currentCost=100"
+    },
+    {
+      "id": "create Investor A",
+      "status": "PASS",
+      "detail": "DEMO-GUIDE-GAP-20260924 Investor A"
+    },
+    {
+      "id": "create Investor B",
+      "status": "PASS",
+      "detail": "DEMO-GUIDE-GAP-20260924 Investor B"
+    },
+    {
+      "id": "ineligible product rejected on opportunity create (4xx)",
+      "status": "PASS",
+      "detail": "400 VALIDATION_ERROR المنتج \"DEMO-GUIDE-GAP-20260924 Not-For-Investment Product\" غير متاح لفرص الاستثمار — يجب أن يكون المنتج نشطًا وغير مؤرشف ومفعّلًا عليه خيار «متاح لفرص الاستثمار». products:investmentEligible"
+    },
+    {
+      "id": "create opportunity (target capital server-computed)",
+      "status": "PASS",
+      "detail": "IOP-2026-000002 target=1000 expected=1000"
+    },
+    {
+      "id": "ineligible product rejected when added to existing opportunity (4xx)",
+      "status": "PASS",
+      "detail": "400 VALIDATION_ERROR المنتج \"DEMO-GUIDE-GAP-20260924 Not-For-Investment Product\" غير متاح لفرص الاستثمار — يجب أن يكون المنتج نشطًا وغير مؤرشف ومفعّلًا عليه خيار «متاح لفرص الاستثمار». products:investmentEligible"
+    },
+    {
+      "id": "open opportunity",
+      "status": "PASS",
+      "detail": "OPEN"
+    },
+    {
+      "id": "subscription DEMO-GUIDE-GAP-20260924 Investor A",
+      "status": "PASS",
+      "detail": "committed 600"
+    },
+    {
+      "id": "confirm contribution DEMO-GUIDE-GAP-20260924 Investor A",
+      "status": "PASS",
+      "detail": "CONFIRMED 600"
+    },
+    {
+      "id": "contribution DEMO-GUIDE-GAP-20260924 Investor A: JE JV-2026-000261 balanced/POSTED = 600",
+      "status": "PASS",
+      "detail": "Dr 600 Cr 600 status=POSTED",
+      "evidence": ["112 البنوك Dr 600 Cr 0", "241 تمويل المستثمرين Dr 0 Cr 600"]
+    },
+    {
+      "id": "subscription DEMO-GUIDE-GAP-20260924 Investor B",
+      "status": "PASS",
+      "detail": "committed 400"
+    },
+    {
+      "id": "confirm contribution DEMO-GUIDE-GAP-20260924 Investor B",
+      "status": "PASS",
+      "detail": "CONFIRMED 400"
+    },
+    {
+      "id": "contribution DEMO-GUIDE-GAP-20260924 Investor B: JE JV-2026-000262 balanced/POSTED = 400",
+      "status": "PASS",
+      "detail": "Dr 400 Cr 400 status=POSTED",
+      "evidence": ["112 البنوك Dr 400 Cr 0", "241 تمويل المستثمرين Dr 0 Cr 400"]
+    },
+    {
+      "id": "opportunity auto-marked FUNDED at target capital",
+      "status": "PASS",
+      "detail": "status=FUNDED funded=?"
+    },
+    {
+      "id": "activate opportunity",
+      "status": "PASS",
+      "detail": "ACTIVE"
+    },
+    {
+      "id": "store order 1",
+      "status": "PASS",
+      "detail": "STO-2026-000089 3 × 300"
+    },
+    {
+      "id": "store order 1: payment confirm & post",
+      "status": "PASS",
+      "detail": "PAY-2026-000045"
+    },
+    {
+      "id": "store order 1: sales invoice generated",
+      "status": "PASS",
+      "detail": "INV-2026-000065"
+    },
+    {
+      "id": "store order 1 invoice: JE JV-2026-000264 balanced/POSTED",
+      "status": "PASS",
+      "detail": "Dr 1200 Cr 1200 status=POSTED",
+      "evidence": [
+        "121 الذمم المدينة التجارية Dr 900 Cr 0",
+        "411 مبيعات المنتجات Dr 0 Cr 900",
+        "511 تكلفة المبيعات Dr 300 Cr 0",
+        "131 مخزون البضاعة Dr 0 Cr 300"
+      ]
+    },
+    {
+      "id": "store order 1: fulfillment DELIVERED",
+      "status": "PASS",
+      "detail": "fulfillment=DELIVERED payment=FULLY_PAID_RECONCILED"
+    },
+    {
+      "id": "store order 2",
+      "status": "PASS",
+      "detail": "STO-2026-000090 2 × 250"
+    },
+    {
+      "id": "store order 2: payment confirm & post",
+      "status": "PASS",
+      "detail": "PAY-2026-000046"
+    },
+    {
+      "id": "store order 2: sales invoice generated",
+      "status": "PASS",
+      "detail": "INV-2026-000066"
+    },
+    {
+      "id": "store order 2 invoice: JE JV-2026-000266 balanced/POSTED",
+      "status": "PASS",
+      "detail": "Dr 700 Cr 700 status=POSTED",
+      "evidence": [
+        "121 الذمم المدينة التجارية Dr 500 Cr 0",
+        "411 مبيعات المنتجات Dr 0 Cr 500",
+        "511 تكلفة المبيعات Dr 200 Cr 0",
+        "131 مخزون البضاعة Dr 0 Cr 200"
+      ]
+    },
+    {
+      "id": "store order 2: fulfillment DELIVERED",
+      "status": "PASS",
+      "detail": "fulfillment=DELIVERED payment=FULLY_PAID_RECONCILED"
+    },
+    {
+      "id": "allocate sales of STO-2026-000089 to opportunity",
+      "status": "PASS",
+      "detail": "unitsAllocated=3 expected=3"
+    },
+    {
+      "id": "allocation idempotent for STO-2026-000089",
+      "status": "PASS",
+      "detail": "second run unitsAllocated=0"
+    },
+    {
+      "id": "allocate sales of STO-2026-000090 to opportunity",
+      "status": "PASS",
+      "detail": "unitsAllocated=2 expected=2"
+    },
+    {
+      "id": "allocation idempotent for STO-2026-000090",
+      "status": "PASS",
+      "detail": "second run unitsAllocated=0"
+    },
+    {
+      "id": "global recalculate (all delivered orders)",
+      "status": "SKIP",
+      "detail": "touches non-demo allocations — set ALLOW_GLOBAL_RECALC=1 to include"
+    },
+    {
+      "id": "attributable revenue = delivered order lines (agreed amounts)",
+      "status": "PASS",
+      "detail": "api=1400 expected=1400"
+    },
+    {
+      "id": "COGS = net sold units × funded unit cost",
+      "status": "PASS",
+      "detail": "api=500 expected=500 (5 × 100)"
+    },
+    {
+      "id": "net sold units",
+      "status": "PASS",
+      "detail": "api=5 expected=5"
+    },
+    {
+      "id": "attributable revenue reconciles to sales invoice subtotals",
+      "status": "PASS",
+      "detail": "invoices=1400 expected=1400"
+    },
+    {
+      "id": "inventory COGS posted on invoices = sold units × inventory cost",
+      "status": "PASS",
+      "detail": "posted=500 expected=500"
+    },
+    {
+      "id": "investment COGS basis vs inventory cost",
+      "status": "PASS",
+      "detail": "fundedUnitCost=100 inventoryCost=100 (engine uses the opportunity's agreed funded cost by design)"
+    },
+    {
+      "id": "opportunity expense approved",
+      "status": "PASS",
+      "detail": "d76eaf44-4f09-4899-8673-f050136b105d 50"
+    },
+    {
+      "id": "estimate: revenue",
+      "status": "PASS",
+      "detail": "api=1400 expected=1400"
+    },
+    {
+      "id": "estimate: COGS",
+      "status": "PASS",
+      "detail": "api=500 expected=500"
+    },
+    {
+      "id": "estimate: expenses",
+      "status": "PASS",
+      "detail": "api=50 expected=50"
+    },
+    {
+      "id": "estimate: net profit = revenue − COGS − expenses",
+      "status": "PASS",
+      "detail": "api=850 expected=850"
+    },
+    {
+      "id": "estimate: investor pool = net × 40%",
+      "status": "PASS",
+      "detail": "api=340 expected=340"
+    },
+    {
+      "id": "estimate: company portion",
+      "status": "PASS",
+      "detail": "api=510 expected=510"
+    },
+    {
+      "id": "estimate: DEMO-GUIDE-GAP-20260924 Investor B share (funding 400/1000)",
+      "status": "PASS",
+      "detail": "api=136 expected=136 participation=40%"
+    },
+    {
+      "id": "estimate: DEMO-GUIDE-GAP-20260924 Investor A share (funding 600/1000)",
+      "status": "PASS",
+      "detail": "api=204 expected=204 participation=60%"
+    },
+    {
+      "id": "estimate: Σ investor shares = pool",
+      "status": "PASS",
+      "detail": "Σ=340 pool=340"
+    },
+    {
+      "id": "snapshot: revenue",
+      "status": "PASS",
+      "detail": "api=1400 expected=1400"
+    },
+    {
+      "id": "snapshot: COGS",
+      "status": "PASS",
+      "detail": "api=500 expected=500"
+    },
+    {
+      "id": "snapshot: expenses",
+      "status": "PASS",
+      "detail": "api=50 expected=50"
+    },
+    {
+      "id": "snapshot: net profit = revenue − COGS − expenses",
+      "status": "PASS",
+      "detail": "api=850 expected=850"
+    },
+    {
+      "id": "snapshot: investor pool = net × 40%",
+      "status": "PASS",
+      "detail": "api=340 expected=340"
+    },
+    {
+      "id": "snapshot: company portion",
+      "status": "PASS",
+      "detail": "api=510 expected=510"
+    },
+    {
+      "id": "snapshot: DEMO-GUIDE-GAP-20260924 Investor B share (funding 400/1000)",
+      "status": "PASS",
+      "detail": "api=136 expected=136 participation=40%"
+    },
+    {
+      "id": "snapshot: DEMO-GUIDE-GAP-20260924 Investor A share (funding 600/1000)",
+      "status": "PASS",
+      "detail": "api=204 expected=204 participation=60%"
+    },
+    {
+      "id": "snapshot: Σ investor shares = pool",
+      "status": "PASS",
+      "detail": "Σ=340 pool=340"
+    },
+    {
+      "id": "approve profit calculation",
+      "status": "PASS",
+      "detail": "APPROVED"
+    },
+    {
+      "id": "approved profit is immutable (re-calc rejected 4xx)",
+      "status": "PASS",
+      "detail": "400 VALIDATION_ERROR This Opportunity already has an Approved Profit Calculation. Approved profit is immutable."
+    },
+    {
+      "id": "distribution total = investor pool",
+      "status": "PASS",
+      "detail": "api=340 expected=340"
+    },
+    {
+      "id": "approve distribution",
+      "status": "PASS",
+      "detail": "APPROVED"
+    },
+    {
+      "id": "distribution: JE JV-2026-000267 balanced/POSTED = 340",
+      "status": "PASS",
+      "detail": "Dr 340 Cr 340 status=POSTED",
+      "evidence": [
+        "549 توزيع أرباح المستثمرين Dr 340 Cr 0",
+        "242 أرباح مستثمرين مستحقة Dr 0 Cr 136",
+        "242 أرباح مستثمرين مستحقة Dr 0 Cr 204"
+      ]
+    },
+    {
+      "id": "confirm profit payment DEMO-GUIDE-GAP-20260924 Investor B",
+      "status": "PASS",
+      "detail": "136"
+    },
+    {
+      "id": "payment DEMO-GUIDE-GAP-20260924 Investor B: JE JV-2026-000268 balanced/POSTED = 136",
+      "status": "PASS",
+      "detail": "Dr 136 Cr 136 status=POSTED",
+      "evidence": ["242 أرباح مستثمرين مستحقة Dr 136 Cr 0", "112 البنوك Dr 0 Cr 136"]
+    },
+    {
+      "id": "confirm profit payment DEMO-GUIDE-GAP-20260924 Investor A",
+      "status": "PASS",
+      "detail": "204"
+    },
+    {
+      "id": "payment DEMO-GUIDE-GAP-20260924 Investor A: JE JV-2026-000269 balanced/POSTED = 204",
+      "status": "PASS",
+      "detail": "Dr 204 Cr 204 status=POSTED",
+      "evidence": ["242 أرباح مستثمرين مستحقة Dr 204 Cr 0", "112 البنوك Dr 0 Cr 204"]
+    },
+    {
+      "id": "distribution fully paid",
+      "status": "PASS",
+      "detail": "paid=340 outstanding=0 status=PAID"
+    },
+    {
+      "id": "DEMO-GUIDE-GAP-20260924 Investor B: profile total confirmed funding",
+      "status": "PASS",
+      "detail": "api=400 expected=400"
+    },
+    {
+      "id": "DEMO-GUIDE-GAP-20260924 Investor B: ledger CAPITAL_FUNDED",
+      "status": "PASS",
+      "detail": "ledger=400 expected=400"
+    },
+    {
+      "id": "DEMO-GUIDE-GAP-20260924 Investor B: realized profit visible in ledger",
+      "status": "PASS",
+      "detail": "types=PROFIT_ENTITLEMENT,PROFIT_PAYMENT,CAPITAL_FUNDED profit=136 expected=136"
+    },
+    {
+      "id": "DEMO-GUIDE-GAP-20260924 Investor B: ledger summary",
+      "status": "PASS",
+      "detail": "{\"totalConfirmedCapital\":400,\"capitalReturned\":0,\"remainingCapitalPosition\":400,\"totalApprovedProfit\":136,\"totalProfitPaid\":136,\"outstandingProfit\":0,\"activeOpportunities\":1,\"completedOpportunities\":0}"
+    },
+    {
+      "id": "DEMO-GUIDE-GAP-20260924 Investor A: profile total confirmed funding",
+      "status": "PASS",
+      "detail": "api=600 expected=600"
+    },
+    {
+      "id": "DEMO-GUIDE-GAP-20260924 Investor A: ledger CAPITAL_FUNDED",
+      "status": "PASS",
+      "detail": "ledger=600 expected=600"
+    },
+    {
+      "id": "DEMO-GUIDE-GAP-20260924 Investor A: realized profit visible in ledger",
+      "status": "PASS",
+      "detail": "types=PROFIT_ENTITLEMENT,PROFIT_PAYMENT,CAPITAL_FUNDED profit=204 expected=204"
+    },
+    {
+      "id": "DEMO-GUIDE-GAP-20260924 Investor A: ledger summary",
+      "status": "PASS",
+      "detail": "{\"totalConfirmedCapital\":600,\"capitalReturned\":0,\"remainingCapitalPosition\":600,\"totalApprovedProfit\":204,\"totalProfitPaid\":204,\"outstandingProfit\":0,\"activeOpportunities\":1,\"completedOpportunities\":0}"
+    },
+    {
+      "id": "opportunity distribution summary",
+      "status": "PASS",
+      "detail": "{\"opportunityId\":\"acfd047e-9b95-473c-a7ac-20d1388ff1bb\",\"status\":\"ACTIVE\",\"confirmedCapital\":1000,\"approvedNetProfit\":850,\"investorProfitPool\":340,\"distributedProfit\":340,\"paidProfit\":340,\"outstandingInvestorProfit\":0,\"capitalReturned\":0}"
+    }
+  ],
+  "expected": {
+    "inventoryUnitCost": 100,
+    "targetCapital": 1000,
+    "funding": {
+      "12e812ba-afb9-47e5-8439-5e05a531f18a": 600,
+      "082c3a36-a37b-48af-be17-590e4b01a6f2": 400
+    },
+    "revenue": 1400,
+    "cogs": 500,
+    "netSoldUnits": 5,
+    "expenses": 50,
+    "netProfit": 850,
+    "investorPool": 340,
+    "companyPortion": 510,
+    "shares": {
+      "082c3a36-a37b-48af-be17-590e4b01a6f2": 136,
+      "12e812ba-afb9-47e5-8439-5e05a531f18a": 204
+    }
+  },
+  "records": [
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "Product",
+      "id": "85bf5343-b137-46e6-afe7-9406af216a71",
+      "number": "PRD-2026-000019",
+      "name": "DEMO-GUIDE-GAP-20260924 Investment Product",
+      "webUrl": "https://oms.haseb.org/products/85bf5343-b137-46e6-afe7-9406af216a71",
+      "webRouteVerified": true,
+      "availableForInvestmentOpportunities": true
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "Product",
+      "id": "715742af-06c2-413a-8e68-5c1a72301643",
+      "number": "PRD-2026-000020",
+      "name": "DEMO-GUIDE-GAP-20260924 Not-For-Investment Product",
+      "webUrl": "https://oms.haseb.org/products/715742af-06c2-413a-8e68-5c1a72301643",
+      "webRouteVerified": true,
+      "availableForInvestmentOpportunities": false,
+      "purpose": "ineligibility check"
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "InventoryMovement",
+      "id": "e110a27c-47d4-4d6c-8f4e-c899edf4e142",
+      "number": "OPN-2026-000020",
+      "webUrl": "https://oms.haseb.org/inventory/movements",
+      "webRouteVerified": true
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "Investor",
+      "id": "12e812ba-afb9-47e5-8439-5e05a531f18a",
+      "number": null,
+      "name": "DEMO-GUIDE-GAP-20260924 Investor A",
+      "webUrl": "https://oms.haseb.org/investors/list/12e812ba-afb9-47e5-8439-5e05a531f18a",
+      "webRouteVerified": true
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "Investor",
+      "id": "082c3a36-a37b-48af-be17-590e4b01a6f2",
+      "number": null,
+      "name": "DEMO-GUIDE-GAP-20260924 Investor B",
+      "webUrl": "https://oms.haseb.org/investors/list/082c3a36-a37b-48af-be17-590e4b01a6f2",
+      "webRouteVerified": true
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "InvestmentOpportunity",
+      "id": "acfd047e-9b95-473c-a7ac-20d1388ff1bb",
+      "number": "IOP-2026-000002",
+      "name": "DEMO-GUIDE-GAP-20260924 فرصة استثمارية",
+      "webUrl": "https://oms.haseb.org/investors/opportunities/acfd047e-9b95-473c-a7ac-20d1388ff1bb",
+      "webRouteVerified": true,
+      "investorNetProfitSharePercent": 40,
+      "targetCapital": 1000
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "InvestorSubscription",
+      "id": "f928922f-8fb7-4155-a3c0-91ff6d8400b0",
+      "number": null,
+      "name": null,
+      "webUrl": "https://oms.haseb.org/investors/opportunities/acfd047e-9b95-473c-a7ac-20d1388ff1bb",
+      "webRouteVerified": true,
+      "investorId": "12e812ba-afb9-47e5-8439-5e05a531f18a",
+      "committedAmount": 600
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "JournalEntry",
+      "id": "23cf7b05-ea47-43b5-9617-7da7694d39dd",
+      "number": "JV-2026-000261",
+      "name": null,
+      "webUrl": "https://oms.haseb.org/finance/journal-entries/23cf7b05-ea47-43b5-9617-7da7694d39dd",
+      "webRouteVerified": true,
+      "sourceType": "CAPITAL_CONTRIBUTION",
+      "sourceId": "cc3eb095-306e-4736-bb5c-c69f8b6d8b6b",
+      "expectedAmount": 600
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "CapitalContribution",
+      "id": "cc3eb095-306e-4736-bb5c-c69f8b6d8b6b",
+      "number": null,
+      "name": null,
+      "webUrl": "https://oms.haseb.org/investors/opportunities/acfd047e-9b95-473c-a7ac-20d1388ff1bb",
+      "webRouteVerified": true,
+      "amount": 600,
+      "status": "CONFIRMED",
+      "journalEntryIds": ["23cf7b05-ea47-43b5-9617-7da7694d39dd"]
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "InvestorSubscription",
+      "id": "42e6d10d-fb89-40fc-9a22-cc25d1135642",
+      "number": null,
+      "name": null,
+      "webUrl": "https://oms.haseb.org/investors/opportunities/acfd047e-9b95-473c-a7ac-20d1388ff1bb",
+      "webRouteVerified": true,
+      "investorId": "082c3a36-a37b-48af-be17-590e4b01a6f2",
+      "committedAmount": 400
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "JournalEntry",
+      "id": "ad7dd87a-1e25-4056-b165-0f5909228be7",
+      "number": "JV-2026-000262",
+      "name": null,
+      "webUrl": "https://oms.haseb.org/finance/journal-entries/ad7dd87a-1e25-4056-b165-0f5909228be7",
+      "webRouteVerified": true,
+      "sourceType": "CAPITAL_CONTRIBUTION",
+      "sourceId": "5fd4fba5-af00-4677-83de-d43def71869d",
+      "expectedAmount": 400
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "CapitalContribution",
+      "id": "5fd4fba5-af00-4677-83de-d43def71869d",
+      "number": null,
+      "name": null,
+      "webUrl": "https://oms.haseb.org/investors/opportunities/acfd047e-9b95-473c-a7ac-20d1388ff1bb",
+      "webRouteVerified": true,
+      "amount": 400,
+      "status": "CONFIRMED",
+      "journalEntryIds": ["ad7dd87a-1e25-4056-b165-0f5909228be7"]
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "JournalEntry",
+      "id": "4dd20561-745b-46c3-9cbd-30013f0e65b6",
+      "number": "JV-2026-000264",
+      "name": null,
+      "webUrl": "https://oms.haseb.org/finance/journal-entries/4dd20561-745b-46c3-9cbd-30013f0e65b6",
+      "webRouteVerified": true,
+      "sourceType": "SALES_INVOICE",
+      "sourceId": "a15fd300-3fe7-4be0-aedb-5ba201a5026f",
+      "expectedAmount": 1200
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "SalesInvoice",
+      "id": "a15fd300-3fe7-4be0-aedb-5ba201a5026f",
+      "number": "INV-2026-000065",
+      "name": null,
+      "webUrl": "https://oms.haseb.org/sales/invoices/a15fd300-3fe7-4be0-aedb-5ba201a5026f",
+      "webRouteVerified": true,
+      "storeOrderId": "d25d45c1-855e-4da9-97b9-53a0306f0b11",
+      "journalEntryIds": ["4dd20561-745b-46c3-9cbd-30013f0e65b6"],
+      "expectedSubtotal": 900
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "StoreOrder",
+      "id": "d25d45c1-855e-4da9-97b9-53a0306f0b11",
+      "number": "STO-2026-000089",
+      "name": null,
+      "webUrl": "https://oms.haseb.org/store-orders/d25d45c1-855e-4da9-97b9-53a0306f0b11",
+      "webRouteVerified": true,
+      "salesInvoiceId": "a15fd300-3fe7-4be0-aedb-5ba201a5026f",
+      "paymentId": "ef22b91f-be0a-49f3-a38c-df78eb29ac27",
+      "journalEntryIds": ["4dd20561-745b-46c3-9cbd-30013f0e65b6"],
+      "expectedRevenue": 900,
+      "fulfillment": "DELIVERED"
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "JournalEntry",
+      "id": "6626564e-5cd7-42d2-a8cb-11282e586d3d",
+      "number": "JV-2026-000266",
+      "name": null,
+      "webUrl": "https://oms.haseb.org/finance/journal-entries/6626564e-5cd7-42d2-a8cb-11282e586d3d",
+      "webRouteVerified": true,
+      "sourceType": "SALES_INVOICE",
+      "sourceId": "3bf4e8f9-712c-4f7f-941e-d979a985cfc9",
+      "expectedAmount": 700
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "SalesInvoice",
+      "id": "3bf4e8f9-712c-4f7f-941e-d979a985cfc9",
+      "number": "INV-2026-000066",
+      "name": null,
+      "webUrl": "https://oms.haseb.org/sales/invoices/3bf4e8f9-712c-4f7f-941e-d979a985cfc9",
+      "webRouteVerified": true,
+      "storeOrderId": "af8aabcd-b161-45d5-8e48-dbd01fef6a89",
+      "journalEntryIds": ["6626564e-5cd7-42d2-a8cb-11282e586d3d"],
+      "expectedSubtotal": 500
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "StoreOrder",
+      "id": "af8aabcd-b161-45d5-8e48-dbd01fef6a89",
+      "number": "STO-2026-000090",
+      "name": null,
+      "webUrl": "https://oms.haseb.org/store-orders/af8aabcd-b161-45d5-8e48-dbd01fef6a89",
+      "webRouteVerified": true,
+      "salesInvoiceId": "3bf4e8f9-712c-4f7f-941e-d979a985cfc9",
+      "paymentId": "3a8be7c9-dd7c-4280-b309-edfd9fef0745",
+      "journalEntryIds": ["6626564e-5cd7-42d2-a8cb-11282e586d3d"],
+      "expectedRevenue": 500,
+      "fulfillment": "DELIVERED"
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "OpportunitySaleAllocation",
+      "id": "f4053a56-9f73-402c-8e36-a69b1d7ab4f7",
+      "number": "STO-2026-000090",
+      "webUrl": "https://oms.haseb.org/investors/opportunities/acfd047e-9b95-473c-a7ac-20d1388ff1bb",
+      "webRouteVerified": true,
+      "allocatedQuantity": 2,
+      "allocatedRevenue": 500
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "OpportunitySaleAllocation",
+      "id": "016fe1df-e930-4c8e-8fff-bc6f5e9d853f",
+      "number": "STO-2026-000089",
+      "webUrl": "https://oms.haseb.org/investors/opportunities/acfd047e-9b95-473c-a7ac-20d1388ff1bb",
+      "webRouteVerified": true,
+      "allocatedQuantity": 3,
+      "allocatedRevenue": 900
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "OpportunityExpense",
+      "id": "d76eaf44-4f09-4899-8673-f050136b105d",
+      "number": null,
+      "name": null,
+      "webUrl": "https://oms.haseb.org/investors/opportunities/acfd047e-9b95-473c-a7ac-20d1388ff1bb",
+      "webRouteVerified": true,
+      "amount": 50,
+      "status": "APPROVED"
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "ProfitCalculation",
+      "id": "476ae78b-acf1-4714-963f-d38a3faa4b72",
+      "number": null,
+      "name": null,
+      "webUrl": "https://oms.haseb.org/investors/opportunities/acfd047e-9b95-473c-a7ac-20d1388ff1bb",
+      "webRouteVerified": true,
+      "status": "APPROVED",
+      "revenue": 1400,
+      "cogs": 500,
+      "expenses": 50,
+      "netProfit": 850,
+      "investorProfitPool": 340
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "JournalEntry",
+      "id": "76ce50a8-0b33-4143-a5d2-d6a89b1e1794",
+      "number": "JV-2026-000267",
+      "name": null,
+      "webUrl": "https://oms.haseb.org/finance/journal-entries/76ce50a8-0b33-4143-a5d2-d6a89b1e1794",
+      "webRouteVerified": true,
+      "sourceType": "INVESTOR_DISTRIBUTION",
+      "sourceId": "0ec793f0-6ddf-4428-8386-8a671d736bcc",
+      "expectedAmount": 340
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "ProfitDistribution",
+      "id": "0ec793f0-6ddf-4428-8386-8a671d736bcc",
+      "number": "PDIST-2026-000002",
+      "name": null,
+      "webUrl": "https://oms.haseb.org/investors/opportunities/acfd047e-9b95-473c-a7ac-20d1388ff1bb",
+      "webRouteVerified": true,
+      "status": "APPROVED",
+      "totalInvestorProfit": 340,
+      "journalEntryIds": ["76ce50a8-0b33-4143-a5d2-d6a89b1e1794"]
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "JournalEntry",
+      "id": "b6feea65-a9a4-40b7-930a-26981d77aa49",
+      "number": "JV-2026-000268",
+      "name": null,
+      "webUrl": "https://oms.haseb.org/finance/journal-entries/b6feea65-a9a4-40b7-930a-26981d77aa49",
+      "webRouteVerified": true,
+      "sourceType": "INVESTOR_PROFIT_PAYMENT",
+      "sourceId": "1d8e4379-2ad5-491f-81ce-d8d99fa6b9fa",
+      "expectedAmount": 136
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "DistributionPayment",
+      "id": "1d8e4379-2ad5-491f-81ce-d8d99fa6b9fa",
+      "number": null,
+      "name": null,
+      "webUrl": "https://oms.haseb.org/investors/opportunities/acfd047e-9b95-473c-a7ac-20d1388ff1bb",
+      "webRouteVerified": true,
+      "amount": 136,
+      "investorId": "082c3a36-a37b-48af-be17-590e4b01a6f2",
+      "journalEntryIds": ["b6feea65-a9a4-40b7-930a-26981d77aa49"]
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "JournalEntry",
+      "id": "3c251d94-4f0c-4c36-8bdb-89216979e4f8",
+      "number": "JV-2026-000269",
+      "name": null,
+      "webUrl": "https://oms.haseb.org/finance/journal-entries/3c251d94-4f0c-4c36-8bdb-89216979e4f8",
+      "webRouteVerified": true,
+      "sourceType": "INVESTOR_PROFIT_PAYMENT",
+      "sourceId": "f5f26c97-7801-4534-9176-b1891754b77d",
+      "expectedAmount": 204
+    },
+    {
+      "run": "DEMO-GUIDE-GAP-20260924",
+      "type": "DistributionPayment",
+      "id": "f5f26c97-7801-4534-9176-b1891754b77d",
+      "number": null,
+      "name": null,
+      "webUrl": "https://oms.haseb.org/investors/opportunities/acfd047e-9b95-473c-a7ac-20d1388ff1bb",
+      "webRouteVerified": true,
+      "amount": 204,
+      "investorId": "12e812ba-afb9-47e5-8439-5e05a531f18a",
+      "journalEntryIds": ["3c251d94-4f0c-4c36-8bdb-89216979e4f8"]
+    }
+  ],
+  "recordIndex": "D:\\Systems\\OMS\\tmp\\acceptance\\DEMO-GUIDE-GAP-20260924\\demo-record-index.investors.json",
+  "finishedAt": "2026-09-24T09:37:46.209Z",
+  "summary": {
+    "PASS": 82,
+    "SKIP": 1
+  }
+}

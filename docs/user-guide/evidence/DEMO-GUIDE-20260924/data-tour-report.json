@@ -1,0 +1,1143 @@
+{
+  "run": "DEMO-GUIDE-20260924",
+  "startedAt": "2026-09-24T09:06:18.613Z",
+  "base": "https://oms.haseb.org",
+  "api": "https://oms.haseb.org/api",
+  "user": "qa-admin@oms.haseb.org",
+  "allowGlobalRuns": false,
+  "functionalCurrency": "EGP",
+  "flows": [
+    {
+      "id": "SETUP",
+      "name": "Master data lookups + demo products/partners/opening stock",
+      "status": "PASS",
+      "checks": [
+        {
+          "name": "functional currency resolved",
+          "pass": true,
+          "detail": "EGP"
+        },
+        {
+          "name": "demo products created (ACTIVE inventory items)",
+          "pass": true,
+          "detail": "PRD-2026-000017 PRD-2026-000018"
+        },
+        {
+          "name": "opening stock posted for Book (100 @ 40)",
+          "pass": true,
+          "detail": "{\"id\":\"a91a002e-2d0d-4b16-8679-c4430d9c96a3\",\"movementNumber\":\"OPN-2026-000018\",\"type\":\"OPENING_BALANCE\",\"warehouseId\":\"…"
+        }
+      ],
+      "evidence": {
+        "masterData": {
+          "currency": "EGP",
+          "warehouse": "المخزن الرئيسي (مقر الدقي)",
+          "unit": "حبة",
+          "category": "منتجات بيع",
+          "country": "EG",
+          "receivingAccount": "الصندوق الرئيسي",
+          "paymentSource": "تحويل بنكي",
+          "journal": "GJ"
+        }
+      },
+      "records": [
+        {
+          "type": "Product",
+          "id": "14743ed8-3e40-4063-915c-650ed8fc7612",
+          "number": "PRD-2026-000017",
+          "url": "https://oms.haseb.org/products/14743ed8-3e40-4063-915c-650ed8fc7612"
+        },
+        {
+          "type": "Product",
+          "id": "c36133d4-3310-4110-ab13-4701f47b4064",
+          "number": "PRD-2026-000018",
+          "url": "https://oms.haseb.org/products/c36133d4-3310-4110-ab13-4701f47b4064"
+        },
+        {
+          "type": "Customer",
+          "id": "f60fec6e-54a5-4d92-a8c8-c2db28d7feb1",
+          "number": "PT-2026-000085",
+          "url": "https://oms.haseb.org/sales/customers/f60fec6e-54a5-4d92-a8c8-c2db28d7feb1"
+        },
+        {
+          "type": "Supplier",
+          "id": "4147041a-83d7-41c8-860d-02e1f63ad8d3",
+          "number": "PT-2026-000086",
+          "url": "https://oms.haseb.org/purchasing/suppliers/4147041a-83d7-41c8-860d-02e1f63ad8d3"
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "F1",
+      "name": "Leads → store orders → Confirm & Post → invoice (idempotency, settlement, validation)",
+      "status": "PASS",
+      "checks": [
+        {
+          "name": "order total equals agreed amount",
+          "pass": true,
+          "detail": "total=900.00 items=[\"900\"]"
+        },
+        {
+          "name": "order currency is the functional currency",
+          "pass": true,
+          "detail": "f176ab0e-8132-4584-b188-b2e590608212 vs EGP"
+        },
+        {
+          "name": "Confirm & Post: payment VERIFIED, first call not alreadyPosted",
+          "pass": true,
+          "detail": "{\"id\":\"29e5935e-43ba-4de1-91ff-7a53178f8788\",\"paymentNumber\":\"PAY-2026-000040\",\"status\":\"VERIFIED\",\"alreadyPosted\":false,\"receipt\":{\"id\":\"9ff8cdf7-71c3-4b7b-bec5-762bb3f9a950\",\"transactionNumber\":\"CR-2026-000039\",\"status\":\"CONFIRMED\",\"journalEntry\":{\"id\":\"cf98525d-774c-419a-a368-522539b30813\",\"entry…"
+        },
+        {
+          "name": "Confirm & Post returned receipt + JE",
+          "pass": true,
+          "detail": "CR-2026-000039 JV-2026-000235"
+        },
+        {
+          "name": "retry Confirm & Post ×2 → alreadyPosted, same receipt",
+          "pass": true,
+          "detail": "200:true:CR-2026-000039, 200:true:CR-2026-000039"
+        },
+        {
+          "name": "exactly ONE customer receipt for the payment",
+          "pass": true,
+          "detail": "CR-2026-000039"
+        },
+        {
+          "name": "exactly ONE receipt JE",
+          "pass": true,
+          "detail": "JV-2026-000235"
+        },
+        {
+          "name": "receipt JE balanced & POSTED",
+          "pass": true,
+          "detail": "JV-2026-000235 Dr 900 Cr 900"
+        },
+        {
+          "name": "receipt JE total = order amount in EGP (no FX multiplication)",
+          "pass": true,
+          "detail": "Dr 900 rate=1 currency=EGP"
+        },
+        {
+          "name": "receipt JE: Dr receiving account / Cr AR for the order amount",
+          "pass": true,
+          "detail": "111 900/0 | 121 0/900"
+        },
+        {
+          "name": "payment-context: paid = total = agreed, outstanding 0, fully settled",
+          "pass": true,
+          "detail": "{\"total\":\"900.00\",\"paid\":\"900.00\",\"outstanding\":\"0.00\",\"claimed\":\"900.00\",\"remainingToClaim\":\"0.00\",\"fullySettled\":true,\"canAcceptPayment\":false,\"paymentStatus\":\"FULLY_PAID_RECONCILED\",\"currencyId\":\"f176ab0e-8132-4584-b188-b2e590608212\"}"
+        },
+        {
+          "name": "order list row agrees with payment-context (status + total)",
+          "pass": true,
+          "detail": "list paymentStatus=FULLY_PAID_RECONCILED total=900.00 | context FULLY_PAID_RECONCILED 900.00"
+        },
+        {
+          "name": "order list paid/outstanding (from its payments) = payment-context",
+          "pass": true,
+          "detail": "list paid 900 outstanding 0 | context paid 900.00 outstanding 0.00"
+        },
+        {
+          "name": "fully-settled order rejects another payment (400)",
+          "pass": true,
+          "detail": "400 This document is fully paid and settled — another payment cannot be accepted."
+        },
+        {
+          "name": "invoice grand total = agreed amount",
+          "pass": true,
+          "detail": "INV-2026-000057 900"
+        },
+        {
+          "name": "generate-invoice retry is rejected (no duplicate invoice)",
+          "pass": true,
+          "detail": "400 Store Order STO-2026-000083 already has an invoice (INV-2026-000057)."
+        },
+        {
+          "name": "exactly ONE invoice JE",
+          "pass": true,
+          "detail": "JV-2026-000236"
+        },
+        {
+          "name": "invoice JE balanced; AR debit = revenue credit = agreed amount",
+          "pass": true,
+          "detail": "121 900/0 | 411 0/900 | 511 80/0 | 131 0/80"
+        },
+        {
+          "name": "invoice JE in EGP, rate 1",
+          "pass": true,
+          "detail": "EGP 1"
+        },
+        {
+          "name": "invoice JE records COGS = qty × 40 (opening cost)",
+          "pass": true,
+          "detail": "COGS 80"
+        },
+        {
+          "name": "invoice settled by the advance receipt (PAID, remaining 0)",
+          "pass": true,
+          "detail": "PAID remaining=0"
+        },
+        {
+          "name": "invoice delivered stock (SALES_DELIVERY −qty)",
+          "pass": true,
+          "detail": "MV/09/2026/000103 SALES_DELIVERY -2"
+        },
+        {
+          "name": "convert lead with agreed amount 0 → 400 with a readable reason",
+          "pass": true,
+          "detail": "400 Enter the agreed amount for the order — a Store Order cannot be created with a total of 0.00."
+        },
+        {
+          "name": "rejected conversion left the lead unconverted",
+          "pass": true,
+          "detail": "status=NEW"
+        }
+      ],
+      "evidence": {},
+      "records": [
+        {
+          "type": "Lead",
+          "id": "07b032ef-1e6e-48a9-a238-e343c02f8ce1",
+          "number": "LD-2026-000073",
+          "url": "https://oms.haseb.org/crm/leads/07b032ef-1e6e-48a9-a238-e343c02f8ce1"
+        },
+        {
+          "type": "Customer",
+          "id": "eb5456f7-a259-464e-8db0-f6428b349e31",
+          "number": "PT-2026-000087",
+          "url": "https://oms.haseb.org/sales/customers/eb5456f7-a259-464e-8db0-f6428b349e31"
+        },
+        {
+          "type": "StoreOrder",
+          "id": "e5cf5e89-c276-49b4-9f13-ce969fa6cafa",
+          "number": "STO-2026-000083",
+          "url": "https://oms.haseb.org/store-orders/e5cf5e89-c276-49b4-9f13-ce969fa6cafa"
+        },
+        {
+          "type": "Payment",
+          "id": "29e5935e-43ba-4de1-91ff-7a53178f8788",
+          "number": "PAY-2026-000040",
+          "url": "https://oms.haseb.org/store-orders/e5cf5e89-c276-49b4-9f13-ce969fa6cafa"
+        },
+        {
+          "type": "CustomerReceipt",
+          "id": "9ff8cdf7-71c3-4b7b-bec5-762bb3f9a950",
+          "number": "CR-2026-000039",
+          "url": "https://oms.haseb.org/sales/payments/9ff8cdf7-71c3-4b7b-bec5-762bb3f9a950"
+        },
+        {
+          "type": "SalesInvoice",
+          "id": "f7ed0531-f186-4148-b5b3-8a0d1bedf800",
+          "number": "INV-2026-000057",
+          "url": "https://oms.haseb.org/sales/invoices/f7ed0531-f186-4148-b5b3-8a0d1bedf800"
+        },
+        {
+          "type": "JournalEntry",
+          "id": "cf98525d-774c-419a-a368-522539b30813",
+          "number": "JV-2026-000235",
+          "url": "https://oms.haseb.org/finance/journal-entries/cf98525d-774c-419a-a368-522539b30813"
+        },
+        {
+          "type": "JournalEntry",
+          "id": "acbaddfe-78d9-4dbb-bdad-56d9e15b2238",
+          "number": "JV-2026-000236",
+          "url": "https://oms.haseb.org/finance/journal-entries/acbaddfe-78d9-4dbb-bdad-56d9e15b2238"
+        },
+        {
+          "type": "Lead",
+          "id": "01b6e38f-13c8-4e7c-8948-f2c40a8f755c",
+          "number": "LD-2026-000074",
+          "url": "https://oms.haseb.org/crm/leads/01b6e38f-13c8-4e7c-8948-f2c40a8f755c"
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "F2",
+      "name": "Shipping/delivery + separate delivered-then-returned order",
+      "status": "PASS",
+      "checks": [
+        {
+          "name": "shipping cost recorded on the shipment",
+          "pass": true,
+          "detail": "200 "
+        },
+        {
+          "name": "shipment ship",
+          "pass": true,
+          "detail": "200 SHIPPED"
+        },
+        {
+          "name": "shipment out-for-delivery",
+          "pass": true,
+          "detail": "200 OUT_FOR_DELIVERY"
+        },
+        {
+          "name": "shipment deliver",
+          "pass": true,
+          "detail": "200 DELIVERED"
+        },
+        {
+          "name": "shipment status DELIVERED after reload",
+          "pass": true,
+          "detail": "DELIVERED"
+        },
+        {
+          "name": "COGS JE exists for the delivered order (1 × 40)",
+          "pass": true,
+          "detail": "JV-2026-000238 COGS 40"
+        },
+        {
+          "name": "stock movement SALES_DELIVERY −1 for the delivered order",
+          "pass": true,
+          "detail": "MV/09/2026/000104 -1"
+        },
+        {
+          "name": "shipping cost JE posted once on delivery (= 30)",
+          "pass": true,
+          "detail": "JV-2026-000239 Dr 30"
+        },
+        {
+          "name": "re-deliver is idempotent or refused — still ONE shipping-cost JE",
+          "pass": true,
+          "detail": "retry 200 ; 1 JE(s)"
+        },
+        {
+          "name": "order traceability lists invoice, payment, shipment",
+          "pass": true,
+          "detail": "DOCUMENTS:FOUND:1 PAYMENTS:FOUND:2 JOURNAL_ENTRIES:FOUND:2 SHIPMENTS:FOUND:1 STOCK_MOVEMENTS:FOUND:1 RETURNS:NONE:0"
+        },
+        {
+          "name": "order C shipment ship",
+          "pass": true,
+          "detail": "200 "
+        },
+        {
+          "name": "order C shipment out-for-delivery",
+          "pass": true,
+          "detail": "200 "
+        },
+        {
+          "name": "order C shipment deliver",
+          "pass": true,
+          "detail": "200 "
+        },
+        {
+          "name": "returning more than invoiced is rejected",
+          "pass": true,
+          "detail": "400 Cannot return 5 — only 0 remains returnable on this invoice line."
+        },
+        {
+          "name": "sales return JE balanced; reverses revenue (Dr) and AR (Cr) = 450",
+          "pass": true,
+          "detail": "121 0/450 | 421 450/0 | 131 40/0 | 511 0/40"
+        },
+        {
+          "name": "sales return reverses COGS (Dr inventory / Cr COGS = 40)",
+          "pass": true,
+          "detail": "inv Dr 40 COGS Cr 40"
+        },
+        {
+          "name": "stock back +1 after the return",
+          "pass": true,
+          "detail": "before 96 after 97; MV/09/2026/000106"
+        },
+        {
+          "name": "re-confirming the return posts nothing new",
+          "pass": true,
+          "detail": "400; 1 JE(s)"
+        }
+      ],
+      "evidence": {
+        "refund": "No customer-refund API exists (no /refund route; supplier-payment vouchers are AP-side). The return leaves a 450 credit balance on the customer — verified in flow 7."
+      },
+      "records": [
+        {
+          "type": "Lead",
+          "id": "8220d5ea-da6c-482a-9cbd-d2585b3a99bb",
+          "number": "LD-2026-000075",
+          "url": "https://oms.haseb.org/crm/leads/8220d5ea-da6c-482a-9cbd-d2585b3a99bb"
+        },
+        {
+          "type": "Customer",
+          "id": "514b1ee3-669d-4cf8-85e5-29e8c1e34638",
+          "number": "PT-2026-000088",
+          "url": "https://oms.haseb.org/sales/customers/514b1ee3-669d-4cf8-85e5-29e8c1e34638"
+        },
+        {
+          "type": "StoreOrder",
+          "id": "5fc98c37-6071-429d-818d-606b97d7aa96",
+          "number": "STO-2026-000084",
+          "url": "https://oms.haseb.org/store-orders/5fc98c37-6071-429d-818d-606b97d7aa96"
+        },
+        {
+          "type": "SalesInvoice",
+          "id": "506521c0-855c-4b79-b698-9891dc7c6815",
+          "number": "INV-2026-000058",
+          "url": "https://oms.haseb.org/sales/invoices/506521c0-855c-4b79-b698-9891dc7c6815"
+        },
+        {
+          "type": "Shipment",
+          "id": "c1634cf7-074c-46da-8004-c9c8a0401e75",
+          "number": "Shipment #1 of STO-2026-000084",
+          "url": "https://oms.haseb.org/store-orders/5fc98c37-6071-429d-818d-606b97d7aa96"
+        },
+        {
+          "type": "Lead",
+          "id": "2d158a5a-cfd1-4201-946f-8ae4af4f524b",
+          "number": "LD-2026-000076",
+          "url": "https://oms.haseb.org/crm/leads/2d158a5a-cfd1-4201-946f-8ae4af4f524b"
+        },
+        {
+          "type": "Customer",
+          "id": "be51a876-64f1-4da0-b609-815ec12a8b27",
+          "number": "PT-2026-000089",
+          "url": "https://oms.haseb.org/sales/customers/be51a876-64f1-4da0-b609-815ec12a8b27"
+        },
+        {
+          "type": "StoreOrder",
+          "id": "ce8522e5-b246-4175-9292-eb9033bf5fcd",
+          "number": "STO-2026-000085",
+          "url": "https://oms.haseb.org/store-orders/ce8522e5-b246-4175-9292-eb9033bf5fcd"
+        },
+        {
+          "type": "SalesInvoice",
+          "id": "f3ad97b4-9858-44c1-a080-53033e2350c1",
+          "number": "INV-2026-000059",
+          "url": "https://oms.haseb.org/sales/invoices/f3ad97b4-9858-44c1-a080-53033e2350c1"
+        },
+        {
+          "type": "SalesReturn",
+          "id": "fae668c0-7eb5-4ed0-a866-0b19bd09c17d",
+          "number": "SR-2026-000015",
+          "url": "https://oms.haseb.org/sales/returns/fae668c0-7eb5-4ed0-a866-0b19bd09c17d"
+        },
+        {
+          "type": "JournalEntry",
+          "id": "90f40266-017d-41a3-94a7-0eb1956e13b6",
+          "number": "JV-2026-000242",
+          "url": "https://oms.haseb.org/finance/journal-entries/90f40266-017d-41a3-94a7-0eb1956e13b6"
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "F3",
+      "name": "B2B customer: quotation → order → invoice → partial/full receipt → statement",
+      "status": "PASS",
+      "checks": [
+        {
+          "name": "customer persisted as written (reload)",
+          "pass": true,
+          "detail": "DEMO-GUIDE-20260924 Customer B2B +201007861400"
+        },
+        {
+          "name": "quotation with quantity 0 → 400 validation message",
+          "pass": true,
+          "detail": "400 Validation failed. [items.0.quantity: quantity must be a positive number]"
+        },
+        {
+          "name": "sales order confirmed with quotation total",
+          "pass": true,
+          "detail": "SO-2026-000012 1500"
+        },
+        {
+          "name": "sales invoice confirmed, total 1500",
+          "pass": true,
+          "detail": "INV-2026-000060 1500"
+        },
+        {
+          "name": "invoice JE: AR 1500 Dr, COGS 3×40",
+          "pass": true,
+          "detail": "121 1500/0 | 411 0/1500 | 511 120/0 | 131 0/120"
+        },
+        {
+          "name": "re-confirming the invoice posts no second JE",
+          "pass": true,
+          "detail": "200"
+        },
+        {
+          "name": "allocation larger than the receipt/invoice is rejected",
+          "pass": true,
+          "detail": "400 Total allocated (5000) cannot exceed the transaction amount (100)."
+        },
+        {
+          "name": "partial receipt: one balanced JE of 600 (retry-safe)",
+          "pass": true,
+          "detail": "JV-2026-000244 Dr 600; retry 200"
+        },
+        {
+          "name": "after partial receipt: PARTIALLY_PAID, remaining 900",
+          "pass": true,
+          "detail": "PARTIALLY_PAID 900"
+        },
+        {
+          "name": "final receipt: one balanced JE of 900 (retry-safe)",
+          "pass": true,
+          "detail": "JV-2026-000245 Dr 900; retry 200"
+        },
+        {
+          "name": "after full receipt: PAID, remaining 0",
+          "pass": true,
+          "detail": "PAID 0"
+        },
+        {
+          "name": "partner statement: opening 0, invoice 1500 Dr, receipts 600 + 900 Cr",
+          "pass": true,
+          "detail": "SALES_INVOICE 1500/0 rb=1500 | CUSTOMER_RECEIPT 0/600 rb=900 | CUSTOMER_RECEIPT 0/900 rb=0"
+        },
+        {
+          "name": "partner statement closing = 0 and last running balance = closing",
+          "pass": true,
+          "detail": "closing 0 last rb 0"
+        }
+      ],
+      "evidence": {},
+      "records": [
+        {
+          "type": "Customer",
+          "id": "f60fec6e-54a5-4d92-a8c8-c2db28d7feb1",
+          "number": "PT-2026-000085",
+          "url": "https://oms.haseb.org/sales/customers/f60fec6e-54a5-4d92-a8c8-c2db28d7feb1"
+        },
+        {
+          "type": "CustomerReceipt",
+          "id": "75491670-310c-4679-a0d6-4dc1be6dde41",
+          "number": "CR-2026-000042",
+          "url": "https://oms.haseb.org/sales/payments/75491670-310c-4679-a0d6-4dc1be6dde41"
+        },
+        {
+          "type": "CustomerReceipt",
+          "id": "0b40440b-ebfe-44bc-9371-76c8b1ee3cac",
+          "number": "CR-2026-000043",
+          "url": "https://oms.haseb.org/sales/payments/0b40440b-ebfe-44bc-9371-76c8b1ee3cac"
+        },
+        {
+          "type": "SalesQuotation",
+          "id": "877deb70-7729-4373-bd5e-5a0db32be8fb",
+          "number": "QT-2026-000014",
+          "url": "https://oms.haseb.org/sales/quotations/877deb70-7729-4373-bd5e-5a0db32be8fb"
+        },
+        {
+          "type": "SalesOrder",
+          "id": "be3c74b6-b902-4379-8600-c428169258ab",
+          "number": "SO-2026-000012",
+          "url": "https://oms.haseb.org/sales/orders/be3c74b6-b902-4379-8600-c428169258ab"
+        },
+        {
+          "type": "SalesInvoice",
+          "id": "d2f60051-6ccd-4b71-87fe-33d2e0e4da89",
+          "number": "INV-2026-000060",
+          "url": "https://oms.haseb.org/sales/invoices/d2f60051-6ccd-4b71-87fe-33d2e0e4da89"
+        },
+        {
+          "type": "PartnerStatement",
+          "id": "f60fec6e-54a5-4d92-a8c8-c2db28d7feb1",
+          "number": "PT-2026-000085",
+          "url": "https://oms.haseb.org/reports/finance?report=customerStatement&partner=f60fec6e-54a5-4d92-a8c8-c2db28d7feb1"
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "F4",
+      "name": "Supplier: RFQ → PO → invoice → partial/full payment → return → statement",
+      "status": "PASS",
+      "checks": [
+        {
+          "name": "purchase order approved with quotation total",
+          "pass": true,
+          "detail": "PO-2026-000004 APPROVED 350"
+        },
+        {
+          "name": "purchase invoice confirmed, total 350",
+          "pass": true,
+          "detail": "PI-2026-000032 350"
+        },
+        {
+          "name": "purchase invoice: exactly one JE (re-confirm safe), Dr inventory 350 / Cr AP 350",
+          "pass": true,
+          "detail": "JV-2026-000246 131 350/0 | 211 0/350; retry 200"
+        },
+        {
+          "name": "stock receipt +10",
+          "pass": true,
+          "detail": "before 94 after 104"
+        },
+        {
+          "name": "partial supplier payment: one balanced JE, Dr AP 200",
+          "pass": true,
+          "detail": "JV-2026-000247 Dr 200"
+        },
+        {
+          "name": "after partial payment: remaining 150",
+          "pass": true,
+          "detail": "PARTIALLY_PAID 150"
+        },
+        {
+          "name": "final supplier payment: one balanced JE, Dr AP 150",
+          "pass": true,
+          "detail": "JV-2026-000248 Dr 150"
+        },
+        {
+          "name": "after full payment: PAID, remaining 0",
+          "pass": true,
+          "detail": "PAID 0"
+        },
+        {
+          "name": "purchase return JE: Dr AP 70 / Cr inventory",
+          "pass": true,
+          "detail": "211 70/0 | 131 0/70"
+        },
+        {
+          "name": "stock −2 for the purchase return",
+          "pass": true,
+          "detail": "MV/09/2026/000111 PURCHASE_RETURN -2"
+        },
+        {
+          "name": "supplier statement: invoice 350 Cr, payments 200+150 Dr, return 70 Dr",
+          "pass": true,
+          "detail": "PURCHASE_INVOICE 0/350 rb=-350 | SUPPLIER_PAYMENT 200/0 rb=-150 | SUPPLIER_PAYMENT 150/0 rb=0 | PURCHASE_RETURN 70/0 rb=70"
+        },
+        {
+          "name": "supplier statement reconciles: closing = opening + Σ(debit−credit) = 70 debit",
+          "pass": true,
+          "detail": "opening 0 closing 70 expected 70"
+        }
+      ],
+      "evidence": {},
+      "records": [
+        {
+          "type": "Supplier",
+          "id": "4147041a-83d7-41c8-860d-02e1f63ad8d3",
+          "number": "PT-2026-000086",
+          "url": "https://oms.haseb.org/purchasing/suppliers/4147041a-83d7-41c8-860d-02e1f63ad8d3"
+        },
+        {
+          "type": "SupplierPayment",
+          "id": "22ea5f78-5246-4553-b6a7-760d079622c8",
+          "number": "SP-2026-000023",
+          "url": "https://oms.haseb.org/purchasing/payments/22ea5f78-5246-4553-b6a7-760d079622c8"
+        },
+        {
+          "type": "SupplierPayment",
+          "id": "21bba09e-d1aa-4e1c-97a0-83276cbc07d9",
+          "number": "SP-2026-000024",
+          "url": "https://oms.haseb.org/purchasing/payments/21bba09e-d1aa-4e1c-97a0-83276cbc07d9"
+        },
+        {
+          "type": "PurchaseQuotation",
+          "id": "e294e7fe-dc49-40d3-97df-670328a93d6b",
+          "number": "PQ-2026-000003",
+          "url": "https://oms.haseb.org/purchasing/purchase-quotations/e294e7fe-dc49-40d3-97df-670328a93d6b"
+        },
+        {
+          "type": "PurchaseOrder",
+          "id": "f98d36f9-01cb-4653-94d2-ee3a26d75256",
+          "number": "PO-2026-000004",
+          "url": "https://oms.haseb.org/purchasing/purchase-orders/f98d36f9-01cb-4653-94d2-ee3a26d75256"
+        },
+        {
+          "type": "PurchaseInvoice",
+          "id": "9b454c23-67af-44df-aca6-aa2d6332609e",
+          "number": "PI-2026-000032",
+          "url": "https://oms.haseb.org/purchasing/purchase-invoices/9b454c23-67af-44df-aca6-aa2d6332609e"
+        },
+        {
+          "type": "PurchaseReturn",
+          "id": "56ef4bfd-8db5-45db-b987-edf791d0a691",
+          "number": "PR-2026-000008",
+          "url": "https://oms.haseb.org/purchasing/purchase-returns/56ef4bfd-8db5-45db-b987-edf791d0a691"
+        },
+        {
+          "type": "PartnerStatement",
+          "id": "4147041a-83d7-41c8-860d-02e1f63ad8d3",
+          "number": "PT-2026-000086",
+          "url": "https://oms.haseb.org/reports/finance?report=supplierStatement&partner=4147041a-83d7-41c8-860d-02e1f63ad8d3"
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "F5",
+      "name": "Inventory: opening stock, moving average, COGS, valuation, profitability",
+      "status": "PASS",
+      "checks": [
+        {
+          "name": "demo product persisted as written (reload)",
+          "pass": true,
+          "detail": "PRD-2026-000018 DEMO-GUIDE-20260924 Book Lab ACTIVE"
+        },
+        {
+          "name": "opening stock 10 @ 30 posted",
+          "pass": true,
+          "detail": "201 "
+        },
+        {
+          "name": "negative opening quantity rejected",
+          "pass": true,
+          "detail": "400 Validation failed. [quantity: quantity must be a positive number]"
+        },
+        {
+          "name": "valuation after opening: currentCost 30",
+          "pass": true,
+          "detail": "currentCost 30"
+        },
+        {
+          "name": "moving average after purchase = (10×30 + 10×36)/20 = 33",
+          "pass": true,
+          "detail": "currentCost 33"
+        },
+        {
+          "name": "COGS on sale = qty × moving average = 4 × 33 = 132.00",
+          "pass": true,
+          "detail": "COGS 132"
+        },
+        {
+          "name": "on-hand = 10 + 10 − 4 = 16 (sum of movements)",
+          "pass": true,
+          "detail": "onHand 16"
+        },
+        {
+          "name": "GET /inventory/stock agrees (16)",
+          "pass": true,
+          "detail": "{\"productId\":\"c36133d4-3310-4110-ab13-4701f47b4064\",\"warehouseId\":\"db3ce440-7b3d-4bf9-8cef-60d194d23df8\",\"onHand\":16,\"reserved\":0,\"available\":16}"
+        },
+        {
+          "name": "valuation after sale: cost stays 33, stock value 16 × 33 = 528",
+          "pass": true,
+          "detail": "currentCost 33 value 528"
+        },
+        {
+          "name": "store-order economics: revenue 450, COGS 40, shipping 30",
+          "pass": true,
+          "detail": "{\"netRevenue\":450,\"cogs\":40,\"shippingCost\":30,\"profit\":380}"
+        },
+        {
+          "name": "profitability by product (Book): revenue & COGS consistent with store orders (1800 or 1350 after return; COGS 40/unit)",
+          "pass": true,
+          "detail": "{\"dimensionValue\":\"14743ed8-3e40-4063-915c-650ed8fc7612\",\"dimensionLabel\":\"DEMO-GUIDE-20260924 Book\",\"orderCount\":3,\"totalQuantity\":4,\"netRevenue\":1800,\"cogs\":160,\"grossProfit\":1640,\"totalDirectCost\":null,\"contributionProfit\":null,\"contributionMarginPercent\":null,\"costState\":\"COMPLETE\"}"
+        }
+      ],
+      "evidence": {},
+      "records": [
+        {
+          "type": "Product",
+          "id": "c36133d4-3310-4110-ab13-4701f47b4064",
+          "number": "PRD-2026-000018",
+          "url": "https://oms.haseb.org/products/c36133d4-3310-4110-ab13-4701f47b4064"
+        },
+        {
+          "type": "Product",
+          "id": "14743ed8-3e40-4063-915c-650ed8fc7612",
+          "number": "PRD-2026-000017",
+          "url": "https://oms.haseb.org/products/14743ed8-3e40-4063-915c-650ed8fc7612"
+        },
+        {
+          "type": "PurchaseInvoice",
+          "id": "299cc744-379c-4794-8482-4a403ea1ed7f",
+          "number": "PI-2026-000033",
+          "url": "https://oms.haseb.org/purchasing/purchase-invoices/299cc744-379c-4794-8482-4a403ea1ed7f"
+        },
+        {
+          "type": "SalesInvoice",
+          "id": "9ee7b23f-4e3c-49bb-a24d-35bfd99fde7b",
+          "number": "INV-2026-000061",
+          "url": "https://oms.haseb.org/sales/invoices/9ee7b23f-4e3c-49bb-a24d-35bfd99fde7b"
+        },
+        {
+          "type": "InventoryMovements",
+          "id": "movements-c36133d4-3310-4110-ab13-4701f47b4064",
+          "number": null,
+          "url": "https://oms.haseb.org/inventory/movements"
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "F6",
+      "name": "Duplicate invoice, manual JE lifecycle, generated-JE protection, assets, prepaid, traceability",
+      "status": "PASS",
+      "checks": [
+        {
+          "name": "duplicate sales invoice → new DRAFT",
+          "pass": true,
+          "detail": "INV-2026-000062 DRAFT"
+        },
+        {
+          "name": "duplicate copies lines/total, has no JE",
+          "pass": true,
+          "detail": "1500 vs 1500"
+        },
+        {
+          "name": "duplicate edit persisted (reload)",
+          "pass": true,
+          "detail": "DEMO-GUIDE-20260924 duplicated draft — intentionally never posted"
+        },
+        {
+          "name": "unbalanced manual JE rejected",
+          "pass": true,
+          "detail": "400 Journal entry is not balanced — total debit (10) must equal total credit (9)."
+        },
+        {
+          "name": "manual JE created as DRAFT",
+          "pass": true,
+          "detail": "DRAFT"
+        },
+        {
+          "name": "draft edit persisted (reload: 20/20, new description)",
+          "pass": true,
+          "detail": "200  Dr 20"
+        },
+        {
+          "name": "manual JE posted",
+          "pass": true,
+          "detail": "200 JV-2026-000252"
+        },
+        {
+          "name": "posted manual JE is immutable (PATCH rejected)",
+          "pass": true,
+          "detail": "400 Only a Draft journal entry can be edited."
+        },
+        {
+          "name": "manual JE reset to draft",
+          "pass": true,
+          "detail": "200 DRAFT"
+        },
+        {
+          "name": "manual JE reposted (POSTED, 20/20)",
+          "pass": true,
+          "detail": "JV-2026-000252 POSTED"
+        },
+        {
+          "name": "unpost/repost recorded in the audit trail",
+          "pass": true,
+          "detail": "ENTRY_CREATED,ENTRY_UPDATED,ENTRY_POSTED,ENTRY_UNPOSTED,ENTRY_UPDATED,ENTRY_POSTED"
+        },
+        {
+          "name": "PATCH on a system-generated JE is rejected",
+          "pass": true,
+          "detail": "400 Cannot edit system-generated journal JV-2026-000243. Correct the source SALES_INVOICE document instead."
+        },
+        {
+          "name": "reset-to-draft on a system-generated JE is rejected",
+          "pass": true,
+          "detail": "400 Cannot return to draft system-generated journal JV-2026-000243. Correct the source SALES_INVOICE document instead."
+        },
+        {
+          "name": "generated JE unchanged after the probes",
+          "pass": true,
+          "detail": "JV-2026-000243 POSTED"
+        },
+        {
+          "name": "fixed asset capitalized",
+          "pass": true,
+          "detail": "201 CAPITALIZED"
+        },
+        {
+          "name": "capitalization JE 1200 (Dr fixed assets)",
+          "pass": true,
+          "detail": "JV-2026-000253 Dr 1200"
+        },
+        {
+          "name": "prepaid activated",
+          "pass": true,
+          "detail": "201 ACTIVE"
+        },
+        {
+          "name": "prepaid payment JE 300 (Dr prepayments)",
+          "pass": true,
+          "detail": "JV-2026-000254"
+        },
+        {
+          "name": "trace(invoice) → its JE and its store order",
+          "pass": true,
+          "detail": "DOCUMENTS:STO-2026-000083 PAYMENTS:CR-2026-000039 JOURNAL_ENTRIES:JV-2026-000236 STOCK_MOVEMENTS:MV/09/2026/000103"
+        },
+        {
+          "name": "trace(payment) → order + receipt/JE",
+          "pass": true,
+          "detail": "DOCUMENTS:STO-2026-000083 PAYMENTS:CR-2026-000039 JOURNAL_ENTRIES:JV-2026-000235"
+        },
+        {
+          "name": "trace(order) → invoice + payment",
+          "pass": true,
+          "detail": "DOCUMENTS:INV-2026-000057 PAYMENTS:PAY-2026-000040/CR-2026-000039 JOURNAL_ENTRIES:JV-2026-000235/JV-2026-000236 SHIPMENTS: STOCK_MOVEMENTS:MV/09/2026/000103 RETURNS:"
+        }
+      ],
+      "evidence": {
+        "depreciationRun": "SKIPPED — company-wide batch; set ALLOW_GLOBAL_RUNS=1 to run it (posts every due asset, not only demo ones)",
+        "prepaidRecognition": "SKIPPED — company-wide batch; set ALLOW_GLOBAL_RUNS=1"
+      },
+      "records": [
+        {
+          "type": "SalesInvoice",
+          "id": "842d44d3-d4ff-446a-bde5-51ed0ed61631",
+          "number": "INV-2026-000062",
+          "url": "https://oms.haseb.org/sales/invoices/842d44d3-d4ff-446a-bde5-51ed0ed61631"
+        },
+        {
+          "type": "JournalEntry",
+          "id": "31d9f015-e7e9-4a9e-9275-73f8e35a59e5",
+          "number": "JV-2026-000252",
+          "url": "https://oms.haseb.org/finance/journal-entries/31d9f015-e7e9-4a9e-9275-73f8e35a59e5"
+        },
+        {
+          "type": "FixedAsset",
+          "id": "0ebb7e52-bfaa-40d8-9a19-8e46b9b82318",
+          "number": "FA-2026-000013",
+          "url": "https://oms.haseb.org/finance/fixed-assets"
+        },
+        {
+          "type": "PrepaidExpense",
+          "id": "2bd29e95-4c72-403f-8b24-c129ac58c95f",
+          "number": "PE-2026-000018",
+          "url": "https://oms.haseb.org/finance/prepaid-expenses"
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "F7",
+      "name": "Reports reconciliation (TB, GL, P&L vs BS, cash flow, partner statements)",
+      "status": "PASS",
+      "checks": [
+        {
+          "name": "Trial Balance (RUN range) debits = credits",
+          "pass": true,
+          "detail": "{\"debitTotal\":8922,\"creditTotal\":8922,\"openingBalance\":0,\"closingBalance\":0}"
+        },
+        {
+          "name": "Trial Balance (overall) debits = credits",
+          "pass": true,
+          "detail": "{\"debitTotal\":31428108.290000003,\"creditTotal\":31428108.29,\"openingBalance\":0,\"closingBalance\":0}"
+        },
+        {
+          "name": "GL closing = TB closing — AR",
+          "pass": true,
+          "detail": "GL 746895.54 TB 746895.54"
+        },
+        {
+          "name": "GL running balance ends at closing — AR",
+          "pass": true,
+          "detail": "last rb 746895.54 closing 746895.54"
+        },
+        {
+          "name": "GL closing = TB closing — AP",
+          "pass": true,
+          "detail": "GL -7449.5 TB -7449.5"
+        },
+        {
+          "name": "GL running balance ends at closing — AP",
+          "pass": true,
+          "detail": "last rb -7449.5 closing -7449.5"
+        },
+        {
+          "name": "GL closing = TB closing — Revenue",
+          "pass": true,
+          "detail": "GL -774039 TB -774039"
+        },
+        {
+          "name": "GL running balance ends at closing — Revenue",
+          "pass": true,
+          "detail": "last rb -774039 closing -774039"
+        },
+        {
+          "name": "GL closing = TB closing — COGS",
+          "pass": true,
+          "detail": "GL 403670.2 TB 403670.2"
+        },
+        {
+          "name": "GL running balance ends at closing — COGS",
+          "pass": true,
+          "detail": "last rb 403670.2 closing 403670.2"
+        },
+        {
+          "name": "GL closing = TB closing — Inventory",
+          "pass": true,
+          "detail": "GL -399240.7 TB -399240.7"
+        },
+        {
+          "name": "GL running balance ends at closing — Inventory",
+          "pass": true,
+          "detail": "last rb -399240.7 closing -399240.7"
+        },
+        {
+          "name": "GL closing = TB closing — Receiving GL",
+          "pass": true,
+          "detail": "GL 14034.96 TB 14034.96"
+        },
+        {
+          "name": "GL running balance ends at closing — Receiving GL",
+          "pass": true,
+          "detail": "last rb 14034.96 closing 14034.96"
+        },
+        {
+          "name": "Balance Sheet balanced (A = L + E)",
+          "pass": true,
+          "detail": "{\"totalAssets\":372969.7999999989,\"totalLiabilities\":8709.5,\"totalEquity\":364260.2999999998,\"balanced\":true}"
+        },
+        {
+          "name": "P&L net income = Balance Sheet current earnings",
+          "pass": true,
+          "detail": "NI(FY)=364259.2999999998 NI(all)=364259.2999999998 BS currentEarnings=364259.2999999998"
+        },
+        {
+          "name": "Income Statement (RUN range) runs",
+          "pass": true,
+          "detail": "{\"totalRevenue\":3090,\"totalExpense\":422,\"netIncome\":2668}"
+        },
+        {
+          "name": "Cash Flow runs (activities + movement views)",
+          "pass": true,
+          "detail": "200/200 {\"netCashChange\":2930,\"closingBalance\":15694.96}"
+        },
+        {
+          "name": "statement closing = expected — Customer A",
+          "pass": true,
+          "detail": "closing 0 expected 0"
+        },
+        {
+          "name": "statement closing = Σ partner lines on RECEIVABLE control (JE)",
+          "pass": true,
+          "detail": "JE-derived 0 vs statement 0"
+        },
+        {
+          "name": "ar-aging total = open invoice balance — Customer A",
+          "pass": true,
+          "detail": "aging total 0 expected open 0 (statement closing 0)"
+        },
+        {
+          "name": "statement closing = expected — Customer B",
+          "pass": true,
+          "detail": "closing 0 expected 0"
+        },
+        {
+          "name": "statement closing = Σ partner lines on RECEIVABLE control (JE)",
+          "pass": true,
+          "detail": "JE-derived 0 vs statement 0"
+        },
+        {
+          "name": "ar-aging total = open invoice balance — Customer B",
+          "pass": true,
+          "detail": "aging total 0 expected open 0 (statement closing 0)"
+        },
+        {
+          "name": "statement closing = expected — Customer C Return (credit after return, no refund API)",
+          "pass": true,
+          "detail": "closing -450 expected -450"
+        },
+        {
+          "name": "statement closing = Σ partner lines on RECEIVABLE control (JE)",
+          "pass": true,
+          "detail": "JE-derived -450 vs statement -450"
+        },
+        {
+          "name": "ar-aging total = open invoice balance — Customer C Return (credit after return, no refund API)",
+          "pass": true,
+          "detail": "aging total 0 expected open 0 (statement closing -450)"
+        },
+        {
+          "name": "statement closing = expected — Customer B2B (+ unpaid lab sale 240)",
+          "pass": true,
+          "detail": "closing 240 expected 240"
+        },
+        {
+          "name": "statement closing = Σ partner lines on RECEIVABLE control (JE)",
+          "pass": true,
+          "detail": "JE-derived 240 vs statement 240"
+        },
+        {
+          "name": "ar-aging total = open invoice balance — Customer B2B (+ unpaid lab sale 240)",
+          "pass": true,
+          "detail": "aging total 240 expected open 240 (statement closing 240)"
+        },
+        {
+          "name": "statement closing = expected — Supplier (70 debit after return − unpaid lab purchase 360)",
+          "pass": true,
+          "detail": "closing -290 expected -290"
+        },
+        {
+          "name": "statement closing = Σ partner lines on PAYABLE control (JE)",
+          "pass": true,
+          "detail": "JE-derived -290 vs statement -290"
+        },
+        {
+          "name": "ap-aging total = open invoice balance — Supplier (70 debit after return − unpaid lab purchase 360)",
+          "pass": true,
+          "detail": "aging total 360 expected open 360 (statement closing -290)"
+        }
+      ],
+      "evidence": {},
+      "records": [
+        {
+          "type": "Report",
+          "id": "trial-balance",
+          "number": null,
+          "url": "https://oms.haseb.org/reports/finance?report=trialBalance"
+        },
+        {
+          "type": "Report",
+          "id": "general-ledger",
+          "number": null,
+          "url": "https://oms.haseb.org/reports/finance?report=generalLedger"
+        },
+        {
+          "type": "Report",
+          "id": "balance-sheet",
+          "number": null,
+          "url": "https://oms.haseb.org/reports/finance?report=balanceSheet"
+        },
+        {
+          "type": "Report",
+          "id": "income-statement",
+          "number": null,
+          "url": "https://oms.haseb.org/reports/finance?report=incomeStatement"
+        },
+        {
+          "type": "Report",
+          "id": "cash-flow",
+          "number": null,
+          "url": "https://oms.haseb.org/reports/finance?report=cashFlow"
+        }
+      ],
+      "error": null
+    }
+  ],
+  "blockers": [],
+  "finishedAt": "2026-09-24T09:09:32.714Z",
+  "summary": {
+    "SETUP": "PASS (3/3)",
+    "F1": "PASS (24/24)",
+    "F2": "PASS (18/18)",
+    "F3": "PASS (13/13)",
+    "F4": "PASS (12/12)",
+    "F5": "PASS (11/11)",
+    "F6": "PASS (21/21)",
+    "F7": "PASS (33/33)"
+  },
+  "failedChecks": [],
+  "routeVerification": {
+    "/products/[id]": true,
+    "/sales/customers/[id]": true,
+    "/purchasing/suppliers/[id]": true,
+    "/crm/leads/[id]": true,
+    "/store-orders/[id]": true,
+    "/sales/payments/[id]": true,
+    "/sales/invoices/[id]": true,
+    "/finance/journal-entries/[id]": true,
+    "/sales/returns/[id]": true,
+    "/sales/quotations/[id]": true,
+    "/sales/orders/[id]": true,
+    "/reports/finance": true,
+    "/purchasing/payments/[id]": true,
+    "/purchasing/purchase-quotations/[id]": true,
+    "/purchasing/purchase-orders/[id]": true,
+    "/purchasing/purchase-invoices/[id]": true,
+    "/purchasing/purchase-returns/[id]": true,
+    "/inventory/movements": true,
+    "/finance/fixed-assets": true,
+    "/finance/prepaid-expenses": true
+  }
+}
