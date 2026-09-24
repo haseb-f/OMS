@@ -1,18 +1,22 @@
 ﻿{
   "run": "DEMO-GUIDE-GAP-20260924",
-  "finishedAt": "2026-09-24T10:00:00Z",
-  "productionShaAtVerification": "f52828c17696ae9e0e65fe0aa6500b6b5fb58b64",
+  "finishedAt": "2026-09-24T11:22:00Z",
+  "headOriginMain": "b5f60c2d16c3c6eac7ff8d0de8bc05e2d5eae897",
+  "productionAtAuditStart": "f52828c17696ae9e0e65fe0aa6500b6b5fb58b64",
+  "productionAfterDeploy": "b5f60c2 (Vercel Ready; gh commit status success)",
   "checks": {
     "versionRefundContradiction": "RESOLVED — false negative in old data-tour; refunds live since acfe68a",
     "leadUiCreateSave": "PASS — LD-2026-000081",
     "customerRefundUi": "PASS — CRF-2026-000003 + JV-2026-000270; refundableAmount=0; statement closing=0",
     "investorTourApi": "PASS — 82/82",
+    "purchasingF4Api": "PASS — DEMO-GUIDE F4 12/12",
     "reportsFilterExport": "PASS — TB filter/export CSV",
-    "reportsPrint": "FAIL on f52828c sessionStorage; fix print-bridge localStorage pending deploy",
-    "settingsAccounting": "PAGE LOAD — form visible",
-    "settingsDocumentNumbering": "PAGE LOAD — view-only without numbering.manage",
-    "qaPersonasPurchasingInvestorsHr": "PENDING deploy/seed",
-    "allowGlobalRuns": "OFF"
+    "reportsPrint": "PASS after deploy — print preview renders table (screenshot 19); was FAIL on f52828c sessionStorage",
+    "qaPersonasLogin": "PASS — qa-purchasing / qa-investors / qa-hr / qa-finance (refunds.* seeded)",
+    "qaPersonasDeepBrowserWorkflows": "NOT TESTED — login+perms seeded; deep UI journeys still admin/API evidence",
+    "settingsAccounting": "PAGE LOAD",
+    "settingsReversibleEdit": "NOT TESTED — avoided mutating live default accounts",
+    "allowGlobalRuns": "OFF — depreciation/prepaid global batch NOT TESTED without approval"
   },
   "demoLinks": {
     "leadUi": "https://oms.haseb.org/crm/leads/2f3339af-a80f-41c9-9d55-9e9dcbc9016b",

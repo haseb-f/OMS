@@ -26,8 +26,9 @@
 | 14b   | `14-trial-balance-export-menu-ar.png`       | مالية            | تصدير     | قائمة Excel / CSV مفتوحة؛ الميزان **متوازن**      | TB                                      | PASS تصدير                     |
 | 15    | `15-settings-document-numbering-ar.png`     | إعدادات          | ترقيم     | ترقيم المستندات                                   | `/settings/document-numbering`          | عرض                            |
 | 16    | `16-settings-general-ar.png`                | إعدادات          | عام       | إعدادات عامة                                      | `/settings/general`                     | قشرة محتملة                    |
-| 17    | `17-trial-balance-print-preview-ar.png`     | مالية            | طباعة     | فشل: «انتهت صلاحية مهمة الطباعة» على f52828c      | `/print/list?job=…`                     | **FAIL** → إصلاح print-bridge  |
+| 17    | `17-trial-balance-print-preview-ar.png`     | مالية            | طباعة     | فشل قبل الإصلاح على f52828c                       | `/print/list?job=…`                     | FAIL تاريخي                    |
 | 18    | `18-accounting-settings-ar.png`             | مالية            | إعدادات   | إعدادات الحسابات + حفظ                            | `/finance/accounting-settings`          | PAGE                           |
+| 19    | `19-trial-balance-print-after-fix-ar.png`   | مالية            | طباعة     | معاينة ميزان بعد إصلاح print-bridge               | `/print/list?job=…`                     | **PASS** بعد b5f60c2           |
 | R1    | `role-qa-shipping-nav-ar.png`               | شحن              | صلاحيات   | القائمة تظهر الشحن                                | `/`                                     | qa-shipping                    |
 | R2    | `role-qa-finance-nav-ar.png`                | مالية            | صلاحيات   | القائمة تظهر المالية                              | `/`                                     | qa-finance                     |
 | R3    | `role-qa-sales-agent-nav-ar.png`            | مندوب            | صلاحيات   | المبيعات + CRM                                    | `/`                                     | qa-sales-agent                 |
