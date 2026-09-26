@@ -197,7 +197,10 @@ export function KpiEvaluationItemCard({
               onValueChange={setDropdownLabel}
               disabled={disabled}
             >
-              <SelectTrigger className="w-full sm:w-64">
+              <SelectTrigger
+                className="w-full"
+                aria-label={t("hr.kpiTemplates.items.dropdownOptions")}
+              >
                 <SelectValue placeholder={t("hr.kpiTemplates.items.dropdownOptions")} />
               </SelectTrigger>
               <SelectContent>

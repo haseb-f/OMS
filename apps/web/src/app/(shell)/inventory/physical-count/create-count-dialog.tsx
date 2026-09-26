@@ -1,19 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { SearchInput } from "@/components/shared/search-input";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/shared/searchable-select";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
@@ -21,11 +15,27 @@ import {
   physicalCountService,
   type PhysicalCountDetailRow,
 } from "@/services/physical-count-service";
-import { createMasterDataService } from "@/services/master-data-service";
 import { productsService, type ProductRow } from "@/services/products-service";
-import type { WarehouseRow } from "@/config/master-data/entities";
+import { useWarehouses } from "@/hooks/use-reference-data";
+import { cachedLookup } from "@/lib/lookup-cache";
+import { filterByArabicSearch } from "@/lib/arabic-search";
 
-const warehousesService = createMasterDataService<WarehouseRow>("/warehouses");
+/** The products API caps `pageSize` at 200 — page through so no inventory item is silently left out of the count. */
+const PRODUCTS_PAGE_SIZE = 200;
+
+async function fetchAllInventoryProducts(): Promise<ProductRow[]> {
+  const params = { isInventoryItem: true, pageSize: PRODUCTS_PAGE_SIZE };
+  const first = await productsService.list({ ...params, page: 1 });
+  const pageCount = Math.ceil(first.total / PRODUCTS_PAGE_SIZE);
+  const rest = await Promise.all(
+    Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) =>
+      productsService.list({ ...params, page: index + 2 }),
+    ),
+  );
+  return [first, ...rest]
+    .flatMap((result) => result.items)
+    .filter((product) => product.isInventoryItem);
+}
 
 /** TASK-029 — Create Physical Count: pick a Warehouse, optionally narrow which products to count (defaults to every active inventory item). */
 export function CreateCountDialog({
@@ -38,7 +48,18 @@ export function CreateCountDialog({
   onCreated: (count: PhysicalCountDetailRow) => void;
 }) {
   const { t } = useLocale();
-  const [warehouses, setWarehouses] = useState<WarehouseRow[]>([]);
+  const fieldId = useId();
+  const warehouses = useWarehouses();
+  const warehouseOptions = useMemo(
+    () =>
+      warehouses.map((warehouse) => ({
+        value: warehouse.id,
+        label: warehouse.name,
+        description: warehouse.code,
+        searchText: warehouse.code,
+      })),
+    [warehouses],
+  );
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [warehouseId, setWarehouseId] = useState("");
   const [search, setSearch] = useState("");
@@ -48,14 +69,9 @@ export function CreateCountDialog({
 
   useEffect(() => {
     if (!open) return;
-    warehousesService
-      .list({ pageSize: 200 })
-      .then((result) => setWarehouses(result.items))
-      .catch(() => setWarehouses([]));
-    productsService
-      .list({ pageSize: 500 })
-      .then((result) => {
-        const items = result.items.filter((product) => product.isInventoryItem);
+    // Cached for the lookup TTL, so re-opening the dialog doesn't refetch.
+    cachedLookup("products:physical-count:inventory", fetchAllInventoryProducts)
+      .then((items) => {
         setProducts(items);
         setSelected(new Set(items.map((product) => product.id)));
       })
@@ -69,15 +85,15 @@ export function CreateCountDialog({
     setNotes("");
   };
 
-  const filteredProducts = useMemo(() => {
-    if (!search) return products;
-    const query = search.toLowerCase();
-    return products.filter(
-      (product) =>
-        product.sku.toLowerCase().includes(query) ||
-        (product.displayName || product.name).toLowerCase().includes(query),
-    );
-  }, [products, search]);
+  const filteredProducts = useMemo(
+    () =>
+      filterByArabicSearch(
+        products,
+        search,
+        (product) => `${product.sku} ${product.displayName || product.name}`,
+      ),
+    [products, search],
+  );
 
   const toggle = (id: string) => {
     setSelected((current) => {
@@ -138,19 +154,15 @@ export function CreateCountDialog({
     >
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-2">
-          <Label>{t("masterData.fields.warehouse")}</Label>
-          <Select value={warehouseId || undefined} onValueChange={setWarehouseId}>
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {warehouses.map((warehouse) => (
-                <SelectItem key={warehouse.id} value={warehouse.id}>
-                  {warehouse.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label htmlFor={`${fieldId}-warehouse`}>{t("masterData.fields.warehouse")}</Label>
+          <SearchableSelect
+            id={`${fieldId}-warehouse`}
+            value={warehouseId}
+            onValueChange={setWarehouseId}
+            options={warehouseOptions}
+            placeholder={t("masterData.fields.warehouse")}
+            subtitleDir="ltr"
+          />
         </div>
 
         <div className="flex flex-col gap-2">
@@ -202,8 +214,12 @@ export function CreateCountDialog({
         </div>
 
         <div className="flex flex-col gap-2">
-          <Label>{t("products.openingBalance.notes")}</Label>
-          <Input value={notes} onChange={(event) => setNotes(event.target.value)} />
+          <Label htmlFor={`${fieldId}-notes`}>{t("products.openingBalance.notes")}</Label>
+          <Input
+            id={`${fieldId}-notes`}
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+          />
         </div>
       </div>
     </EnterpriseModal>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -41,6 +41,7 @@ export function WorkflowActionsPanel({
   hideTargetCodes?: string[];
 }) {
   const { t, locale } = useLocale();
+  const paymentTypeFieldId = useId();
   const [actions, setActions] = useState<WorkflowAction[]>([]);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
@@ -231,12 +232,12 @@ export function WorkflowActionsPanel({
             />
           </div>
           <div className="flex flex-col gap-1">
-            <Label>{t("crm.leads.convert.paymentType")}</Label>
+            <Label htmlFor={paymentTypeFieldId}>{t("crm.leads.convert.paymentType")}</Label>
             <Select
               value={paymentType}
               onValueChange={(v) => setPaymentType(v as "PREPAID" | "CASH_ON_DELIVERY")}
             >
-              <SelectTrigger>
+              <SelectTrigger id={paymentTypeFieldId} className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

@@ -39,6 +39,8 @@ import { partnersService, type PartnerRow } from "@/services/partners-service";
 function createReferenceDataHook<T>(fetcher: () => Promise<T[]>) {
   let cache: T[] | null = null;
   let inFlight: Promise<T[]> | null = null;
+  // Last request failed (or was forbidden) — callers show "empty", not a spinner.
+  let failed = false;
   const listeners = new Set<() => void>();
 
   function ensureLoaded() {
@@ -48,6 +50,7 @@ function createReferenceDataHook<T>(fetcher: () => Promise<T[]>) {
         if (inFlight !== request) return data;
         cache = data;
         inFlight = null;
+        failed = false;
         listeners.forEach((listener) => listener());
         return data;
       })
@@ -56,6 +59,7 @@ function createReferenceDataHook<T>(fetcher: () => Promise<T[]>) {
         // Do not cache failures as a permanent empty list — leave cache
         // unset so the next mount/invalidate can retry.
         inFlight = null;
+        failed = true;
         listeners.forEach((listener) => listener());
         return cache ?? [];
       });
@@ -87,10 +91,19 @@ function createReferenceDataHook<T>(fetcher: () => Promise<T[]>) {
     listeners.forEach((listener) => listener());
   };
 
+  /**
+   * True until the first response arrives. Read it in a component that also
+   * calls the hook (the hook's subscription re-renders it on resolve). A
+   * failed/forbidden request is "not loading" — an empty list, never a
+   * spinner that never ends.
+   */
+  useReferenceData.isLoading = () => cache === null && !failed;
+
   /** For a rarer full edit/archive from the entity's own management page — refetch so selectors pick up the change without a full reload. */
   useReferenceData.invalidate = () => {
     cache = null;
     inFlight = null;
+    failed = false;
     ensureLoaded();
   };
 

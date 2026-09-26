@@ -30,3 +30,18 @@ export function normalizeArabicSearch(value: string): string {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+/**
+ * Client-side option filter shared by every picker and list filter: keeps
+ * the items whose normalized text contains the normalized query. An empty
+ * query returns the list unchanged.
+ */
+export function filterByArabicSearch<T>(
+  items: readonly T[],
+  query: string,
+  getText: (item: T) => string,
+): T[] {
+  const needle = normalizeArabicSearch(query);
+  if (!needle) return [...items];
+  return items.filter((item) => normalizeArabicSearch(getText(item)).includes(needle));
+}

@@ -8,6 +8,7 @@
  * Reuses DEMO-GUIDE returns when refundable; otherwise creates nothing destructive.
  * Screenshots land under docs/user-guide/screenshots/ and evidence under OUT.
  */
+/* global document */
 import { mkdirSync, writeFileSync, copyFileSync, existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { chromium } from "playwright";

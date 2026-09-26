@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { ShoppingCart } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import {
@@ -21,6 +21,7 @@ import {
   type ProductLineItemsGridLine,
 } from "@/components/sales/product-line-items-grid";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
+import { CurrencyPicker } from "@/components/business/currency-picker";
 import { useCurrencies, usePaymentMethods, useCountries } from "@/hooks/use-reference-data";
 import { leadsService, type LeadRow } from "@/services/leads-service";
 import { ApiError } from "@/services/api-client";
@@ -51,6 +52,7 @@ export function LeadConvertDialog({
 }) {
   const { t, locale } = useLocale();
   const currencies = useCurrencies();
+  const currencyFieldId = useId();
   const paymentMethods = usePaymentMethods();
   const countries = useCountries();
 
@@ -329,14 +331,12 @@ export function LeadConvertDialog({
               />
             </div>
             <div className="flex flex-col gap-1">
-              <Label>{t("crm.leads.fields.currency")}</Label>
-              <EntityCombobox
-                value={currency}
-                onChange={setCurrency}
-                items={currencies.filter((row) => !row.deletedAt)}
-                getId={(item) => item.id}
-                getTitle={(item) => item.code}
-                getSearchText={(item) => `${item.code} ${item.name}`}
+              <Label htmlFor={currencyFieldId}>{t("crm.leads.fields.currency")}</Label>
+              <CurrencyPicker
+                id={currencyFieldId}
+                valueKey="id"
+                value={currency?.id ?? ""}
+                onValueChange={(id) => setCurrency(currencies.find((row) => row.id === id) ?? null)}
               />
             </div>
             <div className="flex flex-col gap-1">

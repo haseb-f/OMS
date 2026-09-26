@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
@@ -10,7 +10,7 @@ import {
   EnterpriseCardTitle,
 } from "@/components/ui/card";
 import { AccountPicker } from "@/components/business/account-picker";
-import { EntityCombobox } from "@/components/shared/entity-combobox";
+import { CurrencyPicker } from "@/components/business/currency-picker";
 import type { ChartOfAccountRow, CurrencyRow } from "@/config/master-data/entities";
 import {
   accountingSettingsService,
@@ -29,7 +29,6 @@ import { useCurrencies } from "@/hooks/use-reference-data";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import type { MessageKey } from "@/i18n/translate";
-import { Banknote } from "lucide-react";
 
 interface FieldConfig {
   key: AccountingSettingsField;
@@ -273,6 +272,7 @@ export default function AccountingSettingsPage() {
   const [settings, setSettings] = useState<AccountingSettingsRow | null>(null);
   const [values, setValues] = useState<Record<string, ChartOfAccountRow | null>>({});
   const [functionalCurrency, setFunctionalCurrency] = useState<CurrencyRow | null>(null);
+  const functionalCurrencyFieldId = useId();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
@@ -427,18 +427,21 @@ export default function AccountingSettingsPage() {
             <EnterpriseCardContent className="flex flex-col gap-2.5 px-4">
               {section.titleKey === "accounting.settings.sections.general" && (
                 <div className="flex flex-col gap-1">
-                  <label className="text-caption text-muted-foreground">
+                  <label
+                    htmlFor={functionalCurrencyFieldId}
+                    className="text-caption text-muted-foreground"
+                  >
                     {t("accounting.settings.fields.functionalCurrency")}
                   </label>
-                  <EntityCombobox
-                    items={currencies}
-                    value={functionalCurrency}
-                    onChange={setFunctionalCurrency}
-                    getId={(currency) => currency.id}
-                    getTitle={(currency) => `${currency.code} — ${currency.name}`}
-                    allowClear={!functionalCurrency}
-                    placeholder={t("common.select")}
-                    icon={<Banknote className="size-3.5 shrink-0 text-muted-foreground" />}
+                  {/* No clear: once set, the functional currency can only be changed, never emptied (unchanged behavior). */}
+                  <CurrencyPicker
+                    id={functionalCurrencyFieldId}
+                    valueKey="id"
+                    value={functionalCurrency?.id ?? null}
+                    onValueChange={(nextId) => {
+                      const next = currencies.find((currency) => currency.id === nextId);
+                      if (next) setFunctionalCurrency(next);
+                    }}
                   />
                   <p
                     className={

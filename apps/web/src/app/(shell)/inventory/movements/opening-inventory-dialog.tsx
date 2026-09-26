@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { ModalSection } from "@/components/shared/modal-section";
 import {
@@ -31,6 +31,7 @@ export function OpeningInventoryDialog({
   onCreated: () => void;
 }) {
   const { t } = useLocale();
+  const fieldId = useId();
 
   const [product, setProduct] = useState<ProductRow | null>(null);
   const [warehouse, setWarehouse] = useState<WarehouseRow | null>(null);
@@ -93,16 +94,27 @@ export function OpeningInventoryDialog({
       <CreateOperationLayout>
         <ModalSection title={t("inventory.openingInventory.title")} columns={2}>
           <div className="flex flex-col gap-1">
-            <Label>{t("inventory.fields.product")}</Label>
-            <ProductPicker value={product} onChange={setProduct} inventoryOnly className="w-full" />
+            <Label htmlFor={`${fieldId}-product`}>{t("inventory.fields.product")}</Label>
+            <ProductPicker
+              value={product}
+              onChange={setProduct}
+              inventoryOnly
+              className="w-full"
+              triggerProps={{ id: `${fieldId}-product` }}
+            />
           </div>
           <div className="flex flex-col gap-1">
-            <Label>{t("masterData.fields.warehouse")}</Label>
-            <WarehousePicker value={warehouse} onChange={setWarehouse} />
+            <Label htmlFor={`${fieldId}-warehouse`}>{t("masterData.fields.warehouse")}</Label>
+            <WarehousePicker
+              id={`${fieldId}-warehouse`}
+              value={warehouse}
+              onChange={setWarehouse}
+            />
           </div>
           <div className="flex flex-col gap-1">
-            <Label>{t("products.openingBalance.quantity")}</Label>
+            <Label htmlFor={`${fieldId}-quantity`}>{t("products.openingBalance.quantity")}</Label>
             <Input
+              id={`${fieldId}-quantity`}
               type="number"
               dir="ltr"
               min={1}
@@ -112,12 +124,20 @@ export function OpeningInventoryDialog({
             />
           </div>
           <div className="flex flex-col gap-1">
-            <Label>{t("products.openingBalance.averageCost")}</Label>
-            <MoneyInput value={unitCost} onChange={(event) => setUnitCost(event.target.value)} />
+            <Label htmlFor={`${fieldId}-cost`}>{t("products.openingBalance.averageCost")}</Label>
+            <MoneyInput
+              id={`${fieldId}-cost`}
+              value={unitCost}
+              onChange={(event) => setUnitCost(event.target.value)}
+            />
           </div>
           <div className="col-span-full flex flex-col gap-1">
-            <Label>{t("products.openingBalance.notes")}</Label>
-            <Input value={notes} onChange={(event) => setNotes(event.target.value)} />
+            <Label htmlFor={`${fieldId}-notes`}>{t("products.openingBalance.notes")}</Label>
+            <Input
+              id={`${fieldId}-notes`}
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+            />
           </div>
         </ModalSection>
         <CreateOperationSummary

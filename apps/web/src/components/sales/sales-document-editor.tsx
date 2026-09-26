@@ -1,19 +1,12 @@
 "use client";
 
-import type { ReactNode } from "react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { useId, type ReactNode } from "react";
+import { UserPicker } from "@/components/business/user-picker";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import {
   CommercialDocumentEditor,
   type CommercialDocumentActivityEntry,
 } from "@/components/documents/commercial-document-editor";
-import { useUsersList } from "@/hooks/use-reference-data";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import type {
@@ -57,35 +50,26 @@ export function SalesDocumentEditor<TDocument>({
 }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
-  const users = useUsersList();
+  const salespersonFieldId = useId();
   const canEdit = hasPermission(config.permissions.edit) && !disabled;
 
   const moreDetails = (
     <>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="flex flex-col gap-1">
-          <label className="text-caption text-muted-foreground">
+          <label htmlFor={salespersonFieldId} className="text-caption text-muted-foreground">
             {t("sales.editor.header.salesperson")}
           </label>
-          <Select
-            value={state.salespersonId ?? "__none__"}
+          {/* Cleared ("") is "no salesperson" (null), as the old "__none__" row was. */}
+          <UserPicker
+            id={salespersonFieldId}
+            value={state.salespersonId ?? ""}
+            onValueChange={(userId) => handlers.onSalespersonChange(userId || null)}
+            activeOnly={false}
+            allowClear
             disabled={!canEdit}
-            onValueChange={(value) =>
-              handlers.onSalespersonChange(value === "__none__" ? null : value)
-            }
-          >
-            <SelectTrigger size="sm" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">{t("sales.editor.header.noSalesperson")}</SelectItem>
-              {users.map((user) => (
-                <SelectItem key={user.id} value={user.id}>
-                  {user.fullName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder={t("sales.editor.header.noSalesperson")}
+          />
         </div>
         {handlers.onExpectedDateChange ? (
           <div className="flex flex-col gap-1">

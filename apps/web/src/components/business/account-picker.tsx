@@ -2,6 +2,7 @@
 
 import { Landmark } from "lucide-react";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
+import { cachedLookup } from "@/lib/lookup-cache";
 import { createMasterDataService } from "@/services/master-data-service";
 import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
@@ -26,6 +27,8 @@ export function AccountPicker({
   accountType,
   postingOnly,
   items,
+  id,
+  "aria-label": ariaLabel,
 }: {
   value: ChartOfAccountRow | null | undefined;
   onChange: (account: ChartOfAccountRow | null) => void;
@@ -36,12 +39,17 @@ export function AccountPicker({
   postingOnly?: boolean;
   /** Skip the async search and filter this already-fetched list instead — for callers (e.g. a line-grid) that prefetch the account list once for the whole page rather than per-row. */
   items?: ChartOfAccountRow[];
+  /** Forwarded to the trigger so an external `<Label htmlFor>` / `FormControl` can name it. */
+  id?: string;
+  "aria-label"?: string;
 }) {
   const { t } = useLocale();
   const excluded = new Set(excludeIds ?? []);
 
   return (
     <EntityCombobox
+      id={id}
+      triggerProps={{ "aria-label": ariaLabel }}
       value={value ?? null}
       onChange={onChange}
       items={items}
@@ -49,12 +57,15 @@ export function AccountPicker({
         items
           ? undefined
           : async (search) => {
-              const result = await accountsService.list({
+              const params = {
                 search: search || undefined,
-                pageSize: 20,
+                pageSize: 25,
                 ...(accountType ? { accountType } : {}),
                 ...(postingOnly ? { postingOnly: true } : {}),
-              });
+              };
+              const result = await cachedLookup(`accounts:${JSON.stringify(params)}`, () =>
+                accountsService.list(params),
+              );
               return result.items.filter((item) => !excluded.has(item.id));
             }
       }

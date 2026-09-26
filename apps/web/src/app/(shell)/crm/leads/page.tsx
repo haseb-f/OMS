@@ -8,7 +8,9 @@ import type { MasterDataFormSection } from "@/components/master-data/master-data
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import { SyncButton } from "@/components/shared/sync-button";
 import { EnterpriseButton } from "@/components/ui/button";
-import { EntityCombobox } from "@/components/shared/entity-combobox";
+import { EmployeePicker } from "@/components/business/employee-picker";
+import { SelectFilter } from "@/components/shared/data-table/select-filter";
+import { cachedLookup, invalidateLookups } from "@/lib/lookup-cache";
 import { exportRowsToCsv } from "@/components/master-data/enterprise-data-table";
 import type { RowAction } from "@/components/shared/data-table";
 import { leadsService, type LeadRow } from "@/services/leads-service";
@@ -32,13 +34,6 @@ import { BulkLeadStatusDialog } from "@/components/crm/bulk-lead-status-dialog";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   useCurrencies,
   useCountries,
@@ -64,12 +59,14 @@ function CrmLeadsPageContent() {
   const [bulkStatusIds, setBulkStatusIds] = useState<string[]>([]);
   const [isExportingSelected, setIsExportingSelected] = useState(false);
   const [unassignedOnly, setUnassignedOnly] = useState(false);
+  // SelectFilter's "" is its "All" row: lifecycle "" is sent as the API's
+  // `lifecycle=all`; the classification/follow-up filters omit their param.
   const [lifecycle, setLifecycle] = useState("active");
-  const [classificationFilter, setClassificationFilter] = useState("all");
-  const [followUpFilter, setFollowUpFilter] = useState("all");
+  const [classificationFilter, setClassificationFilter] = useState("");
+  const [followUpFilter, setFollowUpFilter] = useState("");
   const [employeeFilter, setEmployeeFilter] = useState("");
   const [eligibleEmployees, setEligibleEmployees] = useState<
-    { id: string; fullName: string; email: string }[]
+    { id: string; name: string; employeeCode: string }[]
   >([]);
   const [unassignedCount, setUnassignedCount] = useState<number | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
@@ -96,9 +93,16 @@ function CrmLeadsPageContent() {
       setEligibleEmployees([]);
       return;
     }
-    leadsService
-      .eligibleAssignees()
-      .then(setEligibleEmployees)
+    // Picker shape: the email rides in `employeeCode` so it shows as the
+    // subtitle and stays searchable, as it was before.
+    // A manual refresh re-reads assignees too (the lookup cache would hold them for 60s).
+    if (refreshToken > 0) invalidateLookups("leads:eligible-assignees");
+    cachedLookup("leads:eligible-assignees", () => leadsService.eligibleAssignees())
+      .then((rows) =>
+        setEligibleEmployees(
+          rows.map((row) => ({ id: row.id, name: row.fullName, employeeCode: row.email })),
+        ),
+      )
       .catch(() => setEligibleEmployees([]));
   }, [canAssign, refreshToken]);
 
@@ -234,48 +238,41 @@ function CrmLeadsPageContent() {
         extraListParams={{
           ...(unassignedOnly ? { unassigned: true } : {}),
           ...(employeeFilter ? { salesEmployeeId: employeeFilter } : {}),
-          lifecycle,
-          ...(classificationFilter !== "all" ? { classificationIds: classificationFilter } : {}),
-          ...(followUpFilter !== "all" ? { followUpFilter } : {}),
+          lifecycle: lifecycle || "all",
+          ...(classificationFilter ? { classificationIds: classificationFilter } : {}),
+          ...(followUpFilter ? { followUpFilter } : {}),
         }}
         extraFilters={
           <div className="flex flex-wrap items-center gap-3">
-            <Select value={lifecycle} onValueChange={setLifecycle}>
-              <SelectTrigger size="sm" className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">{t("crm.leads.lifecycle.active")}</SelectItem>
-                <SelectItem value="converted">{t("crm.leads.lifecycle.converted")}</SelectItem>
-                <SelectItem value="closed">{t("crm.leads.lifecycle.closed")}</SelectItem>
-                <SelectItem value="all">{t("crm.leads.lifecycle.all")}</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={classificationFilter} onValueChange={setClassificationFilter}>
-              <SelectTrigger size="sm" className="w-44">
-                <SelectValue placeholder={t("crm.leads.fields.classification")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t("common.select")}</SelectItem>
-                {classifications.map((row) => (
-                  <SelectItem key={row.id} value={row.id}>
-                    {row.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={followUpFilter} onValueChange={setFollowUpFilter}>
-              <SelectTrigger size="sm" className="w-44">
-                <SelectValue placeholder={t("crm.leads.filters.followUp")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t("crm.leads.filters.followUpAll")}</SelectItem>
-                <SelectItem value="today">{t("crm.leads.followUp.today")}</SelectItem>
-                <SelectItem value="overdue">{t("crm.leads.followUp.overdue")}</SelectItem>
-                <SelectItem value="upcoming">{t("crm.leads.filters.followUpUpcoming")}</SelectItem>
-                <SelectItem value="none">{t("crm.leads.filters.followUpNone")}</SelectItem>
-              </SelectContent>
-            </Select>
+            <SelectFilter
+              label={t("crm.leads.lifecycle.all")}
+              value={lifecycle}
+              onChange={setLifecycle}
+              allLabel={t("crm.leads.lifecycle.all")}
+              options={[
+                { value: "active", label: t("crm.leads.lifecycle.active") },
+                { value: "converted", label: t("crm.leads.lifecycle.converted") },
+                { value: "closed", label: t("crm.leads.lifecycle.closed") },
+              ]}
+            />
+            <SelectFilter
+              label={t("crm.leads.fields.classification")}
+              value={classificationFilter}
+              onChange={setClassificationFilter}
+              options={classifications.map((row) => ({ value: row.id, label: row.name }))}
+            />
+            <SelectFilter
+              label={t("crm.leads.filters.followUp")}
+              value={followUpFilter}
+              onChange={setFollowUpFilter}
+              allLabel={t("crm.leads.filters.followUpAll")}
+              options={[
+                { value: "today", label: t("crm.leads.followUp.today") },
+                { value: "overdue", label: t("crm.leads.followUp.overdue") },
+                { value: "upcoming", label: t("crm.leads.filters.followUpUpcoming") },
+                { value: "none", label: t("crm.leads.filters.followUpNone") },
+              ]}
+            />
             {/* Employee filter — Section 8: only ever rendered for a scope
                 that's authorized to see other employees' Leads at all
                 (canAssign === ALL/TEAM). An OWN-scope Sales Agent gets no
@@ -283,18 +280,18 @@ function CrmLeadsPageContent() {
                 another employee — the backend AND's this with scope
                 regardless, but hiding it here keeps the UI honest too. */}
             {canAssign ? (
-              <EntityCombobox
-                items={eligibleEmployees}
-                value={eligibleEmployees.find((employee) => employee.id === employeeFilter) ?? null}
-                onChange={(employee) => setEmployeeFilter(employee?.id ?? "")}
-                getId={(employee) => employee.id}
-                getTitle={(employee) => employee.fullName}
-                getSearchText={(employee) => employee.email}
-                placeholder={t("crm.leads.filters.employee")}
-                searchPlaceholder={t("crm.leads.searchPlaceholder")}
-                allowClear
-                triggerClassName="h-(--control-height-sm) w-52"
-              />
+              <div className="w-full sm:w-52">
+                <EmployeePicker
+                  items={eligibleEmployees}
+                  value={
+                    eligibleEmployees.find((employee) => employee.id === employeeFilter) ?? null
+                  }
+                  onChange={(employee) => setEmployeeFilter(employee?.id ?? "")}
+                  placeholder={t("crm.leads.filters.employee")}
+                  aria-label={t("crm.leads.filters.employee")}
+                  allowClear
+                />
+              </div>
             ) : null}
             {canAssign ? (
               <label className="flex items-center gap-2 text-caption">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { UserCog } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { ModalSection } from "@/components/shared/modal-section";
@@ -17,8 +17,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { OMSPhoneInput, isPhoneValidForCountry } from "@/components/shared/phone-input";
 import { PermissionMatrix } from "./permission-matrix";
 import { usersService, type UserRow, type UserFormPayload } from "@/services/users-service";
-import { jobTitlesService, type JobTitleRow } from "@/services/job-titles-service";
 import { DepartmentPicker } from "@/components/business/department-picker";
+import { UserPicker } from "@/components/business/user-picker";
+import { SearchableSelect } from "@/components/shared/searchable-select";
+import { useJobTitles } from "@/hooks/use-reference-data";
 import type { DepartmentRow } from "@/config/master-data/entities";
 import { useCompany } from "@/providers/company-provider";
 import { useLocale } from "@/providers/locale-provider";
@@ -88,7 +90,8 @@ export function UserEditorModal({
 }) {
   const { t } = useLocale();
   const { companies } = useCompany();
-  const [jobTitles, setJobTitles] = useState<JobTitleRow[]>([]);
+  const jobTitles = useJobTitles();
+  const fieldId = useId();
   const [selectedDepartment, setSelectedDepartment] = useState<DepartmentRow | null>(null);
   const [archivedDepartment, setArchivedDepartment] = useState<DepartmentRow | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -112,14 +115,6 @@ export function UserEditorModal({
       return aMatch - bMatch;
     });
   }, [jobTitles, form.departmentId]);
-
-  useEffect(() => {
-    if (!open) return;
-    jobTitlesService
-      .listActive()
-      .then(setJobTitles)
-      .catch(() => setJobTitles([]));
-  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -361,33 +356,31 @@ export function UserEditorModal({
               </div>
             )}
             <div className="flex flex-col gap-1">
-              <label className="text-caption text-muted-foreground">
+              <label
+                htmlFor={`${fieldId}-job-title`}
+                className="text-caption text-muted-foreground"
+              >
                 {t("settings.users.fields.jobTitle")}
               </label>
-              <Select
-                value={form.jobTitleId || "__none__"}
-                onValueChange={(v) =>
-                  setForm((c) => ({ ...c, jobTitleId: v === "__none__" ? "" : v }))
-                }
-              >
-                <SelectTrigger size="sm" className="w-full">
-                  <SelectValue placeholder={t("settings.users.fields.jobTitle")} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">{t("common.none")}</SelectItem>
-                  {sortedJobTitles.map((title) => (
-                    <SelectItem key={title.id} value={title.id}>
-                      {title.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Cleared ("") is "none", as the old "__none__" row was. */}
+              <SearchableSelect
+                id={`${fieldId}-job-title`}
+                value={form.jobTitleId}
+                onValueChange={(v) => setForm((c) => ({ ...c, jobTitleId: v }))}
+                options={sortedJobTitles.map((title) => ({ value: title.id, label: title.name }))}
+                allowClear
+                placeholder={t("common.none")}
+              />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-caption text-muted-foreground">
+              <label
+                htmlFor={`${fieldId}-department`}
+                className="text-caption text-muted-foreground"
+              >
                 {t("settings.users.fields.department")} <span className="text-destructive">*</span>
               </label>
               <DepartmentPicker
+                id={`${fieldId}-department`}
                 value={selectedDepartment}
                 requiredArchived={archivedDepartment}
                 onChange={(department) => {
@@ -397,7 +390,7 @@ export function UserEditorModal({
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-caption text-muted-foreground">
+              <label htmlFor={`${fieldId}-branch`} className="text-caption text-muted-foreground">
                 {t("settings.users.fields.branch")}
               </label>
               <Select
@@ -406,7 +399,7 @@ export function UserEditorModal({
                   setForm((c) => ({ ...c, branchId: v === "__none__" ? "" : v }))
                 }
               >
-                <SelectTrigger size="sm" className="w-full">
+                <SelectTrigger id={`${fieldId}-branch`} size="sm" className="w-full">
                   <SelectValue placeholder={t("settings.users.fields.branch")} />
                 </SelectTrigger>
                 <SelectContent>
@@ -433,18 +426,16 @@ export function UserEditorModal({
           {otherUsers.length > 0 && (
             <ModalSection title={t("settings.users.editor.copyPermissionsFrom")} columns={2}>
               <div className="col-span-full flex items-center gap-2">
-                <Select value={copySourceId} onValueChange={setCopySourceId}>
-                  <SelectTrigger size="sm" className="w-64">
-                    <SelectValue placeholder={t("settings.users.editor.selectUser")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {otherUsers.map((candidate) => (
-                      <SelectItem key={candidate.id} value={candidate.id}>
-                        {candidate.fullName} ({candidate.username})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="min-w-0 flex-1">
+                  <UserPicker
+                    value={copySourceId}
+                    onValueChange={setCopySourceId}
+                    activeOnly={false}
+                    excludeIds={user ? [user.id] : undefined}
+                    placeholder={t("settings.users.editor.selectUser")}
+                    aria-label={t("settings.users.editor.copyPermissionsFrom")}
+                  />
+                </div>
                 <EnterpriseButton
                   type="button"
                   variant="outline"

@@ -13,13 +13,7 @@ import { JournalTraceLinks } from "@/components/accounting/journal-trace-links";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/shared/searchable-select";
 import {
   Sheet,
   SheetContent,
@@ -328,21 +322,20 @@ export default function PayrollRunDetailPage() {
                   <p className="text-caption font-medium text-muted-foreground">
                     {t("hr.payroll.lines.addComponent")}
                   </p>
-                  <Select value={newComponentId} onValueChange={setNewComponentId}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder={t("hr.compensation.fields.component")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {payrollComponents.map((component) => (
-                        <SelectItem key={component.id} value={component.id}>
-                          {component.nameAr}
-                          {component.type === "DEDUCTION"
-                            ? ` (${t("hr.payrollComponents.type.DEDUCTION")})`
-                            : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={newComponentId}
+                    onValueChange={setNewComponentId}
+                    options={payrollComponents.map((component) => ({
+                      value: component.id,
+                      label:
+                        component.type === "DEDUCTION"
+                          ? `${component.nameAr} (${t("hr.payrollComponents.type.DEDUCTION")})`
+                          : component.nameAr,
+                      searchText: component.nameEn ?? undefined,
+                    }))}
+                    placeholder={t("hr.compensation.fields.component")}
+                    aria-label={t("hr.compensation.fields.component")}
+                  />
                   <Input
                     type="number"
                     placeholder={t("hr.compensation.fields.amount")}

@@ -2,6 +2,7 @@
 
 import { FolderKanban } from "lucide-react";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
+import { cachedLookup } from "@/lib/lookup-cache";
 import { createMasterDataService } from "@/services/master-data-service";
 import type { ProjectRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
@@ -15,6 +16,8 @@ export function ProjectPicker({
   disabled,
   placeholder,
   items,
+  id,
+  "aria-label": ariaLabel,
 }: {
   value: ProjectRow | null | undefined;
   onChange: (project: ProjectRow | null) => void;
@@ -22,11 +25,16 @@ export function ProjectPicker({
   placeholder?: string;
   /** Skip the async search and filter this already-fetched list instead — for callers (e.g. a line-grid) that prefetch the project list once for the whole page rather than per-row. */
   items?: ProjectRow[];
+  /** Forwarded to the trigger so an external `<Label htmlFor>` / `FormControl` can name it. */
+  id?: string;
+  "aria-label"?: string;
 }) {
   const { t } = useLocale();
 
   return (
     <EntityCombobox
+      id={id}
+      triggerProps={{ "aria-label": ariaLabel }}
       value={value ?? null}
       onChange={onChange}
       items={items}
@@ -34,10 +42,10 @@ export function ProjectPicker({
         items
           ? undefined
           : async (search) => {
-              const result = await projectsService.list({
-                search: search || undefined,
-                pageSize: 20,
-              });
+              const params = { search: search || undefined, pageSize: 20 };
+              const result = await cachedLookup(`projects:${JSON.stringify(params)}`, () =>
+                projectsService.list(params),
+              );
               return result.items;
             }
       }

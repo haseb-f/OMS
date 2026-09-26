@@ -12,7 +12,7 @@ import {
   jobTitleRowLabel,
   type JobTitleRow,
 } from "@/config/master-data/job-titles";
-import { useDepartments } from "@/hooks/use-reference-data";
+import { useDepartments, useJobTitles } from "@/hooks/use-reference-data";
 import { useLocale } from "@/providers/locale-provider";
 
 const service = createMasterDataService<JobTitleRow>("/job-titles");
@@ -41,6 +41,7 @@ export default function JobTitlesPage() {
 
   return (
     <MasterDataPage
+      onRecordsChanged={() => useJobTitles.invalidate()}
       titleKey="masterData.jobTitles.title"
       descriptionKey="masterData.jobTitles.description"
       tableId="job-titles"

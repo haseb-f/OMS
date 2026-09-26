@@ -3,13 +3,7 @@
 import { Plus, X } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/shared/searchable-select";
 import { usePayrollComponents } from "@/hooks/use-reference-data";
 import { useLocale } from "@/providers/locale-provider";
 
@@ -37,6 +31,14 @@ export function CompensationLinesEditor({
   const update = (index: number, patch: Partial<CompensationLineDraft>) => {
     onChange(lines.map((line, i) => (i === index ? { ...line, ...patch } : line)));
   };
+  const componentOptions = components.map((component) => ({
+    value: component.id,
+    label:
+      component.type === "DEDUCTION"
+        ? `${component.nameAr} (${t("hr.payrollComponents.type.DEDUCTION")})`
+        : component.nameAr,
+    searchText: component.nameEn ?? undefined,
+  }));
   const remove = (index: number) => onChange(lines.filter((_, i) => i !== index));
   const add = () => onChange([...lines, { payrollComponentId: "", amount: undefined }]);
 
@@ -44,24 +46,15 @@ export function CompensationLinesEditor({
     <div className="flex flex-col gap-2">
       {lines.map((line, index) => (
         <div key={index} className="flex items-center gap-2">
-          <Select
-            value={line.payrollComponentId}
-            onValueChange={(value) => update(index, { payrollComponentId: value })}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder={t("hr.compensation.fields.component")} />
-            </SelectTrigger>
-            <SelectContent>
-              {components.map((component) => (
-                <SelectItem key={component.id} value={component.id}>
-                  {component.nameAr}
-                  {component.type === "DEDUCTION"
-                    ? ` (${t("hr.payrollComponents.type.DEDUCTION")})`
-                    : ""}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="min-w-0 flex-1">
+            <SearchableSelect
+              value={line.payrollComponentId}
+              onValueChange={(value) => update(index, { payrollComponentId: value })}
+              options={componentOptions}
+              placeholder={t("hr.compensation.fields.component")}
+              aria-label={t("hr.compensation.fields.component")}
+            />
+          </div>
           <Input
             type="number"
             className="w-32 shrink-0"

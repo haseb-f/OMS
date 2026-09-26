@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
+import { invalidateLookups } from "@/lib/lookup-cache";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
 import { createMasterDataService } from "@/services/master-data-service";
-import { useUsersList, useWarehouses } from "@/hooks/use-reference-data";
+import { useAnalyticAccounts, useUsersList, useWarehouses } from "@/hooks/use-reference-data";
 import type { MasterDataFormField } from "@/components/master-data/master-data-form";
 import {
   warehousesColumns,
@@ -14,22 +15,13 @@ import {
   warehousesExportColumns,
   warehouseRowLabel,
   type WarehouseRow,
-  type AnalyticAccountRow,
 } from "@/config/master-data/entities";
 
 const service = createMasterDataService<WarehouseRow>("/warehouses");
-const analyticAccountsService = createMasterDataService<AnalyticAccountRow>("/analytic-accounts");
 
 export default function WarehousesPage() {
   const users = useUsersList();
-  const [analyticAccounts, setAnalyticAccounts] = useState<AnalyticAccountRow[]>([]);
-
-  useEffect(() => {
-    analyticAccountsService
-      .list({ pageSize: 200 })
-      .then((result) => setAnalyticAccounts(result.items))
-      .catch(() => setAnalyticAccounts([]));
-  }, []);
+  const analyticAccounts = useAnalyticAccounts();
 
   const formFields = useMemo<MasterDataFormField[]>(
     () => [
@@ -64,7 +56,10 @@ export default function WarehousesPage() {
       defaultValues={warehousesDefaultValues}
       permissionPrefix="masterdata.warehouses"
       rowLabel={warehouseRowLabel}
-      onRecordsChanged={() => useWarehouses.invalidate()}
+      onRecordsChanged={() => {
+        useWarehouses.invalidate();
+        invalidateLookups("warehouses:");
+      }}
     />
   );
 }

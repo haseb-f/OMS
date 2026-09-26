@@ -10,14 +10,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { EntityCombobox } from "@/components/shared/entity-combobox";
+import { EmployeePicker } from "@/components/business/employee-picker";
+import { DepartmentPicker } from "@/components/business/department-picker";
+import { SearchableSelect } from "@/components/shared/searchable-select";
 import { StatusBadge } from "@/components/business/status-badge";
 import {
   kpiTemplatesService,
   type KpiAssignmentScope,
   type KpiTemplateAssignmentRow,
 } from "@/services/kpi-templates-service";
-import { employeesService, type EmployeeRow } from "@/services/employees-service";
+import type { EmployeeRow } from "@/services/employees-service";
 import { useDepartments, useJobTitles } from "@/hooks/use-reference-data";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
@@ -136,7 +138,7 @@ export function KpiTemplateAssignmentsPanel({
         </div>
       )}
 
-      <div className="flex flex-col gap-2 border-t border-border pt-3 sm:flex-row sm:items-center">
+      <div className="grid grid-cols-1 gap-2 border-t border-border pt-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto] sm:items-center">
         <Select
           value={scope}
           onValueChange={(value) => {
@@ -144,7 +146,7 @@ export function KpiTemplateAssignmentsPanel({
             resetTarget();
           }}
         >
-          <SelectTrigger className="w-full sm:w-48">
+          <SelectTrigger className="w-full" aria-label={t("hr.kpiTemplates.assignment.scope")}>
             <SelectValue placeholder={t("hr.kpiTemplates.assignment.scope")} />
           </SelectTrigger>
           <SelectContent>
@@ -157,44 +159,31 @@ export function KpiTemplateAssignmentsPanel({
         </Select>
 
         {scope === "EMPLOYEE" && (
-          <EntityCombobox
+          <EmployeePicker
             value={employee}
             onChange={setEmployee}
-            onSearch={employeesService.search}
-            getId={(row) => row.id}
-            getTitle={(row) => row.name}
             placeholder={t("hr.kpiTemplates.assignment.target")}
+            aria-label={t("hr.kpiTemplates.assignment.target")}
             allowClear
-            triggerClassName="sm:w-64"
           />
         )}
         {scope === "JOB_TITLE" && (
-          <Select value={jobTitleId} onValueChange={setJobTitleId}>
-            <SelectTrigger className="w-full sm:w-64">
-              <SelectValue placeholder={t("hr.kpiTemplates.assignment.target")} />
-            </SelectTrigger>
-            <SelectContent>
-              {jobTitles.map((jobTitle) => (
-                <SelectItem key={jobTitle.id} value={jobTitle.id}>
-                  {jobTitle.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={jobTitleId}
+            onValueChange={setJobTitleId}
+            options={jobTitles.map((jobTitle) => ({ value: jobTitle.id, label: jobTitle.name }))}
+            placeholder={t("hr.kpiTemplates.assignment.target")}
+            aria-label={t("hr.kpiTemplates.assignment.target")}
+          />
         )}
         {scope === "DEPARTMENT" && (
-          <Select value={departmentId} onValueChange={setDepartmentId}>
-            <SelectTrigger className="w-full sm:w-64">
-              <SelectValue placeholder={t("hr.kpiTemplates.assignment.target")} />
-            </SelectTrigger>
-            <SelectContent>
-              {departments.map((department) => (
-                <SelectItem key={department.id} value={department.id}>
-                  {department.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <DepartmentPicker
+            items={departments}
+            value={departments.find((department) => department.id === departmentId) ?? null}
+            onChange={(department) => setDepartmentId(department?.id ?? "")}
+            placeholder={t("hr.kpiTemplates.assignment.target")}
+            aria-label={t("hr.kpiTemplates.assignment.target")}
+          />
         )}
 
         <EnterpriseButton

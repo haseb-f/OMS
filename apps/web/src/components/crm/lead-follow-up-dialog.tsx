@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { CalendarClock } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
@@ -42,6 +42,7 @@ export function LeadFollowUpDialog({
 }) {
   const { t } = useLocale();
   const followUpTypes = useLeadFollowUpTypes();
+  const fieldId = useId();
   const [followUpTypeId, setFollowUpTypeId] = useState("");
   const [outcome, setOutcome] = useState("");
   const [note, setNote] = useState("");
@@ -92,9 +93,9 @@ export function LeadFollowUpDialog({
     >
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-1">
-          <Label>{t("crm.leads.followUp.type")}</Label>
-          <Select value={followUpTypeId || "__none__"} onValueChange={setFollowUpTypeId}>
-            <SelectTrigger>
+          <Label htmlFor={`${fieldId}-type`}>{t("crm.leads.followUp.type")}</Label>
+          <Select value={followUpTypeId} onValueChange={setFollowUpTypeId}>
+            <SelectTrigger id={`${fieldId}-type`} className="w-full">
               <SelectValue placeholder={t("masterData.leadFollowUpTypes.select")} />
             </SelectTrigger>
             <SelectContent>
@@ -107,9 +108,9 @@ export function LeadFollowUpDialog({
           </Select>
         </div>
         <div className="flex flex-col gap-1">
-          <Label>{t("crm.leads.followUp.outcome")}</Label>
+          <Label htmlFor={`${fieldId}-outcome`}>{t("crm.leads.followUp.outcome")}</Label>
           <Select value={outcome} onValueChange={setOutcome}>
-            <SelectTrigger>
+            <SelectTrigger id={`${fieldId}-outcome`} className="w-full">
               <SelectValue placeholder={t("crm.leads.followUp.outcome")} />
             </SelectTrigger>
             <SelectContent>

@@ -4,13 +4,8 @@ import { useEffect, useState } from "react";
 import { UserCheck } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { EmployeePicker } from "@/components/business/employee-picker";
+import { cachedLookup } from "@/lib/lookup-cache";
 import { leadsService } from "@/services/leads-service";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
@@ -35,7 +30,9 @@ export function AssignLeadDialog({
   onAssigned?: () => void;
 }) {
   const { t } = useLocale();
-  const [employees, setEmployees] = useState<{ id: string; fullName: string; email: string }[]>([]);
+  const [employees, setEmployees] = useState<{ id: string; name: string; employeeCode: string }[]>(
+    [],
+  );
   const [selected, setSelected] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -43,9 +40,13 @@ export function AssignLeadDialog({
     if (!open) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelected("");
-    leadsService
-      .eligibleAssignees()
-      .then(setEmployees)
+    cachedLookup("leads:eligible-assignees", () => leadsService.eligibleAssignees())
+      .then((rows) =>
+        // Email rides in `employeeCode`: shown as the subtitle and searchable.
+        setEmployees(
+          rows.map((row) => ({ id: row.id, name: row.fullName, employeeCode: row.email })),
+        ),
+      )
       .catch(() => setEmployees([]));
   }, [open]);
 
@@ -105,18 +106,13 @@ export function AssignLeadDialog({
           {t("crm.leads.assignDialog.noEligibleEmployees")}
         </p>
       ) : (
-        <Select value={selected} onValueChange={setSelected}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder={t("crm.leads.assignDialog.selectEmployee")} />
-          </SelectTrigger>
-          <SelectContent>
-            {employees.map((employee) => (
-              <SelectItem key={employee.id} value={employee.id}>
-                {employee.fullName} — {employee.email}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <EmployeePicker
+          items={employees}
+          value={employees.find((employee) => employee.id === selected) ?? null}
+          onChange={(employee) => setSelected(employee?.id ?? "")}
+          placeholder={t("crm.leads.assignDialog.selectEmployee")}
+          aria-label={t("crm.leads.assignDialog.selectEmployee")}
+        />
       )}
     </EnterpriseModal>
   );

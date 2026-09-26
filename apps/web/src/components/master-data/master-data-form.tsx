@@ -20,8 +20,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus } from "lucide-react";
-import { EnterpriseButton } from "@/components/ui/button";
+import {
+  SEARCHABLE_OPTION_THRESHOLD,
+  SearchableSelect,
+} from "@/components/shared/searchable-select";
 import { ModalSection, ModalFieldFullWidth } from "@/components/shared/modal-section";
 import {
   PhoneCountrySelector,
@@ -134,10 +136,13 @@ function AccountFormField<TFieldValues extends FieldValues>({
   rhfField,
   postingOnly,
   placeholder,
+  id: triggerId,
 }: {
   rhfField: ControllerRenderProps<TFieldValues, never>;
   postingOnly?: boolean;
   placeholder?: string;
+  /** From `FormControl`'s Slot — ties the field label to the trigger. */
+  id?: string;
 }) {
   const id = rhfField.value as string | undefined;
   const [resolved, setResolved] = useState<ChartOfAccountRow | null>(null);
@@ -166,6 +171,7 @@ function AccountFormField<TFieldValues extends FieldValues>({
 
   return (
     <AccountPicker
+      id={triggerId}
       value={resolved}
       onChange={(account) => {
         setResolved(account);
@@ -181,9 +187,12 @@ function AccountFormField<TFieldValues extends FieldValues>({
 function ProductFormField<TFieldValues extends FieldValues>({
   rhfField,
   sellableOnly,
+  id: triggerId,
 }: {
   rhfField: ControllerRenderProps<TFieldValues, never>;
   sellableOnly?: boolean;
+  /** From `FormControl`'s Slot — ties the field label to the trigger. */
+  id?: string;
 }) {
   const id = rhfField.value as string | undefined;
   const [resolved, setResolved] = useState<ProductRow | null>(null);
@@ -212,6 +221,7 @@ function ProductFormField<TFieldValues extends FieldValues>({
 
   return (
     <ProductPicker
+      triggerProps={{ id: triggerId }}
       value={resolved}
       onChange={(product) => {
         setResolved(product);
@@ -219,6 +229,80 @@ function ProductFormField<TFieldValues extends FieldValues>({
       }}
       sellableOnly={sellableOnly}
     />
+  );
+}
+
+/**
+ * `type: "select"` control. Short closed lists stay a plain `Select`; long
+ * or reference lists (more than `SEARCHABLE_OPTION_THRESHOLD` options, or a
+ * field offering quick-create) become a `SearchableSelect` so the user can
+ * type to find a currency/employee/cost center instead of scrolling. Receives
+ * `FormControl`'s Slot props (`id`, `aria-*`) and puts them on the trigger so
+ * the field label is programmatically attached.
+ */
+function SelectFieldControl<TFieldValues extends FieldValues>({
+  rhfField,
+  field,
+  id,
+  "aria-describedby": ariaDescribedBy,
+  "aria-invalid": ariaInvalid,
+}: {
+  rhfField: ControllerRenderProps<TFieldValues, never>;
+  field: MasterDataFormField;
+  id?: string;
+  "aria-describedby"?: string;
+  "aria-invalid"?: boolean;
+}) {
+  const { t } = useLocale();
+  const options = field.options ?? [];
+  const quickCreate = field.quickCreate;
+
+  if (quickCreate || options.length > SEARCHABLE_OPTION_THRESHOLD) {
+    return (
+      <SearchableSelect
+        id={id}
+        aria-describedby={ariaDescribedBy}
+        aria-invalid={ariaInvalid}
+        value={rhfField.value ?? ""}
+        onValueChange={rhfField.onChange}
+        options={options}
+        placeholder={field.placeholder}
+        createAction={
+          quickCreate
+            ? {
+                label: t(quickCreate.label),
+                onSelect: () => quickCreate.onCreate((newId) => rhfField.onChange(newId)),
+              }
+            : undefined
+        }
+      />
+    );
+  }
+
+  return (
+    <Select value={rhfField.value ?? ""} onValueChange={rhfField.onChange}>
+      <SelectTrigger
+        id={id}
+        aria-describedby={ariaDescribedBy}
+        aria-invalid={ariaInvalid}
+        className="w-full"
+      >
+        <SelectValue placeholder={field.placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        {options.length ? (
+          options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))
+        ) : (
+          <div className="px-2 py-3 text-center text-caption text-muted-foreground">
+            {t("common.noDataAvailable")}
+          </div>
+        )}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -260,40 +344,7 @@ function FormFieldGrid<TFieldValues extends FieldValues>({
                         value={rhfField.value ?? ""}
                       />
                     ) : field.type === "select" ? (
-                      <div className="flex items-center gap-1.5">
-                        <Select value={rhfField.value ?? ""} onValueChange={rhfField.onChange}>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder={field.placeholder} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {field.options?.length ? (
-                              field.options.map((option) => (
-                                <SelectItem key={option.value} value={option.value}>
-                                  {option.label}
-                                </SelectItem>
-                              ))
-                            ) : (
-                              <div className="px-2 py-3 text-center text-caption text-muted-foreground">
-                                {t("common.noDataAvailable")}
-                              </div>
-                            )}
-                          </SelectContent>
-                        </Select>
-                        {field.quickCreate && (
-                          <EnterpriseButton
-                            type="button"
-                            variant="outline"
-                            size="icon-sm"
-                            aria-label={t(field.quickCreate.label)}
-                            title={t(field.quickCreate.label)}
-                            onClick={() =>
-                              field.quickCreate!.onCreate((id) => rhfField.onChange(id))
-                            }
-                          >
-                            <Plus className="size-4" />
-                          </EnterpriseButton>
-                        )}
-                      </div>
+                      <SelectFieldControl rhfField={rhfField} field={field} />
                     ) : field.type === "country" ? (
                       <PhoneCountrySelector
                         value={rhfField.value}

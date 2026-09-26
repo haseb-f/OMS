@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { z } from "zod";
 import { Check, Wallet } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -11,23 +11,27 @@ import { textColumn } from "@/config/master-data/shared-columns";
 import { StatusBadge } from "@/components/business/status-badge";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/shared/searchable-select";
 import type { RowAction } from "@/components/shared/data-table";
 import {
   accruedExpensesService,
   type AccruedExpenseRow,
 } from "@/services/accrued-expenses-service";
-import { apiClient, ApiError } from "@/services/api-client";
+import { ApiError } from "@/services/api-client";
+import {
+  receivingAccountsService,
+  type ReceivingAccountOption,
+} from "@/services/receiving-accounts-service";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { formatDate } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
+
+/** `/receiving-accounts` rows carry `code` at runtime; `ReceivingAccountOption` does not declare it. */
+type ReceivingAccountWithCode = ReceivingAccountOption & { code?: string };
+
+const receivingAccountLabel = (account: ReceivingAccountWithCode) =>
+  account.code ? `${account.code} — ${account.name}` : account.name;
 
 const schema = z.object({
   name: z.string().min(1),
@@ -87,22 +91,19 @@ const columns: ColumnDef<AccruedExpenseRow, unknown>[] = [
 
 function AccruedExpensesPageContent() {
   const { t } = useLocale();
-  const [receivingAccounts, setReceivingAccounts] = useState<
-    { id: string; code: string; name: string }[]
-  >([]);
+  const [receivingAccounts, setReceivingAccounts] = useState<ReceivingAccountWithCode[]>([]);
   const [tableKey, setTableKey] = useState(0);
   const [recognizeTarget, setRecognizeTarget] = useState<AccruedExpenseRow | null>(null);
   const [settleTarget, setSettleTarget] = useState<AccruedExpenseRow | null>(null);
   const [settleAccountId, setSettleAccountId] = useState("");
+  const settleAccountFieldId = useId();
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    apiClient
-      .get<
-        | { id: string; code: string; name: string }[]
-        | { items: { id: string; code: string; name: string }[] }
-      >("/receiving-accounts")
-      .then((result) => setReceivingAccounts(Array.isArray(result) ? result : (result.items ?? [])))
+    // Session-cached, active-only list (shared with every other receiving-account picker).
+    receivingAccountsService
+      .list()
+      .then((rows) => setReceivingAccounts(rows as ReceivingAccountWithCode[]))
       .catch(() => setReceivingAccounts([]));
   }, []);
 
@@ -134,7 +135,7 @@ function AccruedExpensesPageContent() {
         type: "select",
         options: receivingAccounts.map((account) => ({
           value: account.id,
-          label: `${account.code} — ${account.name}`,
+          label: receivingAccountLabel(account),
         })),
       },
       { name: "notes", label: "masterData.fields.notes", type: "textarea" },
@@ -232,21 +233,18 @@ function AccruedExpensesPageContent() {
         title={t("accounting.accruals.settle")}
         extra={
           <div className="flex flex-col gap-1.5 px-6">
-            <label className="text-caption text-muted-foreground">
+            <label htmlFor={settleAccountFieldId} className="text-caption text-muted-foreground">
               {t("accounting.accruals.fields.receivingAccount")}
             </label>
-            <Select value={settleAccountId || undefined} onValueChange={setSettleAccountId}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {receivingAccounts.map((account) => (
-                  <SelectItem key={account.id} value={account.id}>
-                    {account.code} — {account.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              id={settleAccountFieldId}
+              value={settleAccountId}
+              onValueChange={setSettleAccountId}
+              options={receivingAccounts.map((account) => ({
+                value: account.id,
+                label: receivingAccountLabel(account),
+              }))}
+            />
           </div>
         }
         confirmLabel={t("accounting.accruals.settle")}

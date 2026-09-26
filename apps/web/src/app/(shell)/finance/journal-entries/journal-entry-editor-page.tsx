@@ -1,7 +1,7 @@
 "use client";
 
 import { RelatedRecordsPanel } from "@/components/shared/related-records-panel";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ChevronDown,
@@ -27,6 +27,9 @@ import {
 } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
+import { SearchableSelect } from "@/components/shared/searchable-select";
+import { CurrencyPicker } from "@/components/business/currency-picker";
+import { cachedLookup } from "@/lib/lookup-cache";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EditorHeader, EditorWorkspace } from "@/components/shared/detail-workspace";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
@@ -84,6 +87,7 @@ function lineToGridRow(line: JournalEntryRow["lines"][number]): JournalEntryLine
   return {
     id: line.id,
     accountId: line.accountId,
+    account: line.account ?? null,
     description: line.description ?? "",
     costCenterId: line.costCenterId ?? "",
     projectId: line.projectId ?? "",
@@ -139,6 +143,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
   const [lines, setLines] = useState<JournalEntryLineGridRow[]>([]);
   const currencies = useCurrencies();
   const [currency, setCurrency] = useState<CurrencyOption | null>(null);
+  const fieldId = useId();
 
   const [templates, setTemplates] = useState<JournalEntryTemplateRow[]>([]);
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
@@ -164,20 +169,24 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
   }, []);
 
   useEffect(() => {
-    accountsService
-      .list({ pageSize: 200, postingOnly: true })
+    // Reference lists are deduped through `cachedLookup`, so reopening the
+    // editor within the TTL reuses them. The accounts page is only a display
+    // map for existing/template lines — the line grid's account picker
+    // searches the whole chart remotely. `accounts:` prefix = invalidated on
+    // chart-of-accounts changes.
+    const accountParams = { pageSize: 200, postingOnly: true };
+    cachedLookup(`accounts:prefetch:${JSON.stringify(accountParams)}`, () =>
+      accountsService.list(accountParams),
+    )
       .then((result) => setAccounts(result.items))
       .catch(() => setAccounts([]));
-    journalsService
-      .list({ pageSize: 200 })
+    cachedLookup("journals:prefetch:200", () => journalsService.list({ pageSize: 200 }))
       .then((result) => setJournals(result.items))
       .catch(() => setJournals([]));
-    costCentersService
-      .list({ pageSize: 200 })
+    cachedLookup("cost-centers:prefetch:200", () => costCentersService.list({ pageSize: 200 }))
       .then((result) => setCostCenters(result.items))
       .catch(() => setCostCenters([]));
-    projectsService
-      .list({ pageSize: 200 })
+    cachedLookup("projects:prefetch:200", () => projectsService.list({ pageSize: 200 }))
       .then((result) => setProjects(result.items))
       .catch(() => setProjects([]));
     journalEntriesService.templates
@@ -400,7 +409,10 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
 
   const journalOptions = useMemo(
     () =>
-      journals.map((journal) => ({ id: journal.id, label: `${journal.code} — ${journal.name}` })),
+      journals.map((journal) => ({
+        value: journal.id,
+        label: `${journal.code} — ${journal.name}`,
+      })),
     [journals],
   );
 
@@ -429,7 +441,10 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
                 <>
                   {isNewEntry && templates.length > 0 && (
                     <Select value="" onValueChange={handleApplyTemplate}>
-                      <SelectTrigger size="sm" className="w-auto min-w-[10rem]">
+                      <SelectTrigger
+                        size="sm"
+                        aria-label={t("accounting.journalEntries.actions.newFromTemplate")}
+                      >
                         <SelectValue
                           placeholder={t("accounting.journalEntries.actions.newFromTemplate")}
                         />
@@ -569,25 +584,20 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
             {/* Main form — compact grid */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="flex flex-col gap-1">
-                <label className="text-caption text-muted-foreground">
+                <label
+                  htmlFor={`${fieldId}-journal`}
+                  className="text-caption text-muted-foreground"
+                >
                   {t("accounting.journalEntries.fields.journal")}
                 </label>
-                <Select
-                  value={journalId || undefined}
+                <SearchableSelect
+                  id={`${fieldId}-journal`}
+                  value={journalId}
                   onValueChange={setJournalId}
+                  options={journalOptions}
+                  placeholder={t("accounting.journalEntries.filters.journal")}
                   disabled={!canEdit}
-                >
-                  <SelectTrigger size="sm" className="w-full">
-                    <SelectValue placeholder={t("accounting.journalEntries.filters.journal")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {journalOptions.map((option) => (
-                      <SelectItem key={option.id} value={option.id}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                />
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-caption text-muted-foreground">
@@ -612,27 +622,21 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-caption text-muted-foreground">
+                <label
+                  htmlFor={`${fieldId}-currency`}
+                  className="text-caption text-muted-foreground"
+                >
                   {t("accounting.journalEntries.fields.currency")}
                 </label>
-                <Select
-                  value={currency?.id ?? undefined}
+                <CurrencyPicker
+                  id={`${fieldId}-currency`}
+                  valueKey="id"
+                  value={currency?.id ?? null}
                   onValueChange={(next) =>
                     setCurrency(currencies.find((c) => c.id === next) ?? null)
                   }
                   disabled={!canEdit}
-                >
-                  <SelectTrigger size="sm" className="w-full">
-                    <SelectValue placeholder={t("accounting.journalEntries.fields.currency")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {currencies.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.code} — {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                />
               </div>
               <div className="flex flex-col gap-1 sm:col-span-3">
                 <label className="text-caption text-muted-foreground">

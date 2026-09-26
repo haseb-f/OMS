@@ -1,4 +1,15 @@
 const en = {
+  pickers: {
+    currency: { select: "Select currency", search: "Search code or name…", empty: "No currencies" },
+    employee: {
+      select: "Select employee",
+      search: "Search name or code…",
+      empty: "No matching employees",
+    },
+    user: { select: "Select user", search: "Search name or email…", empty: "No matching users" },
+    labels: { costDimension: "Analysis dimension", financeReport: "Report" },
+    option: { search: "Search…", empty: "No options", unavailable: "(unavailable)" },
+  },
   common: {
     none: "— None —",
     yes: "Yes",

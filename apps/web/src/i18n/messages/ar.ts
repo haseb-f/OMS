@@ -1,4 +1,19 @@
 const ar = {
+  pickers: {
+    currency: { select: "اختر العملة", search: "ابحث بالرمز أو الاسم…", empty: "لا توجد عملات" },
+    employee: {
+      select: "اختر الموظف",
+      search: "ابحث بالاسم أو الكود…",
+      empty: "لا يوجد موظفون مطابقون",
+    },
+    user: {
+      select: "اختر المستخدم",
+      search: "ابحث بالاسم أو البريد…",
+      empty: "لا يوجد مستخدمون مطابقون",
+    },
+    labels: { costDimension: "بُعد التحليل", financeReport: "التقرير" },
+    option: { search: "بحث…", empty: "لا توجد خيارات", unavailable: "(غير متاح)" },
+  },
   common: {
     none: "— بدون —",
     yes: "نعم",

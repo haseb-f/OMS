@@ -12,6 +12,7 @@ import { useLocalStorage } from "@/hooks/use-local-storage";
 import { STORAGE_KEYS } from "@/constants/storage-keys";
 import { PartnerQuickCreateDialog } from "./partner-quick-create-dialog";
 import { useLocale } from "@/providers/locale-provider";
+import { useSuppliers } from "@/hooks/use-reference-data";
 import { cn } from "@/lib/utils";
 import { cachedLookup, invalidateLookups } from "@/lib/lookup-cache";
 import { useUserContext } from "@/providers/user-context";
@@ -90,12 +91,17 @@ export function PartnerPicker({
   onChange,
   disabled,
   className,
+  id,
+  "aria-label": ariaLabel,
 }: {
   role: PartnerRoleValue;
   value: PartnerRow | null | undefined;
   onChange: (partner: PartnerRow) => void;
   disabled?: boolean;
   className?: string;
+  /** Forwarded to the trigger so an external `<Label htmlFor>` / `FormControl` can name it. */
+  id?: string;
+  "aria-label"?: string;
 }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
@@ -138,6 +144,8 @@ export function PartnerPicker({
   return (
     <>
       <EntityCombobox
+        id={id}
+        triggerProps={{ "aria-label": ariaLabel }}
         value={value ?? null}
         onChange={(partner) => {
           if (partner) selectPartner(partner);
@@ -181,6 +189,7 @@ export function PartnerPicker({
         initialName={quickCreateName}
         onCreated={(partner) => {
           invalidateLookups("partners:");
+          if (role === "SUPPLIER") useSuppliers.invalidate();
           selectPartner(partner);
         }}
       />

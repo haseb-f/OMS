@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Link as LinkIcon, Truck } from "lucide-react";
 import {
   Dialog,
@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/shared/searchable-select";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import {
   shipmentStatusLabelKey,
@@ -67,6 +68,7 @@ export function ShipmentManageDialog({
   shippingCompanies: ShippingCompanyOption[];
 }) {
   const { t } = useLocale();
+  const fieldId = useId();
   const [companyId, setCompanyId] = useState("");
   const [trackingNumber, setTrackingNumber] = useState("");
   const [labelUrl, setLabelUrl] = useState("");
@@ -208,9 +210,9 @@ export function ShipmentManageDialog({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label>{t("shipping.manage.changeStatus")}</Label>
-            <Select value={shippingStatusId || "__none__"} onValueChange={setShippingStatusId}>
-              <SelectTrigger className="w-full">
+            <Label htmlFor={`${fieldId}-status`}>{t("shipping.manage.changeStatus")}</Label>
+            <Select value={shippingStatusId} onValueChange={setShippingStatusId}>
+              <SelectTrigger id={`${fieldId}-status`} className="w-full">
                 <SelectValue placeholder={t("shipping.manage.changeStatus")} />
               </SelectTrigger>
               <SelectContent>
@@ -227,23 +229,18 @@ export function ShipmentManageDialog({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label>{t("shipping.filters.company")}</Label>
-            <Select
-              value={companyId || "__none__"}
-              onValueChange={(v) => setCompanyId(v === "__none__" ? "" : v)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={t("shipping.manage.selectCompany")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">{t("shipping.manage.selectCompany")}</SelectItem>
-                {shippingCompanies.map((company) => (
-                  <SelectItem key={company.id} value={company.id}>
-                    {company.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor={`${fieldId}-company`}>{t("shipping.filters.company")}</Label>
+            <SearchableSelect
+              id={`${fieldId}-company`}
+              value={companyId}
+              onValueChange={setCompanyId}
+              options={shippingCompanies.map((company) => ({
+                value: company.id,
+                label: company.name,
+              }))}
+              allowClear
+              placeholder={t("shipping.manage.selectCompany")}
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">

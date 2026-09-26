@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,7 @@ export function AdjustmentDialog({
   onCreated: () => void;
 }) {
   const { t } = useLocale();
+  const fieldId = useId();
 
   const [direction, setDirection] = useState<Direction>("INCREASE");
   const [product, setProduct] = useState<ProductRow | null>(null);
@@ -112,9 +113,9 @@ export function AdjustmentDialog({
       <div className="flex flex-col gap-3">
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <Label>{t("inventory.adjustment.direction")}</Label>
+            <Label htmlFor={`${fieldId}-direction`}>{t("inventory.adjustment.direction")}</Label>
             <Select value={direction} onValueChange={(value) => setDirection(value as Direction)}>
-              <SelectTrigger size="sm" className="w-full">
+              <SelectTrigger id={`${fieldId}-direction`} size="sm" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -124,8 +125,9 @@ export function AdjustmentDialog({
             </Select>
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label>{t("inventory.fields.quantity")}</Label>
+            <Label htmlFor={`${fieldId}-quantity`}>{t("inventory.fields.quantity")}</Label>
             <Input
+              id={`${fieldId}-quantity`}
               inputSize="sm"
               type="number"
               dir="ltr"
@@ -139,25 +141,35 @@ export function AdjustmentDialog({
 
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <Label>{t("inventory.fields.product")}</Label>
-            <ProductPicker value={product} onChange={setProduct} inventoryOnly className="w-full" />
+            <Label htmlFor={`${fieldId}-product`}>{t("inventory.fields.product")}</Label>
+            <ProductPicker
+              value={product}
+              onChange={setProduct}
+              inventoryOnly
+              className="w-full"
+              triggerProps={{ id: `${fieldId}-product` }}
+            />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label>{t("masterData.fields.warehouse")}</Label>
-            <WarehousePicker value={warehouse} onChange={setWarehouse} />
+            <Label htmlFor={`${fieldId}-warehouse`}>{t("masterData.fields.warehouse")}</Label>
+            <WarehousePicker
+              id={`${fieldId}-warehouse`}
+              value={warehouse}
+              onChange={setWarehouse}
+            />
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <Label>
+            <Label htmlFor={`${fieldId}-reason`}>
               {t("inventory.adjustment.reason")} <span className="text-destructive">*</span>
             </Label>
             <Select
               value={reason || undefined}
               onValueChange={(value) => setReason(value as (typeof REASONS)[number])}
             >
-              <SelectTrigger size="sm" className="w-full">
+              <SelectTrigger id={`${fieldId}-reason`} size="sm" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -170,8 +182,9 @@ export function AdjustmentDialog({
             </Select>
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label>{t("products.openingBalance.notes")}</Label>
+            <Label htmlFor={`${fieldId}-notes`}>{t("products.openingBalance.notes")}</Label>
             <Input
+              id={`${fieldId}-notes`}
               inputSize="sm"
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
@@ -181,6 +194,7 @@ export function AdjustmentDialog({
         {reason === "OTHER" && (
           <Input
             inputSize="sm"
+            aria-label={t("inventory.adjustment.reason")}
             value={customReason}
             onChange={(event) => setCustomReason(event.target.value)}
             placeholder={t("inventory.adjustment.reasonPlaceholder")}

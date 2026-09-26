@@ -1,7 +1,7 @@
 "use client";
 
 import { RelatedRecordsPanel } from "@/components/shared/related-records-panel";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Ban, CheckCircle2, PackageCheck, Plus, Save, Trash2 } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -30,6 +30,9 @@ import {
   type PurchaseInvoiceOption,
 } from "@/components/business/purchase-invoice-picker";
 import { CostCategoryPicker } from "@/components/business/cost-category-picker";
+import { CurrencyPicker } from "@/components/business/currency-picker";
+import { useTaxes } from "@/hooks/use-reference-data";
+import { cachedLookup } from "@/lib/lookup-cache";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EditorWorkspace, EditorHeader, DetailSection } from "@/components/shared/detail-workspace";
@@ -42,11 +45,7 @@ import {
 } from "@/services/landed-cost-service";
 import { createMasterDataService } from "@/services/master-data-service";
 import { partnersService } from "@/services/partners-service";
-import {
-  type CostComponentRow,
-  type CurrencyRow,
-  type TaxRow,
-} from "@/config/master-data/entities";
+import { type CostComponentRow, type TaxRow } from "@/config/master-data/entities";
 import {
   LANDED_COST_CANCELLABLE_STATUSES,
   LANDED_COST_STATUS_LABEL_KEY,
@@ -59,8 +58,6 @@ import { formatDateTime, toISODate } from "@/lib/date";
 import { ApiError } from "@/services/api-client";
 
 const costComponentsService = createMasterDataService<CostComponentRow>("/cost-components");
-const currenciesService = createMasterDataService<CurrencyRow>("/currencies");
-const taxesService = createMasterDataService<TaxRow>("/taxes");
 
 interface ProviderOption {
   id: string;
@@ -98,7 +95,7 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
 
   const [purchaseInvoice, setPurchaseInvoice] = useState<PurchaseInvoiceOption | null>(null);
   const [provider, setProvider] = useState<ProviderOption | null>(null);
-  const [currency, setCurrency] = useState<CurrencyRow | null>(null);
+  const [currencyId, setCurrencyId] = useState("");
   const [documentDate, setDocumentDate] = useState<Date | null>(new Date());
   const [referenceNumber, setReferenceNumber] = useState("");
   const [allocationMethod, setAllocationMethod] =
@@ -106,27 +103,16 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
   const [lines, setLines] = useState<LineDraft[]>([emptyLine()]);
 
   const [costComponents, setCostComponents] = useState<CostComponentRow[]>([]);
-  const [currencies, setCurrencies] = useState<CurrencyRow[]>([]);
-  const [taxes, setTaxes] = useState<TaxRow[]>([]);
+  const taxes = useTaxes();
+  const fieldId = useId();
   const [preview, setPreview] = useState<AllocationPreview | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      costComponentsService.list({ pageSize: 500 }),
-      currenciesService.list({ pageSize: 500 }),
-      taxesService.list({ pageSize: 500 }),
-    ])
-      .then(([costComponentResult, currencyResult, taxResult]) => {
-        setCostComponents(costComponentResult.items);
-        setCurrencies(currencyResult.items);
-        setTaxes(taxResult.items);
-      })
-      .catch(() => {
-        setCostComponents([]);
-        setCurrencies([]);
-        setTaxes([]);
-      });
+    costComponentsService
+      .list({ pageSize: 500 })
+      .then((result) => setCostComponents(result.items))
+      .catch(() => setCostComponents([]));
   }, []);
 
   const applyDocument = useCallback((data: LandedCostDocumentRow) => {
@@ -137,7 +123,7 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
         : null,
     );
     setProvider(data.provider ? { id: data.provider.id, name: data.provider.name } : null);
-    setCurrency(data.currency ?? null);
+    setCurrencyId(data.currencyId ?? "");
     setDocumentDate(new Date(data.documentDate));
     setReferenceNumber(data.referenceNumber ?? "");
     setAllocationMethod(data.allocationMethod);
@@ -187,14 +173,14 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
   /** A fresh document inherits the Purchase Invoice's own currency — same convention as every other purchasing document. */
   const handlePurchaseInvoiceChange = (invoice: PurchaseInvoiceOption | null) => {
     setPurchaseInvoice(invoice);
-    if (!id && invoice?.currency && !currency) setCurrency(invoice.currency);
+    if (!id && invoice?.currency && !currencyId) setCurrencyId(invoice.currency.id);
   };
 
   const realLines = lines.filter((line) => line.costComponent !== null);
 
   const validate = (): string | null => {
     if (!purchaseInvoice) return t("purchasing.landedCost.validation.purchaseInvoiceRequired");
-    if (!currency) return t("purchasing.landedCost.validation.currencyRequired");
+    if (!currencyId) return t("purchasing.landedCost.validation.currencyRequired");
     if (realLines.length === 0) return t("purchasing.landedCost.validation.lineRequired");
     for (const line of realLines) {
       const amount = Number(line.netAmount);
@@ -206,7 +192,7 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
   const buildPayload = () => ({
     purchaseInvoiceId: purchaseInvoice!.id,
     providerId: provider?.id,
-    currencyId: currency!.id,
+    currencyId,
     referenceNumber: referenceNumber || undefined,
     documentDate: toISODate(documentDate ?? new Date()),
     allocationMethod,
@@ -353,23 +339,30 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
       <DetailSection title={t("purchasing.landedCost.editorTitle")}>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div className="flex flex-col gap-1">
-            <Label>{t("purchasing.landedCost.fields.purchaseInvoice")}</Label>
+            <Label htmlFor={`${fieldId}-invoice`}>
+              {t("purchasing.landedCost.fields.purchaseInvoice")}
+            </Label>
             <PurchaseInvoicePicker
+              id={`${fieldId}-invoice`}
               value={purchaseInvoice}
               onChange={handlePurchaseInvoiceChange}
               disabled={!canEdit}
             />
           </div>
           <div className="flex flex-col gap-1">
-            <Label>{t("purchasing.landedCost.fields.provider")}</Label>
+            <Label htmlFor={`${fieldId}-provider`}>
+              {t("purchasing.landedCost.fields.provider")}
+            </Label>
+            {/* Any partner may bill a landed cost (carrier, customs broker, supplier…) — no single role fits, so this stays a role-less partner search. */}
             <EntityCombobox
+              id={`${fieldId}-provider`}
               value={provider}
               onChange={setProvider}
               onSearch={async (search) => {
-                const result = await partnersService.catalog({
-                  search: search || undefined,
-                  pageSize: 20,
-                });
+                const params = { search: search || undefined, pageSize: 20 };
+                const result = await cachedLookup(`partners:${JSON.stringify(params)}`, () =>
+                  partnersService.catalog(params),
+                );
                 return result.items;
               }}
               getId={(partner) => partner.id}
@@ -382,23 +375,23 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
             />
           </div>
           <div className="flex flex-col gap-1">
-            <Label>{t("purchasing.landedCost.fields.currency")}</Label>
-            <EntityCombobox
-              value={currency}
-              onChange={setCurrency}
-              items={currencies}
-              getId={(row) => row.id}
-              getTitle={(row) => row.code}
-              getSearchText={(row) => `${row.code} ${row.name}`}
-              placeholder={t("common.select")}
-              searchPlaceholder={t("common.search")}
-              emptyText={t("common.noResults")}
+            <Label htmlFor={`${fieldId}-currency`}>
+              {t("purchasing.landedCost.fields.currency")}
+            </Label>
+            <CurrencyPicker
+              id={`${fieldId}-currency`}
+              valueKey="id"
+              value={currencyId}
+              onValueChange={setCurrencyId}
               disabled={!canEdit}
             />
           </div>
           <div className="flex flex-col gap-1">
-            <Label>{t("purchasing.landedCost.fields.reference")}</Label>
+            <Label htmlFor={`${fieldId}-reference`}>
+              {t("purchasing.landedCost.fields.reference")}
+            </Label>
             <Input
+              id={`${fieldId}-reference`}
               value={referenceNumber}
               onChange={(e) => setReferenceNumber(e.target.value)}
               disabled={!canEdit}
@@ -413,7 +406,9 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
             />
           </div>
           <div className="flex flex-col gap-1">
-            <Label>{t("purchasing.landedCost.fields.allocationMethod")}</Label>
+            <Label htmlFor={`${fieldId}-allocation`}>
+              {t("purchasing.landedCost.fields.allocationMethod")}
+            </Label>
             <Select
               value={allocationMethod}
               onValueChange={(value) =>
@@ -421,7 +416,7 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
               }
               disabled={!canEdit}
             >
-              <SelectTrigger>
+              <SelectTrigger id={`${fieldId}-allocation`} className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -453,6 +448,7 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
               <TableRow key={line.key}>
                 <TableCell>
                   <CostCategoryPicker
+                    aria-label={t("purchasing.landedCost.lines.costComponent")}
                     value={line.costComponent}
                     items={costComponents}
                     disabled={!canEdit}
@@ -467,6 +463,7 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
                 </TableCell>
                 <TableCell>
                   <Input
+                    aria-label={t("purchasing.landedCost.lines.description")}
                     value={line.description}
                     disabled={!canEdit}
                     onChange={(e) =>
@@ -480,6 +477,7 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
                 </TableCell>
                 <TableCell>
                   <Input
+                    aria-label={t("purchasing.landedCost.lines.netAmount")}
                     type="number"
                     min={0}
                     step="0.01"
@@ -498,6 +496,7 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
                   <EntityCombobox
                     value={line.tax}
                     items={taxes}
+                    triggerProps={{ "aria-label": t("purchasing.landedCost.lines.tax") }}
                     disabled={!canEdit}
                     allowClear
                     getId={(tax) => tax.id}
@@ -516,6 +515,7 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
                       type="button"
                       variant="ghost"
                       size="icon"
+                      aria-label={t("common.remove")}
                       disabled={lines.length === 1}
                       onClick={() => setLines((prev) => prev.filter((l) => l.key !== line.key))}
                     >

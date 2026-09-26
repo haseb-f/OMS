@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -49,6 +49,7 @@ export function TransferDialog({
   onCreated: () => void;
 }) {
   const { t } = useLocale();
+  const fieldId = useId();
 
   const [sourceWarehouse, setSourceWarehouse] = useState<WarehouseRow | null>(null);
   const [destinationWarehouse, setDestinationWarehouse] = useState<WarehouseRow | null>(null);
@@ -138,12 +139,24 @@ export function TransferDialog({
       <div className="flex flex-col gap-3">
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-2">
-            <Label>{t("inventory.createMovement.sourceWarehouse")}</Label>
-            <WarehousePicker value={sourceWarehouse} onChange={setSourceWarehouse} />
+            <Label htmlFor={`${fieldId}-source`}>
+              {t("inventory.createMovement.sourceWarehouse")}
+            </Label>
+            <WarehousePicker
+              id={`${fieldId}-source`}
+              value={sourceWarehouse}
+              onChange={setSourceWarehouse}
+            />
           </div>
           <div className="flex flex-col gap-2">
-            <Label>{t("inventory.createMovement.destinationWarehouse")}</Label>
-            <WarehousePicker value={destinationWarehouse} onChange={setDestinationWarehouse} />
+            <Label htmlFor={`${fieldId}-destination`}>
+              {t("inventory.createMovement.destinationWarehouse")}
+            </Label>
+            <WarehousePicker
+              id={`${fieldId}-destination`}
+              value={destinationWarehouse}
+              onChange={setDestinationWarehouse}
+            />
           </div>
         </div>
         {sameWarehouse && (
@@ -193,6 +206,7 @@ export function TransferDialog({
                       value={line.product}
                       onChange={(product) => updateLine(line.key, { product })}
                       inventoryOnly
+                      triggerProps={{ "aria-label": t("sales.editor.grid.product") }}
                     />
                   </DocumentLineTableCell>
                   <DocumentLineTableCell
@@ -209,6 +223,7 @@ export function TransferDialog({
                       value={line.quantity}
                       onChange={(event) => updateLine(line.key, { quantity: event.target.value })}
                       placeholder={t("inventory.fields.quantity")}
+                      aria-label={t("inventory.fields.quantity")}
                     />
                   </DocumentLineTableCell>
                   <DocumentLineTableCell
@@ -229,8 +244,12 @@ export function TransferDialog({
         </div>
 
         <div className="flex flex-col gap-2">
-          <Label>{t("products.openingBalance.notes")}</Label>
-          <Input value={notes} onChange={(event) => setNotes(event.target.value)} />
+          <Label htmlFor={`${fieldId}-notes`}>{t("products.openingBalance.notes")}</Label>
+          <Input
+            id={`${fieldId}-notes`}
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+          />
         </div>
       </div>
     </EnterpriseModal>

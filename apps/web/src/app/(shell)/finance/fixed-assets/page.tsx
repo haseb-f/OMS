@@ -16,7 +16,12 @@ import {
   type CostCenterRow,
 } from "@/config/master-data/entities";
 import { fixedAssetsService } from "@/services/fixed-assets-service";
-import { partnersService } from "@/services/partners-service";
+import { useSuppliers } from "@/hooks/use-reference-data";
+import { cachedLookup } from "@/lib/lookup-cache";
+import {
+  receivingAccountsService,
+  type ReceivingAccountOption as SharedReceivingAccountOption,
+} from "@/services/receiving-accounts-service";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -24,26 +29,22 @@ import { Input } from "@/components/ui/input";
 import type { RowAction } from "@/components/shared/data-table";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
-import { apiClient, ApiError } from "@/services/api-client";
+import { ApiError } from "@/services/api-client";
 import { useRouter } from "next/navigation";
 import { journalEntriesService } from "@/services/journal-entries-service";
 
 const costCentersService = createMasterDataService<CostCenterRow>("/cost-centers");
 
-interface ReceivingAccountOption {
-  id: string;
-  code: string;
-  name: string;
-}
+/** `/receiving-accounts` rows carry `code` at runtime; the shared option type does not declare it. */
+type ReceivingAccountOption = SharedReceivingAccountOption & { code?: string };
 
 function FixedAssetsPageContent() {
   const { t } = useLocale();
   const router = useRouter();
   const [costCenters, setCostCenters] = useState<CostCenterRow[]>([]);
   const [receivingAccounts, setReceivingAccounts] = useState<ReceivingAccountOption[]>([]);
-  const [suppliers, setSuppliers] = useState<
-    { id: string; name: string; partnerNumber?: string }[]
-  >([]);
+  // Session-cached supplier-role partners (same list Products uses).
+  const suppliers = useSuppliers();
   const [tableKey, setTableKey] = useState(0);
   const [capitalizeTarget, setCapitalizeTarget] = useState<FixedAssetRow | null>(null);
   const [disposeTarget, setDisposeTarget] = useState<FixedAssetRow | null>(null);
@@ -54,18 +55,13 @@ function FixedAssetsPageContent() {
   const reload = () => setTableKey((value) => value + 1);
 
   useEffect(() => {
-    costCentersService
-      .list({ pageSize: 500 })
+    cachedLookup("cost-centers:prefetch:500", () => costCentersService.list({ pageSize: 500 }))
       .then((result) => setCostCenters(result.items))
       .catch(() => setCostCenters([]));
-    apiClient
-      .get<ReceivingAccountOption[] | { items: ReceivingAccountOption[] }>("/receiving-accounts")
-      .then((result) => setReceivingAccounts(Array.isArray(result) ? result : (result.items ?? [])))
+    receivingAccountsService
+      .list()
+      .then((rows) => setReceivingAccounts(rows as ReceivingAccountOption[]))
       .catch(() => setReceivingAccounts([]));
-    partnersService
-      .catalog({ pageSize: 200, role: ["SUPPLIER"] })
-      .then((result) => setSuppliers(result.items))
-      .catch(() => setSuppliers([]));
   }, []);
 
   const formFields = useMemo<MasterDataFormField[]>(
@@ -83,7 +79,7 @@ function FixedAssetsPageContent() {
         type: "select",
         options: receivingAccounts.map((account) => ({
           value: account.id,
-          label: `${account.code} — ${account.name}`,
+          label: account.code ? `${account.code} — ${account.name}` : account.name,
         })),
       },
       {

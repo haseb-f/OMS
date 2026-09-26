@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/command";
 import { FilterPopoverFooter, FilterTrigger } from "@/components/shared/data-table/filter-popover";
 import { useLocale } from "@/providers/locale-provider";
+import { filterByArabicSearch } from "@/lib/arabic-search";
 
 export interface MultiSelectFilterOption {
   value: string;
@@ -45,14 +46,15 @@ export function MultiSelectFilter({
   const showSearch = searchable ?? options.length > 7;
   const selected = useMemo(() => new Set(values), [values]);
 
-  const filtered = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    if (!needle) return options;
-    return options.filter((option) => {
-      const haystack = `${option.label} ${option.searchText ?? option.value}`.toLowerCase();
-      return haystack.includes(needle);
-    });
-  }, [options, search]);
+  const filtered = useMemo(
+    () =>
+      filterByArabicSearch(
+        options,
+        search,
+        (option) => `${option.label} ${option.searchText ?? option.value}`,
+      ),
+    [options, search],
+  );
 
   const triggerLabel = (() => {
     if (values.length === 0) return label;

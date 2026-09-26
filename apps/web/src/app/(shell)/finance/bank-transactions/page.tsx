@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { Landmark, RefreshCw, Search, Tag, CheckCircle2, Undo2 } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -15,6 +15,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AccountPicker } from "@/components/business/account-picker";
+import { PartnerPicker } from "@/components/business/partner-picker";
+import { SearchableSelect } from "@/components/shared/searchable-select";
+import { cachedLookup } from "@/lib/lookup-cache";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
 import {
   Select,
@@ -60,12 +63,9 @@ import {
   purchaseInvoicesService,
   type PurchaseInvoiceRow,
 } from "@/services/purchase-invoices-service";
-import { partnersService, type PartnerRow } from "@/services/partners-service";
-import { createMasterDataService } from "@/services/master-data-service";
+import type { PartnerRow } from "@/services/partners-service";
 import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import type { MessageKey } from "@/i18n/translate";
-
-const chartOfAccountsService = createMasterDataService<ChartOfAccountRow>("/chart-of-accounts");
 
 const INCOMING_STATUS_TABS: BankTransactionMatchStatus[] = [
   "UNMATCHED",
@@ -487,8 +487,11 @@ function ClassifyDialog({
 }) {
   const { t } = useLocale();
   const [outgoingType, setOutgoingType] = useState<CashFlowOutgoingType>("EXPENSE");
-  const [supplierId, setSupplierId] = useState<string | null>(null);
-  const [expenseAccountId, setExpenseAccountId] = useState<string | null>(null);
+  const [supplier, setSupplier] = useState<PartnerRow | null>(null);
+  const [expenseAccount, setExpenseAccount] = useState<ChartOfAccountRow | null>(null);
+  const outgoingTypeId = useId();
+  const expenseAccountFieldId = useId();
+  const supplierFieldId = useId();
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -496,8 +499,8 @@ function ClassifyDialog({
     try {
       await bankTransactionsService.classifyOutgoing(transaction.id, {
         outgoingType,
-        expenseAccountId: outgoingType === "EXPENSE" ? (expenseAccountId ?? undefined) : undefined,
-        partnerId: outgoingType === "SUPPLIER_PAYMENT" ? (supplierId ?? undefined) : undefined,
+        expenseAccountId: outgoingType === "EXPENSE" ? expenseAccount?.id : undefined,
+        partnerId: outgoingType === "SUPPLIER_PAYMENT" ? supplier?.id : undefined,
       });
       toast.success(t("masterData.bankTransactions.classifyDialog.saved"));
       onDone();
@@ -524,7 +527,7 @@ function ClassifyDialog({
           <EnterpriseButton
             type="button"
             onClick={handleSave}
-            disabled={saving || (outgoingType === "EXPENSE" ? !expenseAccountId : !supplierId)}
+            disabled={saving || (outgoingType === "EXPENSE" ? !expenseAccount : !supplier)}
           >
             {t("masterData.bankTransactions.classifyDialog.save")}
           </EnterpriseButton>
@@ -533,12 +536,14 @@ function ClassifyDialog({
     >
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
-          <Label>{t("masterData.bankTransactions.classifyDialog.outgoingType")}</Label>
+          <Label htmlFor={outgoingTypeId}>
+            {t("masterData.bankTransactions.classifyDialog.outgoingType")}
+          </Label>
           <Select
             value={outgoingType}
             onValueChange={(v) => setOutgoingType(v as CashFlowOutgoingType)}
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger id={outgoingTypeId} className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -553,33 +558,30 @@ function ClassifyDialog({
         </div>
 
         {outgoingType === "EXPENSE" ? (
-          <EntitySearchPicker
-            label={t("masterData.bankTransactions.classifyDialog.expenseAccount")}
-            placeholder={t("masterData.bankTransactions.manual.searchExpenseAccount")}
-            search={async (query) => {
-              const result = await chartOfAccountsService.list({ search: query, pageSize: 20 });
-              return result.items
-                .filter((a) => a.accountType === "EXPENSE")
-                .map((a) => ({ id: a.id, label: a.name, searchText: a.code }));
-            }}
-            onSelect={(id) => setExpenseAccountId(id)}
-            selectedLabel={expenseAccountId ? expenseAccountId : undefined}
-          />
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={expenseAccountFieldId}>
+              {t("masterData.bankTransactions.classifyDialog.expenseAccount")}
+            </Label>
+            <AccountPicker
+              id={expenseAccountFieldId}
+              accountType="EXPENSE"
+              value={expenseAccount}
+              onChange={setExpenseAccount}
+              placeholder={t("masterData.bankTransactions.manual.searchExpenseAccount")}
+            />
+          </div>
         ) : (
-          <EntitySearchPicker
-            label={t("masterData.bankTransactions.classifyDialog.supplier")}
-            placeholder={t("masterData.bankTransactions.manual.searchSupplier")}
-            search={async (query) => {
-              const result = await partnersService.catalog({
-                search: query,
-                pageSize: 20,
-                role: ["SUPPLIER"],
-              });
-              return (result.items as PartnerRow[]).map((s) => ({ id: s.id, label: s.name }));
-            }}
-            onSelect={(id) => setSupplierId(id)}
-            selectedLabel={supplierId ? supplierId : undefined}
-          />
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={supplierFieldId}>
+              {t("masterData.bankTransactions.classifyDialog.supplier")}
+            </Label>
+            <PartnerPicker
+              id={supplierFieldId}
+              role="SUPPLIER"
+              value={supplier}
+              onChange={setSupplier}
+            />
+          </div>
         )}
       </div>
     </EnterpriseModal>
@@ -607,7 +609,9 @@ function ReconcileDialog({
   const [candidates, setCandidates] = useState<BankTransactionMatchCandidate[] | null>(null);
   const [loadingCandidates, setLoadingCandidates] = useState(!isExpense);
   const [paymentSources, setPaymentSources] = useState<PaymentSourceOption[]>([]);
+  const [paymentSourcesLoading, setPaymentSourcesLoading] = useState(true);
   const [paymentSourceId, setPaymentSourceId] = useState<string | null>(null);
+  const paymentSourceFieldId = useId();
   const [busy, setBusy] = useState(false);
   const [manualPicker, setManualPicker] = useState<
     "STORE_ORDER" | "SALES_INVOICE" | "PURCHASE_INVOICE" | null
@@ -640,10 +644,22 @@ function ReconcileDialog({
   const [confirmingTransferId, setConfirmingTransferId] = useState<string | null>(null);
 
   useEffect(() => {
+    // One fetch per dialog mount, deduped session-wide by `paymentSourcesService.list` (cachedLookup).
+    let cancelled = false;
     paymentSourcesService
       .list()
-      .then(setPaymentSources)
-      .catch(() => setPaymentSources([]));
+      .then((rows) => {
+        if (!cancelled) setPaymentSources(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setPaymentSources([]);
+      })
+      .finally(() => {
+        if (!cancelled) setPaymentSourcesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -857,19 +873,17 @@ function ReconcileDialog({
           )}
 
           <div className="flex flex-col gap-1.5">
-            <Label>{t("masterData.bankTransactions.voucher.paymentSource")}</Label>
-            <Select value={paymentSourceId ?? undefined} onValueChange={setPaymentSourceId}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={t("common.select")} />
-              </SelectTrigger>
-              <SelectContent>
-                {paymentSources.map((source) => (
-                  <SelectItem key={source.id} value={source.id}>
-                    {source.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor={paymentSourceFieldId}>
+              {t("masterData.bankTransactions.voucher.paymentSource")}
+            </Label>
+            <SearchableSelect
+              id={paymentSourceFieldId}
+              value={paymentSourceId}
+              onValueChange={(next) => setPaymentSourceId(next || null)}
+              options={paymentSources.map((source) => ({ value: source.id, label: source.name }))}
+              loading={paymentSourcesLoading}
+              placeholder={t("common.select")}
+            />
           </div>
 
           {isExpense ? (
@@ -1137,6 +1151,7 @@ function ReconcileDialog({
                       searchText: `${o.externalOrderId ?? ""} ${o.id}`,
                     }));
                   }}
+                  cacheKey="bank-reconcile:store-orders"
                   onSelect={(id) =>
                     confirmCandidate({
                       kind: "STORE_ORDER",
@@ -1160,6 +1175,7 @@ function ReconcileDialog({
                       label: i.invoiceNumber,
                     }));
                   }}
+                  cacheKey="bank-reconcile:sales-invoices"
                   onSelect={(id) =>
                     confirmCandidate({
                       kind: "SALES_INVOICE",
@@ -1186,6 +1202,7 @@ function ReconcileDialog({
                       label: i.invoiceNumber,
                     }));
                   }}
+                  cacheKey="bank-reconcile:purchase-invoices"
                   onSelect={(id) =>
                     confirmCandidate({
                       kind: "PURCHASE_INVOICE",
@@ -1252,41 +1269,44 @@ function ReconcileDialog({
 }
 
 // ---------------------------------------------------------------------------
-// Generic search-and-select — a lightweight local combobox reused by every
-// dialog above instead of five bespoke pickers. Debounced via a plain
-// effect keyed on the query string.
+// Manual document search (Store Order / Sales Invoice / Purchase Invoice) -
+// a labelled `EntityCombobox` whose remote search is deduped through
+// `cachedLookup`. It holds the selected object (so the trigger shows the
+// document number, never a raw id); picking a row hands its id to the
+// caller, which confirms the match straight away.
 // ---------------------------------------------------------------------------
+
+type ManualSearchItem = { id: string; label: string; searchText?: string };
 
 function EntitySearchPicker({
   label,
   placeholder,
+  cacheKey,
   search,
   onSelect,
-  selectedLabel,
 }: {
   label: string;
   placeholder: string;
-  search: (query: string) => Promise<{ id: string; label: string; searchText?: string }[]>;
+  /** Stable lookup-cache prefix for this search source. */
+  cacheKey: string;
+  search: (query: string) => Promise<ManualSearchItem[]>;
   onSelect: (id: string) => void;
-  selectedLabel?: string;
 }) {
   const { t } = useLocale();
-  const [selected, setSelected] = useState<{
-    id: string;
-    label: string;
-    searchText?: string;
-  } | null>(selectedLabel ? { id: selectedLabel, label: selectedLabel } : null);
+  const fieldId = useId();
+  const [selected, setSelected] = useState<ManualSearchItem | null>(null);
 
   return (
     <div className="flex flex-col gap-1.5">
-      <Label>{label}</Label>
+      <Label htmlFor={fieldId}>{label}</Label>
       <EntityCombobox
+        id={fieldId}
         value={selected}
         onChange={(item) => {
           setSelected(item);
           if (item) onSelect(item.id);
         }}
-        onSearch={search}
+        onSearch={(query) => cachedLookup(`${cacheKey}:${query}`, () => search(query))}
         getId={(item) => item.id}
         getTitle={(item) => item.label}
         getSearchText={(item) => item.searchText ?? ""}
@@ -1295,6 +1315,7 @@ function EntitySearchPicker({
         emptyText={t("masterData.bankTransactions.manual.noResults")}
         noMatchText={t("masterData.bankTransactions.manual.noResults")}
         loadingText={t("common.loading")}
+        allowClear
       />
     </div>
   );

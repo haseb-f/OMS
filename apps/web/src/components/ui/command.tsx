@@ -43,7 +43,7 @@ function CommandPopoverContent({
     <PopoverContent
       align={align}
       className={cn(
-        "w-auto min-w-(--radix-popover-trigger-width) max-w-md rounded-xs p-0 shadow-md",
+        "w-auto min-w-(--radix-popover-trigger-width) max-w-[min(var(--container-md),var(--radix-popover-content-available-width))] rounded-xs p-0 shadow-md",
         className,
       )}
       {...props}
@@ -133,7 +133,7 @@ function CommandList({ className, ...props }: React.ComponentProps<typeof Comman
     <CommandPrimitive.List
       data-slot="command-list"
       className={cn(
-        "max-h-[270px] scroll-py-1 overflow-x-hidden overflow-y-auto outline-none",
+        "max-h-[min(270px,calc(var(--radix-popover-content-available-height,100dvh)-3.5rem))] scroll-py-1 overflow-x-hidden overflow-y-auto overscroll-contain outline-none",
         className,
       )}
       {...props}
@@ -192,7 +192,7 @@ function CommandItem({
     <CommandPrimitive.Item
       data-slot="command-item"
       className={cn(
-        "group/command-item relative flex min-h-8 shrink-0 cursor-default items-center gap-2 rounded-xs px-2.5 py-1 text-body outline-hidden select-none transition-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-accent data-selected:text-accent-foreground data-[checked=true]:bg-primary-soft data-[checked=true]:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 data-selected:*:[svg]:text-accent-foreground",
+        "group/command-item relative flex min-h-8 shrink-0 pointer-coarse:min-h-10 cursor-default items-center gap-2 rounded-xs px-2.5 py-1 text-body outline-hidden select-none transition-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-accent data-selected:text-accent-foreground data-[checked=true]:bg-primary-soft data-[checked=true]:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 data-selected:*:[svg]:text-accent-foreground",
         className,
       )}
       {...props}

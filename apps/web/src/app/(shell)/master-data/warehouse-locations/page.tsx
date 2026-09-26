@@ -7,13 +7,7 @@ import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/shared/searchable-select";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { ListSurface, ListToolbar } from "@/components/shared/data-table/list-surface";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -23,6 +17,7 @@ import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { LoadingOverlay } from "@/components/shared/loading-overlay";
 import { warehouseLocationsService } from "@/services/warehouse-locations-service";
 import { createMasterDataService } from "@/services/master-data-service";
+import { cachedLookup } from "@/lib/lookup-cache";
 import type { WarehouseLocationRow, WarehouseRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
@@ -66,7 +61,10 @@ function WarehouseLocationsPageContent() {
   const canCreate = hasPermission("masterdata.warehouse-locations.create");
   const canEdit = hasPermission("masterdata.warehouse-locations.edit");
   const canArchive = hasPermission("masterdata.warehouse-locations.archive");
+  // Every warehouse, inactive included — locations of an inactive warehouse
+  // still need managing here (unlike document pickers, which offer active only).
   const [warehouses, setWarehouses] = useState<WarehouseRow[]>([]);
+  const [warehousesLoading, setWarehousesLoading] = useState(true);
   const [warehouseId, setWarehouseId] = useState<string>("");
   const [locations, setLocations] = useState<WarehouseLocationRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -82,14 +80,24 @@ function WarehouseLocationsPageContent() {
   const [restoreTarget, setRestoreTarget] = useState<WarehouseLocationRow | null>(null);
   const [isMutating, setIsMutating] = useState(false);
 
+  const warehouseOptions = useMemo(
+    () =>
+      warehouses.map((warehouse) => ({
+        value: warehouse.id,
+        label: warehouse.name,
+        searchText: warehouse.code,
+      })),
+    [warehouses],
+  );
+
   useEffect(() => {
-    warehousesService
-      .list({ pageSize: 200 })
+    cachedLookup("warehouses:all", () => warehousesService.list({ pageSize: 200 }))
       .then((result) => {
         setWarehouses(result.items);
         if (result.items.length > 0) setWarehouseId((current) => current || result.items[0].id);
       })
-      .catch(() => setWarehouses([]));
+      .catch(() => setWarehouses([]))
+      .finally(() => setWarehousesLoading(false));
   }, []);
 
   const load = useCallback(async () => {
@@ -290,18 +298,15 @@ function WarehouseLocationsPageContent() {
       <ListSurface>
         {isMutating && <LoadingOverlay />}
         <ListToolbar>
-          <Select value={warehouseId} onValueChange={setWarehouseId}>
-            <SelectTrigger size="sm" className="w-64">
-              <SelectValue placeholder={t("masterData.fields.warehouse")} />
-            </SelectTrigger>
-            <SelectContent>
-              {warehouses.map((warehouse) => (
-                <SelectItem key={warehouse.id} value={warehouse.id}>
-                  {warehouse.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            aria-label={t("masterData.fields.warehouse")}
+            value={warehouseId}
+            onValueChange={(next) => next && setWarehouseId(next)}
+            options={warehouseOptions}
+            loading={warehousesLoading}
+            placeholder={t("masterData.fields.warehouse")}
+            className="sm:max-w-(--width-control-search)"
+          />
         </ListToolbar>
         <div className="min-h-40 p-2">
           {isLoading ? (

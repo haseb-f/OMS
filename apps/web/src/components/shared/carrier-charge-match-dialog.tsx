@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +44,7 @@ export function CarrierChargeMatchDialog({
   onMatched: () => void;
 }) {
   const { t } = useLocale();
+  const attemptFieldId = useId();
   const [orderNumber, setOrderNumber] = useState("");
   const [shipments, setShipments] = useState<
     { id: string; attemptNumber: number; status: string | null; trackingNumber: string | null }[]
@@ -107,9 +108,11 @@ export function CarrierChargeMatchDialog({
 
           {searched && shipments.length > 0 ? (
             <div className="flex flex-col gap-1.5">
-              <Label>{t("carrierReconciliation.match.shipmentAttempt")}</Label>
+              <Label htmlFor={attemptFieldId}>
+                {t("carrierReconciliation.match.shipmentAttempt")}
+              </Label>
               <Select value={selectedShipmentId} onValueChange={setSelectedShipmentId}>
-                <SelectTrigger>
+                <SelectTrigger id={attemptFieldId} className="w-full">
                   <SelectValue placeholder={t("carrierReconciliation.match.selectAttempt")} />
                 </SelectTrigger>
                 <SelectContent>

@@ -3,6 +3,7 @@
 import type { ButtonHTMLAttributes } from "react";
 import { Warehouse as WarehouseIcon } from "lucide-react";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
+import { cachedLookup } from "@/lib/lookup-cache";
 import { createMasterDataService } from "@/services/master-data-service";
 import type { WarehouseRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
@@ -18,6 +19,8 @@ export function WarehousePicker({
   error,
   triggerProps,
   className,
+  id,
+  "aria-label": ariaLabel,
 }: {
   value: WarehouseRow | null | undefined;
   onChange: (warehouse: WarehouseRow) => void;
@@ -26,17 +29,24 @@ export function WarehousePicker({
   error?: boolean;
   triggerProps?: ButtonHTMLAttributes<HTMLButtonElement>;
   className?: string;
+  /** Forwarded to the trigger so an external `<Label htmlFor>` / `FormControl` can name it. */
+  id?: string;
+  "aria-label"?: string;
 }) {
   const { t } = useLocale();
 
   return (
     <EntityCombobox
+      id={id}
       value={value ?? null}
       onChange={(warehouse) => {
         if (warehouse) onChange(warehouse);
       }}
       onSearch={async (search) => {
-        const result = await warehousesService.list({ search: search || undefined, pageSize: 8 });
+        const params = { search: search || undefined, pageSize: 25 };
+        const result = await cachedLookup(`warehouses:${JSON.stringify(params)}`, () =>
+          warehousesService.list(params),
+        );
         return result.items.filter((warehouse) => warehouse.isActive);
       }}
       getId={(warehouse) => warehouse.id}
@@ -49,7 +59,7 @@ export function WarehousePicker({
       disabled={disabled}
       error={error}
       icon={<WarehouseIcon className="size-3.5 shrink-0 text-muted-foreground" />}
-      triggerProps={triggerProps}
+      triggerProps={{ "aria-label": ariaLabel, ...triggerProps }}
       triggerClassName={cn(!embedded && "max-w-(--width-picker-warehouse)", className)}
     />
   );

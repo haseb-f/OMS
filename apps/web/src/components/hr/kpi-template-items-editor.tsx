@@ -147,7 +147,7 @@ export function KpiTemplateItemsEditor({
               value={item.itemType}
               onValueChange={(value) => update(index, { itemType: value as KpiItemType })}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger className="w-full" aria-label={t("hr.kpiTemplates.items.itemType")}>
                 <SelectValue placeholder={t("hr.kpiTemplates.items.itemType")} />
               </SelectTrigger>
               <SelectContent>
@@ -164,7 +164,10 @@ export function KpiTemplateItemsEditor({
                 update(index, { evaluatorSource: value as KpiEvaluatorSource })
               }
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger
+                className="w-full"
+                aria-label={t("hr.kpiTemplates.items.evaluatorSource")}
+              >
                 <SelectValue placeholder={t("hr.kpiTemplates.items.evaluatorSource")} />
               </SelectTrigger>
               <SelectContent>
@@ -193,7 +196,10 @@ export function KpiTemplateItemsEditor({
                 update(index, { autoMetricSource: value as KpiAutoMetricSource })
               }
             >
-              <SelectTrigger className="w-full sm:w-64">
+              <SelectTrigger
+                className="w-full"
+                aria-label={t("hr.kpiTemplates.items.autoMetricSource")}
+              >
                 <SelectValue placeholder={t("hr.kpiTemplates.items.autoMetricSource")} />
               </SelectTrigger>
               <SelectContent>

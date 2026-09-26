@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,13 +12,7 @@ import {
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/shared/searchable-select";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
@@ -51,6 +45,17 @@ export function ProductOpeningBalanceDialog({
   const [unitCost, setUnitCost] = useState("");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const fieldId = useId();
+  const warehouseOptions = useMemo(
+    () =>
+      warehouses.map((warehouse) => ({
+        value: warehouse.id,
+        label: warehouse.name,
+        description: warehouse.code,
+        searchText: warehouse.code,
+      })),
+    [warehouses],
+  );
 
   const reset = () => {
     setWarehouseId("");
@@ -98,23 +103,20 @@ export function ProductOpeningBalanceDialog({
 
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label>{t("products.openingBalance.warehouse")}</Label>
-            <Select value={warehouseId || undefined} onValueChange={setWarehouseId}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {warehouses.map((warehouse) => (
-                  <SelectItem key={warehouse.id} value={warehouse.id}>
-                    {warehouse.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor={`${fieldId}-warehouse`}>{t("products.openingBalance.warehouse")}</Label>
+            <SearchableSelect
+              id={`${fieldId}-warehouse`}
+              value={warehouseId}
+              onValueChange={setWarehouseId}
+              options={warehouseOptions}
+              placeholder={t("products.openingBalance.warehouse")}
+              subtitleDir="ltr"
+            />
           </div>
           <div className="flex flex-col gap-2">
-            <Label>{t("products.openingBalance.quantity")}</Label>
+            <Label htmlFor={`${fieldId}-quantity`}>{t("products.openingBalance.quantity")}</Label>
             <Input
+              id={`${fieldId}-quantity`}
               type="number"
               dir="ltr"
               min={1}
@@ -124,8 +126,11 @@ export function ProductOpeningBalanceDialog({
             />
           </div>
           <div className="flex flex-col gap-2">
-            <Label>{t("products.openingBalance.averageCost")}</Label>
+            <Label htmlFor={`${fieldId}-unitCost`}>
+              {t("products.openingBalance.averageCost")}
+            </Label>
             <Input
+              id={`${fieldId}-unitCost`}
               type="number"
               dir="ltr"
               min={0}
@@ -135,8 +140,12 @@ export function ProductOpeningBalanceDialog({
             />
           </div>
           <div className="flex flex-col gap-2">
-            <Label>{t("products.openingBalance.notes")}</Label>
-            <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <Label htmlFor={`${fieldId}-notes`}>{t("products.openingBalance.notes")}</Label>
+            <Input
+              id={`${fieldId}-notes`}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
           </div>
         </div>
 

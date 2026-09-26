@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { EditorWorkspace, EditorHeader, DetailSection } from "@/components/shared/detail-workspace";
 import { ModalSection } from "@/components/shared/modal-section";
@@ -35,6 +35,7 @@ export default function NewCommissionPlanPage() {
   const { t } = useLocale();
   const router = useRouter();
 
+  const fieldId = useId();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [basis, setBasis] = useState<CommissionBasis>("COLLECTED_SALES");
@@ -122,11 +123,11 @@ export default function NewCommissionPlanPage() {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-caption font-medium">
+            <label htmlFor={`${fieldId}-basis`} className="text-caption font-medium">
               {t("hr.commissionPlans.fields.basis")}
             </label>
             <Select value={basis} onValueChange={(value) => setBasis(value as CommissionBasis)}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger id={`${fieldId}-basis`} className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -139,14 +140,14 @@ export default function NewCommissionPlanPage() {
             </Select>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-caption font-medium">
+            <label htmlFor={`${fieldId}-rule-type`} className="text-caption font-medium">
               {t("hr.commissionPlans.fields.ruleType")}
             </label>
             <Select
               value={ruleType}
               onValueChange={(value) => changeRuleType(value as CommissionRuleType)}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger id={`${fieldId}-rule-type`} className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

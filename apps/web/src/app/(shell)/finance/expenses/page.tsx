@@ -18,6 +18,7 @@ import {
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
+import { cachedLookup } from "@/lib/lookup-cache";
 
 const service = createMasterDataService<ExpenseRow>("/expenses");
 const costCentersService = createMasterDataService<CostCenterRow>("/cost-centers");
@@ -30,8 +31,8 @@ export default function ExpensesPage() {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodRow[]>([]);
 
   useEffect(() => {
-    costCentersService
-      .list({ pageSize: 500 })
+    // Shared prefetch key with Fixed Assets — one request per TTL, not per page mount.
+    cachedLookup("cost-centers:prefetch:500", () => costCentersService.list({ pageSize: 500 }))
       .then((result) => setCostCenters(result.items))
       .catch((error: unknown) => {
         setCostCenters([]);

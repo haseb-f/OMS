@@ -131,30 +131,28 @@ export function ShippingStatusQuickCell({
 
   return (
     <div className="flex items-center gap-1.5">
-      <Select value={currentId || undefined} onValueChange={(v) => void handleChange(v)}>
-        <SelectTrigger
-          size="sm"
-          className="h-8 max-w-44 border-transparent bg-transparent px-1.5 shadow-none not-disabled:hover:border-border not-disabled:hover:bg-muted/40"
-        >
-          {badge}
-        </SelectTrigger>
-        {/* `position="popper"` (not the default item-aligned mode) — inside
-            a table row, item-aligned positioning tries to align the
-            selected item over the trigger using layout measurements that
-            can fail to resolve in this densely-nested, scroll/resize-
-            container-heavy layout, silently leaving the popover with no
-            computed offset (it then renders at its DOM fallback position,
-            off-screen). Popper mode anchors purely off the trigger's own
-            rect, the same robust mechanism the Shipping Company combobox
-            next to this cell already uses correctly. */}
-        <SelectContent position="popper" sideOffset={4}>
-          {ctx.statuses.map((status) => (
-            <SelectItem key={status.id} value={status.id}>
-              {status.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="min-w-0 max-w-44">
+        <Select value={currentId || undefined} onValueChange={(v) => void handleChange(v)}>
+          <SelectTrigger
+            size="sm"
+            variant="ghost"
+            className="max-w-full"
+            aria-label={t("shipping.manage.changeStatus")}
+          >
+            {badge}
+          </SelectTrigger>
+          {/* Popper positioning (the shared default) anchors off the
+              trigger's own rect — item-aligned mode failed to resolve in
+              this densely nested, scroll-heavy table and rendered off-screen. */}
+          <SelectContent sideOffset={4}>
+            {ctx.statuses.map((status) => (
+              <SelectItem key={status.id} value={status.id}>
+                {status.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       {row.attemptNumber > 1 && (
         <EnterpriseBadge variant="outline" className="text-xs">
           #{row.attemptNumber}
@@ -212,7 +210,8 @@ export function ShippingCompanyQuickCell({
         getTitle={(company) => company.name}
         placeholder={t("shipping.quickEdit.selectCompanyPlaceholder")}
         searchPlaceholder={t("common.search")}
-        triggerClassName="h-8 border-transparent bg-transparent px-2 shadow-none not-disabled:hover:border-border not-disabled:hover:bg-muted/40"
+        variant="ghost"
+        triggerProps={{ "aria-label": t("shipping.filters.company") }}
       />
       <SavingIndicator state={state} />
     </div>

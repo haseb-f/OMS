@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { LucideIcon } from "lucide-react";
@@ -25,6 +25,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
+import {
+  SearchableSelect,
+  type SearchableSelectOption,
+} from "@/components/shared/searchable-select";
+import { PartnerPicker } from "@/components/business/partner-picker";
+import { WarehousePicker } from "@/components/business/warehouse-picker";
+import { CategoryQuickCreateDialog } from "@/components/business/category-quick-create-dialog";
+import { useProductCategories } from "@/hooks/use-reference-data";
+import { useUserContext } from "@/providers/user-context";
 import { ModalSection, ModalFieldFullWidth } from "@/components/shared/modal-section";
 import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
@@ -40,6 +49,9 @@ import {
   type ProductCreateFormValues,
   type ProductWizardStep,
 } from "@/config/products/create-schema";
+
+/** Same permission the Product Categories page and `POST /product-categories` enforce. */
+const CREATE_CATEGORY_PERMISSION = "masterdata.categories.create";
 
 const BUSINESS_BEHAVIORS = [
   "PURCHASE_ONLY",
@@ -95,7 +107,25 @@ export function ProductCreateDialog({
   onCreated: (product: ProductRow) => void;
 }) {
   const { t } = useLocale();
+  const { hasPermission } = useUserContext();
+  const canCreateCategory = hasPermission(CREATE_CATEGORY_PERMISSION);
+  const [categoryQuickCreateOpen, setCategoryQuickCreateOpen] = useState(false);
+  const [preferredSupplier, setPreferredSupplier] = useState<PartnerRow | null>(null);
+  const [preferredWarehouse, setPreferredWarehouse] = useState<WarehouseRow | null>(null);
   const [step, setStep] = useState<ProductWizardStep>("basics");
+
+  const categoryOptions = useMemo<SearchableSelectOption[]>(
+    () => categories.map((c) => ({ value: c.id, label: c.name })),
+    [categories],
+  );
+  const unitOptions = useMemo<SearchableSelectOption[]>(
+    () => units.map((u) => ({ value: u.id, label: u.name })),
+    [units],
+  );
+  const taxOptions = useMemo<SearchableSelectOption[]>(
+    () => (taxes ?? []).map((tax) => ({ value: tax.id, label: tax.name, searchText: tax.code })),
+    [taxes],
+  );
   const stepIndex = PRODUCT_WIZARD_STEPS.indexOf(step);
 
   const form = useForm<ProductCreateFormValues>({
@@ -110,6 +140,8 @@ export function ProductCreateDialog({
           ? { ...productCreateDefaultValues, name: initialName }
           : productCreateDefaultValues,
       );
+      setPreferredSupplier(null);
+      setPreferredWarehouse(null);
       setStep("basics");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -162,364 +194,185 @@ export function ProductCreateDialog({
   const unit = units.find((u) => u.id === values.unitId);
 
   return (
-    <EnterpriseModal
-      open={open}
-      onOpenChange={onOpenChange}
-      size="lg"
-      icon={icon}
-      title={t("products.createDialog.title")}
-      description={t("products.createDialog.description")}
-      isDirty={isDirty}
-      footer={(requestClose) => (
-        <>
-          <EnterpriseButton
-            type="button"
-            variant="ghost"
-            onClick={requestClose}
-            disabled={isSubmitting}
-          >
-            {t("common.cancel")}
-          </EnterpriseButton>
-          {/* Always available — Step 1's fields are enough to create a
-              draft, no need to step through Pricing/Inventory first. */}
-          <EnterpriseButton
-            type="button"
-            variant="outline"
-            onClick={() => void requestCreateDraft()}
-            disabled={isSubmitting}
-          >
-            {t("products.wizard.createDraftNow")}
-          </EnterpriseButton>
-          {step !== "basics" && (
+    <>
+      <EnterpriseModal
+        open={open}
+        onOpenChange={onOpenChange}
+        size="lg"
+        icon={icon}
+        title={t("products.createDialog.title")}
+        description={t("products.createDialog.description")}
+        isDirty={isDirty}
+        footer={(requestClose) => (
+          <>
             <EnterpriseButton
               type="button"
               variant="ghost"
-              onClick={goBack}
+              onClick={requestClose}
               disabled={isSubmitting}
             >
-              {t("products.wizard.back")}
+              {t("common.cancel")}
             </EnterpriseButton>
-          )}
-          {step !== "review" ? (
-            <EnterpriseButton type="button" onClick={() => void goNext()} disabled={isSubmitting}>
-              {t("products.wizard.next")}
-            </EnterpriseButton>
-          ) : (
+            {/* Always available — Step 1's fields are enough to create a
+              draft, no need to step through Pricing/Inventory first. */}
             <EnterpriseButton
               type="button"
-              onClick={() => void submitDraft()}
+              variant="outline"
+              onClick={() => void requestCreateDraft()}
               disabled={isSubmitting}
             >
-              {t("products.wizard.createDraft")}
+              {t("products.wizard.createDraftNow")}
             </EnterpriseButton>
-          )}
-        </>
-      )}
-    >
-      <div className="flex flex-col gap-4">
-        <WizardStepIndicator currentStep={step} />
+            {step !== "basics" && (
+              <EnterpriseButton
+                type="button"
+                variant="ghost"
+                onClick={goBack}
+                disabled={isSubmitting}
+              >
+                {t("products.wizard.back")}
+              </EnterpriseButton>
+            )}
+            {step !== "review" ? (
+              <EnterpriseButton type="button" onClick={() => void goNext()} disabled={isSubmitting}>
+                {t("products.wizard.next")}
+              </EnterpriseButton>
+            ) : (
+              <EnterpriseButton
+                type="button"
+                onClick={() => void submitDraft()}
+                disabled={isSubmitting}
+              >
+                {t("products.wizard.createDraft")}
+              </EnterpriseButton>
+            )}
+          </>
+        )}
+      >
+        <div className="flex flex-col gap-4">
+          <WizardStepIndicator currentStep={step} />
 
-        <Form {...form}>
-          {step === "basics" && (
-            <ModalSection title={t("products.wizard.steps.basics")} columns={2}>
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      {t("products.fields.name")} <span className="text-destructive">*</span>
-                    </FormLabel>
-                    <FormControl>
-                      <Input {...field} autoFocus />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="categoryId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      {t("products.fields.category")} <span className="text-destructive">*</span>
-                    </FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
+          <Form {...form}>
+            {step === "basics" && (
+              <ModalSection title={t("products.wizard.steps.basics")} columns={2}>
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        {t("products.fields.name")} <span className="text-destructive">*</span>
+                      </FormLabel>
                       <FormControl>
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
+                        <Input {...field} autoFocus />
                       </FormControl>
-                      <SelectContent>
-                        {categories.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {categories.length === 0 && (
-                      <p className="text-caption text-muted-foreground">
-                        {t("products.noCategoryYet")}
-                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="categoryId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        {t("products.fields.category")} <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <SearchableSelect
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          options={categoryOptions}
+                          placeholder={t("products.fields.category")}
+                          createAction={
+                            canCreateCategory
+                              ? {
+                                  label: t("products.addCategory"),
+                                  onSelect: () => setCategoryQuickCreateOpen(true),
+                                }
+                              : undefined
+                          }
+                        />
+                      </FormControl>
+                      {categories.length === 0 && (
+                        <p className="text-caption text-muted-foreground">
+                          {t("products.noCategoryYet")}
+                        </p>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="unitId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        {t("products.fields.unit")} <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <SearchableSelect
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          options={unitOptions}
+                          placeholder={t("products.fields.unit")}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("products.fields.type")}</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {BUSINESS_BEHAVIORS.map((type) => (
+                            <SelectItem key={type} value={type}>
+                              {t(`products.type.${type}`)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <ModalFieldFullWidth>
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t("products.fields.description")}</FormLabel>
+                        <FormControl>
+                          <Textarea {...field} rows={2} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
                     )}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="unitId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      {t("products.fields.unit")} <span className="text-destructive">*</span>
-                    </FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {units.map((u) => (
-                          <SelectItem key={u.id} value={u.id}>
-                            {u.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("products.fields.type")}</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {BUSINESS_BEHAVIORS.map((type) => (
-                          <SelectItem key={type} value={type}>
-                            {t(`products.type.${type}`)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <ModalFieldFullWidth>
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t("products.fields.description")}</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} rows={2} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </ModalFieldFullWidth>
-            </ModalSection>
-          )}
+                  />
+                </ModalFieldFullWidth>
+              </ModalSection>
+            )}
 
-          {step === "pricing" && (
-            <ModalSection title={t("products.wizard.steps.pricing")} columns={2} optional>
-              <FormField
-                control={form.control}
-                name="salesPrice"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("products.fields.salesPrice")}</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        dir="ltr"
-                        step="0.01"
-                        value={field.value ?? ""}
-                        onChange={(e) => field.onChange(e.target.valueAsNumber || undefined)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="purchasePrice"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("products.fields.purchasePrice")}</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        dir="ltr"
-                        step="0.01"
-                        value={field.value ?? ""}
-                        onChange={(e) => field.onChange(e.target.valueAsNumber || undefined)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              {taxes && (
+            {step === "pricing" && (
+              <ModalSection title={t("products.wizard.steps.pricing")} columns={2} optional>
                 <FormField
                   control={form.control}
-                  name="taxId"
+                  name="salesPrice"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("products.fields.taxGroup")}</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder={t("common.none")} />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {taxes.map((tax) => (
-                            <SelectItem key={tax.id} value={tax.id}>
-                              {tax.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-              {suppliers && (
-                <FormField
-                  control={form.control}
-                  name="preferredPartnerId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t("products.fields.preferredSupplier")}</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder={t("common.none")} />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {suppliers.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>
-                              {s.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-            </ModalSection>
-          )}
-
-          {step === "inventory" && (
-            <ModalSection title={t("products.wizard.steps.inventory")} columns={2} optional>
-              <ModalFieldFullWidth>
-                <FormField
-                  control={form.control}
-                  name="isInventoryItem"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center gap-2 space-y-0">
-                      <FormControl>
-                        <Checkbox checked={field.value ?? false} onCheckedChange={field.onChange} />
-                      </FormControl>
-                      <FormLabel className="font-normal">
-                        {t("products.fields.trackInventory")}
-                      </FormLabel>
-                    </FormItem>
-                  )}
-                />
-              </ModalFieldFullWidth>
-              <ModalFieldFullWidth>
-                <FormField
-                  control={form.control}
-                  name="availableForInvestmentOpportunities"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center gap-2 space-y-0">
-                      <FormControl>
-                        <Checkbox checked={field.value ?? false} onCheckedChange={field.onChange} />
-                      </FormControl>
-                      <FormLabel className="font-normal">
-                        {t("products.fields.availableForInvestmentOpportunities")}
-                      </FormLabel>
-                    </FormItem>
-                  )}
-                />
-                <p className="text-caption text-muted-foreground">
-                  {t("products.fields.availableForInvestmentOpportunitiesHint")}
-                </p>
-              </ModalFieldFullWidth>
-              <FormField
-                control={form.control}
-                name="reorderLevel"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("products.fields.reorderLevel")}</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        dir="ltr"
-                        value={field.value ?? ""}
-                        onChange={(e) => field.onChange(e.target.valueAsNumber || undefined)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              {warehouses && (
-                <FormField
-                  control={form.control}
-                  name="preferredWarehouseId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t("products.fields.preferredWarehouse")}</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder={t("common.none")} />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {warehouses.map((w) => (
-                            <SelectItem key={w.id} value={w.id}>
-                              {w.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-              {(["weight", "width", "height", "length"] as const).map((key) => (
-                <FormField
-                  key={key}
-                  control={form.control}
-                  name={key}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t(`products.fields.${key}`)}</FormLabel>
+                      <FormLabel>{t("products.fields.salesPrice")}</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -533,44 +386,224 @@ export function ProductCreateDialog({
                     </FormItem>
                   )}
                 />
-              ))}
-            </ModalSection>
-          )}
-
-          {step === "review" && (
-            <ModalSection title={t("products.wizard.steps.review")} columns={2}>
-              <ModalFieldFullWidth>
-                <p className="text-caption text-muted-foreground">
-                  {t("products.wizard.reviewIntro")}
-                </p>
-              </ModalFieldFullWidth>
-              <ReviewRow label={t("products.fields.name")} value={values.name} />
-              <ReviewRow label={t("products.fields.category")} value={category?.name} />
-              <ReviewRow label={t("products.fields.unit")} value={unit?.name} />
-              <ReviewRow
-                label={t("products.fields.type")}
-                value={values.type ? t(`products.type.${values.type}`) : undefined}
-              />
-              {NUMBER_FIELDS.map((key) =>
-                values[key] != null ? (
-                  <ReviewRow
-                    key={key}
-                    label={t(`products.fields.${key}`)}
-                    value={String(values[key])}
+                <FormField
+                  control={form.control}
+                  name="purchasePrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("products.fields.purchasePrice")}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          dir="ltr"
+                          step="0.01"
+                          value={field.value ?? ""}
+                          onChange={(e) => field.onChange(e.target.valueAsNumber || undefined)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {taxes && (
+                  <FormField
+                    control={form.control}
+                    name="taxId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t("products.fields.taxGroup")}</FormLabel>
+                        <FormControl>
+                          <SearchableSelect
+                            value={field.value}
+                            onValueChange={(value) => field.onChange(value || undefined)}
+                            options={taxOptions}
+                            placeholder={t("common.none")}
+                            allowClear
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                ) : null,
-              )}
-              <ModalFieldFullWidth>
-                <div className="mt-2 flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-caption text-muted-foreground">
-                  <Check className="size-3.5 shrink-0 text-success" />
-                  {t("products.wizard.willStartAsDraft")}
-                </div>
-              </ModalFieldFullWidth>
-            </ModalSection>
-          )}
-        </Form>
-      </div>
-    </EnterpriseModal>
+                )}
+                {suppliers && (
+                  <FormField
+                    control={form.control}
+                    name="preferredPartnerId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t("products.fields.preferredSupplier")}</FormLabel>
+                        <FormControl>
+                          <PartnerPicker
+                            role="SUPPLIER"
+                            value={preferredSupplier}
+                            onChange={(partner) => {
+                              setPreferredSupplier(partner);
+                              field.onChange(partner.id);
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+              </ModalSection>
+            )}
+
+            {step === "inventory" && (
+              <ModalSection title={t("products.wizard.steps.inventory")} columns={2} optional>
+                <ModalFieldFullWidth>
+                  <FormField
+                    control={form.control}
+                    name="isInventoryItem"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value ?? false}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal">
+                          {t("products.fields.trackInventory")}
+                        </FormLabel>
+                      </FormItem>
+                    )}
+                  />
+                </ModalFieldFullWidth>
+                <ModalFieldFullWidth>
+                  <FormField
+                    control={form.control}
+                    name="availableForInvestmentOpportunities"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value ?? false}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal">
+                          {t("products.fields.availableForInvestmentOpportunities")}
+                        </FormLabel>
+                      </FormItem>
+                    )}
+                  />
+                  <p className="text-caption text-muted-foreground">
+                    {t("products.fields.availableForInvestmentOpportunitiesHint")}
+                  </p>
+                </ModalFieldFullWidth>
+                <FormField
+                  control={form.control}
+                  name="reorderLevel"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("products.fields.reorderLevel")}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          dir="ltr"
+                          value={field.value ?? ""}
+                          onChange={(e) => field.onChange(e.target.valueAsNumber || undefined)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {warehouses && (
+                  <FormField
+                    control={form.control}
+                    name="preferredWarehouseId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t("products.fields.preferredWarehouse")}</FormLabel>
+                        <FormControl>
+                          <WarehousePicker
+                            embedded
+                            value={preferredWarehouse}
+                            onChange={(warehouse) => {
+                              setPreferredWarehouse(warehouse);
+                              field.onChange(warehouse.id);
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+                {(["weight", "width", "height", "length"] as const).map((key) => (
+                  <FormField
+                    key={key}
+                    control={form.control}
+                    name={key}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t(`products.fields.${key}`)}</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            dir="ltr"
+                            step="0.01"
+                            value={field.value ?? ""}
+                            onChange={(e) => field.onChange(e.target.valueAsNumber || undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ))}
+              </ModalSection>
+            )}
+
+            {step === "review" && (
+              <ModalSection title={t("products.wizard.steps.review")} columns={2}>
+                <ModalFieldFullWidth>
+                  <p className="text-caption text-muted-foreground">
+                    {t("products.wizard.reviewIntro")}
+                  </p>
+                </ModalFieldFullWidth>
+                <ReviewRow label={t("products.fields.name")} value={values.name} />
+                <ReviewRow label={t("products.fields.category")} value={category?.name} />
+                <ReviewRow label={t("products.fields.unit")} value={unit?.name} />
+                <ReviewRow
+                  label={t("products.fields.type")}
+                  value={values.type ? t(`products.type.${values.type}`) : undefined}
+                />
+                {NUMBER_FIELDS.map((key) =>
+                  values[key] != null ? (
+                    <ReviewRow
+                      key={key}
+                      label={t(`products.fields.${key}`)}
+                      value={String(values[key])}
+                    />
+                  ) : null,
+                )}
+                <ModalFieldFullWidth>
+                  <div className="mt-2 flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-caption text-muted-foreground">
+                    <Check className="size-3.5 shrink-0 text-success" />
+                    {t("products.wizard.willStartAsDraft")}
+                  </div>
+                </ModalFieldFullWidth>
+              </ModalSection>
+            )}
+          </Form>
+        </div>
+      </EnterpriseModal>
+      <CategoryQuickCreateDialog
+        open={categoryQuickCreateOpen}
+        onOpenChange={setCategoryQuickCreateOpen}
+        onCreated={(created) => {
+          // Every caller feeds `categories` from this cached hook, so the new
+          // row shows up in the list (and the Review step) immediately.
+          useProductCategories.add(created);
+          form.setValue("categoryId", created.id, { shouldDirty: true, shouldValidate: true });
+        }}
+      />
+    </>
   );
 }
 

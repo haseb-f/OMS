@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Plus, RefreshCw, UploadCloud } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseBadge } from "@/components/ui/badge";
@@ -177,6 +177,7 @@ function CreateSourceDialog({
   onCreated: () => void;
 }) {
   const { t } = useLocale();
+  const fieldId = useId();
   const [sourceType, setSourceType] = useState<SyncSourceType>("STORE_ORDERS");
   const [label, setLabel] = useState("");
   const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
@@ -230,9 +231,9 @@ function CreateSourceDialog({
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <Label>{t("importCenter.sync.sources.type")}</Label>
+              <Label htmlFor={`${fieldId}-type`}>{t("importCenter.sync.sources.type")}</Label>
               <Select value={sourceType} onValueChange={(v) => setSourceType(v as SyncSourceType)}>
-                <SelectTrigger>
+                <SelectTrigger id={`${fieldId}-type`} className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -245,8 +246,9 @@ function CreateSourceDialog({
               </Select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label>{t("importCenter.sync.sources.label")}</Label>
+              <Label htmlFor={`${fieldId}-label`}>{t("importCenter.sync.sources.label")}</Label>
               <Input
+                id={`${fieldId}-label`}
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
                 placeholder="Al Rajhi"
@@ -256,12 +258,14 @@ function CreateSourceDialog({
 
           {sourceType === "CASH_FLOW" && (
             <div className="flex flex-col gap-1.5">
-              <Label>{t("masterData.bankTransactions.fields.classification")}</Label>
+              <Label htmlFor={`${fieldId}-direction`}>
+                {t("masterData.bankTransactions.fields.classification")}
+              </Label>
               <Select
                 value={cashFlowDirection}
                 onValueChange={(v) => setCashFlowDirection(v as "INCOMING" | "OUTGOING")}
               >
-                <SelectTrigger>
+                <SelectTrigger id={`${fieldId}-direction`} className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,6 +9,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { EnterpriseButton } from "@/components/ui/button";
+import { SearchableSelect } from "@/components/shared/searchable-select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -70,6 +71,7 @@ function CreateRunDialog({
     { dimensionValue: "", dimensionLabel: "", weight: 1 },
   ]);
   const [isSaving, setIsSaving] = useState(false);
+  const fieldId = useId();
 
   const reset = () => {
     setPeriodStart("");
@@ -115,9 +117,11 @@ function CreateRunDialog({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label>{t("masterData.costAllocationRules.runs.sourceType")}</Label>
+            <Label htmlFor={`${fieldId}-source`}>
+              {t("masterData.costAllocationRules.runs.sourceType")}
+            </Label>
             <Select value={sourceType} onValueChange={(v) => setSourceType(v as "gl" | "manual")}>
-              <SelectTrigger>
+              <SelectTrigger id={`${fieldId}-source`} className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -133,8 +137,11 @@ function CreateRunDialog({
 
           {sourceType === "gl" ? (
             <div className="flex flex-col gap-1.5">
-              <Label>{t("masterData.costAllocationRules.runs.sourceAccount")}</Label>
+              <Label htmlFor={`${fieldId}-account`}>
+                {t("masterData.costAllocationRules.runs.sourceAccount")}
+              </Label>
               <AccountPicker
+                id={`${fieldId}-account`}
                 value={account}
                 onChange={setAccount}
                 accountType="EXPENSE"
@@ -326,19 +333,14 @@ export function CostAllocationRunsPanel({ rules }: { rules: CostAllocationRuleRo
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="w-64">
-          <Select value={selectedRuleId} onValueChange={setSelectedRuleId}>
-            <SelectTrigger>
-              <SelectValue placeholder={t("masterData.costAllocationRules.runs.selectRule")} />
-            </SelectTrigger>
-            <SelectContent>
-              {rules.map((rule) => (
-                <SelectItem key={rule.id} value={rule.id}>
-                  {rule.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="min-w-0 flex-1 sm:max-w-(--width-control-search)">
+          <SearchableSelect
+            value={selectedRuleId}
+            onValueChange={setSelectedRuleId}
+            options={rules.map((rule) => ({ value: rule.id, label: rule.name }))}
+            placeholder={t("masterData.costAllocationRules.runs.selectRule")}
+            aria-label={t("masterData.costAllocationRules.runs.selectRule")}
+          />
         </div>
         <EnterpriseButton
           type="button"

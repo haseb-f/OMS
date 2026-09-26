@@ -26,16 +26,13 @@ import {
   type ExchangeRateRow,
   type FxRevaluationRunRow,
 } from "@/services/fx-service";
-import { createMasterDataService } from "@/services/master-data-service";
 import { accountingSettingsService } from "@/services/accounting-settings-service";
-import type { CurrencyRow } from "@/config/master-data/entities";
+import { useCurrencies } from "@/hooks/use-reference-data";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import type { MessageKey } from "@/i18n/translate";
-
-const currenciesService = createMasterDataService<CurrencyRow>("/currencies");
 
 const rateSchema = z.object({
   fromCurrencyId: z.string().min(1),
@@ -53,7 +50,8 @@ function FxPageContent() {
 
   const [rates, setRates] = useState<ExchangeRateRow[]>([]);
   const [runs, setRuns] = useState<FxRevaluationRunRow[]>([]);
-  const [currencies, setCurrencies] = useState<CurrencyRow[]>([]);
+  // Session-cached reference list (no per-mount /currencies fetch).
+  const currencies = useCurrencies();
   const [rateOpen, setRateOpen] = useState(false);
   const [revalueOpen, setRevalueOpen] = useState(false);
   const [rateDate, setRateDate] = useState<Date | undefined>(new Date());
@@ -73,16 +71,14 @@ function FxPageContent() {
 
   const load = useCallback(async () => {
     try {
-      const [rateRows, runRows, currencyRows, settings] = await Promise.all([
+      const [rateRows, runRows, settings] = await Promise.all([
         exchangeRatesService.list(),
         fxRevaluationsService.list().catch(() => [] as FxRevaluationRunRow[]),
-        currenciesService.list({ pageSize: 200 }).then((r) => r.items),
         accountingSettingsService.get().catch(() => null),
       ]);
       setBaseCurrencyId(settings ? settings.functionalCurrencyId : null);
       setRates(rateRows);
       setRuns(runRows);
-      setCurrencies(currencyRows);
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t("errors.generic"));
     }

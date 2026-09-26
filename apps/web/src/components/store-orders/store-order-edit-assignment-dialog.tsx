@@ -1,19 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { UserRound } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { CreateOperationFooter } from "@/components/shared/create-operation";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { UserPicker } from "@/components/business/user-picker";
 import { storeOrdersService } from "@/services/store-orders-service";
-import { useUsersList } from "@/hooks/use-reference-data";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
@@ -32,7 +25,7 @@ export function StoreOrderEditAssignmentDialog({
   onSaved: () => void;
 }) {
   const { t } = useLocale();
-  const users = useUsersList();
+  const fieldId = useId();
   const [value, setValue] = useState(employeeId ?? "");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -75,21 +68,13 @@ export function StoreOrderEditAssignmentDialog({
       )}
     >
       <div className="flex flex-col gap-1.5">
-        <Label>{t("storeOrders.fields.employee")}</Label>
-        <Select value={value} onValueChange={setValue}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder={t("common.select")} />
-          </SelectTrigger>
-          <SelectContent>
-            {users
-              .filter((user) => user.isActive)
-              .map((user) => (
-                <SelectItem key={user.id} value={user.id}>
-                  {user.fullName}
-                </SelectItem>
-              ))}
-          </SelectContent>
-        </Select>
+        <Label htmlFor={fieldId}>{t("storeOrders.fields.employee")}</Label>
+        <UserPicker
+          id={fieldId}
+          value={value}
+          onValueChange={setValue}
+          placeholder={t("common.select")}
+        />
       </div>
     </EnterpriseModal>
   );

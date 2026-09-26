@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Wallet } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import {
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
+import { CurrencyPicker } from "@/components/business/currency-picker";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { storeOrdersService } from "@/services/store-orders-service";
 import { receivingAccountsService } from "@/services/receiving-accounts-service";
@@ -58,6 +59,7 @@ export function StoreOrderAddPaymentDialog({
   onAdded: () => void;
 }) {
   const { t } = useLocale();
+  const fieldId = useId();
   const [receivingAccounts, setReceivingAccounts] = useState<LookupRow[]>([]);
   const [context, setContext] = useState<{
     total: string;
@@ -194,22 +196,22 @@ export function StoreOrderAddPaymentDialog({
             />
           </div>
           <div className="flex flex-col gap-1">
-            <Label>{t("storeOrders.detail.payments.currency")}</Label>
-            <EntityCombobox
-              value={currencies.find((currency) => currency.id === currencyId) ?? null}
-              onChange={(row) => setCurrencyId(row?.id ?? orderCurrencyId)}
-              items={currencies.filter((row) => !row.deletedAt)}
-              getId={(item) => item.id}
-              getTitle={(item) => item.code}
-              getSubtitle={(item) => item.name}
-              getSearchText={(item) => `${item.code} ${item.name}`}
+            <Label htmlFor={`${fieldId}-currency`}>
+              {t("storeOrders.detail.payments.currency")}
+            </Label>
+            <CurrencyPicker
+              id={`${fieldId}-currency`}
+              valueKey="id"
+              value={currencyId}
+              onValueChange={(next) => setCurrencyId(next || orderCurrencyId)}
             />
           </div>
           <div className="flex flex-col gap-1">
-            <Label>
+            <Label htmlFor={`${fieldId}-method`}>
               {t("storeOrders.detail.payments.method")} <span className="text-destructive">*</span>
             </Label>
             <EntityCombobox
+              id={`${fieldId}-method`}
               value={paymentMethods.find((method) => method.id === paymentMethodId) ?? null}
               onChange={(row) => setPaymentMethodId(row?.id ?? "")}
               items={paymentMethods}
@@ -219,11 +221,12 @@ export function StoreOrderAddPaymentDialog({
             />
           </div>
           <div className="flex flex-col gap-1">
-            <Label>
+            <Label htmlFor={`${fieldId}-receiving`}>
               {t("storeOrders.detail.payments.receivingAccount")}{" "}
               <span className="text-destructive">*</span>
             </Label>
             <EntityCombobox
+              id={`${fieldId}-receiving`}
               value={receivingAccounts.find((account) => account.id === receivingAccountId) ?? null}
               onChange={(row) => setReceivingAccountId(row?.id ?? "")}
               items={receivingAccounts}

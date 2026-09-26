@@ -41,7 +41,7 @@ export function ShippingBulkActions({
         value={targetStatus || undefined}
         onValueChange={(value) => setTargetStatus(value as ShipmentStatusValue)}
       >
-        <SelectTrigger size="sm" className="w-48">
+        <SelectTrigger size="sm" aria-label={t("shipping.bulk.selectStatus")}>
           <SelectValue placeholder={t("shipping.bulk.selectStatus")} />
         </SelectTrigger>
         <SelectContent>

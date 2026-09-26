@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Truck } from "lucide-react";
 import {
   Dialog,
@@ -47,6 +47,7 @@ export function BulkShippingStatusDialog({
   const { t } = useLocale();
   const [statuses, setStatuses] = useState<ShippingStatusCatalogEntry[]>([]);
   const [shippingStatusId, setShippingStatusId] = useState("");
+  const statusFieldId = useId();
   const [pendingConfirm, setPendingConfirm] = useState(false);
 
   useEffect(() => {
@@ -82,9 +83,9 @@ export function BulkShippingStatusDialog({
           </p>
 
           <div className="flex flex-col gap-1.5">
-            <Label>{t("storeOrders.bulkShipping.newStatusLabel")}</Label>
-            <Select value={shippingStatusId || "__none__"} onValueChange={setShippingStatusId}>
-              <SelectTrigger className="w-full">
+            <Label htmlFor={statusFieldId}>{t("storeOrders.bulkShipping.newStatusLabel")}</Label>
+            <Select value={shippingStatusId} onValueChange={setShippingStatusId}>
+              <SelectTrigger id={statusFieldId} className="w-full">
                 <SelectValue placeholder={t("storeOrders.bulkShipping.newStatusPlaceholder")} />
               </SelectTrigger>
               <SelectContent>

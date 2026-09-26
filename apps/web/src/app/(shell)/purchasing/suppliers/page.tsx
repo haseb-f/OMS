@@ -16,7 +16,7 @@ import {
 import { buildPartnerSchema, partnerDefaultValuesForRole } from "@/config/partners/partner-form";
 import { useLocale } from "@/providers/locale-provider";
 import { PermissionGate } from "@/components/shared/permission-gate";
-import { useCurrencies, useCountries } from "@/hooks/use-reference-data";
+import { useCurrencies, useCountries, useSuppliers } from "@/hooks/use-reference-data";
 import { createMasterDataService } from "@/services/master-data-service";
 import type { PaymentTermRow, SupplierGroupRow } from "@/config/master-data/entities";
 
@@ -145,6 +145,7 @@ function SuppliersPageContent() {
 
   return (
     <MasterDataPage<PartnerRow>
+      onRecordsChanged={() => useSuppliers.invalidate()}
       titleKey="purchasing.suppliers.title"
       descriptionKey="purchasing.suppliers.description"
       tableId="purchasing-suppliers"

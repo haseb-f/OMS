@@ -27,22 +27,26 @@ function SelectValue({ ...props }: React.ComponentProps<typeof SelectPrimitive.V
 function SelectTrigger({
   className,
   size = "default",
+  variant = "default",
   children,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
   size?: "sm" | "default";
+  /** `"ghost"` is the borderless trigger for inline table cells; forms use the default. */
+  variant?: "default" | "ghost";
 }) {
   return (
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       data-size={size}
+      data-variant={variant}
       className={cn(
         // `min-w` (not `w`) guarantees the icon and label can never overlap
         // even when a caller sets a small custom `w-*`/className — `min-width`
         // always wins over a smaller `width`, so this is a floor no page can
         // accidentally break. Value text is centered and reserved its own
         // flexible slot; the chevron gets a fixed, never-shrinking slot.
-        "flex w-fit cursor-pointer items-center gap-1.5 rounded-xs border border-input bg-card text-body whitespace-nowrap shadow-xs transition-[border-color,box-shadow,background-color] duration-[170ms] ease-(--ease-standard) outline-none select-none not-disabled:hover:border-foreground/30 not-disabled:hover:bg-accent/40 not-disabled:hover:shadow-sm focus-visible:border-ring focus-visible:shadow-[0_0_0_3px_var(--ring)] focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-placeholder:text-muted-foreground/80 data-[size=default]:h-(--control-height-sm) data-[size=default]:min-w-28 data-[size=default]:px-3 data-[size=default]:py-1 data-[size=sm]:h-(--control-height-sm) data-[size=sm]:min-w-20 data-[size=sm]:px-2.5 data-[size=sm]:py-1 data-[size=sm]:text-[0.8rem] *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:flex-1 *:data-[slot=select-value]:items-center *:data-[slot=select-value]:justify-start *:data-[slot=select-value]:gap-1.5 dark:bg-input/30 dark:hover:bg-input/50 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
+        "flex w-fit cursor-pointer items-center gap-1.5 rounded-xs border border-input bg-card text-body whitespace-nowrap shadow-xs transition-[border-color,box-shadow,background-color] duration-[170ms] ease-(--ease-standard) outline-none select-none not-disabled:hover:border-foreground/30 not-disabled:hover:bg-accent/40 not-disabled:hover:shadow-sm focus-visible:border-ring focus-visible:shadow-[0_0_0_3px_var(--ring)] focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-placeholder:text-muted-foreground/80 data-[size=default]:h-(--control-height-sm) data-[size=default]:min-w-28 data-[size=default]:px-3 data-[size=default]:py-1 data-[size=sm]:h-(--control-height-sm) data-[size=sm]:min-w-20 data-[size=sm]:px-2.5 data-[size=sm]:py-1 data-[size=sm]:text-caption *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:flex-1 *:data-[slot=select-value]:items-center *:data-[slot=select-value]:justify-start *:data-[slot=select-value]:gap-1.5 dark:bg-input/30 dark:hover:bg-input/50 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 data-[variant=ghost]:border-transparent data-[variant=ghost]:bg-transparent data-[variant=ghost]:px-1.5 data-[variant=ghost]:shadow-none",
         className,
       )}
       {...props}
@@ -58,8 +62,8 @@ function SelectTrigger({
 function SelectContent({
   className,
   children,
-  position = "item-aligned",
-  align = "center",
+  position = "popper",
+  align = "start",
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
   return (
@@ -68,7 +72,7 @@ function SelectContent({
         data-slot="select-content"
         data-align-trigger={position === "item-aligned"}
         className={cn(
-          "relative z-50 max-h-(--radix-select-content-available-height) min-w-36 origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-xs bg-popover p-1.5 text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-(--duration-base) data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "relative z-50 max-h-[min(20rem,var(--radix-select-content-available-height))] max-w-[min(var(--container-md),var(--radix-select-content-available-width))] min-w-36 origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-xs bg-popover p-1.5 text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-(--duration-base) data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           position === "popper" &&
             "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 rtl:data-[side=left]:translate-x-1 data-[side=right]:translate-x-1 rtl:data-[side=right]:-translate-x-1 data-[side=top]:-translate-y-1",
           className,
@@ -112,7 +116,7 @@ function SelectItem({
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "relative flex w-full cursor-default items-center gap-2 rounded-xs py-1 pe-7 ps-2.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+        "relative flex w-full cursor-default items-center gap-2 min-h-8 rounded-xs py-1 pe-7 ps-2.5 text-body outline-hidden pointer-coarse:min-h-10 select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
         className,
       )}
       {...props}

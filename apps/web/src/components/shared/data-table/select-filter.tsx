@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/command";
 import { FilterTrigger } from "@/components/shared/data-table/filter-popover";
 import { useLocale } from "@/providers/locale-provider";
+import { filterByArabicSearch } from "@/lib/arabic-search";
 
 export interface SelectFilterOption {
   value: string;
@@ -39,6 +40,7 @@ export function SelectFilter({
   searchable,
   className,
   disabled,
+  showAllOption = true,
 }: {
   label: string;
   value: string;
@@ -49,6 +51,11 @@ export function SelectFilter({
   searchable?: boolean;
   className?: string;
   disabled?: boolean;
+  /**
+   * `false` for a required single-value switch (an import job, a view) —
+   * there is no "all" state, so the list offers only real values.
+   */
+  showAllOption?: boolean;
 }) {
   const { t } = useLocale();
   const [open, setOpen] = useState(false);
@@ -56,13 +63,15 @@ export function SelectFilter({
   const showSearch = searchable ?? options.length > 7;
   const resolvedAllLabel = allLabel ?? t("table.filterAll");
 
-  const filtered = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    if (!needle) return options;
-    return options.filter((option) =>
-      `${option.label} ${option.searchText ?? option.value}`.toLowerCase().includes(needle),
-    );
-  }, [options, search]);
+  const filtered = useMemo(
+    () =>
+      filterByArabicSearch(
+        options,
+        search,
+        (option) => `${option.label} ${option.searchText ?? option.value}`,
+      ),
+    [options, search],
+  );
 
   const selectedLabel = options.find((option) => option.value === value)?.label;
 
@@ -83,7 +92,7 @@ export function SelectFilter({
       <PopoverTrigger asChild>
         <FilterTrigger
           label={selectedLabel ?? label}
-          isActive={Boolean(value)}
+          isActive={showAllOption && Boolean(value)}
           aria-expanded={open}
           disabled={disabled}
           className={className}
@@ -103,7 +112,7 @@ export function SelectFilter({
           <CommandList>
             {filtered.length === 0 ? <CommandEmpty>{t("common.noResults")}</CommandEmpty> : null}
             <CommandGroup>
-              {!search.trim() ? (
+              {showAllOption && !search.trim() ? (
                 <CommandItem value="__all__" data-checked={!value} onSelect={() => select("")}>
                   <span className="min-w-0 flex-1 truncate text-muted-foreground">
                     {resolvedAllLabel}

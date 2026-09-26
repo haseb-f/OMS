@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { Download, FileSpreadsheet, RefreshCw, Sheet, Upload } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/shared/searchable-select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -94,6 +95,7 @@ export function ImportJobWizard({
   onDone: () => void;
 }) {
   const { t } = useLocale();
+  const fieldId = useId();
   const [job, setJob] = useState<ImportJobRow | null>(null);
   const [step, setStep] = useState<Step>("upload");
   const [isLoading, setIsLoading] = useState(false);
@@ -173,6 +175,10 @@ export function ImportJobWizard({
     [typeDef.fields],
   );
   const missingRequired = requiredFields.filter((field) => !mapping[field.key]);
+  const headerOptions = useMemo(
+    () => (preview?.headers ?? []).map((header) => ({ value: header, label: header })),
+    [preview],
+  );
   const canCancelJob = job !== null && CANCELLABLE_STATUSES.includes(job.status);
 
   const handleUpload = async () => {
@@ -495,14 +501,16 @@ export function ImportJobWizard({
 
             {templates.length > 0 && (
               <div className="flex flex-col gap-2">
-                <Label>{t("importCenter.wizard.mapping.loadTemplate")}</Label>
+                <Label htmlFor={`${fieldId}-template`}>
+                  {t("importCenter.wizard.mapping.loadTemplate")}
+                </Label>
                 <Select
                   onValueChange={(value) => {
                     const template = templates.find((tpl) => tpl.id === value);
                     if (template) setMapping(template.columnMapping);
                   }}
                 >
-                  <SelectTrigger className="w-full sm:w-80">
+                  <SelectTrigger id={`${fieldId}-template`} className="w-full">
                     <SelectValue placeholder={t("importCenter.wizard.mapping.loadTemplate")} />
                   </SelectTrigger>
                   <SelectContent>
@@ -522,26 +530,18 @@ export function ImportJobWizard({
               </h3>
               {requiredFields.map((field) => (
                 <div key={field.key} className="grid grid-cols-1 items-center gap-2 sm:grid-cols-2">
-                  <Label>
+                  <Label htmlFor={`${fieldId}-${field.key}`}>
                     {t(field.labelKey as MessageKey)} <span className="text-destructive">*</span>
                   </Label>
-                  <Select
-                    value={mapping[field.key] || undefined}
+                  <SearchableSelect
+                    id={`${fieldId}-${field.key}`}
+                    value={mapping[field.key]}
                     onValueChange={(value) =>
                       setMapping((prev) => ({ ...prev, [field.key]: value }))
                     }
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder={t("importCenter.wizard.mapping.selectColumn")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {preview.headers.map((header) => (
-                        <SelectItem key={header} value={header}>
-                          {header}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    options={headerOptions}
+                    placeholder={t("importCenter.wizard.mapping.selectColumn")}
+                  />
                 </div>
               ))}
               {missingRequired.length > 0 && (
@@ -561,30 +561,20 @@ export function ImportJobWizard({
                     key={field.key}
                     className="grid grid-cols-1 items-center gap-2 sm:grid-cols-2"
                   >
-                    <Label>{t(field.labelKey as MessageKey)}</Label>
-                    <Select
-                      value={mapping[field.key] || "__none__"}
+                    <Label htmlFor={`${fieldId}-${field.key}`}>
+                      {t(field.labelKey as MessageKey)}
+                    </Label>
+                    {/* Cleared = "" = no column mapped (was the `__none__` row). */}
+                    <SearchableSelect
+                      id={`${fieldId}-${field.key}`}
+                      value={mapping[field.key]}
                       onValueChange={(value) =>
-                        setMapping((prev) => ({
-                          ...prev,
-                          [field.key]: value === "__none__" ? "" : value,
-                        }))
+                        setMapping((prev) => ({ ...prev, [field.key]: value }))
                       }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder={t("importCenter.wizard.mapping.noColumn")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">
-                          {t("importCenter.wizard.mapping.noColumn")}
-                        </SelectItem>
-                        {preview.headers.map((header) => (
-                          <SelectItem key={header} value={header}>
-                            {header}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      options={headerOptions}
+                      placeholder={t("importCenter.wizard.mapping.noColumn")}
+                      allowClear
+                    />
                   </div>
                 ))}
               </div>

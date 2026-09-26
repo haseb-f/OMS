@@ -82,6 +82,7 @@ import { formatDate, formatDateTime, fromISODate, toISODate } from "@/lib/date";
 import { formatMoney } from "@/lib/money";
 import { toast, reportApiError } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
+import { cachedLookup } from "@/lib/lookup-cache";
 
 const statusTone: Record<
   InvestmentOpportunityRow["status"],
@@ -834,9 +835,13 @@ function AddInvestorDialog({
         <EntityCombobox<InvestorRow>
           value={investor}
           onChange={setInvestor}
-          onSearch={(query) => investorsService.search(query)}
+          onSearch={(query) =>
+            cachedLookup(`investors:search:${query}`, () => investorsService.search(query))
+          }
           getId={(row) => row.id}
           getTitle={(row) => row.name}
+          placeholder={t("investors.subscriptions.fields.investor")}
+          triggerProps={{ "aria-label": t("investors.subscriptions.fields.investor") }}
         />
         <Input
           type="number"
@@ -1205,7 +1210,7 @@ function ManualAllocateDialog({
     >
       <div className="flex flex-col gap-3">
         <Select value={opportunityProductId} onValueChange={setOpportunityProductId}>
-          <SelectTrigger className="w-full">
+          <SelectTrigger className="w-full" aria-label={t("investors.sales.fields.product")}>
             <SelectValue placeholder={t("investors.opportunities.create.addProduct")} />
           </SelectTrigger>
           <SelectContent>
@@ -1451,7 +1456,7 @@ function AddExpenseDialog({
           value={category}
           onValueChange={(value) => setCategory(value as OpportunityExpenseCategory)}
         >
-          <SelectTrigger className="w-full">
+          <SelectTrigger className="w-full" aria-label={t("investors.expenses.fields.category")}>
             <SelectValue placeholder={t("investors.expenses.fields.category")} />
           </SelectTrigger>
           <SelectContent>

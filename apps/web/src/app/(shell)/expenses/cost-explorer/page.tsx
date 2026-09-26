@@ -590,7 +590,9 @@ function ProfitabilityAnalyticsTab() {
             value={dimension}
             onValueChange={(v) => setDimension(v as ProfitabilityDimension)}
           >
-            <SelectTrigger size="sm" className="w-44">
+            {/* A view switch with no "all" state (one dimension is always active), so a
+                plain short-enum Select sized by its content, not a SelectFilter. */}
+            <SelectTrigger size="sm" aria-label={t("pickers.labels.costDimension")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

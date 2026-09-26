@@ -192,7 +192,7 @@ function InventoryStockPageContent() {
               onValueChange={(value) => changeValuationMethod(value as InventoryValuationMethod)}
               disabled={isSavingValuation || valuationMethod === null}
             >
-              <SelectTrigger className="w-56">
+              <SelectTrigger aria-label={t("inventory.valuationMethod.title")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

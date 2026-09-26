@@ -16,9 +16,11 @@ import { buildUserColumns, userExportColumns } from "@/config/settings/user-colu
 import { usersService, type UserRow } from "@/services/users-service";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { useLocale } from "@/providers/locale-provider";
+import { useUsersList } from "@/hooks/use-reference-data";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import { exportRowsToCsv } from "@/components/master-data/enterprise-data-table";
+import { filterByArabicSearch } from "@/lib/arabic-search";
 
 export default function SettingsUsersPage() {
   return (
@@ -62,13 +64,9 @@ function UsersPageContent() {
     load();
   }, [load]);
 
-  const filtered = search.trim()
-    ? users.filter((u) =>
-        [u.fullName, u.username, u.email, u.mobile ?? ""].some((field) =>
-          field.toLowerCase().includes(search.trim().toLowerCase()),
-        ),
-      )
-    : users;
+  const filtered = filterByArabicSearch(users, search, (u) =>
+    [u.fullName, u.username, u.email, u.mobile ?? ""].join(" "),
+  );
 
   const openCreate = () => {
     setEditingUser(null);
@@ -141,6 +139,7 @@ function UsersPageContent() {
         allUsers={users}
         onSaved={(temporaryPassword) => {
           load();
+          useUsersList.invalidate();
           if (temporaryPassword) setGeneratedPassword(temporaryPassword);
         }}
       />

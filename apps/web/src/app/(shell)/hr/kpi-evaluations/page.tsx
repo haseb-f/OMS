@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
@@ -10,14 +10,14 @@ import {
   exportColumnsFromKeys,
   exportRowsToCsv,
 } from "@/components/master-data/enterprise-data-table";
-import { EntityCombobox } from "@/components/shared/entity-combobox";
+import { EmployeePicker } from "@/components/business/employee-picker";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseMonthPicker } from "@/components/shared/month-picker";
 import { SelectFilter } from "@/components/shared/data-table/select-filter";
 import { ClearFiltersButton } from "@/components/shared/data-table/clear-filters-button";
 import { kpiEvaluationsService, type KpiEvaluationRow } from "@/services/kpi-evaluations-service";
 import { kpiTemplatesService } from "@/services/kpi-templates-service";
-import { employeesService, type EmployeeRow } from "@/services/employees-service";
+import type { EmployeeRow } from "@/services/employees-service";
 import { useDepartments } from "@/hooks/use-reference-data";
 import {
   buildKpiEvaluationsColumns,
@@ -104,6 +104,7 @@ export default function KpiEvaluationsPage() {
 
   const [startOpen, setStartOpen] = useState(false);
   const [startEmployee, setStartEmployee] = useState<EmployeeRow | null>(null);
+  const startEmployeeFieldId = useId();
   const [startPeriod, setStartPeriod] = useState("");
   const [isStarting, setIsStarting] = useState(false);
 
@@ -241,15 +242,13 @@ export default function KpiEvaluationsPage() {
       >
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
-            <label className="text-caption text-muted-foreground">
+            <label htmlFor={startEmployeeFieldId} className="text-caption text-muted-foreground">
               {t("hr.kpiEvaluations.fields.employee")}
             </label>
-            <EntityCombobox
+            <EmployeePicker
+              id={startEmployeeFieldId}
               value={startEmployee}
               onChange={setStartEmployee}
-              onSearch={employeesService.search}
-              getId={(row) => row.id}
-              getTitle={(row) => row.name}
               allowClear
             />
           </div>

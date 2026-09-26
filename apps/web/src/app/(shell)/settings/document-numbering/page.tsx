@@ -39,6 +39,7 @@ import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
+import { filterByArabicSearch } from "@/lib/arabic-search";
 
 const seriesSchema = z.object({
   documentType: z
@@ -226,15 +227,9 @@ export default function SettingsDocumentNumberingPage() {
   };
 
   const filteredSorted = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    const filtered = needle
-      ? items.filter((row) =>
-          [row.label, row.documentType, row.docCode, row.template]
-            .join(" ")
-            .toLowerCase()
-            .includes(needle),
-        )
-      : items;
+    const filtered = filterByArabicSearch(items, search, (row) =>
+      [row.label, row.documentType, row.docCode, row.template].join(" "),
+    );
     const sorted = [...filtered].sort((a, b) => {
       const av = a[sortBy as keyof NumberSeriesRow];
       const bv = b[sortBy as keyof NumberSeriesRow];

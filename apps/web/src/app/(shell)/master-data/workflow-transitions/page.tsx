@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseBadge } from "@/components/ui/badge";
@@ -15,13 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/shared/searchable-select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DynamicStatusBadge } from "@/components/business/dynamic-status-badge";
 import { useLocale } from "@/providers/locale-provider";
@@ -131,6 +125,16 @@ function TransitionDialog({
   const { t } = useLocale();
   const [form, setForm] = useState<TransitionFormState>(() => initialFormState(editing, statuses));
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const fieldId = useId();
+  const statusOptions = useMemo(
+    () =>
+      statuses.map((status) => ({
+        value: status.id,
+        label: status.name,
+        searchText: status.code,
+      })),
+    [statuses],
+  );
 
   const submit = async () => {
     if (!form.labelAr.trim()) return;
@@ -185,40 +189,26 @@ function TransitionDialog({
           {!editing && (
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
-                <Label>{t("workflow.transitions.fromStatus")}</Label>
-                <Select
+                <Label htmlFor={`${fieldId}-fromStatus`}>
+                  {t("workflow.transitions.fromStatus")}
+                </Label>
+                <SearchableSelect
+                  id={`${fieldId}-fromStatus`}
                   value={form.fromStatusId}
                   onValueChange={(v) => setForm((f) => ({ ...f, fromStatusId: v }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statuses.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={statusOptions}
+                  placeholder={t("workflow.transitions.fromStatus")}
+                />
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label>{t("workflow.transitions.toStatus")}</Label>
-                <Select
+                <Label htmlFor={`${fieldId}-toStatus`}>{t("workflow.transitions.toStatus")}</Label>
+                <SearchableSelect
+                  id={`${fieldId}-toStatus`}
                   value={form.toStatusId}
                   onValueChange={(v) => setForm((f) => ({ ...f, toStatusId: v }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statuses.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={statusOptions}
+                  placeholder={t("workflow.transitions.toStatus")}
+                />
               </div>
             </div>
           )}

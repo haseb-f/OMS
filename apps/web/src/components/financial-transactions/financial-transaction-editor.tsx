@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/shared/searchable-select";
 import { MoneyInput } from "@/components/shared/money-input";
 import {
   Select,
@@ -91,6 +92,7 @@ export function FinancialTransactionEditor({
 }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
+  const fieldId = useId();
   const [paymentSources, setPaymentSources] = useState<LookupRow[]>([]);
   const [receivingAccounts, setReceivingAccounts] = useState<ReceivingAccountOption[]>([]);
   const [transactionTypes, setTransactionTypes] = useState<FinancialTransactionTypeRow[]>(() =>
@@ -199,11 +201,11 @@ export function FinancialTransactionEditor({
         {/* Main form — compact grid, default-visible fields only */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="flex flex-col gap-1">
-            <label className="text-caption text-muted-foreground">
+            <label htmlFor={`${fieldId}-type`} className="text-caption text-muted-foreground">
               {t("financialTransactions.fields.type")}
             </label>
             <Select value={config.transactionType} disabled>
-              <SelectTrigger size="sm" className="w-full">
+              <SelectTrigger id={`${fieldId}-type`} size="sm" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -241,52 +243,33 @@ export function FinancialTransactionEditor({
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-caption text-muted-foreground">
+            <label htmlFor={`${fieldId}-source`} className="text-caption text-muted-foreground">
               {t("financialTransactions.fields.paymentSource")}
             </label>
-            <Select
-              value={state.paymentSourceId ?? "__none__"}
+            <SearchableSelect
+              id={`${fieldId}-source`}
+              value={state.paymentSourceId}
               disabled={!canEdit}
-              onValueChange={(value) =>
-                handlers.onPaymentSourceChange(value === "__none__" ? null : value)
-              }
-            >
-              <SelectTrigger size="sm" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">—</SelectItem>
-                {paymentSources.map((source) => (
-                  <SelectItem key={source.id} value={source.id}>
-                    {source.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              onValueChange={(value) => handlers.onPaymentSourceChange(value || null)}
+              options={paymentSources.map((source) => ({ value: source.id, label: source.name }))}
+              allowClear
+            />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-caption text-muted-foreground">
+            <label htmlFor={`${fieldId}-receiving`} className="text-caption text-muted-foreground">
               {t("financialTransactions.fields.receivingAccount")}
             </label>
-            <Select
-              value={state.receivingAccountId ?? "__none__"}
+            <SearchableSelect
+              id={`${fieldId}-receiving`}
+              value={state.receivingAccountId}
               disabled={!canEdit}
-              onValueChange={(value) =>
-                handlers.onReceivingAccountChange(value === "__none__" ? null : value)
-              }
-            >
-              <SelectTrigger size="sm" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">—</SelectItem>
-                {receivingAccounts.map((account) => (
-                  <SelectItem key={account.id} value={account.id}>
-                    {account.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              onValueChange={(value) => handlers.onReceivingAccountChange(value || null)}
+              options={receivingAccounts.map((account) => ({
+                value: account.id,
+                label: account.name,
+              }))}
+              allowClear
+            />
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-caption text-muted-foreground">

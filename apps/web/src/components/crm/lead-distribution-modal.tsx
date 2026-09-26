@@ -1,19 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Pause, Play, Clock, Hand, Shuffle } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/shared/searchable-select";
 import { leadsService, type LeadDistributionSnapshot } from "@/services/leads-service";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
@@ -49,6 +43,7 @@ export function LeadDistributionModal({
   const [snapshot, setSnapshot] = useState<LeadDistributionSnapshot | null>(null);
   const [draftMode, setDraftMode] = useState<Mode | "PAUSED">("PAUSED");
   const [employeeId, setEmployeeId] = useState("");
+  const employeeFieldId = useId();
   const [customN, setCustomN] = useState("");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -327,19 +322,20 @@ export function LeadDistributionModal({
               />
             </div>
             <div className="flex flex-col gap-1">
-              <Label>{t("crm.leads.assignDialog.selectEmployee")}</Label>
-              <Select value={employeeId} onValueChange={setEmployeeId}>
-                <SelectTrigger>
-                  <SelectValue placeholder={t("crm.leads.assignDialog.selectEmployee")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {(snapshot?.eligible ?? []).map((emp) => (
-                    <SelectItem key={emp.id} value={emp.id}>
-                      {emp.fullName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor={employeeFieldId}>{t("crm.leads.assignDialog.selectEmployee")}</Label>
+              <SearchableSelect
+                id={employeeFieldId}
+                value={employeeId}
+                onValueChange={setEmployeeId}
+                options={(snapshot?.eligible ?? []).map((emp) => ({
+                  value: emp.id,
+                  label: emp.fullName,
+                  description: emp.email,
+                  searchText: emp.email,
+                }))}
+                subtitleDir="ltr"
+                placeholder={t("crm.leads.assignDialog.selectEmployee")}
+              />
             </div>
             <div className="flex flex-col gap-1">
               <Label>{t("crm.leads.distribution.reason")}</Label>

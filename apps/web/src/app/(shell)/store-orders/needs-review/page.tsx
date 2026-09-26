@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
 import { Check, ListChecks, X } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
+import { SelectFilter } from "@/components/shared/data-table/select-filter";
 import { RowActionsMenu } from "@/components/shared/data-table";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { useUserContext } from "@/providers/user-context";
@@ -51,15 +52,16 @@ function RejectReasonPicker({
   onNoteChange: (note: string) => void;
 }) {
   const { t } = useLocale();
+  const reasonFieldId = useId();
   return (
     <div className="flex flex-col gap-3 pt-2 text-start">
       <div className="flex flex-col gap-1.5">
-        <Label>
+        <Label htmlFor={reasonFieldId}>
           {t("storeOrders.needsReview.rejectReason.label")}{" "}
           <span className="text-destructive">*</span>
         </Label>
         <Select value={code} onValueChange={(v) => onCodeChange(v as ImportRowRejectionReasonCode)}>
-          <SelectTrigger className="w-full">
+          <SelectTrigger id={reasonFieldId} className="w-full">
             <SelectValue placeholder={t("storeOrders.needsReview.rejectReason.placeholder")} />
           </SelectTrigger>
           <SelectContent>
@@ -343,34 +345,30 @@ function NeedsReviewContent() {
           filterBar={
             jobs.length > 0 ? (
               <>
-                <Select value={selectedJobId} onValueChange={setSelectedJobId}>
-                  <SelectTrigger size="sm" className="w-72">
-                    <SelectValue placeholder={t("storeOrders.needsReview.selectJob")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {jobs.map((job) => (
-                      <SelectItem key={job.id} value={job.id}>
-                        <span dir="ltr">{job.fileName || job.id}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
+                {/* A job and a view are always required — no "All" row. */}
+                <SelectFilter
+                  label={t("storeOrders.needsReview.selectJob")}
+                  value={selectedJobId}
+                  onChange={(v) => setSelectedJobId(v || jobs[0]?.id || "")}
+                  searchable
+                  showAllOption={false}
+                  options={jobs.map((job) => ({ value: job.id, label: job.fileName || job.id }))}
+                />
+                <SelectFilter
+                  label={t("storeOrders.needsReview.viewNeedsReview")}
                   value={viewStatus}
-                  onValueChange={(v) => setViewStatus(v as "NEEDS_REVIEW" | "REJECTED")}
-                >
-                  <SelectTrigger size="sm" className="w-48">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="NEEDS_REVIEW">
-                      {t("storeOrders.needsReview.viewNeedsReview")}
-                    </SelectItem>
-                    <SelectItem value="REJECTED">
-                      {t("storeOrders.needsReview.viewRejected")}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                  showAllOption={false}
+                  onChange={(v) =>
+                    setViewStatus((v || "NEEDS_REVIEW") as "NEEDS_REVIEW" | "REJECTED")
+                  }
+                  options={[
+                    {
+                      value: "NEEDS_REVIEW",
+                      label: t("storeOrders.needsReview.viewNeedsReview"),
+                    },
+                    { value: "REJECTED", label: t("storeOrders.needsReview.viewRejected") },
+                  ]}
+                />
               </>
             ) : undefined
           }

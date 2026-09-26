@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Workflow } from "lucide-react";
 import {
   Dialog,
@@ -51,6 +51,7 @@ export function BulkLeadStatusDialog({
   const { t } = useLocale();
   const [statuses, setStatuses] = useState<WorkflowStatusOption[]>([]);
   const [statusCode, setStatusCode] = useState("");
+  const statusFieldId = useId();
   const [reason, setReason] = useState("");
   const [pendingConfirm, setPendingConfirm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -59,7 +60,6 @@ export function BulkLeadStatusDialog({
     if (!open) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setStatusCode("");
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setReason("");
     workflowService
       .statusesByWorkflow("LEAD")
@@ -123,9 +123,9 @@ export function BulkLeadStatusDialog({
           </p>
 
           <div className="flex flex-col gap-1.5">
-            <Label>{t("crm.leads.bulkStatus.newStatusLabel")}</Label>
-            <Select value={statusCode || "__none__"} onValueChange={setStatusCode}>
-              <SelectTrigger className="w-full">
+            <Label htmlFor={statusFieldId}>{t("crm.leads.bulkStatus.newStatusLabel")}</Label>
+            <Select value={statusCode} onValueChange={setStatusCode}>
+              <SelectTrigger id={statusFieldId} className="w-full">
                 <SelectValue placeholder={t("crm.leads.bulkStatus.newStatusPlaceholder")} />
               </SelectTrigger>
               <SelectContent>

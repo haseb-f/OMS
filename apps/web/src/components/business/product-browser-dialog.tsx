@@ -7,13 +7,7 @@ import { SearchInput } from "@/components/shared/search-input";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SelectFilter } from "@/components/shared/data-table/select-filter";
 import {
   CREATE_PRODUCT_PERMISSION,
   InlineProductCreate,
@@ -27,7 +21,6 @@ import { useUserContext } from "@/providers/user-context";
 import { productsService, type ProductRow, type ProductType } from "@/services/products-service";
 
 const PAGE_SIZE = 20;
-const ALL = "__all__";
 const PRODUCT_TYPES: ProductType[] = [
   "PURCHASE_ONLY",
   "SALES_ONLY",
@@ -36,34 +29,6 @@ const PRODUCT_TYPES: ProductType[] = [
   "SERVICE",
   "EXPENSE_ITEM",
 ];
-
-function FilterSelect({
-  value,
-  onChange,
-  allLabel,
-  options,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  allLabel: string;
-  options: { value: string; label: string }[];
-}) {
-  return (
-    <Select value={value || ALL} onValueChange={(next) => onChange(next === ALL ? "" : next)}>
-      <SelectTrigger size="sm" className="w-full min-w-0">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={ALL}>{allLabel}</SelectItem>
-        {options.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            {option.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
 
 /**
  * Expanded product picker for document lines: server-side search, category/
@@ -99,6 +64,14 @@ export function ProductBrowserDialog({
   const [failed, setFailed] = useState(false);
   const [selected, setSelected] = useState<Map<string, ProductRow>>(new Map());
   const [createOpen, setCreateOpen] = useState(false);
+  const categoryOptions = useMemo(
+    () => categories.map((category) => ({ value: category.id, label: category.name })),
+    [categories],
+  );
+  const brandOptions = useMemo(
+    () => brands.map((brand) => ({ value: brand.id, label: brand.name })),
+    [brands],
+  );
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -214,25 +187,30 @@ export function ProductBrowserDialog({
           isLoading={loading}
           placeholder={t("sales.editor.grid.productSearchPlaceholder")}
         />
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <FilterSelect
+        <div className="flex flex-wrap items-center gap-2">
+          <SelectFilter
+            label={t("products.fields.category")}
             value={categoryId}
             onChange={setCategoryId}
             allLabel={t("docFlow.products.allCategories")}
-            options={categories.map((category) => ({ value: category.id, label: category.name }))}
+            options={categoryOptions}
+            searchable
           />
-          <FilterSelect
+          <SelectFilter
+            label={t("products.fields.type")}
             value={type}
             onChange={setType}
             allLabel={t("docFlow.products.allTypes")}
             options={PRODUCT_TYPES.map((value) => ({ value, label: t(`products.type.${value}`) }))}
           />
           {brands.length > 0 ? (
-            <FilterSelect
+            <SelectFilter
+              label={t("products.fields.brand")}
               value={brandId}
               onChange={setBrandId}
               allLabel={t("docFlow.products.allBrands")}
-              options={brands.map((brand) => ({ value: brand.id, label: brand.name }))}
+              options={brandOptions}
+              searchable
             />
           ) : null}
         </div>

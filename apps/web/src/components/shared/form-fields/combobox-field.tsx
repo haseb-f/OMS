@@ -8,7 +8,10 @@ import {
   FormMessage,
   useFormField,
 } from "@/components/ui/form";
-import { EntityCombobox } from "@/components/shared/entity-combobox";
+import {
+  EntityCombobox,
+  type EntityComboboxCreateAction,
+} from "@/components/shared/entity-combobox";
 
 export function ComboboxFormField<
   TFieldValues extends FieldValues,
@@ -33,6 +36,7 @@ export function ComboboxFormField<
   allowClear,
   icon,
   subtitleDir,
+  createAction,
 }: {
   control: Control<TFieldValues>;
   name: TName;
@@ -52,6 +56,8 @@ export function ComboboxFormField<
   allowClear?: boolean;
   icon?: ReactNode;
   subtitleDir?: "ltr" | "rtl";
+  /** Pinned "+ New …" row — pass only when the user may create the entity. */
+  createAction?: EntityComboboxCreateAction;
 }) {
   return (
     <FormField
@@ -81,6 +87,7 @@ export function ComboboxFormField<
               icon={icon}
               error={!!fieldState.error}
               subtitleDir={subtitleDir}
+              createAction={createAction}
             />
             {description && <FormDescription>{description}</FormDescription>}
             <FormMessage />
@@ -107,6 +114,7 @@ function BoundEntityCombobox<T>(props: {
   icon?: ReactNode;
   error?: boolean;
   subtitleDir?: "ltr" | "rtl";
+  createAction?: EntityComboboxCreateAction;
 }) {
   const { formItemId, error } = useFormField();
 

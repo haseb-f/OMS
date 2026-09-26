@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
@@ -18,6 +18,7 @@ import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { ModalSection } from "@/components/shared/modal-section";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
+import { EmployeePicker } from "@/components/business/employee-picker";
 import { EnterpriseMonthPicker } from "@/components/shared/month-picker";
 import { SelectFilter } from "@/components/shared/data-table/select-filter";
 import { ClearFiltersButton } from "@/components/shared/data-table/clear-filters-button";
@@ -27,7 +28,7 @@ import {
   type TargetScopeType,
   type TargetMetric,
 } from "@/services/sales-targets-service";
-import { employeesService, type EmployeeRow } from "@/services/employees-service";
+import type { EmployeeRow } from "@/services/employees-service";
 import { salesTeamsService, type SalesTeamRow } from "@/services/sales-teams-service";
 import { buildSalesTargetsColumns, salesTargetRowLabel } from "@/config/hr/sales-targets";
 import { useLocale } from "@/providers/locale-provider";
@@ -108,6 +109,7 @@ export default function SalesTargetsPage() {
   // -- Create dialog --------------------------------------------------------
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState<TargetFormState>(emptyForm);
+  const fieldId = useId();
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeRow | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<SalesTeamRow | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -334,7 +336,7 @@ export default function SalesTargetsPage() {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-caption font-medium">
+            <label htmlFor={`${fieldId}-scope`} className="text-caption font-medium">
               {t("hr.salesTargets.fields.scopeType")}
             </label>
             <Select
@@ -343,7 +345,7 @@ export default function SalesTargetsPage() {
                 setCreateForm((f) => ({ ...f, scopeType: value as TargetScopeType }))
               }
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger id={`${fieldId}-scope`} className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -357,26 +359,24 @@ export default function SalesTargetsPage() {
           </div>
           {createForm.scopeType === "EMPLOYEE" ? (
             <div className="flex flex-col gap-1.5">
-              <label className="text-caption font-medium">
+              <label htmlFor={`${fieldId}-target`} className="text-caption font-medium">
                 {t("hr.salesTargets.fields.employee")}
               </label>
-              <EntityCombobox
+              <EmployeePicker
+                id={`${fieldId}-target`}
                 value={selectedEmployee}
                 onChange={setSelectedEmployee}
-                onSearch={employeesService.search}
-                getId={(employee) => employee.id}
-                getTitle={(employee) => employee.name}
-                getSearchText={(employee) => employee.employeeCode}
                 placeholder={t("common.select")}
                 allowClear
               />
             </div>
           ) : (
             <div className="flex flex-col gap-1.5">
-              <label className="text-caption font-medium">
+              <label htmlFor={`${fieldId}-target`} className="text-caption font-medium">
                 {t("hr.salesTargets.fields.salesTeam")}
               </label>
               <EntityCombobox
+                id={`${fieldId}-target`}
                 value={selectedTeam}
                 onChange={setSelectedTeam}
                 onSearch={(search) => salesTeamsService.list(search || undefined)}
@@ -389,14 +389,16 @@ export default function SalesTargetsPage() {
             </div>
           )}
           <div className="flex flex-col gap-1.5">
-            <label className="text-caption font-medium">{t("hr.salesTargets.fields.metric")}</label>
+            <label htmlFor={`${fieldId}-metric`} className="text-caption font-medium">
+              {t("hr.salesTargets.fields.metric")}
+            </label>
             <Select
               value={createForm.metric}
               onValueChange={(value) =>
                 setCreateForm((f) => ({ ...f, metric: value as TargetMetric }))
               }
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger id={`${fieldId}-metric`} className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

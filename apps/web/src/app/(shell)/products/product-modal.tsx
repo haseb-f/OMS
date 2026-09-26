@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,6 +15,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -26,6 +27,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  SearchableSelect,
+  type SearchableSelectOption,
+} from "@/components/shared/searchable-select";
+import { PartnerPicker } from "@/components/business/partner-picker";
+import { WarehousePicker } from "@/components/business/warehouse-picker";
+import { ProductPicker } from "@/components/business/product-picker";
+import { useUserContext } from "@/providers/user-context";
+import { cachedLookup } from "@/lib/lookup-cache";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { ModalSection, ModalFieldFullWidth } from "@/components/shared/modal-section";
@@ -49,7 +59,7 @@ import {
   type StockCard,
   type InventoryMovementRow,
 } from "@/services/inventory-service";
-import type { PartnerRow } from "@/services/partners-service";
+import { partnersService, type PartnerRow } from "@/services/partners-service";
 import type {
   CategoryRow,
   BrandRow,
@@ -66,6 +76,9 @@ import {
 import { ProductOpeningBalanceDialog } from "./product-opening-balance-dialog";
 import { formatDate, formatDateTime } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
+
+/** Same permission the Product Categories page and `POST /product-categories` enforce. */
+const CREATE_CATEGORY_PERMISSION = "masterdata.categories.create";
 
 /**
  * TASK-028 (Inventory Foundation & Cost Engine pass) — "The selected
@@ -245,6 +258,7 @@ export function ProductModal({
   const [pendingType, setPendingType] = useState<ProductType | null>(null);
   const [openingBalanceOpen, setOpeningBalanceOpen] = useState(false);
   const [categoryQuickCreateOpen, setCategoryQuickCreateOpen] = useState(false);
+  const { hasPermission } = useUserContext();
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
@@ -262,6 +276,73 @@ export function ProductModal({
 
   const isDirty = form.formState.isDirty;
   const isEditing = !!editingProduct;
+  /** The record the form was loaded from — its embedded relations label a value missing from the (active-only) option lists. */
+  const sourceProduct = savedProduct ?? duplicateSource;
+  const canCreateCategory = hasPermission(CREATE_CATEGORY_PERMISSION);
+
+  const categoryOptions = useMemo<SearchableSelectOption[]>(
+    () => categories.map((category) => ({ value: category.id, label: category.name })),
+    [categories],
+  );
+  const brandOptions = useMemo<SearchableSelectOption[]>(
+    () => brands.map((brand) => ({ value: brand.id, label: brand.name })),
+    [brands],
+  );
+  const unitOptions = useMemo<SearchableSelectOption[]>(
+    () => units.map((unit) => ({ value: unit.id, label: unit.name })),
+    [units],
+  );
+  const taxOptions = useMemo<SearchableSelectOption[]>(
+    () =>
+      taxes.map((tax) => ({
+        value: tax.id,
+        label: `${tax.name} (${tax.rate}%)`,
+        searchText: tax.code,
+      })),
+    [taxes],
+  );
+  const analyticAccountOptions = useMemo<SearchableSelectOption[]>(
+    () =>
+      analyticAccounts.map((account) => ({
+        value: account.id,
+        label: account.name,
+        description: account.code,
+        searchText: account.code,
+      })),
+    [analyticAccounts],
+  );
+
+  // The picker holds a Partner row; the form holds its id. Resolve a stored
+  // id from the cached supplier list, else by one batched catalog lookup —
+  // a supplier beyond the list's first 200 rows still displays.
+  const preferredPartnerId = form.watch("preferredPartnerId");
+  const [preferredSupplier, setPreferredSupplier] = useState<PartnerRow | null>(null);
+  useEffect(() => {
+    if (!preferredPartnerId) {
+      setPreferredSupplier(null);
+      return;
+    }
+    if (preferredSupplier?.id === preferredPartnerId) return;
+    const known = suppliers.find((supplier) => supplier.id === preferredPartnerId);
+    if (known) {
+      setPreferredSupplier(known);
+      return;
+    }
+    let cancelled = false;
+    cachedLookup(`partners:ids:${preferredPartnerId}`, () =>
+      partnersService.catalog({ ids: [preferredPartnerId], pageSize: 1 }),
+    )
+      .then((result) => {
+        if (!cancelled) setPreferredSupplier(result.items[0] ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setPreferredSupplier(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preferredPartnerId, suppliers]);
 
   const watchedType = form.watch("type");
   const visibleTabs = TAB_VISIBILITY[watchedType] ?? TAB_VISIBILITY.PURCHASE_AND_SALE;
@@ -625,38 +706,27 @@ export function ProductModal({
                       <FormLabel>
                         {t("products.fields.category")} <span className="text-destructive">*</span>
                       </FormLabel>
-                      <div className="flex items-center gap-1.5">
-                        <Select value={field.value} onValueChange={field.onChange}>
-                          <FormControl>
-                            <SelectTrigger className="w-full">
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {categories.length ? (
-                              categories.map((category) => (
-                                <SelectItem key={category.id} value={category.id}>
-                                  {category.name}
-                                </SelectItem>
-                              ))
-                            ) : (
-                              <div className="px-2 py-3 text-center text-caption text-muted-foreground">
-                                {t("common.noDataAvailable")}
-                              </div>
-                            )}
-                          </SelectContent>
-                        </Select>
-                        <EnterpriseButton
-                          type="button"
-                          variant="outline"
-                          size="icon-sm"
-                          aria-label={t("products.addCategory")}
-                          title={t("products.addCategory")}
-                          onClick={() => setCategoryQuickCreateOpen(true)}
-                        >
-                          <Plus className="size-4" />
-                        </EnterpriseButton>
-                      </div>
+                      <FormControl>
+                        <SearchableSelect
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          options={categoryOptions}
+                          placeholder={t("products.fields.category")}
+                          selectedLabel={
+                            sourceProduct?.categoryId === field.value
+                              ? sourceProduct?.category?.name
+                              : undefined
+                          }
+                          createAction={
+                            canCreateCategory
+                              ? {
+                                  label: t("products.addCategory"),
+                                  onSelect: () => setCategoryQuickCreateOpen(true),
+                                }
+                              : undefined
+                          }
+                        />
+                      </FormControl>
                       {categories.length === 0 && (
                         <p className="text-caption text-muted-foreground">
                           {t("products.noCategoryYet")}
@@ -672,20 +742,19 @@ export function ProductModal({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t("products.fields.brand")}</FormLabel>
-                      <Select value={field.value || undefined} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger className="w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {brands.map((brand) => (
-                            <SelectItem key={brand.id} value={brand.id}>
-                              {brand.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <SearchableSelect
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          options={brandOptions}
+                          placeholder={t("products.fields.brand")}
+                          selectedLabel={
+                            sourceProduct?.brandId === field.value
+                              ? sourceProduct?.brand?.name
+                              : undefined
+                          }
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -698,20 +767,19 @@ export function ProductModal({
                       <FormLabel>
                         {t("products.fields.unit")} <span className="text-destructive">*</span>
                       </FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger className="w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {units.map((unit) => (
-                            <SelectItem key={unit.id} value={unit.id}>
-                              {unit.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <SearchableSelect
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          options={unitOptions}
+                          placeholder={t("products.fields.unit")}
+                          selectedLabel={
+                            sourceProduct?.unitId === field.value
+                              ? sourceProduct?.unit?.name
+                              : undefined
+                          }
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -722,20 +790,19 @@ export function ProductModal({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t("products.fields.taxGroup")}</FormLabel>
-                      <Select value={field.value || undefined} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger className="w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {taxes.map((tax) => (
-                            <SelectItem key={tax.id} value={tax.id}>
-                              {tax.name} ({tax.rate}%)
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <SearchableSelect
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          options={taxOptions}
+                          placeholder={t("products.fields.taxGroup")}
+                          selectedLabel={
+                            sourceProduct?.taxId === field.value && sourceProduct?.tax
+                              ? `${sourceProduct.tax.name} (${sourceProduct.tax.rate}%)`
+                              : undefined
+                          }
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -746,20 +813,19 @@ export function ProductModal({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t("products.fields.costCenter")}</FormLabel>
-                      <Select value={field.value || undefined} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger className="w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {analyticAccounts.map((account) => (
-                            <SelectItem key={account.id} value={account.id}>
-                              {account.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <SearchableSelect
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          options={analyticAccountOptions}
+                          placeholder={t("products.fields.costCenter")}
+                          selectedLabel={
+                            sourceProduct?.analyticAccountId === field.value
+                              ? sourceProduct?.analyticAccount?.name
+                              : undefined
+                          }
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -890,20 +956,16 @@ export function ProductModal({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t("products.fields.preferredSupplier")}</FormLabel>
-                      <Select value={field.value || undefined} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder={t("products.noSupplier")} />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {suppliers.map((supplier) => (
-                            <SelectItem key={supplier.id} value={supplier.id}>
-                              {supplier.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <PartnerPicker
+                          role="SUPPLIER"
+                          value={preferredSupplier}
+                          onChange={(partner) => {
+                            setPreferredSupplier(partner);
+                            field.onChange(partner.id);
+                          }}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1115,20 +1177,13 @@ export function ProductModal({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t("products.fields.preferredWarehouse")}</FormLabel>
-                      <Select value={field.value || undefined} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger className="w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {warehouses.map((warehouse) => (
-                            <SelectItem key={warehouse.id} value={warehouse.id}>
-                              {warehouse.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <WarehousePicker
+                          embedded
+                          value={warehouses.find((warehouse) => warehouse.id === field.value)}
+                          onChange={(warehouse) => field.onChange(warehouse.id)}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1653,9 +1708,10 @@ function VariantsPanel({ productId }: { productId: string }) {
 
 function KitComponentsPanel({ kitProductId }: { kitProductId: string }) {
   const { t } = useLocale();
+  const componentFieldId = useId();
+  const quantityFieldId = useId();
   const [components, setComponents] = useState<ProductComponentRow[]>([]);
-  const [candidateProducts, setCandidateProducts] = useState<ProductRow[]>([]);
-  const [componentProductId, setComponentProductId] = useState("");
+  const [componentProduct, setComponentProduct] = useState<ProductRow | null>(null);
   const [quantity, setQuantity] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -1668,24 +1724,17 @@ function KitComponentsPanel({ kitProductId }: { kitProductId: string }) {
 
   useEffect(load, [kitProductId]);
 
-  // A Kit's own BOM can't include itself — everything else is a candidate.
-  useEffect(() => {
-    productsService
-      .list({ pageSize: 200, includeArchived: false })
-      .then((result) => setCandidateProducts(result.items.filter((p) => p.id !== kitProductId)))
-      .catch(() => setCandidateProducts([]));
-  }, [kitProductId]);
-
   const addComponent = async () => {
-    if (!componentProductId || !quantity) return;
+    if (!componentProduct || !quantity) return;
     setIsSaving(true);
     try {
+      // A Kit's own BOM can't include itself — the API rejects that pick.
       await productsService.components.create(kitProductId, {
-        componentProductId,
+        componentProductId: componentProduct.id,
         quantity: Number(quantity),
       });
       toast.success(t("products.kit.componentSaved"));
-      setComponentProductId("");
+      setComponentProduct(null);
       setQuantity("");
       load();
     } catch (error) {
@@ -1707,31 +1756,27 @@ function KitComponentsPanel({ kitProductId }: { kitProductId: string }) {
 
   return (
     <ModalSection title={t("products.kit.title")} columns={3}>
-      <div className="col-span-2">
-        <label className="text-body font-medium">{t("products.kit.component")}</label>
-        <Select value={componentProductId || undefined} onValueChange={setComponentProductId}>
-          <SelectTrigger className="mt-2 w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {candidateProducts.map((product) => (
-              <SelectItem key={product.id} value={product.id}>
-                {product.displayName} — <span dir="ltr">{product.sku}</span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="col-span-2 flex flex-col gap-2">
+        <Label htmlFor={componentFieldId}>{t("products.kit.component")}</Label>
+        <ProductPicker
+          embedded
+          value={componentProduct}
+          onChange={setComponentProduct}
+          sellableOnly={false}
+          allowCreate={false}
+          triggerProps={{ id: componentFieldId }}
+        />
       </div>
-      <div>
-        <label className="text-body font-medium">{t("products.kit.quantity")}</label>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor={quantityFieldId}>{t("products.kit.quantity")}</Label>
         <Input
+          id={quantityFieldId}
           type="number"
           dir="ltr"
           min={1}
           step="0.001"
           value={quantity}
           onChange={(e) => setQuantity(e.target.value)}
-          className="mt-2"
         />
       </div>
       <ModalFieldFullWidth>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { useParams } from "next/navigation";
 import { Archive, FileText, Plus, RotateCcw, Trash2 } from "lucide-react";
 import {
@@ -15,6 +15,7 @@ import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/business/status-badge";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
+import { EmployeePicker } from "@/components/business/employee-picker";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -37,7 +38,7 @@ import {
   type CommissionRuleType,
   type CommissionAssignmentScope,
 } from "@/services/commission-plans-service";
-import { employeesService, type EmployeeRow } from "@/services/employees-service";
+import type { EmployeeRow } from "@/services/employees-service";
 import { salesTeamsService, type SalesTeamRow } from "@/services/sales-teams-service";
 import { useDepartments } from "@/hooks/use-reference-data";
 import type { DepartmentRow } from "@/config/master-data/entities";
@@ -83,6 +84,7 @@ export default function CommissionPlanEditorPage() {
   const [plan, setPlan] = useState<CommissionPlanDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const fieldId = useId();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [basis, setBasis] = useState<CommissionBasis>("COLLECTED_SALES");
@@ -337,7 +339,7 @@ export default function CommissionPlanEditorPage() {
                     />
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-caption font-medium">
+                    <label htmlFor={`${fieldId}-basis`} className="text-caption font-medium">
                       {t("hr.commissionPlans.fields.basis")}
                     </label>
                     <Select
@@ -345,7 +347,7 @@ export default function CommissionPlanEditorPage() {
                       onValueChange={(value) => setBasis(value as CommissionBasis)}
                       disabled={!canEdit}
                     >
-                      <SelectTrigger className="w-full">
+                      <SelectTrigger id={`${fieldId}-basis`} className="w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -358,7 +360,7 @@ export default function CommissionPlanEditorPage() {
                     </Select>
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-caption font-medium">
+                    <label htmlFor={`${fieldId}-rule-type`} className="text-caption font-medium">
                       {t("hr.commissionPlans.fields.ruleType")}
                     </label>
                     <Select
@@ -366,7 +368,7 @@ export default function CommissionPlanEditorPage() {
                       onValueChange={(value) => changeRuleType(value as CommissionRuleType)}
                       disabled={!canEdit}
                     >
-                      <SelectTrigger className="w-full">
+                      <SelectTrigger id={`${fieldId}-rule-type`} className="w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -450,7 +452,7 @@ export default function CommissionPlanEditorPage() {
                     columns={2}
                   >
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-caption font-medium">
+                      <label htmlFor={`${fieldId}-scope`} className="text-caption font-medium">
                         {t("hr.commissionPlans.assignment.scope")}
                       </label>
                       <Select
@@ -459,7 +461,7 @@ export default function CommissionPlanEditorPage() {
                           setAssignScope(value as CommissionAssignmentScope)
                         }
                       >
-                        <SelectTrigger className="w-full">
+                        <SelectTrigger id={`${fieldId}-scope`} className="w-full">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -472,23 +474,21 @@ export default function CommissionPlanEditorPage() {
                       </Select>
                     </div>
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-caption font-medium">
+                      <label htmlFor={`${fieldId}-target`} className="text-caption font-medium">
                         {t("hr.commissionPlans.assignment.target")}
                       </label>
                       {assignScope === "EMPLOYEE" && (
-                        <EntityCombobox
+                        <EmployeePicker
+                          id={`${fieldId}-target`}
                           value={assignEmployee}
                           onChange={setAssignEmployee}
-                          onSearch={employeesService.search}
-                          getId={(employee) => employee.id}
-                          getTitle={(employee) => employee.name}
-                          getSearchText={(employee) => employee.employeeCode}
                           placeholder={t("common.select")}
                           allowClear
                         />
                       )}
                       {assignScope === "TEAM" && (
                         <EntityCombobox
+                          id={`${fieldId}-target`}
                           value={assignTeam}
                           onChange={setAssignTeam}
                           onSearch={(search) => salesTeamsService.list(search || undefined)}
@@ -501,6 +501,7 @@ export default function CommissionPlanEditorPage() {
                       )}
                       {assignScope === "DEPARTMENT" && (
                         <EntityCombobox
+                          id={`${fieldId}-target`}
                           value={assignDepartment}
                           onChange={setAssignDepartment}
                           items={departments}

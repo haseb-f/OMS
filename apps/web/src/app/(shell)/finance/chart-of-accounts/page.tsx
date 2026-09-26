@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Archive, Download, FileText, Pencil, Plus, Printer, RotateCcw } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,10 +22,13 @@ import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { LoadingOverlay } from "@/components/shared/loading-overlay";
 import { AccountPicker } from "@/components/business/account-picker";
+import { CurrencyPicker } from "@/components/business/currency-picker";
+import { SelectFilter } from "@/components/shared/data-table/select-filter";
+import { invalidateLookups } from "@/lib/lookup-cache";
+import { normalizeArabicSearch } from "@/lib/arabic-search";
 import { StatusBadge } from "@/components/business/status-badge";
 import { createMasterDataService } from "@/services/master-data-service";
 import type { ChartOfAccountRow } from "@/config/master-data/entities";
-import { useCurrencies } from "@/hooks/use-reference-data";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
@@ -89,9 +92,9 @@ function collectMatchIds(nodes: TreeNode[], query: string, ancestors: string[] =
   const matches = new Set<string>();
   for (const node of nodes) {
     const isMatch =
-      node.code.toLowerCase().includes(query) ||
-      node.name.toLowerCase().includes(query) ||
-      (node.nameEn ?? "").toLowerCase().includes(query);
+      normalizeArabicSearch(node.code).includes(query) ||
+      normalizeArabicSearch(node.name).includes(query) ||
+      normalizeArabicSearch(node.nameEn ?? "").includes(query);
     const childMatches = collectMatchIds(node.children, query, [...ancestors, node.id]);
     if (isMatch || childMatches.size > 0) {
       matches.add(node.id);
@@ -137,7 +140,7 @@ function ChartOfAccountsPageContent() {
   const canDelete = hasPermission("accounting.chart-of-accounts.delete");
 
   const [accounts, setAccounts] = useState<ChartOfAccountRow[]>([]);
-  const currencies = useCurrencies();
+  const fieldId = useId();
   const [isLoading, setIsLoading] = useState(true);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
@@ -190,7 +193,7 @@ function ChartOfAccountsPageContent() {
   const tree = useMemo(() => buildTree(visibleAccounts), [visibleAccounts]);
 
   const matchIds = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = normalizeArabicSearch(search);
     if (!query) return null;
     return collectMatchIds(tree, query);
   }, [tree, search]);
@@ -298,6 +301,8 @@ function ChartOfAccountsPageContent() {
         payload.parentAccountId = form.nature === "SUB" ? parentAccount?.id : undefined;
         await service.create(payload);
       }
+      // Every AccountPicker search is cached — drop it so the new/renamed account shows up.
+      invalidateLookups("accounts:");
       toast.success(t("common.saved"));
       setModalOpen(false);
       await load();
@@ -317,6 +322,7 @@ function ChartOfAccountsPageContent() {
     setIsMutating(true);
     try {
       await service.archive(archiveTarget.id);
+      invalidateLookups("accounts:");
       toast.success(t("masterData.chartOfAccounts.deleteSuccess"));
       setArchiveTarget(null);
       await load();
@@ -332,6 +338,7 @@ function ChartOfAccountsPageContent() {
     setIsMutating(true);
     try {
       await service.restore(restoreTarget.id);
+      invalidateLookups("accounts:");
       toast.success(t("common.restore"));
       setRestoreTarget(null);
       await load();
@@ -631,24 +638,16 @@ function ChartOfAccountsPageContent() {
             onValueChange={setSearch}
             placeholder={t("masterData.chartOfAccounts.searchPlaceholder")}
           />
-          <Select
-            value={typeFilter || "__all__"}
-            onValueChange={(v) => setTypeFilter(v === "__all__" ? "" : v)}
-          >
-            <SelectTrigger size="sm" className="w-40">
-              <SelectValue placeholder={t("masterData.fields.accountType")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">
-                {t("masterData.chartOfAccounts.filters.allTypes")}
-              </SelectItem>
-              {ACCOUNT_TYPES.map((type) => (
-                <SelectItem key={type} value={type}>
-                  {t(ACCOUNT_TYPE_LABEL_KEY[type])}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SelectFilter
+            label={t("masterData.fields.accountType")}
+            value={typeFilter}
+            onChange={setTypeFilter}
+            allLabel={t("masterData.chartOfAccounts.filters.allTypes")}
+            options={ACCOUNT_TYPES.map((type) => ({
+              value: type,
+              label: t(ACCOUNT_TYPE_LABEL_KEY[type]),
+            }))}
+          />
           <EnterpriseButton
             type="button"
             variant={showArchived ? "secondary" : "outline"}
@@ -781,7 +780,7 @@ function ChartOfAccountsPageContent() {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium">
+            <label htmlFor={`${fieldId}-type`} className="text-sm font-medium">
               {t("masterData.fields.accountType")} <span className="text-destructive">*</span>
             </label>
             <Select
@@ -793,7 +792,7 @@ function ChartOfAccountsPageContent() {
                 }))
               }
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger id={`${fieldId}-type`} className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -807,7 +806,7 @@ function ChartOfAccountsPageContent() {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium">
+            <label htmlFor={`${fieldId}-nature`} className="text-sm font-medium">
               {t("masterData.chartOfAccounts.natureLabel")}{" "}
               <span className="text-destructive">*</span>
             </label>
@@ -819,7 +818,7 @@ function ChartOfAccountsPageContent() {
                 if (nature === "MAIN") setParentAccount(null);
               }}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger id={`${fieldId}-nature`} className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -831,10 +830,11 @@ function ChartOfAccountsPageContent() {
 
           {form.nature === "SUB" && (
             <div className="flex flex-col gap-1.5 sm:col-span-2">
-              <label className="text-sm font-medium">
+              <label htmlFor={`${fieldId}-parent`} className="text-sm font-medium">
                 {t("masterData.fields.parentAccount")} <span className="text-destructive">*</span>
               </label>
               <AccountPicker
+                id={`${fieldId}-parent`}
                 value={parentAccount}
                 onChange={setParentAccount}
                 accountType={form.accountType}
@@ -880,28 +880,17 @@ function ChartOfAccountsPageContent() {
           )}
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium">{t("masterData.fields.currency")}</label>
-            <Select
-              value={form.currencyId || "__none__"}
-              onValueChange={(value) =>
-                setForm((current) => ({
-                  ...current,
-                  currencyId: value === "__none__" ? "" : value,
-                }))
-              }
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">{t("common.none")}</SelectItem>
-                {currencies.map((currency) => (
-                  <SelectItem key={currency.id} value={currency.id}>
-                    {currency.code}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <label htmlFor={`${fieldId}-currency`} className="text-sm font-medium">
+              {t("masterData.fields.currency")}
+            </label>
+            {/* The DTO stores the FK (`currencyId`); cleared = no account currency. */}
+            <CurrencyPicker
+              id={`${fieldId}-currency`}
+              valueKey="id"
+              value={form.currencyId}
+              onValueChange={(value) => setForm((current) => ({ ...current, currencyId: value }))}
+              allowClear
+            />
           </div>
 
           {editingAccount && (

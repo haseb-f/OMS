@@ -1,18 +1,12 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useId, useMemo, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { CurrencyPicker } from "@/components/business/currency-picker";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { EditorHeader } from "@/components/shared/detail-workspace";
@@ -115,6 +109,7 @@ export function CommercialDocumentEditor<TContext>(props: CommercialDocumentEdit
   const { activeCompany } = useCompany();
   const currencies = useCurrencies();
   const taxes = useTaxes();
+  const currencyFieldId = useId();
   const { canEdit, lines, totals: serverTotals, status, statusOptions, activity } = props;
 
   // Unsaved edits survive "Open full record" from a related-record preview.
@@ -233,32 +228,21 @@ export function CommercialDocumentEditor<TContext>(props: CommercialDocumentEdit
             />
           </div>
           <div className="flex min-w-0 flex-col gap-1">
-            <label className="text-caption text-muted-foreground">
+            <label htmlFor={currencyFieldId} className="text-caption text-muted-foreground">
               {t("sales.editor.header.currency")}
             </label>
-            <Select
-              value={props.currency?.id ?? "__base__"}
+            {/* Empty = base currency (null), as the old "__base__" row was. */}
+            <CurrencyPicker
+              id={currencyFieldId}
+              valueKey="id"
+              value={props.currency?.id ?? ""}
               disabled={!canEdit}
               onValueChange={(value) =>
-                props.onCurrencyChange(
-                  value === "__base__"
-                    ? null
-                    : (currencies.find((currency) => currency.id === value) ?? null),
-                )
+                props.onCurrencyChange(currencies.find((currency) => currency.id === value) ?? null)
               }
-            >
-              <SelectTrigger size="sm" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__base__">{t("sales.editor.header.baseCurrency")}</SelectItem>
-                {currencies.map((currency) => (
-                  <SelectItem key={currency.id} value={currency.id}>
-                    {currency.code} — {currency.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              allowClear
+              placeholder={t("sales.editor.header.baseCurrency")}
+            />
           </div>
           <div className="flex min-w-0 flex-col gap-1">
             <label className="text-caption text-muted-foreground">

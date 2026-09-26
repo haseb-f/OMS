@@ -12,17 +12,24 @@ export function CostCategoryPicker({
   onChange,
   items,
   disabled,
+  id,
+  "aria-label": ariaLabel,
 }: {
   value: CostComponentRow | null | undefined;
   onChange: (category: CostComponentRow | null) => void;
   items: CostComponentRow[];
   disabled?: boolean;
+  /** Forwarded to the trigger so an external `<Label htmlFor>` / `FormControl` can name it. */
+  id?: string;
+  "aria-label"?: string;
 }) {
   const { t } = useLocale();
   const eligible = items.filter((item) => item.capitalizable && item.isActive && !item.deletedAt);
 
   return (
     <EntityCombobox
+      id={id}
+      triggerProps={{ "aria-label": ariaLabel }}
       value={value ?? null}
       onChange={onChange}
       items={eligible}

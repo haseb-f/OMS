@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { Banknote } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
@@ -200,6 +200,7 @@ function CreateCapitalReturnDialog({
 }) {
   const { t } = useLocale();
   const [subscriptionId, setSubscriptionId] = useState(subscriptions[0]?.id ?? "");
+  const subscriptionFieldId = useId();
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(toISODate(new Date()));
   const [financialAccount, setFinancialAccount] = useState<ChartOfAccountRow | null>(null);
@@ -255,11 +256,12 @@ function CreateCapitalReturnDialog({
         />
         <ModalSection title={t("investors.capitalReturns.actions.create")} columns={2}>
           <div className="flex flex-col gap-1">
-            <Label>
+            <Label htmlFor={subscriptionFieldId}>
               {t("investors.capitalReturns.fields.opportunity")}{" "}
               <span className="text-destructive">*</span>
             </Label>
             <EntityCombobox
+              id={subscriptionFieldId}
               value={subscriptions.find((s) => s.id === subscriptionId) ?? null}
               onChange={(row) => setSubscriptionId(row?.id ?? "")}
               items={subscriptions}

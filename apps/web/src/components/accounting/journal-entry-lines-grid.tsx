@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import {
   Table,
@@ -22,9 +22,36 @@ import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
 import type { ChartOfAccountRow, CostCenterRow, ProjectRow } from "@/config/master-data/entities";
 import { partnersService } from "@/services/partners-service";
+import { cachedLookup } from "@/lib/lookup-cache";
 
 /** Slim projection — matches both `JournalEntryRow["lines"][number].partner` (server include) and a full `PartnerRow` from the picker's search results. */
 type LinePartner = { id: string; partnerNumber: string; name: string };
+
+/** Slim account projection the server includes on a saved line (`{id, code, name}`). */
+type LineAccount = { id: string; code: string; name: string };
+
+/**
+ * Display-only row for a line whose account is neither in the prefetched map
+ * nor picked in this session (e.g. an existing entry's account beyond the
+ * prefetch page). A selected combobox value only ever renders `getTitle`
+ * (the name); search results always come back as full rows from the API.
+ */
+function slimAccountRow(account: LineAccount): ChartOfAccountRow {
+  return {
+    id: account.id,
+    code: account.code,
+    name: account.name,
+    description: null,
+    accountType: "ASSET",
+    parentAccountId: null,
+    currencyId: null,
+    allowReconciliation: false,
+    level: 0,
+    allowsPosting: true,
+    isSystemAccount: false,
+    deletedAt: null,
+  };
+}
 
 let nextLineId = 1;
 
@@ -32,6 +59,8 @@ export interface JournalEntryLineGridRow {
   /** Client-side row identity — never the DB line id at this layer (mirrors AllocationGridLine.id). */
   id: string;
   accountId: string;
+  /** Optional slim account (from a saved line) — lets the row show its account even when it is outside the prefetched `accounts` list. */
+  account?: LineAccount | null;
   description: string;
   /** TASK-053 — per-line cost attribution, distinct from the (still-unused) header-level JournalEntry.costCenterId/projectId. */
   costCenterId: string;
@@ -62,6 +91,11 @@ export function JournalEntryLinesGrid({
   disabled,
 }: {
   lines: JournalEntryLineGridRow[];
+  /**
+   * Prefetched accounts used only to DISPLAY existing lines. The account
+   * picker itself always searches the server (posting accounts only, cached
+   * via `cachedLookup`), so accounts beyond this page stay findable.
+   */
   accounts: ChartOfAccountRow[];
   /** Omit to hide the Cost Center/Project columns entirely (e.g. the Opening Balance Wizard, which has no per-line cost attribution). */
   costCenters?: CostCenterRow[];
@@ -73,6 +107,20 @@ export function JournalEntryLinesGrid({
   const showCostAttribution = costCenters !== undefined && projects !== undefined;
   const columnCount = (showCostAttribution ? 7 : 5) + 1;
   const containerRef = useRef<HTMLDivElement>(null);
+  // Accounts picked from a remote search in this session, so a pick that is
+  // not in the prefetched list keeps showing its name.
+  const [pickedAccounts, setPickedAccounts] = useState<Record<string, ChartOfAccountRow>>({});
+  const accountById = useMemo(() => {
+    const map = new Map<string, ChartOfAccountRow>(Object.entries(pickedAccounts));
+    for (const account of accounts) map.set(account.id, account);
+    return map;
+  }, [accounts, pickedAccounts]);
+  const resolveAccount = (line: JournalEntryLineGridRow): ChartOfAccountRow | null => {
+    if (!line.accountId) return null;
+    const known = accountById.get(line.accountId);
+    if (known) return known;
+    return line.account?.id === line.accountId ? slimAccountRow(line.account) : null;
+  };
 
   const updateLine = (id: string, patch: Partial<JournalEntryLineGridRow>) => {
     onChange(lines.map((line) => (line.id === id ? { ...line, ...patch } : line)));
@@ -167,11 +215,24 @@ export function JournalEntryLinesGrid({
                 <TableRow key={line.id}>
                   <TableCell className="align-middle">
                     <AccountPicker
-                      items={accounts}
-                      value={accounts.find((account) => account.id === line.accountId) ?? null}
-                      onChange={(account) => updateLine(line.id, { accountId: account?.id ?? "" })}
+                      postingOnly
+                      value={resolveAccount(line)}
+                      onChange={(account) => {
+                        if (account) {
+                          setPickedAccounts((current) =>
+                            current[account.id] ? current : { ...current, [account.id]: account },
+                          );
+                        }
+                        updateLine(line.id, {
+                          accountId: account?.id ?? "",
+                          account: account
+                            ? { id: account.id, code: account.code, name: account.name }
+                            : null,
+                        });
+                      }}
                       placeholder={t("accounting.journalEntries.lines.selectAccount")}
                       disabled={disabled}
+                      aria-label={t("accounting.journalEntries.lines.account")}
                     />
                   </TableCell>
                   <TableCell className="align-middle">
@@ -192,10 +253,13 @@ export function JournalEntryLinesGrid({
                         })
                       }
                       onSearch={async (search) => {
-                        const result = await partnersService.catalog({
-                          search: search || undefined,
-                          pageSize: 8,
-                        });
+                        // Same `partners:` key space as PartnerPicker, so a quick-create
+                        // (`invalidateLookups("partners:")`) refreshes these rows too.
+                        const params = { search: search || undefined, pageSize: 8 };
+                        const result = await cachedLookup(
+                          `partners:any:${JSON.stringify(params)}`,
+                          () => partnersService.catalog(params),
+                        );
                         return result.items;
                       }}
                       getId={(partner) => partner.id}
@@ -206,6 +270,7 @@ export function JournalEntryLinesGrid({
                       emptyText={t("partners.picker.noResults")}
                       disabled={disabled}
                       allowClear
+                      triggerProps={{ "aria-label": t("partners.fields.name") }}
                     />
                   </TableCell>
                   {showCostAttribution && (
@@ -222,6 +287,7 @@ export function JournalEntryLinesGrid({
                             updateLine(line.id, { costCenterId: costCenter?.id ?? "" })
                           }
                           disabled={disabled}
+                          aria-label={t("accounting.journalEntries.lines.costCenter")}
                         />
                       </TableCell>
                       <TableCell className="align-middle">
@@ -235,6 +301,7 @@ export function JournalEntryLinesGrid({
                             updateLine(line.id, { projectId: project?.id ?? "" })
                           }
                           disabled={disabled}
+                          aria-label={t("accounting.journalEntries.lines.project")}
                         />
                       </TableCell>
                     </>

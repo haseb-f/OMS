@@ -2,6 +2,7 @@
 
 import { Receipt } from "lucide-react";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
+import { cachedLookup } from "@/lib/lookup-cache";
 import {
   purchaseInvoicesService,
   type PurchaseInvoiceRow,
@@ -23,23 +24,29 @@ export function PurchaseInvoicePicker({
   value,
   onChange,
   disabled,
+  id,
+  "aria-label": ariaLabel,
 }: {
   value: PurchaseInvoiceOption | null | undefined;
   onChange: (invoice: PurchaseInvoiceOption | null) => void;
   disabled?: boolean;
+  /** Forwarded to the trigger so an external `<Label htmlFor>` / `FormControl` can name it. */
+  id?: string;
+  "aria-label"?: string;
 }) {
   const { t } = useLocale();
 
   return (
     <EntityCombobox
+      id={id}
+      triggerProps={{ "aria-label": ariaLabel }}
       value={value ?? null}
       onChange={onChange}
       onSearch={async (search) => {
-        const result = await purchaseInvoicesService.list({
-          search: search || undefined,
-          status: "CONFIRMED",
-          pageSize: 20,
-        });
+        const params = { search: search || undefined, status: "CONFIRMED" as const, pageSize: 20 };
+        const result = await cachedLookup(`purchase-invoices:${JSON.stringify(params)}`, () =>
+          purchaseInvoicesService.list(params),
+        );
         return result.items;
       }}
       getId={(invoice) => invoice.id}

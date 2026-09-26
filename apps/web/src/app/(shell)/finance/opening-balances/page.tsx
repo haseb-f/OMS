@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import Link from "next/link";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -21,8 +21,6 @@ import {
 import { fiscalYearsService, type FiscalYearRow } from "@/services/fiscal-years-service";
 import { openingBalancesService } from "@/services/opening-balances-service";
 import { journalEntriesService, type JournalEntryRow } from "@/services/journal-entries-service";
-import { createMasterDataService } from "@/services/master-data-service";
-import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import {
   JOURNAL_ENTRY_STATUS_LABEL_KEY,
   JOURNAL_ENTRY_STATUS_TONE,
@@ -34,7 +32,7 @@ import { ApiError } from "@/services/api-client";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import { PermissionGate } from "@/components/shared/permission-gate";
 
-const accountsService = createMasterDataService<ChartOfAccountRow>("/chart-of-accounts");
+const NO_PREFETCHED_ACCOUNTS: never[] = [];
 
 function emptyLine(): JournalEntryLineGridRow {
   return {
@@ -57,7 +55,7 @@ function OpeningBalancesPageContent() {
   const canManage = hasPermission("accounting.fiscal-years.manage");
 
   const [fiscalYears, setFiscalYears] = useState<FiscalYearRow[]>([]);
-  const [accounts, setAccounts] = useState<ChartOfAccountRow[]>([]);
+  const fiscalYearFieldId = useId();
   const [fiscalYearId, setFiscalYearId] = useState("");
   const [openingDate, setOpeningDate] = useState<Date | null>(null);
   const [lines, setLines] = useState<JournalEntryLineGridRow[]>([emptyLine(), emptyLine()]);
@@ -70,10 +68,9 @@ function OpeningBalancesPageContent() {
       .list()
       .then(setFiscalYears)
       .catch(() => setFiscalYears([]));
-    accountsService
-      .list({ pageSize: 500, postingOnly: true })
-      .then((result) => setAccounts(result.items))
-      .catch(() => setAccounts([]));
+    // No account prefetch: every line is new here, and the grid's account
+    // picker searches posting accounts remotely (cached), so the whole chart
+    // stays findable instead of the first 500 rows only.
   }, []);
 
   const checkExisting = useCallback(async (id: string) => {
@@ -155,11 +152,11 @@ function OpeningBalancesPageContent() {
         <EnterpriseCardContent className="flex flex-col gap-3">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1">
-              <label className="text-caption text-muted-foreground">
+              <label htmlFor={fiscalYearFieldId} className="text-caption text-muted-foreground">
                 {t("accounting.openingBalances.fields.fiscalYear")}
               </label>
               <Select value={fiscalYearId || undefined} onValueChange={setFiscalYearId}>
-                <SelectTrigger size="sm" className="w-full">
+                <SelectTrigger id={fiscalYearFieldId} size="sm" className="w-full">
                   <SelectValue
                     placeholder={t("accounting.openingBalances.fields.selectFiscalYear")}
                   />
@@ -210,7 +207,7 @@ function OpeningBalancesPageContent() {
             <>
               <JournalEntryLinesGrid
                 lines={lines}
-                accounts={accounts}
+                accounts={NO_PREFETCHED_ACCOUNTS}
                 onChange={setLines}
                 disabled={!canManage}
               />

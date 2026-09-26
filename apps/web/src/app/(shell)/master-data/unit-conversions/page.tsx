@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
 import { createMasterDataService } from "@/services/master-data-service";
+import { useUnits } from "@/hooks/use-reference-data";
 import type { MasterDataFormField } from "@/components/master-data/master-data-form";
 import {
   unitConversionsColumns,
@@ -12,21 +13,12 @@ import {
   unitConversionsExportColumns,
   unitConversionRowLabel,
   type UnitConversionRow,
-  type UnitRow,
 } from "@/config/master-data/entities";
 
 const service = createMasterDataService<UnitConversionRow>("/unit-conversions");
-const unitsService = createMasterDataService<UnitRow>("/units");
 
 export default function UnitConversionsPage() {
-  const [units, setUnits] = useState<UnitRow[]>([]);
-
-  useEffect(() => {
-    unitsService
-      .list({ pageSize: 200 })
-      .then((result) => setUnits(result.items))
-      .catch(() => setUnits([]));
-  }, []);
+  const units = useUnits();
 
   const formFields = useMemo<MasterDataFormField[]>(() => {
     const options = units.map((unit) => ({ value: unit.id, label: unit.name }));

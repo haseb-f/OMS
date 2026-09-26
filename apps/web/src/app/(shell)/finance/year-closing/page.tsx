@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -34,6 +34,7 @@ export default function YearClosingPage() {
   const [fiscalYears, setFiscalYears] = useState<FiscalYearRow[]>([]);
   const [fiscalYearId, setFiscalYearId] = useState("");
   const [nextFiscalYearId, setNextFiscalYearId] = useState("");
+  const fieldId = useId();
   const [existingClosing, setExistingClosing] = useState<JournalEntryRow | null | undefined>(
     undefined,
   );
@@ -106,11 +107,11 @@ export default function YearClosingPage() {
         <EnterpriseCardContent className="flex flex-col gap-5 pt-5">
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
-              <label className="text-caption text-muted-foreground">
+              <label htmlFor={`${fieldId}-fy`} className="text-caption text-muted-foreground">
                 {t("accounting.yearClosing.fields.fiscalYear")}
               </label>
               <Select value={fiscalYearId || undefined} onValueChange={setFiscalYearId}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger id={`${fieldId}-fy`} className="w-full">
                   <SelectValue
                     placeholder={t("accounting.openingBalances.fields.selectFiscalYear")}
                   />
@@ -130,7 +131,7 @@ export default function YearClosingPage() {
               )}
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-caption text-muted-foreground">
+              <label htmlFor={`${fieldId}-next`} className="text-caption text-muted-foreground">
                 {t("accounting.yearClosing.fields.nextFiscalYear")}
               </label>
               <Select
@@ -138,7 +139,7 @@ export default function YearClosingPage() {
                 onValueChange={(value) => setNextFiscalYearId(value === "__none__" ? "" : value)}
                 disabled={!fiscalYearId}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger id={`${fieldId}-next`} className="w-full">
                   <SelectValue placeholder={t("accounting.yearClosing.fields.noRollForward")} />
                 </SelectTrigger>
                 <SelectContent>

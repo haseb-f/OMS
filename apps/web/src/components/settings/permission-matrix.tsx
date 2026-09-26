@@ -13,6 +13,7 @@ import {
 import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
 import { cn } from "@/lib/utils";
+import { normalizeArabicSearch } from "@/lib/arabic-search";
 
 const ACTION_LABEL_KEY: Record<string, MessageKey> = {
   view: "permissions.actions.view",
@@ -66,19 +67,18 @@ export function PermissionMatrix({
 
   const filteredGroups = useMemo(() => {
     if (!groups) return [];
-    const query = search.trim().toLowerCase();
+    const query = normalizeArabicSearch(search);
     if (!query) return groups;
     return groups
       .map((group) => {
         const sectionLabel = group.sectionLabelKey
-          ? t(group.sectionLabelKey as MessageKey).toLowerCase()
+          ? normalizeArabicSearch(t(group.sectionLabelKey as MessageKey))
           : "";
         if (sectionLabel.includes(query)) return group;
-        const modules = group.modules.filter(
-          (module) =>
-            t(module.labelKey as MessageKey)
-              .toLowerCase()
-              .includes(query) || module.key.toLowerCase().includes(query),
+        const modules = group.modules.filter((module) =>
+          normalizeArabicSearch(`${t(module.labelKey as MessageKey)} ${module.key}`).includes(
+            query,
+          ),
         );
         return modules.length > 0 ? { ...group, modules } : null;
       })

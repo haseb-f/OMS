@@ -10,7 +10,7 @@ import {
 } from "react";
 import { ChevronDown, Plus, X } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
-import { normalizeArabicSearch } from "@/lib/arabic-search";
+import { filterByArabicSearch } from "@/lib/arabic-search";
 import { Popover, PopoverTrigger } from "@/components/ui/popover";
 import {
   Command,
@@ -76,6 +76,8 @@ export function EntityCombobox<T>({
   triggerProps,
   subtitleDir,
   id,
+  loading = false,
+  variant = "default",
 }: {
   items?: T[];
   onSearch?: (query: string) => Promise<T[]>;
@@ -106,12 +108,16 @@ export function EntityCombobox<T>({
   triggerProps?: ButtonHTMLAttributes<HTMLButtonElement>;
   subtitleDir?: "ltr" | "rtl";
   id?: string;
+  /** Local (`items`) mode: the caller's list is still loading — show the loading state instead of "no results". */
+  loading?: boolean;
+  /** `"ghost"` is the borderless trigger for inline table cells; forms use the default. */
+  variant?: "default" | "ghost";
 }) {
   const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [remoteItems, setRemoteItems] = useState<T[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const onSearchRef = useRef(onSearch);
   const isAsync = typeof onSearch === "function";
@@ -130,7 +136,7 @@ export function EntityCombobox<T>({
       const run = async () => {
         const searchFn = onSearchRef.current;
         if (!searchFn) return;
-        setIsLoading(true);
+        setIsSearching(true);
         setLoadError(false);
         try {
           const results = await searchFn(search);
@@ -141,7 +147,7 @@ export function EntityCombobox<T>({
           setRemoteItems([]);
           setLoadError(true);
         } finally {
-          if (seq === searchSeqRef.current) setIsLoading(false);
+          if (seq === searchSeqRef.current) setIsSearching(false);
         }
       };
       void run();
@@ -152,14 +158,14 @@ export function EntityCombobox<T>({
   const filteredItems = useMemo(() => {
     const sourceItems = isAsync ? remoteItems : (items ?? []);
     if (isAsync) return sourceItems;
-    const needle = normalizeArabicSearch(search);
-    if (!needle) return sourceItems;
-    return sourceItems.filter((item) => {
-      const haystack = normalizeArabicSearch(`${getTitle(item)} ${getSearchText?.(item) ?? ""}`);
-      return haystack.includes(needle);
-    });
+    return filterByArabicSearch(
+      sourceItems,
+      search,
+      (item) => `${getTitle(item)} ${getSearchText?.(item) ?? ""}`,
+    );
   }, [isAsync, remoteItems, items, search, getTitle, getSearchText]);
 
+  const isLoading = isSearching || (!isAsync && loading);
   const showGroups = !search.trim() && !!groups?.length;
   const selectedId = value ? getId(value) : null;
 
@@ -201,15 +207,29 @@ export function EntityCombobox<T>({
           disabled={disabled}
           size="sm"
           {...triggerProps}
+          onKeyDown={(event) => {
+            triggerProps?.onKeyDown?.(event);
+            // Listbox convention (matches the Radix Select trigger): ArrowDown
+            // opens the list; Enter/Space are handled by the popover trigger.
+            if (!event.defaultPrevented && event.key === "ArrowDown" && !open && !disabled) {
+              event.preventDefault();
+              setOpen(true);
+            }
+          }}
           className={cn(
             "h-(--control-height-sm) min-w-0 w-full justify-between text-body font-normal",
+            variant === "ghost" &&
+              "border-transparent bg-transparent px-1.5 shadow-none not-disabled:hover:border-input",
             triggerClassName,
             triggerProps?.className,
           )}
         >
           <span className="flex min-w-0 items-center gap-2">
             {icon}
-            <span className="min-w-0 truncate text-start">
+            <span
+              dir="auto"
+              className={cn("min-w-0 truncate text-start", !value && "text-muted-foreground/80")}
+            >
               {value ? getTitle(value) : (placeholder ?? t("common.select"))}
             </span>
           </span>
@@ -265,7 +285,7 @@ export function EntityCombobox<T>({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-8 w-full justify-start gap-2 px-2.5 font-medium text-primary"
+                className="h-(--control-height-sm) w-full justify-start gap-2 px-2.5 font-medium text-primary pointer-coarse:h-10"
                 data-testid="entity-combobox-create"
                 onClick={() => {
                   const typed = search.trim();

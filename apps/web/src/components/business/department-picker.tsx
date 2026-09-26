@@ -14,6 +14,8 @@ export function DepartmentPicker({
   items,
   allowClear = false,
   requiredArchived,
+  id,
+  "aria-label": ariaLabel,
 }: {
   value: DepartmentRow | null | undefined;
   onChange: (department: DepartmentRow | null) => void;
@@ -27,6 +29,9 @@ export function DepartmentPicker({
    * new assignment unless it is already selected.
    */
   requiredArchived?: DepartmentRow | null;
+  /** Forwarded to the trigger so an external `<Label htmlFor>` / `FormControl` can name it. */
+  id?: string;
+  "aria-label"?: string;
 }) {
   const { t, locale } = useLocale();
   const cached = useDepartments();
@@ -39,6 +44,8 @@ export function DepartmentPicker({
 
   return (
     <EntityCombobox
+      id={id}
+      triggerProps={{ "aria-label": ariaLabel }}
       value={value ?? null}
       onChange={onChange}
       items={merged}

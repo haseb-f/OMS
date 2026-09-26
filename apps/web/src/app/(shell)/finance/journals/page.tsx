@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
 import { createMasterDataService } from "@/services/master-data-service";
 import type { MasterDataFormField } from "@/components/master-data/master-data-form";
@@ -12,37 +12,18 @@ import {
   journalsExportColumns,
   journalRowLabel,
   type JournalRow,
-  type ChartOfAccountRow,
 } from "@/config/master-data/entities";
 import { useCompany } from "@/providers/company-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { useCurrencies } from "@/hooks/use-reference-data";
 
 const service = createMasterDataService<JournalRow>("/journals");
-const accountsService = createMasterDataService<ChartOfAccountRow>("/chart-of-accounts");
 
 /** TASK-053 — Journal configuration (Sales/Purchase/Cash/Bank/General): same generic Master Data pattern as Chart of Accounts. */
 export default function JournalsPage() {
   const { t } = useLocale();
   const { companies } = useCompany();
-  const [accounts, setAccounts] = useState<ChartOfAccountRow[]>([]);
   const currencies = useCurrencies();
-
-  useEffect(() => {
-    accountsService
-      .list({ pageSize: 500 })
-      .then((result) => setAccounts(result.items))
-      .catch(() => setAccounts([]));
-  }, []);
-
-  const accountOptions = useMemo(
-    () =>
-      accounts.map((account) => ({
-        value: account.id,
-        label: `${account.code} — ${account.name}`,
-      })),
-    [accounts],
-  );
   const branches = useMemo(() => companies.flatMap((company) => company.branches), [companies]);
 
   const formFields = useMemo<MasterDataFormField[]>(
@@ -63,20 +44,22 @@ export default function JournalsPage() {
       {
         name: "defaultDebitAccountId",
         label: "masterData.fields.defaultDebitAccount",
-        type: "select",
-        options: accountOptions,
+        // Remote, cached account search over the whole chart (was the first 500 as a select).
+        type: "account",
       },
       {
         name: "defaultCreditAccountId",
         label: "masterData.fields.defaultCreditAccount",
-        type: "select",
-        options: accountOptions,
+        type: "account",
       },
       {
         name: "currencyId",
         label: "masterData.fields.currency",
         type: "select",
-        options: currencies.map((currency) => ({ value: currency.id, label: currency.code })),
+        options: currencies.map((currency) => ({
+          value: currency.id,
+          label: `${currency.code} — ${currency.name}`,
+        })),
       },
       {
         name: "branchId",
@@ -85,7 +68,7 @@ export default function JournalsPage() {
         options: branches.map((branch) => ({ value: branch.id, label: branch.name })),
       },
     ],
-    [t, accountOptions, currencies, branches],
+    [t, currencies, branches],
   );
 
   return (

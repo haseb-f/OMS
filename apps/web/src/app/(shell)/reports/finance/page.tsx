@@ -1,13 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { useCallback, useMemo } from "react";
+import { SearchableSelect } from "@/components/shared/searchable-select";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { useLocale } from "@/providers/locale-provider";
 import { GeneralLedgerTab } from "./general-ledger-tab";
@@ -43,36 +37,32 @@ type ReportKey = (typeof REPORTS)[number];
 function ReportsFinancePageContent() {
   const { t } = useLocale();
   const [report, setReport] = useReportUrlParam<ReportKey>("report", REPORTS, "trialBalance");
-  const title = useMemo(() => {
-    if (report === "accountStatement") return t("reports.finance.accountStatement.title");
-    if (report === "customerStatement") return t("reports.finance.customerStatement");
-    if (report === "supplierStatement") return t("reports.finance.supplierStatement");
-    return t(`reports.finance.${report}` as never);
-  }, [report, t]);
+  const reportLabel = useCallback(
+    (key: ReportKey) => {
+      if (key === "accountStatement") return t("reports.finance.accountStatement.title");
+      if (key === "customerStatement") return t("reports.finance.customerStatement");
+      if (key === "supplierStatement") return t("reports.finance.supplierStatement");
+      return t(`reports.finance.${key}` as never);
+    },
+    [t],
+  );
+  const title = useMemo(() => reportLabel(report), [report, reportLabel]);
 
   return (
     <PageWorkspace
       dense
       title={title}
       actions={
-        <Select value={report} onValueChange={(value) => setReport(value as ReportKey)}>
-          <SelectTrigger className="w-56 sm:w-72">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {REPORTS.map((key) => (
-              <SelectItem key={key} value={key}>
-                {key === "accountStatement"
-                  ? t("reports.finance.accountStatement.title")
-                  : key === "customerStatement"
-                    ? t("reports.finance.customerStatement")
-                    : key === "supplierStatement"
-                      ? t("reports.finance.supplierStatement")
-                      : t(`reports.finance.${key}` as never)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        // A report must always be selected (no "All"), so this is a searchable
+        // single select rather than a SelectFilter; the URL param stays the source of truth.
+        <SearchableSelect
+          value={report}
+          onValueChange={(value) => {
+            if (value) setReport(value as ReportKey);
+          }}
+          options={REPORTS.map((key) => ({ value: key, label: reportLabel(key) }))}
+          aria-label={t("pickers.labels.financeReport")}
+        />
       }
     >
       {report === "generalLedger" ? <GeneralLedgerTab /> : null}

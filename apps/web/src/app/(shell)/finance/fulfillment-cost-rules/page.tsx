@@ -31,7 +31,10 @@ function FulfillmentCostRulesPageContent() {
         label: "masterData.fields.currency",
         type: "select",
         required: true,
-        options: currencies.map((currency) => ({ value: currency.id, label: currency.code })),
+        options: currencies.map((currency) => ({
+          value: currency.id,
+          label: `${currency.code} — ${currency.name}`,
+        })),
       },
       ...fulfillmentCostRulesFormFieldsTail,
     ],

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { LayoutList, SlidersHorizontal, StickyNote, Trash2 } from "lucide-react";
 import {
   DocumentLineTable,
@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/shared/searchable-select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -49,6 +50,7 @@ import type { ChartOfAccountRow, WarehouseRow } from "@/config/master-data/entit
 import { previewSalesLine } from "./sales-line-preview-math";
 import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
+import { formatMoney } from "@/lib/money";
 
 export type LineTreatment = "STANDARD" | "FIXED_ASSET" | "PREPAID_EXPENSE";
 
@@ -152,11 +154,9 @@ export function lineTreatmentPayload(line: ProductLineItemsGridLine) {
   return { treatment };
 }
 
+/** Same en-US numerals as every money column (`formatMoney`) — a browser-locale format rendered Arabic digits on the client but Latin on the server (hydration mismatch). */
 function formatLineTotal(value: number) {
-  return value.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  return formatMoney(value);
 }
 
 function toDate(value: string | null | undefined): Date | null {
@@ -189,6 +189,7 @@ function LineOptions({
   onChange: (patch: Partial<ProductLineItemsGridLine>) => void;
 }) {
   const { t } = useLocale();
+  const fieldId = useId();
   const treatment = line.treatment ?? "STANDARD";
   const hasNote = Boolean(line.description?.trim());
   const flagged = hasNote || treatment !== "STANDARD";
@@ -226,7 +227,7 @@ function LineOptions({
         </div>
         {showTreatment ? (
           <div className="flex flex-col gap-2 border-t border-border pt-3">
-            <label className="text-caption text-muted-foreground">
+            <label htmlFor={`${fieldId}-treatment`} className="text-caption text-muted-foreground">
               {t("docFlow.lines.treatment")}
             </label>
             <Select
@@ -234,7 +235,7 @@ function LineOptions({
               disabled={disabled}
               onValueChange={(value) => onChange({ treatment: value as LineTreatment })}
             >
-              <SelectTrigger size="sm" className="w-full">
+              <SelectTrigger id={`${fieldId}-treatment`} size="sm" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -267,7 +268,10 @@ function LineOptions({
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-caption text-muted-foreground">
+                  <label
+                    htmlFor={`${fieldId}-method`}
+                    className="text-caption text-muted-foreground"
+                  >
                     {t("docFlow.lines.method")}
                   </label>
                   <Select
@@ -279,7 +283,7 @@ function LineOptions({
                       })
                     }
                   >
-                    <SelectTrigger size="sm" className="w-full">
+                    <SelectTrigger id={`${fieldId}-method`} size="sm" className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -593,29 +597,32 @@ export function ProductLineItemsGrid({
     </div>
   );
 
-  const taxSelect = (line: ProductLineItemsGridLine, extra?: { rowIndex: number; col: number }) => (
-    <Select
-      value={line.taxId ?? "__none__"}
+  const taxOptions = useMemo(
+    () =>
+      taxes.map((tax) => ({
+        value: tax.id,
+        label: `${tax.code} (${Number(tax.rate)}%)`,
+        searchText: tax.name,
+      })),
+    [taxes],
+  );
+
+  // Cleared ("") is "no tax" (null), as the old "__none__" row was. Table
+  // cells render the ghost trigger; the keyboard grid focuses it through the
+  // cell's own data-row/data-col.
+  const taxSelect = (line: ProductLineItemsGridLine, inCell?: boolean) => (
+    <SearchableSelect
+      value={line.taxId ?? ""}
       disabled={disabled}
-      onValueChange={(value) => updateLine(line.id, { taxId: value === "__none__" ? null : value })}
-    >
-      <SelectTrigger
-        data-row={extra?.rowIndex}
-        data-col={extra?.col}
-        size="sm"
-        className={cn("w-full min-w-0", isMobile && "h-10")}
-      >
-        <SelectValue placeholder={t("sales.editor.grid.tax")} />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="__none__">{t("sales.editor.grid.noTax")}</SelectItem>
-        {taxes.map((tax) => (
-          <SelectItem key={tax.id} value={tax.id}>
-            {tax.code} ({Number(tax.rate)}%)
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+      onValueChange={(value) => updateLine(line.id, { taxId: value || null })}
+      options={taxOptions}
+      allowClear
+      variant={inCell ? "ghost" : "default"}
+      // Mobile line cards size every control like their neighbours (h-10).
+      className={cn(isMobile && !inCell && "h-10")}
+      placeholder={t("sales.editor.grid.noTax")}
+      aria-label={t("sales.editor.grid.tax")}
+    />
   );
 
   const browser = (
@@ -1035,7 +1042,7 @@ export function ProductLineItemsGrid({
                     data-col={taxCol}
                     className={cn(documentLineCellClass, "w-(--width-control-tax) min-w-0")}
                   >
-                    {taxSelect(line, { rowIndex, col: taxCol })}
+                    {taxSelect(line, true)}
                   </DocumentLineTableCell>
                 )}
                 {lineAmountMode ? null : (

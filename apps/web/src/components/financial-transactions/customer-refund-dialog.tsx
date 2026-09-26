@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Undo2 } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import {
@@ -13,13 +13,7 @@ import { MoneyInput } from "@/components/shared/money-input";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/shared/searchable-select";
 import {
   customerRefundsService,
   type RefundableReturnSummary,
@@ -36,8 +30,6 @@ import {
 import { useLocale } from "@/providers/locale-provider";
 import { formatMoney } from "@/lib/money";
 import { toast, reportApiError } from "@/lib/toast";
-
-const NONE = "__none__";
 
 /**
  * "Refund" on a posted Sales Return — pays the customer back against the
@@ -74,6 +66,7 @@ export function CustomerRefundDialog({
   const [paymentSources, setPaymentSources] = useState<PaymentSourceOption[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submittingRef = useRef(false);
+  const fieldId = useId();
 
   useEffect(() => {
     if (!open) return;
@@ -216,44 +209,31 @@ export function CustomerRefundDialog({
               <EnterpriseDatePicker value={transactionDate} onChange={setTransactionDate} />
             </div>
             <div className="flex flex-col gap-1">
-              <Label>
+              <Label htmlFor={`${fieldId}-receiving`}>
                 {t("sales.refunds.dialog.paidFrom")} <span className="text-destructive">*</span>
               </Label>
-              <Select
-                value={receivingAccountId ?? NONE}
-                onValueChange={(value) => setReceivingAccountId(value === NONE ? null : value)}
-              >
-                <SelectTrigger size="sm" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>—</SelectItem>
-                  {receivingAccounts.map((account) => (
-                    <SelectItem key={account.id} value={account.id}>
-                      {account.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                id={`${fieldId}-receiving`}
+                value={receivingAccountId}
+                onValueChange={(value) => setReceivingAccountId(value || null)}
+                options={receivingAccounts.map((account) => ({
+                  value: account.id,
+                  label: account.name,
+                }))}
+                allowClear
+              />
             </div>
             <div className="flex flex-col gap-1">
-              <Label>{t("financialTransactions.fields.paymentSource")}</Label>
-              <Select
-                value={paymentSourceId ?? NONE}
-                onValueChange={(value) => setPaymentSourceId(value === NONE ? null : value)}
-              >
-                <SelectTrigger size="sm" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>—</SelectItem>
-                  {paymentSources.map((source) => (
-                    <SelectItem key={source.id} value={source.id}>
-                      {source.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor={`${fieldId}-source`}>
+                {t("financialTransactions.fields.paymentSource")}
+              </Label>
+              <SearchableSelect
+                id={`${fieldId}-source`}
+                value={paymentSourceId}
+                onValueChange={(value) => setPaymentSourceId(value || null)}
+                options={paymentSources.map((source) => ({ value: source.id, label: source.name }))}
+                allowClear
+              />
             </div>
             <div className="flex flex-col gap-1 md:col-span-2">
               <Label>{t("financialTransactions.fields.referenceNumber")}</Label>

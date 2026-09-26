@@ -11,13 +11,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SelectFilter } from "@/components/shared/data-table/select-filter";
 import { formatMoney } from "@/lib/money";
 import { formatDate } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
@@ -43,13 +37,14 @@ const ENTRY_TYPES: InvestorLedgerEntryType[] = [
 export default function InvestorPortalStatementPage() {
   const { t } = useLocale();
   const [page, setPage] = useState(1);
-  const [type, setType] = useState<InvestorLedgerEntryType | "ALL">("ALL");
+  // SelectFilter's "" is its "All types" row (no `type` param sent).
+  const [type, setType] = useState<InvestorLedgerEntryType | "">("");
 
   const fetchStatement = useCallback(
     () =>
       investorPortalService.statement({
         page,
-        type: type === "ALL" ? undefined : [type],
+        type: type ? [type] : undefined,
       }),
     [page, type],
   );
@@ -93,25 +88,19 @@ export default function InvestorPortalStatementPage() {
       )}
 
       <div className="flex flex-wrap items-center gap-3">
-        <Select
+        <SelectFilter
+          label={t("investorPortal.statement.filters.allTypes")}
+          allLabel={t("investorPortal.statement.filters.allTypes")}
           value={type}
-          onValueChange={(value) => {
-            setType(value as InvestorLedgerEntryType | "ALL");
+          onChange={(value) => {
+            setType(value as InvestorLedgerEntryType | "");
             setPage(1);
           }}
-        >
-          <SelectTrigger size="sm" className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">{t("investorPortal.statement.filters.allTypes")}</SelectItem>
-            {ENTRY_TYPES.map((entryType) => (
-              <SelectItem key={entryType} value={entryType}>
-                {t(`investors.ledger.entryType.${entryType}` as MessageKey)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          options={ENTRY_TYPES.map((entryType) => ({
+            value: entryType,
+            label: t(`investors.ledger.entryType.${entryType}` as MessageKey),
+          }))}
+        />
       </div>
 
       <PortalPageState

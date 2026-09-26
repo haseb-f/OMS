@@ -12,6 +12,8 @@ export default tseslint.config(
       "**/.next/**",
       "**/coverage/**",
       "**/.turbo/**",
+      // Git-ignored scratch (probes, QA run output) — never shipped.
+      "tmp/**",
       "**/*.config.js",
       // Each app under apps/* ships its own framework-specific ESLint config
       // (eslint-config-next, Nest's eslint.config.mjs) and lints itself via

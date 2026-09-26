@@ -12,13 +12,7 @@ import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-ta
 import { RowActionsMenu } from "@/components/shared/data-table";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { CarrierChargeMatchDialog } from "@/components/shared/carrier-charge-match-dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SelectFilter } from "@/components/shared/data-table/select-filter";
 import {
   carrierReconciliationService,
   type CarrierChargeRow,
@@ -31,6 +25,14 @@ import { formatDate } from "@/lib/date";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import type { MessageKey } from "@/i18n/translate";
+
+/** Filter order (same as the previous dropdown). */
+const CARRIER_RECONCILIATION_STATES: CarrierReconciliationStateValue[] = [
+  "UNMATCHED",
+  "REVIEW_REQUIRED",
+  "MATCHED",
+  "CONFIRMED",
+];
 
 const STATE_TONE: Record<
   CarrierReconciliationStateValue,
@@ -269,30 +271,20 @@ function CarrierReconciliationContent() {
         }}
         searchPlaceholder={t("carrierReconciliation.searchPlaceholder")}
         filterBar={
-          <Select
-            value={stateFilter}
-            onValueChange={(value) => {
-              setStateFilter(value as CarrierReconciliationStateValue | "ALL");
+          <SelectFilter
+            label={t("common.status")}
+            // "ALL" is the API's no-filter sentinel; SelectFilter's "" is its all-state.
+            value={stateFilter === "ALL" ? "" : stateFilter}
+            onChange={(value) => {
+              setStateFilter((value || "ALL") as CarrierReconciliationStateValue | "ALL");
               setPage(1);
             }}
-          >
-            <SelectTrigger size="sm" className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">{t("carrierReconciliation.state.ALL")}</SelectItem>
-              <SelectItem value="UNMATCHED">
-                {t("carrierReconciliation.state.UNMATCHED")}
-              </SelectItem>
-              <SelectItem value="REVIEW_REQUIRED">
-                {t("carrierReconciliation.state.REVIEW_REQUIRED")}
-              </SelectItem>
-              <SelectItem value="MATCHED">{t("carrierReconciliation.state.MATCHED")}</SelectItem>
-              <SelectItem value="CONFIRMED">
-                {t("carrierReconciliation.state.CONFIRMED")}
-              </SelectItem>
-            </SelectContent>
-          </Select>
+            allLabel={t("carrierReconciliation.state.ALL")}
+            options={CARRIER_RECONCILIATION_STATES.map((state) => ({
+              value: state,
+              label: t(`carrierReconciliation.state.${state}`),
+            }))}
+          />
         }
         isLoading={isLoading}
         getRowId={(row) => row.id}

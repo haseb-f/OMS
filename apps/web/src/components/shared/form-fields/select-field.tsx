@@ -25,6 +25,8 @@ export function SelectFormField<
   description,
   placeholder,
   disabled,
+  required,
+  optional,
   options,
 }: {
   control: Control<TFieldValues>;
@@ -33,6 +35,8 @@ export function SelectFormField<
   description?: string;
   placeholder?: string;
   disabled?: boolean;
+  required?: boolean;
+  optional?: boolean;
   options: { value: string; label: string }[];
 }) {
   return (
@@ -41,7 +45,9 @@ export function SelectFormField<
       name={name}
       render={({ field }) => (
         <FormItem>
-          <FormLabel>{label}</FormLabel>
+          <FormLabel required={required} optional={optional}>
+            {label}
+          </FormLabel>
           <Select onValueChange={field.onChange} value={field.value} disabled={disabled}>
             <FormControl>
               <SelectTrigger className="w-full">
