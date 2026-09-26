@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -29,6 +30,12 @@ import { FindOrCreatePartnerDto } from './dto/find-or-create-partner.dto';
 import { FindPartnersQueryDto } from './dto/find-partners-query.dto';
 
 const DOCUMENT_TYPE = 'PARTNER';
+
+/** Roles whose identity Quick Create may not extend without `partners.edit` (SEC-03 H3). */
+const SENSITIVE_IDENTITY_ROLES: ReadonlySet<PartnerRoleType> = new Set([
+  PartnerRoleType.EMPLOYEE,
+  PartnerRoleType.INVESTOR,
+]);
 
 const PARTNER_INCLUDE = {
   roles: true,
@@ -78,6 +85,16 @@ export class PartnersService extends MasterDataCrudService<
     'phone',
     'mobile',
     'email',
+  ];
+  /** SEC-03 L2 — an unknown `sortBy` falls back to `name` instead of reaching Prisma (a 500). Real columns only (the list's balance/credit columns are computed, not sortable server-side). */
+  protected readonly sortableFields = [
+    'name',
+    'partnerNumber',
+    'commercialName',
+    'createdAt',
+    'updatedAt',
+    'phone',
+    'status',
   ];
   /** Arabic-normalized name search — "أحمد محمد صالح" finds "احمد محمد صالح". */
   protected readonly normalizedSearch = {
@@ -459,7 +476,17 @@ export class PartnersService extends MasterDataCrudService<
    * `role` if it doesn't already hold it, otherwise creates a fresh Partner
    * with just that one role. Never creates a duplicate identity.
    */
-  async findOrCreateWithRole(dto: FindOrCreatePartnerDto, userId?: string) {
+  async findOrCreateWithRole(
+    dto: FindOrCreatePartnerDto,
+    userId?: string,
+    /**
+     * `mayExtendSensitiveIdentity`: whether the caller may attach a new role
+     * to an existing Partner that is an EMPLOYEE or INVESTOR (needs
+     * `partners.edit`). Quick Create must never let a document creator
+     * silently re-purpose an HR / investor identity (SEC-03 H3).
+     */
+    options: { mayExtendSensitiveIdentity?: boolean } = {},
+  ) {
     const { role, ...rest } = dto;
     const phone = await this.normalizePartnerPhone(dto.phone, dto.countryId);
     const mobile = await this.normalizePartnerPhone(dto.mobile, dto.countryId);
@@ -472,6 +499,15 @@ export class PartnersService extends MasterDataCrudService<
     if (existing) {
       const full = await this.findOne(existing.id);
       const hasRole = full.roles.some((r) => r.role === role);
+      if (
+        !hasRole &&
+        !options.mayExtendSensitiveIdentity &&
+        full.roles.some((r) => SENSITIVE_IDENTITY_ROLES.has(r.role))
+      ) {
+        throw new ForbiddenException(
+          `This contact belongs to an existing partner that cannot be given the ${role} role from Quick Create. Ask a user with Partner edit permission to add the role.`,
+        );
+      }
       const partner = hasRole
         ? full
         : await this.assignRole(existing.id, role, userId);
@@ -578,8 +614,21 @@ export class PartnersService extends MasterDataCrudService<
     };
   }
 
+  /** Identity columns only — no phone/mobile/email (see `findAll`'s `options`). */
+  static readonly IDENTITY_SEARCH_FIELDS = [
+    'partnerNumber',
+    'name',
+    'commercialName',
+  ] as const;
+
   async findAll(
     query: FindPartnersQueryDto,
+    /**
+     * `identitySearchOnly`: the picker catalog for a caller without contact
+     * detail rights — searching by phone/email would let them confirm who
+     * owns a contact they cannot see (SEC-01).
+     */
+    options: { identitySearchOnly?: boolean } = {},
   ): Promise<MasterDataListResult<PartnerWithBalance<PartnerWithRelations>>> {
     const roleWhere = query.role?.length
       ? { roles: { some: { role: { in: query.role } } } }
@@ -593,6 +642,9 @@ export class PartnersService extends MasterDataCrudService<
         ...roleWhere,
       },
       { include: PARTNER_INCLUDE },
+      options.identitySearchOnly
+        ? PartnersService.IDENTITY_SEARCH_FIELDS
+        : undefined,
     );
     return {
       ...result,

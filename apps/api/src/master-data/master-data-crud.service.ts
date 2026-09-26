@@ -73,13 +73,14 @@ export abstract class MasterDataCrudService<
   private async buildWhere(
     query: MasterDataQueryDto,
     extraWhere: Record<string, unknown>,
+    searchFields: readonly string[] = this.searchFields,
   ): Promise<Record<string, unknown>> {
     const where: Record<string, unknown> = {
       ...extraWhere,
       deletedAt: query.includeArchived ? undefined : null,
     };
-    if (query.search && this.searchFields.length) {
-      const or: Record<string, unknown>[] = this.searchFields.map((field) => ({
+    if (query.search && searchFields.length) {
+      const or: Record<string, unknown>[] = searchFields.map((field) => ({
         [field]: { contains: query.search, mode: 'insensitive' },
       }));
       const normalizedIds = await this.findNormalizedSearchIds(query.search);
@@ -107,10 +108,12 @@ export abstract class MasterDataCrudService<
     extraWhere: Record<string, unknown> = {},
     /** e.g. `{ include: { parentAccount: true } }` — for entities whose list view needs a related row's name, not just its id. */
     extraArgs: Record<string, unknown> = {},
+    /** Narrower search columns for this call (e.g. a picker caller not authorized to match on contact fields). */
+    searchFields?: readonly string[],
   ): Promise<MasterDataListResult<TEntity>> {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
-    const where = await this.buildWhere(query, extraWhere);
+    const where = await this.buildWhere(query, extraWhere, searchFields);
     const sortBy =
       query.sortBy &&
       (!this.sortableFields || this.sortableFields.includes(query.sortBy))

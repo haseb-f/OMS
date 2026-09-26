@@ -74,6 +74,21 @@ export const PRODUCT_NORMALIZED_SEARCH = {
   columns: ['name', 'internal_name', 'display_name', 'search_keywords'],
 } as const;
 
+/** Every real Product column — the management list's `sortBy` allowlist. */
+const PRODUCT_SCALAR_FIELDS: ReadonlySet<string> = new Set(
+  Object.values(Prisma.ProductScalarFieldEnum),
+);
+
+/** `GET /products/catalog` `sortBy` allowlist — identity columns only. */
+export const PRODUCT_CATALOG_SORTABLE_FIELDS: readonly string[] = [
+  'displayName',
+  'name',
+  'nameEn',
+  'internalName',
+  'sku',
+  'createdAt',
+];
+
 @Injectable()
 export class ProductsService {
   constructor(
@@ -206,7 +221,12 @@ export class ProductsService {
 
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
-    const sortBy = query.sortBy ?? 'createdAt';
+    // SEC-03 L2 — only real scalar columns; anything else falls back to the
+    // default instead of reaching Prisma as an unknown field (a 500).
+    const sortBy =
+      query.sortBy && PRODUCT_SCALAR_FIELDS.has(query.sortBy)
+        ? query.sortBy
+        : 'createdAt';
     const sortOrder = query.sortOrder ?? 'asc';
 
     const [items, total] = await this.prisma.$transaction([
@@ -257,7 +277,12 @@ export class ProductsService {
 
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
-    const sortBy = query.sortBy ?? 'displayName';
+    // SEC-03 L2 — picker ordering is limited to identity columns the
+    // catalog already returns (never cost/purchase-price ordering).
+    const sortBy =
+      query.sortBy && PRODUCT_CATALOG_SORTABLE_FIELDS.includes(query.sortBy)
+        ? query.sortBy
+        : 'displayName';
     const sortOrder = query.sortOrder ?? 'asc';
 
     const [items, total] = await this.prisma.$transaction([

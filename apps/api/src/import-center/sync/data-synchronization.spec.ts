@@ -457,8 +457,10 @@ describe('Data Synchronization', () => {
     expect(updated.paymentStatus).toBe(
       StoreOrderPaymentStatus.FULLY_PAID_RECONCILED,
     );
-    // Payment must never advance shipping/fulfillment.
-    expect(updated.shippingStage).toBe('NOT_READY');
+    // Payment must never move shipping/fulfillment: the stage stays exactly
+    // where order creation put it (Ready for Shipping for a SHIPPING order).
+    expect(order.shippingStage).toBe('READY_FOR_SHIPPING');
+    expect(updated.shippingStage).toBe(order.shippingStage);
   });
 
   // ---------------------------------------------------------------------
@@ -486,7 +488,7 @@ describe('Data Synchronization', () => {
       where: { id: order.id },
     });
     expect(updated.paymentStatus).toBe(StoreOrderPaymentStatus.PAYMENT_PENDING);
-    expect(updated.shippingStage).toBe('NOT_READY');
+    expect(updated.shippingStage).toBe(order.shippingStage);
 
     const stillListed = await prisma.storeOrder.findUnique({
       where: { id: order.id },
@@ -803,7 +805,7 @@ describe('Data Synchronization', () => {
       };
     }
 
-    it('TEST 1 — imported order starts PAYMENT_PENDING / NOT_READY with OMS number written back', async () => {
+    it('TEST 1 — imported order starts PAYMENT_PENDING / READY_FOR_SHIPPING with OMS number written back', async () => {
       const row = validSheetRow({ 'Customer Name': 'Sheet Customer Inc' });
       const source = await createSource([row]);
       const preview = await orchestrator.preview(source.id);
@@ -821,7 +823,8 @@ describe('Data Synchronization', () => {
         where: byExternalId(row['External Order ID']),
       });
       expect(order.paymentStatus).toBe(StoreOrderPaymentStatus.PAYMENT_PENDING);
-      expect(order.shippingStage).toBe('NOT_READY');
+      // Confirmed SHIPPING orders start Ready for Shipping; payment ≠ fulfillment.
+      expect(order.shippingStage).toBe('READY_FOR_SHIPPING');
       expect(fakeSheets.rows[0]['Sync Status']).toBe('تم الاستيراد');
       expect(fakeSheets.rows[0]['System Order ID']).toBe(order.internalOrderId);
       expect(fakeSheets.rows[0]['Error Message']).toBe('');

@@ -16,10 +16,7 @@ import { FindChartOfAccountsQueryDto } from './dto/find-chart-of-accounts-query.
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { PermissionModule } from '../auth/decorators/permission-module.decorator';
-import {
-  PermissionAction,
-  SkipPermissionCheck,
-} from '../auth/decorators/permission-action.decorator';
+import { PermissionAction } from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 import { ResetChartToFiveRootsDto } from './dto/reset-chart-to-five-roots.dto';
@@ -139,8 +136,9 @@ export class ChartOfAccountsController {
     return this.chartOfAccountsService.archive(id, user.sub);
   }
 
+  /** Same authority as Archive (SEC-03 H2) — un-archiving is the other half of the soft-delete. */
   @Post(':id/restore')
-  @SkipPermissionCheck()
+  @PermissionAction('delete')
   restore(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.chartOfAccountsService.restore(id, user.sub);
   }

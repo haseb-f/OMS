@@ -13,7 +13,7 @@ import {
 } from '../common/phone/phone-number.service';
 import {
   ALL_PERMISSION_NAMES,
-  withImpliedSectionPermissions,
+  withAuthorizationImpliedPermissions,
 } from '../permissions/permission-catalog';
 import {
   generateTemporaryPassword,
@@ -288,10 +288,10 @@ export class UsersService {
     return { granted: rows.map((row) => row.permission.name) };
   }
 
-  /** Replaces the user's entire permission set (Part 3/11 — the matrix always saves the full checked list). Unknown/retired names are silently ignored rather than rejected, so a stale client payload can never 500. Implied coarse section permissions (see `withImpliedSectionPermissions`) are bundled in automatically. Missing `Permission` rows for those implied names are created rather than dropped, so a matrix grant never leaves its own sidebar section invisible. */
+  /** Replaces the user's entire permission set (Part 3/11 — the matrix always saves the full checked list). Unknown/retired names are silently ignored rather than rejected, so a stale client payload can never 500. Authorization-bearing implied permissions (see `withAuthorizationImpliedPermissions`) are bundled in automatically — never a cross-module implication onto another module's data permission (SEC-03 H4). Missing `Permission` rows for those implied names are created rather than dropped, so a matrix grant never leaves its own sidebar section invisible. */
   async setPermissions(id: string, dto: SetUserPermissionsDto) {
     await this.findOne(id);
-    const validNames = withImpliedSectionPermissions(
+    const validNames = withAuthorizationImpliedPermissions(
       dto.permissionNames.filter((name) => ALL_PERMISSION_NAMES.includes(name)),
     );
     const existing = await this.prisma.permission.findMany({

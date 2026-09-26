@@ -2,14 +2,15 @@
 
 import { UserCog } from "lucide-react";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
-import { useUsersList } from "@/hooks/use-reference-data";
+import { useUsersListState } from "@/hooks/use-reference-data";
 import type { UserRow } from "@/services/users-service";
 import { useLocale } from "@/providers/locale-provider";
 
 /**
  * The one system-user selector (salesperson, warehouse keeper, assignment,
  * "copy permissions from"). Value is the user id; the list comes from the
- * session-cached `useUsersList`, so every picker on a page shares one request.
+ * session-cached users list, so every picker on a page shares one request —
+ * and none is sent for a viewer without `settings.manage` (it would 403).
  */
 export function UserPicker({
   value,
@@ -39,12 +40,11 @@ export function UserPicker({
   "aria-describedby"?: string;
 }) {
   const { t } = useLocale();
-  const users = useUsersList();
+  const { users, loading } = useUsersListState();
   const excluded = new Set(excludeIds ?? []);
   const options = users.filter(
     (user) => !excluded.has(user.id) && (!activeOnly || user.isActive || user.id === value),
   );
-  const loading = useUsersList.isLoading();
   // A saved user the viewer can't list (no settings.manage → empty list) or
   // one since removed still reads as assigned, never as "none".
   const selected =

@@ -47,7 +47,7 @@ import {
 import {
   partnersService,
   type CustomerGlobalLookupResult,
-  type PartnerRow,
+  type PartnerPickerRow,
 } from "@/services/partners-service";
 import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import {
@@ -94,7 +94,7 @@ export function StoreOrderCreateDialog({
   const { t } = useLocale();
   const currencies = useCurrencies();
   const countries = useCountries();
-  const [selectedCustomer, setSelectedCustomer] = useState<PartnerRow | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<PartnerPickerRow | null>(null);
   const [lines, setLines] = useState<ProductLineItemsGridLine[]>([createEmptyLine()]);
   const [itemsError, setItemsError] = useState<string | null>(null);
   const [showLineErrors, setShowLineErrors] = useState(false);
@@ -177,7 +177,7 @@ export function StoreOrderCreateDialog({
     namedLines.map((line) => line.product!.displayName || line.product!.name).join(" · ") || "—";
   const summaryQuantity = namedLines.reduce((sum, line) => sum + line.quantity, 0);
 
-  const applyCustomer = (customer: PartnerRow) => {
+  const applyCustomer = (customer: PartnerPickerRow) => {
     setSelectedCustomer(customer);
     form.setValue("customerName", customer.name, { shouldDirty: true, shouldValidate: true });
     form.setValue("customerPhone", customer.phone || customer.mobile || "", {

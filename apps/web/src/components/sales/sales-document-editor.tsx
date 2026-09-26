@@ -9,15 +9,15 @@ import {
 } from "@/components/documents/commercial-document-editor";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
+// Shared en-US formatter (lib/money): a browser-locale toLocaleString(undefined)
+// renders Latin digits on the server but Arabic-Indic digits in an ar browser,
+// which is a hydration text mismatch (React #418) and mixes digit systems.
+import { formatMoney } from "@/lib/money";
 import type {
   SalesDocumentEditorConfig,
   SalesDocumentEditorHandlers,
   SalesDocumentEditorState,
 } from "./sales-document-editor.types";
-
-function formatMoney(value: number) {
-  return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 
 /**
  * Sales adapter over the shared `CommercialDocumentEditor` — maps the

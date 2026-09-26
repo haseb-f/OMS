@@ -20,7 +20,7 @@ import type {
   FinancialTransactionActivityEntry,
   FinancialTransactionRow,
 } from "@/services/financial-transactions-service";
-import type { PartnerRow } from "@/services/partners-service";
+import type { PartnerPickerRow } from "@/services/partners-service";
 import { buildTransactionStatusOptions } from "@/config/financial-transactions/status";
 import { buildReceiptPrintPayload } from "@/config/sales/receipt-print";
 import { usePrintEngine } from "@/hooks/use-print-engine";
@@ -67,7 +67,7 @@ export function RefundEditorPage({ id }: { id: string }) {
   const [cancelTarget, setCancelTarget] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(false);
 
-  const [customer, setCustomer] = useState<PartnerRow | null>(null);
+  const [customer, setCustomer] = useState<PartnerPickerRow | null>(null);
   const [transactionDate, setTransactionDate] = useState<Date | null>(new Date());
   const [amount, setAmount] = useState(0);
   const [referenceNumber, setReferenceNumber] = useState("");

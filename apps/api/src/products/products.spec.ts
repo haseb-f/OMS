@@ -400,4 +400,26 @@ describe('Products — Draft Activation & Creation Wizard', () => {
       service.create({ categoryId, unitId } as CreateProductDto),
     ).rejects.toThrow();
   });
+
+  // SEC-03 L2 — sortBy never reaches Prisma as an unknown column (a 500),
+  // and the picker catalog never orders by a cost/price-sensitive column.
+  describe('sortBy allowlists (SEC-03 L2)', () => {
+    it.each(['nope', 'category.name', 'currentCost'])(
+      'catalog falls back to displayName for sortBy=%s',
+      async (sortBy) => {
+        await expect(
+          service.findSellableCatalog({ sortBy, pageSize: 1 }),
+        ).resolves.toEqual(expect.objectContaining({ page: 1 }));
+      },
+    );
+
+    it('management list rejects unknown columns without a 500 but keeps real ones', async () => {
+      await expect(
+        service.findAll({ sortBy: 'nope', pageSize: 1 }),
+      ).resolves.toEqual(expect.objectContaining({ page: 1 }));
+      await expect(
+        service.findAll({ sortBy: 'sku', pageSize: 1 }),
+      ).resolves.toEqual(expect.objectContaining({ page: 1 }));
+    });
+  });
 });

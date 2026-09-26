@@ -31,7 +31,7 @@ import {
   type PurchaseInvoiceRow,
 } from "@/services/purchase-invoices-service";
 import type { PurchaseDocumentStatusValue } from "@/services/purchase-quotations-service";
-import { partnersService, type PartnerRow } from "@/services/partners-service";
+import { partnersService, type PartnerPickerRow } from "@/services/partners-service";
 import { useUsersLookup } from "@/hooks/use-reference-data";
 import { buildInvoiceColumns, invoiceExportColumns } from "@/config/purchasing/invoice-columns";
 import {
@@ -70,7 +70,10 @@ function PurchaseInvoicesPageContent() {
   const [sortBy, setSortBy] = usePathRestorableState("sortBy", "createdAt");
   const [sortOrder, setSortOrder] = usePathRestorableState<"asc" | "desc">("sortOrder", "desc");
   const [statusFilter, setStatusFilter] = usePathRestorableState<string[]>("status", []);
-  const [supplierFilter, setSupplierFilter] = usePathRestorableState<PartnerRow[]>("supplier", []);
+  const [supplierFilter, setSupplierFilter] = usePathRestorableState<PartnerPickerRow[]>(
+    "supplier",
+    [],
+  );
   const [dateRange, setDateRange] = usePathRestorableState<DateRangeValue>(
     "dateRange",
     EMPTY_DATE_RANGE,

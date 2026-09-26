@@ -9,7 +9,7 @@ import { MasterDataForm } from "@/components/master-data/master-data-form";
 import {
   partnersService,
   type PartnerRoleValue,
-  type PartnerRow,
+  type PartnerPickerRow,
 } from "@/services/partners-service";
 import {
   buildPartnerQuickCreateSchema,
@@ -86,7 +86,8 @@ export function PartnerQuickCreateDialog({
   onOpenChange: (open: boolean) => void;
   /** Prefill from the picker's search text — a typed-but-unmatched name. */
   initialName?: string;
-  onCreated: (partner: PartnerRow) => void;
+  /** Picker projection unless the caller holds `partners.view` (SEC-03 H3). */
+  onCreated: (partner: PartnerPickerRow) => void;
 }) {
   const { t } = useLocale();
   const [isSubmitting, setIsSubmitting] = useState(false);

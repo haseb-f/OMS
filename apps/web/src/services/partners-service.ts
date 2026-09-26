@@ -90,6 +90,40 @@ export interface PartnerRow {
   deletedAt: string | null;
 }
 
+/** Fields `GET /partners/catalog` always returns (SEC-01 picker projection). */
+type PartnerPickerField =
+  | "id"
+  | "partnerNumber"
+  | "name"
+  | "commercialName"
+  | "status"
+  | "roles"
+  | "currencyId"
+  | "currency";
+
+/**
+ * A `GET /partners/catalog` row (and the non-`partners.view` Quick Create
+ * response). The server always sends an EXPLICIT projection (SEC-03 H1):
+ * the picker fields, `roles` narrowed to the caller's scope, plus — only for
+ * a CUSTOMER row when the caller's screen reads it (Store Order create
+ * dialog, Sales document editor) — the customer detail block below. Never
+ * tax/registration data, notes, supplier/employee/investor profiles or the
+ * payable balance. A full `PartnerRow` is still assignable (partners.view
+ * Quick Create).
+ */
+export type PartnerPickerRow = Pick<PartnerRow, PartnerPickerField> &
+  Partial<
+    Pick<
+      PartnerRow,
+      "phone" | "mobile" | "email" | "countryId" | "city" | "address" | "receivableBalance"
+    >
+  > & {
+    customerProfile?:
+      | (Pick<CustomerProfileRow, "id" | "paymentTerm" | "creditLimit"> &
+          Partial<CustomerProfileRow>)
+      | null;
+  };
+
 export interface PartnerFormPayload {
   name: string;
   legalName?: string;
@@ -134,13 +168,17 @@ export const partnersService = {
    * anyone who holds a document-creation permission, not just
    * `partners.view`. `partners.view` stays reserved for the full Partner
    * management directory (Customers/Suppliers pages); never use `.list()`
-   * for a picker.
+   * for a picker. Server-scoped: a `role` the caller's screens don't pick is
+   * a 403, no `role` means "every role I may pick", and rows carry detail
+   * fields only for detail-authorized callers (see `PartnerPickerRow`).
    */
   catalog: (params: MasterDataListParams = {}) =>
-    apiClient.get<MasterDataListResult<PartnerRow>>(`/partners/catalog${buildQueryString(params)}`),
+    apiClient.get<MasterDataListResult<PartnerPickerRow>>(
+      `/partners/catalog${buildQueryString(params)}`,
+    ),
   /** Reuses an existing Partner by phone/mobile/email/tax number if one matches and adds `role` if it doesn't already hold it; otherwise creates a new Partner with just that role. Never duplicates. */
   findOrCreateWithRole: (role: PartnerRoleValue, dto: PartnerFormPayload) =>
-    apiClient.post<{ partner: PartnerRow; created: boolean }>("/partners/find-or-create", {
+    apiClient.post<{ partner: PartnerPickerRow; created: boolean }>("/partners/find-or-create", {
       ...dto,
       role,
     }),

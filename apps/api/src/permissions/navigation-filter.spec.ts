@@ -93,15 +93,23 @@ describe('filterByAccess', () => {
       (item) => item.id,
     );
     expect(ids).toEqual(
-      expect.arrayContaining([
-        'dashboard',
-        'sales',
-        'sales-customers',
-        'master-data-customer-groups',
-      ]),
+      expect.arrayContaining(['dashboard', 'sales', 'sales-customers']),
     );
+    // SEC-03 H4 — Customer Groups is gated on its own module key (the key its
+    // page and API enforce), never on the Partner directory permission.
+    expect(ids).not.toContain('master-data-customer-groups');
     expect(ids).not.toContain('store-orders-list');
     expect(ids).not.toContain('sales-quotations');
+  });
+
+  it('shows Customer Groups (and the Sales section) from masterdata.customer-groups.view alone', () => {
+    const ids = filterByAccess(navigationConfig, [
+      'masterdata.customer-groups.view',
+    ]).map((item) => item.id);
+    expect(ids).toEqual(
+      expect.arrayContaining(['sales', 'master-data-customer-groups']),
+    );
+    expect(ids).not.toContain('sales-customers');
   });
 
   it('places Store Orders under Sales after Orders and before Invoices', () => {

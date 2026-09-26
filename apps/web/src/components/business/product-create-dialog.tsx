@@ -41,7 +41,7 @@ import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import { productsService, type ProductRow } from "@/services/products-service";
 import type { CategoryRow, UnitRow, TaxRow, WarehouseRow } from "@/config/master-data/entities";
-import type { PartnerRow } from "@/services/partners-service";
+import type { PartnerPickerRow } from "@/services/partners-service";
 import {
   productCreateSchema,
   productCreateDefaultValues,
@@ -100,7 +100,7 @@ export function ProductCreateDialog({
   categories: CategoryRow[];
   units: UnitRow[];
   taxes?: TaxRow[];
-  suppliers?: PartnerRow[];
+  suppliers?: PartnerPickerRow[];
   warehouses?: WarehouseRow[];
   /** Prefill from the picker's search text — a typed-but-unmatched name. */
   initialName?: string;
@@ -110,7 +110,7 @@ export function ProductCreateDialog({
   const { hasPermission } = useUserContext();
   const canCreateCategory = hasPermission(CREATE_CATEGORY_PERMISSION);
   const [categoryQuickCreateOpen, setCategoryQuickCreateOpen] = useState(false);
-  const [preferredSupplier, setPreferredSupplier] = useState<PartnerRow | null>(null);
+  const [preferredSupplier, setPreferredSupplier] = useState<PartnerPickerRow | null>(null);
   const [preferredWarehouse, setPreferredWarehouse] = useState<WarehouseRow | null>(null);
   const [step, setStep] = useState<ProductWizardStep>("basics");
 

@@ -23,7 +23,7 @@ import {
   type FinancialTransactionRow,
   type OpenInvoiceRow,
 } from "@/services/customer-receipts-service";
-import { partnersService, type PartnerRow } from "@/services/partners-service";
+import { partnersService, type PartnerPickerRow } from "@/services/partners-service";
 import { buildTransactionStatusOptions } from "@/config/financial-transactions/status";
 import { buildReceiptPrintPayload } from "@/config/sales/receipt-print";
 import { usePrintEngine } from "@/hooks/use-print-engine";
@@ -68,7 +68,7 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
   const [cancelTarget, setCancelTarget] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(false);
 
-  const [customer, setCustomer] = useState<PartnerRow | null>(null);
+  const [customer, setCustomer] = useState<PartnerPickerRow | null>(null);
   const [transactionDate, setTransactionDate] = useState<Date | null>(new Date());
   const [amount, setAmount] = useState(0);
   const [referenceNumber, setReferenceNumber] = useState("");
@@ -120,9 +120,11 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
     if (id || customer) return;
     const prefillCustomerId = searchParams.get("partnerId");
     if (!prefillCustomerId) return;
+    // Picker-scoped lookup (not `.get`, which needs `partners.view`) so a
+    // Finance user following the deep link still gets the party prefilled.
     partnersService
-      .get(prefillCustomerId)
-      .then(setCustomer)
+      .catalog({ ids: [prefillCustomerId], pageSize: 1, role: ["CUSTOMER"] })
+      .then((result) => setCustomer(result.items[0] ?? null))
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, searchParams]);

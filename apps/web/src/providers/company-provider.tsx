@@ -1,6 +1,13 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  type ReactNode,
+} from "react";
 import { useAuth } from "./auth-provider";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { STORAGE_KEYS } from "@/constants/storage-keys";
@@ -50,7 +57,11 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCompany?.id]);
 
-  useEffect(() => {
+  // SEC-03 L3 — a layout effect, so the X-Company-Id / X-Branch-Id headers
+  // switch in the same commit as the new identity scope (UserContext's layout
+  // effect), before ANY passive effect can start a fetch under the new scope
+  // with the previous company's headers.
+  useLayoutEffect(() => {
     setActiveCompanyContext(activeCompany?.id ?? null, activeBranchId);
   }, [activeCompany?.id, activeBranchId]);
 

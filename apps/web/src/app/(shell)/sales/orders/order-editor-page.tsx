@@ -29,7 +29,7 @@ import {
   type SalesOrderItemRow,
   type SalesOrderRow,
 } from "@/services/sales-orders-service";
-import type { PartnerRow } from "@/services/partners-service";
+import type { PartnerPickerRow } from "@/services/partners-service";
 import type { CurrencyRow } from "@/config/master-data/entities";
 import { buildOrderStatusOptions } from "@/config/sales/order-status";
 import { buildOrderPrintPayload } from "@/config/sales/order-print";
@@ -88,7 +88,7 @@ export function OrderEditorPage({ id }: { id: string | null }) {
   const [cancelTarget, setCancelTarget] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
 
-  const [customer, setCustomer] = useState<PartnerRow | null>(null);
+  const [customer, setCustomer] = useState<PartnerPickerRow | null>(null);
   const [currency, setCurrency] = useState<CurrencyRow | null>(null);
   const [referenceNumber, setReferenceNumber] = useState("");
   const [notes, setNotes] = useState("");

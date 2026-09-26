@@ -30,7 +30,7 @@ import {
   type SalesInvoiceItemRow,
   type SalesInvoiceRow,
 } from "@/services/sales-invoices-service";
-import type { PartnerRow } from "@/services/partners-service";
+import type { PartnerPickerRow } from "@/services/partners-service";
 import type { CurrencyRow } from "@/config/master-data/entities";
 import { buildInvoiceStatusOptions } from "@/config/sales/invoice-status";
 import { buildInvoicePrintPayload } from "@/config/sales/invoice-print";
@@ -92,7 +92,7 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
   const [cancelTarget, setCancelTarget] = useState(false);
   const [returnOpen, setReturnOpen] = useState(false);
 
-  const [customer, setCustomer] = useState<PartnerRow | null>(null);
+  const [customer, setCustomer] = useState<PartnerPickerRow | null>(null);
   const [currency, setCurrency] = useState<CurrencyRow | null>(null);
   const [referenceNumber, setReferenceNumber] = useState("");
   const [notes, setNotes] = useState("");

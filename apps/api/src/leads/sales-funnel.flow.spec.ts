@@ -187,6 +187,48 @@ describe('Sales Funnel Engine', () => {
     });
   }
 
+  /**
+   * Activating an auto (Continuous/24h) policy drains EVERY pending unowned
+   * Lead in the database, oldest first, through the Round Robin cursor. The
+   * shared local DB carries unowned leftovers (QA/demo rows, earlier tests'
+   * unowned leads, and leads whose throwaway spec owner was deleted —
+   * `sales_employee_id` is ON DELETE SET NULL), so an unguarded drain would
+   * both shift this spec's Round Robin expectations by however many ambient
+   * rows exist and reassign those rows to throwaway users. Park every
+   * unowned lead except `drainLeadIds` (temporary soft-delete) for the
+   * duration of the activate call only, then restore them exactly.
+   */
+  async function activateIsolated(
+    input: Parameters<LeadAutoDistributionService['activate']>[0],
+    drainLeadIds: string[] = [],
+  ) {
+    const ambient = await prisma.lead.findMany({
+      where: {
+        deletedAt: null,
+        salesEmployeeId: null,
+        id: { notIn: drainLeadIds },
+      },
+      select: { id: true },
+    });
+    const parkedIds = ambient.map((row) => row.id);
+    if (parkedIds.length) {
+      await prisma.lead.updateMany({
+        where: { id: { in: parkedIds } },
+        data: { deletedAt: new Date() },
+      });
+    }
+    try {
+      return await distribution.activate(input);
+    } finally {
+      if (parkedIds.length) {
+        await prisma.lead.updateMany({
+          where: { id: { in: parkedIds } },
+          data: { deletedAt: null },
+        });
+      }
+    }
+  }
+
   it('round-robin advances A → B → C → A', () => {
     const next = distribution.nextRoundRobin.bind(distribution);
     const ids = ['A', 'B', 'C'];
@@ -316,7 +358,7 @@ describe('Sales Funnel Engine', () => {
       const b = await salesUser('BB Sara');
       const c = await salesUser('CC Mohamed');
       const team = await makeTeam(manager.id, [a.id, b.id, c.id]);
-      await distribution.activate({
+      await activateIsolated({
         mode: LeadDistributionMode.CONTINUOUS,
         actorId: manager.id,
         teamId: team.id,
@@ -356,7 +398,7 @@ describe('Sales Funnel Engine', () => {
   liveIt('24-hour policy expires without a cron', async () => {
     const actor = await salesUser('Policy Actor');
     const started = new Date('2026-01-01T00:00:00.000Z');
-    await distribution.activate({
+    await activateIsolated({
       mode: LeadDistributionMode.TIME_LIMITED,
       actorId: actor.id,
       now: started,
@@ -394,11 +436,14 @@ describe('Sales Funnel Engine', () => {
       expect(lead.salesEmployeeId).toBeNull();
       expect(lead.distributionHeld).toBe(true);
 
-      await distribution.activate({
-        mode: LeadDistributionMode.CONTINUOUS,
-        actorId: manager.id,
-        teamId: team.id,
-      });
+      await activateIsolated(
+        {
+          mode: LeadDistributionMode.CONTINUOUS,
+          actorId: manager.id,
+          teamId: team.id,
+        },
+        [lead.id],
+      );
       const afterActivate = await prisma.lead.findUniqueOrThrow({
         where: { id: lead.id },
       });
@@ -566,11 +611,14 @@ describe('Sales Funnel Engine', () => {
       createdLeadIds.push(offLead.id);
       expect(offLead.salesEmployeeId).toBeNull();
 
-      await distribution.activate({
-        mode: LeadDistributionMode.CONTINUOUS,
-        actorId: manager.id,
-        teamId: team.id,
-      });
+      await activateIsolated(
+        {
+          mode: LeadDistributionMode.CONTINUOUS,
+          actorId: manager.id,
+          teamId: team.id,
+        },
+        [offLead.id],
+      );
       // Activate drains held offLead first (Round Robin starts at A).
       const drained = await prisma.lead.findUniqueOrThrow({
         where: { id: offLead.id },
@@ -1152,7 +1200,7 @@ describe('Sales Funnel Engine', () => {
       const b = await salesUser('BB Conc Sara');
       const c = await salesUser('CC Conc Mohamed');
       const team = await makeTeam(manager.id, [a.id, b.id, c.id]);
-      await distribution.activate({
+      await activateIsolated({
         mode: LeadDistributionMode.CONTINUOUS,
         actorId: manager.id,
         teamId: team.id,

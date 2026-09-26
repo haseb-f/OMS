@@ -6,7 +6,7 @@ import { EntityCombobox } from "@/components/shared/entity-combobox";
 import {
   partnersService,
   type PartnerRoleValue,
-  type PartnerRow,
+  type PartnerPickerRow,
 } from "@/services/partners-service";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { STORAGE_KEYS } from "@/constants/storage-keys";
@@ -95,8 +95,8 @@ export function PartnerPicker({
   "aria-label": ariaLabel,
 }: {
   role: PartnerRoleValue;
-  value: PartnerRow | null | undefined;
-  onChange: (partner: PartnerRow) => void;
+  value: PartnerPickerRow | null | undefined;
+  onChange: (partner: PartnerPickerRow) => void;
   disabled?: boolean;
   className?: string;
   /** Forwarded to the trigger so an external `<Label htmlFor>` / `FormControl` can name it. */
@@ -111,7 +111,7 @@ export function PartnerPicker({
   const text = ROLE_TEXT[role];
   const Icon = ROLE_ICON[role];
   const [recentIds, setRecentIds] = useLocalStorage<string[]>(text.storageKey, []);
-  const [recentPartners, setRecentPartners] = useState<PartnerRow[]>([]);
+  const [recentPartners, setRecentPartners] = useState<PartnerPickerRow[]>([]);
 
   useEffect(() => {
     if (recentIds.length === 0) return;
@@ -124,7 +124,9 @@ export function PartnerPicker({
       .then((result) => {
         if (cancelled) return;
         const byId = new Map(result.items.map((row) => [row.id, row]));
-        setRecentPartners(ids.map((id) => byId.get(id)).filter((row): row is PartnerRow => !!row));
+        setRecentPartners(
+          ids.map((id) => byId.get(id)).filter((row): row is PartnerPickerRow => !!row),
+        );
       })
       .catch(() => {
         if (!cancelled) setRecentPartners([]);
@@ -134,7 +136,7 @@ export function PartnerPicker({
     };
   }, [recentIds, role]);
 
-  const selectPartner = (partner: PartnerRow) => {
+  const selectPartner = (partner: PartnerPickerRow) => {
     onChange(partner);
     setRecentIds((previous) =>
       [partner.id, ...previous.filter((id) => id !== partner.id)].slice(0, 5),

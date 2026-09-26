@@ -32,7 +32,7 @@ import { useCompany } from "@/providers/company-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { formatDateTime } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
-import type { PartnerRoleValue, PartnerRow } from "@/services/partners-service";
+import type { PartnerRoleValue, PartnerPickerRow } from "@/services/partners-service";
 import type { CurrencyRow } from "@/config/master-data/entities";
 import type { TraceKind } from "@/services/traceability-service";
 import { DocumentActionBar, type DocumentAction } from "./document-action-bar";
@@ -59,8 +59,8 @@ export interface CommercialDocumentEditorProps<TContext> {
   party: {
     role: PartnerRoleValue;
     labelKey: MessageKey;
-    value: PartnerRow | null;
-    onChange: (partner: PartnerRow) => void;
+    value: PartnerPickerRow | null;
+    onChange: (partner: PartnerPickerRow) => void;
   };
   documentDate: Date | null;
   onDocumentDateChange: (date: Date | null) => void;

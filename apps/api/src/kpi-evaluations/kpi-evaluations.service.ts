@@ -56,14 +56,14 @@ export class KpiEvaluationsService {
     );
     if (!template) {
       throw new BadRequestException(
-        'No KPI Template is assigned to this employee (by Employee override, Job Title, or Department).',
+        'لا يوجد قالب مؤشرات أداء مُسند لهذا الموظف (على مستوى الموظف أو المسمى الوظيفي أو القسم) — No KPI Template is assigned to this employee (by Employee override, Job Title, or Department).',
       );
     }
     const templateWithItems = await this.kpiTemplates.findOne(template.id);
     const activeItems = templateWithItems.items.filter((item) => item.isActive);
     if (!activeItems.length) {
       throw new BadRequestException(
-        'The assigned KPI Template has no active items.',
+        'قالب مؤشرات الأداء المُسند لا يحتوي على بنود مفعّلة — The assigned KPI Template has no active items.',
       );
     }
 
@@ -104,7 +104,10 @@ export class KpiEvaluationsService {
       where: { id },
       include: EVALUATION_INCLUDE,
     });
-    if (!evaluation) throw new NotFoundException('KPI Evaluation not found.');
+    if (!evaluation)
+      throw new NotFoundException(
+        'تقييم مؤشرات الأداء غير موجود — KPI Evaluation not found.',
+      );
     return evaluation;
   }
 
@@ -154,22 +157,26 @@ export class KpiEvaluationsService {
     switch (itemType) {
       case KpiItemType.YES_NO:
         if (dto.yesNo === undefined)
-          throw new BadRequestException('yesNo is required for this item.');
+          throw new BadRequestException(
+            'اختر نعم أو لا لهذا البند — yesNo is required for this item.',
+          );
         return dto.yesNo ? 100 : 0;
       case KpiItemType.PERCENTAGE:
         if (dto.percentage === undefined)
           throw new BadRequestException(
-            'percentage is required for this item.',
+            'أدخل النسبة المئوية لهذا البند — percentage is required for this item.',
           );
         return Math.min(100, Math.max(0, dto.percentage));
       case KpiItemType.RATING_1_TO_5:
         if (dto.rating === undefined)
-          throw new BadRequestException('rating is required for this item.');
+          throw new BadRequestException(
+            'اختر التقييم لهذا البند — rating is required for this item.',
+          );
         return dto.rating * 20;
       case KpiItemType.DROPDOWN: {
         if (!dto.dropdownLabel)
           throw new BadRequestException(
-            'dropdownLabel is required for this item.',
+            'اختر خيارًا لهذا البند — dropdownLabel is required for this item.',
           );
         const options = (dropdownOptions ?? []) as {
           label: string;
@@ -180,13 +187,13 @@ export class KpiEvaluationsService {
         );
         if (!match)
           throw new BadRequestException(
-            `"${dto.dropdownLabel}" is not a configured option for this item.`,
+            `الخيار "${dto.dropdownLabel}" غير معرّف لهذا البند — "${dto.dropdownLabel}" is not a configured option for this item.`,
           );
         return match.score;
       }
       case KpiItemType.AUTO_METRIC:
         throw new BadRequestException(
-          'AUTO_METRIC items are scored by the system, not manually.',
+          'بنود القياس التلقائي يحتسبها النظام ولا تُقيَّم يدويًا — AUTO_METRIC items are scored by the system, not manually.',
         );
     }
   }
@@ -197,7 +204,9 @@ export class KpiEvaluationsService {
     userId: string,
   ) {
     if (evaluatorSource === KpiEvaluatorSource.SYSTEM) {
-      throw new BadRequestException('SYSTEM items are scored automatically.');
+      throw new BadRequestException(
+        'بنود النظام تُحتسب تلقائيًا — SYSTEM items are scored automatically.',
+      );
     }
     const canApproveHr = await this.permissions.hasPermission(
       userId,
@@ -212,13 +221,15 @@ export class KpiEvaluationsService {
       });
       if (!employee?.manager?.userId || employee.manager.userId !== userId) {
         throw new ForbiddenException(
-          "Only this employee's manager may score this criterion.",
+          "هذا المعيار يقيّمه المدير المباشر للموظف فقط — Only this employee's manager may score this criterion.",
         );
       }
       return;
     }
     // evaluatorSource === HR, and the caller doesn't hold the HR approve permission.
-    throw new ForbiddenException('Only HR may score this criterion.');
+    throw new ForbiddenException(
+      'هذا المعيار تقيّمه الموارد البشرية فقط — Only HR may score this criterion.',
+    );
   }
 
   async scoreItem(
@@ -233,11 +244,14 @@ export class KpiEvaluationsService {
       evaluation.status === KpiEvaluationStatus.INCLUDED_IN_PAYROLL
     ) {
       throw new BadRequestException(
-        'This evaluation is locked — reopen it before editing.',
+        'هذا التقييم مقفل، أعد فتحه قبل التعديل — This evaluation is locked; reopen it before editing.',
       );
     }
     const item = evaluation.items.find((i) => i.id === itemId);
-    if (!item) throw new NotFoundException('KPI Evaluation item not found.');
+    if (!item)
+      throw new NotFoundException(
+        'بند التقييم غير موجود — KPI Evaluation item not found.',
+      );
 
     await this.assertCanScore(evaluation, item.evaluatorSourceSnapshot, userId);
 
@@ -318,7 +332,7 @@ export class KpiEvaluationsService {
     const evaluation = await this.findOne(evaluationId);
     if (evaluation.status !== KpiEvaluationStatus.DRAFT) {
       throw new BadRequestException(
-        'Only a DRAFT evaluation can be submitted.',
+        'يمكن إرسال التقييم وهو في حالة المسودة فقط — Only a DRAFT evaluation can be submitted.',
       );
     }
     const unscored = evaluation.items.filter(
@@ -349,7 +363,9 @@ export class KpiEvaluationsService {
       evaluation.status === KpiEvaluationStatus.HR_APPROVED ||
       evaluation.status === KpiEvaluationStatus.INCLUDED_IN_PAYROLL
     ) {
-      throw new BadRequestException('This evaluation is already approved.');
+      throw new BadRequestException(
+        'هذا التقييم معتمد بالفعل — This evaluation is already approved.',
+      );
     }
     const unscored = evaluation.items.filter(
       (item) => item.normalizedScore === null,
@@ -400,12 +416,12 @@ export class KpiEvaluationsService {
     const evaluation = await this.findOne(evaluationId);
     if (evaluation.status === KpiEvaluationStatus.INCLUDED_IN_PAYROLL) {
       throw new BadRequestException(
-        'This evaluation was already included in a Payroll Run and cannot be reopened.',
+        'هذا التقييم أُدرج في مسير رواتب ولا يمكن إعادة فتحه — This evaluation was already included in a Payroll Run and cannot be reopened.',
       );
     }
     if (evaluation.status !== KpiEvaluationStatus.HR_APPROVED) {
       throw new BadRequestException(
-        'Only an HR_APPROVED evaluation can be reopened.',
+        'يمكن إعادة فتح التقييم المعتمد من الموارد البشرية فقط — Only an HR_APPROVED evaluation can be reopened.',
       );
     }
     await this.prisma.kpiEvaluation.update({

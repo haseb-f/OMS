@@ -63,7 +63,7 @@ import {
   purchaseInvoicesService,
   type PurchaseInvoiceRow,
 } from "@/services/purchase-invoices-service";
-import type { PartnerRow } from "@/services/partners-service";
+import type { PartnerPickerRow } from "@/services/partners-service";
 import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import type { MessageKey } from "@/i18n/translate";
 
@@ -487,7 +487,7 @@ function ClassifyDialog({
 }) {
   const { t } = useLocale();
   const [outgoingType, setOutgoingType] = useState<CashFlowOutgoingType>("EXPENSE");
-  const [supplier, setSupplier] = useState<PartnerRow | null>(null);
+  const [supplier, setSupplier] = useState<PartnerPickerRow | null>(null);
   const [expenseAccount, setExpenseAccount] = useState<ChartOfAccountRow | null>(null);
   const outgoingTypeId = useId();
   const expenseAccountFieldId = useId();

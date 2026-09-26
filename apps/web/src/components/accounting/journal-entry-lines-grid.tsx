@@ -2,6 +2,10 @@
 
 import { useMemo, useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
+// Shared en-US formatter (lib/money): a browser-locale toLocaleString(undefined)
+// renders Latin digits on the server but Arabic-Indic digits in an ar browser,
+// which is a hydration text mismatch (React #418) and mixes digit systems.
+import { formatMoney } from "@/lib/money";
 import {
   Table,
   TableBody,
@@ -70,10 +74,6 @@ export interface JournalEntryLineGridRow {
   partner: LinePartner | null;
   debit: number;
   credit: number;
-}
-
-function formatMoney(value: number) {
-  return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 /**

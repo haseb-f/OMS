@@ -373,7 +373,9 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
       where: { id: result.id },
     });
     expect(order.paymentStatus).toBe(StoreOrderPaymentStatus.PAYMENT_PENDING);
-    expect(order.shippingStage).toBe('NOT_READY');
+    // A confirmed SHIPPING order starts Ready for Shipping regardless of
+    // payment (payment ≠ fulfillment, f52828c); import does not change that.
+    expect(order.shippingStage).toBe('READY_FOR_SHIPPING');
   });
 
   it('rejects an unrecognized Payment Method and creates nothing', async () => {

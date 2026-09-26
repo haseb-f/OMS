@@ -12,10 +12,7 @@ import {
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { PermissionModule } from '../../auth/decorators/permission-module.decorator';
-import {
-  PermissionAction,
-  SkipPermissionCheck,
-} from '../../auth/decorators/permission-action.decorator';
+import { PermissionAction } from '../../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../../auth/guards/jwt-auth.guard';
 import {
@@ -62,9 +59,10 @@ export class PurchaseInvoicesController {
     return this.invoicesService.update(id, dto);
   }
 
+  /** Draft → Submitted is the editor's own transition — the same `edit` authority the editor shell gates on (SEC-03 H2 audit). */
   @Post(':id/submit')
   @HttpCode(200)
-  @SkipPermissionCheck()
+  @PermissionAction('edit')
   submit(@Param('id') id: string) {
     return this.invoicesService.submit(id);
   }

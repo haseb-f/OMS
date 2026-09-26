@@ -12,10 +12,7 @@ import {
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { PermissionModule } from '../../auth/decorators/permission-module.decorator';
-import {
-  PermissionAction,
-  SkipPermissionCheck,
-} from '../../auth/decorators/permission-action.decorator';
+import { PermissionAction } from '../../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../../auth/guards/jwt-auth.guard';
 import {
@@ -62,9 +59,10 @@ export class SalesQuotationsController {
     return this.quotationsService.update(id, dto);
   }
 
+  /** Draft → Submitted is the editor's own transition — the same `edit` authority the editor shell gates on (SEC-03 H2 audit). */
   @Post(':id/submit')
   @HttpCode(200)
-  @SkipPermissionCheck()
+  @PermissionAction('edit')
   submit(@Param('id') id: string) {
     return this.quotationsService.submit(id);
   }
@@ -90,9 +88,11 @@ export class SalesQuotationsController {
     return this.quotationsService.archive(id, user.sub);
   }
 
+  /** Creates a Sales Order — authorized as a Create on the TARGET document (SEC-03 H2 audit). */
   @Post(':id/convert-to-order')
   @HttpCode(200)
-  @SkipPermissionCheck()
+  @PermissionModule('sales-orders')
+  @PermissionAction('create')
   convertToOrder(
     @Param('id') id: string,
     @Body() dto: ConvertQuotationToOrderDto,

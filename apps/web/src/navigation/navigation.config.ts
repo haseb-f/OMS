@@ -90,7 +90,7 @@ export const navigationConfig: NavigationItem[] = [
     route: "/master-data/customer-groups",
     icon: "users-round",
     order: 1,
-    permissions: ["partners.view"],
+    permissions: ["masterdata.customer-groups.view"],
   },
   {
     id: "sales-quotations",
@@ -190,7 +190,7 @@ export const navigationConfig: NavigationItem[] = [
     route: "/master-data/shipping-statuses",
     icon: "list-checks",
     order: 2,
-    permissions: ["shipping.view"],
+    permissions: ["masterdata.shipping-statuses.view"],
   },
   {
     id: "master-data-workflow-statuses",
@@ -208,7 +208,7 @@ export const navigationConfig: NavigationItem[] = [
     route: "/master-data/workflow-transitions",
     icon: "git-branch",
     order: 26,
-    permissions: ["masterdata.view"],
+    permissions: ["masterdata.workflow-transitions.view"],
   },
   {
     id: "master-data-shipping-companies",
@@ -217,7 +217,7 @@ export const navigationConfig: NavigationItem[] = [
     route: "/master-data/shipping-companies",
     icon: "truck",
     order: 3,
-    permissions: ["shipping.view"],
+    permissions: ["masterdata.shipping-companies.view"],
   },
 
   {
@@ -243,7 +243,7 @@ export const navigationConfig: NavigationItem[] = [
     route: "/master-data/supplier-groups",
     icon: "users-round",
     order: 1,
-    permissions: ["partners.view"],
+    permissions: ["masterdata.supplier-groups.view"],
   },
   {
     id: "purchasing-quotations",
@@ -312,7 +312,7 @@ export const navigationConfig: NavigationItem[] = [
     route: "/master-data/warehouses",
     icon: "warehouse",
     order: 1,
-    permissions: ["products.view"],
+    permissions: ["masterdata.warehouses.view"],
   },
   {
     id: "master-data-warehouse-locations",
@@ -321,7 +321,7 @@ export const navigationConfig: NavigationItem[] = [
     route: "/master-data/warehouse-locations",
     icon: "map-pin",
     order: 2,
-    permissions: ["products.view"],
+    permissions: ["masterdata.warehouse-locations.view"],
   },
   {
     id: "master-data-units",
@@ -330,7 +330,7 @@ export const navigationConfig: NavigationItem[] = [
     route: "/master-data/units",
     icon: "ruler",
     order: 3,
-    permissions: ["products.view"],
+    permissions: ["masterdata.units.view"],
   },
   {
     id: "master-data-unit-conversions",
@@ -339,7 +339,7 @@ export const navigationConfig: NavigationItem[] = [
     route: "/master-data/unit-conversions",
     icon: "arrow-left-right",
     order: 4,
-    permissions: ["products.view"],
+    permissions: ["masterdata.units.view"],
   },
   {
     id: "master-data-categories",
@@ -348,7 +348,7 @@ export const navigationConfig: NavigationItem[] = [
     route: "/master-data/categories",
     icon: "tags",
     order: 5,
-    permissions: ["products.view"],
+    permissions: ["masterdata.categories.view"],
   },
   {
     id: "master-data-brands",
@@ -357,7 +357,7 @@ export const navigationConfig: NavigationItem[] = [
     route: "/master-data/brands",
     icon: "award",
     order: 6,
-    permissions: ["products.view"],
+    permissions: ["masterdata.brands.view"],
   },
   {
     id: "inventory-movements",
@@ -542,6 +542,7 @@ export const navigationConfig: NavigationItem[] = [
     route: "/expenses/cost-components",
     icon: "calculator",
     order: 0,
+    permissions: ["masterdata.cost-components.view"],
   },
   {
     id: "expenses-product-cost",
@@ -550,6 +551,7 @@ export const navigationConfig: NavigationItem[] = [
     route: "/expenses/product-cost",
     icon: "file-text",
     order: 1,
+    permissions: ["expenses.view"],
   },
   {
     id: "expenses-cost-explorer",
@@ -704,6 +706,7 @@ export const navigationConfig: NavigationItem[] = [
     route: "/finance/payment-sources",
     icon: "credit-card",
     order: 13,
+    permissions: ["masterdata.payment-sources.view"],
   },
   {
     id: "finance-fulfillment-cost-rules",
@@ -712,6 +715,7 @@ export const navigationConfig: NavigationItem[] = [
     route: "/finance/fulfillment-cost-rules",
     icon: "package",
     order: 13.5,
+    permissions: ["masterdata.fulfillment-cost-rules.view"],
   },
   {
     id: "finance-carrier-reconciliation",

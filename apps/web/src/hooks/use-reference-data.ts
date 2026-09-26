@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { createMasterDataService } from "@/services/master-data-service";
 import type {
   CurrencyRow,
@@ -19,66 +19,54 @@ import type {
   InvestorTypeRow,
 } from "@/config/master-data/entities";
 import { usersService, type UserRow } from "@/services/users-service";
-import { partnersService, type PartnerRow } from "@/services/partners-service";
+import { partnersService, type PartnerPickerRow } from "@/services/partners-service";
+import { useUserContext } from "@/providers/user-context";
+import {
+  createScopedListCache,
+  currentDataScope,
+  subscribeDataScope,
+} from "@/lib/client-data-scope";
 
 /**
  * Session-lifetime cache for read-mostly reference data (currencies,
  * countries) that was independently fetched on mount by a dozen-plus
  * pages/dialogs across the app — every navigation between them re-fetched
  * the same rows from scratch. Each entity is fetched at most once per
- * browser session: the first caller triggers the request, later callers
- * reuse the in-flight promise or the resolved cache, and every mounted
- * hook instance re-renders together once it resolves.
+ * identity: the first caller triggers the request, later callers reuse the
+ * in-flight promise or the resolved cache, and every mounted hook instance
+ * re-renders together once it resolves.
  *
- * This trades a small amount of staleness (a currency/country added via
- * its own management page won't appear elsewhere until a full reload) for
- * eliminating dozens of duplicate requests — the same tradeoff any
- * reference-data cache makes, appropriate here since neither list changes
- * during normal day-to-day use.
+ * SEC-02: the store is `createScopedListCache` — scoped to the signed-in
+ * identity (user + company + permission set) and registered with the
+ * central `resetClientDataCaches()` registry, so a logout → login in the
+ * same tab can never hand the next user rows fetched for the previous one.
+ * Mounted hooks re-run their load when the scope changes.
+ *
+ * Within one identity this trades a small amount of staleness (a currency
+ * added via its own management page won't appear elsewhere until a reload)
+ * for eliminating dozens of duplicate requests.
  */
-function createReferenceDataHook<T>(fetcher: () => Promise<T[]>) {
-  let cache: T[] | null = null;
-  let inFlight: Promise<T[]> | null = null;
-  // Last request failed (or was forbidden) — callers show "empty", not a spinner.
-  let failed = false;
-  const listeners = new Set<() => void>();
+const NO_ROWS: never[] = [];
 
-  function ensureLoaded() {
-    if (cache || inFlight) return;
-    const request = fetcher()
-      .then((data) => {
-        if (inFlight !== request) return data;
-        cache = data;
-        inFlight = null;
-        failed = false;
-        listeners.forEach((listener) => listener());
-        return data;
-      })
-      .catch(() => {
-        if (inFlight !== request) return cache ?? [];
-        // Do not cache failures as a permanent empty list — leave cache
-        // unset so the next mount/invalidate can retry.
-        inFlight = null;
-        failed = true;
-        listeners.forEach((listener) => listener());
-        return cache ?? [];
-      });
-    inFlight = request;
-  }
+function createReferenceDataHook<T>(name: string, fetcher: () => Promise<T[]>) {
+  const store = createScopedListCache<T>(name, fetcher);
 
-  function useReferenceData(): T[] {
+  /**
+   * `enabled: false` subscribes without requesting — for data the current
+   * user is not allowed to list (the request would only 403). A disabled
+   * hook always returns `[]`, never rows cached by an earlier request.
+   */
+  function useReferenceData({ enabled = true }: { enabled?: boolean } = {}): T[] {
     const [, forceRender] = useState(0);
+    const scope = useSyncExternalStore(subscribeDataScope, currentDataScope, currentDataScope);
 
     useEffect(() => {
-      ensureLoaded();
-      const listener = () => forceRender((n) => n + 1);
-      listeners.add(listener);
-      return () => {
-        listeners.delete(listener);
-      };
-    }, []);
+      if (enabled) store.ensureLoaded();
+      return store.subscribe(() => forceRender((n) => n + 1));
+    }, [enabled, scope]);
 
-    return cache ?? [];
+    if (!enabled) return NO_ROWS;
+    return store.read() ?? NO_ROWS;
   }
 
   /**
@@ -86,10 +74,7 @@ function createReferenceDataHook<T>(fetcher: () => Promise<T[]>) {
    * dialog appends the row it just created so it shows up immediately in
    * every mounted consumer without a full reload or a redundant refetch.
    */
-  useReferenceData.add = (item: T) => {
-    cache = cache ? [...cache, item] : [item];
-    listeners.forEach((listener) => listener());
-  };
+  useReferenceData.add = store.add;
 
   /**
    * True until the first response arrives. Read it in a component that also
@@ -97,15 +82,10 @@ function createReferenceDataHook<T>(fetcher: () => Promise<T[]>) {
    * failed/forbidden request is "not loading" — an empty list, never a
    * spinner that never ends.
    */
-  useReferenceData.isLoading = () => cache === null && !failed;
+  useReferenceData.isLoading = store.isLoading;
 
   /** For a rarer full edit/archive from the entity's own management page — refetch so selectors pick up the change without a full reload. */
-  useReferenceData.invalidate = () => {
-    cache = null;
-    inFlight = null;
-    failed = false;
-    ensureLoaded();
-  };
+  useReferenceData.invalidate = store.invalidate;
 
   return useReferenceData;
 }
@@ -113,12 +93,12 @@ function createReferenceDataHook<T>(fetcher: () => Promise<T[]>) {
 const currenciesService = createMasterDataService<CurrencyRow>("/currencies");
 const countriesService = createMasterDataService<CountryRow>("/countries");
 
-export const useCurrencies = createReferenceDataHook<CurrencyRow>(() =>
+export const useCurrencies = createReferenceDataHook<CurrencyRow>("currencies", () =>
   currenciesService.list({ pageSize: 200 }).then((r) => r.items),
 );
 
 /** The whole ISO list (~250 rows) — the page size must never truncate it, or a country silently vanishes from every picker. */
-export const useCountries = createReferenceDataHook<CountryRow>(() =>
+export const useCountries = createReferenceDataHook<CountryRow>("countries", () =>
   countriesService.list({ pageSize: 1000 }).then((r) => r.items),
 );
 
@@ -137,51 +117,71 @@ const taxesService = createMasterDataService<TaxRow>("/taxes");
 const analyticAccountsService = createMasterDataService<AnalyticAccountRow>("/analytic-accounts");
 const warehousesService = createMasterDataService<WarehouseRow>("/warehouses");
 
-export const useProductCategories = createReferenceDataHook<CategoryRow>(() =>
+export const useProductCategories = createReferenceDataHook<CategoryRow>("productCategories", () =>
   categoriesService.list({ pageSize: 200 }).then((r) => r.items),
 );
 
-export const useProductBrands = createReferenceDataHook<BrandRow>(() =>
+export const useProductBrands = createReferenceDataHook<BrandRow>("productBrands", () =>
   brandsService.list({ pageSize: 200 }).then((r) => r.items),
 );
 
-export const useUnits = createReferenceDataHook<UnitRow>(() =>
+export const useUnits = createReferenceDataHook<UnitRow>("units", () =>
   unitsService.list({ pageSize: 200 }).then((r) => r.items),
 );
 
-export const useTaxes = createReferenceDataHook<TaxRow>(() =>
+export const useTaxes = createReferenceDataHook<TaxRow>("taxes", () =>
   taxesService.list({ pageSize: 200 }).then((r) => r.items),
 );
 
-export const useAnalyticAccounts = createReferenceDataHook<AnalyticAccountRow>(() =>
-  analyticAccountsService.list({ pageSize: 200 }).then((r) => r.items),
+export const useAnalyticAccounts = createReferenceDataHook<AnalyticAccountRow>(
+  "analyticAccounts",
+  () => analyticAccountsService.list({ pageSize: 200 }).then((r) => r.items),
 );
 
-export const useWarehouses = createReferenceDataHook<WarehouseRow>(() =>
+export const useWarehouses = createReferenceDataHook<WarehouseRow>("warehouses", () =>
   warehousesService
     .list({ pageSize: 200 })
     .then((r) => r.items.filter((row) => !row.deletedAt && row.isActive !== false)),
 );
 
 /** Supplier-role Partners — same "preferred supplier" picker Products uses (spec section 10: Suppliers are a role view over Partner). */
-export const useSuppliers = createReferenceDataHook<PartnerRow>(() =>
+export const useSuppliers = createReferenceDataHook<PartnerPickerRow>("suppliers", () =>
   partnersService.catalog({ pageSize: 200, role: ["SUPPLIER"] }).then((r) => r.items),
 );
 
 /**
  * Users were the other systemic duplicate: 14 list pages independently
  * fetched the entire user table just to build an id -> fullName map for a
- * "created by" column. Note: `GET /users` requires the `settings.manage`
- * permission (unchanged here, not something this refactor alters) — a user
- * without it gets the same empty map today as before, just without
- * re-attempting the request on every page navigation.
+ * "created by" column. `GET /users` requires `settings.manage` and no
+ * lighter user-listing endpoint exists for other roles, so the request is
+ * only ever sent for a user who holds that permission — everyone else gets
+ * an empty list (not loading) instead of a 403 on every document page.
  */
-export const useUsersList = createReferenceDataHook<UserRow>(() => usersService.list());
+const usersListCache = createReferenceDataHook<UserRow>("users", () => usersService.list());
+
+export const USERS_LIST_PERMISSION = "settings.manage";
+
+/** Users + whether they are still loading, permission-aware (see `usersListCache`). */
+export function useUsersListState(): { users: UserRow[]; loading: boolean; canList: boolean } {
+  const { status, hasPermission } = useUserContext();
+  const canList = status === "authenticated" && hasPermission(USERS_LIST_PERMISSION);
+  const users = usersListCache({ enabled: canList });
+  const loading = status === "loading" || (canList && usersListCache.isLoading());
+  return { users, loading, canList };
+}
+
+export const useUsersList = Object.assign(
+  function useUsersList(): UserRow[] {
+    return useUsersListState().users;
+  },
+  // Loading state lives in `useUsersListState` (permission-aware).
+  { invalidate: usersListCache.invalidate },
+);
 
 const departmentsService = createMasterDataService<DepartmentRow>("/departments");
 
 /** Active Departments for selectors — one request per session, never per table row. */
-export const useDepartments = createReferenceDataHook<DepartmentRow>(() =>
+export const useDepartments = createReferenceDataHook<DepartmentRow>("departments", () =>
   departmentsService
     .list({ pageSize: 200, sortBy: "sortOrder" })
     .then((r) => r.items.filter((row) => !row.deletedAt && row.isActive)),
@@ -196,25 +196,31 @@ const leadFollowUpTypesService =
   createMasterDataService<LeadFollowUpTypeRow>("/lead-follow-up-types");
 const paymentMethodsRefService = createMasterDataService<PaymentMethodRow>("/payment-methods");
 
-export const useCustomerClassifications = createReferenceDataHook<CustomerClassificationRow>(() =>
-  customerClassificationsService
-    .list({ pageSize: 200, sortBy: "sortOrder" })
-    .then((r) => r.items.filter((row) => !row.deletedAt && row.isActive)),
+export const useCustomerClassifications = createReferenceDataHook<CustomerClassificationRow>(
+  "customerClassifications",
+  () =>
+    customerClassificationsService
+      .list({ pageSize: 200, sortBy: "sortOrder" })
+      .then((r) => r.items.filter((row) => !row.deletedAt && row.isActive)),
 );
 
-export const useNoPurchaseReasons = createReferenceDataHook<NoPurchaseReasonRow>(() =>
-  noPurchaseReasonsService
-    .list({ pageSize: 200, sortBy: "sortOrder" })
-    .then((r) => r.items.filter((row) => !row.deletedAt && row.isActive)),
+export const useNoPurchaseReasons = createReferenceDataHook<NoPurchaseReasonRow>(
+  "noPurchaseReasons",
+  () =>
+    noPurchaseReasonsService
+      .list({ pageSize: 200, sortBy: "sortOrder" })
+      .then((r) => r.items.filter((row) => !row.deletedAt && row.isActive)),
 );
 
-export const useLeadFollowUpTypes = createReferenceDataHook<LeadFollowUpTypeRow>(() =>
-  leadFollowUpTypesService
-    .list({ pageSize: 200, sortBy: "sortOrder" })
-    .then((r) => r.items.filter((row) => !row.deletedAt && row.isActive)),
+export const useLeadFollowUpTypes = createReferenceDataHook<LeadFollowUpTypeRow>(
+  "leadFollowUpTypes",
+  () =>
+    leadFollowUpTypesService
+      .list({ pageSize: 200, sortBy: "sortOrder" })
+      .then((r) => r.items.filter((row) => !row.deletedAt && row.isActive)),
 );
 
-export const usePaymentMethods = createReferenceDataHook<PaymentMethodRow>(() =>
+export const usePaymentMethods = createReferenceDataHook<PaymentMethodRow>("paymentMethods", () =>
   paymentMethodsRefService
     .list({ pageSize: 200 })
     .then((r) => r.items.filter((row) => !row.deletedAt)),
@@ -232,7 +238,7 @@ const investorTypesService = createMasterDataService<InvestorTypeRow>("/investor
  * backend (`InvestorTypesService.assertAssignable`) is the one and only
  * place that actually blocks assigning an inactive type.
  */
-export const useInvestorTypes = createReferenceDataHook<InvestorTypeRow>(() =>
+export const useInvestorTypes = createReferenceDataHook<InvestorTypeRow>("investorTypes", () =>
   investorTypesService.list({ pageSize: 200, sortBy: "sortOrder" }).then((r) => r.items),
 );
 
@@ -245,24 +251,26 @@ import {
 } from "@/services/payroll-components-service";
 
 /** Active Payroll Components for selectors (Compensation lines, Payroll Line one-off components). */
-export const usePayrollComponents = createReferenceDataHook<PayrollComponentRow>(() =>
-  payrollComponentsService
-    .list({ pageSize: 200, sortBy: "sortOrder" })
-    .then((r) => r.items.filter((row) => !row.deletedAt && row.isActive)),
+export const usePayrollComponents = createReferenceDataHook<PayrollComponentRow>(
+  "payrollComponents",
+  () =>
+    payrollComponentsService
+      .list({ pageSize: 200, sortBy: "sortOrder" })
+      .then((r) => r.items.filter((row) => !row.deletedAt && row.isActive)),
 );
 
 /** Active Job Titles for selectors (Employee wizard, KPI Template assignment). */
-export const useJobTitles = createReferenceDataHook<JobTitleRow>(() =>
+export const useJobTitles = createReferenceDataHook<JobTitleRow>("jobTitles", () =>
   jobTitlesService.listActive(),
 );
 
 /** Active Sales Teams for selectors (Employee wizard, Target/Commission scope). */
-export const useSalesTeams = createReferenceDataHook<SalesTeamRow>(() =>
+export const useSalesTeams = createReferenceDataHook<SalesTeamRow>("salesTeams", () =>
   salesTeamsService.list().then((rows) => rows.filter((row) => !row.deletedAt)),
 );
 
 /** Active Employees for selectors (KPI/Target/Commission employee pickers) — a bounded first page, refined further via `EntityCombobox`'s async `onSearch`. */
-export const useEmployees = createReferenceDataHook<EmployeeRow>(() =>
+export const useEmployees = createReferenceDataHook<EmployeeRow>("employees", () =>
   employeesService.list({ pageSize: 200, sortBy: "employeeCode" }).then((r) => r.items),
 );
 

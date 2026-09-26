@@ -176,28 +176,32 @@ export class PaymentsController {
 
   @Post(':id/attachments')
   @SkipPermissionCheck()
-  attachReceipt(
+  async attachReceipt(
     @Param('id') id: string,
     @Body() dto: CreatePaymentAttachmentDto,
     @CurrentUser() user: JwtPayload,
   ) {
+    // SEC-03: same evidence scope as the upload path, and the author is
+    // always the caller — never a client-supplied user id.
+    await this.attachments.assertCanMutatePaymentEvidence(id, user.sub);
     return this.paymentsService.attachReceipt(id, {
       ...dto,
-      uploadedById: dto.uploadedById ?? user.sub,
+      uploadedById: user.sub,
       attachmentType: dto.attachmentType ?? 'RECEIPT',
     });
   }
 
   @Post(':id/notes')
   @SkipPermissionCheck()
-  addNote(
+  async addNote(
     @Param('id') id: string,
     @Body() dto: CreatePaymentNoteDto,
     @CurrentUser() user: JwtPayload,
   ) {
+    await this.attachments.assertCanMutatePaymentEvidence(id, user.sub);
     return this.paymentsService.addNote(id, {
       ...dto,
-      userId: dto.userId ?? user.sub,
+      userId: user.sub,
     });
   }
 }

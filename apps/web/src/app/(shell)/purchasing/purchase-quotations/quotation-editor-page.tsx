@@ -23,7 +23,7 @@ import {
   type PurchaseQuotationItemRow,
   type PurchaseQuotationRow,
 } from "@/services/purchase-quotations-service";
-import type { PartnerRow } from "@/services/partners-service";
+import type { PartnerPickerRow } from "@/services/partners-service";
 import type { CurrencyRow } from "@/config/master-data/entities";
 import { buildQuotationStatusOptions } from "@/config/purchasing/quotation-status";
 import { buildQuotationPrintPayload } from "@/config/purchasing/quotation-print";
@@ -81,7 +81,7 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
   const [cancelTarget, setCancelTarget] = useState(false);
   const [convertTarget, setConvertTarget] = useState(false);
 
-  const [supplier, setSupplier] = useState<PartnerRow | null>(null);
+  const [supplier, setSupplier] = useState<PartnerPickerRow | null>(null);
   const [currency, setCurrency] = useState<CurrencyRow | null>(null);
   const [documentDate, setDocumentDate] = useState<Date | null>(new Date());
   const [referenceNumber, setReferenceNumber] = useState("");

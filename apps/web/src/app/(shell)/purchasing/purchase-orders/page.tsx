@@ -31,7 +31,7 @@ import {
   type PurchaseOrderStatusValue,
   type PurchaseOrderRow,
 } from "@/services/purchase-orders-service";
-import { partnersService, type PartnerRow } from "@/services/partners-service";
+import { partnersService, type PartnerPickerRow } from "@/services/partners-service";
 import { useUsersLookup } from "@/hooks/use-reference-data";
 import { buildOrderColumns, orderExportColumns } from "@/config/purchasing/order-columns";
 import {
@@ -69,7 +69,10 @@ function PurchaseOrdersPageContent() {
   const [sortBy, setSortBy] = usePathRestorableState("sortBy", "createdAt");
   const [sortOrder, setSortOrder] = usePathRestorableState<"asc" | "desc">("sortOrder", "desc");
   const [statusFilter, setStatusFilter] = usePathRestorableState<string[]>("status", []);
-  const [supplierFilter, setSupplierFilter] = usePathRestorableState<PartnerRow[]>("supplier", []);
+  const [supplierFilter, setSupplierFilter] = usePathRestorableState<PartnerPickerRow[]>(
+    "supplier",
+    [],
+  );
   const [dateRange, setDateRange] = usePathRestorableState<DateRangeValue>(
     "dateRange",
     EMPTY_DATE_RANGE,

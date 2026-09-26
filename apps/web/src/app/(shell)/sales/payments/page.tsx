@@ -35,7 +35,7 @@ import {
 } from "@/services/customer-receipts-service";
 import type { FinancialTransactionStatusValue } from "@/services/financial-transactions-service";
 import { customerRefundsService } from "@/services/customer-refunds-service";
-import { partnersService, type PartnerRow } from "@/services/partners-service";
+import { partnersService, type PartnerPickerRow } from "@/services/partners-service";
 import { useUsersLookup } from "@/hooks/use-reference-data";
 import {
   TRANSACTION_ARCHIVABLE_STATUSES,
@@ -94,7 +94,10 @@ function CustomerReceiptsPageContent() {
   const [sortBy, setSortBy] = usePathRestorableState("sortBy", "createdAt");
   const [sortOrder, setSortOrder] = usePathRestorableState<"asc" | "desc">("sortOrder", "desc");
   const [statusFilter, setStatusFilter] = usePathRestorableState<string[]>("status", []);
-  const [customerFilter, setCustomerFilter] = usePathRestorableState<PartnerRow[]>("customer", []);
+  const [customerFilter, setCustomerFilter] = usePathRestorableState<PartnerPickerRow[]>(
+    "customer",
+    [],
+  );
   const [dateRange, setDateRange] = usePathRestorableState<DateRangeValue>(
     "dateRange",
     EMPTY_DATE_RANGE,

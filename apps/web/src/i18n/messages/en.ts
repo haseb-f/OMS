@@ -5750,6 +5750,11 @@ const en = {
       title: "Investors",
       description: "Investor registry and basic details.",
       addNew: "Add Investor",
+      contactHint: "Enter a phone or an email (at least one).",
+      validation: {
+        contactRequired: "Enter the investor's phone or email.",
+        emailInvalid: "Enter a valid email address.",
+      },
       fields: {
         name: "Name",
         entityType: "Type",

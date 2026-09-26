@@ -29,9 +29,13 @@ import { AccessDenied } from "./access-denied";
  */
 export function PermissionGate({
   permission,
+  match = "all",
   children,
 }: {
-  permission: string;
+  /** One key, or several — by default ALL must be held (same all-of rule as the sidebar's `filterByAccess`). */
+  permission: string | readonly string[];
+  /** `any` — at least one listed key suffices (e.g. a create page reachable through several create grants). */
+  match?: "all" | "any";
   children: ReactNode;
 }) {
   const { t } = useLocale();
@@ -69,7 +73,12 @@ export function PermissionGate({
     );
   }
 
-  if (!hasPermission(permission)) {
+  const required = typeof permission === "string" ? [permission] : permission;
+  const allowed =
+    match === "any"
+      ? required.some((key) => hasPermission(key))
+      : required.every((key) => hasPermission(key));
+  if (!allowed) {
     return <AccessDenied />;
   }
   return <>{children}</>;

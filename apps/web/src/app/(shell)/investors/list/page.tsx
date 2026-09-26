@@ -12,7 +12,7 @@ import {
   buildInvestorsColumns,
   investorsExportColumns,
   investorRowLabel,
-  investorSchema,
+  buildInvestorSchema,
   investorDefaultValues,
 } from "@/config/investors/investors";
 import { useLocale } from "@/providers/locale-provider";
@@ -30,6 +30,7 @@ export default function InvestorsListPage() {
   const { t } = useLocale();
   const columns = useMemo(() => buildInvestorsColumns(t), [t]);
   const investorTypes = useInvestorTypes();
+  const schema = useMemo(() => buildInvestorSchema(t), [t]);
 
   // Active types first (selectable for new/changed assignment — enforced
   // server-side by InvestorTypesService.assertAssignable), then inactive
@@ -68,7 +69,12 @@ export default function InvestorsListPage() {
       placeholder: t("masterData.investorTypes.select"),
       options: investorTypeOptions,
     },
-    { name: "phone", label: "investors.list.fields.phone", type: "text" },
+    {
+      name: "phone",
+      label: "investors.list.fields.phone",
+      type: "text",
+      description: t("investors.list.contactHint"),
+    },
     { name: "email", label: "investors.list.fields.email", type: "text" },
     {
       name: "status",
@@ -99,7 +105,7 @@ export default function InvestorsListPage() {
       columns={columns}
       exportColumnKeys={investorsExportColumns}
       formFields={formFields}
-      schema={investorSchema}
+      schema={schema}
       defaultValues={investorDefaultValues}
       permissionPrefix="investors"
       rowLabel={investorRowLabel}

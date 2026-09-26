@@ -4,6 +4,7 @@ import { AppSidebar } from "./app-sidebar";
 import { TopBar } from "./top-bar";
 import { BreadcrumbBar } from "./breadcrumb-bar";
 import { NavigationTrail } from "./navigation-trail";
+import { RouteAccessGuard } from "./route-access-guard";
 
 /**
  * The permanent OMS application shell: Sidebar / Topbar / Breadcrumb / Page
@@ -27,7 +28,7 @@ export function AppShell({
         <main className="flex min-w-0 flex-1 justify-center overflow-x-hidden bg-muted/25">
           <div className="flex min-w-0 w-full max-w-[1400px] flex-1 flex-col gap-2.5 px-3 pt-1 pb-5 sm:gap-3 sm:px-6 sm:pb-6 lg:px-8">
             <NavigationTrail />
-            {children}
+            <RouteAccessGuard>{children}</RouteAccessGuard>
           </div>
         </main>
       </SidebarInset>

@@ -121,8 +121,10 @@ export class InventoryController {
     return this.inventoryService.getValuationSettings();
   }
 
+  /** Company-wide costing policy — a system-administration setting, not an inventory movement: `settings.manage` (SEC-03 H2 audit; formerly open to any signed-in user). */
   @Patch('valuation-method')
-  @SkipPermissionCheck()
+  @PermissionModule('settings')
+  @PermissionAction('manage')
   updateValuationSettings(
     @Body() dto: UpdateValuationMethodDto,
     @CurrentUser() user: JwtPayload,

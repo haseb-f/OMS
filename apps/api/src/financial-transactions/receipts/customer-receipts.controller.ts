@@ -14,10 +14,7 @@ import { FinancialTransactionType } from '@prisma/client';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { PermissionModule } from '../../auth/decorators/permission-module.decorator';
-import {
-  PermissionAction,
-  SkipPermissionCheck,
-} from '../../auth/decorators/permission-action.decorator';
+import { PermissionAction } from '../../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../../auth/guards/jwt-auth.guard';
 import {
@@ -115,9 +112,10 @@ export class CustomerReceiptsController {
     return this.transactions.archive(id, user.sub);
   }
 
+  /** Allocation is saved by the voucher editor — `edit` (SEC-03 H2 audit). */
   @Post(':id/allocate')
   @HttpCode(200)
-  @SkipPermissionCheck()
+  @PermissionAction('edit')
   allocate(
     @Param('id') id: string,
     @Body() dto: AllocationInputDto,
@@ -128,7 +126,7 @@ export class CustomerReceiptsController {
 
   @Post(':id/allocations/:allocationId/unallocate')
   @HttpCode(200)
-  @SkipPermissionCheck()
+  @PermissionAction('edit')
   unallocate(
     @Param('id') id: string,
     @Param('allocationId') allocationId: string,

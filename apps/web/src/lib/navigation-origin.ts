@@ -1,3 +1,5 @@
+import { registerClientCache } from "./client-data-scope";
+
 /**
  * Contextual navigation trail — "where did I come from" for record-to-record
  * navigation (invoice → JE → receipt …). Each "Open Full Record" pushes the
@@ -50,6 +52,14 @@ function write(key: string, value: unknown): void {
 }
 
 let cachedStack: NavigationOrigin[] | null = null;
+
+// SEC-02: the trail carries record labels and unsaved editor drafts — never
+// carried over to the next identity (sessionStorage is cleared alongside by
+// `clearPerUserBrowserStorage`).
+registerClientCache(() => {
+  cachedStack = null;
+  listeners.forEach((listener) => listener());
+});
 
 export function getTrail(): NavigationOrigin[] {
   if (typeof window === "undefined") return EMPTY;

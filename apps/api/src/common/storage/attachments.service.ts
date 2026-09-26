@@ -145,6 +145,19 @@ export class AttachmentsService {
     return created;
   }
 
+  /**
+   * Same evidence scope as the upload/staging paths, for the payment's other
+   * self-service writes (legacy attachment metadata, notes) — SEC-03 H2 audit.
+   */
+  async assertCanMutatePaymentEvidence(paymentId: string, userId: string) {
+    const payment = await this.prisma.payment.findFirst({
+      where: { id: paymentId, deletedAt: null },
+      include: { storeOrder: { select: { id: true, employeeId: true } } },
+    });
+    if (!payment) throw new NotFoundException('Payment not found.');
+    await this.assertCanMutateReceipts(payment, userId);
+  }
+
   async attachStagingToPayment(
     paymentId: string,
     stagingIds: string[],

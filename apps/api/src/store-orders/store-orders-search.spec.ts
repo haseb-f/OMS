@@ -45,6 +45,10 @@ describe('Store Orders — Complete Search', () => {
 
   let orderId: string;
   let internalOrderId: string;
+  // The one shippingStage the fixture is NOT in — the "filter excludes"
+  // cases use it. A confirmed SHIPPING order starts READY_FOR_SHIPPING
+  // (f52828c payment/fulfillment split), so derive it rather than hardcode.
+  let nonMatchingShippingStage: StoreOrderShippingStage;
 
   beforeAll(async () => {
     moduleRef = await Test.createTestingModule({
@@ -103,6 +107,10 @@ describe('Store Orders — Complete Search', () => {
       where: { id: orderId },
     });
     internalOrderId = created.internalOrderId;
+    nonMatchingShippingStage =
+      created.shippingStage === StoreOrderShippingStage.READY_FOR_SHIPPING
+        ? StoreOrderShippingStage.NOT_READY
+        : StoreOrderShippingStage.READY_FOR_SHIPPING;
   });
 
   afterAll(async () => {
@@ -182,7 +190,7 @@ describe('Store Orders — Complete Search', () => {
   it('an Arabic variant search still honors the other filters', async () => {
     const result = await service.findAll({
       search: 'أحمد محمد صالح',
-      shippingStage: [StoreOrderShippingStage.READY_FOR_SHIPPING],
+      shippingStage: [nonMatchingShippingStage],
     });
     expect(result.items.map((i) => i.id)).not.toContain(orderId);
   });
@@ -215,7 +223,7 @@ describe('Store Orders — Complete Search', () => {
   it('combines search with an unrelated payment/shipping/source filter correctly (excludes when the filter does not match)', async () => {
     const result = await service.findAll({
       search: externalOrderId,
-      shippingStage: [StoreOrderShippingStage.READY_FOR_SHIPPING],
+      shippingStage: [nonMatchingShippingStage],
     });
     expect(result.items.map((i) => i.id)).not.toContain(orderId);
   });

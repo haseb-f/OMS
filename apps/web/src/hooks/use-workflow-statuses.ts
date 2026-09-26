@@ -1,8 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { apiClient } from "@/services/api-client";
 import type { WorkflowTypeValue } from "@/services/workflow-service";
+import {
+  createScopedListCache,
+  currentDataScope,
+  subscribeDataScope,
+} from "@/lib/client-data-scope";
+
+const NO_STATUSES: WorkflowStatusRow[] = [];
 
 export interface WorkflowStatusRow {
   id: string;
@@ -21,40 +28,22 @@ export interface WorkflowStatusRow {
 const fetchStatuses = (workflowType: WorkflowTypeValue) =>
   apiClient.get<WorkflowStatusRow[]>(`/status-definitions/by-workflow/${workflowType}`);
 
+/** Company-scoped statuses on the shared SEC-02 scoped cache (reset on identity/company change). */
 function createWorkflowStatusHook(workflowType: WorkflowTypeValue) {
-  let cache: WorkflowStatusRow[] | null = null;
-  let inFlight: Promise<WorkflowStatusRow[]> | null = null;
-  const listeners = new Set<() => void>();
-
-  function ensureLoaded() {
-    if (cache || inFlight) return;
-    inFlight = fetchStatuses(workflowType)
-      .then((data) => {
-        cache = data;
-        inFlight = null;
-        listeners.forEach((l) => l());
-        return data;
-      })
-      .catch(() => {
-        cache = [];
-        inFlight = null;
-        listeners.forEach((l) => l());
-        return cache!;
-      });
-  }
+  const store = createScopedListCache<WorkflowStatusRow>(`workflowStatuses:${workflowType}`, () =>
+    fetchStatuses(workflowType),
+  );
 
   return function useWorkflowStatuses() {
-    const [items, setItems] = useState<WorkflowStatusRow[]>(cache ?? []);
+    const [, forceRender] = useState(0);
+    const scope = useSyncExternalStore(subscribeDataScope, currentDataScope, currentDataScope);
 
     useEffect(() => {
-      ensureLoaded();
-      const listener = () => setItems(cache ?? []);
-      listeners.add(listener);
-      if (cache) setItems(cache);
-      return () => {
-        listeners.delete(listener);
-      };
-    }, []);
+      store.ensureLoaded();
+      return store.subscribe(() => forceRender((n) => n + 1));
+    }, [scope]);
+
+    const items = store.read() ?? NO_STATUSES;
 
     const active = useMemo(
       () => items.filter((s) => !s.deletedAt).sort((a, b) => a.sortOrder - b.sortOrder),

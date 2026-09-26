@@ -1,6 +1,10 @@
 "use client";
 
 import { useLocale } from "@/providers/locale-provider";
+// Shared en-US formatter (lib/money): a browser-locale toLocaleString(undefined)
+// renders Latin digits on the server but Arabic-Indic digits in an ar browser,
+// which is a hydration text mismatch (React #418) and mixes digit systems.
+import { formatMoney } from "@/lib/money";
 
 /**
  * Sales Document Editor Foundation (TASK-039) — the ONE totals shape and
@@ -17,10 +21,6 @@ export interface DocumentTotals {
   taxTotal: number;
   shippingTotal?: number;
   grandTotal: number;
-}
-
-function formatAmount(value: number) {
-  return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export function DocumentTotalsFooter({
@@ -72,7 +72,7 @@ export function DocumentTotalsFooter({
               dir="ltr"
               className={row.emphasis ? "tabular-nums text-foreground" : "tabular-nums"}
             >
-              {formatAmount(row.value)}
+              {formatMoney(row.value)}
               {currency ? ` ${currency}` : ""}
             </span>
           </div>

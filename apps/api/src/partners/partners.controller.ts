@@ -28,34 +28,24 @@ import { FindPartnersQueryDto } from './dto/find-partners-query.dto';
 import { AssignRoleDto } from './dto/assign-role.dto';
 import { BulkIdsDto } from '../master-data/dto/bulk-ids.dto';
 import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
+import {
+  CATALOG_SORTABLE_FIELDS,
+  canSearchContacts,
+  effectiveCatalogRoleFilter,
+  projectCatalogRow,
+  resolvePartnerCatalogScope,
+  type PartnerCatalogScope,
+} from './partner-catalog-scope';
 
 /**
  * Anyone who legitimately builds a document that references a Customer or
- * Supplier (Lead conversion, Store/Sales Order, Purchase Order, Journal
- * Entry) can browse the ACTIVE partner picker even without `partners.view` —
- * that permission stays reserved for full Partner/Supplier directory
- * management. Without this, a Sales Agent granted `partners.create` (to
- * quick-create a customer on an Order) had no way to pick an EXISTING
- * customer, and granting `partners.view` instead leaked the whole
- * "Purchasing" sidebar section into view (Suppliers lives there and shares
- * this same permission — see ProductsController.catalog() for the identical
- * pattern already established for Products).
+ * Supplier can browse the ACTIVE partner picker even without `partners.view`
+ * (see ProductsController.catalog() for the same pattern) — but only for the
+ * roles that screen picks and, unless the screen reads them, without
+ * contact/profile/balance fields. The per-permission scope lives in
+ * `partner-catalog-scope.ts` (SEC-01).
  */
-const CATALOG_READ_PERMISSIONS = [
-  'partners.view',
-  'crm.leads.convert',
-  'store-orders.create',
-  'store-orders.edit',
-  'sales.quotations.create',
-  'sales.orders.create',
-  'sales.invoices.create',
-  'sales.returns.create',
-  'purchasing.quotations.create',
-  'purchasing.orders.create',
-  'purchasing.invoices.create',
-  'purchasing.returns.create',
-  'accounting.journal-entries.create',
-];
+export { PARTNER_CATALOG_READ_PERMISSIONS } from './partner-catalog-scope';
 
 /** Business operations: Create, Update, Archive, Restore, Search, Find-or-Create, Assign/Remove Role. Customers/Suppliers pages are role-filtered views over this same registry (spec sections 9/10/12). */
 @Controller('partners')
@@ -72,12 +62,46 @@ export class PartnersController {
     return this.partnersService.create(dto, user.sub);
   }
 
+  /**
+   * Quick Create (spec section 39). Gated by `partners.create` only, and it
+   * matches on phone/email/tax number/CR — so without `partners.view` the
+   * reused/created Partner comes back through the same projection the
+   * caller's picker catalog would give (picker fields, or the CUSTOMER
+   * detail block a Store Order / Sales document creator already sees), with
+   * `roles` narrowed to the requested role — never the full record (SEC-03
+   * H3). Attaching a role to an existing EMPLOYEE/INVESTOR identity needs
+   * `partners.edit` (enforced in the service).
+   */
   @Post('find-or-create')
-  findOrCreate(
+  async findOrCreate(
     @Body() dto: FindOrCreatePartnerDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.partnersService.findOrCreateWithRole(dto, user.sub);
+    const [isSuperAdmin, grants] = await Promise.all([
+      this.permissions.isSuperAdmin(user.sub),
+      this.permissions.getPermissions(user.sub),
+    ]);
+    const holds = (name: string) => isSuperAdmin || grants.has(name);
+    const result = await this.partnersService.findOrCreateWithRole(
+      dto,
+      user.sub,
+      { mayExtendSensitiveIdentity: holds('partners.edit') },
+    );
+    if (holds('partners.view')) return result;
+    const catalogScope = resolvePartnerCatalogScope(false, grants);
+    const requestedOnly: PartnerCatalogScope = {
+      roles: new Set([dto.role]),
+      detailRoles:
+        catalogScope &&
+        (catalogScope.detailRoles === 'ANY' ||
+          catalogScope.detailRoles.has(dto.role))
+          ? new Set([dto.role])
+          : new Set(),
+    };
+    return {
+      created: result.created,
+      partner: projectCatalogRow(result.partner, requestedOnly),
+    };
   }
 
   /** Read-only "does this phone number already belong to a Partner?" check — used before creating a Lead/Order/Partner. Never writes. */
@@ -115,23 +139,36 @@ export class PartnersController {
     @Query() query: FindPartnersQueryDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    const isSuperAdmin = await this.permissions.isSuperAdmin(user.sub);
-    if (!isSuperAdmin) {
-      const grants = await Promise.all(
-        CATALOG_READ_PERMISSIONS.map((name) =>
-          this.permissions.hasPermission(user.sub, name),
-        ),
+    const [isSuperAdmin, grants] = await Promise.all([
+      this.permissions.isSuperAdmin(user.sub),
+      this.permissions.getPermissions(user.sub),
+    ]);
+    const scope = resolvePartnerCatalogScope(isSuperAdmin, grants);
+    if (!scope) {
+      throw new ForbiddenException(
+        'You need a document-creation permission to browse the partner picker.',
       );
-      if (!grants.some(Boolean)) {
-        throw new ForbiddenException(
-          'You need a document-creation permission to browse the partner picker.',
-        );
-      }
     }
-    return this.partnersService.findAll({
-      ...query,
-      status: [PartnerStatus.ACTIVE],
-    });
+    const role = effectiveCatalogRoleFilter(query.role, scope);
+    // Only knobs that NARROW the picker are honoured (SEC-03 L1/L2): ACTIVE
+    // and non-archived are forced, and sorting is limited to identity columns.
+    const result = await this.partnersService.findAll(
+      {
+        ...query,
+        role,
+        status: [PartnerStatus.ACTIVE],
+        includeArchived: false,
+        sortBy:
+          query.sortBy && CATALOG_SORTABLE_FIELDS.includes(query.sortBy)
+            ? query.sortBy
+            : undefined,
+      },
+      { identitySearchOnly: !canSearchContacts(role, scope) },
+    );
+    return {
+      ...result,
+      items: result.items.map((row) => projectCatalogRow(row, scope)),
+    };
   }
 
   @Get()
@@ -190,8 +227,9 @@ export class PartnersController {
     return this.partnersService.archiveMany(dto.ids, user.sub);
   }
 
+  /** Same authority as Archive (SEC-03 H2) — un-archiving is the other half of the soft-delete. */
   @Post(':id/restore')
-  @SkipPermissionCheck()
+  @PermissionAction('delete')
   restore(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.partnersService.restore(id, user.sub);
   }

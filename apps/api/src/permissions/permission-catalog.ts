@@ -1258,6 +1258,13 @@ export const DEFAULT_NEW_USER_PERMISSIONS: string[] = [];
  * (so `/auth/me` still exposes the section key when an older row set never
  * stored it). Guards continue to check the exact granular permission a route
  * declares.
+ *
+ * SEC-03 H4: what is persisted and served (guards, `/auth/me`) is the
+ * narrower `withAuthorizationImpliedPermissions` — a cross-module target
+ * that is a real data permission (e.g. Customer Groups → `partners.view`) is
+ * dropped. Those sections still appear in the sidebar because their items
+ * are gated on the page's own module key and `filterByAccess` reveals a
+ * parent from any authorized descendant.
  */
 export const IMPLIED_SECTION_PERMISSION: Record<
   string,
@@ -1397,4 +1404,70 @@ export function withImpliedSectionPermissions(names: string[]): string[] {
     expanded.add('store-orders.generate_invoice');
   }
   return [...expanded];
+}
+
+/**
+ * Implied targets that stay AUTHORIZATION-bearing even though they belong to
+ * another catalog module — reviewed exceptions only. Investor-module screens
+ * (e.g. the Opportunity "Add Investor" dialog) still read `GET /investors`
+ * with no narrower picker endpoint yet, so `investors.view` keeps flowing
+ * from the investment-* grants until that picker exists (SEC-03 follow-up).
+ */
+const AUTHORIZING_CROSS_MODULE_IMPLICATIONS: ReadonlySet<string> = new Set([
+  'investors.view',
+]);
+
+let modulesByPermissionName: Map<string, PermissionModuleDef[]> | null = null;
+/** Every catalog module that lists `name` as one of its actions (a key such as `inventory.view` can be shared by two rows). */
+function catalogModulesOf(name: string): PermissionModuleDef[] {
+  if (!modulesByPermissionName) {
+    modulesByPermissionName = new Map();
+    for (const module of PERMISSION_CATALOG) {
+      for (const action of module.actions) {
+        const rows = modulesByPermissionName.get(action.name) ?? [];
+        if (!rows.includes(module)) rows.push(module);
+        modulesByPermissionName.set(action.name, rows);
+      }
+    }
+  }
+  return modulesByPermissionName.get(name) ?? [];
+}
+
+/**
+ * SEC-03 H4 — the subset of `withImpliedSectionPermissions` that may AUTHORIZE
+ * data access (guards, `/auth/me` page gates, picker scopes). An implied key
+ * is kept only when it is
+ * - a coarse section gate that is not itself a catalog permission
+ *   (`sales.view`, `finance.view`, …) — no guard can check those, they only
+ *   reveal a sidebar section; or
+ * - an action of the SAME catalog module as the grant that implies it
+ *   (`products.create` → `products.view`, `store-orders.edit` →
+ *   `store-orders.generate_invoice`, `inventory.physical-count.create` →
+ *   `inventory.view`, which is Physical Count's own view key); or
+ * - a reviewed exception (`AUTHORIZING_CROSS_MODULE_IMPLICATIONS`).
+ *
+ * A cross-module implication onto a real data permission — Customer/Supplier
+ * Groups → `partners.view`, Warehouses/Units/Categories/Brands →
+ * `products.view`, Shipping master data → `shipping.view`, … — is
+ * navigation-only and never reaches this set: a sidebar item under those
+ * sections is gated on its page's OWN module key instead, and a section
+ * parent is revealed by any authorized descendant (`filterByAccess`).
+ */
+export function withAuthorizationImpliedPermissions(names: string[]): string[] {
+  const result = new Set(names);
+  const grantedModules = new Set(names.flatMap(catalogModulesOf));
+  for (const implied of withImpliedSectionPermissions(names)) {
+    if (result.has(implied)) continue;
+    const isCatalogPermission = catalogModulesOf(implied).length > 0;
+    if (
+      !isCatalogPermission ||
+      AUTHORIZING_CROSS_MODULE_IMPLICATIONS.has(implied) ||
+      [...grantedModules].some((module) =>
+        module.actions.some((action) => action.name === implied),
+      )
+    ) {
+      result.add(implied);
+    }
+  }
+  return [...result];
 }

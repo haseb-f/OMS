@@ -36,7 +36,9 @@ describe('StoreOrderPaymentSyncService — payment/fulfillment separation', () =
         paymentStatusDef: { connect: { id: 'pay-status-id' } },
       },
     });
-    const data = update.mock.calls[0][0].data;
+    const [[{ data }]] = update.mock.calls as unknown as [
+      [{ data: Record<string, unknown> }],
+    ];
     expect(data.shippingStage).toBeUndefined();
     expect(data.fulfillmentStatus).toBeUndefined();
     expect(statusResolver.fulfillmentStatusId).not.toHaveBeenCalled();

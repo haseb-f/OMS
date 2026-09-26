@@ -36,6 +36,7 @@ import { ApiError } from "@/services/api-client";
 import { formatDate } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
 import { PermissionGate } from "@/components/shared/permission-gate";
+import { useUserContext } from "@/providers/user-context";
 
 // TASK-057 — FIFO is a real enum value but no costing logic implements it
 // anywhere (InventoryValuationService only computes moving-average cost);
@@ -51,6 +52,9 @@ function formatMoney(value: number | null) {
 
 function InventoryStockPageContent() {
   const { t } = useLocale();
+  const { hasPermission } = useUserContext();
+  // The API enforces `settings.manage` on the company-wide costing method (SEC-03).
+  const canManageValuation = hasPermission("settings.manage");
   const [rows, setRows] = useState<StockCardRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [valuationMethod, setValuationMethod] = useState<InventoryValuationMethod | null>(null);
@@ -190,7 +194,7 @@ function InventoryStockPageContent() {
             <Select
               value={valuationMethod ?? undefined}
               onValueChange={(value) => changeValuationMethod(value as InventoryValuationMethod)}
-              disabled={isSavingValuation || valuationMethod === null}
+              disabled={isSavingValuation || valuationMethod === null || !canManageValuation}
             >
               <SelectTrigger aria-label={t("inventory.valuationMethod.title")}>
                 <SelectValue />

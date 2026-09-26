@@ -1,10 +1,30 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
 import { authService, type CurrentUser } from "@/services/auth-service";
 import { ApiError } from "@/services/api-client";
 import { getAuthToken, setAuthToken, clearAuthToken } from "@/lib/auth-token";
+import {
+  ANONYMOUS_FINGERPRINT,
+  clearPerUserBrowserStorage,
+  resetClientDataCaches,
+  setIdentityFingerprint,
+} from "@/lib/client-data-scope";
+import {
+  announceSessionChange,
+  createSessionIdentityGuard,
+  resetAndReload,
+  subscribeSessionSignals,
+} from "@/lib/session-sync";
 
 /**
  * The auth bootstrap's one source of truth — every consumer (`UserContext`,
@@ -79,11 +99,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // SEC-03 M1 — this tab renders for exactly one identity. When another tab
+  // logs out or signs in as someone else (the token cookie is shared), drop
+  // every cache and hard-reload instead of showing the previous identity's
+  // mounted state under the new session.
+  const identityGuard = useMemo(
+    () =>
+      createSessionIdentityGuard({
+        readToken: getAuthToken,
+        fetchUserId: async () => {
+          try {
+            return (await authService.me()).id;
+          } catch (error) {
+            if (error instanceof ApiError && error.status === 401) return null;
+            throw error;
+          }
+        },
+        onMismatch: resetAndReload,
+      }),
+    [],
+  );
+  const userId = user?.id ?? null;
+  useEffect(() => {
+    if (status === "authenticated") identityGuard.adopt(getAuthToken(), userId);
+    else if (status === "unauthenticated") identityGuard.adopt(null, null);
+  }, [identityGuard, status, userId]);
+  useEffect(() => subscribeSessionSignals(() => void identityGuard.verify()), [identityGuard]);
+
   const login = useCallback(
     async (email: string, password: string, rememberMe: boolean) => {
       const { accessToken } = await authService.login(email, password, rememberMe);
+      // SEC-02: nothing cached before this login (another user's session in
+      // this tab, or the anonymous login page) survives into the new one.
+      resetClientDataCaches();
       setAuthToken(accessToken, rememberMe);
       await refreshUser();
+      announceSessionChange();
     },
     [refreshUser],
   );
@@ -95,8 +146,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Best-effort — the token is discarded locally regardless.
     }
     clearAuthToken();
+    // SEC-02: drop every per-identity client cache and the per-user browser
+    // storage BEFORE the next user can sign in in this same tab.
+    clearPerUserBrowserStorage();
+    if (!setIdentityFingerprint(ANONYMOUS_FINGERPRINT)) resetClientDataCaches();
     setUser(null);
     setStatus("unauthenticated");
+    announceSessionChange();
     router.push("/login");
   }, [router]);
 

@@ -2,7 +2,7 @@ import type { DocumentAction } from "@/components/documents/document-action-bar"
 import type { TraceKind } from "@/services/traceability-service";
 import type { ReactNode } from "react";
 import type { StatusTone } from "@/components/business/status-badge";
-import type { PartnerRow } from "@/services/partners-service";
+import type { PartnerPickerRow } from "@/services/partners-service";
 import type { CurrencyRow } from "@/config/master-data/entities";
 import type { DocumentPrintPayload } from "@/types/print-engine";
 import type { DocumentTotals } from "./document-totals-footer";
@@ -42,7 +42,7 @@ export type SalesDocumentWorkflowActionKey = string;
 export interface SalesDocumentEditorActionContext<TDocument> {
   document: TDocument | null;
   lines: ProductLineItemsGridLine[];
-  customer: PartnerRow | null;
+  customer: PartnerPickerRow | null;
 }
 
 /**
@@ -105,7 +105,7 @@ export interface SalesDocumentEditorState<TDocument> {
   documentDate: Date | null;
   expectedDate?: Date | null;
   salespersonId: string | null;
-  customer: PartnerRow | null;
+  customer: PartnerPickerRow | null;
   /** TASK-057A — document currency (`/currencies` master data). `null` = company base currency. */
   currency: CurrencyRow | null;
   referenceNumber: string;
@@ -120,7 +120,7 @@ export interface SalesDocumentEditorHandlers {
   onDocumentDateChange: (date: Date | null) => void;
   onExpectedDateChange?: (date: Date | null) => void;
   onSalespersonChange: (userId: string | null) => void;
-  onCustomerChange: (customer: PartnerRow) => void;
+  onCustomerChange: (customer: PartnerPickerRow) => void;
   onCurrencyChange: (currency: CurrencyRow | null) => void;
   onReferenceNumberChange: (value: string) => void;
   onNotesChange: (value: string) => void;

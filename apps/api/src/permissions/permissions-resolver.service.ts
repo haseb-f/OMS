@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { withImpliedSectionPermissions } from './permission-catalog';
+import { withAuthorizationImpliedPermissions } from './permission-catalog';
 
 interface CacheEntry {
   isSuperAdmin: boolean;
+  /** Explicit grants + authorization-bearing implications only (SEC-03 H4). */
   permissions: Set<string>;
   expiresAt: number;
 }
@@ -25,10 +26,16 @@ const CACHE_TTL_MS = 60_000;
  * grant list and short-circuits `hasPermission()` to always `true`. This
  * covers every caller of `hasPermission()` (the guard, and the couple of
  * ad-hoc business checks like "can view all leads") from one place.
- * `getPermissions()` still returns the user's stored grants, expanded with
- * implied coarse section keys (`sales.view`, `crm.view`, …) from the same
- * catalog map used at grant time, so `/auth/me` cannot omit a sidebar
- * section gate that the Permission Matrix cannot tick directly.
+ * `getPermissions()` returns the AUTHORIZATION set: the user's stored grants
+ * plus only the implications that may authorize data access (coarse section
+ * keys that are not catalog permissions, and same-module implications —
+ * see `withAuthorizationImpliedPermissions`). A cross-module implication onto
+ * a real data permission (Customer Groups → `partners.view`) is dropped, so
+ * a sidebar convenience can never unlock an API (SEC-03 H4). `/auth/me`
+ * serves this same set, so the web's nav filter, route guard and page gates
+ * agree with the guards; nav items under those sections are gated on their
+ * page's own module key, and section parents appear via any authorized
+ * descendant (`filterByAccess`).
  */
 @Injectable()
 export class PermissionsResolverService {
@@ -52,11 +59,10 @@ export class PermissionsResolverService {
         select: { permission: { select: { name: true } } },
       }),
     ]);
+    const stored = rows.map((row) => row.permission.name);
     const entry: CacheEntry = {
       isSuperAdmin: user?.isSuperAdmin ?? false,
-      permissions: new Set(
-        withImpliedSectionPermissions(rows.map((row) => row.permission.name)),
-      ),
+      permissions: new Set(withAuthorizationImpliedPermissions(stored)),
       expiresAt: Date.now() + CACHE_TTL_MS,
     };
     this.cache.set(userId, entry);

@@ -59,7 +59,7 @@ import {
   type StockCard,
   type InventoryMovementRow,
 } from "@/services/inventory-service";
-import { partnersService, type PartnerRow } from "@/services/partners-service";
+import { partnersService, type PartnerPickerRow } from "@/services/partners-service";
 import type {
   CategoryRow,
   BrandRow,
@@ -240,7 +240,7 @@ export function ProductModal({
   units: UnitRow[];
   taxes: TaxRow[];
   analyticAccounts: AnalyticAccountRow[];
-  suppliers: PartnerRow[];
+  suppliers: PartnerPickerRow[];
   warehouses: WarehouseRow[];
   onSaved: () => void;
   /** Appends the newly created category to the page's `categories` list — this modal never owns that state itself. */
@@ -316,7 +316,7 @@ export function ProductModal({
   // id from the cached supplier list, else by one batched catalog lookup —
   // a supplier beyond the list's first 200 rows still displays.
   const preferredPartnerId = form.watch("preferredPartnerId");
-  const [preferredSupplier, setPreferredSupplier] = useState<PartnerRow | null>(null);
+  const [preferredSupplier, setPreferredSupplier] = useState<PartnerPickerRow | null>(null);
   useEffect(() => {
     if (!preferredPartnerId) {
       setPreferredSupplier(null);
@@ -330,7 +330,7 @@ export function ProductModal({
     }
     let cancelled = false;
     cachedLookup(`partners:ids:${preferredPartnerId}`, () =>
-      partnersService.catalog({ ids: [preferredPartnerId], pageSize: 1 }),
+      partnersService.catalog({ ids: [preferredPartnerId], pageSize: 1, role: ["SUPPLIER"] }),
     )
       .then((result) => {
         if (!cancelled) setPreferredSupplier(result.items[0] ?? null);

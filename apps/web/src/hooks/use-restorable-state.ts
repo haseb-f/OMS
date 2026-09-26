@@ -2,8 +2,11 @@
 
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { usePathname } from "next/navigation";
+import { registerClientCache } from "@/lib/client-data-scope";
 
 const restorableCache = new Map<string, unknown>();
+// SEC-02: list filters/search text belong to the identity that typed them.
+registerClientCache(() => restorableCache.clear());
 
 /**
  * List/detail round-trip state — survives unmount when the user opens a

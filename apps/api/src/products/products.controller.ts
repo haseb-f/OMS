@@ -32,7 +32,7 @@ import { PermissionsResolverService } from '../permissions/permissions-resolver.
  * permission stays reserved for Product management (full record, cost/
  * purchase data). See `ProductsService.findSellableCatalog()`.
  */
-const CATALOG_READ_PERMISSIONS = [
+export const PRODUCT_CATALOG_READ_PERMISSIONS: readonly string[] = [
   'products.view',
   'crm.leads.convert',
   'store-orders.create',
@@ -58,6 +58,14 @@ const CATALOG_READ_PERMISSIONS = [
   // the catalog to fund it.
   'investment-opportunities.create',
   'investment-opportunities.edit',
+  // Lead create/edit form's "Product" field (MasterDataForm type:"product").
+  'crm.leads.create',
+  'crm.leads.edit',
+  // Cost screens that pick a product to inspect: Product Cost history
+  // (/expenses/product-cost, gated on expenses.view) and Cost Explorer's
+  // product panel (/expenses/cost-explorer, gated on cost-explorer.view).
+  'expenses.view',
+  'cost-explorer.view',
 ];
 
 @Controller('products')
@@ -89,7 +97,7 @@ export class ProductsController {
     const isSuperAdmin = await this.permissions.isSuperAdmin(user.sub);
     if (!isSuperAdmin) {
       const grants = await Promise.all(
-        CATALOG_READ_PERMISSIONS.map((name) =>
+        PRODUCT_CATALOG_READ_PERMISSIONS.map((name) =>
           this.permissions.hasPermission(user.sub, name),
         ),
       );
@@ -129,14 +137,16 @@ export class ProductsController {
     return this.productsService.archive(id, user.sub);
   }
 
+  /** Same authority as Archive (SEC-03 H2) — un-archiving is the other half of the soft-delete. */
   @Post(':id/restore')
-  @SkipPermissionCheck()
+  @PermissionAction('delete')
   restore(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.productsService.restore(id, user.sub);
   }
 
+  /** Adding an attachment modifies the Product — `edit`, same as PATCH (SEC-03 H2 audit). */
   @Post(':id/attachments')
-  @SkipPermissionCheck()
+  @PermissionAction('edit')
   attach(
     @Param('id') id: string,
     @Body() dto: CreateProductAttachmentDto,

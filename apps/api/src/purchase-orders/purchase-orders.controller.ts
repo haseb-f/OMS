@@ -12,10 +12,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { PermissionModule } from '../auth/decorators/permission-module.decorator';
-import {
-  PermissionAction,
-  SkipPermissionCheck,
-} from '../auth/decorators/permission-action.decorator';
+import { PermissionAction } from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 import {
@@ -74,8 +71,9 @@ export class PurchaseOrdersController {
     return this.purchaseOrdersService.cancel(id);
   }
 
+  /** Approved → Closed changes the document's status — `edit` (SEC-03 H2 audit; confirm the intended authority with the business). */
   @Post(':id/close')
-  @SkipPermissionCheck()
+  @PermissionAction('edit')
   close(@Param('id') id: string) {
     return this.purchaseOrdersService.close(id);
   }
@@ -88,9 +86,11 @@ export class PurchaseOrdersController {
   }
 
   /** Every PO line converts as-is (Goods Receipt) — only a destination warehouse is asked for. */
+  /** Creates a Purchase Invoice (Goods Receipt) — authorized as a Create on the TARGET document (SEC-03 H2 audit). */
   @Post(':id/convert-to-invoice')
   @HttpCode(200)
-  @SkipPermissionCheck()
+  @PermissionModule('purchase-invoices')
+  @PermissionAction('create')
   convertToInvoice(
     @Param('id') id: string,
     @Body() dto: ConvertPurchaseOrderToInvoiceDto,

@@ -1,10 +1,18 @@
 "use client";
 
-import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { createContext, useContext, useLayoutEffect, useMemo, type ReactNode } from "react";
 import { useTheme } from "next-themes";
 import { useAuth, type AuthStatus } from "./auth-provider";
 import { useLocale } from "./locale-provider";
+import { useCompany } from "./company-provider";
 import type { CurrentUser } from "@/services/auth-service";
+import {
+  ANONYMOUS_FINGERPRINT,
+  claimPerUserBrowserStorage,
+  identityFingerprint,
+  resetClientDataCaches,
+  setIdentityFingerprint,
+} from "@/lib/client-data-scope";
 
 interface UserContextValue {
   user: CurrentUser | null;
@@ -31,8 +39,34 @@ const UserContext = createContext<UserContextValue | null>(null);
  */
 export function UserContextProvider({ children }: { children: ReactNode }) {
   const { user, status } = useAuth();
+  const { activeCompany } = useCompany();
   const { locale } = useLocale();
   const { theme } = useTheme();
+
+  // SEC-02 — the identity fingerprint every client cache is scoped to. A new
+  // user, active company, or permission set resets all of them. `loading`/
+  // `error` keep the current scope (identity unknown, not changed). A layout
+  // effect so the scope is current before any child's passive effect fetches.
+  const fingerprint =
+    status === "authenticated" && user
+      ? identityFingerprint({
+          userId: user.id,
+          companyId: activeCompany?.id,
+          permissions: user.permissions ?? [],
+          isSuperAdmin: user.isSuperAdmin,
+        })
+      : status === "unauthenticated"
+        ? ANONYMOUS_FINGERPRINT
+        : null;
+  const userId = status === "authenticated" ? (user?.id ?? null) : null;
+  useLayoutEffect(() => {
+    // Storage written by another identity (this tab's sessionStorage
+    // included — SEC-03 M2) is wiped; anything already read from it into
+    // memory is dropped with it.
+    const clearedForeignStorage = userId ? claimPerUserBrowserStorage(userId) : false;
+    const changed = fingerprint !== null && setIdentityFingerprint(fingerprint);
+    if (clearedForeignStorage && !changed) resetClientDataCaches();
+  }, [fingerprint, userId]);
 
   const value = useMemo<UserContextValue>(() => {
     const permissions = user?.permissions ?? [];

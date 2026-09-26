@@ -74,6 +74,28 @@ export const investorSchema = z.object({
   investorTypeId: z.string().optional().or(z.literal("")),
 });
 
+/**
+ * D7 — `CreateInvestorDto` requires a phone OR an email (and validates the
+ * email's format when given). Mirror that client-side with translated
+ * messages so the form never round-trips to a raw 400.
+ */
+export function buildInvestorSchema(t: (key: MessageKey) => string) {
+  return investorSchema
+    .extend({
+      email: z
+        .string()
+        .email({ message: t("investors.list.validation.emailInvalid") })
+        .optional()
+        .or(z.literal("")),
+    })
+    .superRefine((values, ctx) => {
+      if (values.phone?.trim() || values.email?.trim()) return;
+      const message = t("investors.list.validation.contactRequired");
+      ctx.addIssue({ code: "custom", path: ["phone"], message });
+      ctx.addIssue({ code: "custom", path: ["email"], message });
+    });
+}
+
 export const investorDefaultValues = {
   name: "",
   entityType: "ORGANIZATION" as const,

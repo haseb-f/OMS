@@ -14,7 +14,7 @@ import { PartnerPicker } from "@/components/business/partner-picker";
 import {
   partnersService,
   type PartnerRoleValue,
-  type PartnerRow,
+  type PartnerPickerRow,
 } from "@/services/partners-service";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
@@ -39,7 +39,7 @@ export function PartnerStatementTab({ role }: { role: PartnerRoleValue }) {
   const searchParams = useSearchParams();
   const openFullRecord = useOpenFullRecord();
   const { filters, setFilters, params } = useReportQuery();
-  const [partner, setPartner] = useState<PartnerRow | null>(null);
+  const [partner, setPartner] = useState<PartnerPickerRow | null>(null);
   const [statement, setStatement] = useState<PartnerStatementResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const controlType = role === "SUPPLIER" ? "PAYABLE" : "RECEIVABLE";
@@ -54,7 +54,7 @@ export function PartnerStatementTab({ role }: { role: PartnerRoleValue }) {
     if (!partnerIdFromUrl || partner?.id === partnerIdFromUrl) return;
     let cancelled = false;
     partnersService
-      .catalog({ ids: [partnerIdFromUrl], pageSize: 1 })
+      .catalog({ ids: [partnerIdFromUrl], pageSize: 1, role: [role] })
       .then((result) => {
         if (!cancelled && result.items[0]) setPartner(result.items[0]);
       })
@@ -62,9 +62,9 @@ export function PartnerStatementTab({ role }: { role: PartnerRoleValue }) {
     return () => {
       cancelled = true;
     };
-  }, [partnerIdFromUrl, partner?.id]);
+  }, [partnerIdFromUrl, partner?.id, role]);
 
-  const selectPartner = (next: PartnerRow) => {
+  const selectPartner = (next: PartnerPickerRow) => {
     setPartner(next);
     const query = new URLSearchParams(searchParams.toString());
     query.set(PARTNER_PARAM, next.id);

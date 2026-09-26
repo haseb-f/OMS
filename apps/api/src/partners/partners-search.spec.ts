@@ -54,4 +54,26 @@ describe('PartnersService — Arabic-normalized search', () => {
       expect(items.map((p) => p.id)).toContain(partnerId);
     },
   );
+
+  // SEC-03 L2 — an unknown or computed column must never reach Prisma (a 500).
+  it.each([
+    'receivableBalance',
+    'creditLimit',
+    'nonexistent',
+    'investorProfile',
+  ])('falls back to the default sort for sortBy=%s', async (sortBy) => {
+    await expect(
+      service.findAll({ search: tag, sortBy, pageSize: 5 }),
+    ).resolves.toEqual(expect.objectContaining({ total: 1 }));
+  });
+
+  it('honours an allowlisted sortBy', async () => {
+    const { items } = await service.findAll({
+      search: tag,
+      sortBy: 'partnerNumber',
+      sortOrder: 'desc',
+      pageSize: 5,
+    });
+    expect(items.map((p) => p.id)).toContain(partnerId);
+  });
 });
