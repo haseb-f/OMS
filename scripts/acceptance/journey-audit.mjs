@@ -1796,11 +1796,14 @@ J("expenses", async () => {
     const text = await mainText(page);
     return { status: /الوصول مرفوض/.test(text) ? "FAIL" : "PASS", detail: text.replace(/\s+/g, " ").slice(60, 260), shot: await shot(page, "finance-product-cost"), url: `${BASE}/expenses/product-cost` };
   });
-  await step(fin, "Expenses", "cost components", "menu item visible to qa-finance → page opens", async (page) => {
+  // D6 (fixed in 64679e7): the menu item is gated on masterdata.cost-components.view,
+  // which qa-finance does not hold — expect it hidden and the direct URL denied.
+  await step(fin, "Expenses", "cost components", "qa-finance without cost-components.view: menu hidden, direct URL denied", async (page) => {
     await go(page, "/expenses/cost-components");
     const text = await mainText(page);
     const denied = /الوصول مرفوض/.test(text);
-    return { status: denied ? "FAIL" : "PASS", detail: denied ? "sidebar shows 'مكونات التكلفة' to qa-finance (nav item has no permissions) but the page gate requires masterdata.cost-components.view → access denied" : "renders", shot: await shot(page, "finance-cost-components") };
+    const inMenu = await page.locator("nav, aside").getByText("مكونات التكلفة", { exact: true }).isVisible().catch(() => false);
+    return { status: denied && !inMenu ? "PASS" : "FAIL", detail: `accessDenied=${denied}; menuItemVisible=${inMenu}`, shot: await shot(page, "finance-cost-components") };
   });
   await step(adm, "Expenses", "cost components", "admin: catalogue has the seeded components (ADR-0014)", async (page) => {
     await go(page, "/expenses/cost-components");
@@ -1854,7 +1857,12 @@ J("hr", async () => {
     await go(page, "/master-data/departments");
     const text = await mainText(page);
     const canCreate = await btn(page, /^إضافة جديد$/).isVisible().catch(() => false);
-    return { status: /الوصول مرفوض/.test(text) ? "FAIL" : "PASS", detail: `renders; create button for qa-hr=${canCreate}` };
+    // qa-hr holds no masterdata.departments.* grant; since the D2 route guard (64679e7)
+    // the direct URL shows access-denied, matching the sidebar (which never listed it).
+    const perms = new Set(((await hr.api("GET", "/auth/me")).json?.permissions) ?? []);
+    const allowed = perms.has("masterdata.departments.view");
+    const denied = /الوصول مرفوض/.test(text);
+    return { status: denied === !allowed ? "PASS" : "FAIL", detail: `departments.view=${allowed}; accessDenied=${denied}; create button=${canCreate}` };
   });
   await step(adm, "HR", "departments", "admin creates tagged department", async (page) => {
     const r = await masterCreate(page, "/master-data/departments", [[/^الاسم/, deptName], [/^الوصف/, `${RUN} audit dept`]], deptName);
@@ -2007,9 +2015,18 @@ J("investors", async () => {
   const inv = await session("qa-investors");
   const iv = (ctx.investors ??= {});
   const investorName = `${RUN} مستثمر ${STAMP}`;
-  await step(inv, "Investors", "investor", "create investor with only the required name (email left empty)", async (page) => {
+  // D7 (fixed in 64679e7): phone OR email is required — the form must say so inline
+  // (translated) before any request, instead of a raw API 400.
+  await step(inv, "Investors", "investor", "create investor with name only → inline 'phone or email' validation, no request", async (page) => {
     const r = await masterCreate(page, "/investors/list", [[/^الاسم/, investorName], [/^ملاحظات/, `${RUN} audit investor`]], investorName);
-    if (r.toast.ok) return { status: "PASS", detail: r.toast.text };
+    const inline = await page.getByText(/أدخل رقم الجوال أو البريد الإلكتروني/).first().isVisible().catch(() => false);
+    const posted = inv.mon.failed.some((f) => f.url.startsWith("/investors") && f.status === 400);
+    if (inline && !posted && !r.toast.ok) {
+      const sh = await shot(page, "investors-create-contact-required");
+      await page.keyboard.press("Escape").catch(() => {});
+      return { status: "PASS", detail: "inline translated validation shown; no API call", shot: sh };
+    }
+    if (r.toast.ok) return { status: "FAIL", detail: `saved without phone/email: ${r.toast.text}` };
     const bad = inv.mon.failed.find((f) => f.url.startsWith("/investors") && f.status === 400);
     const sh = await shot(page, "investors-create-empty-email-400");
     await page.keyboard.press("Escape").catch(() => {});

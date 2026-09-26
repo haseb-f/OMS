@@ -32,6 +32,7 @@ import {
 import { CostCategoryPicker } from "@/components/business/cost-category-picker";
 import { CurrencyPicker } from "@/components/business/currency-picker";
 import { useTaxes } from "@/hooks/use-reference-data";
+import { accountingSettingsService } from "@/services/accounting-settings-service";
 import { cachedLookup } from "@/lib/lookup-cache";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
@@ -170,10 +171,28 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
       .finally(() => setIsLoading(false));
   }, [id, applyDocument, refreshPreview]);
 
-  /** A fresh document inherits the Purchase Invoice's own currency — same convention as every other purchasing document. */
+  /**
+   * A fresh document inherits the Purchase Invoice's own currency — same
+   * convention as every other purchasing document. An invoice with no
+   * explicit currency is in the company's functional (base) currency, so the
+   * landed cost defaults to that instead of leaving a required field empty.
+   */
   const handlePurchaseInvoiceChange = (invoice: PurchaseInvoiceOption | null) => {
     setPurchaseInvoice(invoice);
-    if (!id && invoice?.currency && !currencyId) setCurrencyId(invoice.currency.id);
+    if (id || !invoice || currencyId) return;
+    if (invoice.currency) {
+      setCurrencyId(invoice.currency.id);
+      return;
+    }
+    cachedLookup("accounting:posting-settings", () => accountingSettingsService.get())
+      .then((settings) => {
+        if (settings.functionalCurrencyId) {
+          setCurrencyId((current) => current || settings.functionalCurrencyId!);
+        }
+      })
+      .catch(() => {
+        /* leave empty — validation asks the user to choose */
+      });
   };
 
   const realLines = lines.filter((line) => line.costComponent !== null);
