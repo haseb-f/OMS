@@ -1,0 +1,356 @@
+{
+  "tour": "partner-catalog-access",
+  "run": "PROD-SEC-64679e7",
+  "base": "https://oms.haseb.org",
+  "api": "https://oms.haseb.org/api",
+  "user": "qa-admin@oms.haseb.org",
+  "startedAt": "2026-09-26T20:42:15.030Z",
+  "personas": ["admin", "finance", "purchasing", "sales-agent", "shipping", "hr"],
+  "checks": [
+    {
+      "id": "admin.scope",
+      "status": "INFO",
+      "detail": "roles=ANY detail=ANY"
+    },
+    {
+      "id": "admin.directory.allowed",
+      "status": "PASS",
+      "detail": "status 200"
+    },
+    {
+      "id": "admin.CUSTOMER.allowed",
+      "status": "PASS",
+      "detail": "status 200 "
+    },
+    {
+      "id": "admin.CUSTOMER.roleFiltered",
+      "status": "PASS",
+      "detail": "10 rows"
+    },
+    {
+      "id": "admin.CUSTOMER.neverSensitive",
+      "status": "PASS",
+      "detail": "10 rows free of investor/employee/tax/notes/payable"
+    },
+    {
+      "id": "admin.CUSTOMER.detail",
+      "status": "PASS",
+      "detail": "10 rows carry the customer block only"
+    },
+    {
+      "id": "admin.SUPPLIER.allowed",
+      "status": "PASS",
+      "detail": "status 200 "
+    },
+    {
+      "id": "admin.SUPPLIER.roleFiltered",
+      "status": "PASS",
+      "detail": "10 rows"
+    },
+    {
+      "id": "admin.SUPPLIER.neverSensitive",
+      "status": "PASS",
+      "detail": "10 rows free of investor/employee/tax/notes/payable"
+    },
+    {
+      "id": "admin.SUPPLIER.pickerOnly",
+      "status": "PASS",
+      "detail": "10 rows, picker fields only"
+    },
+    {
+      "id": "admin.noRole.allowed",
+      "status": "PASS",
+      "detail": "status 200"
+    },
+    {
+      "id": "admin.ids.CUSTOMER.visible",
+      "status": "PASS",
+      "detail": "status 200"
+    },
+    {
+      "id": "admin.ids.SUPPLIER.visible",
+      "status": "PASS",
+      "detail": "status 200"
+    },
+    {
+      "id": "finance.scope",
+      "status": "INFO",
+      "detail": "roles=CUSTOMER+SUPPLIER detail=none"
+    },
+    {
+      "id": "finance.directory.denied",
+      "status": "PASS",
+      "detail": "expected 403, got 403"
+    },
+    {
+      "id": "finance.CUSTOMER.allowed",
+      "status": "PASS",
+      "detail": "status 200 "
+    },
+    {
+      "id": "finance.CUSTOMER.roleFiltered",
+      "status": "PASS",
+      "detail": "10 rows"
+    },
+    {
+      "id": "finance.CUSTOMER.neverSensitive",
+      "status": "PASS",
+      "detail": "10 rows free of investor/employee/tax/notes/payable"
+    },
+    {
+      "id": "finance.CUSTOMER.pickerOnly",
+      "status": "PASS",
+      "detail": "10 rows, picker fields only"
+    },
+    {
+      "id": "finance.CUSTOMER.rolesNarrowed",
+      "status": "PASS",
+      "detail": "0 rows expose out-of-scope roles"
+    },
+    {
+      "id": "finance.SUPPLIER.allowed",
+      "status": "PASS",
+      "detail": "status 200 "
+    },
+    {
+      "id": "finance.SUPPLIER.roleFiltered",
+      "status": "PASS",
+      "detail": "10 rows"
+    },
+    {
+      "id": "finance.SUPPLIER.neverSensitive",
+      "status": "PASS",
+      "detail": "10 rows free of investor/employee/tax/notes/payable"
+    },
+    {
+      "id": "finance.SUPPLIER.pickerOnly",
+      "status": "PASS",
+      "detail": "10 rows, picker fields only"
+    },
+    {
+      "id": "finance.SUPPLIER.rolesNarrowed",
+      "status": "PASS",
+      "detail": "0 rows expose out-of-scope roles"
+    },
+    {
+      "id": "finance.noRole.allowed",
+      "status": "PASS",
+      "detail": "status 200"
+    },
+    {
+      "id": "finance.noRole.scoped",
+      "status": "PASS",
+      "detail": "0 out-of-scope rows"
+    },
+    {
+      "id": "finance.ids.CUSTOMER.visible",
+      "status": "PASS",
+      "detail": "status 200"
+    },
+    {
+      "id": "finance.ids.SUPPLIER.visible",
+      "status": "PASS",
+      "detail": "status 200"
+    },
+    {
+      "id": "purchasing.scope",
+      "status": "INFO",
+      "detail": "roles=ANY detail=ANY"
+    },
+    {
+      "id": "purchasing.directory.allowed",
+      "status": "PASS",
+      "detail": "status 200"
+    },
+    {
+      "id": "purchasing.CUSTOMER.allowed",
+      "status": "PASS",
+      "detail": "status 200 "
+    },
+    {
+      "id": "purchasing.CUSTOMER.roleFiltered",
+      "status": "PASS",
+      "detail": "10 rows"
+    },
+    {
+      "id": "purchasing.CUSTOMER.neverSensitive",
+      "status": "PASS",
+      "detail": "10 rows free of investor/employee/tax/notes/payable"
+    },
+    {
+      "id": "purchasing.CUSTOMER.detail",
+      "status": "PASS",
+      "detail": "10 rows carry the customer block only"
+    },
+    {
+      "id": "purchasing.SUPPLIER.allowed",
+      "status": "PASS",
+      "detail": "status 200 "
+    },
+    {
+      "id": "purchasing.SUPPLIER.roleFiltered",
+      "status": "PASS",
+      "detail": "10 rows"
+    },
+    {
+      "id": "purchasing.SUPPLIER.neverSensitive",
+      "status": "PASS",
+      "detail": "10 rows free of investor/employee/tax/notes/payable"
+    },
+    {
+      "id": "purchasing.SUPPLIER.pickerOnly",
+      "status": "PASS",
+      "detail": "10 rows, picker fields only"
+    },
+    {
+      "id": "purchasing.noRole.allowed",
+      "status": "PASS",
+      "detail": "status 200"
+    },
+    {
+      "id": "purchasing.ids.CUSTOMER.visible",
+      "status": "PASS",
+      "detail": "status 200"
+    },
+    {
+      "id": "purchasing.ids.SUPPLIER.visible",
+      "status": "PASS",
+      "detail": "status 200"
+    },
+    {
+      "id": "sales-agent.scope",
+      "status": "INFO",
+      "detail": "roles=CUSTOMER+SUPPLIER detail=CUSTOMER"
+    },
+    {
+      "id": "sales-agent.directory.denied",
+      "status": "PASS",
+      "detail": "expected 403, got 403"
+    },
+    {
+      "id": "sales-agent.CUSTOMER.allowed",
+      "status": "PASS",
+      "detail": "status 200 "
+    },
+    {
+      "id": "sales-agent.CUSTOMER.roleFiltered",
+      "status": "PASS",
+      "detail": "10 rows"
+    },
+    {
+      "id": "sales-agent.CUSTOMER.neverSensitive",
+      "status": "PASS",
+      "detail": "10 rows free of investor/employee/tax/notes/payable"
+    },
+    {
+      "id": "sales-agent.CUSTOMER.detail",
+      "status": "PASS",
+      "detail": "10 rows carry the customer block only"
+    },
+    {
+      "id": "sales-agent.CUSTOMER.rolesNarrowed",
+      "status": "PASS",
+      "detail": "0 rows expose out-of-scope roles"
+    },
+    {
+      "id": "sales-agent.SUPPLIER.allowed",
+      "status": "PASS",
+      "detail": "status 200 "
+    },
+    {
+      "id": "sales-agent.SUPPLIER.roleFiltered",
+      "status": "PASS",
+      "detail": "10 rows"
+    },
+    {
+      "id": "sales-agent.SUPPLIER.neverSensitive",
+      "status": "PASS",
+      "detail": "10 rows free of investor/employee/tax/notes/payable"
+    },
+    {
+      "id": "sales-agent.SUPPLIER.pickerOnly",
+      "status": "PASS",
+      "detail": "10 rows, picker fields only"
+    },
+    {
+      "id": "sales-agent.SUPPLIER.rolesNarrowed",
+      "status": "PASS",
+      "detail": "0 rows expose out-of-scope roles"
+    },
+    {
+      "id": "sales-agent.noRole.allowed",
+      "status": "PASS",
+      "detail": "status 200"
+    },
+    {
+      "id": "sales-agent.noRole.scoped",
+      "status": "PASS",
+      "detail": "0 out-of-scope rows"
+    },
+    {
+      "id": "sales-agent.ids.CUSTOMER.visible",
+      "status": "PASS",
+      "detail": "status 200"
+    },
+    {
+      "id": "sales-agent.ids.SUPPLIER.visible",
+      "status": "PASS",
+      "detail": "status 200"
+    },
+    {
+      "id": "shipping.scope",
+      "status": "INFO",
+      "detail": "no catalog access"
+    },
+    {
+      "id": "shipping.directory.denied",
+      "status": "PASS",
+      "detail": "expected 403, got 403"
+    },
+    {
+      "id": "shipping.denied(none)",
+      "status": "PASS",
+      "detail": "expected 403, got 403"
+    },
+    {
+      "id": "shipping.denied?role=CUSTOMER",
+      "status": "PASS",
+      "detail": "expected 403, got 403"
+    },
+    {
+      "id": "shipping.denied?role=SUPPLIER",
+      "status": "PASS",
+      "detail": "expected 403, got 403"
+    },
+    {
+      "id": "hr.scope",
+      "status": "INFO",
+      "detail": "no catalog access"
+    },
+    {
+      "id": "hr.directory.denied",
+      "status": "PASS",
+      "detail": "expected 403, got 403"
+    },
+    {
+      "id": "hr.denied(none)",
+      "status": "PASS",
+      "detail": "expected 403, got 403"
+    },
+    {
+      "id": "hr.denied?role=CUSTOMER",
+      "status": "PASS",
+      "detail": "expected 403, got 403"
+    },
+    {
+      "id": "hr.denied?role=SUPPLIER",
+      "status": "PASS",
+      "detail": "expected 403, got 403"
+    }
+  ],
+  "finishedAt": "2026-09-26T20:42:39.481Z",
+  "summary": {
+    "INFO": 6,
+    "PASS": 62
+  }
+}

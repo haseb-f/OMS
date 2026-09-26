@@ -1,0 +1,297 @@
+{
+  "tour": "session-isolation",
+  "run": "PROD-SEC-64679e7",
+  "base": "https://oms.haseb.org",
+  "api": "https://oms.haseb.org/api",
+  "user": "qa-admin@oms.haseb.org",
+  "startedAt": "2026-09-26T20:42:50.736Z",
+  "admin": "qa-admin@oms.haseb.org",
+  "agent": "qa-sales-agent@oms.haseb.org",
+  "checks": [
+    {
+      "id": "admin.cachesFilled",
+      "status": "PASS",
+      "detail": "users=19 lookups=2 (precondition: admin caches must hold data)",
+      "evidence": {
+        "caches": {
+          "lookups": 2,
+          "currencies": 3,
+          "countries": 0,
+          "productCategories": 5,
+          "productBrands": 0,
+          "units": 0,
+          "taxes": 3,
+          "analyticAccounts": 0,
+          "warehouses": 0,
+          "suppliers": 0,
+          "users": 19,
+          "departments": 0,
+          "customerClassifications": 0,
+          "noPurchaseReasons": 0,
+          "leadFollowUpTypes": 0,
+          "paymentMethods": 0,
+          "investorTypes": 0,
+          "payrollComponents": 0,
+          "jobTitles": 0,
+          "salesTeams": 0,
+          "employees": 0
+        },
+        "partnerOptions": 8,
+        "userOptions": 19
+      }
+    },
+    {
+      "id": "admin.usersFetched",
+      "status": "PASS",
+      "detail": "admin GET /users returned 19 emails"
+    },
+    {
+      "id": "sameTab.afterLogout",
+      "status": "PASS",
+      "detail": "window marker survived → no reload between personas"
+    },
+    {
+      "id": "logout.cachesEmpty",
+      "status": "PASS",
+      "detail": "identity=anonymous resets=3"
+    },
+    {
+      "id": "logout.perUserStorageCleared",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "sameTab.afterAgentLogin",
+      "status": "PASS",
+      "detail": "still the same JS session"
+    },
+    {
+      "id": "agent.noUsersRequest",
+      "status": "PASS",
+      "detail": "0 successful GET /users in agent phase"
+    },
+    {
+      "id": "agent.userPickerNoAdminRows",
+      "status": "PASS",
+      "detail": "userOptions=0 leakedEmails=0"
+    },
+    {
+      "id": "agent.cacheIdentityChanged",
+      "status": "PASS",
+      "detail": "fingerprint differs from admin"
+    },
+    {
+      "id": "agent.usersCacheEmpty",
+      "status": "PASS",
+      "detail": "users=0"
+    },
+    {
+      "id": "agent.noStaleLookups",
+      "status": "PASS",
+      "detail": "stale=0"
+    },
+    {
+      "id": "route/sales/quotations/new",
+      "status": "PASS",
+      "detail": "expected ALLOWED (sales.quotations.create) → allowed"
+    },
+    {
+      "id": "route/sales/orders/new",
+      "status": "PASS",
+      "detail": "expected ALLOWED (sales.orders.create) → allowed"
+    },
+    {
+      "id": "route/sales/invoices/new",
+      "status": "PASS",
+      "detail": "expected ALLOWED (sales.invoices.create) → allowed"
+    },
+    {
+      "id": "route/sales/payments/new",
+      "status": "PASS",
+      "detail": "expected DENIED (sales.receipts.create) → denied"
+    },
+    {
+      "id": "route/purchasing/purchase-quotations/new",
+      "status": "PASS",
+      "detail": "expected DENIED (purchasing.quotations.create) → denied"
+    },
+    {
+      "id": "route/purchasing/purchase-orders/new",
+      "status": "PASS",
+      "detail": "expected DENIED (purchasing.orders.create) → denied"
+    },
+    {
+      "id": "route/purchasing/purchase-invoices/new",
+      "status": "PASS",
+      "detail": "expected DENIED (purchasing.invoices.create) → denied"
+    },
+    {
+      "id": "route/purchasing/payments/new",
+      "status": "PASS",
+      "detail": "expected DENIED (purchasing.payments.create) → denied"
+    },
+    {
+      "id": "route/purchasing/landed-cost/new",
+      "status": "PASS",
+      "detail": "expected DENIED (landed-cost.create) → denied"
+    },
+    {
+      "id": "route/finance/journal-entries/new",
+      "status": "PASS",
+      "detail": "expected DENIED (accounting.journal-entries.create) → denied"
+    },
+    {
+      "id": "route/hr/employees/new",
+      "status": "PASS",
+      "detail": "expected DENIED (hr.employees.create) → denied"
+    },
+    {
+      "id": "route/hr/kpi-templates/new",
+      "status": "PASS",
+      "detail": "expected DENIED (hr.kpi-templates.create) → denied"
+    },
+    {
+      "id": "route/hr/commission-plans/new",
+      "status": "PASS",
+      "detail": "expected DENIED (hr.commission-plans.create) → denied"
+    },
+    {
+      "id": "route/investors/opportunities/new",
+      "status": "PASS",
+      "detail": "expected DENIED (investment-opportunities.create) → denied"
+    }
+  ],
+  "network": [
+    {
+      "phase": "admin",
+      "method": "POST",
+      "status": 200,
+      "path": "/auth/login"
+    },
+    {
+      "phase": "admin",
+      "method": "GET",
+      "status": 200,
+      "path": "/auth/me"
+    },
+    {
+      "phase": "admin",
+      "method": "GET",
+      "status": 200,
+      "path": "/sales/performance?period=month"
+    },
+    {
+      "phase": "admin",
+      "method": "GET",
+      "status": 200,
+      "path": "/users",
+      "emailCount": 19
+    },
+    {
+      "phase": "admin",
+      "method": "GET",
+      "status": 200,
+      "path": "/import-center/types"
+    },
+    {
+      "phase": "admin",
+      "method": "GET",
+      "status": 200,
+      "path": "/currencies?pageSize=200"
+    },
+    {
+      "phase": "admin",
+      "method": "GET",
+      "status": 200,
+      "path": "/product-categories?pageSize=200"
+    },
+    {
+      "phase": "admin",
+      "method": "GET",
+      "status": 200,
+      "path": "/taxes?pageSize=200"
+    },
+    {
+      "phase": "admin",
+      "method": "GET",
+      "status": 200,
+      "path": "/product-brands?pageSize=200"
+    },
+    {
+      "phase": "admin",
+      "method": "GET",
+      "status": 200,
+      "path": "/sales/orders?page=1&pageSize=20&sortBy=createdAt&sortOrder=desc"
+    },
+    {
+      "phase": "admin",
+      "method": "GET",
+      "status": 200,
+      "path": "/partners/catalog?pageSize=8&role=CUSTOMER"
+    },
+    {
+      "phase": "logout",
+      "method": "POST",
+      "status": 200,
+      "path": "/auth/logout"
+    },
+    {
+      "phase": "agent",
+      "method": "POST",
+      "status": 200,
+      "path": "/auth/login"
+    },
+    {
+      "phase": "agent",
+      "method": "GET",
+      "status": 200,
+      "path": "/auth/me"
+    },
+    {
+      "phase": "agent",
+      "method": "GET",
+      "status": 200,
+      "path": "/sales/performance?period=month"
+    },
+    {
+      "phase": "agent",
+      "method": "GET",
+      "status": 200,
+      "path": "/sales/orders?page=1&pageSize=20&sortBy=createdAt&sortOrder=desc"
+    },
+    {
+      "phase": "agent",
+      "method": "GET",
+      "status": 200,
+      "path": "/product-brands?pageSize=200"
+    },
+    {
+      "phase": "agent",
+      "method": "GET",
+      "status": 200,
+      "path": "/currencies?pageSize=200"
+    },
+    {
+      "phase": "agent",
+      "method": "GET",
+      "status": 200,
+      "path": "/partners/catalog?pageSize=8&role=CUSTOMER"
+    },
+    {
+      "phase": "agent",
+      "method": "GET",
+      "status": 200,
+      "path": "/product-categories?pageSize=200"
+    },
+    {
+      "phase": "agent",
+      "method": "GET",
+      "status": 200,
+      "path": "/taxes?pageSize=200"
+    }
+  ],
+  "finishedAt": "2026-09-26T20:43:42.380Z",
+  "summary": {
+    "PASS": 25
+  }
+}

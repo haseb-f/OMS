@@ -1,0 +1,221 @@
+[
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "ProductCategory",
+    "number": "DEMO-AUDIT-20260927-FINAL فئة 73149",
+    "url": "https://oms.haseb.org/master-data/categories",
+    "id": "2e126be8-0296-419a-a9a9-d9405f03929e",
+    "at": "2026-09-26T21:13:17.088Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "Product",
+    "number": "PRD-2026-000025 DEMO-AUDIT-20260927-FINAL منتج تدقيق 73149",
+    "url": "https://oms.haseb.org/products/1ed0e79f-1774-4574-b0d0-193581f7b90b",
+    "id": "1ed0e79f-1774-4574-b0d0-193581f7b90b",
+    "at": "2026-09-26T21:13:32.660Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "Customer",
+    "number": "PT-2026-000124 DEMO-AUDIT-20260927-FINAL عميل 73149",
+    "url": "https://oms.haseb.org/sales/customers/3fffa657-a844-47da-8c07-8e21d028590b",
+    "id": "3fffa657-a844-47da-8c07-8e21d028590b",
+    "at": "2026-09-26T21:13:49.561Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "Supplier",
+    "number": "PT-2026-000125 DEMO-AUDIT-20260927-FINAL مورد 73149",
+    "url": "https://oms.haseb.org/purchasing/suppliers/3731dfbc-ea02-4fca-bb5c-0f01f4ce3c3e",
+    "id": "3731dfbc-ea02-4fca-bb5c-0f01f4ce3c3e",
+    "at": "2026-09-26T21:14:03.383Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "PurchaseQuotation",
+    "number": "PQ-2026-000013",
+    "url": "https://oms.haseb.org/purchasing/purchase-quotations/925b35e6-ffd2-49a7-9f7b-8fc8957a2975",
+    "id": "925b35e6-ffd2-49a7-9f7b-8fc8957a2975",
+    "at": "2026-09-26T21:15:11.965Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "PurchaseOrder",
+    "number": "PO-2026-000014",
+    "url": "https://oms.haseb.org/purchasing/purchase-orders/581038da-ec96-4a87-b579-cec3e1671769",
+    "id": "581038da-ec96-4a87-b579-cec3e1671769",
+    "at": "2026-09-26T21:15:19.518Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "PurchaseInvoice",
+    "number": "PI-2026-000041",
+    "url": "https://oms.haseb.org/purchasing/purchase-invoices/092c2f58-5eeb-4b7c-9ed6-2e0f684a05cf",
+    "id": "092c2f58-5eeb-4b7c-9ed6-2e0f684a05cf",
+    "at": "2026-09-26T21:15:25.299Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "SupplierPayment",
+    "number": "SP-2026-000028",
+    "url": "https://oms.haseb.org/purchasing/payments/f84722c6-566e-40f3-a0ae-573edf2d935f",
+    "id": "f84722c6-566e-40f3-a0ae-573edf2d935f",
+    "at": "2026-09-26T21:15:44.078Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "PurchaseReturn",
+    "number": "PR-2026-000013",
+    "url": "https://oms.haseb.org/purchasing/purchase-returns/6dc28ffe-2a45-4f0d-8403-fb0f38316655",
+    "id": "6dc28ffe-2a45-4f0d-8403-fb0f38316655",
+    "at": "2026-09-26T21:15:50.494Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "LandedCost",
+    "number": "LC-2026-000002",
+    "url": "https://oms.haseb.org/purchasing/landed-cost/ad1c207a-229e-4039-b822-204c2782d9fd",
+    "id": "ad1c207a-229e-4039-b822-204c2782d9fd",
+    "at": "2026-09-26T21:16:38.953Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "Lead",
+    "number": "LD-2026-000087 DEMO-AUDIT-20260927-FINAL عميل محتمل 73149",
+    "url": "https://oms.haseb.org/crm/leads/c1bbdb52-66c6-42d8-bc94-c369a53ce003",
+    "id": "c1bbdb52-66c6-42d8-bc94-c369a53ce003",
+    "at": "2026-09-26T21:16:49.006Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "StoreOrder (from lead, COD)",
+    "number": "STO-2026-000100",
+    "url": "https://oms.haseb.org/store-orders/ff9b30e4-dc8b-4fbe-9c56-dc2c2f7e8c81",
+    "id": "ff9b30e4-dc8b-4fbe-9c56-dc2c2f7e8c81",
+    "at": "2026-09-26T21:17:09.402Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "SalesQuotation",
+    "number": "QT-2026-000022",
+    "url": "https://oms.haseb.org/sales/quotations/fd52fcb1-25db-4382-b1d4-f618a83ef0cc",
+    "id": "fd52fcb1-25db-4382-b1d4-f618a83ef0cc",
+    "at": "2026-09-26T21:17:26.792Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "SalesOrder",
+    "number": "SO-2026-000019",
+    "url": "https://oms.haseb.org/sales/orders/249cbd15-a0ac-4837-b70b-c8e3ca879a5c",
+    "id": "249cbd15-a0ac-4837-b70b-c8e3ca879a5c",
+    "at": "2026-09-26T21:17:35.426Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "SalesInvoice",
+    "number": "INV-2026-000078",
+    "url": "https://oms.haseb.org/sales/invoices/7fef2441-48c3-45b6-b80a-b4a7fe37c4a4",
+    "id": "7fef2441-48c3-45b6-b80a-b4a7fe37c4a4",
+    "at": "2026-09-26T21:17:48.059Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "CustomerReceipt",
+    "number": "CR-2026-000057",
+    "url": "https://oms.haseb.org/sales/payments/1d79146b-cfd4-485f-b352-37fa71b62c21",
+    "id": "1d79146b-cfd4-485f-b352-37fa71b62c21",
+    "at": "2026-09-26T21:18:09.908Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "SalesReturn",
+    "number": "SR-2026-000023",
+    "url": "https://oms.haseb.org/sales/returns/ee086a45-1f74-4078-af38-bd78880cd739",
+    "id": "ee086a45-1f74-4078-af38-bd78880cd739",
+    "at": "2026-09-26T21:18:17.581Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "CustomerRefund",
+    "number": "CRF-2026-000007",
+    "url": "https://oms.haseb.org/sales/payments?view=refunds",
+    "at": "2026-09-26T21:18:38.233Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "StoreOrder (prepaid)",
+    "number": "STO-2026-000101",
+    "url": "https://oms.haseb.org/store-orders/504da18f-aa35-4cbd-81c3-89147ae01420",
+    "id": "504da18f-aa35-4cbd-81c3-89147ae01420",
+    "at": "2026-09-26T21:18:54.533Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "SalesInvoice (store order)",
+    "number": "INV-2026-000079",
+    "url": "https://oms.haseb.org/sales/invoices/b4f874fa-09bc-4375-89bc-a0135945502b",
+    "id": "b4f874fa-09bc-4375-89bc-a0135945502b",
+    "at": "2026-09-26T21:19:14.374Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "JournalEntry",
+    "number": "JV-2026-000336",
+    "url": "https://oms.haseb.org/finance/journal-entries/dbd3ba72-b928-4216-830c-4df5b973571a",
+    "id": "dbd3ba72-b928-4216-830c-4df5b973571a",
+    "at": "2026-09-26T21:20:59.128Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "Department",
+    "number": "DEMO-AUDIT-20260927-FINAL قسم 73149",
+    "url": "https://oms.haseb.org/master-data/departments",
+    "at": "2026-09-26T21:22:26.512Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "Employee",
+    "number": "DEMO-AUDIT-20260927-FINAL موظف 73149",
+    "url": "https://oms.haseb.org/hr/employees/054697a5-ad93-411d-8ec6-42e8af6ee14c",
+    "id": "054697a5-ad93-411d-8ec6-42e8af6ee14c",
+    "at": "2026-09-26T21:22:35.611Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "CommissionPlan",
+    "number": "DEMO-AUDIT-20260927-FINAL خطة عمولة 73149",
+    "url": "https://oms.haseb.org/hr/commission-plans/9a8134f6-9c00-4a6c-85fa-b13c336f87b9",
+    "at": "2026-09-26T21:22:42.135Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "KpiTemplate",
+    "number": "DEMO-AUDIT-20260927-FINAL قالب تقييم 73149",
+    "url": "https://oms.haseb.org/hr/kpi-templates/e90bc8b8-aed1-4894-9061-cef97c13bd64",
+    "at": "2026-09-26T21:22:48.940Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "KpiEvaluation",
+    "number": "DEMO-AUDIT-20260927-FINAL موظف 73149",
+    "url": "https://oms.haseb.org/hr/kpi-evaluations/40b4b090-dc15-408e-921c-c115e5a8f080",
+    "at": "2026-09-26T21:23:17.643Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "Investor",
+    "number": "DEMO-AUDIT-20260927-FINAL مستثمر 73149",
+    "url": "https://oms.haseb.org/investors/list/577d56b6-5899-4d9b-a47b-c463f30c0a23",
+    "id": "577d56b6-5899-4d9b-a47b-c463f30c0a23",
+    "at": "2026-09-26T21:24:04.571Z"
+  },
+  {
+    "run": "DEMO-AUDIT-20260927-FINAL",
+    "type": "InvestmentOpportunity",
+    "number": "DEMO-AUDIT-20260927-FINAL فرصة 73149",
+    "url": "https://oms.haseb.org/investors/opportunities/3266c18a-afad-4b1d-affc-80d4d077b555",
+    "id": "3266c18a-afad-4b1d-affc-80d4d077b555",
+    "at": "2026-09-26T21:24:15.981Z"
+  }
+]

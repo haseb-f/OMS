@@ -1,0 +1,3255 @@
+{
+  "tour": "journey-audit",
+  "run": "DEMO-AUDIT-20260927-FINAL",
+  "base": "https://oms.haseb.org",
+  "api": "https://oms.haseb.org/api",
+  "startedAt": "2026-09-26T21:11:13.149Z",
+  "checks": [
+    {
+      "id": "J001",
+      "persona": "qa-admin",
+      "module": "Permissions",
+      "feature": "sidebar",
+      "step": "visible menu items",
+      "status": "PASS",
+      "detail": "login=ui-login; groups=إدارة علاقات العملاء، المبيعات، الشحن، المشتريات، المنتجات والمخازن، الموارد البشرية، المستثمرون، التكاليف، المالية، البيانات الأساسية، إدارة البيانات، التقارير، الإعدادات; 113 links",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/perm-qa-admin-sidebar.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J002",
+      "persona": "qa-finance",
+      "module": "Permissions",
+      "feature": "sidebar",
+      "step": "visible menu items",
+      "status": "PASS",
+      "detail": "login=ui-login; groups=المبيعات، التكاليف، المالية، التقارير; 43 links",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/perm-qa-finance-sidebar.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J003",
+      "persona": "qa-finance",
+      "module": "Permissions",
+      "feature": "forbidden route",
+      "step": "direct URL /hr/employees",
+      "status": "PASS",
+      "detail": "access-denied UI shown (403 API calls: 0)",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/perm-qa-finance-denied-_hr_employees.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J004",
+      "persona": "qa-finance",
+      "module": "Permissions",
+      "feature": "forbidden route",
+      "step": "direct URL /settings/users",
+      "status": "PASS",
+      "detail": "access-denied UI shown (403 API calls: 0)",
+      "url": null,
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J005",
+      "persona": "qa-finance",
+      "module": "Permissions",
+      "feature": "forbidden route",
+      "step": "direct URL /purchasing/purchase-orders",
+      "status": "PASS",
+      "detail": "access-denied UI shown (403 API calls: 0)",
+      "url": null,
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J006",
+      "persona": "qa-sales-manager",
+      "module": "Permissions",
+      "feature": "sidebar",
+      "step": "visible menu items",
+      "status": "PASS",
+      "detail": "login=ui-login; groups=إدارة علاقات العملاء، المبيعات، المنتجات والمخازن، إدارة البيانات; 11 links",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/perm-qa-sales-manager-sidebar.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J007",
+      "persona": "qa-sales-manager",
+      "module": "Permissions",
+      "feature": "forbidden route",
+      "step": "direct URL /finance/journal-entries",
+      "status": "PASS",
+      "detail": "access-denied UI shown (403 API calls: 0)",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/perm-qa-sales-manager-denied-_finance_journal-entries.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J008",
+      "persona": "qa-sales-manager",
+      "module": "Permissions",
+      "feature": "forbidden route",
+      "step": "direct URL /hr/employees",
+      "status": "PASS",
+      "detail": "access-denied UI shown (403 API calls: 0)",
+      "url": null,
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J009",
+      "persona": "qa-sales-manager",
+      "module": "Permissions",
+      "feature": "forbidden route",
+      "step": "direct URL /purchasing/purchase-orders",
+      "status": "PASS",
+      "detail": "access-denied UI shown (403 API calls: 0)",
+      "url": null,
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J010",
+      "persona": "qa-sales-agent",
+      "module": "Permissions",
+      "feature": "sidebar",
+      "step": "visible menu items",
+      "status": "PASS",
+      "detail": "login=ui-login; groups=إدارة علاقات العملاء، المبيعات، المنتجات والمخازن; 11 links",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/perm-qa-sales-agent-sidebar.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J011",
+      "persona": "qa-sales-agent",
+      "module": "Permissions",
+      "feature": "forbidden route",
+      "step": "direct URL /finance/journal-entries",
+      "status": "PASS",
+      "detail": "access-denied UI shown (403 API calls: 0)",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/perm-qa-sales-agent-denied-_finance_journal-entries.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J012",
+      "persona": "qa-sales-agent",
+      "module": "Permissions",
+      "feature": "forbidden route",
+      "step": "direct URL /settings/users",
+      "status": "PASS",
+      "detail": "access-denied UI shown (403 API calls: 0)",
+      "url": null,
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J013",
+      "persona": "qa-sales-agent",
+      "module": "Permissions",
+      "feature": "forbidden route",
+      "step": "direct URL /hr/employees",
+      "status": "PASS",
+      "detail": "access-denied UI shown (403 API calls: 0)",
+      "url": null,
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J014",
+      "persona": "qa-shipping",
+      "module": "Permissions",
+      "feature": "sidebar",
+      "step": "visible menu items",
+      "status": "PASS",
+      "detail": "login=ui-login; groups=المبيعات، الشحن; 6 links",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/perm-qa-shipping-sidebar.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J015",
+      "persona": "qa-shipping",
+      "module": "Permissions",
+      "feature": "forbidden route",
+      "step": "direct URL /sales/invoices",
+      "status": "PASS",
+      "detail": "access-denied UI shown (403 API calls: 0)",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/perm-qa-shipping-denied-_sales_invoices.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J016",
+      "persona": "qa-shipping",
+      "module": "Permissions",
+      "feature": "forbidden route",
+      "step": "direct URL /finance/journal-entries",
+      "status": "PASS",
+      "detail": "access-denied UI shown (403 API calls: 0)",
+      "url": null,
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J017",
+      "persona": "qa-shipping",
+      "module": "Permissions",
+      "feature": "forbidden route",
+      "step": "direct URL /purchasing/purchase-orders",
+      "status": "PASS",
+      "detail": "access-denied UI shown (403 API calls: 0)",
+      "url": null,
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J018",
+      "persona": "qa-purchasing",
+      "module": "Permissions",
+      "feature": "sidebar",
+      "step": "visible menu items",
+      "status": "PASS",
+      "detail": "login=ui-login; groups=المبيعات، المشتريات، المنتجات والمخازن، المالية، التقارير; 37 links",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/perm-qa-purchasing-sidebar.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J019",
+      "persona": "qa-purchasing",
+      "module": "Permissions",
+      "feature": "forbidden route",
+      "step": "direct URL /finance/journal-entries",
+      "status": "PASS",
+      "detail": "access-denied UI shown (403 API calls: 0)",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/perm-qa-purchasing-denied-_finance_journal-entries.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J020",
+      "persona": "qa-purchasing",
+      "module": "Permissions",
+      "feature": "forbidden route",
+      "step": "direct URL /sales/invoices",
+      "status": "PASS",
+      "detail": "access-denied UI shown (403 API calls: 0)",
+      "url": null,
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J021",
+      "persona": "qa-purchasing",
+      "module": "Permissions",
+      "feature": "forbidden route",
+      "step": "direct URL /hr/employees",
+      "status": "PASS",
+      "detail": "access-denied UI shown (403 API calls: 0)",
+      "url": null,
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J022",
+      "persona": "qa-investors",
+      "module": "Permissions",
+      "feature": "sidebar",
+      "step": "visible menu items",
+      "status": "PASS",
+      "detail": "login=ui-login; groups=المبيعات، المنتجات والمخازن، المستثمرون; 9 links",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/perm-qa-investors-sidebar.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J023",
+      "persona": "qa-investors",
+      "module": "Permissions",
+      "feature": "forbidden route",
+      "step": "direct URL /purchasing/purchase-orders",
+      "status": "PASS",
+      "detail": "access-denied UI shown (403 API calls: 0)",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/perm-qa-investors-denied-_purchasing_purchase-orders.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J024",
+      "persona": "qa-investors",
+      "module": "Permissions",
+      "feature": "forbidden route",
+      "step": "direct URL /finance/journal-entries",
+      "status": "PASS",
+      "detail": "access-denied UI shown (403 API calls: 0)",
+      "url": null,
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J025",
+      "persona": "qa-investors",
+      "module": "Permissions",
+      "feature": "forbidden route",
+      "step": "direct URL /hr/employees",
+      "status": "PASS",
+      "detail": "access-denied UI shown (403 API calls: 0)",
+      "url": null,
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J026",
+      "persona": "qa-hr",
+      "module": "Permissions",
+      "feature": "sidebar",
+      "step": "visible menu items",
+      "status": "PASS",
+      "detail": "login=ui-login; groups=الموارد البشرية; 11 links",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/perm-qa-hr-sidebar.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J027",
+      "persona": "qa-hr",
+      "module": "Permissions",
+      "feature": "forbidden route",
+      "step": "direct URL /sales/invoices",
+      "status": "PASS",
+      "detail": "access-denied UI shown (403 API calls: 0)",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/perm-qa-hr-denied-_sales_invoices.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J028",
+      "persona": "qa-hr",
+      "module": "Permissions",
+      "feature": "forbidden route",
+      "step": "direct URL /finance/journal-entries",
+      "status": "PASS",
+      "detail": "access-denied UI shown (403 API calls: 0)",
+      "url": null,
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J029",
+      "persona": "qa-hr",
+      "module": "Permissions",
+      "feature": "forbidden route",
+      "step": "direct URL /investors/list",
+      "status": "PASS",
+      "detail": "access-denied UI shown (403 API calls: 0)",
+      "url": null,
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J030",
+      "persona": "qa-admin",
+      "module": "Dashboard",
+      "feature": "KPIs",
+      "step": "dashboard KPIs load",
+      "status": "PASS",
+      "detail": "numeric values on page=25; 5xx=0; بحث…\n⌘K\nلوحة الأوامر\n\nالبحث في الوحدات والصفحات\n\nQA\nالرئيسية\nلوحة التحكم\n\nمتابعة نشاط النظام ومؤشرات الأداء.\n\nاليوم\nهذا الأسبوع\nهذا الشهر\n31\nليدز جديدة\n0\nتحت ال",
+      "url": "https://oms.haseb.org/",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/admin-dashboard.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J031",
+      "persona": "qa-admin",
+      "module": "Master data",
+      "feature": "product category",
+      "step": "create tagged category",
+      "status": "PASS",
+      "detail": "toast=تم الحفظ; listed=true; apiId=2e126be8-0296-419a-a9a9-d9405f03929e",
+      "url": "https://oms.haseb.org/master-data/categories",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/admin-category-created-list.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J032",
+      "persona": "qa-admin",
+      "module": "Master data",
+      "feature": "warehouses",
+      "step": "view warehouse list",
+      "status": "PASS",
+      "detail": "1 rows; title ok",
+      "url": "https://oms.haseb.org/master-data/warehouses",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/admin-warehouses-list.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J033",
+      "persona": "qa-admin",
+      "module": "Master data",
+      "feature": "product",
+      "step": "create product via wizard (4 steps)",
+      "status": "PASS",
+      "detail": "toast=تم إنشاء المنتج بنجاح.; unit=حبة; reviewHasName=true; successDialog=true; sku=PRD-2026-000025; status=DRAFT; inventoryItem=true",
+      "url": "https://oms.haseb.org/products/1ed0e79f-1774-4574-b0d0-193581f7b90b",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/admin-product-created-success-dialog.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J034",
+      "persona": "qa-admin",
+      "module": "Master data",
+      "feature": "product",
+      "step": "activate product on detail page",
+      "status": "PASS",
+      "detail": "toast=تم تفعيل المنتج.; api status=ACTIVE; sku on page=true",
+      "url": "https://oms.haseb.org/products/1ed0e79f-1774-4574-b0d0-193581f7b90b",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/admin-product-detail-active.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J035",
+      "persona": "qa-admin",
+      "module": "Master data",
+      "feature": "customer",
+      "step": "create tagged customer",
+      "status": "PASS",
+      "detail": "toast=تم الحفظ; listed=true; number=PT-2026-000124",
+      "url": "https://oms.haseb.org/sales/customers/3fffa657-a844-47da-8c07-8e21d028590b",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/admin-customer-created-list.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J036",
+      "persona": "qa-admin",
+      "module": "Master data",
+      "feature": "customer",
+      "step": "open customer detail",
+      "status": "PASS",
+      "detail": "detail shows name",
+      "url": "https://oms.haseb.org/sales/customers/3fffa657-a844-47da-8c07-8e21d028590b",
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J037",
+      "persona": "qa-admin",
+      "module": "Master data",
+      "feature": "supplier",
+      "step": "create tagged supplier",
+      "status": "PASS",
+      "detail": "toast=تم الحفظ; listed=true; number=PT-2026-000125",
+      "url": "https://oms.haseb.org/purchasing/suppliers/3731dfbc-ea02-4fca-bb5c-0f01f4ce3c3e",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/admin-supplier-created-list.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J038",
+      "persona": "qa-admin",
+      "module": "Master data",
+      "feature": "supplier",
+      "step": "open supplier detail",
+      "status": "PASS",
+      "detail": "detail shows name",
+      "url": "https://oms.haseb.org/purchasing/suppliers/3731dfbc-ea02-4fca-bb5c-0f01f4ce3c3e",
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J039",
+      "persona": "qa-admin",
+      "module": "Inventory",
+      "feature": "opening balance",
+      "step": "record opening stock 20 @ 80 for tagged product",
+      "status": "PASS",
+      "detail": "toast=تم تسجيل الرصيد الافتتاحي.; onHand 0→20 ",
+      "url": "https://oms.haseb.org/inventory/movements",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/admin-inventory-opening-dialog.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J040",
+      "persona": "qa-admin",
+      "module": "Inventory",
+      "feature": "adjustment",
+      "step": "increase +2 (reason تصحيح)",
+      "status": "PASS",
+      "detail": "toast=تم تسجيل الحركة.; onHand 20→22",
+      "url": "https://oms.haseb.org/inventory/movements",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/admin-inventory-adjustment-dialog.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J041",
+      "persona": "qa-admin",
+      "module": "Inventory",
+      "feature": "transfer",
+      "step": "open transfer dialog (single-warehouse tenant)",
+      "status": "BLOCKED",
+      "detail": "only 1 active warehouse — a transfer needs a second warehouse and creating one would change live warehouse defaults/pickers; dialog opened OK (source/destination fields present)",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/zz-qa-admin-Inventory-transfer-open_transfer_dialog_single-warehouse_tenant_.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J042",
+      "persona": "qa-admin",
+      "module": "Inventory",
+      "feature": "physical count",
+      "step": "create count for tagged product only, count, confirm",
+      "status": "PASS",
+      "detail": "confirm toast=تم تأكيد الجرد الفعلي.; onHand 22→21 (counted 21)",
+      "url": "https://oms.haseb.org/inventory/physical-count",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/admin-physical-count-confirmed.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J043",
+      "persona": "qa-admin",
+      "module": "Inventory",
+      "feature": "movements list",
+      "step": "filter by product and type",
+      "status": "PASS",
+      "detail": "3 rows; types seen=رصيد افتتاحي,تسوية,جرد; allRowsForProduct=true",
+      "url": "https://oms.haseb.org/inventory/movements",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/admin-movements-filtered-by-product.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J044",
+      "persona": "qa-purchasing",
+      "module": "Inventory",
+      "feature": "stock view",
+      "step": "qa-purchasing sees stock page (inventory.view)",
+      "status": "PASS",
+      "detail": "صيد الفعلي الرصيد الفعلي الكمية الحالية والمحجوزة والتكلفة والقيمة لكل منتج مخزون. طريقة تقييم المخزون إعداد على مستوى النظام. متوسط التكلفة هو الافتراضي — حساب FIFO معماري فقط حال",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/purchasing-inventory-stock.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J045",
+      "persona": "qa-purchasing",
+      "module": "Purchasing",
+      "feature": "purchase quotation",
+      "step": "create (supplier + line) and save",
+      "status": "PASS",
+      "detail": "toast=تم الحفظ; number=PQ-2026-000013",
+      "url": "https://oms.haseb.org/purchasing/purchase-quotations/925b35e6-ffd2-49a7-9f7b-8fc8957a2975",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/purchasing-pq-saved.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J046",
+      "persona": "qa-purchasing",
+      "module": "Purchasing",
+      "feature": "purchase quotation",
+      "step": "approve",
+      "status": "PASS",
+      "detail": "تم اعتماد عرض سعر الشراء.",
+      "url": "https://oms.haseb.org/purchasing/purchase-quotations/925b35e6-ffd2-49a7-9f7b-8fc8957a2975",
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J047",
+      "persona": "qa-purchasing",
+      "module": "Purchasing",
+      "feature": "purchase order",
+      "step": "convert quotation → PO",
+      "status": "PASS",
+      "detail": "تم إنشاء أمر شراء من عرض السعر هذا.; PO-2026-000014",
+      "url": "https://oms.haseb.org/purchasing/purchase-orders/581038da-ec96-4a87-b579-cec3e1671769",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/purchasing-po-from-quotation.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J048",
+      "persona": "qa-purchasing",
+      "module": "Purchasing",
+      "feature": "purchase order",
+      "step": "approve PO (confirm dialog)",
+      "status": "PASS",
+      "detail": "تم اعتماد أمر الشراء.; api status=APPROVED; no inventory/cost side effects expected",
+      "url": "https://oms.haseb.org/purchasing/purchase-orders/581038da-ec96-4a87-b579-cec3e1671769",
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J049",
+      "persona": "qa-purchasing",
+      "module": "Purchasing",
+      "feature": "purchase invoice",
+      "step": "convert PO → invoice (receiving warehouse)",
+      "status": "PASS",
+      "detail": "تم إنشاء فاتورة شراء من أمر الشراء هذا.; PI-2026-000041",
+      "url": "https://oms.haseb.org/purchasing/purchase-invoices/092c2f58-5eeb-4b7c-9ed6-2e0f684a05cf",
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J050",
+      "persona": "qa-purchasing",
+      "module": "Purchasing",
+      "feature": "purchase invoice",
+      "step": "submit invoice for approval (qa-purchasing lacks invoices.approve)",
+      "status": "PASS",
+      "detail": "تم إرسال فاتورة الشراء للاعتماد.",
+      "url": "https://oms.haseb.org/purchasing/purchase-invoices/092c2f58-5eeb-4b7c-9ed6-2e0f684a05cf",
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J051",
+      "persona": "qa-admin",
+      "module": "Purchasing",
+      "feature": "purchase invoice",
+      "step": "approver (admin) confirms/posts the pending invoice — stock received",
+      "status": "PASS",
+      "detail": "تم تأكيد فاتورة الشراء — تم استلام المخزون.; status=CONFIRMED; total=undefined; stock 21→26",
+      "url": "https://oms.haseb.org/purchasing/purchase-invoices/092c2f58-5eeb-4b7c-9ed6-2e0f684a05cf",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/purchasing-pi-confirmed.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J052",
+      "persona": "qa-purchasing",
+      "module": "Purchasing",
+      "feature": "supplier payment",
+      "step": "register payment from invoice and confirm",
+      "status": "PASS",
+      "detail": "تم التأكيد.; SP-2026-000028; deep-link prefilled amount=\"400\"; invoice paymentStatus=PAID remaining=0",
+      "url": "https://oms.haseb.org/purchasing/payments/f84722c6-566e-40f3-a0ae-573edf2d935f",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/purchasing-payment-confirmed.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J053",
+      "persona": "qa-purchasing",
+      "module": "Purchasing",
+      "feature": "purchase return",
+      "step": "create return (1 unit) from invoice",
+      "status": "PASS",
+      "detail": "تم إنشاء مرتجع شراء من هذه الفاتورة.; PR-2026-000013",
+      "url": "https://oms.haseb.org/purchasing/purchase-returns/6dc28ffe-2a45-4f0d-8403-fb0f38316655",
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J054",
+      "persona": "qa-purchasing",
+      "module": "Purchasing",
+      "feature": "purchase return",
+      "step": "submit → approve → confirm (stock reduced)",
+      "status": "PASS",
+      "detail": "qa-purchasing إرسال للاعتماد: تم إرسال مرتجع الشراء للاعتماد. | qa-admin ^اعتماد$: تم اعتماد مرتجع الشراء. | qa-purchasing ^تأكيد$: تم تأكيد مرتجع الشراء — تم تخفيض المخزون. | final=CONFIRMED; status=CONFIRMED; stock 26→25",
+      "url": "https://oms.haseb.org/purchasing/purchase-returns/6dc28ffe-2a45-4f0d-8403-fb0f38316655",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/purchasing-return-confirmed.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J055",
+      "persona": "qa-purchasing",
+      "module": "Purchasing",
+      "feature": "landed cost",
+      "step": "list view (qa-purchasing has landed-cost.view only)",
+      "status": "PASS",
+      "detail": "list rendered; create button visible=false (expected false: no landed-cost.create)",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/purchasing-landed-cost-list.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J056",
+      "persona": "qa-admin",
+      "module": "Purchasing",
+      "feature": "landed cost",
+      "step": "admin: create tagged landed cost on tagged invoice, approve, post",
+      "status": "PASS",
+      "detail": "saved=no toast; تم اعتماد التكاليف المرحلة — تم تثبيت التوزيع. | تم ترحيل التكاليف المرحلة — تمت رسملتها ضمن المخزون.; LC-2026-000002",
+      "url": "https://oms.haseb.org/purchasing/landed-cost/ad1c207a-229e-4039-b822-204c2782d9fd",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/admin-landed-cost-posted.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J057",
+      "persona": "qa-sales-agent",
+      "module": "CRM",
+      "feature": "lead",
+      "step": "create lead from list dialog (name, country, phone)",
+      "status": "PASS",
+      "detail": "تم إضافة العميل; LD-2026-000087; auto-distributed to=none; creator still sees it=false",
+      "url": "https://oms.haseb.org/crm/leads/c1bbdb52-66c6-42d8-bc94-c369a53ce003",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/agent-lead-created-list.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J058",
+      "persona": "qa-sales-manager",
+      "module": "CRM",
+      "feature": "lead",
+      "step": "manager assigns/transfers lead to an employee",
+      "status": "PASS",
+      "detail": "تم إسناد الليد.; unassigned → QA Sales Agent (picked \"QA Sales Agent\nqa-sales-agent@oms.haseb.org\")",
+      "url": "https://oms.haseb.org/crm/leads/c1bbdb52-66c6-42d8-bc94-c369a53ce003",
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J059",
+      "persona": "qa-sales-agent",
+      "module": "CRM",
+      "feature": "lead",
+      "step": "convert lead → store order (COD, shipping)",
+      "status": "PASS",
+      "detail": "تم إنشاء الطلب STO-2026-000100; order=STO-2026-000100; lead status=CONVERTED",
+      "url": "https://oms.haseb.org/store-orders/ff9b30e4-dc8b-4fbe-9c56-dc2c2f7e8c81",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/agent-store-order-from-lead.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J060",
+      "persona": "qa-sales-agent",
+      "module": "Sales",
+      "feature": "quotation",
+      "step": "create quotation (customer, 2 × 150) and save",
+      "status": "PASS",
+      "detail": "تم الحفظ; QT-2026-000022",
+      "url": "https://oms.haseb.org/sales/quotations/fd52fcb1-25db-4382-b1d4-f618a83ef0cc",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/agent-quotation-saved.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J061",
+      "persona": "qa-sales-agent",
+      "module": "Sales",
+      "feature": "quotation",
+      "step": "approve quotation",
+      "status": "PASS",
+      "detail": "تم اعتماد عرض السعر.; status=APPROVED",
+      "url": "https://oms.haseb.org/sales/quotations/fd52fcb1-25db-4382-b1d4-f618a83ef0cc",
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J062",
+      "persona": "qa-sales-agent",
+      "module": "Sales",
+      "feature": "sales order",
+      "step": "convert quotation → sales order",
+      "status": "PASS",
+      "detail": "تم إنشاء أمر بيع من عرض السعر هذا.; SO-2026-000019",
+      "url": "https://oms.haseb.org/sales/orders/249cbd15-a0ac-4837-b70b-c8e3ca879a5c",
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J063",
+      "persona": "qa-sales-agent",
+      "module": "Sales",
+      "feature": "sales order",
+      "step": "confirm order (reserve stock)",
+      "status": "PASS",
+      "detail": "qa-sales-agent ^تأكيد$: تم تأكيد أمر البيع — تم حجز المخزون. | final=CONFIRMED",
+      "url": "https://oms.haseb.org/sales/orders/249cbd15-a0ac-4837-b70b-c8e3ca879a5c",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/agent-sales-order-confirmed.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J064",
+      "persona": "qa-sales-agent",
+      "module": "Sales",
+      "feature": "sales invoice",
+      "step": "convert order → invoice",
+      "status": "PASS",
+      "detail": "تم إنشاء فاتورة بيع من أمر البيع هذا.; INV-2026-000078",
+      "url": "https://oms.haseb.org/sales/invoices/7fef2441-48c3-45b6-b80a-b4a7fe37c4a4",
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J065",
+      "persona": "qa-sales-agent",
+      "module": "Sales",
+      "feature": "sales invoice",
+      "step": "confirm/post invoice (stock delivered)",
+      "status": "PASS",
+      "detail": "qa-sales-agent ^تأكيد$: تم تأكيد الفاتورة — تم تسليم المخزون. | final=CONFIRMED; total=300; stock 25→23",
+      "url": "https://oms.haseb.org/sales/invoices/7fef2441-48c3-45b6-b80a-b4a7fe37c4a4",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/agent-sales-invoice-confirmed.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J066",
+      "persona": "qa-finance",
+      "module": "Sales",
+      "feature": "customer receipt",
+      "step": "finance: new receipt, allocate to invoice, confirm",
+      "status": "PASS",
+      "detail": "تم التأكيد.; CR-2026-000057; invoice paymentStatus=PAID",
+      "url": "https://oms.haseb.org/sales/payments/1d79146b-cfd4-485f-b352-37fa71b62c21",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/finance-receipt-confirmed.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J067",
+      "persona": "qa-admin",
+      "module": "Sales",
+      "feature": "customer receipt",
+      "step": "admin: receive payment from invoice (استلام دفعة deep link) — fallback so the dataset stays coherent",
+      "status": "PASS",
+      "detail": "invoice already paid by finance receipt — fallback not needed",
+      "url": null,
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J068",
+      "persona": "qa-sales-agent",
+      "module": "Sales",
+      "feature": "sales return",
+      "step": "create return (1 unit) from invoice",
+      "status": "PASS",
+      "detail": "تم إنشاء مرتجع بيع من هذه الفاتورة.; SR-2026-000023",
+      "url": "https://oms.haseb.org/sales/returns/ee086a45-1f74-4078-af38-bd78880cd739",
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J069",
+      "persona": "qa-sales-agent",
+      "module": "Sales",
+      "feature": "sales return",
+      "step": "submit → approve → confirm (stock back)",
+      "status": "PASS",
+      "detail": "qa-sales-agent إرسال للاعتماد: تم إرسال المرتجع للاعتماد. | qa-sales-agent ^اعتماد$: تم اعتماد المرتجع. | qa-sales-agent ^تأكيد$: تم تأكيد المرتجع — تمت زيادة المخزون. | final=CONFIRMED; stock 23→24",
+      "url": "https://oms.haseb.org/sales/returns/ee086a45-1f74-4078-af38-bd78880cd739",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/agent-sales-return-confirmed.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J070",
+      "persona": "qa-finance",
+      "module": "Sales",
+      "feature": "customer refund",
+      "step": "finance: refund the return (رد المبلغ) and confirm",
+      "status": "PASS",
+      "detail": "تم تأكيد وترحيل رد المبلغ CRF-2026-000007.; refundable 150→0",
+      "url": "https://oms.haseb.org/sales/returns/ee086a45-1f74-4078-af38-bd78880cd739",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/finance-refund-confirmed.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J071",
+      "persona": "qa-sales-agent",
+      "module": "Store orders",
+      "feature": "create",
+      "step": "create prepaid store order (EGP, 1 × 150) via dialog",
+      "status": "PASS",
+      "detail": "تم إنشاء طلب المتجر.; STO-2026-000101; total=undefined EGP",
+      "url": "https://oms.haseb.org/store-orders/504da18f-aa35-4cbd-81c3-89147ae01420",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/agent-store-order-created.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J072",
+      "persona": "qa-sales-agent",
+      "module": "Store orders",
+      "feature": "payment",
+      "step": "report payment on order (إضافة دفعة)",
+      "status": "PASS",
+      "detail": "تمت إضافة الدفعة.; paymentStatus=PAYMENT_PENDING",
+      "url": "https://oms.haseb.org/store-orders/504da18f-aa35-4cbd-81c3-89147ae01420",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/agent-store-order-payment-reported.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J073",
+      "persona": "qa-finance",
+      "module": "Store orders",
+      "feature": "payment review",
+      "step": "finance confirms & posts the reported payment",
+      "status": "PASS",
+      "detail": "تم تأكيد PAY-2026-000052 — تم ترحيل سند القبض CR-2026-000058 وقيد اليومية JV-2026-000334.; order paymentStatus=FULLY_PAID_RECONCILED",
+      "url": "https://oms.haseb.org/finance/payment-review",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/finance-payment-review-confirmed.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J074",
+      "persona": "qa-finance",
+      "module": "Store orders",
+      "feature": "invoice",
+      "step": "finance issues invoice for fully-paid order (إصدار فاتورة)",
+      "status": "PASS",
+      "detail": "تم إصدار الفاتورة.; invoice=INV-2026-000079; paymentStatus=FULLY_PAID_RECONCILED",
+      "url": "https://oms.haseb.org/store-orders/504da18f-aa35-4cbd-81c3-89147ae01420",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/finance-store-order-invoiced.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J075",
+      "persona": "qa-sales-agent",
+      "module": "Store orders",
+      "feature": "needs review",
+      "step": "needs-review list renders",
+      "status": "PASS",
+      "detail": "لمبيعات يحتاج مراجعة يحتاج مراجعة صفوف تمت فيها مطابقة عميل موجود برقم الهاتف — أكّد لربط الطلب بهذا العميل، أو ارفض لتجاهل الصف. لا توجد عمليات استيراد لطلبات المتجر بعد.",
+      "url": "https://oms.haseb.org/store-orders/needs-review",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/agent-store-orders-needs-review.png",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 ()",
+        "[api-client] 403 PERMISSION_ERROR on /import-center/jobs?importType=STORE_ORDERS: Missing permission \"import-center.view\". undefined"
+      ],
+      "failedApi": [
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/import-center/jobs?importType=STORE_ORDERS",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"import-center.view\\\".\"}"
+        }
+      ]
+    },
+    {
+      "id": "J076",
+      "persona": "qa-shipping",
+      "module": "Shipping",
+      "feature": "list",
+      "step": "shipping list renders",
+      "status": "PASS",
+      "detail": "لشحن الشحن كل شحنة عبر جميع طلبات المتجر — تتبع، تحديث الحالة، وتحديث جماعي في قائمة واحدة. الحالة شركة الشحن الدولة المصدر رقم التتبع المرفقات اختر نطاق التاري",
+      "url": "https://oms.haseb.org/shipping",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/shipping-list.png",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 ()",
+        "Failed to load resource: the server responded with a status of 403 ()",
+        "Failed to load resource: the server responded with a status of 403 ()",
+        "Failed to load resource: the server responded with a status of 403 ()",
+        "Failed to load resource: the server responded with a status of 403 ()"
+      ],
+      "failedApi": [
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=97eac9e8-906c-4e15-9679-0c8606352bc7&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        },
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=67b33702-43eb-4352-b63b-4ba594ae602c&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        },
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=1557f8b8-184a-4396-96b4-443416ecc4e2&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        },
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=2c02c0c1-3a31-455d-8237-62f28d1f57b9&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        },
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=ad89534b-e437-47d2-9781-8e9c8dff4f33&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        },
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=e6d8de64-bba0-4b8d-b8ef-5ecb36dab6c1&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        }
+      ]
+    },
+    {
+      "id": "J077",
+      "persona": "qa-shipping",
+      "module": "Shipping",
+      "feature": "prepare",
+      "step": "STO-2026-000101: qa-shipping can start a shipment?",
+      "status": "BLOCKED",
+      "detail": "qa-shipping cannot create a shipment: row selection/bulk \"تغيير حالة الشحن\" requires shipping.manage (store-orders/page.tsx:70), persona has shipping.view/edit only (ensure-qa-users.ts qa-shipping); row menu offers only [عرض]; /shipping lists only existing shipments",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/zz-qa-shipping-Shipping-prepare-STO-2026-000101_qa-shipping_can_start_a_shipment_.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J078",
+      "persona": "qa-admin",
+      "module": "Shipping",
+      "feature": "prepare",
+      "step": "STO-2026-000101: admin bulk \"تغيير حالة الشحن\" → جاهز للشحن (creates shipment)",
+      "status": "PASS",
+      "detail": "تم تحديث 1 طلبًا بنجاح; shipments=1 status=null",
+      "url": "https://oms.haseb.org/store-orders/504da18f-aa35-4cbd-81c3-89147ae01420",
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J079",
+      "persona": "qa-shipping",
+      "module": "Shipping",
+      "feature": "ship",
+      "step": "STO-2026-000101: manage shipment → تم الشحن + tracking + cost",
+      "status": "PASS",
+      "detail": "inline quick-edit (persona has no \"إدارة الشحنة\"): shipment status=تم الشحن; tracking=-; shipping cost not editable inline for this persona",
+      "url": "https://oms.haseb.org/store-orders/504da18f-aa35-4cbd-81c3-89147ae01420",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/shipping-ship-inline-STO-2026-000101.png",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 ()",
+        "Failed to load resource: the server responded with a status of 403 ()",
+        "Failed to load resource: the server responded with a status of 403 ()",
+        "Failed to load resource: the server responded with a status of 403 ()",
+        "Failed to load resource: the server responded with a status of 403 ()"
+      ],
+      "failedApi": [
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=67b33702-43eb-4352-b63b-4ba594ae602c&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        },
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=01b89726-3466-4cde-8fa5-8b0fe4e093d6&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        },
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=ad89534b-e437-47d2-9781-8e9c8dff4f33&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        },
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=2c02c0c1-3a31-455d-8237-62f28d1f57b9&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        },
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=5b9228a4-f59e-4380-8890-bf0886e28738&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        },
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=c50b54bd-759a-427a-9bce-06058dd5b758&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        }
+      ]
+    },
+    {
+      "id": "J080",
+      "persona": "qa-shipping",
+      "module": "Shipping",
+      "feature": "deliver",
+      "step": "STO-2026-000101: manage shipment → تم التسليم",
+      "status": "PASS",
+      "detail": "inline quick-edit (persona has no \"إدارة الشحنة\"): shipment status=تم التسليم; tracking=-; shipping cost not editable inline for this persona",
+      "url": "https://oms.haseb.org/store-orders/504da18f-aa35-4cbd-81c3-89147ae01420",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/shipping-deliver-inline-STO-2026-000101.png",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 ()",
+        "Failed to load resource: the server responded with a status of 403 ()",
+        "Failed to load resource: the server responded with a status of 403 ()",
+        "Failed to load resource: the server responded with a status of 403 ()",
+        "Failed to load resource: the server responded with a status of 403 ()"
+      ],
+      "failedApi": [
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=19909488-4cf1-4355-aba7-95c3b974e0cb&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        },
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=67b33702-43eb-4352-b63b-4ba594ae602c&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        },
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=834d1621-9c40-46e7-8788-ed24002dfffc&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        },
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=e6d8de64-bba0-4b8d-b8ef-5ecb36dab6c1&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        },
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=1672161f-0842-4ea7-bc70-f8689fde91d0&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        },
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=2e535d5d-127e-4a5f-b5d0-89ceb73e5995&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        }
+      ]
+    },
+    {
+      "id": "J081",
+      "persona": "qa-shipping",
+      "module": "Shipping",
+      "feature": "prepare",
+      "step": "STO-2026-000100: qa-shipping can start a shipment?",
+      "status": "BLOCKED",
+      "detail": "qa-shipping cannot create a shipment: row selection/bulk \"تغيير حالة الشحن\" requires shipping.manage (store-orders/page.tsx:70), persona has shipping.view/edit only (ensure-qa-users.ts qa-shipping); row menu offers only [عرض]; /shipping lists only existing shipments",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/zz-qa-shipping-Shipping-prepare-STO-2026-000100_qa-shipping_can_start_a_shipment_.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J082",
+      "persona": "qa-admin",
+      "module": "Shipping",
+      "feature": "prepare",
+      "step": "STO-2026-000100: admin bulk \"تغيير حالة الشحن\" → جاهز للشحن (creates shipment)",
+      "status": "PASS",
+      "detail": "تم تحديث 1 طلبًا بنجاح; shipments=1 status=null",
+      "url": "https://oms.haseb.org/store-orders/ff9b30e4-dc8b-4fbe-9c56-dc2c2f7e8c81",
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J083",
+      "persona": "qa-shipping",
+      "module": "Shipping",
+      "feature": "ship",
+      "step": "STO-2026-000100: manage shipment → تم الشحن + tracking + cost",
+      "status": "PASS",
+      "detail": "inline quick-edit (persona has no \"إدارة الشحنة\"): shipment status=تم الشحن; tracking=-; shipping cost not editable inline for this persona",
+      "url": "https://oms.haseb.org/store-orders/ff9b30e4-dc8b-4fbe-9c56-dc2c2f7e8c81",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/shipping-ship-inline-STO-2026-000100.png",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 ()",
+        "Failed to load resource: the server responded with a status of 403 ()",
+        "Failed to load resource: the server responded with a status of 403 ()",
+        "[api-client] 403 PERMISSION_ERROR on /journal-entries?sourceType=SHIPMENT_COST&sourceId=ad89534b-e437-47d2-9781-8e9c8dff4f33&status=POSTED&pageSize=5: Missing permission \"accounting.journal-entries.view\". undefined",
+        "Failed to load resource: the server responded with a status of 403 ()"
+      ],
+      "failedApi": [
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=ad89534b-e437-47d2-9781-8e9c8dff4f33&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        },
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=9d9b8538-850c-4bc1-864e-65b8ccec2e6e&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        },
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=2c02c0c1-3a31-455d-8237-62f28d1f57b9&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        },
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=c1634cf7-074c-46da-8004-c9c8a0401e75&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        },
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=1672161f-0842-4ea7-bc70-f8689fde91d0&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        },
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=5218a5f8-2bb5-40f9-b48f-4c7532f71e7e&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        }
+      ]
+    },
+    {
+      "id": "J084",
+      "persona": "qa-shipping",
+      "module": "Shipping",
+      "feature": "deliver",
+      "step": "STO-2026-000100: manage shipment → تم التسليم",
+      "status": "PASS",
+      "detail": "inline quick-edit (persona has no \"إدارة الشحنة\"): shipment status=تم التسليم; tracking=-; shipping cost not editable inline for this persona",
+      "url": "https://oms.haseb.org/store-orders/ff9b30e4-dc8b-4fbe-9c56-dc2c2f7e8c81",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/shipping-deliver-inline-STO-2026-000100.png",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 ()",
+        "Failed to load resource: the server responded with a status of 403 ()",
+        "Failed to load resource: the server responded with a status of 403 ()",
+        "Failed to load resource: the server responded with a status of 403 ()",
+        "[api-client] 403 PERMISSION_ERROR on /journal-entries?sourceType=SHIPMENT_COST&sourceId=67b33702-43eb-4352-b63b-4ba594ae602c&status=POSTED&pageSize=5: Missing permission \"accounting.journal-entries.view\". undefined"
+      ],
+      "failedApi": [
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=67b33702-43eb-4352-b63b-4ba594ae602c&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        },
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=19978efa-0227-4916-8d63-831acec9aa91&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        },
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=c50b54bd-759a-427a-9bce-06058dd5b758&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        },
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=1557f8b8-184a-4396-96b4-443416ecc4e2&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        },
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=2e535d5d-127e-4a5f-b5d0-89ceb73e5995&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        },
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/journal-entries?sourceType=SHIPMENT_COST&sourceId=17727822-1de2-411b-8b31-5c16f5d4a15f&status=POSTED&pageSize=5",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"accounting.journal-entries.view\\\".\"}"
+        }
+      ]
+    },
+    {
+      "id": "J085",
+      "persona": "qa-finance",
+      "module": "Finance",
+      "feature": "journal entry",
+      "step": "qa-finance: create button hidden (journal-entries.view only)",
+      "status": "PASS",
+      "detail": "list visible, create hidden as expected",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/finance-journal-entries-list.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J086",
+      "persona": "qa-admin",
+      "module": "Finance",
+      "feature": "journal entry",
+      "step": "admin: create manual JE (GJ, 552 Dr 10 / 431 Cr 10) and save draft",
+      "status": "PASS",
+      "detail": "تم الحفظ; JV-2026-000336; balanced indicator=true",
+      "url": "https://oms.haseb.org/finance/journal-entries/dbd3ba72-b928-4216-830c-4df5b973571a",
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J087",
+      "persona": "qa-admin",
+      "module": "Finance",
+      "feature": "journal entry",
+      "step": "post JE (confirm dialog) → مرحّل",
+      "status": "PASS",
+      "detail": "تم ترحيل القيد.; status=POSTED; lines=2",
+      "url": "https://oms.haseb.org/finance/journal-entries/dbd3ba72-b928-4216-830c-4df5b973571a",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/admin-je-posted.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J088",
+      "persona": "qa-finance",
+      "module": "Finance",
+      "feature": "chart of accounts",
+      "step": "search by code/name",
+      "status": "PASS",
+      "detail": "552 مصروفات متنوعة found",
+      "url": "https://oms.haseb.org/finance/chart-of-accounts",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/finance-coa-search.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J089",
+      "persona": "qa-finance",
+      "module": "Finance",
+      "feature": "bank transactions",
+      "step": "view",
+      "status": "PASS",
+      "detail": "rows=0; لمالية العمليات المالية التدفق النقدي البوابة المالية بين الحسابات البنكية/النقدية وطلبات المتجر وفواتير مبيعات B2B وفواتير الشراء والمصاريف",
+      "url": "https://oms.haseb.org/finance/bank-transactions",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/finance-bank-transactions.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J090",
+      "persona": "qa-finance",
+      "module": "Finance",
+      "feature": "exchange rates",
+      "step": "view",
+      "status": "PASS",
+      "detail": "rows=7; لمالية أسعار الصرف والعملات أسعار الصرف وإعادة التقييم أسعار الصرف لقطات تاريخية. إعادة التقييم في نهاية الفترة ترحّل فروقات غير محققة وتعكس",
+      "url": "https://oms.haseb.org/finance/exchange-rates",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/finance-exchange-rates.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J091",
+      "persona": "qa-finance",
+      "module": "Finance",
+      "feature": "fiscal periods",
+      "step": "view",
+      "status": "PASS",
+      "detail": "rows=2; لمالية السنوات والفترات المالية السنوات والفترات المالية فتح وإغلاق الفترات المحاسبية — لا يمكن ترحيل أي مستند إلى فترة مغلقة أو مقفلة. سنة ",
+      "url": "https://oms.haseb.org/finance/fiscal-periods",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/finance-fiscal-periods.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J092",
+      "persona": "qa-finance",
+      "module": "Reports",
+      "feature": "trial balance",
+      "step": "date range (this month) → balanced + totals",
+      "status": "PASS",
+      "detail": "balanced=true; totals row=true",
+      "url": "https://oms.haseb.org/reports/finance?report=trialBalance",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/finance-trial-balance-this-month.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J093",
+      "persona": "qa-finance",
+      "module": "Reports",
+      "feature": "trial balance",
+      "step": "export CSV (download fires)",
+      "status": "PASS",
+      "detail": "download trial-balance.csv",
+      "url": null,
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J094",
+      "persona": "qa-finance",
+      "module": "Reports",
+      "feature": "trial balance",
+      "step": "print opens print layout in new tab",
+      "status": "PASS",
+      "detail": "print tab has table; OM OMS — Operations Management System ميزان المراجعة طُبع بواسطة: QA Finance تاريخ الطباعة: 27 Sep 2026 — 00:21 الفترة: 01 Sep 2026 – 27 Sep 2026 رمز الحساب اسم",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/finance-trial-balance-print.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J095",
+      "persona": "qa-finance",
+      "module": "Reports",
+      "feature": "general ledger",
+      "step": "filter account 552 → tagged JE listed",
+      "status": "PASS",
+      "detail": "JE JV-2026-000336 listed=true; totals row",
+      "url": "https://oms.haseb.org/reports/finance?report=generalLedger",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/finance-gl-552.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J096",
+      "persona": "qa-finance",
+      "module": "Reports",
+      "feature": "customer statement",
+      "step": "pick tagged customer → movements + closing balance",
+      "status": "PASS",
+      "detail": "الرصيد الختامي 0.00 الوصف التاريخ اليومية رقم القيد ال",
+      "url": "https://oms.haseb.org/reports/finance?report=customerStatement&partner=3fffa657-a844-47da-8c07-8e21d028590b",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/finance-customer-statement.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J097",
+      "persona": "qa-admin",
+      "module": "Reports",
+      "feature": "customer statement",
+      "step": "admin: tagged customer statement (partner deep link)",
+      "status": "PASS",
+      "detail": "الرصيد الختامي 0.00 الوصف التاريخ اليومية رقم القيد ال",
+      "url": "https://oms.haseb.org/reports/finance?report=customerStatement&partner=3fffa657-a844-47da-8c07-8e21d028590b",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/admin-customer-statement.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J098",
+      "persona": "qa-finance",
+      "module": "Reports",
+      "feature": "inventory report",
+      "step": "view /reports/inventory (finance has no inventory.view)",
+      "status": "PASS",
+      "detail": "access denied (expected: no inventory perms)",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/finance-inventory-report.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J099",
+      "persona": "qa-admin",
+      "module": "Reports",
+      "feature": "inventory report",
+      "step": "admin: current balance tab, filter tagged product",
+      "status": "PASS",
+      "detail": " الرمز الاسم الكمية المتوفرة المحجوز المتاح PRD-2026-000025 DEMO-AUDIT-20260927-FINAL منتج تدقيق 73149 23 0 23",
+      "url": "https://oms.haseb.org/reports/inventory",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/admin-inventory-report-current.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J100",
+      "persona": "qa-finance",
+      "module": "Expenses",
+      "feature": "cost explorer",
+      "step": "qa-finance: not in menu → direct URL denied",
+      "status": "PASS",
+      "detail": "access denied (persona lacks cost-explorer.view; item not in its sidebar)",
+      "url": null,
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J101",
+      "persona": "qa-admin",
+      "module": "Expenses",
+      "feature": "cost explorer",
+      "step": "admin: product tab for tagged product → cost breakdown",
+      "status": "PASS",
+      "detail": "لتكاليف مستكشف التكاليف مستكشف التكاليف سجل تكلفة كل منتج — كل تغيير في تكلفة مخزون المنتج، وسببه. المنتج الطلب تحليل الربحية قائمة الأرباح والخسائر الإدارية DEMO-AUDIT-20260927-FINAL منتج تدقيق 73149",
+      "url": "https://oms.haseb.org/expenses/cost-explorer?productId=1ed0e79f-1774-4574-b0d0-193581f7b90b",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/finance-cost-explorer-product.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J102",
+      "persona": "qa-finance",
+      "module": "Expenses",
+      "feature": "product cost",
+      "step": "view product cost page for tagged product",
+      "status": "PASS",
+      "detail": "لتكاليف تكلفة المنتج تكلفة المنتج التكلفة الحالية لمخزون كل منتج — للقراءة فقط، مصدرها محرك التقييم. DEMO-AUDIT-20260927-FINAL منتج تدقيق 73149 عرض سجل التكلفة الكامل",
+      "url": "https://oms.haseb.org/expenses/product-cost",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/finance-product-cost.png",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 ()",
+        "[api-client] 403 PERMISSION_ERROR on /inventory/stock-card/1ed0e79f-1774-4574-b0d0-193581f7b90b: Missing permission \"inventory.view\". undefined"
+      ],
+      "failedApi": [
+        {
+          "method": "GET",
+          "status": 403,
+          "url": "/inventory/stock-card/1ed0e79f-1774-4574-b0d0-193581f7b90b",
+          "body": "{\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"inventory.view\\\".\"}"
+        }
+      ]
+    },
+    {
+      "id": "J103",
+      "persona": "qa-admin",
+      "module": "Expenses",
+      "feature": "product cost",
+      "step": "view product cost page for tagged product",
+      "status": "PASS",
+      "detail": "لتكاليف تكلفة المنتج تكلفة المنتج التكلفة الحالية لمخزون كل منتج — للقراءة فقط، مصدرها محرك التقييم. DEMO-AUDIT-20260927-FINAL منتج تدقيق 73149 تسجيل تكلفة متوسط التكلفة ٨١٫٠٠ الرصيد المتاح 23 قيمة ال",
+      "url": "https://oms.haseb.org/expenses/product-cost",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/finance-product-cost.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J104",
+      "persona": "qa-finance",
+      "module": "Expenses",
+      "feature": "cost components",
+      "step": "qa-finance without cost-components.view: menu hidden, direct URL denied",
+      "status": "PASS",
+      "detail": "accessDenied=true; menuItemVisible=false",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/finance-cost-components.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J105",
+      "persona": "qa-admin",
+      "module": "Expenses",
+      "feature": "cost components",
+      "step": "admin: catalogue has the seeded components (ADR-0014)",
+      "status": "PASS",
+      "detail": "UI rows=9; GET /cost-components total=9 — expected seeded PRODUCT_COST/PRINTING/PACKAGING/... (also blocks landed cost lines)",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/admin-cost-components-empty.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J106",
+      "persona": "qa-hr",
+      "module": "HR",
+      "feature": "departments",
+      "step": "qa-hr opens departments (master data)",
+      "status": "PASS",
+      "detail": "departments.view=false; accessDenied=true; create button=false",
+      "url": null,
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J107",
+      "persona": "qa-admin",
+      "module": "HR",
+      "feature": "departments",
+      "step": "admin creates tagged department",
+      "status": "PASS",
+      "detail": "تم الحفظ; listed=true",
+      "url": "https://oms.haseb.org/master-data/departments",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/admin-department-created.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J108",
+      "persona": "qa-hr",
+      "module": "HR",
+      "feature": "employees",
+      "step": "create employee via 4-step wizard (no login account)",
+      "status": "PASS",
+      "detail": "تم إضافة الموظف",
+      "url": "https://oms.haseb.org/hr/employees/054697a5-ad93-411d-8ec6-42e8af6ee14c",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/hr-employee-created.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J109",
+      "persona": "qa-hr",
+      "module": "HR",
+      "feature": "commission plans",
+      "step": "create commission plan (flat 2%)",
+      "status": "PASS",
+      "detail": "تم حفظ خطة العمولة",
+      "url": "https://oms.haseb.org/hr/commission-plans/9a8134f6-9c00-4a6c-85fa-b13c336f87b9",
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J110",
+      "persona": "qa-hr",
+      "module": "HR",
+      "feature": "KPI templates",
+      "step": "create KPI template (1 criterion, weight 100)",
+      "status": "PASS",
+      "detail": "تم حفظ القالب",
+      "url": "https://oms.haseb.org/hr/kpi-templates/e90bc8b8-aed1-4894-9061-cef97c13bd64",
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J111",
+      "persona": "qa-hr",
+      "module": "HR",
+      "feature": "KPI evaluations",
+      "step": "negative: start evaluation before any template is assigned → clear (Arabic) error",
+      "status": "PASS",
+      "detail": "blocked with: \"لا يوجد قالب مؤشرات أداء مُسند لهذا الموظف (على مستوى الموظف أو المسمى الوظيفي أو القسم) — No KPI Template is assigned to this employee (by Employee override, Job Title, or Department).\"",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/hr-kpi-evaluation-no-template-error.png",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 400 ()",
+        "[api-client] 400 VALIDATION_ERROR on /kpi-evaluations: لا يوجد قالب مؤشرات أداء مُسند لهذا الموظف (على مستوى الموظف أو المسمى الوظيفي أو القسم) — No KPI Template is assigned to this employee (by Employee override, Job Title, or Department). undefined"
+      ],
+      "failedApi": [
+        {
+          "method": "POST",
+          "status": 400,
+          "url": "/kpi-evaluations",
+          "body": "{\"code\":\"VALIDATION_ERROR\",\"message\":\"لا يوجد قالب مؤشرات أداء مُسند لهذا الموظف (على مستوى الموظف أو المسمى الوظيفي أو القسم) — No KPI Template is assigned to this employee (by Employee override, Job Title, or Department).\"}"
+        }
+      ]
+    },
+    {
+      "id": "J112",
+      "persona": "qa-hr",
+      "module": "HR",
+      "feature": "KPI templates",
+      "step": "assign template to the tagged employee (التعيينات)",
+      "status": "PASS",
+      "detail": "تم إضافة التعيين; assignment listed=true",
+      "url": "https://oms.haseb.org/hr/kpi-templates/e90bc8b8-aed1-4894-9061-cef97c13bd64",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/hr-kpi-template-assigned.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J113",
+      "persona": "qa-hr",
+      "module": "HR",
+      "feature": "sales targets",
+      "step": "create monthly target for tagged employee",
+      "status": "PASS",
+      "detail": "تم حفظ التارجت",
+      "url": "https://oms.haseb.org/hr/sales-targets",
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J114",
+      "persona": "qa-hr",
+      "module": "HR",
+      "feature": "KPI evaluations",
+      "step": "start evaluation for tagged employee",
+      "status": "PASS",
+      "detail": "تم بدء التقييم",
+      "url": "https://oms.haseb.org/hr/kpi-evaluations/40b4b090-dc15-408e-921c-c115e5a8f080",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/hr-kpi-evaluation-started.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J115",
+      "persona": "qa-hr",
+      "module": "HR",
+      "feature": "ranking",
+      "step": "view",
+      "status": "PASS",
+      "detail": "لموارد البشرية لوحة الترتيب لوحة الترتيب ترتيب المبيعات المحقق مقابل المستهدف للفترة المحددة. Sep 2026 المبيعات المحصّلة الأعمدة الترتيب الموظف قيمة المستهدف ال",
+      "url": "https://oms.haseb.org/hr/ranking",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/hr-ranking.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J116",
+      "persona": "qa-hr",
+      "module": "HR",
+      "feature": "commissions",
+      "step": "view",
+      "status": "PASS",
+      "detail": "لموارد البشرية العمولات العمولات العمولات المحتسبة شهريًا وفق خطة كل موظف المُعيّنة. احتساب عمولة Sep 2026 الموظف الحالة الأعمدة الموظف الفترة الخطة أساس الاحتس",
+      "url": "https://oms.haseb.org/hr/commissions",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/hr-commissions.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J117",
+      "persona": "qa-hr",
+      "module": "HR",
+      "feature": "payroll",
+      "step": "view",
+      "status": "PASS",
+      "detail": "لموارد البشرية مسيرات الرواتب مسيرات الرواتب مسير الرواتب الشهري — يجمع الراتب الأساسي والبدلات ومكافأة الأداء والعمولة المعتمدة. مسير جديد الأعمدة الفترة الحال",
+      "url": "https://oms.haseb.org/hr/payroll",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/hr-payroll.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J118",
+      "persona": "qa-hr",
+      "module": "HR",
+      "feature": "payroll components",
+      "step": "view",
+      "status": "PASS",
+      "detail": "لموارد البشرية بنود الرواتب بنود الرواتب الكتالوج الديناميكي لبنود الراتب — بدلات واستقطاعات تُستخدم في التعويضات والمسير. إضافة جديد إظهار المؤرشف الأعمدة الاس",
+      "url": "https://oms.haseb.org/hr/payroll-components",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/hr-payroll-components.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J119",
+      "persona": "qa-hr",
+      "module": "HR",
+      "feature": "my profile",
+      "step": "view",
+      "status": "PASS",
+      "detail": "لموارد البشرية ملفي الشخصي لا يوجد سجل موظف مرتبط حساب المستخدم الخاص بك غير مرتبط بسجل موظف بعد. اطلب من الموارد البشرية ربطه لعرض ملفك وترتيب مبيعاتك.",
+      "url": "https://oms.haseb.org/hr/my-profile",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/hr-my-profile.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J120",
+      "persona": "qa-investors",
+      "module": "Investors",
+      "feature": "investor",
+      "step": "create investor with name only → inline 'phone or email' validation, no request",
+      "status": "PASS",
+      "detail": "inline translated validation shown; no API call",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/investors-create-contact-required.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J121",
+      "persona": "qa-investors",
+      "module": "Investors",
+      "feature": "investor",
+      "step": "create investor (with email)",
+      "status": "PASS",
+      "detail": "تم الحفظ; listed=true",
+      "url": "https://oms.haseb.org/investors/list/577d56b6-5899-4d9b-a47b-c463f30c0a23",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/investors-investor-created.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J122",
+      "persona": "qa-investors",
+      "module": "Investors",
+      "feature": "opportunity",
+      "step": "create opportunity (EGP, tagged product 5 × 80) as draft",
+      "status": "PASS",
+      "detail": "تم الحفظ",
+      "url": "https://oms.haseb.org/investors/opportunities/3266c18a-afad-4b1d-affc-80d4d077b555",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/investors-opportunity-draft.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J123",
+      "persona": "qa-investors",
+      "module": "Investors",
+      "feature": "opportunity",
+      "step": "open for investment (فتح للاستثمار)",
+      "status": "PASS",
+      "detail": "تم الحفظ; status=OPEN",
+      "url": "https://oms.haseb.org/investors/opportunities/3266c18a-afad-4b1d-affc-80d4d077b555",
+      "screenshot": null,
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J124",
+      "persona": "qa-investors",
+      "module": "Investors",
+      "feature": "subscription",
+      "step": "add tagged investor subscription (commitment 400)",
+      "status": "PASS",
+      "detail": "تم الحفظ; subscription COMMITTED committed=400; opportunity target=400",
+      "url": "https://oms.haseb.org/investors/opportunities/3266c18a-afad-4b1d-affc-80d4d077b555",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/investors-subscription-added.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J125",
+      "persona": "qa-investors",
+      "module": "Investors",
+      "feature": "التمويل tab",
+      "step": "view (no GL posting actions taken)",
+      "status": "PASS",
+      "detail": " رأس المال المستهدف 0.00 EGP رأس المال المؤكد 0% نسبة التمويل 1 عدد المستثمرين 92 الأيام المتبقية نظرة عامة المنتجات المستثمرون التمويل المبيعات المصروفات الأرباح التسوية التوزيعات النشاط إضافة دفعة —",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/investors-tab-التمويل.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J126",
+      "persona": "qa-investors",
+      "module": "Investors",
+      "feature": "التوزيعات tab",
+      "step": "view (no GL posting actions taken)",
+      "status": "PASS",
+      "detail": " المال المؤكد 0% نسبة التمويل 1 عدد المستثمرين 92 الأيام المتبقية نظرة عامة المنتجات المستثمرون التمويل المبيعات المصروفات الأرباح التسوية التوزيعات النشاط لم يتم إنشاء أي توزيع أرباح لهذه الفرصة بعد.",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/investors-tab-التوزيعات.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J127",
+      "persona": "qa-investors",
+      "module": "Investors",
+      "feature": "الأرباح tab",
+      "step": "view (no GL posting actions taken)",
+      "status": "PASS",
+      "detail": " البضاعة المباعة 0.00 EGP المصروفات المعتمدة 0.00 EGP المرتجعات / التسويات 0.00 EGP صافي الربح 0.00 EGP وعاء أرباح المستثمرين 0.00 EGP حصة الشركة (ليست ربحًا محاسبيًا) المستثمر نسبة المشاركة حصة الربح",
+      "url": null,
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/investors-tab-الأرباح.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J128",
+      "persona": "qa-investors",
+      "module": "Investors",
+      "feature": "dashboard",
+      "step": "investors dashboard loads",
+      "status": "PASS",
+      "detail": "لمستثمرون لوحة المستثمرين لوحة المستثمرين نظرة عامة على الفرص الاستثمارية والتمويل. 7 الفرص النشطة 4,000.00 إجمالي رأس المال المستهدف 2,000.00 رأس المال المؤكد ",
+      "url": "https://oms.haseb.org/investors",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/investors-dashboard.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J129",
+      "persona": "qa-admin",
+      "module": "Settings",
+      "feature": "general",
+      "step": "view only (no changes)",
+      "status": "PASS",
+      "detail": "SHELL (coming soon); لإعدادات عام عام قريباً هذه الصفحة قيد الإنشاء.",
+      "url": "https://oms.haseb.org/settings/general",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/admin-settings-general.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J130",
+      "persona": "qa-admin",
+      "module": "Settings",
+      "feature": "users",
+      "step": "view only (no changes)",
+      "status": "PASS",
+      "detail": "لإعدادات المستخدمون المستخدمون إدارة حسابات المستخدمين وصلاحياتهم. المسمى الوظيفي هو تسمية فقط — الوصول يُتحكم به عبر الصلاحيات. مستخدم جديد",
+      "url": "https://oms.haseb.org/settings/users",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/admin-settings-users.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J131",
+      "persona": "qa-admin",
+      "module": "Settings",
+      "feature": "document-numbering",
+      "step": "view only (no changes)",
+      "status": "PASS",
+      "detail": "لإعدادات ترقيم المستندات ترقيم المستندات تهيئة طريقة ترقيم كل نوع مستند. تُنشأ الأرقام تلقائيًا — لا يكتبها أحد يدويًا. إضافة سلسلة ترقيم ال",
+      "url": "https://oms.haseb.org/settings/document-numbering",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/admin-settings-document-numbering.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J132",
+      "persona": "qa-admin",
+      "module": "Settings",
+      "feature": "print-settings",
+      "step": "view only (no changes)",
+      "status": "PASS",
+      "detail": "SHELL (coming soon); لإعدادات إعدادات الطباعة إعدادات الطباعة قريباً هذه الصفحة قيد الإنشاء.",
+      "url": "https://oms.haseb.org/settings/print-settings",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/admin-settings-print-settings.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J133",
+      "persona": "qa-admin",
+      "module": "Settings",
+      "feature": "notifications",
+      "step": "view only (no changes)",
+      "status": "PASS",
+      "detail": "SHELL (coming soon); لإعدادات الإشعارات الإشعارات قريباً هذه الصفحة قيد الإنشاء.",
+      "url": "https://oms.haseb.org/settings/notifications",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/admin-settings-notifications.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J134",
+      "persona": "qa-admin",
+      "module": "Settings",
+      "feature": "integrations",
+      "step": "view only (no changes)",
+      "status": "PASS",
+      "detail": "SHELL (coming soon); لإعدادات التكاملات التكاملات قريباً هذه الصفحة قيد الإنشاء.",
+      "url": "https://oms.haseb.org/settings/integrations",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/admin-settings-integrations.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J135",
+      "persona": "qa-admin",
+      "module": "Settings",
+      "feature": "security",
+      "step": "view only (no changes)",
+      "status": "PASS",
+      "detail": "SHELL (coming soon); لإعدادات الأمان الأمان قريباً هذه الصفحة قيد الإنشاء.",
+      "url": "https://oms.haseb.org/settings/security",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/admin-settings-security.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J136",
+      "persona": "qa-admin",
+      "module": "Settings",
+      "feature": "backup",
+      "step": "view only (no changes)",
+      "status": "PASS",
+      "detail": "SHELL (coming soon); لإعدادات النسخ الاحتياطي النسخ الاحتياطي قريباً هذه الصفحة قيد الإنشاء.",
+      "url": "https://oms.haseb.org/settings/backup",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/admin-settings-backup.png",
+      "consoleErrors": [],
+      "failedApi": []
+    },
+    {
+      "id": "J137",
+      "persona": "qa-admin",
+      "module": "Settings",
+      "feature": "accounting-settings",
+      "step": "view only (no changes)",
+      "status": "PASS",
+      "detail": "لمالية إعدادات الحسابات إعدادات الحسابات الحسابات الافتراضية التي يستخدمها كل مزود ترحيل — يمكن لفئة المنتج ومجموعة العملاء ومجموعة الموردين",
+      "url": "https://oms.haseb.org/finance/accounting-settings",
+      "screenshot": "tmp/acceptance/DEMO-AUDIT-20260927-FINAL/shots/admin-settings-accounting-settings.png",
+      "consoleErrors": [],
+      "failedApi": []
+    }
+  ],
+  "created": [
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "ProductCategory",
+      "number": "DEMO-AUDIT-20260927-FINAL فئة 73149",
+      "url": "https://oms.haseb.org/master-data/categories",
+      "id": "2e126be8-0296-419a-a9a9-d9405f03929e"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "Product",
+      "number": "PRD-2026-000025 DEMO-AUDIT-20260927-FINAL منتج تدقيق 73149",
+      "url": "https://oms.haseb.org/products/1ed0e79f-1774-4574-b0d0-193581f7b90b",
+      "id": "1ed0e79f-1774-4574-b0d0-193581f7b90b"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "Customer",
+      "number": "PT-2026-000124 DEMO-AUDIT-20260927-FINAL عميل 73149",
+      "url": "https://oms.haseb.org/sales/customers/3fffa657-a844-47da-8c07-8e21d028590b",
+      "id": "3fffa657-a844-47da-8c07-8e21d028590b"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "Supplier",
+      "number": "PT-2026-000125 DEMO-AUDIT-20260927-FINAL مورد 73149",
+      "url": "https://oms.haseb.org/purchasing/suppliers/3731dfbc-ea02-4fca-bb5c-0f01f4ce3c3e",
+      "id": "3731dfbc-ea02-4fca-bb5c-0f01f4ce3c3e"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "PurchaseQuotation",
+      "number": "PQ-2026-000013",
+      "url": "https://oms.haseb.org/purchasing/purchase-quotations/925b35e6-ffd2-49a7-9f7b-8fc8957a2975",
+      "id": "925b35e6-ffd2-49a7-9f7b-8fc8957a2975"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "PurchaseOrder",
+      "number": "PO-2026-000014",
+      "url": "https://oms.haseb.org/purchasing/purchase-orders/581038da-ec96-4a87-b579-cec3e1671769",
+      "id": "581038da-ec96-4a87-b579-cec3e1671769"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "PurchaseInvoice",
+      "number": "PI-2026-000041",
+      "url": "https://oms.haseb.org/purchasing/purchase-invoices/092c2f58-5eeb-4b7c-9ed6-2e0f684a05cf",
+      "id": "092c2f58-5eeb-4b7c-9ed6-2e0f684a05cf"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "SupplierPayment",
+      "number": "SP-2026-000028",
+      "url": "https://oms.haseb.org/purchasing/payments/f84722c6-566e-40f3-a0ae-573edf2d935f",
+      "id": "f84722c6-566e-40f3-a0ae-573edf2d935f"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "PurchaseReturn",
+      "number": "PR-2026-000013",
+      "url": "https://oms.haseb.org/purchasing/purchase-returns/6dc28ffe-2a45-4f0d-8403-fb0f38316655",
+      "id": "6dc28ffe-2a45-4f0d-8403-fb0f38316655"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "LandedCost",
+      "number": "LC-2026-000002",
+      "url": "https://oms.haseb.org/purchasing/landed-cost/ad1c207a-229e-4039-b822-204c2782d9fd",
+      "id": "ad1c207a-229e-4039-b822-204c2782d9fd"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "Lead",
+      "number": "LD-2026-000087 DEMO-AUDIT-20260927-FINAL عميل محتمل 73149",
+      "url": "https://oms.haseb.org/crm/leads/c1bbdb52-66c6-42d8-bc94-c369a53ce003",
+      "id": "c1bbdb52-66c6-42d8-bc94-c369a53ce003"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "StoreOrder (from lead, COD)",
+      "number": "STO-2026-000100",
+      "url": "https://oms.haseb.org/store-orders/ff9b30e4-dc8b-4fbe-9c56-dc2c2f7e8c81",
+      "id": "ff9b30e4-dc8b-4fbe-9c56-dc2c2f7e8c81"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "SalesQuotation",
+      "number": "QT-2026-000022",
+      "url": "https://oms.haseb.org/sales/quotations/fd52fcb1-25db-4382-b1d4-f618a83ef0cc",
+      "id": "fd52fcb1-25db-4382-b1d4-f618a83ef0cc"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "SalesOrder",
+      "number": "SO-2026-000019",
+      "url": "https://oms.haseb.org/sales/orders/249cbd15-a0ac-4837-b70b-c8e3ca879a5c",
+      "id": "249cbd15-a0ac-4837-b70b-c8e3ca879a5c"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "SalesInvoice",
+      "number": "INV-2026-000078",
+      "url": "https://oms.haseb.org/sales/invoices/7fef2441-48c3-45b6-b80a-b4a7fe37c4a4",
+      "id": "7fef2441-48c3-45b6-b80a-b4a7fe37c4a4"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "CustomerReceipt",
+      "number": "CR-2026-000057",
+      "url": "https://oms.haseb.org/sales/payments/1d79146b-cfd4-485f-b352-37fa71b62c21",
+      "id": "1d79146b-cfd4-485f-b352-37fa71b62c21"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "SalesReturn",
+      "number": "SR-2026-000023",
+      "url": "https://oms.haseb.org/sales/returns/ee086a45-1f74-4078-af38-bd78880cd739",
+      "id": "ee086a45-1f74-4078-af38-bd78880cd739"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "CustomerRefund",
+      "number": "CRF-2026-000007",
+      "url": "https://oms.haseb.org/sales/payments?view=refunds"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "StoreOrder (prepaid)",
+      "number": "STO-2026-000101",
+      "url": "https://oms.haseb.org/store-orders/504da18f-aa35-4cbd-81c3-89147ae01420",
+      "id": "504da18f-aa35-4cbd-81c3-89147ae01420"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "SalesInvoice (store order)",
+      "number": "INV-2026-000079",
+      "url": "https://oms.haseb.org/sales/invoices/b4f874fa-09bc-4375-89bc-a0135945502b",
+      "id": "b4f874fa-09bc-4375-89bc-a0135945502b"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "JournalEntry",
+      "number": "JV-2026-000336",
+      "url": "https://oms.haseb.org/finance/journal-entries/dbd3ba72-b928-4216-830c-4df5b973571a",
+      "id": "dbd3ba72-b928-4216-830c-4df5b973571a"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "Department",
+      "number": "DEMO-AUDIT-20260927-FINAL قسم 73149",
+      "url": "https://oms.haseb.org/master-data/departments"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "Employee",
+      "number": "DEMO-AUDIT-20260927-FINAL موظف 73149",
+      "url": "https://oms.haseb.org/hr/employees/054697a5-ad93-411d-8ec6-42e8af6ee14c",
+      "id": "054697a5-ad93-411d-8ec6-42e8af6ee14c"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "CommissionPlan",
+      "number": "DEMO-AUDIT-20260927-FINAL خطة عمولة 73149",
+      "url": "https://oms.haseb.org/hr/commission-plans/9a8134f6-9c00-4a6c-85fa-b13c336f87b9"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "KpiTemplate",
+      "number": "DEMO-AUDIT-20260927-FINAL قالب تقييم 73149",
+      "url": "https://oms.haseb.org/hr/kpi-templates/e90bc8b8-aed1-4894-9061-cef97c13bd64"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "KpiEvaluation",
+      "number": "DEMO-AUDIT-20260927-FINAL موظف 73149",
+      "url": "https://oms.haseb.org/hr/kpi-evaluations/40b4b090-dc15-408e-921c-c115e5a8f080"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "Investor",
+      "number": "DEMO-AUDIT-20260927-FINAL مستثمر 73149",
+      "url": "https://oms.haseb.org/investors/list/577d56b6-5899-4d9b-a47b-c463f30c0a23",
+      "id": "577d56b6-5899-4d9b-a47b-c463f30c0a23"
+    },
+    {
+      "run": "DEMO-AUDIT-20260927-FINAL",
+      "type": "InvestmentOpportunity",
+      "number": "DEMO-AUDIT-20260927-FINAL فرصة 73149",
+      "url": "https://oms.haseb.org/investors/opportunities/3266c18a-afad-4b1d-affc-80d4d077b555",
+      "id": "3266c18a-afad-4b1d-affc-80d4d077b555"
+    }
+  ],
+  "deployShaAtStart": "91b50861a13838a8594afd0f6e69fa483b5abe78",
+  "sidebar": {
+    "qa-admin": {
+      "groups": [
+        "إدارة علاقات العملاء",
+        "المبيعات",
+        "الشحن",
+        "المشتريات",
+        "المنتجات والمخازن",
+        "الموارد البشرية",
+        "المستثمرون",
+        "التكاليف",
+        "المالية",
+        "البيانات الأساسية",
+        "إدارة البيانات",
+        "التقارير",
+        "الإعدادات"
+      ],
+      "links": [
+        {
+          "href": "/",
+          "text": "لوحة التحكم"
+        },
+        {
+          "href": "/crm/leads",
+          "text": "العملاء المحتملون"
+        },
+        {
+          "href": "/crm/funnel",
+          "text": "قمع العملاء المحتملين"
+        },
+        {
+          "href": "/crm/sales-teams",
+          "text": "فرق المبيعات"
+        },
+        {
+          "href": "/sales/customers",
+          "text": "العملاء"
+        },
+        {
+          "href": "/master-data/customer-groups",
+          "text": "مجموعات العملاء"
+        },
+        {
+          "href": "/sales/quotations",
+          "text": "عروض الأسعار"
+        },
+        {
+          "href": "/sales/orders",
+          "text": "الطلبات"
+        },
+        {
+          "href": "/store-orders",
+          "text": "طلبات المتجر"
+        },
+        {
+          "href": "/store-orders/import",
+          "text": "استيراد الطلبات"
+        },
+        {
+          "href": "/store-orders/needs-review",
+          "text": "يحتاج مراجعة"
+        },
+        {
+          "href": "/sales/invoices",
+          "text": "الفواتير"
+        },
+        {
+          "href": "/sales/returns",
+          "text": "المرتجعات"
+        },
+        {
+          "href": "/shipping",
+          "text": "الشحن"
+        },
+        {
+          "href": "/shipping/import",
+          "text": "استيراد الشحن"
+        },
+        {
+          "href": "/master-data/shipping-statuses",
+          "text": "حالات الشحن"
+        },
+        {
+          "href": "/master-data/shipping-companies",
+          "text": "شركات الشحن"
+        },
+        {
+          "href": "/purchasing/suppliers",
+          "text": "الموردون"
+        },
+        {
+          "href": "/master-data/supplier-groups",
+          "text": "مجموعات الموردين"
+        },
+        {
+          "href": "/purchasing/purchase-quotations",
+          "text": "عروض الأسعار"
+        },
+        {
+          "href": "/purchasing/purchase-orders",
+          "text": "أوامر الشراء"
+        },
+        {
+          "href": "/purchasing/purchase-invoices",
+          "text": "فواتير الشراء"
+        },
+        {
+          "href": "/purchasing/purchase-returns",
+          "text": "المرتجعات"
+        },
+        {
+          "href": "/purchasing/landed-cost",
+          "text": "التكاليف المرحلة"
+        },
+        {
+          "href": "/products",
+          "text": "المنتجات"
+        },
+        {
+          "href": "/master-data/warehouses",
+          "text": "المستودعات"
+        },
+        {
+          "href": "/master-data/warehouse-locations",
+          "text": "مواقع المستودعات"
+        },
+        {
+          "href": "/master-data/units",
+          "text": "وحدات القياس"
+        },
+        {
+          "href": "/master-data/unit-conversions",
+          "text": "تحويلات الوحدات"
+        },
+        {
+          "href": "/master-data/categories",
+          "text": "الفئات"
+        },
+        {
+          "href": "/master-data/brands",
+          "text": "العلامات التجارية"
+        },
+        {
+          "href": "/inventory/movements",
+          "text": "حركات المخزون"
+        },
+        {
+          "href": "/inventory/stock",
+          "text": "الرصيد الفعلي"
+        },
+        {
+          "href": "/inventory/physical-count",
+          "text": "الجرد الفعلي"
+        },
+        {
+          "href": "/hr/my-profile",
+          "text": "ملفي الشخصي"
+        },
+        {
+          "href": "/hr/employees",
+          "text": "الموظفون"
+        },
+        {
+          "href": "/hr/kpi-templates",
+          "text": "قوالب مؤشرات الأداء"
+        },
+        {
+          "href": "/hr/kpi-evaluations",
+          "text": "تقييمات الأداء"
+        },
+        {
+          "href": "/hr/sales-targets",
+          "text": "المستهدفات الشهرية"
+        },
+        {
+          "href": "/hr/ranking",
+          "text": "لوحة الترتيب"
+        },
+        {
+          "href": "/hr/commission-plans",
+          "text": "خطط العمولات"
+        },
+        {
+          "href": "/hr/commissions",
+          "text": "العمولات"
+        },
+        {
+          "href": "/hr/payroll",
+          "text": "مسيرات الرواتب"
+        },
+        {
+          "href": "/hr/payroll-components",
+          "text": "بنود الرواتب"
+        },
+        {
+          "href": "/investors",
+          "text": "لوحة المستثمرين"
+        },
+        {
+          "href": "/investors/list",
+          "text": "المستثمرون"
+        },
+        {
+          "href": "/investors/opportunities",
+          "text": "الفرص الاستثمارية"
+        },
+        {
+          "href": "/investors/settings/investor-types",
+          "text": "إعدادات المستثمرين"
+        },
+        {
+          "href": "/expenses/cost-components",
+          "text": "فئات التكلفة"
+        },
+        {
+          "href": "/expenses/product-cost",
+          "text": "تكلفة المنتج"
+        },
+        {
+          "href": "/expenses/cost-explorer",
+          "text": "مستكشف التكاليف"
+        },
+        {
+          "href": "/finance/receiving-accounts",
+          "text": "الحسابات"
+        },
+        {
+          "href": "/finance/journal-entries",
+          "text": "قيود اليومية"
+        },
+        {
+          "href": "/reports/finance?report=generalLedger",
+          "text": "دفتر الأستاذ العام"
+        },
+        {
+          "href": "/finance/chart-of-accounts",
+          "text": "دليل الحسابات"
+        },
+        {
+          "href": "/finance/cost-centers",
+          "text": "مراكز التكلفة"
+        },
+        {
+          "href": "/master-data/analytic-accounts",
+          "text": "الحسابات التحليلية"
+        },
+        {
+          "href": "/master-data/analytic-plans",
+          "text": "خطط التحليل"
+        },
+        {
+          "href": "/master-data/payment-methods",
+          "text": "طرق الدفع"
+        },
+        {
+          "href": "/master-data/payment-terms",
+          "text": "شروط الدفع"
+        },
+        {
+          "href": "/finance/expenses",
+          "text": "المصروفات"
+        },
+        {
+          "href": "/sales/payments",
+          "text": "المقبوضات"
+        },
+        {
+          "href": "/purchasing/payments",
+          "text": "المدفوعات"
+        },
+        {
+          "href": "/finance/payment-review",
+          "text": "مراجعة المدفوعات"
+        },
+        {
+          "href": "/finance/bank-transactions",
+          "text": "العمليات المالية"
+        },
+        {
+          "href": "/finance/journals",
+          "text": "دفاتر اليومية"
+        },
+        {
+          "href": "/finance/payment-sources",
+          "text": "مصادر الدفع"
+        },
+        {
+          "href": "/finance/fulfillment-cost-rules",
+          "text": "قواعد تكلفة التجهيز"
+        },
+        {
+          "href": "/finance/carrier-reconciliation",
+          "text": "مطابقة تكلفة شركة الشحن"
+        },
+        {
+          "href": "/finance/cost-allocation-rules",
+          "text": "قواعد توزيع التكاليف"
+        },
+        {
+          "href": "/finance/projects",
+          "text": "المشاريع"
+        },
+        {
+          "href": "/finance/fixed-assets",
+          "text": "الأصول الثابتة"
+        },
+        {
+          "href": "/finance/prepaid-expenses",
+          "text": "المصروفات المدفوعة مقدماً"
+        },
+        {
+          "href": "/finance/accrued-expenses",
+          "text": "المصروفات المستحقة"
+        },
+        {
+          "href": "/finance/exchange-rates",
+          "text": "أسعار الصرف والعملات"
+        },
+        {
+          "href": "/finance/fiscal-periods",
+          "text": "السنوات والفترات المالية"
+        },
+        {
+          "href": "/finance/opening-balances",
+          "text": "الأرصدة الافتتاحية"
+        },
+        {
+          "href": "/finance/year-closing",
+          "text": "إقفال السنة المالية"
+        },
+        {
+          "href": "/finance/accounting-settings",
+          "text": "إعدادات الحسابات"
+        },
+        {
+          "href": "/master-data/currencies",
+          "text": "العملات"
+        },
+        {
+          "href": "/master-data/taxes",
+          "text": "الضرائب"
+        },
+        {
+          "href": "/master-data/countries",
+          "text": "الدول"
+        },
+        {
+          "href": "/master-data/cities",
+          "text": "المدن"
+        },
+        {
+          "href": "/master-data/languages",
+          "text": "اللغات"
+        },
+        {
+          "href": "/master-data/transaction-types",
+          "text": "أنواع المعاملات"
+        },
+        {
+          "href": "/master-data/workflow-statuses",
+          "text": "حالات سير العمل"
+        },
+        {
+          "href": "/master-data/workflow-transitions",
+          "text": "قواعد الانتقال المتقدمة"
+        },
+        {
+          "href": "/data-management/import-center",
+          "text": "مركز الاستيراد"
+        },
+        {
+          "href": "/reports/executive",
+          "text": "التقارير التنفيذية"
+        },
+        {
+          "href": "/reports/sales",
+          "text": "تقارير المبيعات"
+        },
+        {
+          "href": "/reports/crm",
+          "text": "تقارير علاقات العملاء"
+        },
+        {
+          "href": "/reports/purchasing",
+          "text": "تقارير المشتريات"
+        },
+        {
+          "href": "/reports/inventory",
+          "text": "تقارير المخزون"
+        },
+        {
+          "href": "/reports/finance",
+          "text": "التقارير المالية"
+        },
+        {
+          "href": "/reports/expenses",
+          "text": "تقارير التكاليف"
+        },
+        {
+          "href": "/reports/customers",
+          "text": "تقارير العملاء"
+        },
+        {
+          "href": "/reports/suppliers",
+          "text": "تقارير الموردين"
+        },
+        {
+          "href": "/reports/shipping",
+          "text": "تقارير الشحن"
+        },
+        {
+          "href": "/reports/custom",
+          "text": "تقارير مخصصة"
+        },
+        {
+          "href": "/reports/analytics",
+          "text": "التقارير التحليلية"
+        },
+        {
+          "href": "/settings/general",
+          "text": "عام"
+        },
+        {
+          "href": "/settings/users",
+          "text": "المستخدمون"
+        },
+        {
+          "href": "/master-data/departments",
+          "text": "الأقسام"
+        },
+        {
+          "href": "/master-data/job-titles",
+          "text": "المسميات الوظيفية"
+        },
+        {
+          "href": "/master-data/customer-classifications",
+          "text": "تصنيفات العملاء المحتملين"
+        },
+        {
+          "href": "/master-data/no-purchase-reasons",
+          "text": "أسباب عدم الشراء"
+        },
+        {
+          "href": "/master-data/lead-follow-up-types",
+          "text": "أنواع متابعة العملاء المحتملين"
+        },
+        {
+          "href": "/settings/document-numbering",
+          "text": "ترقيم المستندات"
+        },
+        {
+          "href": "/settings/print-settings",
+          "text": "إعدادات الطباعة"
+        },
+        {
+          "href": "/settings/notifications",
+          "text": "الإشعارات"
+        },
+        {
+          "href": "/settings/integrations",
+          "text": "التكاملات"
+        },
+        {
+          "href": "/settings/security",
+          "text": "الأمان"
+        },
+        {
+          "href": "/settings/backup",
+          "text": "النسخ الاحتياطي"
+        }
+      ]
+    },
+    "qa-finance": {
+      "groups": ["المبيعات", "التكاليف", "المالية", "التقارير"],
+      "links": [
+        {
+          "href": "/",
+          "text": "لوحة التحكم"
+        },
+        {
+          "href": "/store-orders",
+          "text": "طلبات المتجر"
+        },
+        {
+          "href": "/store-orders/import",
+          "text": "استيراد الطلبات"
+        },
+        {
+          "href": "/store-orders/needs-review",
+          "text": "يحتاج مراجعة"
+        },
+        {
+          "href": "/sales/returns",
+          "text": "المرتجعات"
+        },
+        {
+          "href": "/expenses/product-cost",
+          "text": "تكلفة المنتج"
+        },
+        {
+          "href": "/finance/receiving-accounts",
+          "text": "الحسابات"
+        },
+        {
+          "href": "/finance/journal-entries",
+          "text": "قيود اليومية"
+        },
+        {
+          "href": "/reports/finance?report=generalLedger",
+          "text": "دفتر الأستاذ العام"
+        },
+        {
+          "href": "/finance/chart-of-accounts",
+          "text": "دليل الحسابات"
+        },
+        {
+          "href": "/finance/cost-centers",
+          "text": "مراكز التكلفة"
+        },
+        {
+          "href": "/master-data/analytic-accounts",
+          "text": "الحسابات التحليلية"
+        },
+        {
+          "href": "/master-data/analytic-plans",
+          "text": "خطط التحليل"
+        },
+        {
+          "href": "/master-data/payment-methods",
+          "text": "طرق الدفع"
+        },
+        {
+          "href": "/master-data/payment-terms",
+          "text": "شروط الدفع"
+        },
+        {
+          "href": "/finance/expenses",
+          "text": "المصروفات"
+        },
+        {
+          "href": "/sales/payments",
+          "text": "المقبوضات"
+        },
+        {
+          "href": "/purchasing/payments",
+          "text": "المدفوعات"
+        },
+        {
+          "href": "/finance/payment-review",
+          "text": "مراجعة المدفوعات"
+        },
+        {
+          "href": "/finance/bank-transactions",
+          "text": "العمليات المالية"
+        },
+        {
+          "href": "/finance/journals",
+          "text": "دفاتر اليومية"
+        },
+        {
+          "href": "/finance/payment-sources",
+          "text": "مصادر الدفع"
+        },
+        {
+          "href": "/finance/projects",
+          "text": "المشاريع"
+        },
+        {
+          "href": "/finance/fixed-assets",
+          "text": "الأصول الثابتة"
+        },
+        {
+          "href": "/finance/prepaid-expenses",
+          "text": "المصروفات المدفوعة مقدماً"
+        },
+        {
+          "href": "/finance/accrued-expenses",
+          "text": "المصروفات المستحقة"
+        },
+        {
+          "href": "/finance/exchange-rates",
+          "text": "أسعار الصرف والعملات"
+        },
+        {
+          "href": "/finance/fiscal-periods",
+          "text": "السنوات والفترات المالية"
+        },
+        {
+          "href": "/finance/year-closing",
+          "text": "إقفال السنة المالية"
+        },
+        {
+          "href": "/finance/accounting-settings",
+          "text": "إعدادات الحسابات"
+        },
+        {
+          "href": "/master-data/currencies",
+          "text": "العملات"
+        },
+        {
+          "href": "/master-data/taxes",
+          "text": "الضرائب"
+        },
+        {
+          "href": "/reports/executive",
+          "text": "التقارير التنفيذية"
+        },
+        {
+          "href": "/reports/sales",
+          "text": "تقارير المبيعات"
+        },
+        {
+          "href": "/reports/crm",
+          "text": "تقارير علاقات العملاء"
+        },
+        {
+          "href": "/reports/purchasing",
+          "text": "تقارير المشتريات"
+        },
+        {
+          "href": "/reports/finance",
+          "text": "التقارير المالية"
+        },
+        {
+          "href": "/reports/expenses",
+          "text": "تقارير التكاليف"
+        },
+        {
+          "href": "/reports/customers",
+          "text": "تقارير العملاء"
+        },
+        {
+          "href": "/reports/suppliers",
+          "text": "تقارير الموردين"
+        },
+        {
+          "href": "/reports/shipping",
+          "text": "تقارير الشحن"
+        },
+        {
+          "href": "/reports/custom",
+          "text": "تقارير مخصصة"
+        },
+        {
+          "href": "/reports/analytics",
+          "text": "التقارير التحليلية"
+        }
+      ]
+    },
+    "qa-sales-manager": {
+      "groups": ["إدارة علاقات العملاء", "المبيعات", "المنتجات والمخازن", "إدارة البيانات"],
+      "links": [
+        {
+          "href": "/",
+          "text": "لوحة التحكم"
+        },
+        {
+          "href": "/crm/leads",
+          "text": "العملاء المحتملون"
+        },
+        {
+          "href": "/crm/funnel",
+          "text": "قمع العملاء المحتملين"
+        },
+        {
+          "href": "/sales/quotations",
+          "text": "عروض الأسعار"
+        },
+        {
+          "href": "/sales/orders",
+          "text": "الطلبات"
+        },
+        {
+          "href": "/store-orders",
+          "text": "طلبات المتجر"
+        },
+        {
+          "href": "/store-orders/import",
+          "text": "استيراد الطلبات"
+        },
+        {
+          "href": "/store-orders/needs-review",
+          "text": "يحتاج مراجعة"
+        },
+        {
+          "href": "/sales/invoices",
+          "text": "الفواتير"
+        },
+        {
+          "href": "/products",
+          "text": "المنتجات"
+        },
+        {
+          "href": "/data-management/import-center",
+          "text": "مركز الاستيراد"
+        }
+      ]
+    },
+    "qa-sales-agent": {
+      "groups": ["إدارة علاقات العملاء", "المبيعات", "المنتجات والمخازن"],
+      "links": [
+        {
+          "href": "/",
+          "text": "لوحة التحكم"
+        },
+        {
+          "href": "/crm/leads",
+          "text": "العملاء المحتملون"
+        },
+        {
+          "href": "/crm/funnel",
+          "text": "قمع العملاء المحتملين"
+        },
+        {
+          "href": "/sales/quotations",
+          "text": "عروض الأسعار"
+        },
+        {
+          "href": "/sales/orders",
+          "text": "الطلبات"
+        },
+        {
+          "href": "/store-orders",
+          "text": "طلبات المتجر"
+        },
+        {
+          "href": "/store-orders/import",
+          "text": "استيراد الطلبات"
+        },
+        {
+          "href": "/store-orders/needs-review",
+          "text": "يحتاج مراجعة"
+        },
+        {
+          "href": "/sales/invoices",
+          "text": "الفواتير"
+        },
+        {
+          "href": "/sales/returns",
+          "text": "المرتجعات"
+        },
+        {
+          "href": "/products",
+          "text": "المنتجات"
+        }
+      ]
+    },
+    "qa-shipping": {
+      "groups": ["المبيعات", "الشحن"],
+      "links": [
+        {
+          "href": "/",
+          "text": "لوحة التحكم"
+        },
+        {
+          "href": "/store-orders",
+          "text": "طلبات المتجر"
+        },
+        {
+          "href": "/store-orders/import",
+          "text": "استيراد الطلبات"
+        },
+        {
+          "href": "/store-orders/needs-review",
+          "text": "يحتاج مراجعة"
+        },
+        {
+          "href": "/shipping",
+          "text": "الشحن"
+        },
+        {
+          "href": "/shipping/import",
+          "text": "استيراد الشحن"
+        }
+      ]
+    },
+    "qa-purchasing": {
+      "groups": ["المبيعات", "المشتريات", "المنتجات والمخازن", "المالية", "التقارير"],
+      "links": [
+        {
+          "href": "/",
+          "text": "لوحة التحكم"
+        },
+        {
+          "href": "/sales/customers",
+          "text": "العملاء"
+        },
+        {
+          "href": "/purchasing/suppliers",
+          "text": "الموردون"
+        },
+        {
+          "href": "/purchasing/purchase-quotations",
+          "text": "عروض الأسعار"
+        },
+        {
+          "href": "/purchasing/purchase-orders",
+          "text": "أوامر الشراء"
+        },
+        {
+          "href": "/purchasing/purchase-invoices",
+          "text": "فواتير الشراء"
+        },
+        {
+          "href": "/purchasing/purchase-returns",
+          "text": "المرتجعات"
+        },
+        {
+          "href": "/purchasing/landed-cost",
+          "text": "التكاليف المرحلة"
+        },
+        {
+          "href": "/products",
+          "text": "المنتجات"
+        },
+        {
+          "href": "/inventory/movements",
+          "text": "حركات المخزون"
+        },
+        {
+          "href": "/inventory/stock",
+          "text": "الرصيد الفعلي"
+        },
+        {
+          "href": "/inventory/physical-count",
+          "text": "الجرد الفعلي"
+        },
+        {
+          "href": "/finance/receiving-accounts",
+          "text": "الحسابات"
+        },
+        {
+          "href": "/finance/cost-centers",
+          "text": "مراكز التكلفة"
+        },
+        {
+          "href": "/master-data/analytic-accounts",
+          "text": "الحسابات التحليلية"
+        },
+        {
+          "href": "/master-data/analytic-plans",
+          "text": "خطط التحليل"
+        },
+        {
+          "href": "/master-data/payment-methods",
+          "text": "طرق الدفع"
+        },
+        {
+          "href": "/master-data/payment-terms",
+          "text": "شروط الدفع"
+        },
+        {
+          "href": "/finance/expenses",
+          "text": "المصروفات"
+        },
+        {
+          "href": "/purchasing/payments",
+          "text": "المدفوعات"
+        },
+        {
+          "href": "/finance/journals",
+          "text": "دفاتر اليومية"
+        },
+        {
+          "href": "/finance/projects",
+          "text": "المشاريع"
+        },
+        {
+          "href": "/finance/fiscal-periods",
+          "text": "السنوات والفترات المالية"
+        },
+        {
+          "href": "/finance/year-closing",
+          "text": "إقفال السنة المالية"
+        },
+        {
+          "href": "/finance/accounting-settings",
+          "text": "إعدادات الحسابات"
+        },
+        {
+          "href": "/master-data/currencies",
+          "text": "العملات"
+        },
+        {
+          "href": "/master-data/taxes",
+          "text": "الضرائب"
+        },
+        {
+          "href": "/reports/executive",
+          "text": "التقارير التنفيذية"
+        },
+        {
+          "href": "/reports/sales",
+          "text": "تقارير المبيعات"
+        },
+        {
+          "href": "/reports/crm",
+          "text": "تقارير علاقات العملاء"
+        },
+        {
+          "href": "/reports/purchasing",
+          "text": "تقارير المشتريات"
+        },
+        {
+          "href": "/reports/expenses",
+          "text": "تقارير التكاليف"
+        },
+        {
+          "href": "/reports/customers",
+          "text": "تقارير العملاء"
+        },
+        {
+          "href": "/reports/suppliers",
+          "text": "تقارير الموردين"
+        },
+        {
+          "href": "/reports/shipping",
+          "text": "تقارير الشحن"
+        },
+        {
+          "href": "/reports/custom",
+          "text": "تقارير مخصصة"
+        },
+        {
+          "href": "/reports/analytics",
+          "text": "التقارير التحليلية"
+        }
+      ]
+    },
+    "qa-investors": {
+      "groups": ["المبيعات", "المنتجات والمخازن", "المستثمرون"],
+      "links": [
+        {
+          "href": "/",
+          "text": "لوحة التحكم"
+        },
+        {
+          "href": "/store-orders",
+          "text": "طلبات المتجر"
+        },
+        {
+          "href": "/store-orders/import",
+          "text": "استيراد الطلبات"
+        },
+        {
+          "href": "/store-orders/needs-review",
+          "text": "يحتاج مراجعة"
+        },
+        {
+          "href": "/products",
+          "text": "المنتجات"
+        },
+        {
+          "href": "/investors",
+          "text": "لوحة المستثمرين"
+        },
+        {
+          "href": "/investors/list",
+          "text": "المستثمرون"
+        },
+        {
+          "href": "/investors/opportunities",
+          "text": "الفرص الاستثمارية"
+        },
+        {
+          "href": "/investors/settings/investor-types",
+          "text": "إعدادات المستثمرين"
+        }
+      ]
+    },
+    "qa-hr": {
+      "groups": ["الموارد البشرية"],
+      "links": [
+        {
+          "href": "/",
+          "text": "لوحة التحكم"
+        },
+        {
+          "href": "/hr/my-profile",
+          "text": "ملفي الشخصي"
+        },
+        {
+          "href": "/hr/employees",
+          "text": "الموظفون"
+        },
+        {
+          "href": "/hr/kpi-templates",
+          "text": "قوالب مؤشرات الأداء"
+        },
+        {
+          "href": "/hr/kpi-evaluations",
+          "text": "تقييمات الأداء"
+        },
+        {
+          "href": "/hr/sales-targets",
+          "text": "المستهدفات الشهرية"
+        },
+        {
+          "href": "/hr/ranking",
+          "text": "لوحة الترتيب"
+        },
+        {
+          "href": "/hr/commission-plans",
+          "text": "خطط العمولات"
+        },
+        {
+          "href": "/hr/commissions",
+          "text": "العمولات"
+        },
+        {
+          "href": "/hr/payroll",
+          "text": "مسيرات الرواتب"
+        },
+        {
+          "href": "/hr/payroll-components",
+          "text": "بنود الرواتب"
+        }
+      ]
+    }
+  },
+  "deployShaAtEnd": "91b50861a13838a8594afd0f6e69fa483b5abe78",
+  "summary": {
+    "PASS": 134,
+    "BLOCKED": 3
+  },
+  "finishedAt": "2026-09-26T21:25:03.724Z"
+}

@@ -1,0 +1,528 @@
+{
+  "tour": "controls-visual",
+  "run": "PROD-CONTROLS-8679510",
+  "base": "https://oms.haseb.org",
+  "api": "https://oms.haseb.org/api",
+  "user": "qa-admin@oms.haseb.org",
+  "startedAt": "2026-09-26T21:44:35.196Z",
+  "checks": [
+    {
+      "id": "UI login",
+      "status": "PASS",
+      "detail": "qa-admin@oms.haseb.org"
+    },
+    {
+      "id": "keyboard ArrowDown opens / Enter selects+closes",
+      "status": "PASS",
+      "detail": "opened=true closedAfterEnter=true"
+    },
+    {
+      "id": "sales_orders_new@mobile-ar-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32/40 · x=25 w=340 y=235 h=141 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/sales_orders_new-mobile-ar-light.png"
+    },
+    {
+      "id": "purchasing_purchase-orders_new@mobile-ar-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32/40 · x=25 w=340 y=235 h=141 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/purchasing_purchase-orders_new-mobile-ar-light.png"
+    },
+    {
+      "id": "finance_journal-entries_new@mobile-ar-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=2 heights=32 · x=25 w=340 y=235 h=260 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/finance_journal-entries_new-mobile-ar-light.png"
+    },
+    {
+      "id": "crm_leads@mobile-ar-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=5 heights=32 · x=141 w=224 y=262 h=180 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/crm_leads-mobile-ar-light.png"
+    },
+    {
+      "id": "finance_chart-of-accounts@mobile-ar-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=1 heights=32 · x=141 w=224 y=280 h=260 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/finance_chart-of-accounts-mobile-ar-light.png"
+    },
+    {
+      "id": "store-orders_needs-review@mobile-ar-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32 · x=21 w=344 y=248 h=322 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/store-orders_needs-review-mobile-ar-light.png"
+    },
+    {
+      "id": "hr_sales-targets@mobile-ar-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32 · x=8 w=224 y=260 h=140 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/hr_sales-targets-mobile-ar-light.png"
+    },
+    {
+      "id": "sales_orders_new@mobile-ar-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32/40 · x=25 w=340 y=235 h=141 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/sales_orders_new-mobile-ar-dark.png"
+    },
+    {
+      "id": "purchasing_purchase-orders_new@mobile-ar-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32/40 · x=25 w=340 y=235 h=141 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/purchasing_purchase-orders_new-mobile-ar-dark.png"
+    },
+    {
+      "id": "finance_journal-entries_new@mobile-ar-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=2 heights=32 · x=25 w=340 y=235 h=260 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/finance_journal-entries_new-mobile-ar-dark.png"
+    },
+    {
+      "id": "crm_leads@mobile-ar-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=5 heights=32 · x=141 w=224 y=262 h=180 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/crm_leads-mobile-ar-dark.png"
+    },
+    {
+      "id": "finance_chart-of-accounts@mobile-ar-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=1 heights=32 · x=141 w=224 y=280 h=260 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/finance_chart-of-accounts-mobile-ar-dark.png"
+    },
+    {
+      "id": "store-orders_needs-review@mobile-ar-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32 · x=21 w=344 y=248 h=322 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/store-orders_needs-review-mobile-ar-dark.png"
+    },
+    {
+      "id": "hr_sales-targets@mobile-ar-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32 · x=8 w=224 y=260 h=140 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/hr_sales-targets-mobile-ar-dark.png"
+    },
+    {
+      "id": "sales_orders_new@mobile-en-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32/40 · x=25 w=340 y=235 h=141 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/sales_orders_new-mobile-en-light.png"
+    },
+    {
+      "id": "purchasing_purchase-orders_new@mobile-en-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32/40 · x=19 w=363 y=235 h=371 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/purchasing_purchase-orders_new-mobile-en-light.png"
+    },
+    {
+      "id": "finance_journal-entries_new@mobile-en-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=2 heights=32 · x=25 w=340 y=235 h=260 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/finance_journal-entries_new-mobile-en-light.png"
+    },
+    {
+      "id": "crm_leads@mobile-en-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=5 heights=32 · x=25 w=224 y=282 h=180 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/crm_leads-mobile-en-light.png"
+    },
+    {
+      "id": "finance_chart-of-accounts@mobile-en-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=1 heights=32 · x=25 w=224 y=299 h=260 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/finance_chart-of-accounts-mobile-en-light.png"
+    },
+    {
+      "id": "store-orders_needs-review@mobile-en-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32 · x=25 w=344 y=268 h=322 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/store-orders_needs-review-mobile-en-light.png"
+    },
+    {
+      "id": "hr_sales-targets@mobile-en-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32 · x=158 w=224 y=260 h=140 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/hr_sales-targets-mobile-en-light.png"
+    },
+    {
+      "id": "sales_orders_new@mobile-en-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32/40 · x=8 w=374 y=235 h=371 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/sales_orders_new-mobile-en-dark.png"
+    },
+    {
+      "id": "purchasing_purchase-orders_new@mobile-en-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32/40 · x=19 w=363 y=235 h=371 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/purchasing_purchase-orders_new-mobile-en-dark.png"
+    },
+    {
+      "id": "finance_journal-entries_new@mobile-en-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=2 heights=32 · x=25 w=340 y=235 h=260 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/finance_journal-entries_new-mobile-en-dark.png"
+    },
+    {
+      "id": "crm_leads@mobile-en-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=5 heights=32 · x=25 w=224 y=282 h=180 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/crm_leads-mobile-en-dark.png"
+    },
+    {
+      "id": "finance_chart-of-accounts@mobile-en-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=1 heights=32 · x=25 w=224 y=299 h=260 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/finance_chart-of-accounts-mobile-en-dark.png"
+    },
+    {
+      "id": "store-orders_needs-review@mobile-en-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32 · x=25 w=344 y=268 h=322 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/store-orders_needs-review-mobile-en-dark.png"
+    },
+    {
+      "id": "hr_sales-targets@mobile-en-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32 · x=158 w=224 y=260 h=140 vw=390 vh=844",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/hr_sales-targets-mobile-en-dark.png"
+    },
+    {
+      "id": "sales_orders_new@tablet-ar-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32/40 · x=80 w=431 y=243 h=357 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/sales_orders_new-tablet-ar-light.png"
+    },
+    {
+      "id": "purchasing_purchase-orders_new@tablet-ar-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32/40 · x=91 w=420 y=243 h=133 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/purchasing_purchase-orders_new-tablet-ar-light.png"
+    },
+    {
+      "id": "finance_journal-entries_new@tablet-ar-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=2 heights=32 · x=213 w=298 y=243 h=220 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/finance_journal-entries_new-tablet-ar-light.png"
+    },
+    {
+      "id": "crm_leads@tablet-ar-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=5 heights=32 · x=283 w=224 y=270 h=148 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/crm_leads-tablet-ar-light.png"
+    },
+    {
+      "id": "finance_chart-of-accounts@tablet-ar-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=1 heights=32 · x=283 w=224 y=288 h=212 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/finance_chart-of-accounts-tablet-ar-light.png"
+    },
+    {
+      "id": "store-orders_needs-review@tablet-ar-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32 · x=8 w=344 y=218 h=322 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/store-orders_needs-review-tablet-ar-light.png"
+    },
+    {
+      "id": "hr_sales-targets@tablet-ar-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32 · x=283 w=224 y=224 h=116 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/hr_sales-targets-tablet-ar-light.png"
+    },
+    {
+      "id": "sales_orders_new@tablet-ar-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32/40 · x=80 w=431 y=243 h=357 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/sales_orders_new-tablet-ar-dark.png"
+    },
+    {
+      "id": "purchasing_purchase-orders_new@tablet-ar-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32/40 · x=91 w=420 y=243 h=357 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/purchasing_purchase-orders_new-tablet-ar-dark.png"
+    },
+    {
+      "id": "finance_journal-entries_new@tablet-ar-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=2 heights=32 · x=213 w=298 y=243 h=220 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/finance_journal-entries_new-tablet-ar-dark.png"
+    },
+    {
+      "id": "crm_leads@tablet-ar-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=5 heights=32 · x=283 w=224 y=270 h=148 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/crm_leads-tablet-ar-dark.png"
+    },
+    {
+      "id": "finance_chart-of-accounts@tablet-ar-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=1 heights=32 · x=283 w=224 y=288 h=212 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/finance_chart-of-accounts-tablet-ar-dark.png"
+    },
+    {
+      "id": "store-orders_needs-review@tablet-ar-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32 · x=8 w=344 y=218 h=322 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/store-orders_needs-review-tablet-ar-dark.png"
+    },
+    {
+      "id": "hr_sales-targets@tablet-ar-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32 · x=283 w=224 y=224 h=116 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/hr_sales-targets-tablet-ar-dark.png"
+    },
+    {
+      "id": "sales_orders_new@tablet-en-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32/40 · x=309 w=431 y=243 h=357 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/sales_orders_new-tablet-en-light.png"
+    },
+    {
+      "id": "purchasing_purchase-orders_new@tablet-en-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32/40 · x=309 w=420 y=243 h=357 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/purchasing_purchase-orders_new-tablet-en-light.png"
+    },
+    {
+      "id": "finance_journal-entries_new@tablet-en-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=2 heights=32 · x=309 w=298 y=243 h=220 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/finance_journal-entries_new-tablet-en-light.png"
+    },
+    {
+      "id": "crm_leads@tablet-en-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=5 heights=32 · x=313 w=224 y=270 h=148 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/crm_leads-tablet-en-light.png"
+    },
+    {
+      "id": "finance_chart-of-accounts@tablet-en-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=1 heights=32 · x=313 w=224 y=288 h=212 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/finance_chart-of-accounts-tablet-en-light.png"
+    },
+    {
+      "id": "store-orders_needs-review@tablet-en-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32 · x=468 w=344 y=218 h=322 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/store-orders_needs-review-tablet-en-light.png"
+    },
+    {
+      "id": "hr_sales-targets@tablet-en-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32 · x=313 w=224 y=224 h=116 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/hr_sales-targets-tablet-en-light.png"
+    },
+    {
+      "id": "sales_orders_new@tablet-en-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32/40 · x=309 w=431 y=243 h=357 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/sales_orders_new-tablet-en-dark.png"
+    },
+    {
+      "id": "purchasing_purchase-orders_new@tablet-en-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32/40 · x=309 w=420 y=243 h=357 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/purchasing_purchase-orders_new-tablet-en-dark.png"
+    },
+    {
+      "id": "finance_journal-entries_new@tablet-en-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=2 heights=32 · x=309 w=298 y=243 h=220 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/finance_journal-entries_new-tablet-en-dark.png"
+    },
+    {
+      "id": "crm_leads@tablet-en-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=5 heights=32 · x=313 w=224 y=270 h=148 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/crm_leads-tablet-en-dark.png"
+    },
+    {
+      "id": "finance_chart-of-accounts@tablet-en-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=1 heights=32 · x=313 w=224 y=288 h=212 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/finance_chart-of-accounts-tablet-en-dark.png"
+    },
+    {
+      "id": "store-orders_needs-review@tablet-en-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32 · x=468 w=344 y=218 h=322 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/store-orders_needs-review-tablet-en-dark.png"
+    },
+    {
+      "id": "hr_sales-targets@tablet-en-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32 · x=313 w=224 y=224 h=116 vw=820 vh=1180",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/hr_sales-targets-tablet-en-dark.png"
+    },
+    {
+      "id": "sales_orders_new@desktop-ar-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=5 heights=32 · x=692 w=431 y=243 h=357 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/sales_orders_new-desktop-ar-light.png"
+    },
+    {
+      "id": "purchasing_purchase-orders_new@desktop-ar-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=4 heights=32 · x=760 w=363 y=243 h=357 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/purchasing_purchase-orders_new-desktop-ar-light.png"
+    },
+    {
+      "id": "finance_journal-entries_new@desktop-ar-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=2 heights=32 · x=772 w=351 y=243 h=220 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/finance_journal-entries_new-desktop-ar-light.png"
+    },
+    {
+      "id": "crm_leads@desktop-ar-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=5 heights=32 · x=615 w=224 y=186 h=148 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/crm_leads-desktop-ar-light.png"
+    },
+    {
+      "id": "finance_chart-of-accounts@desktop-ar-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=1 heights=32 · x=441 w=224 y=186 h=212 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/finance_chart-of-accounts-desktop-ar-light.png"
+    },
+    {
+      "id": "store-orders_needs-review@desktop-ar-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32 · x=321 w=344 y=199 h=322 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/store-orders_needs-review-desktop-ar-light.png"
+    },
+    {
+      "id": "hr_sales-targets@desktop-ar-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32 · x=276 w=224 y=186 h=116 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/hr_sales-targets-desktop-ar-light.png"
+    },
+    {
+      "id": "sales_orders_new@desktop-ar-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=5 heights=32 · x=692 w=431 y=243 h=357 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/sales_orders_new-desktop-ar-dark.png"
+    },
+    {
+      "id": "purchasing_purchase-orders_new@desktop-ar-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=4 heights=32 · x=760 w=363 y=243 h=357 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/purchasing_purchase-orders_new-desktop-ar-dark.png"
+    },
+    {
+      "id": "finance_journal-entries_new@desktop-ar-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=2 heights=32 · x=772 w=351 y=243 h=220 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/finance_journal-entries_new-desktop-ar-dark.png"
+    },
+    {
+      "id": "crm_leads@desktop-ar-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=5 heights=32 · x=615 w=224 y=186 h=148 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/crm_leads-desktop-ar-dark.png"
+    },
+    {
+      "id": "finance_chart-of-accounts@desktop-ar-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=1 heights=32 · x=441 w=224 y=186 h=212 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/finance_chart-of-accounts-desktop-ar-dark.png"
+    },
+    {
+      "id": "store-orders_needs-review@desktop-ar-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32 · x=321 w=344 y=199 h=322 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/store-orders_needs-review-desktop-ar-dark.png"
+    },
+    {
+      "id": "hr_sales-targets@desktop-ar-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32 · x=276 w=224 y=186 h=116 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/hr_sales-targets-desktop-ar-dark.png"
+    },
+    {
+      "id": "sales_orders_new@desktop-en-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=5 heights=32 · x=317 w=431 y=243 h=357 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/sales_orders_new-desktop-en-light.png"
+    },
+    {
+      "id": "purchasing_purchase-orders_new@desktop-en-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=4 heights=32 · x=317 w=363 y=243 h=357 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/purchasing_purchase-orders_new-desktop-en-light.png"
+    },
+    {
+      "id": "finance_journal-entries_new@desktop-en-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=2 heights=32 · x=317 w=351 y=243 h=220 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/finance_journal-entries_new-desktop-en-light.png"
+    },
+    {
+      "id": "crm_leads@desktop-en-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=5 heights=32 · x=585 w=224 y=186 h=148 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/crm_leads-desktop-en-light.png"
+    },
+    {
+      "id": "finance_chart-of-accounts@desktop-en-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=1 heights=32 · x=775 w=224 y=230 h=212 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/finance_chart-of-accounts-desktop-en-light.png"
+    },
+    {
+      "id": "store-orders_needs-review@desktop-en-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32 · x=775 w=344 y=199 h=322 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/store-orders_needs-review-desktop-en-light.png"
+    },
+    {
+      "id": "hr_sales-targets@desktop-en-light popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32 · x=925 w=224 y=186 h=116 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/hr_sales-targets-desktop-en-light.png"
+    },
+    {
+      "id": "sales_orders_new@desktop-en-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=5 heights=32 · x=317 w=431 y=243 h=357 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/sales_orders_new-desktop-en-dark.png"
+    },
+    {
+      "id": "purchasing_purchase-orders_new@desktop-en-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=4 heights=32 · x=317 w=363 y=243 h=357 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/purchasing_purchase-orders_new-desktop-en-dark.png"
+    },
+    {
+      "id": "finance_journal-entries_new@desktop-en-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=2 heights=32 · x=317 w=351 y=243 h=220 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/finance_journal-entries_new-desktop-en-dark.png"
+    },
+    {
+      "id": "crm_leads@desktop-en-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=5 heights=32 · x=585 w=224 y=186 h=148 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/crm_leads-desktop-en-dark.png"
+    },
+    {
+      "id": "finance_chart-of-accounts@desktop-en-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=1 heights=32 · x=775 w=224 y=230 h=212 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/finance_chart-of-accounts-desktop-en-dark.png"
+    },
+    {
+      "id": "store-orders_needs-review@desktop-en-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32 · x=775 w=344 y=199 h=322 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/store-orders_needs-review-desktop-en-dark.png"
+    },
+    {
+      "id": "hr_sales-targets@desktop-en-dark popup",
+      "status": "PASS",
+      "detail": "ok · triggers=3 heights=32 · x=925 w=224 y=186 h=116 vw=1440 vh=900",
+      "evidence": "tmp/acceptance/PROD-CONTROLS-8679510/shots/controls/hr_sales-targets-desktop-en-dark.png"
+    }
+  ],
+  "finishedAt": "2026-09-26T21:52:47.014Z",
+  "summary": {
+    "PASS": 86
+  }
+}
