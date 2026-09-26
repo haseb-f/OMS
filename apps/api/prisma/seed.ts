@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { PrismaClient, ShippingMethodType } from '@prisma/client';
+import { Prisma, PrismaClient, ShippingMethodType } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcryptjs';
 import { ALL_PERMISSION_NAMES } from '../src/permissions/permission-catalog';
@@ -412,15 +412,42 @@ const cities = [
   { countryCode: 'AE', code: 'DXB', name: 'دبي' },
 ];
 
-const costComponents = [
-  { code: 'PRODUCT_COST', name: 'Product Cost' },
-  { code: 'PRINTING', name: 'Printing' },
-  { code: 'PACKAGING', name: 'Packaging' },
-  { code: 'CUSTOM_BOX', name: 'Custom Box' },
-  { code: 'CUSTOMS', name: 'Customs' },
-  { code: 'INBOUND_SHIPPING', name: 'Inbound Shipping' },
-  { code: 'OUTBOUND_PREPARATION', name: 'Outbound Preparation' },
-  { code: 'OTHER', name: 'Other' },
+// Same rows and owner-approved classification as migration
+// 20260926120000_standard_cost_components (create-only — `update: {}` below
+// never reclassifies an existing row).
+const costComponents: Prisma.CostComponentCreateInput[] = [
+  { code: 'PRODUCT_COST', name: 'Product Cost', sortOrder: 10 },
+  {
+    code: 'CUSTOMS',
+    name: 'Customs',
+    sortOrder: 20,
+    accountingClass: 'INVENTORY_ACQUISITION',
+    capitalizable: true,
+  },
+  {
+    code: 'INBOUND_SHIPPING',
+    name: 'Inbound Shipping',
+    sortOrder: 30,
+    accountingClass: 'INVENTORY_ACQUISITION',
+    capitalizable: true,
+  },
+  {
+    code: 'PRODUCT_PREPARATION',
+    name: 'Product Preparation',
+    sortOrder: 40,
+    accountingClass: 'INVENTORY_ACQUISITION',
+    capitalizable: true,
+  },
+  {
+    code: 'OUTBOUND_PREPARATION',
+    name: 'Order Fulfillment',
+    sortOrder: 50,
+    accountingClass: 'FULFILLMENT',
+  },
+  { code: 'PRINTING', name: 'Printing', sortOrder: 60 },
+  { code: 'PACKAGING', name: 'Packaging', sortOrder: 70 },
+  { code: 'CUSTOM_BOX', name: 'Custom Box', sortOrder: 80 },
+  { code: 'OTHER', name: 'Other', sortOrder: 90 },
 ];
 
 async function main() {
