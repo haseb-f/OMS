@@ -144,7 +144,15 @@ async function auditTriggers(page) {
 async function popupInViewport(page) {
   const popup = page.locator(POPUP).last();
   if (!(await popup.isVisible().catch(() => false))) return { ok: false, reason: "no popup" };
-  const box = await popup.boundingBox();
+  // Measure only once floating-ui has settled (async results can widen the
+  // list and trigger one more reposition frame).
+  let box = await popup.boundingBox();
+  for (let i = 0; i < 10; i += 1) {
+    await page.waitForTimeout(150);
+    const next = await popup.boundingBox();
+    if (next && box && Math.abs(next.x - box.x) < 0.5 && Math.abs(next.width - box.width) < 0.5) break;
+    box = next;
+  }
   const vp = page.viewportSize();
   const ok = box && box.x >= -1 && box.x + box.width <= vp.width + 1 && box.y >= -1 && box.y + box.height <= vp.height + 1;
   return { ok, reason: box ? `x=${Math.round(box.x)} w=${Math.round(box.width)} y=${Math.round(box.y)} h=${Math.round(box.height)} vw=${vp.width} vh=${vp.height}` : "no box" };

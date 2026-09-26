@@ -2134,8 +2134,15 @@ function writeSummary() {
   // MERGE=1: keep checks/created rows of modules this (partial) run did not touch.
   if (process.env.MERGE && existsSync(resolve(OUT, "journey-audit-report.json"))) {
     const prev = JSON.parse(readFileSync(resolve(OUT, "journey-audit-report.json"), "utf8"));
-    const touched = new Set(report.checks.map((c) => c.module));
-    report.checks = prev.checks.filter((c) => !touched.has(c.module)).concat(report.checks);
+    // Replace only the checks this run actually re-executed (same persona +
+    // module + feature + step); skipped prerequisites (NOT TESTED) never
+    // overwrite an earlier real result. Whole-module replacement used to drop
+    // every other check of a partially re-run module.
+    const key = (c) => [c.persona, c.module, c.feature, c.step].join("|");
+    const fresh = report.checks.filter((c) => c.status !== "NOT TESTED" || !prev.checks.some((p) => key(p) === key(c)));
+    const freshKeys = new Set(fresh.map(key));
+    const touched = new Set(fresh.map((c) => c.module));
+    report.checks = prev.checks.filter((c) => !freshKeys.has(key(c))).concat(fresh);
     const types = new Set(report.created.map((c) => c.type));
     report.created = prev.created.filter((c) => !types.has(c.type) || !touched.has("Purchasing")).concat(report.created);
     report.startedAt = prev.startedAt;
