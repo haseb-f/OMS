@@ -147,7 +147,9 @@ export function ProductPicker({
         getSubtitle={(product) => {
           if (inventoryOnly) return product.sku;
           const price = purchasableOnly ? product.purchasePrice : product.salesPrice;
-          return price ? formatMoney(price) : product.sku;
+          // Always show the SKU: products can share a display name, and the
+          // price alone gave users (and tests) no way to tell them apart.
+          return price ? `${product.sku} · ${formatMoney(price)}` : product.sku;
         }}
         getSearchText={(product) =>
           `${product.sku} ${product.barcode ?? ""} ${product.internalName} ${product.name}`

@@ -165,6 +165,8 @@ const notTested = (m) => {
 const blocked = (m) => {
   throw new Blocked(m);
 };
+/** A RUN order another step depends on; BLOCKED (never a TypeError FAIL) when it was not created. */
+const ord = (key) => ctx.orders?.[key] ?? blocked(`dependency: order ${key} was not created in this RUN`);
 
 // ------------------------------------------------------------------ sessions
 const isApi = (url) => url.startsWith(API);
@@ -638,7 +640,7 @@ async function preflight() {
       product = list.find((p) => !p.taxId) ?? list[0];
     }
     if (!product) return { status: "FAIL", detail: "no ACTIVE sellable product found" };
-    ctx.product = { id: product.id, sku: product.sku, name: product.name };
+    ctx.product = { id: product.id, sku: product.sku, name: product.name, displayName: product.displayName ?? product.name };
     saveCtx();
     return { detail: `functional=${func.code}; commission account=${!!ps.paymentGatewayFeeAccountId}; FX-difference account=${!!ps.exchangeDifferenceAccountId}; product=${product.sku} ${product.name}; tagged currency code=${XCODE}` };
   }, { retry: false });
@@ -839,8 +841,14 @@ async function cbeRunNow(fin, label) {
     await settle(page);
     const last = items((await A("GET", "/exchange-rates/sync/runs?pageSize=5")).json)[0];
     const isNew = last && last.id !== before;
-    const text = (await mainText(page)).replace(/\s+/g, " ");
-    const visibleStatus = /ناجح|اكتمل مع تحذيرات|فشل|تم التخطي/.test(text);
+    // The card refreshes after the run returns; poll instead of reading once
+    // (a single early read caught the pre-refresh state on Production).
+    let visibleStatus = false;
+    for (let i = 0; i < 20 && !visibleStatus; i += 1) {
+      const text = (await mainText(page)).replace(/\s+/g, " ");
+      visibleStatus = /آخر تشغيل\s*(ناجح|اكتمل مع تحذيرات|فشل|تم التخطي)/.test(text) || /ناجح|اكتمل مع تحذيرات|فشل|تم التخطي/.test(text);
+      if (!visibleStatus) await page.waitForTimeout(500);
+    }
     const ok = isNew && (["SUCCESS", "PARTIAL", "SKIPPED"].includes(last.status) || (last.status === "FAILED" && (last.error || last.details)));
     const expectedLocalFail = ctx.func?.code !== "EGP" && last?.status === "FAILED";
     ctx.cbeRuns = [...(ctx.cbeRuns ?? []), { at: new Date().toISOString(), status: last?.status, inserted: last?.insertedCount, error: last?.error ?? null }];
@@ -961,7 +969,7 @@ async function fillDocLine(page, { product, qty, price, priceLabel, index = 0 })
   const row = page.locator('[data-testid="document-line"]:visible').nth(index);
   await row.waitFor({ state: "visible" });
   const prodTrigger = row.locator('[role="combobox"]').filter({ hasText: /اختر منتجاً/ }).first();
-  await pick(page, (await prodTrigger.isVisible().catch(() => false)) ? prodTrigger : row.locator('[role="combobox"]').first(), { search: product.sku, option: escRe(product.sku) });
+  await pick(page, (await prodTrigger.isVisible().catch(() => false)) ? prodTrigger : row.locator('[role="combobox"]').first(), { search: product.sku, option: new RegExp(`${escRe(product.sku).source}|^\\s*${escRe(product.displayName ?? product.name).source}`) });
   await page.waitForTimeout(500);
   if (qty != null) await row.locator('input[type="number"]').first().fill(String(qty));
   if (price != null) {
@@ -1040,7 +1048,7 @@ async function createOrderUI(s, key) {
 
 async function declareOnOrderPage(s, key, decl, { mode = "click" } = {}) {
   const page = s.page;
-  const o = ctx.orders[key];
+  const o = ord(key);
   await go(page, `/store-orders/${o.id}`);
   await clickFirst(page, [btn(page, /^إبلاغ دفع العميل$/)], "إبلاغ دفع العميل");
   const dlg = dialog(page);
@@ -1073,7 +1081,7 @@ async function declareOnOrderPage(s, key, decl, { mode = "click" } = {}) {
 }
 
 async function assertDeclared(key, { status, amount, claims, noJE = true }) {
-  const o = await getOrder(ctx.orders[key].id);
+  const o = await getOrder(ord(key).id);
   const cl = claimsOf(o);
   const jes = noJE ? await orderJEs(o.id) : [];
   const problems = [];
@@ -1142,19 +1150,20 @@ async function c1() {
   });
   await step("C5", ag, "P1: double-click Save produced exactly one claim", async () => {
     const a = await assertDeclared("P1", { status: "PARTIALLY_PAID", amount: 200, claims: 1 });
-    return { status: a.problems.length ? "FAIL" : "PASS", detail: a.summary, url: orderUrl(ctx.orders.P1) };
+    return { status: a.problems.length ? "FAIL" : "PASS", detail: a.summary, url: orderUrl(ord("P1")) };
   });
   await step("C1", fin, "Finance sees declared vs verified separately (payment review lists B01 claim as reported, not posted)", async (page) => {
+    const b01 = ord("B01");
     await go(page, "/finance/payment-review");
     const box = page.getByPlaceholder(/تصفية|بحث/).first();
     if (await box.isVisible().catch(() => false)) {
-      await box.fill(ctx.orders.B01.number);
+      await box.fill(b01.number);
       await page.waitForTimeout(1500);
       await settle(page);
     }
     const text = await mainText(page);
-    const listed = text.includes(ctx.orders.B01.number);
-    const row = page.locator("main table tbody tr").filter({ hasText: ctx.orders.B01.number }).first();
+    const listed = text.includes(b01.number);
+    const row = page.locator("main table tbody tr").filter({ hasText: b01.number }).first();
     const rowText = listed ? (await row.innerText().catch(() => "")).replace(/\s+/g, " ") : "";
     const confirmOffered = listed && (await row.getByTestId("payment-confirm-post").isVisible().catch(() => false));
     return {
@@ -1220,7 +1229,7 @@ async function c2() {
   const adm = await session("qa-admin");
   const shp = await session("qa-shipping");
   await step("C2", adm, "B01 (FULL declared, SHIPPING): shipment can be created BEFORE Finance matching", async (page) => {
-    const o = ctx.orders.B01;
+    const o = ord("B01");
     if (!o) blocked("B01 missing");
     let ships = await shipmentsOf(o.id);
     let t = [];
@@ -1236,7 +1245,7 @@ async function c2() {
     return { status: ships.length && !verified ? "PASS" : "FAIL", detail: `toasts=${t.map((x) => `${x.type}:${x.text}`).join(" | ") || "(existing shipment)"}; shipments=${ships.length} status=${ships[0]?.shippingStatus?.code ?? "-"}; shippingStage=${ord.shippingStage}; any claim VERIFIED=${verified}; paymentStatus=${ord.paymentStatus}`, url: orderUrl(o), shot: sh };
   });
   await step("C2", shp, "B01 order page (shipping role): declared paid, Finance still 'بانتظار مطابقة المالية'", async (page) => {
-    const o = ctx.orders.B01;
+    const o = ord("B01");
     await go(page, `/store-orders/${o.id}`);
     const text = await mainText(page);
     const declared = /أبلغ العميل بالدفع/.test(text);
@@ -1244,7 +1253,7 @@ async function c2() {
     return { status: declared && awaiting ? "PASS" : "FAIL", detail: `declared badge=${declared}; awaiting Finance reconciliation=${awaiting}`, url: orderUrl(o), shot: await shot(page, "c2-B01-shipping-view") };
   });
   await step("C2", adm, "P1 (PARTIAL declared, prepaid SHIPPING): shipment blocked with the gate message", async (page) => {
-    const o = ctx.orders.P1;
+    const o = ord("P1");
     if (!o) blocked("P1 missing");
     const t = await bulkReady(page, o.number);
     const ships = await shipmentsOf(o.id);
@@ -1255,7 +1264,7 @@ async function c2() {
     return { status: !ships.length && (hint || failToast) ? "PASS" : "FAIL", detail: `toasts=${t.map((x) => `${x.type}:${x.text}`).join(" | ") || "none"}; shipments=${ships.length}; gate hint on order page=${hint}`, url: orderUrl(o), shot: await shot(page, "c2-P1-gate") };
   });
   await step("C2", adm, "COD order: shipment allowed without any declaration (COD unchanged)", async (page) => {
-    const o = ctx.orders.COD;
+    const o = ord("COD");
     if (!o) blocked("COD missing");
     let ships = await shipmentsOf(o.id);
     let t = [];
@@ -1267,7 +1276,7 @@ async function c2() {
     return { status: ships.length ? "PASS" : "FAIL", detail: `paymentType=${ord.paymentType}; toasts=${t.map((x) => x.text).join(" | ") || "(existing)"}; shipments=${ships.length}; claims=${claimsOf(ord).length}`, url: orderUrl(o), shot: await shot(page, "c2-COD-ready") };
   });
   await step("S1", adm, "DSP (FULL declared): shipment created before the dispute", async (page) => {
-    const o = ctx.orders.DSP;
+    const o = ord("DSP");
     if (!o) blocked("DSP missing");
     let ships = await shipmentsOf(o.id);
     if (!ships.length) {
@@ -1341,7 +1350,7 @@ async function pickupFlow() {
     return { status: ok2 ? "PASS" : "FAIL", detail: `${t.text}; ${o.internalOrderId}; fulfillment=${o.fulfillmentMethod}; declared=${o.declaredPaymentStatus} ${o.declaredAmount}; claims=${cl.map((p) => `${p.status}/${p.origin}/${p.amount}`).join(",")}`, url: orderUrl(o), shot: await shot(page, "c2-pickup-order") };
   });
   await step("C2", shp, "PICKUP with PARTIAL declaration: collection not allowed (gate)", async (page) => {
-    const o = ctx.orders.PICK;
+    const o = ord("PICK");
     if (!o) blocked("pickup order missing");
     if (ctx.pickup?.gate) return { ...ctx.pickup.gate, detail: `(recorded in the first run of this RUN tag) ${ctx.pickup.gate.detail}` };
     await go(page, `/store-orders/${o.id}`);
@@ -1367,7 +1376,7 @@ async function pickupFlow() {
     return res;
   });
   await step("C2", mg, "PICKUP: declare the remainder (FULL) → eligible, but never auto-collected", async (page) => {
-    const o = ctx.orders.PICK;
+    const o = ord("PICK");
     if (!o) blocked("pickup order missing");
     if (ctx.pickup?.full) return { ...ctx.pickup.full, detail: `(recorded in the first run of this RUN tag) ${ctx.pickup.full.detail}` };
     const before = await getOrder(o.id);
@@ -1380,7 +1389,7 @@ async function pickupFlow() {
     return res;
   });
   await step("C2", shp, "PICKUP: shipping staff marks ready and records collection (manual, no shipment/label)", async (page) => {
-    const o = ctx.orders.PICK;
+    const o = ord("PICK");
     if (!o) blocked("pickup order missing");
     await go(page, `/store-orders/${o.id}`);
     const steps = [];
@@ -1496,7 +1505,7 @@ async function confirmAllocation(page, mode = "click") {
 }
 /** Full UI match of one statement line (ref) to the claim of order `key`. */
 async function matchLine(page, key, { mode = "click" } = {}) {
-  const o = ctx.orders[key];
+  const o = ord(key);
   const ref = `${RUN}-TXN-${key}`;
   await selectLine(page, ref);
   const cand = await candidateFor(page, o.number);
@@ -1511,7 +1520,7 @@ async function matchLine(page, key, { mode = "click" } = {}) {
   return { ok: r.toast.ok, reasons, quickShown, toast: r.toast.text, dropInfo: r.dropInfo, dlgText: r.dlgText };
 }
 async function verifyPosted(key, { expectDate, expectRate } = {}) {
-  const o = await getOrder(ctx.orders[key].id);
+  const o = await getOrder(ord(key).id);
   const claim = claimsOf(o).find((p) => p.paymentMethodId === ctx.methods.tamara.id && p.status !== "REJECTED" && p.status !== "DISPUTED") ?? claimsOf(o)[0];
   const { je, jeCount } = claim ? await paymentReceiptJE(claim.id) : {};
   const ev = je ? jeEvidence(`receipt ${key} ${o.internalOrderId}`, je) : null;
@@ -1577,7 +1586,7 @@ async function c3() {
     return { status: after2 === before ? "PASS" : "FAIL", detail: `${r.text}; lines before=${before} after=${after2}`, url: `${BASE}${wsPath()}`, shot: r.shot };
   });
   await step("C3", fin, "manual statement entry for B02 (authorized Finance user)", async (page) => {
-    const o = ctx.orders.B02;
+    const o = ord("B02");
     const ref = `${RUN}-TXN-B02`;
     const exists = (await methodLines(ctx.methods.tamara.id)).find((l) => l.providerReference === ref);
     if (exists) return { detail: `already present (${exists.status})` };
@@ -1667,7 +1676,7 @@ async function c3() {
     });
   }
   await step("C3", fin, "BK (non-reconciled Bank transfer QA): Finance payment review → Confirm & post → JE Dr bank-transfer account (no statement matching)", async (page) => {
-    const o = ctx.orders.BK;
+    const o = ord("BK");
     if (!o) blocked("BK missing");
     let ord = await getOrder(o.id);
     let claim = claimsOf(ord)[0];
@@ -1818,7 +1827,7 @@ async function s1s4() {
   const fin = await session("qa-finance");
   const ag = await session("qa-sales-agent");
   await step("S1", fin, "DSP: Finance disputes the claim from the Matching tab (reason) after shipment", async (page) => {
-    const o = ctx.orders.DSP;
+    const o = ord("DSP");
     if (!o) blocked("DSP missing");
     let ord = await getOrder(o.id);
     let claim = claimsOf(ord).find((p) => p.paymentMethodId === ctx.methods.tamara.id);
@@ -1849,7 +1858,7 @@ async function s1s4() {
     return { status: claim?.status === "DISPUTED" && ord.paymentDiscrepancy && shipOk ? "PASS" : "FAIL", detail: `${t.text}; claim=${claim?.status} reason="${claim?.disputeReason ?? ""}"; order.paymentDiscrepancy=${ord.paymentDiscrepancy}; declared=${ord.declaredPaymentStatus}; shipments unchanged=${shipOk}`, url: orderUrl(o), shot: await shot(page, "s1-disputed") };
   });
   await step("S1", ag, "DSP order page shows the payment discrepancy banner (Sales view)", async (page) => {
-    const o = ctx.orders.DSP;
+    const o = ord("DSP");
     await go(page, `/store-orders/${o.id}`);
     const text = await mainText(page);
     const banner = /تعارض في الدفع/.test(text);
@@ -1857,7 +1866,7 @@ async function s1s4() {
     return { status: banner ? "PASS" : "FAIL", detail: `banner "تعارض في الدفع"=${banner}; disputed badge=${disputed}`, url: orderUrl(o), shot: await shot(page, "s1-discrepancy-banner") };
   });
   await step("S4", ag, "qa-sales-agent tries to re-declare DSP after fulfillment → refused (correction permission)", async (page) => {
-    const o = ctx.orders.DSP;
+    const o = ord("DSP");
     const before = claimsOf(await getOrder(o.id)).length;
     await go(page, `/store-orders/${o.id}`);
     const b = btn(page, /^إبلاغ دفع العميل$/).first();
@@ -1877,7 +1886,7 @@ async function s1s4() {
     return { status: !t.ok && after2 === before ? "PASS" : "FAIL", detail: `result=${t.text}; claims before=${before} after=${after2}`, url: orderUrl(o), shot: sh };
   });
   await step("S4", fin, "qa-finance (sales.receipts.confirm) records the audited correction on DSP", async (page) => {
-    const o = ctx.orders.DSP;
+    const o = ord("DSP");
     const ord = await getOrder(o.id);
     const before = claimsOf(ord).length;
     if (claimsOf(ord).some((p) => p.status === "PENDING")) return { detail: `already corrected (pending claim exists); claims=${before}` };
