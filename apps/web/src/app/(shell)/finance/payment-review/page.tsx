@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
-import { CheckCheck, CircleAlert, RefreshCw, Scale, Tags, X } from "lucide-react";
+import { CheckCheck, CircleAlert, Eye, RefreshCw, Scale, Tags, X } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
 import { EnterpriseButton } from "@/components/ui/button";
 import { StatusBadge } from "@/components/business/status-badge";
 import { SelectFilter } from "@/components/shared/data-table/select-filter";
+import { RowActionsMenu } from "@/components/shared/data-table/row-actions-menu";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
@@ -314,7 +315,9 @@ function PaymentReviewPageContent() {
           const missingPrice = needsPrice(payment);
           const workspaceMethodId = reconciledMethodId(payment);
           return (
-            <div className="flex flex-wrap items-center gap-1">
+            // One line per row: the state's primary action and Reject stay
+            // inline; secondary actions live in the row menu.
+            <div className="flex flex-nowrap items-center justify-end gap-1">
               {canConfirm && open && missingPrice && canEditOrders ? (
                 <EnterpriseButton
                   size="xs"
@@ -363,29 +366,6 @@ function PaymentReviewPageContent() {
                   {t("finance.paymentReview.actions.confirmPost")}
                 </EnterpriseButton>
               ) : null}
-              {canConfirm && payment.status === "VERIFIED" && payment.storeOrder ? (
-                <EnterpriseButton
-                  size="xs"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => void confirmAndPost(payment)}
-                >
-                  <RefreshCw className="size-3" />
-                  {t("docFlow.payments.syncReceipt")}
-                </EnterpriseButton>
-              ) : null}
-              {canConfirm && open && payment.storeOrder ? (
-                <EnterpriseButton
-                  size="xs"
-                  variant="outline"
-                  disabled={busy}
-                  data-testid="payment-dispute"
-                  onClick={() => openReasonDialog(payment, "dispute")}
-                >
-                  <CircleAlert className="size-3" />
-                  {t("paymentDeclaration.review.dispute")}
-                </EnterpriseButton>
-              ) : null}
               {canConfirm && open ? (
                 <EnterpriseButton
                   size="xs"
@@ -398,9 +378,34 @@ function PaymentReviewPageContent() {
                   {t("finance.paymentReview.actions.reject")}
                 </EnterpriseButton>
               ) : null}
-              <EnterpriseButton size="xs" variant="ghost" onClick={() => setDetail(payment)}>
-                {t("common.view")}
-              </EnterpriseButton>
+              <RowActionsMenu
+                label={t("common.actions")}
+                actions={[
+                  {
+                    key: "view",
+                    label: t("common.view"),
+                    icon: Eye,
+                    onSelect: () => setDetail(payment),
+                  },
+                  {
+                    key: "sync-receipt",
+                    label: t("docFlow.payments.syncReceipt"),
+                    icon: RefreshCw,
+                    hidden: !(canConfirm && payment.status === "VERIFIED" && payment.storeOrder),
+                    disabled: busy,
+                    onSelect: () => void confirmAndPost(payment),
+                  },
+                  {
+                    key: "dispute",
+                    label: t("paymentDeclaration.review.dispute"),
+                    icon: CircleAlert,
+                    hidden: !(canConfirm && open && payment.storeOrder),
+                    disabled: busy,
+                    separatorBefore: true,
+                    onSelect: () => openReasonDialog(payment, "dispute"),
+                  },
+                ]}
+              />
             </div>
           );
         },
