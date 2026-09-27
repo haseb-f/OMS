@@ -542,7 +542,7 @@ const WORKFLOWS = [
       await settle(page);
       let trigger = await visible(page.getByRole("button", { name: TXT.convert }), 20000);
       if (!trigger) {
-        const more = await visible(page.getByRole("button", { name: /More actions|مزيد من الإجراءات|المزيد/ }), 2000);
+        const more = await visible(page.getByRole("button", { name: /^More$|More actions|مزيد من الإجراءات|المزيد/ }), 2000);
         if (more) await more.click();
         trigger = await visible(page.getByRole("menuitem", { name: TXT.convert }), 3000);
       }

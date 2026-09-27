@@ -219,8 +219,8 @@ Every tone is a set:
 - **Summary strip:**
   - `KpiCard`-style tiles above the grid: revenue in `report-revenue`, expense in
     `report-expense`, net profit or loss in `report-profit` / `report-loss`.
-  - The balance check (Balanced / Unbalanced + discrepancy) is a tile in this strip, not a floating
-    badge.
+  - The balance check is a `ReconciliationCard`, not a floating badge; see §11.5. It shows balanced,
+    unbalanced (with the discrepancy and a drill-down) or not applicable.
 - **Layout:** the account-label column is pinned at the logical start. The grid scrolls
   horizontally inside its own container, and the header is sticky.
 - **Export and print:** they carry language, every active filter, the summary, the balance check and
@@ -260,3 +260,116 @@ Every tone is a set:
 
 - Print templates may use print-only colors, because print is independent of the screen theme.
 - The auth pages keep a navy primary in both themes (brand moment).
+
+## 11. Round 2 — compact controls, organized headers, feedback, reports (2026-09-27)
+
+These patterns are adapted from Cloudflare Kumo (`kumo-research.md`; `@cloudflare/kumo` 2.14.0,
+MIT) onto our shadcn/Radix stack. Tokens and components stay the same; only the recipes are refined.
+This is not a second design system.
+
+### 11.1 Selector triggers are buttons; text inputs are fields
+
+This section deliberately diverges from Kumo. Kumo draws select triggers like white inputs; the
+owner's brief asks for button-like triggers.
+
+- **Selector.** This covers every select, combobox, filter, month or date-range picker, and domain
+  picker trigger. It is a neutral tonal button: `EnterpriseButton variant="field"` or `SelectTrigger`.
+  - Surface: `--selector` background with an inset 1px `--selector-border` hairline.
+  - Content: the value in medium weight, or the placeholder in `--placeholder`. An optional leading
+    icon comes first, and a 16px muted `ChevronDown` sits in a fixed end slot.
+  - Hover uses `--selector-hover`. Pressed or expanded uses `--selector-active` plus an inset
+    focus-ring hairline.
+  - Keyboard focus shows the 2px outline. Invalid shows an inset destructive hairline. Disabled uses
+    the muted fill with no hairline.
+  - An applied filter is brand-tinted (`bg-primary-soft text-primary`, medium weight).
+  - The clear (×) sits in the end slot, appears only when there is a value, and never opens the menu.
+- **Text input.** Text, number, money, search and date inputs are white `--card` fields.
+  - They use the `--input` border (3:1) and a focus-ring border.
+  - Read-only fields use the sunken fill; disabled fields use the muted fill.
+- **Heights.** Fields and triggers are 32px on desktop (`--control-height-md`) and 40px on touch.
+  Text stays 14px: compact never means smaller text.
+- **Menus.**
+  - Rows are 32px (40px on touch), with a neutral highlight and a trailing check on the selected item.
+  - Height is bounded, and placement avoids collisions with 8px padding.
+  - Search and a top-positioned quick-create are kept.
+
+### 11.2 Headers
+
+- **Global TopBar (48px).** In order from the start edge:
+  - the navigation toggle (phones and tablets)
+  - Back and the breadcrumb, the only location indicator
+  - search
+  - language, theme and notifications, with the account menu at the end
+- **Page header** (list, settings and report pages). One row:
+  - the title, with an optional one-line subtitle
+  - the actions, at the end
+- **Document and record header.** It shows, in order:
+  - the identity: title plus reference (the auto-generated number), as the h1
+  - labeled status groups, where payment and fulfillment are always separate groups
+  - key meta: party, date, currency
+  - the actions
+- **Actions** (shared `HeaderActions`), placed from the end edge:
+  - ONE primary action (filled)
+  - up to two frequent secondary actions (outline)
+  - an «المزيد / More» overflow menu for the rest
+  - destructive actions inside the overflow menu, separated, shown in red and confirmed before running
+- **Phones.** The title wraps and is never clipped, and the primary action stays visible. Secondary
+  actions collapse into the overflow menu.
+- **Sticky headers** are allowed only on record and document pages. They are at most 64px tall and
+  sit at `top-(--shell-topbar-height)`.
+
+### 11.3 Cards
+
+`EnterpriseCard` is the only card.
+
+- `rounded-md` (8px), a solid `--card` surface, a 1px `--border` and no resting shadow.
+- Padding is 12px (compact) or 16px (default).
+- Section headings use `text-card-title`, with an optional one-line description.
+- No card nests inside another. Nested groups use a heading plus a hairline divider, not another
+  bordered box.
+
+### 11.4 Feedback
+
+- **Field errors.** Shown under the field, with an icon and text.
+- **Form error summary.** After a failed submit, a persistent `FormErrorSummary` banner appears at the
+  top of the form.
+  - It lists each problem as a link that focuses the related field.
+  - Focus moves to the first invalid field, and the banner announces through `aria-live="polite"`.
+- **Success.** The document header status updates in place, with a link to the resulting record
+  where useful. A toast only supplements this.
+- **Long tasks** (such as imports) show progress, then completion counts, errors and a retry.
+- **Persistent warnings** use `Alert` banners that stay until the issue is resolved or dismissed.
+- **Toasts.**
+  - Placement: top of the viewport, at the logical end corner on desktop and centered on phones.
+  - Style: a solid body, with the tone shown as an icon and a tinted border.
+  - They never replace on-page feedback.
+
+### 11.5 Financial report header and reconciliation
+
+- **Header.** One compact block with two rows:
+  - Row 1: the title plus a context line (period or as-of date, currency, posted-only), with the
+    report picker and export/print actions at the end.
+  - Row 2: a single filter row. Secondary filters sit behind «فلاتر إضافية», and phones get the
+    Filters sheet.
+- **Summary strip.** KPI and reconciliation cards form a compact strip, at most 72px tall, under the
+  header and separate from the table. The table stays high in the viewport.
+- **Reconciliation.** Shown only where it is mathematically meaningful (TB, GL, journal).
+  - Balanced: a subtle success icon plus «مدين = دائن» and the totals. It never claims that "all
+    accounting is correct".
+  - Unbalanced: a destructive banner with the discrepancy amount shown prominently and a drill-down
+    link.
+  - Not applicable (for example, filtered accounts): a neutral note, with no badge.
+
+### 11.6 Sidebar
+
+- **Container.** Inset with an 8px gutter, `rounded-lg`, a solid `--sidebar` surface, a 1px border
+  and no shadow.
+- **Items.** `rounded-sm` and 32px tall; nested items are 28px.
+- **Active item:**
+  - a 4px `--sidebar-rail` rail on the outer edge (logical start: right in RTL, left in LTR), with a
+    soft `--sidebar-rail-glow` shadow
+  - a `--sidebar-active` tint
+  - a semibold label and a rail-colored icon
+  - the same treatment on nested items and in the mobile drawer
+- **Hover and focus.** Hover is a neutral tint; focus is the inset outline. No state shifts the
+  layout.

@@ -1,6 +1,7 @@
 # Spec — Enterprise UI/UX Design System Overhaul
 
-Milestone: `enterprise-ui-overhaul` · Status: **QUEUED** (received 2026-09-27)
+Milestone: `enterprise-ui-overhaul` · Round 1 COMPLETE (2026-09-27) · **Round 2 ACTIVE** (2026-09-27, see
+"Round 2" at the end)
 
 Start condition: `payment-declaration-reconciliation` is released and verified (QA and DOC done,
 HEAD = origin/main = Production). No concurrent changes to shared components before then.
@@ -80,3 +81,52 @@ A comprehensive visual and interaction redesign — not isolated CSS fixes.
 
 Concise summary, before/after screenshots, route coverage, design-system documentation
 (`design-system.md`), remaining gaps, verified release SHA.
+
+## Round 2: compact design, organized headers, distinct controls, report UI (2026-09-27)
+
+This round covers the owner's follow-up brief plus the sidebar and financial-report refinements.
+The rules are in design-system.md §11.
+
+**Scope:**
+
+- Kumo research, verified from official sources (`kumo-research.md`).
+- Tokens and primitives:
+  - selector triggers as tonal buttons
+  - compact fields
+  - menus, cards and toasts
+- Global, page and document headers, with a shared `HeaderActions`.
+- Layouts for:
+  - the Lead → Store Order dialog
+  - the sales invoice
+  - the purchase quotation and invoice
+  - payment declaration and reconciliation
+- Visible contextual feedback:
+  - field errors
+  - a persistent form error summary
+  - header status updates
+  - import progress
+  - persistent warnings
+- The financial-report header, reconciliation summary and report cards, across the GL, TB, P&L, BS,
+  CF, statements, aging and treasury reports.
+- Sidebar radii and the active rail with glow.
+
+**Acceptance:**
+
+- The deployed UI visibly shows:
+  - organized headers, so location, status and next action are clear at a glance
+  - compact solid forms
+  - button-like dropdown triggers
+  - clear feedback
+  - the redesigned report header, with balanced and unbalanced states
+- Before/after Production screenshots are captured at identical viewports: `tmp/ui-controls/r2-before`
+  vs `r2-after`, plus `tmp/ui-baseline`. They cover:
+  - header height
+  - visible fields and rows
+  - wasted space
+  - control states
+- Checked in Arabic and English, RTL and LTR, phone, tablet and desktop, light and dark, and with
+  keyboard and touch.
+- Data, validation, permissions, business rules, financial figures and lookup performance are
+  unchanged.
+- HEAD = origin/main = Production, the Arabic guide screenshots are refreshed, and verification.md is
+  updated.
