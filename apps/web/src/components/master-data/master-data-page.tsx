@@ -105,6 +105,8 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   stats,
   extraRowActions,
   extraFilters,
+  extraFilterCount = 0,
+  onClearExtraFilters,
   extraActions,
   extraBulkActions,
   defaultSortBy = "name",
@@ -142,6 +144,10 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   extraRowActions?: (entity: TEntity) => RowAction[];
   /** Opt-in extra filter control(s) rendered next to the "Show Archived" toggle. */
   extraFilters?: ReactNode;
+  /** How many of `extraFilters` are engaged — drives the collapsed "Filters" button badge on narrow screens. */
+  extraFilterCount?: number;
+  /** Resets every `extraFilters` control — the narrow-screen filter sheet's Clear action. */
+  onClearExtraFilters?: () => void;
   /** Opt-in extra toolbar action(s) rendered before the internal "+ New" button — e.g. `<ModuleImportButtons />` (TASK-060B Part 5). */
   extraActions?: ReactNode;
   extraBulkActions?: (selectedIds: string[]) => ReactNode;
@@ -272,7 +278,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
       setItems(result.items);
       setTotal(result.total);
     } catch (error) {
-      reportApiError(error, "Failed to load data.");
+      reportApiError(error, "errors.loadFailed");
     } finally {
       setIsLoading(false);
     }
@@ -398,7 +404,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
           setModalOpen(false);
         }
       } catch (error) {
-        reportApiError(error, "Something went wrong.");
+        reportApiError(error, "errors.saveFailed");
       } finally {
         setIsSubmitting(false);
       }
@@ -414,7 +420,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
       onRecordsChanged?.();
       await load();
     } catch (error) {
-      reportApiError(error, "Failed to archive.");
+      reportApiError(error, "errors.archiveFailed");
     } finally {
       setIsMutating(false);
     }
@@ -430,7 +436,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
       onRecordsChanged?.();
       await load();
     } catch (error) {
-      reportApiError(error, "Failed to restore.");
+      reportApiError(error, "errors.restoreFailed");
     } finally {
       setIsMutating(false);
     }
@@ -480,7 +486,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
       setRowSelection(Object.fromEntries(result.ids.map((id) => [id, true])));
       setBulkSelectionQuery(querySignature());
     } catch (error) {
-      reportApiError(error, "Failed to select all matching records.");
+      reportApiError(error, "errors.selectFailed");
     } finally {
       setIsSelectingAllMatching(false);
     }
@@ -505,7 +511,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
         toast.info(t("masterData.bulkSelection.customCountPartial", { count: result.ids.length }));
       }
     } catch (error) {
-      reportApiError(error, "Failed to select records.");
+      reportApiError(error, "errors.selectFailed");
     } finally {
       setIsSelectingCustomCount(false);
     }
@@ -643,9 +649,15 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
         </div>
       )}
 
-      <div className="relative">
+      {/* Flex column so the table can take the viewport-fill height on lg+. */}
+      <div className="relative flex min-w-0 flex-col lg:min-h-0 lg:flex-1">
         {isMutating && <LoadingOverlay />}
         <EnterpriseDataTable
+          activeFilterCount={extraFilterCount + (includeArchived ? 1 : 0)}
+          onClearFilters={() => {
+            onClearExtraFilters?.();
+            setIncludeArchived(false);
+          }}
           filterBar={
             <>
               {extraFilters}

@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/business/status-badge";
 import { statusColumn } from "@/config/master-data/shared-columns";
 import type { PayrollComponentRow } from "@/services/payroll-components-service";
 import type { MessageKey } from "@/i18n/translate";
+import { formatNumber } from "@/lib/format-number";
 
 function PayrollComponentNameCell({ row }: { row: PayrollComponentRow }) {
   return <StackedCell primary={row.nameAr} secondary={row.nameEn} />;
@@ -57,7 +58,7 @@ export function buildPayrollComponentsColumns(
       accessorFn: (row) => (row.defaultValue != null ? Number(row.defaultValue) : ""),
       cell: (info) => {
         const value = info.getValue() as number | "";
-        return value === "" ? "—" : value.toLocaleString();
+        return value === "" ? "—" : formatNumber(value);
       },
     },
     {

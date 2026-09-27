@@ -1,5 +1,27 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { createContext, useContext, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+
+/**
+ * Viewport-fill contract (design-system §6 "Scroll"). A list workspace that
+ * opts in (`PageWorkspace dense` without `secondary`) provides `true`; on lg+
+ * the shell then locks <main> to the viewport and every link of the chain
+ * PageWorkspace → ListSurface → grid scroller is `flex-1 min-h-0`, so the
+ * grid body is the ONE vertical scroller under a sticky header. Outside such
+ * a workspace (detail tabs, dialogs, tree pages) everything keeps its
+ * natural height and the page scrolls.
+ */
+const ViewportFillContext = createContext(false);
+
+export function ViewportFillProvider({ value, children }: { value: boolean; children: ReactNode }) {
+  return <ViewportFillContext.Provider value={value}>{children}</ViewportFillContext.Provider>;
+}
+
+/** True when the enclosing list workspace fills the viewport on lg+. */
+export function useViewportFill() {
+  return useContext(ViewportFillContext);
+}
 
 /**
  * The card geometry every list workspace shares.
@@ -13,13 +35,31 @@ import { cn } from "@/lib/utils";
  * instead of three hand-copied `rounded-xl border shadow-sm` wrappers that
  * silently fall a redesign behind.
  */
-export function ListSurface({ children, className }: { children: ReactNode; className?: string }) {
+export function ListSurface({
+  children,
+  className,
+  fill: fillRequested = false,
+}: {
+  children: ReactNode;
+  className?: string;
+  /**
+   * Flex to the remaining viewport height on lg+ (its content must then own
+   * the vertical scroll — `EnterpriseDataTable` does). Only honoured inside a
+   * viewport-fill workspace: a bare surface marking the shell viewport-fill
+   * would clip whatever the page renders around it. Trees and boards whose
+   * content is not its own scroller leave this off and keep natural height.
+   */
+  fill?: boolean;
+}) {
+  const fill = useViewportFill() && fillRequested;
   return (
     <div
+      data-viewport-fill={fill ? "" : undefined}
       className={cn(
         // Contained data area: stronger edge than page chrome so tables read
         // as one card (toolbar + grid + footer), not floating rows on bg.
-        "relative flex min-w-0 flex-col overflow-hidden rounded-md border border-border bg-card shadow-[0_1px_0_0_color-mix(in_oklab,var(--border)_80%,transparent)] ring-1 ring-border/60",
+        "relative flex min-w-0 flex-col overflow-hidden rounded-md border border-border bg-card",
+        fill && "lg:min-h-0 lg:flex-1",
         className,
       )}
     >
@@ -28,12 +68,12 @@ export function ListSurface({ children, className }: { children: ReactNode; clas
   );
 }
 
-/** Filter/search strip pinned to the top of a `ListSurface`. */
+/** Filter/search strip pinned to the top of a `ListSurface`. `relative` so a bulk-action strip can overlay it in place. */
 export function ListToolbar({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center gap-1.5 border-b border-border bg-muted/30 px-3 py-1.5 sm:px-4",
+        "relative flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border bg-muted/30 px-3 py-1.5 sm:px-4",
         className,
       )}
     >
@@ -45,7 +85,9 @@ export function ListToolbar({ children, className }: { children: ReactNode; clas
 /** Summary/pagination strip pinned to the bottom of a `ListSurface`. */
 export function ListFooter({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn("border-t border-border bg-muted/20 px-3 py-2 sm:px-4", className)}>
+    <div
+      className={cn("shrink-0 border-t border-border bg-muted/20 px-3 py-1.5 sm:px-4", className)}
+    >
       {children}
     </div>
   );
@@ -69,7 +111,7 @@ export function FilterSurface({
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center gap-2 rounded-md border border-border bg-card px-3 py-2 shadow-[0_1px_0_0_color-mix(in_oklab,var(--border)_80%,transparent)] ring-1 ring-border/60 sm:px-4",
+        "flex flex-wrap items-center gap-2 rounded-md border border-border bg-card px-3 py-2 sm:px-4",
         className,
       )}
     >

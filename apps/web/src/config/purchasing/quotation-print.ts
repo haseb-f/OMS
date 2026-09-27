@@ -1,5 +1,6 @@
 import type { DocumentData } from "@/types/document-engine";
 import type { DocumentPrintPayload } from "@/types/print-engine";
+import { documentPrintBranding } from "@/components/print/print-brand";
 import type { PurchaseQuotationRow } from "@/services/purchase-quotations-service";
 import { formatDate } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
@@ -24,13 +25,7 @@ export function buildQuotationPrintPayload(
     company: {
       name: companyName,
       addressLines: [],
-      branding: {
-        logoUrl: companyLogoUrl,
-        primaryColor: "#0F8A5F",
-        secondaryColor: "#2563EB",
-        paperSize: "a4-portrait",
-        language: "rtl",
-      },
+      branding: documentPrintBranding(companyLogoUrl),
     },
     party: {
       name: quotation.partner?.name ?? "",
@@ -73,6 +68,7 @@ export function buildQuotationPrintPayload(
     variant: "invoice",
     title: `${t("purchasing.quotations.title")} — ${quotation.quotationNumber}`,
     printedByName,
+    recordPath: `/purchasing/purchase-quotations/${quotation.id}`,
     data,
     labels: {
       documentNumber: t("purchasing.quotations.fields.number"),

@@ -169,7 +169,7 @@ export function buildInvoiceColumns(
       accessorFn: (row) => formatDate(row.createdAt),
       cell: ({ row }) => (
         <StackedCell
-          primary={formatDate(row.original.createdAt)}
+          primary={<span className="num">{formatDate(row.original.createdAt)}</span>}
           secondary={
             row.original.createdBy
               ? (handlers.usersById[row.original.createdBy] ?? undefined)

@@ -1,5 +1,6 @@
 import type { DocumentData } from "@/types/document-engine";
 import type { DocumentPrintPayload } from "@/types/print-engine";
+import { documentPrintBranding } from "@/components/print/print-brand";
 import type { PurchaseReturnRow } from "@/services/purchase-returns-service";
 import { formatDate } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
@@ -24,13 +25,7 @@ export function buildReturnPrintPayload(
     company: {
       name: companyName,
       addressLines: [],
-      branding: {
-        logoUrl: companyLogoUrl,
-        primaryColor: "#0F8A5F",
-        secondaryColor: "#2563EB",
-        paperSize: "a4-portrait",
-        language: "rtl",
-      },
+      branding: documentPrintBranding(companyLogoUrl),
     },
     party: {
       name: purchaseReturn.partner?.name ?? "",
@@ -78,6 +73,7 @@ export function buildReturnPrintPayload(
     variant: "invoice",
     title: `${t("purchasing.returns.title")} — ${purchaseReturn.returnNumber}`,
     printedByName,
+    recordPath: `/purchasing/purchase-returns/${purchaseReturn.id}`,
     data,
     labels: {
       documentNumber: t("purchasing.returns.fields.number"),

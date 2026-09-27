@@ -23,12 +23,15 @@ export function applySemanticCellContent(
     case "date":
       return <SemanticValue kind="date">{text}</SemanticValue>;
     case "code":
+    case "reference":
       return <SemanticValue kind="id">{text}</SemanticValue>;
     case "phone":
       return <SemanticValue kind="phone">{text}</SemanticValue>;
     case "money":
       return <SemanticValue kind="money">{text}</SemanticValue>;
     case "number":
+    case "quantity":
+    case "percent":
       return <SemanticValue kind="number">{text}</SemanticValue>;
     case "name":
     case "description":

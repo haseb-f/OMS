@@ -1,5 +1,6 @@
 import type { DocumentData } from "@/types/document-engine";
 import type { DocumentPrintPayload } from "@/types/print-engine";
+import { documentPrintBranding } from "@/components/print/print-brand";
 import type { FinancialTransactionRow } from "@/services/financial-transactions-service";
 import { formatDate } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
@@ -24,13 +25,7 @@ export function buildPaymentPrintPayload(
     company: {
       name: companyName,
       addressLines: [],
-      branding: {
-        logoUrl: companyLogoUrl,
-        primaryColor: "#0F8A5F",
-        secondaryColor: "#2563EB",
-        paperSize: "a4-portrait",
-        language: "rtl",
-      },
+      branding: documentPrintBranding(companyLogoUrl),
     },
     party: {
       name: payment.partner?.name ?? "",
@@ -77,6 +72,7 @@ export function buildPaymentPrintPayload(
     variant: "voucher",
     title: `${t("purchasing.payments.title")} — ${payment.transactionNumber}`,
     printedByName,
+    recordPath: `/purchasing/payments/${payment.id}`,
     data,
     labels: {
       documentNumber: t("purchasing.payments.fields.number"),

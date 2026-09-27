@@ -21,7 +21,7 @@ export function buildRankingColumns(
   return [
     {
       id: "rank",
-      meta: { titleKey: "hr.ranking.rank", align: "center" },
+      meta: { titleKey: "hr.ranking.rank", align: "center", type: "number" },
       accessorFn: (row) => row.rank,
       cell: (info) => (
         <span className="font-semibold tabular-nums">
@@ -39,19 +39,19 @@ export function buildRankingColumns(
     },
     {
       id: "targetAmount",
-      meta: { titleKey: "hr.salesTargets.fields.targetAmount", align: "end" },
+      meta: { titleKey: "hr.salesTargets.fields.targetAmount", align: "end", type: "money" },
       accessorFn: (row) => formatTargetAmount(row.targetAmount),
       cell: (info) => info.getValue() as string,
     },
     {
       id: "actual",
-      meta: { titleKey: "hr.salesTargets.fields.actualAmount", align: "end" },
+      meta: { titleKey: "hr.salesTargets.fields.actualAmount", align: "end", type: "money" },
       accessorFn: (row) => formatTargetAmount(row.actual),
       cell: (info) => info.getValue() as string,
     },
     {
       id: "achievementPercent",
-      meta: { titleKey: "hr.salesTargets.fields.achievement", align: "end" },
+      meta: { titleKey: "hr.salesTargets.fields.achievement", align: "end", type: "percent" },
       accessorFn: (row) => row.achievementPercent,
       cell: ({ row }) => {
         const percent = row.original.achievementPercent;

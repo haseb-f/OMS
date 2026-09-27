@@ -5,6 +5,7 @@ import { FilterX } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { useLocale } from "@/providers/locale-provider";
+import { useReportFilterBarState } from "./filter-bar-context";
 
 /**
  * The ONE reset control for a list's filter bar. Renders nothing while
@@ -24,8 +25,12 @@ export function ClearFiltersButton({
   onClear: () => void;
 }) {
   const { t } = useLocale();
+  // Reports the count/reset to the enclosing table (collapsed "Filters"
+  // button badge + filter sheet Clear action on narrow containers).
+  const filterBar = useReportFilterBarState(activeCount, onClear);
 
-  if (activeCount <= 0) return null;
+  // Inside the filter sheet the sheet's own footer carries Clear.
+  if (activeCount <= 0 || filterBar?.inSheet) return null;
 
   return (
     <EnterpriseButton type="button" variant="ghost" size="sm" onClick={onClear}>

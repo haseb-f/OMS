@@ -6,6 +6,7 @@ import { StatusBadge, type StatusTone } from "@/components/business/status-badge
 import { SemanticValue } from "@/components/shared/semantic-value";
 import type { KpiEvaluationRow, KpiEvaluationStatus } from "@/services/kpi-evaluations-service";
 import type { MessageKey } from "@/i18n/translate";
+import { formatAmount } from "@/lib/money";
 
 export const KPI_EVALUATION_STATUSES: KpiEvaluationStatus[] = [
   "DRAFT",
@@ -21,12 +22,8 @@ export const kpiEvaluationStatusTone: Record<KpiEvaluationStatus, StatusTone> = 
   INCLUDED_IN_PAYROLL: "success",
 };
 
-function formatMoney(value: string | null) {
-  if (value === null) return "—";
-  return Number(value).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+function formatScoreAmount(value: string | null) {
+  return value === null ? "—" : formatAmount(value);
 }
 
 function EmployeeCell({ row }: { row: KpiEvaluationRow }) {
@@ -81,14 +78,15 @@ export function buildKpiEvaluationsColumns(
     },
     {
       id: "finalScore",
-      meta: { titleKey: "hr.kpiEvaluations.fields.finalScore" },
-      accessorFn: (row) => (row.finalScore === null ? "—" : `${formatMoney(row.finalScore)}%`),
+      meta: { titleKey: "hr.kpiEvaluations.fields.finalScore", type: "number" },
+      accessorFn: (row) =>
+        row.finalScore === null ? "—" : `${formatScoreAmount(row.finalScore)}%`,
       cell: (info) => info.getValue() as string,
     },
     {
       id: "kpiPay",
-      meta: { titleKey: "hr.kpiEvaluations.fields.kpiPay" },
-      accessorFn: (row) => formatMoney(row.kpiPay),
+      meta: { titleKey: "hr.kpiEvaluations.fields.kpiPay", type: "money" },
+      accessorFn: (row) => formatScoreAmount(row.kpiPay),
       cell: (info) => <SemanticValue kind="money">{info.getValue() as string}</SemanticValue>,
     },
   ];

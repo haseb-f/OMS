@@ -2,11 +2,20 @@
 
 import { useState } from "react";
 import type { Column } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ChevronsUpDown, EyeOff, Filter, PinOff, Pin, X } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronsUpDown,
+  EllipsisVertical,
+  EyeOff,
+  Filter,
+  Pin,
+  PinOff,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EnterpriseButton } from "@/components/ui/button";
 import { SearchInput } from "@/components/shared/search-input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,13 +27,19 @@ import { useLocale } from "@/providers/locale-provider";
 
 type HeaderAlign = "start" | "center" | "end";
 
-const TEXT_ALIGN: Record<HeaderAlign, string> = {
-  start: "text-start",
-  center: "text-center",
-  end: "text-end",
-};
-
-/** Sortable + hideable + pinnable + filterable column header — the standard TanStack Table pairing with shadcn, extended (TASK-060B Part 3) with pinning, multi-sort, and a per-column sticky filter popover. */
+/**
+ * Column header (design-system §6):
+ *
+ * - ONE click on the label sorts: ascending → descending → unsorted (Shift
+ *   adds a secondary sort in client mode). The sort arrow is always visible
+ *   while the column is sorted; unsorted sortable columns show a faint
+ *   affordance on hover/focus only.
+ * - The column menu (filter / pin / hide) lives on its own small trigger.
+ * - The label sits flush on the column's alignment edge — the same edge the
+ *   body and footer cells use. The sort arrow follows the label away from
+ *   that edge, and the menu/filter/pin controls sit at the opposite side, so
+ *   no icon ever shifts the label off the value axis.
+ */
 export function EnterpriseTableColumnHeader<TData, TValue>({
   column,
   title,
@@ -39,193 +54,161 @@ export function EnterpriseTableColumnHeader<TData, TValue>({
   align?: HeaderAlign;
   /** Client-mode only — server-paginated tables don't have the full dataset loaded to filter locally. */
   canFilter?: boolean;
-  /** Server mode only supports one sort field at a time, so multi-sort menu entries only make sense in client mode. */
+  /** Client mode only — Shift+click adds a secondary sort; server mode sorts by one field. */
   canMultiSort?: boolean;
 }) {
   const { t } = useLocale();
   const [filterOpen, setFilterOpen] = useState(false);
   const isPinned = column.getIsPinned();
   const filterValue = (column.getFilterValue() as string | undefined) ?? "";
-  const showFilterAffordance = canFilter && column.getCanFilter();
+  const showFilter = canFilter && column.getCanFilter();
+  const canSort = column.getCanSort();
+  const canPin = column.getCanPin();
+  const canHide = column.getCanHide();
+  const hasMenu = showFilter || canPin || canHide;
+  const sorted = column.getIsSorted();
+  const SortIcon = sorted === "desc" ? ArrowDown : sorted === "asc" ? ArrowUp : ChevronsUpDown;
 
-  const textAlign = TEXT_ALIGN[align];
+  const labelContent = (
+    <>
+      <span className="min-w-0 truncate">{title}</span>
+      {canSort ? (
+        <SortIcon
+          aria-hidden
+          className={cn(
+            "size-3.5 shrink-0",
+            sorted
+              ? "text-foreground"
+              : "opacity-0 transition-opacity duration-(--duration-base) group-hover/sort:opacity-60 group-focus-visible/sort:opacity-60",
+          )}
+        />
+      ) : null}
+    </>
+  );
 
-  if (!column.getCanSort()) {
-    if (!showFilterAffordance) {
-      return (
-        <span className={cn("block min-w-0 w-full truncate", textAlign, className)}>{title}</span>
-      );
-    }
-    return (
+  const label = canSort ? (
+    <button
+      type="button"
+      className={cn(
+        "group/sort flex min-w-0 items-center gap-1 rounded-xs hover:text-foreground focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-focus-ring",
+        align === "end" && "flex-row-reverse",
+        sorted && "text-foreground",
+      )}
+      onClick={(event) => {
+        const multi = canMultiSort && event.shiftKey;
+        const next = column.getNextSortingOrder();
+        if (next === false) column.clearSorting();
+        else column.toggleSorting(next === "desc", multi);
+      }}
+    >
+      {labelContent}
+    </button>
+  ) : (
+    <span className="flex min-w-0 items-center">{labelContent}</span>
+  );
+
+  const controls =
+    hasMenu || isPinned || filterValue ? (
       <div
         className={cn(
-          "flex min-w-0 w-full items-center gap-1",
-          align === "end" && "flex-row-reverse",
-          className,
+          "flex shrink-0 items-center gap-0.5",
+          align === "end" ? "me-auto" : align === "start" ? "ms-auto" : "",
         )}
       >
-        <span className={cn("min-w-0 flex-1 truncate", textAlign)}>{title}</span>
-        <ColumnFilterPopover
-          open={filterOpen}
-          onOpenChange={setFilterOpen}
-          value={filterValue}
-          onChange={(value) => column.setFilterValue(value || undefined)}
-          title={title}
-        />
-      </div>
-    );
-  }
-
-  const isSorted = column.getIsSorted();
-  const Icon = isSorted === "desc" ? ArrowDown : isSorted === "asc" ? ArrowUp : ChevronsUpDown;
-  const sortIcon = (
-    <Icon
-      className={cn(
-        "size-3.5 shrink-0 text-muted-foreground/60 transition-opacity duration-150 group-hover/sort:opacity-100",
-        !isSorted && "opacity-0 group-hover/sort:opacity-70",
-        isSorted && "text-foreground opacity-100",
-      )}
-    />
-  );
-  const pinIcon = isPinned ? <Pin className="size-3 shrink-0 text-muted-foreground/70" /> : null;
-
-  // The title always sits flush on the column's own alignment edge — the
-  // same edge the body cells use. Sort/pin/filter affordances go on the
-  // opposite side (or both sides when centered), so a hidden or visible
-  // sort icon never shifts the title off the value axis.
-  return (
-    <div
-      className={cn(
-        "group/sort flex min-w-0 w-full items-center gap-0.5",
-        align === "end" && "flex-row-reverse",
-        className,
-      )}
-    >
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+        {isPinned ? <Pin aria-hidden className="size-3 shrink-0 text-muted-foreground" /> : null}
+        {filterValue ? (
           <EnterpriseButton
+            type="button"
             variant="ghost"
-            size="inline"
-            className={cn(
-              "flex min-w-0 flex-1 max-w-full items-center gap-0.5 font-medium text-caption leading-normal text-muted-foreground hover:bg-transparent hover:text-foreground hover:shadow-none data-[state=open]:bg-transparent data-[state=open]:text-foreground",
-              align === "end" && "flex-row-reverse",
-              align === "center" && "justify-center",
-              align === "start" && "justify-start",
-            )}
+            size="icon-xs"
+            className="size-5 text-primary"
+            aria-label={t("table.filterColumn")}
+            onClick={() => setFilterOpen(true)}
           >
-            {align === "center" ? <span aria-hidden className="size-3.5 shrink-0" /> : null}
-            <span className={cn("min-w-0 truncate", textAlign)}>{title}</span>
-            {pinIcon}
-            {sortIcon}
+            <Filter className="size-3" />
           </EnterpriseButton>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
-          <DropdownMenuItem onClick={() => column.toggleSorting(false)}>
-            <ArrowUp className="text-muted-foreground/70" />
-            {t("table.sortAscending")}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => column.toggleSorting(true)}>
-            <ArrowDown className="text-muted-foreground/70" />
-            {t("table.sortDescending")}
-          </DropdownMenuItem>
-          {canMultiSort && (
-            <>
-              <DropdownMenuItem onClick={() => column.toggleSorting(false, true)}>
-                <ArrowUp className="text-muted-foreground/70" />
-                {t("table.addSortAscending")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => column.toggleSorting(true, true)}>
-                <ArrowDown className="text-muted-foreground/70" />
-                {t("table.addSortDescending")}
-              </DropdownMenuItem>
-            </>
-          )}
-          {isSorted && (
-            <DropdownMenuItem onClick={() => column.clearSorting()}>
-              <X className="text-muted-foreground/70" />
-              {t("table.clearSort")}
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuSeparator />
-          {isPinned ? (
-            <DropdownMenuItem onClick={() => column.pin(false)}>
-              <PinOff className="text-muted-foreground/70" />
-              {t("table.unpinColumn")}
-            </DropdownMenuItem>
-          ) : (
-            <>
-              <DropdownMenuItem onClick={() => column.pin("left")}>
-                <Pin className="text-muted-foreground/70" />
-                {t("table.pinColumnStart")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => column.pin("right")}>
-                <Pin className="text-muted-foreground/70" />
-                {t("table.pinColumnEnd")}
-              </DropdownMenuItem>
-            </>
-          )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => column.toggleVisibility(false)}>
-            <EyeOff className="text-muted-foreground/70" />
-            {t("table.hideColumn")}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      {showFilterAffordance && (
-        <ColumnFilterPopover
-          open={filterOpen}
-          onOpenChange={setFilterOpen}
-          value={filterValue}
-          onChange={(value) => column.setFilterValue(value || undefined)}
-          title={title}
-        />
-      )}
-    </div>
-  );
-}
+        ) : null}
+        {hasMenu ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <EnterpriseButton
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label={t("table.columnMenu", { column: title })}
+                className="size-5 text-muted-foreground opacity-0 group-hover/header:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 pointer-coarse:opacity-100"
+              >
+                <EllipsisVertical className="size-3.5" />
+              </EnterpriseButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {showFilter ? (
+                <DropdownMenuItem onSelect={() => setFilterOpen(true)}>
+                  <Filter className="text-muted-foreground/70" />
+                  {t("table.filterColumn")}
+                </DropdownMenuItem>
+              ) : null}
+              {showFilter && (canPin || canHide) ? <DropdownMenuSeparator /> : null}
+              {canPin ? (
+                isPinned ? (
+                  <DropdownMenuItem onSelect={() => column.pin(false)}>
+                    <PinOff className="text-muted-foreground/70" />
+                    {t("table.unpinColumn")}
+                  </DropdownMenuItem>
+                ) : (
+                  <>
+                    <DropdownMenuItem onSelect={() => column.pin("left")}>
+                      <Pin className="text-muted-foreground/70" />
+                      {t("table.pinColumnStart")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => column.pin("right")}>
+                      <Pin className="text-muted-foreground/70" />
+                      {t("table.pinColumnEnd")}
+                    </DropdownMenuItem>
+                  </>
+                )
+              ) : null}
+              {canPin && canHide ? <DropdownMenuSeparator /> : null}
+              {canHide ? (
+                <DropdownMenuItem onSelect={() => column.toggleVisibility(false)}>
+                  <EyeOff className="text-muted-foreground/70" />
+                  {t("table.hideColumn")}
+                </DropdownMenuItem>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+      </div>
+    ) : null;
 
-/** Per-column sticky filter — a small trigger + popover instead of an always-visible filter row, so no column ever shifts layout just because filtering exists (TASK-060B Part 3). */
-function ColumnFilterPopover({
-  open,
-  onOpenChange,
-  value,
-  onChange,
-  title,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  value: string;
-  onChange: (value: string) => void;
-  title: string;
-}) {
-  const { t } = useLocale();
   return (
-    <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>
-        <EnterpriseButton
-          type="button"
-          variant="ghost"
-          size="icon-sm"
+    <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+      <PopoverAnchor asChild>
+        <div
           className={cn(
-            "size-6 text-muted-foreground/60 hover:text-foreground",
-            value && "text-primary",
+            "group/header flex min-w-0 w-full items-center gap-1",
+            align === "end" && "flex-row-reverse",
+            align === "center" && "justify-center",
+            className,
           )}
-          aria-label={t("table.filterColumn")}
         >
-          <Filter className="size-3" />
-        </EnterpriseButton>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-56 p-2">
-        <p className="mb-1.5 text-caption font-medium text-muted-foreground">{title}</p>
-        <SearchInput
-          autoFocus
-          value={value}
-          onValueChange={onChange}
-          placeholder={t("table.filterPlaceholder")}
-          clearLabel={t("table.clearFilter")}
-          className="max-w-none"
-        />
-      </PopoverContent>
+          {label}
+          {controls}
+        </div>
+      </PopoverAnchor>
+      {showFilter ? (
+        <PopoverContent align="start" className="w-56 p-2">
+          <p className="mb-1.5 text-caption font-medium text-muted-foreground">{title}</p>
+          <SearchInput
+            autoFocus
+            value={filterValue}
+            onValueChange={(value) => column.setFilterValue(value || undefined)}
+            placeholder={t("table.filterPlaceholder")}
+            clearLabel={t("table.clearFilter")}
+            className="max-w-none"
+          />
+        </PopoverContent>
+      ) : null}
     </Popover>
   );
 }

@@ -8,13 +8,29 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type { TableDensity } from "@/components/ui/table";
 import { useLocale } from "@/providers/locale-provider";
 
-/** Column-visibility toggle + column-order arrows — "Column Visibility" and the reorder part of the Enterprise Data Grid spec (TASK-060B Part 3). Arrow buttons stand in for full drag-and-drop reordering (no new drag-and-drop dependency added) while still giving every column a rememberable order. */
-export function EnterpriseTableViewOptions<TData>({ table }: { table: Table<TData> }) {
+/**
+ * The table's view menu: density (compact / comfortable — the visible
+ * density toggle of design-system §6), then column visibility + column-order
+ * arrows (TASK-060B Part 3). Arrow buttons stand in for full drag-and-drop
+ * reordering while still giving every column a rememberable order.
+ */
+export function EnterpriseTableViewOptions<TData>({
+  table,
+  density,
+  onDensityChange,
+}: {
+  table: Table<TData>;
+  density?: TableDensity;
+  onDensityChange?: (density: TableDensity) => void;
+}) {
   const { t } = useLocale();
   const orderableColumns = table.getAllLeafColumns().filter((column) => column.getCanHide());
 
@@ -30,14 +46,39 @@ export function EnterpriseTableViewOptions<TData>({ table }: { table: Table<TDat
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <EnterpriseButton variant="outline" size="sm" className="gap-1.5">
+        <EnterpriseButton
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          aria-label={t("table.columns")}
+        >
           <SlidersHorizontal className="size-3.5" />
-          {t("table.columns")}
+          {/* Icon-only in a narrow table container; the aria-label keeps the name. */}
+          <span className="hidden @3xl/enterprise-table:inline">{t("table.columns")}</span>
         </EnterpriseButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
+        {density && onDensityChange ? (
+          <>
+            <DropdownMenuLabel>{t("table.density")}</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={density}
+              onValueChange={(value) => onDensityChange(value as TableDensity)}
+            >
+              <DropdownMenuRadioItem value="compact" onSelect={(event) => event.preventDefault()}>
+                {t("table.densityCompact")}
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem
+                value="comfortable"
+                onSelect={(event) => event.preventDefault()}
+              >
+                {t("table.densityComfortable")}
+              </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
+          </>
+        ) : null}
         <DropdownMenuLabel>{t("table.columns")}</DropdownMenuLabel>
-        <DropdownMenuSeparator />
         {orderableColumns.map((column) => {
           const titleKey = column.columnDef.meta?.titleKey;
           const header = column.columnDef.header;

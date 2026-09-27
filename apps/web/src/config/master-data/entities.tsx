@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/business/status-badge";
 import { ClassificationBadge } from "@/components/business/classification-badge";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { statusColumn, textColumn } from "./shared-columns";
+import { formatAmount } from "@/lib/money";
 import { formatDate } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
@@ -414,9 +415,10 @@ export const costCenterRowLabel = (row: CostCenterRow) => `${row.code} — ${row
 export const expensesColumns: ColumnDef<ExpenseRow, unknown>[] = [
   textColumn("date", "masterData.expenses.fields.date", (r) => formatDate(r.date)),
   textColumn("description", "masterData.fields.description", (r) => r.description),
-  textColumn("amount", "masterData.expenses.fields.amount", (r) =>
-    Number(r.amount).toLocaleString(),
-  ),
+  {
+    ...textColumn("amount", "masterData.expenses.fields.amount", (r) => formatAmount(r.amount)),
+    meta: { titleKey: "masterData.expenses.fields.amount", type: "money" },
+  },
   textColumn(
     "costCenter",
     "masterData.expenses.fields.costCenter",
@@ -477,15 +479,21 @@ export const fixedAssetsColumns: ColumnDef<FixedAssetRow, unknown>[] = [
   textColumn("acquisitionDate", "masterData.fixedAssets.fields.acquisitionDate", (r) =>
     formatDate(r.acquisitionDate),
   ),
-  textColumn("cost", "masterData.fixedAssets.fields.cost", (r) => Number(r.cost).toLocaleString()),
+  {
+    ...textColumn("cost", "masterData.fixedAssets.fields.cost", (r) => formatAmount(r.cost)),
+    meta: { titleKey: "masterData.fixedAssets.fields.cost", type: "money" },
+  },
   textColumn("usefulLifeMonths", "masterData.fixedAssets.fields.usefulLifeMonths", (r) =>
     r.usefulLifeMonths != null ? String(r.usefulLifeMonths) : null,
   ),
-  textColumn(
-    "accumulatedDepreciation",
-    "masterData.fixedAssets.fields.accumulatedDepreciation",
-    (r) => Number(r.accumulatedDepreciation ?? 0).toLocaleString(),
-  ),
+  {
+    ...textColumn(
+      "accumulatedDepreciation",
+      "masterData.fixedAssets.fields.accumulatedDepreciation",
+      (r) => formatAmount(r.accumulatedDepreciation ?? 0),
+    ),
+    meta: { titleKey: "masterData.fixedAssets.fields.accumulatedDepreciation", type: "money" },
+  },
   textColumn(
     "costCenter",
     "masterData.expenses.fields.costCenter",

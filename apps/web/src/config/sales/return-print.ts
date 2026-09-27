@@ -1,5 +1,6 @@
 import type { DocumentData } from "@/types/document-engine";
 import type { DocumentPrintPayload } from "@/types/print-engine";
+import { documentPrintBranding } from "@/components/print/print-brand";
 import type { SalesReturnRow } from "@/services/sales-returns-service";
 import { formatDate } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
@@ -23,13 +24,7 @@ export function buildReturnPrintPayload(
     company: {
       name: companyName,
       addressLines: [],
-      branding: {
-        logoUrl: companyLogoUrl,
-        primaryColor: "#0F8A5F",
-        secondaryColor: "#2563EB",
-        paperSize: "a4-portrait",
-        language: "rtl",
-      },
+      branding: documentPrintBranding(companyLogoUrl),
     },
     party: {
       name: salesReturn.partner?.name ?? "",
@@ -72,6 +67,7 @@ export function buildReturnPrintPayload(
     variant: "invoice",
     title: `${t("sales.returns.title")} — ${salesReturn.returnNumber}`,
     printedByName,
+    recordPath: `/sales/returns/${salesReturn.id}`,
     data,
     labels: {
       documentNumber: t("sales.returns.fields.number"),

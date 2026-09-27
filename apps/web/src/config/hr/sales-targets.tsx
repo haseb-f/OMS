@@ -4,12 +4,10 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import type { SalesTargetRow } from "@/services/sales-targets-service";
 import type { MessageKey } from "@/i18n/translate";
+import { formatAmount } from "@/lib/money";
 
 export function formatTargetAmount(value: string | number) {
-  return Number(value).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  return formatAmount(value);
 }
 
 export function salesTargetScopeLabel(row: SalesTargetRow): string {
@@ -37,7 +35,7 @@ export function buildSalesTargetsColumns(
       id: "period",
       meta: { titleKey: "hr.salesTargets.fields.period" },
       accessorFn: (row) => row.period,
-      cell: (info) => <span dir="ltr">{info.getValue() as string}</span>,
+      cell: (info) => <span className="num">{info.getValue() as string}</span>,
     },
     {
       id: "scope",
@@ -53,7 +51,7 @@ export function buildSalesTargetsColumns(
     },
     {
       id: "targetAmount",
-      meta: { titleKey: "hr.salesTargets.fields.targetAmount", align: "end" },
+      meta: { titleKey: "hr.salesTargets.fields.targetAmount", align: "end", type: "money" },
       accessorFn: (row) => formatTargetAmount(row.targetAmount),
       cell: (info) => info.getValue() as string,
     },

@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import type { ColumnDef } from "@tanstack/react-table";
-import { DynamicStatusBadge } from "@/components/business/dynamic-status-badge";
+import { StatusBadge } from "@/components/business/status-badge";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { statusColumn, textColumn } from "./shared-columns";
 import type { MasterDataFormField } from "@/components/master-data/master-data-form";
@@ -31,7 +31,7 @@ function WorkflowStatusNameCell({ row }: { row: WorkflowStatusRow }) {
   ].filter(Boolean);
   return (
     <StackedCell
-      primary={<DynamicStatusBadge label={row.name} colorKey={row.color} />}
+      primary={<StatusBadge label={row.name} colorKey={row.color} />}
       secondary={badges.length ? badges.join(" · ") : undefined}
     />
   );

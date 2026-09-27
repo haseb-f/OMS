@@ -1,4 +1,4 @@
-import type { StatusTone } from "@/components/business/status-badge";
+import { toneFromColorKey, type StatusTone } from "@/components/business/status-tone";
 import type { ShipmentStatusValue } from "@/services/shipping-service";
 import type { MessageKey } from "@/i18n/translate";
 
@@ -89,17 +89,9 @@ export function shipmentStatusTone(status: ShipmentStatusValue | null): StatusTo
   return status ? SHIPMENT_STATUS_TONE[status] : SHIPMENT_STATUS_TONE[DEFAULT_SHIPPING_STATUS];
 }
 
+/** Admin-configured catalog color → semantic tone (shared mapper; unknown keys are neutral). */
 export function catalogStatusTone(color: string | null | undefined): StatusTone {
-  if (
-    color === "success" ||
-    color === "warning" ||
-    color === "destructive" ||
-    color === "info" ||
-    color === "neutral"
-  ) {
-    return color;
-  }
-  return "neutral";
+  return toneFromColorKey(color);
 }
 
 export const SHIPMENT_STATUS_VALUES: ShipmentStatusValue[] = SHIPPING_STATUS_CATALOG.map(

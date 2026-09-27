@@ -1,10 +1,11 @@
 import type { DocumentData } from "@/types/document-engine";
 import type { DocumentPrintPayload } from "@/types/print-engine";
+import { documentPrintBranding } from "@/components/print/print-brand";
 import type { JournalEntryRow } from "@/services/journal-entries-service";
 import { formatDate } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
 
-/** Feeds the existing Print Engine's dedicated "voucher" variant/template (data.type "journal-voucher", pre-reserved) — no new template built. */
+/** Journal voucher print — portrait, its own account / description / debit / credit layout (`ledger`), never invoice columns. */
 export function buildJournalEntryPrintPayload(
   entry: JournalEntryRow,
   options: {
@@ -24,16 +25,10 @@ export function buildJournalEntryPrintPayload(
     company: {
       name: companyName,
       addressLines: [],
-      branding: {
-        logoUrl: companyLogoUrl,
-        primaryColor: "#0F8A5F",
-        secondaryColor: "#2563EB",
-        paperSize: "a4-portrait",
-        language: "rtl",
-      },
+      branding: documentPrintBranding(companyLogoUrl),
     },
     party: {
-      name: entry.description ?? "",
+      name: "",
       addressLines: [],
     },
     meta: [
@@ -50,25 +45,13 @@ export function buildJournalEntryPrintPayload(
           ]
         : []),
     ],
-    lineItems: entry.lines.map((line) => ({
-      id: line.id,
-      description: [
-        line.account ? `${line.account.code} — ${line.account.name}` : "",
-        line.description,
-      ]
-        .filter(Boolean)
-        .join(": "),
-      quantity: 1,
-      unitPrice: Number(line.debit),
-      total: Number(line.credit),
-    })),
-    totals: [
-      { label: t("accounting.journalEntries.lines.totalDebit"), value: Number(entry.totalDebit) },
-      {
-        label: t("accounting.journalEntries.lines.totalCredit"),
-        value: Number(entry.totalCredit),
-        emphasis: true,
-      },
+    // Lines render through the voucher's own ledger table (see `ledger` below).
+    lineItems: [],
+    totals: [],
+    notes: entry.description ?? undefined,
+    signatures: [
+      { label: t("printDocument.preparedBy") },
+      { label: t("printDocument.approvedBy") },
     ],
   };
 
@@ -76,7 +59,24 @@ export function buildJournalEntryPrintPayload(
     variant: "voucher",
     title: `${t("accounting.journalEntries.title")} — ${entry.entryNumber}`,
     printedByName,
+    recordPath: `/finance/journal-entries/${entry.id}`,
     data,
+    ledger: {
+      lines: entry.lines.map((line) => ({
+        account: line.account ? `${line.account.code} — ${line.account.name}` : "",
+        description: line.description ?? undefined,
+        debit: Number(line.debit),
+        credit: Number(line.credit),
+      })),
+      totalDebit: Number(entry.totalDebit),
+      totalCredit: Number(entry.totalCredit),
+      labels: {
+        account: t("accounting.journalEntries.lines.account"),
+        description: t("accounting.journalEntries.lines.description"),
+        debit: t("accounting.journalEntries.lines.debit"),
+        credit: t("accounting.journalEntries.lines.credit"),
+      },
+    },
     labels: {
       documentNumber: t("accounting.journalEntries.fields.number"),
       documentDate: t("accounting.journalEntries.fields.entryDate"),

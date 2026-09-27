@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import {
   ChevronRight,
   Download,
+  Filter,
   Inbox,
   Printer,
   RefreshCw,
   RotateCcw,
-  Rows3,
   Upload,
 } from "lucide-react";
 import {
@@ -34,20 +34,41 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
+  tableAlignClass,
   tableColumnInsetClass,
   tableCellContentClass,
   tableCellWrapClass,
+  tableIdentityCellClass,
+  type TableDensity as UiTableDensity,
 } from "@/components/ui/table";
 import { EnterpriseButton } from "@/components/ui/button";
+import { EnterpriseBadge } from "@/components/ui/badge";
+import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchInput } from "@/components/shared/search-input";
 import { IconActionButton } from "@/components/shared/icon-action-button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
-import { ListFooter, ListSurface, ListToolbar } from "@/components/shared/data-table/list-surface";
+import {
+  ListFooter,
+  ListSurface,
+  ListToolbar,
+  useViewportFill,
+} from "@/components/shared/data-table/list-surface";
+import { OverflowTooltipRegion } from "@/components/shared/data-table/overflow-tooltip";
+import {
+  FilterBarProvider,
+  type FilterBarState,
+} from "@/components/shared/data-table/filter-bar-context";
+import { normalizeTablePageSize } from "@/components/shared/data-table/data-table-pagination";
+import {
+  isNumericColumnType,
+  isTabularColumnType,
+} from "@/components/shared/data-table/column-engine";
 import { ExportDialog, type ExportColumn } from "@/components/shared/export-dialog";
 import { ImportDialog } from "@/components/shared/import-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -60,6 +81,7 @@ import {
   resolveColumnLayout,
   columnGeometryWidth,
   columnSetMinWidth,
+  planColumnWidths,
   responsiveHideClass,
   layoutDetailRegions,
   hasTableDetailContent,
@@ -67,6 +89,7 @@ import {
   RowIdentityLink,
   SelectCustomCountDialog,
   type RowAction,
+  type ColumnImportance,
   type TableDetailRegion,
   type SelectCustomCountCopy,
 } from "@/components/shared/data-table";
@@ -78,18 +101,59 @@ import { SEARCH_DEBOUNCE_MS } from "@/hooks/use-debounced-value";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
-import { isStackedCellNode } from "@/components/shared/stacked-cell";
+import { bidiLineClass, isStackedCellNode } from "@/components/shared/stacked-cell";
 import { cn } from "@/lib/utils";
+import { useElementWidth } from "@/hooks/use-element-width";
 import { siteConfig } from "@/config/site";
 import { toast } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
 
 /** Sane resize bounds when a column has no declared min/max in the Smart Column Engine. */
 const MIN_COLUMN_WIDTH = 60;
+/** Identity content wider than this truncates (with the overflow tooltip). */
+const IDENTITY_FLOOR_CAP = 320;
+
+/**
+ * Natural width a header cell needs: inline padding + the full translated
+ * label + its sort icon + the column-menu controls, so none of them clip.
+ */
+function measureHeaderNeed(th: HTMLElement): number {
+  const style = getComputedStyle(th);
+  const padding =
+    (Number.parseFloat(style.paddingInlineStart) || 0) +
+    (Number.parseFloat(style.paddingInlineEnd) || 0);
+  const group = th.querySelector<HTMLElement>('[class~="group/header"]');
+  if (!group) {
+    const range = document.createRange();
+    range.selectNodeContents(th);
+    return Math.ceil(padding + range.getBoundingClientRect().width + 2);
+  }
+  const [labelEl, controls] = Array.from(group.children) as HTMLElement[];
+  const title = labelEl?.querySelector<HTMLElement>(".truncate") ?? null;
+  const label = labelEl
+    ? labelEl.offsetWidth - (title?.clientWidth ?? 0) + (title?.scrollWidth ?? 0)
+    : 0;
+  const gap = Number.parseFloat(getComputedStyle(group).columnGap) || 0;
+  const controlsWidth = controls ? controls.offsetWidth + gap : 0;
+  return Math.ceil(padding + label + controlsWidth + 2);
+}
+
+/** Natural width of an identity cell's content (widest truncated descendant). */
+function measureCellNeed(td: HTMLElement): number {
+  const style = getComputedStyle(td);
+  const padding =
+    (Number.parseFloat(style.paddingInlineStart) || 0) +
+    (Number.parseFloat(style.paddingInlineEnd) || 0);
+  let content = 0;
+  td.querySelectorAll<HTMLElement>("*").forEach((element) => {
+    content = Math.max(content, element.scrollWidth);
+  });
+  return Math.ceil(padding + content + 4);
+}
 const MAX_COLUMN_WIDTH = 640;
 
 export type SortOrder = "asc" | "desc";
-export type TableDensity = "comfortable" | "compact";
+export type TableDensity = UiTableDensity;
 
 export type MobileRowRenderArgs<TData> = {
   row: TData;
@@ -97,12 +161,6 @@ export type MobileRowRenderArgs<TData> = {
   onToggleSelected: () => void;
   expanded: boolean;
   onToggleExpanded: () => void;
-};
-
-const alignClass: Record<"start" | "center" | "end", string> = {
-  start: "text-start",
-  center: "text-center",
-  end: "text-end tabular-nums",
 };
 
 /** Derives the { key, label } list an `ExportDialog` needs from a table's own column config — never a second, hand-maintained label list. */
@@ -171,6 +229,9 @@ export function EnterpriseDataTable<TData>({
   renderMobileRow,
   getRowHref,
   identityOnlyNavigation,
+  footerRow,
+  activeFilterCount,
+  onClearFilters,
 }: {
   columns: ColumnDef<TData, unknown>[];
   data: TData[];
@@ -258,9 +319,24 @@ export function EnterpriseDataTable<TData>({
    * interactive children opt out" behavior.
    */
   identityOnlyNavigation?: boolean;
+  /**
+   * Column-aligned totals row, keyed by column id — rendered in a sticky
+   * `<tfoot>` with the body's exact inset/alignment. Merged over any
+   * per-column `meta.footer`. Omit both to render no totals row.
+   */
+  footerRow?: Partial<Record<string, ReactNode>>;
+  /**
+   * Engaged-filter count for the collapsed "Filters" button (narrow
+   * containers). Optional: a `ClearFiltersButton` inside `filterBar`
+   * reports it automatically.
+   */
+  activeFilterCount?: number;
+  /** Resets every filter in `filterBar` — the filter sheet's Clear action. Same automatic fallback as `activeFilterCount`. */
+  onClearFilters?: () => void;
 }) {
-  const { t, direction } = useLocale();
+  const { t, direction, locale } = useLocale();
   const router = useRouter();
+  const viewportFill = useViewportFill();
   const { printList } = usePrintEngine();
   const { activeCompany } = useCompany();
   const { user } = useUserContext();
@@ -330,13 +406,23 @@ export function EnterpriseDataTable<TData>({
   // engine already owns width computation for every column that hasn't been
   // manually resized. RTL-aware: dragging toward the reading start always
   // grows the column, regardless of which physical edge that is.
-  const resizeState = useRef<{ columnId: string; startX: number; startWidth: number } | null>(null);
+  const resizeState = useRef<{
+    columnId: string;
+    startX: number;
+    startWidth: number;
+    minWidth: number;
+  } | null>(null);
   const [resizingColumnId, setResizingColumnId] = useState<string | null>(null);
 
   const beginResize = useCallback(
-    (columnId: string, event: React.PointerEvent, currentWidth: number) => {
+    (columnId: string, event: React.PointerEvent, currentWidth: number, minWidth: number) => {
       event.preventDefault();
-      resizeState.current = { columnId, startX: event.clientX, startWidth: currentWidth };
+      resizeState.current = {
+        columnId,
+        startX: event.clientX,
+        startWidth: currentWidth,
+        minWidth,
+      };
       setResizingColumnId(columnId);
 
       const handleMove = (moveEvent: PointerEvent) => {
@@ -346,7 +432,7 @@ export function EnterpriseDataTable<TData>({
         const delta = direction === "rtl" ? -rawDelta : rawDelta;
         const next = Math.min(
           MAX_COLUMN_WIDTH,
-          Math.max(MIN_COLUMN_WIDTH, active.startWidth + delta),
+          Math.max(active.minWidth, active.startWidth + delta),
         );
         setColumnWidths((previous) => ({ ...previous, [active.columnId]: next }));
       };
@@ -363,46 +449,6 @@ export function EnterpriseDataTable<TData>({
   );
 
   const headerRefs = useRef<Record<string, HTMLTableCellElement | null>>({});
-
-  // Fill-remaining-viewport row area (TASK-062 scroll fix) — a flat `70vh`
-  // cap ignored how much chrome a given page stacks above the table
-  // (breadcrumb/header/toolbar) and how tall its own footer/pagination is,
-  // so on pages with more chrome than average (Customers, Products) the
-  // card's natural height still slightly exceeded the viewport. This
-  // measures the real remaining space (viewport height minus the scroll
-  // area's own top offset minus the footer's rendered height) instead of
-  // guessing a fraction — resolution-independent by construction, since it
-  // reads the actual layout rather than assuming a fixed chrome size.
-  // `max-h-[70vh]` in the className stays as the pre-hydration fallback.
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const footerRef = useRef<HTMLDivElement>(null);
-  const [maxBodyHeight, setMaxBodyHeight] = useState<number | null>(null);
-
-  useEffect(() => {
-    function recomputeMaxBodyHeight() {
-      const scrollEl = scrollAreaRef.current;
-      if (!scrollEl) return;
-      const top = scrollEl.getBoundingClientRect().top;
-      const footerHeight = footerRef.current?.getBoundingClientRect().height ?? 0;
-      // 28px mirrors the shell's own bottom breathing room (AppShell's
-      // `pb-5`/`sm:pb-6`) plus a small safety margin for sub-pixel layout
-      // rounding, so the card never sits flush against the viewport edge;
-      // 240px is a sane floor so a very short window never collapses the
-      // table to something unusable.
-      const available = window.innerHeight - top - footerHeight - 28;
-      setMaxBodyHeight(Math.max(240, Math.round(available)));
-    }
-    recomputeMaxBodyHeight();
-    // One late re-measure catches chrome that's still settling on first
-    // paint (webfont swap, filter bar wrapping to a second line) without
-    // reaching for a full ResizeObserver for what is a one-time correction.
-    const settleTimer = window.setTimeout(recomputeMaxBodyHeight, 300);
-    window.addEventListener("resize", recomputeMaxBodyHeight);
-    return () => {
-      window.clearTimeout(settleTimer);
-      window.removeEventListener("resize", recomputeMaxBodyHeight);
-    };
-  }, []);
 
   const handleCopyCell = useCallback(
     (value: string) => {
@@ -429,7 +475,7 @@ export function EnterpriseDataTable<TData>({
 
   const resetLayout = useCallback(() => {
     setColumnVisibility({});
-    setDensity("comfortable");
+    setDensity("compact");
     setColumnWidths({});
     setColumnPinning({});
     setColumnOrder([]);
@@ -514,9 +560,10 @@ export function EnterpriseDataTable<TData>({
     [isServerMode, sortBy, sortOrder, internalSorting],
   );
 
+  // A size persisted before the 20/50/100 set (10, 30) maps onto it.
   const pagination = isServerMode
     ? { pageIndex: (page as number) - 1, pageSize }
-    : { pageIndex: internalPageIndex, pageSize: internalPageSize };
+    : { pageIndex: internalPageIndex, pageSize: normalizeTablePageSize(internalPageSize) };
 
   const [customCountDialogOpen, setCustomCountDialogOpen] = useState(false);
 
@@ -566,7 +613,7 @@ export function EnterpriseDataTable<TData>({
               >
                 <ChevronRight
                   className={cn(
-                    "size-3.5 transition-transform duration-[170ms] ease-(--ease-standard) motion-reduce:transition-none",
+                    "size-3.5 transition-transform duration-(--duration-base) ease-(--ease-standard) motion-reduce:transition-none",
                     expanded ? "rotate-90" : "rtl:rotate-180",
                   )}
                 />
@@ -680,6 +727,11 @@ export function EnterpriseDataTable<TData>({
     manualFiltering: isServerMode,
     enableRowSelection: true,
     enableMultiSort: !isServerMode,
+    // One header click: ascending → descending → unsorted. Server mode sorts
+    // by exactly one field (the caller's API has no "unsorted"), so there it
+    // toggles ascending ↔ descending.
+    sortDescFirst: false,
+    enableSortingRemoval: !isServerMode,
     enableColumnFilters: !isServerMode,
     ...(isServerMode
       ? {
@@ -729,12 +781,9 @@ export function EnterpriseDataTable<TData>({
   // the header's own selection-scope menu (TASK-064).
   const isAllMatchingSelected =
     isServerMode && (totalCount ?? 0) > 0 && selectedCount >= (totalCount ?? 0);
-  // Compact: two-line grouping with tighter padding. Comfortable: the same
-  // hierarchy with more vertical rhythm. Neither density shrinks type.
-  // Padding is the only density lever. Line height belongs to the type scale
-  // and stays there, so tightening a row can never clip Arabic.
-  const cellPaddingClass = density === "compact" ? "py-1.5" : "py-2.5";
-  const cellTextClass = "text-body";
+  // Density is ONE lever: `<Table density>` re-points the row-height and
+  // cell-padding tokens (ui/table). Neither density shrinks type; line
+  // height belongs to the type scale, so tightening a row never clips Arabic.
 
   // Smart Column Engine (TASK-035 FINAL) — resolve every currently-visible
   // leaf column's grow/preferredWidth/minWidth/maxWidth/importance/align
@@ -772,6 +821,50 @@ export function EnterpriseDataTable<TData>({
     [columns, selectionColumn, expandColumn],
   );
   const resolvedColumns = useMemo(() => Array.from(layoutById.values()), [layoutById]);
+  // The width the table really has (a zero-height sentinel inside its
+  // scroller). Once measured, the engine hands `<col>` plain px widths —
+  // see `fitColumnWidths` — so identity columns keep their floor and
+  // secondary columns give way first.
+  const tableMeasureRef = useRef<HTMLDivElement>(null);
+  const tableAvailableWidth = useElementWidth(tableMeasureRef);
+  // Measured per locale: each header's natural width, and each identity
+  // column's full reference (see the measuring effect below the rows).
+  const [measuredFloors, setMeasuredFloors] = useState<{
+    locale: string;
+    values: Record<string, number>;
+    content: Record<string, number>;
+  }>({ locale, values: {}, content: {} });
+  const columnFloors = useMemo(
+    () => (measuredFloors.locale === locale ? measuredFloors.values : {}),
+    [measuredFloors, locale],
+  );
+  const contentFloors = measuredFloors.content;
+  const columnPlan = useMemo(() => {
+    if (!tableAvailableWidth) return null;
+    return planColumnWidths(
+      resolvedColumns,
+      tableAvailableWidth,
+      columnWidths,
+      columnFloors,
+      contentFloors,
+    );
+  }, [resolvedColumns, tableAvailableWidth, columnWidths, columnFloors, contentFloors]);
+  const fittedWidths = columnPlan?.widths ?? null;
+  const planHidden = useMemo(() => new Set(columnPlan?.hidden ?? []), [columnPlan]);
+  /**
+   * Hide class for a column's cells. Once the plan exists the engine decides
+   * (it hides low, then medium columns only when they would not fit);
+   * before the first measurement the container-query classes stand in.
+   */
+  const columnHideClass = useCallback(
+    (columnId: string, importance: ColumnImportance | undefined) =>
+      columnPlan
+        ? planHidden.has(columnId)
+          ? "hidden"
+          : "table-cell"
+        : responsiveHideClass(importance ?? "high"),
+    [columnPlan, planHidden],
+  );
   const detailColumnAxes = useMemo(
     () =>
       visibleLeafColumns.map((column) => {
@@ -784,12 +877,12 @@ export function EnterpriseDataTable<TData>({
           column.id === "select";
         return {
           id: column.id,
-          hideClass: responsiveHideClass(layout?.importance ?? "high"),
+          hideClass: columnHideClass(column.id, layout?.importance),
           utility,
         };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [visibleLeafColumns.map((c) => c.id).join(","), layoutById],
+    [visibleLeafColumns.map((c) => c.id).join(","), layoutById, columnHideClass],
   );
 
   // Best-effort width used for a column when it hasn't been manually
@@ -825,32 +918,46 @@ export function EnterpriseDataTable<TData>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleLeafColumns.map((c) => `${c.id}:${c.getIsPinned()}`).join(","), estimateColumnWidth]);
 
-  /** Sticky positioning for a pinned column — logical `insetInlineStart`/`End` so pinning behaves correctly in both LTR and RTL, matching the rest of the OMS design system's logical-properties rule. */
-  const getPinStyle = useCallback(
-    (columnId: string): React.CSSProperties | undefined => {
+  /**
+   * Sticky positioning for a pinned column — logical `insetInlineStart`/`End`
+   * so pinning behaves correctly in both LTR and RTL. Layering follows the
+   * z-index contract: body cells `--z-pinned`, header/footer cells
+   * `--z-sticky-corner` (above the sticky header row they share). Body cells
+   * take their fill from the row state (hover/selected) via classes so a
+   * pinned cell never shows a different color than the row it belongs to.
+   */
+  const getPinProps = useCallback(
+    (
+      columnId: string,
+      section: "head" | "body" | "foot",
+    ): { style?: React.CSSProperties; className?: string } => {
       const column = table.getColumn(columnId);
-      const pinned = column?.getIsPinned();
-      if (!pinned) return undefined;
+      // The row actions never scroll away: when even the rigid floors
+      // overflow the region, the actions column sticks to the logical end.
+      const pinned =
+        column?.getIsPinned() ||
+        (columnId === "__actions" && columnPlan?.overflow ? "right" : false);
+      if (!pinned) return {};
       const offset =
         (pinned === "left"
           ? pinnedOffsets.left.get(columnId)
           : pinnedOffsets.right.get(columnId)) ?? 0;
       return {
-        position: "sticky",
-        [pinned === "left" ? "insetInlineStart" : "insetInlineEnd"]: offset,
-        zIndex: pinned ? 6 : undefined,
-        backgroundColor: "var(--card)",
-        // A subtle boundary against the scrollable data it floats over —
-        // on whichever side actually faces that data (a start-pinned
-        // column's data sits at its end; an end-pinned column's — e.g. a
-        // pinned Actions column — sits at its start). Logical properties
-        // so this is correct under RTL without a direction check here.
-        ...(pinned === "left"
-          ? { borderInlineEnd: "1px solid var(--border)" }
-          : { borderInlineStart: "1px solid var(--border)" }),
+        style: {
+          position: "sticky",
+          [pinned === "left" ? "insetInlineStart" : "insetInlineEnd"]: offset,
+        },
+        className: cn(
+          // A boundary on whichever side faces the scrollable data.
+          pinned === "left" ? "border-e border-e-border" : "border-s border-s-border",
+          section === "body"
+            ? "z-(--z-pinned) bg-card group-hover/row:bg-table-row-hover group-data-[state=selected]/row:bg-table-row-selected"
+            : "z-(--z-sticky-corner)",
+          section === "foot" && "bg-surface-sunken",
+        ),
       };
     },
-    [table, pinnedOffsets],
+    [table, pinnedOffsets, columnPlan],
   );
 
   // Print only real business columns — never the actions/checkbox column,
@@ -906,21 +1013,6 @@ export function EnterpriseDataTable<TData>({
       onSelect: () => setExportDialogOpen(true),
     },
     {
-      key: "density-comfortable",
-      label: t("table.densityComfortable"),
-      icon: Rows3,
-      separatorBefore: true,
-      checked: density === "comfortable",
-      onSelect: () => setDensity("comfortable"),
-    },
-    {
-      key: "density-compact",
-      label: t("table.densityCompact"),
-      icon: Rows3,
-      checked: density === "compact",
-      onSelect: () => setDensity("compact"),
-    },
-    {
       key: "reset-layout",
       label: t("table.restoreDefaultLayout"),
       icon: RotateCcw,
@@ -929,263 +1021,483 @@ export function EnterpriseDataTable<TData>({
     },
   ];
 
+  // Filter bar state (narrow containers collapse `filterBar` into one
+  // "Filters" button + bottom sheet). A `ClearFiltersButton` inside the
+  // filter bar reports its count/reset here; explicit props win.
+  const [reportedFilters, setReportedFilters] = useState<Record<string, FilterBarState>>({});
+  const reportFilterState = useCallback((id: string, state: FilterBarState | null) => {
+    setReportedFilters((previous) => {
+      if (!state) {
+        if (!(id in previous)) return previous;
+        const next = { ...previous };
+        delete next[id];
+        return next;
+      }
+      return { ...previous, [id]: state };
+    });
+  }, []);
+  const inlineFilterContext = useMemo(
+    () => ({ report: reportFilterState, inSheet: false }),
+    [reportFilterState],
+  );
+  const sheetFilterContext = useMemo(
+    () => ({ report: reportFilterState, inSheet: true }),
+    [reportFilterState],
+  );
+  const reportedFilterStates = Object.values(reportedFilters);
+  const engagedFilterCount =
+    activeFilterCount ??
+    reportedFilterStates.reduce((max, state) => Math.max(max, state.activeCount), 0);
+  const clearAllFilters =
+    onClearFilters ?? reportedFilterStates.find((state) => state.activeCount > 0)?.onClear;
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+
+  const bulkStripOpen = selectedCount > 0 && Boolean(bulkActions);
+  const pageRows = table.getRowModel().rows;
+  const hasRows = pageRows.length > 0;
+
+  // Column floors (per locale): each shown header's natural width, and for
+  // identity columns the widest reference on this page. Natural widths do
+  // not depend on the current column widths, so this converges in one pass;
+  // a column that is hidden keeps its last measurement.
+  const referenceColumnIds = resolvedColumns
+    .filter((layout) => layout.identity || layout.type === "code" || layout.type === "reference")
+    .map((layout) => layout.id)
+    .join(",");
+  useEffect(() => {
+    const region = tableMeasureRef.current?.parentElement;
+    if (!region || !tableAvailableWidth) return;
+    const values: Record<string, number> = { ...columnFloors };
+    region.querySelectorAll<HTMLElement>("thead th[data-column-id]").forEach((th) => {
+      const id = th.dataset.columnId;
+      if (!id || id === "select" || id.startsWith("__") || th.offsetWidth === 0) return;
+      values[id] = measureHeaderNeed(th);
+    });
+    // References: the widest value on this page (a hidden column keeps its
+    // last measurement).
+    const content: Record<string, number> = {};
+    for (const id of referenceColumnIds ? referenceColumnIds.split(",") : []) {
+      let need = 0;
+      region
+        .querySelectorAll<HTMLElement>(`tbody td[data-column-id="${CSS.escape(id)}"]`)
+        .forEach((td) => {
+          if (td.offsetWidth > 0) need = Math.max(need, measureCellNeed(td));
+        });
+      content[id] = need > 0 ? Math.min(need, IDENTITY_FLOOR_CAP) : (contentFloors[id] ?? 0);
+    }
+    const differs = (a: Record<string, number>, b: Record<string, number>) =>
+      Object.keys({ ...a, ...b }).some((id) => Math.abs((a[id] ?? 0) - (b[id] ?? 0)) > 1);
+    if (differs(values, columnFloors) || differs(content, contentFloors)) {
+      setMeasuredFloors({ locale, values, content });
+    }
+  }, [
+    locale,
+    pageRows,
+    referenceColumnIds,
+    planHidden,
+    tableAvailableWidth,
+    columnFloors,
+    contentFloors,
+  ]);
+
+  // Column-aligned totals row: explicit `footerRow` over per-column
+  // `meta.footer` (a node, or a function of the rows the list describes).
+  const footerCells = (() => {
+    const hasAnyFooter =
+      Boolean(footerRow) ||
+      visibleLeafColumns.some((column) => column.columnDef.meta?.footer != null);
+    if (!hasAnyFooter) return null;
+    let footerRows: TData[] | null = null;
+    const rowsForFooter = () =>
+      (footerRows ??= isServerMode
+        ? data
+        : table.getFilteredRowModel().rows.map((row) => row.original));
+    const cells = visibleLeafColumns.map((column) => {
+      if (footerRow && column.id in footerRow) return footerRow[column.id];
+      const footer = column.columnDef.meta?.footer;
+      return typeof footer === "function" ? footer({ rows: rowsForFooter() }) : footer;
+    });
+    return cells.some((cell) => cell != null && cell !== false) ? cells : null;
+  })();
+
+  // Re-scan truncated cells (keyboard reachability) when what they render changes.
+  const visibleColumnKey = visibleLeafColumns.map((column) => column.id).join(",");
+  const overflowScanKey = useMemo(
+    () => [
+      data,
+      visibleColumnKey,
+      columnWidths,
+      density,
+      pagination.pageIndex,
+      pagination.pageSize,
+    ],
+    [data, visibleColumnKey, columnWidths, density, pagination.pageIndex, pagination.pageSize],
+  );
+
+  const isUtilityLayout = (columnId: string) => {
+    const type = layoutById.get(columnId)?.type;
+    return (
+      type === "checkbox" ||
+      type === "expand" ||
+      type === "actions" ||
+      columnId === "__expand" ||
+      columnId === "select"
+    );
+  };
+
   return (
-    <div className="flex min-w-0 flex-col gap-3" id={`table-${tableId}`}>
+    <div
+      className={cn(
+        "flex min-w-0 flex-col gap-3",
+        // Viewport-fill chain (see ListSurface): take the remaining height,
+        // but never shrink the grid below a usable floor — the workspace
+        // region scrolls instead when a page stacks more around it.
+        viewportFill && "lg:min-h-80 lg:flex-1",
+      )}
+      id={`table-${tableId}`}
+    >
       {/* Premium Table Card (TASK-036 V2) — toolbar, grid, and pagination
           live inside one contiguous card so the table never feels like a
           bare HTML element floating on the page. `@container/enterprise-table`
           drives the responsive column-hide engine off the card's own
           available width, not the viewport, since a fixed-width sidebar
           means those two diverge. */}
-      <ListSurface className="@container/enterprise-table">
+      <ListSurface className="@container/enterprise-table" fill>
         {/* One strip: what narrows the list on the inline-start, what acts on
-            it at the end. Search and filters used to sit on a second row above
-            this one, which stacked two dividers directly on top of the sticky
-            header and read as a single indistinct band. */}
+            it at the end. Below @3xl the filter bar collapses into one
+            "Filters" button (bottom sheet) so the grid starts near the top
+            on phones; search and the view controls stay inline. */}
         <ListToolbar>
-          <div className="min-w-0 w-full basis-full sm:w-auto sm:min-w-[12rem] sm:max-w-[22rem] sm:flex-1 md:max-w-[28rem]">
-            <SearchInput
-              value={searchDraft}
-              onValueChange={handleSearchInput}
-              onClear={handleSearchClear}
-              placeholder={searchPlaceholder ?? t("table.filterPlaceholder")}
-              className="w-full max-w-none"
-            />
+          <div className="contents" inert={bulkStripOpen}>
+            <div className="min-w-0 flex-1 basis-40 sm:min-w-48 sm:max-w-88 md:max-w-112">
+              <SearchInput
+                value={searchDraft}
+                onValueChange={handleSearchInput}
+                onClear={handleSearchClear}
+                placeholder={searchPlaceholder ?? t("table.filterPlaceholder")}
+                className="w-full max-w-none"
+              />
+            </div>
+            {filterBar ? (
+              <FilterBarProvider value={inlineFilterContext}>
+                <div className="hidden @3xl/enterprise-table:contents">{filterBar}</div>
+                <EnterpriseButton
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="@3xl/enterprise-table:hidden"
+                  aria-haspopup="dialog"
+                  onClick={() => setFilterSheetOpen(true)}
+                >
+                  <Filter data-icon="inline-start" />
+                  {t("table.filters")}
+                  {engagedFilterCount > 0 ? (
+                    <>
+                      <EnterpriseBadge variant="secondary" className="h-4 min-w-4 px-1" aria-hidden>
+                        <span className="num">{engagedFilterCount}</span>
+                      </EnterpriseBadge>
+                      <span className="sr-only">
+                        {t("table.activeFilterCount", { count: engagedFilterCount })}
+                      </span>
+                    </>
+                  ) : null}
+                </EnterpriseButton>
+              </FilterBarProvider>
+            ) : null}
+            <div className="ms-auto flex shrink-0 items-center gap-1">
+              {onRefresh && (
+                <IconActionButton
+                  label={t("table.refresh")}
+                  disabled={isLoading}
+                  aria-busy={isLoading || undefined}
+                  onClick={onRefresh}
+                >
+                  <RefreshCw
+                    className={cn("size-4", isLoading && "animate-spin motion-reduce:animate-none")}
+                  />
+                </IconActionButton>
+              )}
+              <EnterpriseTableViewOptions
+                table={table}
+                density={density}
+                onDensityChange={setDensity}
+              />
+              {/* Print/import/export/reset are occasional: as labelled
+                  buttons they outweighed the filters they sat beside. */}
+              <RowActionsMenu label={t("table.options")} actions={tableOptions} />
+            </div>
           </div>
-          {filterBar}
-          <div className="ms-auto flex shrink-0 items-center gap-1">
-            {onRefresh && (
-              <IconActionButton
-                label={t("table.refresh")}
-                disabled={isLoading}
-                aria-busy={isLoading || undefined}
-                onClick={onRefresh}
-              >
-                <RefreshCw
-                  className={cn("size-4", isLoading && "animate-spin motion-reduce:animate-none")}
-                />
-              </IconActionButton>
-            )}
-            <EnterpriseTableViewOptions table={table} />
-            {/* Print/import/export/density/reset are all occasional: as five
-                labelled buttons they outweighed the filters they sat beside. */}
-            <RowActionsMenu label={t("table.options")} actions={tableOptions} />
-          </div>
-        </ListToolbar>
 
-        {/* Contextual bulk-action strip — reveals in place of ordinary
-            browsing chrome the instant a selection exists, reads as a
-            continuation of the toolbar above it (same border/tint, no
-            separate card of its own) rather than a floating banner.
-            Feature actions lead (rightmost, strongest emphasis first),
-            the live count sits beside them, and "Clear" trails at the far
-            end — never the other way around. */}
-        {selectedCount > 0 && bulkActions && (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border bg-muted/20 px-3 py-2 sm:px-4">
-            <div className="flex items-center gap-2">{bulkActions}</div>
-            <span className="text-caption font-medium">
-              {isAllMatchingSelected
-                ? t("table.allFilteredSelected", { count: selectedCount })
-                : `${selectedCount} ${t("table.rowsSelected")}`}
-            </span>
+          {/* Contextual bulk-action strip — overlays the toolbar row in place
+              while rows are selected (same box, so nothing below moves).
+              Feature actions lead, the count (shown only here, never again in
+              the footer) sits beside them, and "Clear" trails at the end. */}
+          {bulkStripOpen ? (
+            <div className="absolute inset-0 z-(--z-sticky) flex items-center gap-x-3 overflow-x-auto bg-table-row-selected px-3 whitespace-nowrap sm:px-4">
+              <div className="flex shrink-0 items-center gap-2">{bulkActions}</div>
+              <span className="text-caption font-medium" aria-live="polite">
+                {isAllMatchingSelected ? (
+                  t("table.allFilteredSelected", { count: selectedCount })
+                ) : (
+                  <>
+                    <span className="num">{selectedCount}</span> {t("table.rowsSelected")}
+                  </>
+                )}
+              </span>
 
-            {/* "Select all matching filters" now lives in the header's own
-                selection-scope menu (TASK-064) — this strip only offers the
-                down-scope action once everything is already selected, plus
-                clear-selection, so it never duplicates that menu's items. */}
-            {isAllMatchingSelected ? (
+              {/* "Select all matching filters" lives in the header's own
+                  selection-scope menu (TASK-064) — this strip only offers the
+                  down-scope action once everything is already selected, plus
+                  clear-selection, so it never duplicates that menu's items. */}
+              {isAllMatchingSelected ? (
+                <EnterpriseButton
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0"
+                  onClick={() => {
+                    const next: RowSelectionState = {};
+                    for (const row of table.getRowModel().rows) {
+                      next[row.id] = true;
+                    }
+                    handleRowSelectionChange(next);
+                  }}
+                >
+                  {t("table.usePageSelection")}
+                </EnterpriseButton>
+              ) : null}
+
               <EnterpriseButton
                 type="button"
                 variant="link"
                 size="sm"
-                className="h-auto p-0"
-                onClick={() => {
-                  const next: RowSelectionState = {};
-                  for (const row of table.getRowModel().rows) {
-                    next[row.id] = true;
-                  }
-                  handleRowSelectionChange(next);
-                }}
+                className="ms-auto h-auto shrink-0 p-0 text-muted-foreground"
+                onClick={() => handleRowSelectionChange({})}
               >
-                {t("table.usePageSelection")}
+                {t("table.clearSelection")}
               </EnterpriseButton>
-            ) : null}
+            </div>
+          ) : null}
+        </ListToolbar>
 
-            <EnterpriseButton
-              type="button"
-              variant="link"
-              size="sm"
-              className="ms-auto h-auto p-0 text-muted-foreground"
-              onClick={() => handleRowSelectionChange({})}
-            >
-              {t("table.clearSelection")}
-            </EnterpriseButton>
-          </div>
-        )}
-
-        {
-          <div className="max-h-[70vh] overflow-auto @3xl/enterprise-table:hidden">
-            {isLoading ? (
-              Array.from({ length: 4 }).map((_, index) => (
-                <div key={index} className="flex flex-col gap-2 border-b border-border px-4 py-3">
-                  <Skeleton className="h-4 w-2/3" />
-                  <Skeleton className="h-3 w-1/3" />
-                  <Skeleton className="h-4 w-1/2" />
-                  <Skeleton className="h-3 w-1/4" />
+        {/* Narrow-container card list. Never an inner vertical scroller
+            below lg (the page scrolls); in a viewport-fill workspace on lg+
+            (a narrow container beside an open sidebar) it is the scroller. */}
+        <div
+          className={cn(
+            "@4xl/enterprise-table:hidden",
+            viewportFill && "lg:min-h-0 lg:flex-1 lg:overflow-y-auto",
+          )}
+        >
+          {isLoading ? (
+            Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="flex flex-col gap-1.5 border-b border-border p-3">
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-3 w-1/3" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            ))
+          ) : error ? (
+            <ErrorState title={t("table.loadFailed")} description={error} onRetry={onRetry} />
+          ) : !hasRows ? (
+            <EmptyState icon={Inbox} {...emptyStateProps} />
+          ) : (
+            pageRows.map((row) =>
+              renderMobileRow ? (
+                <div key={row.id} data-mobile-row="">
+                  {renderMobileRow({
+                    row: row.original,
+                    selected: row.getIsSelected(),
+                    onToggleSelected: () => row.toggleSelected(),
+                    expanded: row.getIsExpanded(),
+                    onToggleExpanded: () => row.toggleExpanded(),
+                  })}
                 </div>
-              ))
-            ) : error ? (
-              <ErrorState title={t("table.loadFailed")} description={error} onRetry={onRetry} />
-            ) : table.getRowModel().rows.length === 0 ? (
-              <EmptyState icon={Inbox} {...emptyStateProps} />
-            ) : (
-              table.getRowModel().rows.map((row) =>
-                renderMobileRow ? (
-                  <div key={row.id}>
-                    {renderMobileRow({
-                      row: row.original,
-                      selected: row.getIsSelected(),
-                      onToggleSelected: () => row.toggleSelected(),
-                      expanded: row.getIsExpanded(),
-                      onToggleExpanded: () => row.toggleExpanded(),
-                    })}
-                  </div>
-                ) : (
-                  // Automatic phone card: the identity column is the title,
-                  // the row's own actions stay in reach, and the next
-                  // visible columns read as label/value pairs — the same
-                  // cell renderers as the desktop table, never a copy.
-                  (() => {
-                    const cells = row.getVisibleCells();
-                    const renderCell = (cell: (typeof cells)[number]) => {
-                      const layout = layoutById.get(cell.column.id);
-                      const raw = columnsWithExplicitCell.has(cell.column.id)
-                        ? flexRender(cell.column.columnDef.cell, cell.getContext())
-                        : cell.renderValue<ReactNode>();
-                      return applySemanticCellContent(raw, layout?.type);
-                    };
-                    const selectCell = cells.find((cell) => cell.column.id === "select");
-                    const actionsCell = cells.find((cell) => cell.column.id === "__actions");
-                    const dataCells = cells.filter(
-                      (cell) => cell.column.id !== "select" && !cell.column.id.startsWith("__"),
-                    );
-                    const titleCell =
-                      dataCells.find((cell) => cell.column.columnDef.meta?.identity) ??
-                      dataCells[0];
-                    const detailCells = dataCells.filter((cell) => cell !== titleCell).slice(0, 6);
-                    const rowHref = getRowHref?.(row.original) ?? null;
-                    return (
-                      <div
-                        key={row.id}
-                        data-state={row.getIsSelected() ? "selected" : undefined}
-                        className="flex flex-col gap-2 border-b border-border px-3 py-2.5 data-[state=selected]:bg-primary-soft"
-                      >
-                        <div className="flex min-h-9 items-start gap-2">
-                          {selectCell ? <div className="pt-1">{renderCell(selectCell)}</div> : null}
-                          <div className="min-w-0 flex-1 text-body font-medium">
-                            {titleCell ? (
-                              rowHref ? (
-                                <RowIdentityLink href={rowHref}>
-                                  {renderCell(titleCell)}
-                                </RowIdentityLink>
-                              ) : (
-                                renderCell(titleCell)
-                              )
-                            ) : null}
-                          </div>
-                          {actionsCell ? (
-                            <div className="shrink-0">{renderCell(actionsCell)}</div>
+              ) : (
+                // Automatic phone card: identity + status on the first line,
+                // the row's own actions in reach, then up to four key fields
+                // as label/value pairs — the same cell renderers as the
+                // desktop table, never a copy. Amounts sit on the numeric
+                // edge with tabular digits.
+                (() => {
+                  const cells = row.getVisibleCells();
+                  const renderCell = (cell: (typeof cells)[number]) => {
+                    const layout = layoutById.get(cell.column.id);
+                    const raw = columnsWithExplicitCell.has(cell.column.id)
+                      ? flexRender(cell.column.columnDef.cell, cell.getContext())
+                      : cell.renderValue<ReactNode>();
+                    return applySemanticCellContent(raw, layout?.type);
+                  };
+                  const selectCell = cells.find((cell) => cell.column.id === "select");
+                  const actionsCell = cells.find((cell) => cell.column.id === "__actions");
+                  const dataCells = cells.filter(
+                    (cell) => cell.column.id !== "select" && !cell.column.id.startsWith("__"),
+                  );
+                  const titleCell =
+                    dataCells.find((cell) => cell.column.columnDef.meta?.identity) ?? dataCells[0];
+                  const statusCell = dataCells.find(
+                    (cell) =>
+                      cell !== titleCell && layoutById.get(cell.column.id)?.type === "status",
+                  );
+                  const detailCells = dataCells
+                    .filter((cell) => cell !== titleCell && cell !== statusCell)
+                    .slice(0, 4);
+                  const rowHref = getRowHref?.(row.original) ?? null;
+                  return (
+                    <div
+                      key={row.id}
+                      data-mobile-row=""
+                      data-state={row.getIsSelected() ? "selected" : undefined}
+                      className="flex flex-col gap-1 border-b border-border p-3 data-[state=selected]:bg-table-row-selected"
+                    >
+                      <div className="flex min-h-(--control-height-sm) items-center gap-2">
+                        {selectCell ? (
+                          <div className="shrink-0">{renderCell(selectCell)}</div>
+                        ) : null}
+                        <div className="min-w-0 flex-1 truncate text-body font-medium text-foreground">
+                          {titleCell ? (
+                            rowHref ? (
+                              <RowIdentityLink href={rowHref}>
+                                <bdi className={bidiLineClass}>{renderCell(titleCell)}</bdi>
+                              </RowIdentityLink>
+                            ) : (
+                              <bdi className={bidiLineClass}>{renderCell(titleCell)}</bdi>
+                            )
                           ) : null}
                         </div>
-                        {detailCells.length > 0 ? (
-                          <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-                            {detailCells.map((cell) => (
-                              <div key={cell.id} className="min-w-0">
+                        {statusCell ? (
+                          <div className="shrink-0">{renderCell(statusCell)}</div>
+                        ) : null}
+                        {actionsCell ? (
+                          <div className="shrink-0">{renderCell(actionsCell)}</div>
+                        ) : null}
+                      </div>
+                      {detailCells.length > 0 ? (
+                        <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
+                          {detailCells.map((cell) => {
+                            const numeric = isNumericColumnType(
+                              layoutById.get(cell.column.id)?.type,
+                            );
+                            return (
+                              <div key={cell.id} className={cn("min-w-0", numeric && "text-end")}>
                                 <dt className="truncate text-caption text-muted-foreground">
                                   {cell.column.columnDef.meta?.titleKey
                                     ? t(cell.column.columnDef.meta.titleKey)
                                     : cell.column.id}
                                 </dt>
-                                <dd className="min-w-0 truncate text-body">{renderCell(cell)}</dd>
+                                <dd
+                                  className={cn(
+                                    "min-w-0 text-table",
+                                    numeric ? "tabular-nums whitespace-nowrap" : "truncate",
+                                  )}
+                                >
+                                  <bdi className={numeric ? undefined : bidiLineClass}>
+                                    {renderCell(cell)}
+                                  </bdi>
+                                </dd>
                               </div>
-                            ))}
-                          </dl>
-                        ) : null}
-                      </div>
-                    );
-                  })()
-                ),
-              )
-            )}
-          </div>
-        }
+                            );
+                          })}
+                        </dl>
+                      ) : null}
+                    </div>
+                  );
+                })()
+              ),
+            )
+          )}
+        </div>
 
         {/* Smart Column Engine — a real `<table>` with one `<colgroup>`
-            geometry. `table-layout: fixed` makes THEAD and TBODY inherit
-            the same column widths; utility columns are px, data columns
-            share leftover space by `grow`. `overflow-x-auto` is last resort
-            after the responsive hide classes drop low/medium columns. */}
-        <div
-          ref={scrollAreaRef}
-          className={cn("min-w-0 max-h-[70vh] overflow-auto", "hidden @3xl/enterprise-table:block")}
-          style={maxBodyHeight ? { maxHeight: maxBodyHeight } : undefined}
+            geometry. `table-layout: fixed` makes THEAD, TBODY and TFOOT
+            inherit the same column widths; utility columns are px, data
+            columns share leftover space by `grow`. This region is the ONE
+            scroller: vertical in a viewport-fill workspace on lg+ (sticky
+            header/footer), horizontal as the last resort after the
+            responsive hide classes drop low/medium columns. */}
+        <OverflowTooltipRegion
+          scanKey={overflowScanKey}
+          className={cn(
+            "hidden min-w-0 overflow-x-auto @4xl/enterprise-table:block",
+            viewportFill && "lg:min-h-0 lg:flex-1 lg:overflow-y-auto",
+          )}
         >
+          <div ref={tableMeasureRef} aria-hidden className="h-0" />
           <Table
+            container={false}
+            density={density}
             className="w-full table-fixed border-separate border-spacing-0"
-            style={{ minWidth: columnSetMinWidth(resolvedColumns, columnWidths) }}
+            style={{
+              minWidth: fittedWidths
+                ? Object.values(fittedWidths).reduce((sum, width) => sum + width, 0)
+                : columnSetMinWidth(resolvedColumns, columnWidths),
+            }}
           >
             <colgroup>
               {visibleLeafColumns.map((column) => {
                 const layout = layoutById.get(column.id);
+                // A column its responsive class hides (display:none cells)
+                // takes no table slot, so it must not keep a <col> either —
+                // otherwise every later column inherits its neighbour's width.
+                if (fittedWidths && fittedWidths[column.id] === undefined) return null;
                 return (
                   <col
                     key={column.id}
                     style={
-                      layout
-                        ? { width: columnGeometryWidth(layout, resolvedColumns, columnWidths) }
-                        : undefined
+                      fittedWidths
+                        ? { width: `${fittedWidths[column.id] ?? 0}px` }
+                        : layout
+                          ? { width: columnGeometryWidth(layout, resolvedColumns, columnWidths) }
+                          : undefined
                     }
                   />
                 );
               })}
             </colgroup>
-            {/* Same white/light card surface as the rows below it, not a
-                heavy gray fill — the sticky positioning plus this bottom
-                rule are what separate it from scrolled-under content, not a
-                contrasting background. */}
-            <TableHeader className="sticky top-0 z-10 bg-card shadow-[inset_0_-1px_0_0_var(--border)]">
+            <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id} className="hover:bg-transparent">
                   {headerGroup.headers.map((header, index) => {
                     const layout = layoutById.get(header.id);
-                    const isUtility =
-                      layout?.type === "checkbox" ||
-                      layout?.type === "expand" ||
-                      layout?.type === "actions";
+                    const isUtility = isUtilityLayout(header.column.id);
                     const isResizable = !isUtility;
+                    const sorted = header.column.getIsSorted();
+                    const pin = getPinProps(header.id, "head");
                     return (
                       <TableHead
                         key={header.id}
                         data-column-id={header.column.id}
+                        aria-sort={
+                          sorted === "asc"
+                            ? "ascending"
+                            : sorted === "desc"
+                              ? "descending"
+                              : undefined
+                        }
                         ref={(el) => {
                           headerRefs.current[header.id] = el;
                         }}
                         className={cn(
-                          "relative min-w-0 px-0",
+                          // Each header cell is sticky itself (not the
+                          // <thead>) so pinned body cells (--z-pinned) pass
+                          // under the header row (--z-sticky) and pinned
+                          // header cells (--z-sticky-corner) sit above both.
+                          "sticky top-0 z-(--z-sticky) min-w-0 px-0",
                           tableColumnInsetClass(
                             index,
                             headerGroup.headers.length,
                             isUtility ? "utility" : "data",
                           ),
-                          alignClass[layout?.align ?? "start"],
-                          responsiveHideClass(layout?.importance ?? "high"),
+                          tableAlignClass(layout?.align),
+                          columnHideClass(header.column.id, layout?.importance),
+                          pin.className,
                         )}
                         style={{
                           minWidth: layout?.minWidth ?? undefined,
                           maxWidth: columnWidths[header.id]
                             ? undefined
                             : (layout?.maxWidth ?? undefined),
-                          ...getPinStyle(header.id),
+                          ...pin.style,
                         }}
                       >
                         {header.isPlaceholder
@@ -1194,6 +1506,7 @@ export function EnterpriseDataTable<TData>({
                         {isResizable && (
                           <div
                             role="separator"
+                            aria-orientation="vertical"
                             aria-label={t("table.resizeColumn")}
                             onPointerDown={(event) =>
                               beginResize(
@@ -1201,11 +1514,16 @@ export function EnterpriseDataTable<TData>({
                                 event,
                                 headerRefs.current[header.id]?.getBoundingClientRect().width ??
                                   estimateColumnWidth(header.id),
+                                // Amounts are never clipped: a numeric column
+                                // can't be dragged narrower than its preset.
+                                isNumericColumnType(layout?.type)
+                                  ? Math.max(MIN_COLUMN_WIDTH, layout?.minWidth ?? 0)
+                                  : MIN_COLUMN_WIDTH,
                               )
                             }
                             onDoubleClick={() => resetColumnWidth(header.id)}
                             className={cn(
-                              // Straddles the column boundary (2px visible, 8px hit area via negative
+                              // Straddles the column boundary (1px visible, 8px hit area via negative
                               // end-margin) — a bare 1-2px line is nearly unhittable with a real mouse.
                               "absolute inset-y-0 end-0 z-[1] -me-1 w-2 cursor-col-resize touch-none select-none before:absolute before:inset-y-0 before:start-1/2 before:w-px before:-translate-x-1/2 before:bg-transparent hover:before:bg-primary/50",
                               resizingColumnId === header.id && "before:bg-primary",
@@ -1219,12 +1537,10 @@ export function EnterpriseDataTable<TData>({
               ))}
             </TableHeader>
             {/* `border-separate` (required for the sticky header + per-column
-                pinning below) never paints a border set on <tr> itself —
-                browsers only render cell borders under that layout model.
-                The row separator therefore lives on each `<TableCell>`
-                instead (below); this last-child rule only has to strip
-                that cell-level border off the actual last row so it never
-                doubles up with the list footer's own border-t. */}
+                pinning) never paints a border set on <tr> itself — the row
+                separator therefore lives on each `<TableCell>`; this rule
+                strips it off the last row so it never doubles up with the
+                list footer's own border-t. */}
             <TableBody className="[&>tr:last-child>td]:border-b-0">
               {isLoading ? (
                 Array.from({ length: 6 }).map((_, rowIndex) => (
@@ -1232,24 +1548,20 @@ export function EnterpriseDataTable<TData>({
                     {visibleLeafColumns.map((column, index) => {
                       const layout = layoutById.get(column.id);
                       const stacked = Boolean(column.columnDef.meta?.stacked);
-                      const isUtility =
-                        layout?.type === "checkbox" ||
-                        layout?.type === "expand" ||
-                        layout?.type === "actions";
+                      const isUtility = isUtilityLayout(column.id);
                       return (
                         <TableCell
                           key={column.id}
                           data-column-id={column.id}
                           className={cn(
-                            "align-middle min-w-0 px-0",
+                            "min-w-0 px-0 border-b border-border",
                             tableColumnInsetClass(
                               index,
                               visibleLeafColumns.length,
                               isUtility ? "utility" : "data",
                             ),
-                            cellPaddingClass,
                             stacked && "whitespace-normal",
-                            responsiveHideClass(layout?.importance ?? "high"),
+                            columnHideClass(column.id, layout?.importance),
                           )}
                         >
                           {stacked ? (
@@ -1275,26 +1587,23 @@ export function EnterpriseDataTable<TData>({
                     />
                   </TableCell>
                 </TableRow>
-              ) : table.getRowModel().rows.length === 0 ? (
+              ) : !hasRows ? (
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={visibleLeafColumns.length} className="h-auto p-0">
                     <EmptyState icon={Inbox} {...emptyStateProps} />
                   </TableCell>
                 </TableRow>
               ) : (
-                table.getRowModel().rows.map((row) => {
+                pageRows.map((row) => {
                   const rowHref = getRowHref?.(row.original) ?? null;
                   return (
                     <Fragment key={row.id}>
                       <TableRow
                         data-state={row.getIsSelected() ? "selected" : undefined}
                         className={cn(
-                          // The hairline separator itself is a per-cell
-                          // border (below) — a `border-separate` table never
-                          // renders a border painted on the row element.
-                          // Backgrounds are unaffected by that rule, so
-                          // hover/selected tint stays here as normal.
-                          "transition-colors duration-150 motion-reduce:transition-none hover:bg-muted/40 data-[state=selected]:bg-primary-soft",
+                          // Hover/selected fills come from the shared
+                          // TableRow (bg-table-row-hover / -selected); the
+                          // hairline separator is a per-cell border (below).
                           rowHref && !identityOnlyNavigation && "cursor-pointer",
                         )}
                         onClick={
@@ -1334,12 +1643,11 @@ export function EnterpriseDataTable<TData>({
                             ? flexRender(cell.column.columnDef.cell, cell.getContext())
                             : cell.renderValue<ReactNode>();
                           const rendered = applySemanticCellContent(rawContent, layout?.type);
+                          const isIdentity = Boolean(cell.column.columnDef.meta?.identity);
                           // Only the identity column navigates. The row itself
                           // stays inert so the checkbox, chevron and actions menu
                           // sharing it keep unambiguous hit areas.
-                          const identityHref = cell.column.columnDef.meta?.identity
-                            ? rowHref
-                            : null;
+                          const identityHref = isIdentity ? rowHref : null;
                           const content = identityHref ? (
                             <RowIdentityLink href={identityHref}>{rendered}</RowIdentityLink>
                           ) : (
@@ -1349,64 +1657,85 @@ export function EnterpriseDataTable<TData>({
                           const isStacked =
                             Boolean(cell.column.columnDef.meta?.stacked) ||
                             isStackedCellNode(rendered);
-                          const isUtility =
-                            layout?.type === "checkbox" ||
-                            layout?.type === "expand" ||
-                            layout?.type === "actions" ||
-                            cell.column.id === "__expand";
+                          const isUtility = isUtilityLayout(cell.column.id);
+                          const isNumeric = isNumericColumnType(layout?.type);
                           const displayValue = isUtility
                             ? ""
                             : getColumnDisplayValue(cell.column.columnDef, row.original);
+                          const pin = getPinProps(cell.column.id, "body");
                           return (
                             <TableCell
                               key={cell.id}
                               data-column-id={cell.column.id}
                               className={cn(
-                                "align-middle min-w-0 px-0 border-b border-border",
+                                "min-w-0 px-0 border-b border-border",
                                 tableColumnInsetClass(
                                   index,
                                   row.getVisibleCells().length,
                                   isUtility ? "utility" : "data",
                                 ),
-                                cellPaddingClass,
-                                cellTextClass,
-                                alignClass[layout?.align ?? "start"],
-                                responsiveHideClass(layout?.importance ?? "high"),
+                                tableAlignClass(layout?.align),
+                                isTabularColumnType(layout?.type) && "tabular-nums",
+                                isIdentity && tableIdentityCellClass,
+                                columnHideClass(cell.column.id, layout?.importance),
                                 (isStacked || isWrapped) && "whitespace-normal",
+                                pin.className,
                               )}
                               style={{
                                 minWidth: layout?.minWidth ?? undefined,
                                 maxWidth: columnWidths[cell.column.id]
                                   ? undefined
                                   : (layout?.maxWidth ?? undefined),
-                                ...getPinStyle(cell.column.id),
+                                ...pin.style,
                               }}
                             >
                               {isUtility || isStacked ? (
                                 content
                               ) : isWrapped ? (
-                                <div className={tableCellWrapClass}>{content}</div>
+                                <div className={tableCellWrapClass}>
+                                  <bdi>{content}</bdi>
+                                </div>
+                              ) : isNumeric ? (
+                                // Amounts are never truncated (design-system §6).
+                                <div
+                                  className="block w-full whitespace-nowrap"
+                                  onDoubleClick={() => handleCopyCell(displayValue)}
+                                >
+                                  <bdi>{content}</bdi>
+                                </div>
                               ) : (
                                 // Single-line operational values clip on the
-                                // inline axis and recover the full text in the
-                                // tooltip — the only place truncation is applied
-                                // by default.
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <div
-                                      className={cn(
-                                        tableCellContentClass,
-                                        layout?.align === "end" && "block w-full text-end",
-                                        layout?.align === "center" && "block w-full text-center",
-                                      )}
-                                      onDoubleClick={() => handleCopyCell(displayValue)}
-                                      title=""
-                                    >
-                                      {content}
-                                    </div>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top">{displayValue}</TooltipContent>
-                                </Tooltip>
+                                // inline axis; the region's shared tooltip
+                                // shows the full value only when it actually
+                                // overflows (hover or keyboard focus).
+                                //
+                                // Bidi isolation (design-system §2): a plain
+                                // "22 Sep 2026" or "2,000.00 USD" from a custom
+                                // cell keeps its own order inside an Arabic
+                                // row. A start-aligned value is a shrink-wrapped
+                                // box, so `plaintext` (direction from content)
+                                // only changes where a long Latin value clips —
+                                // the box still sits at the cell's start. A
+                                // full-width end/center box keeps the cell's
+                                // direction and isolates its content instead.
+                                <div
+                                  data-overflow-tip=""
+                                  className={cn(
+                                    tableCellContentClass,
+                                    layout?.align === "end" && "block w-full text-end",
+                                    layout?.align === "center" && "block w-full text-center",
+                                    layout?.align !== "end" &&
+                                      layout?.align !== "center" &&
+                                      "[unicode-bidi:plaintext]",
+                                  )}
+                                  onDoubleClick={() => handleCopyCell(displayValue)}
+                                >
+                                  {layout?.align === "end" || layout?.align === "center" ? (
+                                    <bdi>{content}</bdi>
+                                  ) : (
+                                    content
+                                  )}
+                                </div>
                               )}
                             </TableCell>
                           );
@@ -1424,19 +1753,16 @@ export function EnterpriseDataTable<TData>({
                                 id={`table-detail-${row.id}`}
                                 data-slot="table-detail-row"
                                 dir={direction}
-                                className="bg-muted/25 hover:bg-transparent"
+                                className="bg-surface-sunken hover:bg-surface-sunken"
                               >
                                 {detailCells.map((detailCell) => {
                                   const startIndex = visibleLeafColumns.findIndex(
                                     (column) => column.id === detailCell.columnId,
                                   );
                                   const layout = layoutById.get(detailCell.columnId);
-                                  const isUtility =
-                                    layout?.type === "checkbox" ||
-                                    layout?.type === "expand" ||
-                                    layout?.type === "actions" ||
-                                    detailCell.columnId === "__expand";
+                                  const isUtility = isUtilityLayout(detailCell.columnId);
                                   const empty = detailCell.content == null;
+                                  const pin = getPinProps(detailCell.columnId, "body");
                                   return (
                                     <TableCell
                                       key={`${row.id}-detail-${detailCell.columnId}`}
@@ -1444,17 +1770,18 @@ export function EnterpriseDataTable<TData>({
                                       data-empty={empty ? "true" : undefined}
                                       colSpan={detailCell.colSpan}
                                       className={cn(
-                                        "align-top whitespace-normal px-0",
+                                        "h-auto align-top whitespace-normal px-0",
                                         tableColumnInsetClass(
                                           startIndex,
                                           total,
                                           isUtility ? "utility" : "data",
                                         ),
                                         empty || isUtility ? "py-0" : "py-3",
-                                        alignClass[layout?.align ?? "start"],
+                                        tableAlignClass(layout?.align),
                                         detailCell.hideClass,
+                                        pin.className,
                                       )}
-                                      style={getPinStyle(detailCell.columnId)}
+                                      style={pin.style}
                                     >
                                       {detailCell.content}
                                     </TableCell>
@@ -1469,15 +1796,80 @@ export function EnterpriseDataTable<TData>({
                 })
               )}
             </TableBody>
+            {footerCells && hasRows && !isLoading && !error ? (
+              <TableFooter className="border-t-0">
+                <TableRow className="hover:bg-transparent">
+                  {visibleLeafColumns.map((column, index) => {
+                    const layout = layoutById.get(column.id);
+                    const isUtility = isUtilityLayout(column.id);
+                    const tabular = isTabularColumnType(layout?.type);
+                    const pin = getPinProps(column.id, "foot");
+                    return (
+                      <TableCell
+                        key={column.id}
+                        data-column-id={column.id}
+                        className={cn(
+                          // Sticky at the bottom of the scroller, same inset
+                          // and alignment as the body so totals sit under
+                          // their own column's values.
+                          "sticky bottom-0 z-(--z-sticky) min-w-0 px-0 border-t border-border-strong bg-surface-sunken font-semibold text-foreground",
+                          tableColumnInsetClass(
+                            index,
+                            visibleLeafColumns.length,
+                            isUtility ? "utility" : "data",
+                          ),
+                          tableAlignClass(layout?.align),
+                          tabular && "tabular-nums",
+                          columnHideClass(column.id, layout?.importance),
+                          pin.className,
+                        )}
+                        style={pin.style}
+                      >
+                        {footerCells[index] == null ? null : (
+                          <span className={cn(tabular && "num")}>{footerCells[index]}</span>
+                        )}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              </TableFooter>
+            ) : null}
           </Table>
-        </div>
+        </OverflowTooltipRegion>
 
-        <div ref={footerRef}>
-          <ListFooter>
-            <EnterprisePagination table={table} />
-          </ListFooter>
-        </div>
+        <ListFooter>
+          <EnterprisePagination table={table} showSelectionCount={!bulkActions} />
+        </ListFooter>
       </ListSurface>
+
+      {filterBar ? (
+        <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
+          <SheetContent
+            side="bottom"
+            aria-describedby={undefined}
+            className="max-h-[calc(100dvh-var(--shell-topbar-height))] gap-0"
+          >
+            <SheetHeader>
+              <SheetTitle>{t("table.filters")}</SheetTitle>
+            </SheetHeader>
+            <FilterBarProvider value={sheetFilterContext}>
+              <div className="flex min-h-0 flex-col items-stretch gap-2 overflow-y-auto px-4 [&>*]:w-full">
+                {filterBar}
+              </div>
+            </FilterBarProvider>
+            <SheetFooter className="flex-row justify-end">
+              {clearAllFilters && engagedFilterCount > 0 ? (
+                <EnterpriseButton type="button" variant="ghost" onClick={clearAllFilters}>
+                  {t("table.clearFilters")}
+                </EnterpriseButton>
+              ) : null}
+              <EnterpriseButton type="button" onClick={() => setFilterSheetOpen(false)}>
+                {t("table.applyFilters")}
+              </EnterpriseButton>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
+      ) : null}
 
       {exportColumns && onExport && (
         <ExportDialog

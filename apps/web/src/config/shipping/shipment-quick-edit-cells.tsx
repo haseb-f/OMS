@@ -14,8 +14,7 @@ import { storeOrdersService } from "@/services/store-orders-service";
 import { shipmentStatusLabelKey, shipmentStatusTone, catalogStatusTone } from "./shipment-status";
 import type { ShipmentListRow, ShippingStatusCatalogEntry } from "@/services/shipping-service";
 import type { ShippingCompanyOption } from "@/services/shipping-companies-service";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError } from "@/lib/toast";
 
 export type SaveState = "idle" | "saving" | "saved";
 
@@ -123,9 +122,7 @@ export function ShippingStatusQuickCell({
       markSaved();
     } catch (error) {
       setState("idle");
-      toast.error(
-        error instanceof ApiError ? error.message : t("shipping.quickEdit.statusChangeFailed"),
-      );
+      reportApiError(error, "shipping.quickEdit.statusChangeFailed");
     }
   };
 
@@ -194,9 +191,7 @@ export function ShippingCompanyQuickCell({
       markSaved();
     } catch (error) {
       setState("idle");
-      toast.error(
-        error instanceof ApiError ? error.message : t("shipping.quickEdit.companyChangeFailed"),
-      );
+      reportApiError(error, "shipping.quickEdit.companyChangeFailed");
     }
   };
 
@@ -262,9 +257,7 @@ export function TrackingNumberQuickCell({
     } catch (error) {
       setDraft(row.trackingNumber ?? "");
       setState("idle");
-      toast.error(
-        error instanceof ApiError ? error.message : t("shipping.quickEdit.trackingChangeFailed"),
-      );
+      reportApiError(error, "shipping.quickEdit.trackingChangeFailed");
     }
   };
 

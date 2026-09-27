@@ -6,7 +6,7 @@ import { StatusBadge } from "@/components/business/status-badge";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { RowActionsMenu, type RowAction } from "@/components/shared/data-table";
 import { formatDate } from "@/lib/date";
-import { formatMoney } from "@/lib/money";
+import { formatAmount, formatMoney } from "@/lib/money";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import type { InvestmentOpportunityRow } from "@/services/investment-opportunities-service";
@@ -101,7 +101,7 @@ export function buildOpportunityColumns(
   return [
     {
       id: "code",
-      meta: { titleKey: "investors.opportunities.fields.code", identity: true },
+      meta: { titleKey: "investors.opportunities.fields.code", identity: true, stacked: true },
       accessorFn: (row) => row.code,
       cell: ({ row }) => (
         <StackedCell primary={row.original.code} secondary={row.original.nameAr} />
@@ -109,13 +109,13 @@ export function buildOpportunityColumns(
     },
     {
       id: "startDate",
-      meta: { titleKey: "investors.opportunities.fields.startDate" },
+      meta: { titleKey: "investors.opportunities.fields.startDate", type: "date" },
       accessorFn: (row) => formatDate(row.startDate),
       cell: (info) => info.getValue() as string,
     },
     {
       id: "endDate",
-      meta: { titleKey: "investors.opportunities.fields.endDate" },
+      meta: { titleKey: "investors.opportunities.fields.endDate", type: "date" },
       accessorFn: (row) => formatDate(row.endDate),
       cell: (info) => info.getValue() as string,
     },
@@ -127,30 +127,30 @@ export function buildOpportunityColumns(
     },
     {
       id: "productsCount",
-      meta: { titleKey: "investors.opportunities.fields.productsCount" },
+      meta: { titleKey: "investors.opportunities.fields.productsCount", type: "number" },
       accessorFn: (row) => row.productsCount,
       cell: (info) => info.getValue() as number,
     },
     {
       id: "targetCapital",
-      meta: { titleKey: "investors.opportunities.fields.targetCapital" },
+      meta: { titleKey: "investors.opportunities.fields.targetCapital", type: "money" },
       accessorFn: (row) => row.targetCapital,
       cell: (info) => formatMoney(info.getValue() as number, info.row.original.currency?.code),
     },
     {
       id: "confirmedFundedCapital",
-      meta: { titleKey: "investors.opportunities.fields.confirmedFundedCapital" },
+      meta: { titleKey: "investors.opportunities.fields.confirmedFundedCapital", type: "money" },
       accessorFn: (row) => row.confirmedFundedCapital,
       cell: ({ row }) => (
         <StackedCell
           primary={formatMoney(row.original.confirmedFundedCapital, row.original.currency?.code)}
-          secondary={`${row.original.fundingPercent.toFixed(0)}%`}
+          secondary={`${formatAmount(row.original.fundingPercent, { decimals: 0, zero: "zero" })}%`}
         />
       ),
     },
     {
       id: "investorsCount",
-      meta: { titleKey: "investors.opportunities.fields.investorsCount" },
+      meta: { titleKey: "investors.opportunities.fields.investorsCount", type: "number" },
       accessorFn: (row) => row.investorsCount,
       cell: (info) => info.getValue() as number,
     },

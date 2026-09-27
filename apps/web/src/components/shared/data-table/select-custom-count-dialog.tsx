@@ -1,13 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,34 +50,14 @@ export function SelectCustomCountDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>{copy.title}</DialogTitle>
-        </DialogHeader>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="select-custom-count-input">{copy.countLabel}</Label>
-          <Input
-            id="select-custom-count-input"
-            type="number"
-            min={1}
-            step={1}
-            inputMode="numeric"
-            dir="ltr"
-            value={value}
-            onChange={(event) => setValue(event.target.value)}
-            autoFocus
-          />
-          {trimmed !== "" && (
-            <p
-              className={cn("text-caption", isValid ? "text-muted-foreground" : "text-destructive")}
-            >
-              {isValid ? copy.hint(parsed) : copy.invalidMessage}
-            </p>
-          )}
-        </div>
-        <DialogFooter>
-          <EnterpriseButton type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+    <EnterpriseModal
+      open={open}
+      onOpenChange={handleOpenChange}
+      size="sm"
+      title={copy.title}
+      footer={(close) => (
+        <>
+          <EnterpriseButton type="button" variant="outline" onClick={close}>
             {t("common.cancel")}
           </EnterpriseButton>
           <EnterpriseButton
@@ -94,8 +68,28 @@ export function SelectCustomCountDialog({
           >
             {copy.confirmLabel}
           </EnterpriseButton>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      )}
+    >
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="select-custom-count-input">{copy.countLabel}</Label>
+        <Input
+          id="select-custom-count-input"
+          type="number"
+          min={1}
+          step={1}
+          inputMode="numeric"
+          dir="ltr"
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          autoFocus
+        />
+        {trimmed !== "" && (
+          <p className={cn("text-caption", isValid ? "text-muted-foreground" : "text-destructive")}>
+            {isValid ? copy.hint(parsed) : copy.invalidMessage}
+          </p>
+        )}
+      </div>
+    </EnterpriseModal>
   );
 }

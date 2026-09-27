@@ -2,7 +2,7 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { formatDate, formatTime, hasClockTime } from "@/lib/date";
-import { formatMoney, currencyCodeOf } from "@/lib/money";
+import { formatAmount, formatMoney, currencyCodeOf } from "@/lib/money";
 import type { ExportColumn } from "@/components/shared/export-dialog";
 import type { MessageKey } from "@/i18n/translate";
 import type { StoreOrderRow } from "@/services/store-orders-service";
@@ -55,7 +55,7 @@ function money(value: number | null | undefined, currency: StoreOrderRow["curren
 
 function percent(value: number | null | undefined) {
   if (value == null) return "—";
-  return `${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+  return `${formatAmount(value)}%`;
 }
 
 function StoreOrderActionsCell({
@@ -196,7 +196,7 @@ export function buildStoreOrderColumns(
               titleKey: "storeOrders.profitability.netRevenue",
               defaultHidden: true,
               align: "end",
-              type: "number",
+              type: "money",
             },
             accessorFn: (row) => row.profitability?.netRevenue ?? "",
             cell: ({ row }) => money(row.original.profitability?.netRevenue, row.original.currency),
@@ -207,7 +207,7 @@ export function buildStoreOrderColumns(
               titleKey: "storeOrders.profitability.cogs",
               defaultHidden: true,
               align: "end",
-              type: "number",
+              type: "money",
             },
             accessorFn: (row) => row.profitability?.cogs ?? "",
             cell: ({ row }) => money(row.original.profitability?.cogs, row.original.currency),
@@ -218,7 +218,7 @@ export function buildStoreOrderColumns(
               titleKey: "storeOrders.profitability.grossProductProfit",
               defaultHidden: true,
               align: "end",
-              type: "number",
+              type: "money",
             },
             accessorFn: (row) => row.profitability?.grossProductProfit ?? "",
             cell: ({ row }) =>
@@ -230,7 +230,7 @@ export function buildStoreOrderColumns(
               titleKey: "storeOrders.profitability.contributionProfit",
               defaultHidden: true,
               align: "end",
-              type: "number",
+              type: "money",
             },
             accessorFn: (row) => row.profitability?.contributionProfit ?? "",
             cell: ({ row }) =>
@@ -242,7 +242,7 @@ export function buildStoreOrderColumns(
               titleKey: "storeOrders.profitability.contributionMargin",
               defaultHidden: true,
               align: "end",
-              type: "number",
+              type: "percent",
             },
             accessorFn: (row) => row.profitability?.contributionMarginPercent ?? "",
             cell: ({ row }) => percent(row.original.profitability?.contributionMarginPercent),

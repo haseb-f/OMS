@@ -154,7 +154,7 @@ export const customerPartnerColumns: ColumnDef<PartnerRow, unknown>[] = [
   },
   {
     id: "creditLimit",
-    meta: { titleKey: "sales.customers.fields.creditLimit" },
+    meta: { titleKey: "sales.customers.fields.creditLimit", type: "money" },
     accessorFn: (row) => row.customerProfile?.creditLimit,
     cell: ({ row }) =>
       row.original.customerProfile?.creditLimit == null ? (
@@ -182,7 +182,7 @@ export const supplierPartnerColumns: ColumnDef<PartnerRow, unknown>[] = [
   },
   {
     id: "creditLimit",
-    meta: { titleKey: "purchasing.suppliers.fields.creditLimit" },
+    meta: { titleKey: "purchasing.suppliers.fields.creditLimit", type: "money" },
     accessorFn: (row) => row.supplierProfile?.creditLimit,
     cell: ({ row }) =>
       row.original.supplierProfile?.creditLimit == null ? (

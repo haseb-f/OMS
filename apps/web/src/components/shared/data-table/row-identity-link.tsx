@@ -15,6 +15,10 @@ import { cn } from "@/lib/utils";
  * chrome rather than a document hyperlink: inherited colour at rest, primary
  * on hover, and a focus ring that survives being nested inside a clipped
  * table cell.
+ *
+ * No inline padding: under the cell's shrink-wrapped content box, a
+ * padded link (even with matching negative margins) either steals width
+ * from the reference — truncating it — or overflows the cell (review R7).
  */
 export function RowIdentityLink({
   href,
@@ -30,8 +34,8 @@ export function RowIdentityLink({
       href={href}
       data-slot="row-identity-link"
       className={cn(
-        "-mx-1 block min-w-0 max-w-full rounded-xs px-1 outline-none transition-colors duration-(--duration-base)",
-        "hover:text-primary focus-visible:ring-2 focus-visible:ring-ring/60",
+        "block min-w-0 max-w-full rounded-xs outline-none transition-colors duration-(--duration-base)",
+        "hover:text-primary focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-1 focus-visible:outline-focus-ring",
         className,
       )}
     >

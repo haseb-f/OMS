@@ -24,12 +24,12 @@ export const FilterTrigger = forwardRef<
     <EnterpriseButton
       ref={ref}
       type="button"
-      variant="outline"
+      variant="field"
       size="sm"
       role="combobox"
       aria-haspopup="listbox"
       className={cn(
-        "h-(--control-height-sm) min-w-36 justify-between font-normal",
+        "h-(--control-height-md) min-w-36 justify-between font-normal",
         isActive && "border-primary/40 bg-primary-soft",
         className,
       )}

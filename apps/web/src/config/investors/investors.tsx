@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { ColumnDef } from "@tanstack/react-table";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { statusColumn } from "@/config/master-data/shared-columns";
-import { formatMoney } from "@/lib/money";
+import { formatAmount } from "@/lib/money";
 import type { InvestorRow } from "@/services/investors-service";
 import type { MessageKey } from "@/i18n/translate";
 
@@ -18,7 +18,7 @@ export function buildInvestorsColumns(
   return [
     {
       id: "name",
-      meta: { titleKey: "investors.list.fields.name" },
+      meta: { titleKey: "investors.list.fields.name", type: "name", identity: true, stacked: true },
       accessorFn: (row) => row.name,
       cell: ({ row }) => <InvestorNameCell row={row.original} />,
     },
@@ -42,15 +42,15 @@ export function buildInvestorsColumns(
     },
     {
       id: "activeInvestmentsCount",
-      meta: { titleKey: "investors.list.fields.activeInvestmentsCount" },
+      meta: { titleKey: "investors.list.fields.activeInvestmentsCount", type: "number" },
       accessorFn: (row) => row.activeInvestmentsCount,
       cell: (info) => info.getValue() as number,
     },
     {
       id: "totalConfirmedFunding",
-      meta: { titleKey: "investors.list.fields.totalConfirmedFunding" },
+      meta: { titleKey: "investors.list.fields.totalConfirmedFunding", type: "money" },
       accessorFn: (row) => row.totalConfirmedFunding,
-      cell: (info) => formatMoney(info.getValue() as number),
+      cell: (info) => formatAmount(info.getValue() as number, { zero: "dash" }),
     },
     statusColumn<InvestorRow>(),
   ];

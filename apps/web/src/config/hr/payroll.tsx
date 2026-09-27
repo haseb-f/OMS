@@ -7,14 +7,10 @@ import { StackedCell } from "@/components/shared/stacked-cell";
 import { StatusBadge, type StatusTone } from "@/components/business/status-badge";
 import type { PayrollRunRow, PayrollRunStatus, PayrollLineRow } from "@/services/payroll-service";
 import type { MessageKey } from "@/i18n/translate";
+import { formatMoney } from "@/lib/money";
 
-/** Prisma `Decimal` values arrive serialized as strings — same formatting convention as `purchasing/suppliers/[id]/page.tsx`'s local helper. */
-export function formatMoney(value: string | number) {
-  return Number(value).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
+/** Prisma `Decimal` values arrive serialized as strings — the shared Latin-digit money formatter. */
+export { formatMoney };
 
 export const payrollRunStatusTone: Record<PayrollRunStatus, StatusTone> = {
   DRAFT: "neutral",
@@ -25,7 +21,7 @@ export const payrollRunStatusTone: Record<PayrollRunStatus, StatusTone> = {
 };
 
 function MoneyCell({ value }: { value: string }) {
-  return <span dir="ltr">{formatMoney(value)}</span>;
+  return <span className="num">{formatMoney(value)}</span>;
 }
 
 export function buildPayrollRunsColumns(
@@ -36,11 +32,7 @@ export function buildPayrollRunsColumns(
       id: "period",
       meta: { titleKey: "hr.payroll.fields.period" },
       accessorFn: (row) => row.period,
-      cell: (info) => (
-        <span dir="ltr" className="font-medium">
-          {info.getValue() as string}
-        </span>
-      ),
+      cell: (info) => <span className="num font-medium">{info.getValue() as string}</span>,
     },
     {
       id: "status",
@@ -56,24 +48,22 @@ export function buildPayrollRunsColumns(
     },
     {
       id: "grossEarnings",
-      meta: { titleKey: "hr.payroll.fields.grossEarnings", align: "end" },
+      meta: { titleKey: "hr.payroll.fields.grossEarnings", align: "end", type: "money" },
       accessorFn: (row) => Number(row.grossEarnings),
       cell: ({ row }) => <MoneyCell value={row.original.grossEarnings} />,
     },
     {
       id: "totalDeductions",
-      meta: { titleKey: "hr.payroll.fields.totalDeductions", align: "end" },
+      meta: { titleKey: "hr.payroll.fields.totalDeductions", align: "end", type: "money" },
       accessorFn: (row) => Number(row.totalDeductions),
       cell: ({ row }) => <MoneyCell value={row.original.totalDeductions} />,
     },
     {
       id: "netPay",
-      meta: { titleKey: "hr.payroll.fields.netPay", align: "end" },
+      meta: { titleKey: "hr.payroll.fields.netPay", align: "end", type: "money" },
       accessorFn: (row) => Number(row.netPay),
       cell: ({ row }) => (
-        <span dir="ltr" className="font-semibold">
-          {formatMoney(row.original.netPay)}
-        </span>
+        <span className="num font-semibold">{formatMoney(row.original.netPay)}</span>
       ),
     },
   ];
@@ -97,62 +87,61 @@ export function buildPayrollLinesColumns(
     },
     {
       id: "basicSalary",
-      meta: { titleKey: "hr.payroll.lines.basicSalary", align: "end" },
+      meta: { titleKey: "hr.payroll.lines.basicSalary", align: "end", type: "money" },
       accessorFn: (row) => Number(row.basicSalary),
       cell: ({ row }) => <MoneyCell value={row.original.basicSalary} />,
     },
     {
       id: "kpiPay",
-      meta: { titleKey: "hr.payroll.lines.kpiPay", align: "end" },
+      meta: { titleKey: "hr.payroll.lines.kpiPay", align: "end", type: "money" },
       accessorFn: (row) => Number(row.kpiPay),
       cell: ({ row }) => <MoneyCell value={row.original.kpiPay} />,
     },
     {
       id: "commission",
-      meta: { titleKey: "hr.payroll.lines.commission", align: "end" },
+      meta: { titleKey: "hr.payroll.lines.commission", align: "end", type: "money" },
       accessorFn: (row) => Number(row.commission),
       cell: ({ row }) => <MoneyCell value={row.original.commission} />,
     },
     {
       id: "allowances",
-      meta: { titleKey: "hr.payroll.lines.allowances", align: "end" },
+      meta: { titleKey: "hr.payroll.lines.allowances", align: "end", type: "money" },
       accessorFn: (row) => Number(row.allowances),
       cell: ({ row }) => <MoneyCell value={row.original.allowances} />,
     },
     {
       id: "otherEarnings",
-      meta: { titleKey: "hr.payroll.lines.otherEarnings", align: "end", defaultHidden: true },
+      meta: {
+        titleKey: "hr.payroll.lines.otherEarnings",
+        align: "end",
+        defaultHidden: true,
+        type: "money",
+      },
       accessorFn: (row) => Number(row.otherEarnings),
       cell: ({ row }) => <MoneyCell value={row.original.otherEarnings} />,
     },
     {
       id: "deductions",
-      meta: { titleKey: "hr.payroll.lines.deductions", align: "end" },
+      meta: { titleKey: "hr.payroll.lines.deductions", align: "end", type: "money" },
       accessorFn: (row) => Number(row.deductions),
       cell: ({ row }) => (
-        <span dir="ltr" className="text-destructive">
-          {formatMoney(row.original.deductions)}
-        </span>
+        <span className="num text-destructive">{formatMoney(row.original.deductions)}</span>
       ),
     },
     {
       id: "grossEarnings",
-      meta: { titleKey: "hr.payroll.lines.grossEarnings", align: "end" },
+      meta: { titleKey: "hr.payroll.lines.grossEarnings", align: "end", type: "money" },
       accessorFn: (row) => Number(row.grossEarnings),
       cell: ({ row }) => (
-        <span dir="ltr" className="font-medium">
-          {formatMoney(row.original.grossEarnings)}
-        </span>
+        <span className="num font-medium">{formatMoney(row.original.grossEarnings)}</span>
       ),
     },
     {
       id: "netPay",
-      meta: { titleKey: "hr.payroll.lines.netPay", align: "end" },
+      meta: { titleKey: "hr.payroll.lines.netPay", align: "end", type: "money" },
       accessorFn: (row) => Number(row.netPay),
       cell: ({ row }) => (
-        <span dir="ltr" className="font-semibold">
-          {formatMoney(row.original.netPay)}
-        </span>
+        <span className="num font-semibold">{formatMoney(row.original.netPay)}</span>
       ),
     },
     {

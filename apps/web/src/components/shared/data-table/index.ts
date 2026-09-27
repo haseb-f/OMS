@@ -1,5 +1,11 @@
 export { EnterpriseTableColumnHeader } from "./data-table-column-header";
-export { EnterprisePagination } from "./data-table-pagination";
+export {
+  EnterprisePagination,
+  TABLE_PAGE_SIZES,
+  normalizeTablePageSize,
+} from "./data-table-pagination";
+export { OverflowTooltipRegion, isElementOverflowing } from "./overflow-tooltip";
+export { useReportFilterBarState, type FilterBarState } from "./filter-bar-context";
 export { EnterpriseTableViewOptions } from "./data-table-view-options";
 export { createSelectionColumn, type SelectionMenuConfig } from "./data-table-selection-column";
 export { SelectCustomCountDialog, type SelectCustomCountCopy } from "./select-custom-count-dialog";
@@ -22,7 +28,13 @@ export {
   columnWidthPercent,
   columnGeometryWidth,
   columnSetMinWidth,
+  fitColumnWidths,
+  planColumnWidths,
+  type ColumnPlan,
   responsiveHideClass,
+  isNumericColumnType,
+  isTabularColumnType,
+  type ColumnFooterContext,
   type ColumnImportance,
   type ColumnAlign,
   type ColumnType,

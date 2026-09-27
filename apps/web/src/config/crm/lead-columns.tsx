@@ -2,7 +2,7 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { ClassificationBadge } from "@/components/business/classification-badge";
-import { DynamicStatusBadge } from "@/components/business/dynamic-status-badge";
+import { StatusBadge } from "@/components/business/status-badge";
 import { LocaleText } from "@/components/shared/locale-text";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
@@ -37,7 +37,7 @@ export function leadLifecycleBadge(
 export function LeadStatusCell({ lead }: { lead: Pick<LeadRow, "status" | "salesEmployeeId"> }) {
   const { t } = useLocale();
   const badge = leadLifecycleBadge(lead, t("crm.leads.ownership.assigned"));
-  return <DynamicStatusBadge label={badge.label} colorKey={badge.colorKey} />;
+  return <StatusBadge label={badge.label} colorKey={badge.colorKey} />;
 }
 
 function NextFollowUpCell({ value }: { value: string | null }) {
@@ -105,12 +105,12 @@ export const leadColumns: ColumnDef<LeadRow, unknown>[] = [
   },
   {
     id: "country",
-    meta: { titleKey: "crm.leads.fields.country", type: "name" },
+    meta: { titleKey: "crm.leads.fields.country", type: "name", importance: "low" },
     accessorFn: (row) => row.country?.name ?? "—",
   },
   {
     id: "classification",
-    meta: { titleKey: "crm.leads.fields.classification", type: "status" },
+    meta: { titleKey: "crm.leads.fields.classification", type: "status", importance: "medium" },
     enableSorting: false,
     cell: ({ row }) =>
       row.original.customerClassification ? (
@@ -130,12 +130,12 @@ export const leadColumns: ColumnDef<LeadRow, unknown>[] = [
   },
   {
     id: "source",
-    meta: { titleKey: "crm.leads.fields.source", type: "name" },
+    meta: { titleKey: "crm.leads.fields.source", type: "name", importance: "low" },
     accessorFn: (row) => row.source,
   },
   {
     id: "salesEmployee",
-    meta: { titleKey: "crm.leads.fields.assignedTo", type: "name" },
+    meta: { titleKey: "crm.leads.fields.assignedTo", type: "name", importance: "medium" },
     enableSorting: false,
     accessorFn: (row) => row.salesEmployee?.fullName ?? "—",
   },

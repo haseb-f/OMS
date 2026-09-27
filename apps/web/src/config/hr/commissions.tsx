@@ -55,13 +55,13 @@ export function buildCommissionsColumns(
     },
     {
       id: "basisAmount",
-      meta: { titleKey: "hr.commissions.fields.basisAmount", align: "end" },
+      meta: { titleKey: "hr.commissions.fields.basisAmount", align: "end", type: "money" },
       accessorFn: (row) => Number(row.basisAmount),
       cell: ({ row }) => <MoneyCell value={row.original.basisAmount} />,
     },
     {
       id: "targetAmount",
-      meta: { titleKey: "hr.commissions.fields.targetAmount", align: "end" },
+      meta: { titleKey: "hr.commissions.fields.targetAmount", align: "end", type: "money" },
       accessorFn: (row) => (row.targetAmount ? Number(row.targetAmount) : 0),
       cell: ({ row }) =>
         row.original.targetAmount ? (
@@ -72,7 +72,7 @@ export function buildCommissionsColumns(
     },
     {
       id: "achievementPercent",
-      meta: { titleKey: "hr.commissions.fields.achievementPercent", align: "end" },
+      meta: { titleKey: "hr.commissions.fields.achievementPercent", align: "end", type: "percent" },
       accessorFn: (row) => (row.achievementPercent ? Number(row.achievementPercent) : 0),
       cell: ({ row }) =>
         row.original.achievementPercent ? (
@@ -83,7 +83,7 @@ export function buildCommissionsColumns(
     },
     {
       id: "amount",
-      meta: { titleKey: "hr.commissions.fields.amount", align: "end" },
+      meta: { titleKey: "hr.commissions.fields.amount", align: "end", type: "money" },
       accessorFn: (row) => Number(row.amount),
       cell: ({ row }) => (
         <span dir="ltr" className="font-semibold">

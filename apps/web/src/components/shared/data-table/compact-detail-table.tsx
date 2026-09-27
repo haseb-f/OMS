@@ -9,6 +9,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  tableAlignClass,
+  tableTotalsRowClass,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
@@ -24,16 +26,12 @@ export interface CompactDetailColumn<T> {
   footer?: ReactNode;
 }
 
-/** One cell geometry for header, body and footer (padding + alignment). */
-function cellAlignClass(align?: CompactDetailAlign) {
-  return align === "end" ? "text-end tabular-nums" : "text-start";
-}
-
 /**
  * Read-only line table for detail workspaces — Store Order items, payments,
  * shipments, and any other compact record list that is not the operational
- * EnterpriseDataTable. One geometry so those sections do not each invent a
- * slightly different header/row rhythm.
+ * EnterpriseDataTable. Header, cell inset, row height and totals row all
+ * come from the shared `ui/table` primitives, so these sections line up with
+ * every EDT list instead of inventing their own rhythm.
  *
  * Line height stays on the type scale (`leading-normal`) so Arabic glyphs
  * are never shaved by a tighter local box. Horizontal overflow is clipped
@@ -60,13 +58,7 @@ export function CompactDetailTable<T>({
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             {columns.map((column) => (
-              <TableHead
-                key={column.id}
-                className={cn(
-                  "h-8 bg-muted px-2 font-medium text-foreground",
-                  cellAlignClass(column.align),
-                )}
-              >
+              <TableHead key={column.id} className={tableAlignClass(column.align)}>
                 {column.header}
               </TableHead>
             ))}
@@ -77,7 +69,7 @@ export function CompactDetailTable<T>({
             <TableRow className="hover:bg-transparent">
               <TableCell
                 colSpan={columns.length}
-                className="px-2 py-3 text-center text-caption leading-normal text-muted-foreground"
+                className="h-auto py-3 text-center text-caption text-muted-foreground"
               >
                 {empty}
               </TableCell>
@@ -88,10 +80,7 @@ export function CompactDetailTable<T>({
                 {columns.map((column) => (
                   <TableCell
                     key={column.id}
-                    className={cn(
-                      "min-w-0 px-2 py-1.5 leading-normal",
-                      cellAlignClass(column.align),
-                    )}
+                    className={cn("min-w-0", tableAlignClass(column.align))}
                   >
                     {column.cell(row)}
                   </TableCell>
@@ -102,15 +91,12 @@ export function CompactDetailTable<T>({
         </TableBody>
         {footer || columns.some((column) => column.footer != null) ? (
           <TableFooter>
-            <TableRow className="hover:bg-transparent">
+            <TableRow className={tableTotalsRowClass}>
               {footer ??
                 columns.map((column) => (
                   <TableCell
                     key={column.id}
-                    className={cn(
-                      "min-w-0 px-2 py-1.5 font-semibold leading-normal",
-                      cellAlignClass(column.align),
-                    )}
+                    className={cn("min-w-0 font-semibold", tableAlignClass(column.align))}
                   >
                     {column.footer}
                   </TableCell>
