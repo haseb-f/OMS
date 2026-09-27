@@ -644,7 +644,15 @@ async function preflight() {
     saveCtx();
     return { detail: `functional=${func.code}; commission account=${!!ps.paymentGatewayFeeAccountId}; FX-difference account=${!!ps.exchangeDifferenceAccountId}; product=${product.sku} ${product.name}; tagged currency code=${XCODE}` };
   }, { retry: false });
-  if (!report.environment.commissionAccountConfigured) note("C4", "commission account configured", "BLOCKED", "Posting settings have no Payment Gateway Fees account — settlement refuses to post (not modified by this script)");
+  {
+    // Live read (the setup step above is replayed, not re-executed, on a resumed RUN).
+    const psLive = (await A("GET", "/accounting/posting-settings")).json ?? {};
+    report.environment.commissionAccountConfigured = !!psLive.paymentGatewayFeeAccountId;
+    report.environment.fxDiffAccountConfigured = !!psLive.exchangeDifferenceAccountId;
+    ctx.commissionAccountId = psLive.paymentGatewayFeeAccountId ?? ctx.commissionAccountId ?? null;
+    ctx.fxDiffAccountId = psLive.exchangeDifferenceAccountId ?? ctx.fxDiffAccountId ?? null;
+    if (!report.environment.commissionAccountConfigured) note("C4", "commission account configured", "BLOCKED", "Posting settings have no Payment Gateway Fees account — settlement refuses to post (not modified by this script)");
+  }
   // Historical snapshot (read-only, S5).
   await step("S5", adm, "snapshot historical VERIFIED payments (before)", async () => {
     const r = await A("GET", "/payments?status=VERIFIED&pageSize=50");
@@ -960,6 +968,9 @@ const ORDER_SPECS = {
   A2: { idx: 34, amount: 300, declare: "FULL", method: "tamara" }, // same phone as A1 → ambiguous
   X1: { idx: 35, amount: 200, declare: "FULL", method: "tamara", x: true },
   X2: { idx: 36, amount: 200, declare: "FULL", method: "tamara", x: true },
+  // FULL declared prepaid SHIPPING that is never on a statement: proves shipping
+  // readiness strictly before (and independent of) Finance matching.
+  RDY: { idx: 37, amount: 500, declare: "FULL", method: "tamara" },
 };
 const extOf = (key) => `${RUN}-${key}`;
 const custOf = (key) => `${RUN} عميل ${key}`;
@@ -1228,29 +1239,61 @@ const shipSig = (s) => (s ? `${s.id}|${s.shippingStatus?.code}|${s.updatedAt}` :
 async function c2() {
   const adm = await session("qa-admin");
   const shp = await session("qa-shipping");
-  await step("C2", adm, "B01 (FULL declared, SHIPPING): shipment can be created BEFORE Finance matching", async (page) => {
-    const o = ord("B01");
-    if (!o) blocked("B01 missing");
+  const agRdy = await session("qa-sales-agent");
+  await step("C2", agRdy, "RDY: Sales creates a prepaid SHIPPING order declared paid in FULL (never on a statement)", async () => {
+    const r = await createOrderUI(agRdy, "RDY");
+    if (!r.order) return { status: "FAIL", detail: `order not created: ${r.how}` };
+    const o = await getOrder(r.order.id);
+    const claims = claimsOf(o);
+    return {
+      status: o.declaredPaymentStatus === "PAID" && claims.length === 1 && claims[0].status === "PENDING" ? "PASS" : "FAIL",
+      detail: `${r.how ?? ""} ${o.orderNumber ?? o.number ?? ""}; declared=${o.declaredPaymentStatus}; claims=${claims.map((c) => c.status).join(",")}`,
+      url: orderUrl(ord("RDY")),
+    };
+  });
+  // B01's shipment signature is still recorded for the later "matching never alters shipments" check.
+  {
+    const b01 = ctx.orders?.B01;
+    const b01Ships = b01 ? await shipmentsOf(b01.id) : [];
+    if (b01Ships[0]) {
+      ctx.b01Shipment = { id: b01Ships[0].id, status: b01Ships[0].shippingStatus?.code, sig: shipSig(b01Ships[0]) };
+      saveCtx();
+    }
+  }
+  await step("C2", adm, "RDY (FULL declared, SHIPPING): shipment can be created BEFORE Finance matching", async (page) => {
+    const o = ord("RDY");
+    if (!o) blocked("RDY missing");
     let ships = await shipmentsOf(o.id);
     let t = [];
     if (!ships.length) {
       t = await bulkReady(page, o.number);
       ships = await shipmentsOf(o.id);
     }
-    const ord = await getOrder(o.id);
-    const verified = claimsOf(ord).some((p) => p.status === "VERIFIED");
-    ctx.b01Shipment = ships[0] ? { id: ships[0].id, status: ships[0].shippingStatus?.code, sig: shipSig(ships[0]) } : null;
-    saveCtx();
-    const sh = await shot(page, "c2-B01-bulk-ready");
-    return { status: ships.length && !verified ? "PASS" : "FAIL", detail: `toasts=${t.map((x) => `${x.type}:${x.text}`).join(" | ") || "(existing shipment)"}; shipments=${ships.length} status=${ships[0]?.shippingStatus?.code ?? "-"}; shippingStage=${ord.shippingStage}; any claim VERIFIED=${verified}; paymentStatus=${ord.paymentStatus}`, url: orderUrl(o), shot: sh };
+    const fresh = await getOrder(o.id);
+    const verifiedClaims = claimsOf(fresh).filter((p) => p.status === "VERIFIED" || p.status === "MATCHED");
+    // On a resumed RUN the claim may since have been matched/posted: the criterion is
+    // that the shipment was created BEFORE Finance matched it — prove it by timestamps.
+    const financeAt = verifiedClaims
+      .map((p) => Date.parse(p.matchedAt ?? p.verifiedAt ?? ""))
+      .filter(Number.isFinite)
+      .sort((x, y) => x - y)[0];
+    const shipAt = ships[0] ? Date.parse(ships[0].createdAt ?? "") : NaN;
+    const beforeFinance = ships.length > 0 && (financeAt === undefined || (Number.isFinite(shipAt) && shipAt < financeAt));
+    const sh = await shot(page, "c2-RDY-bulk-ready");
+    return {
+      status: beforeFinance ? "PASS" : "FAIL",
+      detail: `toasts=${t.map((x) => `${x.type}:${x.text}`).join(" | ") || "(existing shipment)"}; shipments=${ships.length} status=${ships[0]?.shippingStatus?.code ?? "-"} createdAt=${ships[0]?.createdAt ?? "-"}; first Finance match/verify=${financeAt === undefined ? "none" : new Date(financeAt).toISOString()}; shipped before Finance=${beforeFinance}; paymentStatus now=${fresh.paymentStatus}`,
+      url: orderUrl(o),
+      shot: sh,
+    };
   });
-  await step("C2", shp, "B01 order page (shipping role): declared paid, Finance still 'بانتظار مطابقة المالية'", async (page) => {
-    const o = ord("B01");
+  await step("C2", shp, "RDY order page (shipping role): declared paid, Finance still 'بانتظار مطابقة المالية'", async (page) => {
+    const o = ord("RDY");
     await go(page, `/store-orders/${o.id}`);
     const text = await mainText(page);
     const declared = /أبلغ العميل بالدفع/.test(text);
     const awaiting = /بانتظار مطابقة المالية/.test(text);
-    return { status: declared && awaiting ? "PASS" : "FAIL", detail: `declared badge=${declared}; awaiting Finance reconciliation=${awaiting}`, url: orderUrl(o), shot: await shot(page, "c2-B01-shipping-view") };
+    return { status: declared && awaiting ? "PASS" : "FAIL", detail: `declared badge=${declared}; awaiting Finance reconciliation=${awaiting}`, url: orderUrl(o), shot: await shot(page, "c2-RDY-shipping-view") };
   });
   await step("C2", adm, "P1 (PARTIAL declared, prepaid SHIPPING): shipment blocked with the gate message", async (page) => {
     const o = ord("P1");
@@ -1272,8 +1315,8 @@ async function c2() {
       t = await bulkReady(page, o.number);
       ships = await shipmentsOf(o.id);
     }
-    const ord = await getOrder(o.id);
-    return { status: ships.length ? "PASS" : "FAIL", detail: `paymentType=${ord.paymentType}; toasts=${t.map((x) => x.text).join(" | ") || "(existing)"}; shipments=${ships.length}; claims=${claimsOf(ord).length}`, url: orderUrl(o), shot: await shot(page, "c2-COD-ready") };
+    const fresh = await getOrder(o.id);
+    return { status: ships.length ? "PASS" : "FAIL", detail: `paymentType=${fresh.paymentType}; toasts=${t.map((x) => x.text).join(" | ") || "(existing)"}; shipments=${ships.length}; claims=${claimsOf(fresh).length}`, url: orderUrl(o), shot: await shot(page, "c2-COD-ready") };
   });
   await step("S1", adm, "DSP (FULL declared): shipment created before the dispute", async (page) => {
     const o = ord("DSP");
@@ -1369,8 +1412,8 @@ async function pickupFlow() {
     const collectEnabled = collectVisible && (await collect.isEnabled().catch(() => false));
     const text = await mainText(page);
     const hint = /يمكن تسجيل الاستلام بعد الإبلاغ عن دفع كامل المبلغ/.test(text);
-    const ord = await getOrder(o.id);
-    const res = { status: !collectEnabled && ord.fulfillmentStatus?.code !== "COLLECTED" ? "PASS" : "FAIL", detail: `ready-for-pickup action → ${readyResult}; collect button visible=${collectVisible} enabled=${collectEnabled}; pickup hint=${hint}; fulfillment=${ord.fulfillmentStatus?.code ?? "-"}; shipments=${(ord.shipments ?? []).length}`, url: orderUrl(o), shot: await shot(page, "c2-pickup-partial-gate") };
+    const fresh = await getOrder(o.id);
+    const res = { status: !collectEnabled && fresh.fulfillmentStatus?.code !== "COLLECTED" ? "PASS" : "FAIL", detail: `ready-for-pickup action → ${readyResult}; collect button visible=${collectVisible} enabled=${collectEnabled}; pickup hint=${hint}; fulfillment=${fresh.fulfillmentStatus?.code ?? "-"}; shipments=${(fresh.shipments ?? []).length}`, url: orderUrl(o), shot: await shot(page, "c2-pickup-partial-gate") };
     ctx.pickup.gate = { status: res.status, detail: res.detail, url: res.url };
     saveCtx();
     return res;
@@ -1382,8 +1425,8 @@ async function pickupFlow() {
     const before = await getOrder(o.id);
     let d = { toast: { text: "already fully declared" } };
     if (before.declaredPaymentStatus !== "PAID") d = await declareOnOrderPage(mg, "PICK", { kind: "FULL", method: "tamara", reference: `${RUN}-REF-PICKUP-2` });
-    const ord = await getOrder(o.id);
-    const res = { status: ord.declaredPaymentStatus === "PAID" && ord.fulfillmentStatus?.code !== "COLLECTED" ? "PASS" : "FAIL", detail: `${d.toast.text}; declared=${ord.declaredPaymentStatus} ${ord.declaredAmount}/${ord.total}; claims=${claimsOf(ord).length}; fulfillment=${ord.fulfillmentStatus?.code ?? "-"} (not COLLECTED)`, url: orderUrl(o), shot: await shot(page, "c2-pickup-full-declared") };
+    const fresh = await getOrder(o.id);
+    const res = { status: fresh.declaredPaymentStatus === "PAID" && fresh.fulfillmentStatus?.code !== "COLLECTED" ? "PASS" : "FAIL", detail: `${d.toast.text}; declared=${fresh.declaredPaymentStatus} ${fresh.declaredAmount}/${fresh.total}; claims=${claimsOf(fresh).length}; fulfillment=${fresh.fulfillmentStatus?.code ?? "-"} (not COLLECTED)`, url: orderUrl(o), shot: await shot(page, "c2-pickup-full-declared") };
     ctx.pickup.full = { status: res.status, detail: res.detail, url: res.url };
     saveCtx();
     return res;
@@ -1416,8 +1459,8 @@ async function pickupFlow() {
       steps.push(`${re.source}: ${t.text}`);
       await settle(page);
     }
-    const ord = await getOrder(o.id);
-    return { status: ord.fulfillmentStatus?.code === "COLLECTED" && !(ord.shipments ?? []).length ? "PASS" : "FAIL", detail: `${steps.join(" | ")}; fulfillment=${ord.fulfillmentStatus?.code}; shipments=${(ord.shipments ?? []).length}; claims still ${claimsOf(ord).map((p) => p.status).join(",")} (collection does not verify payments)`, url: orderUrl(o), shot: await shot(page, "c2-pickup-collected") };
+    const fresh = await getOrder(o.id);
+    return { status: fresh.fulfillmentStatus?.code === "COLLECTED" && !(fresh.shipments ?? []).length ? "PASS" : "FAIL", detail: `${steps.join(" | ")}; fulfillment=${fresh.fulfillmentStatus?.code}; shipments=${(fresh.shipments ?? []).length}; claims still ${claimsOf(fresh).map((p) => p.status).join(",")} (collection does not verify payments)`, url: orderUrl(o), shot: await shot(page, "c2-pickup-collected") };
   });
 }
 
@@ -1618,7 +1661,17 @@ async function c3() {
     if (pre.claim?.status !== "VERIFIED") r = await matchLine(page, "B01");
     if (r.ok === false) return { status: "FAIL", detail: r.detail ?? r.toast, shot: await shot(page, "c3-B01-match-fail") };
     const v = await verifyPosted("B01", { expectDate: YESTERDAY, expectRate: 1 });
-    const hasReason = /المرجع|الطلب/.test(r.reasons) && /المبلغ/.test(r.reasons);
+    let hasReason = /المرجع|الطلب/.test(r.reasons) && /المبلغ/.test(r.reasons);
+    if (pre.claim?.status === "VERIFIED") {
+      // Matched earlier in this RUN: judge the reasons stored on the real match record.
+      const claimId = pre.claim?.id;
+      const stored = (await methodLines(ctx.methods.tamara.id))
+        .flatMap((l) => l.matches ?? [])
+        .find((m) => m.status === "ACTIVE" && m.payment?.id === claimId);
+      const signals = (Array.isArray(stored?.reasons) ? stored.reasons : []).map((x) => x.signal);
+      hasReason = signals.some((sg) => sg === "REFERENCE" || sg === "ORDER") && signals.includes("AMOUNT");
+      r.reasons = `(matched earlier; stored signals: ${signals.join(",") || "none"})`;
+    }
     const ships = await shipmentsOf(ctx.orders.B01.id);
     const shipUnchanged = ships.length === 1 && shipSig(ships[0]) === ctx.b01Shipment?.sig;
     return {
@@ -1678,8 +1731,8 @@ async function c3() {
   await step("C3", fin, "BK (non-reconciled Bank transfer QA): Finance payment review → Confirm & post → JE Dr bank-transfer account (no statement matching)", async (page) => {
     const o = ord("BK");
     if (!o) blocked("BK missing");
-    let ord = await getOrder(o.id);
-    let claim = claimsOf(ord)[0];
+    let fresh = await getOrder(o.id);
+    let claim = claimsOf(fresh)[0];
     let t = { text: "(already posted)" };
     if (claim && claim.status !== "VERIFIED") {
       await go(page, "/finance/payment-review");
@@ -1700,8 +1753,8 @@ async function c3() {
       t = await expectToast(page, /تم/);
       await settle(page);
     }
-    ord = await getOrder(o.id);
-    claim = claimsOf(ord)[0];
+    fresh = await getOrder(o.id);
+    claim = claimsOf(fresh)[0];
     const { je } = claim ? await paymentReceiptJE(claim.id) : {};
     const ev = je ? jeEvidence(`receipt BK ${o.number} (non-reconciled)`, je) : null;
     const dr = ev?.lines.find((l) => l.debit > 0);
@@ -1829,8 +1882,8 @@ async function s1s4() {
   await step("S1", fin, "DSP: Finance disputes the claim from the Matching tab (reason) after shipment", async (page) => {
     const o = ord("DSP");
     if (!o) blocked("DSP missing");
-    let ord = await getOrder(o.id);
-    let claim = claimsOf(ord).find((p) => p.paymentMethodId === ctx.methods.tamara.id);
+    let fresh = await getOrder(o.id);
+    let claim = claimsOf(fresh).find((p) => p.paymentMethodId === ctx.methods.tamara.id);
     let t = { text: "(already disputed)" };
     if (claim?.status !== "DISPUTED") {
       await go(page, wsPath());
@@ -1851,11 +1904,11 @@ async function s1s4() {
       t = await expectToast(page, /تم الاعتراض/);
       await settle(page);
     }
-    ord = await getOrder(o.id);
-    claim = claimsOf(ord).find((p) => p.paymentMethodId === ctx.methods.tamara.id);
+    fresh = await getOrder(o.id);
+    claim = claimsOf(fresh).find((p) => p.paymentMethodId === ctx.methods.tamara.id);
     const ships = await shipmentsOf(o.id);
     const shipOk = ships.length === (ctx.dspShipment?.n ?? 1) && shipSig(ships[0]) === ctx.dspShipment?.sig;
-    return { status: claim?.status === "DISPUTED" && ord.paymentDiscrepancy && shipOk ? "PASS" : "FAIL", detail: `${t.text}; claim=${claim?.status} reason="${claim?.disputeReason ?? ""}"; order.paymentDiscrepancy=${ord.paymentDiscrepancy}; declared=${ord.declaredPaymentStatus}; shipments unchanged=${shipOk}`, url: orderUrl(o), shot: await shot(page, "s1-disputed") };
+    return { status: claim?.status === "DISPUTED" && fresh.paymentDiscrepancy && shipOk ? "PASS" : "FAIL", detail: `${t.text}; claim=${claim?.status} reason="${claim?.disputeReason ?? ""}"; order.paymentDiscrepancy=${fresh.paymentDiscrepancy}; declared=${fresh.declaredPaymentStatus}; shipments unchanged=${shipOk}`, url: orderUrl(o), shot: await shot(page, "s1-disputed") };
   });
   await step("S1", ag, "DSP order page shows the payment discrepancy banner (Sales view)", async (page) => {
     const o = ord("DSP");
@@ -1887,9 +1940,9 @@ async function s1s4() {
   });
   await step("S4", fin, "qa-finance (sales.receipts.confirm) records the audited correction on DSP", async (page) => {
     const o = ord("DSP");
-    const ord = await getOrder(o.id);
-    const before = claimsOf(ord).length;
-    if (claimsOf(ord).some((p) => p.status === "PENDING")) return { detail: `already corrected (pending claim exists); claims=${before}` };
+    const fresh = await getOrder(o.id);
+    const before = claimsOf(fresh).length;
+    if (claimsOf(fresh).some((p) => p.status === "PENDING")) return { detail: `already corrected (pending claim exists); claims=${before}` };
     const d = await declareOnOrderPage(fin, "DSP", { kind: "FULL", method: "tamara", reference: `${RUN}-REF-DSP-FIN` });
     const o2 = await getOrder(o.id);
     const newClaim = claimsOf(o2).find((p) => p.status === "PENDING");
@@ -2025,7 +2078,12 @@ async function c4() {
     return { status: dataRows && boxes >= dataRows ? "PASS" : "FAIL", detail: `rows=${dataRows}; row checkboxes=${boxes}; header select-all=${header}; empty select cells=${emptyCells}${boxes < dataRows ? " — DEFECT: EnterpriseDataTable renders empty row-selection cells on desktop (auto-injected 'select' column is rendered with cell.renderValue() because columnsWithExplicitCell only lists caller columns — components/master-data/enterprise-data-table.tsx ~L759/L1322); Finance cannot pick a subset of claims except by filtering and using select-all" : ""}`, url: `${BASE}${wsPath()}`, shot: await shot(page, "c4-row-selection") };
   }, { retry: false });
   await step("C4", fin, `settle 10 matched claims (gross 5,000 ${ctx.func?.code}) → received 4,500 → fee 500; double-click Confirm (C5)`, async (page) => {
-    if (!report.environment.commissionAccountConfigured) blocked("no Payment Gateway Fees account configured in posting settings");
+    {
+      // Read live: the setup step may be replayed (not re-executed) on a resumed RUN.
+      const psLive = (await A("GET", "/accounting/posting-settings")).json ?? {};
+      report.environment.commissionAccountConfigured = !!psLive.paymentGatewayFeeAccountId;
+      if (!report.environment.commissionAccountConfigured) blocked("no Payment Gateway Fees account configured in posting settings");
+    }
     const existing = (await settlementsOf(ctx.methods.tamara.id)).find((s) => s.providerReference === `${RUN}-PAYOUT-1`);
     const pays = [];
     for (const k of keys) {

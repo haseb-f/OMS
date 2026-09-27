@@ -290,8 +290,8 @@ export class PaymentMatchingService {
           statusClass === 'FAILED'
             ? `Provider status "${line.providerStatus}" is not a successful payment — it cannot be matched.`
             : line.status !== PaymentStatementLineStatus.UNMATCHED
-              ? `Line is ${line.status} — only unmatched lines take suggestions.`
-              : 'Line is fully allocated.',
+              ? `الحركة في حالة ${line.status === 'MATCHED' ? 'مطابقة' : line.status === 'EXCEPTION' ? 'استثناء' : line.status === 'IGNORED' ? 'متجاهلة' : line.status}؛ الاقتراحات للحركات غير المطابقة فقط — Line is ${line.status}; only unmatched lines take suggestions.`
+              : 'الحركة موزّعة بالكامل — Line is fully allocated.',
       };
     }
 

@@ -479,8 +479,8 @@ export class ExchangeRatesService {
     const asOfDate = isoDay(day);
     const message =
       code === 'MISSING_EXCHANGE_RATE'
-        ? `No exchange rate from ${fromCode} to ${toCode} on or before ${asOfDate}. Record the directed rate (1 ${fromCode} = X ${toCode}) for that date or a dated override covering it, then post again.`
-        : `The latest ${fromCode} → ${toCode} rate is from ${extra.lastEffectiveDate} — ${extra.ageDays} days before ${asOfDate}, more than the ${extra.maxStaleDays}-day limit. Run the automatic import, or record the rate for ${asOfDate} (1 ${fromCode} = X ${toCode}) or a dated override covering it, then post again.`;
+        ? `لا يوجد سعر صرف من ${fromCode} إلى ${toCode} في ${asOfDate} أو قبله. سجّل السعر (1 ${fromCode} = X ${toCode}) لذلك التاريخ أو سعرًا مخصصًا يغطيه ثم أعد الترحيل — No exchange rate from ${fromCode} to ${toCode} on or before ${asOfDate}. Record the directed rate (1 ${fromCode} = X ${toCode}) for that date or a dated override covering it, then post again.`
+        : `أحدث سعر ${fromCode} → ${toCode} بتاريخ ${extra.lastEffectiveDate}، أي قبل ${asOfDate} بـ ${extra.ageDays} يومًا، وهذا يتجاوز الحد (${extra.maxStaleDays} يومًا). شغّل الاستيراد التلقائي أو سجّل سعر ${asOfDate} أو سعرًا مخصصًا يغطيه ثم أعد الترحيل — The latest ${fromCode} → ${toCode} rate is from ${extra.lastEffectiveDate}, ${extra.ageDays} days before ${asOfDate}, more than the ${extra.maxStaleDays}-day limit. Run the automatic import, or record the rate for ${asOfDate} (1 ${fromCode} = X ${toCode}) or a dated override covering it, then post again.`;
     return new BadRequestException({
       code,
       message,
