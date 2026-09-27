@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import { Upload } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
+import { DismissibleAlert } from "@/components/shared/dismissible-alert";
+import { apiErrorMessage } from "@/lib/toast";
 import {
   Table,
   TableBody,
@@ -47,9 +49,12 @@ export function ImportDialog({
   const [fileName, setFileName] = useState<string | null>(null);
   const [rows, setRows] = useState<Record<string, string>[]>([]);
   const [isImporting, setIsImporting] = useState(false);
+  /** Why the last import attempt failed — stays in the dialog (with the rows kept) so the user can retry. */
+  const [importError, setImportError] = useState<string | null>(null);
 
   const handleFile = async (file: File) => {
     setFileName(file.name);
+    setImportError(null);
     const text = await file.text();
     setRows(parseCsv(text));
   };
@@ -57,6 +62,7 @@ export function ImportDialog({
   const reset = () => {
     setFileName(null);
     setRows([]);
+    setImportError(null);
   };
 
   return (
@@ -76,13 +82,17 @@ export function ImportDialog({
           </EnterpriseButton>
           <EnterpriseButton
             type="button"
-            disabled={rows.length === 0 || isImporting}
+            disabled={rows.length === 0}
+            isLoading={isImporting}
             onClick={async () => {
               setIsImporting(true);
+              setImportError(null);
               try {
                 await onImport(rows);
                 onOpenChange(false);
                 reset();
+              } catch (error) {
+                setImportError(apiErrorMessage(error, "errors.saveFailed"));
               } finally {
                 setIsImporting(false);
               }
@@ -94,6 +104,11 @@ export function ImportDialog({
       }
     >
       <div className="flex flex-col gap-3">
+        {importError ? (
+          <DismissibleAlert tone="destructive" live onDismiss={() => setImportError(null)}>
+            {importError}
+          </DismissibleAlert>
+        ) : null}
         <input
           ref={fileInputRef}
           type="file"

@@ -60,6 +60,7 @@ export function EnterpriseModal({
   className,
   bodyClassName,
   testId,
+  errorSummary,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -81,6 +82,12 @@ export function EnterpriseModal({
   bodyClassName?: string;
   /** `data-testid` on the dialog surface. */
   testId?: string;
+  /**
+   * A `<FormErrorSummary>` (components/shared/form-error-summary) — rendered
+   * at the top of the scrolling body so a failed submit is explained in place
+   * (design-system §11.4). It renders nothing while there are no errors.
+   */
+  errorSummary?: ReactNode;
 }) {
   const { t } = useLocale();
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
@@ -149,6 +156,7 @@ export function EnterpriseModal({
           </div>
 
           <div className={cn("min-h-0 flex-1 overflow-y-auto px-4 py-3", bodyClassName)}>
+            {errorSummary}
             {children}
           </div>
 

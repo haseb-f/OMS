@@ -427,7 +427,7 @@ function ImportCenterPageContent() {
           setIsCancelling(true);
           try {
             await importJobsService.cancel(cancelTarget.id);
-            toast.success(t("importCenter.cancelJob"));
+            toast.success(t("feedback.import.jobCancelled"));
             setCancelTarget(null);
             await loadJobs();
           } catch (error) {

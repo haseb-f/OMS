@@ -18,7 +18,10 @@ const columnClass: Record<2 | 3 | 4, string> = {
 
 /**
  * Compact section inside an `EnterpriseModal` or create workspace.
- * Groups fields with a light border — never a nested EnterpriseCard.
+ * Default (`variant="section"`, design-system §11.3): a heading plus a
+ * hairline divider from the previous section — never a bordered box inside
+ * the dialog surface. `variant="card"` keeps the light bordered box for the
+ * rare page that uses a section as its only surface (no enclosing card).
  */
 export function ModalSection({
   title,
@@ -29,6 +32,7 @@ export function ModalSection({
   defaultOpen = true,
   children,
   className,
+  variant = "section",
 }: {
   title: string;
   description?: string;
@@ -38,17 +42,24 @@ export function ModalSection({
   defaultOpen?: boolean;
   children: ReactNode;
   className?: string;
+  variant?: "section" | "card";
 }) {
   const { t } = useLocale();
+  const boxed = variant === "card";
   const body = (
-    <div className="px-3 pb-3">
+    <div className={cn(boxed && "px-3 pb-3")}>
       {description && <p className="mb-2 text-caption text-muted-foreground">{description}</p>}
       <div className={cn("grid grid-cols-1 gap-x-3 gap-y-3", columnClass[columns])}>{children}</div>
     </div>
   );
 
   const heading = (
-    <div className="flex items-center justify-between gap-2 px-3 py-2">
+    <div
+      className={cn(
+        "flex items-center justify-between gap-2",
+        boxed ? "px-3 py-2" : "min-h-7 pb-2",
+      )}
+    >
       <div className="flex min-w-0 items-baseline gap-2">
         <h3 className="text-body font-semibold">{title}</h3>
         {optional && (
@@ -63,7 +74,17 @@ export function ModalSection({
     </div>
   );
 
-  const shell = cn("@container rounded-md border border-border bg-card", className);
+  const shell = cn(
+    "@container min-w-0",
+    boxed
+      ? "rounded-md border border-border bg-card"
+      : // Consecutive sections separate themselves with a hairline; a
+        // collapsible one sits in its own wrapper, so it always draws it.
+        collapsible
+        ? "border-t border-border pt-3"
+        : "not-first-of-type:border-t not-first-of-type:border-border not-first-of-type:pt-3",
+    className,
+  );
 
   if (!collapsible) {
     return (

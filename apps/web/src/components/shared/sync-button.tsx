@@ -5,6 +5,7 @@ import { CloudCog, Clock, User as UserIcon, Mail } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { SyncReviewDialog } from "@/components/shared/sync-review";
+import { DismissibleAlert } from "@/components/shared/dismissible-alert";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { reportApiError, toast } from "@/lib/toast";
@@ -48,6 +49,12 @@ export function SyncButton({
   const [open, setOpen] = useState(false);
   const [report, setReport] = useState<ShippingSyncRowReport[] | null>(null);
   const [sources, setSources] = useState<SyncSource[] | null>(null);
+  /** The outcome of the last commit — kept on the card (workspace layout) until dismissed or the next sync. */
+  const [lastResult, setLastResult] = useState<{
+    tone: "success" | "warning" | "destructive";
+    message: string;
+    description?: string;
+  } | null>(null);
 
   const loadSources = useCallback(() => {
     if (!canSync) return;
@@ -79,17 +86,17 @@ export function SyncButton({
       setSources(fresh);
       const enabled = fresh.filter((source) => source.enabled);
       if (enabled.length === 0) {
-        toast.error(
+        const message =
           sourceType === "SHIPPING_UPDATES"
             ? t("importCenter.sync.noSourceShipping")
-            : t("importCenter.sync.noSource"),
-          {
-            description:
-              sourceType === "SHIPPING_UPDATES"
-                ? t("importCenter.sync.configureHintShipping")
-                : t("importCenter.sync.configureHint"),
-          },
-        );
+            : t("importCenter.sync.noSource");
+        const description =
+          sourceType === "SHIPPING_UPDATES"
+            ? t("importCenter.sync.configureHintShipping")
+            : t("importCenter.sync.configureHint");
+        toast.error(message, { description });
+        // Stays on the card until a source is configured and synced (or dismissed).
+        setLastResult({ tone: "warning", message, description });
         return false;
       }
       const previews = await Promise.all(
@@ -113,6 +120,7 @@ export function SyncButton({
 
   const handleClick = async () => {
     setLoading(true);
+    setLastResult(null);
     try {
       await runPreview();
     } catch (error) {
@@ -144,9 +152,6 @@ export function SyncButton({
         ),
       );
       const writebackError = results.find((result) => result.writebackError)?.writebackError;
-      if (writebackError) {
-        toast.error(writebackError);
-      }
       const totals = results.reduce(
         (acc, result) => ({
           total: acc.total + result.totalRows,
@@ -155,21 +160,29 @@ export function SyncButton({
         }),
         { total: 0, imported: 0, errors: 0 },
       );
-      if (totals.errors === 0) {
-        toast.success(
-          t("importCenter.sync.success", { imported: totals.imported, total: totals.total }),
-        );
-      } else if (totals.imported > 0) {
-        toast.warning(
-          t("importCenter.sync.partial", {
-            imported: totals.imported,
-            total: totals.total,
-            errors: totals.errors,
-          }),
-        );
-      } else {
-        toast.error(t("importCenter.sync.failed"));
-      }
+      // ONE outcome notification — a write-back failure is folded into it
+      // (and downgrades success to a warning) instead of a second, contradictory
+      // error toast next to a success toast.
+      let tone: "success" | "warning" | "destructive" =
+        totals.errors === 0 ? "success" : totals.imported > 0 ? "warning" : "destructive";
+      const message =
+        tone === "success"
+          ? t("importCenter.sync.success", { imported: totals.imported, total: totals.total })
+          : tone === "warning"
+            ? t("importCenter.sync.partial", {
+                imported: totals.imported,
+                total: totals.total,
+                errors: totals.errors,
+              })
+            : t("importCenter.sync.failed");
+      const description = writebackError
+        ? `${t("feedback.sync.writebackWarning")} ${writebackError}`
+        : undefined;
+      if (writebackError && tone === "success") tone = "warning";
+      const notify =
+        tone === "success" ? toast.success : tone === "warning" ? toast.warning : toast.error;
+      notify(message, description ? { description } : undefined);
+      setLastResult({ tone, message, description });
       const rows = results.flatMap((result) => result.rows ?? []);
       if (rows.length > 0) {
         setReport(rows);
@@ -196,7 +209,10 @@ export function SyncButton({
       className={cn(layout === "workspace" ? SYNC_ACTION_BUTTON_CLASS : "gap-1.5")}
     >
       <CloudCog className={cn("size-4", loading && "animate-spin")} />
-      {loading ? t("importCenter.sync.loading") : t("importCenter.sync.button")}
+      {/* `action-label`: a page header collapses it to icon-only on phones. */}
+      <span data-slot="action-label">
+        {loading ? t("importCenter.sync.loading") : t("importCenter.sync.button")}
+      </span>
     </EnterpriseButton>
   );
 
@@ -243,6 +259,17 @@ export function SyncButton({
       </Tooltip>
       {layout === "workspace" ? (
         <SyncLastSyncLabel lastSyncedAt={lastSyncSource?.lastSyncedAt} />
+      ) : null}
+      {layout === "workspace" && lastResult ? (
+        <DismissibleAlert
+          tone={lastResult.tone}
+          title={t("feedback.sync.resultTitle")}
+          onDismiss={() => setLastResult(null)}
+          className="text-start"
+        >
+          <p>{lastResult.message}</p>
+          {lastResult.description ? <p>{lastResult.description}</p> : null}
+        </DismissibleAlert>
       ) : null}
 
       <SyncReviewDialog

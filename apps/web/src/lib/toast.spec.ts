@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/services/api-client";
-import { apiErrorMessage, reportApiError, toast } from "./toast";
+import { apiErrorMessage, reportApiError, reportSuccess, toast } from "./toast";
 import { messages } from "@/i18n/messages";
 import { STORAGE_KEYS } from "@/constants/storage-keys";
 
@@ -53,5 +53,32 @@ describe("apiErrorMessage", () => {
     reportApiError(new Error("x"), "errors.printFailed");
     expect(spy).toHaveBeenCalledTimes(1);
     expect(spy.mock.calls[0][0]).toBe(messages.ar.errors.printFailed);
+  });
+});
+
+describe("reportSuccess", () => {
+  afterEach(() => {
+    window.localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it("shows a plain success toast with the default duration when there is no link", () => {
+    const spy = vi.spyOn(toast, "success").mockImplementation(() => 1);
+    reportSuccess("Saved");
+    expect(spy).toHaveBeenCalledTimes(1);
+    const options = spy.mock.calls[0][1] ?? {};
+    expect(options.action).toBeUndefined();
+    expect("duration" in options).toBe(false);
+  });
+
+  it('adds an "Open record" action that navigates to the resulting record', () => {
+    const spy = vi.spyOn(toast, "success").mockImplementation(() => 1);
+    const navigate = vi.fn();
+    reportSuccess("Saved", { href: "/sales/customer-groups?edit=42", navigate });
+    const action = spy.mock.calls[0][1]?.action as { label: string; onClick: () => void };
+    expect(action.label).toBe(messages.ar.feedback.success.openRecord);
+    action.onClick();
+    expect(navigate).toHaveBeenCalledWith("/sales/customer-groups?edit=42");
+    expect(spy.mock.calls[0][1]?.duration).toBe(8000);
   });
 });

@@ -23,9 +23,10 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
-import { StatusBadge } from "@/components/business/status-badge";
 import { useLocale } from "@/providers/locale-provider";
-import { toast, reportApiError } from "@/lib/toast";
+import { toast, reportApiError, apiErrorMessage } from "@/lib/toast";
+import { TaskProgress, type TaskProgressStatus } from "@/components/shared/task-progress";
+import { DismissibleAlert } from "@/components/shared/dismissible-alert";
 import { downloadBlob } from "@/lib/download";
 import { formatDateTime } from "@/lib/date";
 import {
@@ -40,12 +41,21 @@ import {
   type ImportMappingTemplateRow,
 } from "@/services/import-mapping-templates-service";
 import { importTypesService, type ImportTypeDefinition } from "@/services/import-types-service";
-import { IMPORT_JOB_STATUS_LABEL_KEY, IMPORT_JOB_STATUS_TONE } from "@/config/import-center/status";
+import { IMPORT_JOB_STATUS_LABEL_KEY } from "@/config/import-center/status";
 import type { MessageKey } from "@/i18n/translate";
 
 type Step = "upload" | "mapping" | "preview" | "results";
 
 const CANCELLABLE_STATUSES: ImportJobStatus[] = ["DRAFT", "UPLOADING", "MAPPING", "VALIDATING"];
+const TERMINAL_STATUSES: ImportJobStatus[] = ["COMPLETED", "FAILED", "CANCELLED"];
+/** How often an in-flight import is re-read from `GET /import-center/jobs/:id`. */
+const POLL_INTERVAL_MS = 3000;
+
+function resultStatus(job: ImportJobRow): TaskProgressStatus {
+  if (job.status === "CANCELLED") return "cancelled";
+  if (job.status === "COMPLETED") return job.errorCount > 0 ? "partial" : "succeeded";
+  return "failed";
+}
 
 function resolveStep(job: ImportJobRow): Step {
   switch (job.status) {
@@ -101,6 +111,10 @@ export function ImportJobWizard({
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [validation, setValidation] = useState<ImportValidationResult | null>(null);
   const [isValidating, setIsValidating] = useState(false);
+  /** The `run` request is in flight (the API imports synchronously inside it). */
+  const [isRunning, setIsRunning] = useState(false);
+  /** Why the last run attempt failed — shown in place with a Retry, not only as a toast. */
+  const [runError, setRunError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -110,6 +124,7 @@ export function ImportJobWizard({
     setMapping({});
     setTemplateName("");
     setValidation(null);
+    setRunError(null);
     setIsLoading(true);
     (async () => {
       try {
@@ -155,6 +170,30 @@ export function ImportJobWizard({
       .then(setTemplates)
       .catch(() => setTemplates([]));
   }, [open, step, typeDef.type]);
+
+  // Keeps an in-flight import current: while our own run request is pending
+  // (status flips to IMPORTING server-side), or when the wizard is reopened on
+  // a job another tab/request is still importing. Existing endpoint only.
+  const jobId = job?.id;
+  const jobStatus = job?.status;
+  useEffect(() => {
+    if (!open || !jobId) return;
+    if (!isRunning && jobStatus !== "IMPORTING") return;
+    const timer = window.setInterval(() => {
+      importJobsService
+        .get(jobId)
+        .then((fresh) => {
+          if (fresh.status === "IMPORTING") {
+            setJob(fresh);
+          } else if (!isRunning && TERMINAL_STATUSES.includes(fresh.status)) {
+            setJob(fresh);
+            setStep("results");
+          }
+        })
+        .catch(() => undefined);
+    }, POLL_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [open, jobId, jobStatus, isRunning]);
 
   const requiredFields = useMemo(
     () => typeDef.fields.filter((field) => field.required),
@@ -262,10 +301,40 @@ export function ImportJobWizard({
   const handleRun = async () => {
     if (!job) return;
     setIsLoading(true);
+    setIsRunning(true);
+    setRunError(null);
     try {
       const result = await importJobsService.run(job.id);
       setJob(result);
       setStep("results");
+    } catch (error) {
+      // The request can fail while the server keeps importing (timeout,
+      // dropped connection) — re-read the job before declaring failure.
+      const fresh = await importJobsService.get(job.id).catch(() => null);
+      if (fresh && (fresh.status === "IMPORTING" || TERMINAL_STATUSES.includes(fresh.status))) {
+        setJob(fresh);
+        if (fresh.status !== "IMPORTING") setStep("results");
+      } else {
+        setRunError(apiErrorMessage(error, "common.failedToSave"));
+      }
+    } finally {
+      setIsRunning(false);
+      setIsLoading(false);
+    }
+  };
+
+  /** "Start a new import" after a failed run — a fresh job of the same type, back to Upload. */
+  const handleStartOver = async () => {
+    setIsLoading(true);
+    try {
+      const created = await importJobsService.create(typeDef.type);
+      setJob(created);
+      setFile(null);
+      setPreview(null);
+      setValidation(null);
+      setRunError(null);
+      setStep("upload");
+      onDone();
     } catch (error) {
       reportApiError(error, "common.failedToSave");
     } finally {
@@ -279,6 +348,7 @@ export function ImportJobWizard({
       await importJobsService.cancel(job.id);
       setCancelConfirmOpen(false);
       onOpenChange(false);
+      toast.success(t("feedback.import.jobCancelled"));
       onDone();
     } catch (error) {
       reportApiError(error, "common.failedToSave");
@@ -368,7 +438,11 @@ export function ImportJobWizard({
                 </>
               )}
               {step === "preview" && (
-                <EnterpriseButton type="button" onClick={handleRun} disabled={isLoading}>
+                <EnterpriseButton
+                  type="button"
+                  onClick={handleRun}
+                  disabled={isLoading || job?.status === "IMPORTING"}
+                >
                   {isLoading
                     ? t("importCenter.wizard.preview.running")
                     : t("importCenter.wizard.preview.runImport")}
@@ -531,9 +605,10 @@ export function ImportJobWizard({
                 </div>
               ))}
               {missingRequired.length > 0 && (
-                <p className="text-xs text-destructive">
+                // Stays until every required field is mapped — not dismissible.
+                <DismissibleAlert tone="warning" dismissible={false}>
                   {t("importCenter.wizard.mapping.missingRequired")}
-                </p>
+                </DismissibleAlert>
               )}
             </div>
 
@@ -590,6 +665,26 @@ export function ImportJobWizard({
 
         {step === "preview" && preview && job && (
           <div className="flex flex-col gap-4">
+            {isRunning || job.status === "IMPORTING" ? (
+              <TaskProgress
+                status="running"
+                title={t("feedback.import.running", { count: job.totalRows })}
+                total={job.totalRows}
+              />
+            ) : runError ? (
+              <TaskProgress
+                status="failed"
+                title={t("feedback.import.failed")}
+                description={
+                  <>
+                    <p>{t("feedback.import.runFailed")}</p>
+                    <p className="text-destructive">{runError}</p>
+                  </>
+                }
+                onRetry={handleRun}
+                isRetrying={isLoading}
+              />
+            ) : null}
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex flex-col gap-1">
                 <h2 className="text-card-title font-semibold">
@@ -752,53 +847,41 @@ export function ImportJobWizard({
             <h2 className="text-card-title font-semibold">
               {t("importCenter.wizard.results.title")}
             </h2>
-            <div className="flex items-center gap-3">
-              <StatusBadge
-                label={t(IMPORT_JOB_STATUS_LABEL_KEY[job.status])}
-                tone={IMPORT_JOB_STATUS_TONE[job.status]}
-              />
-              <p className="text-body">
-                {job.status === "COMPLETED"
+            <TaskProgress
+              status={resultStatus(job)}
+              title={
+                job.status === "COMPLETED"
                   ? t("importCenter.wizard.results.completed")
-                  : t("importCenter.wizard.results.failed")}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <div className="rounded-md border border-border p-3">
-                <p className="text-caption text-muted-foreground">
-                  {t("importCenter.wizard.results.totalRows")}
-                </p>
-                <p className="text-card-title font-semibold">{job.totalRows}</p>
-              </div>
-              <div className="rounded-md border border-success/30 bg-success/5 p-3">
-                <p className="text-caption text-muted-foreground">
-                  {t("importCenter.wizard.results.successCount")}
-                </p>
-                <p className="text-card-title font-semibold text-success">{job.successCount}</p>
-              </div>
-              <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3">
-                <p className="text-caption text-muted-foreground">
-                  {t("importCenter.wizard.results.errorCount")}
-                </p>
-                <p className="text-card-title font-semibold text-destructive">{job.errorCount}</p>
-              </div>
-              <div className="rounded-md border border-border p-3">
-                <p className="text-caption text-muted-foreground">
-                  {t("importCenter.wizard.results.duration")}
-                </p>
-                <p className="text-card-title font-semibold">
-                  {job.durationMs != null ? `${(job.durationMs / 1000).toFixed(1)}s` : "—"}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-caption font-semibold text-foreground">
-                  {t("importCenter.wizard.results.errorsTitle")}
-                </h3>
-                {job.errors.length > 0 && (
+                  : job.status === "CANCELLED"
+                    ? t(IMPORT_JOB_STATUS_LABEL_KEY[job.status])
+                    : t("importCenter.wizard.results.failed")
+              }
+              description={
+                job.durationMs != null
+                  ? `${t("importCenter.wizard.results.duration")}: ${(job.durationMs / 1000).toFixed(1)}s`
+                  : undefined
+              }
+              total={job.totalRows}
+              succeeded={job.successCount}
+              failed={job.errorCount}
+              skipped={Math.max(0, job.totalRows - job.successCount - job.errorCount)}
+              errors={job.errors.map((error) => ({
+                id: error.id,
+                label: [
+                  `${t("importCenter.wizard.preview.rowNumber")} ${error.rowNumber}`,
+                  error.columnName,
+                ]
+                  .filter(Boolean)
+                  .join(" · "),
+                message: error.errorMessage,
+                hint: error.suggestedFix ?? undefined,
+              }))}
+              maxErrors={10}
+              onRetry={job.status === "FAILED" ? handleStartOver : undefined}
+              retryLabel={t("feedback.import.startOver")}
+              isRetrying={isLoading}
+              actions={
+                job.errors.length > 0 ? (
                   <EnterpriseButton
                     type="button"
                     variant="outline"
@@ -808,39 +891,14 @@ export function ImportJobWizard({
                     <Download />
                     {t("importCenter.wizard.results.downloadErrorReport")}
                   </EnterpriseButton>
-                )}
-              </div>
-              {job.errors.length === 0 ? (
-                <p className="text-caption text-muted-foreground">
-                  {t("importCenter.wizard.results.noErrors")}
-                </p>
-              ) : (
-                <div className="max-h-80 overflow-y-auto rounded-md border border-border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t("importCenter.wizard.preview.rowNumber")}</TableHead>
-                        <TableHead>{t("importCenter.wizard.results.column")}</TableHead>
-                        <TableHead>{t("importCenter.wizard.results.error")}</TableHead>
-                        <TableHead>{t("importCenter.wizard.results.suggestedFix")}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {job.errors.map((error) => (
-                        <TableRow key={error.id}>
-                          <TableCell>{error.rowNumber}</TableCell>
-                          <TableCell dir="ltr">{error.columnName ?? "—"}</TableCell>
-                          <TableCell>{error.errorMessage}</TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {error.suggestedFix ?? "—"}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </div>
+                ) : undefined
+              }
+            />
+            {job.errors.length === 0 && job.status === "COMPLETED" ? (
+              <p className="text-caption text-muted-foreground">
+                {t("importCenter.wizard.results.noErrors")}
+              </p>
+            ) : null}
           </div>
         )}
       </EnterpriseModal>

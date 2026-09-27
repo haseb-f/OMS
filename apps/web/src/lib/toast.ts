@@ -101,3 +101,42 @@ export function reportApiError(
 ) {
   return toast.error(apiErrorMessage(error, fallback), options);
 }
+
+/**
+ * Canonical "it worked" feedback — a top toast that can carry a link to the
+ * resulting record (e.g. the order an action created).
+ *
+ * The toast only SUPPLEMENTS on-page confirmation (design-system §11.4): the
+ * caller must also update the document header/status (or the list row) in
+ * place from the server response, so the success is visible after the toast
+ * is gone. Call this only after the request has resolved — never optimistically.
+ *
+ * `navigate` should be the router's `push` so the link is a client-side
+ * navigation; it falls back to a full page load.
+ */
+export function reportSuccess(
+  message: string,
+  options: {
+    description?: string;
+    href?: string;
+    /** Defaults to "Open record". */
+    linkLabel?: string;
+    navigate?: (href: string) => void;
+    duration?: number;
+  } = {},
+) {
+  const { description, href, linkLabel, navigate, duration } = options;
+  // A toast with a link stays longer, so the user has time to use it. An
+  // explicit `undefined` would override the default duration, so omit it.
+  const effectiveDuration = duration ?? (href ? 8000 : undefined);
+  return toast.success(message, {
+    description,
+    ...(effectiveDuration !== undefined ? { duration: effectiveDuration } : {}),
+    action: href
+      ? {
+          label: linkLabel ?? translate(messages[currentLocale()], "feedback.success.openRecord"),
+          onClick: () => (navigate ? navigate(href) : window.location.assign(href)),
+        }
+      : undefined,
+  });
+}

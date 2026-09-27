@@ -5,6 +5,7 @@ import type { ControllerRenderProps, FieldValues, UseFormReturn } from "react-ho
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -325,16 +326,23 @@ function FormFieldGrid<TFieldValues extends FieldValues>({
           <FormField
             control={form.control}
             name={field.name as never}
-            render={({ field: rhfField }) =>
+            render={({ field: rhfField, fieldState }) =>
               field.type === "boolean" ? (
-                <FormItem className="flex flex-row items-center gap-2 self-end pb-2.5">
+                <FormItem
+                  data-field-name={field.name}
+                  data-invalid={fieldState.invalid || undefined}
+                  className="flex flex-row items-center gap-2 self-end pb-2.5"
+                >
                   <FormControl>
                     <Checkbox checked={!!rhfField.value} onCheckedChange={rhfField.onChange} />
                   </FormControl>
                   <FormLabel className="!mt-0">{t(field.label)}</FormLabel>
                 </FormItem>
               ) : (
-                <FormItem>
+                <FormItem
+                  data-field-name={field.name}
+                  data-invalid={fieldState.invalid || undefined}
+                >
                   <FormLabel required={field.required}>{t(field.label)}</FormLabel>
                   <FormControl>
                     {field.type === "textarea" ? (
@@ -407,9 +415,7 @@ function FormFieldGrid<TFieldValues extends FieldValues>({
                       />
                     )}
                   </FormControl>
-                  {field.description && (
-                    <p className="text-caption text-muted-foreground">{field.description}</p>
-                  )}
+                  {field.description && <FormDescription>{field.description}</FormDescription>}
                   <FormMessage />
                 </FormItem>
               )
