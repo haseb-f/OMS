@@ -30,14 +30,11 @@ import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { formatDate, formatDateTime } from "@/lib/date";
 import { SemanticValue } from "@/components/shared/semantic-value";
+import { MoneyValue } from "@/components/shared/money-value";
+import { documentPrintBranding } from "@/components/print/print-brand";
 import type { DocumentData } from "@/types/document-engine";
-import { ApiError } from "@/services/api-client";
-import { toast } from "@/lib/toast";
+import { toast, reportApiError } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
-
-function formatMoney(value: number) {
-  return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 
 /** Mirrors `sales/customers/[id]/page.tsx` — bespoke Profile page, not `MasterDataPage`'s built-in quick-preview sheet. */
 export default function SupplierProfilePage() {
@@ -140,10 +137,7 @@ export default function SupplierProfilePage() {
         name: activeCompany?.name ?? "",
         addressLines: [],
         branding: {
-          logoUrl: activeCompany?.logoUrl ?? null,
-          primaryColor: activeCompany?.primaryColor ?? "#0F8A5F",
-          secondaryColor: activeCompany?.secondaryColor ?? "#2563EB",
-          paperSize: "a4-portrait",
+          ...documentPrintBranding(activeCompany?.logoUrl ?? null),
           language: direction === "rtl" ? "rtl" : "ltr",
         },
       },
@@ -202,7 +196,7 @@ export default function SupplierProfilePage() {
       setArchiveOpen(false);
       router.push("/purchasing/suppliers");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsArchiving(false);
     }
@@ -303,7 +297,7 @@ export default function SupplierProfilePage() {
                   />
                   <DetailField
                     label={t("purchasing.suppliers.fields.creditLimit")}
-                    value={creditLimit !== null ? formatMoney(creditLimit) : undefined}
+                    value={creditLimit !== null ? <MoneyValue value={creditLimit} /> : undefined}
                   />
                   <DetailField
                     label={t("purchasing.suppliers.fields.supplierGroup")}

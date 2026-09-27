@@ -46,9 +46,9 @@ import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { formatDate, formatDateTime } from "@/lib/date";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
+import { formatAmount } from "@/lib/money";
 
 const employeeEditSchema = z.object({
   name: z.string().min(1),
@@ -79,10 +79,7 @@ const accountSchema = z.object({
 type AccountValues = z.infer<typeof accountSchema>;
 
 function formatMoney(value: string | number) {
-  return Number(value).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  return formatAmount(value);
 }
 
 export default function EmployeeProfilePage() {
@@ -307,7 +304,7 @@ export default function EmployeeProfilePage() {
       setEditOpen(false);
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSaving(false);
     }
@@ -328,7 +325,7 @@ export default function EmployeeProfilePage() {
       toast.success(t("hr.employees.toasts.compensationSaved"));
       setCompensationOpen(false);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSaving(false);
     }
@@ -342,7 +339,7 @@ export default function EmployeeProfilePage() {
       setAccountOpen(false);
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSaving(false);
     }
@@ -356,7 +353,7 @@ export default function EmployeeProfilePage() {
       setArchiveOpen(false);
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsMutating(false);
     }
@@ -370,7 +367,7 @@ export default function EmployeeProfilePage() {
       setRestoreOpen(false);
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsMutating(false);
     }

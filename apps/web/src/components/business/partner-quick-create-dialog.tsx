@@ -16,8 +16,7 @@ import {
   partnerQuickCreateDefaultValues,
 } from "@/config/partners/partner-form";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError, toast } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
 
 const LABELS: Record<
@@ -112,7 +111,7 @@ export function PartnerQuickCreateDialog({
       onCreated(partner);
       onOpenChange(false);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsSubmitting(false);
     }

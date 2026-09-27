@@ -25,8 +25,7 @@ import {
 } from "@/services/fiscal-years-service";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError, toast } from "@/lib/toast";
 import { formatDate, formatDateRange } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
 
@@ -55,11 +54,10 @@ export default function FiscalPeriodsPage() {
     try {
       setRows(await fiscalYearsService.list());
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      reportApiError(error, "common.noResults");
     } finally {
       setIsLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -155,7 +153,7 @@ export default function FiscalPeriodsPage() {
               }
               void load();
             } catch (error) {
-              toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+              reportApiError(error, "errors.generic");
             }
           };
           const handleSetDefault = async () => {
@@ -164,7 +162,7 @@ export default function FiscalPeriodsPage() {
               toast.success(t("accounting.fiscalYears.toasts.defaultSet"));
               void load();
             } catch (error) {
-              toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+              reportApiError(error, "errors.generic");
             }
           };
           return (
@@ -279,7 +277,7 @@ export default function FiscalPeriodsPage() {
             toast.success(t("common.archive"));
             void load();
           } catch (error) {
-            toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+            reportApiError(error, "errors.generic");
           } finally {
             setArchiveTarget(null);
           }

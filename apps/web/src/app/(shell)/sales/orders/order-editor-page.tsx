@@ -12,7 +12,6 @@ import {
   Send,
 } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
-import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EditorWorkspace } from "@/components/shared/detail-workspace";
 import {
   SalesDocumentEditor,
@@ -38,10 +37,11 @@ import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
-import { toast } from "@/lib/toast";
+import { reportApiError, toast } from "@/lib/toast";
 import { lifecycleActions } from "@/config/documents/lifecycle-actions";
 import { ApiError } from "@/services/api-client";
 import { ConvertToInvoiceDialog } from "./convert-to-invoice-dialog";
+import type { CommercialDocumentFieldErrors } from "@/components/documents/commercial-document-editor";
 
 function itemToLine(item: SalesOrderItemRow): ProductLineItemsGridLine {
   return {
@@ -85,7 +85,6 @@ export function OrderEditorPage({ id }: { id: string | null }) {
   const [activity, setActivity] = useState<SalesDocumentActivityEntry[] | null | undefined>(
     undefined,
   );
-  const [cancelTarget, setCancelTarget] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
 
   const [customer, setCustomer] = useState<PartnerPickerRow | null>(null);
@@ -118,7 +117,7 @@ export function OrderEditorPage({ id }: { id: string | null }) {
         const data = await salesOrdersService.get(id);
         applyOrder(data);
       } catch (error) {
-        toast.error(error instanceof ApiError ? error.message : "Failed to load sales order.");
+        reportApiError(error, "errors.loadFailed");
       } finally {
         setIsLoading(false);
       }
@@ -139,12 +138,14 @@ export function OrderEditorPage({ id }: { id: string | null }) {
 
   const realLines = lines.filter((line) => line.product !== null);
 
-  const validate = (): string | null => {
-    if (!customer) return t("sales.orders.validation.customerRequired");
-    if (realLines.length === 0) return t("sales.orders.validation.productRequired");
+  /** Shown inline under the fields after the first save attempt; entered data is never cleared. */
+  const [showValidation, setShowValidation] = useState(false);
+  const validate = (): CommercialDocumentFieldErrors | null => {
+    if (!customer) return { party: t("sales.orders.validation.customerRequired") };
+    if (realLines.length === 0) return { lines: t("sales.orders.validation.productRequired") };
     for (const line of realLines) {
-      if (line.quantity <= 0) return t("sales.orders.validation.quantityPositive");
-      if (!line.warehouse) return t("sales.editor.grid.warehouseRequired");
+      if (line.quantity <= 0) return { lines: t("sales.orders.validation.quantityPositive") };
+      if (!line.warehouse) return { lines: t("sales.editor.grid.warehouseRequired") };
     }
     return null;
   };
@@ -159,11 +160,11 @@ export function OrderEditorPage({ id }: { id: string | null }) {
   });
 
   const handleSave = async () => {
-    const error = validate();
-    if (error) {
-      toast.error(error);
+    if (validate()) {
+      setShowValidation(true);
       return;
     }
+    setShowValidation(false);
     setIsSaving(true);
     try {
       if (id) {
@@ -176,7 +177,7 @@ export function OrderEditorPage({ id }: { id: string | null }) {
         router.replace(`/sales/orders/${created.id}`);
       }
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsSaving(false);
     }
@@ -197,7 +198,7 @@ export function OrderEditorPage({ id }: { id: string | null }) {
       toast.success(t(successKey));
       refreshActivity(id);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsTransitioning(false);
     }
@@ -299,7 +300,18 @@ export function OrderEditorPage({ id }: { id: string | null }) {
           icon: Ban,
           destructive: true,
           visibleForStatuses: ["DRAFT", "PENDING_APPROVAL", "APPROVED", "CONFIRMED"],
-          onAction: () => setCancelTarget(true),
+          confirm: {
+            title: t("sales.orders.confirmCancelTitle"),
+            description: t("sales.orders.confirmCancelDescription"),
+            confirmLabel: t("sales.orders.actions.cancel"),
+            tone: "destructive",
+          },
+          onAction: async () => {
+            await runTransition(
+              (oid) => salesOrdersService.cancel(oid),
+              "sales.orders.toasts.cancelled",
+            );
+          },
         },
         {
           key: "print",
@@ -408,23 +420,7 @@ export function OrderEditorPage({ id }: { id: string | null }) {
         isLoading={isLoading}
         disabled={!canEdit || isSaving}
         isBusy={isSaving || isTransitioning}
-      />
-
-      <ConfirmationDialog
-        open={cancelTarget}
-        onOpenChange={setCancelTarget}
-        tone="destructive"
-        title={t("sales.orders.confirmCancelTitle")}
-        description={t("sales.orders.confirmCancelDescription")}
-        confirmLabel={t("sales.orders.actions.cancel")}
-        cancelLabel={t("common.close")}
-        onConfirm={async () => {
-          setCancelTarget(false);
-          await runTransition(
-            (oid) => salesOrdersService.cancel(oid),
-            "sales.orders.toasts.cancelled",
-          );
-        }}
+        fieldErrors={showValidation ? (validate() ?? undefined) : undefined}
       />
 
       {order && (

@@ -24,8 +24,7 @@ import { payrollService, type PayrollRunRow } from "@/services/payroll-service";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 
 const createRunSchema = z.object({
   period: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, { message: "YYYY-MM" }),
@@ -53,11 +52,11 @@ export default function PayrollRunsPage() {
       setRows(result.items);
       setTotal(result.total);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+      reportApiError(error, "common.loadFailed");
     } finally {
       setIsLoading(false);
     }
-  }, [page, pageSize, t]);
+  }, [page, pageSize]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -94,7 +93,7 @@ export default function PayrollRunsPage() {
       setCreateOpen(false);
       router.push(`/hr/payroll/${run.id}`);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSaving(false);
     }

@@ -1,21 +1,13 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { EnterpriseButton } from "@/components/ui/button";
+import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import { inventoryService } from "@/services/inventory-service";
 import type { ProductRow } from "@/services/products-service";
 import type { WarehouseRow } from "@/config/master-data/entities";
@@ -79,77 +71,29 @@ export function ProductOpeningBalanceDialog({
       reset();
       onOpenChange(false);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <Dialog
+    <EnterpriseModal
       open={open}
       onOpenChange={(next) => {
         if (!next) reset();
         onOpenChange(next);
       }}
-    >
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>{t("products.openingBalance.title")}</DialogTitle>
-          <DialogDescription>
-            {product?.displayName} — {t("products.openingBalance.description")}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor={`${fieldId}-warehouse`}>{t("products.openingBalance.warehouse")}</Label>
-            <SearchableSelect
-              id={`${fieldId}-warehouse`}
-              value={warehouseId}
-              onValueChange={setWarehouseId}
-              options={warehouseOptions}
-              placeholder={t("products.openingBalance.warehouse")}
-              subtitleDir="ltr"
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor={`${fieldId}-quantity`}>{t("products.openingBalance.quantity")}</Label>
-            <Input
-              id={`${fieldId}-quantity`}
-              type="number"
-              dir="ltr"
-              min={1}
-              step={1}
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor={`${fieldId}-unitCost`}>
-              {t("products.openingBalance.averageCost")}
-            </Label>
-            <Input
-              id={`${fieldId}-unitCost`}
-              type="number"
-              dir="ltr"
-              min={0}
-              step="0.01"
-              value={unitCost}
-              onChange={(e) => setUnitCost(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor={`${fieldId}-notes`}>{t("products.openingBalance.notes")}</Label>
-            <Input
-              id={`${fieldId}-notes`}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <DialogFooter>
+      size="sm"
+      title={t("products.openingBalance.title")}
+      description={
+        <>
+          {product?.displayName} — {t("products.openingBalance.description")}
+        </>
+      }
+      bodyClassName="flex flex-col gap-4"
+      footer={
+        <>
           <EnterpriseButton
             type="button"
             variant="ghost"
@@ -165,8 +109,50 @@ export function ProductOpeningBalanceDialog({
           >
             {t("products.openingBalance.submit")}
           </EnterpriseButton>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor={`${fieldId}-warehouse`}>{t("products.openingBalance.warehouse")}</Label>
+          <SearchableSelect
+            id={`${fieldId}-warehouse`}
+            value={warehouseId}
+            onValueChange={setWarehouseId}
+            options={warehouseOptions}
+            placeholder={t("products.openingBalance.warehouse")}
+            subtitleDir="ltr"
+          />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor={`${fieldId}-quantity`}>{t("products.openingBalance.quantity")}</Label>
+          <Input
+            id={`${fieldId}-quantity`}
+            type="number"
+            dir="ltr"
+            min={1}
+            step={1}
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor={`${fieldId}-unitCost`}>{t("products.openingBalance.averageCost")}</Label>
+          <Input
+            id={`${fieldId}-unitCost`}
+            type="number"
+            dir="ltr"
+            min={0}
+            step="0.01"
+            value={unitCost}
+            onChange={(e) => setUnitCost(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor={`${fieldId}-notes`}>{t("products.openingBalance.notes")}</Label>
+          <Input id={`${fieldId}-notes`} value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </div>
+      </div>
+    </EnterpriseModal>
   );
 }

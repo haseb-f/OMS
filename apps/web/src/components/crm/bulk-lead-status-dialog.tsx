@@ -2,14 +2,8 @@
 
 import { useEffect, useId, useState } from "react";
 import { Workflow } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { EnterpriseButton } from "@/components/ui/button";
+import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -23,8 +17,7 @@ import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { workflowService, type WorkflowStatusOption } from "@/services/workflow-service";
 import { leadsService } from "@/services/leads-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 
 /**
  * Bulk "Change Status" from the Leads list's Smart Selection — mirrors
@@ -101,7 +94,7 @@ export function BulkLeadStatusDialog({
       onOpenChange(false);
       onChanged();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSubmitting(false);
     }
@@ -109,46 +102,15 @@ export function BulkLeadStatusDialog({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Workflow className="size-4" />
-              {t("crm.leads.bulkStatus.dialogTitle")}
-            </DialogTitle>
-          </DialogHeader>
-
-          <p className="text-caption text-muted-foreground">
-            {t("crm.leads.bulkStatus.selectedCount", { count: selectedCount })}
-          </p>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor={statusFieldId}>{t("crm.leads.bulkStatus.newStatusLabel")}</Label>
-            <Select value={statusCode} onValueChange={setStatusCode}>
-              <SelectTrigger id={statusFieldId} className="w-full">
-                <SelectValue placeholder={t("crm.leads.bulkStatus.newStatusPlaceholder")} />
-              </SelectTrigger>
-              <SelectContent>
-                {statuses.map((status) => (
-                  <SelectItem key={status.id} value={status.code}>
-                    {status.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label>{t("crm.leads.bulkStatus.reasonLabel")}</Label>
-            <Textarea
-              value={reason}
-              onChange={(event) => setReason(event.target.value)}
-              rows={2}
-              placeholder={t("crm.leads.bulkStatus.reasonPlaceholder")}
-            />
-          </div>
-
-          <DialogFooter>
+      <EnterpriseModal
+        open={open}
+        onOpenChange={handleOpenChange}
+        size="sm"
+        icon={Workflow}
+        bodyClassName="flex flex-col gap-3"
+        title={t("crm.leads.bulkStatus.dialogTitle")}
+        footer={
+          <>
             <EnterpriseButton
               type="button"
               variant="outline"
@@ -163,9 +125,39 @@ export function BulkLeadStatusDialog({
             >
               {t("crm.leads.bulkStatus.submit")}
             </EnterpriseButton>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </>
+        }
+      >
+        <p className="text-caption text-muted-foreground">
+          {t("crm.leads.bulkStatus.selectedCount", { count: selectedCount })}
+        </p>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={statusFieldId}>{t("crm.leads.bulkStatus.newStatusLabel")}</Label>
+          <Select value={statusCode} onValueChange={setStatusCode}>
+            <SelectTrigger id={statusFieldId} className="w-full">
+              <SelectValue placeholder={t("crm.leads.bulkStatus.newStatusPlaceholder")} />
+            </SelectTrigger>
+            <SelectContent>
+              {statuses.map((status) => (
+                <SelectItem key={status.id} value={status.code}>
+                  {status.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label>{t("crm.leads.bulkStatus.reasonLabel")}</Label>
+          <Textarea
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            rows={2}
+            placeholder={t("crm.leads.bulkStatus.reasonPlaceholder")}
+          />
+        </div>
+      </EnterpriseModal>
 
       <ConfirmationDialog
         open={pendingConfirm}

@@ -113,7 +113,9 @@ export function PortalAccessSection({
                 {t("investorPortal.admin.fields.lastLoginAt")}
               </div>
               <div className="mt-1 font-medium text-foreground">
-                {status.lastLoginAt ? formatDateTime(status.lastLoginAt) : "—"}
+                <span className="num">
+                  {status.lastLoginAt ? formatDateTime(status.lastLoginAt) : "—"}
+                </span>
               </div>
             </div>
           </div>

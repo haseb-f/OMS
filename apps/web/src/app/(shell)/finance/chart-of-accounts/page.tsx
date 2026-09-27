@@ -33,8 +33,8 @@ import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError, apiClient } from "@/services/api-client";
+import { reportApiError, toast } from "@/lib/toast";
+import { apiClient } from "@/services/api-client";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import { exportRowsToCsv } from "@/components/master-data/enterprise-data-table";
 import { siteConfig } from "@/config/site";
@@ -169,7 +169,7 @@ function ChartOfAccountsPageContent() {
       const result = await service.list({ pageSize: 500, includeArchived: true });
       setAccounts(result.items);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to load accounts.");
+      reportApiError(error, "errors.loadFailed");
     } finally {
       setIsLoading(false);
     }
@@ -307,11 +307,7 @@ function ChartOfAccountsPageContent() {
       setModalOpen(false);
       await load();
     } catch (error) {
-      toast.error(
-        error instanceof ApiError
-          ? error.message
-          : t("masterData.chartOfAccounts.invalidHierarchy"),
-      );
+      reportApiError(error, "masterData.chartOfAccounts.invalidHierarchy");
     } finally {
       setIsSubmitting(false);
     }
@@ -327,7 +323,7 @@ function ChartOfAccountsPageContent() {
       setArchiveTarget(null);
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to delete.");
+      reportApiError(error, "errors.deleteFailed");
     } finally {
       setIsMutating(false);
     }
@@ -343,7 +339,7 @@ function ChartOfAccountsPageContent() {
       setRestoreTarget(null);
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to restore.");
+      reportApiError(error, "errors.restoreFailed");
     } finally {
       setIsMutating(false);
     }
@@ -492,7 +488,7 @@ function ChartOfAccountsPageContent() {
       setBulkArchiveOpen(false);
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to archive accounts.");
+      reportApiError(error, "errors.archiveFailed");
     } finally {
       setIsMutating(false);
     }

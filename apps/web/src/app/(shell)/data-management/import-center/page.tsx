@@ -28,9 +28,8 @@ import { IMPORT_JOB_STATUS_LABEL_KEY, IMPORT_JOB_STATUS_TONE } from "@/config/im
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { formatDateTime } from "@/lib/date";
-import { toast } from "@/lib/toast";
+import { reportApiError, toast } from "@/lib/toast";
 import { downloadBlob } from "@/lib/download";
-import { ApiError } from "@/services/api-client";
 import type { MessageKey } from "@/i18n/translate";
 import { PermissionGate } from "@/components/shared/permission-gate";
 
@@ -92,7 +91,7 @@ function ImportCenterPageContent() {
       const items = await importJobsService.list();
       setJobs(items);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+      reportApiError(error, "common.loadFailed");
     } finally {
       setIsLoadingJobs(false);
     }
@@ -129,7 +128,7 @@ function ImportCenterPageContent() {
       const blob = await importTypesService.downloadTemplate(typeDef.type);
       downloadBlob(blob, `${typeDef.type.toLowerCase().replace(/_/g, "-")}-import-template.xlsx`);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to download template.");
+      reportApiError(error, "errors.downloadFailed");
     }
   };
 
@@ -191,7 +190,7 @@ function ImportCenterPageContent() {
       {
         id: "totalRows",
         header: t("importCenter.table.totalRows"),
-        meta: { titleKey: "importCenter.table.totalRows" },
+        meta: { titleKey: "importCenter.table.totalRows", type: "number" },
         accessorFn: (row) => row.totalRows,
         cell: (info) => info.getValue() as number,
       },
@@ -237,9 +236,11 @@ function ImportCenterPageContent() {
           if (row.sourceConnector !== "google-sheets") return "—";
           return (
             <span className={row.isSyncing ? "text-warning" : undefined}>
-              {row.isSyncing
-                ? t("importCenter.wizard.googleSheets.refreshing")
-                : (info.getValue() as string)}
+              {row.isSyncing ? (
+                t("importCenter.wizard.googleSheets.refreshing")
+              ) : (
+                <span className="num">{info.getValue() as string}</span>
+              )}
             </span>
           );
         },
@@ -249,7 +250,7 @@ function ImportCenterPageContent() {
         header: t("importCenter.table.createdAt"),
         meta: { titleKey: "importCenter.table.createdAt" },
         accessorFn: (row) => formatDateTime(row.createdAt),
-        cell: (info) => info.getValue() as string,
+        cell: (info) => <span className="num">{info.getValue() as string}</span>,
       },
       {
         id: "__actions",
@@ -430,7 +431,7 @@ function ImportCenterPageContent() {
             setCancelTarget(null);
             await loadJobs();
           } catch (error) {
-            toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+            reportApiError(error, "common.failedToSave");
           } finally {
             setIsCancelling(false);
           }

@@ -9,8 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import {
   physicalCountService,
   type PhysicalCountDetailRow,
@@ -120,7 +119,7 @@ export function CreateCountDialog({
       onOpenChange(false);
       onCreated(count);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSubmitting(false);
     }

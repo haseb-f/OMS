@@ -25,8 +25,7 @@ import { PermissionGate } from "@/components/shared/permission-gate";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { formatDateTime } from "@/lib/date";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError, toast } from "@/lib/toast";
 
 const IMPORT_TYPE = "SHIPPING_UPDATES";
 
@@ -48,7 +47,7 @@ function ShippingImportContent() {
     try {
       setJobs(await importJobsService.list(IMPORT_TYPE));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to load import jobs.");
+      reportApiError(error, "errors.loadFailed");
     } finally {
       setIsLoadingJobs(false);
     }
@@ -88,7 +87,7 @@ function ShippingImportContent() {
       {
         id: "totalRows",
         header: t("importCenter.table.totalRows"),
-        meta: { titleKey: "importCenter.table.totalRows" },
+        meta: { titleKey: "importCenter.table.totalRows", type: "number" },
         accessorFn: (row) => row.totalRows,
       },
       {
@@ -210,7 +209,7 @@ function ShippingImportContent() {
             setCancelTarget(null);
             await loadJobs();
           } catch (error) {
-            toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+            reportApiError(error, "common.failedToSave");
           } finally {
             setIsCancelling(false);
           }

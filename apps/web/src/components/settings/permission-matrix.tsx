@@ -153,7 +153,7 @@ export function PermissionMatrix({
       </div>
 
       <div className="max-h-[26rem] overflow-y-auto rounded-md border border-border">
-        <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-muted/60 px-3 py-1.5 text-caption font-medium text-muted-foreground backdrop-blur-sm">
+        <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-table-header px-3 py-1.5 text-caption font-medium text-table-header-foreground">
           <span className="w-5" />
           <span className="flex-1">{t("permissions.columnModule")}</span>
           <span className="w-16 text-end">{t("permissions.columnGranted")}</span>

@@ -27,6 +27,17 @@ import { AuditTimeline, type TimelineEntry } from "@/components/business/timelin
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/business/status-badge";
 import { KpiCard } from "@/components/shared/kpi-card";
+import {
+  CompactDetailTable,
+  type CompactDetailColumn,
+} from "@/components/shared/data-table/compact-detail-table";
+import {
+  FinancialReportTable,
+  type FinancialReportColumn,
+  type FinancialReportLine,
+} from "@/components/accounting/financial-report";
+import { tableIdentityCellClass, tableSecondaryTextClass } from "@/components/ui/table";
+import { Amount, Percent } from "@/components/investors/investor-amount";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
 import {
   investmentOpportunitiesService,
@@ -79,10 +90,15 @@ import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { formatDate, formatDateTime, fromISODate, toISODate } from "@/lib/date";
-import { formatMoney } from "@/lib/money";
+import { formatAmount } from "@/lib/money";
 import { toast, reportApiError } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
 import { cachedLookup } from "@/lib/lookup-cache";
+
+const NO_EXPANDED = new Set<string>();
+const WATERFALL_COLUMNS: FinancialReportColumn[] = [
+  { key: "amount", labelKey: "investors.profit.waterfall.amount" },
+];
 
 const statusTone: Record<
   InvestmentOpportunityRow["status"],
@@ -212,7 +228,6 @@ export default function OpportunityWorkspacePage() {
           <>
             {canManage && opportunity.status === "DRAFT" ? (
               <EnterpriseButton
-                variant="secondary"
                 onClick={() => runAction(() => investmentOpportunitiesService.open(opportunity.id))}
               >
                 <DoorOpen />
@@ -221,7 +236,6 @@ export default function OpportunityWorkspacePage() {
             ) : null}
             {canManage && (opportunity.status === "OPEN" || opportunity.status === "FUNDED") ? (
               <EnterpriseButton
-                variant="secondary"
                 onClick={() =>
                   runAction(() => investmentOpportunitiesService.activate(opportunity.id))
                 }
@@ -232,7 +246,6 @@ export default function OpportunityWorkspacePage() {
             ) : null}
             {canManage && opportunity.status === "ACTIVE" ? (
               <EnterpriseButton
-                variant="secondary"
                 onClick={() => runAction(() => investmentOpportunitiesService.end(opportunity.id))}
               >
                 <StopCircle />
@@ -241,7 +254,6 @@ export default function OpportunityWorkspacePage() {
             ) : null}
             {canManage && opportunity.status === "SETTLED" ? (
               <EnterpriseButton
-                variant="secondary"
                 onClick={() =>
                   runAction(() => investmentOpportunitiesService.close(opportunity.id))
                 }
@@ -267,27 +279,29 @@ export default function OpportunityWorkspacePage() {
       >
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
           <KpiCard
-            icon={CheckCircle2}
+            size="compact"
             label={t("investors.opportunities.fields.targetCapital")}
-            value={formatMoney(opportunity.targetCapital, opportunity.currency.code)}
+            value={formatAmount(opportunity.targetCapital, { currency: opportunity.currency.code })}
           />
           <KpiCard
-            icon={CheckCircle2}
+            size="compact"
             label={t("investors.opportunities.fields.confirmedFundedCapital")}
-            value={formatMoney(opportunity.confirmedFundedCapital, opportunity.currency.code)}
+            value={formatAmount(opportunity.confirmedFundedCapital, {
+              currency: opportunity.currency.code,
+            })}
           />
           <KpiCard
-            icon={CheckCircle2}
+            size="compact"
             label={t("investors.opportunities.fields.fundingPercent")}
-            value={`${opportunity.fundingPercent.toFixed(0)}%`}
+            value={`${formatAmount(opportunity.fundingPercent, { decimals: 0, zero: "zero" })}%`}
           />
           <KpiCard
-            icon={CheckCircle2}
+            size="compact"
             label={t("investors.opportunities.fields.investorsCount")}
             value={opportunity.investorsCount}
           />
           <KpiCard
-            icon={CheckCircle2}
+            size="compact"
             label={t("investors.opportunities.overview.daysRemaining")}
             value={
               opportunity.isPastEndDate
@@ -300,40 +314,46 @@ export default function OpportunityWorkspacePage() {
         {financialSummary && financialSummary.approvedNetProfit != null ? (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
             <KpiCard
-              icon={CheckCircle2}
+              size="compact"
               label={t("investors.opportunities.financialSummary.approvedNetProfit")}
-              value={formatMoney(financialSummary.approvedNetProfit, opportunity.currency.code)}
+              value={formatAmount(financialSummary.approvedNetProfit, {
+                currency: opportunity.currency.code,
+              })}
             />
             <KpiCard
-              icon={CheckCircle2}
+              size="compact"
               label={t("investors.opportunities.financialSummary.investorProfitPool")}
-              value={formatMoney(
-                financialSummary.investorProfitPool ?? 0,
-                opportunity.currency.code,
-              )}
+              value={formatAmount(financialSummary.investorProfitPool ?? 0, {
+                currency: opportunity.currency.code,
+              })}
             />
             <KpiCard
-              icon={CheckCircle2}
+              size="compact"
               label={t("investors.opportunities.financialSummary.distributedProfit")}
-              value={formatMoney(financialSummary.distributedProfit, opportunity.currency.code)}
+              value={formatAmount(financialSummary.distributedProfit, {
+                currency: opportunity.currency.code,
+              })}
             />
             <KpiCard
-              icon={CheckCircle2}
+              size="compact"
               label={t("investors.opportunities.financialSummary.paidProfit")}
-              value={formatMoney(financialSummary.paidProfit, opportunity.currency.code)}
+              value={formatAmount(financialSummary.paidProfit, {
+                currency: opportunity.currency.code,
+              })}
             />
             <KpiCard
-              icon={CheckCircle2}
+              size="compact"
               label={t("investors.opportunities.financialSummary.outstandingInvestorProfit")}
-              value={formatMoney(
-                financialSummary.outstandingInvestorProfit,
-                opportunity.currency.code,
-              )}
+              value={formatAmount(financialSummary.outstandingInvestorProfit, {
+                currency: opportunity.currency.code,
+              })}
             />
             <KpiCard
-              icon={CheckCircle2}
+              size="compact"
               label={t("investors.opportunities.financialSummary.capitalReturned")}
-              value={formatMoney(financialSummary.capitalReturned, opportunity.currency.code)}
+              value={formatAmount(financialSummary.capitalReturned, {
+                currency: opportunity.currency.code,
+              })}
             />
           </div>
         ) : null}
@@ -356,19 +376,21 @@ export default function OpportunityWorkspacePage() {
                     />
                     <DetailField
                       label={t("investors.opportunities.fields.investorNetProfitSharePercent")}
-                      value={`${opportunity.investorNetProfitSharePercent}%`}
+                      value={
+                        <span className="num">{`${opportunity.investorNetProfitSharePercent}%`}</span>
+                      }
                     />
                     <DetailField
                       label={t("investors.opportunities.fields.startDate")}
-                      value={formatDate(opportunity.startDate)}
+                      value={<span className="num">{formatDate(opportunity.startDate)}</span>}
                     />
                     <DetailField
                       label={t("investors.opportunities.fields.endDate")}
-                      value={formatDate(opportunity.endDate)}
+                      value={<span className="num">{formatDate(opportunity.endDate)}</span>}
                     />
                     <DetailField
                       label={t("investors.opportunities.overview.totalFundedUnits")}
-                      value={opportunity.totalFundedUnits}
+                      value={<span className="num">{opportunity.totalFundedUnits}</span>}
                     />
                     <DetailField
                       label={t("investors.opportunities.fields.description")}
@@ -426,7 +448,6 @@ export default function OpportunityWorkspacePage() {
               content: (
                 <ExpensesTab
                   opportunityId={opportunity.id}
-                  currencyCode={opportunity.currency.code}
                   canManage={canManageExpenses}
                   canApprove={canApproveExpenses}
                 />
@@ -438,7 +459,6 @@ export default function OpportunityWorkspacePage() {
               content: (
                 <ProfitTab
                   opportunityId={opportunity.id}
-                  currencyCode={opportunity.currency.code}
                   canCalculate={canCalculateProfit}
                   canApprove={canApproveProfit}
                 />
@@ -528,35 +548,44 @@ export default function OpportunityWorkspacePage() {
 function ProductsTable({ opportunity }: { opportunity: InvestmentOpportunityRow }) {
   const { t } = useLocale();
   if (opportunity.products.length === 0) {
-    return <EmptyState icon={CheckCircle2} title="—" />;
+    return <EmptyState icon={CheckCircle2} title={t("common.noDataAvailable")} />;
   }
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-start text-body">
-        <thead>
-          <tr className="border-b border-border text-caption text-muted-foreground">
-            <th className="p-2 text-start">{t("investors.opportunities.create.addProduct")}</th>
-            <th className="p-2 text-start">{t("investors.opportunities.create.fundedUnits")}</th>
-            <th className="p-2 text-start">{t("investors.opportunities.create.fundedUnitCost")}</th>
-            <th className="p-2 text-start">{t("investors.opportunities.create.lineCapital")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {opportunity.products.map((p) => (
-            <tr key={p.id} className="border-b border-border/60">
-              <td className="p-2 font-medium">
-                {p.productName}{" "}
-                <span className="text-caption text-muted-foreground">({p.productSku})</span>
-              </td>
-              <td className="p-2">{p.fundedUnits}</td>
-              <td className="p-2">{formatMoney(p.fundedUnitCost, opportunity.currency.code)}</td>
-              <td className="p-2">{formatMoney(p.fundedCapital, opportunity.currency.code)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+  const columns: CompactDetailColumn<InvestmentOpportunityRow["products"][number]>[] = [
+    {
+      id: "product",
+      header: t("investors.opportunities.create.addProduct"),
+      cell: (p) => (
+        <span className="inline-flex min-w-0 flex-col">
+          <span className={tableIdentityCellClass}>{p.productName}</span>
+          <span className={tableSecondaryTextClass}>
+            <span className="num">{p.productSku}</span>
+          </span>
+        </span>
+      ),
+      footer: t("reports.finance.totals"),
+    },
+    {
+      id: "units",
+      header: t("investors.opportunities.create.fundedUnits"),
+      align: "end",
+      cell: (p) => <span className="num">{p.fundedUnits}</span>,
+      footer: <span className="num">{opportunity.totalFundedUnits}</span>,
+    },
+    {
+      id: "unitCost",
+      header: t("investors.opportunities.create.fundedUnitCost"),
+      align: "end",
+      cell: (p) => <Amount value={p.fundedUnitCost} />,
+    },
+    {
+      id: "capital",
+      header: t("investors.opportunities.create.lineCapital"),
+      align: "end",
+      cell: (p) => <Amount value={p.fundedCapital} />,
+      footer: <Amount value={opportunity.products.reduce((sum, p) => sum + p.fundedCapital, 0)} />,
+    },
+  ];
+  return <CompactDetailTable columns={columns} rows={opportunity.products} rowKey={(p) => p.id} />;
 }
 
 function InvestorsTab({
@@ -578,6 +607,52 @@ function InvestorsTab({
 
   if (!subscriptions) return null;
 
+  const columns: CompactDetailColumn<InvestorSubscriptionRow>[] = [
+    {
+      id: "investor",
+      header: t("investors.subscriptions.fields.investor"),
+      cell: (s) => (
+        <a
+          href={`/investors/list/${s.investorId}`}
+          className={`hover:underline ${tableIdentityCellClass}`}
+        >
+          {s.investorName}
+        </a>
+      ),
+      footer: t("reports.finance.totals"),
+    },
+    {
+      id: "committed",
+      header: t("investors.subscriptions.fields.committedAmount"),
+      align: "end",
+      cell: (s) => <Amount value={s.committedAmount} />,
+      footer: <Amount value={subscriptions.reduce((sum, s) => sum + s.committedAmount, 0)} />,
+    },
+    {
+      id: "funded",
+      header: t("investors.subscriptions.fields.fundedAmount"),
+      align: "end",
+      cell: (s) => <Amount value={s.fundedAmount} />,
+      footer: <Amount value={subscriptions.reduce((sum, s) => sum + s.fundedAmount, 0)} />,
+    },
+    {
+      id: "participation",
+      header: t("investors.subscriptions.fields.participationPercent"),
+      align: "end",
+      cell: (s) => <Percent value={s.participationPercent} />,
+    },
+    {
+      id: "status",
+      header: t("investors.subscriptions.fields.status"),
+      cell: (s) => (
+        <StatusBadge
+          label={t(`investors.subscriptions.status.${s.status}` as MessageKey)}
+          tone="neutral"
+        />
+      ),
+    },
+  ];
+
   return (
     <DetailSection
       actions={
@@ -590,47 +665,9 @@ function InvestorsTab({
       }
     >
       {subscriptions.length === 0 ? (
-        <EmptyState icon={CheckCircle2} title="—" />
+        <EmptyState icon={CheckCircle2} title={t("common.noDataAvailable")} />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-start text-body">
-            <thead>
-              <tr className="border-b border-border text-caption text-muted-foreground">
-                <th className="p-2 text-start">{t("investors.subscriptions.fields.investor")}</th>
-                <th className="p-2 text-start">
-                  {t("investors.subscriptions.fields.committedAmount")}
-                </th>
-                <th className="p-2 text-start">
-                  {t("investors.subscriptions.fields.fundedAmount")}
-                </th>
-                <th className="p-2 text-start">
-                  {t("investors.subscriptions.fields.participationPercent")}
-                </th>
-                <th className="p-2 text-start">{t("investors.subscriptions.fields.status")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {subscriptions.map((s) => (
-                <tr key={s.id} className="border-b border-border/60">
-                  <td className="p-2 font-medium">
-                    <a href={`/investors/list/${s.investorId}`} className="hover:underline">
-                      {s.investorName}
-                    </a>
-                  </td>
-                  <td className="p-2">{formatMoney(s.committedAmount)}</td>
-                  <td className="p-2">{formatMoney(s.fundedAmount)}</td>
-                  <td className="p-2">{s.participationPercent.toFixed(2)}%</td>
-                  <td className="p-2">
-                    <StatusBadge
-                      label={t(`investors.subscriptions.status.${s.status}` as MessageKey)}
-                      tone="neutral"
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <CompactDetailTable columns={columns} rows={subscriptions} rowKey={(s) => s.id} />
       )}
     </DetailSection>
   );
@@ -681,6 +718,56 @@ function FundingTab({
 
   if (!contributions) return null;
 
+  const columns: CompactDetailColumn<CapitalContributionRow>[] = [
+    {
+      id: "investor",
+      header: t("investors.contributions.fields.investor"),
+      cell: (c) => <span className={tableIdentityCellClass}>{c.investorName}</span>,
+    },
+    {
+      id: "date",
+      header: t("investors.contributions.fields.date"),
+      cell: (c) => <span className="num">{formatDate(c.contributionDate)}</span>,
+    },
+    {
+      id: "amount",
+      header: t("investors.contributions.fields.amount"),
+      align: "end",
+      cell: (c) => <Amount value={c.amount} />,
+    },
+    {
+      id: "status",
+      header: t("investors.contributions.fields.status"),
+      cell: (c) => (
+        <StatusBadge
+          label={t(`investors.contributions.status.${c.status}` as MessageKey)}
+          tone={
+            c.status === "CONFIRMED" ? "success" : c.status === "PENDING" ? "warning" : "neutral"
+          }
+        />
+      ),
+    },
+    {
+      id: "actions",
+      header: t("common.actions"),
+      cell: (c) =>
+        c.status === "PENDING" ? (
+          <div className="flex gap-1">
+            {canConfirm ? (
+              <EnterpriseButton size="sm" variant="outline" onClick={() => confirm(c.id)}>
+                {t("investors.opportunities.actions.confirm")}
+              </EnterpriseButton>
+            ) : null}
+            {canCancel ? (
+              <EnterpriseButton size="sm" variant="ghost" onClick={() => cancel(c.id)}>
+                {t("investors.opportunities.actions.reject")}
+              </EnterpriseButton>
+            ) : null}
+          </div>
+        ) : null,
+    },
+  ];
+
   return (
     <DetailSection
       actions={
@@ -693,56 +780,9 @@ function FundingTab({
       }
     >
       {contributions.length === 0 ? (
-        <EmptyState icon={CheckCircle2} title="—" />
+        <EmptyState icon={CheckCircle2} title={t("common.noDataAvailable")} />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-start text-body">
-            <thead>
-              <tr className="border-b border-border text-caption text-muted-foreground">
-                <th className="p-2 text-start">{t("investors.contributions.fields.investor")}</th>
-                <th className="p-2 text-start">{t("investors.contributions.fields.date")}</th>
-                <th className="p-2 text-start">{t("investors.contributions.fields.amount")}</th>
-                <th className="p-2 text-start">{t("investors.contributions.fields.status")}</th>
-                <th className="p-2 text-start">{t("common.actions")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {contributions.map((c) => (
-                <tr key={c.id} className="border-b border-border/60">
-                  <td className="p-2 font-medium">{c.investorName}</td>
-                  <td className="p-2">{formatDate(c.contributionDate)}</td>
-                  <td className="p-2">{formatMoney(c.amount)}</td>
-                  <td className="p-2">
-                    <StatusBadge
-                      label={t(`investors.contributions.status.${c.status}` as MessageKey)}
-                      tone="neutral"
-                    />
-                  </td>
-                  <td className="p-2">
-                    {c.status === "PENDING" ? (
-                      <div className="flex gap-1">
-                        {canConfirm ? (
-                          <EnterpriseButton
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => confirm(c.id)}
-                          >
-                            {t("investors.opportunities.actions.confirm")}
-                          </EnterpriseButton>
-                        ) : null}
-                        {canCancel ? (
-                          <EnterpriseButton size="sm" variant="ghost" onClick={() => cancel(c.id)}>
-                            {t("investors.opportunities.actions.reject")}
-                          </EnterpriseButton>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <CompactDetailTable columns={columns} rows={contributions} rowKey={(c) => c.id} />
       )}
     </DetailSection>
   );
@@ -924,7 +964,7 @@ function AddContributionDialog({
           getId={(row) => row.id}
           getTitle={(row) => row.investorName}
           getSubtitle={(row) =>
-            `${formatMoney(row.committedAmount)} / ${formatMoney(row.fundedAmount)}`
+            `${formatAmount(row.committedAmount)} / ${formatAmount(row.fundedAmount)}`
           }
         />
         <Input
@@ -1005,6 +1045,68 @@ function SalesTab({
 
   if (!summary || !allocations) return null;
 
+  const columns: CompactDetailColumn<OpportunitySaleAllocationRow>[] = [
+    {
+      id: "product",
+      header: t("investors.sales.fields.product"),
+      cell: (a) => (
+        <span className="inline-flex min-w-0 flex-col">
+          <span className={tableIdentityCellClass}>{a.productName}</span>
+          <span className={tableSecondaryTextClass}>
+            <span className="num">{a.productSku}</span>
+          </span>
+        </span>
+      ),
+    },
+    {
+      id: "order",
+      header: t("investors.sales.fields.order"),
+      cell: (a) => <span className="num">{a.orderNumber}</span>,
+    },
+    { id: "customer", header: t("investors.sales.fields.customer"), cell: (a) => a.customerName },
+    {
+      id: "quantity",
+      header: t("investors.sales.fields.allocatedQuantity"),
+      align: "end",
+      cell: (a) => <span className="num">{a.allocatedQuantity}</span>,
+    },
+    {
+      id: "revenue",
+      header: t("investors.sales.fields.allocatedRevenue"),
+      align: "end",
+      cell: (a) => <Amount value={a.allocatedRevenue} />,
+    },
+    {
+      id: "type",
+      header: t("investors.sales.fields.type"),
+      cell: (a) => t(`investors.sales.type.${a.allocationType}` as MessageKey),
+    },
+    {
+      id: "status",
+      header: t("investors.sales.fields.status"),
+      cell: (a) => (
+        <StatusBadge
+          label={t(`investors.sales.status.${a.status}` as MessageKey)}
+          tone={a.status === "ACTIVE" ? "success" : "neutral"}
+        />
+      ),
+    },
+    ...(canManage
+      ? [
+          {
+            id: "actions",
+            header: t("common.actions"),
+            cell: (a: OpportunitySaleAllocationRow) =>
+              a.status === "ACTIVE" ? (
+                <EnterpriseButton size="sm" variant="ghost" onClick={() => setReverseTarget(a)}>
+                  {t("investors.sales.actions.reverse")}
+                </EnterpriseButton>
+              ) : null,
+          },
+        ]
+      : []),
+  ];
+
   return (
     <DetailSection
       actions={
@@ -1013,7 +1115,7 @@ function SalesTab({
             <EnterpriseButton
               type="button"
               size="sm"
-              variant="secondary"
+              variant="outline"
               onClick={recalculate}
               disabled={isRecalculating}
             >
@@ -1029,89 +1131,38 @@ function SalesTab({
     >
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         <KpiCard
-          icon={CheckCircle2}
+          size="compact"
           label={t("investors.sales.metrics.fundedUnits")}
           value={summary.totals.fundedUnits}
         />
         <KpiCard
-          icon={CheckCircle2}
+          size="compact"
           label={t("investors.sales.metrics.netSoldUnits")}
           value={summary.totals.netSoldUnits}
         />
         <KpiCard
-          icon={CheckCircle2}
+          size="compact"
           label={t("investors.sales.metrics.remainingUnits")}
           value={summary.totals.remainingUnits}
         />
         <KpiCard
-          icon={CheckCircle2}
+          size="compact"
           label={t("investors.sales.metrics.attributableRevenue")}
-          value={formatMoney(summary.totals.attributableRevenue, opportunity.currency.code)}
+          value={formatAmount(summary.totals.attributableRevenue, {
+            currency: opportunity.currency.code,
+          })}
         />
         <KpiCard
-          icon={CheckCircle2}
+          size="compact"
           label={t("investors.sales.metrics.cogs")}
-          value={formatMoney(summary.totals.cogs, opportunity.currency.code)}
+          value={formatAmount(summary.totals.cogs, { currency: opportunity.currency.code })}
         />
       </div>
 
       {allocations.length === 0 ? (
-        <EmptyState icon={CheckCircle2} title="—" />
+        <EmptyState icon={CheckCircle2} title={t("common.noDataAvailable")} />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-start text-body">
-            <thead>
-              <tr className="border-b border-border text-caption text-muted-foreground">
-                <th className="p-2 text-start">{t("investors.sales.fields.product")}</th>
-                <th className="p-2 text-start">{t("investors.sales.fields.order")}</th>
-                <th className="p-2 text-start">{t("investors.sales.fields.customer")}</th>
-                <th className="p-2 text-start">{t("investors.sales.fields.allocatedQuantity")}</th>
-                <th className="p-2 text-start">{t("investors.sales.fields.allocatedRevenue")}</th>
-                <th className="p-2 text-start">{t("investors.sales.fields.type")}</th>
-                <th className="p-2 text-start">{t("investors.sales.fields.status")}</th>
-                {canManage ? <th className="p-2 text-start">{t("common.actions")}</th> : null}
-              </tr>
-            </thead>
-            <tbody>
-              {allocations.map((a) => (
-                <tr key={a.id} className="border-b border-border/60">
-                  <td className="p-2 font-medium">
-                    {a.productName}{" "}
-                    <span className="text-caption text-muted-foreground">({a.productSku})</span>
-                  </td>
-                  <td className="p-2">{a.orderNumber}</td>
-                  <td className="p-2">{a.customerName}</td>
-                  <td className="p-2">{a.allocatedQuantity}</td>
-                  <td className="p-2">
-                    {formatMoney(a.allocatedRevenue, opportunity.currency.code)}
-                  </td>
-                  <td className="p-2">
-                    {t(`investors.sales.type.${a.allocationType}` as MessageKey)}
-                  </td>
-                  <td className="p-2">
-                    <StatusBadge
-                      label={t(`investors.sales.status.${a.status}` as MessageKey)}
-                      tone={a.status === "ACTIVE" ? "success" : "neutral"}
-                    />
-                  </td>
-                  {canManage ? (
-                    <td className="p-2">
-                      {a.status === "ACTIVE" ? (
-                        <EnterpriseButton
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setReverseTarget(a)}
-                        >
-                          {t("investors.sales.actions.reverse")}
-                        </EnterpriseButton>
-                      ) : null}
-                    </td>
-                  ) : null}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <CompactDetailTable columns={columns} rows={allocations} rowKey={(a) => a.id} />
       )}
 
       <ManualAllocateDialog
@@ -1222,7 +1273,9 @@ function ManualAllocateDialog({
           </SelectContent>
         </Select>
         <Input
-          placeholder={t("investors.sales.fields.order") + " — Store Order Item ID"}
+          placeholder={t("investors.sales.fields.storeOrderItemId")}
+          aria-label={t("investors.sales.fields.storeOrderItemId")}
+          dir="ltr"
           value={storeOrderItemId}
           onChange={(e) => setStoreOrderItemId(e.target.value)}
         />
@@ -1246,12 +1299,10 @@ function ManualAllocateDialog({
 
 function ExpensesTab({
   opportunityId,
-  currencyCode,
   canManage,
   canApprove,
 }: {
   opportunityId: string;
-  currencyCode: string;
   canManage: boolean;
   canApprove: boolean;
 }) {
@@ -1281,6 +1332,88 @@ function ExpensesTab({
 
   if (!expenses) return null;
 
+  const columns: CompactDetailColumn<OpportunityExpenseRow>[] = [
+    {
+      id: "date",
+      header: t("investors.expenses.fields.date"),
+      cell: (e) => <span className="num">{formatDate(e.expenseDate)}</span>,
+    },
+    {
+      id: "category",
+      header: t("investors.expenses.fields.category"),
+      cell: (e) => t(`investors.expenses.category.${e.category}` as MessageKey),
+    },
+    {
+      id: "description",
+      header: t("investors.expenses.fields.description"),
+      cell: (e) => <span className={tableIdentityCellClass}>{e.description}</span>,
+      footer: t("reports.finance.totals"),
+    },
+    {
+      id: "amount",
+      header: t("investors.expenses.fields.amount"),
+      align: "end",
+      cell: (e) => <Amount value={e.amount} />,
+      footer: (
+        <Amount
+          value={expenses
+            .filter((e) => e.status === "APPROVED")
+            .reduce((sum, e) => sum + e.amount, 0)}
+        />
+      ),
+    },
+    {
+      id: "status",
+      header: t("investors.expenses.fields.status"),
+      cell: (e) => (
+        <StatusBadge
+          label={t(`investors.expenses.status.${e.status}` as MessageKey)}
+          tone={e.status === "APPROVED" ? "success" : "neutral"}
+        />
+      ),
+      footer: (
+        <span className="text-caption font-normal text-muted-foreground">
+          {t("investors.expenses.approvedOnly")}
+        </span>
+      ),
+    },
+    ...(canApprove
+      ? [
+          {
+            id: "actions",
+            header: t("common.actions"),
+            cell: (expense: OpportunityExpenseRow) =>
+              expense.status === "DRAFT" ? (
+                <div className="flex gap-1">
+                  <EnterpriseButton
+                    size="sm"
+                    variant="outline"
+                    onClick={() => runAction(() => investmentExpensesService.approve(expense.id))}
+                  >
+                    {t("investors.expenses.actions.approve")}
+                  </EnterpriseButton>
+                  <EnterpriseButton
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => runAction(() => investmentExpensesService.reject(expense.id))}
+                  >
+                    {t("investors.expenses.actions.reject")}
+                  </EnterpriseButton>
+                </div>
+              ) : expense.status === "APPROVED" ? (
+                <EnterpriseButton
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => runAction(() => investmentExpensesService.void(expense.id))}
+                >
+                  {t("investors.expenses.actions.void")}
+                </EnterpriseButton>
+              ) : null,
+          },
+        ]
+      : []),
+  ];
+
   return (
     <DetailSection
       actions={
@@ -1293,76 +1426,9 @@ function ExpensesTab({
       }
     >
       {expenses.length === 0 ? (
-        <EmptyState icon={CheckCircle2} title="—" />
+        <EmptyState icon={CheckCircle2} title={t("common.noDataAvailable")} />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-start text-body">
-            <thead>
-              <tr className="border-b border-border text-caption text-muted-foreground">
-                <th className="p-2 text-start">{t("investors.expenses.fields.date")}</th>
-                <th className="p-2 text-start">{t("investors.expenses.fields.category")}</th>
-                <th className="p-2 text-start">{t("investors.expenses.fields.description")}</th>
-                <th className="p-2 text-start">{t("investors.expenses.fields.amount")}</th>
-                <th className="p-2 text-start">{t("investors.expenses.fields.status")}</th>
-                {canApprove ? <th className="p-2 text-start">{t("common.actions")}</th> : null}
-              </tr>
-            </thead>
-            <tbody>
-              {expenses.map((expense) => (
-                <tr key={expense.id} className="border-b border-border/60">
-                  <td className="p-2">{formatDate(expense.expenseDate)}</td>
-                  <td className="p-2">
-                    {t(`investors.expenses.category.${expense.category}` as MessageKey)}
-                  </td>
-                  <td className="p-2 font-medium">{expense.description}</td>
-                  <td className="p-2">{formatMoney(expense.amount, currencyCode)}</td>
-                  <td className="p-2">
-                    <StatusBadge
-                      label={t(`investors.expenses.status.${expense.status}` as MessageKey)}
-                      tone={expense.status === "APPROVED" ? "success" : "neutral"}
-                    />
-                  </td>
-                  {canApprove ? (
-                    <td className="p-2">
-                      {expense.status === "DRAFT" ? (
-                        <div className="flex gap-1">
-                          <EnterpriseButton
-                            size="sm"
-                            variant="secondary"
-                            onClick={() =>
-                              runAction(() => investmentExpensesService.approve(expense.id))
-                            }
-                          >
-                            {t("investors.expenses.actions.approve")}
-                          </EnterpriseButton>
-                          <EnterpriseButton
-                            size="sm"
-                            variant="ghost"
-                            onClick={() =>
-                              runAction(() => investmentExpensesService.reject(expense.id))
-                            }
-                          >
-                            {t("investors.expenses.actions.reject")}
-                          </EnterpriseButton>
-                        </div>
-                      ) : expense.status === "APPROVED" ? (
-                        <EnterpriseButton
-                          size="sm"
-                          variant="ghost"
-                          onClick={() =>
-                            runAction(() => investmentExpensesService.void(expense.id))
-                          }
-                        >
-                          {t("investors.expenses.actions.void")}
-                        </EnterpriseButton>
-                      ) : null}
-                    </td>
-                  ) : null}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <CompactDetailTable columns={columns} rows={expenses} rowKey={(e) => e.id} />
       )}
 
       <AddExpenseDialog
@@ -1487,12 +1553,10 @@ function AddExpenseDialog({
 
 function ProfitTab({
   opportunityId,
-  currencyCode,
   canCalculate,
   canApprove,
 }: {
   opportunityId: string;
-  currencyCode: string;
   canCalculate: boolean;
   canApprove: boolean;
 }) {
@@ -1542,6 +1606,99 @@ function ProfitTab({
 
   const hasApproved = calculations.some((c) => c.status === "APPROVED");
 
+  const waterfallLine = (
+    id: string,
+    labelKey: MessageKey,
+    amount: number,
+    kind: FinancialReportLine["kind"] = "posting",
+  ): FinancialReportLine => ({
+    // Namespaced so a line never picks up a shared report section label by id.
+    id: `profit-waterfall:${id}`,
+    parentId: null,
+    kind,
+    level: 0,
+    label: t(labelKey),
+    labelEn: t(labelKey),
+    expandable: false,
+    values: { amount },
+    children: [],
+  });
+  const waterfall: FinancialReportLine[] = [
+    waterfallLine("revenue", "investors.profit.waterfall.revenue", estimate.revenue),
+    waterfallLine("cogs", "investors.profit.waterfall.cogs", estimate.cogs),
+    waterfallLine("expenses", "investors.profit.waterfall.expenses", estimate.expenses),
+    waterfallLine(
+      "returnsAdjustment",
+      "investors.profit.waterfall.returnsAdjustment",
+      estimate.returnsAdjustment,
+    ),
+    waterfallLine(
+      "netProfit",
+      "investors.profit.waterfall.netProfit",
+      estimate.netProfit,
+      "subtotal",
+    ),
+    waterfallLine(
+      "investorProfitPool",
+      "investors.profit.waterfall.investorProfitPool",
+      estimate.investorProfitPool,
+    ),
+    waterfallLine(
+      "companyProfitPortion",
+      "investors.profit.waterfall.companyProfitPortion",
+      estimate.companyProfitPortion,
+    ),
+  ];
+
+  const shareColumns: CompactDetailColumn<ProfitBreakdown["investorShares"][number]>[] = [
+    {
+      id: "investor",
+      header: t("investors.profit.shares.investor"),
+      cell: (share) => <span className={tableIdentityCellClass}>{share.investorName}</span>,
+    },
+    {
+      id: "participation",
+      header: t("investors.profit.shares.participationPercent"),
+      align: "end",
+      cell: (share) => <Percent value={share.participationPercent} />,
+    },
+    {
+      id: "amount",
+      header: t("investors.profit.shares.profitShareAmount"),
+      align: "end",
+      cell: (share) => <Amount value={share.profitShareAmount} />,
+    },
+  ];
+
+  const calculationColumns: CompactDetailColumn<ProfitCalculationRow>[] = [
+    {
+      id: "status",
+      header: t("investors.opportunities.fields.status"),
+      cell: (calc) => (
+        <StatusBadge
+          label={t(`investors.profit.status.${calc.status}` as MessageKey)}
+          tone={calc.status === "APPROVED" ? "success" : "neutral"}
+        />
+      ),
+    },
+    {
+      id: "netProfit",
+      header: t("investors.profit.waterfall.netProfit"),
+      align: "end",
+      cell: (calc) => <Amount value={calc.netProfit} />,
+    },
+    {
+      id: "actions",
+      header: t("common.actions"),
+      cell: (calc) =>
+        canApprove && calc.status === "ESTIMATED" ? (
+          <EnterpriseButton size="sm" variant="outline" onClick={() => approve(calc.id)}>
+            {t("investors.profit.actions.approve")}
+          </EnterpriseButton>
+        ) : null,
+    },
+  ];
+
   return (
     <DetailSection
       actions={
@@ -1557,103 +1714,31 @@ function ProfitTab({
           {t("investors.profit.noCalculation")}
         </p>
       ) : null}
-      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-        <KpiCard
-          icon={CheckCircle2}
-          label={t("investors.profit.waterfall.revenue")}
-          value={formatMoney(estimate.revenue, currencyCode)}
-        />
-        <KpiCard
-          icon={CheckCircle2}
-          label={t("investors.profit.waterfall.cogs")}
-          value={formatMoney(estimate.cogs, currencyCode)}
-        />
-        <KpiCard
-          icon={CheckCircle2}
-          label={t("investors.profit.waterfall.expenses")}
-          value={formatMoney(estimate.expenses, currencyCode)}
-        />
-        <KpiCard
-          icon={CheckCircle2}
-          label={t("investors.profit.waterfall.returnsAdjustment")}
-          value={formatMoney(estimate.returnsAdjustment, currencyCode)}
-        />
-        <KpiCard
-          icon={CheckCircle2}
-          label={t("investors.profit.waterfall.netProfit")}
-          value={formatMoney(estimate.netProfit, currencyCode)}
-        />
-        <KpiCard
-          icon={CheckCircle2}
-          label={t("investors.profit.waterfall.investorProfitPool")}
-          value={formatMoney(estimate.investorProfitPool, currencyCode)}
-        />
-        <KpiCard
-          icon={CheckCircle2}
-          label={t("investors.profit.waterfall.companyProfitPortion")}
-          value={formatMoney(estimate.companyProfitPortion, currencyCode)}
+      <div className="mb-4 overflow-hidden rounded-md border border-border bg-card">
+        <FinancialReportTable
+          lines={waterfall}
+          columns={WATERFALL_COLUMNS}
+          expanded={NO_EXPANDED}
+          onToggle={() => undefined}
+          nameHeaderKey="investors.profit.waterfall.title"
+          emptyLabel={t("common.noDataAvailable")}
         />
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-start text-body">
-          <thead>
-            <tr className="border-b border-border text-caption text-muted-foreground">
-              <th className="p-2 text-start">{t("investors.profit.shares.investor")}</th>
-              <th className="p-2 text-start">
-                {t("investors.profit.shares.participationPercent")}
-              </th>
-              <th className="p-2 text-start">{t("investors.profit.shares.profitShareAmount")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {estimate.investorShares.map((share) => (
-              <tr key={share.investorId} className="border-b border-border/60">
-                <td className="p-2 font-medium">{share.investorName}</td>
-                <td className="p-2">{share.participationPercent.toFixed(2)}%</td>
-                <td className="p-2">{formatMoney(share.profitShareAmount, currencyCode)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <CompactDetailTable
+        columns={shareColumns}
+        rows={estimate.investorShares}
+        rowKey={(share) => share.investorId}
+        empty={t("common.noDataAvailable")}
+      />
 
       {calculations.length > 0 ? (
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full text-start text-body">
-            <thead>
-              <tr className="border-b border-border text-caption text-muted-foreground">
-                <th className="p-2 text-start">{t("investors.opportunities.fields.status")}</th>
-                <th className="p-2 text-start">{t("investors.profit.waterfall.netProfit")}</th>
-                <th className="p-2 text-start">{t("common.actions")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {calculations.map((calc) => (
-                <tr key={calc.id} className="border-b border-border/60">
-                  <td className="p-2">
-                    <StatusBadge
-                      label={t(`investors.profit.status.${calc.status}` as MessageKey)}
-                      tone={calc.status === "APPROVED" ? "success" : "neutral"}
-                    />
-                  </td>
-                  <td className="p-2">{formatMoney(calc.netProfit, currencyCode)}</td>
-                  <td className="p-2">
-                    {canApprove && calc.status === "ESTIMATED" ? (
-                      <EnterpriseButton
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => approve(calc.id)}
-                      >
-                        {t("investors.profit.actions.approve")}
-                      </EnterpriseButton>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <CompactDetailTable
+          className="mt-4"
+          columns={calculationColumns}
+          rows={calculations}
+          rowKey={(calc) => calc.id}
+        />
       ) : null}
     </DetailSection>
   );
@@ -1716,6 +1801,37 @@ function SettlementTab({
 
   if (!settlements) return null;
 
+  const suggestionColumns: CompactDetailColumn<SettlementSuggestionLine>[] = [
+    {
+      id: "product",
+      header: t("investors.settlement.suggestions.product"),
+      cell: (line) => <span className={tableIdentityCellClass}>{line.productName}</span>,
+    },
+    {
+      id: "order",
+      header: t("investors.settlement.suggestions.order"),
+      cell: (line) => <span className="num">{line.orderNumber}</span>,
+    },
+    {
+      id: "available",
+      header: t("investors.settlement.suggestions.available"),
+      align: "end",
+      cell: (line) => <span className="num">{line.availableQuantity}</span>,
+    },
+    {
+      id: "suggested",
+      header: t("investors.settlement.suggestions.suggested"),
+      align: "end",
+      cell: (line) => <span className="num">{line.suggestedQuantity}</span>,
+    },
+    {
+      id: "revenue",
+      header: t("investors.settlement.suggestions.revenue"),
+      align: "end",
+      cell: (line) => <Amount value={line.estimatedRevenue} />,
+    },
+  ];
+
   return (
     <DetailSection
       actions={
@@ -1734,7 +1850,7 @@ function SettlementTab({
         <EmptyState icon={CheckCircle2} title={t("investors.settlement.none")} />
       ) : (
         <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <StatusBadge
               label={t(`investors.settlement.status.${active.status}` as MessageKey)}
               tone={active.status === "APPROVED" ? "success" : "neutral"}
@@ -1743,7 +1859,7 @@ function SettlementTab({
               {canManage && active.status === "DRAFT" ? (
                 <EnterpriseButton
                   size="sm"
-                  variant="secondary"
+                  variant="outline"
                   onClick={() =>
                     runAction(() => investmentSettlementService.moveToReview(active.id))
                   }
@@ -1783,42 +1899,11 @@ function SettlementTab({
             {!suggestions || suggestions.length === 0 ? (
               <EmptyState icon={CheckCircle2} title={t("investors.settlement.suggestions.none")} />
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-start text-body">
-                  <thead>
-                    <tr className="border-b border-border text-caption text-muted-foreground">
-                      <th className="p-2 text-start">
-                        {t("investors.settlement.suggestions.product")}
-                      </th>
-                      <th className="p-2 text-start">
-                        {t("investors.settlement.suggestions.order")}
-                      </th>
-                      <th className="p-2 text-start">
-                        {t("investors.settlement.suggestions.available")}
-                      </th>
-                      <th className="p-2 text-start">
-                        {t("investors.settlement.suggestions.suggested")}
-                      </th>
-                      <th className="p-2 text-start">
-                        {t("investors.settlement.suggestions.revenue")}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {suggestions.map((line) => (
-                      <tr key={line.storeOrderItemId} className="border-b border-border/60">
-                        <td className="p-2 font-medium">{line.productName}</td>
-                        <td className="p-2">{line.orderNumber}</td>
-                        <td className="p-2">{line.availableQuantity}</td>
-                        <td className="p-2">{line.suggestedQuantity}</td>
-                        <td className="p-2">
-                          {formatMoney(line.estimatedRevenue, opportunity.currency.code)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <CompactDetailTable
+                columns={suggestionColumns}
+                rows={suggestions}
+                rowKey={(line) => line.storeOrderItemId}
+              />
             )}
           </div>
         </div>

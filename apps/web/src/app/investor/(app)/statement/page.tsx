@@ -9,10 +9,12 @@ import {
   TableRow,
   TableHead,
   TableCell,
+  tableNumericCellClass,
+  tableTabularCellClass,
 } from "@/components/ui/table";
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
 import { SelectFilter } from "@/components/shared/data-table/select-filter";
-import { formatMoney } from "@/lib/money";
+import { formatAmount } from "@/lib/money";
 import { formatDate } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
 import {
@@ -22,7 +24,7 @@ import {
 import { usePortalQuery } from "../_components/use-portal-query";
 import { PortalPageState } from "../_components/portal-page-state";
 import { PortalPager } from "../_components/portal-pager";
-import { PortalStatCard } from "../_components/portal-stat-card";
+import { KpiCard } from "@/components/shared/kpi-card";
 import type { MessageKey } from "@/i18n/translate";
 
 const ENTRY_TYPES: InvestorLedgerEntryType[] = [
@@ -52,37 +54,33 @@ export default function InvestorPortalStatementPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-semibold text-foreground">
-        {t("investorPortal.statement.title")}
-      </h1>
+      <h1 className="text-ui-title text-foreground">{t("investorPortal.statement.title")}</h1>
 
       {data && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-          <PortalStatCard
+          <KpiCard
             label={t("investors.ledger.summary.totalConfirmedCapital")}
-            value={data.summary.totalConfirmedCapital}
+            value={formatAmount(data.summary.totalConfirmedCapital)}
           />
-          <PortalStatCard
+          <KpiCard
             label={t("investors.ledger.summary.capitalReturned")}
-            value={data.summary.capitalReturned}
+            value={formatAmount(data.summary.capitalReturned)}
           />
-          <PortalStatCard
+          <KpiCard
             label={t("investors.ledger.summary.remainingCapitalPosition")}
-            value={data.summary.remainingCapitalPosition}
+            value={formatAmount(data.summary.remainingCapitalPosition)}
           />
-          <PortalStatCard
+          <KpiCard
             label={t("investors.ledger.summary.totalApprovedProfit")}
-            value={data.summary.totalApprovedProfit}
+            value={formatAmount(data.summary.totalApprovedProfit)}
           />
-          <PortalStatCard
+          <KpiCard
             label={t("investors.ledger.summary.totalProfitPaid")}
-            value={data.summary.totalProfitPaid}
-            tone="success"
+            value={formatAmount(data.summary.totalProfitPaid)}
           />
-          <PortalStatCard
+          <KpiCard
             label={t("investors.ledger.summary.outstandingProfit")}
-            value={data.summary.outstandingProfit}
-            tone="warning"
+            value={formatAmount(data.summary.outstandingProfit)}
           />
         </div>
       )}
@@ -115,36 +113,40 @@ export default function InvestorPortalStatementPage() {
         {data && (
           <EnterpriseCard>
             <EnterpriseCardContent className="p-0">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("investorPortal.statement.fields.date")}</TableHead>
-                      <TableHead>{t("investorPortal.statement.fields.type")}</TableHead>
-                      <TableHead>{t("investorPortal.statement.fields.description")}</TableHead>
-                      <TableHead>{t("investorPortal.statement.fields.debit")}</TableHead>
-                      <TableHead>{t("investorPortal.statement.fields.credit")}</TableHead>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("investorPortal.statement.fields.date")}</TableHead>
+                    <TableHead>{t("investorPortal.statement.fields.type")}</TableHead>
+                    <TableHead>{t("investorPortal.statement.fields.description")}</TableHead>
+                    <TableHead className={tableNumericCellClass}>
+                      {t("investorPortal.statement.fields.debit")}
+                    </TableHead>
+                    <TableHead className={tableNumericCellClass}>
+                      {t("investorPortal.statement.fields.credit")}
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.items.map((entry) => (
+                    <TableRow key={entry.id}>
+                      <TableCell className={tableTabularCellClass}>
+                        <span className="num">{formatDate(entry.entryDate)}</span>
+                      </TableCell>
+                      <TableCell>
+                        {t(`investors.ledger.entryType.${entry.type}` as MessageKey)}
+                      </TableCell>
+                      <TableCell className="whitespace-normal">{entry.description}</TableCell>
+                      <TableCell numeric>
+                        {formatAmount(entry.debitAmount, { zero: "dash" })}
+                      </TableCell>
+                      <TableCell numeric>
+                        {formatAmount(entry.creditAmount, { zero: "dash" })}
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.items.map((entry) => (
-                      <TableRow key={entry.id}>
-                        <TableCell>{formatDate(entry.entryDate)}</TableCell>
-                        <TableCell>
-                          {t(`investors.ledger.entryType.${entry.type}` as MessageKey)}
-                        </TableCell>
-                        <TableCell>{entry.description}</TableCell>
-                        <TableCell>
-                          {entry.debitAmount > 0 ? formatMoney(entry.debitAmount) : ""}
-                        </TableCell>
-                        <TableCell>
-                          {entry.creditAmount > 0 ? formatMoney(entry.creditAmount) : ""}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                  ))}
+                </TableBody>
+              </Table>
             </EnterpriseCardContent>
           </EnterpriseCard>
         )}

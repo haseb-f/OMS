@@ -28,8 +28,7 @@ import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { RowAction } from "@/components/shared/data-table";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import { useRouter } from "next/navigation";
 import { journalEntriesService } from "@/services/journal-entries-service";
 
@@ -122,7 +121,7 @@ function FixedAssetsPageContent() {
       setCapitalizeTarget(null);
       reload();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("errors.generic"));
+      reportApiError(error, "errors.generic");
     } finally {
       setBusy(false);
     }
@@ -140,7 +139,7 @@ function FixedAssetsPageContent() {
       setDisposeTarget(null);
       reload();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("errors.generic"));
+      reportApiError(error, "errors.generic");
     } finally {
       setBusy(false);
     }
@@ -156,7 +155,7 @@ function FixedAssetsPageContent() {
       setRunOpen(false);
       reload();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("errors.generic"));
+      reportApiError(error, "errors.generic");
     } finally {
       setBusy(false);
     }
@@ -224,7 +223,7 @@ function FixedAssetsPageContent() {
                   else toast.error(t("accounting.journalEntries.missingJournal"));
                 })
                 .catch((error: unknown) => {
-                  toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+                  reportApiError(error, "common.failedToSave");
                 });
             },
           },

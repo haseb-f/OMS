@@ -8,14 +8,7 @@ import {
 } from "@/config/financial-transactions/status";
 import type { InvoicePaymentStatusValue } from "@/services/financial-transactions-service";
 import { useLocale } from "@/providers/locale-provider";
-
-function formatMoney(value: number | null | undefined): string {
-  const amount = Number(value ?? 0);
-  return (Number.isFinite(amount) ? amount : 0).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
+import { formatMoney } from "@/lib/money";
 
 /**
  * TASK-060B Part 6 — "Payment Status Badge... Invoice Total, Paid Amount,
@@ -71,21 +64,14 @@ export function InvoicePaymentSummary({
         </span>
         <InvoicePaymentBadge paymentStatus={paymentStatus} />
       </div>
-      <div className="grid grid-cols-3 gap-3 text-caption">
-        <div className="flex flex-col gap-0.5">
-          <span className="text-muted-foreground">
-            {t("financialTransactions.paymentSummary.total")}
-          </span>
-          <span dir="ltr" className="font-medium tabular-nums">
-            {formatMoney(grandTotal)} {currencyCode}
-          </span>
-        </div>
+      {/* The grand total lives in the document's own totals block — only paid/remaining here. */}
+      <div className="grid grid-cols-2 gap-3 text-caption">
         <div className="flex flex-col gap-0.5">
           <span className="text-muted-foreground">
             {t("financialTransactions.paymentSummary.paid")}
           </span>
-          <span dir="ltr" className="font-medium tabular-nums text-success">
-            {formatMoney(allocatedTotal)} {currencyCode}
+          <span className="num font-medium text-success">
+            {formatMoney(allocatedTotal ?? 0, currencyCode)}
           </span>
         </div>
         <div className="flex flex-col gap-0.5">
@@ -93,14 +79,13 @@ export function InvoicePaymentSummary({
             {t("financialTransactions.paymentSummary.remaining")}
           </span>
           <span
-            dir="ltr"
             className={
               remainingBalance > 0
-                ? "font-medium tabular-nums text-destructive"
-                : "font-medium tabular-nums text-muted-foreground"
+                ? "num font-medium text-destructive"
+                : "num font-medium text-muted-foreground"
             }
           >
-            {formatMoney(remainingBalance)} {currencyCode}
+            {formatMoney(remainingBalance ?? 0, currencyCode)}
           </span>
         </div>
       </div>

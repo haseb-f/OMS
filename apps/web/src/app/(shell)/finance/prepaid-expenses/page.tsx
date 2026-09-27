@@ -8,6 +8,7 @@ import { MasterDataPage } from "@/components/master-data/master-data-page";
 import type { MasterDataFormField } from "@/components/master-data/master-data-form";
 import { JournalTraceCell } from "@/components/accounting/journal-trace-cell";
 import { textColumn } from "@/config/master-data/shared-columns";
+import { formatAmount } from "@/lib/money";
 import { StatusBadge } from "@/components/business/status-badge";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
@@ -17,13 +18,12 @@ import {
   prepaidExpensesService,
   type PrepaidExpenseRow,
 } from "@/services/prepaid-expenses-service";
-import { ApiError } from "@/services/api-client";
 import {
   receivingAccountsService,
   type ReceivingAccountOption,
 } from "@/services/receiving-accounts-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
+import { toast, reportApiError } from "@/lib/toast";
 import { formatDate } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
 import { useUserContext } from "@/providers/user-context";
@@ -67,17 +67,21 @@ function PrepaidStatusCell({ status }: { status: PrepaidExpenseRow["status"] }) 
 const columns: ColumnDef<PrepaidExpenseRow, unknown>[] = [
   textColumn("prepaidNumber", "accounting.prepaid.fields.prepaidNumber", (r) => r.prepaidNumber),
   textColumn("name", "masterData.fields.name", (r) => r.name),
-  textColumn("amount", "masterData.expenses.fields.amount", (r) =>
-    Number(r.amount).toLocaleString(),
-  ),
+  {
+    ...textColumn("amount", "masterData.expenses.fields.amount", (r) => formatAmount(r.amount)),
+    meta: { titleKey: "masterData.expenses.fields.amount", type: "money" },
+  },
   textColumn("startDate", "accounting.prepaid.fields.startDate", (r) => formatDate(r.startDate)),
   textColumn("endDate", "accounting.prepaid.fields.endDate", (r) => formatDate(r.endDate)),
   textColumn("totalPeriods", "accounting.prepaid.fields.totalPeriods", (r) =>
     String(r.totalPeriods),
   ),
-  textColumn("recognizedAmount", "accounting.prepaid.fields.recognizedAmount", (r) =>
-    Number(r.recognizedAmount ?? 0).toLocaleString(),
-  ),
+  {
+    ...textColumn("recognizedAmount", "accounting.prepaid.fields.recognizedAmount", (r) =>
+      formatAmount(r.recognizedAmount ?? 0),
+    ),
+    meta: { titleKey: "accounting.prepaid.fields.recognizedAmount", type: "money" },
+  },
   {
     id: "status",
     accessorFn: (row) => row.status,
@@ -168,7 +172,7 @@ function PrepaidExpensesPageContent() {
       setActivateTarget(null);
       reload();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("errors.generic"));
+      reportApiError(error, "errors.generic");
     } finally {
       setBusy(false);
     }
@@ -182,7 +186,7 @@ function PrepaidExpensesPageContent() {
       setRecognizeOpen(false);
       reload();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("errors.generic"));
+      reportApiError(error, "errors.generic");
     } finally {
       setBusy(false);
     }

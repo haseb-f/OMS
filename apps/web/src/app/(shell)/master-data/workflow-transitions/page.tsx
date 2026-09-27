@@ -1,27 +1,29 @@
 "use client";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EnterpriseButton } from "@/components/ui/button";
+import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DynamicStatusBadge } from "@/components/business/dynamic-status-badge";
+import { StatusBadge } from "@/components/business/status-badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  tableIdentityCellClass,
+} from "@/components/ui/table";
 import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError, toast } from "@/lib/toast";
 import { workflowService, type WorkflowStatusOption } from "@/services/workflow-service";
 import { WORKFLOW_TYPES, type WorkflowTypeValue } from "@/config/master-data/workflow-statuses";
 
@@ -168,110 +170,109 @@ function TransitionDialog({
       onOpenChange(false);
       onSaved();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>
-            {editing ? t("workflow.transitions.edit") : t("workflow.transitions.add")}
-          </DialogTitle>
-          {editing?.isSystemProtected && (
-            <DialogDescription>{t("workflow.transitions.protectedHint")}</DialogDescription>
-          )}
-        </DialogHeader>
-        <div className="flex flex-col gap-4">
-          {!editing && (
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor={`${fieldId}-fromStatus`}>
-                  {t("workflow.transitions.fromStatus")}
-                </Label>
-                <SearchableSelect
-                  id={`${fieldId}-fromStatus`}
-                  value={form.fromStatusId}
-                  onValueChange={(v) => setForm((f) => ({ ...f, fromStatusId: v }))}
-                  options={statusOptions}
-                  placeholder={t("workflow.transitions.fromStatus")}
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor={`${fieldId}-toStatus`}>{t("workflow.transitions.toStatus")}</Label>
-                <SearchableSelect
-                  id={`${fieldId}-toStatus`}
-                  value={form.toStatusId}
-                  onValueChange={(v) => setForm((f) => ({ ...f, toStatusId: v }))}
-                  options={statusOptions}
-                  placeholder={t("workflow.transitions.toStatus")}
-                />
-              </div>
-            </div>
-          )}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <Label>{t("workflow.transitions.labelAr")}</Label>
-              <Input
-                value={form.labelAr}
-                onChange={(e) => setForm((f) => ({ ...f, labelAr: e.target.value }))}
-                dir="rtl"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label>{t("workflow.transitions.labelEn")}</Label>
-              <Input
-                value={form.labelEn}
-                onChange={(e) => setForm((f) => ({ ...f, labelEn: e.target.value }))}
-              />
-            </div>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label>{t("workflow.transitions.requiredPermission")}</Label>
-            <Input
-              value={form.requiredPermission}
-              onChange={(e) => setForm((f) => ({ ...f, requiredPermission: e.target.value }))}
-              placeholder="crm.leads.edit"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label>{t("workflow.transitions.sortOrder")}</Label>
-            <Input
-              type="number"
-              value={form.sortOrder}
-              onChange={(e) => setForm((f) => ({ ...f, sortOrder: e.target.value }))}
-              className="w-24"
-            />
-          </div>
-          <label className="flex items-center gap-2 text-caption">
-            <Checkbox
-              checked={form.requiresReason}
-              onCheckedChange={(v) => setForm((f) => ({ ...f, requiresReason: v === true }))}
-            />
-            {t("workflow.transitions.requiresReason")}
-          </label>
-          <label className="flex items-center gap-2 text-caption group-has-disabled/field:opacity-50">
-            <Checkbox
-              checked={form.requiresApproval}
-              disabled={Boolean(editing?.isSystemProtected && editing.requiresApproval)}
-              onCheckedChange={(v) => setForm((f) => ({ ...f, requiresApproval: v === true }))}
-            />
-            {t("workflow.transitions.requiresApproval")}
-          </label>
-        </div>
-        <DialogFooter>
+    <EnterpriseModal
+      open={open}
+      onOpenChange={onOpenChange}
+      size="sm"
+      title={editing ? t("workflow.transitions.edit") : t("workflow.transitions.add")}
+      description={editing?.isSystemProtected ? t("workflow.transitions.protectedHint") : undefined}
+      bodyClassName="flex flex-col gap-4"
+      footer={
+        <>
           <EnterpriseButton variant="outline" onClick={() => onOpenChange(false)}>
             {t("common.cancel")}
           </EnterpriseButton>
           <EnterpriseButton onClick={submit} disabled={isSubmitting}>
             {t("common.save")}
           </EnterpriseButton>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {!editing && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`${fieldId}-fromStatus`}>
+                {t("workflow.transitions.fromStatus")}
+              </Label>
+              <SearchableSelect
+                id={`${fieldId}-fromStatus`}
+                value={form.fromStatusId}
+                onValueChange={(v) => setForm((f) => ({ ...f, fromStatusId: v }))}
+                options={statusOptions}
+                placeholder={t("workflow.transitions.fromStatus")}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`${fieldId}-toStatus`}>{t("workflow.transitions.toStatus")}</Label>
+              <SearchableSelect
+                id={`${fieldId}-toStatus`}
+                value={form.toStatusId}
+                onValueChange={(v) => setForm((f) => ({ ...f, toStatusId: v }))}
+                options={statusOptions}
+                placeholder={t("workflow.transitions.toStatus")}
+              />
+            </div>
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label>{t("workflow.transitions.labelAr")}</Label>
+            <Input
+              value={form.labelAr}
+              onChange={(e) => setForm((f) => ({ ...f, labelAr: e.target.value }))}
+              dir="rtl"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>{t("workflow.transitions.labelEn")}</Label>
+            <Input
+              value={form.labelEn}
+              onChange={(e) => setForm((f) => ({ ...f, labelEn: e.target.value }))}
+            />
+          </div>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>{t("workflow.transitions.requiredPermission")}</Label>
+          <Input
+            value={form.requiredPermission}
+            onChange={(e) => setForm((f) => ({ ...f, requiredPermission: e.target.value }))}
+            placeholder="crm.leads.edit"
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>{t("workflow.transitions.sortOrder")}</Label>
+          <Input
+            type="number"
+            value={form.sortOrder}
+            onChange={(e) => setForm((f) => ({ ...f, sortOrder: e.target.value }))}
+            className="w-24"
+          />
+        </div>
+        <label className="flex items-center gap-2 text-caption">
+          <Checkbox
+            checked={form.requiresReason}
+            onCheckedChange={(v) => setForm((f) => ({ ...f, requiresReason: v === true }))}
+          />
+          {t("workflow.transitions.requiresReason")}
+        </label>
+        <label className="flex items-center gap-2 text-caption group-has-disabled/field:opacity-50">
+          <Checkbox
+            checked={form.requiresApproval}
+            disabled={Boolean(editing?.isSystemProtected && editing.requiresApproval)}
+            onCheckedChange={(v) => setForm((f) => ({ ...f, requiresApproval: v === true }))}
+          />
+          {t("workflow.transitions.requiresApproval")}
+        </label>
+      </div>
+    </EnterpriseModal>
   );
 }
 
@@ -293,7 +294,7 @@ function WorkflowTransitionsTab({ workflowType }: { workflowType: WorkflowTypeVa
         setStatuses(sRows);
       })
       .catch((error: unknown) => {
-        toast.error(error instanceof ApiError ? error.message : "Failed to load");
+        reportApiError(error, "errors.loadFailed");
       })
       .finally(() => setLoading(false));
   }, [workflowType]);
@@ -312,7 +313,7 @@ function WorkflowTransitionsTab({ workflowType }: { workflowType: WorkflowTypeVa
       );
       void reload();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     }
   };
 
@@ -335,110 +336,104 @@ function WorkflowTransitionsTab({ workflowType }: { workflowType: WorkflowTypeVa
             ? t("common.loading")
             : `${transitions.length} ${t("workflow.transitions.title")}`}
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-caption">
-            <thead className="border-b border-border text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 text-start font-medium">
-                  {t("workflow.transitions.from")}
-                </th>
-                <th className="px-3 py-2 text-start font-medium"></th>
-                <th className="px-3 py-2 text-start font-medium">{t("workflow.transitions.to")}</th>
-                <th className="px-3 py-2 text-start font-medium">
-                  {t("workflow.transitions.label")}
-                </th>
-                <th className="px-3 py-2 text-start font-medium">
-                  {t("workflow.transitions.businessAction")}
-                </th>
-                <th className="px-3 py-2 text-start font-medium">
-                  {t("workflow.transitions.requiresReason")}
-                </th>
-                <th className="px-3 py-2 text-start font-medium">
-                  {t("workflow.transitions.active")}
-                </th>
-                <th className="px-3 py-2"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {transitions.map((row) => (
-                <tr key={row.id} className="hover:bg-muted/40">
-                  <td className="px-3 py-2">
-                    <DynamicStatusBadge
-                      label={row.fromStatus.name}
-                      colorKey={row.fromStatus.color}
-                    />
-                  </td>
-                  <td className="px-1 py-2 text-muted-foreground">→</td>
-                  <td className="px-3 py-2">
-                    <DynamicStatusBadge label={row.toStatus.name} colorKey={row.toStatus.color} />
-                  </td>
-                  <td className="px-3 py-2">{row.labelAr}</td>
-                  <td className="px-3 py-2">
-                    {row.businessAction !== "NONE" ? (
-                      <div className="flex items-center gap-1.5">
-                        <EnterpriseBadge variant="info">
-                          {t(BUSINESS_ACTION_KEY[row.businessAction])}
-                        </EnterpriseBadge>
-                        {row.isSystemProtected && (
-                          <EnterpriseBadge variant="warning">
-                            {t("workflow.transitions.protected")}
-                          </EnterpriseBadge>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
-                    {row.requiresReason ? (
-                      <EnterpriseBadge variant="outline">
-                        {t("workflow.transitions.requiresReason")}
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t("workflow.transitions.from")}</TableHead>
+              <TableHead aria-hidden />
+              <TableHead>{t("workflow.transitions.to")}</TableHead>
+              <TableHead>{t("workflow.transitions.label")}</TableHead>
+              <TableHead>{t("workflow.transitions.businessAction")}</TableHead>
+              <TableHead>{t("workflow.transitions.requiresReason")}</TableHead>
+              <TableHead>{t("workflow.transitions.active")}</TableHead>
+              <TableHead />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading
+              ? Array.from({ length: 4 }, (_, index) => (
+                  <TableRow key={`skeleton-${index}`}>
+                    <TableCell colSpan={8}>
+                      <Skeleton className="h-4 w-2/3" />
+                    </TableCell>
+                  </TableRow>
+                ))
+              : null}
+            {transitions.map((row) => (
+              <TableRow key={row.id}>
+                <TableCell>
+                  <StatusBadge label={row.fromStatus.name} colorKey={row.fromStatus.color} />
+                </TableCell>
+                <TableCell className="px-1 text-muted-foreground">
+                  <span className="inline-block rtl:rotate-180" aria-hidden>
+                    →
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <StatusBadge label={row.toStatus.name} colorKey={row.toStatus.color} />
+                </TableCell>
+                <TableCell className={tableIdentityCellClass}>{row.labelAr}</TableCell>
+                <TableCell>
+                  {row.businessAction !== "NONE" ? (
+                    <div className="flex items-center gap-1.5">
+                      <EnterpriseBadge variant="info">
+                        {t(BUSINESS_ACTION_KEY[row.businessAction])}
                       </EnterpriseBadge>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
-                    <EnterpriseBadge variant={row.isActive ? "success" : "secondary"}>
-                      {t(
-                        row.isActive
-                          ? "workflow.transitions.active"
-                          : "workflow.transitions.inactive",
-                      )}
-                    </EnterpriseBadge>
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex justify-end gap-2">
-                      <EnterpriseButton
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setEditing(row);
-                          setDialogOpen(true);
-                        }}
-                      >
-                        {t("common.edit")}
-                      </EnterpriseButton>
-                      {!row.isSystemProtected && (
-                        <EnterpriseButton
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => toggleActive(row)}
-                        >
-                          {t(
-                            row.isActive
-                              ? "workflow.transitions.inactive"
-                              : "workflow.transitions.active",
-                          )}
-                        </EnterpriseButton>
+                      {row.isSystemProtected && (
+                        <EnterpriseBadge variant="warning">
+                          {t("workflow.transitions.protected")}
+                        </EnterpriseBadge>
                       )}
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {row.requiresReason ? (
+                    <EnterpriseBadge variant="outline">
+                      {t("workflow.transitions.requiresReason")}
+                    </EnterpriseBadge>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <EnterpriseBadge variant={row.isActive ? "success" : "secondary"}>
+                    {t(
+                      row.isActive
+                        ? "workflow.transitions.active"
+                        : "workflow.transitions.inactive",
+                    )}
+                  </EnterpriseBadge>
+                </TableCell>
+                <TableCell>
+                  <div className="flex justify-end gap-2">
+                    <EnterpriseButton
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setEditing(row);
+                        setDialogOpen(true);
+                      }}
+                    >
+                      {t("common.edit")}
+                    </EnterpriseButton>
+                    {!row.isSystemProtected && (
+                      <EnterpriseButton size="sm" variant="ghost" onClick={() => toggleActive(row)}>
+                        {t(
+                          row.isActive
+                            ? "workflow.transitions.inactive"
+                            : "workflow.transitions.active",
+                        )}
+                      </EnterpriseButton>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </section>
       <TransitionDialog
         key={editing?.id ?? "new"}
@@ -504,7 +499,7 @@ export default function WorkflowTransitionsPage() {
                         toast.success(t("workflow.approvals.approved"));
                         void reloadApprovals();
                       } catch (error) {
-                        toast.error(error instanceof ApiError ? error.message : "Error");
+                        reportApiError(error, "errors.generic");
                       }
                     }}
                   >
@@ -519,7 +514,7 @@ export default function WorkflowTransitionsPage() {
                         toast.success(t("workflow.approvals.rejected"));
                         void reloadApprovals();
                       } catch (error) {
-                        toast.error(error instanceof ApiError ? error.message : "Error");
+                        reportApiError(error, "errors.generic");
                       }
                     }}
                   >

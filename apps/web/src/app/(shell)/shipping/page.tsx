@@ -38,9 +38,8 @@ import type { StoreOrderSourceValue } from "@/services/store-orders-service";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast } from "@/lib/toast";
+import { reportApiError, toast } from "@/lib/toast";
 import { formatDate, toISODate } from "@/lib/date";
-import { ApiError } from "@/services/api-client";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { useCountries } from "@/hooks/use-reference-data";
 
@@ -134,7 +133,7 @@ function ShippingPageContent() {
       setItems(result.items);
       setTotal(result.total);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to load shipments.");
+      reportApiError(error, "errors.loadFailed");
     } finally {
       setIsLoading(false);
     }
@@ -181,9 +180,7 @@ function ShippingPageContent() {
       const result = await shippingService.listIds(listParams());
       setRowSelection(Object.fromEntries(result.ids.map((id) => [id, true])));
     } catch (error) {
-      toast.error(
-        error instanceof ApiError ? error.message : "Failed to select all matching shipments.",
-      );
+      reportApiError(error, "errors.selectFailed");
     } finally {
       setIsSelectingAllMatching(false);
     }
@@ -201,7 +198,7 @@ function ShippingPageContent() {
       setRowSelection({});
       void load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     }
   };
 

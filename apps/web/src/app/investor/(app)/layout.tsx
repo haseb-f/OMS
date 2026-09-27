@@ -44,11 +44,11 @@ export default function InvestorPortalAppLayout({ children }: { children: ReactN
 
   return (
     <div className="flex min-h-svh flex-col bg-background">
-      <header className="border-b bg-card">
-        <div className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4 sm:px-6">
+      <header className="border-b border-border bg-card">
+        <div className="mx-auto flex h-(--shell-topbar-height) max-w-6xl items-center gap-3 px-4 sm:gap-6 sm:px-6">
           <Link href="/investor/dashboard" className="flex shrink-0 items-center gap-2">
             <BrandLogo variant="mark" sizes="28px" className="size-7" />
-            <span className="hidden text-sm font-semibold text-foreground sm:inline">
+            <span className="hidden text-body font-semibold text-foreground sm:inline">
               {t("investorPortal.auth.loginTitle")}
             </span>
           </Link>
@@ -60,11 +60,12 @@ export default function InvestorPortalAppLayout({ children }: { children: ReactN
                 <Link
                   key={item.href}
                   href={item.href}
+                  aria-current={active ? "page" : undefined}
                   className={cn(
-                    "shrink-0 rounded-sm px-3 py-1.5 text-caption font-medium whitespace-nowrap transition-colors",
+                    "shrink-0 rounded-sm px-3 py-1.5 text-caption font-medium whitespace-nowrap transition-colors duration-(--duration-base) focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-focus-ring",
                     active
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      ? "bg-primary-soft text-primary"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
                   )}
                 >
                   {t(item.labelKey)}

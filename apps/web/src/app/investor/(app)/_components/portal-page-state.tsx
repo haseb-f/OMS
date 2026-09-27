@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
-import { AlertCircle, type LucideIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
-import { EnterpriseButton } from "@/components/ui/button";
+import { ErrorState } from "@/components/shared/error-state";
 import { useLocale } from "@/providers/locale-provider";
 
 /**
@@ -43,14 +43,10 @@ export function PortalPageState({
 
   if (error) {
     return (
-      <EmptyState
-        icon={AlertCircle}
+      <ErrorState
         title={t("investorPortal.common.loadFailed")}
-        action={
-          <EnterpriseButton variant="outline" size="sm" onClick={onRetry}>
-            {t("investorPortal.common.retry")}
-          </EnterpriseButton>
-        }
+        retryLabel={t("investorPortal.common.retry")}
+        onRetry={onRetry}
       />
     );
   }

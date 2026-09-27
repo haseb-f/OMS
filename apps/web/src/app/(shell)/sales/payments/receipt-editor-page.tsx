@@ -18,6 +18,10 @@ import type {
   FinancialTransactionEditorState,
 } from "@/components/financial-transactions/financial-transaction-editor.types";
 import {
+  financialTransactionErrorKeys,
+  translateFieldErrors,
+} from "@/components/financial-transactions/financial-transaction-validation";
+import {
   customerReceiptsService,
   type FinancialTransactionActivityEntry,
   type FinancialTransactionRow,
@@ -31,8 +35,7 @@ import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError, toast } from "@/lib/toast";
 
 let nextLineId = 1;
 
@@ -65,7 +68,6 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
   const [activity, setActivity] = useState<FinancialTransactionActivityEntry[] | null | undefined>(
     undefined,
   );
-  const [cancelTarget, setCancelTarget] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(false);
 
   const [customer, setCustomer] = useState<PartnerPickerRow | null>(null);
@@ -107,7 +109,7 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
       try {
         applyReceipt(await customerReceiptsService.get(id));
       } catch (error) {
-        toast.error(error instanceof ApiError ? error.message : "Failed to load receipt.");
+        reportApiError(error, "errors.loadFailed");
       } finally {
         setIsLoading(false);
       }
@@ -157,17 +159,21 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
   const allocatedTotal = allocations.reduce((sum, line) => sum + line.allocatedAmount, 0);
   const unallocatedAmount = Math.max(amount - allocatedTotal, 0);
 
-  const validate = (): string | null => {
-    if (!customer) return t("financialTransactions.validation.partyRequired");
-    if (amount <= 0) return t("financialTransactions.validation.amountRequired");
-    if (allocatedTotal > amount)
-      return t("financialTransactions.validation.allocationExceedsAmount");
-    return null;
-  };
-
-  /** Posting needs to know where the money went/came from — checked before any request so Confirm never half-succeeds. */
-  const validateForPosting = (): string | null =>
-    receivingAccountId ? null : t("financialTransactions.validation.receivingAccountRequired");
+  /**
+   * Inline validation (design §8): after a failed Save/Confirm the messages
+   * sit under their fields and update live as the user fixes them — entered
+   * data is never cleared. Posting also needs to know where the money
+   * went/came from, checked before any request so Confirm never half-succeeds.
+   */
+  const [validationMode, setValidationMode] = useState<"save" | "post" | null>(null);
+  const errorKeys = (forPosting: boolean) =>
+    financialTransactionErrorKeys({
+      hasParty: customer !== null,
+      amount,
+      allocatedTotal,
+      receivingAccountId,
+      forPosting,
+    });
 
   const buildPayload = () => ({
     partnerId: customer!.id,
@@ -184,11 +190,11 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
   });
 
   const handleSave = async () => {
-    const error = validate();
-    if (error) {
-      toast.error(error);
+    if (errorKeys(false)) {
+      setValidationMode("save");
       return;
     }
+    setValidationMode(null);
     setIsSaving(true);
     try {
       if (id) {
@@ -201,7 +207,7 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
         router.replace(`/sales/payments/${created.id}`);
       }
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsSaving(false);
     }
@@ -219,7 +225,7 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
       toast.success(t(successKey));
       refreshActivity(id);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsTransitioning(false);
     }
@@ -227,11 +233,11 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
 
   /** "Confirm" on a brand-new, not-yet-saved receipt must create it first — `runTransition` alone silently no-ops with no `id` yet. Reuses the exact same `create()`/`confirm()` calls Save and a post-save Confirm already use, never a parallel path. */
   const handleConfirmExisting = async () => {
-    const postingError = validateForPosting();
-    if (postingError) {
-      toast.error(postingError);
+    if (errorKeys(true)) {
+      setValidationMode("post");
       return;
     }
+    setValidationMode(null);
     await runTransition(
       (transactionId) => customerReceiptsService.confirm(transactionId),
       "financialTransactions.toasts.confirmed",
@@ -239,11 +245,11 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
   };
 
   const handleConfirmNew = async () => {
-    const error = validate() ?? validateForPosting();
-    if (error) {
-      toast.error(error);
+    if (errorKeys(true)) {
+      setValidationMode("post");
       return;
     }
+    setValidationMode(null);
     if (confirmingRef.current) return;
     confirmingRef.current = true;
     setIsTransitioning(true);
@@ -252,7 +258,7 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
       toast.success(t("financialTransactions.toasts.confirmed"));
       router.replace(`/sales/payments/${confirmed.id}`);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       confirmingRef.current = false;
       setIsTransitioning(false);
@@ -293,7 +299,7 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
       applyReceipt(refreshed);
       toast.success(t("financialTransactions.toasts.allocated"));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsTransitioning(false);
     }
@@ -387,7 +393,7 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
       toast.success(t("financialTransactions.toasts.deleted"));
       router.push("/sales/payments");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsTransitioning(false);
     }
@@ -446,7 +452,18 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
           icon: Ban,
           variant: "destructive",
           visibleForStatuses: ["CONFIRMED"],
-          onAction: () => setCancelTarget(true),
+          confirm: {
+            title: t("financialTransactions.confirmCancelTitle"),
+            description: t("financialTransactions.confirmCancelDescription"),
+            confirmLabel: t("financialTransactions.actions.cancel"),
+            tone: "destructive",
+          },
+          onAction: async () => {
+            await runTransition(
+              (rid) => customerReceiptsService.cancel(rid),
+              "financialTransactions.toasts.cancelled",
+            );
+          },
         },
         {
           key: "delete",
@@ -534,6 +551,9 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
         isLoading={isLoading}
         disabled={!canEdit || isSaving}
         isBusy={isSaving || isTransitioning}
+        fieldErrors={
+          validationMode ? translateFieldErrors(errorKeys(validationMode === "post"), t) : undefined
+        }
         renderPartyPicker={({ disabled }) => (
           <PartnerPicker
             role="CUSTOMER"
@@ -557,23 +577,6 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
             />
           </div>
         }
-      />
-
-      <ConfirmationDialog
-        open={cancelTarget}
-        onOpenChange={setCancelTarget}
-        tone="destructive"
-        title={t("financialTransactions.confirmCancelTitle")}
-        description={t("financialTransactions.confirmCancelDescription")}
-        confirmLabel={t("financialTransactions.actions.cancel")}
-        cancelLabel={t("common.close")}
-        onConfirm={async () => {
-          setCancelTarget(false);
-          await runTransition(
-            (rid) => customerReceiptsService.cancel(rid),
-            "financialTransactions.toasts.cancelled",
-          );
-        }}
       />
 
       <ConfirmationDialog

@@ -34,15 +34,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { EnterpriseBadge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { KpiCard } from "@/components/shared/kpi-card";
@@ -245,24 +237,27 @@ export default function DesignSystemPage() {
         <Section title={t("designSystem.dialogs")}>
           <EnterpriseCard>
             <EnterpriseCardContent className="flex flex-wrap gap-3">
-              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogTrigger asChild>
-                  <EnterpriseButton variant="outline">
-                    {t("designSystem.dialogTrigger")}
-                  </EnterpriseButton>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>{t("designSystem.dialogTitle")}</DialogTitle>
-                    <DialogDescription>{t("designSystem.dialogDescription")}</DialogDescription>
-                  </DialogHeader>
-                  <DialogFooter>
+              <EnterpriseButton variant="outline" onClick={() => setDialogOpen(true)}>
+                {t("designSystem.dialogTrigger")}
+              </EnterpriseButton>
+              <EnterpriseModal
+                open={dialogOpen}
+                onOpenChange={setDialogOpen}
+                size="sm"
+                title={t("designSystem.dialogTitle")}
+                footer={(requestClose) => (
+                  <>
+                    <EnterpriseButton variant="outline" onClick={requestClose}>
+                      {t("common.cancel")}
+                    </EnterpriseButton>
                     <EnterpriseButton onClick={() => setDialogOpen(false)}>
                       {t("common.confirm")}
                     </EnterpriseButton>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+                  </>
+                )}
+              >
+                <p className="text-body">{t("designSystem.dialogDescription")}</p>
+              </EnterpriseModal>
 
               <EnterpriseButton variant="outline" onClick={() => setConfirmOpen(true)}>
                 {t("designSystem.alertDialogTrigger")}

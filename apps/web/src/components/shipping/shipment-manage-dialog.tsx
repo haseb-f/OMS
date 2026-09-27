@@ -2,15 +2,8 @@
 
 import { useEffect, useId, useState } from "react";
 import { Link as LinkIcon, Truck } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { EnterpriseButton } from "@/components/ui/button";
+import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/business/status-badge";
@@ -36,8 +29,7 @@ import {
 } from "@/services/shipping-service";
 import type { ShippingCompanyOption } from "@/services/shipping-companies-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError, toast } from "@/lib/toast";
 
 /**
  * Direct shipment-level operations from the Shipping screen itself (Part 3
@@ -160,7 +152,7 @@ export function ShipmentManageDialog({
       onOpenChange(false);
       onUpdated();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to update shipment.");
+      reportApiError(error, "errors.updateFailed");
     } finally {
       setIsSaving(false);
     }
@@ -175,14 +167,15 @@ export function ShipmentManageDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Truck className="size-4" />
-            {t("shipping.manage.title")}
-          </DialogTitle>
-          <DialogDescription>
+    <>
+      <EnterpriseModal
+        open={open}
+        onOpenChange={onOpenChange}
+        size="md"
+        icon={Truck}
+        title={t("shipping.manage.title")}
+        description={
+          <>
             <span dir="ltr" className="font-mono">
               {shipment.storeOrder.internalOrderId}
             </span>
@@ -191,9 +184,20 @@ export function ShipmentManageDialog({
             )}
             {" · "}
             {shipment.storeOrder.partner?.name}
-          </DialogDescription>
-        </DialogHeader>
-
+          </>
+        }
+        bodyClassName="flex flex-col gap-4"
+        footer={
+          <>
+            <EnterpriseButton type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              {t("common.cancel")}
+            </EnterpriseButton>
+            <EnterpriseButton type="button" onClick={handleSave} disabled={isSaving}>
+              {t("common.save")}
+            </EnterpriseButton>
+          </>
+        }
+      >
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2">
             <span className="text-caption text-muted-foreground">
@@ -295,17 +299,7 @@ export function ShipmentManageDialog({
             </p>
           </div>
         </div>
-
-        <DialogFooter>
-          <EnterpriseButton type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            {t("common.cancel")}
-          </EnterpriseButton>
-          <EnterpriseButton type="button" onClick={handleSave} disabled={isSaving}>
-            {t("common.save")}
-          </EnterpriseButton>
-        </DialogFooter>
-      </DialogContent>
-
+      </EnterpriseModal>
       <ConfirmationDialog
         open={pendingReopenConfirm}
         onOpenChange={setPendingReopenConfirm}
@@ -319,6 +313,6 @@ export function ShipmentManageDialog({
           void applyChanges();
         }}
       />
-    </Dialog>
+    </>
   );
 }

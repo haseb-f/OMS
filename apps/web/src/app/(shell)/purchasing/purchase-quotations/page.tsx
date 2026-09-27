@@ -48,10 +48,9 @@ import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast } from "@/lib/toast";
+import { reportApiError, toast } from "@/lib/toast";
 import { formatDate, toISODate } from "@/lib/date";
 import { siteConfig } from "@/config/site";
-import { ApiError } from "@/services/api-client";
 import { PermissionGate } from "@/components/shared/permission-gate";
 
 const EMPTY_DATE_RANGE: DateRangeValue = { from: null, to: null };
@@ -104,7 +103,7 @@ function PurchaseQuotationsPageContent() {
       setItems(result.items);
       setTotal(result.total);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to load quotations.");
+      reportApiError(error, "errors.loadFailed");
     } finally {
       setIsLoading(false);
     }
@@ -154,7 +153,7 @@ function PurchaseQuotationsPageContent() {
       toast.success(t("purchasing.quotations.toasts.duplicated"));
       router.push(`/purchasing/purchase-quotations/${created.id}`);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to duplicate quotation.");
+      reportApiError(error, "errors.duplicateFailed");
     }
   };
 
@@ -170,7 +169,7 @@ function PurchaseQuotationsPageContent() {
         }),
       );
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to print quotation.");
+      reportApiError(error, "errors.printFailed");
     }
   };
 
@@ -181,7 +180,7 @@ function PurchaseQuotationsPageContent() {
       toast.success(t("purchasing.quotations.toasts.cancelled"));
       void load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to cancel quotation.");
+      reportApiError(error, "errors.cancelFailed");
     } finally {
       setCancelTarget(null);
     }
@@ -194,7 +193,7 @@ function PurchaseQuotationsPageContent() {
       toast.success(t("purchasing.quotations.toasts.archived"));
       void load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to archive quotation.");
+      reportApiError(error, "errors.archiveFailed");
     } finally {
       setArchiveTarget(null);
     }

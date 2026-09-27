@@ -88,7 +88,7 @@ export function FxOverridesCard({
           primary={
             <span>
               <span className="font-medium">{row.fromCurrency?.code}</span>{" "}
-              <span dir="ltr" className="tabular-nums">
+              <span className="num">
                 {formatDateRange(row.dateFrom.slice(0, 10), row.dateTo.slice(0, 10))}
               </span>
             </span>
@@ -102,7 +102,7 @@ export function FxOverridesCard({
       header: t("fxSettings.overrides.rate"),
       align: "end",
       cell: (row) => (
-        <span dir="ltr" className="tabular-nums">
+        <span className="num">
           {`1 ${row.fromCurrency?.code ?? ""} = ${formatFxRate(row.rate)} ${row.toCurrency?.code ?? baseCode}`}
         </span>
       ),
@@ -133,9 +133,7 @@ export function FxOverridesCard({
     <EnterpriseCard className="gap-0 py-3" data-testid="fx-overrides">
       <EnterpriseCardHeader className="flex flex-wrap items-start justify-between gap-2 px-4 pb-2">
         <div className="min-w-0">
-          <EnterpriseCardTitle className="text-body">
-            {t("fxSettings.overrides.title")}
-          </EnterpriseCardTitle>
+          <EnterpriseCardTitle>{t("fxSettings.overrides.title")}</EnterpriseCardTitle>
           <EnterpriseCardDescription>
             {t("fxSettings.overrides.description")}
           </EnterpriseCardDescription>

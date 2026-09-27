@@ -125,7 +125,7 @@ export function FxOverrideDialog({
       isDirty={dirty}
       footer={(requestClose) => (
         <>
-          <EnterpriseButton type="button" variant="secondary" onClick={requestClose}>
+          <EnterpriseButton type="button" variant="outline" onClick={requestClose}>
             {t("common.cancel")}
           </EnterpriseButton>
           <EnterpriseButton

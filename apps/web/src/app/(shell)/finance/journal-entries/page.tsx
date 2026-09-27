@@ -47,10 +47,9 @@ import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast } from "@/lib/toast";
+import { reportApiError, toast } from "@/lib/toast";
 import { formatDate, toISODate } from "@/lib/date";
 import { siteConfig } from "@/config/site";
-import { ApiError } from "@/services/api-client";
 import { PermissionGate } from "@/components/shared/permission-gate";
 
 const EMPTY_DATE_RANGE: DateRangeValue = { from: null, to: null };
@@ -119,7 +118,7 @@ function JournalEntriesPageContent() {
         ...Object.fromEntries(result.items.map((item) => [item.id, item])),
       }));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to load journal entries.");
+      reportApiError(error, "errors.loadFailed");
     } finally {
       setIsLoading(false);
     }
@@ -158,7 +157,7 @@ function JournalEntriesPageContent() {
         }),
       );
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to print journal entry.");
+      reportApiError(error, "errors.printFailed");
     }
   };
 
@@ -169,7 +168,7 @@ function JournalEntriesPageContent() {
       toast.success(t("accounting.journalEntries.toasts.posted"));
       void load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to post journal entry.");
+      reportApiError(error, "errors.actionFailed");
     } finally {
       setPostTarget(null);
     }
@@ -183,7 +182,7 @@ function JournalEntriesPageContent() {
       void load();
       router.push(`/finance/journal-entries/${reversed.id}`);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to reverse journal entry.");
+      reportApiError(error, "errors.actionFailed");
     } finally {
       setReverseTarget(null);
     }
@@ -195,7 +194,7 @@ function JournalEntriesPageContent() {
       toast.success(t("accounting.journalEntries.toasts.duplicated"));
       router.push(`/finance/journal-entries/${duplicated.id}`);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to duplicate journal entry.");
+      reportApiError(error, "errors.duplicateFailed");
     }
   };
 
@@ -206,7 +205,7 @@ function JournalEntriesPageContent() {
       toast.success(t("accounting.journalEntries.toasts.archived"));
       void load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to archive journal entry.");
+      reportApiError(error, "errors.archiveFailed");
     } finally {
       setArchiveTarget(null);
     }
@@ -409,9 +408,7 @@ function JournalEntriesPageContent() {
       });
       setRowSelection(Object.fromEntries(result.ids.map((id) => [id, true])));
     } catch (error) {
-      toast.error(
-        error instanceof ApiError ? error.message : "Failed to select all matching entries.",
-      );
+      reportApiError(error, "errors.selectFailed");
     } finally {
       setIsSelectingAllMatching(false);
     }

@@ -17,8 +17,7 @@ import { AttachmentPreviewDialog } from "@/components/business/attachment-previe
 import { useLocale } from "@/providers/locale-provider";
 import { storeOrdersService, type ShipmentAttachmentRow } from "@/services/store-orders-service";
 import { attachmentsService } from "@/services/attachments-service";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 const ACCEPTED_TYPES = ".jpg,.jpeg,.png,.webp,.pdf";
@@ -78,7 +77,7 @@ export function ShipmentAttachmentsPopover({
       await storeOrdersService.shipments.attachments.upload(storeOrderId, file);
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("shipping.quickEdit.uploadFailed"));
+      reportApiError(error, "shipping.quickEdit.uploadFailed");
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -94,9 +93,7 @@ export function ShipmentAttachmentsPopover({
       const blob = await attachmentsService.download(item.attachmentId);
       setPreview({ title: item.fileName ?? "attachment", mimeType: item.mimeType, blob });
     } catch (error) {
-      toast.error(
-        error instanceof ApiError ? error.message : t("shipping.quickEdit.downloadFailed"),
-      );
+      reportApiError(error, "shipping.quickEdit.downloadFailed");
     }
   };
 
@@ -108,7 +105,7 @@ export function ShipmentAttachmentsPopover({
       setRemoveTarget(null);
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("shipping.quickEdit.removeFailed"));
+      reportApiError(error, "shipping.quickEdit.removeFailed");
     } finally {
       setIsRemoving(false);
     }
@@ -130,7 +127,7 @@ export function ShipmentAttachmentsPopover({
             {count > 0 && (
               <EnterpriseBadge
                 variant="secondary"
-                className="absolute -end-1 -top-1 h-4 min-w-4 justify-center rounded-full px-1 text-[0.65rem] leading-none"
+                className="absolute -end-1 -top-1 h-4 min-w-4 justify-center rounded-full px-1 text-micro leading-none"
               >
                 {count}
               </EnterpriseBadge>

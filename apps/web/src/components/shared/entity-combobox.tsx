@@ -198,7 +198,7 @@ export function EntityCombobox<T>({
         <EnterpriseButton
           id={id}
           type="button"
-          variant="outline"
+          variant="field"
           role="combobox"
           aria-expanded={open}
           aria-haspopup="listbox"
@@ -217,7 +217,7 @@ export function EntityCombobox<T>({
             }
           }}
           className={cn(
-            "h-(--control-height-sm) min-w-0 w-full justify-between text-body font-normal",
+            "h-(--control-height-md) min-w-0 w-full justify-between text-body font-normal",
             variant === "ghost" &&
               "border-transparent bg-transparent px-1.5 shadow-none not-disabled:hover:border-input",
             triggerClassName,
@@ -285,7 +285,7 @@ export function EntityCombobox<T>({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-(--control-height-sm) w-full justify-start gap-2 px-2.5 font-medium text-primary pointer-coarse:h-10"
+                className="h-(--control-height-md) w-full justify-start gap-2 px-2.5 font-medium text-primary pointer-coarse:h-10"
                 data-testid="entity-combobox-create"
                 onClick={() => {
                   const typed = search.trim();

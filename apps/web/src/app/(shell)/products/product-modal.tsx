@@ -44,8 +44,7 @@ import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-ta
 import { StatusBadge } from "@/components/business/status-badge";
 import { CategoryQuickCreateDialog } from "@/components/business/category-quick-create-dialog";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import {
   productsService,
   type ProductRow,
@@ -76,6 +75,7 @@ import {
 import { ProductOpeningBalanceDialog } from "./product-opening-balance-dialog";
 import { formatDate, formatDateTime } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
+import { formatNumber } from "@/lib/format-number";
 
 /** Same permission the Product Categories page and `POST /product-categories` enforce. */
 const CREATE_CATEGORY_PERMISSION = "masterdata.categories.create";
@@ -389,7 +389,7 @@ export function ProductModal({
         onOpenChange(false);
       }
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSubmitting(false);
     }
@@ -1305,9 +1305,7 @@ export function ProductModal({
                     className="flex h-11 items-center rounded-md border border-border bg-muted/40 px-3 text-sm"
                     dir="ltr"
                   >
-                    {savedProduct?.currentCost
-                      ? Number(savedProduct.currentCost).toLocaleString()
-                      : "—"}
+                    {savedProduct?.currentCost ? formatNumber(savedProduct.currentCost) : "—"}
                   </div>
                 </FormItem>
                 <FormItem>
@@ -1422,7 +1420,7 @@ function InventoryStockSummary({
           dir="ltr"
           className="flex h-11 items-center rounded-md border border-border bg-muted/40 px-3 text-sm"
         >
-          {isLoading ? "…" : (stockCard?.onHand ?? 0).toLocaleString()}
+          {isLoading ? "…" : formatNumber(stockCard?.onHand ?? 0)}
         </div>
       </FormItem>
       <FormItem>
@@ -1431,7 +1429,7 @@ function InventoryStockSummary({
           dir="ltr"
           className="flex h-11 items-center rounded-md border border-border bg-muted/40 px-3 text-sm"
         >
-          {isLoading ? "…" : (stockCard?.reserved ?? 0).toLocaleString()}
+          {isLoading ? "…" : formatNumber(stockCard?.reserved ?? 0)}
         </div>
       </FormItem>
       <FormItem>
@@ -1440,7 +1438,7 @@ function InventoryStockSummary({
           dir="ltr"
           className="flex h-11 items-center rounded-md border border-border bg-muted/40 px-3 text-sm"
         >
-          {isLoading ? "…" : (stockCard?.available ?? 0).toLocaleString()}
+          {isLoading ? "…" : formatNumber(stockCard?.available ?? 0)}
         </div>
       </FormItem>
       <FormItem>
@@ -1562,7 +1560,7 @@ function StockMovementsPanel({ productId }: { productId: string }) {
       accessorFn: (row) => row.unitCost ?? "",
       cell: ({ row }) =>
         row.original.unitCost != null ? (
-          <span dir="ltr">{Number(row.original.unitCost).toLocaleString()}</span>
+          <span dir="ltr">{formatNumber(row.original.unitCost)}</span>
         ) : (
           "—"
         ),
@@ -1626,7 +1624,7 @@ function VariantsPanel({ productId }: { productId: string }) {
       setWeight("");
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSaving(false);
     }
@@ -1638,7 +1636,7 @@ function VariantsPanel({ productId }: { productId: string }) {
       toast.success(t("products.variantRemoved"));
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     }
   };
 
@@ -1738,7 +1736,7 @@ function KitComponentsPanel({ kitProductId }: { kitProductId: string }) {
       setQuantity("");
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSaving(false);
     }
@@ -1750,7 +1748,7 @@ function KitComponentsPanel({ kitProductId }: { kitProductId: string }) {
       toast.success(t("products.kit.componentRemoved"));
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     }
   };
 
@@ -1857,7 +1855,7 @@ function AttachmentsPanel({ productId }: { productId: string }) {
       setFileName("");
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSaving(false);
     }

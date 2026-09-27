@@ -16,8 +16,7 @@ import {
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/business/status-badge";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import {
   physicalCountService,
   type PhysicalCountDetailRow,
@@ -83,7 +82,7 @@ export function CountDetailDialog({
       const updated = await physicalCountService.updateLine(count.id, lineId, Number(value));
       setCount(updated);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setSavingLineId(null);
     }
@@ -99,7 +98,7 @@ export function CountDetailDialog({
       onChanged();
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSubmitting(false);
     }
@@ -115,7 +114,7 @@ export function CountDetailDialog({
       onChanged();
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSubmitting(false);
     }

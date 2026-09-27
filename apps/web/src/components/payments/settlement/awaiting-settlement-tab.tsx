@@ -151,6 +151,7 @@ export function AwaitingSettlementTab({ methodId }: { methodId: string }) {
           titleKey: "paymentSettlement.fields.amount" as MessageKey,
           align: "end",
           importance: "low",
+          type: "money",
         },
         accessorFn: (row) => Number(row.amount),
         cell: (info) => (
@@ -163,6 +164,7 @@ export function AwaitingSettlementTab({ methodId }: { methodId: string }) {
           titleKey: "paymentSettlement.fields.settled" as MessageKey,
           align: "end",
           importance: "low",
+          type: "money",
         },
         accessorFn: (row) => Number(row.settledAmount),
         cell: (info) => (
@@ -178,6 +180,7 @@ export function AwaitingSettlementTab({ methodId }: { methodId: string }) {
           titleKey: "paymentSettlement.fields.remaining" as MessageKey,
           align: "end",
           importance: "critical",
+          type: "money",
         },
         accessorFn: (row) => Number(row.remainingAmount),
         cell: (info) => (

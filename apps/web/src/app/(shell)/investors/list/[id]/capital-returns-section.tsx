@@ -17,12 +17,17 @@ import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { AccountPicker } from "@/components/business/account-picker";
 import { StatusBadge } from "@/components/business/status-badge";
+import {
+  CompactDetailTable,
+  type CompactDetailColumn,
+} from "@/components/shared/data-table/compact-detail-table";
+import { tableIdentityCellClass } from "@/components/ui/table";
 import { capitalReturnsService, type CapitalReturnRow } from "@/services/capital-returns-service";
 import type { InvestorSubscriptionRow } from "@/services/investor-subscriptions-service";
 import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
 import { formatDate, fromISODate, toISODate } from "@/lib/date";
-import { formatMoney } from "@/lib/money";
+import { formatAmount } from "@/lib/money";
 import { toast, reportApiError } from "@/lib/toast";
 
 const RETURN_TONE: Record<
@@ -99,10 +104,62 @@ export function CapitalReturnsSection({
 
   if (!returns) return null;
 
+  const columns: CompactDetailColumn<CapitalReturnRow>[] = [
+    {
+      id: "code",
+      header: t("investors.capitalReturns.fields.code"),
+      cell: (row) => <span className={`num ${tableIdentityCellClass}`}>{row.code}</span>,
+    },
+    {
+      id: "amount",
+      header: t("investors.capitalReturns.fields.amount"),
+      align: "end",
+      cell: (row) => <span className="num">{formatAmount(row.amount, { zero: "dash" })}</span>,
+    },
+    {
+      id: "date",
+      header: t("investors.capitalReturns.fields.date"),
+      cell: (row) => <span className="num">{formatDate(row.date)}</span>,
+    },
+    {
+      id: "status",
+      header: t("investors.capitalReturns.fields.status"),
+      cell: (row) => (
+        <StatusBadge
+          label={t(`investors.capitalReturns.status.${row.status}` as never)}
+          tone={RETURN_TONE[row.status]}
+        />
+      ),
+    },
+    {
+      id: "actions",
+      header: t("common.actions"),
+      cell: (row) => (
+        <div className="flex gap-1.5">
+          {canApprove && row.status === "DRAFT" ? (
+            <EnterpriseButton size="sm" variant="outline" onClick={() => approve(row)}>
+              {t("investors.capitalReturns.actions.approve")}
+            </EnterpriseButton>
+          ) : null}
+          {canPay && row.status === "APPROVED" ? (
+            <EnterpriseButton size="sm" variant="outline" onClick={() => pay(row)}>
+              {t("investors.capitalReturns.actions.pay")}
+            </EnterpriseButton>
+          ) : null}
+          {canCancel && (row.status === "DRAFT" || row.status === "APPROVED") ? (
+            <EnterpriseButton size="sm" variant="ghost" onClick={() => setCancelTarget(row)}>
+              {t("investors.capitalReturns.actions.cancel")}
+            </EnterpriseButton>
+          ) : null}
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="mt-4">
-      <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-body font-medium">{t("investors.capitalReturns.title")}</h3>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-card-title">{t("investors.capitalReturns.title")}</h3>
         {canCreate && subscriptions.length > 0 ? (
           <EnterpriseButton size="sm" onClick={() => setCreateOpen(true)}>
             {t("investors.capitalReturns.actions.create")}
@@ -112,55 +169,7 @@ export function CapitalReturnsSection({
       {returns.length === 0 ? (
         <p className="text-caption text-muted-foreground">{t("investors.capitalReturns.empty")}</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-start text-body">
-            <thead>
-              <tr className="border-b border-border text-caption text-muted-foreground">
-                <th className="p-2 text-start">{t("investors.capitalReturns.fields.code")}</th>
-                <th className="p-2 text-start">{t("investors.capitalReturns.fields.amount")}</th>
-                <th className="p-2 text-start">{t("investors.capitalReturns.fields.date")}</th>
-                <th className="p-2 text-start">{t("investors.capitalReturns.fields.status")}</th>
-                <th className="p-2 text-start">{t("common.actions")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {returns.map((row) => (
-                <tr key={row.id} className="border-b border-border/60">
-                  <td className="p-2 font-medium">{row.code}</td>
-                  <td className="p-2">{formatMoney(row.amount)}</td>
-                  <td className="p-2">{formatDate(row.date)}</td>
-                  <td className="p-2">
-                    <StatusBadge
-                      label={t(`investors.capitalReturns.status.${row.status}` as never)}
-                      tone={RETURN_TONE[row.status]}
-                    />
-                  </td>
-                  <td className="p-2 flex gap-1.5">
-                    {canApprove && row.status === "DRAFT" ? (
-                      <EnterpriseButton size="sm" onClick={() => approve(row)}>
-                        {t("investors.capitalReturns.actions.approve")}
-                      </EnterpriseButton>
-                    ) : null}
-                    {canPay && row.status === "APPROVED" ? (
-                      <EnterpriseButton size="sm" variant="secondary" onClick={() => pay(row)}>
-                        {t("investors.capitalReturns.actions.pay")}
-                      </EnterpriseButton>
-                    ) : null}
-                    {canCancel && (row.status === "DRAFT" || row.status === "APPROVED") ? (
-                      <EnterpriseButton
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setCancelTarget(row)}
-                      >
-                        {t("investors.capitalReturns.actions.cancel")}
-                      </EnterpriseButton>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <CompactDetailTable columns={columns} rows={returns} rowKey={(row) => row.id} />
       )}
 
       {createOpen ? (
@@ -250,7 +259,7 @@ function CreateCapitalReturnDialog({
           rows={[
             {
               label: t("investors.capitalReturns.fields.amount"),
-              value: amountValue > 0 ? formatMoney(amountValue) : "—",
+              value: <span className="num">{formatAmount(amountValue, { zero: "dash" })}</span>,
             },
           ]}
         />

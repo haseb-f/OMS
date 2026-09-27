@@ -55,13 +55,13 @@ function ActivateForm() {
     return (
       <div>
         <header className="mb-6">
-          <h1 className="text-xl font-semibold tracking-tight text-foreground">
+          <h1 className="text-ui-title tracking-tight text-foreground">
             {t("investorPortal.auth.activateTitle")}
           </h1>
         </header>
         <div
           role="alert"
-          className="rounded-sm border border-destructive/20 bg-destructive/10 px-3 py-2 text-caption text-destructive"
+          className="rounded-sm border border-destructive-border bg-destructive-soft px-3 py-2 text-caption text-destructive-soft-foreground"
         >
           {t("investorPortal.auth.missingToken")}
         </div>
@@ -79,18 +79,18 @@ function ActivateForm() {
     return (
       <div>
         <header className="mb-6">
-          <h1 className="text-xl font-semibold tracking-tight text-foreground">
+          <h1 className="text-ui-title tracking-tight text-foreground">
             {t("investorPortal.auth.activateTitle")}
           </h1>
         </header>
         <div
           role="status"
-          className="rounded-sm border border-success/20 bg-success-soft px-3 py-3 text-sm text-success"
+          className="rounded-sm border border-success-border bg-success-soft px-3 py-3 text-body text-success-soft-foreground"
         >
           {t("investorPortal.auth.activateSuccess")}
         </div>
         <EnterpriseButton
-          className="mt-6 w-full from-brand-navy to-brand-navy text-brand-navy-foreground hover:brightness-110 dark:from-brand-navy dark:to-brand-navy"
+          className="mt-6 w-full bg-brand-navy text-brand-navy-foreground not-disabled:hover:bg-brand-navy/90"
           onClick={() => router.push("/investor/login")}
         >
           {t("investorPortal.auth.backToLogin")}
@@ -102,10 +102,10 @@ function ActivateForm() {
   return (
     <div>
       <header className="mb-8">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
+        <h1 className="text-ui-title tracking-tight text-foreground">
           {t("investorPortal.auth.activateTitle")}
         </h1>
-        <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+        <p className="mt-1.5 text-body text-muted-foreground">
           {t("investorPortal.auth.activateSubtitle")}
         </p>
       </header>
@@ -123,7 +123,7 @@ function ActivateForm() {
           {formError && (
             <div
               role="alert"
-              className="rounded-sm border border-destructive/20 bg-destructive/10 px-3 py-2 text-caption text-destructive"
+              className="rounded-sm border border-destructive-border bg-destructive-soft px-3 py-2 text-caption text-destructive-soft-foreground"
             >
               {formError}
             </div>
@@ -131,7 +131,7 @@ function ActivateForm() {
 
           <SubmitButton
             isSubmitting={isSubmitting}
-            className="mt-1 w-full from-brand-navy to-brand-navy text-brand-navy-foreground hover:brightness-110 dark:from-brand-navy dark:to-brand-navy"
+            className="mt-1 w-full bg-brand-navy text-brand-navy-foreground not-disabled:hover:bg-brand-navy/90"
           >
             {isSubmitting
               ? t("investorPortal.auth.activateSubmitting")

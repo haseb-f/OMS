@@ -22,8 +22,7 @@ import {
 import type { EmployeeRow } from "@/services/employees-service";
 import { useDepartments, useJobTitles } from "@/hooks/use-reference-data";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 
 const SCOPES: KpiAssignmentScope[] = ["EMPLOYEE", "JOB_TITLE", "DEPARTMENT"];
 
@@ -86,7 +85,7 @@ export function KpiTemplateAssignmentsPanel({
       resetTarget();
       onChanged();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSaving(false);
     }
@@ -99,7 +98,7 @@ export function KpiTemplateAssignmentsPanel({
       toast.success(t("hr.kpiTemplates.toasts.unassigned"));
       onChanged();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setRemovingId(null);
     }

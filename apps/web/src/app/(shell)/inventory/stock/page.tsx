@@ -31,9 +31,9 @@ import {
   type StockCard as StockCardRow,
 } from "@/services/inventory-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError, toast } from "@/lib/toast";
 import { formatDate } from "@/lib/date";
+import { formatAmount } from "@/lib/money";
 import type { MessageKey } from "@/i18n/translate";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { useUserContext } from "@/providers/user-context";
@@ -44,10 +44,8 @@ import { useUserContext } from "@/providers/user-context";
 // nothing. Only list methods that are actually computed.
 const VALUATION_METHODS: InventoryValuationMethod[] = ["AVERAGE_COST"];
 
-function formatMoney(value: number | null) {
-  return value === null
-    ? "—"
-    : value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function formatCost(value: number | null) {
+  return value === null ? "—" : formatAmount(value);
 }
 
 function InventoryStockPageContent() {
@@ -70,7 +68,7 @@ function InventoryStockPageContent() {
       setRows(items);
       if (settings) setValuationMethod(settings.valuationMethod);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to load stock cards.");
+      reportApiError(error, "errors.loadFailed");
     } finally {
       setIsLoading(false);
     }
@@ -88,7 +86,7 @@ function InventoryStockPageContent() {
       setValuationMethod(settings.valuationMethod);
       toast.success(t("common.saved"));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to update valuation method.");
+      reportApiError(error, "errors.updateFailed");
     } finally {
       setIsSavingValuation(false);
     }
@@ -134,34 +132,34 @@ function InventoryStockPageContent() {
       {
         id: "onHand",
         header: t("inventory.fields.onHand"),
-        meta: { titleKey: "inventory.fields.onHand", defaultHidden: true },
+        meta: { titleKey: "inventory.fields.onHand", defaultHidden: true, type: "quantity" },
         accessorFn: (row) => row.onHand,
       },
       {
         id: "reserved",
         header: t("inventory.fields.reserved"),
-        meta: { titleKey: "inventory.fields.reserved", defaultHidden: true },
+        meta: { titleKey: "inventory.fields.reserved", defaultHidden: true, type: "quantity" },
         accessorFn: (row) => row.reserved,
       },
       {
         id: "stockValue",
         header: t("inventory.fields.stockValue"),
         meta: { titleKey: "inventory.fields.stockValue", type: "money" },
-        accessorFn: (row) => formatMoney(row.stockValue),
+        accessorFn: (row) => formatCost(row.stockValue),
         cell: ({ row }) =>
           row.original.stockValue === null ? "—" : <MoneyValue value={row.original.stockValue} />,
       },
       {
         id: "averageCost",
         header: t("inventory.fields.averageCost"),
-        meta: { titleKey: "inventory.fields.averageCost", defaultHidden: true },
-        accessorFn: (row) => formatMoney(row.averageCost),
+        meta: { titleKey: "inventory.fields.averageCost", defaultHidden: true, type: "money" },
+        accessorFn: (row) => formatCost(row.averageCost),
       },
       {
         id: "lastCost",
         header: t("inventory.fields.lastCost"),
-        meta: { titleKey: "inventory.fields.lastCost", defaultHidden: true },
-        accessorFn: (row) => formatMoney(row.lastCost),
+        meta: { titleKey: "inventory.fields.lastCost", defaultHidden: true, type: "money" },
+        accessorFn: (row) => formatCost(row.lastCost),
       },
       {
         id: "lastMovement",

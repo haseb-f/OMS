@@ -12,8 +12,7 @@ import {
 } from "@/components/master-data/master-data-form";
 import type { PhoneCountryOption } from "@/components/shared/phone-country-selector";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import { leadsService, type LeadRow } from "@/services/leads-service";
 import {
   buildLeadOrderCreateSchema,
@@ -113,7 +112,7 @@ export function LeadOrderCreateDialog({
       onOpenChange(false);
       onCreated(created);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     }
   }, onInvalid);
 

@@ -10,10 +10,12 @@ import {
   TableRow,
   TableHead,
   TableCell,
+  tableNumericCellClass,
+  tableTabularCellClass,
 } from "@/components/ui/table";
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
 import { RowIdentityLink } from "@/components/shared/data-table/row-identity-link";
-import { formatMoney } from "@/lib/money";
+import { formatAmount } from "@/lib/money";
 import { formatDate } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
 import { investorPortalService } from "@/services/investor-portal-service";
@@ -31,9 +33,7 @@ export default function InvestorPortalInvestmentsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-semibold text-foreground">
-        {t("investorPortal.investments.title")}
-      </h1>
+      <h1 className="text-ui-title text-foreground">{t("investorPortal.investments.title")}</h1>
 
       <PortalPageState
         isLoading={isLoading}
@@ -47,53 +47,67 @@ export default function InvestorPortalInvestmentsPage() {
         {data && (
           <EnterpriseCard>
             <EnterpriseCardContent className="p-0">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("investorPortal.investments.fields.opportunity")}</TableHead>
-                      <TableHead>{t("investorPortal.investments.fields.status")}</TableHead>
-                      <TableHead>{t("investorPortal.investments.fields.startDate")}</TableHead>
-                      <TableHead>
-                        {t("investorPortal.investments.fields.confirmedFunding")}
-                      </TableHead>
-                      <TableHead>
-                        {t("investorPortal.investments.fields.participationPercent")}
-                      </TableHead>
-                      <TableHead>{t("investorPortal.investments.fields.approvedProfit")}</TableHead>
-                      <TableHead>{t("investorPortal.investments.fields.paidProfit")}</TableHead>
-                      <TableHead>
-                        {t("investorPortal.investments.fields.outstandingProfit")}
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.items.map((item) => {
-                      const href = `/investor/investments/${item.subscriptionId}`;
-                      return (
-                        <TableRow
-                          key={item.subscriptionId}
-                          className="cursor-pointer"
-                          onClick={() => router.push(href)}
-                        >
-                          <TableCell className="font-medium text-foreground">
-                            <RowIdentityLink href={href}>{item.opportunityName}</RowIdentityLink>
-                          </TableCell>
-                          <TableCell>
-                            <OpportunityStatusBadge status={item.status} />
-                          </TableCell>
-                          <TableCell>{formatDate(item.startDate)}</TableCell>
-                          <TableCell>{formatMoney(item.confirmedFunding)}</TableCell>
-                          <TableCell>{item.participationPercent.toFixed(2)}%</TableCell>
-                          <TableCell>{formatMoney(item.approvedProfit)}</TableCell>
-                          <TableCell>{formatMoney(item.paidProfit)}</TableCell>
-                          <TableCell>{formatMoney(item.outstandingProfit)}</TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("investorPortal.investments.fields.opportunity")}</TableHead>
+                    <TableHead>{t("investorPortal.investments.fields.status")}</TableHead>
+                    <TableHead>{t("investorPortal.investments.fields.startDate")}</TableHead>
+                    <TableHead className={tableNumericCellClass}>
+                      {t("investorPortal.investments.fields.confirmedFunding")}
+                    </TableHead>
+                    <TableHead className={tableNumericCellClass}>
+                      {t("investorPortal.investments.fields.participationPercent")}
+                    </TableHead>
+                    <TableHead className={tableNumericCellClass}>
+                      {t("investorPortal.investments.fields.approvedProfit")}
+                    </TableHead>
+                    <TableHead className={tableNumericCellClass}>
+                      {t("investorPortal.investments.fields.paidProfit")}
+                    </TableHead>
+                    <TableHead className={tableNumericCellClass}>
+                      {t("investorPortal.investments.fields.outstandingProfit")}
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.items.map((item) => {
+                    const href = `/investor/investments/${item.subscriptionId}`;
+                    return (
+                      <TableRow
+                        key={item.subscriptionId}
+                        className="cursor-pointer"
+                        onClick={() => router.push(href)}
+                      >
+                        <TableCell className="font-medium text-foreground">
+                          <RowIdentityLink href={href}>{item.opportunityName}</RowIdentityLink>
+                        </TableCell>
+                        <TableCell>
+                          <OpportunityStatusBadge status={item.status} />
+                        </TableCell>
+                        <TableCell className={tableTabularCellClass}>
+                          <span className="num">{formatDate(item.startDate)}</span>
+                        </TableCell>
+                        <TableCell numeric>
+                          {formatAmount(item.confirmedFunding, { zero: "dash" })}
+                        </TableCell>
+                        <TableCell
+                          numeric
+                        >{`${formatAmount(item.participationPercent)}%`}</TableCell>
+                        <TableCell numeric>
+                          {formatAmount(item.approvedProfit, { zero: "dash" })}
+                        </TableCell>
+                        <TableCell numeric>
+                          {formatAmount(item.paidProfit, { zero: "dash" })}
+                        </TableCell>
+                        <TableCell numeric>
+                          {formatAmount(item.outstandingProfit, { zero: "dash" })}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             </EnterpriseCardContent>
           </EnterpriseCard>
         )}

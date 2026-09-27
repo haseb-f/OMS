@@ -14,7 +14,7 @@ import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { EntityTabs } from "@/components/business/entity-tabs";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
-import { ComingSoon } from "@/components/shared/coming-soon";
+import { ComingSoonPanel } from "@/components/shared/coming-soon-page";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PartyPaymentsPanel } from "@/components/financial-transactions/party-payments-panel";
 import { partnersService, type PartnerRow } from "@/services/partners-service";
@@ -25,7 +25,6 @@ import {
 } from "@/services/customer-receipts-service";
 import { leadsService, type LeadRow } from "@/services/leads-service";
 import type { MasterDataActivityEntry } from "@/services/master-data-service";
-import { DynamicStatusBadge } from "@/components/business/dynamic-status-badge";
 import { StatusBadge } from "@/components/business/status-badge";
 import { EnterpriseButton } from "@/components/ui/button";
 import { usePrintEngine } from "@/hooks/use-print-engine";
@@ -34,14 +33,11 @@ import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { formatDate, formatDateTime } from "@/lib/date";
 import { SemanticValue } from "@/components/shared/semantic-value";
+import { MoneyValue } from "@/components/shared/money-value";
+import { documentPrintBranding } from "@/components/print/print-brand";
 import type { DocumentData } from "@/types/document-engine";
-import { ApiError } from "@/services/api-client";
-import { toast } from "@/lib/toast";
+import { toast, reportApiError } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
-
-function formatMoney(value: number) {
-  return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 
 export default function CustomerProfilePage() {
   const params = useParams<{ id: string }>();
@@ -153,10 +149,7 @@ export default function CustomerProfilePage() {
         name: activeCompany?.name ?? "",
         addressLines: [],
         branding: {
-          logoUrl: activeCompany?.logoUrl ?? null,
-          primaryColor: activeCompany?.primaryColor ?? "#0F8A5F",
-          secondaryColor: activeCompany?.secondaryColor ?? "#2563EB",
-          paperSize: "a4-portrait",
+          ...documentPrintBranding(activeCompany?.logoUrl ?? null),
           language: direction === "rtl" ? "rtl" : "ltr",
         },
       },
@@ -205,7 +198,7 @@ export default function CustomerProfilePage() {
     });
   };
 
-  const comingSoon = <ComingSoon />;
+  const comingSoon = <ComingSoonPanel />;
 
   const handleArchive = async () => {
     setIsArchiving(true);
@@ -215,7 +208,7 @@ export default function CustomerProfilePage() {
       setArchiveOpen(false);
       router.push("/sales/customers");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsArchiving(false);
     }
@@ -320,7 +313,7 @@ export default function CustomerProfilePage() {
                   />
                   <DetailField
                     label={t("sales.customers.fields.creditLimit")}
-                    value={creditLimit !== null ? formatMoney(creditLimit) : undefined}
+                    value={creditLimit !== null ? <MoneyValue value={creditLimit} /> : undefined}
                   />
                 </DetailFieldGrid>
               </DetailSection>
@@ -382,15 +375,17 @@ export default function CustomerProfilePage() {
                 <DetailFieldGrid columns={3}>
                   <DetailField
                     label={t("sales.customers.profile.statistics.balance")}
-                    value={formatMoney(customer.receivableBalance)}
+                    value={<MoneyValue value={customer.receivableBalance} />}
                   />
                   <DetailField
                     label={t("sales.customers.profile.statistics.creditLimit")}
-                    value={creditLimit !== null ? formatMoney(creditLimit) : undefined}
+                    value={creditLimit !== null ? <MoneyValue value={creditLimit} /> : undefined}
                   />
                   <DetailField
                     label={t("sales.customers.profile.statistics.creditAvailable")}
-                    value={creditAvailable !== null ? formatMoney(creditAvailable) : undefined}
+                    value={
+                      creditAvailable !== null ? <MoneyValue value={creditAvailable} /> : undefined
+                    }
                   />
                 </DetailFieldGrid>
               </DetailSection>
@@ -450,7 +445,7 @@ export default function CustomerProfilePage() {
                               {order.salesEmployee.fullName}
                             </span>
                           ) : null}
-                          <DynamicStatusBadge
+                          <StatusBadge
                             label={order.status?.name ?? "—"}
                             colorKey={order.status?.color}
                           />

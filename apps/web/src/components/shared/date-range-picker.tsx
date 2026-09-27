@@ -37,7 +37,7 @@ function DateField({ labelKey, date }: { labelKey: MessageKey; date: Date | null
   return (
     <div className="grid grid-cols-[2.25rem_1fr] items-center gap-x-1.5">
       <span className="text-caption text-muted-foreground">{t(labelKey)}</span>
-      <div className="flex h-7 items-center gap-1 rounded-xs border border-input bg-input/30 px-2">
+      <div className="flex h-(--control-height-sm) items-center gap-1 rounded-sm border border-border bg-surface-sunken px-2">
         <CalendarIcon className="size-3 shrink-0 text-muted-foreground" />
         <span dir="ltr" className={cn("truncate text-caption", !date && "text-muted-foreground")}>
           {date ? formatDate(date) : "—"}
@@ -144,7 +144,7 @@ export function EnterpriseDateRangePicker({
       <PopoverTrigger asChild>
         <EnterpriseButton
           type="button"
-          variant="outline"
+          variant="field"
           size="sm"
           className={cn("justify-start font-normal", className)}
         >
@@ -152,11 +152,7 @@ export function EnterpriseDateRangePicker({
           <span dir="ltr">{label || t("datePicker.selectRange")}</span>
         </EnterpriseButton>
       </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        dir={direction}
-        className="flex w-[260px] flex-col gap-2 rounded-xs border border-border bg-card p-2 shadow-md"
-      >
+      <PopoverContent align="start" dir={direction} className="flex w-[260px] flex-col gap-2 p-2">
         <Select
           value={selectedPreset ?? NO_PRESET}
           onValueChange={(preset) => {

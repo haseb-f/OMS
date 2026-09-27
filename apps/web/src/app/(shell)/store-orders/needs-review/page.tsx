@@ -29,8 +29,7 @@ import {
   type ImportRowRejectionReasonCode,
 } from "@/services/import-jobs-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError, toast } from "@/lib/toast";
 
 const IMPORT_TYPE = "STORE_ORDERS";
 
@@ -144,7 +143,7 @@ function NeedsReviewContent() {
     try {
       setRows(await importJobsService.rows(selectedJobId, viewStatus));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to load rows.");
+      reportApiError(error, "errors.loadFailed");
     } finally {
       setIsLoadingRows(false);
     }
@@ -162,7 +161,7 @@ function NeedsReviewContent() {
       toast.success(t("storeOrders.needsReview.toasts.confirmed"));
       void loadRows();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to confirm row.");
+      reportApiError(error, "errors.actionFailed");
     }
   };
 
@@ -176,7 +175,7 @@ function NeedsReviewContent() {
       toast.success(t("storeOrders.needsReview.toasts.rejected"));
       void loadRows();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to reject row.");
+      reportApiError(error, "errors.actionFailed");
     } finally {
       setRejectTarget(null);
       resetReason();

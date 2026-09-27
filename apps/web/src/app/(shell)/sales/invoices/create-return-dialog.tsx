@@ -12,8 +12,7 @@ import {
 } from "@/services/sales-returns-service";
 import type { SalesInvoiceRow } from "@/services/sales-invoices-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError, toast } from "@/lib/toast";
 
 /**
  * Sales Invoice → Sales Return creation (TASK-048) — the ONLY way a Sales
@@ -103,7 +102,7 @@ export function CreateReturnDialog({
       onOpenChange(false);
       onCreated(salesReturn);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsSubmitting(false);
     }

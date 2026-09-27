@@ -1,14 +1,8 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { EnterpriseButton } from "@/components/ui/button";
+import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,8 +32,7 @@ import {
   type ManualAllocationBasis,
 } from "@/services/cost-allocation-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import { formatDate, formatDateTime, fromISODate, toISODate } from "@/lib/date";
 import { formatMoney } from "@/lib/money";
 import type { MessageKey } from "@/i18n/translate";
@@ -93,134 +86,17 @@ function CreateRunDialog({
       manualBases.every((b) => b.dimensionValue && b.dimensionLabel && b.weight > 0));
 
   return (
-    <Dialog
+    <EnterpriseModal
       open={open}
       onOpenChange={(next) => {
         if (!next) reset();
         onOpenChange(next);
       }}
-    >
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{t("masterData.costAllocationRules.runs.newRunTitle")}</DialogTitle>
-        </DialogHeader>
-        <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto">
-          <div className="flex flex-col gap-1.5">
-            <Label>{t("masterData.costAllocationRules.runs.periodStart")}</Label>
-            <EnterpriseDateRangePicker
-              value={{ from: fromISODate(periodStart), to: fromISODate(periodEnd) }}
-              onChange={(range) => {
-                setPeriodStart(range.from ? toISODate(range.from) : "");
-                setPeriodEnd(range.to ? toISODate(range.to) : "");
-              }}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor={`${fieldId}-source`}>
-              {t("masterData.costAllocationRules.runs.sourceType")}
-            </Label>
-            <Select value={sourceType} onValueChange={(v) => setSourceType(v as "gl" | "manual")}>
-              <SelectTrigger id={`${fieldId}-source`} className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="gl">
-                  {t("masterData.costAllocationRules.runs.sourceGl")}
-                </SelectItem>
-                <SelectItem value="manual">
-                  {t("masterData.costAllocationRules.runs.sourceManual")}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {sourceType === "gl" ? (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor={`${fieldId}-account`}>
-                {t("masterData.costAllocationRules.runs.sourceAccount")}
-              </Label>
-              <AccountPicker
-                id={`${fieldId}-account`}
-                value={account}
-                onChange={setAccount}
-                accountType="EXPENSE"
-                postingOnly
-              />
-            </div>
-          ) : (
-            <div className="flex flex-col gap-1.5">
-              <Label>{t("masterData.costAllocationRules.runs.manualPoolAmount")}</Label>
-              <Input
-                type="number"
-                min={0}
-                value={manualPoolAmount}
-                onChange={(e) => setManualPoolAmount(e.target.value)}
-              />
-            </div>
-          )}
-
-          {isManualMethod && (
-            <div className="flex flex-col gap-2">
-              <Label>{t("masterData.costAllocationRules.runs.manualBasesTitle")}</Label>
-              {manualBases.map((basis, index) => (
-                <div key={index} className="grid grid-cols-[1fr_1fr_5rem_auto] gap-2">
-                  <Input
-                    placeholder={t("masterData.costAllocationRules.runs.dimensionValue")}
-                    value={basis.dimensionValue}
-                    onChange={(e) => {
-                      const next = [...manualBases];
-                      next[index] = { ...next[index], dimensionValue: e.target.value };
-                      setManualBases(next);
-                    }}
-                  />
-                  <Input
-                    placeholder={t("masterData.costAllocationRules.runs.dimensionLabel")}
-                    value={basis.dimensionLabel}
-                    onChange={(e) => {
-                      const next = [...manualBases];
-                      next[index] = { ...next[index], dimensionLabel: e.target.value };
-                      setManualBases(next);
-                    }}
-                  />
-                  <Input
-                    type="number"
-                    min={0}
-                    placeholder={t("masterData.costAllocationRules.runs.weight")}
-                    value={basis.weight}
-                    onChange={(e) => {
-                      const next = [...manualBases];
-                      next[index] = { ...next[index], weight: Number(e.target.value) };
-                      setManualBases(next);
-                    }}
-                  />
-                  <EnterpriseButton
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setManualBases(manualBases.filter((_, i) => i !== index))}
-                  >
-                    {t("common.remove")}
-                  </EnterpriseButton>
-                </div>
-              ))}
-              <EnterpriseButton
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  setManualBases([
-                    ...manualBases,
-                    { dimensionValue: "", dimensionLabel: "", weight: 1 },
-                  ])
-                }
-              >
-                {t("masterData.costAllocationRules.runs.addRow")}
-              </EnterpriseButton>
-            </div>
-          )}
-        </div>
-        <DialogFooter>
+      size="md"
+      title={t("masterData.costAllocationRules.runs.newRunTitle")}
+      bodyClassName="flex flex-col gap-4"
+      footer={
+        <>
           <EnterpriseButton type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             {t("common.cancel")}
           </EnterpriseButton>
@@ -245,16 +121,133 @@ function CreateRunDialog({
                   onCreated();
                 })
                 .catch((error: unknown) => {
-                  toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+                  reportApiError(error, "common.failedToSave");
                 })
                 .finally(() => setIsSaving(false));
             }}
           >
             {t("masterData.costAllocationRules.runs.create")}
           </EnterpriseButton>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto">
+        <div className="flex flex-col gap-1.5">
+          <Label>{t("masterData.costAllocationRules.runs.periodStart")}</Label>
+          <EnterpriseDateRangePicker
+            value={{ from: fromISODate(periodStart), to: fromISODate(periodEnd) }}
+            onChange={(range) => {
+              setPeriodStart(range.from ? toISODate(range.from) : "");
+              setPeriodEnd(range.to ? toISODate(range.to) : "");
+            }}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={`${fieldId}-source`}>
+            {t("masterData.costAllocationRules.runs.sourceType")}
+          </Label>
+          <Select value={sourceType} onValueChange={(v) => setSourceType(v as "gl" | "manual")}>
+            <SelectTrigger id={`${fieldId}-source`} className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="gl">
+                {t("masterData.costAllocationRules.runs.sourceGl")}
+              </SelectItem>
+              <SelectItem value="manual">
+                {t("masterData.costAllocationRules.runs.sourceManual")}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {sourceType === "gl" ? (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`${fieldId}-account`}>
+              {t("masterData.costAllocationRules.runs.sourceAccount")}
+            </Label>
+            <AccountPicker
+              id={`${fieldId}-account`}
+              value={account}
+              onChange={setAccount}
+              accountType="EXPENSE"
+              postingOnly
+            />
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            <Label>{t("masterData.costAllocationRules.runs.manualPoolAmount")}</Label>
+            <Input
+              type="number"
+              min={0}
+              value={manualPoolAmount}
+              onChange={(e) => setManualPoolAmount(e.target.value)}
+            />
+          </div>
+        )}
+
+        {isManualMethod && (
+          <div className="flex flex-col gap-2">
+            <Label>{t("masterData.costAllocationRules.runs.manualBasesTitle")}</Label>
+            {manualBases.map((basis, index) => (
+              <div key={index} className="grid grid-cols-[1fr_1fr_5rem_auto] gap-2">
+                <Input
+                  placeholder={t("masterData.costAllocationRules.runs.dimensionValue")}
+                  value={basis.dimensionValue}
+                  onChange={(e) => {
+                    const next = [...manualBases];
+                    next[index] = { ...next[index], dimensionValue: e.target.value };
+                    setManualBases(next);
+                  }}
+                />
+                <Input
+                  placeholder={t("masterData.costAllocationRules.runs.dimensionLabel")}
+                  value={basis.dimensionLabel}
+                  onChange={(e) => {
+                    const next = [...manualBases];
+                    next[index] = { ...next[index], dimensionLabel: e.target.value };
+                    setManualBases(next);
+                  }}
+                />
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder={t("masterData.costAllocationRules.runs.weight")}
+                  value={basis.weight}
+                  onChange={(e) => {
+                    const next = [...manualBases];
+                    next[index] = { ...next[index], weight: Number(e.target.value) };
+                    setManualBases(next);
+                  }}
+                />
+                <EnterpriseButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setManualBases(manualBases.filter((_, i) => i !== index))}
+                >
+                  {t("common.remove")}
+                </EnterpriseButton>
+              </div>
+            ))}
+            <EnterpriseButton
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setManualBases([
+                  ...manualBases,
+                  { dimensionValue: "", dimensionLabel: "", weight: 1 },
+                ])
+              }
+            >
+              {t("masterData.costAllocationRules.runs.addRow")}
+            </EnterpriseButton>
+          </div>
+        )}
+      </div>
+    </EnterpriseModal>
   );
 }
 
@@ -269,31 +262,32 @@ function RunResultsDialog({
 }) {
   const { t } = useLocale();
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{t("masterData.costAllocationRules.runs.resultsTitle")}</DialogTitle>
-        </DialogHeader>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t("masterData.costAllocationRules.runs.dimensionLabel")}</TableHead>
-              <TableHead>{t("masterData.costAllocationRules.runs.basisAmount")}</TableHead>
-              <TableHead>{t("masterData.costAllocationRules.runs.allocatedAmount")}</TableHead>
+    <EnterpriseModal
+      open={open}
+      onOpenChange={onOpenChange}
+      size="md"
+      title={t("masterData.costAllocationRules.runs.resultsTitle")}
+      bodyClassName="flex flex-col gap-4"
+    >
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>{t("masterData.costAllocationRules.runs.dimensionLabel")}</TableHead>
+            <TableHead>{t("masterData.costAllocationRules.runs.basisAmount")}</TableHead>
+            <TableHead>{t("masterData.costAllocationRules.runs.allocatedAmount")}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {(run?.results ?? []).map((result) => (
+            <TableRow key={result.id}>
+              <TableCell>{result.dimensionLabel ?? result.dimensionValue}</TableCell>
+              <TableCell>{formatMoney(result.basisAmount)}</TableCell>
+              <TableCell>{formatMoney(result.allocatedAmount)}</TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {(run?.results ?? []).map((result) => (
-              <TableRow key={result.id}>
-                <TableCell>{result.dimensionLabel ?? result.dimensionValue}</TableCell>
-                <TableCell>{formatMoney(result.basisAmount)}</TableCell>
-                <TableCell>{formatMoney(result.allocatedAmount)}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </DialogContent>
-    </Dialog>
+          ))}
+        </TableBody>
+      </Table>
+    </EnterpriseModal>
   );
 }
 
@@ -468,7 +462,7 @@ export function CostAllocationRunsPanel({ rules }: { rules: CostAllocationRuleRo
               if (selectedRuleId) reloadRuns(selectedRuleId);
             })
             .catch((error: unknown) => {
-              toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+              reportApiError(error, "common.failedToSave");
               setConfirmAction(null);
             });
         }}

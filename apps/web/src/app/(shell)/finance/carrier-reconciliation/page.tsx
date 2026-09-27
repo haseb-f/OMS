@@ -22,8 +22,7 @@ import { PermissionGate } from "@/components/shared/permission-gate";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { formatDate } from "@/lib/date";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
 
 /** Filter order (same as the previous dropdown). */
@@ -77,11 +76,11 @@ function CarrierReconciliationContent() {
       setItems(result.items);
       setTotalCount(result.total);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+      reportApiError(error, "common.loadFailed");
     } finally {
       setIsLoading(false);
     }
-  }, [stateFilter, search, page, pageSize, t]);
+  }, [stateFilter, search, page, pageSize]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -126,7 +125,11 @@ function CarrierReconciliationContent() {
       {
         id: "amount",
         header: t("carrierReconciliation.fields.amount"),
-        meta: { titleKey: "carrierReconciliation.fields.amount" as MessageKey, align: "end" },
+        meta: {
+          titleKey: "carrierReconciliation.fields.amount" as MessageKey,
+          align: "end",
+          type: "money",
+        },
         cell: (info) => (
           <MoneyValue
             value={info.row.original.chargeAmount}
@@ -239,7 +242,7 @@ function CarrierReconciliationContent() {
                   void load();
                 })
                 .catch((error: unknown) => {
-                  toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+                  reportApiError(error, "common.failedToSave");
                 })
                 .finally(() => setIsImporting(false));
             };
@@ -321,7 +324,7 @@ function CarrierReconciliationContent() {
               void load();
             })
             .catch((error: unknown) => {
-              toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+              reportApiError(error, "common.failedToSave");
             })
             .finally(() => setIsConfirming(false));
         }}
@@ -348,7 +351,7 @@ function CarrierReconciliationContent() {
               void load();
             })
             .catch((error: unknown) => {
-              toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+              reportApiError(error, "common.failedToSave");
             })
             .finally(() => setIsUnmatching(false));
         }}

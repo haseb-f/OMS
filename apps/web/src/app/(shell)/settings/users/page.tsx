@@ -17,8 +17,7 @@ import { usersService, type UserRow } from "@/services/users-service";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { useLocale } from "@/providers/locale-provider";
 import { useUsersList } from "@/hooks/use-reference-data";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import { exportRowsToCsv } from "@/components/master-data/enterprise-data-table";
 import { filterByArabicSearch } from "@/lib/arabic-search";
 
@@ -53,11 +52,9 @@ function UsersPageContent() {
     usersService
       .list()
       .then(setUsers)
-      .catch((error) =>
-        toast.error(error instanceof ApiError ? error.message : t("common.loadFailed")),
-      )
+      .catch((error) => reportApiError(error, "common.loadFailed"))
       .finally(() => setIsLoading(false));
-  }, [t]);
+  }, []);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -168,7 +165,7 @@ function UsersPageContent() {
             setLockTarget(null);
             load();
           } catch (error) {
-            toast.error(error instanceof ApiError ? error.message : t("errors.generic"));
+            reportApiError(error, "errors.generic");
           } finally {
             setPendingAction(null);
           }
@@ -191,7 +188,7 @@ function UsersPageContent() {
             setUnlockTarget(null);
             load();
           } catch (error) {
-            toast.error(error instanceof ApiError ? error.message : t("errors.generic"));
+            reportApiError(error, "errors.generic");
           } finally {
             setPendingAction(null);
           }
@@ -217,7 +214,7 @@ function UsersPageContent() {
               setGeneratedPassword(result.temporaryPassword);
             }
           } catch (error) {
-            toast.error(error instanceof ApiError ? error.message : t("errors.generic"));
+            reportApiError(error, "errors.generic");
           } finally {
             setPendingAction(null);
           }
@@ -240,7 +237,7 @@ function UsersPageContent() {
             setForceChangeTarget(null);
             load();
           } catch (error) {
-            toast.error(error instanceof ApiError ? error.message : t("errors.generic"));
+            reportApiError(error, "errors.generic");
           } finally {
             setPendingAction(null);
           }
@@ -264,7 +261,7 @@ function UsersPageContent() {
             setArchiveTarget(null);
             load();
           } catch (error) {
-            toast.error(error instanceof ApiError ? error.message : t("errors.generic"));
+            reportApiError(error, "errors.generic");
           } finally {
             setPendingAction(null);
           }

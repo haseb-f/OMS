@@ -7,8 +7,7 @@ import { EnterpriseButton } from "@/components/ui/button";
 import { DocumentLineReviewTable } from "@/components/documents/document-line-review-table";
 import { salesOrdersService, type SalesOrderRow } from "@/services/sales-orders-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError, toast } from "@/lib/toast";
 
 /**
  * Sales Order → Sales Invoice conversion (TASK-043 §7/§10/§15) — partial-
@@ -62,7 +61,7 @@ export function ConvertToInvoiceDialog({
       onOpenChange(false);
       onConverted(invoice);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsSubmitting(false);
     }

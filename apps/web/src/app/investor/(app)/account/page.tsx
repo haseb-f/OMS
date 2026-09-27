@@ -29,7 +29,7 @@ export default function InvestorPortalAccountPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-semibold text-foreground">{t("investorPortal.account.title")}</h1>
+      <h1 className="text-ui-title text-foreground">{t("investorPortal.account.title")}</h1>
 
       <PortalPageState isLoading={isLoading} error={error} onRetry={reload}>
         {data && (

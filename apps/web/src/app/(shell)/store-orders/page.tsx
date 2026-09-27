@@ -58,7 +58,7 @@ import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast } from "@/lib/toast";
+import { reportApiError, toast } from "@/lib/toast";
 import { toISODate } from "@/lib/date";
 import { siteConfig } from "@/config/site";
 import { ApiError } from "@/services/api-client";
@@ -276,7 +276,7 @@ function StoreOrdersPageContent() {
       setArchiveTarget(null);
       void load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsArchiving(false);
     }
@@ -289,9 +289,7 @@ function StoreOrdersPageContent() {
       setRowSelection(Object.fromEntries(result.ids.map((id) => [id, true])));
       setBulkSelectionQuery(querySignature());
     } catch (error) {
-      toast.error(
-        error instanceof ApiError ? error.message : "Failed to select all matching orders.",
-      );
+      reportApiError(error, "errors.selectFailed");
     } finally {
       setIsSelectingAllMatching(false);
     }
@@ -313,7 +311,7 @@ function StoreOrdersPageContent() {
         toast.info(t("storeOrders.bulkSelection.customCountPartial", { count: result.ids.length }));
       }
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to select orders.");
+      reportApiError(error, "errors.selectFailed");
     } finally {
       setIsSelectingCustomCount(false);
     }
@@ -354,7 +352,7 @@ function StoreOrdersPageContent() {
       setRowSelection({});
       void load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to update shipping status.");
+      reportApiError(error, "errors.updateFailed");
     } finally {
       setIsBulkUpdatingShipping(false);
     }

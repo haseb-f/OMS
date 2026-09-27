@@ -20,6 +20,21 @@ import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { AccountPicker } from "@/components/business/account-picker";
 import { StatusBadge } from "@/components/business/status-badge";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  tableIdentityCellClass,
+  tableNumericCellClass,
+} from "@/components/ui/table";
+import {
+  CompactDetailTable,
+  type CompactDetailColumn,
+} from "@/components/shared/data-table/compact-detail-table";
+import { Amount, Percent } from "@/components/investors/investor-amount";
+import {
   investmentDistributionsService,
   type DistributionPreview,
   type ProfitDistributionRow,
@@ -37,7 +52,7 @@ import { usePaymentMethods } from "@/hooks/use-reference-data";
 import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
 import { formatDate, fromISODate, toISODate } from "@/lib/date";
-import { formatMoney } from "@/lib/money";
+import { formatAmount } from "@/lib/money";
 import { toast, reportApiError } from "@/lib/toast";
 
 const DISTRIBUTION_TONE: Record<
@@ -174,30 +189,47 @@ export function DistributionsTab({
                     variant="link"
                     size="inline"
                     className="h-auto px-0 font-medium"
+                    aria-expanded={expandedId === distribution.id}
                     onClick={() => toggleExpand(distribution)}
                   >
-                    {distribution.code}
+                    <span className="num">{distribution.code}</span>
                   </EnterpriseButton>
                   <StatusBadge
                     label={t(`investors.distributions.status.${distribution.status}` as never)}
                     tone={DISTRIBUTION_TONE[distribution.status]}
                   />
                 </div>
-                <div className="flex items-center gap-4 text-caption">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-caption">
                   <span>
-                    {t("investors.distributions.fields.total")}:{" "}
-                    <strong>{formatMoney(distribution.totalInvestorProfit, currencyCode)}</strong>
+                    <span className="text-muted-foreground">
+                      {t("investors.distributions.fields.total")}:
+                    </span>{" "}
+                    <span className="font-medium text-foreground">
+                      <Amount value={distribution.totalInvestorProfit} currency={currencyCode} />
+                    </span>
                   </span>
                   <span>
-                    {t("investors.distributions.fields.paid")}:{" "}
-                    <strong>{formatMoney(distribution.totalPaid, currencyCode)}</strong>
+                    <span className="text-muted-foreground">
+                      {t("investors.distributions.fields.paid")}:
+                    </span>{" "}
+                    <span className="font-medium text-foreground">
+                      <Amount value={distribution.totalPaid} currency={currencyCode} />
+                    </span>
                   </span>
                   <span>
-                    {t("investors.distributions.fields.outstanding")}:{" "}
-                    <strong>{formatMoney(distribution.totalOutstanding, currencyCode)}</strong>
+                    <span className="text-muted-foreground">
+                      {t("investors.distributions.fields.outstanding")}:
+                    </span>{" "}
+                    <span className="font-medium text-foreground">
+                      <Amount value={distribution.totalOutstanding} currency={currencyCode} />
+                    </span>
                   </span>
                   {canApprove && distribution.status === "DRAFT" ? (
-                    <EnterpriseButton size="sm" onClick={() => approve(distribution)}>
+                    <EnterpriseButton
+                      size="sm"
+                      variant="outline"
+                      onClick={() => approve(distribution)}
+                    >
                       {t("investors.distributions.actions.approve")}
                     </EnterpriseButton>
                   ) : null}
@@ -216,116 +248,119 @@ export function DistributionsTab({
 
               {expandedId === distribution.id ? (
                 <div className="border-t border-border p-3">
-                  <table className="w-full text-start text-body">
-                    <thead>
-                      <tr className="border-b border-border text-caption text-muted-foreground">
-                        <th className="p-2 text-start">
-                          {t("investors.distributions.fields.investor")}
-                        </th>
-                        <th className="p-2 text-start">
+                  <Table containerClassName="rounded-md border border-border">
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead>{t("investors.distributions.fields.investor")}</TableHead>
+                        <TableHead className={tableNumericCellClass}>
                           {t("investors.distributions.fields.entitled")}
-                        </th>
-                        <th className="p-2 text-start">
+                        </TableHead>
+                        <TableHead className={tableNumericCellClass}>
                           {t("investors.distributions.fields.paid")}
-                        </th>
-                        <th className="p-2 text-start">
+                        </TableHead>
+                        <TableHead className={tableNumericCellClass}>
                           {t("investors.distributions.fields.outstanding")}
-                        </th>
-                        <th className="p-2 text-start">
-                          {t("investors.opportunities.fields.status")}
-                        </th>
-                        <th className="p-2 text-start">{t("common.actions")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                        </TableHead>
+                        <TableHead>{t("investors.opportunities.fields.status")}</TableHead>
+                        <TableHead>{t("common.actions")}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {distribution.investorDistributions.map((row) => (
                         <Fragment key={row.id}>
-                          <tr className="border-b border-border/60">
-                            <td className="p-2 font-medium">{row.investorName}</td>
-                            <td className="p-2">{formatMoney(row.entitledAmount, currencyCode)}</td>
-                            <td className="p-2">{formatMoney(row.paidAmount, currencyCode)}</td>
-                            <td className="p-2">
-                              {formatMoney(row.outstandingAmount, currencyCode)}
-                            </td>
-                            <td className="p-2">
+                          <TableRow>
+                            <TableCell className={tableIdentityCellClass}>
+                              {row.investorName}
+                            </TableCell>
+                            <TableCell numeric>
+                              {formatAmount(row.entitledAmount, { zero: "dash" })}
+                            </TableCell>
+                            <TableCell numeric>
+                              {formatAmount(row.paidAmount, { zero: "dash" })}
+                            </TableCell>
+                            <TableCell numeric>
+                              {formatAmount(row.outstandingAmount, { zero: "dash" })}
+                            </TableCell>
+                            <TableCell>
                               <StatusBadge
                                 label={t(
                                   `investors.distributions.investorStatus.${row.status}` as never,
                                 )}
                                 tone={INVESTOR_ROW_TONE[row.status]}
                               />
-                            </td>
-                            <td className="p-2">
+                            </TableCell>
+                            <TableCell>
                               {canRecordPayment && row.outstandingAmount > 0 ? (
                                 <EnterpriseButton
                                   size="sm"
-                                  variant="secondary"
+                                  variant="outline"
                                   onClick={() => setPaymentTarget(row)}
                                 >
                                   {t("investors.distributions.actions.recordPayment")}
                                 </EnterpriseButton>
                               ) : null}
-                            </td>
-                          </tr>
-                          {(payments[row.id]?.length ?? 0) > 0 ? (
-                            <tr
-                              key={`${row.id}-payments`}
-                              className="border-b border-border/60 bg-muted/30"
+                            </TableCell>
+                          </TableRow>
+                          {(payments[row.id] ?? []).map((payment) => (
+                            <TableRow
+                              key={`${row.id}-${payment.id}`}
+                              className="bg-surface-sunken hover:bg-surface-sunken"
                             >
-                              <td colSpan={6} className="p-2">
-                                <div className="flex flex-col gap-1 ps-4">
-                                  {payments[row.id]!.map((payment) => (
-                                    <div
-                                      key={payment.id}
-                                      className="flex items-center justify-between text-caption"
-                                    >
-                                      <span>
-                                        {formatDate(payment.paymentDate)} —{" "}
-                                        {formatMoney(payment.amount, currencyCode)}
-                                        {payment.referenceNumber
-                                          ? ` (${payment.referenceNumber})`
-                                          : ""}
-                                      </span>
-                                      <StatusBadge
-                                        label={t(
-                                          `investors.distributions.paymentStatus.${payment.status}` as never,
-                                        )}
-                                        tone={
-                                          payment.status === "CONFIRMED"
-                                            ? "success"
-                                            : payment.status === "PENDING"
-                                              ? "warning"
-                                              : "destructive"
-                                        }
-                                      />
-                                      {canConfirmPayment && payment.status === "PENDING" ? (
-                                        <EnterpriseButton
-                                          size="sm"
-                                          onClick={async () => {
-                                            try {
-                                              await distributionPaymentsService.confirm(payment.id);
-                                              toast.success(t("common.saved"));
-                                              await loadPayments(row.id);
-                                              await load();
-                                              onChanged?.();
-                                            } catch (error) {
-                                              reportApiError(error, t("common.failedToSave"));
-                                            }
-                                          }}
-                                        >
-                                          {t("investors.distributions.actions.confirmPayment")}
-                                        </EnterpriseButton>
-                                      ) : null}
-                                    </div>
-                                  ))}
-                                </div>
-                              </td>
-                            </tr>
-                          ) : null}
+                              <TableCell className="ps-6 text-caption text-muted-foreground">
+                                <span className="num">{formatDate(payment.paymentDate)}</span>
+                                {payment.referenceNumber ? (
+                                  <>
+                                    {" · "}
+                                    <span className="num">{payment.referenceNumber}</span>
+                                  </>
+                                ) : null}
+                              </TableCell>
+                              <TableCell />
+                              <TableCell numeric className="text-caption">
+                                {formatAmount(payment.amount, { zero: "dash" })}
+                              </TableCell>
+                              <TableCell />
+                              <TableCell>
+                                <StatusBadge
+                                  label={t(
+                                    `investors.distributions.paymentStatus.${payment.status}` as never,
+                                  )}
+                                  tone={
+                                    payment.status === "CONFIRMED"
+                                      ? "success"
+                                      : payment.status === "PENDING"
+                                        ? "warning"
+                                        : "destructive"
+                                  }
+                                />
+                              </TableCell>
+                              <TableCell>
+                                {canConfirmPayment && payment.status === "PENDING" ? (
+                                  <EnterpriseButton
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={async () => {
+                                      try {
+                                        await distributionPaymentsService.confirm(payment.id);
+                                        toast.success(t("common.saved"));
+                                        await loadPayments(row.id);
+                                        await load();
+                                        onChanged?.();
+                                      } catch (error) {
+                                        reportApiError(error, t("common.failedToSave"));
+                                      }
+                                    }}
+                                  >
+                                    {t("investors.distributions.actions.confirmPayment")}
+                                  </EnterpriseButton>
+                                ) : null}
+                              </TableCell>
+                            </TableRow>
+                          ))}
                         </Fragment>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
               ) : null}
             </div>
@@ -408,6 +443,26 @@ function CreateDistributionDialog({
     }
   };
 
+  const shareColumns: CompactDetailColumn<DistributionPreview["investorShares"][number]>[] = [
+    {
+      id: "investor",
+      header: t("investors.distributions.fields.investor"),
+      cell: (share) => <span className={tableIdentityCellClass}>{share.investorName}</span>,
+    },
+    {
+      id: "participation",
+      header: t("investors.profit.shares.participationPercent"),
+      align: "end",
+      cell: (share) => <Percent value={share.participationPercent} />,
+    },
+    {
+      id: "entitled",
+      header: t("investors.distributions.fields.entitled"),
+      align: "end",
+      cell: (share) => <Amount value={share.profitShareAmount} />,
+    },
+  ];
+
   return (
     <EnterpriseModal
       open={open}
@@ -433,35 +488,17 @@ function CreateDistributionDialog({
               rows={[
                 {
                   label: t("investors.profit.waterfall.investorProfitPool"),
-                  value: formatMoney(preview.investorProfitPool, currencyCode),
+                  value: <Amount value={preview.investorProfitPool} currency={currencyCode} />,
                 },
               ]}
             />
             <ModalSection title={t("investors.distributions.createDialog.shares")}>
-              <table className="col-span-full w-full text-start text-body">
-                <thead>
-                  <tr className="border-b border-border text-caption text-muted-foreground">
-                    <th className="p-2 text-start">
-                      {t("investors.distributions.fields.investor")}
-                    </th>
-                    <th className="p-2 text-start">
-                      {t("investors.profit.shares.participationPercent")}
-                    </th>
-                    <th className="p-2 text-start">
-                      {t("investors.distributions.fields.entitled")}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {preview.investorShares.map((share) => (
-                    <tr key={share.investorId} className="border-b border-border/60">
-                      <td className="p-2 font-medium">{share.investorName}</td>
-                      <td className="p-2">{share.participationPercent.toFixed(2)}%</td>
-                      <td className="p-2">{formatMoney(share.profitShareAmount, currencyCode)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <CompactDetailTable
+                className="col-span-full"
+                columns={shareColumns}
+                rows={preview.investorShares}
+                rowKey={(share) => share.investorId}
+              />
             </ModalSection>
           </>
         ) : null}
@@ -554,12 +591,14 @@ function RecordPaymentDialog({
           rows={[
             {
               label: t("investors.distributions.fields.outstanding"),
-              value: formatMoney(investorDistribution.outstandingAmount, currencyCode),
+              value: (
+                <Amount value={investorDistribution.outstandingAmount} currency={currencyCode} />
+              ),
             },
           ]}
         />
         {isOverpayment ? (
-          <p className="text-caption text-destructive">
+          <p className="text-caption text-destructive" role="alert">
             {t("investors.distributions.paymentDialog.overpaymentBlocked")}
           </p>
         ) : null}

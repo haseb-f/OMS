@@ -12,7 +12,7 @@ import {
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EntityTabs } from "@/components/business/entity-tabs";
-import { DynamicStatusBadge } from "@/components/business/dynamic-status-badge";
+import { StatusBadge } from "@/components/business/status-badge";
 import { ClassificationBadge } from "@/components/business/classification-badge";
 import { WorkflowActionsPanel } from "@/components/business/workflow-actions-panel";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
@@ -37,8 +37,7 @@ import {
 import { useCustomerClassifications } from "@/hooks/use-reference-data";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError } from "@/lib/toast";
 import { formatDate, formatDateTime } from "@/lib/date";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import type { MessageKey } from "@/i18n/translate";
@@ -135,7 +134,7 @@ function LeadDetailContent() {
         .then(setNotes)
         .catch(() => setNotes([]));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSavingNote(false);
     }
@@ -149,7 +148,7 @@ function LeadDetailContent() {
       } as never);
       setLead(updated);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     }
   };
 
@@ -195,7 +194,7 @@ function LeadDetailContent() {
         <div className="flex flex-wrap items-center gap-1.5">
           {(() => {
             const badge = leadLifecycleBadge(lead, t("crm.leads.ownership.assigned"));
-            return <DynamicStatusBadge label={badge.label} colorKey={badge.colorKey} />;
+            return <StatusBadge label={badge.label} colorKey={badge.colorKey} />;
           })()}
           {lead.customerClassification ? (
             <ClassificationBadge
@@ -204,7 +203,7 @@ function LeadDetailContent() {
             />
           ) : null}
           {lead.possibleDuplicate ? (
-            <DynamicStatusBadge label={t("crm.leads.possibleDuplicate")} colorKey="warning" />
+            <StatusBadge label={t("crm.leads.possibleDuplicate")} colorKey="warning" />
           ) : null}
         </div>
       }

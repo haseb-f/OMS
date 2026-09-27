@@ -21,10 +21,10 @@ import {
 } from "@/config/purchasing/landed-cost-status";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast } from "@/lib/toast";
+import { reportApiError } from "@/lib/toast";
 import { formatDate } from "@/lib/date";
-import { ApiError } from "@/services/api-client";
 import { PermissionGate } from "@/components/shared/permission-gate";
+import { formatNumber } from "@/lib/format-number";
 
 function LandedCostPageContent() {
   const { t } = useLocale();
@@ -40,9 +40,7 @@ function LandedCostPageContent() {
     try {
       setItems(await landedCostService.list());
     } catch (error) {
-      toast.error(
-        error instanceof ApiError ? error.message : "Failed to load Landed Cost documents.",
-      );
+      reportApiError(error, "errors.loadFailed");
     } finally {
       setIsLoading(false);
     }
@@ -92,8 +90,7 @@ function LandedCostPageContent() {
         id: "netTotal",
         header: t("purchasing.landedCost.fields.netTotal"),
         meta: { titleKey: "purchasing.landedCost.fields.netTotal" },
-        accessorFn: (row) =>
-          Number(row.netTotal).toLocaleString(undefined, { minimumFractionDigits: 2 }),
+        accessorFn: (row) => formatNumber(row.netTotal, { minDecimals: 2 }),
       },
       {
         id: "status",

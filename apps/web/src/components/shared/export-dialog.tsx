@@ -2,15 +2,8 @@
 
 import { useState } from "react";
 import { Download } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { EnterpriseButton } from "@/components/ui/button";
+import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useLocale } from "@/providers/locale-provider";
 
@@ -58,30 +51,14 @@ export function ExportDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>{t("table.exportDialogTitle")}</DialogTitle>
-          <DialogDescription>{t("table.exportDialogDescription")}</DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-3">
-          <label className="flex items-center gap-2 border-b border-border pb-2">
-            <Checkbox checked={allChecked} onCheckedChange={(c) => toggleAll(c === true)} />
-            <span className="text-body font-medium">{t("table.selectAllColumns")}</span>
-          </label>
-          <div className="flex max-h-64 flex-col gap-2 overflow-y-auto">
-            {columns.map((column) => (
-              <label key={column.key} className="flex items-center gap-2">
-                <Checkbox
-                  checked={selected.has(column.key)}
-                  onCheckedChange={(c) => toggleOne(column.key, c === true)}
-                />
-                <span className="text-body">{column.label}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-        <DialogFooter>
+    <EnterpriseModal
+      open={open}
+      onOpenChange={onOpenChange}
+      size="sm"
+      title={t("table.exportDialogTitle")}
+      description={t("table.exportDialogDescription")}
+      footer={
+        <>
           <EnterpriseButton type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             {t("common.cancel")}
           </EnterpriseButton>
@@ -100,8 +77,26 @@ export function ExportDialog({
             <Download />
             {t("table.exportConfirm")}
           </EnterpriseButton>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <label className="flex items-center gap-2 border-b border-border pb-2">
+          <Checkbox checked={allChecked} onCheckedChange={(c) => toggleAll(c === true)} />
+          <span className="text-body font-medium">{t("table.selectAllColumns")}</span>
+        </label>
+        <div className="flex max-h-64 flex-col gap-2 overflow-y-auto">
+          {columns.map((column) => (
+            <label key={column.key} className="flex items-center gap-2">
+              <Checkbox
+                checked={selected.has(column.key)}
+                onCheckedChange={(c) => toggleOne(column.key, c === true)}
+              />
+              <span className="text-body">{column.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+    </EnterpriseModal>
   );
 }

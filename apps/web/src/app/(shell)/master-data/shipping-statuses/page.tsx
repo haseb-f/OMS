@@ -16,8 +16,8 @@ import {
   type ShippingStatusRow,
 } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
-import { apiClient, ApiError } from "@/services/api-client";
-import { toast } from "@/lib/toast";
+import { apiClient } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 
 const service = createMasterDataService<ShippingStatusRow>("/shipping-statuses");
 
@@ -77,11 +77,7 @@ export default function ShippingStatusesPage() {
       toast.success(t("masterData.shippingStatuses.setDefaultSuccess"));
       setRefreshKey((key) => key + 1);
     } catch (error) {
-      toast.error(
-        error instanceof ApiError
-          ? error.message
-          : t("masterData.shippingStatuses.setDefaultError"),
-      );
+      reportApiError(error, "masterData.shippingStatuses.setDefaultError");
     }
   };
 

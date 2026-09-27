@@ -62,10 +62,10 @@ function LoginForm() {
   return (
     <div>
       <header className="mb-8">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
+        <h1 className="text-ui-title tracking-tight text-foreground">
           {t("investorPortal.auth.loginTitle")}
         </h1>
-        <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+        <p className="mt-1.5 text-body text-muted-foreground">
           {t("investorPortal.auth.loginSubtitle")}
         </p>
       </header>
@@ -104,7 +104,7 @@ function LoginForm() {
           {formError && (
             <div
               role="alert"
-              className="rounded-sm border border-destructive/20 bg-destructive/10 px-3 py-2 text-caption text-destructive"
+              className="rounded-sm border border-destructive-border bg-destructive-soft px-3 py-2 text-caption text-destructive-soft-foreground"
             >
               {formError}
             </div>
@@ -112,7 +112,7 @@ function LoginForm() {
 
           <SubmitButton
             isSubmitting={isSubmitting}
-            className="mt-1 w-full from-brand-navy to-brand-navy text-brand-navy-foreground hover:brightness-110 dark:from-brand-navy dark:to-brand-navy"
+            className="mt-1 w-full bg-brand-navy text-brand-navy-foreground not-disabled:hover:bg-brand-navy/90"
           >
             {isSubmitting ? t("investorPortal.auth.signingIn") : t("investorPortal.auth.signIn")}
           </SubmitButton>

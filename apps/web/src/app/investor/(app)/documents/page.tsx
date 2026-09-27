@@ -9,6 +9,7 @@ import {
   TableRow,
   TableHead,
   TableCell,
+  tableTabularCellClass,
 } from "@/components/ui/table";
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -41,9 +42,7 @@ export default function InvestorPortalDocumentsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-semibold text-foreground">
-        {t("investorPortal.documents.title")}
-      </h1>
+      <h1 className="text-ui-title text-foreground">{t("investorPortal.documents.title")}</h1>
 
       <PortalPageState
         isLoading={isLoading}
@@ -57,42 +56,42 @@ export default function InvestorPortalDocumentsPage() {
         {data && (
           <EnterpriseCard>
             <EnterpriseCardContent className="p-0">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("investorPortal.documents.fields.name")}</TableHead>
-                      <TableHead>{t("investorPortal.documents.fields.type")}</TableHead>
-                      <TableHead>{t("investorPortal.documents.fields.opportunity")}</TableHead>
-                      <TableHead>{t("investorPortal.documents.fields.date")}</TableHead>
-                      <TableHead />
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("investorPortal.documents.fields.name")}</TableHead>
+                    <TableHead>{t("investorPortal.documents.fields.type")}</TableHead>
+                    <TableHead>{t("investorPortal.documents.fields.opportunity")}</TableHead>
+                    <TableHead>{t("investorPortal.documents.fields.date")}</TableHead>
+                    <TableHead>
+                      <span className="sr-only">{t("common.actions")}</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.items.map((doc) => (
+                    <TableRow key={doc.id}>
+                      <TableCell className="font-medium text-foreground">{doc.fileName}</TableCell>
+                      <TableCell>
+                        {t(`investorPortal.documents.type.${doc.documentType}` as MessageKey)}
+                      </TableCell>
+                      <TableCell>{doc.opportunityName}</TableCell>
+                      <TableCell className={tableTabularCellClass}>
+                        <span className="num">{formatDate(doc.date)}</span>
+                      </TableCell>
+                      <TableCell>
+                        <EnterpriseButton
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void openDocument(doc)}
+                        >
+                          {t("investorPortal.documents.view")}
+                        </EnterpriseButton>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.items.map((doc) => (
-                      <TableRow key={doc.id}>
-                        <TableCell className="font-medium text-foreground">
-                          {doc.fileName}
-                        </TableCell>
-                        <TableCell>
-                          {t(`investorPortal.documents.type.${doc.documentType}` as MessageKey)}
-                        </TableCell>
-                        <TableCell>{doc.opportunityName}</TableCell>
-                        <TableCell>{formatDate(doc.date)}</TableCell>
-                        <TableCell>
-                          <EnterpriseButton
-                            variant="outline"
-                            size="sm"
-                            onClick={() => void openDocument(doc)}
-                          >
-                            {t("investorPortal.documents.view")}
-                          </EnterpriseButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                  ))}
+                </TableBody>
+              </Table>
             </EnterpriseCardContent>
           </EnterpriseCard>
         )}

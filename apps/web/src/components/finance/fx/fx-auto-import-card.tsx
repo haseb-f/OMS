@@ -222,7 +222,7 @@ export function FxAutoImportCard({
                 })}
               </span>
               {row.details?.warnings?.length ? (
-                <ul className="mt-0.5 list-disc ps-4 text-warning-foreground">
+                <ul className="mt-0.5 list-disc ps-4 text-warning-soft-foreground">
                   {row.details.warnings.map((warning) => (
                     <li key={warning} className="break-words">
                       {warning}
@@ -241,9 +241,7 @@ export function FxAutoImportCard({
     <EnterpriseCard className="gap-0 py-3" data-testid="fx-auto-import">
       <EnterpriseCardHeader className="flex flex-wrap items-start justify-between gap-2 px-4 pb-2">
         <div className="min-w-0">
-          <EnterpriseCardTitle className="text-body">
-            {t("fxSettings.autoImport.title")}
-          </EnterpriseCardTitle>
+          <EnterpriseCardTitle>{t("fxSettings.autoImport.title")}</EnterpriseCardTitle>
           <p className="text-caption text-muted-foreground">
             {t("fxSettings.autoImport.description", { base: baseCode || "EGP" })}
           </p>
@@ -253,7 +251,7 @@ export function FxAutoImportCard({
             <EnterpriseButton
               type="button"
               size="sm"
-              variant="secondary"
+              variant="ghost"
               onClick={openSettings}
               disabled={!status}
             >
@@ -263,6 +261,7 @@ export function FxAutoImportCard({
             <EnterpriseButton
               type="button"
               size="sm"
+              variant="outline"
               onClick={() => void run("run")}
               isLoading={busy === "run"}
               disabled={busy !== null}
@@ -314,7 +313,7 @@ export function FxAutoImportCard({
                     tone={FX_RUN_TONE[lastRun.status]}
                   />
                   <span className="text-caption text-muted-foreground">
-                    {formatDateTime(lastRun.startedAt)}
+                    <span className="num">{formatDateTime(lastRun.startedAt)}</span>
                   </span>
                 </div>
                 {lastRun.status === "FAILED" && lastRun.error ? (
@@ -338,7 +337,7 @@ export function FxAutoImportCard({
           </KeyValue>
           <KeyValue label={t("fxSettings.autoImport.nextRuns")}>
             {status?.nextRuns.length ? (
-              <span className="tabular-nums">
+              <span className="num">
                 {status.nextRuns.map((at) => formatDateTime(at)).join(" · ")}
               </span>
             ) : (
@@ -387,7 +386,7 @@ export function FxAutoImportCard({
             >
               {t("fxSettings.autoImport.backfill")}
             </EnterpriseButton>
-            <EnterpriseButton type="button" variant="secondary" onClick={requestClose}>
+            <EnterpriseButton type="button" variant="outline" onClick={requestClose}>
               {t("common.cancel")}
             </EnterpriseButton>
             <EnterpriseButton

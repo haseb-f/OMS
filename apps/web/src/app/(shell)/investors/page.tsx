@@ -1,17 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Briefcase, Coins, TrendingUp, Users } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { Briefcase, Coins } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { DetailSection } from "@/components/shared/detail-workspace";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ErrorState } from "@/components/shared/error-state";
 import { KpiCard } from "@/components/shared/kpi-card";
+import {
+  CompactDetailTable,
+  type CompactDetailColumn,
+} from "@/components/shared/data-table/compact-detail-table";
 import { StatusBadge } from "@/components/business/status-badge";
-import { EnterpriseButton } from "@/components/ui/button";
+import { tableIdentityCellClass } from "@/components/ui/table";
 import {
   investmentOpportunitiesService,
   type InvestmentOpportunityRow,
+  type InvestmentOpportunityStatus,
 } from "@/services/investment-opportunities-service";
 import {
   capitalContributionsService,
@@ -19,136 +25,200 @@ import {
 } from "@/services/capital-contributions-service";
 import { useLocale } from "@/providers/locale-provider";
 import { formatDate } from "@/lib/date";
-import { formatMoney } from "@/lib/money";
+import { formatAmount } from "@/lib/money";
+import { apiErrorMessage } from "@/lib/toast";
+
+const ACTIVE_STATUSES: InvestmentOpportunityStatus[] = ["OPEN", "FUNDED", "ACTIVE"];
+/** The API caps `pageSize` at 200 — the overview walks every page so its totals cover all records. */
+const PAGE_SIZE = 200;
+const MAX_PAGES = 50;
+
+/** Pages fetched at once after the first — bounded so a large book never floods the API. */
+const PAGE_CONCURRENCY = 4;
+
+async function listAllActiveOpportunities(): Promise<InvestmentOpportunityRow[]> {
+  const fetchPage = (page: number) =>
+    investmentOpportunitiesService.list({
+      page,
+      pageSize: PAGE_SIZE,
+      status: ACTIVE_STATUSES,
+      sortBy: "endDate",
+      sortOrder: "asc",
+    });
+  // Page 1 tells us the total; the remaining pages are then fetched in
+  // parallel batches and appended in page order.
+  const first = await fetchPage(1);
+  const rows: InvestmentOpportunityRow[] = [...first.items];
+  const pageCount = Math.min(MAX_PAGES, Math.ceil(first.total / PAGE_SIZE));
+  for (let start = 2; start <= pageCount; start += PAGE_CONCURRENCY) {
+    const pages = Array.from(
+      { length: Math.min(PAGE_CONCURRENCY, pageCount - start + 1) },
+      (_, offset) => start + offset,
+    );
+    const results = await Promise.all(pages.map(fetchPage));
+    for (const result of results) rows.push(...result.items);
+  }
+  return rows;
+}
+
+interface DashboardData {
+  opportunities: InvestmentOpportunityRow[];
+  recentContributions: CapitalContributionRow[];
+}
 
 export default function InvestorDashboardPage() {
   const { t } = useLocale();
-  const router = useRouter();
-  const [opportunities, setOpportunities] = useState<InvestmentOpportunityRow[] | null>(null);
-  const [recentContributions, setRecentContributions] = useState<CapitalContributionRow[] | null>(
-    null,
-  );
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    investmentOpportunitiesService
-      .list({
-        pageSize: 100,
-        status: ["DRAFT", "OPEN", "FUNDED", "ACTIVE"],
-        sortBy: "endDate",
-        sortOrder: "asc",
-      })
-      .then((result) => setOpportunities(result.items));
-    capitalContributionsService
-      .list({ pageSize: 10, status: ["CONFIRMED"] })
-      .then((result) => setRecentContributions(result.items));
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const [opportunities, contributions] = await Promise.all([
+        listAllActiveOpportunities(),
+        capitalContributionsService.list({ pageSize: 10, status: ["CONFIRMED"] }),
+      ]);
+      setData({ opportunities, recentContributions: contributions.items });
+    } catch (error) {
+      setLoadError(apiErrorMessage(error, "errors.loadFailed"));
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  if (!opportunities || !recentContributions) return null;
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load();
+  }, [load]);
 
-  const activeOpportunities = opportunities.filter((o) =>
-    ["OPEN", "FUNDED", "ACTIVE"].includes(o.status),
-  );
-  const targetCapital = activeOpportunities.reduce((sum, o) => sum + o.targetCapital, 0);
-  const confirmedCapital = activeOpportunities.reduce(
-    (sum, o) => sum + o.confirmedFundedCapital,
-    0,
-  );
+  const opportunities = data?.opportunities ?? [];
+  const targetCapital = opportunities.reduce((sum, o) => sum + o.targetCapital, 0);
+  const confirmedCapital = opportunities.reduce((sum, o) => sum + o.confirmedFundedCapital, 0);
   const totalInvestors = new Set(
-    activeOpportunities.flatMap((o) => o.subscriptions.map((s) => s.investorId)),
+    opportunities.flatMap((o) => o.subscriptions.map((s) => s.investorId)),
   ).size;
+  const endingSoon = opportunities.filter((o) => o.daysRemaining >= 0 && o.daysRemaining <= 30);
 
-  const endingSoon = activeOpportunities.filter(
-    (o) => o.daysRemaining >= 0 && o.daysRemaining <= 30,
-  );
+  const contributionColumns: CompactDetailColumn<CapitalContributionRow>[] = [
+    {
+      id: "investor",
+      header: t("investors.contributions.fields.investor"),
+      cell: (row) => <span className={tableIdentityCellClass}>{row.investorName}</span>,
+    },
+    {
+      id: "opportunity",
+      header: t("investors.opportunities.fields.code"),
+      cell: (row) => <span className="num">{row.opportunityCode}</span>,
+    },
+    {
+      id: "date",
+      header: t("investors.contributions.fields.date"),
+      cell: (row) => <span className="num">{formatDate(row.contributionDate)}</span>,
+    },
+    {
+      id: "amount",
+      header: t("investors.contributions.fields.amount"),
+      align: "end",
+      cell: (row) => <span className="num">{formatAmount(row.amount, { zero: "dash" })}</span>,
+    },
+  ];
 
   return (
     <PageWorkspace
       title={t("investors.dashboard.title")}
       description={t("investors.dashboard.description")}
     >
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <KpiCard
-          icon={Briefcase}
-          label={t("investors.dashboard.stats.activeOpportunities")}
-          value={activeOpportunities.length}
-        />
-        <KpiCard
-          icon={Coins}
-          label={t("investors.dashboard.stats.targetCapital")}
-          value={formatMoney(targetCapital)}
-        />
-        <KpiCard
-          icon={TrendingUp}
-          label={t("investors.dashboard.stats.confirmedCapital")}
-          value={formatMoney(confirmedCapital)}
-        />
-        <KpiCard
-          icon={Users}
-          label={t("investors.dashboard.stats.totalInvestors")}
-          value={totalInvestors}
-        />
-      </div>
-
-      <DetailSection title={t("investors.dashboard.endingSoon.title")}>
-        {endingSoon.length === 0 ? (
-          <EmptyState icon={Briefcase} title={t("investors.dashboard.endingSoon.none")} />
-        ) : (
-          <div className="flex flex-col gap-2">
-            {endingSoon.map((o) => (
-              <EnterpriseButton
-                key={o.id}
-                type="button"
-                variant="outline"
-                className="h-auto w-full justify-between px-2 py-2 font-normal"
-                onClick={() => router.push(`/investors/opportunities/${o.id}`)}
-              >
-                <span className="font-medium">
-                  {o.code} — {o.nameAr}
-                </span>
-                <StatusBadge
-                  label={t("investors.dashboard.endingSoon.within", { days: o.daysRemaining })}
-                  tone={
-                    o.daysRemaining <= 7
-                      ? "destructive"
-                      : o.daysRemaining <= 15
-                        ? "warning"
-                        : "neutral"
-                  }
-                />
-              </EnterpriseButton>
-            ))}
+      {loadError ? (
+        <ErrorState description={loadError} onRetry={() => void load()} />
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <KpiCard
+              label={t("investors.dashboard.stats.activeOpportunities")}
+              value={opportunities.length}
+              description={t("investors.dashboard.stats.activeScope")}
+              isLoading={isLoading}
+              href="/investors/opportunities"
+            />
+            <KpiCard
+              label={t("investors.dashboard.stats.targetCapital")}
+              value={formatAmount(targetCapital)}
+              description={t("investors.dashboard.stats.activeScope")}
+              isLoading={isLoading}
+            />
+            <KpiCard
+              label={t("investors.dashboard.stats.confirmedCapital")}
+              value={formatAmount(confirmedCapital)}
+              description={t("investors.dashboard.stats.activeScope")}
+              isLoading={isLoading}
+            />
+            <KpiCard
+              label={t("investors.dashboard.stats.totalInvestors")}
+              value={totalInvestors}
+              description={t("investors.dashboard.stats.activeScope")}
+              isLoading={isLoading}
+              href="/investors/list"
+            />
           </div>
-        )}
-      </DetailSection>
 
-      <DetailSection title={t("investors.dashboard.recentContributions.title")}>
-        {recentContributions.length === 0 ? (
-          <EmptyState icon={Coins} title={t("investors.dashboard.recentContributions.none")} />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-start text-body">
-              <thead>
-                <tr className="border-b border-border text-caption text-muted-foreground">
-                  <th className="p-2 text-start">{t("investors.contributions.fields.investor")}</th>
-                  <th className="p-2 text-start">{t("investors.opportunities.fields.code")}</th>
-                  <th className="p-2 text-start">{t("investors.contributions.fields.date")}</th>
-                  <th className="p-2 text-start">{t("investors.contributions.fields.amount")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentContributions.map((c) => (
-                  <tr key={c.id} className="border-b border-border/60">
-                    <td className="p-2 font-medium">{c.investorName}</td>
-                    <td className="p-2">{c.opportunityCode}</td>
-                    <td className="p-2">{formatDate(c.contributionDate)}</td>
-                    <td className="p-2">{formatMoney(c.amount)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </DetailSection>
+          {data ? (
+            <>
+              <DetailSection title={t("investors.dashboard.endingSoon.title")}>
+                {endingSoon.length === 0 ? (
+                  <EmptyState icon={Briefcase} title={t("investors.dashboard.endingSoon.none")} />
+                ) : (
+                  <ul className="flex flex-col divide-y divide-border">
+                    {endingSoon.map((o) => (
+                      <li key={o.id}>
+                        <Link
+                          href={`/investors/opportunities/${o.id}`}
+                          className="flex items-center justify-between gap-3 rounded-sm px-2 py-2 transition-colors duration-(--duration-base) hover:bg-table-row-hover focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+                        >
+                          <span className="flex min-w-0 flex-col">
+                            <span className="text-caption text-muted-foreground">
+                              <span className="num">{o.code}</span>
+                            </span>
+                            <span className="truncate font-medium text-foreground">{o.nameAr}</span>
+                          </span>
+                          <StatusBadge
+                            label={t("investors.dashboard.endingSoon.within", {
+                              days: o.daysRemaining,
+                            })}
+                            tone={
+                              o.daysRemaining <= 7
+                                ? "destructive"
+                                : o.daysRemaining <= 15
+                                  ? "warning"
+                                  : "neutral"
+                            }
+                          />
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </DetailSection>
+
+              <DetailSection title={t("investors.dashboard.recentContributions.title")}>
+                {data.recentContributions.length === 0 ? (
+                  <EmptyState
+                    icon={Coins}
+                    title={t("investors.dashboard.recentContributions.none")}
+                  />
+                ) : (
+                  <CompactDetailTable
+                    columns={contributionColumns}
+                    rows={data.recentContributions}
+                    rowKey={(row) => row.id}
+                  />
+                )}
+              </DetailSection>
+            </>
+          ) : null}
+        </>
+      )}
     </PageWorkspace>
   );
 }

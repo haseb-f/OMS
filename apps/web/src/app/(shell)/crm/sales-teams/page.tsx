@@ -15,8 +15,7 @@ import { SalesTeamEditorModal } from "@/components/crm/sales-team-editor-modal";
 import { salesTeamsService, type SalesTeamRow } from "@/services/sales-teams-service";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import type { ColumnDef } from "@tanstack/react-table";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { RowActionsMenu } from "@/components/shared/data-table";
@@ -49,11 +48,11 @@ function SalesTeamsPageContent() {
     try {
       setTeams(await salesTeamsService.list(search || undefined));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("errors.generic"));
+      reportApiError(error, "errors.generic");
     } finally {
       setIsLoading(false);
     }
-  }, [search, t]);
+  }, [search]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -99,7 +98,7 @@ function SalesTeamsPageContent() {
       },
       {
         id: "members",
-        meta: { titleKey: "crm.salesTeams.fields.members" },
+        meta: { titleKey: "crm.salesTeams.fields.members", type: "number" },
         accessorFn: (row) => String(row.members.length),
       },
       {
@@ -215,7 +214,7 @@ function SalesTeamsPageContent() {
             setArchiveTarget(null);
             await load();
           } catch (error) {
-            toast.error(error instanceof ApiError ? error.message : t("errors.generic"));
+            reportApiError(error, "errors.generic");
           } finally {
             setArchiving(false);
           }

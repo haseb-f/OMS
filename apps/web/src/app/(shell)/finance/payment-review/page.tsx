@@ -19,9 +19,8 @@ import { RelatedRecordLink } from "@/components/shared/record-preview";
 import { StoreOrderLineAmountsDialog } from "@/components/store-orders/store-order-line-amounts-dialog";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast } from "@/lib/toast";
+import { toast, reportApiError } from "@/lib/toast";
 import { formatMoney } from "@/lib/money";
-import { ApiError } from "@/services/api-client";
 import { formatDate } from "@/lib/date";
 import {
   paymentsReviewService,
@@ -106,11 +105,11 @@ function PaymentReviewPageContent() {
         setTotal(result.total);
       }
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+      reportApiError(error, "common.loadFailed");
     } finally {
       setIsLoading(false);
     }
-  }, [status, page, pageSize, t]);
+  }, [status, page, pageSize]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -148,7 +147,7 @@ function PaymentReviewPageContent() {
             ),
           );
         } catch (error) {
-          toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+          reportApiError(error, "common.failedToSave");
         } finally {
           await load();
         }
@@ -190,7 +189,7 @@ function PaymentReviewPageContent() {
         setRejectReason("");
         await load();
       } catch (error) {
-        toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+        reportApiError(error, "common.failedToSave");
       }
     });
   };
@@ -233,7 +232,7 @@ function PaymentReviewPageContent() {
       },
       {
         id: "amount",
-        meta: { titleKey: "finance.paymentReview.fields.amount", align: "end" },
+        meta: { titleKey: "finance.paymentReview.fields.amount", align: "end", type: "money" },
         cell: ({ row }) => (
           <span dir="ltr" className="tabular-nums">
             {formatMoney(row.original.amount, row.original.currency?.code)}
@@ -242,7 +241,7 @@ function PaymentReviewPageContent() {
       },
       {
         id: "remaining",
-        meta: { titleKey: "finance.paymentReview.fields.remaining", align: "end" },
+        meta: { titleKey: "finance.paymentReview.fields.remaining", align: "end", type: "money" },
         cell: ({ row }) => (
           <span dir="ltr" className="tabular-nums">
             {row.original.settlement ? formatMoney(row.original.settlement.outstanding) : "—"}

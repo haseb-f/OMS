@@ -11,8 +11,7 @@ import {
   type SalesQuotationRow,
 } from "@/services/sales-quotations-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError, toast } from "@/lib/toast";
 
 /**
  * Quotation → Sales Order conversion (TASK-043 §6/§10/§15) — the ONLY thing
@@ -65,7 +64,7 @@ export function ConvertToOrderDialog({
       onOpenChange(false);
       onConverted(order);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsSubmitting(false);
     }

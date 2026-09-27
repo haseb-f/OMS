@@ -21,8 +21,7 @@ import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { useLocale } from "@/providers/locale-provider";
 import { formatDate } from "@/lib/date";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import {
   paymentSettlementsService,
   type SettlementDetail,
@@ -62,7 +61,7 @@ export function SettlementDetailSheet({
       .get(settlementId)
       .then(setDetail)
       .catch((error: unknown) => {
-        toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+        reportApiError(error, "common.loadFailed");
       });
   }, [settlementId, t]);
 
@@ -338,7 +337,7 @@ export function ReverseSettlementDialog({
             onReversed(updated);
           })
           .catch((error: unknown) => {
-            toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+            reportApiError(error, "common.failedToSave");
           })
           .finally(() => setIsReversing(false));
       }}

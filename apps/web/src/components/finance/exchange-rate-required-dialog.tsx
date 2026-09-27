@@ -8,8 +8,7 @@ import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { Label } from "@/components/ui/label";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import { exchangeRatesService, type RequiredExchangeRate } from "@/services/fx-service";
 
 const CREATE_RATE_PERMISSION = "exchange-rates.create";
@@ -70,7 +69,7 @@ export function ExchangeRateRequiredDialog({
       reset();
       onRateSaved();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
       setSaving(false);
     }
   };

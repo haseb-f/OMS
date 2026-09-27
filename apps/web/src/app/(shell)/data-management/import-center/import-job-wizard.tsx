@@ -3,6 +3,7 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { Download, FileSpreadsheet, RefreshCw, Sheet, Upload } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
+import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,16 +16,6 @@ import {
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
   Table,
   TableHeader,
   TableBody,
@@ -34,9 +25,8 @@ import {
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/business/status-badge";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
+import { toast, reportApiError } from "@/lib/toast";
 import { downloadBlob } from "@/lib/download";
-import { ApiError } from "@/services/api-client";
 import { formatDateTime } from "@/lib/date";
 import {
   importJobsService,
@@ -149,7 +139,7 @@ export function ImportJobWizard({
           setStep("upload");
         }
       } catch (error) {
-        toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+        reportApiError(error, "common.failedToSave");
         onOpenChange(false);
       } finally {
         setIsLoading(false);
@@ -191,7 +181,7 @@ export function ImportJobWizard({
       setPreview(previewData);
       setStep("mapping");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsLoading(false);
     }
@@ -207,11 +197,7 @@ export function ImportJobWizard({
       setPreview(previewData);
       setStep("mapping");
     } catch (error) {
-      toast.error(
-        error instanceof ApiError
-          ? error.message
-          : t("importCenter.wizard.googleSheets.readFailed"),
-      );
+      reportApiError(error, "importCenter.wizard.googleSheets.readFailed");
     } finally {
       setIsLoading(false);
     }
@@ -228,7 +214,7 @@ export function ImportJobWizard({
       setPreview(previewData);
       toast.success(t("importCenter.wizard.googleSheets.refreshed"));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsRefreshing(false);
     }
@@ -248,7 +234,7 @@ export function ImportJobWizard({
         .catch(() => setValidation(null))
         .finally(() => setIsValidating(false));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsLoading(false);
     }
@@ -269,7 +255,7 @@ export function ImportJobWizard({
         .then(setTemplates)
         .catch(() => {});
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     }
   };
 
@@ -281,7 +267,7 @@ export function ImportJobWizard({
       setJob(result);
       setStep("results");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsLoading(false);
     }
@@ -295,7 +281,7 @@ export function ImportJobWizard({
       onOpenChange(false);
       onDone();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     }
   };
 
@@ -305,7 +291,7 @@ export function ImportJobWizard({
       const blob = await importJobsService.exportErrorsCsv(job.id);
       downloadBlob(blob, `import-errors-${job.id}.csv`);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     }
   };
 
@@ -314,7 +300,7 @@ export function ImportJobWizard({
       const blob = await importTypesService.downloadTemplate(typeDef.type);
       downloadBlob(blob, `${typeDef.type.toLowerCase().replace(/_/g, "-")}-import-template.xlsx`);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     }
   };
 
@@ -631,7 +617,9 @@ export function ImportJobWizard({
                   {job.lastSyncedAt && (
                     <p className="text-xs text-muted-foreground">
                       {t("importCenter.wizard.googleSheets.lastSynced", {
-                        datetime: formatDateTime(job.lastSyncedAt),
+                        // First-strong isolate: the timestamp keeps its own
+                        // order inside the Arabic sentence (design-system §2).
+                        datetime: `⁨${formatDateTime(job.lastSyncedAt)}⁩`,
                       })}
                     </p>
                   )}
@@ -857,22 +845,15 @@ export function ImportJobWizard({
         )}
       </EnterpriseModal>
 
-      <AlertDialog open={cancelConfirmOpen} onOpenChange={setCancelConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("importCenter.wizard.cancelConfirmTitle")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("importCenter.wizard.cancelConfirmDescription")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("common.keepEditing")}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCancelJob}>
-              {t("importCenter.wizard.cancel")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmationDialog
+        open={cancelConfirmOpen}
+        onOpenChange={setCancelConfirmOpen}
+        title={t("importCenter.wizard.cancelConfirmTitle")}
+        description={t("importCenter.wizard.cancelConfirmDescription")}
+        cancelLabel={t("common.keepEditing")}
+        confirmLabel={t("importCenter.wizard.cancel")}
+        onConfirm={() => void handleCancelJob()}
+      />
     </>
   );
 }

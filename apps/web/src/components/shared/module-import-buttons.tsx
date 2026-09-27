@@ -15,10 +15,9 @@ import { ImportJobWizard } from "@/app/(shell)/data-management/import-center/imp
 import { importTypesService, type ImportTypeDefinition } from "@/services/import-types-service";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
+import { reportApiError } from "@/lib/toast";
 import { downloadBlob } from "@/lib/download";
 import { cachedLookup } from "@/lib/lookup-cache";
-import { ApiError } from "@/services/api-client";
 import type { MessageKey } from "@/i18n/translate";
 
 const TYPES_TTL_MS = 5 * 60_000;
@@ -70,9 +69,7 @@ export function ModuleImportButtons({
       const blob = await importTypesService.downloadTemplate(typeDef.type);
       downloadBlob(blob, `${typeDef.type.toLowerCase().replace(/_/g, "-")}-import-template.xlsx`);
     } catch (error) {
-      toast.error(
-        error instanceof ApiError ? error.message : t("importCenter.downloadTemplateFailed"),
-      );
+      reportApiError(error, "importCenter.downloadTemplateFailed");
     }
   };
 

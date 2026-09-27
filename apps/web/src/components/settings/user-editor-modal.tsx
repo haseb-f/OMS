@@ -24,8 +24,7 @@ import { useJobTitles } from "@/hooks/use-reference-data";
 import type { DepartmentRow } from "@/config/master-data/entities";
 import { useCompany } from "@/providers/company-provider";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 
 interface FormState {
   fullName: string;
@@ -181,7 +180,7 @@ export function UserEditorModal({
       setPermissions(result.granted);
       toast.success(t("settings.users.editor.permissionsLoaded"));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("errors.generic"));
+      reportApiError(error, "errors.generic");
     }
   };
 
@@ -232,7 +231,7 @@ export function UserEditorModal({
       onOpenChange(false);
       onSaved(temporaryPassword);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("errors.generic"));
+      reportApiError(error, "errors.generic");
     } finally {
       setIsSaving(false);
     }

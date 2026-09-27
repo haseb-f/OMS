@@ -17,7 +17,9 @@ import {
 } from "@/services/investment-opportunities-service";
 import { useLocale } from "@/providers/locale-provider";
 import { toast, reportApiError } from "@/lib/toast";
-import { formatMoney } from "@/lib/money";
+import { formatAmount } from "@/lib/money";
+import { KpiCard } from "@/components/shared/kpi-card";
+import { Label } from "@/components/ui/label";
 
 interface ProductLine {
   product: ProductRow | null;
@@ -182,7 +184,7 @@ export default function NewInvestmentOpportunityPage() {
       <DetailSection
         title={t("investors.opportunities.create.sectionProducts")}
         actions={
-          <EnterpriseButton type="button" variant="secondary" size="sm" onClick={addLine}>
+          <EnterpriseButton type="button" variant="outline" size="sm" onClick={addLine}>
             <Plus />
             {t("investors.opportunities.create.addProduct")}
           </EnterpriseButton>
@@ -192,72 +194,102 @@ export default function NewInvestmentOpportunityPage() {
           <p className="text-caption text-muted-foreground">
             {t("investors.opportunities.create.productsEligibilityHint")}
           </p>
-          <div className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 px-1 text-caption text-muted-foreground">
-            <span>{t("investors.opportunities.create.addProduct")}</span>
-            <span>{t("investors.opportunities.create.fundedUnits")}</span>
-            <span>{t("investors.opportunities.create.fundedUnitCost")}</span>
-            <span>{t("investors.opportunities.create.lineCapital")}</span>
-            <span />
+          <div
+            aria-hidden
+            className="hidden gap-2 px-1 text-caption text-muted-foreground md:grid md:grid-cols-12"
+          >
+            <span className="md:col-span-5">{t("investors.opportunities.create.addProduct")}</span>
+            <span className="md:col-span-2">{t("investors.opportunities.create.fundedUnits")}</span>
+            <span className="md:col-span-2">
+              {t("investors.opportunities.create.fundedUnitCost")}
+            </span>
+            <span className="text-end md:col-span-2">
+              {t("investors.opportunities.create.lineCapital")}
+            </span>
+            <span className="md:col-span-1" />
           </div>
           {products.map((line, index) => (
-            <div key={index} className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] items-center gap-2">
-              <ProductPicker
-                value={line.product}
-                onChange={(product) => updateLine(index, { product })}
-                sellableOnly={false}
-                investmentEligibleOnly
-              />
-              <Input
-                type="number"
-                min={0}
-                value={line.fundedUnits || ""}
-                onChange={(e) => updateLine(index, { fundedUnits: Number(e.target.value) })}
-              />
-              <Input
-                type="number"
-                min={0}
-                step="0.01"
-                value={line.fundedUnitCost || ""}
-                onChange={(e) => updateLine(index, { fundedUnitCost: Number(e.target.value) })}
-              />
-              <span className="text-body font-medium">
-                {formatMoney(
-                  (line.fundedUnits || 0) * (line.fundedUnitCost || 0),
-                  selectedCurrency?.code,
-                )}
-              </span>
-              <EnterpriseButton
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => removeLine(index)}
-                disabled={products.length === 1}
-              >
-                <Trash2 />
-              </EnterpriseButton>
+            <div
+              key={index}
+              className="grid grid-cols-2 items-center gap-2 rounded-md border border-border p-2 md:grid-cols-12 md:rounded-none md:border-0 md:p-0"
+            >
+              <div className="col-span-2 flex min-w-0 flex-col gap-1 md:col-span-5">
+                <Label className="md:sr-only">
+                  {t("investors.opportunities.create.addProduct")}
+                </Label>
+                <ProductPicker
+                  value={line.product}
+                  onChange={(product) => updateLine(index, { product })}
+                  sellableOnly={false}
+                  investmentEligibleOnly
+                />
+              </div>
+              <div className="flex min-w-0 flex-col gap-1 md:col-span-2">
+                <Label className="md:sr-only">
+                  {t("investors.opportunities.create.fundedUnits")}
+                </Label>
+                <Input
+                  type="number"
+                  min={0}
+                  dir="ltr"
+                  aria-label={t("investors.opportunities.create.fundedUnits")}
+                  value={line.fundedUnits || ""}
+                  onChange={(e) => updateLine(index, { fundedUnits: Number(e.target.value) })}
+                />
+              </div>
+              <div className="flex min-w-0 flex-col gap-1 md:col-span-2">
+                <Label className="md:sr-only">
+                  {t("investors.opportunities.create.fundedUnitCost")}
+                </Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  dir="ltr"
+                  aria-label={t("investors.opportunities.create.fundedUnitCost")}
+                  value={line.fundedUnitCost || ""}
+                  onChange={(e) => updateLine(index, { fundedUnitCost: Number(e.target.value) })}
+                />
+              </div>
+              <div className="flex min-w-0 items-center justify-between gap-2 md:col-span-2 md:justify-end">
+                <span className="text-caption text-muted-foreground md:sr-only">
+                  {t("investors.opportunities.create.lineCapital")}
+                </span>
+                <span className="text-body font-medium">
+                  <span className="num">
+                    {formatAmount((line.fundedUnits || 0) * (line.fundedUnitCost || 0), {
+                      currency: selectedCurrency?.code,
+                    })}
+                  </span>
+                </span>
+              </div>
+              <div className="flex justify-end md:col-span-1">
+                <EnterpriseButton
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={t("common.delete")}
+                  onClick={() => removeLine(index)}
+                  disabled={products.length === 1}
+                >
+                  <Trash2 />
+                </EnterpriseButton>
+              </div>
             </div>
           ))}
         </div>
       </DetailSection>
 
       <DetailSection title={t("investors.opportunities.create.sectionSummary")}>
-        <div className="grid grid-cols-3 gap-4">
-          <div>
-            <div className="text-caption text-muted-foreground">
-              {t("investors.opportunities.fields.targetCapital")}
-            </div>
-            <div className="text-ui-title font-semibold">
-              {formatMoney(targetCapital, selectedCurrency?.code)}
-            </div>
-          </div>
-          <div>
-            <div className="text-caption text-muted-foreground">
-              {t("investors.opportunities.create.productsCount")}
-            </div>
-            <div className="text-ui-title font-semibold">
-              {products.filter((line) => line.product).length}
-            </div>
-          </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <KpiCard
+            label={t("investors.opportunities.fields.targetCapital")}
+            value={formatAmount(targetCapital, { currency: selectedCurrency?.code })}
+          />
+          <KpiCard
+            label={t("investors.opportunities.create.productsCount")}
+            value={products.filter((line) => line.product).length}
+          />
         </div>
       </DetailSection>
     </EditorWorkspace>

@@ -26,8 +26,7 @@ import {
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useCurrencies } from "@/hooks/use-reference-data";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError, toast } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
 
 interface FieldConfig {
@@ -305,9 +304,7 @@ export default function AccountingSettingsPage() {
       await investorAccountingSettingsService.update(payload);
       toast.success(t("common.saved"));
     } catch (error) {
-      toast.error(
-        error instanceof ApiError ? error.message : "Failed to save Investor accounting settings.",
-      );
+      reportApiError(error, "errors.saveFailed");
     } finally {
       setIsInvestorSaving(false);
     }
@@ -339,11 +336,7 @@ export default function AccountingSettingsPage() {
             : null,
         );
       })
-      .catch((error) =>
-        toast.error(
-          error instanceof ApiError ? error.message : "Failed to load accounting settings.",
-        ),
-      )
+      .catch((error) => reportApiError(error, "errors.loadFailed"))
       .finally(() => setIsLoading(false));
   };
 
@@ -382,9 +375,7 @@ export default function AccountingSettingsPage() {
       setShowErrors(false);
       toast.success(t("common.saved"));
     } catch (error) {
-      toast.error(
-        error instanceof ApiError ? error.message : "Failed to save accounting settings.",
-      );
+      reportApiError(error, "errors.saveFailed");
     } finally {
       setIsSaving(false);
     }

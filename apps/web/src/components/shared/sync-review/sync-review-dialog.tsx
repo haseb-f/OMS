@@ -8,6 +8,17 @@ import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  tableCellWrapClass,
+  tableIdentityCellClass,
+  tableSecondaryTextClass,
+} from "@/components/ui/table";
 import { exportRowsToCsv } from "@/components/master-data/enterprise-data-table";
 import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
@@ -17,8 +28,7 @@ import {
   type SyncPreviewResult,
   type SyncSource,
 } from "@/services/sync-service";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import { humanizeSyncIssue } from "./messages";
 import { SyncBulkActions } from "./sync-bulk-actions";
 import { SyncErrorDigest } from "./sync-error-digest";
@@ -269,9 +279,7 @@ export function SyncReviewDialog({
       setActiveSelection({});
       await onRevalidate({ retryRowNumbers: rowNumbers });
     } catch (error) {
-      toast.error(
-        error instanceof ApiError ? error.message : t("importCenter.sync.review.clearOrphanFailed"),
-      );
+      reportApiError(error, "importCenter.sync.review.clearOrphanFailed");
     } finally {
       setClearingOrphans(false);
     }
@@ -415,37 +423,41 @@ export function SyncReviewDialog({
                 </div>
               );
             })()}
-            <div className="max-h-96 overflow-y-auto rounded-lg border border-border">
-              <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-muted/50 text-muted-foreground">
-                  <tr>
-                    <th className="p-2 text-start font-medium">
+            <div className="max-h-96 overflow-auto rounded-md border border-border">
+              <Table container={false}>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="sticky top-0 z-(--z-sticky)">
                       {t("importCenter.sync.report.externalOrderId")}
-                    </th>
-                    <th className="p-2 text-start font-medium">
+                    </TableHead>
+                    <TableHead className="sticky top-0 z-(--z-sticky)">
                       {t("importCenter.sync.report.result")}
-                    </th>
-                    <th className="p-2 text-start font-medium">
+                    </TableHead>
+                    <TableHead className="sticky top-0 z-(--z-sticky)">
                       {t("importCenter.sync.report.message")}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {report
                     .filter((row) => showSkippedFinal || row.result !== "SKIPPED_FINAL")
                     .map((row, idx) => (
-                      <tr key={`${row.externalOrderId}-${idx}`} className="border-t border-border">
-                        <td className="p-2 font-medium">{row.externalOrderId}</td>
-                        <td className="p-2">
+                      <TableRow key={`${row.externalOrderId}-${idx}`}>
+                        <TableCell className={tableIdentityCellClass}>
+                          <span className="num">{row.externalOrderId}</span>
+                        </TableCell>
+                        <TableCell>
                           <EnterpriseBadge variant={reportResultVariant(row.result)}>
                             {t(REPORT_RESULT_LABEL_KEY[row.result])}
                           </EnterpriseBadge>
-                        </td>
-                        <td className="p-2 text-muted-foreground">{row.message}</td>
-                      </tr>
+                        </TableCell>
+                        <TableCell className={tableSecondaryTextClass}>
+                          <span className={tableCellWrapClass}>{row.message}</span>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </div>
         ) : step === "confirm" ? (

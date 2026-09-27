@@ -37,8 +37,7 @@ import { useUserContext } from "@/providers/user-context";
 import { ModalSection, ModalFieldFullWidth } from "@/components/shared/modal-section";
 import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import { productsService, type ProductRow } from "@/services/products-service";
 import type { CategoryRow, UnitRow, TaxRow, WarehouseRow } from "@/config/master-data/entities";
 import type { PartnerPickerRow } from "@/services/partners-service";
@@ -168,7 +167,7 @@ export function ProductCreateDialog({
         onOpenChange(false);
         onCreated(created);
       } catch (error) {
-        toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+        reportApiError(error, "common.failedToSave");
       } finally {
         setIsSubmitting(false);
       }

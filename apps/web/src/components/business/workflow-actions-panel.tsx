@@ -6,10 +6,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
-import { DynamicStatusBadge } from "@/components/business/dynamic-status-badge";
+import { StatusBadge } from "@/components/business/status-badge";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import {
   workflowService,
   type WorkflowAction,
@@ -59,11 +58,11 @@ export function WorkflowActionsPanel({
       setActions(await workflowService.availableActions(entityType, entityId));
     } catch (error) {
       setActions([]);
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setLoading(false);
     }
-  }, [entityType, entityId, t]);
+  }, [entityType, entityId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -100,7 +99,7 @@ export function WorkflowActionsPanel({
       await load();
       onTransitionComplete();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setPending(false);
     }
@@ -134,7 +133,7 @@ export function WorkflowActionsPanel({
   return (
     <div className="flex flex-col gap-3">
       {currentStatus ? (
-        <DynamicStatusBadge label={currentStatus.name} colorKey={currentStatus.color} />
+        <StatusBadge label={currentStatus.name} colorKey={currentStatus.color} />
       ) : null}
       {visibleActions.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2">

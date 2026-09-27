@@ -3,18 +3,11 @@
 import { useEffect, useId, useState } from "react";
 import { Plus, RefreshCw, UploadCloud } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
+import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -31,8 +24,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError, toast } from "@/lib/toast";
 import { syncService, type SyncSource, type SyncSourceType } from "@/services/sync-service";
 import { importTypesService, type ImportFieldDef } from "@/services/import-types-service";
 import { referenceDataService, type ReferenceDataType } from "@/services/reference-data-service";
@@ -72,9 +64,7 @@ export function SyncSourcesManager({
     syncService
       .listSources()
       .then(setSources)
-      .catch((error) =>
-        toast.error(error instanceof ApiError ? error.message : "Failed to load sync sources."),
-      )
+      .catch((error) => reportApiError(error, "errors.loadFailed"))
       .finally(() => setLoading(false));
   };
 
@@ -85,74 +75,77 @@ export function SyncSourcesManager({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{t("importCenter.sync.sources.title")}</DialogTitle>
-            <DialogDescription>{t("importCenter.sync.sources.description")}</DialogDescription>
-          </DialogHeader>
-
-          <div className="flex items-center justify-between gap-2">
-            <EnterpriseButton type="button" size="sm" onClick={() => setCreateOpen(true)}>
-              <Plus />
-              {t("importCenter.sync.sources.new")}
-            </EnterpriseButton>
-            <EnterpriseButton
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setPushOpen(true)}
-            >
-              <UploadCloud />
-              {t("importCenter.sync.sources.pushReferenceData")}
-            </EnterpriseButton>
-          </div>
-
-          <div className="max-h-80 overflow-y-auto rounded-lg border border-border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("importCenter.sync.sources.label")}</TableHead>
-                  <TableHead>{t("importCenter.sync.sources.type")}</TableHead>
-                  <TableHead>{t("importCenter.sync.sources.enabled")}</TableHead>
-                  <TableHead>{t("importCenter.sync.lastSync")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sources.map((source) => (
-                  <TableRow key={source.id}>
-                    <TableCell>{source.label}</TableCell>
-                    <TableCell>{source.sourceType}</TableCell>
-                    <TableCell>
-                      <EnterpriseBadge variant={source.enabled ? "default" : "outline"}>
-                        {source.enabled ? t("common.active") : t("common.archived")}
-                      </EnterpriseBadge>
-                    </TableCell>
-                    <TableCell className="text-caption text-muted-foreground">
-                      {source.lastSyncedAt
-                        ? formatDateTime(source.lastSyncedAt)
-                        : t("importCenter.sync.statusNeverRun")}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {!loading && sources.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground">
-                      {t("common.noResults")}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-
-          <DialogFooter>
+      <EnterpriseModal
+        open={open}
+        onOpenChange={onOpenChange}
+        size="lg"
+        title={t("importCenter.sync.sources.title")}
+        description={t("importCenter.sync.sources.description")}
+        bodyClassName="flex flex-col gap-4"
+        footer={
+          <>
             <EnterpriseButton type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {t("common.close")}
             </EnterpriseButton>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </>
+        }
+      >
+        <div className="flex items-center justify-between gap-2">
+          <EnterpriseButton type="button" size="sm" onClick={() => setCreateOpen(true)}>
+            <Plus />
+            {t("importCenter.sync.sources.new")}
+          </EnterpriseButton>
+          <EnterpriseButton
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setPushOpen(true)}
+          >
+            <UploadCloud />
+            {t("importCenter.sync.sources.pushReferenceData")}
+          </EnterpriseButton>
+        </div>
+
+        <div className="max-h-80 overflow-y-auto rounded-lg border border-border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("importCenter.sync.sources.label")}</TableHead>
+                <TableHead>{t("importCenter.sync.sources.type")}</TableHead>
+                <TableHead>{t("importCenter.sync.sources.enabled")}</TableHead>
+                <TableHead>{t("importCenter.sync.lastSync")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sources.map((source) => (
+                <TableRow key={source.id}>
+                  <TableCell>{source.label}</TableCell>
+                  <TableCell>{source.sourceType}</TableCell>
+                  <TableCell>
+                    <EnterpriseBadge variant={source.enabled ? "default" : "outline"}>
+                      {source.enabled ? t("common.active") : t("common.archived")}
+                    </EnterpriseBadge>
+                  </TableCell>
+                  <TableCell className="text-caption text-muted-foreground">
+                    {source.lastSyncedAt ? (
+                      <span className="num">{formatDateTime(source.lastSyncedAt)}</span>
+                    ) : (
+                      t("importCenter.sync.statusNeverRun")
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!loading && sources.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground">
+                    {t("common.noResults")}
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </EnterpriseModal>
 
       <CreateSourceDialog
         open={createOpen}
@@ -214,108 +207,22 @@ function CreateSourceDialog({
       setSpreadsheetUrl("");
       onCreated();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to create sync source.");
+      reportApiError(error, "errors.actionFailed");
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>{t("importCenter.sync.sources.new")}</DialogTitle>
-          <DialogDescription>{t("importCenter.sync.sources.newDescription")}</DialogDescription>
-        </DialogHeader>
-
-        <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor={`${fieldId}-type`}>{t("importCenter.sync.sources.type")}</Label>
-              <Select value={sourceType} onValueChange={(v) => setSourceType(v as SyncSourceType)}>
-                <SelectTrigger id={`${fieldId}-type`} className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="LEADS">{t("importCenter.types.leads.label")}</SelectItem>
-                  <SelectItem value="STORE_ORDERS">{t("storeOrders.title")}</SelectItem>
-                  <SelectItem value="CASH_FLOW">
-                    {t("masterData.bankTransactions.title")}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor={`${fieldId}-label`}>{t("importCenter.sync.sources.label")}</Label>
-              <Input
-                id={`${fieldId}-label`}
-                value={label}
-                onChange={(e) => setLabel(e.target.value)}
-                placeholder="Al Rajhi"
-              />
-            </div>
-          </div>
-
-          {sourceType === "CASH_FLOW" && (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor={`${fieldId}-direction`}>
-                {t("masterData.bankTransactions.fields.classification")}
-              </Label>
-              <Select
-                value={cashFlowDirection}
-                onValueChange={(v) => setCashFlowDirection(v as "INCOMING" | "OUTGOING")}
-              >
-                <SelectTrigger id={`${fieldId}-direction`} className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="INCOMING">
-                    {t("masterData.bankTransactions.tabs.incoming")}
-                  </SelectItem>
-                  <SelectItem value="OUTGOING">
-                    {t("masterData.bankTransactions.tabs.outgoing")}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          <div className="flex flex-col gap-1.5">
-            <Label>{t("importCenter.wizard.googleSheets.urlLabel")}</Label>
-            <Input
-              value={spreadsheetUrl}
-              onChange={(e) => setSpreadsheetUrl(e.target.value)}
-              placeholder="https://docs.google.com/spreadsheets/d/..."
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label>{t("importCenter.wizard.mapping.title")}</Label>
-            <div className="flex max-h-64 flex-col gap-1.5 overflow-y-auto rounded-lg border border-border p-2">
-              {fields.map((field) => (
-                <div key={field.key} className="flex items-center gap-2">
-                  <span className="w-40 shrink-0 truncate text-caption">
-                    {field.label}
-                    {field.required && <span className="text-destructive"> *</span>}
-                  </span>
-                  {field.referenceType && (
-                    <EnterpriseBadge variant="secondary" className="shrink-0">
-                      {field.referenceType}
-                    </EnterpriseBadge>
-                  )}
-                  <Input
-                    className="h-8"
-                    value={mapping[field.key] ?? ""}
-                    onChange={(e) => setMapping((m) => ({ ...m, [field.key]: e.target.value }))}
-                    placeholder={t("importCenter.wizard.mapping.selectColumn")}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter>
+    <EnterpriseModal
+      open={open}
+      onOpenChange={onOpenChange}
+      size="md"
+      title={t("importCenter.sync.sources.new")}
+      description={t("importCenter.sync.sources.newDescription")}
+      bodyClassName="flex flex-col gap-4"
+      footer={
+        <>
           <EnterpriseButton
             type="button"
             variant="outline"
@@ -331,9 +238,94 @@ function CreateSourceDialog({
           >
             {saving ? t("common.loading") : t("common.save")}
           </EnterpriseButton>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`${fieldId}-type`}>{t("importCenter.sync.sources.type")}</Label>
+            <Select value={sourceType} onValueChange={(v) => setSourceType(v as SyncSourceType)}>
+              <SelectTrigger id={`${fieldId}-type`} className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="LEADS">{t("importCenter.types.leads.label")}</SelectItem>
+                <SelectItem value="STORE_ORDERS">{t("storeOrders.title")}</SelectItem>
+                <SelectItem value="CASH_FLOW">{t("masterData.bankTransactions.title")}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`${fieldId}-label`}>{t("importCenter.sync.sources.label")}</Label>
+            <Input
+              id={`${fieldId}-label`}
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="Al Rajhi"
+            />
+          </div>
+        </div>
+
+        {sourceType === "CASH_FLOW" && (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`${fieldId}-direction`}>
+              {t("masterData.bankTransactions.fields.classification")}
+            </Label>
+            <Select
+              value={cashFlowDirection}
+              onValueChange={(v) => setCashFlowDirection(v as "INCOMING" | "OUTGOING")}
+            >
+              <SelectTrigger id={`${fieldId}-direction`} className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="INCOMING">
+                  {t("masterData.bankTransactions.tabs.incoming")}
+                </SelectItem>
+                <SelectItem value="OUTGOING">
+                  {t("masterData.bankTransactions.tabs.outgoing")}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-1.5">
+          <Label>{t("importCenter.wizard.googleSheets.urlLabel")}</Label>
+          <Input
+            value={spreadsheetUrl}
+            onChange={(e) => setSpreadsheetUrl(e.target.value)}
+            placeholder="https://docs.google.com/spreadsheets/d/..."
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label>{t("importCenter.wizard.mapping.title")}</Label>
+          <div className="flex max-h-64 flex-col gap-1.5 overflow-y-auto rounded-lg border border-border p-2">
+            {fields.map((field) => (
+              <div key={field.key} className="flex items-center gap-2">
+                <span className="w-40 shrink-0 truncate text-caption">
+                  {field.label}
+                  {field.required && <span className="text-destructive"> *</span>}
+                </span>
+                {field.referenceType && (
+                  <EnterpriseBadge variant="secondary" className="shrink-0">
+                    {field.referenceType}
+                  </EnterpriseBadge>
+                )}
+                <Input
+                  className="h-8"
+                  value={mapping[field.key] ?? ""}
+                  onChange={(e) => setMapping((m) => ({ ...m, [field.key]: e.target.value }))}
+                  placeholder={t("importCenter.wizard.mapping.selectColumn")}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </EnterpriseModal>
   );
 }
 
@@ -374,45 +366,22 @@ function PushReferenceDataDialog({
       toast.success(t("importCenter.sync.sources.referenceDataPushed"));
       onOpenChange(false);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to push reference data.");
+      reportApiError(error, "errors.actionFailed");
     } finally {
       setPushing(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{t("importCenter.sync.sources.pushReferenceData")}</DialogTitle>
-          <DialogDescription>
-            {t("importCenter.sync.sources.pushReferenceDataDescription")}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Label>{t("importCenter.wizard.googleSheets.urlLabel")}</Label>
-            <Input
-              value={spreadsheetUrl}
-              onChange={(e) => setSpreadsheetUrl(e.target.value)}
-              placeholder="https://docs.google.com/spreadsheets/d/..."
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {types.map((type) => (
-              <label key={type.type} className="flex items-center gap-2 text-caption">
-                <Checkbox
-                  checked={selected.has(type.type)}
-                  onCheckedChange={() => toggle(type.type)}
-                />
-                {type.label}
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <DialogFooter>
+    <EnterpriseModal
+      open={open}
+      onOpenChange={onOpenChange}
+      size="md"
+      title={t("importCenter.sync.sources.pushReferenceData")}
+      description={t("importCenter.sync.sources.pushReferenceDataDescription")}
+      bodyClassName="flex flex-col gap-4"
+      footer={
+        <>
           <EnterpriseButton
             type="button"
             variant="outline"
@@ -429,8 +398,30 @@ function PushReferenceDataDialog({
             <RefreshCw className={pushing ? "animate-spin" : undefined} />
             {pushing ? t("common.loading") : t("common.save")}
           </EnterpriseButton>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label>{t("importCenter.wizard.googleSheets.urlLabel")}</Label>
+          <Input
+            value={spreadsheetUrl}
+            onChange={(e) => setSpreadsheetUrl(e.target.value)}
+            placeholder="https://docs.google.com/spreadsheets/d/..."
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {types.map((type) => (
+            <label key={type.type} className="flex items-center gap-2 text-caption">
+              <Checkbox
+                checked={selected.has(type.type)}
+                onCheckedChange={() => toggle(type.type)}
+              />
+              {type.label}
+            </label>
+          ))}
+        </div>
+      </div>
+    </EnterpriseModal>
   );
 }

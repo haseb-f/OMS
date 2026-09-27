@@ -14,7 +14,20 @@ import {
   type RecordPreview,
 } from "@/config/traceability/record-previews";
 import { pushOrigin } from "@/lib/navigation-origin";
-import { formatMoney } from "@/lib/money";
+import { formatAmount, formatMoney } from "@/lib/money";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+  tableIdentityCellClass,
+  tableNumericCellClass,
+  tableSecondaryTextClass,
+  tableTotalsRowClass,
+} from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/services/api-client";
 import { useLocale } from "@/providers/locale-provider";
@@ -377,54 +390,51 @@ function PreviewFields({ preview }: { preview: RecordPreview }) {
 function JournalLinesPreview({ journal }: { journal: NonNullable<RecordPreview["journal"]> }) {
   const { t } = useLocale();
   const balanced = Math.abs(journal.totalDebit - journal.totalCredit) < 0.005;
-  const amount = (value: number) => (value ? formatMoney(value) : "");
+  const amount = (value: number) => formatAmount(value, { zero: "blank" });
   return (
-    <div className="overflow-x-auto rounded-md border border-border">
-      <table className="w-full text-caption" data-testid="record-preview-journal">
-        <thead className="bg-muted/40 text-muted-foreground">
-          <tr>
-            <th className="px-2 py-1.5 text-start font-medium">{t("docFlow.preview.account")}</th>
-            <th className="w-28 px-2 py-1.5 text-end font-medium">{t("docFlow.preview.debit")}</th>
-            <th className="w-28 px-2 py-1.5 text-end font-medium">{t("docFlow.preview.credit")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {journal.lines.map((line) => (
-            <tr key={line.id} className="border-t border-border/60 align-top">
-              <td className="px-2 py-1.5">
-                <div className="font-medium">{line.account}</div>
-                {line.description ? (
-                  <div className="text-muted-foreground">{line.description}</div>
-                ) : null}
-              </td>
-              <td dir="ltr" className="px-2 py-1.5 text-end tabular-nums whitespace-nowrap">
-                {amount(line.debit)}
-              </td>
-              <td dir="ltr" className="px-2 py-1.5 text-end tabular-nums whitespace-nowrap">
-                {amount(line.credit)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot className="border-t border-border bg-muted/30 font-semibold">
-          <tr>
-            <td className="px-2 py-1.5">
-              <span className="me-2">{t("docFlow.preview.totals")}</span>
-              <StatusBadge
-                label={t(balanced ? "docFlow.preview.balanced" : "docFlow.preview.unbalanced")}
-                tone={balanced ? "success" : "destructive"}
-              />
-            </td>
-            <td dir="ltr" className="px-2 py-1.5 text-end tabular-nums whitespace-nowrap">
-              {formatMoney(journal.totalDebit)}
-            </td>
-            <td dir="ltr" className="px-2 py-1.5 text-end tabular-nums whitespace-nowrap">
-              {formatMoney(journal.totalCredit)}
-            </td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
+    <Table
+      containerClassName="rounded-md border border-border"
+      data-testid="record-preview-journal"
+    >
+      <TableHeader>
+        <TableRow>
+          <TableHead>{t("docFlow.preview.account")}</TableHead>
+          <TableHead className={cn("w-28", tableNumericCellClass)}>
+            {t("docFlow.preview.debit")}
+          </TableHead>
+          <TableHead className={cn("w-28", tableNumericCellClass)}>
+            {t("docFlow.preview.credit")}
+          </TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {journal.lines.map((line) => (
+          <TableRow key={line.id}>
+            <TableCell className="whitespace-normal">
+              <div className={tableIdentityCellClass}>{line.account}</div>
+              {line.description ? (
+                <div className={tableSecondaryTextClass}>{line.description}</div>
+              ) : null}
+            </TableCell>
+            <TableCell numeric>{amount(line.debit)}</TableCell>
+            <TableCell numeric>{amount(line.credit)}</TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+      <TableFooter>
+        <TableRow className={tableTotalsRowClass}>
+          <TableCell>
+            <span className="me-2">{t("docFlow.preview.totals")}</span>
+            <StatusBadge
+              label={t(balanced ? "docFlow.preview.balanced" : "docFlow.preview.unbalanced")}
+              tone={balanced ? "success" : "destructive"}
+            />
+          </TableCell>
+          <TableCell numeric>{formatMoney(journal.totalDebit)}</TableCell>
+          <TableCell numeric>{formatMoney(journal.totalCredit)}</TableCell>
+        </TableRow>
+      </TableFooter>
+    </Table>
   );
 }
 

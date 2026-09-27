@@ -9,8 +9,7 @@ import { useWarehouses } from "@/hooks/use-reference-data";
 import type { WarehouseRow } from "@/config/master-data/entities";
 import { purchaseOrdersService, type PurchaseOrderRow } from "@/services/purchase-orders-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError, toast } from "@/lib/toast";
 
 /**
  * Goods Receipt — mirrors `sales/orders/convert-to-invoice-dialog.tsx`'s
@@ -49,7 +48,7 @@ export function ConvertToInvoiceDialog({
       onConverted(invoice);
       onOpenChange(false);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsSubmitting(false);
     }

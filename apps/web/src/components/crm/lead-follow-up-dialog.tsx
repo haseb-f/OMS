@@ -16,8 +16,7 @@ import {
 } from "@/components/ui/select";
 import { leadsService } from "@/services/leads-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import { useLeadFollowUpTypes } from "@/hooks/use-reference-data";
 
 const OUTCOMES = [
@@ -66,7 +65,7 @@ export function LeadFollowUpDialog({
       setNote("");
       setFollowUpAt(null);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setBusy(false);
     }

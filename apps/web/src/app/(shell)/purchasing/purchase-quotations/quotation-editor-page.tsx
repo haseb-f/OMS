@@ -32,9 +32,9 @@ import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
-import { toast } from "@/lib/toast";
+import { reportApiError, toast } from "@/lib/toast";
 import { lifecycleActions } from "@/config/documents/lifecycle-actions";
-import { ApiError } from "@/services/api-client";
+import type { CommercialDocumentFieldErrors } from "@/components/documents/commercial-document-editor";
 
 function itemToLine(item: PurchaseQuotationItemRow): ProductLineItemsGridLine {
   return {
@@ -78,7 +78,6 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
   const [activity, setActivity] = useState<PurchaseDocumentActivityEntry[] | null | undefined>(
     undefined,
   );
-  const [cancelTarget, setCancelTarget] = useState(false);
   const [convertTarget, setConvertTarget] = useState(false);
 
   const [supplier, setSupplier] = useState<PartnerPickerRow | null>(null);
@@ -113,7 +112,7 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
         const data = await purchaseQuotationsService.get(id);
         applyQuotation(data);
       } catch (error) {
-        toast.error(error instanceof ApiError ? error.message : "Failed to load quotation.");
+        reportApiError(error, "errors.loadFailed");
       } finally {
         setIsLoading(false);
       }
@@ -134,11 +133,15 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
 
   const realLines = lines.filter((line) => line.product !== null);
 
-  const validate = (): string | null => {
-    if (!supplier) return t("purchasing.quotations.validation.supplierRequired");
-    if (realLines.length === 0) return t("purchasing.quotations.validation.productRequired");
+  /** Shown inline under the fields after the first save attempt; entered data is never cleared. */
+  const [showValidation, setShowValidation] = useState(false);
+  const validate = (): CommercialDocumentFieldErrors | null => {
+    if (!supplier) return { party: t("purchasing.quotations.validation.supplierRequired") };
+    if (realLines.length === 0)
+      return { lines: t("purchasing.quotations.validation.productRequired") };
     for (const line of realLines) {
-      if (line.quantity <= 0) return t("purchasing.quotations.validation.quantityPositive");
+      if (line.quantity <= 0)
+        return { lines: t("purchasing.quotations.validation.quantityPositive") };
     }
     return null;
   };
@@ -158,11 +161,11 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
   });
 
   const handleSave = async () => {
-    const error = validate();
-    if (error) {
-      toast.error(error);
+    if (validate()) {
+      setShowValidation(true);
       return;
     }
+    setShowValidation(false);
     setIsSaving(true);
     try {
       if (id) {
@@ -175,7 +178,7 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
         router.replace(`/purchasing/purchase-quotations/${created.id}`);
       }
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsSaving(false);
     }
@@ -196,7 +199,7 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
       toast.success(t(successKey));
       refreshActivity(id);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsTransitioning(false);
     }
@@ -211,7 +214,7 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
       toast.success(t("purchasing.quotations.convertToOrder.success"));
       router.push(`/purchasing/purchase-orders/${order.id}`);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsTransitioning(false);
     }
@@ -302,7 +305,18 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
           icon: Ban,
           destructive: true,
           visibleForStatuses: ["DRAFT", "PENDING_APPROVAL", "APPROVED"],
-          onAction: () => setCancelTarget(true),
+          confirm: {
+            title: t("purchasing.quotations.confirmCancelTitle"),
+            description: t("purchasing.quotations.confirmCancelDescription"),
+            confirmLabel: t("purchasing.quotations.actions.cancel"),
+            tone: "destructive",
+          },
+          onAction: async () => {
+            await runTransition(
+              (qid) => purchaseQuotationsService.cancel(qid),
+              "purchasing.quotations.toasts.cancelled",
+            );
+          },
         },
         {
           key: "print",
@@ -323,7 +337,7 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
               toast.success(t("docFlow.lifecycle.duplicated", { number: copy.quotationNumber }));
               router.push(`/purchasing/purchase-quotations/${copy.id}`);
             } catch (error) {
-              toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+              reportApiError(error, "common.failedToSave");
             }
           },
           onReturnToDraft: () =>
@@ -400,23 +414,7 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
         isLoading={isLoading}
         disabled={!canEdit || isSaving}
         isBusy={isSaving || isTransitioning}
-      />
-
-      <ConfirmationDialog
-        open={cancelTarget}
-        onOpenChange={setCancelTarget}
-        tone="destructive"
-        title={t("purchasing.quotations.confirmCancelTitle")}
-        description={t("purchasing.quotations.confirmCancelDescription")}
-        confirmLabel={t("purchasing.quotations.actions.cancel")}
-        cancelLabel={t("common.close")}
-        onConfirm={async () => {
-          setCancelTarget(false);
-          await runTransition(
-            (qid) => purchaseQuotationsService.cancel(qid),
-            "purchasing.quotations.toasts.cancelled",
-          );
-        }}
+        fieldErrors={showValidation ? (validate() ?? undefined) : undefined}
       />
 
       <ConfirmationDialog

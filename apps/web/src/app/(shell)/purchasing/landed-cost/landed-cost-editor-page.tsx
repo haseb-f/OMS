@@ -35,7 +35,10 @@ import { useTaxes } from "@/hooks/use-reference-data";
 import { accountingSettingsService } from "@/services/accounting-settings-service";
 import { cachedLookup } from "@/lib/lookup-cache";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
-import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { DocumentActionBar, type DocumentAction } from "@/components/documents/document-action-bar";
+import { DocumentTotalsBlock } from "@/components/documents/document-totals";
+import { FieldMessage } from "@/components/ui/form";
+import { formatAmount, formatMoney } from "@/lib/money";
 import { EditorWorkspace, EditorHeader, DetailSection } from "@/components/shared/detail-workspace";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import {
@@ -54,9 +57,14 @@ import {
 } from "@/config/purchasing/landed-cost-status";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast } from "@/lib/toast";
+import { reportApiError, toast } from "@/lib/toast";
 import { formatDateTime, toISODate } from "@/lib/date";
-import { ApiError } from "@/services/api-client";
+
+interface LandedCostFieldErrors {
+  purchaseInvoice?: string;
+  currency?: string;
+  lines?: string;
+}
 
 const costComponentsService = createMasterDataService<CostComponentRow>("/cost-components");
 
@@ -92,7 +100,6 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
   const [isLoading, setIsLoading] = useState(!!id);
   const [isSaving, setIsSaving] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [cancelOpen, setCancelOpen] = useState(false);
 
   const [purchaseInvoice, setPurchaseInvoice] = useState<PurchaseInvoiceOption | null>(null);
   const [provider, setProvider] = useState<ProviderOption | null>(null);
@@ -164,9 +171,7 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
         refreshPreview(id);
       })
       .catch((error) => {
-        toast.error(
-          error instanceof ApiError ? error.message : "Failed to load Landed Cost document.",
-        );
+        reportApiError(error, "errors.loadFailed");
       })
       .finally(() => setIsLoading(false));
   }, [id, applyDocument, refreshPreview]);
@@ -197,16 +202,21 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
 
   const realLines = lines.filter((line) => line.costComponent !== null);
 
-  const validate = (): string | null => {
-    if (!purchaseInvoice) return t("purchasing.landedCost.validation.purchaseInvoiceRequired");
-    if (!currencyId) return t("purchasing.landedCost.validation.currencyRequired");
-    if (realLines.length === 0) return t("purchasing.landedCost.validation.lineRequired");
-    for (const line of realLines) {
-      const amount = Number(line.netAmount);
-      if (!amount || amount <= 0) return t("purchasing.landedCost.validation.lineAmountPositive");
+  /** Shown inline under the fields after the first save attempt; entered data is never cleared. */
+  const [showValidation, setShowValidation] = useState(false);
+  const validate = (): LandedCostFieldErrors | null => {
+    const errors: LandedCostFieldErrors = {};
+    if (!purchaseInvoice)
+      errors.purchaseInvoice = t("purchasing.landedCost.validation.purchaseInvoiceRequired");
+    if (!currencyId) errors.currency = t("purchasing.landedCost.validation.currencyRequired");
+    if (realLines.length === 0) {
+      errors.lines = t("purchasing.landedCost.validation.lineRequired");
+    } else if (realLines.some((line) => !(Number(line.netAmount) > 0))) {
+      errors.lines = t("purchasing.landedCost.validation.lineAmountPositive");
     }
-    return null;
+    return Object.keys(errors).length > 0 ? errors : null;
   };
+  const fieldErrors = showValidation ? validate() : null;
 
   const buildPayload = () => ({
     purchaseInvoiceId: purchaseInvoice!.id,
@@ -224,11 +234,11 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
   });
 
   const handleSave = async () => {
-    const error = validate();
-    if (error) {
-      toast.error(error);
+    if (validate()) {
+      setShowValidation(true);
       return;
     }
+    setShowValidation(false);
     setIsSaving(true);
     try {
       if (id) {
@@ -242,7 +252,7 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
         router.replace(`/purchasing/landed-cost/${created.id}`);
       }
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsSaving(false);
     }
@@ -260,26 +270,91 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
       refreshPreview(id);
       toast.success(t(successKey));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsTransitioning(false);
     }
   };
 
   const canEdit = !record || record.status === "DRAFT";
-  const canApprove = hasPermission("landed-cost.approve") && record?.status === "DRAFT";
-  const canPost = hasPermission("landed-cost.confirm") && record?.status === "APPROVED";
-  const canCancel =
-    hasPermission("landed-cost.cancel") &&
-    !!record &&
-    LANDED_COST_CANCELLABLE_STATUSES.includes(record.status);
+
+  // One primary per status (Approve on Draft, Post on Approved); Cancel is
+  // destructive, in "More", confirmed inside the bar.
+  const allActions: DocumentAction[] = [
+    {
+      key: "approve",
+      primary: true,
+      label: t("purchasing.landedCost.actions.approve"),
+      icon: CheckCircle2,
+      visibleForStatuses: ["DRAFT"],
+      onAction: () =>
+        runTransition(
+          (docId) => landedCostService.approve(docId),
+          "purchasing.landedCost.toasts.approved",
+        ),
+    },
+    {
+      key: "post",
+      primary: true,
+      label: t("purchasing.landedCost.actions.post"),
+      icon: PackageCheck,
+      visibleForStatuses: ["APPROVED"],
+      confirm: {
+        title: t("purchasing.landedCost.confirmPostTitle"),
+        description: t("purchasing.landedCost.confirmPostDescription"),
+      },
+      onAction: () =>
+        runTransition(
+          (docId) => landedCostService.post(docId),
+          "purchasing.landedCost.toasts.posted",
+        ),
+    },
+    {
+      key: "cancel",
+      destructive: true,
+      label: t("purchasing.landedCost.actions.cancel"),
+      icon: Ban,
+      visibleForStatuses: LANDED_COST_CANCELLABLE_STATUSES,
+      confirm: {
+        title: t("purchasing.landedCost.confirmCancelTitle"),
+        description: t("purchasing.landedCost.confirmCancelDescription"),
+        confirmLabel: t("purchasing.landedCost.actions.cancel"),
+        tone: "destructive",
+      },
+      onAction: () =>
+        runTransition(
+          (docId) => landedCostService.cancel(docId),
+          "purchasing.landedCost.toasts.cancelled",
+        ),
+    },
+  ];
+  const actions = allActions.filter((action) => {
+    if (action.key === "approve") return hasPermission("landed-cost.approve");
+    if (action.key === "post") return hasPermission("landed-cost.confirm");
+    return hasPermission("landed-cost.cancel");
+  });
+  const status = record?.status ?? "DRAFT";
+  // A posted/cancelled document with nothing left to do shows no (empty) bar.
+  const hasActions =
+    canEdit ||
+    (!!record && actions.some((action) => action.visibleForStatuses?.includes(status) ?? true));
 
   useBreadcrumbLabel(record?.documentNumber ?? t("purchasing.landedCost.addNew"));
 
+  const currencyCode = record?.currency?.code ?? null;
   const netTotal = realLines.reduce((sum, line) => sum + (Number(line.netAmount) || 0), 0);
+  // While editable the totals follow the entered lines; once approved they are the server's.
+  const taxTotal =
+    canEdit || !record
+      ? realLines.reduce(
+          (sum, line) =>
+            sum + (Number(line.netAmount) || 0) * ((Number(line.tax?.rate) || 0) / 100),
+          0,
+        )
+      : Number(record.taxTotal);
 
   return (
-    <EditorWorkspace>
+    <EditorWorkspace className={hasActions ? "pb-20 md:pb-0" : undefined}>
       <RelatedRecordsPanel kind="LANDED_COST" id={id} refreshKey={record?.status} />
 
       <EditorHeader
@@ -294,64 +369,29 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
           )
         }
         actions={
-          <>
-            {canEdit && (
-              <EnterpriseButton
-                type="button"
-                size="sm"
-                disabled={isSaving || isTransitioning || isLoading}
-                onClick={handleSave}
-              >
-                <Save className="size-3.5" />
-                {t("common.save")}
-              </EnterpriseButton>
-            )}
-            {canApprove && (
-              <EnterpriseButton
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={isTransitioning}
-                onClick={() =>
-                  runTransition(
-                    (docId) => landedCostService.approve(docId),
-                    "purchasing.landedCost.toasts.approved",
-                  )
-                }
-              >
-                <CheckCircle2 className="size-3.5" />
-                {t("purchasing.landedCost.actions.approve")}
-              </EnterpriseButton>
-            )}
-            {canPost && (
-              <EnterpriseButton
-                type="button"
-                size="sm"
-                disabled={isTransitioning}
-                onClick={() =>
-                  runTransition(
-                    (docId) => landedCostService.post(docId),
-                    "purchasing.landedCost.toasts.posted",
-                  )
-                }
-              >
-                <PackageCheck className="size-3.5" />
-                {t("purchasing.landedCost.actions.post")}
-              </EnterpriseButton>
-            )}
-            {canCancel && (
-              <EnterpriseButton
-                type="button"
-                size="sm"
-                variant="destructive"
-                disabled={isTransitioning}
-                onClick={() => setCancelOpen(true)}
-              >
-                <Ban className="size-3.5" />
-                {t("purchasing.landedCost.actions.cancel")}
-              </EnterpriseButton>
-            )}
-          </>
+          hasActions ? (
+            <DocumentActionBar
+              status={status}
+              isNew={!record}
+              actions={actions}
+              context={undefined}
+              isBusy={isSaving || isTransitioning || isLoading}
+              leading={
+                canEdit ? (
+                  <EnterpriseButton
+                    type="button"
+                    size="sm"
+                    className="gap-1.5"
+                    disabled={isSaving || isTransitioning || isLoading}
+                    onClick={handleSave}
+                  >
+                    <Save className="size-3.5" />
+                    {t("common.save")}
+                  </EnterpriseButton>
+                ) : null
+              }
+            />
+          ) : null
         }
       />
 
@@ -367,6 +407,7 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
               onChange={handlePurchaseInvoiceChange}
               disabled={!canEdit}
             />
+            <FieldMessage>{fieldErrors?.purchaseInvoice}</FieldMessage>
           </div>
           <div className="flex flex-col gap-1">
             <Label htmlFor={`${fieldId}-provider`}>
@@ -404,6 +445,7 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
               onValueChange={setCurrencyId}
               disabled={!canEdit}
             />
+            <FieldMessage>{fieldErrors?.currency}</FieldMessage>
           </div>
           <div className="flex flex-col gap-1">
             <Label htmlFor={`${fieldId}-reference`}>
@@ -545,18 +587,8 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
               </TableRow>
             ))}
           </TableBody>
-          <TableFooter>
-            <TableRow>
-              <TableCell colSpan={2} className="text-end font-medium">
-                {t("purchasing.landedCost.fields.netTotal")}
-              </TableCell>
-              <TableCell className="font-medium">
-                {netTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-              </TableCell>
-              <TableCell colSpan={canEdit ? 2 : 1} />
-            </TableRow>
-          </TableFooter>
         </Table>
+        <FieldMessage>{fieldErrors?.lines}</FieldMessage>
         {canEdit && (
           <EnterpriseButton
             type="button"
@@ -569,6 +601,28 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
             {t("purchasing.landedCost.actions.addLine")}
           </EnterpriseButton>
         )}
+        <DocumentTotalsBlock
+          className="mt-3"
+          label={t("purchasing.landedCost.fields.grandTotal")}
+          currency={currencyCode}
+          lines={[
+            {
+              key: "net",
+              label: t("purchasing.landedCost.fields.netTotal"),
+              value: netTotal,
+            },
+            {
+              key: "tax",
+              label: t("purchasing.landedCost.fields.taxTotal"),
+              value: taxTotal,
+            },
+          ]}
+          total={{
+            key: "grand",
+            label: t("purchasing.landedCost.fields.grandTotal"),
+            value: netTotal + taxTotal,
+          }}
+        />
       </DetailSection>
 
       {record && (
@@ -581,11 +635,13 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t("purchasing.landedCost.allocationPreview.product")}</TableHead>
-                    <TableHead>{t("purchasing.landedCost.allocationPreview.quantity")}</TableHead>
-                    <TableHead>
+                    <TableHead className="text-end">
+                      {t("purchasing.landedCost.allocationPreview.quantity")}
+                    </TableHead>
+                    <TableHead className="text-end">
                       {t("purchasing.landedCost.allocationPreview.purchaseValue")}
                     </TableHead>
-                    <TableHead>
+                    <TableHead className="text-end">
                       {t("purchasing.landedCost.allocationPreview.allocatedAmount")}
                     </TableHead>
                   </TableRow>
@@ -594,14 +650,12 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
                   {preview.lines.map((line) => (
                     <TableRow key={line.purchaseInvoiceItemId}>
                       <TableCell>{line.productName}</TableCell>
-                      <TableCell>{line.quantity}</TableCell>
-                      <TableCell>
-                        {line.purchaseValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      <TableCell className="num text-end">{line.quantity}</TableCell>
+                      <TableCell className="num text-end">
+                        {formatAmount(line.purchaseValue)}
                       </TableCell>
-                      <TableCell>
-                        {line.allocatedAmount.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                        })}
+                      <TableCell className="num text-end">
+                        {formatAmount(line.allocatedAmount)}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -611,10 +665,8 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
                     <TableCell colSpan={3} className="text-end font-medium">
                       {t("purchasing.landedCost.allocationPreview.total")}
                     </TableCell>
-                    <TableCell className="font-medium">
-                      {preview.allocatedTotal.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                      })}
+                    <TableCell className="num text-end font-medium">
+                      {formatMoney(preview.allocatedTotal, currencyCode)}
                     </TableCell>
                   </TableRow>
                 </TableFooter>
@@ -648,23 +700,6 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
           </ul>
         </DetailSection>
       )}
-
-      <ConfirmationDialog
-        open={cancelOpen}
-        onOpenChange={setCancelOpen}
-        tone="destructive"
-        title={t("purchasing.landedCost.confirmCancelTitle")}
-        description={t("purchasing.landedCost.confirmCancelDescription")}
-        confirmLabel={t("purchasing.landedCost.actions.cancel")}
-        cancelLabel={t("common.close")}
-        onConfirm={async () => {
-          setCancelOpen(false);
-          await runTransition(
-            (docId) => landedCostService.cancel(docId),
-            "purchasing.landedCost.toasts.cancelled",
-          );
-        }}
-      />
     </EditorWorkspace>
   );
 }

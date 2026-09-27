@@ -27,11 +27,7 @@ export function AddressCard({
           {(label || isDefault) && (
             <div className="flex items-center gap-2">
               {label && <span className="text-body font-medium">{label}</span>}
-              {isDefault && (
-                <EnterpriseBadge variant="secondary" className="text-[10px]">
-                  {defaultLabel}
-                </EnterpriseBadge>
-              )}
+              {isDefault && <EnterpriseBadge variant="secondary">{defaultLabel}</EnterpriseBadge>}
             </div>
           )}
           <div className="flex flex-col text-caption text-muted-foreground">

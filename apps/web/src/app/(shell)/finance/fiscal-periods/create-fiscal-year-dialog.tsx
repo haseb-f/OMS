@@ -9,8 +9,7 @@ import { Label } from "@/components/ui/label";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { fiscalYearsService, type FiscalYearRow } from "@/services/fiscal-years-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError, toast } from "@/lib/toast";
 import { toISODate } from "@/lib/date";
 
 export function CreateFiscalYearDialog({
@@ -55,7 +54,7 @@ export function CreateFiscalYearDialog({
       onOpenChange(false);
       onCreated(fiscalYear);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsSubmitting(false);
     }

@@ -45,8 +45,7 @@ import type { DepartmentRow } from "@/config/master-data/entities";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
 
 const BASIS_VALUES: CommissionBasis[] = ["COLLECTED_SALES", "SALES_REVENUE", "ORDERS_COUNT"];
@@ -185,7 +184,7 @@ export default function CommissionPlanEditorPage() {
       toast.success(t("hr.commissionPlans.toasts.saved"));
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSaving(false);
     }
@@ -200,7 +199,7 @@ export default function CommissionPlanEditorPage() {
       setArchiveOpen(false);
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsMutating(false);
     }
@@ -215,7 +214,7 @@ export default function CommissionPlanEditorPage() {
       setRestoreOpen(false);
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsMutating(false);
     }
@@ -251,7 +250,7 @@ export default function CommissionPlanEditorPage() {
       setAssignDepartment(null);
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsAssigning(false);
     }
@@ -264,7 +263,7 @@ export default function CommissionPlanEditorPage() {
       toast.success(t("hr.commissionPlans.toasts.unassigned"));
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsAssigning(false);
     }

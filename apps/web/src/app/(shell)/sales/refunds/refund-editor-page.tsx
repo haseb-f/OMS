@@ -15,6 +15,10 @@ import type {
   FinancialTransactionEditorHandlers,
   FinancialTransactionEditorState,
 } from "@/components/financial-transactions/financial-transaction-editor.types";
+import {
+  financialTransactionErrorKeys,
+  translateFieldErrors,
+} from "@/components/financial-transactions/financial-transaction-validation";
 import { customerRefundsService } from "@/services/customer-refunds-service";
 import type {
   FinancialTransactionActivityEntry,
@@ -64,7 +68,6 @@ export function RefundEditorPage({ id }: { id: string }) {
   const [activity, setActivity] = useState<FinancialTransactionActivityEntry[] | null | undefined>(
     undefined,
   );
-  const [cancelTarget, setCancelTarget] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(false);
 
   const [customer, setCustomer] = useState<PartnerPickerRow | null>(null);
@@ -112,6 +115,19 @@ export function RefundEditorPage({ id }: { id: string }) {
 
   const allocatedTotal = allocations.reduce((sum, line) => sum + line.allocatedAmount, 0);
 
+  /** Inline validation (design §8): shown under the fields after a failed Save/Confirm, updated live; entered data is never cleared. */
+  const [validationMode, setValidationMode] = useState<"save" | "post" | null>(null);
+  const errorKeys = (forPosting: boolean) =>
+    financialTransactionErrorKeys({
+      // The customer is fixed by the originating Sales Return — never edited here.
+      hasParty: true,
+      amount,
+      allocatedTotal,
+      receivingAccountId,
+      forPosting,
+      allocationMode: "exact",
+    });
+
   const buildPayload = () => ({
     transactionDate: transactionDate ? transactionDate.toISOString() : undefined,
     paymentSourceId: paymentSourceId ?? undefined,
@@ -126,14 +142,11 @@ export function RefundEditorPage({ id }: { id: string }) {
   });
 
   const handleSave = async () => {
-    if (amount <= 0) {
-      toast.error(t("financialTransactions.validation.amountRequired"));
+    if (errorKeys(false)) {
+      setValidationMode("save");
       return;
     }
-    if (Math.abs(allocatedTotal - amount) > 0.005) {
-      toast.error(t("financialTransactions.validation.allocationExceedsAmount"));
-      return;
-    }
+    setValidationMode(null);
     setIsSaving(true);
     try {
       applyRefund(await customerRefundsService.update(id, buildPayload()));
@@ -162,10 +175,11 @@ export function RefundEditorPage({ id }: { id: string }) {
   };
 
   const handleConfirm = async () => {
-    if (!receivingAccountId) {
-      toast.error(t("financialTransactions.validation.receivingAccountRequired"));
+    if (errorKeys(true)) {
+      setValidationMode("post");
       return;
     }
+    setValidationMode(null);
     await runTransition(
       (refundId) => customerRefundsService.confirm(refundId),
       "financialTransactions.toasts.confirmed",
@@ -241,7 +255,18 @@ export function RefundEditorPage({ id }: { id: string }) {
           icon: Ban,
           variant: "destructive",
           visibleForStatuses: ["CONFIRMED"],
-          onAction: () => setCancelTarget(true),
+          confirm: {
+            title: t("financialTransactions.confirmCancelTitle"),
+            description: t("financialTransactions.confirmCancelDescription"),
+            confirmLabel: t("financialTransactions.actions.cancel"),
+            tone: "destructive",
+          },
+          onAction: async () => {
+            await runTransition(
+              (refundId) => customerRefundsService.cancel(refundId),
+              "financialTransactions.toasts.cancelled",
+            );
+          },
         },
         {
           key: "delete",
@@ -327,26 +352,12 @@ export function RefundEditorPage({ id }: { id: string }) {
         isLoading={isLoading}
         disabled={!isDraft || isSaving}
         isBusy={isSaving || isTransitioning}
+        fieldErrors={
+          validationMode ? translateFieldErrors(errorKeys(validationMode === "post"), t) : undefined
+        }
         renderPartyPicker={() => (
           <PartnerPicker role="CUSTOMER" value={customer} onChange={setCustomer} disabled />
         )}
-      />
-
-      <ConfirmationDialog
-        open={cancelTarget}
-        onOpenChange={setCancelTarget}
-        tone="destructive"
-        title={t("financialTransactions.confirmCancelTitle")}
-        description={t("financialTransactions.confirmCancelDescription")}
-        confirmLabel={t("financialTransactions.actions.cancel")}
-        cancelLabel={t("common.close")}
-        onConfirm={async () => {
-          setCancelTarget(false);
-          await runTransition(
-            (refundId) => customerRefundsService.cancel(refundId),
-            "financialTransactions.toasts.cancelled",
-          );
-        }}
       />
 
       <ConfirmationDialog

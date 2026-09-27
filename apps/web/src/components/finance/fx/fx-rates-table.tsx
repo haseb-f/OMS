@@ -26,14 +26,15 @@ export function FxRatesTable({ rates }: { rates: ExchangeRateRow[] }) {
       cell: (row) => (
         <StackedCell
           primary={
-            <span dir="ltr" className="tabular-nums">
+            <span className="num">
               {`1 ${row.fromCurrency?.code ?? ""} = ${formatFxRate(row.rate)} ${row.toCurrency?.code ?? ""}`}
             </span>
           }
           secondary={
             row.buyRate != null && row.sellRate != null ? (
-              <span dir="ltr" className="tabular-nums">
-                {`${t("fxSettings.rates.buySell")}: ${formatFxRate(row.buyRate)} / ${formatFxRate(row.sellRate)}`}
+              <span>
+                {`${t("fxSettings.rates.buySell")}: `}
+                <span className="num">{`${formatFxRate(row.buyRate)} / ${formatFxRate(row.sellRate)}`}</span>
               </span>
             ) : undefined
           }

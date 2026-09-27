@@ -16,14 +16,14 @@ import { productCostService } from "@/services/product-cost-service";
 import type { ProductRow } from "@/services/products-service";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast } from "@/lib/toast";
+import { reportApiError, toast } from "@/lib/toast";
 import { formatDateTime } from "@/lib/date";
-import { ApiError } from "@/services/api-client";
+import { MoneyValue } from "@/components/shared/money-value";
 import { PermissionGate } from "@/components/shared/permission-gate";
 
-function formatMoney(value: number | null) {
-  if (value === null) return "—";
-  return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/** Summary-field amount: `—` (field hidden) when missing, otherwise a tabular money run. */
+function costFieldValue(value: number | null) {
+  return value === null ? "—" : <MoneyValue value={value} />;
 }
 
 /**
@@ -53,7 +53,7 @@ function ProductCostPageContent() {
       .then(setStockCard)
       .catch((error) => {
         setStockCard(null);
-        toast.error(error instanceof ApiError ? error.message : "Failed to load product cost.");
+        reportApiError(error, "errors.loadFailed");
       })
       .finally(() => setIsLoading(false));
   }, []);
@@ -86,7 +86,7 @@ function ProductCostPageContent() {
       setRecordOpen(false);
       load(product.id);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsSaving(false);
     }
@@ -123,15 +123,15 @@ function ProductCostPageContent() {
           <DetailSummaryBar>
             <DetailField
               label={t("expensesProductCost.fields.averageCost")}
-              value={formatMoney(stockCard?.averageCost ?? null)}
+              value={costFieldValue(stockCard?.averageCost ?? null)}
             />
             <DetailField
               label={t("expensesProductCost.fields.onHand")}
-              value={stockCard?.onHand ?? "—"}
+              value={stockCard ? <span className="num">{stockCard.onHand}</span> : "—"}
             />
             <DetailField
               label={t("expensesProductCost.fields.stockValue")}
-              value={formatMoney(stockCard?.stockValue ?? null)}
+              value={costFieldValue(stockCard?.stockValue ?? null)}
             />
             <DetailField
               label={t("expensesProductCost.fields.lastMovement")}

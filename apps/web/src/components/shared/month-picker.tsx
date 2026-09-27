@@ -74,13 +74,13 @@ export function EnterpriseMonthPicker({
         <EnterpriseButton
           id={id}
           type="button"
-          variant="outline"
+          variant="field"
           size="sm"
           disabled={disabled}
           aria-invalid={ariaInvalid || undefined}
           aria-label={ariaLabel}
           className={cn(
-            "h-(--control-height-sm) justify-between gap-2 font-normal",
+            "h-(--control-height-md) justify-between gap-2 font-normal",
             className ?? "w-(--width-control-date)",
           )}
         >
@@ -90,11 +90,7 @@ export function EnterpriseMonthPicker({
           <CalendarIcon className="size-3.5 shrink-0 text-muted-foreground" />
         </EnterpriseButton>
       </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        dir={direction}
-        className="w-auto rounded-xs border border-border bg-card p-0 shadow-md"
-      >
+      <PopoverContent align="start" dir={direction} className="w-auto p-0">
         {/* Year pager mirrors `Calendar`'s header: one previous, one next,
             centred label — never a year dropdown. */}
         <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-1 p-2 pb-0">

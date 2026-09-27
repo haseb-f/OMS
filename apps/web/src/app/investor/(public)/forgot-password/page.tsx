@@ -35,10 +35,10 @@ export default function InvestorPortalForgotPasswordPage() {
   return (
     <div>
       <header className="mb-8">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
+        <h1 className="text-ui-title tracking-tight text-foreground">
           {t("investorPortal.auth.forgotTitle")}
         </h1>
-        <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+        <p className="mt-1.5 text-body text-muted-foreground">
           {t("investorPortal.auth.forgotSubtitle")}
         </p>
       </header>
@@ -46,7 +46,7 @@ export default function InvestorPortalForgotPasswordPage() {
       {sent ? (
         <div
           role="status"
-          className="rounded-sm border border-success/20 bg-success-soft px-3 py-3 text-sm text-success"
+          className="rounded-sm border border-success-border bg-success-soft px-3 py-3 text-body text-success-soft-foreground"
         >
           {t("investorPortal.auth.forgotSubtitle")}
         </div>
@@ -67,7 +67,7 @@ export default function InvestorPortalForgotPasswordPage() {
             />
             <SubmitButton
               isSubmitting={isSubmitting}
-              className="mt-1 w-full from-brand-navy to-brand-navy text-brand-navy-foreground hover:brightness-110 dark:from-brand-navy dark:to-brand-navy"
+              className="mt-1 w-full bg-brand-navy text-brand-navy-foreground not-disabled:hover:bg-brand-navy/90"
             >
               {isSubmitting
                 ? t("investorPortal.auth.forgotSubmitting")

@@ -15,8 +15,7 @@ import {
 import { cachedLookup, invalidateLookups } from "@/lib/lookup-cache";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError } from "@/lib/toast";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 
@@ -39,7 +38,6 @@ export function InlineProductCreate({
   initialName?: string;
   onReady: (product: ProductRow) => void;
 }) {
-  const { t } = useLocale();
   const categories = useProductCategories();
   const units = useUnits();
   const taxes = useTaxes();
@@ -65,11 +63,7 @@ export function InlineProductCreate({
             : productsService.activate(product.id);
         ready
           .then(onReady)
-          .catch((error: unknown) =>
-            toast.error(
-              error instanceof ApiError ? error.message : t("docFlow.products.activateFailed"),
-            ),
-          );
+          .catch((error: unknown) => reportApiError(error, "docFlow.products.activateFailed"));
       }}
     />
   );

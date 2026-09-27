@@ -8,9 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { useNoPurchaseReasons } from "@/hooks/use-reference-data";
 import { leadsService } from "@/services/leads-service";
-import { ApiError } from "@/services/api-client";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
+import { toast, reportApiError } from "@/lib/toast";
 import type { NoPurchaseReasonRow } from "@/config/master-data/entities";
 
 export function LeadCloseWithoutPurchaseDialog({
@@ -57,7 +56,7 @@ export function LeadCloseWithoutPurchaseDialog({
       onOpenChange(false);
       onClosed();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSaving(false);
     }

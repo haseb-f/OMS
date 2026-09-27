@@ -2,15 +2,8 @@
 
 import { useRef, useState } from "react";
 import { Upload } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { EnterpriseButton } from "@/components/ui/button";
+import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import {
   Table,
   TableBody,
@@ -67,73 +60,17 @@ export function ImportDialog({
   };
 
   return (
-    <Dialog
+    <EnterpriseModal
       open={open}
       onOpenChange={(next) => {
         if (!next) reset();
         onOpenChange(next);
       }}
-    >
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{t("table.importDialogTitle")}</DialogTitle>
-          <DialogDescription>{t("table.importDialogDescription")}</DialogDescription>
-        </DialogHeader>
-
-        <div className="flex flex-col gap-3">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,text/csv"
-            className="hidden"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) void handleFile(file);
-            }}
-          />
-          <EnterpriseButton
-            type="button"
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Upload />
-            {t("table.importChooseFile")}
-          </EnterpriseButton>
-
-          {fileName ? (
-            <div className="flex flex-col gap-2">
-              <p className="text-caption text-muted-foreground">
-                {fileName} — {t("table.importPreviewRows", { count: rows.length })}
-              </p>
-              {rows.length > 0 && (
-                <div className="max-h-48 overflow-auto rounded-lg border border-border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="hover:bg-transparent">
-                        {Object.keys(rows[0]).map((header) => (
-                          <TableHead key={header}>{header}</TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {rows.slice(0, 5).map((row, index) => (
-                        <TableRow key={index}>
-                          {Object.values(row).map((value, cellIndex) => (
-                            <TableCell key={cellIndex}>{value}</TableCell>
-                          ))}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </div>
-          ) : (
-            <p className="text-caption text-muted-foreground">{t("table.importNoFile")}</p>
-          )}
-        </div>
-
-        <DialogFooter>
+      size="md"
+      title={t("table.importDialogTitle")}
+      description={t("table.importDialogDescription")}
+      footer={
+        <>
           <EnterpriseButton type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             {t("common.cancel")}
           </EnterpriseButton>
@@ -153,8 +90,61 @@ export function ImportDialog({
           >
             {t("table.importConfirm")}
           </EnterpriseButton>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void handleFile(file);
+          }}
+        />
+        <EnterpriseButton
+          type="button"
+          variant="outline"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <Upload />
+          {t("table.importChooseFile")}
+        </EnterpriseButton>
+
+        {fileName ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-caption text-muted-foreground">
+              {fileName} — {t("table.importPreviewRows", { count: rows.length })}
+            </p>
+            {rows.length > 0 && (
+              <div className="max-h-48 overflow-auto rounded-lg border border-border">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      {Object.keys(rows[0]).map((header) => (
+                        <TableHead key={header}>{header}</TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rows.slice(0, 5).map((row, index) => (
+                      <TableRow key={index}>
+                        {Object.values(row).map((value, cellIndex) => (
+                          <TableCell key={cellIndex}>{value}</TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-caption text-muted-foreground">{t("table.importNoFile")}</p>
+        )}
+      </div>
+    </EnterpriseModal>
   );
 }

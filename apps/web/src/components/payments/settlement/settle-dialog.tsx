@@ -20,9 +20,8 @@ import { useExchangeRateRecovery } from "@/hooks/use-exchange-rate-recovery";
 import { useLocale } from "@/providers/locale-provider";
 import { fromISODate, toISODate } from "@/lib/date";
 import { formatMoney } from "@/lib/money";
-import { toast } from "@/lib/toast";
+import { toast, reportApiError } from "@/lib/toast";
 import { recordHref } from "@/config/traceability/record-routes";
-import { ApiError } from "@/services/api-client";
 import {
   receivingAccountsService,
   type ReceivingAccountOption,
@@ -173,7 +172,7 @@ export function SettleDialog({
         setPreviewSignature(requested);
       })
       .catch((error: unknown) => {
-        toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+        reportApiError(error, "common.failedToSave");
       })
       .finally(() => setIsPreviewing(false));
   };
@@ -202,7 +201,7 @@ export function SettleDialog({
         onSettled(settlement);
       })
       .catch((error: unknown) => {
-        toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+        reportApiError(error, "common.failedToSave");
       })
       .finally(() => setIsConfirming(false));
   };

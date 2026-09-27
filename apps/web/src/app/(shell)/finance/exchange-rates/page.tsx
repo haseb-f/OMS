@@ -34,12 +34,16 @@ import { FxStaleBanner } from "@/components/finance/fx/fx-stale-banner";
 import { FxRateLookupCard } from "@/components/finance/fx/fx-rate-lookup-card";
 import { FxOverridesCard } from "@/components/finance/fx/fx-overrides-card";
 import { FxRatesTable } from "@/components/finance/fx/fx-rates-table";
+import {
+  CompactDetailTable,
+  type CompactDetailColumn,
+} from "@/components/shared/data-table/compact-detail-table";
+import { tableIdentityCellClass } from "@/components/ui/table";
 import { accountingSettingsService } from "@/services/accounting-settings-service";
 import { useCurrencies } from "@/hooks/use-reference-data";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError, toast } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
 
 const rateSchema = z.object({
@@ -95,9 +99,9 @@ function FxPageContent() {
       setSyncStatus(status);
       setSyncRuns(recentSyncRuns);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("errors.generic"));
+      reportApiError(error, "errors.generic");
     }
-  }, [t]);
+  }, []);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -153,7 +157,7 @@ function FxPageContent() {
       setRateOpen(false);
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("errors.generic"));
+      reportApiError(error, "errors.generic");
     } finally {
       setBusy(false);
     }
@@ -168,11 +172,34 @@ function FxPageContent() {
       setRevalueOpen(false);
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("errors.generic"));
+      reportApiError(error, "errors.generic");
     } finally {
       setBusy(false);
     }
   };
+
+  const runColumns: CompactDetailColumn<FxRevaluationRunRow>[] = [
+    {
+      id: "rateDate",
+      header: t("accounting.fx.fields.rateDate"),
+      cell: (row) => <span className="num">{formatDate(row.rateDate)}</span>,
+    },
+    {
+      id: "runNumber",
+      header: t("masterData.fields.code"),
+      cell: (row) => <span className={`num ${tableIdentityCellClass}`}>{row.runNumber}</span>,
+    },
+    {
+      id: "status",
+      header: t("accounting.fx.fields.status"),
+      cell: (row) => (
+        <StatusBadge
+          label={t(`accounting.lifecycleStatus.${row.status}` as MessageKey)}
+          tone={row.status === "POSTED" ? "success" : "neutral"}
+        />
+      ),
+    },
+  ];
 
   return (
     <PageWorkspace
@@ -181,7 +208,7 @@ function FxPageContent() {
       actions={
         <div className="flex flex-wrap gap-2">
           {canCreateRate && baseCurrencyId ? (
-            <EnterpriseButton type="button" size="sm" variant="secondary" onClick={openRateForm}>
+            <EnterpriseButton type="button" size="sm" onClick={openRateForm}>
               {t("accounting.fx.addRate")}
             </EnterpriseButton>
           ) : null}
@@ -189,7 +216,7 @@ function FxPageContent() {
             <EnterpriseButton
               type="button"
               size="sm"
-              variant="secondary"
+              variant="outline"
               onClick={() => setRevalueOpen(true)}
             >
               {t("accounting.fx.runRevaluation")}
@@ -228,9 +255,7 @@ function FxPageContent() {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <EnterpriseCard className="gap-0 py-3">
           <EnterpriseCardHeader className="px-4 pb-2">
-            <EnterpriseCardTitle className="text-body">
-              {t("accounting.fx.rates")}
-            </EnterpriseCardTitle>
+            <EnterpriseCardTitle>{t("accounting.fx.rates")}</EnterpriseCardTitle>
           </EnterpriseCardHeader>
           <EnterpriseCardContent className="px-4">
             <FxRatesTable rates={rates} />
@@ -239,42 +264,15 @@ function FxPageContent() {
 
         <EnterpriseCard className="gap-0 py-3">
           <EnterpriseCardHeader className="px-4 pb-2">
-            <EnterpriseCardTitle className="text-body">
-              {t("accounting.fx.runs")}
-            </EnterpriseCardTitle>
+            <EnterpriseCardTitle>{t("accounting.fx.runs")}</EnterpriseCardTitle>
           </EnterpriseCardHeader>
-          <EnterpriseCardContent className="overflow-x-auto px-4">
-            <table className="w-full text-caption">
-              <thead>
-                <tr className="border-b text-muted-foreground">
-                  <th className="py-2 text-start">{t("accounting.fx.fields.rateDate")}</th>
-                  <th className="py-2 text-start">{t("masterData.fields.code")}</th>
-                  <th className="py-2 text-start">{t("accounting.fx.fields.status")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {runs.length === 0 ? (
-                  <tr>
-                    <td colSpan={3} className="py-6 text-center text-muted-foreground">
-                      {t("common.noDataAvailable")}
-                    </td>
-                  </tr>
-                ) : (
-                  runs.map((row) => (
-                    <tr key={row.id} className="border-b last:border-0">
-                      <td className="py-2">{formatDate(row.rateDate)}</td>
-                      <td className="py-2">{row.runNumber}</td>
-                      <td className="py-2">
-                        <StatusBadge
-                          label={t(`accounting.lifecycleStatus.${row.status}` as MessageKey)}
-                          tone={row.status === "POSTED" ? "success" : "neutral"}
-                        />
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          <EnterpriseCardContent className="px-4">
+            <CompactDetailTable
+              columns={runColumns}
+              rows={runs}
+              rowKey={(row) => row.id}
+              empty={t("common.noDataAvailable")}
+            />
           </EnterpriseCardContent>
         </EnterpriseCard>
       </div>
@@ -286,7 +284,7 @@ function FxPageContent() {
         isDirty={form.formState.isDirty}
         footer={(requestClose) => (
           <>
-            <EnterpriseButton type="button" variant="secondary" onClick={requestClose}>
+            <EnterpriseButton type="button" variant="outline" onClick={requestClose}>
               {t("common.cancel")}
             </EnterpriseButton>
             <EnterpriseButton type="button" disabled={busy} onClick={() => void handleCreateRate()}>

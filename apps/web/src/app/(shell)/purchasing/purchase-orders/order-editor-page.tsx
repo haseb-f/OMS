@@ -37,10 +37,11 @@ import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
-import { toast } from "@/lib/toast";
+import { reportApiError, toast } from "@/lib/toast";
 import { lifecycleActions } from "@/config/documents/lifecycle-actions";
 import { ApiError } from "@/services/api-client";
 import { ConvertToInvoiceDialog } from "./convert-to-invoice-dialog";
+import type { CommercialDocumentFieldErrors } from "@/components/documents/commercial-document-editor";
 
 function itemToLine(item: PurchaseOrderItemRow): ProductLineItemsGridLine {
   return {
@@ -81,7 +82,6 @@ export function OrderEditorPage({ id }: { id: string | null }) {
   const [activity, setActivity] = useState<PurchaseDocumentActivityEntry[] | null | undefined>(
     undefined,
   );
-  const [cancelTarget, setCancelTarget] = useState(false);
   const [closeTarget, setCloseTarget] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
 
@@ -124,7 +124,7 @@ export function OrderEditorPage({ id }: { id: string | null }) {
       try {
         applyOrder(await purchaseOrdersService.get(id));
       } catch (error) {
-        toast.error(error instanceof ApiError ? error.message : "Failed to load purchase order.");
+        reportApiError(error, "errors.loadFailed");
       } finally {
         setIsLoading(false);
       }
@@ -145,11 +145,13 @@ export function OrderEditorPage({ id }: { id: string | null }) {
 
   const realLines = lines.filter((line) => line.product !== null);
 
-  const validate = (): string | null => {
-    if (!supplier) return t("purchasing.orders.validation.supplierRequired");
-    if (realLines.length === 0) return t("purchasing.orders.validation.productRequired");
+  /** Shown inline under the fields after the first save attempt; entered data is never cleared. */
+  const [showValidation, setShowValidation] = useState(false);
+  const validate = (): CommercialDocumentFieldErrors | null => {
+    if (!supplier) return { party: t("purchasing.orders.validation.supplierRequired") };
+    if (realLines.length === 0) return { lines: t("purchasing.orders.validation.productRequired") };
     for (const line of realLines) {
-      if (line.quantity <= 0) return t("purchasing.orders.validation.quantityPositive");
+      if (line.quantity <= 0) return { lines: t("purchasing.orders.validation.quantityPositive") };
     }
     return null;
   };
@@ -181,11 +183,11 @@ export function OrderEditorPage({ id }: { id: string | null }) {
   });
 
   const handleSave = async () => {
-    const error = validate();
-    if (error) {
-      toast.error(error);
+    if (validate()) {
+      setShowValidation(true);
       return;
     }
+    setShowValidation(false);
     setIsSaving(true);
     try {
       if (id) {
@@ -198,7 +200,7 @@ export function OrderEditorPage({ id }: { id: string | null }) {
         router.replace(`/purchasing/purchase-orders/${created.id}`);
       }
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsSaving(false);
     }
@@ -219,7 +221,7 @@ export function OrderEditorPage({ id }: { id: string | null }) {
       toast.success(t(successKey));
       refreshActivity(id);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsTransitioning(false);
     }
@@ -311,7 +313,18 @@ export function OrderEditorPage({ id }: { id: string | null }) {
           icon: Ban,
           destructive: true,
           visibleForStatuses: ["DRAFT", "APPROVED"],
-          onAction: () => setCancelTarget(true),
+          confirm: {
+            title: t("purchasing.orders.confirmCancelTitle"),
+            description: t("purchasing.orders.confirmCancelDescription"),
+            confirmLabel: t("purchasing.orders.actions.cancel"),
+            tone: "destructive",
+          },
+          onAction: async () => {
+            await runTransition(
+              (oid) => purchaseOrdersService.cancel(oid),
+              "purchasing.orders.toasts.cancelled",
+            );
+          },
         },
         {
           key: "reject",
@@ -416,23 +429,7 @@ export function OrderEditorPage({ id }: { id: string | null }) {
         isLoading={isLoading}
         disabled={!canEdit || isSaving}
         isBusy={isSaving || isTransitioning}
-      />
-
-      <ConfirmationDialog
-        open={cancelTarget}
-        onOpenChange={setCancelTarget}
-        tone="destructive"
-        title={t("purchasing.orders.confirmCancelTitle")}
-        description={t("purchasing.orders.confirmCancelDescription")}
-        confirmLabel={t("purchasing.orders.actions.cancel")}
-        cancelLabel={t("common.close")}
-        onConfirm={async () => {
-          setCancelTarget(false);
-          await runTransition(
-            (oid) => purchaseOrdersService.cancel(oid),
-            "purchasing.orders.toasts.cancelled",
-          );
-        }}
+        fieldErrors={showValidation ? (validate() ?? undefined) : undefined}
       />
 
       <ConfirmationDialog

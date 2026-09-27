@@ -17,8 +17,7 @@ import {
 } from "@/services/sales-teams-service";
 import type { DepartmentRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 
 function departmentFromTeam(team: SalesTeamRow): DepartmentRow {
   return {
@@ -166,7 +165,7 @@ export function SalesTeamEditorModal({
       onOpenChange(false);
       onSaved();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("errors.generic"));
+      reportApiError(error, "errors.generic");
     } finally {
       setSaving(false);
     }

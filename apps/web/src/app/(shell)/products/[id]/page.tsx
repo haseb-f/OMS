@@ -8,10 +8,15 @@ import {
   DetailFieldRow,
   DetailGroup,
   DetailSplitLayout,
+  EditorWorkspace,
   RecordHighlightsHeader,
+  StatusStrip,
 } from "@/components/shared/detail-workspace";
 import { RowActionsMenu } from "@/components/shared/data-table";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ErrorState } from "@/components/shared/error-state";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 import { EntityTabs } from "@/components/business/entity-tabs";
 import { StatusBadge, type StatusTone } from "@/components/business/status-badge";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
@@ -22,7 +27,8 @@ import { EnterpriseButton } from "@/components/ui/button";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast } from "@/lib/toast";
+import { apiErrorMessage, reportApiError, toast } from "@/lib/toast";
+import { formatAmount } from "@/lib/money";
 import { formatDateTime } from "@/lib/date";
 import { ApiError } from "@/services/api-client";
 import {
@@ -47,10 +53,10 @@ const STATUS_TONE: Record<ProductRow["status"], StatusTone> = {
   INACTIVE: "neutral",
 };
 
-function formatMoney(value: string | null): string | undefined {
-  if (value == null) return undefined;
-  const n = Number(value);
-  return Number.isFinite(n) ? n.toLocaleString() : undefined;
+/** A price field for display — `undefined` (field hidden) when not set. */
+function priceText(value: string | null): string | undefined {
+  if (value == null || value === "") return undefined;
+  return Number.isFinite(Number(value)) ? formatAmount(value) : undefined;
 }
 
 function ProductDetailContent() {
@@ -63,6 +69,7 @@ function ProductDetailContent() {
 
   const [product, setProduct] = useState<ProductRow | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<{ notFound: boolean; message: string } | null>(null);
   const [activities, setActivities] = useState<ProductActivityRow[] | null>(null);
 
   const categories = useProductCategories();
@@ -83,15 +90,19 @@ function ProductDetailContent() {
 
   const load = useCallback(async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       setProduct(await productsService.get(params.id));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+      setLoadError({
+        notFound: error instanceof ApiError && error.status === 404,
+        message: apiErrorMessage(error, "errors.loadFailed"),
+      });
       setProduct(null);
     } finally {
       setIsLoading(false);
     }
-  }, [params.id, t]);
+  }, [params.id]);
 
   const loadActivities = useCallback(async () => {
     try {
@@ -125,7 +136,7 @@ function ProductDetailContent() {
       toast.success(t("products.detail.activated"));
       void loadActivities();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "errors.saveFailed");
     } finally {
       setIsActivating(false);
     }
@@ -140,7 +151,7 @@ function ProductDetailContent() {
       setArchiveOpen(false);
       router.push("/products");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "errors.archiveFailed");
     } finally {
       setIsArchiving(false);
     }
@@ -148,16 +159,21 @@ function ProductDetailContent() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-2">
-        <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
-      </div>
+      <EditorWorkspace>
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </EditorWorkspace>
     );
   }
   if (!product) {
     return (
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-2">
-        <EmptyState icon={Package} title={t("common.noResults")} />
-      </div>
+      <EditorWorkspace>
+        {loadError && !loadError.notFound ? (
+          <ErrorState description={loadError.message} onRetry={() => void load()} />
+        ) : (
+          <EmptyState icon={Package} title={t("common.noResults")} />
+        )}
+      </EditorWorkspace>
     );
   }
 
@@ -190,9 +206,9 @@ function ProductDetailContent() {
             <DetailFieldRow label={t("products.fields.description")} value={product.description} />
           </DetailGroup>
           {product.status === "DRAFT" && (
-            <div className="rounded-md border border-warning/30 bg-warning/5 p-3 text-caption text-muted-foreground">
-              {t("products.detail.draftExcludedHint")}
-            </div>
+            <Alert tone="warning">
+              <AlertDescription>{t("products.detail.draftExcludedHint")}</AlertDescription>
+            </Alert>
           )}
         </>
       }
@@ -233,12 +249,12 @@ function ProductDetailContent() {
     <DetailGroup title={t("products.wizard.steps.pricing")} actions={editButton("sales")}>
       <DetailFieldRow
         label={t("products.fields.salesPrice")}
-        value={formatMoney(product.salesPrice)}
+        value={priceText(product.salesPrice)}
         ltr
       />
       <DetailFieldRow
         label={t("products.fields.purchasePrice")}
-        value={formatMoney(product.purchasePrice)}
+        value={priceText(product.purchasePrice)}
         ltr
       />
       <DetailFieldRow label={t("products.fields.taxGroup")} value={product.tax?.name} />
@@ -301,27 +317,65 @@ function ProductDetailContent() {
     </DetailGroup>
   );
 
+  const flag = (on: boolean) => (
+    <StatusBadge label={on ? t("common.yes") : t("common.no")} tone={on ? "success" : "neutral"} />
+  );
+
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-2">
+    <EditorWorkspace>
       <RecordHighlightsHeader
         identity={
           <span className="inline-flex min-w-0 items-center gap-2">
-            <span dir="ltr" className="text-ui-title font-semibold">
-              {product.sku}
-            </span>
+            <h1 className="text-ui-title">
+              <span className="num">{product.sku}</span>
+            </h1>
             <span className="min-w-0 truncate text-body text-muted-foreground">
               {product.displayName || product.name}
             </span>
           </span>
         }
         status={
-          <>
-            <StatusBadge
-              label={t(`products.status.${product.status}`)}
-              tone={STATUS_TONE[product.status]}
-            />
-            <StatusBadge label={t(`products.type.${product.type}`)} tone="info" />
-          </>
+          <StatusBadge
+            label={t(`products.status.${product.status}`)}
+            tone={STATUS_TONE[product.status]}
+          />
+        }
+        statusStrip={
+          <StatusStrip
+            label={t("products.detail.sections.status")}
+            groups={[
+              {
+                key: "classification",
+                items: [
+                  {
+                    key: "type",
+                    label: t("products.fields.type"),
+                    status: <StatusBadge label={t(`products.type.${product.type}`)} tone="info" />,
+                  },
+                ],
+              },
+              {
+                key: "availability",
+                items: [
+                  {
+                    key: "sale",
+                    label: t("products.fields.availableForSale"),
+                    status: flag(product.isSellable),
+                  },
+                  {
+                    key: "purchase",
+                    label: t("products.fields.availableForPurchase"),
+                    status: flag(product.isPurchasable),
+                  },
+                  {
+                    key: "inventory",
+                    label: t("products.fields.trackInventory"),
+                    status: flag(product.isInventoryItem),
+                  },
+                ],
+              },
+            ]}
+          />
         }
         metrics={
           <>
@@ -329,11 +383,19 @@ function ProductDetailContent() {
             <DetailField label={t("products.fields.unit")} value={product.unit?.name} />
             <DetailField
               label={t("products.fields.salesPrice")}
-              value={formatMoney(product.salesPrice)}
+              value={
+                priceText(product.salesPrice) ? (
+                  <span className="num">{priceText(product.salesPrice)}</span>
+                ) : undefined
+              }
             />
             <DetailField
               label={t("products.fields.purchasePrice")}
-              value={formatMoney(product.purchasePrice)}
+              value={
+                priceText(product.purchasePrice) ? (
+                  <span className="num">{priceText(product.purchasePrice)}</span>
+                ) : undefined
+              }
             />
           </>
         }
@@ -387,7 +449,9 @@ function ProductDetailContent() {
             label: t("products.detail.tabs.activity"),
             badge:
               timelineEntries.length > 0 ? (
-                <span className="text-caption text-muted-foreground">{timelineEntries.length}</span>
+                <span className="num text-caption text-muted-foreground">
+                  {timelineEntries.length}
+                </span>
               ) : undefined,
             content: activity,
           },
@@ -423,7 +487,7 @@ function ProductDetailContent() {
         confirmLabel={t("common.archive")}
         isConfirming={isArchiving}
       />
-    </div>
+    </EditorWorkspace>
   );
 }
 

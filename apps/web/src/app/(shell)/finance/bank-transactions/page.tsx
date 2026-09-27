@@ -1,14 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import type { ColumnDef } from "@tanstack/react-table";
 import { Landmark, RefreshCw, Search, Tag, CheckCircle2, Undo2 } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
-import { EmptyState } from "@/components/shared/empty-state";
-import { ListSurface, ListToolbar } from "@/components/shared/data-table/list-surface";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EnterpriseButton } from "@/components/ui/button";
-import { LoadingOverlay } from "@/components/shared/loading-overlay";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,14 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
+import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
 import { StatusBadge, type StatusTone } from "@/components/business/status-badge";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import { SyncButton } from "@/components/shared/sync-button";
@@ -42,8 +33,9 @@ import { PermissionGate } from "@/components/shared/permission-gate";
 import { RowActionsMenu } from "@/components/shared/data-table";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast, reportApiError } from "@/lib/toast";
+import { apiErrorMessage, toast, reportApiError } from "@/lib/toast";
 import { formatDate } from "@/lib/date";
+import { formatMoney } from "@/lib/money";
 import {
   bankTransactionsService,
   type BankTransactionRow,
@@ -102,11 +94,6 @@ const STATUS_TONE: Record<BankTransactionMatchStatus, StatusTone> = {
   MANUAL_REVIEW: "destructive",
 };
 
-function formatMoney(value: string, currencyCode: string | undefined) {
-  const num = Number(value);
-  return `${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${currencyCode ? ` ${currencyCode}` : ""}`;
-}
-
 function CashFlowPageContent() {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
@@ -127,6 +114,7 @@ function CashFlowPageContent() {
   });
   const [summary, setSummary] = useState<CashFlowSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isRunningMatch, setIsRunningMatch] = useState(false);
   const [reconcileTarget, setReconcileTarget] = useState<BankTransactionRow | null>(null);
   const [classifyTarget, setClassifyTarget] = useState<BankTransactionRow | null>(null);
@@ -138,6 +126,7 @@ function CashFlowPageContent() {
 
   const load = useCallback(async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const [list, statusCounts, cashFlowSummary] = await Promise.all([
         bankTransactionsService.list({ direction, matchStatus: statusFilter, pageSize: 100 }),
@@ -148,11 +137,11 @@ function CashFlowPageContent() {
       setCounts(statusCounts);
       setSummary(cashFlowSummary);
     } catch (error) {
-      reportApiError(error, t("common.loadFailed"));
+      setLoadError(apiErrorMessage(error, "errors.loadFailed"));
     } finally {
       setIsLoading(false);
     }
-  }, [direction, statusFilter, t]);
+  }, [direction, statusFilter]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -189,6 +178,140 @@ function CashFlowPageContent() {
       setIsUnreconciling(false);
     }
   };
+
+  const columns = useMemo<ColumnDef<BankTransactionRow, unknown>[]>(
+    () => [
+      {
+        id: "transactionDate",
+        meta: { titleKey: "masterData.bankTransactions.fields.date", type: "date" },
+        accessorFn: (row) => row.transactionDate,
+        cell: ({ row }) => <span className="num">{formatDate(row.original.transactionDate)}</span>,
+      },
+      {
+        id: "transactionId",
+        meta: {
+          titleKey: "masterData.bankTransactions.fields.transactionId",
+          type: "reference",
+          identity: true,
+        },
+        accessorFn: (row) => row.transactionId ?? "",
+        cell: ({ row }) => row.original.transactionId ?? "—",
+      },
+      {
+        id: "cashSource",
+        meta: { titleKey: "masterData.bankTransactions.fields.cashSource", type: "name" },
+        accessorFn: (row) => row.cashSource?.name ?? row.bankName ?? "",
+        cell: ({ row }) => row.original.cashSource?.name ?? row.original.bankName ?? "—",
+      },
+      {
+        id: "description",
+        meta: {
+          titleKey: "masterData.bankTransactions.fields.description",
+          type: "description",
+          importance: "low",
+        },
+        accessorFn: (row) => row.description ?? "",
+        cell: ({ row }) => row.original.description ?? "—",
+      },
+      {
+        id: "amount",
+        meta: { titleKey: "masterData.bankTransactions.fields.amount", type: "money" },
+        accessorFn: (row) => Number(row.amount),
+        cell: ({ row }) => (
+          <span className="num">
+            {formatMoney(row.original.amount, row.original.currency?.code)}
+          </span>
+        ),
+      },
+      ...(direction === "OUTGOING"
+        ? ([
+            {
+              id: "classification",
+              meta: { titleKey: "masterData.bankTransactions.fields.classification" },
+              accessorFn: (row) => row.outgoingType ?? "",
+              cell: ({ row }) =>
+                row.original.outgoingType
+                  ? t(
+                      row.original.outgoingType === "EXPENSE"
+                        ? "masterData.bankTransactions.classifyDialog.expense"
+                        : "masterData.bankTransactions.classifyDialog.supplierPayment",
+                    )
+                  : "—",
+            },
+          ] satisfies ColumnDef<BankTransactionRow, unknown>[])
+        : []),
+      {
+        id: "matchStatus",
+        meta: { titleKey: "common.status", type: "status" },
+        accessorFn: (row) => row.matchStatus,
+        cell: ({ row }) => (
+          <StatusBadge
+            label={t(STATUS_LABEL_KEY[row.original.matchStatus])}
+            tone={STATUS_TONE[row.original.matchStatus]}
+          />
+        ),
+      },
+      {
+        id: "matchedReference",
+        meta: {
+          titleKey: "masterData.bankTransactions.fields.matchedReference",
+          type: "reference",
+        },
+        accessorFn: (row) =>
+          row.matchedPayment?.paymentNumber ??
+          row.matchedFinancialTransaction?.transactionNumber ??
+          "",
+        cell: ({ row }) =>
+          row.original.matchedPayment?.paymentNumber ??
+          row.original.matchedFinancialTransaction?.transactionNumber ??
+          "—",
+      },
+      {
+        id: "__actions",
+        meta: { titleKey: "common.actions" },
+        enableHiding: false,
+        enableSorting: false,
+        cell: ({ row: { original: row } }) =>
+          row.matchStatus === "MATCHED" ? (
+            canUnreconcile ? (
+              <RowActionsMenu
+                label={t("common.actions")}
+                actions={[
+                  {
+                    key: "unreconcile",
+                    label: t("masterData.bankTransactions.unreconcile.action"),
+                    icon: Undo2,
+                    destructive: true,
+                    onSelect: () => setUnreconcileTarget(row),
+                  },
+                ]}
+              />
+            ) : null
+          ) : canManage ? (
+            <RowActionsMenu
+              label={t("common.actions")}
+              actions={[
+                {
+                  key: "classify",
+                  label: t("masterData.bankTransactions.classify"),
+                  icon: Tag,
+                  hidden: !(direction === "OUTGOING" && !row.outgoingType),
+                  onSelect: () => setClassifyTarget(row),
+                },
+                {
+                  key: "reconcile",
+                  label: t("masterData.bankTransactions.reconcile"),
+                  icon: CheckCircle2,
+                  hidden: !(direction === "INCOMING" || !!row.outgoingType),
+                  onSelect: () => setReconcileTarget(row),
+                },
+              ]}
+            />
+          ) : null,
+      },
+    ],
+    [canManage, canUnreconcile, direction, t],
+  );
 
   return (
     <PageWorkspace
@@ -231,187 +354,95 @@ function CashFlowPageContent() {
       </Tabs>
 
       {summary && (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
           {direction === "INCOMING" ? (
             <>
               <KpiCard
-                icon={Landmark}
+                size="compact"
                 label={t("masterData.bankTransactions.summary.total")}
                 value={summary.incoming.total}
-                tone="info"
               />
               <KpiCard
-                icon={Landmark}
+                size="compact"
                 label={t("masterData.bankTransactions.summary.matched")}
                 value={summary.incoming.matched}
-                tone="success"
               />
               <KpiCard
-                icon={Landmark}
+                size="compact"
                 label={t("masterData.bankTransactions.summary.unmatched")}
                 value={summary.incoming.unmatched}
-                tone="muted"
               />
               <KpiCard
-                icon={Landmark}
+                size="compact"
                 label={t("masterData.bankTransactions.summary.storeOrderMatches")}
                 value={summary.incoming.storeOrderMatches}
-                tone="success"
               />
               <KpiCard
-                icon={Landmark}
+                size="compact"
                 label={t("masterData.bankTransactions.summary.b2bMatches")}
                 value={summary.incoming.b2bSalesInvoiceMatches}
-                tone="info"
               />
             </>
           ) : (
             <>
               <KpiCard
-                icon={Landmark}
+                size="compact"
                 label={t("masterData.bankTransactions.summary.total")}
                 value={summary.outgoing.total}
-                tone="info"
               />
               <KpiCard
-                icon={Landmark}
+                size="compact"
                 label={t("masterData.bankTransactions.summary.supplierPayments")}
                 value={summary.outgoing.supplierPayments}
-                tone="success"
               />
               <KpiCard
-                icon={Landmark}
+                size="compact"
                 label={t("masterData.bankTransactions.summary.expenses")}
                 value={summary.outgoing.expenses}
-                tone="info"
               />
               <KpiCard
-                icon={Landmark}
+                size="compact"
                 label={t("masterData.bankTransactions.summary.unclassified")}
                 value={summary.outgoing.unclassified}
-                tone="muted"
               />
               <KpiCard
-                icon={Landmark}
+                size="compact"
                 label={t("masterData.bankTransactions.summary.posted")}
                 value={summary.outgoing.posted}
-                tone="success"
               />
             </>
           )}
         </div>
       )}
 
-      <ListSurface>
-        {isLoading && <LoadingOverlay />}
-        <ListToolbar>
-          {statusTabs.map((status) => (
-            <EnterpriseButton
-              key={status}
-              type="button"
-              variant={statusFilter === status ? "secondary" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter(status)}
-            >
-              {t(STATUS_LABEL_KEY[status])} ({counts[status]})
-            </EnterpriseButton>
-          ))}
-        </ListToolbar>
-        {items.length === 0 && !isLoading ? (
-          <EmptyState icon={Landmark} title={t("masterData.bankTransactions.empty")} />
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("masterData.bankTransactions.fields.date")}</TableHead>
-                <TableHead>{t("masterData.bankTransactions.fields.transactionId")}</TableHead>
-                <TableHead>{t("masterData.bankTransactions.fields.cashSource")}</TableHead>
-                <TableHead>{t("masterData.bankTransactions.fields.description")}</TableHead>
-                <TableHead>{t("masterData.bankTransactions.fields.amount")}</TableHead>
-                {direction === "OUTGOING" && (
-                  <TableHead>{t("masterData.bankTransactions.fields.classification")}</TableHead>
-                )}
-                <TableHead>{t("common.status")}</TableHead>
-                <TableHead>{t("common.actions")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell>{formatDate(row.transactionDate)}</TableCell>
-                  <TableCell dir="ltr">{row.transactionId ?? "—"}</TableCell>
-                  <TableCell>{row.cashSource?.name ?? row.bankName ?? "—"}</TableCell>
-                  <TableCell className="max-w-64 truncate">{row.description ?? "—"}</TableCell>
-                  <TableCell dir="ltr">{formatMoney(row.amount, row.currency?.code)}</TableCell>
-                  {direction === "OUTGOING" && (
-                    <TableCell>
-                      {row.outgoingType
-                        ? t(
-                            row.outgoingType === "EXPENSE"
-                              ? "masterData.bankTransactions.classifyDialog.expense"
-                              : "masterData.bankTransactions.classifyDialog.supplierPayment",
-                          )
-                        : "—"}
-                    </TableCell>
-                  )}
-                  <TableCell>
-                    <StatusBadge
-                      label={t(STATUS_LABEL_KEY[row.matchStatus])}
-                      tone={STATUS_TONE[row.matchStatus]}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {row.matchStatus === "MATCHED" ? (
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-caption text-muted-foreground" dir="ltr">
-                          {row.matchedPayment?.paymentNumber ??
-                            row.matchedFinancialTransaction?.transactionNumber}
-                        </span>
-                        {canUnreconcile && (
-                          <RowActionsMenu
-                            label={t("common.actions")}
-                            actions={[
-                              {
-                                key: "unreconcile",
-                                label: t("masterData.bankTransactions.unreconcile.action"),
-                                icon: Undo2,
-                                destructive: true,
-                                onSelect: () => setUnreconcileTarget(row),
-                              },
-                            ]}
-                          />
-                        )}
-                      </div>
-                    ) : (
-                      canManage && (
-                        <RowActionsMenu
-                          label={t("common.actions")}
-                          actions={[
-                            {
-                              key: "classify",
-                              label: t("masterData.bankTransactions.classify"),
-                              icon: Tag,
-                              hidden: !(direction === "OUTGOING" && !row.outgoingType),
-                              onSelect: () => setClassifyTarget(row),
-                            },
-                            {
-                              key: "reconcile",
-                              label: t("masterData.bankTransactions.reconcile"),
-                              icon: CheckCircle2,
-                              hidden: !(direction === "INCOMING" || !!row.outgoingType),
-                              onSelect: () => setReconcileTarget(row),
-                            },
-                          ]}
-                        />
-                      )
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </ListSurface>
+      <div className="max-w-full overflow-x-auto">
+        <Tabs
+          value={statusFilter}
+          onValueChange={(value) => setStatusFilter(value as BankTransactionMatchStatus)}
+        >
+          <TabsList variant="line" aria-label={t("common.status")}>
+            {statusTabs.map((status) => (
+              <TabsTrigger key={status} value={status}>
+                {t(STATUS_LABEL_KEY[status])}
+                <span className="num text-caption text-muted-foreground">{counts[status]}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      </div>
+
+      <EnterpriseDataTable
+        tableId={`bank-transactions-${direction.toLowerCase()}`}
+        printTitle={t("masterData.bankTransactions.title")}
+        columns={columns}
+        data={items}
+        isLoading={isLoading}
+        error={loadError}
+        onRetry={() => void load()}
+        onRefresh={() => void load()}
+        emptyTitle={t("masterData.bankTransactions.empty")}
+        getRowId={(row) => row.id}
+      />
 
       {classifyTarget && (
         <ClassifyDialog
@@ -505,7 +536,7 @@ function ClassifyDialog({
       toast.success(t("masterData.bankTransactions.classifyDialog.saved"));
       onDone();
     } catch (error) {
-      reportApiError(error, "Failed to classify.");
+      reportApiError(error, "errors.actionFailed");
     } finally {
       setSaving(false);
     }
@@ -723,7 +754,7 @@ function ReconcileDialog({
       setMismatchCandidate(null);
       onDone();
     } catch (error) {
-      reportApiError(error, "Failed to reconcile.");
+      reportApiError(error, "errors.actionFailed");
     } finally {
       setBusy(false);
       setMismatchMode(null);
@@ -739,7 +770,7 @@ function ReconcileDialog({
       toast.success(t("masterData.bankTransactions.voucher.expenseVoucherCreated"));
       onDone();
     } catch (error) {
-      reportApiError(error, "Failed to create voucher.");
+      reportApiError(error, "errors.actionFailed");
     } finally {
       setBusy(false);
     }
@@ -814,7 +845,7 @@ function ReconcileDialog({
       }
       onDone();
     } catch (error) {
-      reportApiError(error, "Failed to reconcile.");
+      reportApiError(error, "errors.actionFailed");
     } finally {
       setAllocating(false);
     }
@@ -826,7 +857,7 @@ function ReconcileDialog({
       const result = await bankTransactionsService.suggestInternalTransfer(transaction.id);
       setTransferCandidates(result.candidates);
     } catch (error) {
-      reportApiError(error, "Failed to search.");
+      reportApiError(error, "errors.actionFailed");
     } finally {
       setLoadingTransfer(false);
     }
@@ -839,7 +870,7 @@ function ReconcileDialog({
       toast.success(t("masterData.bankTransactions.transfer.confirmed"));
       onDone();
     } catch (error) {
-      reportApiError(error, "Failed to reconcile.");
+      reportApiError(error, "errors.actionFailed");
     } finally {
       setConfirmingTransferId(null);
     }
@@ -908,17 +939,17 @@ function ReconcileDialog({
                           className="flex items-center justify-between gap-3 rounded-md border border-border p-3"
                         >
                           <div className="flex flex-col gap-1">
-                            <span className="text-[0.65rem] text-muted-foreground">
+                            <span className="text-micro text-muted-foreground">
                               {t(candidateLabelKey[candidate.kind])}
                             </span>
-                            <span className="font-medium" dir="ltr">
-                              {candidate.label}
+                            <span className="font-medium">
+                              <span className="num">{candidate.label}</span>
                             </span>
                             <span className="text-caption text-muted-foreground">
                               {candidate.reasons.join(" · ")}
                             </span>
                             {candidate.methodMismatch && (
-                              <span className="text-caption text-warning">
+                              <span className="text-caption text-warning-soft-foreground">
                                 {t("masterData.bankTransactions.methodMismatch")}
                                 {candidate.expectedPaymentSourceName
                                   ? ` — ${candidate.expectedPaymentSourceName}`
@@ -958,17 +989,25 @@ function ReconcileDialog({
                               }
                             />
                             <div className="flex flex-1 flex-col gap-1">
-                              <span className="text-[0.65rem] text-muted-foreground">
+                              <span className="text-micro text-muted-foreground">
                                 {t(candidateLabelKey[candidate.kind])}
                               </span>
-                              <span className="font-medium" dir="ltr">
-                                {candidate.label}
+                              <span className="font-medium">
+                                <span className="num">{candidate.label}</span>
                               </span>
                               <span className="text-caption text-muted-foreground">
                                 {candidate.reasons.join(" · ")}
-                                {candidate.outstanding !== undefined
-                                  ? ` · ${t("masterData.bankTransactions.allocation.outstanding")}: ${formatMoney(String(candidate.outstanding), transaction.currency?.code)}`
-                                  : ""}
+                                {candidate.outstanding !== undefined ? (
+                                  <>
+                                    {` · ${t("masterData.bankTransactions.allocation.outstanding")}: `}
+                                    <span className="num">
+                                      {formatMoney(
+                                        candidate.outstanding,
+                                        transaction.currency?.code,
+                                      )}
+                                    </span>
+                                  </>
+                                ) : null}
                               </span>
                             </div>
                             {selected && (
@@ -1022,17 +1061,21 @@ function ReconcileDialog({
                         </div>
                       )}
 
-                      <div className="flex items-center justify-between rounded-md bg-muted/30 p-3 text-caption">
-                        <span dir="ltr">
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-surface-sunken p-3 text-caption">
+                        <span>
                           {t("masterData.bankTransactions.allocation.allocated")}:{" "}
-                          {formatMoney(String(totalAllocated), transaction.currency?.code)}
+                          <span className="num font-medium">
+                            {formatMoney(totalAllocated, transaction.currency?.code)}
+                          </span>
                         </span>
                         <span
-                          dir="ltr"
-                          className={remainingUnallocated < 0 ? "text-destructive font-medium" : ""}
+                          className={remainingUnallocated < 0 ? "font-medium text-destructive" : ""}
+                          role={remainingUnallocated < 0 ? "alert" : undefined}
                         >
                           {t("masterData.bankTransactions.allocation.remaining")}:{" "}
-                          {formatMoney(String(remainingUnallocated), transaction.currency?.code)}
+                          <span className="num font-medium">
+                            {formatMoney(remainingUnallocated, transaction.currency?.code)}
+                          </span>
                         </span>
                       </div>
                       <EnterpriseButton
@@ -1117,8 +1160,8 @@ function ReconcileDialog({
                         className="flex items-center justify-between gap-3 rounded-md border border-border p-2"
                       >
                         <div className="flex flex-col gap-0.5">
-                          <span className="font-medium" dir="ltr">
-                            {candidate.label}
+                          <span className="font-medium">
+                            <span className="num">{candidate.label}</span>
                           </span>
                           <span className="text-caption text-muted-foreground">
                             {candidate.reasons.join(" · ")}

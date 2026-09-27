@@ -9,9 +9,8 @@ import { ClearFiltersButton } from "@/components/shared/data-table/clear-filters
 import { salesTargetsService, type TargetMetric } from "@/services/sales-targets-service";
 import { buildRankingColumns } from "@/config/hr/ranking";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
+import { reportApiError } from "@/lib/toast";
 import { currentMonthValue } from "@/lib/date";
-import { ApiError } from "@/services/api-client";
 
 const METRICS: TargetMetric[] = ["COLLECTED_SALES", "SALES_REVENUE", "ORDERS_COUNT"];
 /**
@@ -40,11 +39,11 @@ export default function RankingPage() {
       setLeaderboard(result.leaderboard);
       setTotal(result.total);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsLoading(false);
     }
-  }, [period, metric, t]);
+  }, [period, metric]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

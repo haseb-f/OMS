@@ -187,7 +187,11 @@ export function StatementLinesTable({
       {
         id: "amount",
         header: t("paymentReconciliation.fields.amount"),
-        meta: { titleKey: "paymentReconciliation.fields.amount" as MessageKey, align: "end" },
+        meta: {
+          titleKey: "paymentReconciliation.fields.amount" as MessageKey,
+          align: "end",
+          type: "money",
+        },
         cell: ({ row }) => (
           <div className="flex flex-col items-end">
             <MoneyValue value={row.original.amount} currency={row.original.currency} />

@@ -21,6 +21,12 @@ import {
 import { EntityTabs } from "@/components/business/entity-tabs";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ErrorState } from "@/components/shared/error-state";
+import {
+  CompactDetailTable,
+  type CompactDetailColumn,
+} from "@/components/shared/data-table/compact-detail-table";
+import { tableIdentityCellClass } from "@/components/ui/table";
 import { StatusBadge } from "@/components/business/status-badge";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { investorsService, type InvestorRow } from "@/services/investors-service";
@@ -45,42 +51,44 @@ import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { formatDate, formatDateTime } from "@/lib/date";
-import { formatMoney } from "@/lib/money";
-import { toast, reportApiError } from "@/lib/toast";
+import { formatAmount } from "@/lib/money";
+import { apiErrorMessage, toast, reportApiError } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
 
-const editFields: MasterDataFormField[] = [
-  { name: "name", label: "investors.list.fields.name", type: "text", required: true },
-  {
-    name: "entityType",
-    label: "investors.list.fields.entityType",
-    type: "select",
-    options: [
-      { value: "PERSON", label: "PERSON" },
-      { value: "ORGANIZATION", label: "ORGANIZATION" },
-    ],
-  },
-  { name: "phone", label: "investors.list.fields.phone", type: "text" },
-  { name: "email", label: "investors.list.fields.email", type: "text" },
-  {
-    name: "status",
-    label: "investors.list.fields.status",
-    type: "select",
-    options: [
-      { value: "ACTIVE", label: "ACTIVE" },
-      { value: "INACTIVE", label: "INACTIVE" },
-    ],
-  },
-  {
-    name: "commercialRegistration",
-    label: "investors.list.fields.commercialRegistration",
-    type: "text",
-  },
-  { name: "nationalId", label: "investors.list.fields.nationalId", type: "text" },
-  { name: "residencyId", label: "investors.list.fields.residencyId", type: "text" },
-  { name: "iban", label: "investors.list.fields.iban", type: "text" },
-  { name: "notes", label: "investors.list.fields.notes", type: "textarea" },
-];
+function buildEditFields(t: (key: MessageKey) => string): MasterDataFormField[] {
+  return [
+    { name: "name", label: "investors.list.fields.name", type: "text", required: true },
+    {
+      name: "entityType",
+      label: "investors.list.fields.entityType",
+      type: "select",
+      options: [
+        { value: "PERSON", label: t("investors.list.entityType.PERSON") },
+        { value: "ORGANIZATION", label: t("investors.list.entityType.ORGANIZATION") },
+      ],
+    },
+    { name: "phone", label: "investors.list.fields.phone", type: "text" },
+    { name: "email", label: "investors.list.fields.email", type: "text" },
+    {
+      name: "status",
+      label: "investors.list.fields.status",
+      type: "select",
+      options: [
+        { value: "ACTIVE", label: t("investors.list.status.ACTIVE") },
+        { value: "INACTIVE", label: t("investors.list.status.INACTIVE") },
+      ],
+    },
+    {
+      name: "commercialRegistration",
+      label: "investors.list.fields.commercialRegistration",
+      type: "text",
+    },
+    { name: "nationalId", label: "investors.list.fields.nationalId", type: "text" },
+    { name: "residencyId", label: "investors.list.fields.residencyId", type: "text" },
+    { name: "iban", label: "investors.list.fields.iban", type: "text" },
+    { name: "notes", label: "investors.list.fields.notes", type: "textarea" },
+  ];
+}
 
 export default function InvestorProfilePage() {
   const params = useParams<{ id: string }>();
@@ -98,6 +106,7 @@ export default function InvestorProfilePage() {
 
   const [investor, setInvestor] = useState<InvestorRow | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [subscriptions, setSubscriptions] = useState<InvestorSubscriptionRow[] | null>(null);
   const [contributions, setContributions] = useState<CapitalContributionRow[] | null>(null);
@@ -113,9 +122,12 @@ export default function InvestorProfilePage() {
 
   const load = useCallback(async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const data = await investorsService.get(params.id);
       setInvestor(data);
+    } catch (error) {
+      setLoadError(apiErrorMessage(error, "errors.loadFailed"));
     } finally {
       setIsLoading(false);
     }
@@ -127,7 +139,10 @@ export default function InvestorProfilePage() {
   }, [load]);
 
   useEffect(() => {
-    investorLedgerService.summary(params.id).then(setLedgerSummary);
+    investorLedgerService
+      .summary(params.id)
+      .then(setLedgerSummary)
+      .catch((error: unknown) => reportApiError(error, "errors.loadFailed"));
   }, [params.id]);
 
   useBreadcrumbLabel(investor?.name ?? null);
@@ -196,6 +211,9 @@ export default function InvestorProfilePage() {
     }
   }
 
+  if (loadError) {
+    return <ErrorState description={loadError} onRetry={() => void load()} />;
+  }
   if (isLoading || !investor) {
     return null;
   }
@@ -214,7 +232,7 @@ export default function InvestorProfilePage() {
         actions={
           <>
             {canEdit ? (
-              <EnterpriseButton variant="secondary" onClick={openEdit}>
+              <EnterpriseButton variant="outline" onClick={openEdit}>
                 <Pencil />
                 {t("common.edit")}
               </EnterpriseButton>
@@ -228,41 +246,45 @@ export default function InvestorProfilePage() {
           </>
         }
       >
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
           <KpiCard
-            icon={Banknote}
+            size="compact"
             label={t("investors.ledger.summary.totalConfirmedCapital")}
-            value={formatMoney(
+            value={formatAmount(
               ledgerSummary?.totalConfirmedCapital ?? investor.totalConfirmedFunding,
             )}
           />
           <KpiCard
-            icon={Banknote}
+            size="compact"
             label={t("investors.ledger.summary.capitalReturned")}
-            value={formatMoney(ledgerSummary?.capitalReturned ?? 0)}
+            value={ledgerSummary ? formatAmount(ledgerSummary.capitalReturned) : undefined}
+            isLoading={!ledgerSummary}
           />
           <KpiCard
-            icon={CheckCircle2}
+            size="compact"
             label={t("investors.ledger.summary.totalApprovedProfit")}
-            value={formatMoney(ledgerSummary?.totalApprovedProfit ?? 0)}
+            value={ledgerSummary ? formatAmount(ledgerSummary.totalApprovedProfit) : undefined}
+            isLoading={!ledgerSummary}
           />
           <KpiCard
-            icon={CheckCircle2}
+            size="compact"
             label={t("investors.ledger.summary.totalProfitPaid")}
-            value={formatMoney(ledgerSummary?.totalProfitPaid ?? 0)}
+            value={ledgerSummary ? formatAmount(ledgerSummary.totalProfitPaid) : undefined}
+            isLoading={!ledgerSummary}
           />
           <KpiCard
-            icon={CheckCircle2}
+            size="compact"
             label={t("investors.ledger.summary.outstandingProfit")}
-            value={formatMoney(ledgerSummary?.outstandingProfit ?? 0)}
+            value={ledgerSummary ? formatAmount(ledgerSummary.outstandingProfit) : undefined}
+            isLoading={!ledgerSummary}
           />
           <KpiCard
-            icon={Briefcase}
+            size="compact"
             label={t("investors.profile.summary.activeOpportunities")}
             value={investor.activeInvestmentsCount}
           />
           <KpiCard
-            icon={CheckCircle2}
+            size="compact"
             label={t("investors.profile.summary.completedOpportunities")}
             value={investor.completedInvestmentsCount}
           />
@@ -383,7 +405,7 @@ export default function InvestorProfilePage() {
       >
         <MasterDataForm
           form={editForm}
-          fields={editFields}
+          fields={buildEditFields(t)}
           sectionTitle={t("investors.list.title")}
         />
       </EnterpriseModal>
@@ -423,48 +445,54 @@ function InvestmentsTab({
       />
     );
   }
+  const columns: CompactDetailColumn<InvestorSubscriptionRow>[] = [
+    {
+      id: "opportunity",
+      header: t("investors.opportunities.fields.code"),
+      cell: (s) => (
+        <a
+          href={`/investors/opportunities/${s.opportunityId}`}
+          className="inline-flex min-w-0 flex-col hover:underline"
+        >
+          <span className={tableIdentityCellClass}>
+            <span className="num">{s.opportunityCode}</span>
+          </span>
+          <span className="truncate text-caption text-muted-foreground">{s.opportunityName}</span>
+        </a>
+      ),
+    },
+    {
+      id: "committed",
+      header: t("investors.subscriptions.fields.committedAmount"),
+      align: "end",
+      cell: (s) => <span className="num">{formatAmount(s.committedAmount, { zero: "dash" })}</span>,
+    },
+    {
+      id: "funded",
+      header: t("investors.subscriptions.fields.fundedAmount"),
+      align: "end",
+      cell: (s) => <span className="num">{formatAmount(s.fundedAmount, { zero: "dash" })}</span>,
+    },
+    {
+      id: "participation",
+      header: t("investors.subscriptions.fields.participationPercent"),
+      align: "end",
+      cell: (s) => <span className="num">{formatAmount(s.participationPercent)}%</span>,
+    },
+    {
+      id: "status",
+      header: t("investors.subscriptions.fields.status"),
+      cell: (s) => (
+        <StatusBadge
+          label={t(`investors.subscriptions.status.${s.status}` as MessageKey)}
+          tone="neutral"
+        />
+      ),
+    },
+  ];
   return (
     <DetailSection>
-      <div className="overflow-x-auto">
-        <table className="w-full text-start text-body">
-          <thead>
-            <tr className="border-b border-border text-caption text-muted-foreground">
-              <th className="p-2 text-start">{t("investors.opportunities.fields.code")}</th>
-              <th className="p-2 text-start">
-                {t("investors.subscriptions.fields.committedAmount")}
-              </th>
-              <th className="p-2 text-start">{t("investors.subscriptions.fields.fundedAmount")}</th>
-              <th className="p-2 text-start">
-                {t("investors.subscriptions.fields.participationPercent")}
-              </th>
-              <th className="p-2 text-start">{t("investors.subscriptions.fields.status")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {subscriptions.map((s) => (
-              <tr key={s.id} className="border-b border-border/60">
-                <td className="p-2 font-medium">
-                  <a
-                    href={`/investors/opportunities/${s.opportunityId}`}
-                    className="hover:underline"
-                  >
-                    {s.opportunityCode} — {s.opportunityName}
-                  </a>
-                </td>
-                <td className="p-2">{formatMoney(s.committedAmount)}</td>
-                <td className="p-2">{formatMoney(s.fundedAmount)}</td>
-                <td className="p-2">{s.participationPercent.toFixed(2)}%</td>
-                <td className="p-2">
-                  <StatusBadge
-                    label={t(`investors.subscriptions.status.${s.status}` as MessageKey)}
-                    tone="neutral"
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <CompactDetailTable columns={columns} rows={subscriptions} rowKey={(s) => s.id} />
     </DetailSection>
   );
 }
@@ -497,6 +525,40 @@ function FundingTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const contributionColumns: CompactDetailColumn<CapitalContributionRow>[] = [
+    {
+      id: "opportunity",
+      header: t("investors.opportunities.fields.code"),
+      cell: (c) => <span className={`num ${tableIdentityCellClass}`}>{c.opportunityCode}</span>,
+    },
+    {
+      id: "date",
+      header: t("investors.contributions.fields.date"),
+      cell: (c) => <span className="num">{formatDate(c.contributionDate)}</span>,
+    },
+    {
+      id: "amount",
+      header: t("investors.contributions.fields.amount"),
+      align: "end",
+      cell: (c) => <span className="num">{formatAmount(c.amount, { zero: "dash" })}</span>,
+    },
+    {
+      id: "status",
+      header: t("investors.contributions.fields.status"),
+      cell: (c) => (
+        <StatusBadge
+          label={t(`investors.contributions.status.${c.status}` as MessageKey)}
+          tone="neutral"
+        />
+      ),
+    },
+    {
+      id: "confirmedBy",
+      header: t("investors.contributions.fields.confirmedBy"),
+      cell: (c) => c.confirmedBy ?? "—",
+    },
+  ];
+
   return (
     <DetailSection>
       {!contributions ? null : contributions.length === 0 ? (
@@ -506,37 +568,11 @@ function FundingTab({
           description={t("common.noDataAvailable")}
         />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-start text-body">
-            <thead>
-              <tr className="border-b border-border text-caption text-muted-foreground">
-                <th className="p-2 text-start">{t("investors.opportunities.fields.code")}</th>
-                <th className="p-2 text-start">{t("investors.contributions.fields.date")}</th>
-                <th className="p-2 text-start">{t("investors.contributions.fields.amount")}</th>
-                <th className="p-2 text-start">{t("investors.contributions.fields.status")}</th>
-                <th className="p-2 text-start">
-                  {t("investors.contributions.fields.confirmedBy")}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {contributions.map((c) => (
-                <tr key={c.id} className="border-b border-border/60">
-                  <td className="p-2 font-medium">{c.opportunityCode}</td>
-                  <td className="p-2">{formatDate(c.contributionDate)}</td>
-                  <td className="p-2">{formatMoney(c.amount)}</td>
-                  <td className="p-2">
-                    <StatusBadge
-                      label={t(`investors.contributions.status.${c.status}` as MessageKey)}
-                      tone="neutral"
-                    />
-                  </td>
-                  <td className="p-2">{c.confirmedBy ?? "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <CompactDetailTable
+          columns={contributionColumns}
+          rows={contributions}
+          rowKey={(c) => c.id}
+        />
       )}
       <CapitalReturnsSection
         investorId={investorId}

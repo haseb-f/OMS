@@ -4,7 +4,6 @@ import { RelatedRecordsPanel } from "@/components/shared/related-records-panel";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Ban, CheckCircle2, PackagePlus, Printer, Save, Send, Undo2 } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
-import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { CustomerRefundDialog } from "@/components/financial-transactions/customer-refund-dialog";
 import { EditorWorkspace } from "@/components/shared/detail-workspace";
 import {
@@ -31,8 +30,8 @@ import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError, toast } from "@/lib/toast";
+import type { CommercialDocumentFieldErrors } from "@/components/documents/commercial-document-editor";
 
 function itemToLine(item: SalesReturnItemRow): ProductLineItemsGridLine {
   return {
@@ -81,7 +80,6 @@ export function ReturnEditorPage({ id }: { id: string }) {
   const [activity, setActivity] = useState<SalesDocumentActivityEntry[] | null | undefined>(
     undefined,
   );
-  const [cancelTarget, setCancelTarget] = useState(false);
   const [refundOpen, setRefundOpen] = useState(false);
   const [relatedRefreshKey, setRelatedRefreshKey] = useState(0);
 
@@ -109,7 +107,7 @@ export function ReturnEditorPage({ id }: { id: string }) {
         const data = await salesReturnsService.get(id);
         applyReturn(data);
       } catch (error) {
-        toast.error(error instanceof ApiError ? error.message : "Failed to load sales return.");
+        reportApiError(error, "errors.loadFailed");
       } finally {
         setIsLoading(false);
       }
@@ -130,12 +128,14 @@ export function ReturnEditorPage({ id }: { id: string }) {
 
   const realLines = lines.filter((line) => line.product !== null);
 
-  const validate = (): string | null => {
-    if (!customer) return t("sales.returns.validation.customerRequired");
-    if (realLines.length === 0) return t("sales.returns.validation.productRequired");
+  /** Shown inline under the fields after the first save attempt; entered data is never cleared. */
+  const [showValidation, setShowValidation] = useState(false);
+  const validate = (): CommercialDocumentFieldErrors | null => {
+    if (!customer) return { party: t("sales.returns.validation.customerRequired") };
+    if (realLines.length === 0) return { lines: t("sales.returns.validation.productRequired") };
     for (const line of realLines) {
-      if (line.quantity <= 0) return t("sales.returns.validation.quantityPositive");
-      if (!line.warehouse) return t("sales.editor.grid.warehouseRequired");
+      if (line.quantity <= 0) return { lines: t("sales.returns.validation.quantityPositive") };
+      if (!line.warehouse) return { lines: t("sales.editor.grid.warehouseRequired") };
     }
     return null;
   };
@@ -150,18 +150,18 @@ export function ReturnEditorPage({ id }: { id: string }) {
   });
 
   const handleSave = async () => {
-    const error = validate();
-    if (error) {
-      toast.error(error);
+    if (validate()) {
+      setShowValidation(true);
       return;
     }
+    setShowValidation(false);
     setIsSaving(true);
     try {
       const updated = await salesReturnsService.update(id, buildPayload());
       applyReturn(updated);
       toast.success(t("common.saved"));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsSaving(false);
     }
@@ -178,7 +178,7 @@ export function ReturnEditorPage({ id }: { id: string }) {
       toast.success(t(successKey));
       refreshActivity(id);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsTransitioning(false);
     }
@@ -275,7 +275,18 @@ export function ReturnEditorPage({ id }: { id: string }) {
           icon: Ban,
           variant: "destructive",
           visibleForStatuses: ["DRAFT", "PENDING_APPROVAL", "APPROVED"],
-          onAction: () => setCancelTarget(true),
+          confirm: {
+            title: t("sales.returns.confirmCancelTitle"),
+            description: t("sales.returns.confirmCancelDescription"),
+            confirmLabel: t("sales.returns.actions.cancel"),
+            tone: "destructive",
+          },
+          onAction: async () => {
+            await runTransition(
+              (rid) => salesReturnsService.cancel(rid),
+              "sales.returns.toasts.cancelled",
+            );
+          },
         },
         {
           // Pays the posted return's credit back to the customer (Customer Refund).
@@ -371,6 +382,7 @@ export function ReturnEditorPage({ id }: { id: string }) {
         isLoading={isLoading}
         disabled={!canEdit || isSaving}
         isBusy={isSaving || isTransitioning}
+        fieldErrors={showValidation ? (validate() ?? undefined) : undefined}
       />
 
       {salesReturn && refundOpen && (
@@ -387,23 +399,6 @@ export function ReturnEditorPage({ id }: { id: string }) {
           }}
         />
       )}
-
-      <ConfirmationDialog
-        open={cancelTarget}
-        onOpenChange={setCancelTarget}
-        tone="destructive"
-        title={t("sales.returns.confirmCancelTitle")}
-        description={t("sales.returns.confirmCancelDescription")}
-        confirmLabel={t("sales.returns.actions.cancel")}
-        cancelLabel={t("common.close")}
-        onConfirm={async () => {
-          setCancelTarget(false);
-          await runTransition(
-            (rid) => salesReturnsService.cancel(rid),
-            "sales.returns.toasts.cancelled",
-          );
-        }}
-      />
     </EditorWorkspace>
   );
 }

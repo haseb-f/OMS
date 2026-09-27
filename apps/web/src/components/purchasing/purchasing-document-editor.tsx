@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import {
   CommercialDocumentEditor,
   type CommercialDocumentActivityEntry,
+  type CommercialDocumentFieldErrors,
 } from "@/components/documents/commercial-document-editor";
 import { useUserContext } from "@/providers/user-context";
 import type {
@@ -27,6 +28,8 @@ export function PurchasingDocumentEditor<TDocument>({
   disabled,
   isBusy,
   paymentSummary,
+  headerStatus,
+  fieldErrors,
 }: {
   config: PurchaseDocumentEditorConfig<TDocument>;
   state: PurchaseDocumentEditorState<TDocument>;
@@ -37,6 +40,10 @@ export function PurchasingDocumentEditor<TDocument>({
   disabled?: boolean;
   isBusy?: boolean;
   paymentSummary?: ReactNode;
+  /** Independent status next to the workflow badge (e.g. invoice payment status). */
+  headerStatus?: ReactNode;
+  /** Inline validation messages under their fields. */
+  fieldErrors?: CommercialDocumentFieldErrors;
 }) {
   const { hasPermission } = useUserContext();
   const canEdit = hasPermission(config.permissions.edit) && !disabled;
@@ -76,6 +83,8 @@ export function PurchasingDocumentEditor<TDocument>({
       toolbarExtra={config.toolbarExtra}
       trace={config.trace}
       paymentSummary={paymentSummary}
+      headerStatus={headerStatus}
+      fieldErrors={fieldErrors}
       activity={activity}
       isLoading={isLoading}
       canEdit={canEdit}

@@ -11,8 +11,7 @@ import { SearchableSelect } from "@/components/shared/searchable-select";
 import { leadsService, type LeadDistributionSnapshot } from "@/services/leads-service";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import { formatDateTime } from "@/lib/date";
 import { cn } from "@/lib/utils";
 
@@ -144,7 +143,7 @@ export function LeadDistributionModal({
       onChanged?.();
       requestClose();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setBusy(false);
     }
@@ -287,9 +286,7 @@ export function LeadDistributionModal({
                         onChanged?.();
                         setSnapshot(await leadsService.distribution());
                       } catch (error) {
-                        toast.error(
-                          error instanceof ApiError ? error.message : t("common.failedToSave"),
-                        );
+                        reportApiError(error, "common.failedToSave");
                       } finally {
                         setBusy(false);
                       }

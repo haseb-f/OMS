@@ -40,8 +40,7 @@ import { usePayrollComponents } from "@/hooks/use-reference-data";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
 
 type WorkflowAction = "recalculate" | "hr-review" | "finance-approve" | "post" | "pay";
@@ -125,7 +124,7 @@ export default function PayrollRunDetailPage() {
                   : "hr.payroll.toasts.paid";
         toast.success(t(toastKey));
       } catch (error) {
-        toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+        reportApiError(error, "common.failedToSave");
       } finally {
         setIsActing(false);
         setPendingAction(null);
@@ -157,7 +156,7 @@ export default function PayrollRunDetailPage() {
       setNewAmount("");
       toast.success(t("hr.payroll.toasts.componentAdded"));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsAddingComponent(false);
     }

@@ -20,8 +20,7 @@ import { createMasterDataService } from "@/services/master-data-service";
 import { cachedLookup } from "@/lib/lookup-cache";
 import type { WarehouseLocationRow, WarehouseRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError, toast } from "@/lib/toast";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { RowActionsMenu } from "@/components/shared/data-table";
 import { useUserContext } from "@/providers/user-context";
@@ -110,7 +109,7 @@ function WarehouseLocationsPageContent() {
       const items = await warehouseLocationsService.listByWarehouse(warehouseId);
       setLocations(items);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to load locations.");
+      reportApiError(error, "errors.loadFailed");
     } finally {
       setIsLoading(false);
     }
@@ -166,7 +165,7 @@ function WarehouseLocationsPageContent() {
       setModalOpen(false);
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsSubmitting(false);
     }
@@ -181,7 +180,7 @@ function WarehouseLocationsPageContent() {
       setArchiveTarget(null);
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to archive.");
+      reportApiError(error, "errors.archiveFailed");
     } finally {
       setIsMutating(false);
     }
@@ -196,7 +195,7 @@ function WarehouseLocationsPageContent() {
       setRestoreTarget(null);
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to restore.");
+      reportApiError(error, "errors.restoreFailed");
     } finally {
       setIsMutating(false);
     }

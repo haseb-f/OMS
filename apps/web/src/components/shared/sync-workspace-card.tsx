@@ -26,7 +26,9 @@ export function SyncLastSyncLabel({ lastSyncedAt }: { lastSyncedAt: string | nul
   return (
     <p className="text-caption text-muted-foreground text-start">
       {t("importCenter.sync.lastSyncLine", {
-        value: formatSyncLastSyncValue(lastSyncedAt, t),
+        // First-strong isolate: the timestamp keeps its own order inside the
+        // Arabic sentence (design-system §2).
+        value: `⁨${formatSyncLastSyncValue(lastSyncedAt, t)}⁩`,
       })}
     </p>
   );

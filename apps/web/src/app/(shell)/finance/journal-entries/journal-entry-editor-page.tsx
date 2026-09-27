@@ -4,6 +4,7 @@ import { RelatedRecordsPanel } from "@/components/shared/related-records-panel";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Archive,
   ChevronDown,
   Copy,
   FileStack,
@@ -30,7 +31,8 @@ import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import { CurrencyPicker } from "@/components/business/currency-picker";
 import { cachedLookup } from "@/lib/lookup-cache";
-import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { DocumentActionBar, type DocumentAction } from "@/components/documents/document-action-bar";
+import { FieldMessage } from "@/components/ui/form";
 import { EditorHeader, EditorWorkspace } from "@/components/shared/detail-workspace";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { StatusBadge } from "@/components/business/status-badge";
@@ -63,10 +65,8 @@ import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { useCurrencies } from "@/hooks/use-reference-data";
-import { formatDate, formatDateTime } from "@/lib/date";
-import { CreateOperationSummary } from "@/components/shared/create-operation";
-import { MoneyValue } from "@/components/shared/money-value";
-import { toast } from "@/lib/toast";
+import { formatDateTime } from "@/lib/date";
+import { reportApiError, toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import {
   isGeneratedJournalSource,
@@ -151,12 +151,9 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
   const [templateDescription, setTemplateDescription] = useState("");
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
 
-  const [postTarget, setPostTarget] = useState(false);
-  const [resetToDraftTarget, setResetToDraftTarget] = useState(false);
-  const [reverseTarget, setReverseTarget] = useState(false);
-  const [archiveTarget, setArchiveTarget] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
+  /** Inline (not toast-only) validation, shown under the lines; entered data is never cleared. */
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const applyEntry = useCallback((data: JournalEntryRow) => {
     setEntry(data);
@@ -207,7 +204,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
       try {
         applyEntry(await journalEntriesService.get(id));
       } catch (error) {
-        toast.error(error instanceof ApiError ? error.message : "Failed to load journal entry.");
+        reportApiError(error, "errors.loadFailed");
       } finally {
         setIsLoading(false);
       }
@@ -257,10 +254,8 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
 
   const handleSave = async () => {
     const error = validate();
-    if (error) {
-      toast.error(error);
-      return;
-    }
+    setValidationError(error);
+    if (error) return;
     setIsSaving(true);
     try {
       if (id) {
@@ -273,7 +268,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
         router.replace(`/finance/journal-entries/${created.id}`);
       }
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsSaving(false);
     }
@@ -291,7 +286,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
       toast.success(t(successKey));
       refreshActivity(id);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsTransitioning(false);
     }
@@ -318,7 +313,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
       toast.success(t("accounting.journalEntries.toasts.deleted"));
       router.push("/finance/journal-entries");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsTransitioning(false);
     }
@@ -332,7 +327,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
       toast.success(t("accounting.journalEntries.toasts.duplicated"));
       router.push(`/finance/journal-entries/${duplicated.id}`);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsDuplicating(false);
     }
@@ -374,7 +369,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
       setTemplateName("");
       setTemplateDescription("");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsSavingTemplate(false);
     }
@@ -420,6 +415,140 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
 
   useBreadcrumbLabel(entry?.entryNumber ?? t("accounting.journalEntries.addNew"));
 
+  /** One primary (Post) + everything else in the action bar's "More" menu, with confirmations inside the bar. */
+  const journalActions: DocumentAction[] = [
+    ...(canPost
+      ? [
+          {
+            key: "post",
+            label: t("accounting.journalEntries.actions.post"),
+            icon: Send,
+            primary: true,
+            visibleForStatuses: ["DRAFT"],
+            confirm: {
+              title: t("accounting.journalEntries.confirmPostTitle"),
+              description: t("accounting.journalEntries.confirmPostDescription"),
+              confirmLabel: t("accounting.journalEntries.actions.post"),
+            },
+            onAction: () =>
+              runTransition(
+                (eid) => journalEntriesService.post(eid),
+                "accounting.journalEntries.toasts.posted",
+              ),
+          } satisfies DocumentAction,
+        ]
+      : []),
+    ...(canEdit && lines.length > 0
+      ? [
+          {
+            key: "save-template",
+            label: t("accounting.journalEntries.actions.saveAsTemplate"),
+            icon: FileStack,
+            onAction: () => setSaveTemplateOpen(true),
+          } satisfies DocumentAction,
+        ]
+      : []),
+    {
+      key: "duplicate",
+      label: t("accounting.journalEntries.actions.duplicate"),
+      icon: Copy,
+      onAction: handleDuplicate,
+    },
+    {
+      key: "print",
+      label: t("table.print"),
+      icon: Printer,
+      onAction: handlePrint,
+    },
+    ...(canResetToDraft
+      ? [
+          {
+            key: "reset-to-draft",
+            label: t("accounting.journalEntries.actions.resetToDraft"),
+            icon: RotateCcw,
+            visibleForStatuses: ["POSTED"],
+            confirm: {
+              title: t("accounting.journalEntries.confirmResetToDraftTitle"),
+              description: t("accounting.journalEntries.confirmResetToDraftDescription"),
+              confirmLabel: t("accounting.journalEntries.actions.resetToDraft"),
+            },
+            onAction: () =>
+              runTransition(
+                (eid) => journalEntriesService.resetToDraft(eid),
+                "accounting.journalEntries.toasts.resetToDraft",
+              ),
+          } satisfies DocumentAction,
+        ]
+      : []),
+    ...(canReverse
+      ? [
+          {
+            key: "reverse",
+            label: t("accounting.journalEntries.actions.reverse"),
+            icon: Undo2,
+            destructive: true,
+            visibleForStatuses: ["POSTED"],
+            confirm: {
+              title: t("accounting.journalEntries.confirmReverseTitle"),
+              description: t("accounting.journalEntries.confirmReverseDescription"),
+              confirmLabel: t("accounting.journalEntries.actions.reverse"),
+            },
+            onAction: async () => {
+              if (!id) return;
+              const reversed = await journalEntriesService.reverse(id).catch((error) => {
+                toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+                return null;
+              });
+              if (reversed) {
+                toast.success(t("accounting.journalEntries.toasts.reversed"));
+                router.push(`/finance/journal-entries/${reversed.id}`);
+              }
+            },
+          } satisfies DocumentAction,
+        ]
+      : []),
+    ...(canArchive
+      ? [
+          {
+            key: "archive",
+            label: t("common.archive"),
+            icon: Archive,
+            destructive: true,
+            visibleForStatuses: ["DRAFT"],
+            confirm: {
+              title: t("accounting.journalEntries.confirmArchiveTitle"),
+              description: t("accounting.journalEntries.confirmArchiveDescription"),
+              confirmLabel: t("common.archive"),
+            },
+            onAction: async () => {
+              await runTransition(
+                (eid) => journalEntriesService.archive(eid),
+                "accounting.journalEntries.toasts.archived",
+              );
+              router.push("/finance/journal-entries");
+            },
+          } satisfies DocumentAction,
+        ]
+      : []),
+    ...(canDelete
+      ? [
+          {
+            key: "delete",
+            label: t("common.delete"),
+            icon: Trash2,
+            destructive: true,
+            visibleForStatuses: ["DRAFT"],
+            confirm: {
+              title: t("accounting.journalEntries.confirmDeleteTitle"),
+              description: t("accounting.journalEntries.confirmDeleteDescription"),
+              confirmLabel: t("common.delete"),
+            },
+            onAction: handleDelete,
+          } satisfies DocumentAction,
+        ]
+      : []),
+  ];
+
   return (
     <EditorWorkspace>
       <RelatedRecordsPanel kind="JOURNAL_ENTRY" id={id} refreshKey={entry?.status} />
@@ -427,7 +556,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
       {isLoading ? (
         <div className="p-8 text-caption text-muted-foreground">{t("common.loading")}</div>
       ) : (
-        <EnterpriseCard size="sm">
+        <EnterpriseCard size="sm" className="pb-20 md:pb-0">
           <EnterpriseCardContent className="flex flex-col gap-3">
             <EditorHeader
               title={t("accounting.journalEntries.editorTitle")}
@@ -458,119 +587,28 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
                       </SelectContent>
                     </Select>
                   )}
-                  {canEdit && lines.length > 0 && (
-                    <EnterpriseButton
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5"
-                      onClick={() => setSaveTemplateOpen(true)}
-                    >
-                      <FileStack className="size-3.5" />
-                      {t("accounting.journalEntries.actions.saveAsTemplate")}
-                    </EnterpriseButton>
-                  )}
-                  {canEdit && (
-                    <EnterpriseButton
-                      type="button"
-                      size="sm"
-                      className="gap-1.5"
-                      disabled={isSaving || isTransitioning}
-                      onClick={handleSave}
-                    >
-                      <Save className="size-3.5" />
-                      {t("common.save")}
-                    </EnterpriseButton>
-                  )}
-                  {entry?.status === "DRAFT" && canPost && (
-                    <EnterpriseButton
-                      type="button"
-                      variant="default"
-                      size="sm"
-                      className="gap-1.5"
-                      disabled={isTransitioning}
-                      onClick={() => setPostTarget(true)}
-                    >
-                      <Send className="size-3.5" />
-                      {t("accounting.journalEntries.actions.post")}
-                    </EnterpriseButton>
-                  )}
-                  {entry?.status === "POSTED" && canResetToDraft && (
-                    <EnterpriseButton
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5"
-                      disabled={isTransitioning}
-                      onClick={() => setResetToDraftTarget(true)}
-                    >
-                      <RotateCcw className="size-3.5" />
-                      {t("accounting.journalEntries.actions.resetToDraft")}
-                    </EnterpriseButton>
-                  )}
-                  {entry?.status === "POSTED" && canReverse && (
-                    <EnterpriseButton
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      className="gap-1.5"
-                      disabled={isTransitioning}
-                      onClick={() => setReverseTarget(true)}
-                    >
-                      <Undo2 className="size-3.5" />
-                      {t("accounting.journalEntries.actions.reverse")}
-                    </EnterpriseButton>
-                  )}
-                  {entry?.status === "DRAFT" && canArchive && (
-                    <EnterpriseButton
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1.5"
-                      disabled={isTransitioning}
-                      onClick={() => setArchiveTarget(true)}
-                    >
-                      {t("common.archive")}
-                    </EnterpriseButton>
-                  )}
-                  {entry?.status === "DRAFT" && canDelete && (
-                    <EnterpriseButton
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      className="gap-1.5"
-                      disabled={isTransitioning}
-                      onClick={() => setDeleteTarget(true)}
-                    >
-                      <Trash2 className="size-3.5" />
-                      {t("common.delete")}
-                    </EnterpriseButton>
-                  )}
-                  {entry && (
-                    <EnterpriseButton
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5"
-                      disabled={isDuplicating}
-                      onClick={handleDuplicate}
-                    >
-                      <Copy className="size-3.5" />
-                      {t("accounting.journalEntries.actions.duplicate")}
-                    </EnterpriseButton>
-                  )}
-                  {entry && (
-                    <EnterpriseButton
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5"
-                      onClick={handlePrint}
-                    >
-                      <Printer className="size-3.5" />
-                      {t("table.print")}
-                    </EnterpriseButton>
-                  )}
+                  <DocumentActionBar
+                    status={entry?.status ?? "DRAFT"}
+                    isNew={!entry}
+                    actions={journalActions}
+                    context={undefined}
+                    isBusy={isSaving || isTransitioning || isDuplicating}
+                    leading={
+                      canEdit ? (
+                        <EnterpriseButton
+                          type="button"
+                          size="sm"
+                          variant={entry?.status === "DRAFT" && canPost ? "outline" : "default"}
+                          className="gap-1.5"
+                          disabled={isSaving || isTransitioning}
+                          onClick={handleSave}
+                        >
+                          <Save className="size-3.5" />
+                          {t("common.save")}
+                        </EnterpriseButton>
+                      ) : null
+                    }
+                  />
                 </>
               }
             />
@@ -654,43 +692,26 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
             {/* Lines — immediately below the main form */}
             <div className="flex flex-col gap-2">
               <h2 className="text-card-title font-heading">
-                {t("accounting.journalEntries.lines.account")}
+                {t("accounting.journalEntries.lines.title")}
               </h2>
               <JournalEntryLinesGrid
                 lines={lines}
                 accounts={accounts}
                 costCenters={costCenters}
                 projects={projects}
-                onChange={setLines}
+                onChange={(next) => {
+                  setLines(next);
+                  if (validationError) setValidationError(null);
+                }}
                 disabled={!canEdit}
+                currency={currency?.code}
               />
+              {validationError ? (
+                <FieldMessage data-testid="journal-validation-error">
+                  {validationError}
+                </FieldMessage>
+              ) : null}
             </div>
-
-            <CreateOperationSummary
-              title={t("common.summary")}
-              rows={[
-                {
-                  label: t("accounting.journalEntries.fields.entryDate"),
-                  value: entryDate ? formatDate(entryDate) : "—",
-                },
-                {
-                  label: t("accounting.journalEntries.fields.journal"),
-                  value: journals.find((journal) => journal.id === journalId)?.name ?? "—",
-                },
-                {
-                  label: t("accounting.journalEntries.fields.currency"),
-                  value: currency?.code ?? "—",
-                },
-                {
-                  label: t("accounting.journalEntries.fields.totalDebit"),
-                  value: <MoneyValue value={totalDebit} currency={currency?.code ?? ""} />,
-                },
-                {
-                  label: t("accounting.journalEntries.fields.totalCredit"),
-                  value: <MoneyValue value={totalCredit} currency={currency?.code ?? ""} />,
-                },
-              ]}
-            />
 
             {entry && (
               <Collapsible>
@@ -744,91 +765,6 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
           </EnterpriseCardContent>
         </EnterpriseCard>
       )}
-
-      <ConfirmationDialog
-        open={postTarget}
-        onOpenChange={setPostTarget}
-        title={t("accounting.journalEntries.confirmPostTitle")}
-        description={t("accounting.journalEntries.confirmPostDescription")}
-        confirmLabel={t("accounting.journalEntries.actions.post")}
-        cancelLabel={t("common.close")}
-        onConfirm={async () => {
-          setPostTarget(false);
-          await runTransition(
-            (eid) => journalEntriesService.post(eid),
-            "accounting.journalEntries.toasts.posted",
-          );
-        }}
-      />
-
-      <ConfirmationDialog
-        open={resetToDraftTarget}
-        onOpenChange={setResetToDraftTarget}
-        title={t("accounting.journalEntries.confirmResetToDraftTitle")}
-        description={t("accounting.journalEntries.confirmResetToDraftDescription")}
-        confirmLabel={t("accounting.journalEntries.actions.resetToDraft")}
-        cancelLabel={t("common.close")}
-        onConfirm={async () => {
-          setResetToDraftTarget(false);
-          await runTransition(
-            (eid) => journalEntriesService.resetToDraft(eid),
-            "accounting.journalEntries.toasts.resetToDraft",
-          );
-        }}
-      />
-
-      <ConfirmationDialog
-        open={reverseTarget}
-        onOpenChange={setReverseTarget}
-        tone="destructive"
-        title={t("accounting.journalEntries.confirmReverseTitle")}
-        description={t("accounting.journalEntries.confirmReverseDescription")}
-        confirmLabel={t("accounting.journalEntries.actions.reverse")}
-        cancelLabel={t("common.close")}
-        onConfirm={async () => {
-          setReverseTarget(false);
-          const reversed = await journalEntriesService.reverse(id!).catch((error) => {
-            toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
-            return null;
-          });
-          if (reversed) {
-            toast.success(t("accounting.journalEntries.toasts.reversed"));
-            router.push(`/finance/journal-entries/${reversed.id}`);
-          }
-        }}
-      />
-
-      <ConfirmationDialog
-        open={archiveTarget}
-        onOpenChange={setArchiveTarget}
-        tone="destructive"
-        title={t("accounting.journalEntries.confirmArchiveTitle")}
-        description={t("accounting.journalEntries.confirmArchiveDescription")}
-        confirmLabel={t("common.archive")}
-        cancelLabel={t("common.close")}
-        onConfirm={async () => {
-          setArchiveTarget(false);
-          await runTransition(
-            (eid) => journalEntriesService.archive(eid),
-            "accounting.journalEntries.toasts.archived",
-          );
-          router.push("/finance/journal-entries");
-        }}
-      />
-
-      <ConfirmationDialog
-        open={deleteTarget}
-        onOpenChange={setDeleteTarget}
-        tone="destructive"
-        title={t("accounting.journalEntries.confirmDeleteTitle")}
-        description={t("accounting.journalEntries.confirmDeleteDescription")}
-        confirmLabel={t("common.delete")}
-        cancelLabel={t("common.close")}
-        onConfirm={async () => {
-          setDeleteTarget(false);
-          await handleDelete();
-        }}
-      />
 
       <EnterpriseModal
         open={saveTemplateOpen}

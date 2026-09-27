@@ -32,11 +32,10 @@ import {
   type DeclarationFormState,
 } from "@/components/payments/declaration/declaration-logic";
 import { leadsService, type LeadRow } from "@/services/leads-service";
-import { ApiError } from "@/services/api-client";
 import type { ProductRow } from "@/services/products-service";
 import type { CityRow, CurrencyRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
+import { toast, reportApiError } from "@/lib/toast";
 import { createMasterDataService } from "@/services/master-data-service";
 import { stagingIdsOf, type ReceiptUploadItem } from "@/components/business/payment-receipts-field";
 import { attachmentsService } from "@/services/attachments-service";
@@ -201,7 +200,7 @@ export function LeadConvertDialog({
       onOpenChange(false);
       onConverted(result);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSaving(false);
     }

@@ -27,8 +27,7 @@ import {
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 
 const PERIOD_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -71,11 +70,10 @@ export default function KpiEvaluationsPage() {
       setItems(result.items);
       setTotal(result.total);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodFilter, statusFilter, departmentFilter, page, pageSize]);
 
   useEffect(() => {
@@ -129,7 +127,7 @@ export default function KpiEvaluationsPage() {
       setStartOpen(false);
       router.push(`/hr/kpi-evaluations/${evaluation.id}`);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsStarting(false);
     }

@@ -10,8 +10,7 @@ import { MasterDataForm } from "@/components/master-data/master-data-form";
 import { createMasterDataService } from "@/services/master-data-service";
 import type { CategoryRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError, toast } from "@/lib/toast";
 
 const categoriesService = createMasterDataService<CategoryRow>("/product-categories");
 
@@ -60,7 +59,7 @@ export function CategoryQuickCreateDialog({
       onCreated(category);
       onOpenChange(false);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsSubmitting(false);
     }

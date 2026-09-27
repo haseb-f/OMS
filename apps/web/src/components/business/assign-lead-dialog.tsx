@@ -8,8 +8,7 @@ import { EmployeePicker } from "@/components/business/employee-picker";
 import { cachedLookup } from "@/lib/lookup-cache";
 import { leadsService } from "@/services/leads-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError, toast } from "@/lib/toast";
 
 /**
  * TASK-061 §6 — Manual/Bulk Assignment. One `leadIds` (single- or
@@ -67,7 +66,7 @@ export function AssignLeadDialog({
       onAssigned?.();
       onOpenChange(false);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to assign.");
+      reportApiError(error, "errors.actionFailed");
     } finally {
       setIsSubmitting(false);
     }

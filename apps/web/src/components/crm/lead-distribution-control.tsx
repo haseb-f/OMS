@@ -7,8 +7,7 @@ import { EnterpriseButton } from "@/components/ui/button";
 import { leadsService, type LeadDistributionSnapshot } from "@/services/leads-service";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 type RuntimeStatus = "CONTINUOUS" | "TIME_LIMITED" | "MANUAL" | "PAUSED";
@@ -70,7 +69,7 @@ export function LeadDistributionControl({
       toast.success(t("crm.leads.distribution.pausedToast"));
       onChanged?.();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setBusy(false);
     }
@@ -153,7 +152,7 @@ export function LeadDistributionControl({
           {t("crm.leads.distribution.pause")}
         </EnterpriseButton>
       ) : (
-        <EnterpriseButton type="button" size="sm" variant="success" onClick={onOpenModes}>
+        <EnterpriseButton type="button" size="sm" variant="outline" onClick={onOpenModes}>
           <Play className="size-3.5" />
           {t("crm.leads.distribution.start")}
         </EnterpriseButton>

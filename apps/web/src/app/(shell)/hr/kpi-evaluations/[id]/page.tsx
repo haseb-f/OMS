@@ -26,16 +26,13 @@ import { kpiEvaluationStatusTone } from "@/config/hr/kpi-evaluations";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
+import { formatAmount } from "@/lib/money";
 
 function formatMoney(value: string | null) {
   if (value === null) return "—";
-  return Number(value).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  return formatAmount(value);
 }
 
 export default function KpiEvaluationDetailPage() {
@@ -111,7 +108,7 @@ export default function KpiEvaluationDetailPage() {
       setEvaluation(updated);
       toast.success(t("hr.kpiEvaluations.toasts.saved"));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setSavingItemId(null);
     }
@@ -124,7 +121,7 @@ export default function KpiEvaluationDetailPage() {
       setEvaluation(updated);
       toast.success(t("hr.kpiEvaluations.toasts.saved"));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsRecomputing(false);
     }
@@ -138,7 +135,7 @@ export default function KpiEvaluationDetailPage() {
       toast.success(t("hr.kpiEvaluations.toasts.submitted"));
       setSubmitOpen(false);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsMutating(false);
     }
@@ -152,7 +149,7 @@ export default function KpiEvaluationDetailPage() {
       toast.success(t("hr.kpiEvaluations.toasts.approved"));
       setApproveOpen(false);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsMutating(false);
     }
@@ -168,7 +165,7 @@ export default function KpiEvaluationDetailPage() {
       setReopenOpen(false);
       setReopenReason("");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsMutating(false);
     }

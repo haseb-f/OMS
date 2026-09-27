@@ -22,8 +22,7 @@ import {
 } from "@/config/accounting/status";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError, toast } from "@/lib/toast";
 
 /** TASK-055 Part 5 — distinct from Fiscal Years' plain Close (Finance > Fiscal Years): runs the P&L-transfer-to-Retained-Earnings ceremony via the existing Journal/Posting Engine, requires the year to already be Closed. */
 export default function YearClosingPage() {
@@ -90,7 +89,7 @@ export default function YearClosingPage() {
       toast.success(t("accounting.yearClosing.toasts.completed"));
       void checkExisting(fiscalYearId);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsRunning(false);
     }

@@ -45,10 +45,9 @@ import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast } from "@/lib/toast";
+import { reportApiError, toast } from "@/lib/toast";
 import { formatDate, toISODate } from "@/lib/date";
 import { siteConfig } from "@/config/site";
-import { ApiError } from "@/services/api-client";
 import { PermissionGate } from "@/components/shared/permission-gate";
 
 const EMPTY_DATE_RANGE: DateRangeValue = { from: null, to: null };
@@ -112,7 +111,7 @@ function SalesOrdersPageContent() {
         ...Object.fromEntries(result.items.map((item) => [item.id, item])),
       }));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to load sales orders.");
+      reportApiError(error, "errors.loadFailed");
     } finally {
       setIsLoading(false);
     }
@@ -162,7 +161,7 @@ function SalesOrdersPageContent() {
       toast.success(t("sales.orders.toasts.duplicated"));
       router.push(`/sales/orders/${created.id}`);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to duplicate sales order.");
+      reportApiError(error, "errors.duplicateFailed");
     }
   };
 
@@ -178,7 +177,7 @@ function SalesOrdersPageContent() {
         }),
       );
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to print sales order.");
+      reportApiError(error, "errors.printFailed");
     }
   };
 
@@ -189,7 +188,7 @@ function SalesOrdersPageContent() {
       toast.success(t("sales.orders.toasts.cancelled"));
       void load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to cancel sales order.");
+      reportApiError(error, "errors.cancelFailed");
     } finally {
       setCancelTarget(null);
     }
@@ -202,7 +201,7 @@ function SalesOrdersPageContent() {
       toast.success(t("sales.orders.toasts.archived"));
       void load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to archive sales order.");
+      reportApiError(error, "errors.archiveFailed");
     } finally {
       setArchiveTarget(null);
     }
@@ -270,9 +269,7 @@ function SalesOrdersPageContent() {
       });
       setRowSelection(Object.fromEntries(result.ids.map((id) => [id, true])));
     } catch (error) {
-      toast.error(
-        error instanceof ApiError ? error.message : "Failed to select all matching orders.",
-      );
+      reportApiError(error, "errors.selectFailed");
     } finally {
       setIsSelectingAllMatching(false);
     }

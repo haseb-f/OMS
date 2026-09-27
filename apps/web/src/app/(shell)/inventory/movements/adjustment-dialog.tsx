@@ -15,8 +15,7 @@ import {
 import { WarehousePicker } from "@/components/business/warehouse-picker";
 import { ProductPicker } from "@/components/business/product-picker";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import { inventoryService } from "@/services/inventory-service";
 import type { ProductRow } from "@/services/products-service";
 import type { WarehouseRow } from "@/config/master-data/entities";
@@ -78,7 +77,7 @@ export function AdjustmentDialog({
       onOpenChange(false);
       onCreated();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSubmitting(false);
     }

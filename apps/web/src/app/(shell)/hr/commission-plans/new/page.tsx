@@ -25,8 +25,7 @@ import {
   type CommissionRuleType,
 } from "@/services/commission-plans-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 
 const BASIS_VALUES: CommissionBasis[] = ["COLLECTED_SALES", "SALES_REVENUE", "ORDERS_COUNT"];
 const RULE_TYPES: CommissionRuleType[] = ["FLAT_PERCENTAGE", "ACHIEVEMENT_TIER", "FIXED_BONUS"];
@@ -89,7 +88,7 @@ export default function NewCommissionPlanPage() {
       toast.success(t("hr.commissionPlans.toasts.saved"));
       router.push(`/hr/commission-plans/${plan.id}`);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSaving(false);
     }

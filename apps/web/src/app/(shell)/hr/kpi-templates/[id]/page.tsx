@@ -30,8 +30,7 @@ import {
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 
 const templateSchema = z.object({
   name: z.string().min(1),
@@ -155,7 +154,7 @@ export default function KpiTemplateDetailPage() {
       toast.success(t("hr.kpiTemplates.toasts.saved"));
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSaving(false);
     }
@@ -169,7 +168,7 @@ export default function KpiTemplateDetailPage() {
       setArchiveOpen(false);
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsMutating(false);
     }
@@ -183,7 +182,7 @@ export default function KpiTemplateDetailPage() {
       setRestoreOpen(false);
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsMutating(false);
     }

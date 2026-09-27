@@ -40,9 +40,8 @@ import {
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
-import { toast } from "@/lib/toast";
+import { toast, reportApiError } from "@/lib/toast";
 import { currentMonthValue } from "@/lib/date";
-import { ApiError } from "@/services/api-client";
 import type { MessageKey } from "@/i18n/translate";
 
 const PERIOD_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -101,11 +100,10 @@ export default function CommissionsPage() {
       setRows(result.items);
       setTotal(result.total);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodFilter, employeeFilter, statusFilter, page, pageSize]);
 
   useEffect(() => {
@@ -152,7 +150,7 @@ export default function CommissionsPage() {
       await load();
       setSelectedId(row.id);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsCalculating(false);
     }
@@ -168,7 +166,7 @@ export default function CommissionsPage() {
       applyUpdatedRow(updated);
       toast.success(t("hr.commissions.toasts.approved"));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsApproving(false);
     }
@@ -206,7 +204,7 @@ export default function CommissionsPage() {
       toast.success(t("hr.commissions.toasts.adjusted"));
       setAdjustOpen(false);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsAdjusting(false);
     }
@@ -256,7 +254,7 @@ export default function CommissionsPage() {
       toast.success(t("hr.commissions.toasts.adjusted"));
       setFutureOpen(false);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsFutureSaving(false);
     }

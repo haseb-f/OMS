@@ -20,8 +20,7 @@ import {
   type AccountingPeriodStatusValue,
 } from "@/services/fiscal-years-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError, toast } from "@/lib/toast";
 import { formatDate } from "@/lib/date";
 import type { StatusTone } from "@/components/business/status-badge";
 import type { MessageKey } from "@/i18n/translate";
@@ -59,7 +58,7 @@ export function PeriodsDialog({
       await action();
       onChanged();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setBusyId(null);
     }
@@ -95,7 +94,7 @@ export function PeriodsDialog({
       setSelected(new Set());
       onChanged();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsBulkBusy(false);
     }

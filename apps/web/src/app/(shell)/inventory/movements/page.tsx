@@ -43,9 +43,9 @@ import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useCompany } from "@/providers/company-provider";
 import { usePrintEngine } from "@/hooks/use-print-engine";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError } from "@/lib/toast";
 import { formatDateTime } from "@/lib/date";
+import { formatAmount } from "@/lib/money";
 import { siteConfig } from "@/config/site";
 import type { MessageKey } from "@/i18n/translate";
 import { RelatedRecordsButton } from "@/components/shared/related-records-panel";
@@ -128,7 +128,7 @@ function InventoryMovementsPageContent() {
       });
       setRows(items);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Failed to load movements.");
+      reportApiError(error, "errors.loadFailed");
     } finally {
       setIsLoading(false);
     }
@@ -267,12 +267,12 @@ function InventoryMovementsPageContent() {
       {
         id: "unitCost",
         header: t("products.stockMovements.cost"),
-        meta: { titleKey: "products.stockMovements.cost" },
+        meta: { titleKey: "products.stockMovements.cost", type: "money" },
         accessorFn: (row) => row.unitCost ?? "",
         cell: (info) => {
           const row = info.row.original;
           return row.unitCost != null ? (
-            <span dir="ltr">{Number(row.unitCost).toLocaleString()}</span>
+            <span className="num">{formatAmount(row.unitCost)}</span>
           ) : (
             "—"
           );
@@ -281,12 +281,12 @@ function InventoryMovementsPageContent() {
       {
         id: "runningCost",
         header: t("inventory.fields.runningCost"),
-        meta: { titleKey: "inventory.fields.runningCost", defaultHidden: true },
+        meta: { titleKey: "inventory.fields.runningCost", defaultHidden: true, type: "money" },
         accessorFn: (row) => (row.unitCost != null ? row.unitCost * row.quantityAfter : ""),
         cell: (info) => {
           const row = info.row.original;
           return row.unitCost != null ? (
-            <span dir="ltr">{(Number(row.unitCost) * row.quantityAfter).toLocaleString()}</span>
+            <span className="num">{formatAmount(Number(row.unitCost) * row.quantityAfter)}</span>
           ) : (
             "—"
           );
@@ -295,7 +295,7 @@ function InventoryMovementsPageContent() {
       {
         id: "costCenter",
         header: t("products.fields.costCenter"),
-        meta: { titleKey: "products.fields.costCenter", defaultHidden: true },
+        meta: { titleKey: "products.fields.costCenter", defaultHidden: true, type: "name" },
         accessorFn: (row) => row.product?.analyticAccount?.name ?? "",
         cell: (info) => (info.getValue() as string) || "—",
       },

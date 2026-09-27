@@ -26,8 +26,7 @@ import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useCompany } from "@/providers/company-provider";
 import { usePrintEngine } from "@/hooks/use-print-engine";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError } from "@/lib/toast";
 import { formatDateTime } from "@/lib/date";
 import { siteConfig } from "@/config/site";
 import type { MessageKey } from "@/i18n/translate";
@@ -59,11 +58,10 @@ function PhysicalCountPageContent() {
     try {
       setRows(await physicalCountService.list());
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      reportApiError(error, "common.noResults");
     } finally {
       setIsLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -115,7 +113,7 @@ function PhysicalCountPageContent() {
       {
         id: "lines",
         header: t("inventory.physicalCount.lines"),
-        meta: { titleKey: "inventory.physicalCount.lines", defaultHidden: true },
+        meta: { titleKey: "inventory.physicalCount.lines", defaultHidden: true, type: "number" },
         accessorFn: (row) => row._count.lines,
       },
       {

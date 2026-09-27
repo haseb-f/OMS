@@ -17,11 +17,9 @@ import {
   OrderPaymentStatusPanel,
   PaymentDiscrepancyAlert,
 } from "@/components/payments/declaration/order-payment-status-panel";
-import {
-  DECLARED_STATUS_TONE,
-  declaredShortLabelKey,
-} from "@/components/payments/declaration/declaration-status";
 import { StoreOrderPickupPanel } from "@/components/store-orders/store-order-pickup-panel";
+import { StoreOrderStatusStrip } from "@/components/store-orders/store-order-status-strip";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { SetPaymentFeeDialog } from "@/components/store-orders/set-payment-fee-dialog";
 import { StoreOrderEditAssignmentDialog } from "@/components/store-orders/store-order-edit-assignment-dialog";
 import { StoreOrderEditCustomerDialog } from "@/components/store-orders/store-order-edit-customer-dialog";
@@ -68,26 +66,17 @@ import {
 } from "@/services/shipping-companies-service";
 import type { ShipmentListRow } from "@/services/shipping-service";
 import {
-  PAYMENT_STATUS_TONE,
-  PAYMENT_TYPE_LABEL_KEY,
   SHIPPING_STAGE_LABEL_KEY,
-  SHIPPING_STAGE_TONE,
-  financialStatusLabelKey,
   isReadyForShipping,
   paymentRecordStatusBadge,
 } from "@/config/store-orders/status";
-import {
-  catalogStatusTone,
-  shipmentStatusLabelKey,
-  shipmentStatusTone,
-} from "@/config/shipping/shipment-status";
+import { shipmentStatusLabelKey, shipmentStatusTone } from "@/config/shipping/shipment-status";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast } from "@/lib/toast";
+import { toast, reportApiError } from "@/lib/toast";
 import { formatDate, formatDateTime } from "@/lib/date";
 import { formatFileSize } from "@/lib/format-file-size";
 import { isImageAttachmentMime } from "@/lib/order-attachments";
-import { ApiError } from "@/services/api-client";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import type { MessageKey } from "@/i18n/translate";
 
@@ -132,6 +121,7 @@ function StoreOrderDetailContent() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { t } = useLocale();
+  const isMobile = useIsMobile();
   const { hasPermission } = useUserContext();
   const canEdit = hasPermission("store-orders.edit");
   const canGenerateInvoiceAction = hasPermission("store-orders.generate_invoice") || canEdit;
@@ -193,12 +183,12 @@ function StoreOrderDetailContent() {
         .then(setPaymentContext)
         .catch(() => setPaymentContext(null));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+      reportApiError(error, "common.loadFailed");
       setOrder(null);
     } finally {
       setIsLoading(false);
     }
-  }, [params.id, t]);
+  }, [params.id]);
 
   const loadActivities = useCallback(async () => {
     try {
@@ -242,9 +232,7 @@ function StoreOrderDetailContent() {
       toast.success(t("storeOrders.detail.notes.added"));
       await refreshOrder();
     } catch (error) {
-      toast.error(
-        error instanceof ApiError ? error.message : t("storeOrders.detail.notes.saveFailed"),
-      );
+      reportApiError(error, "storeOrders.detail.notes.saveFailed");
     } finally {
       setIsSavingNote(false);
     }
@@ -258,7 +246,7 @@ function StoreOrderDetailContent() {
       toast.success(t("storeOrders.detail.invoice.generated"));
       await refreshOrder();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsGeneratingInvoice(false);
     }
@@ -273,7 +261,7 @@ function StoreOrderDetailContent() {
       setArchiveOpen(false);
       router.push("/store-orders");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsArchiving(false);
     }
@@ -292,9 +280,7 @@ function StoreOrderDetailContent() {
       toast.success(t("storeOrders.detail.receipts.attached"));
       await refreshOrder();
     } catch (error) {
-      toast.error(
-        error instanceof ApiError ? error.message : t("storeOrders.detail.receipts.attachFailed"),
-      );
+      reportApiError(error, "storeOrders.detail.receipts.attachFailed");
     } finally {
       setUploadProgress(null);
       setIsAttachingReceipt(false);
@@ -310,9 +296,7 @@ function StoreOrderDetailContent() {
       toast.success(t("storeOrders.detail.receipts.removed"));
       await refreshOrder();
     } catch (error) {
-      toast.error(
-        error instanceof ApiError ? error.message : t("storeOrders.detail.receipts.removeFailed"),
-      );
+      reportApiError(error, "storeOrders.detail.receipts.removeFailed");
     } finally {
       setIsRemovingReceipt(false);
     }
@@ -334,9 +318,7 @@ function StoreOrderDetailContent() {
         blob,
       });
     } catch (error) {
-      toast.error(
-        error instanceof ApiError ? error.message : t("storeOrders.detail.receipts.downloadFailed"),
-      );
+      reportApiError(error, "storeOrders.detail.receipts.downloadFailed");
     }
   };
 
@@ -431,7 +413,45 @@ function StoreOrderDetailContent() {
                 ? editButton(t("storeOrders.lineAmounts.action"), () => setLineAmountsOpen(true))
                 : null}
             </div>
-            {order.items.length > 0 ? (
+            {order.items.length > 0 && isMobile ? (
+              <ul className="flex flex-col divide-y divide-border/60">
+                {order.items.map((item) => (
+                  <li
+                    key={item.id}
+                    data-testid="order-line"
+                    className="flex flex-col gap-1 px-3 py-2"
+                  >
+                    <span className="text-body font-medium [overflow-wrap:anywhere]">
+                      {item.product?.name ?? item.productId}
+                    </span>
+                    <div className="flex items-baseline justify-between gap-3 text-caption text-muted-foreground">
+                      <span>
+                        <SemanticValue kind="number">{item.quantity}</SemanticValue>
+                        {" × "}
+                        <MoneyValue
+                          value={item.unitPrice}
+                          currency={order.currency}
+                          className="font-normal"
+                        />
+                      </span>
+                      <MoneyValue
+                        value={
+                          item.agreedAmount != null
+                            ? Number(item.agreedAmount)
+                            : Number(item.unitPrice) * item.quantity
+                        }
+                        currency={order.currency}
+                        className="text-body text-foreground"
+                      />
+                    </div>
+                  </li>
+                ))}
+                <li className="flex items-baseline justify-between gap-3 bg-surface-sunken px-3 py-2 text-body font-semibold">
+                  <span>{t("storeOrders.fields.total")}</span>
+                  <MoneyValue value={order.total ?? "0"} currency={order.currency} />
+                </li>
+              </ul>
+            ) : order.items.length > 0 ? (
               <div className="overflow-x-auto px-1 pb-1">
                 <CompactDetailTable
                   columns={[
@@ -970,37 +990,13 @@ function StoreOrderDetailContent() {
             <SemanticValue kind="id" className="text-ui-title font-semibold">
               {order.internalOrderId}
             </SemanticValue>
-            {order.sourceChannel === "مكرر" ? <StatusBadge label="مكرر" tone="warning" /> : null}
+            {/* "مكرر" is the stored source-channel value for duplicates, not display text. */}
+            {order.sourceChannel === "مكرر" ? (
+              <StatusBadge label={t("docUi.statusStrip.duplicate")} tone="warning" />
+            ) : null}
           </span>
         }
-        status={
-          <>
-            <StatusBadge
-              label={t(declaredShortLabelKey(order.declaredPaymentStatus))}
-              tone={DECLARED_STATUS_TONE[order.declaredPaymentStatus ?? "UNPAID"]}
-            />
-            <StatusBadge
-              label={t(financialStatusLabelKey(order.paymentStatus, order.paymentType))}
-              tone={PAYMENT_STATUS_TONE[order.paymentStatus]}
-            />
-            <StatusBadge
-              label={
-                order.paymentType
-                  ? t(PAYMENT_TYPE_LABEL_KEY[order.paymentType])
-                  : t("storeOrders.paymentType.PREPAID")
-              }
-              tone="neutral"
-            />
-            <StatusBadge
-              label={order.shippingStatus?.name ?? t(SHIPPING_STAGE_LABEL_KEY[order.shippingStage])}
-              tone={
-                order.shippingStatus
-                  ? catalogStatusTone(order.shippingStatus.color)
-                  : SHIPPING_STAGE_TONE[order.shippingStage]
-              }
-            />
-          </>
-        }
+        statusStrip={<StoreOrderStatusStrip order={order} />}
         metrics={
           <>
             <DetailField label={t("storeOrders.fields.customer")} value={order.partner?.name} />

@@ -58,14 +58,12 @@ export function FxRateLookupCard() {
   return (
     <EnterpriseCard className="gap-0 py-3" data-testid="fx-rate-lookup">
       <EnterpriseCardHeader className="px-4 pb-2">
-        <EnterpriseCardTitle className="text-body">
-          {t("fxSettings.lookup.title")}
-        </EnterpriseCardTitle>
+        <EnterpriseCardTitle>{t("fxSettings.lookup.title")}</EnterpriseCardTitle>
         <EnterpriseCardDescription>{t("fxSettings.lookup.description")}</EnterpriseCardDescription>
       </EnterpriseCardHeader>
       <EnterpriseCardContent className="flex flex-col gap-3 px-4">
-        <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[1fr_1fr_auto]">
-          <div className="flex min-w-0 flex-col gap-1.5">
+        <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-5">
+          <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
             <Label htmlFor="fx-lookup-currency">{t("fxSettings.lookup.currency")}</Label>
             <CurrencyPicker
               id="fx-lookup-currency"
@@ -77,7 +75,7 @@ export function FxRateLookupCard() {
               }}
             />
           </div>
-          <div className="flex min-w-0 flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
             <Label htmlFor="fx-lookup-date">{t("fxSettings.lookup.date")}</Label>
             <EnterpriseDatePicker
               id="fx-lookup-date"
@@ -102,17 +100,19 @@ export function FxRateLookupCard() {
         {result ? (
           result.available ? (
             <div
-              className="rounded-md border border-border bg-muted/40 p-3"
+              className="rounded-md border border-border bg-surface-sunken p-3"
               data-testid="fx-lookup-result"
             >
               {result.required ? (
                 <>
-                  <p className="text-body font-semibold tabular-nums" dir="ltr">
-                    {t("fxSettings.lookup.result", {
-                      from: result.fromCurrencyCode ?? "",
-                      rate: formatFxRate(result.rate),
-                      to: result.toCurrencyCode ?? "",
-                    })}
+                  <p className="text-body font-semibold">
+                    <span className="num">
+                      {t("fxSettings.lookup.result", {
+                        from: result.fromCurrencyCode ?? "",
+                        rate: formatFxRate(result.rate),
+                        to: result.toCurrencyCode ?? "",
+                      })}
+                    </span>
                   </p>
                   <p className="text-caption text-muted-foreground">
                     {t("fxSettings.lookup.sourceLine", { source: fxSourceLabel(t, result.source) })}

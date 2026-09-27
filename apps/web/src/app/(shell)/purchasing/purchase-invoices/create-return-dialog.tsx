@@ -12,8 +12,7 @@ import {
 } from "@/services/purchase-returns-service";
 import type { PurchaseInvoiceRow } from "@/services/purchase-invoices-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError, toast } from "@/lib/toast";
 
 /**
  * Purchase Invoice → Purchase Return creation (TASK-048) — the ONLY way a
@@ -101,7 +100,7 @@ export function CreateReturnDialog({
       onOpenChange(false);
       onCreated(purchaseReturn);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsSubmitting(false);
     }

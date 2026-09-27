@@ -26,8 +26,7 @@ import {
   useEmployees,
 } from "@/hooks/use-reference-data";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 const wizardSchema = z.object({
@@ -228,7 +227,7 @@ export default function NewEmployeePage() {
       toast.success(t("hr.employees.toasts.created"));
       router.push(`/hr/employees/${employee.id}`);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSubmitting(false);
     }

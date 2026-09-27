@@ -17,11 +17,15 @@ import {
   TableRow,
   TableHead,
   TableCell,
+  tableNumericCellClass,
+  tableTabularCellClass,
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/empty-state";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ApiError } from "@/services/api-client";
-import { formatMoney } from "@/lib/money";
+import { formatAmount } from "@/lib/money";
+import { KpiCard } from "@/components/shared/kpi-card";
+import { ErrorState } from "@/components/shared/error-state";
 import { formatDate } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
 import { investorPortalService } from "@/services/investor-portal-service";
@@ -72,14 +76,10 @@ export default function InvestorPortalInvestmentDetailPage() {
 
   if (error || !data) {
     return (
-      <EmptyState
-        icon={FileX}
+      <ErrorState
         title={t("investorPortal.common.loadFailed")}
-        action={
-          <EnterpriseButton variant="outline" size="sm" onClick={reload}>
-            {t("investorPortal.common.retry")}
-          </EnterpriseButton>
-        }
+        retryLabel={t("investorPortal.common.retry")}
+        onRetry={reload}
       />
     );
   }
@@ -96,56 +96,34 @@ export default function InvestorPortalInvestmentDetailPage() {
           {t("investorPortal.investments.detail.backToList")}
         </Link>
         <div className="mt-2 flex flex-wrap items-center gap-3">
-          <h1 className="text-lg font-semibold text-foreground">{data.opportunity.nameAr}</h1>
+          <h1 className="text-ui-title text-foreground">{data.opportunity.nameAr}</h1>
           <OpportunityStatusBadge status={data.opportunity.status} />
         </div>
         <p className="mt-1 text-caption text-muted-foreground">
-          {formatDate(data.opportunity.startDate)} – {formatDate(data.opportunity.endDate)}
+          <span className="num">
+            {formatDate(data.opportunity.startDate)} – {formatDate(data.opportunity.endDate)}
+          </span>
         </p>
       </div>
 
       {/* Overview + Performance */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <EnterpriseCard>
-          <EnterpriseCardHeader className="pb-1">
-            <EnterpriseCardTitle className="text-caption text-muted-foreground">
-              {t("investorPortal.investments.detail.fundedUnits")}
-            </EnterpriseCardTitle>
-          </EnterpriseCardHeader>
-          <EnterpriseCardContent className="text-lg font-semibold tabular-nums">
-            {data.performance.fundedUnits}
-          </EnterpriseCardContent>
-        </EnterpriseCard>
-        <EnterpriseCard>
-          <EnterpriseCardHeader className="pb-1">
-            <EnterpriseCardTitle className="text-caption text-muted-foreground">
-              {t("investorPortal.investments.detail.soldUnits")}
-            </EnterpriseCardTitle>
-          </EnterpriseCardHeader>
-          <EnterpriseCardContent className="text-lg font-semibold tabular-nums">
-            {data.performance.soldUnits}
-          </EnterpriseCardContent>
-        </EnterpriseCard>
-        <EnterpriseCard>
-          <EnterpriseCardHeader className="pb-1">
-            <EnterpriseCardTitle className="text-caption text-muted-foreground">
-              {t("investorPortal.investments.detail.remainingUnits")}
-            </EnterpriseCardTitle>
-          </EnterpriseCardHeader>
-          <EnterpriseCardContent className="text-lg font-semibold tabular-nums">
-            {data.performance.remainingUnits}
-          </EnterpriseCardContent>
-        </EnterpriseCard>
-        <EnterpriseCard>
-          <EnterpriseCardHeader className="pb-1">
-            <EnterpriseCardTitle className="text-caption text-muted-foreground">
-              {t("investorPortal.investments.detail.sellThroughPercent")}
-            </EnterpriseCardTitle>
-          </EnterpriseCardHeader>
-          <EnterpriseCardContent className="text-lg font-semibold tabular-nums">
-            {data.performance.sellThroughPercent.toFixed(2)}%
-          </EnterpriseCardContent>
-        </EnterpriseCard>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiCard
+          label={t("investorPortal.investments.detail.fundedUnits")}
+          value={data.performance.fundedUnits}
+        />
+        <KpiCard
+          label={t("investorPortal.investments.detail.soldUnits")}
+          value={data.performance.soldUnits}
+        />
+        <KpiCard
+          label={t("investorPortal.investments.detail.remainingUnits")}
+          value={data.performance.remainingUnits}
+        />
+        <KpiCard
+          label={t("investorPortal.investments.detail.sellThroughPercent")}
+          value={`${formatAmount(data.performance.sellThroughPercent)}%`}
+        />
       </div>
 
       {/* My Funding */}
@@ -156,29 +134,29 @@ export default function InvestorPortalInvestmentDetailPage() {
           </EnterpriseCardTitle>
         </EnterpriseCardHeader>
         <EnterpriseCardContent className="flex flex-col gap-4">
-          <div className="grid grid-cols-3 gap-3 text-caption">
+          <div className="grid grid-cols-1 gap-3 text-caption sm:grid-cols-3">
             <div>
               <div className="text-muted-foreground">
                 {t("investorPortal.investments.fields.committedAmount")}
               </div>
-              <div className="mt-0.5 font-semibold text-foreground">
-                {formatMoney(data.myFunding.committedAmount)}
+              <div className="mt-0.5 text-body font-semibold text-foreground">
+                <span className="num">{formatAmount(data.myFunding.committedAmount)}</span>
               </div>
             </div>
             <div>
               <div className="text-muted-foreground">
                 {t("investorPortal.investments.fields.confirmedFunding")}
               </div>
-              <div className="mt-0.5 font-semibold text-foreground">
-                {formatMoney(data.myFunding.confirmedFunding)}
+              <div className="mt-0.5 text-body font-semibold text-foreground">
+                <span className="num">{formatAmount(data.myFunding.confirmedFunding)}</span>
               </div>
             </div>
             <div>
               <div className="text-muted-foreground">
                 {t("investorPortal.investments.fields.participationPercent")}
               </div>
-              <div className="mt-0.5 font-semibold text-foreground">
-                {data.myFunding.participationPercent.toFixed(2)}%
+              <div className="mt-0.5 text-body font-semibold text-foreground">
+                <span className="num">{`${formatAmount(data.myFunding.participationPercent)}%`}</span>
               </div>
             </div>
           </div>
@@ -188,38 +166,40 @@ export default function InvestorPortalInvestmentDetailPage() {
               {t("investorPortal.investments.detail.contributionsEmpty")}
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("investorPortal.investments.detail.contributionDate")}</TableHead>
-                    <TableHead>
-                      {t("investorPortal.investments.detail.contributionAmount")}
-                    </TableHead>
-                    <TableHead>
-                      {t("investorPortal.investments.detail.contributionReference")}
-                    </TableHead>
-                    <TableHead>
-                      {t("investorPortal.investments.detail.contributionStatus")}
-                    </TableHead>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("investorPortal.investments.detail.contributionDate")}</TableHead>
+                  <TableHead className={tableNumericCellClass}>
+                    {t("investorPortal.investments.detail.contributionAmount")}
+                  </TableHead>
+                  <TableHead>
+                    {t("investorPortal.investments.detail.contributionReference")}
+                  </TableHead>
+                  <TableHead>{t("investorPortal.investments.detail.contributionStatus")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.myFunding.contributions.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell className={tableTabularCellClass}>
+                      <span className="num">{formatDate(c.contributionDate)}</span>
+                    </TableCell>
+                    <TableCell numeric>{formatAmount(c.amount, { zero: "dash" })}</TableCell>
+                    <TableCell>
+                      {c.referenceNumber ? (
+                        <span className="num">{c.referenceNumber}</span>
+                      ) : (
+                        t("investorPortal.common.notAvailable")
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <ContributionStatusBadge status={c.status} />
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.myFunding.contributions.map((c) => (
-                    <TableRow key={c.id}>
-                      <TableCell>{formatDate(c.contributionDate)}</TableCell>
-                      <TableCell>{formatMoney(c.amount)}</TableCell>
-                      <TableCell>
-                        {c.referenceNumber || t("investorPortal.common.notAvailable")}
-                      </TableCell>
-                      <TableCell>
-                        <ContributionStatusBadge status={c.status} />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </EnterpriseCardContent>
       </EnterpriseCard>
@@ -237,34 +217,42 @@ export default function InvestorPortalInvestmentDetailPage() {
               {t("investorPortal.investments.detail.profitEmpty")}
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("investorPortal.investments.detail.distributionCode")}</TableHead>
-                    <TableHead>{t("investorPortal.investments.detail.entitledAmount")}</TableHead>
-                    <TableHead>{t("investorPortal.investments.detail.paidAmount")}</TableHead>
-                    <TableHead>
-                      {t("investorPortal.investments.detail.outstandingAmount")}
-                    </TableHead>
-                    <TableHead>{t("investorPortal.profits.fields.status")}</TableHead>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("investorPortal.investments.detail.distributionCode")}</TableHead>
+                  <TableHead className={tableNumericCellClass}>
+                    {t("investorPortal.investments.detail.entitledAmount")}
+                  </TableHead>
+                  <TableHead className={tableNumericCellClass}>
+                    {t("investorPortal.investments.detail.paidAmount")}
+                  </TableHead>
+                  <TableHead className={tableNumericCellClass}>
+                    {t("investorPortal.investments.detail.outstandingAmount")}
+                  </TableHead>
+                  <TableHead>{t("investorPortal.profits.fields.status")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.myProfit.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell className={tableTabularCellClass}>
+                      <span className="num">{p.distributionCode}</span>
+                    </TableCell>
+                    <TableCell numeric>
+                      {formatAmount(p.entitledAmount, { zero: "dash" })}
+                    </TableCell>
+                    <TableCell numeric>{formatAmount(p.paidAmount, { zero: "dash" })}</TableCell>
+                    <TableCell numeric>
+                      {formatAmount(p.outstandingAmount, { zero: "dash" })}
+                    </TableCell>
+                    <TableCell>
+                      <DistributionStatusBadge status={p.status} />
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.myProfit.map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell>{p.distributionCode}</TableCell>
-                      <TableCell>{formatMoney(p.entitledAmount)}</TableCell>
-                      <TableCell>{formatMoney(p.paidAmount)}</TableCell>
-                      <TableCell>{formatMoney(p.outstandingAmount)}</TableCell>
-                      <TableCell>
-                        <DistributionStatusBadge status={p.status} />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </EnterpriseCardContent>
       </EnterpriseCard>
@@ -282,32 +270,38 @@ export default function InvestorPortalInvestmentDetailPage() {
               {t("investorPortal.investments.detail.paymentsEmpty")}
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("investorPortal.investments.detail.paymentDate")}</TableHead>
-                    <TableHead>{t("investorPortal.investments.detail.paymentAmount")}</TableHead>
-                    <TableHead>{t("investorPortal.investments.detail.paymentReference")}</TableHead>
-                    <TableHead>{t("investorPortal.profits.fields.status")}</TableHead>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("investorPortal.investments.detail.paymentDate")}</TableHead>
+                  <TableHead className={tableNumericCellClass}>
+                    {t("investorPortal.investments.detail.paymentAmount")}
+                  </TableHead>
+                  <TableHead>{t("investorPortal.investments.detail.paymentReference")}</TableHead>
+                  <TableHead>{t("investorPortal.profits.fields.status")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.payments.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell className={tableTabularCellClass}>
+                      <span className="num">{formatDate(p.paymentDate)}</span>
+                    </TableCell>
+                    <TableCell numeric>{formatAmount(p.amount, { zero: "dash" })}</TableCell>
+                    <TableCell>
+                      {p.referenceNumber ? (
+                        <span className="num">{p.referenceNumber}</span>
+                      ) : (
+                        t("investorPortal.common.notAvailable")
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <PaymentStatusBadge status={p.status} />
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.payments.map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell>{formatDate(p.paymentDate)}</TableCell>
-                      <TableCell>{formatMoney(p.amount)}</TableCell>
-                      <TableCell>
-                        {p.referenceNumber || t("investorPortal.common.notAvailable")}
-                      </TableCell>
-                      <TableCell>
-                        <PaymentStatusBadge status={p.status} />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </EnterpriseCardContent>
       </EnterpriseCard>

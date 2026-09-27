@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Ban, CheckCircle2, PackageCheck, Printer, Save, Send, Undo2, Wallet } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
-import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EditorWorkspace } from "@/components/shared/detail-workspace";
 import { PurchasingDocumentEditor } from "@/components/purchasing/purchasing-document-editor";
 import {
@@ -33,12 +32,16 @@ import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
-import { toast } from "@/lib/toast";
+import { reportApiError, toast } from "@/lib/toast";
 import { useExchangeRateRecovery } from "@/hooks/use-exchange-rate-recovery";
 import { lifecycleActions } from "@/config/documents/lifecycle-actions";
 import { ApiError } from "@/services/api-client";
 import { CreateReturnDialog } from "./create-return-dialog";
-import { InvoicePaymentSummary } from "@/components/business/invoice-payment-summary";
+import {
+  InvoicePaymentBadge,
+  InvoicePaymentSummary,
+} from "@/components/business/invoice-payment-summary";
+import type { CommercialDocumentFieldErrors } from "@/components/documents/commercial-document-editor";
 
 function itemToLine(item: PurchaseInvoiceItemRow): ProductLineItemsGridLine {
   return {
@@ -91,7 +94,6 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
   const [activity, setActivity] = useState<PurchaseDocumentActivityEntry[] | null | undefined>(
     undefined,
   );
-  const [cancelTarget, setCancelTarget] = useState(false);
   const [returnOpen, setReturnOpen] = useState(false);
 
   const [supplier, setSupplier] = useState<PartnerPickerRow | null>(null);
@@ -125,7 +127,7 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
       try {
         applyInvoice(await purchaseInvoicesService.get(id));
       } catch (error) {
-        toast.error(error instanceof ApiError ? error.message : "Failed to load purchase invoice.");
+        reportApiError(error, "errors.loadFailed");
       } finally {
         setIsLoading(false);
       }
@@ -146,12 +148,16 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
 
   const realLines = lines.filter((line) => line.product !== null);
 
-  const validate = (): string | null => {
-    if (!supplier) return t("purchasing.invoices.validation.supplierRequired");
-    if (realLines.length === 0) return t("purchasing.invoices.validation.productRequired");
+  /** Shown inline under the fields after the first save attempt; entered data is never cleared. */
+  const [showValidation, setShowValidation] = useState(false);
+  const validate = (): CommercialDocumentFieldErrors | null => {
+    if (!supplier) return { party: t("purchasing.invoices.validation.supplierRequired") };
+    if (realLines.length === 0)
+      return { lines: t("purchasing.invoices.validation.productRequired") };
     for (const line of realLines) {
-      if (line.quantity <= 0) return t("purchasing.invoices.validation.quantityPositive");
-      if (!line.warehouse) return t("sales.editor.grid.warehouseRequired");
+      if (line.quantity <= 0)
+        return { lines: t("purchasing.invoices.validation.quantityPositive") };
+      if (!line.warehouse) return { lines: t("sales.editor.grid.warehouseRequired") };
     }
     return null;
   };
@@ -166,11 +172,11 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
   });
 
   const handleSave = async () => {
-    const error = validate();
-    if (error) {
-      toast.error(error);
+    if (validate()) {
+      setShowValidation(true);
       return;
     }
+    setShowValidation(false);
     setIsSaving(true);
     try {
       if (id) {
@@ -183,7 +189,7 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
         router.replace(`/purchasing/purchase-invoices/${created.id}`);
       }
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsSaving(false);
     }
@@ -204,7 +210,7 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
       toast.success(t(successKey));
       refreshActivity(id);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsTransitioning(false);
     }
@@ -310,7 +316,18 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
           icon: Ban,
           destructive: true,
           visibleForStatuses: ["DRAFT", "PENDING_APPROVAL", "APPROVED"],
-          onAction: () => setCancelTarget(true),
+          confirm: {
+            title: t("purchasing.invoices.confirmCancelTitle"),
+            description: t("purchasing.invoices.confirmCancelDescription"),
+            confirmLabel: t("purchasing.invoices.actions.cancel"),
+            tone: "destructive",
+          },
+          onAction: async () => {
+            await runTransition(
+              (iid) => purchaseInvoicesService.cancel(iid),
+              "purchasing.invoices.toasts.cancelled",
+            );
+          },
         },
         {
           key: "recordPayment",
@@ -442,6 +459,12 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
         isLoading={isLoading}
         disabled={!canEdit || isSaving}
         isBusy={isSaving || isTransitioning}
+        fieldErrors={showValidation ? (validate() ?? undefined) : undefined}
+        headerStatus={
+          invoice?.paymentStatus ? (
+            <InvoicePaymentBadge paymentStatus={invoice.paymentStatus} />
+          ) : null
+        }
         paymentSummary={
           invoice && (
             <InvoicePaymentSummary
@@ -453,23 +476,6 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
             />
           )
         }
-      />
-
-      <ConfirmationDialog
-        open={cancelTarget}
-        onOpenChange={setCancelTarget}
-        tone="destructive"
-        title={t("purchasing.invoices.confirmCancelTitle")}
-        description={t("purchasing.invoices.confirmCancelDescription")}
-        confirmLabel={t("purchasing.invoices.actions.cancel")}
-        cancelLabel={t("common.close")}
-        onConfirm={async () => {
-          setCancelTarget(false);
-          await runTransition(
-            (iid) => purchaseInvoicesService.cancel(iid),
-            "purchasing.invoices.toasts.cancelled",
-          );
-        }}
       />
 
       {invoice && (

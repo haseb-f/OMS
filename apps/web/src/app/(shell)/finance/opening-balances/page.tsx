@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import Link from "next/link";
+import { BookCheck } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
@@ -27,8 +28,9 @@ import {
 } from "@/config/accounting/status";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError, toast } from "@/lib/toast";
+import { FieldMessage } from "@/components/ui/form";
+import { DocumentActionBar } from "@/components/documents/document-action-bar";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import { PermissionGate } from "@/components/shared/permission-gate";
 
@@ -103,23 +105,30 @@ function OpeningBalancesPageContent() {
   const totalDebit = lines.reduce((sum, l) => sum + l.debit, 0);
   const totalCredit = lines.reduce((sum, l) => sum + l.credit, 0);
   const isBalanced = lines.length > 0 && Math.abs(totalDebit - totalCredit) < 0.01;
+  const validLines = lines.filter((l) => l.accountId && (l.debit > 0 || l.credit > 0));
 
-  const canGenerate = useMemo(
-    () => canManage && fiscalYearId && openingDate && lines.some((l) => l.accountId) && isBalanced,
-    [canManage, fiscalYearId, openingDate, lines, isBalanced],
-  );
+  /** Shown inline under the fields after the first attempt (design §8); entered lines are never cleared. */
+  const [showValidation, setShowValidation] = useState(false);
+  const validate = (): { openingDate?: string; lines?: string } | null => {
+    const errors: { openingDate?: string; lines?: string } = {};
+    if (!openingDate)
+      errors.openingDate = t("accounting.openingBalances.validation.openingDateRequired");
+    if (validLines.length === 0) {
+      errors.lines = t("accounting.openingBalances.validation.minLines");
+    } else if (!isBalanced) {
+      errors.lines = t("accounting.journalEntries.validation.unbalanced");
+    }
+    return Object.keys(errors).length > 0 ? errors : null;
+  };
+  const fieldErrors = showValidation ? validate() : null;
 
   const handleGenerate = async () => {
-    if (!fiscalYearId || !openingDate) return;
-    const validLines = lines.filter((l) => l.accountId && (l.debit > 0 || l.credit > 0));
-    if (validLines.length === 0) {
-      toast.error(t("accounting.openingBalances.validation.minLines"));
+    if (!fiscalYearId) return;
+    if (validate() || !openingDate) {
+      setShowValidation(true);
       return;
     }
-    if (!isBalanced) {
-      toast.error(t("accounting.journalEntries.validation.unbalanced"));
-      return;
-    }
+    setShowValidation(false);
     setIsSubmitting(true);
     try {
       const entry = await openingBalancesService.create({
@@ -136,7 +145,7 @@ function OpeningBalancesPageContent() {
       void checkExisting(fiscalYearId);
       setExistingEntry(entry as unknown as JournalEntryRow);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsSubmitting(false);
     }
@@ -179,6 +188,7 @@ function OpeningBalancesPageContent() {
                 onChange={setOpeningDate}
                 disabled={!fiscalYearId}
               />
+              <FieldMessage>{fieldErrors?.openingDate}</FieldMessage>
             </div>
           </div>
 
@@ -197,11 +207,11 @@ function OpeningBalancesPageContent() {
                   })}
                 </span>
               </div>
-              <Link href={`/finance/journal-entries/${existingEntry.id}`} className="w-fit">
-                <EnterpriseButton type="button" variant="outline" size="sm">
+              <EnterpriseButton asChild variant="outline" size="sm" className="w-fit">
+                <Link href={`/finance/journal-entries/${existingEntry.id}`}>
                   {t("accounting.openingBalances.viewEntry")}
-                </EnterpriseButton>
-              </Link>
+                </Link>
+              </EnterpriseButton>
             </div>
           ) : fiscalYearId ? (
             <>
@@ -211,15 +221,35 @@ function OpeningBalancesPageContent() {
                 onChange={setLines}
                 disabled={!canManage}
               />
-              <div className="flex justify-end">
-                <EnterpriseButton
-                  type="button"
-                  disabled={!canGenerate || isSubmitting}
-                  onClick={handleGenerate}
-                >
-                  {t("accounting.openingBalances.generate")}
-                </EnterpriseButton>
-              </div>
+              <FieldMessage>{fieldErrors?.lines}</FieldMessage>
+              {canManage ? (
+                <div className="flex justify-end pb-16 md:pb-0">
+                  <DocumentActionBar
+                    status="DRAFT"
+                    context={undefined}
+                    isBusy={isSubmitting}
+                    actions={[
+                      {
+                        key: "generate",
+                        primary: true,
+                        label: t("accounting.openingBalances.generate"),
+                        icon: BookCheck,
+                        // Posting is irreversible — confirmed in the bar, but only once
+                        // the entry is valid (otherwise the click shows what is missing).
+                        confirm: validate()
+                          ? undefined
+                          : {
+                              title: t("accounting.openingBalances.confirmGenerateTitle"),
+                              description: t(
+                                "accounting.openingBalances.confirmGenerateDescription",
+                              ),
+                            },
+                        onAction: handleGenerate,
+                      },
+                    ]}
+                  />
+                </div>
+              ) : null}
             </>
           ) : (
             <p className="text-caption text-muted-foreground">

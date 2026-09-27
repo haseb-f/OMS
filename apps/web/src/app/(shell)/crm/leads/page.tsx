@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Contact, Archive, Eye, Plus, UserPlus, Workflow, Download } from "lucide-react";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
 import type { MasterDataFormSection } from "@/components/master-data/master-data-form";
@@ -31,8 +31,7 @@ import { LeadOrderCreateDialog } from "@/components/business/lead-order-create-d
 import { LeadDistributionModal } from "@/components/crm/lead-distribution-modal";
 import { LeadDistributionControl } from "@/components/crm/lead-distribution-control";
 import { BulkLeadStatusDialog } from "@/components/crm/bulk-lead-status-dialog";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError } from "@/lib/toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   useCurrencies,
@@ -59,11 +58,19 @@ function CrmLeadsPageContent() {
   const [bulkStatusIds, setBulkStatusIds] = useState<string[]>([]);
   const [isExportingSelected, setIsExportingSelected] = useState(false);
   const [unassignedOnly, setUnassignedOnly] = useState(false);
+  const [classificationFilter, setClassificationFilter] = useState("");
+  // Dashboard drill-downs open this list pre-filtered (`?followUp=overdue`).
+  const searchParams = useSearchParams();
+  const [followUpFilter, setFollowUpFilter] = useState(() => {
+    const initial = searchParams.get("followUp") ?? "";
+    return ["today", "overdue", "upcoming", "none"].includes(initial) ? initial : "";
+  });
   // SelectFilter's "" is its "All" row: lifecycle "" is sent as the API's
   // `lifecycle=all`; the classification/follow-up filters omit their param.
-  const [lifecycle, setLifecycle] = useState("active");
-  const [classificationFilter, setClassificationFilter] = useState("");
-  const [followUpFilter, setFollowUpFilter] = useState("");
+  // A follow-up drill-down opens on every lifecycle: the dashboard's Due
+  // Today / Overdue tiles (sales-performance.service) count leads of any
+  // status, so the list total must match the tile it came from.
+  const [lifecycle, setLifecycle] = useState(() => (followUpFilter ? "" : "active"));
   const [employeeFilter, setEmployeeFilter] = useState("");
   const [eligibleEmployees, setEligibleEmployees] = useState<
     { id: string; name: string; employeeCode: string }[]
@@ -125,7 +132,7 @@ function CrmLeadsPageContent() {
         "leads-selected.csv",
       );
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsExportingSelected(false);
     }
@@ -241,6 +248,22 @@ function CrmLeadsPageContent() {
           lifecycle: lifecycle || "all",
           ...(classificationFilter ? { classificationIds: classificationFilter } : {}),
           ...(followUpFilter ? { followUpFilter } : {}),
+        }}
+        extraFilterCount={
+          [
+            lifecycle !== "active",
+            classificationFilter,
+            followUpFilter,
+            employeeFilter,
+            unassignedOnly,
+          ].filter(Boolean).length
+        }
+        onClearExtraFilters={() => {
+          setLifecycle("active");
+          setClassificationFilter("");
+          setFollowUpFilter("");
+          setEmployeeFilter("");
+          setUnassignedOnly(false);
         }}
         extraFilters={
           <div className="flex flex-wrap items-center gap-3">

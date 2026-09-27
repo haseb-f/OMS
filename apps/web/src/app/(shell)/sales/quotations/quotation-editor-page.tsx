@@ -29,10 +29,11 @@ import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
-import { toast } from "@/lib/toast";
+import { reportApiError, toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import { ConvertToOrderDialog } from "./convert-to-order-dialog";
 import { lifecycleActions } from "@/config/documents/lifecycle-actions";
+import type { CommercialDocumentFieldErrors } from "@/components/documents/commercial-document-editor";
 
 function itemToLine(item: SalesQuotationItemRow): ProductLineItemsGridLine {
   return {
@@ -110,7 +111,7 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
         const data = await salesQuotationsService.get(id);
         applyQuotation(data);
       } catch (error) {
-        toast.error(error instanceof ApiError ? error.message : "Failed to load quotation.");
+        reportApiError(error, "errors.loadFailed");
       } finally {
         setIsLoading(false);
       }
@@ -133,12 +134,14 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
   const realLines = lines.filter((line) => line.product !== null);
 
   /** "No empty customer / No empty product / Quantity > 0 / Warehouse required" — client-side, per TASK-040. Server re-validates all of it independently. */
-  const validate = (): string | null => {
-    if (!customer) return t("sales.quotations.validation.customerRequired");
-    if (realLines.length === 0) return t("sales.quotations.validation.productRequired");
+  /** Shown inline under the fields after the first save attempt; entered data is never cleared. */
+  const [showValidation, setShowValidation] = useState(false);
+  const validate = (): CommercialDocumentFieldErrors | null => {
+    if (!customer) return { party: t("sales.quotations.validation.customerRequired") };
+    if (realLines.length === 0) return { lines: t("sales.quotations.validation.productRequired") };
     for (const line of realLines) {
-      if (line.quantity <= 0) return t("sales.quotations.validation.quantityPositive");
-      if (!line.warehouse) return t("sales.editor.grid.warehouseRequired");
+      if (line.quantity <= 0) return { lines: t("sales.quotations.validation.quantityPositive") };
+      if (!line.warehouse) return { lines: t("sales.editor.grid.warehouseRequired") };
     }
     return null;
   };
@@ -154,11 +157,11 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
   });
 
   const handleSave = async () => {
-    const error = validate();
-    if (error) {
-      toast.error(error);
+    if (validate()) {
+      setShowValidation(true);
       return;
     }
+    setShowValidation(false);
     setIsSaving(true);
     try {
       if (id) {
@@ -171,7 +174,7 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
         router.replace(`/sales/quotations/${created.id}`);
       }
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsSaving(false);
     }
@@ -192,7 +195,7 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
       toast.success(t(successKey));
       refreshActivity(id);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      reportApiError(error, "errors.generic");
     } finally {
       setIsTransitioning(false);
     }
@@ -386,6 +389,7 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
         isLoading={isLoading}
         disabled={!canEdit || isSaving}
         isBusy={isSaving || isTransitioning}
+        fieldErrors={showValidation ? (validate() ?? undefined) : undefined}
       />
 
       {quotation && (

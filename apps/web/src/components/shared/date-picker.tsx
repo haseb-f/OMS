@@ -114,11 +114,7 @@ export function EnterpriseDatePicker({
   };
 
   const calendar = (
-    <PopoverContent
-      align="start"
-      dir={direction}
-      className="w-auto rounded-xs border border-border bg-card p-0 shadow-md"
-    >
+    <PopoverContent align="start" dir={direction} className="w-auto p-0">
       <Calendar
         mode="single"
         dir={direction}
@@ -168,7 +164,7 @@ export function EnterpriseDatePicker({
         with the typed date.
       */}
       <Popover open={open} onOpenChange={setOpen}>
-        <InputGroup dir="ltr" className="h-(--control-height-sm)" data-slot="date-picker">
+        <InputGroup dir="ltr" className="h-(--control-height-md)" data-slot="date-picker">
           <InputGroupInput
             id={id}
             dir="ltr"

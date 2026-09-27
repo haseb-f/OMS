@@ -37,11 +37,11 @@ import {
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import { formatDateTime } from "@/lib/date";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
+import { formatNumber } from "@/lib/format-number";
 
 function ProductsPageContent() {
   const { t } = useLocale();
@@ -91,11 +91,8 @@ function ProductsPageContent() {
         setItems(result.items);
         setTotal(result.total);
       })
-      .catch((error) =>
-        toast.error(error instanceof ApiError ? error.message : t("common.noResults")),
-      )
+      .catch((error) => reportApiError(error, "common.noResults"))
       .finally(() => setIsLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, page, pageSize, sortBy, sortOrder, includeArchived]);
 
   useEffect(() => {
@@ -129,7 +126,7 @@ function ProductsPageContent() {
       setArchiveTarget(null);
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     }
   };
 
@@ -141,7 +138,7 @@ function ProductsPageContent() {
       setRestoreTarget(null);
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     }
   };
 
@@ -407,9 +404,7 @@ function ProductsPageContent() {
                     {t("products.fields.salesPrice")}
                   </dt>
                   <dd dir="ltr">
-                    {previewProduct.salesPrice
-                      ? Number(previewProduct.salesPrice).toLocaleString()
-                      : "—"}
+                    {previewProduct.salesPrice ? formatNumber(previewProduct.salesPrice) : "—"}
                   </dd>
                 </div>
                 <div>
@@ -418,7 +413,7 @@ function ProductsPageContent() {
                   </dt>
                   <dd dir="ltr">
                     {previewProduct.purchasePrice
-                      ? Number(previewProduct.purchasePrice).toLocaleString()
+                      ? formatNumber(previewProduct.purchasePrice)
                       : "—"}
                   </dd>
                 </div>

@@ -37,8 +37,7 @@ import {
 import { renderNumberTemplatePreview, NUMBER_TEMPLATE_PLACEHOLDERS } from "@/lib/number-template";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import { filterByArabicSearch } from "@/lib/arabic-search";
 
 const seriesSchema = z.object({
@@ -104,13 +103,10 @@ export default function SettingsDocumentNumberingPage() {
     numberSeriesService
       .list()
       .then(setItems)
-      .catch((error) =>
-        toast.error(error instanceof ApiError ? error.message : t("common.noResults")),
-      )
+      .catch((error) => reportApiError(error, "common.noResults"))
       .finally(() => setIsLoading(false));
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, []);
 
   const form = useForm<SeriesFormValues>({
@@ -182,7 +178,7 @@ export default function SettingsDocumentNumberingPage() {
       setModalOpen(false);
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSubmitting(false);
     }
@@ -198,7 +194,7 @@ export default function SettingsDocumentNumberingPage() {
       toast.success(t("settings.documentNumbering.toggleSuccess"));
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     }
   };
 
@@ -210,7 +206,7 @@ export default function SettingsDocumentNumberingPage() {
       setDisableTarget(null);
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     }
   };
 
@@ -222,7 +218,7 @@ export default function SettingsDocumentNumberingPage() {
       setResetTarget(null);
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     }
   };
 
@@ -293,7 +289,11 @@ export default function SettingsDocumentNumberingPage() {
       },
       {
         id: "padding",
-        meta: { titleKey: "settings.documentNumbering.table.padding", defaultHidden: true },
+        meta: {
+          titleKey: "settings.documentNumbering.table.padding",
+          defaultHidden: true,
+          type: "number",
+        },
         accessorFn: (row) => row.padding,
       },
       {

@@ -19,8 +19,7 @@ import {
 } from "@/components/hr/kpi-template-items-editor";
 import { kpiTemplatesService, type KpiTemplateItemInput } from "@/services/kpi-templates-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 
 const templateSchema = z.object({
   name: z.string().min(1),
@@ -79,7 +78,7 @@ export default function NewKpiTemplatePage() {
       toast.success(t("hr.kpiTemplates.toasts.saved"));
       router.push(`/hr/kpi-templates/${created.id}`);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSubmitting(false);
     }

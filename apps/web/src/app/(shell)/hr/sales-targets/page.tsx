@@ -34,8 +34,7 @@ import { buildSalesTargetsColumns, salesTargetRowLabel } from "@/config/hr/sales
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 
 const SCOPE_TYPES: TargetScopeType[] = ["EMPLOYEE", "TEAM"];
 const METRICS: TargetMetric[] = ["COLLECTED_SALES", "SALES_REVENUE", "ORDERS_COUNT"];
@@ -93,11 +92,11 @@ export default function SalesTargetsPage() {
       setRows(result.items);
       setTotal(result.total);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsLoading(false);
     }
-  }, [filterPeriod, filterScopeType, filterMetric, page, pageSize, t]);
+  }, [filterPeriod, filterScopeType, filterMetric, page, pageSize]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -153,7 +152,7 @@ export default function SalesTargetsPage() {
       setCreateOpen(false);
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSaving(false);
     }
@@ -177,7 +176,7 @@ export default function SalesTargetsPage() {
       setEditTarget(null);
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSaving(false);
     }
@@ -196,7 +195,7 @@ export default function SalesTargetsPage() {
       setDeleteTarget(null);
       await load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsDeleting(false);
     }

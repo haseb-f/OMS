@@ -8,6 +8,7 @@ import { MasterDataPage } from "@/components/master-data/master-data-page";
 import type { MasterDataFormField } from "@/components/master-data/master-data-form";
 import { JournalTraceCell } from "@/components/accounting/journal-trace-cell";
 import { textColumn } from "@/config/master-data/shared-columns";
+import { formatAmount } from "@/lib/money";
 import { StatusBadge } from "@/components/business/status-badge";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
@@ -17,13 +18,12 @@ import {
   accruedExpensesService,
   type AccruedExpenseRow,
 } from "@/services/accrued-expenses-service";
-import { ApiError } from "@/services/api-client";
 import {
   receivingAccountsService,
   type ReceivingAccountOption,
 } from "@/services/receiving-accounts-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
+import { toast, reportApiError } from "@/lib/toast";
 import { formatDate } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
 
@@ -62,9 +62,10 @@ function AccrualStatusCell({ status }: { status: AccruedExpenseRow["status"] }) 
 const columns: ColumnDef<AccruedExpenseRow, unknown>[] = [
   textColumn("accrualNumber", "accounting.accruals.fields.accrualNumber", (r) => r.accrualNumber),
   textColumn("name", "masterData.fields.name", (r) => r.name),
-  textColumn("amount", "masterData.expenses.fields.amount", (r) =>
-    Number(r.amount).toLocaleString(),
-  ),
+  {
+    ...textColumn("amount", "masterData.expenses.fields.amount", (r) => formatAmount(r.amount)),
+    meta: { titleKey: "masterData.expenses.fields.amount", type: "money" },
+  },
   textColumn("recognitionDate", "accounting.accruals.fields.recognitionDate", (r) =>
     formatDate(r.recognitionDate),
   ),
@@ -154,7 +155,7 @@ function AccruedExpensesPageContent() {
       setRecognizeTarget(null);
       reload();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("errors.generic"));
+      reportApiError(error, "errors.generic");
     } finally {
       setBusy(false);
     }
@@ -171,7 +172,7 @@ function AccruedExpensesPageContent() {
       setSettleTarget(null);
       reload();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("errors.generic"));
+      reportApiError(error, "errors.generic");
     } finally {
       setBusy(false);
     }

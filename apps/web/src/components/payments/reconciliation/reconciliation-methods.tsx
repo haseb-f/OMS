@@ -61,7 +61,7 @@ export function ReconciliationMethods() {
             <Link
               key={method.id}
               href={`/finance/payment-reconciliation/${method.id}`}
-              className="min-w-0 rounded-md focus-visible:outline-2 focus-visible:outline-ring"
+              className="min-w-0 rounded-md focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring"
               aria-label={`${t("paymentReconciliation.list.open")} — ${method.name}`}
             >
               <EnterpriseCard clickable className="h-full">

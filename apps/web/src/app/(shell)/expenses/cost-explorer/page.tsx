@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { ProductPicker } from "@/components/business/product-picker";
@@ -13,12 +13,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  tableNumericCellClass,
 } from "@/components/ui/table";
 import { DetailSummaryBar, DetailField, DetailSection } from "@/components/shared/detail-workspace";
 import { StatusBadge } from "@/components/business/status-badge";
 import { EnterpriseButton } from "@/components/ui/button";
 import { SearchInput } from "@/components/shared/search-input";
 import { SemanticValue } from "@/components/shared/semantic-value";
+import { MoneyValue } from "@/components/shared/money-value";
 import { inventoryService, type StockCard } from "@/services/inventory-service";
 import { productCostService, type ProductCostHistoryEntry } from "@/services/product-cost-service";
 import type { ProductRow } from "@/services/products-service";
@@ -29,7 +31,7 @@ import {
 } from "@/services/store-orders-service";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast } from "@/lib/toast";
+import { reportApiError, toast } from "@/lib/toast";
 import { formatDateTime } from "@/lib/date";
 import { ApiError } from "@/services/api-client";
 import { PermissionGate } from "@/components/shared/permission-gate";
@@ -46,7 +48,15 @@ import {
   type DateRangeValue,
 } from "@/components/shared/date-range-picker";
 import { exportRowsToCsv } from "@/components/master-data/enterprise-data-table";
-import { formatMoney as formatMoneyShared } from "@/lib/money";
+import { formatAmount, formatMoney as formatMoneyShared } from "@/lib/money";
+import {
+  FinancialReport,
+  type FinancialReportLine,
+} from "@/components/accounting/financial-report";
+import {
+  EMPTY_REPORT_FILTERS,
+  type ReportFilterValue,
+} from "@/components/accounting/report-filter-bar";
 import {
   costAnalyticsService,
   type ManagementPnl,
@@ -55,12 +65,13 @@ import {
   type ProfitabilityRow,
 } from "@/services/cost-analytics-service";
 
-function formatMoney(value: number | string | null) {
-  if (value === null) return "—";
-  return Number(value).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+function formatCostAmount(value: number | string | null) {
+  return value === null ? "—" : formatAmount(value);
+}
+
+/** Summary-field amount: `—` (field hidden) when missing, otherwise a tabular money run. */
+function costFieldValue(value: number | string | null) {
+  return value === null ? "—" : <MoneyValue value={value} />;
 }
 
 function sourceLabel(t: (key: MessageKey) => string, referenceType: string | null) {
@@ -188,11 +199,11 @@ function OrderCostTraceTab({ initialStoreOrderId }: { initialStoreOrderId: strin
           <DetailSummaryBar>
             <DetailField
               label={t("storeOrders.profitability.netRevenue")}
-              value={formatMoney(economics.netRevenue)}
+              value={costFieldValue(economics.netRevenue)}
             />
             <DetailField
               label={t("storeOrders.profitability.contributionProfit")}
-              value={formatMoney(economics.contributionProfit)}
+              value={costFieldValue(economics.contributionProfit)}
             />
             <DetailField
               label={t("storeOrders.profitability.costState")}
@@ -204,20 +215,28 @@ function OrderCostTraceTab({ initialStoreOrderId }: { initialStoreOrderId: strin
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t("storeOrders.profitability.quantity")}</TableHead>
-                  <TableHead>{t("storeOrders.profitability.netRevenue")}</TableHead>
-                  <TableHead>{t("storeOrders.profitability.unitCost")}</TableHead>
-                  <TableHead>{t("storeOrders.profitability.cogs")}</TableHead>
+                  <TableHead className={tableNumericCellClass}>
+                    {t("storeOrders.profitability.quantity")}
+                  </TableHead>
+                  <TableHead className={tableNumericCellClass}>
+                    {t("storeOrders.profitability.netRevenue")}
+                  </TableHead>
+                  <TableHead className={tableNumericCellClass}>
+                    {t("storeOrders.profitability.unitCost")}
+                  </TableHead>
+                  <TableHead className={tableNumericCellClass}>
+                    {t("storeOrders.profitability.cogs")}
+                  </TableHead>
                   <TableHead>{t("common.actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {economics.items.map((item, index) => (
                   <TableRow key={`${item.productId}-${index}`}>
-                    <TableCell>{item.quantity}</TableCell>
-                    <TableCell>{formatMoney(item.netRevenue)}</TableCell>
-                    <TableCell>{formatMoney(item.historicalUnitCost)}</TableCell>
-                    <TableCell>{formatMoney(item.cogs)}</TableCell>
+                    <TableCell numeric>{item.quantity}</TableCell>
+                    <TableCell numeric>{formatCostAmount(item.netRevenue)}</TableCell>
+                    <TableCell numeric>{formatCostAmount(item.historicalUnitCost)}</TableCell>
+                    <TableCell numeric>{formatCostAmount(item.cogs)}</TableCell>
                     <TableCell>
                       <EnterpriseButton
                         type="button"
@@ -243,8 +262,12 @@ function OrderCostTraceTab({ initialStoreOrderId }: { initialStoreOrderId: strin
                   <TableRow>
                     <TableHead>{t("storeOrders.profitability.attempt")}</TableHead>
                     <TableHead>{t("shipping.fields.status")}</TableHead>
-                    <TableHead>{t("costExplorer.order.operationalCost")}</TableHead>
-                    <TableHead>{t("costExplorer.order.confirmedCarrierCost")}</TableHead>
+                    <TableHead className={tableNumericCellClass}>
+                      {t("costExplorer.order.operationalCost")}
+                    </TableHead>
+                    <TableHead className={tableNumericCellClass}>
+                      {t("costExplorer.order.confirmedCarrierCost")}
+                    </TableHead>
                     <TableHead>{t("costExplorer.order.costSource")}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -253,8 +276,10 @@ function OrderCostTraceTab({ initialStoreOrderId }: { initialStoreOrderId: strin
                     <TableRow key={attempt.shipmentId}>
                       <TableCell>#{attempt.attemptNumber}</TableCell>
                       <TableCell>{attempt.status ?? "—"}</TableCell>
-                      <TableCell>{formatMoney(attempt.operationalCost)}</TableCell>
-                      <TableCell>{formatMoney(attempt.confirmedCarrierCost)}</TableCell>
+                      <TableCell numeric>{formatCostAmount(attempt.operationalCost)}</TableCell>
+                      <TableCell numeric>
+                        {formatCostAmount(attempt.confirmedCarrierCost)}
+                      </TableCell>
                       <TableCell>
                         {attempt.costSource === "CONFIRMED_ACTUAL" ? (
                           <EnterpriseButton
@@ -283,16 +308,20 @@ function OrderCostTraceTab({ initialStoreOrderId }: { initialStoreOrderId: strin
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{t("storeOrders.profitability.amount")}</TableHead>
-                    <TableHead>{t("storeOrders.profitability.fee")}</TableHead>
+                    <TableHead className={tableNumericCellClass}>
+                      {t("storeOrders.profitability.amount")}
+                    </TableHead>
+                    <TableHead className={tableNumericCellClass}>
+                      {t("storeOrders.profitability.fee")}
+                    </TableHead>
                     <TableHead>{t("storeOrders.profitability.feeSource")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {economics.payments.map((payment) => (
                     <TableRow key={payment.paymentId}>
-                      <TableCell>{formatMoney(payment.amount)}</TableCell>
-                      <TableCell>{formatMoney(payment.feeAmount)}</TableCell>
+                      <TableCell numeric>{formatCostAmount(payment.amount)}</TableCell>
+                      <TableCell numeric>{formatCostAmount(payment.feeAmount)}</TableCell>
                       <TableCell>
                         {t(
                           `storeOrders.profitability.feeSourceValues.${payment.feeSource}` as MessageKey,
@@ -309,7 +338,7 @@ function OrderCostTraceTab({ initialStoreOrderId }: { initialStoreOrderId: strin
             <DetailSummaryBar>
               <DetailField
                 label={t("masterData.fields.costAmount")}
-                value={formatMoney(economics.fulfillmentCost)}
+                value={costFieldValue(economics.fulfillmentCost)}
               />
               <DetailField
                 label={t("costExplorer.order.fulfillmentRule")}
@@ -349,9 +378,10 @@ const COST_STATE_COVERAGE_TONE: Record<CostState, "success" | "warning" | "neutr
  */
 function ManagementPnlTab() {
   const { t } = useLocale();
-  const [dateRange, setDateRange] = useState<DateRangeValue>({ from: null, to: null });
+  const [filters, setFilters] = useState<ReportFilterValue>(EMPTY_REPORT_FILTERS);
   const [pnl, setPnl] = useState<ManagementPnl | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const dateRange = filters.dateRange;
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -366,143 +396,154 @@ function ManagementPnlTab() {
       .finally(() => setIsLoading(false));
   }, [dateRange, t]);
 
-  const money = (v: number) => formatMoneyShared(v);
+  // The management P&L as shared report lines. Costs are shown as negatives
+  // (presentation only; every figure is the API's own).
+  const lines = useMemo<FinancialReportLine[]>(() => {
+    if (!pnl) return [];
+    const row = (
+      id: string,
+      labelKey: MessageKey,
+      value: number,
+      kind: FinancialReportLine["kind"] = "posting",
+      children: FinancialReportLine[] = [],
+    ): FinancialReportLine => {
+      const label = t(labelKey);
+      return {
+        id: `pnl:${id}`,
+        parentId: null,
+        kind,
+        level: 0,
+        label,
+        labelEn: label,
+        expandable: children.length > 0,
+        values: { amount: value },
+        children,
+      };
+    };
+    const opexAccounts = pnl.operatingExpenses.accounts.map((account): FinancialReportLine => ({
+      id: `pnl:opex:${account.accountId}`,
+      parentId: "pnl:opex",
+      kind: "posting",
+      level: 1,
+      code: account.accountCode,
+      label: account.accountName,
+      labelEn: account.accountName,
+      expandable: false,
+      values: { amount: -account.balance },
+      children: [],
+    }));
+    return [
+      row("revenue", "costExplorer.pnl.revenue", pnl.revenue),
+      row("cogs", "costExplorer.pnl.cogs", -pnl.cogs),
+      row("grossProfit", "costExplorer.pnl.grossProfit", pnl.grossProfit, "subtotal"),
+      row("shipping", "costExplorer.pnl.directCostsShipping", -pnl.directCosts.shipping),
+      row("paymentFees", "costExplorer.pnl.directCostsPaymentFees", -pnl.directCosts.paymentFees),
+      row("fulfillment", "costExplorer.pnl.directCostsFulfillment", -pnl.directCosts.fulfillment),
+      row(
+        "contributionProfit",
+        "costExplorer.pnl.contributionProfit",
+        pnl.contributionProfit,
+        "subtotal",
+      ),
+      row(
+        "opex",
+        "costExplorer.pnl.operatingExpenses",
+        -pnl.operatingExpenses.total,
+        "group",
+        opexAccounts,
+      ),
+      row("operatingProfit", "costExplorer.pnl.operatingProfit", pnl.operatingProfit, "result"),
+    ];
+  }, [pnl, t]);
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <EnterpriseDateRangePicker value={dateRange} onChange={setDateRange} />
-        {pnl && (
-          <EnterpriseButton
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              exportRowsToCsv(
-                [
-                  { line: t("costExplorer.pnl.revenue"), amount: pnl.revenue },
-                  { line: t("costExplorer.pnl.cogs"), amount: -pnl.cogs },
-                  { line: t("costExplorer.pnl.grossProfit"), amount: pnl.grossProfit },
-                  { line: t("costExplorer.pnl.directCosts"), amount: -pnl.directCosts.total },
+      <FinancialReport
+        lines={lines}
+        columns={[{ key: "amount", labelKey: "costExplorer.pnl.amount", emphasize: true }]}
+        isLoading={isLoading}
+        filters={filters}
+        onFiltersChange={setFilters}
+        filterFields={["dateRange"]}
+        defaultExpanded="none"
+        nameHeaderKey="costExplorer.pnl.title"
+        printTitle={t("costExplorer.pnl.title")}
+        exportFileName="management-pnl.xlsx"
+        notice={
+          pnl ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <CostStateBadge state={pnl.costState} />
+              {pnl.scope.truncated ? (
+                <span className="text-warning-soft-foreground">
+                  {t("costExplorer.pnl.truncatedWarning")}
+                </span>
+              ) : null}
+            </div>
+          ) : undefined
+        }
+        summary={
+          pnl
+            ? {
+                items: [
                   {
-                    line: t("costExplorer.pnl.contributionProfit"),
-                    amount: pnl.contributionProfit,
+                    id: "revenue",
+                    label: t("costExplorer.pnl.revenue"),
+                    value: pnl.revenue,
+                    tone: "revenue",
                   },
                   {
-                    line: t("costExplorer.pnl.operatingExpenses"),
-                    amount: -pnl.operatingExpenses.total,
+                    id: "grossProfit",
+                    label: t("costExplorer.pnl.grossProfit"),
+                    value: pnl.grossProfit,
                   },
-                  { line: t("costExplorer.pnl.operatingProfit"), amount: pnl.operatingProfit },
                   {
-                    line: t("costExplorer.pnl.netProfitFromGl"),
-                    amount: pnl.glReconciliation.netProfitFromGl,
+                    id: "contributionProfit",
+                    label: t("costExplorer.pnl.contributionProfit"),
+                    value: pnl.contributionProfit,
+                  },
+                  {
+                    id: "operatingExpenses",
+                    label: t("costExplorer.pnl.operatingExpenses"),
+                    value: pnl.operatingExpenses.total,
+                    tone: "expense",
+                  },
+                  {
+                    id: "operatingProfit",
+                    label: t("costExplorer.pnl.operatingProfit"),
+                    value: pnl.operatingProfit,
+                    emphasize: true,
+                    tone: "result",
                   },
                 ],
-                ["line", "amount"],
-                "management-pnl.csv",
-              )
-            }
-          >
-            {t("table.export")}
-          </EnterpriseButton>
-        )}
-      </div>
+              }
+            : undefined
+        }
+      />
 
-      {isLoading ? (
-        <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
-      ) : !pnl ? (
-        <p className="text-caption text-muted-foreground">{t("common.noResults")}</p>
-      ) : (
+      {pnl ? (
         <>
-          {pnl.scope.truncated && (
-            <p className="text-caption text-warning">{t("costExplorer.pnl.truncatedWarning")}</p>
-          )}
-
-          <DetailSection title={t("costExplorer.pnl.title")}>
-            <Table>
-              <TableBody>
-                <TableRow>
-                  <TableCell>{t("costExplorer.pnl.revenue")}</TableCell>
-                  <TableCell>{money(pnl.revenue)}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>{t("costExplorer.pnl.cogs")}</TableCell>
-                  <TableCell>({money(pnl.cogs)})</TableCell>
-                </TableRow>
-                <TableRow className="font-medium">
-                  <TableCell>{t("costExplorer.pnl.grossProfit")}</TableCell>
-                  <TableCell>{money(pnl.grossProfit)}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>{t("costExplorer.pnl.directCostsShipping")}</TableCell>
-                  <TableCell>({money(pnl.directCosts.shipping)})</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>{t("costExplorer.pnl.directCostsPaymentFees")}</TableCell>
-                  <TableCell>({money(pnl.directCosts.paymentFees)})</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>{t("costExplorer.pnl.directCostsFulfillment")}</TableCell>
-                  <TableCell>({money(pnl.directCosts.fulfillment)})</TableCell>
-                </TableRow>
-                <TableRow className="font-medium">
-                  <TableCell>{t("costExplorer.pnl.contributionProfit")}</TableCell>
-                  <TableCell className="flex items-center gap-2">
-                    {money(pnl.contributionProfit)}
-                    <CostStateBadge state={pnl.costState} />
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>{t("costExplorer.pnl.operatingExpenses")}</TableCell>
-                  <TableCell>({money(pnl.operatingExpenses.total)})</TableCell>
-                </TableRow>
-                <TableRow className="font-semibold">
-                  <TableCell>{t("costExplorer.pnl.operatingProfit")}</TableCell>
-                  <TableCell>{money(pnl.operatingProfit)}</TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </DetailSection>
-
           <DetailSection title={t("costExplorer.pnl.glReconciliation")}>
             <DetailSummaryBar>
               <DetailField
                 label={t("costExplorer.pnl.revenueFromGl")}
-                value={money(pnl.glReconciliation.revenueFromGl)}
+                value={
+                  <span className="num">{formatAmount(pnl.glReconciliation.revenueFromGl)}</span>
+                }
               />
               <DetailField
                 label={t("costExplorer.pnl.expenseFromGl")}
-                value={money(pnl.glReconciliation.expenseFromGl)}
+                value={
+                  <span className="num">{formatAmount(pnl.glReconciliation.expenseFromGl)}</span>
+                }
               />
               <DetailField
                 label={t("costExplorer.pnl.netProfitFromGl")}
-                value={money(pnl.glReconciliation.netProfitFromGl)}
+                value={
+                  <span className="num">{formatAmount(pnl.glReconciliation.netProfitFromGl)}</span>
+                }
               />
             </DetailSummaryBar>
           </DetailSection>
-
-          {pnl.operatingExpenses.accounts.length > 0 && (
-            <DetailSection title={t("costExplorer.pnl.operatingExpenseAccounts")}>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("masterData.fields.code")}</TableHead>
-                    <TableHead>{t("masterData.fields.name")}</TableHead>
-                    <TableHead>{t("costExplorer.pnl.amount")}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pnl.operatingExpenses.accounts.map((account) => (
-                    <TableRow key={account.accountId}>
-                      <TableCell>{account.accountCode}</TableCell>
-                      <TableCell>{account.accountName}</TableCell>
-                      <TableCell>{money(account.balance)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </DetailSection>
-          )}
 
           <DetailSection title={t("costExplorer.pnl.coverage")}>
             <DetailSummaryBar>
@@ -525,7 +566,7 @@ function ManagementPnlTab() {
             </DetailSummaryBar>
           </DetailSection>
         </>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -645,11 +686,21 @@ function ProfitabilityAnalyticsTab() {
                 <TableHead>
                   {t(`costExplorer.analytics.dimensions.${dimension}` as MessageKey)}
                 </TableHead>
-                <TableHead>{t("costExplorer.analytics.orderCount")}</TableHead>
-                <TableHead>{t("storeOrders.profitability.netRevenue")}</TableHead>
-                <TableHead>{t("storeOrders.profitability.cogs")}</TableHead>
-                <TableHead>{t("costExplorer.analytics.grossProfit")}</TableHead>
-                <TableHead>{t("storeOrders.profitability.contributionProfit")}</TableHead>
+                <TableHead className={tableNumericCellClass}>
+                  {t("costExplorer.analytics.orderCount")}
+                </TableHead>
+                <TableHead className={tableNumericCellClass}>
+                  {t("storeOrders.profitability.netRevenue")}
+                </TableHead>
+                <TableHead className={tableNumericCellClass}>
+                  {t("storeOrders.profitability.cogs")}
+                </TableHead>
+                <TableHead className={tableNumericCellClass}>
+                  {t("costExplorer.analytics.grossProfit")}
+                </TableHead>
+                <TableHead className={tableNumericCellClass}>
+                  {t("storeOrders.profitability.contributionProfit")}
+                </TableHead>
                 <TableHead>{t("storeOrders.profitability.costState")}</TableHead>
               </TableRow>
             </TableHeader>
@@ -661,11 +712,11 @@ function ProfitabilityAnalyticsTab() {
                   onClick={() => handleRowClick(row)}
                 >
                   <TableCell>{row.dimensionLabel}</TableCell>
-                  <TableCell>{row.orderCount}</TableCell>
-                  <TableCell>{formatMoneyShared(row.netRevenue)}</TableCell>
-                  <TableCell>{formatMoneyShared(row.cogs)}</TableCell>
-                  <TableCell>{formatMoneyShared(row.grossProfit)}</TableCell>
-                  <TableCell>
+                  <TableCell numeric>{row.orderCount}</TableCell>
+                  <TableCell numeric>{formatMoneyShared(row.netRevenue)}</TableCell>
+                  <TableCell numeric>{formatMoneyShared(row.cogs)}</TableCell>
+                  <TableCell numeric>{formatMoneyShared(row.grossProfit)}</TableCell>
+                  <TableCell numeric>
                     {row.contributionProfit === null
                       ? "—"
                       : formatMoneyShared(row.contributionProfit)}
@@ -713,7 +764,7 @@ function CostExplorerPageContent() {
       .catch((error) => {
         setStockCard(null);
         setHistory([]);
-        toast.error(error instanceof ApiError ? error.message : "Failed to load cost history.");
+        reportApiError(error, "errors.loadFailed");
       })
       .finally(() => setIsLoading(false));
   }, []);
@@ -754,12 +805,15 @@ function CostExplorerPageContent() {
           <DetailSummaryBar>
             <DetailField
               label={t("costExplorer.currentCost")}
-              value={formatMoney(stockCard?.averageCost ?? null)}
+              value={costFieldValue(stockCard?.averageCost ?? null)}
             />
-            <DetailField label={t("costExplorer.onHand")} value={stockCard?.onHand ?? "—"} />
+            <DetailField
+              label={t("costExplorer.onHand")}
+              value={stockCard ? <span className="num">{stockCard.onHand}</span> : "—"}
+            />
             <DetailField
               label={t("costExplorer.stockValue")}
-              value={formatMoney(stockCard?.stockValue ?? null)}
+              value={costFieldValue(stockCard?.stockValue ?? null)}
             />
           </DetailSummaryBar>
 
@@ -772,9 +826,15 @@ function CostExplorerPageContent() {
               <TableHeader>
                 <TableRow>
                   <TableHead>{t("costExplorer.fields.date")}</TableHead>
-                  <TableHead>{t("costExplorer.fields.previousCost")}</TableHead>
-                  <TableHead>{t("costExplorer.fields.newCost")}</TableHead>
-                  <TableHead>{t("costExplorer.fields.delta")}</TableHead>
+                  <TableHead className={tableNumericCellClass}>
+                    {t("costExplorer.fields.previousCost")}
+                  </TableHead>
+                  <TableHead className={tableNumericCellClass}>
+                    {t("costExplorer.fields.newCost")}
+                  </TableHead>
+                  <TableHead className={tableNumericCellClass}>
+                    {t("costExplorer.fields.delta")}
+                  </TableHead>
                   <TableHead>{t("costExplorer.fields.source")}</TableHead>
                   <TableHead>{t("costExplorer.fields.reason")}</TableHead>
                 </TableRow>
@@ -786,10 +846,13 @@ function CostExplorerPageContent() {
                   const delta = previous === null ? null : next - previous;
                   return (
                     <TableRow key={entry.id}>
-                      <TableCell>{formatDateTime(entry.createdAt)}</TableCell>
-                      <TableCell>{formatMoney(previous)}</TableCell>
-                      <TableCell>{formatMoney(next)}</TableCell>
+                      <TableCell>
+                        <span className="num">{formatDateTime(entry.createdAt)}</span>
+                      </TableCell>
+                      <TableCell numeric>{formatCostAmount(previous)}</TableCell>
+                      <TableCell numeric>{formatCostAmount(next)}</TableCell>
                       <TableCell
+                        numeric
                         className={
                           delta === null
                             ? undefined
@@ -800,7 +863,7 @@ function CostExplorerPageContent() {
                                 : undefined
                         }
                       >
-                        {delta === null ? "—" : `${delta > 0 ? "+" : ""}${formatMoney(delta)}`}
+                        {delta === null ? "—" : `${delta > 0 ? "+" : ""}${formatCostAmount(delta)}`}
                       </TableCell>
                       <TableCell>{sourceLabel(t, entry.referenceType)}</TableCell>
                       <TableCell>{entry.reason ?? "—"}</TableCell>
