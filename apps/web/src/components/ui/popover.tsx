@@ -20,6 +20,7 @@ function PopoverContent({
   // Keep every popover (pickers, filters, date pickers) a gutter away from
   // the viewport edge on phones — never full-bleed or momentarily off-screen.
   collisionPadding = 8,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
   return (
@@ -29,6 +30,21 @@ function PopoverContent({
         align={align}
         sideOffset={sideOffset}
         collisionPadding={collisionPadding}
+        onCloseAutoFocus={(event) => {
+          onCloseAutoFocus?.(event);
+          if (event.defaultPrevented) return;
+          // The close fades out before Radix restores focus to the trigger. If
+          // the user has already moved on (e.g. opened the next picker), keep
+          // their focus — stealing it back would close what they just opened.
+          const active = document.activeElement;
+          if (
+            active &&
+            active !== document.body &&
+            !active.closest('[data-slot="popover-content"]')
+          ) {
+            event.preventDefault();
+          }
+        }}
         className={cn(
           "z-50 flex w-72 origin-(--radix-popover-content-transform-origin) flex-col gap-2.5 rounded-md bg-popover p-2.5 text-sm text-popover-foreground border border-border shadow-(--shadow-floating) outline-hidden duration-(--duration-base) data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 ",
           className,
