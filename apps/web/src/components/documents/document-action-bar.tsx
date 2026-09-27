@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { cloneElement, isValidElement, useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Loader2, MoreHorizontal } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -78,6 +78,12 @@ export function DocumentActionBar<TContext>({
   const secondary = visible.filter((action) => action !== primary && !action.destructive);
   const destructive = visible.filter((action) => action !== primary && action.destructive);
   const busy = Boolean(isBusy || running);
+  // Exactly one filled button per bar: while a status transition is the
+  // primary action, a leading Save button is shown as secondary (outline).
+  const leadingControl =
+    primary && isValidElement<{ variant?: string }>(leading) && leading.type === EnterpriseButton
+      ? cloneElement(leading, { variant: "outline" })
+      : leading;
 
   const execute = async (action: DocumentAction<TContext>) => {
     setRunning(action.key);
@@ -98,12 +104,12 @@ export function DocumentActionBar<TContext>({
 
   const renderBar = (mobile: boolean) => (
     <div className={cn("flex items-center gap-2", mobile ? "w-full" : "flex-wrap justify-end")}>
-      {leading}
+      {leadingControl}
       {primary ? (
         <EnterpriseButton
           type="button"
           size={mobile ? "default" : "sm"}
-          className={cn("gap-1.5", mobile && "h-11 flex-1")}
+          className={cn("gap-1.5", mobile && "h-(--control-height-lg) flex-1")}
           disabled={busy}
           onClick={() => trigger(primary)}
         >
@@ -122,7 +128,7 @@ export function DocumentActionBar<TContext>({
               type="button"
               variant="outline"
               size={mobile ? "icon" : "sm"}
-              className={cn("gap-1.5", mobile && "size-11 shrink-0")}
+              className={cn("gap-1.5", mobile && "size-(--control-height-lg) shrink-0")}
               disabled={busy}
               aria-label={t("docFlow.actions.more")}
             >
@@ -163,7 +169,7 @@ export function DocumentActionBar<TContext>({
     <>
       <div className="hidden md:block">{renderBar(false)}</div>
       <div
-        className="fixed inset-x-0 z-(--z-action-bar) border-t border-border bg-card px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-sm md:hidden"
+        className="fixed inset-x-0 z-(--z-action-bar) border-t border-border bg-card px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden"
         style={{ bottom: keyboardInset }}
       >
         {renderBar(true)}

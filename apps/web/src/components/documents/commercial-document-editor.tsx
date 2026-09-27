@@ -35,6 +35,7 @@ import type { MessageKey } from "@/i18n/translate";
 import type { PartnerRoleValue, PartnerPickerRow } from "@/services/partners-service";
 import type { CurrencyRow } from "@/config/master-data/entities";
 import type { TraceKind } from "@/services/traceability-service";
+import { FieldMessage } from "@/components/ui/form";
 import { DocumentActionBar, type DocumentAction } from "./document-action-bar";
 
 export interface CommercialDocumentActivityEntry {
@@ -48,6 +49,15 @@ export interface CommercialDocumentStatusOption {
   value: string;
   label: string;
   tone: StatusTone;
+}
+
+/** Inline validation messages, keyed by the field they belong under. */
+export interface CommercialDocumentFieldErrors {
+  party?: string | null;
+  documentDate?: string | null;
+  lines?: string | null;
+  /** Anything not tied to one field — shown above the action area, under the totals. */
+  form?: string | null;
 }
 
 export interface CommercialDocumentEditorProps<TContext> {
@@ -91,6 +101,13 @@ export interface CommercialDocumentEditorProps<TContext> {
   /** Extra "More details" content (salesperson, balances…). */
   moreDetails?: ReactNode;
   paymentSummary?: ReactNode;
+  /**
+   * Extra, independent status shown next to the workflow status in the
+   * header (e.g. an invoice's payment status) — each badge names its state.
+   */
+  headerStatus?: ReactNode;
+  /** Inline validation (never toast-only); entered data is never cleared. */
+  fieldErrors?: CommercialDocumentFieldErrors;
   activity?: CommercialDocumentActivityEntry[] | null;
   isLoading?: boolean;
   canEdit: boolean;
@@ -187,8 +204,13 @@ export function CommercialDocumentEditor<TContext>(props: CommercialDocumentEdit
           title={props.title}
           documentNumber={props.documentNumber ?? `${props.docCodePreview ?? ""}-…`}
           status={
-            statusOption ? (
-              <StatusBadge label={statusOption.label} tone={statusOption.tone} />
+            statusOption || props.headerStatus ? (
+              <span className="flex flex-wrap items-center gap-1.5">
+                {statusOption ? (
+                  <StatusBadge label={statusOption.label} tone={statusOption.tone} />
+                ) : null}
+                {props.headerStatus}
+              </span>
             ) : null
           }
           actions={
@@ -216,6 +238,7 @@ export function CommercialDocumentEditor<TContext>(props: CommercialDocumentEdit
               onChange={props.party.onChange}
               disabled={!canEdit}
             />
+            <FieldMessage data-testid="field-error-party">{props.fieldErrors?.party}</FieldMessage>
           </div>
           <div className="flex min-w-0 flex-col gap-1">
             <label className="text-caption text-muted-foreground">
@@ -226,6 +249,7 @@ export function CommercialDocumentEditor<TContext>(props: CommercialDocumentEdit
               onChange={props.onDocumentDateChange}
               disabled={!canEdit}
             />
+            <FieldMessage>{props.fieldErrors?.documentDate}</FieldMessage>
           </div>
           <div className="flex min-w-0 flex-col gap-1">
             <label htmlFor={currencyFieldId} className="text-caption text-muted-foreground">
@@ -267,7 +291,9 @@ export function CommercialDocumentEditor<TContext>(props: CommercialDocumentEdit
           sellableOnly={props.lineMode === "sales"}
           purchasableOnly={props.lineMode === "purchase"}
           enableLineTreatment={props.enableLineTreatment}
+          showErrors={Boolean(props.fieldErrors?.lines)}
         />
+        <FieldMessage data-testid="field-error-lines">{props.fieldErrors?.lines}</FieldMessage>
 
         <DocumentTotalsFooter
           totals={previewTotals ?? serverTotals}
@@ -280,6 +306,7 @@ export function CommercialDocumentEditor<TContext>(props: CommercialDocumentEdit
           </p>
         ) : null}
         {props.paymentSummary}
+        <FieldMessage data-testid="field-error-form">{props.fieldErrors?.form}</FieldMessage>
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <div className="flex flex-col gap-1">

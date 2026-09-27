@@ -3,20 +3,23 @@
 import { Archive, Copy, Globe, Printer, ShoppingBag, Truck, UserRound } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import {
-  EntityHeader,
   StatusBadge,
-  MoneyBadge,
   CurrencyDisplay,
   CustomerCard,
   SupplierCard,
   Timeline,
   AddressCard,
-  QuickStatsCard,
-  InfoSection,
-  SummaryCard,
   EntityTabs,
   QuickActions,
 } from "@/components/business";
+import {
+  DetailField,
+  DetailFieldGrid,
+  RecordHighlightsHeader,
+} from "@/components/shared/detail-workspace";
+import { KpiCard } from "@/components/shared/kpi-card";
+import { MoneyValue } from "@/components/shared/money-value";
+import { DocumentTotalsBlock } from "@/components/documents/document-totals";
 import { useLocale } from "@/providers/locale-provider";
 
 export default function BusinessComponentsPage() {
@@ -30,12 +33,18 @@ export default function BusinessComponentsPage() {
       />
 
       <Section title={t("businessComponents.entityHeader")}>
-        <EntityHeader
-          icon={UserRound}
-          title="Sample Customer Ltd."
-          subtitle={t("businessComponents.sampleEntitySubtitle")}
+        <RecordHighlightsHeader
+          identity={
+            <span className="inline-flex min-w-0 items-center gap-2">
+              <UserRound className="size-4 text-muted-foreground" aria-hidden />
+              <span className="text-ui-title font-semibold">Sample Customer Ltd.</span>
+              <span className="text-caption text-muted-foreground">
+                {t("businessComponents.sampleEntitySubtitle")}
+              </span>
+            </span>
+          }
           status={<StatusBadge label="Active" tone="success" />}
-          actions={
+          primaryActions={
             <QuickActions
               actions={[
                 { label: t("businessComponents.actionPrint"), icon: Printer },
@@ -58,9 +67,9 @@ export default function BusinessComponentsPage() {
 
       <Section title={t("businessComponents.moneyBadge")}>
         <div className="flex flex-wrap items-center gap-4">
-          <MoneyBadge amount={12500.5} currency="USD" tone="positive" />
-          <MoneyBadge amount={-340} currency="USD" tone="negative" />
-          <MoneyBadge amount={0} currency="USD" tone="neutral" />
+          <MoneyValue value={12500.5} currency="USD" />
+          <MoneyValue value={-340} currency="USD" />
+          <MoneyValue value={0} currency="USD" />
           <CurrencyDisplay amount={98765.4} currency="SAR" locale="en-US" />
         </div>
       </Section>
@@ -113,38 +122,30 @@ export default function BusinessComponentsPage() {
       </Section>
 
       <Section title={t("businessComponents.quickStatsCard")}>
-        <QuickStatsCard
-          stats={[
-            { label: "Orders", value: 128, icon: ShoppingBag },
-            { label: "Shipments", value: 42, icon: Truck },
-            { label: "Countries", value: 6, icon: Globe },
-          ]}
-        />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <KpiCard size="compact" label="Orders" value={128} icon={ShoppingBag} />
+          <KpiCard size="compact" label="Shipments" value={42} icon={Truck} tone="info" />
+          <KpiCard size="compact" label="Countries" value={6} icon={Globe} tone="muted" />
+        </div>
       </Section>
 
       <Section title={t("businessComponents.infoSection")}>
-        <InfoSection
-          items={[
-            { label: "Tax Number", value: "310123456700003" },
-            { label: "Payment Terms", value: "Net 30" },
-            { label: "Account Manager", value: "Sara Al-Amin" },
-            { label: "Since", value: "2024" },
-          ]}
-        />
+        <DetailFieldGrid columns={4}>
+          <DetailField label="Tax Number" value={<span className="num">310123456700003</span>} />
+          <DetailField label="Payment Terms" value="Net 30" />
+          <DetailField label="Account Manager" value="Sara Al-Amin" />
+          <DetailField label="Since" value={<span className="num">2024</span>} />
+        </DetailFieldGrid>
       </Section>
 
       <Section title={t("businessComponents.summaryCard")}>
-        <SummaryCard
-          title="Order Summary"
-          rows={[
-            { label: "Subtotal", value: <CurrencyDisplay amount={4200} currency="USD" /> },
-            { label: "Tax", value: <CurrencyDisplay amount={630} currency="USD" /> },
-            {
-              label: "Total",
-              value: <CurrencyDisplay amount={4830} currency="USD" />,
-              emphasis: true,
-            },
+        <DocumentTotalsBlock
+          currency="USD"
+          lines={[
+            { key: "subtotal", label: "Subtotal", value: 4200 },
+            { key: "tax", label: "Tax", value: 630 },
           ]}
+          total={{ key: "total", label: "Total", value: 4830 }}
         />
       </Section>
 

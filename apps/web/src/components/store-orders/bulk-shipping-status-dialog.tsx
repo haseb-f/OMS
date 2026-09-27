@@ -2,14 +2,8 @@
 
 import { useEffect, useId, useState } from "react";
 import { Truck } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { EnterpriseButton } from "@/components/ui/button";
+import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -69,36 +63,15 @@ export function BulkShippingStatusDialog({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Truck className="size-4" />
-              {t("storeOrders.bulkShipping.dialogTitle")}
-            </DialogTitle>
-          </DialogHeader>
-
-          <p className="text-caption text-muted-foreground">
-            {t("storeOrders.bulkShipping.selectedCount", { count: selectedCount })}
-          </p>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor={statusFieldId}>{t("storeOrders.bulkShipping.newStatusLabel")}</Label>
-            <Select value={shippingStatusId} onValueChange={setShippingStatusId}>
-              <SelectTrigger id={statusFieldId} className="w-full">
-                <SelectValue placeholder={t("storeOrders.bulkShipping.newStatusPlaceholder")} />
-              </SelectTrigger>
-              <SelectContent>
-                {statuses.map((status) => (
-                  <SelectItem key={status.id} value={status.id}>
-                    {status.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <DialogFooter>
+      <EnterpriseModal
+        open={open}
+        onOpenChange={handleOpenChange}
+        size="sm"
+        icon={Truck}
+        bodyClassName="flex flex-col gap-3"
+        title={t("storeOrders.bulkShipping.dialogTitle")}
+        footer={
+          <>
             <EnterpriseButton
               type="button"
               variant="outline"
@@ -113,9 +86,29 @@ export function BulkShippingStatusDialog({
             >
               {t("storeOrders.bulkShipping.submit")}
             </EnterpriseButton>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </>
+        }
+      >
+        <p className="text-caption text-muted-foreground">
+          {t("storeOrders.bulkShipping.selectedCount", { count: selectedCount })}
+        </p>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={statusFieldId}>{t("storeOrders.bulkShipping.newStatusLabel")}</Label>
+          <Select value={shippingStatusId} onValueChange={setShippingStatusId}>
+            <SelectTrigger id={statusFieldId} className="w-full">
+              <SelectValue placeholder={t("storeOrders.bulkShipping.newStatusPlaceholder")} />
+            </SelectTrigger>
+            <SelectContent>
+              {statuses.map((status) => (
+                <SelectItem key={status.id} value={status.id}>
+                  {status.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </EnterpriseModal>
 
       <ConfirmationDialog
         open={pendingConfirm}

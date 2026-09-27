@@ -160,7 +160,7 @@ export function DetailSummaryBar({
   return (
     <div
       className={cn(
-        "grid grid-cols-2 gap-x-3 gap-y-2 rounded-md border border-border bg-card p-3 shadow-[0_1px_0_0_color-mix(in_oklab,var(--border)_80%,transparent)] ring-1 ring-border/60 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6",
+        "grid grid-cols-2 gap-x-3 gap-y-2 rounded-md border border-border bg-card p-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6",
         className,
       )}
     >
@@ -209,6 +209,7 @@ export function DetailFieldGrid({
 export function RecordHighlightsHeader({
   identity,
   status,
+  statusStrip,
   metrics,
   primaryActions,
   moreActions,
@@ -216,6 +217,8 @@ export function RecordHighlightsHeader({
 }: {
   identity: ReactNode;
   status?: ReactNode;
+  /** Labeled status facts (`StatusStrip`) — one row under the identity. */
+  statusStrip?: ReactNode;
   metrics?: ReactNode;
   primaryActions?: ReactNode;
   moreActions?: ReactNode;
@@ -224,13 +227,16 @@ export function RecordHighlightsHeader({
   return (
     <div
       className={cn(
-        "lg:sticky lg:top-0 lg:z-20 flex flex-col gap-2 rounded-md border border-border bg-card px-3 py-2 shadow-[0_1px_0_0_color-mix(in_oklab,var(--border)_80%,transparent)]",
+        "lg:sticky lg:top-(--shell-topbar-height) lg:z-20 flex flex-col gap-2 rounded-md border border-border bg-card px-3 py-2",
         className,
       )}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          {identity}
+          {/* The record identity is the page's level-1 heading. */}
+          <div role="heading" aria-level={1} className="min-w-0">
+            {identity}
+          </div>
           {status}
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-1.5">
@@ -238,6 +244,7 @@ export function RecordHighlightsHeader({
           {moreActions}
         </div>
       </div>
+      {statusStrip}
       {metrics ? (
         <div className="grid grid-cols-2 gap-x-3 gap-y-1 border-t border-border/70 pt-2 sm:grid-cols-3 lg:grid-cols-5">
           {metrics}
@@ -265,7 +272,7 @@ export function DetailSplitLayout({
       )}
     >
       <div className="flex min-w-0 flex-col gap-2">{main}</div>
-      <aside className="flex min-w-0 flex-col gap-2 lg:sticky lg:top-[4.75rem] lg:self-start">
+      <aside className="flex min-w-0 flex-col gap-2 lg:sticky lg:top-[calc(var(--shell-topbar-height)+0.75rem)] lg:self-start">
         {sidebar}
       </aside>
     </div>
@@ -321,6 +328,71 @@ export function DetailFieldRow({
       >
         {value}
       </div>
+    </div>
+  );
+}
+
+export interface StatusStripItem {
+  key: string;
+  /** Names the fact ("Finance verification", "Shipping") — never left to the badge color. */
+  label: string;
+  status: ReactNode;
+  caption?: ReactNode;
+}
+
+/**
+ * Labeled status facts for a record header: each item reads "label: badge",
+ * and groups (e.g. Payment vs Fulfillment) are visually separated so
+ * independent lifecycles are never read as one. Wraps on narrow screens.
+ */
+export function StatusStrip({
+  label,
+  groups,
+  className,
+}: {
+  /** Accessible name for the whole strip. */
+  label: string;
+  groups: { key: string; label?: string; items: StatusStripItem[] }[];
+  className?: string;
+}) {
+  const visible = groups.filter((group) => group.items.length > 0);
+  if (visible.length === 0) return null;
+  return (
+    <div
+      role="group"
+      aria-label={label}
+      className={cn(
+        "flex flex-col gap-2 border-t border-border/70 pt-2 sm:flex-row sm:flex-wrap sm:items-start sm:gap-x-4",
+        className,
+      )}
+    >
+      {visible.map((group, index) => (
+        <section
+          key={group.key}
+          aria-label={group.label}
+          className={cn(
+            "flex min-w-0 flex-col gap-1",
+            index > 0 && "border-t border-border/60 pt-2 sm:border-t-0 sm:border-s sm:ps-4 sm:pt-0",
+          )}
+        >
+          {group.label ? <h3 className="text-micro text-muted-foreground">{group.label}</h3> : null}
+          <dl className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            {group.items.map((item) => (
+              <div key={item.key} className="flex min-w-0 items-center gap-1.5">
+                <dt className="shrink-0 text-caption text-muted-foreground">{item.label}:</dt>
+                <dd className="flex min-w-0 items-center gap-1.5">
+                  {item.status}
+                  {item.caption ? (
+                    <span className="truncate text-caption text-muted-foreground">
+                      {item.caption}
+                    </span>
+                  ) : null}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      ))}
     </div>
   );
 }

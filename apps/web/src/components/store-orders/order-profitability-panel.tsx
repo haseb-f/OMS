@@ -12,6 +12,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  tableNumericCellClass,
 } from "@/components/ui/table";
 import {
   storeOrdersService,
@@ -20,17 +21,22 @@ import {
 } from "@/services/store-orders-service";
 import { useLocale } from "@/providers/locale-provider";
 import { ApiError } from "@/services/api-client";
-import { toast } from "@/lib/toast";
+import { apiErrorMessage, toast } from "@/lib/toast";
+import { formatAmount } from "@/lib/money";
 import type { MessageKey } from "@/i18n/translate";
 
-function formatMoney(value: number | null) {
-  if (value === null) return "—";
-  return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/** Shared Latin-digit formatter (lib/money); "—" when the figure is unknown. */
+function amountText(value: number | null) {
+  return value === null ? "—" : formatAmount(value);
 }
 
-function formatPercent(value: number | null) {
-  if (value === null) return "—";
-  return `${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+/** A summary-row figure in a `num` run; a bare "—" (row hidden) when unknown. */
+function amountValue(value: number | null) {
+  return value === null ? "—" : <span className="num">{formatAmount(value)}</span>;
+}
+
+function percentValue(value: number | null) {
+  return value === null ? "—" : <span className="num">{`${formatAmount(value)}%`}</span>;
 }
 
 const COST_STATE_TONE: Record<CostState, "success" | "warning" | "neutral"> = {
@@ -75,7 +81,7 @@ export function OrderProfitabilityPanel({ storeOrderId }: { storeOrderId: string
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        const message = err instanceof ApiError ? err.message : "Failed to load Order Economics.";
+        const message = apiErrorMessage(err, "errors.loadFailed");
         setError(message);
         if (!(err instanceof ApiError && err.code === "PERMISSION_ERROR")) {
           toast.error(message);
@@ -113,24 +119,24 @@ export function OrderProfitabilityPanel({ storeOrderId }: { storeOrderId: string
       <DetailGroup title={t("storeOrders.profitability.grossProfit")}>
         <DetailFieldRow
           label={t("storeOrders.profitability.netRevenue")}
-          value={formatMoney(economics.netRevenue)}
+          value={amountValue(economics.netRevenue)}
         />
         <DetailFieldRow
           label={t("storeOrders.profitability.cogs")}
           value={
             <span className="inline-flex items-center gap-1.5">
-              {formatMoney(economics.cogs)}
+              {amountValue(economics.cogs)}
               <CostStateBadge state={economics.cogsState} />
             </span>
           }
         />
         <DetailFieldRow
           label={t("storeOrders.profitability.grossProductProfit")}
-          value={formatMoney(economics.grossProductProfit)}
+          value={amountValue(economics.grossProductProfit)}
         />
         <DetailFieldRow
           label={t("storeOrders.profitability.grossMargin")}
-          value={formatPercent(economics.grossMarginPercent)}
+          value={percentValue(economics.grossMarginPercent)}
         />
       </DetailGroup>
 
@@ -139,7 +145,7 @@ export function OrderProfitabilityPanel({ storeOrderId }: { storeOrderId: string
           label={t("storeOrders.profitability.shipping")}
           value={
             <span className="inline-flex items-center gap-1.5">
-              {formatMoney(economics.shippingCost)}
+              {amountValue(economics.shippingCost)}
               <CostStateBadge state={economics.shippingState} />
             </span>
           }
@@ -148,7 +154,7 @@ export function OrderProfitabilityPanel({ storeOrderId }: { storeOrderId: string
           label={t("storeOrders.profitability.fulfillmentCost")}
           value={
             <span className="inline-flex items-center gap-1.5">
-              {formatMoney(economics.fulfillmentCost)}
+              {amountValue(economics.fulfillmentCost)}
               <CostStateBadge state={economics.fulfillmentCostState} />
               {economics.fulfillmentCostRuleName ? (
                 <span className="text-caption text-muted-foreground">
@@ -162,7 +168,7 @@ export function OrderProfitabilityPanel({ storeOrderId }: { storeOrderId: string
           label={t("storeOrders.profitability.paymentFee")}
           value={
             <span className="inline-flex items-center gap-1.5">
-              {formatMoney(economics.paymentFeeCost)}
+              {amountValue(economics.paymentFeeCost)}
               <CostStateBadge state={economics.paymentFeeState} />
             </span>
           }
@@ -172,11 +178,11 @@ export function OrderProfitabilityPanel({ storeOrderId }: { storeOrderId: string
       <DetailGroup title={t("storeOrders.profitability.contributionProfit")}>
         <DetailFieldRow
           label={t("storeOrders.profitability.contributionProfit")}
-          value={formatMoney(economics.contributionProfit)}
+          value={amountValue(economics.contributionProfit)}
         />
         <DetailFieldRow
           label={t("storeOrders.profitability.contributionMargin")}
-          value={formatPercent(economics.contributionMarginPercent)}
+          value={percentValue(economics.contributionMarginPercent)}
         />
         <DetailFieldRow
           label={t("storeOrders.profitability.costState")}
@@ -191,7 +197,9 @@ export function OrderProfitabilityPanel({ storeOrderId }: { storeOrderId: string
               <TableRow>
                 <TableHead>{t("storeOrders.profitability.attempt")}</TableHead>
                 <TableHead>{t("shipping.fields.status")}</TableHead>
-                <TableHead>{t("storeOrders.profitability.cost")}</TableHead>
+                <TableHead className={tableNumericCellClass}>
+                  {t("storeOrders.profitability.cost")}
+                </TableHead>
                 <TableHead>{t("costExplorer.order.costSource")}</TableHead>
               </TableRow>
             </TableHeader>
@@ -200,7 +208,7 @@ export function OrderProfitabilityPanel({ storeOrderId }: { storeOrderId: string
                 <TableRow key={attempt.shipmentId}>
                   <TableCell>#{attempt.attemptNumber}</TableCell>
                   <TableCell>{attempt.status ?? "—"}</TableCell>
-                  <TableCell>{formatMoney(attempt.totalCost)}</TableCell>
+                  <TableCell numeric>{amountText(attempt.totalCost)}</TableCell>
                   <TableCell>
                     {t(`costExplorer.order.costSourceValues.${attempt.costSource}` as MessageKey)}
                   </TableCell>
@@ -216,16 +224,20 @@ export function OrderProfitabilityPanel({ storeOrderId }: { storeOrderId: string
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{t("storeOrders.profitability.amount")}</TableHead>
-                <TableHead>{t("storeOrders.profitability.fee")}</TableHead>
+                <TableHead className={tableNumericCellClass}>
+                  {t("storeOrders.profitability.amount")}
+                </TableHead>
+                <TableHead className={tableNumericCellClass}>
+                  {t("storeOrders.profitability.fee")}
+                </TableHead>
                 <TableHead>{t("storeOrders.profitability.feeSource")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {economics.payments.map((payment) => (
                 <TableRow key={payment.paymentId}>
-                  <TableCell>{formatMoney(payment.amount)}</TableCell>
-                  <TableCell>{formatMoney(payment.feeAmount)}</TableCell>
+                  <TableCell numeric>{amountText(payment.amount)}</TableCell>
+                  <TableCell numeric>{amountText(payment.feeAmount)}</TableCell>
                   <TableCell>
                     {t(
                       `storeOrders.profitability.feeSourceValues.${payment.feeSource}` as MessageKey,
@@ -243,19 +255,27 @@ export function OrderProfitabilityPanel({ storeOrderId }: { storeOrderId: string
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{t("storeOrders.profitability.quantity")}</TableHead>
-                <TableHead>{t("storeOrders.profitability.netRevenue")}</TableHead>
-                <TableHead>{t("storeOrders.profitability.unitCost")}</TableHead>
-                <TableHead>{t("storeOrders.profitability.cogs")}</TableHead>
+                <TableHead className={tableNumericCellClass}>
+                  {t("storeOrders.profitability.quantity")}
+                </TableHead>
+                <TableHead className={tableNumericCellClass}>
+                  {t("storeOrders.profitability.netRevenue")}
+                </TableHead>
+                <TableHead className={tableNumericCellClass}>
+                  {t("storeOrders.profitability.unitCost")}
+                </TableHead>
+                <TableHead className={tableNumericCellClass}>
+                  {t("storeOrders.profitability.cogs")}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {economics.items.map((item, index) => (
                 <TableRow key={`${item.productId}-${index}`}>
-                  <TableCell>{item.quantity}</TableCell>
-                  <TableCell>{formatMoney(item.netRevenue)}</TableCell>
-                  <TableCell>{formatMoney(item.historicalUnitCost)}</TableCell>
-                  <TableCell>{formatMoney(item.cogs)}</TableCell>
+                  <TableCell numeric>{item.quantity}</TableCell>
+                  <TableCell numeric>{amountText(item.netRevenue)}</TableCell>
+                  <TableCell numeric>{amountText(item.historicalUnitCost)}</TableCell>
+                  <TableCell numeric>{amountText(item.cogs)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

@@ -9,8 +9,7 @@ import { Label } from "@/components/ui/label";
 import { partnersService } from "@/services/partners-service";
 import type { StoreOrderPartnerRef } from "@/services/store-orders-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 
 export function StoreOrderEditCustomerDialog({
   customer,
@@ -53,7 +52,7 @@ export function StoreOrderEditCustomerDialog({
       onOpenChange(false);
       onSaved();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSaving(false);
     }

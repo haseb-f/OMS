@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
  * per product — never a stacked second row for warehouse or description.
  */
 export const documentLineHeadClass =
-  "sticky top-0 z-10 h-8 bg-muted/40 px-2 text-caption font-medium whitespace-nowrap text-muted-foreground";
+  "sticky top-0 z-(--z-sticky) h-(--table-head-height) border-b border-border-strong bg-table-header px-2 text-table-head whitespace-nowrap text-table-header-foreground";
 export const documentLineCellClass = "overflow-hidden px-2 py-1 align-middle whitespace-nowrap";
 /**
  * Numeric columns share ONE end edge in header, inputs and read-only values:
@@ -42,6 +42,22 @@ export const documentLineNumericCellClass = cn(
   // off the shared numeric edge — line inputs are typed/arrow-keyed instead.
   "[&_input]:[appearance:textfield] [&_input::-webkit-inner-spin-button]:appearance-none [&_input::-webkit-outer-spin-button]:appearance-none",
 );
+
+/** A line-table column width: a width token, optionally scaled (e.g. amount columns that must fit 10+ digits). */
+export type LineColumnWidth = string | [token: string, scale: number];
+
+/**
+ * Sum of the given width tokens (× scale) in px, read from the root style.
+ * Line editors compare it with their container width to switch from table
+ * rows to stacked cards before any column would clip — no sideways scroll.
+ */
+export function lineColumnsWidth(columns: LineColumnWidth[]): number {
+  const style = getComputedStyle(document.documentElement);
+  return columns.reduce<number>((sum, column) => {
+    const [token, scale] = typeof column === "string" ? [column, 1] : column;
+    return sum + (Number.parseFloat(style.getPropertyValue(token)) || 0) * scale;
+  }, 0);
+}
 
 export function DocumentLineTable({
   children,

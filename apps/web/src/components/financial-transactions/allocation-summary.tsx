@@ -1,13 +1,14 @@
 "use client";
 
+import { KpiCard } from "@/components/shared/kpi-card";
+import { formatMoney } from "@/lib/money";
 import { useLocale } from "@/providers/locale-provider";
 
 /**
- * Financial Transactions & Matching Engine (TASK-043) — a small stat bar
- * for the Open Invoices side of the allocation section: how many invoices
- * are open and their combined remaining balance for this party. Distinct
- * from `PaymentSummary` (the transaction's own amount/allocated/remaining)
- * — this summarizes the *invoices*, not the receipt/payment itself.
+ * Financial Transactions & Matching Engine (TASK-043) — the Open Invoices
+ * side of the allocation section: how many invoices are open and their
+ * combined remaining balance for this party. Distinct from `PaymentSummary`
+ * (the transaction's own amount/allocated/remaining).
  */
 export function AllocationSummary({
   openInvoiceCount,
@@ -19,25 +20,19 @@ export function AllocationSummary({
   const { t } = useLocale();
 
   return (
-    <div className="flex flex-wrap items-center gap-4 rounded-md border border-border bg-muted/30 px-4 py-3">
-      <div className="flex flex-col">
-        <span className="text-caption text-muted-foreground">
-          {t("financialTransactions.allocationSummary.openInvoices")}
-        </span>
-        <span className="text-body font-semibold">{openInvoiceCount}</span>
-      </div>
-      <div className="h-8 w-px bg-border" />
-      <div className="flex flex-col">
-        <span className="text-caption text-muted-foreground">
-          {t("financialTransactions.allocationSummary.totalRemaining")}
-        </span>
-        <span dir="ltr" className="text-body font-semibold">
-          {totalRemaining.toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}
-        </span>
-      </div>
+    <div className="grid grid-cols-2 gap-2 sm:max-w-md">
+      <KpiCard
+        size="compact"
+        label={t("financialTransactions.allocationSummary.openInvoices")}
+        value={openInvoiceCount}
+        tone="muted"
+      />
+      <KpiCard
+        size="compact"
+        label={t("financialTransactions.allocationSummary.totalRemaining")}
+        value={formatMoney(totalRemaining)}
+        tone="muted"
+      />
     </div>
   );
 }

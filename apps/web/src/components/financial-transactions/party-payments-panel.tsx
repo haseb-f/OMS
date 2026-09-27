@@ -20,15 +20,12 @@ import {
   TRANSACTION_STATUS_TONE,
 } from "@/config/financial-transactions/status";
 import { formatDate } from "@/lib/date";
+import { formatMoney } from "@/lib/money";
 import { useLocale } from "@/providers/locale-provider";
 import type {
   FinancialTransactionRow,
   OpenInvoiceRow,
 } from "@/services/financial-transactions-service";
-
-function formatMoney(value: number) {
-  return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 
 /**
  * Customer Profile "Payments" tab and Supplier Profile "Payments" tab

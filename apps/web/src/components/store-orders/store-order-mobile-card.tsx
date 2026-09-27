@@ -61,7 +61,7 @@ export function StoreOrderMobileCard({
         >
           <ChevronRight
             className={cn(
-              "size-3.5 transition-transform duration-[170ms] ease-(--ease-standard) motion-reduce:transition-none",
+              "size-3.5 transition-transform duration-(--duration-base) ease-(--ease-standard) motion-reduce:transition-none",
               expanded ? "rotate-90" : "rtl:rotate-180",
             )}
           />

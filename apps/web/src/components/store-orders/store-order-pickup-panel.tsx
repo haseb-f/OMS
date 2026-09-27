@@ -6,9 +6,8 @@ import { StatusBadge } from "@/components/business/status-badge";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EnterpriseButton } from "@/components/ui/button";
 import { storeOrdersService, type PickupTransitionCode } from "@/services/store-orders-service";
-import { ApiError } from "@/services/api-client";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
+import { toast, reportApiError } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
 import type { StatusTone } from "@/components/business/status-badge";
 
@@ -81,9 +80,7 @@ export function StoreOrderPickupPanel({
       setConfirming(null);
       onChanged();
     } catch (error) {
-      toast.error(
-        error instanceof ApiError ? error.message : t("paymentDeclaration.pickup.failed"),
-      );
+      reportApiError(error, "paymentDeclaration.pickup.failed");
     } finally {
       setPending(null);
     }

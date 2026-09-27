@@ -8,8 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { storeOrdersService, type StoreOrderRow } from "@/services/store-orders-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import { formatMoney } from "@/lib/money";
 
 function lineAmount(item: StoreOrderRow["items"][number]): number {
@@ -60,7 +59,7 @@ export function StoreOrderLineAmountsDialog({
       })
       .catch((error) => {
         if (cancelled) return;
-        toast.error(error instanceof ApiError ? error.message : t("common.loadFailed"));
+        reportApiError(error, "common.loadFailed");
         onOpenChange(false);
       });
     return () => {
@@ -99,7 +98,7 @@ export function StoreOrderLineAmountsDialog({
       onOpenChange(false);
       onSaved(saved);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     } finally {
       setIsSaving(false);
     }

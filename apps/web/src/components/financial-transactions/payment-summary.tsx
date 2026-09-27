@@ -1,64 +1,64 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { CreateOperationSummary } from "@/components/shared/create-operation";
+import { StatusBadge } from "@/components/business/status-badge";
+import {
+  DocumentTotalsBlock,
+  DocumentTotalsSkeleton,
+} from "@/components/documents/document-totals";
+import { paymentAllocationTotals } from "@/components/documents/document-totals-math";
 import { useLocale } from "@/providers/locale-provider";
 
 /**
  * Financial Transactions & Matching Engine (TASK-043) — the transaction's
- * own Amount / Allocated / Unallocated Remaining, reused as-is for both
- * Receipts and Payments. Compact summary grid generated from editor state.
+ * own Amount / Allocated / Unallocated, reused as-is for Receipts, Payments
+ * and Refunds, in the shared document totals block. Over-allocation is named
+ * in words next to the figure, never shown by color alone.
  */
 export function PaymentSummary({
   amount,
-  allocatedTotal,
+  allocations,
+  currency,
   isLoading,
-  extraRows,
 }: {
   amount: number;
-  allocatedTotal: number;
+  allocations: readonly { allocatedAmount: number }[];
+  currency?: string | null;
   isLoading?: boolean;
-  extraRows?: { label: string; value: ReactNode }[];
 }) {
   const { t } = useLocale();
 
-  if (isLoading) {
-    return <p className="text-caption text-muted-foreground">{t("common.loading")}</p>;
-  }
+  if (isLoading) return <DocumentTotalsSkeleton />;
 
-  const isOverpaid = allocatedTotal > amount;
-  const remaining = Math.max(amount - allocatedTotal, 0);
-  const formatAmount = (value: number) => (
-    <span dir="ltr">
-      {value.toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}
-    </span>
-  );
+  const totals = paymentAllocationTotals(amount, allocations);
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <CreateOperationSummary
-        title={t("common.summary")}
-        rows={[
-          ...(extraRows ?? []),
-          { label: t("financialTransactions.summary.amount"), value: formatAmount(amount) },
+    <div className="flex flex-col items-end gap-1.5">
+      <DocumentTotalsBlock
+        className="w-full"
+        label={t("docUi.totals.title")}
+        currency={currency}
+        lines={[
+          { key: "amount", label: t("financialTransactions.summary.amount"), value: totals.amount },
           {
+            key: "allocated",
             label: t("financialTransactions.summary.allocated"),
-            value: formatAmount(allocatedTotal),
-          },
-          {
-            label: t("financialTransactions.summary.unallocated"),
-            value: formatAmount(remaining),
+            value: totals.allocatedTotal,
           },
         ]}
+        total={{
+          key: "unallocated",
+          label: t("financialTransactions.summary.unallocated"),
+          value: totals.unallocated,
+          flag: totals.isOverAllocated ? (
+            <StatusBadge label={t("docUi.totals.overAllocated")} tone="destructive" />
+          ) : undefined,
+        }}
       />
-      {isOverpaid && (
-        <p className="text-caption font-medium text-destructive">
+      {totals.isOverAllocated ? (
+        <p role="alert" className="text-caption font-medium text-destructive">
           {t("financialTransactions.summary.overpaid")}
         </p>
-      )}
+      ) : null}
     </div>
   );
 }

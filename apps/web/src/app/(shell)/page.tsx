@@ -1,17 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Bell,
   Boxes,
+  CalendarClock,
+  ClipboardCheck,
   Clock,
-  Globe,
-  Layers,
-  Pin,
-  Zap,
   Contact,
+  Landmark,
   ShoppingBag,
   TrendingUp,
+  type LucideIcon,
 } from "lucide-react";
 import {
   EnterpriseCard,
@@ -19,213 +20,376 @@ import {
   EnterpriseCardHeader,
   EnterpriseCardTitle,
 } from "@/components/ui/card";
+import { EnterpriseButton } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EmptyState } from "@/components/shared/empty-state";
-import { KpiCard } from "@/components/shared/kpi-card";
-import { EnterpriseButton } from "@/components/ui/button";
+import { ErrorState } from "@/components/shared/error-state";
+import { KpiCard, type KpiTone } from "@/components/shared/kpi-card";
 import { navigationConfig } from "@/navigation/navigation.config";
 import { usePinnedItems } from "@/hooks/use-pinned-items";
 import { useRecentPages } from "@/hooks/use-recent-pages";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { locales } from "@/i18n/locales";
+import type { MessageKey } from "@/i18n/translate";
 import {
   salesPerformanceService,
   type SalesPeriod,
   type SalesPerformanceDashboard,
 } from "@/services/sales-performance-service";
+import { paymentsReviewService } from "@/services/payments-review-service";
+import { bankTransactionsService } from "@/services/bank-transactions-service";
 
-const moduleCount = navigationConfig.filter((item) => !item.parent).length;
+const PERIOD_LABEL_KEY: Record<SalesPeriod, MessageKey> = {
+  today: "crm.leads.dashboard.today",
+  week: "crm.leads.dashboard.week",
+  month: "crm.leads.dashboard.month",
+};
 
-export default function DashboardPage() {
-  const { hasPermission } = useUserContext();
-  const showSales = hasPermission("crm.leads.view") || hasPermission("store-orders.view");
+type LoadState<T> = { status: "loading" } | { status: "error" } | { status: "ready"; data: T };
 
-  if (showSales) {
-    return <SalesDashboard />;
-  }
-
-  return <WorkspaceHome />;
-}
-
-function SalesDashboard() {
-  const { t } = useLocale();
-  const [period, setPeriod] = useState<SalesPeriod>("month");
-  const [data, setData] = useState<SalesPerformanceDashboard | null>(null);
-
+/** One async figure set with an explicit error state (never a silent "—") and retry. */
+function useLoad<T>(loader: () => Promise<T>) {
+  const [state, setState] = useState<LoadState<T>>({ status: "loading" });
   const load = useCallback(async () => {
+    setState({ status: "loading" });
     try {
-      setData(await salesPerformanceService.dashboard(period));
+      setState({ status: "ready", data: await loader() });
     } catch {
-      setData(null);
+      setState({ status: "error" });
     }
-  }, [period]);
-
+  }, [loader]);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+  return { state, retry: load };
+}
 
-  const kpis = data?.kpis;
-  const rank = data?.ranking.self;
+/**
+ * Role-relevant home: every tile is a real figure from an existing endpoint
+ * the user can access, and links to the list behind it (with the same filter
+ * when that list supports one). Users with nothing to show get their
+ * shortcuts instead of decorative counts or permanently empty cards.
+ */
+export default function DashboardPage() {
+  const { t } = useLocale();
+  const { hasPermission } = useUserContext();
+  const showSales = hasPermission("crm.leads.view") || hasPermission("store-orders.view");
+  const showPaymentReview = hasPermission("sales.receipts.view");
+  const showBank = hasPermission("accounting.bank-transactions.view");
+  const [period, setPeriod] = useState<SalesPeriod>("month");
 
   return (
-    <PageWorkspace title={t("dashboard.welcomeTitle")} description={t("dashboard.welcomeSubtitle")}>
-      <div className="flex flex-wrap gap-2">
-        {(["today", "week", "month"] as const).map((item) => (
-          <EnterpriseButton
-            key={item}
-            size="sm"
-            variant={period === item ? "default" : "outline"}
-            onClick={() => setPeriod(item)}
+    <PageWorkspace
+      title={t("dashboard.welcomeTitle")}
+      description={t("dashboard.welcomeSubtitle")}
+      actions={
+        showSales ? (
+          <ToggleGroup
+            type="single"
+            value={period}
+            aria-label={t("docUi.dashboard.period")}
+            onValueChange={(value) => {
+              if (value) setPeriod(value as SalesPeriod);
+            }}
           >
-            {t(
-              item === "today"
-                ? "crm.leads.dashboard.today"
-                : item === "week"
-                  ? "crm.leads.dashboard.week"
-                  : "crm.leads.dashboard.month",
-            )}
-          </EnterpriseButton>
-        ))}
+            {(["today", "week", "month"] as const).map((item) => (
+              <ToggleGroupItem key={item} value={item} size="default">
+                {t(PERIOD_LABEL_KEY[item])}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        ) : undefined
+      }
+    >
+      <div className="flex flex-col gap-5">
+        {/* Pending work first: it is what the user can act on right now. */}
+        {showPaymentReview || showBank ? (
+          <PendingWorkSection showPaymentReview={showPaymentReview} showBank={showBank} />
+        ) : null}
+        {showSales ? <SalesSection period={period} /> : null}
+        {!showSales && !showPaymentReview && !showBank ? <ShortcutsEmptyState /> : null}
       </div>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard
-          icon={Contact}
-          label={t("crm.leads.dashboard.newLeads")}
-          value={kpis?.newLeads ?? "—"}
-          tone="info"
-        />
-        <KpiCard
-          icon={Clock}
-          label={t("crm.leads.dashboard.inProgress")}
-          value={kpis?.inProgress ?? "—"}
-          tone="primary"
-        />
-        <KpiCard
-          icon={Bell}
-          label={t("crm.leads.dashboard.dueToday")}
-          value={kpis?.dueToday ?? "—"}
-          tone="warning"
-        />
-        <KpiCard
-          icon={Bell}
-          label={t("crm.leads.dashboard.overdue")}
-          value={kpis?.overdue ?? "—"}
-          tone="destructive"
-        />
-        <KpiCard
-          icon={TrendingUp}
-          label={t("crm.leads.dashboard.converted")}
-          value={kpis?.converted ?? "—"}
-          tone="success"
-        />
-        <KpiCard
-          icon={ShoppingBag}
-          label={t("crm.leads.dashboard.orders")}
-          value={kpis?.orders ?? "—"}
-          tone="primary"
-        />
-        <KpiCard
-          icon={Boxes}
-          label={t("crm.leads.dashboard.delivered")}
-          value={kpis?.delivered ?? "—"}
-          tone="success"
-        />
-        <KpiCard
-          icon={TrendingUp}
-          label={t("crm.leads.dashboard.conversionRate")}
-          value={kpis ? `${kpis.conversionRate}%` : "—"}
-          tone="info"
-        />
-      </div>
-      {rank ? (
-        <EnterpriseCard>
-          <EnterpriseCardHeader>
-            <EnterpriseCardTitle>{t("crm.leads.dashboard.ranking")}</EnterpriseCardTitle>
-          </EnterpriseCardHeader>
-          <EnterpriseCardContent>
-            <p className="text-ui-title font-medium">
-              #{rank.rank} {t("crm.leads.dashboard.of")} {rank.of}
-            </p>
-            <p className="text-caption text-muted-foreground">
-              {rank.orders} {t("crm.leads.dashboard.orders")}
-            </p>
-            {data?.ranking.leaderboard.length ? (
-              <div className="mt-3 flex flex-col gap-1">
-                {data.ranking.leaderboard.slice(0, 8).map((row) => (
-                  <p key={`${row.rank}-${row.userId}`} className="text-caption">
-                    #{row.rank} {row.displayName} — {row.orders}
-                  </p>
-                ))}
-              </div>
-            ) : null}
-          </EnterpriseCardContent>
-        </EnterpriseCard>
-      ) : null}
     </PageWorkspace>
   );
 }
 
-function WorkspaceHome() {
+function SectionHeading({ children }: { children: string }) {
+  return <h2 className="text-card-title">{children}</h2>;
+}
+
+function KpiSkeletonGrid({ count }: { count: number }) {
+  return (
+    <>
+      {Array.from({ length: count }, (_, index) => (
+        <KpiCard key={index} size="compact" label="" isLoading />
+      ))}
+    </>
+  );
+}
+
+const KPI_GRID = "grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 min-[1700px]:grid-cols-8";
+
+interface SalesTile {
+  key: keyof SalesPerformanceDashboard["kpis"];
+  labelKey: MessageKey;
+  icon: LucideIcon;
+  tone: KpiTone;
+  href?: string;
+  format?: (value: number) => string;
+}
+
+/** Only tiles whose list supports the same filter get a drill-down link. */
+const SALES_TILES: SalesTile[] = [
+  { key: "newLeads", labelKey: "crm.leads.dashboard.newLeads", icon: Contact, tone: "muted" },
+  { key: "inProgress", labelKey: "crm.leads.dashboard.inProgress", icon: Clock, tone: "muted" },
+  {
+    key: "dueToday",
+    labelKey: "crm.leads.dashboard.dueToday",
+    icon: CalendarClock,
+    tone: "warning",
+    href: "/crm/leads?followUp=today",
+  },
+  {
+    key: "overdue",
+    labelKey: "crm.leads.dashboard.overdue",
+    icon: Bell,
+    tone: "destructive",
+    href: "/crm/leads?followUp=overdue",
+  },
+  {
+    key: "converted",
+    labelKey: "crm.leads.dashboard.converted",
+    icon: TrendingUp,
+    tone: "muted",
+  },
+  { key: "orders", labelKey: "crm.leads.dashboard.orders", icon: ShoppingBag, tone: "muted" },
+  { key: "delivered", labelKey: "crm.leads.dashboard.delivered", icon: Boxes, tone: "muted" },
+  {
+    key: "conversionRate",
+    labelKey: "crm.leads.dashboard.conversionRate",
+    icon: TrendingUp,
+    tone: "muted",
+    format: (value) => `${value}%`,
+  },
+];
+
+function SalesSection({ period }: { period: SalesPeriod }) {
   const { t } = useLocale();
+  const loader = useMemo(() => () => salesPerformanceService.dashboard(period), [period]);
+  const { state, retry } = useLoad(loader);
+
+  return (
+    <section className="flex flex-col gap-2" aria-busy={state.status === "loading"}>
+      <SectionHeading>{t("docUi.dashboard.salesTitle")}</SectionHeading>
+      {state.status === "error" ? (
+        <ErrorState description={t("docUi.dashboard.loadFailed")} onRetry={() => void retry()} />
+      ) : (
+        <div className={KPI_GRID}>
+          {state.status === "loading" ? (
+            <KpiSkeletonGrid count={SALES_TILES.length} />
+          ) : (
+            SALES_TILES.map((tile) => {
+              const value = state.data.kpis[tile.key];
+              return (
+                <KpiCard
+                  key={tile.key}
+                  size="compact"
+                  icon={tile.icon}
+                  tone={tile.tone}
+                  label={t(tile.labelKey)}
+                  value={tile.format ? tile.format(value) : value}
+                  href={tile.href}
+                />
+              );
+            })
+          )}
+        </div>
+      )}
+      {state.status === "ready" ? <RankingPanel data={state.data} /> : null}
+    </section>
+  );
+}
+
+function RankingPanel({ data }: { data: SalesPerformanceDashboard }) {
+  const { t } = useLocale();
+  const self = data.ranking.self;
+  const leaderboard = data.ranking.leaderboard.slice(0, 8);
+
+  return (
+    <EnterpriseCard size="sm">
+      <EnterpriseCardHeader className="flex flex-row items-baseline justify-between gap-2">
+        <EnterpriseCardTitle>{t("crm.leads.dashboard.ranking")}</EnterpriseCardTitle>
+        <span className="text-caption text-muted-foreground">
+          <span className="num font-medium text-foreground">
+            {t("docUi.dashboard.rank", { rank: self.rank, of: self.of })}
+          </span>
+          {" · "}
+          <span className="num">{t("docUi.dashboard.ordersCount", { count: self.orders })}</span>
+        </span>
+      </EnterpriseCardHeader>
+      {leaderboard.length > 0 ? (
+        <EnterpriseCardContent>
+          <ol className="grid grid-cols-1 gap-x-8 lg:grid-flow-col lg:grid-cols-2 lg:grid-rows-4 [&>li]:border-b [&>li]:border-border">
+            {leaderboard.map((row) => (
+              <li
+                key={`${row.rank}-${row.userId}`}
+                className="flex items-center justify-between gap-3 py-1 text-table"
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="num w-6 shrink-0 text-muted-foreground">#{row.rank}</span>
+                  <span className="truncate">{row.displayName}</span>
+                </span>
+                <span className="num shrink-0 font-medium">{row.orders}</span>
+              </li>
+            ))}
+          </ol>
+        </EnterpriseCardContent>
+      ) : null}
+    </EnterpriseCard>
+  );
+}
+
+interface PendingFigures {
+  paymentReview: number | null;
+  bank: { unmatched: number; review: number } | null;
+}
+
+function PendingWorkSection({
+  showPaymentReview,
+  showBank,
+}: {
+  showPaymentReview: boolean;
+  showBank: boolean;
+}) {
+  const { t } = useLocale();
+  const loader = useMemo(
+    () => async (): Promise<PendingFigures> => {
+      const [pending, matched, bankCounts] = await Promise.all([
+        showPaymentReview
+          ? paymentsReviewService.list({ status: "PENDING", page: 1, pageSize: 1 })
+          : null,
+        showPaymentReview
+          ? paymentsReviewService.list({ status: "MATCHED", page: 1, pageSize: 1 })
+          : null,
+        showBank ? bankTransactionsService.statusCounts() : null,
+      ]);
+      return {
+        // The review queue's default view is exactly PENDING + MATCHED.
+        paymentReview: pending && matched ? pending.total + matched.total : null,
+        bank: bankCounts
+          ? {
+              unmatched: bankCounts.UNMATCHED ?? 0,
+              review:
+                (bankCounts.MANUAL_REVIEW ?? 0) +
+                (bankCounts.CONFLICT ?? 0) +
+                (bankCounts.POTENTIAL ?? 0),
+            }
+          : null,
+      };
+    },
+    [showPaymentReview, showBank],
+  );
+  const { state, retry } = useLoad(loader);
+  const tileCount = (showPaymentReview ? 1 : 0) + (showBank ? 2 : 0);
+
+  return (
+    <section className="flex flex-col gap-2" aria-busy={state.status === "loading"}>
+      <SectionHeading>{t("docUi.dashboard.pendingTitle")}</SectionHeading>
+      {state.status === "error" ? (
+        <ErrorState description={t("docUi.dashboard.loadFailed")} onRetry={() => void retry()} />
+      ) : (
+        <div className={KPI_GRID}>
+          {state.status === "loading" ? (
+            <KpiSkeletonGrid count={tileCount} />
+          ) : (
+            <>
+              {state.data.paymentReview !== null ? (
+                <KpiCard
+                  size="compact"
+                  icon={ClipboardCheck}
+                  tone={state.data.paymentReview > 0 ? "warning" : "muted"}
+                  label={t("docUi.dashboard.paymentReview")}
+                  description={t("docUi.dashboard.paymentReviewHint")}
+                  value={state.data.paymentReview}
+                  href="/finance/payment-review"
+                />
+              ) : null}
+              {state.data.bank ? (
+                <>
+                  <KpiCard
+                    size="compact"
+                    icon={Landmark}
+                    tone={state.data.bank.unmatched > 0 ? "warning" : "muted"}
+                    label={t("docUi.dashboard.bankUnmatched")}
+                    value={state.data.bank.unmatched}
+                    href="/finance/bank-transactions"
+                  />
+                  <KpiCard
+                    size="compact"
+                    icon={Landmark}
+                    tone={state.data.bank.review > 0 ? "warning" : "muted"}
+                    label={t("docUi.dashboard.bankReview")}
+                    value={state.data.bank.review}
+                    href="/finance/bank-transactions"
+                  />
+                </>
+              ) : null}
+            </>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** No figures apply to this role: a concise empty state with the user's own shortcuts. */
+function ShortcutsEmptyState() {
+  const { t } = useLocale();
+  const { hasPermission } = useUserContext();
   const { pinnedIds } = usePinnedItems();
   const recentIds = useRecentPages();
 
+  const shortcuts = useMemo(() => {
+    const byId = new Map(navigationConfig.map((item) => [item.id, item]));
+    const seen = new Set<string>();
+    return [...pinnedIds, ...recentIds]
+      .map((id) => byId.get(id))
+      .filter((item): item is NonNullable<typeof item> => {
+        if (!item?.route || item.route === "/" || seen.has(item.id)) return false;
+        seen.add(item.id);
+        return (item.permissions ?? []).every(hasPermission);
+      })
+      .slice(0, 8);
+  }, [pinnedIds, recentIds, hasPermission]);
+
   return (
-    <PageWorkspace title={t("dashboard.welcomeTitle")} description={t("dashboard.welcomeSubtitle")}>
-      <div aria-label={t("dashboard.kpiTitle")} className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard icon={Layers} label={t("nav.dashboard")} value={moduleCount} tone="primary" />
-        <KpiCard icon={Pin} label={t("sidebar.pinned")} value={pinnedIds.length} tone="info" />
-        <KpiCard icon={Clock} label={t("sidebar.recent")} value={recentIds.length} tone="muted" />
-        <KpiCard
-          icon={Globe}
-          label={t("topbar.changeLanguage")}
-          value={locales.length}
-          tone="info"
+    <EnterpriseCard size="sm">
+      <EnterpriseCardContent className="flex flex-col gap-3">
+        <EmptyState
+          title={t("docUi.dashboard.emptyTitle")}
+          description={t("docUi.dashboard.emptyDescription")}
         />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <EnterpriseCard className="lg:col-span-2">
-          <EnterpriseCardHeader>
-            <EnterpriseCardTitle>{t("dashboard.recentActivityTitle")}</EnterpriseCardTitle>
-          </EnterpriseCardHeader>
-          <EnterpriseCardContent>
-            <EmptyState
-              icon={Boxes}
-              title={t("dashboard.recentActivityEmptyTitle")}
-              description={t("dashboard.recentActivityEmptyDescription")}
-            />
-          </EnterpriseCardContent>
-        </EnterpriseCard>
-
-        <EnterpriseCard>
-          <EnterpriseCardHeader>
-            <EnterpriseCardTitle>{t("dashboard.quickActionsTitle")}</EnterpriseCardTitle>
-          </EnterpriseCardHeader>
-          <EnterpriseCardContent>
-            <EmptyState
-              icon={Zap}
-              title={t("topbar.quickActionsEmptyTitle")}
-              description={t("topbar.quickActionsEmptyDescription")}
-            />
-          </EnterpriseCardContent>
-        </EnterpriseCard>
-
-        <EnterpriseCard>
-          <EnterpriseCardHeader>
-            <EnterpriseCardTitle>{t("topbar.notifications")}</EnterpriseCardTitle>
-          </EnterpriseCardHeader>
-          <EnterpriseCardContent>
-            <EmptyState
-              icon={Bell}
-              title={t("topbar.notifications")}
-              description={t("dashboard.recentActivityEmptyDescription")}
-            />
-          </EnterpriseCardContent>
-        </EnterpriseCard>
-      </div>
-    </PageWorkspace>
+        <div className="flex flex-col gap-2">
+          <h2 className="text-caption font-medium text-muted-foreground">
+            {t("docUi.dashboard.shortcuts")}
+          </h2>
+          {shortcuts.length > 0 ? (
+            <ul className="flex flex-wrap gap-2">
+              {shortcuts.map((item) => (
+                <li key={item.id}>
+                  <EnterpriseButton asChild variant="outline" size="sm">
+                    <Link href={item.route!}>{t(item.titleKey)}</Link>
+                  </EnterpriseButton>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-caption text-muted-foreground">{t("docUi.dashboard.noShortcuts")}</p>
+          )}
+        </div>
+      </EnterpriseCardContent>
+    </EnterpriseCard>
   );
 }

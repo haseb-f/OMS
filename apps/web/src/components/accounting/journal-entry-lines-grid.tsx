@@ -1,27 +1,34 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
-// Shared en-US formatter (lib/money): a browser-locale toLocaleString(undefined)
-// renders Latin digits on the server but Arabic-Indic digits in an ar browser,
-// which is a hydration text mismatch (React #418) and mixes digit systems.
-import { formatMoney } from "@/lib/money";
+import { Fragment, useMemo, useRef, useState, type ReactNode } from "react";
+import { ChevronDown, Trash2 } from "lucide-react";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableFooter,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  DocumentLineTable,
+  DocumentLineTableAddFooter,
+  DocumentLineTableBody,
+  DocumentLineTableCell,
+  DocumentLineTableHead,
+  DocumentLineTableHeader,
+  DocumentLineTableRow,
+  documentLineCellClass,
+  documentLineHeadClass,
+  documentLineNumericCellClass,
+  documentLineNumericHeadClass,
+  lineColumnsWidth,
+  type LineColumnWidth,
+} from "@/components/documents/document-line-table";
+import { DocumentTotalsBlock } from "@/components/documents/document-totals";
+import { journalBalance } from "@/components/documents/document-totals-math";
+import { StatusBadge } from "@/components/business/status-badge";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/shared/money-input";
+import { IconActionButton } from "@/components/shared/icon-action-button";
 import { AccountPicker } from "@/components/business/account-picker";
 import { CostCenterPicker } from "@/components/business/cost-center-picker";
 import { ProjectPicker } from "@/components/business/project-picker";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
-import { EnterpriseButton } from "@/components/ui/button";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useElementWidth } from "@/hooks/use-element-width";
 import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
 import type { ChartOfAccountRow, CostCenterRow, ProjectRow } from "@/config/master-data/entities";
@@ -59,6 +66,39 @@ function slimAccountRow(account: LineAccount): ChartOfAccountRow {
 
 let nextLineId = 1;
 
+/**
+ * Debit/credit columns must fit 10+ digit amounts: the price token x 1.5
+ * (same scale, same reason as ProductLineItemsGrid's amount columns).
+ */
+const AMOUNT_WIDTH = "w-(--width-control-price)";
+const AMOUNT_COLUMN: LineColumnWidth = ["--width-control-price", 1];
+/** Partner picker column; cost center/project columns are narrower still. */
+const PARTNER_WIDTH = "w-(--width-control-date)";
+const ATTRIBUTION_WIDTH = "w-(--width-control-tax)";
+
+/**
+ * Column budgets (minimum widths) for the two table layouts. The account and
+ * description columns carry no fixed width — they share whatever the
+ * container has left over — so these budgets use their minimums.
+ *
+ * - `full`: every column inline (wide desktop).
+ * - `compact`: cost center/project move behind a per-line disclosure, so the
+ *   table still fits a laptop with the sidebar open.
+ * Below the compact budget the grid becomes line cards (design-system §8).
+ */
+const BASE_COLUMNS: LineColumnWidth[] = [
+  "--width-control-product-min",
+  "--width-control-tax",
+  "--width-control-date",
+  AMOUNT_COLUMN,
+  AMOUNT_COLUMN,
+  "--width-control-actions",
+];
+const ATTRIBUTION_COLUMNS: LineColumnWidth[] = ["--width-control-tax", "--width-control-tax"];
+const DISCLOSURE_COLUMNS: LineColumnWidth[] = ["--width-control-actions"];
+
+type GridLayout = "full" | "compact" | "cards";
+
 export interface JournalEntryLineGridRow {
   /** Client-side row identity — never the DB line id at this layer (mirrors AllocationGridLine.id). */
   id: string;
@@ -89,6 +129,7 @@ export function JournalEntryLinesGrid({
   projects,
   onChange,
   disabled,
+  currency,
 }: {
   lines: JournalEntryLineGridRow[];
   /**
@@ -102,11 +143,14 @@ export function JournalEntryLinesGrid({
   projects?: ProjectRow[];
   onChange: (lines: JournalEntryLineGridRow[]) => void;
   disabled?: boolean;
+  /** Currency code shown beside the debit/credit totals. */
+  currency?: string | null;
 }) {
   const { t } = useLocale();
   const showCostAttribution = costCenters !== undefined && projects !== undefined;
-  const columnCount = (showCostAttribution ? 7 : 5) + 1;
   const containerRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
+  const containerWidth = useElementWidth(containerRef);
   // Accounts picked from a remote search in this session, so a pick that is
   // not in the prefetched list keeps showing its name.
   const [pickedAccounts, setPickedAccounts] = useState<Record<string, ChartOfAccountRow>>({});
@@ -122,6 +166,36 @@ export function JournalEntryLinesGrid({
     return line.account?.id === line.accountId ? slimAccountRow(line.account) : null;
   };
 
+  // Lines whose cost center/project disclosure is open (compact layout only).
+  const [expandedLines, setExpandedLines] = useState<ReadonlySet<string>>(() => new Set());
+  const toggleExpanded = (id: string) =>
+    setExpandedLines((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  // Cards take over only when even the compact table would clip, so the grid
+  // never needs a sideways scroll (design-system §8: on phones the grid
+  // becomes line cards). Until the container is measured, assume the table.
+  const layout: GridLayout = (() => {
+    if (isMobile) return "cards";
+    if (containerWidth === null) return showCostAttribution ? "compact" : "full";
+    if (!showCostAttribution) {
+      return containerWidth < lineColumnsWidth(BASE_COLUMNS) ? "cards" : "full";
+    }
+    if (containerWidth >= lineColumnsWidth([...BASE_COLUMNS, ...ATTRIBUTION_COLUMNS])) {
+      return "full";
+    }
+    return containerWidth >= lineColumnsWidth([...BASE_COLUMNS, ...DISCLOSURE_COLUMNS])
+      ? "compact"
+      : "cards";
+  })();
+  const inlineAttribution = showCostAttribution && layout === "full";
+  const disclosedAttribution = showCostAttribution && layout === "compact";
+  const columnCount = 6 + (inlineAttribution ? 2 : 0) + (disclosedAttribution ? 1 : 0);
+
   const updateLine = (id: string, patch: Partial<JournalEntryLineGridRow>) => {
     onChange(lines.map((line) => (line.id === id ? { ...line, ...patch } : line)));
   };
@@ -130,10 +204,8 @@ export function JournalEntryLinesGrid({
     onChange(lines.filter((line) => line.id !== id));
   };
 
-  const totalDebit = lines.reduce((sum, l) => sum + l.debit, 0);
-  const totalCredit = lines.reduce((sum, l) => sum + l.credit, 0);
-  const difference = totalDebit - totalCredit;
-  const isBalanced = Math.abs(difference) < 0.001;
+  const balance = journalBalance(lines);
+  const { difference } = balance;
 
   /** "Auto balancing while typing" (Odoo-style) — a new line pre-fills whichever side clears the current outstanding difference, so a balanced entry is usually just "add line, pick account, Enter." */
   const addLine = () => {
@@ -176,225 +248,358 @@ export function JournalEntryLinesGrid({
     }
   };
 
-  return (
-    <div ref={containerRef} className="flex flex-col gap-3">
-      <div className="overflow-x-auto rounded-md border border-border">
-        <Table className="w-full table-fixed border-separate border-spacing-0">
-          <TableHeader className="bg-muted/50">
-            <TableRow className="hover:bg-transparent">
-              <TableHead>{t("accounting.journalEntries.lines.account")}</TableHead>
-              <TableHead>{t("accounting.journalEntries.lines.description")}</TableHead>
-              <TableHead>{t("partners.fields.name")}</TableHead>
-              {showCostAttribution && (
-                <>
-                  <TableHead>{t("accounting.journalEntries.lines.costCenter")}</TableHead>
-                  <TableHead>{t("accounting.journalEntries.lines.project")}</TableHead>
-                </>
-              )}
-              <TableHead className="w-(--width-control-price) text-center">
-                {t("accounting.journalEntries.lines.debit")}
-              </TableHead>
-              <TableHead className="w-(--width-control-price) text-center">
-                {t("accounting.journalEntries.lines.credit")}
-              </TableHead>
-              <TableHead className="w-(--width-control-actions)" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {lines.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={columnCount}
-                  className="py-6 text-center text-caption text-muted-foreground"
-                >
-                  {t("accounting.journalEntries.lines.empty")}
-                </TableCell>
-              </TableRow>
-            ) : (
-              lines.map((line, rowIndex) => (
-                <TableRow key={line.id}>
-                  <TableCell className="align-middle">
-                    <AccountPicker
-                      postingOnly
-                      value={resolveAccount(line)}
-                      onChange={(account) => {
-                        if (account) {
-                          setPickedAccounts((current) =>
-                            current[account.id] ? current : { ...current, [account.id]: account },
-                          );
-                        }
-                        updateLine(line.id, {
-                          accountId: account?.id ?? "",
-                          account: account
-                            ? { id: account.id, code: account.code, name: account.name }
-                            : null,
-                        });
-                      }}
-                      placeholder={t("accounting.journalEntries.lines.selectAccount")}
-                      disabled={disabled}
-                      aria-label={t("accounting.journalEntries.lines.account")}
-                    />
-                  </TableCell>
-                  <TableCell className="align-middle">
-                    <Input
-                      inputSize="compact-md"
-                      value={line.description}
-                      disabled={disabled}
-                      onChange={(event) => updateLine(line.id, { description: event.target.value })}
-                    />
-                  </TableCell>
-                  <TableCell className="align-middle">
-                    <EntityCombobox<LinePartner>
-                      value={line.partner}
-                      onChange={(partner) =>
-                        updateLine(line.id, {
-                          partnerId: partner?.id ?? "",
-                          partner: partner ?? null,
-                        })
-                      }
-                      onSearch={async (search) => {
-                        // Same `partners:` key space as PartnerPicker, so a quick-create
-                        // (`invalidateLookups("partners:")`) refreshes these rows too.
-                        const params = { search: search || undefined, pageSize: 8 };
-                        const result = await cachedLookup(
-                          `partners:any:${JSON.stringify(params)}`,
-                          () => partnersService.catalog(params),
-                        );
-                        return result.items;
-                      }}
-                      getId={(partner) => partner.id}
-                      getTitle={(partner) => partner.name}
-                      subtitleDir="ltr"
-                      placeholder={t("partners.picker.selectPartner")}
-                      searchPlaceholder={t("partners.picker.placeholder")}
-                      emptyText={t("partners.picker.noResults")}
-                      disabled={disabled}
-                      allowClear
-                      triggerProps={{ "aria-label": t("partners.fields.name") }}
-                    />
-                  </TableCell>
-                  {showCostAttribution && (
-                    <>
-                      <TableCell className="align-middle">
-                        <CostCenterPicker
-                          items={costCenters ?? []}
-                          value={
-                            (costCenters ?? []).find(
-                              (costCenter) => costCenter.id === line.costCenterId,
-                            ) ?? null
-                          }
-                          onChange={(costCenter) =>
-                            updateLine(line.id, { costCenterId: costCenter?.id ?? "" })
-                          }
-                          disabled={disabled}
-                          aria-label={t("accounting.journalEntries.lines.costCenter")}
-                        />
-                      </TableCell>
-                      <TableCell className="align-middle">
-                        <ProjectPicker
-                          items={projects ?? []}
-                          value={
-                            (projects ?? []).find((project) => project.id === line.projectId) ??
-                            null
-                          }
-                          onChange={(project) =>
-                            updateLine(line.id, { projectId: project?.id ?? "" })
-                          }
-                          disabled={disabled}
-                          aria-label={t("accounting.journalEntries.lines.project")}
-                        />
-                      </TableCell>
-                    </>
-                  )}
-                  <TableCell className="w-(--width-control-price) align-middle">
-                    <MoneyInput
-                      data-row={rowIndex}
-                      data-col={0}
-                      align="center"
-                      value={line.debit || ""}
-                      disabled={disabled}
-                      onKeyDown={(event) => handleKeyDown(event, rowIndex, 0)}
-                      onChange={(event) =>
-                        updateLine(line.id, { debit: event.target.valueAsNumber || 0, credit: 0 })
-                      }
-                    />
-                  </TableCell>
-                  <TableCell className="w-(--width-control-price) align-middle">
-                    <MoneyInput
-                      data-row={rowIndex}
-                      data-col={1}
-                      align="center"
-                      value={line.credit || ""}
-                      disabled={disabled}
-                      onKeyDown={(event) => handleKeyDown(event, rowIndex, 1)}
-                      onChange={(event) =>
-                        updateLine(line.id, { credit: event.target.valueAsNumber || 0, debit: 0 })
-                      }
-                    />
-                  </TableCell>
-                  <TableCell className="w-(--width-control-actions) align-middle">
-                    <EnterpriseButton
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      disabled={disabled}
-                      aria-label={t("common.remove")}
-                      onClick={() => removeLine(line.id)}
-                    >
-                      <Trash2 className="size-3.5 text-muted-foreground" />
-                    </EnterpriseButton>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-          {lines.length > 0 ? (
-            // Totals sit in the debit/credit columns themselves (same width
-            // and centering as the headers and inputs), never off to the side.
-            <TableFooter>
-              <TableRow className="hover:bg-transparent">
-                <TableCell
-                  colSpan={columnCount - 3}
-                  className="text-end text-caption font-medium text-muted-foreground"
-                >
-                  {t("reports.finance.totals")}
-                </TableCell>
-                <TableCell className="text-center font-semibold tabular-nums" dir="ltr">
-                  {formatMoney(totalDebit)}
-                </TableCell>
-                <TableCell className="text-center font-semibold tabular-nums" dir="ltr">
-                  {formatMoney(totalCredit)}
-                </TableCell>
-                <TableCell />
-              </TableRow>
-            </TableFooter>
-          ) : null}
-        </Table>
-      </div>
+  const accountPicker = (line: JournalEntryLineGridRow) => (
+    <AccountPicker
+      postingOnly
+      value={resolveAccount(line)}
+      onChange={(account) => {
+        if (account) {
+          setPickedAccounts((current) =>
+            current[account.id] ? current : { ...current, [account.id]: account },
+          );
+        }
+        updateLine(line.id, {
+          accountId: account?.id ?? "",
+          account: account ? { id: account.id, code: account.code, name: account.name } : null,
+        });
+      }}
+      placeholder={t("accounting.journalEntries.lines.selectAccount")}
+      disabled={disabled}
+      aria-label={t("accounting.journalEntries.lines.account")}
+    />
+  );
 
-      <div className="flex items-center justify-between">
-        <EnterpriseButton
-          type="button"
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
-          disabled={disabled}
-          onClick={addLine}
-        >
-          <Plus className="size-3.5" />
-          {t("accounting.journalEntries.lines.addLine")}
-        </EnterpriseButton>
+  const descriptionInput = (line: JournalEntryLineGridRow) => (
+    <Input
+      inputSize="compact-md"
+      value={line.description}
+      disabled={disabled}
+      aria-label={t("accounting.journalEntries.lines.description")}
+      onChange={(event) => updateLine(line.id, { description: event.target.value })}
+    />
+  );
 
-        <div className="flex items-center gap-4 text-body">
-          {lines.length > 0 && (
-            <span className={cn("font-medium", isBalanced ? "text-success" : "text-destructive")}>
-              {isBalanced
-                ? t("accounting.journalEntries.lines.balanced")
-                : `${t("accounting.journalEntries.lines.unbalanced")} (${formatMoney(Math.abs(difference))})`}
-            </span>
+  const partnerPicker = (line: JournalEntryLineGridRow) => (
+    <EntityCombobox<LinePartner>
+      value={line.partner}
+      onChange={(partner) =>
+        updateLine(line.id, {
+          partnerId: partner?.id ?? "",
+          partner: partner ?? null,
+        })
+      }
+      onSearch={async (search) => {
+        // Same `partners:` key space as PartnerPicker, so a quick-create
+        // (`invalidateLookups("partners:")`) refreshes these rows too.
+        const params = { search: search || undefined, pageSize: 8 };
+        const result = await cachedLookup(`partners:any:${JSON.stringify(params)}`, () =>
+          partnersService.catalog(params),
+        );
+        return result.items;
+      }}
+      getId={(partner) => partner.id}
+      getTitle={(partner) => partner.name}
+      subtitleDir="ltr"
+      placeholder={t("partners.picker.selectPartner")}
+      searchPlaceholder={t("partners.picker.placeholder")}
+      emptyText={t("partners.picker.noResults")}
+      disabled={disabled}
+      allowClear
+      triggerProps={{ "aria-label": t("partners.fields.name") }}
+    />
+  );
+
+  const costCenterPicker = (line: JournalEntryLineGridRow) => (
+    <CostCenterPicker
+      items={costCenters ?? []}
+      value={(costCenters ?? []).find((costCenter) => costCenter.id === line.costCenterId) ?? null}
+      onChange={(costCenter) => updateLine(line.id, { costCenterId: costCenter?.id ?? "" })}
+      disabled={disabled}
+      aria-label={t("accounting.journalEntries.lines.costCenter")}
+    />
+  );
+
+  const projectPicker = (line: JournalEntryLineGridRow) => (
+    <ProjectPicker
+      items={projects ?? []}
+      value={(projects ?? []).find((project) => project.id === line.projectId) ?? null}
+      onChange={(project) => updateLine(line.id, { projectId: project?.id ?? "" })}
+      disabled={disabled}
+      aria-label={t("accounting.journalEntries.lines.project")}
+    />
+  );
+
+  const amountInput = (line: JournalEntryLineGridRow, rowIndex: number, side: 0 | 1) => (
+    <MoneyInput
+      data-row={rowIndex}
+      data-col={side}
+      aria-label={t(
+        side === 0
+          ? "accounting.journalEntries.lines.debit"
+          : "accounting.journalEntries.lines.credit",
+      )}
+      value={(side === 0 ? line.debit : line.credit) || ""}
+      disabled={disabled}
+      onKeyDown={(event) => handleKeyDown(event, rowIndex, side)}
+      onChange={(event) =>
+        updateLine(
+          line.id,
+          side === 0
+            ? { debit: event.target.valueAsNumber || 0, credit: 0 }
+            : { credit: event.target.valueAsNumber || 0, debit: 0 },
+        )
+      }
+    />
+  );
+
+  const removeButton = (line: JournalEntryLineGridRow) => (
+    <IconActionButton
+      label={t("common.remove")}
+      disabled={disabled}
+      onClick={() => removeLine(line.id)}
+    >
+      <Trash2 className="size-3.5" />
+    </IconActionButton>
+  );
+
+  const addFooter = (
+    <DocumentLineTableAddFooter
+      onClick={addLine}
+      disabled={disabled}
+      label={t("accounting.journalEntries.lines.addLine")}
+    />
+  );
+
+  // One totals block (design-system §8): debit, credit, then the difference
+  // — flagged in words, never by color alone, when it is not zero.
+  const totals =
+    lines.length > 0 ? (
+      <DocumentTotalsBlock
+        label={t("docUi.totals.title")}
+        currency={currency}
+        lines={[
+          { key: "debit", label: t("docUi.totals.totalDebit"), value: balance.totalDebit },
+          { key: "credit", label: t("docUi.totals.totalCredit"), value: balance.totalCredit },
+        ]}
+        total={{
+          key: "difference",
+          label: t("docUi.totals.difference"),
+          value: Math.abs(difference),
+          flag: balance.isBalanced ? (
+            <StatusBadge label={t("docUi.totals.balanced")} tone="success" />
+          ) : (
+            <StatusBadge label={t("docUi.totals.unbalanced")} tone="destructive" />
+          ),
+        }}
+      />
+    ) : null;
+
+  const empty = (
+    <p className="px-3 py-6 text-center text-caption text-muted-foreground">
+      {t("accounting.journalEntries.lines.empty")}
+    </p>
+  );
+
+  if (layout === "cards") {
+    return (
+      <div ref={containerRef} className="flex min-w-0 flex-col gap-3">
+        <div className="flex flex-col gap-2">
+          {lines.length === 0 ? (
+            <div className="rounded-sm border border-dashed border-border">{empty}</div>
+          ) : (
+            lines.map((line, rowIndex) => (
+              <div
+                key={line.id}
+                data-testid="journal-line"
+                className="flex flex-col gap-2 rounded-sm border border-border bg-card p-2.5"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-caption text-muted-foreground">
+                    {t("docUi.lines.lineNumber", { number: rowIndex + 1 })}
+                  </span>
+                  {removeButton(line)}
+                </div>
+                <CardField label={t("accounting.journalEntries.lines.account")}>
+                  {accountPicker(line)}
+                </CardField>
+                <div className="grid grid-cols-2 gap-2">
+                  <CardField label={t("accounting.journalEntries.lines.debit")}>
+                    {amountInput(line, rowIndex, 0)}
+                  </CardField>
+                  <CardField label={t("accounting.journalEntries.lines.credit")}>
+                    {amountInput(line, rowIndex, 1)}
+                  </CardField>
+                </div>
+                <CardField label={t("accounting.journalEntries.lines.description")}>
+                  {descriptionInput(line)}
+                </CardField>
+                <CardField label={t("partners.fields.name")}>{partnerPicker(line)}</CardField>
+                {showCostAttribution ? (
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <CardField label={t("accounting.journalEntries.lines.costCenter")}>
+                      {costCenterPicker(line)}
+                    </CardField>
+                    <CardField label={t("accounting.journalEntries.lines.project")}>
+                      {projectPicker(line)}
+                    </CardField>
+                  </div>
+                ) : null}
+              </div>
+            ))
           )}
+          <div className="overflow-hidden rounded-sm border border-border">{addFooter}</div>
         </div>
+        {totals}
       </div>
+    );
+  }
+
+  return (
+    <div ref={containerRef} className="flex min-w-0 flex-col gap-3">
+      <DocumentLineTable minWidthClass="min-w-0" footer={addFooter}>
+        <colgroup>
+          {/* Account and description share the leftover width. */}
+          <col />
+          <col />
+          <col className={PARTNER_WIDTH} />
+          {inlineAttribution ? (
+            <>
+              <col className={ATTRIBUTION_WIDTH} />
+              <col className={ATTRIBUTION_WIDTH} />
+            </>
+          ) : null}
+          <col className={AMOUNT_WIDTH} />
+          <col className={AMOUNT_WIDTH} />
+          {disclosedAttribution ? <col className="w-(--width-control-actions)" /> : null}
+          <col className="w-(--width-control-actions)" />
+        </colgroup>
+        <DocumentLineTableHeader>
+          <DocumentLineTableRow className="hover:bg-transparent">
+            <DocumentLineTableHead className={documentLineHeadClass}>
+              {t("accounting.journalEntries.lines.account")}
+            </DocumentLineTableHead>
+            <DocumentLineTableHead className={documentLineHeadClass}>
+              {t("accounting.journalEntries.lines.description")}
+            </DocumentLineTableHead>
+            <DocumentLineTableHead className={documentLineHeadClass}>
+              {t("partners.fields.name")}
+            </DocumentLineTableHead>
+            {inlineAttribution ? (
+              <>
+                <DocumentLineTableHead className={documentLineHeadClass}>
+                  {t("accounting.journalEntries.lines.costCenter")}
+                </DocumentLineTableHead>
+                <DocumentLineTableHead className={documentLineHeadClass}>
+                  {t("accounting.journalEntries.lines.project")}
+                </DocumentLineTableHead>
+              </>
+            ) : null}
+            <DocumentLineTableHead className={documentLineNumericHeadClass}>
+              {t("accounting.journalEntries.lines.debit")}
+            </DocumentLineTableHead>
+            <DocumentLineTableHead className={documentLineNumericHeadClass}>
+              {t("accounting.journalEntries.lines.credit")}
+            </DocumentLineTableHead>
+            {disclosedAttribution ? (
+              <DocumentLineTableHead className={documentLineHeadClass} />
+            ) : null}
+            <DocumentLineTableHead className={documentLineHeadClass} />
+          </DocumentLineTableRow>
+        </DocumentLineTableHeader>
+        <DocumentLineTableBody>
+          {lines.length === 0 ? (
+            <DocumentLineTableRow className="hover:bg-transparent">
+              <DocumentLineTableCell colSpan={columnCount} className="p-0">
+                {empty}
+              </DocumentLineTableCell>
+            </DocumentLineTableRow>
+          ) : (
+            lines.map((line, rowIndex) => {
+              const expanded = disclosedAttribution && expandedLines.has(line.id);
+              const hasAttribution = Boolean(line.costCenterId || line.projectId);
+              return (
+                <Fragment key={line.id}>
+                  <DocumentLineTableRow data-testid="journal-line">
+                    <DocumentLineTableCell className={cn(documentLineCellClass, "min-w-0")}>
+                      {accountPicker(line)}
+                    </DocumentLineTableCell>
+                    <DocumentLineTableCell className={documentLineCellClass}>
+                      {descriptionInput(line)}
+                    </DocumentLineTableCell>
+                    <DocumentLineTableCell className={cn(documentLineCellClass, "min-w-0")}>
+                      {partnerPicker(line)}
+                    </DocumentLineTableCell>
+                    {inlineAttribution ? (
+                      <>
+                        <DocumentLineTableCell className={cn(documentLineCellClass, "min-w-0")}>
+                          {costCenterPicker(line)}
+                        </DocumentLineTableCell>
+                        <DocumentLineTableCell className={cn(documentLineCellClass, "min-w-0")}>
+                          {projectPicker(line)}
+                        </DocumentLineTableCell>
+                      </>
+                    ) : null}
+                    <DocumentLineTableCell className={documentLineNumericCellClass}>
+                      {amountInput(line, rowIndex, 0)}
+                    </DocumentLineTableCell>
+                    <DocumentLineTableCell className={documentLineNumericCellClass}>
+                      {amountInput(line, rowIndex, 1)}
+                    </DocumentLineTableCell>
+                    {disclosedAttribution ? (
+                      <DocumentLineTableCell className={documentLineCellClass}>
+                        <IconActionButton
+                          label={t(
+                            expanded ? "docUi.lines.hideDetails" : "docUi.lines.showDetails",
+                          )}
+                          pressed={expanded}
+                          aria-expanded={expanded}
+                          className={cn(hasAttribution && !expanded && "text-primary")}
+                          onClick={() => toggleExpanded(line.id)}
+                        >
+                          <ChevronDown
+                            className={cn("size-3.5", expanded && "rotate-180")}
+                            aria-hidden
+                          />
+                        </IconActionButton>
+                      </DocumentLineTableCell>
+                    ) : null}
+                    <DocumentLineTableCell className={documentLineCellClass}>
+                      {removeButton(line)}
+                    </DocumentLineTableCell>
+                  </DocumentLineTableRow>
+                  {expanded ? (
+                    <DocumentLineTableRow className="hover:bg-transparent">
+                      <DocumentLineTableCell
+                        colSpan={columnCount}
+                        className={documentLineCellClass}
+                      >
+                        <div className="grid max-w-(--width-picker-customer) grid-cols-2 gap-2">
+                          <CardField label={t("accounting.journalEntries.lines.costCenter")}>
+                            {costCenterPicker(line)}
+                          </CardField>
+                          <CardField label={t("accounting.journalEntries.lines.project")}>
+                            {projectPicker(line)}
+                          </CardField>
+                        </div>
+                      </DocumentLineTableCell>
+                    </DocumentLineTableRow>
+                  ) : null}
+                </Fragment>
+              );
+            })
+          )}
+        </DocumentLineTableBody>
+      </DocumentLineTable>
+      {totals}
+    </div>
+  );
+}
+
+function CardField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <span className="text-caption text-muted-foreground">{label}</span>
+      {children}
     </div>
   );
 }

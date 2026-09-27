@@ -6,10 +6,8 @@ import { MoneyValue } from "@/components/shared/money-value";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { formatDate, formatTime, hasClockTime } from "@/lib/date";
-import {
-  DECLARED_STATUS_TONE,
-  declaredShortLabelKey,
-} from "@/components/payments/declaration/declaration-status";
+import { declaredShortLabelKey } from "@/components/payments/declaration/declaration-status";
+import { formatMoney } from "@/lib/money";
 import { useLocale } from "@/providers/locale-provider";
 import type { StoreOrderRow } from "@/services/store-orders-service";
 import {
@@ -68,24 +66,44 @@ export function StoreOrderDateCell({ order }: { order: StoreOrderRow }) {
   );
 }
 
+/**
+ * One badge per status column (design-system §6): the Finance verification
+ * state is the badge; the order total and what Sales declared sit on the
+ * caption line. Payment stays separate from shipping (its own column).
+ */
 export function StoreOrderPaymentCell({ order }: { order: StoreOrderRow }) {
   const { t } = useLocale();
+  const declared = order.declaredPaymentStatus ?? "UNPAID";
+  const declaredLabel = t(declaredShortLabelKey(declared));
+  const declaredAmount = Number(order.declaredAmount ?? 0);
   return (
     <StackedCell
       primary={
-        <span className="inline-flex flex-wrap items-center gap-1">
-          <StatusBadge
-            label={t(declaredShortLabelKey(order.declaredPaymentStatus))}
-            tone={DECLARED_STATUS_TONE[order.declaredPaymentStatus ?? "UNPAID"]}
-          />
-          <StatusBadge
-            label={t(financialStatusLabelKey(order.paymentStatus, order.paymentType))}
-            tone={PAYMENT_STATUS_TONE[order.paymentStatus]}
-          />
-        </span>
+        <StatusBadge
+          label={t(financialStatusLabelKey(order.paymentStatus, order.paymentType))}
+          tone={PAYMENT_STATUS_TONE[order.paymentStatus]}
+        />
       }
       secondary={
-        <MoneyValue value={order.total ?? "0"} currency={order.currency} className="font-normal" />
+        <span className="inline-flex min-w-0 max-w-full items-baseline gap-1">
+          <MoneyValue
+            value={order.total ?? "0"}
+            currency={order.currency}
+            className="shrink-0 font-normal"
+          />
+          {declared !== "UNPAID" ? (
+            <span className="min-w-0 truncate" title={declaredLabel}>
+              {"· "}
+              {declaredLabel}
+              {declared === "PARTIALLY_PAID" && declaredAmount > 0 ? (
+                <>
+                  {" "}
+                  <span className="num">{formatMoney(declaredAmount)}</span>
+                </>
+              ) : null}
+            </span>
+          ) : null}
+        </span>
       }
     />
   );

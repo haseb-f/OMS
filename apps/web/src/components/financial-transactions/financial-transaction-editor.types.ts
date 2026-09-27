@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
+import type { DocumentActionConfirmation } from "@/components/documents/document-action-bar";
 import type {
   FinancialTransactionActivityEntry,
   FinancialTransactionRow,
@@ -32,9 +33,26 @@ export interface TransactionWorkflowAction {
   key: TransactionWorkflowActionKey;
   label: string;
   icon?: LucideIcon;
+  /** The one filled action for the current status; defaults to `variant === "default"`. */
+  primary?: boolean;
+  /** Listed last in "More", in red; defaults to `variant === "destructive"`. */
+  destructive?: boolean;
+  /** Legacy visual hint — mapped onto `primary`/`destructive` by the action bar. */
   variant?: "default" | "outline" | "destructive" | "ghost";
   visibleForStatuses?: FinancialTransactionStatusValue[];
+  /** Confirmation shown by the action bar itself before `onAction` runs. */
+  confirm?: DocumentActionConfirmation;
   onAction: (context: TransactionEditorActionContext) => void | Promise<void>;
+}
+
+/** Inline validation messages, keyed by the field they belong under. */
+export interface FinancialTransactionEditorFieldErrors {
+  party?: string | null;
+  amount?: string | null;
+  receivingAccount?: string | null;
+  allocations?: string | null;
+  /** Anything not tied to one field — shown under the totals. */
+  form?: string | null;
 }
 
 export interface TransactionStatusOption {

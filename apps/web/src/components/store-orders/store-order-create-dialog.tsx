@@ -60,8 +60,7 @@ import {
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useCountries, useCurrencies } from "@/hooks/use-reference-data";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { toast, reportApiError } from "@/lib/toast";
 import {
   PAYMENT_STATUS_LABEL_KEY,
   PAYMENT_TYPE_LABEL_KEY,
@@ -323,14 +322,14 @@ export function StoreOrderCreateDialog({
         for (const receiptId of uploadedKeys) {
           await storeOrdersService.receipts.archive(created.id, receiptId).catch(() => undefined);
         }
-        toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+        reportApiError(error, "common.failedToSave");
       }
 
       toast.success(t("storeOrders.createDialog.success"));
       onOpenChange(false);
       onCreated(created);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+      reportApiError(error, "common.failedToSave");
     }
   });
 

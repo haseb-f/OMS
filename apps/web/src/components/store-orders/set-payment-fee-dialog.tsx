@@ -4,9 +4,8 @@ import { useEffect, useState } from "react";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { Input } from "@/components/ui/input";
 import { storeOrdersService, type StoreOrderPaymentRow } from "@/services/store-orders-service";
-import { ApiError } from "@/services/api-client";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
+import { toast, reportApiError } from "@/lib/toast";
 
 /**
  * ADR-0018 (Order Economics M2.2) — records the ACTUAL provider transaction
@@ -70,7 +69,7 @@ export function SetPaymentFeeDialog({
             onSaved();
           })
           .catch((error: unknown) => {
-            toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));
+            reportApiError(error, "common.failedToSave");
           })
           .finally(() => setIsSaving(false));
       }}

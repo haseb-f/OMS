@@ -1,26 +1,44 @@
+"use client";
+
 import * as React from "react";
 import { Input } from "@/components/ui/input";
+import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
 
+/**
+ * Physical alignment for a numeric field whose own direction is forced LTR.
+ * `text-end` inside a `dir="ltr"` field always resolves to the right edge,
+ * which breaks the shared numeric edge in Arabic (the logical end is the
+ * LEFT edge there). Numeric grid inputs use this so digits, headers and
+ * read-only values line up on the page's logical end in both directions.
+ */
+export function numericEndAlignClass(direction: "ltr" | "rtl"): string {
+  return direction === "rtl" ? "text-left" : "text-right";
+}
+
 export interface MoneyInputProps extends Omit<React.ComponentProps<typeof Input>, "type" | "dir"> {
-  /** Text alignment for the number — "end" for header/summary fields, "center" for grid cells (matches existing debit/credit columns). */
-  align?: "end" | "center";
+  /**
+   * Kept for call-site compatibility: numeric entry always aligns to the
+   * logical end edge (design-system §2). Centered amounts are not allowed.
+   */
+  align?: "end";
 }
 
 /**
  * The one numeric money/amount entry control (Journal Entry debit/credit,
  * document line prices/totals, transaction amounts, ...) — a thin wrapper
- * over the shared `Input` that fixes LTR digits, decimal input mode, and
- * tabular alignment so every grid formats financial numbers the same way
- * instead of re-deriving `type="number" dir="ltr" inputMode="decimal"` at
- * each call site. Pure input-props passthrough (ref, value, onChange,
- * onKeyDown, data-*, disabled, ...) — safe to drop in wherever a plain
- * `<Input type="number">` was used for money.
+ * over the shared `Input` that fixes LTR digits, decimal input mode, tabular
+ * digits and end alignment, so every grid formats financial numbers the same
+ * way. Pure input-props passthrough (ref, value, onChange, onKeyDown,
+ * data-*, disabled, ...).
  */
 export const MoneyInput = React.forwardRef<HTMLInputElement, MoneyInputProps>(function MoneyInput(
-  { className, align = "end", inputSize = "compact-md", min = 0, step = "0.01", ...props },
+  { className, align, inputSize = "compact-md", min = 0, step = "0.01", ...props },
   ref,
 ) {
+  const { direction } = useLocale();
+  // `align` is accepted for call-site compatibility only; "end" is the one alignment.
+  void align;
   return (
     <Input
       ref={ref}
@@ -30,7 +48,11 @@ export const MoneyInput = React.forwardRef<HTMLInputElement, MoneyInputProps>(fu
       min={min}
       step={step}
       inputSize={inputSize}
-      className={cn("tabular-nums", align === "center" ? "text-center" : "text-end", className)}
+      className={cn(
+        "tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+        numericEndAlignClass(direction),
+        className,
+      )}
       {...props}
     />
   );

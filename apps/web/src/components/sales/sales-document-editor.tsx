@@ -6,6 +6,7 @@ import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import {
   CommercialDocumentEditor,
   type CommercialDocumentActivityEntry,
+  type CommercialDocumentFieldErrors,
 } from "@/components/documents/commercial-document-editor";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
@@ -35,6 +36,8 @@ export function SalesDocumentEditor<TDocument>({
   disabled,
   isBusy,
   paymentSummary,
+  headerStatus,
+  fieldErrors,
 }: {
   config: SalesDocumentEditorConfig<TDocument>;
   state: SalesDocumentEditorState<TDocument>;
@@ -47,6 +50,10 @@ export function SalesDocumentEditor<TDocument>({
   /** Disables action buttons while a request is in flight. */
   isBusy?: boolean;
   paymentSummary?: ReactNode;
+  /** Independent status next to the workflow badge (e.g. invoice payment status). */
+  headerStatus?: ReactNode;
+  /** Inline validation messages under their fields. */
+  fieldErrors?: CommercialDocumentFieldErrors;
 }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
@@ -159,6 +166,8 @@ export function SalesDocumentEditor<TDocument>({
       trace={config.trace}
       moreDetails={moreDetails}
       paymentSummary={paymentSummary}
+      headerStatus={headerStatus}
+      fieldErrors={fieldErrors}
       activity={activity}
       isLoading={isLoading}
       canEdit={canEdit}

@@ -1,19 +1,23 @@
 "use client";
 
 import { useLocale } from "@/providers/locale-provider";
-// Shared en-US formatter (lib/money): a browser-locale toLocaleString(undefined)
-// renders Latin digits on the server but Arabic-Indic digits in an ar browser,
-// which is a hydration text mismatch (React #418) and mixes digit systems.
-import { formatMoney } from "@/lib/money";
+import {
+  DocumentTotalsBlock,
+  DocumentTotalsSkeleton,
+} from "@/components/documents/document-totals";
+import {
+  commercialTotalsRows,
+  type CommercialTotalsRowKey,
+} from "@/components/documents/document-totals-math";
+import type { MessageKey } from "@/i18n/translate";
 
 /**
- * Sales Document Editor Foundation (TASK-039) — the ONE totals shape and
- * display every Sales document shares. This component NEVER computes
- * anything itself: `totals` always comes from the consuming document
- * type's own backend call (its create/update/preview endpoint). If
- * `totals` is `null`, the footer shows a loading placeholder rather than
- * falling back to any client-side estimate — there is no such fallback to
- * fall back to, by design.
+ * The totals shape every commercial document (sales and purchase
+ * quotations, orders, invoices, returns) shares. While a document is being
+ * edited `CommercialDocumentEditor` feeds a live preview computed with the
+ * same math as the API (`sales-line-preview-math`); a saved, read-only
+ * document shows the server's totals. `null` totals render the loading
+ * shape — there is no other fallback.
  */
 export interface DocumentTotals {
   subtotal: number;
@@ -22,6 +26,13 @@ export interface DocumentTotals {
   shippingTotal?: number;
   grandTotal: number;
 }
+
+const ROW_LABEL_KEY: Record<CommercialTotalsRowKey, MessageKey> = {
+  subtotal: "sales.editor.totals.subtotal",
+  discount: "sales.editor.totals.discount",
+  tax: "sales.editor.totals.tax",
+  shipping: "sales.editor.totals.shipping",
+};
 
 export function DocumentTotalsFooter({
   totals,
@@ -35,49 +46,23 @@ export function DocumentTotalsFooter({
   const { t } = useLocale();
 
   if (isLoading || !totals) {
-    return (
-      <div className="flex justify-end border-t border-border pt-3">
-        <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
-      </div>
-    );
+    return <DocumentTotalsSkeleton />;
   }
 
-  const rows: { label: string; value: number; emphasis?: boolean }[] = [
-    { label: t("sales.editor.totals.subtotal"), value: totals.subtotal },
-    {
-      label: t("sales.editor.totals.discount"),
-      value: totals.discountTotal ? -totals.discountTotal : 0,
-    },
-    { label: t("sales.editor.totals.tax"), value: totals.taxTotal },
-    ...(totals.shippingTotal
-      ? [{ label: t("sales.editor.totals.shipping"), value: totals.shippingTotal }]
-      : []),
-    { label: t("sales.editor.totals.grandTotal"), value: totals.grandTotal, emphasis: true },
-  ];
-
   return (
-    <div className="flex justify-end border-t border-border pt-3">
-      <div className="flex w-full max-w-xs flex-col gap-1">
-        {rows.map((row) => (
-          <div
-            key={row.label}
-            className={
-              row.emphasis
-                ? "flex items-center justify-between border-t border-border pt-1.5 text-body font-semibold"
-                : "flex items-center justify-between text-caption text-muted-foreground"
-            }
-          >
-            <span>{row.label}</span>
-            <span
-              dir="ltr"
-              className={row.emphasis ? "tabular-nums text-foreground" : "tabular-nums"}
-            >
-              {formatMoney(row.value)}
-              {currency ? ` ${currency}` : ""}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
+    <DocumentTotalsBlock
+      label={t("sales.editor.totals.grandTotal")}
+      currency={currency}
+      lines={commercialTotalsRows(totals).map((row) => ({
+        key: row.key,
+        label: t(ROW_LABEL_KEY[row.key]),
+        value: row.value,
+      }))}
+      total={{
+        key: "grandTotal",
+        label: t("sales.editor.totals.grandTotal"),
+        value: totals.grandTotal,
+      }}
+    />
   );
 }

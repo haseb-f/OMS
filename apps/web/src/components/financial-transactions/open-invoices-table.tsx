@@ -20,10 +20,7 @@ import {
   INVOICE_PAYMENT_STATUS_LABEL_KEY,
   INVOICE_PAYMENT_STATUS_TONE,
 } from "@/config/financial-transactions/status";
-
-function formatMoney(value: number) {
-  return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
+import { formatMoney } from "@/lib/money";
 
 /**
  * Financial Transactions & Matching Engine (TASK-043) — every open (not

@@ -14,6 +14,8 @@ import {
   documentLineHeadClass,
   documentLineNumericCellClass,
   documentLineNumericHeadClass,
+  lineColumnsWidth,
+  type LineColumnWidth,
 } from "@/components/documents/document-line-table";
 import { IconActionButton } from "@/components/shared/icon-action-button";
 import { Input } from "@/components/ui/input";
@@ -39,12 +41,11 @@ import { ProductBrowserDialog } from "@/components/business/product-browser-dial
 import { WarehousePicker } from "@/components/business/warehouse-picker";
 import { AccountPicker } from "@/components/business/account-picker";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
-import { MoneyInput } from "@/components/shared/money-input";
+import { MoneyInput, numericEndAlignClass } from "@/components/shared/money-input";
 import { useTaxes } from "@/hooks/use-reference-data";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useElementWidth } from "@/hooks/use-element-width";
-import { CreateOperationTotals } from "@/components/shared/create-operation";
-import { MoneyValue } from "@/components/shared/money-value";
+import { DocumentTotalsBlock } from "@/components/documents/document-totals";
 import type { ProductRow } from "@/services/products-service";
 import type { ChartOfAccountRow, WarehouseRow } from "@/config/master-data/entities";
 import { previewSalesLine } from "./sales-line-preview-math";
@@ -123,13 +124,21 @@ export function isLinePriceMissing(
   return !Number.isFinite(price) || price <= 0;
 }
 
-/** Columns of the table layout, as width tokens — the product column is the flexible one. */
-function requiredTableWidth(columns: string[]): number {
-  const style = getComputedStyle(document.documentElement);
-  return ["--width-control-product-min", ...columns].reduce(
-    (sum, token) => sum + (Number.parseFloat(style.getPropertyValue(token)) || 0),
-    0,
-  );
+/**
+ * Amount columns must show 10+ digit amounts without clipping. The shared
+ * width tokens are sized for smaller figures, so money and quantity columns
+ * scale their token here — one place, used by both the colgroup and the
+ * table-vs-cards breakpoint below, so they never disagree.
+ */
+const MONEY_COLUMN_SCALE = 1;
+const QUANTITY_COLUMN_SCALE = 1;
+const QUANTITY_WIDTH = "w-(--width-control-quantity)";
+const PRICE_WIDTH = "w-(--width-control-price)";
+const LINE_TOTAL_WIDTH = "w-(--width-control-line-total)";
+
+/** Columns of the table layout, as width tokens (× scale) — the product column is the flexible one. */
+function requiredTableWidth(columns: LineColumnWidth[]): number {
+  return lineColumnsWidth(["--width-control-product-min", ...columns]);
 }
 
 /** API payload fields for a line's fixed-asset / prepaid treatment. */
@@ -424,7 +433,8 @@ export function ProductLineItemsGrid({
   totalLabel?: string;
   currencyCode?: string;
 }) {
-  const { t } = useLocale();
+  const { t, direction } = useLocale();
+  const numericAlign = numericEndAlignClass(direction);
   const taxes = useTaxes();
   const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -437,14 +447,14 @@ export function ProductLineItemsGrid({
     t(lineAmountMode ? "sales.editor.grid.agreedAmount" : "sales.editor.grid.unitPrice");
   const tableColumns = [
     warehouseColumn && "--width-control-warehouse",
-    "--width-control-quantity",
+    ["--width-control-quantity", QUANTITY_COLUMN_SCALE] as [string, number],
     showUnit && "--width-control-unit",
-    "--width-control-price",
+    ["--width-control-price", MONEY_COLUMN_SCALE] as [string, number],
     showDiscount && "--width-control-discount",
     showTax && "--width-control-tax",
-    !lineAmountMode && "--width-control-line-total",
+    !lineAmountMode && (["--width-control-line-total", MONEY_COLUMN_SCALE] as [string, number]),
     "--width-control-actions",
-  ].filter((token): token is string => Boolean(token));
+  ].filter((column): column is LineColumnWidth => Boolean(column));
   const stacked =
     isMobile || (containerWidth !== null && containerWidth < requiredTableWidth(tableColumns));
 
@@ -641,14 +651,10 @@ export function ProductLineItemsGrid({
   ) : null;
 
   const totals = totalLabel ? (
-    <CreateOperationTotals
-      rows={[
-        {
-          label: totalLabel,
-          value: <MoneyValue value={orderTotal} currency={currencyCode} />,
-          emphasis: "strong",
-        },
-      ]}
+    <DocumentTotalsBlock
+      currency={currencyCode}
+      lines={[]}
+      total={{ key: "total", label: totalLabel, value: orderTotal }}
     />
   ) : null;
 
@@ -712,7 +718,8 @@ export function ProductLineItemsGrid({
                         inputMode="decimal"
                         aria-invalid={quantityInvalid || undefined}
                         className={cn(
-                          "h-10 text-end tabular-nums",
+                          "h-10 tabular-nums",
+                          numericAlign,
                           quantityInvalid && "border-destructive",
                         )}
                         value={line.quantity}
@@ -750,7 +757,7 @@ export function ProductLineItemsGrid({
                           max={100}
                           dir="ltr"
                           inputMode="decimal"
-                          className="h-10 text-end tabular-nums"
+                          className={cn("h-10 tabular-nums", numericAlign)}
                           value={line.discountPercent}
                           disabled={disabled}
                           onChange={(event) =>
@@ -800,7 +807,7 @@ export function ProductLineItemsGrid({
                           ? t(`docFlow.lines.treatments.${line.treatment}`)
                           : t("sales.editor.grid.lineTotal")}
                       </span>
-                      <span dir="ltr" className="text-body font-semibold tabular-nums">
+                      <span className="num text-body font-semibold">
                         {formatLineTotal(preview.lineTotal)}
                       </span>
                     </div>
@@ -826,12 +833,12 @@ export function ProductLineItemsGrid({
         <colgroup>
           <col />
           {warehouseColumn ? <col className="w-(--width-control-warehouse)" /> : null}
-          <col className="w-(--width-control-quantity)" />
+          <col className={QUANTITY_WIDTH} />
           {showUnit ? <col className="w-(--width-control-unit)" /> : null}
-          <col className="w-(--width-control-price)" />
+          <col className={PRICE_WIDTH} />
           {showDiscount ? <col className="w-(--width-control-discount)" /> : null}
           {showTax ? <col className="w-(--width-control-tax)" /> : null}
-          {lineAmountMode ? null : <col className="w-(--width-control-line-total)" />}
+          {lineAmountMode ? null : <col className={LINE_TOTAL_WIDTH} />}
           <col className="w-(--width-control-actions)" />
         </colgroup>
         <DocumentLineTableHeader>
@@ -846,9 +853,7 @@ export function ProductLineItemsGrid({
                 {t("sales.editor.grid.warehouse")}
               </DocumentLineTableHead>
             )}
-            <DocumentLineTableHead
-              className={cn(documentLineNumericHeadClass, "w-(--width-control-quantity)")}
-            >
+            <DocumentLineTableHead className={cn(documentLineNumericHeadClass, QUANTITY_WIDTH)}>
               {t("sales.editor.grid.quantity")}
             </DocumentLineTableHead>
             {showUnit && (
@@ -858,9 +863,7 @@ export function ProductLineItemsGrid({
                 {t("sales.editor.grid.unit")}
               </DocumentLineTableHead>
             )}
-            <DocumentLineTableHead
-              className={cn(documentLineNumericHeadClass, "w-(--width-control-price)")}
-            >
+            <DocumentLineTableHead className={cn(documentLineNumericHeadClass, PRICE_WIDTH)}>
               {priceLabel}
               {requirePrice ? <span className="text-destructive"> *</span> : null}
             </DocumentLineTableHead>
@@ -879,9 +882,7 @@ export function ProductLineItemsGrid({
               </DocumentLineTableHead>
             )}
             {lineAmountMode ? null : (
-              <DocumentLineTableHead
-                className={cn(documentLineNumericHeadClass, "w-(--width-control-line-total)")}
-              >
+              <DocumentLineTableHead className={cn(documentLineNumericHeadClass, LINE_TOTAL_WIDTH)}>
                 {t("sales.editor.grid.lineTotal")}
               </DocumentLineTableHead>
             )}
@@ -954,9 +955,7 @@ export function ProductLineItemsGrid({
                     />
                   </DocumentLineTableCell>
                 )}
-                <DocumentLineTableCell
-                  className={cn(documentLineNumericCellClass, "w-(--width-control-quantity)")}
-                >
+                <DocumentLineTableCell className={cn(documentLineNumericCellClass, QUANTITY_WIDTH)}>
                   <Input
                     data-row={rowIndex}
                     data-col={qtyCol}
@@ -967,7 +966,8 @@ export function ProductLineItemsGrid({
                     inputMode="decimal"
                     aria-invalid={quantityInvalid || undefined}
                     className={cn(
-                      "px-2 text-end tabular-nums",
+                      "px-2 tabular-nums",
+                      numericAlign,
                       quantityInvalid && "border-destructive",
                     )}
                     value={line.quantity}
@@ -989,9 +989,7 @@ export function ProductLineItemsGrid({
                     {line.unitName ?? line.product?.unit?.name ?? "—"}
                   </DocumentLineTableCell>
                 )}
-                <DocumentLineTableCell
-                  className={cn(documentLineNumericCellClass, "w-(--width-control-price)")}
-                >
+                <DocumentLineTableCell className={cn(documentLineNumericCellClass, PRICE_WIDTH)}>
                   <MoneyInput
                     data-row={rowIndex}
                     data-col={priceCol}
@@ -1013,7 +1011,7 @@ export function ProductLineItemsGrid({
                   <DocumentLineTableCell
                     className={cn(documentLineNumericCellClass, "w-(--width-control-discount)")}
                   >
-                    <InputGroup className="h-(--control-height-sm)">
+                    <InputGroup className="h-(--control-height-md)">
                       <InputGroupInput
                         data-row={rowIndex}
                         data-col={discountCol}
@@ -1022,7 +1020,7 @@ export function ProductLineItemsGrid({
                         max={100}
                         dir="ltr"
                         inputMode="decimal"
-                        className="px-2 text-end tabular-nums"
+                        className={cn("px-2 tabular-nums", numericAlign)}
                         value={line.discountPercent}
                         disabled={disabled}
                         onKeyDown={(event) => handleArrowNav(event, rowIndex, discountCol)}
@@ -1047,13 +1045,9 @@ export function ProductLineItemsGrid({
                 )}
                 {lineAmountMode ? null : (
                   <DocumentLineTableCell
-                    className={cn(
-                      documentLineNumericCellClass,
-                      "w-(--width-control-line-total) font-medium tabular-nums",
-                    )}
-                    dir="ltr"
+                    className={cn(documentLineNumericCellClass, LINE_TOTAL_WIDTH, "font-medium")}
                   >
-                    {formatLineTotal(preview.lineTotal)}
+                    <span className="num">{formatLineTotal(preview.lineTotal)}</span>
                   </DocumentLineTableCell>
                 )}
                 <DocumentLineTableCell
