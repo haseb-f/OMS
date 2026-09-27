@@ -10,6 +10,11 @@ import {
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  candidateRangeQuery,
+  coversInstant,
+  exclusiveEnd,
+} from './period-bounds';
 
 const MONTH_ABBR = [
   'Jan',
@@ -110,7 +115,7 @@ export class FiscalYearsService {
     const draftCount = await this.prisma.journalEntry.count({
       where: {
         status: JournalEntryStatus.DRAFT,
-        entryDate: { gte: fiscalYear.startDate, lte: fiscalYear.endDate },
+        entryDate: { gte: fiscalYear.startDate, lt: exclusiveEnd(fiscalYear) },
         deletedAt: null,
       },
     });
@@ -191,15 +196,15 @@ export class FiscalYearsService {
     entryDate: Date,
     client: Prisma.TransactionClient | PrismaService = this.prisma,
   ): Promise<string | null> {
+    const { where, orderBy } = candidateRangeQuery(entryDate);
     const fiscalYear = await client.fiscalYear.findFirst({
-      where: {
-        startDate: { lte: entryDate },
-        endDate: { gte: entryDate },
-        deletedAt: null,
-      },
-      select: { id: true },
+      where: { ...where, deletedAt: null },
+      orderBy,
+      select: { id: true, endDate: true },
     });
-    return fiscalYear?.id ?? null;
+    return fiscalYear && coversInstant(fiscalYear, entryDate)
+      ? fiscalYear.id
+      : null;
   }
 
   /**
@@ -217,13 +222,13 @@ export class FiscalYearsService {
     sourceType: string | undefined,
     client: Prisma.TransactionClient | PrismaService = this.prisma,
   ) {
-    const fiscalYear = await client.fiscalYear.findFirst({
-      where: {
-        startDate: { lte: entryDate },
-        endDate: { gte: entryDate },
-        deletedAt: null,
-      },
+    const { where, orderBy } = candidateRangeQuery(entryDate);
+    const candidate = await client.fiscalYear.findFirst({
+      where: { ...where, deletedAt: null },
+      orderBy,
     });
+    const fiscalYear =
+      candidate && coversInstant(candidate, entryDate) ? candidate : null;
     if (!fiscalYear) return;
     if (fiscalYear.status === FiscalYearStatus.CLOSED) {
       throw new BadRequestException(

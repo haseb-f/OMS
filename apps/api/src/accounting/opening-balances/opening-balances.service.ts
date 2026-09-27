@@ -9,6 +9,7 @@ import {
 import { AccountingPeriodsService } from '../fiscal-periods/accounting-periods.service';
 import { FiscalYearsService } from '../fiscal-periods/fiscal-years.service';
 import { CreateOpeningBalanceDto } from './dto/create-opening-balance.dto';
+import { exclusiveEnd } from '../fiscal-periods/period-bounds';
 
 const SOURCE_TYPE = 'OPENING_BALANCE';
 
@@ -59,7 +60,7 @@ export class OpeningBalancesService {
     const openingDate = new Date(dto.openingDate);
     if (
       openingDate < fiscalYear.startDate ||
-      openingDate > fiscalYear.endDate
+      openingDate >= exclusiveEnd(fiscalYear)
     ) {
       throw new BadRequestException(
         `Opening Date must fall within Fiscal Year "${fiscalYear.name}" (${fiscalYear.startDate.toDateString()} – ${fiscalYear.endDate.toDateString()}).`,

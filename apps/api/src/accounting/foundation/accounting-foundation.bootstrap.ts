@@ -12,6 +12,7 @@ import {
   STANDARD_CHART_OF_ACCOUNTS,
   type PostingRole,
 } from './standard-chart-of-accounts';
+import { coversInstant } from '../fiscal-periods/period-bounds';
 
 type PrismaLike = PrismaClient;
 
@@ -388,14 +389,14 @@ export async function activateAccountingFoundation(
 
   const now = new Date();
   const year = now.getUTCFullYear();
-  const covering = await prisma.fiscalYear.findFirst({
-    where: {
-      deletedAt: null,
-      startDate: { lte: now },
-      endDate: { gte: now },
-    },
-    select: { id: true, name: true, startDate: true },
+  const candidateYear = await prisma.fiscalYear.findFirst({
+    where: { deletedAt: null, startDate: { lte: now } },
+    orderBy: { startDate: 'desc' },
+    select: { id: true, name: true, startDate: true, endDate: true },
   });
+  // Same last-day rule as posting checks (period-bounds.ts).
+  const covering =
+    candidateYear && coversInstant(candidateYear, now) ? candidateYear : null;
   let fiscalYear: string | null = covering?.name ?? null;
   let fiscalYearId = covering?.id ?? null;
   let fiscalYearStart = covering?.startDate ?? null;

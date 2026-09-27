@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { AccountingPeriodStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { candidateRangeQuery, coversInstant } from './period-bounds';
 
 /**
  * TASK-051 Phase 2 — per-period Open/Close/Lock transitions. OPEN -> CLOSED
@@ -36,9 +37,11 @@ export class AccountingPeriodsService {
     entryDate: Date,
     client: Prisma.TransactionClient | PrismaService = this.prisma,
   ) {
-    const period = await client.accountingPeriod.findFirst({
-      where: { startDate: { lte: entryDate }, endDate: { gte: entryDate } },
-    });
+    const candidate = await client.accountingPeriod.findFirst(
+      candidateRangeQuery(entryDate),
+    );
+    const period =
+      candidate && coversInstant(candidate, entryDate) ? candidate : null;
     if (!period) return;
     if (period.status !== AccountingPeriodStatus.OPEN) {
       throw new BadRequestException(
