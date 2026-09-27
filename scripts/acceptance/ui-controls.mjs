@@ -156,8 +156,15 @@ async function uiLogin(browser) {
 
 const dialogSel = '[role="dialog"]:not([data-state="closed"])';
 async function openDialogByButton(page, re) {
-  const b = page.getByRole("button", { name: re }).first();
-  if (!(await b.isVisible().catch(() => false))) return false;
+  let b = page.getByRole("button", { name: re }).first();
+  if (!(await b.isVisible().catch(() => false))) {
+    // Phones collapse secondary header actions into the «المزيد» / More menu.
+    const more = page.getByRole("button", { name: /^المزيد$|^More$/ }).first();
+    if (!(await more.isVisible().catch(() => false))) return false;
+    await more.click();
+    b = page.getByRole("menuitem", { name: re }).first();
+    if (!(await b.isVisible({ timeout: 3000 }).catch(() => false))) return false;
+  }
   await b.click();
   await page.locator(dialogSel).last().waitFor({ timeout: 10000 }).catch(() => {});
   await page.waitForTimeout(700);
@@ -166,11 +173,11 @@ async function openDialogByButton(page, re) {
 
 const SCENARIO = {
   list: { route: "/crm/leads", scope: "main" },
-  leadConvert: { route: () => (lead ? `/crm/leads/${lead.id}` : null), scope: dialogSel, open: (p) => openDialogByButton(p, /تحويل إلى طلب|Convert to order/) },
+  leadConvert: { route: () => (lead ? `/crm/leads/${lead.id}` : null), scope: dialogSel, open: (p) => openDialogByButton(p, /تحويل إلى طلب|Convert to order/i) },
   invoiceNew: { route: "/sales/invoices/new", scope: "main" },
   purchaseQuotationNew: { route: "/purchasing/purchase-quotations/new", scope: "main" },
   purchaseInvoiceNew: { route: "/purchasing/purchase-invoices/new", scope: "main" },
-  paymentDeclare: { route: () => (order ? `/store-orders/${order.id}` : null), scope: dialogSel, open: (p) => openDialogByButton(p, /إبلاغ دفع العميل|Report customer payment|Declare/) },
+  paymentDeclare: { route: () => (order ? `/store-orders/${order.id}` : null), scope: dialogSel, open: (p) => openDialogByButton(p, /إبلاغ دفع العميل|Report customer payment|Declare/i) },
   paymentReview: { route: "/finance/payment-review", scope: "main" },
   tb: { route: "/reports/finance?report=trialBalance", scope: "main" },
   gl: { route: "/reports/finance?report=generalLedger", scope: "main" },

@@ -368,7 +368,9 @@ async function clickFirst(page, locators, what) {
   }
   notTested(`selector not found: ${what}`);
 }
-const btn = (scope, re) => scope.getByRole("button", { name: re });
+// Header navigation actions (e.g. «إضافة موظف» → /hr/employees/new) render as
+// links styled as buttons; match either role by accessible name.
+const btn = (scope, re) => scope.getByRole("button", { name: re }).or(scope.getByRole("link", { name: re }));
 /** Open a combobox/select trigger, optionally type a search, click the option. */
 async function pick(page, trigger, { search, option }) {
   await trigger.click();
