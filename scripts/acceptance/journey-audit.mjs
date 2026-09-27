@@ -1451,29 +1451,27 @@ J("store-orders", async () => {
     }
     return { status: t.ok && found ? "PASS" : "FAIL", detail: `${t.text}; ${so.number ?? "not found by external id"}; total=${found?.totalAmount ?? found?.grandTotal} ${found?.currency?.code ?? ""}`, url: found ? `${BASE}/store-orders/${found.id}` : null, shot: await shot(page, "agent-store-order-created") };
   });
-  await step(ag, "Store orders", "payment", "report payment on order (إضافة دفعة)", async (page) => {
+  // Since 6636a6d the Sales side DECLARES the customer's payment ("إبلاغ دفع
+  // العميل"); Finance verifies and posts it from Payment Review.
+  await step(ag, "Store orders", "payment", "declare customer payment on order (إبلاغ دفع العميل)", async (page) => {
     if (!so.id) notTested("no order");
     await go(page, `/store-orders/${so.id}`);
-    await clickFirst(page, [btn(page, /^إضافة دفعة$/)], "إضافة دفعة");
+    await clickFirst(page, [btn(page, /^إبلاغ دفع العميل$/)], "إبلاغ دفع العميل");
     const dlg = dialog(page);
     await dlg.waitFor({ state: "visible" });
-    const amt = field(dlg, /^المبلغ/);
-    if (await amt.isVisible().catch(() => false)) await amt.fill("150");
-    else await after(dlg, "المبلغ").fill("150");
-    const method = field(dlg, /طريقة الدفع/);
-    await pick(page, (await method.isVisible().catch(() => false)) ? method : after(dlg, "طريقة الدفع", "combo"), { search: "انستا", option: /انستا باي|تحويل مباشر/ });
-    const acct = field(dlg, /الحساب المستلم/);
-    await pick(page, (await acct.isVisible().catch(() => false)) ? acct : after(dlg, "الحساب المستلم", "combo"), { option: /البنك الرئيسي|الصندوق الرئيسي/ });
-    const sender = field(dlg, /اسم المرسل/);
-    await ((await sender.isVisible().catch(() => false)) ? sender : after(dlg, "اسم المرسل")).fill(`${RUN} sender`);
-    const ref = field(dlg, /المرجع/);
+    const full = dlg.getByRole("radio", { name: /دفع كامل المبلغ/ }).first();
+    if (await full.isVisible().catch(() => false)) await full.click();
+    else await dlg.locator("label").filter({ hasText: /دفع كامل المبلغ/ }).first().click();
+    await page.waitForTimeout(300);
+    await pick(page, field(dlg, /^طريقة الدفع/), { search: "انستا", option: /انستا باي|تحويل مباشر/ });
+    const ref = field(dlg, /^مرجع الدفع/);
     if (await ref.isVisible().catch(() => false)) await ref.fill(`${RUN}-PAY`);
     await shot(page, "agent-store-order-add-payment");
-    await btn(dlg, /^حفظ$/).click();
-    const t = await expectToast(page, /تمت إضافة الدفعة/);
+    await btn(dlg, /^حفظ الإبلاغ$/).click();
+    const t = await expectToast(page, /تم الإبلاغ|تم تسجيل|تم حفظ هذا الإبلاغ/, 20000);
     await settle(page);
-    const pc = (await adm.api("GET", `/store-orders/${so.id}/payment-context`)).json;
-    return { status: t.ok ? "PASS" : "FAIL", detail: `${t.text}; paymentStatus=${pc?.paymentStatus ?? pc?.order?.paymentStatus ?? JSON.stringify(pc).slice(0, 120)}`, url: page.url(), shot: await shot(page, "agent-store-order-payment-reported") };
+    const o = (await adm.api("GET", `/store-orders/${so.id}`)).json;
+    return { status: t.ok ? "PASS" : "FAIL", detail: `${t.text}; declared=${o?.declaredPaymentStatus} paymentStatus=${o?.paymentStatus}`, url: page.url(), shot: await shot(page, "agent-store-order-payment-reported") };
   });
   await step(fin, "Store orders", "payment review", "finance confirms & posts the reported payment", async (page) => {
     if (!so.id) notTested("no order");

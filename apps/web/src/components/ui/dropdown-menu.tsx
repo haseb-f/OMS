@@ -22,18 +22,36 @@ function DropdownMenuTrigger({
   return <DropdownMenuPrimitive.Trigger data-slot="dropdown-menu-trigger" {...props} />;
 }
 
+const OPEN_OVERLAY_SELECTOR =
+  '[data-slot="dialog-content"][data-state="open"], [data-slot="alert-dialog-content"][data-state="open"], [data-slot="sheet-content"][data-state="open"]';
+
 function DropdownMenuContent({
   className,
   align = "start",
   sideOffset = 4,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
+  // The element that had focus when the menu opened (its trigger). Captured
+  // on first render, before Radix moves focus into the menu.
+  const [trigger] = React.useState(() =>
+    typeof document === "undefined" ? null : (document.activeElement as HTMLElement | null),
+  );
   return (
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
         align={align}
+        onCloseAutoFocus={(event) => {
+          onCloseAutoFocus?.(event);
+          if (event.defaultPrevented) return;
+          // A menu item that opened a dialog/sheet: the overlay owns focus now.
+          // Returning focus to a trigger outside it would pull focus out of the
+          // dialog and close any picker the user already opened inside it.
+          const overlay = document.querySelector(OPEN_OVERLAY_SELECTOR);
+          if (overlay && !(trigger && overlay.contains(trigger))) event.preventDefault();
+        }}
         className={cn(
           "z-50 max-h-(--radix-dropdown-menu-content-available-height) w-auto min-w-32 origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md bg-popover p-1 text-popover-foreground border border-border shadow-(--shadow-floating) duration-(--duration-base) data-[state=closed]:overflow-hidden data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 ",
           className,
