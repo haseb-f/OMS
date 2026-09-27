@@ -17,11 +17,12 @@ const alertVariants = cva(
   {
     variants: {
       tone: {
-        destructive: "border-destructive/20 bg-destructive-soft text-destructive",
-        warning: "border-warning/25 bg-warning-soft text-warning-foreground",
-        success: "border-success/25 bg-success-soft text-success-foreground",
-        info: "border-info/25 bg-info-soft text-info-foreground",
-        neutral: "border-border bg-muted/40 text-muted-foreground",
+        destructive:
+          "border-destructive-border bg-destructive-soft text-destructive-soft-foreground",
+        warning: "border-warning-border bg-warning-soft text-warning-soft-foreground",
+        success: "border-success-border bg-success-soft text-success-soft-foreground",
+        info: "border-info-border bg-info-soft text-info-soft-foreground",
+        neutral: "border-neutral-border bg-neutral-soft text-neutral-soft-foreground",
       },
     },
     defaultVariants: {
