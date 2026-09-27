@@ -4,6 +4,24 @@ import {
 } from "@/components/accounting/report-filter-bar";
 import { fromISODate, toISODate } from "@/lib/date";
 
+/** Every report on /reports/finance (`?report=…`). */
+export const FINANCE_REPORTS = [
+  "generalLedger",
+  "trialBalance",
+  "journalReport",
+  "accountStatement",
+  "balanceSheet",
+  "incomeStatement",
+  "cashFlow",
+  "cashAvailability",
+  "arAging",
+  "apAging",
+  "customerStatement",
+  "supplierStatement",
+] as const;
+
+export type FinanceReportKey = (typeof FINANCE_REPORTS)[number];
+
 /**
  * Report filters in the URL — so a reload, Back from a drill-down or a
  * shared link reopens exactly the same scope, and a drill-down carries the
@@ -77,5 +95,12 @@ export function partnerStatementHref(
   const params = writeFiltersToSearchParams(filters);
   params.set("report", role === "CUSTOMER" ? "customerStatement" : "supplierStatement");
   params.set("partner", partnerId);
+  return `/reports/finance?${params.toString()}`;
+}
+
+/** Same-scope drill-down to another finance report (e.g. an imbalance → the period's journal entries). */
+export function financeReportHref(report: FinanceReportKey, filters: ReportFilterValue): string {
+  const params = writeFiltersToSearchParams(filters);
+  params.set("report", report);
   return `/reports/finance?${params.toString()}`;
 }

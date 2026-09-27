@@ -12,7 +12,7 @@ import {
 import { useLocale } from "@/providers/locale-provider";
 import { reportApiError } from "@/lib/toast";
 import { useReportQuery } from "./use-report-query";
-import { accountStatementHref } from "./report-url";
+import { accountStatementHref, financeReportHref } from "./report-url";
 
 export function TrialBalanceTab() {
   const { t } = useLocale();
@@ -95,24 +95,31 @@ export function TrialBalanceTab() {
       printTitle={t("reports.finance.trialBalance")}
       exportFileName="trial-balance.csv"
       summary={{
-        // Period debits and credits are the figures that count; the net
-        // closing balance of all accounts is ~0 by construction (footer).
-        items: [
-          {
-            id: "debitTotal",
-            label: t("reports.finance.fields.debitTotal"),
-            value: totals.debitTotal,
-          },
-          {
-            id: "creditTotal",
-            label: t("reports.finance.fields.creditTotal"),
-            value: totals.creditTotal,
-          },
-        ],
+        // Period debits and credits are the figures that count — shown once,
+        // in the reconciliation card; the net closing balance of all
+        // accounts is ~0 by construction (footer).
+        items: [],
         check: {
           balanced,
           difference: totals.debitTotal - totals.creditTotal,
           label: t("docFlow.reports.debitsEqualCredits"),
+          scope: "period",
+          sides: [
+            {
+              id: "debitTotal",
+              label: t("reports.finance.fields.debitTotal"),
+              value: totals.debitTotal,
+            },
+            {
+              id: "creditTotal",
+              label: t("reports.finance.fields.creditTotal"),
+              value: totals.creditTotal,
+            },
+          ],
+          drillDown: {
+            href: financeReportHref("journalReport", filters),
+            label: t("reports.finance.reconciliation.viewPeriodEntries"),
+          },
         },
       }}
       footer={{

@@ -94,12 +94,27 @@ export interface FinancialReportSummaryItem {
 }
 
 export interface FinancialReportCheck {
+  /** The API's verdict. A non-zero `difference` is shown as unbalanced regardless. */
   balanced: boolean;
+  /** Left side minus right side (debits − credits; assets − (liabilities + equity)). */
   difference: number;
+  /** The equation being checked, e.g. «مدين = دائن». */
   label: string;
   /** When set, the check does not apply to the current filters — shown instead of a verdict. */
   notApplicable?: string;
+  /**
+   * What the verdict covers — picks the wording ("Entries balance for this
+   * period" / "at the report date" / "the entries shown"). Never a claim that
+   * the accounting as a whole is correct. Default `period`.
+   */
+  scope?: FinancialReportCheckScope;
+  /** The two compared totals, shown in the reconciliation card and exported. */
+  sides?: Array<{ id: string; label: string; value: number }>;
+  /** Where to investigate an imbalance (shown in the unbalanced state only). */
+  drillDown?: { href: string; label: string };
 }
+
+export type FinancialReportCheckScope = "period" | "asOf" | "page";
 
 /**
  * The deliberate summary above a report: its key final figures, and — for

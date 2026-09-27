@@ -127,39 +127,39 @@ export function PartnerStatementTab({ role }: { role: PartnerRoleValue }) {
   );
 
   return (
-    <div className="flex flex-col gap-3">
-      <FinancialReport
-        lines={partner ? lines : []}
-        columns={LEDGER_COLUMNS}
-        textColumns={textColumns}
-        nameHeaderKey="reports.finance.fields.description"
-        defaultExpanded="all"
-        exportAllLines
-        isLoading={isLoading}
-        filters={filters}
-        onFiltersChange={setFilters}
-        printTitle={statement ? `${statementTitle} — ${statement.partner.name}` : statementTitle}
-        exportFileName={`${role.toLowerCase()}-statement.xlsx`}
-        toolbarExtra={<PartnerPicker role={role} value={partner} onChange={selectPartner} />}
-        summary={statement ? { items: ledgerSummaryItems(t, statement) } : undefined}
-        onPostingClick={(line) => {
-          const movement = movementIndex.get(line.id);
-          if (movement) {
-            openFullRecord({
-              kind: "JOURNAL_ENTRY",
-              id: movement.journalEntryId,
-              number: movement.entryNumber,
-            });
-          }
-        }}
-      />
-      {!partner ? (
-        <EmptyState
-          icon={UsersRound}
-          title={statementTitle}
-          description={t("reports.finance.partnerStatement.selectDescription")}
-        />
-      ) : null}
-    </div>
+    <FinancialReport
+      lines={partner ? lines : []}
+      columns={LEDGER_COLUMNS}
+      textColumns={textColumns}
+      nameHeaderKey="reports.finance.fields.description"
+      defaultExpanded="all"
+      exportAllLines
+      isLoading={isLoading}
+      filters={filters}
+      onFiltersChange={setFilters}
+      printTitle={statement ? `${statementTitle} — ${statement.partner.name}` : statementTitle}
+      exportFileName={`${role.toLowerCase()}-statement.xlsx`}
+      toolbarExtra={<PartnerPicker role={role} value={partner} onChange={selectPartner} />}
+      placeholder={
+        !partner ? (
+          <EmptyState
+            icon={UsersRound}
+            title={statementTitle}
+            description={t("reports.finance.partnerStatement.selectDescription")}
+          />
+        ) : undefined
+      }
+      summary={statement ? { items: ledgerSummaryItems(t, statement) } : undefined}
+      onPostingClick={(line) => {
+        const movement = movementIndex.get(line.id);
+        if (movement) {
+          openFullRecord({
+            kind: "JOURNAL_ENTRY",
+            id: movement.journalEntryId,
+            number: movement.entryNumber,
+          });
+        }
+      }}
+    />
   );
 }

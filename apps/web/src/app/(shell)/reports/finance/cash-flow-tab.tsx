@@ -149,7 +149,7 @@ export function CashFlowTab() {
           aria-label={t("reports.finance.cashFlowView.label")}
         >
           {VIEWS.map((key) => (
-            <ToggleGroupItem key={key} value={key}>
+            <ToggleGroupItem key={key} value={key} size="default">
               {t(`reports.finance.cashFlowView.${key}`)}
             </ToggleGroupItem>
           ))}

@@ -24,7 +24,9 @@ import { useLocale } from "@/providers/locale-provider";
 import { reportApiError } from "@/lib/toast";
 import { formatDate } from "@/lib/date";
 import type { ReportFilterValue } from "@/components/accounting/report-filter-bar";
+import { isZeroAmount } from "@/lib/money";
 import { useReportQuery } from "./use-report-query";
+import { financeReportHref } from "./report-url";
 
 /** Entries per page — the range label always states which slice is shown. */
 const ENTRIES_PER_PAGE = 100;
@@ -124,6 +126,20 @@ export function JournalReportTab() {
 
   const pageCount = Math.max(1, Math.ceil(total / ENTRIES_PER_PAGE));
 
+  // Debits = credits over the entries shown (this page). Every figure is the
+  // API's own entry total; only their sum is new.
+  const pageTotals = useMemo(
+    () =>
+      items.reduce(
+        (sum, entry) => ({
+          debit: sum.debit + Number(entry.totalDebit),
+          credit: sum.credit + Number(entry.totalCredit),
+        }),
+        { debit: 0, credit: 0 },
+      ),
+    [items],
+  );
+
   return (
     <>
       <FinancialReport
@@ -136,6 +152,35 @@ export function JournalReportTab() {
         printTitle={t("reports.finance.journalReport")}
         exportFileName="journal-report.csv"
         nameHeaderKey="reports.finance.fields.description"
+        summary={
+          items.length > 0
+            ? {
+                items: [],
+                check: {
+                  balanced: isZeroAmount(pageTotals.debit - pageTotals.credit),
+                  difference: pageTotals.debit - pageTotals.credit,
+                  label: t("docFlow.reports.debitsEqualCredits"),
+                  scope: "page",
+                  sides: [
+                    {
+                      id: "pageDebit",
+                      label: t("reports.finance.fields.debitTotal"),
+                      value: pageTotals.debit,
+                    },
+                    {
+                      id: "pageCredit",
+                      label: t("reports.finance.fields.creditTotal"),
+                      value: pageTotals.credit,
+                    },
+                  ],
+                  drillDown: {
+                    href: financeReportHref("trialBalance", filters),
+                    label: t("reports.finance.reconciliation.viewTrialBalance"),
+                  },
+                },
+              }
+            : undefined
+        }
         onPostingClick={(line) => {
           const match = items.find((entry) => entry.id === line.id);
           if (match) setDetail(match);

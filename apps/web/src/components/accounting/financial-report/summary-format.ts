@@ -1,7 +1,30 @@
 import { formatAmount, isZeroAmount } from "@/lib/money";
-import type { FinancialReportSummary, FinancialReportSummaryTone } from "./types";
+import type {
+  FinancialReportCheck,
+  FinancialReportSummary,
+  FinancialReportSummaryTone,
+} from "./types";
 
 export type ResolvedSummaryTone = "revenue" | "expense" | "profit" | "loss" | "neutral";
+
+export type ReconciliationState = "balanced" | "unbalanced" | "not-applicable";
+
+/**
+ * The reconciliation verdict a report shows (design-system §11.5):
+ * - `not-applicable` when the check does not hold for the current filters
+ *   (e.g. specific GL accounts selected) — a neutral note, never a badge;
+ * - `unbalanced` when the API says so OR the two sides differ by any
+ *   visible amount — the screen never claims a balance its own figures
+ *   contradict;
+ * - `balanced` otherwise.
+ */
+export function resolveReconciliationState(
+  check: Pick<FinancialReportCheck, "balanced" | "difference" | "notApplicable">,
+): ReconciliationState {
+  if (check.notApplicable) return "not-applicable";
+  if (!check.balanced || !isZeroAmount(check.difference)) return "unbalanced";
+  return "balanced";
+}
 
 /** Category color lives in the summary only; `result` is profit / loss / neutral by sign. */
 export function resolveSummaryTone(
@@ -50,14 +73,27 @@ export function summaryToText(
   }));
   const check = summary.check;
   if (check) {
-    const verdict = check.notApplicable
-      ? `${t("reports.finance.checkNotApplicable")} — ${check.notApplicable}`
-      : check.balanced
-        ? t("reports.finance.balanced")
-        : `${t("reports.finance.unbalanced")} — ${t("reports.finance.discrepancy")} ${formatAmount(
-            Math.abs(check.difference),
-            { zero: "dash", currency },
-          )}`;
+    const state = resolveReconciliationState(check);
+    const verdict =
+      state === "not-applicable"
+        ? `${t("reports.finance.checkNotApplicable")} — ${check.notApplicable}`
+        : state === "balanced"
+          ? t("reports.finance.balanced")
+          : `${t("reports.finance.unbalanced")} — ${t("reports.finance.discrepancy")} ${formatAmount(
+              Math.abs(check.difference),
+              { zero: "dash", currency },
+            )}`;
+    // The compared totals first (the figures the verdict is about), then the verdict.
+    for (const side of check.sides ?? []) {
+      items.push({
+        id: `summary:check:${side.id}`,
+        label: side.label,
+        value: formatAmount(side.value, {
+          zero: "dash",
+          currency: isZeroAmount(side.value) ? null : currency,
+        }),
+      });
+    }
     items.push({ id: "summary:check", label: check.label, value: verdict });
   }
   return items;

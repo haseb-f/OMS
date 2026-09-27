@@ -9,7 +9,7 @@ import {
 import { useLocale } from "@/providers/locale-provider";
 import { reportApiError } from "@/lib/toast";
 import { useReportQuery } from "./use-report-query";
-import { accountStatementHref } from "./report-url";
+import { accountStatementHref, financeReportHref } from "./report-url";
 
 export function BalanceSheetTab() {
   const { t } = useLocale();
@@ -83,17 +83,25 @@ export function BalanceSheetTab() {
             label: t("reports.finance.fields.totalEquity"),
             value: totals.totalEquity,
           },
-          {
-            id: "totalLiabilitiesAndEquity",
-            label: t("reports.finance.fields.totalLiabilitiesAndEquity"),
-            value: totals.totalLiabilities + totals.totalEquity,
-            emphasize: true,
-          },
         ],
+        // Assets = liabilities + equity at the report date; the combined
+        // right-hand side is one of the two compared totals.
         check: {
           balanced: totals.balanced,
           difference: totals.totalAssets - (totals.totalLiabilities + totals.totalEquity),
           label: t("docFlow.reports.assetsEqualLiabilitiesEquity"),
+          scope: "asOf",
+          sides: [
+            {
+              id: "totalLiabilitiesAndEquity",
+              label: t("reports.finance.fields.totalLiabilitiesAndEquity"),
+              value: totals.totalLiabilities + totals.totalEquity,
+            },
+          ],
+          drillDown: {
+            href: financeReportHref("trialBalance", filters),
+            label: t("reports.finance.reconciliation.viewTrialBalance"),
+          },
         },
       }}
     />

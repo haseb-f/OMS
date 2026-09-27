@@ -45,6 +45,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { navigationConfig } from "@/navigation/navigation.config";
 import { iconRegistry } from "@/navigation/icon-registry";
 import { useLocale } from "@/providers/locale-provider";
+import {
+  FinancialReportActions,
+  FinancialReportHeader,
+  FinancialReportSummaryStrip,
+  ReconciliationCard,
+  ReportSwitcher,
+  type FinancialReportCheck,
+} from "@/components/accounting/financial-report";
+import { FilterTrigger } from "@/components/shared/data-table/filter-popover";
 
 /** Sample rows for the Tables section — clearly-labeled placeholder data, not a real business dataset. */
 interface SampleRow {
@@ -231,6 +240,11 @@ export default function DesignSystemPage() {
         {/* Tables */}
         <Section title={t("designSystem.tables")}>
           <EnterpriseDataTable tableId="design-system-sample" columns={columns} data={sampleRows} />
+        </Section>
+
+        {/* Financial report — header, KPI strip, reconciliation states (SAMPLE data) */}
+        <Section title={t("designSystem.financialReport")}>
+          <FinancialReportShowcase />
         </Section>
 
         {/* Dialogs */}
@@ -444,5 +458,168 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <h2 className="text-section-title">{title}</h2>
       {children}
     </section>
+  );
+}
+
+/**
+ * Design-system sample of the financial report chrome (design-system §11.5).
+ * Every figure here is illustrative SAMPLE data, labeled as such — this is
+ * where the unbalanced state can be seen without fabricating accounting data.
+ */
+function FinancialReportShowcase() {
+  const { t } = useLocale();
+  const noop = () => undefined;
+  const sampleBadge = (
+    <EnterpriseBadge variant="warning" className="w-fit">
+      {t("designSystem.sampleData")}
+    </EnterpriseBadge>
+  );
+  const debits = t("reports.finance.fields.debitTotal");
+  const credits = t("reports.finance.fields.creditTotal");
+  const equation = t("docFlow.reports.debitsEqualCredits");
+  const states: Array<{ id: string; label: string; check: FinancialReportCheck }> = [
+    {
+      id: "balanced",
+      label: t("designSystem.stateBalanced"),
+      check: {
+        balanced: true,
+        difference: 0,
+        label: equation,
+        scope: "period",
+        sides: [
+          { id: "debit", label: debits, value: 1250000 },
+          { id: "credit", label: credits, value: 1250000 },
+        ],
+      },
+    },
+    {
+      id: "unbalanced",
+      label: t("designSystem.stateUnbalanced"),
+      check: {
+        balanced: false,
+        difference: 1250,
+        label: equation,
+        scope: "period",
+        sides: [
+          { id: "debit", label: debits, value: 1250000 },
+          { id: "credit", label: credits, value: 1248750 },
+        ],
+        drillDown: {
+          href: "/reports/finance?report=journalReport",
+          label: t("reports.finance.reconciliation.viewPeriodEntries"),
+        },
+      },
+    },
+    {
+      id: "notApplicable",
+      label: t("designSystem.stateNotApplicable"),
+      check: {
+        balanced: true,
+        difference: 0,
+        label: equation,
+        notApplicable: t("reports.finance.checkFilteredAccounts"),
+        sides: [
+          { id: "debit", label: debits, value: 48200 },
+          { id: "credit", label: credits, value: 31750 },
+        ],
+      },
+    },
+  ];
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-caption text-muted-foreground">{t("designSystem.financialReportHint")}</p>
+      <div
+        data-sample="financial-report"
+        className="flex flex-col gap-2 rounded-md border border-dashed border-border-strong p-3"
+      >
+        {sampleBadge}
+        <FinancialReportHeader
+          titleAs="h3"
+          title={t("designSystem.sampleReportTitle")}
+          context={[
+            "1 Jan 2026 – 30 Sep 2026",
+            "EGP",
+            t("reports.finance.header.postedOnly"),
+            t("reports.finance.header.includesOpening"),
+          ]}
+          switcher={
+            <ReportSwitcher
+              value="trialBalance"
+              onChange={noop}
+              options={[
+                {
+                  value: "trialBalance",
+                  label: t("reports.finance.trialBalance"),
+                  group: t("reports.finance.header.groups.ledgers"),
+                },
+                {
+                  value: "generalLedger",
+                  label: t("reports.finance.generalLedger"),
+                  group: t("reports.finance.header.groups.ledgers"),
+                },
+              ]}
+            />
+          }
+          actions={
+            <FinancialReportActions
+              canExpand
+              onExpandAll={noop}
+              onCollapseAll={noop}
+              onExport={noop}
+              onPrint={noop}
+            />
+          }
+          filters={
+            <div className="flex flex-wrap items-center gap-1.5">
+              <FilterTrigger label="1 Jan 2026 – 30 Sep 2026" isActive />
+              <FilterTrigger label={t("reports.finance.filters.company")} />
+              <FilterTrigger label={t("reports.finance.filters.currency")} />
+              <FilterTrigger label={t("reports.finance.header.moreFilters")} count={1} isActive />
+            </div>
+          }
+        />
+        <FinancialReportSummaryStrip
+          currency="EGP"
+          summary={{
+            items: [
+              {
+                id: "revenue",
+                label: t("designSystem.sampleRevenue"),
+                value: 820000,
+                tone: "revenue",
+              },
+              {
+                id: "expense",
+                label: t("designSystem.sampleExpense"),
+                value: 615400,
+                tone: "expense",
+              },
+              {
+                id: "net",
+                label: t("designSystem.sampleNetProfit"),
+                value: 204600,
+                tone: "result",
+                emphasize: true,
+              },
+            ],
+          }}
+        />
+      </div>
+      <div className="flex flex-col gap-3">
+        {states.map((state) => (
+          <div
+            key={state.id}
+            data-sample={`reconciliation-${state.id}`}
+            className="flex flex-col gap-1.5"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-caption font-medium text-foreground">{state.label}</span>
+              {sampleBadge}
+            </div>
+            <ReconciliationCard check={state.check} currency="EGP" />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

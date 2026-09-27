@@ -20,6 +20,7 @@ import {
   ledgerTextColumns,
 } from "./ledger-lines";
 import { useReportQuery } from "./use-report-query";
+import { financeReportHref } from "./report-url";
 
 const accountsService = createMasterDataService<ChartOfAccountRow>("/chart-of-accounts");
 
@@ -145,27 +146,34 @@ export function GeneralLedgerTab() {
       summary={
         result
           ? {
-              // Period debits / credits are the figures that count; the net
-              // opening / closing of many accounts is ~0 and stays in the footer.
-              items: [
-                {
-                  id: "periodDebit",
-                  label: t("reports.finance.fields.debitTotal"),
-                  value: totals.periodDebit,
-                },
-                {
-                  id: "periodCredit",
-                  label: t("reports.finance.fields.creditTotal"),
-                  value: totals.periodCredit,
-                },
-              ],
+              // Period debits / credits are the figures that count (shown in
+              // the reconciliation card); the net opening / closing of many
+              // accounts is ~0 and stays in the footer.
+              items: [],
               check: {
                 balanced: result.balanced,
                 difference: totals.periodDebit - totals.periodCredit,
                 label: t("docFlow.reports.debitsEqualCredits"),
+                scope: "period",
                 // Selected accounts never balance on their own — say so.
                 notApplicable:
                   accounts.length > 0 ? t("reports.finance.checkFilteredAccounts") : undefined,
+                sides: [
+                  {
+                    id: "periodDebit",
+                    label: t("reports.finance.fields.debitTotal"),
+                    value: totals.periodDebit,
+                  },
+                  {
+                    id: "periodCredit",
+                    label: t("reports.finance.fields.creditTotal"),
+                    value: totals.periodCredit,
+                  },
+                ],
+                drillDown: {
+                  href: financeReportHref("journalReport", filters),
+                  label: t("reports.finance.reconciliation.viewPeriodEntries"),
+                },
               },
             }
           : undefined

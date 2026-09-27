@@ -113,43 +113,43 @@ export function AccountStatementTab() {
   const textColumns = useMemo(() => ledgerTextColumns(movementIndex), [movementIndex]);
 
   return (
-    <div className="flex flex-col gap-3">
-      <FinancialReport
-        lines={account ? lines : []}
-        columns={LEDGER_COLUMNS}
-        textColumns={textColumns}
-        nameHeaderKey="reports.finance.fields.description"
-        defaultExpanded="all"
-        exportAllLines
-        isLoading={isLoading}
-        filters={filters}
-        onFiltersChange={setFilters}
-        accountFilter={{ value: account, onChange: setAccount, required: true }}
-        printTitle={
-          statement
-            ? `${t("reports.finance.accountStatement.title")} — ${statement.account.code} ${statement.account.name}`
-            : t("reports.finance.accountStatement.title")
+    <FinancialReport
+      lines={account ? lines : []}
+      columns={LEDGER_COLUMNS}
+      textColumns={textColumns}
+      nameHeaderKey="reports.finance.fields.description"
+      defaultExpanded="all"
+      exportAllLines
+      isLoading={isLoading}
+      filters={filters}
+      onFiltersChange={setFilters}
+      accountFilter={{ value: account, onChange: setAccount, required: true }}
+      printTitle={
+        statement
+          ? `${t("reports.finance.accountStatement.title")} — ${statement.account.code} ${statement.account.name}`
+          : t("reports.finance.accountStatement.title")
+      }
+      exportFileName="account-statement.xlsx"
+      placeholder={
+        !account ? (
+          <EmptyState
+            icon={Landmark}
+            title={t("reports.finance.accountStatement.selectAccountTitle")}
+            description={t("reports.finance.accountStatement.selectAccountDescription")}
+          />
+        ) : undefined
+      }
+      summary={statement ? { items: ledgerSummaryItems(t, statement) } : undefined}
+      onPostingClick={(line) => {
+        const movement = movementIndex.get(line.id);
+        if (movement) {
+          openFullRecord({
+            kind: "JOURNAL_ENTRY",
+            id: movement.journalEntryId,
+            number: movement.entryNumber,
+          });
         }
-        exportFileName="account-statement.xlsx"
-        summary={statement ? { items: ledgerSummaryItems(t, statement) } : undefined}
-        onPostingClick={(line) => {
-          const movement = movementIndex.get(line.id);
-          if (movement) {
-            openFullRecord({
-              kind: "JOURNAL_ENTRY",
-              id: movement.journalEntryId,
-              number: movement.entryNumber,
-            });
-          }
-        }}
-      />
-      {!account ? (
-        <EmptyState
-          icon={Landmark}
-          title={t("reports.finance.accountStatement.selectAccountTitle")}
-          description={t("reports.finance.accountStatement.selectAccountDescription")}
-        />
-      ) : null}
-    </div>
+      }}
+    />
   );
 }

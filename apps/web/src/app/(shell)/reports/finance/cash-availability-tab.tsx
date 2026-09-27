@@ -7,7 +7,9 @@ import {
 } from "@/services/accounting-reports-service";
 import { useLocale } from "@/providers/locale-provider";
 import { reportApiError } from "@/lib/toast";
-import { EnterpriseBadge } from "@/components/ui/badge";
+import { Info, TriangleAlert } from "lucide-react";
+import { EnterpriseButton } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { FinancialReport } from "@/components/accounting/financial-report";
 import type { MessageKey } from "@/i18n/translate";
 import type {
@@ -202,19 +204,36 @@ export function CashAvailabilityTab() {
       exportFileName="cash-availability.xlsx"
       summary={result ? { items: summaryItems } : undefined}
       notice={
-        <div className="flex flex-wrap items-center gap-2">
-          <EnterpriseBadge variant="warning">
+        // One caption line: the estimate caveat up front, the formula and the
+        // limitations one click away (progressive disclosure).
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="inline-flex items-center gap-1.5 font-medium text-warning-soft-foreground">
+            <TriangleAlert aria-hidden className="size-3.5 shrink-0" />
             {t("reports.finance.cashAvailabilityReport.estimateBadge")}
-          </EnterpriseBadge>
+          </span>
           {result ? (
-            <span>
-              {[result.formula, ...result.limitations]
-                .filter(Boolean)
-                .map((note) => localizeCashAvailabilityNote(note, t))
-                .join(" · ")}
-            </span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <EnterpriseButton
+                  type="button"
+                  variant="link"
+                  size="inline"
+                  className="text-caption"
+                >
+                  <Info aria-hidden />
+                  {t("reports.finance.header.estimateDetails")}
+                </EnterpriseButton>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-96 max-w-[calc(100vw-2rem)]">
+                <ul className="flex list-disc flex-col gap-1.5 ps-4 text-caption text-muted-foreground">
+                  {[result.formula, ...result.limitations].filter(Boolean).map((note) => (
+                    <li key={note}>{localizeCashAvailabilityNote(note, t)}</li>
+                  ))}
+                </ul>
+              </PopoverContent>
+            </Popover>
           ) : null}
-        </div>
+        </span>
       }
     />
   );
