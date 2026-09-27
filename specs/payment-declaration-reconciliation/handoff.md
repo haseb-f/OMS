@@ -1,25 +1,43 @@
 # Handoff — payment-declaration-reconciliation
 
-- Branch `main`. HEAD = origin/main = Production = `00109b0` (foundation: schema, migration, permissions,
-  i18n modules, contracts). Production migration is applied and the exclusion constraint is live.
-- Resumed 2026-09-27 after a laptop shutdown during integration. All four implementers
-  (IMPL-DECL, IMPL-REC, IMPL-SET, IMPL-FX) had finished. Their work is intact in the working tree:
-  about 63 modified and about 30 untracked paths, nothing committed.
-- Integration changes by the Master (uncommitted):
-  - Period-boundary fix (`accounting/fiscal-periods/period-bounds.ts` and its spec, used by period,
-    fiscal-year, bootstrap and opening-balance checks). Last-day postings now respect closed periods.
-  - Settlement JE mapped to the CASH journal.
-  - Report FX conversions go through ExchangeRatesService (overrides and staleness).
-  - `store-orders.manage` may declare.
-  - The payment-method hardening test finds its method by name.
-- Running: the full gates (log in `tmp/gates-pdr.log`) and the REV-PDR accounting and security review
-  (read-only).
-- Next: fix gate and review findings → commit → push → deploy → verify SHA → Production acceptance with
-  tagged QA data (criteria 1–8 of the rules message, plus spec items 1–9) → Arabic guide → handoff.
-- Known gaps recorded so far:
-  - No JE → settlement traceability kind.
-  - No `SyncSourceType.PAYMENT_STATEMENT`; the sheet connection is stored as a PaymentStatementImport row.
-  - The per-method provider status list is a code constant.
-  - Local base currency is SAR, so a CBE import fails closed locally; it imports on Production, where
-    the base currency is EGP.
-  - The FX rate basis defaults to a derived MID and the owner can change it in settings.
+**Status: COMPLETE.** Every acceptance criterion is verified on Production, except the Google Sheets
+connection inside C3, which is **BLOCKED** until a sheet is shared with the service account. Details
+are in `verification.md`.
+
+- Releases:
+  - 00109b0 foundation
+  - 349e599 period last-day fix
+  - 6636a6d feature and review fixes
+  - 5cf2daa acceptance findings
+  - 0331a58 product picker SKU
+  - a final commit: Arabic-first FX and matching messages, the guide and the evidence
+- The final SHA is verified as HEAD = origin/main = Production, and reported in the session summary
+  and in the git log. It is not repeated here, because recording it would change it.
+- Production acceptance: RUN DEMO-PDR-20260927 on 0331a58, run by the Master with owner approval.
+  Evidence is in `docs/user-guide/evidence/PAYMENT-RECON-20260927/`, screenshots in
+  `docs/user-guide/screenshots/payments/`. The tagged demo data is kept as the guide dataset
+  (`docs/user-guide/demo-records.md`).
+- Arabic guide: roles/sales-agent, sales-manager, shipping, finance and super-admin, plus workflows,
+  reports, coverage, issues, demo-records, screenshot-index and README.
+
+Owner actions (not blocking):
+
+1. Share a Google Sheet with oms-google-sheets@muhbara-system-495000.iam.gserviceaccount.com to verify
+   sheet sync.
+2. Link a clearing (ASSET) account and turn on "Requires reconciliation" on the real provider methods
+   (تمارا، Mamo Pay, …) before using them in reconciliation.
+3. The FX rate basis defaults to a derived MID (buy/sell are stored). It can be changed in FX settings.
+
+Known limitations are listed in `verification.md` (L2, L4, L6, L9, L10, M3 notes).
+
+Only tested automatically, not in the Production browser run:
+
+- Sheets sync and source exceptions
+- Correcting a match
+- Reversing a settlement, and partial settlement
+- Blocking a method account change (L3)
+- The last-day period lock
+- FX columns in reports
+
+Next milestone: `specs/enterprise-ui-overhaul/`, owned by the "OMS enterprise UI/UX design system
+overhaul" session. It starts after this handoff (the owner's instruction).

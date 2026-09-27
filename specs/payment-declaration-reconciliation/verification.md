@@ -1,5 +1,42 @@
 # Verification — payment-declaration-reconciliation
 
+## Production acceptance (browser, QA roles, tagged data)
+
+RUN `DEMO-PDR-20260927` against Production SHA `0331a58` (commits 00109b0 → 0331a58), approved by the
+owner on 2026-09-27. Evidence is in `docs/user-guide/evidence/PAYMENT-RECON-20260927/` (summary.md,
+payment-recon-report.json, statement CSV), with screenshots in `docs/user-guide/screenshots/payments/`.
+
+Rows marked "local" were verified only locally. There are none, apart from the tests listed further down.
+
+| ID  | Criterion                                                                                                                         | Result                 | Key Production evidence                                                                                                                                                                  |
+| --- | --------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C1  | Sales declares unpaid, partial or full: one pending claim each, no JE                                                             | **PASS** (5/5)         | P020 PARTIAL 200/500 → PAY-2026-000053, JEs=0; FULL → PAY-2026-000054                                                                                                                    |
+| C2  | A fully declared prepaid order ships before Finance matching; partial is blocked; pickup; COD unchanged                           | **PASS** (10/10)       | RDY: shipment created 2026-09-27T09:56:42Z, no Finance match/verify, paymentStatus PAYMENT_REVIEW                                                                                        |
+| C3  | Provider matching (CSV, manual, suggestions, Confirm Match & Post to clearing); non-reconciled method goes through Finance review | **PASS 7 / BLOCKED 1** | JV-2026-000337: Dr 114 Tamara clearing 500 / Cr 121 AR 500, rate 1. BK: JV-2026-000351 posts to its own account, NOT_APPLICABLE. **Google Sheets: BLOCKED**, needs a shared test sheet   |
+| C4  | Batch settlement: 10 × 500, received 4,500, fee 500                                                                               | **PASS** (18/18)       | PST-2026-000002 → JV-2026-000350: Dr Bank 4,500 / Dr 522 commission 500 / Cr clearing 5,000; per-row checkboxes 12/12                                                                    |
+| C5  | Retry and double-click cannot duplicate declarations, matches, settlements or postings                                            | **PASS** (6/6)         | dropped-response resubmit gives "already saved — nothing duplicated"; double-click gives 1 claim, 1 settlement, 1 JE                                                                     |
+| C6  | Cross-currency: explicit fee, separate FX difference line                                                                         | **PASS** (6/6)         | USD claim X1 posted JV-2026-000347 at 51.7832 (CBE rate for the provider transaction date 26 Sep)                                                                                        |
+| C7  | FX: CBE import, dated override only within its range, overlap rejected, posted rates frozen                                       | **PASS** (11/11)       | first CBE import SUCCESS (18 fetched; USD and SAR inserted for 24 Sep). 2019-only override created, then deleted (reason stored). Overlap rejected. JE rates identical after each change |
+| C8  | Provider balance and GL reconcile before and after settlement                                                                     | **PASS** (4/4)         | clearing GL equals unsettled claims                                                                                                                                                      |
+| S1  | Dispute after shipment flags a discrepancy; shipment untouched                                                                    | **PASS** (4/4)         | discrepancy banner shown in the Sales view                                                                                                                                               |
+| S2  | Ambiguous suggestion warning                                                                                                      | **PASS** (3/3)         |                                                                                                                                                                                          |
+| S3  | Currency or amount mismatch refused                                                                                               | **PASS** (2/2)         |                                                                                                                                                                                          |
+| S4  | Sales cannot correct a declaration after fulfillment; Finance can (audited)                                                       | **PASS** (2/2)         |                                                                                                                                                                                          |
+| S5  | Historical posted payments untouched                                                                                              | **PASS** (2/2)         | read-only snapshot before and after                                                                                                                                                      |
+
+Acceptance script defects fixed on the way; these were not app defects:
+
+- The product was matched by SKU text, which the picker did not display. The app now shows the SKU
+  next to the price (0331a58).
+- A variable shadowed another (`ord`).
+- A setup flag was read after a replayed step.
+- An already-matched claim was judged against a placeholder instead of its stored reasons.
+- B01 shipped after it was matched, so it could not prove "before Finance matching". A fresh order,
+  RDY, is used instead. It is never counted as a pass by relabelling.
+
+Gates at 0331a58: API 1479/1479 (plus 24/24 serial), web 116/116, API and web production builds,
+lint 0 errors.
+
 ## Known limitations
 
 These are documented gaps from the REV-PDR accounting and security review. Each was accepted as
