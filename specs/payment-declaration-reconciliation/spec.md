@@ -1,9 +1,8 @@
 # Spec — Sales Payment Declaration + Dynamic Reconciliation
 
-**Status: QUEUED.** This milestone activates automatically after milestone `system-audit-ui` passes its
-acceptance criteria (see `specs/system-audit-ui/handoff.md`). Nothing has started yet: no plan, no
-tasks and no implementation subagents. When it activates, inspect the final integrated state, then
-plan → implement → review → test → deploy → verify.
+**Status: ACTIVE** (activated 2026-09-27). The dependency `system-audit-ui` is complete: HEAD =
+origin/main = Production = `83cec96`. Phase: inspection. The plan, state transitions, account
+mappings and acceptance mapping will be added below once the inspection is done.
 
 Owner brief, verbatim, received 2026-09-26:
 
@@ -152,6 +151,54 @@ Run relevant tests, typecheck, lint and production build; deploy and retest. Kee
 screenshots, logs and exact source→JE evidence. Update the Arabic role guides. Report every criterion
 as Production verified / Unverified / Blocked. Verify HEAD = origin/main = Production SHA. Do not
 claim completion while the Sales → fulfillment → Finance separation is incorrect.
+
+## Confirmed business rules (owner, 2026-09-27). These supersede the open questions.
+
+1. **Matching posts to the payment method's account.** A Finance confirmation after matching posts
+   Dr _method-linked clearing account_ (`PaymentMethod.accountId`) / Cr customer AR. It never posts to
+   Bank and never deducts fees at matching. Matched transactions stay "Awaiting settlement". The
+   existing account configuration is reused and its suitability is validated; it is never silently
+   replaced. Sales declarations create no accounting entries.
+2. **Batch provider settlement.** Finance selects matched, unsettled transactions for one method and
+   clicks Settle. The result is one balanced JE, for example: Dr Bank 4,500, Dr Gateway Commission
+   500, Cr Tamara Clearing 5,000.
+   - The settle screen shows the selection and gross total. It captures the actual received amount,
+     the receiving account and currency, the settlement date and the provider reference, uses the
+     configured commission account, and shows the calculated fee and a JE preview before confirming.
+   - Links run settlement → payments → orders → JEs.
+   - Repeated settlement, double allocation and duplicate posting are prevented.
+   - Partial settlement is explicit, and an unpaid remainder is never marked settled.
+   - Same-currency: fee = gross − net, validated.
+   - Cross-currency: the conversion basis is required and fees are separated from FX differences.
+     Unlike currencies are never subtracted.
+3. **Unpaid, full and partial declarations.**
+   - Both Sales and Finance can record: Unpaid; Paid in full (the amount defaults to the validated
+     order total); or Partially paid (an explicit amount).
+   - A paid declaration captures method, currency and actual payment date. Sales never chooses
+     accounts and never creates posted vouchers.
+   - Declared and verified values are kept separate. Declarations never duplicate a payment and never
+     exceed the valid limit.
+   - A fully declared-paid prepaid order becomes eligible for shipping or pickup without Finance
+     matching. A partial declaration never satisfies the full-prepayment gate.
+   - COD rules are unchanged, and nothing auto-marks Shipped, Delivered or Collected.
+4. **Automatic daily FX with dated manual overrides.** EGP is the base currency.
+   - A shared FX service and settings UI.
+   - A documented official source (see `fx-source-research.md`).
+   - A daily automatic import that records provenance and status, and can be disabled.
+   - Manual rates apply to an inclusive From–To range per pair. Overlapping ranges are rejected
+     server-side, including concurrent requests. There is one canonical quotation (1 FOREIGN = X
+     EGP), so reverse-pair contradictions cannot occur. An override wins within its range, and
+     automatic imports never overwrite it.
+   - Weekend, holiday and stale-rate behavior is visible, and rates are never assumed.
+   - FX dates:
+     - payment FX uses the matched provider transaction date;
+     - non-reconciled methods use the actual payment date;
+     - settlement FX uses the settlement date.
+   - Period locks are respected. Rate, date and source are frozen on posted transactions, and later
+     rate changes never rewrite posted JEs. Settlement FX differences are recognized separately from
+     commission.
+5. **Execution.** Master/subagent workflow with an independent accounting and security review.
+   Production browser acceptance items 1–8 in the owner brief (the rules message).
 
 ## Inspection notes carried from system-audit-ui (not requirements)
 

@@ -236,6 +236,68 @@ export class ExchangeRatesService {
     return this.resolveRate(currencyId, functionalId, asOf, client);
   }
 
+  /**
+   * CONTRACT (payment-declaration-reconciliation): rate + provenance for
+   * freezing on posted documents. `snapshotRate`/`resolveRate` keep their
+   * signatures and must return the same `rate` this returns. IMPL-FX owns the
+   * precedence (dated override → latest official/manual rate within the
+   * staleness window → fail closed MISSING_/STALE_EXCHANGE_RATE); this initial
+   * version only wraps the legacy lookup.
+   */
+  async resolveRateDetailed(
+    fromCurrencyId: string,
+    toCurrencyId: string,
+    asOf: Date,
+    client: DbClient = this.prisma,
+  ): Promise<ResolvedRate> {
+    if (fromCurrencyId === toCurrencyId) {
+      return {
+        rate: 1,
+        effectiveDate: asOf,
+        source: 'IDENTITY',
+        rateId: null,
+        overrideId: null,
+      };
+    }
+    const rate = await this.resolveRate(
+      fromCurrencyId,
+      toCurrencyId,
+      asOf,
+      client,
+    );
+    const row = await client.exchangeRate.findFirst({
+      where: { fromCurrencyId, toCurrencyId, effectiveDate: { lte: asOf } },
+      orderBy: { effectiveDate: 'desc' },
+      select: { id: true, effectiveDate: true, source: true },
+    });
+    return {
+      rate,
+      effectiveDate: row?.effectiveDate ?? asOf,
+      source: row?.source ?? 'EXCHANGE_RATE',
+      rateId: row?.id ?? null,
+      overrideId: null,
+    };
+  }
+
+  /** Transaction currency → functional, with provenance (see `resolveRateDetailed`). */
+  async snapshotRateDetailed(
+    currencyId: string | null | undefined,
+    asOf: Date,
+    client: DbClient = this.prisma,
+  ): Promise<ResolvedRate> {
+    if (!currencyId) {
+      return {
+        rate: 1,
+        effectiveDate: asOf,
+        source: 'IDENTITY',
+        rateId: null,
+        overrideId: null,
+      };
+    }
+    const functionalId = await this.requireFunctionalCurrencyId(client);
+    return this.resolveRateDetailed(currencyId, functionalId, asOf, client);
+  }
+
   async resolveRate(
     fromCurrencyId: string,
     toCurrencyId: string,
@@ -277,4 +339,15 @@ export class ExchangeRatesService {
       },
     });
   }
+}
+
+/** Rate with provenance — frozen on posted documents (rate, date, source). */
+export interface ResolvedRate {
+  rate: number;
+  /** Date of the observation/override actually used (may precede `asOf` on weekends/holidays). */
+  effectiveDate: Date;
+  /** 'IDENTITY' | 'OVERRIDE' | 'CBE' | 'MANUAL' | … (ExchangeRate.source) */
+  source: string;
+  rateId: string | null;
+  overrideId: string | null;
 }

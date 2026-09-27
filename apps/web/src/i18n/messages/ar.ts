@@ -1,4 +1,12 @@
+import paymentDeclarationAr from "./modules/payment-declaration.ar";
+import paymentReconciliationAr from "./modules/payment-reconciliation.ar";
+import paymentSettlementAr from "./modules/payment-settlement.ar";
+import fxSettingsAr from "./modules/fx-settings.ar";
 const ar = {
+  paymentDeclaration: paymentDeclarationAr,
+  paymentReconciliation: paymentReconciliationAr,
+  paymentSettlement: paymentSettlementAr,
+  fxSettings: fxSettingsAr,
   pickers: {
     currency: { select: "اختر العملة", search: "ابحث بالرمز أو الاسم…", empty: "لا توجد عملات" },
     employee: {
@@ -289,6 +297,7 @@ const ar = {
       accruedExpenses: "المصروفات المستحقة",
       exchangeRates: "أسعار الصرف",
       fxRevaluations: "إعادة تقييم العملات",
+      paymentReconciliation: "مطابقة وتسوية المدفوعات",
       workflowTransitions: "انتقالات سير العمل",
       analyticDistributions: "التوزيعات التحليلية",
       paymentSources: "مصادر الدفع",

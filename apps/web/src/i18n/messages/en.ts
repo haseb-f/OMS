@@ -1,4 +1,12 @@
+import paymentDeclarationEn from "./modules/payment-declaration.en";
+import paymentReconciliationEn from "./modules/payment-reconciliation.en";
+import paymentSettlementEn from "./modules/payment-settlement.en";
+import fxSettingsEn from "./modules/fx-settings.en";
 const en = {
+  paymentDeclaration: paymentDeclarationEn,
+  paymentReconciliation: paymentReconciliationEn,
+  paymentSettlement: paymentSettlementEn,
+  fxSettings: fxSettingsEn,
   pickers: {
     currency: { select: "Select currency", search: "Search code or name…", empty: "No currencies" },
     employee: {
@@ -287,6 +295,7 @@ const en = {
       accruedExpenses: "Accrued Expenses",
       exchangeRates: "Exchange Rates",
       fxRevaluations: "FX Revaluation",
+      paymentReconciliation: "Payment Reconciliation & Settlement",
       workflowTransitions: "Workflow Transitions",
       analyticDistributions: "Analytic Distributions",
       paymentSources: "Payment Sources",

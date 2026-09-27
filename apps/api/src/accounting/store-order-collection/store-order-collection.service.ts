@@ -166,7 +166,7 @@ export class StoreOrderCollectionService {
           payment.paymentDate
         ).toISOString(),
         paymentSourceId: payment.paymentSourceId,
-        receivingAccountId: payment.receivingAccountId,
+        receivingAccountId: payment.receivingAccountId ?? undefined,
         amount: cashAmount,
         feeAmount,
         feeAccountId,

@@ -753,6 +753,22 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
     actions: [
       { action: 'view', name: 'exchange-rates.view' },
       { action: 'create', name: 'exchange-rates.create' },
+      // Automatic-import settings, run-now and dated manual overrides.
+      { action: 'manage', name: 'exchange-rates.manage' },
+    ],
+  },
+  {
+    // Provider statements, matching and batch settlement per payment method
+    // (payment-declaration-reconciliation). Posting authority stays separate
+    // from viewing/importing.
+    key: 'payment-reconciliation',
+    labelKey: 'permissions.modules.paymentReconciliation',
+    actions: [
+      { action: 'view', name: 'finance.payment-reconciliation.view' },
+      { action: 'import', name: 'finance.payment-reconciliation.import' },
+      { action: 'match', name: 'finance.payment-reconciliation.match' },
+      { action: 'settle', name: 'finance.payment-reconciliation.settle' },
+      { action: 'correct', name: 'finance.payment-reconciliation.correct' },
     ],
   },
   {
@@ -1344,6 +1360,7 @@ export const IMPLIED_SECTION_PERMISSION: Record<
   'prepaid-expenses': 'finance.view',
   'accrued-expenses': 'finance.view',
   'exchange-rates': 'finance.view',
+  'payment-reconciliation': 'finance.view',
   'fx-revaluations': 'finance.view',
   'masterdata.payment-sources': 'finance.view',
   'masterdata.fulfillment-cost-rules': 'finance.view',

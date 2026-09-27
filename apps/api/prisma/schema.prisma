@@ -499,11 +499,17 @@ model Currency {
   landedCostDocuments        LandedCostDocument[]
   directFulfillmentCostRules DirectFulfillmentCostRule[]
   carrierCharges             CarrierCharge[]
-  exchangeRatesFrom          ExchangeRate[]    @relation("ExchangeRateFrom")
-  exchangeRatesTo            ExchangeRate[]    @relation("ExchangeRateTo")
+  exchangeRatesFrom          ExchangeRate[]              @relation("ExchangeRateFrom")
+  exchangeRatesTo            ExchangeRate[]              @relation("ExchangeRateTo")
   prepaidExpenses            PrepaidExpense[]
   accruedExpenses            AccruedExpense[]
-  postingSettingsFunctional  PostingSettings[] @relation("PostingFunctionalCurrency")
+  postingSettingsFunctional  PostingSettings[]           @relation("PostingFunctionalCurrency")
+
+  paymentStatementLines      PaymentStatementLine[] @relation("PaymentStatementLineCurrency")
+  paymentSettlements         PaymentSettlement[]    @relation("PaymentSettlementCurrency")
+  paymentSettlementsReceived PaymentSettlement[]    @relation("PaymentSettlementReceivedCurrency")
+  exchangeRateOverridesFrom  ExchangeRateOverride[] @relation("ExchangeRateOverrideFrom")
+  exchangeRateOverridesTo    ExchangeRateOverride[] @relation("ExchangeRateOverrideTo")
 
   @@map("currencies")
 }
@@ -630,6 +636,10 @@ model PaymentMethod {
   accountId String?         @map("account_id") @db.Uuid
   account   ChartOfAccount? @relation("PaymentMethodAccount", fields: [accountId], references: [id])
 
+  /// Claims for this method go through a provider statement / reconciliation workspace.
+  requiresReconciliation Boolean @default(false) @map("requires_reconciliation")
+  isActive               Boolean @default(true) @map("is_active")
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   createdBy String?   @map("created_by") @db.Uuid
@@ -640,6 +650,10 @@ model PaymentMethod {
   expenses             Expense[]
   capitalContributions CapitalContribution[]
   distributionPayments DistributionPayment[]
+  payments             Payment[]
+  statementImports     PaymentStatementImport[]
+  statementLines       PaymentStatementLine[]
+  settlements          PaymentSettlement[]
 
   @@map("payment_methods")
 }
@@ -739,12 +753,12 @@ model FixedAsset {
 
   notes String?
 
-  status               FixedAssetStatus   @default(DRAFT)
-  usefulLifeMonths     Int?               @map("useful_life_months")
-  salvageValue         Decimal            @default(0) @map("salvage_value") @db.Decimal(12, 2)
-  depreciationMethod   DepreciationMethod @default(STRAIGHT_LINE) @map("depreciation_method")
-  depreciationStartDate DateTime?         @map("depreciation_start_date") @db.Date
-  accumulatedDepreciation Decimal         @default(0) @map("accumulated_depreciation") @db.Decimal(12, 2)
+  status                  FixedAssetStatus   @default(DRAFT)
+  usefulLifeMonths        Int?               @map("useful_life_months")
+  salvageValue            Decimal            @default(0) @map("salvage_value") @db.Decimal(12, 2)
+  depreciationMethod      DepreciationMethod @default(STRAIGHT_LINE) @map("depreciation_method")
+  depreciationStartDate   DateTime?          @map("depreciation_start_date") @db.Date
+  accumulatedDepreciation Decimal            @default(0) @map("accumulated_depreciation") @db.Decimal(12, 2)
 
   receivingAccountId String?           @map("receiving_account_id") @db.Uuid
   receivingAccount   ReceivingAccount? @relation(fields: [receivingAccountId], references: [id])
@@ -752,12 +766,12 @@ model FixedAsset {
   partnerId String?  @map("partner_id") @db.Uuid
   partner   Partner? @relation(fields: [partnerId], references: [id])
 
-  capitalizedAt DateTime? @map("capitalized_at")
-  capitalizedBy String?   @map("capitalized_by") @db.Uuid
-  disposedAt    DateTime? @map("disposed_at")
-  disposedBy    String?   @map("disposed_by") @db.Uuid
-  disposalAmount Decimal? @map("disposal_amount") @db.Decimal(12, 2)
-  disposalNotes  String?  @map("disposal_notes")
+  capitalizedAt  DateTime? @map("capitalized_at")
+  capitalizedBy  String?   @map("capitalized_by") @db.Uuid
+  disposedAt     DateTime? @map("disposed_at")
+  disposedBy     String?   @map("disposed_by") @db.Uuid
+  disposalAmount Decimal?  @map("disposal_amount") @db.Decimal(12, 2)
+  disposalNotes  String?   @map("disposal_notes")
 
   /// Set when the asset was capitalized by a Purchase Invoice line — the
   /// invoice JE already debited Fixed Assets, so no separate capitalization
@@ -785,16 +799,16 @@ model FixedAssetDepreciationPeriod {
   fixedAssetId String     @map("fixed_asset_id") @db.Uuid
   fixedAsset   FixedAsset @relation(fields: [fixedAssetId], references: [id], onDelete: Cascade)
 
-  periodStart DateTime @map("period_start") @db.Date
-  periodEnd   DateTime @map("period_end") @db.Date
-  amount      Decimal  @db.Decimal(12, 2)
-  status      AccountingScheduleStatus @default(PENDING)
-  postedAt    DateTime? @map("posted_at")
-  postedBy    String?   @map("posted_by") @db.Uuid
+  periodStart   DateTime                 @map("period_start") @db.Date
+  periodEnd     DateTime                 @map("period_end") @db.Date
+  amount        Decimal                  @db.Decimal(12, 2)
+  status        AccountingScheduleStatus @default(PENDING)
+  postedAt      DateTime?                @map("posted_at")
+  postedBy      String?                  @map("posted_by") @db.Uuid
   /// Last automatic-run failure (locked period, missing mapping…) — kept
   /// visible on the schedule until a later run succeeds and clears it.
-  lastError     String?   @map("last_error")
-  lastAttemptAt DateTime? @map("last_attempt_at")
+  lastError     String?                  @map("last_error")
+  lastAttemptAt DateTime?                @map("last_attempt_at")
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -804,16 +818,16 @@ model FixedAssetDepreciationPeriod {
 }
 
 model PrepaidExpense {
-  id             String               @id @default(uuid()) @db.Uuid
-  prepaidNumber  String               @unique @map("prepaid_number")
-  name           String
-  amount         Decimal              @db.Decimal(12, 2)
-  startDate      DateTime             @map("start_date") @db.Date
-  endDate        DateTime             @map("end_date") @db.Date
-  totalPeriods   Int                  @map("total_periods")
-  recognizedAmount Decimal            @default(0) @map("recognized_amount") @db.Decimal(12, 2)
-  status         PrepaidExpenseStatus @default(DRAFT)
-  notes          String?
+  id               String               @id @default(uuid()) @db.Uuid
+  prepaidNumber    String               @unique @map("prepaid_number")
+  name             String
+  amount           Decimal              @db.Decimal(12, 2)
+  startDate        DateTime             @map("start_date") @db.Date
+  endDate          DateTime             @map("end_date") @db.Date
+  totalPeriods     Int                  @map("total_periods")
+  recognizedAmount Decimal              @default(0) @map("recognized_amount") @db.Decimal(12, 2)
+  status           PrepaidExpenseStatus @default(DRAFT)
+  notes            String?
 
   expenseAccountId String         @map("expense_account_id") @db.Uuid
   expenseAccount   ChartOfAccount @relation("PrepaidExpenseAccount", fields: [expenseAccountId], references: [id])
@@ -825,9 +839,9 @@ model PrepaidExpense {
   partnerId String?  @map("partner_id") @db.Uuid
   partner   Partner? @relation(fields: [partnerId], references: [id])
 
-  currencyId String?   @map("currency_id") @db.Uuid
-  currency   Currency? @relation(fields: [currencyId], references: [id])
-  exchangeRate Decimal? @map("exchange_rate") @db.Decimal(18, 8)
+  currencyId   String?   @map("currency_id") @db.Uuid
+  currency     Currency? @relation(fields: [currencyId], references: [id])
+  exchangeRate Decimal?  @map("exchange_rate") @db.Decimal(18, 8)
 
   activatedAt DateTime? @map("activated_at")
   activatedBy String?   @map("activated_by") @db.Uuid
@@ -856,16 +870,16 @@ model PrepaidRecognition {
   prepaidExpenseId String         @map("prepaid_expense_id") @db.Uuid
   prepaidExpense   PrepaidExpense @relation(fields: [prepaidExpenseId], references: [id], onDelete: Cascade)
 
-  periodStart DateTime @map("period_start") @db.Date
-  periodEnd   DateTime @map("period_end") @db.Date
-  amount      Decimal  @db.Decimal(12, 2)
-  status      AccountingScheduleStatus @default(PENDING)
-  postedAt    DateTime? @map("posted_at")
-  postedBy    String?   @map("posted_by") @db.Uuid
+  periodStart   DateTime                 @map("period_start") @db.Date
+  periodEnd     DateTime                 @map("period_end") @db.Date
+  amount        Decimal                  @db.Decimal(12, 2)
+  status        AccountingScheduleStatus @default(PENDING)
+  postedAt      DateTime?                @map("posted_at")
+  postedBy      String?                  @map("posted_by") @db.Uuid
   /// Last automatic-run failure (locked period, missing mapping…) — kept
   /// visible on the schedule until a later run succeeds and clears it.
-  lastError     String?   @map("last_error")
-  lastAttemptAt DateTime? @map("last_attempt_at")
+  lastError     String?                  @map("last_error")
+  lastAttemptAt DateTime?                @map("last_attempt_at")
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -875,13 +889,13 @@ model PrepaidRecognition {
 }
 
 model AccruedExpense {
-  id            String               @id @default(uuid()) @db.Uuid
-  accrualNumber String               @unique @map("accrual_number")
-  name          String
-  amount        Decimal              @db.Decimal(12, 2)
-  recognitionDate DateTime           @map("recognition_date") @db.Date
-  status        AccruedExpenseStatus @default(DRAFT)
-  notes         String?
+  id              String               @id @default(uuid()) @db.Uuid
+  accrualNumber   String               @unique @map("accrual_number")
+  name            String
+  amount          Decimal              @db.Decimal(12, 2)
+  recognitionDate DateTime             @map("recognition_date") @db.Date
+  status          AccruedExpenseStatus @default(DRAFT)
+  notes           String?
 
   expenseAccountId String         @map("expense_account_id") @db.Uuid
   expenseAccount   ChartOfAccount @relation("AccruedExpenseAccount", fields: [expenseAccountId], references: [id])
@@ -892,9 +906,9 @@ model AccruedExpense {
   partnerId String?  @map("partner_id") @db.Uuid
   partner   Partner? @relation(fields: [partnerId], references: [id])
 
-  currencyId String?   @map("currency_id") @db.Uuid
-  currency   Currency? @relation(fields: [currencyId], references: [id])
-  exchangeRate Decimal? @map("exchange_rate") @db.Decimal(18, 8)
+  currencyId   String?   @map("currency_id") @db.Uuid
+  currency     Currency? @relation(fields: [currencyId], references: [id])
+  exchangeRate Decimal?  @map("exchange_rate") @db.Decimal(18, 8)
 
   recognizedAt DateTime? @map("recognized_at")
   recognizedBy String?   @map("recognized_by") @db.Uuid
@@ -923,12 +937,19 @@ model ExchangeRate {
   toCurrencyId String   @map("to_currency_id") @db.Uuid
   toCurrency   Currency @relation("ExchangeRateTo", fields: [toCurrencyId], references: [id])
 
-  rate          Decimal  @db.Decimal(18, 8)
-  effectiveDate DateTime @map("effective_date") @db.Date
+  rate            Decimal    @db.Decimal(18, 8)
+  effectiveDate   DateTime   @map("effective_date") @db.Date
   /// MANUAL | IMPORT | PROVIDER — never guessed by the resolver.
-  source        String   @default("MANUAL")
-  provider      String?
-  notes         String?
+  source          String     @default("MANUAL")
+  provider        String?
+  notes           String?
+  /// Publication timestamp reported by the automatic source.
+  sourceTimestamp DateTime?  @map("source_timestamp")
+  /// Source buy/sell quotes (CBE publishes both; `rate` is the configured basis, default derived mid).
+  buyRate         Decimal?   @map("buy_rate") @db.Decimal(18, 8)
+  sellRate        Decimal?   @map("sell_rate") @db.Decimal(18, 8)
+  syncRunId       String?    @map("sync_run_id") @db.Uuid
+  syncRun         FxSyncRun? @relation(fields: [syncRunId], references: [id])
 
   createdAt DateTime @default(now()) @map("created_at")
   createdBy String?  @map("created_by") @db.Uuid
@@ -1729,8 +1750,8 @@ model LeadDistributionState {
   policyId String                 @unique @map("policy_id") @db.Uuid
   policy   LeadDistributionPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
 
-  lastAssignedEmployeeId String?  @map("last_assigned_employee_id") @db.Uuid
-  cursorPosition         Int      @default(0) @map("cursor_position")
+  lastAssignedEmployeeId String?   @map("last_assigned_employee_id") @db.Uuid
+  cursorPosition         Int       @default(0) @map("cursor_position")
   /// Last distribute/drain attempt diagnostics (visible in Distribution UI).
   lastRunAt              DateTime? @map("last_run_at")
   lastRunAssigned        Int       @default(0) @map("last_run_assigned")
@@ -2180,6 +2201,67 @@ enum PaymentStatus {
   MATCHED
   VERIFIED
   REJECTED
+  /// Finance disputes the Sales declaration (reason required). Not a posting state.
+  DISPUTED
+}
+
+/// Who/what created a Payment claim (payment-declaration-reconciliation).
+enum PaymentOrigin {
+  LEGACY
+  SALES_DECLARATION
+  FINANCE_DECLARATION
+  LEAD_CONVERSION
+}
+
+enum PaymentDeclarationKind {
+  FULL
+  PARTIAL
+}
+
+/// Provider settlement lifecycle of a posted claim whose receipt debited a method clearing account.
+enum PaymentSettlementStatus {
+  NOT_APPLICABLE
+  AWAITING_SETTLEMENT
+  PARTIALLY_SETTLED
+  SETTLED
+}
+
+/// Order-level Sales declaration, deliberately separate from the Finance-verified paymentStatus.
+enum StoreOrderDeclaredPaymentStatus {
+  UNPAID
+  PARTIALLY_PAID
+  PAID
+}
+
+enum PaymentStatementSourceType {
+  FILE
+  GOOGLE_SHEET
+  MANUAL
+}
+
+enum PaymentStatementLineStatus {
+  UNMATCHED
+  MATCHED
+  EXCEPTION
+  IGNORED
+}
+
+enum PaymentMatchStatus {
+  ACTIVE
+  REVERSED
+}
+
+enum PaymentSettlementDocStatus {
+  POSTED
+  REVERSED
+}
+
+enum FxSyncRunStatus {
+  RUNNING
+  SUCCESS
+  PARTIAL
+  FAILED
+  SKIPPED
 }
 
 /// Reference Data — "PAYMENT SOURCES... Reference Data only." Distinct from
@@ -2300,43 +2382,43 @@ model ChartOfAccount {
   taxOutputFor                      Tax[]             @relation("TaxOutputAccount")
   taxInputFor                       Tax[]             @relation("TaxInputAccount")
 
-  postingSettingsSalesRevenue        PostingSettings[] @relation("PostingSalesRevenue")
-  postingSettingsCogs                PostingSettings[] @relation("PostingCogs")
-  postingSettingsInventory           PostingSettings[] @relation("PostingInventory")
-  postingSettingsAr                  PostingSettings[] @relation("PostingAr")
-  postingSettingsAp                  PostingSettings[] @relation("PostingAp")
-  postingSettingsExpense             PostingSettings[] @relation("PostingExpense")
-  postingSettingsSalesDiscount       PostingSettings[] @relation("PostingSalesDiscount")
-  postingSettingsSalesReturn         PostingSettings[] @relation("PostingSalesReturn")
-  postingSettingsInventoryAdjustment PostingSettings[] @relation("PostingInventoryAdjustment")
-  postingSettingsPurchase            PostingSettings[] @relation("PostingPurchase")
-  postingSettingsPurchaseReturn      PostingSettings[] @relation("PostingPurchaseReturn")
-  postingSettingsCash                PostingSettings[] @relation("PostingCash")
-  postingSettingsBank                PostingSettings[] @relation("PostingBank")
-  postingSettingsVatOutput           PostingSettings[] @relation("PostingVatOutput")
-  postingSettingsVatInput            PostingSettings[] @relation("PostingVatInput")
-  postingSettingsRoundDifference     PostingSettings[] @relation("PostingRoundDifference")
-  postingSettingsPurchaseDiscount    PostingSettings[] @relation("PostingPurchaseDiscount")
-  postingSettingsExchangeDifference  PostingSettings[] @relation("PostingExchangeDifference")
-  postingSettingsSuspense            PostingSettings[] @relation("PostingSuspense")
-  postingSettingsRetainedEarnings    PostingSettings[] @relation("PostingRetainedEarnings")
-  postingSettingsLandedCostClearing  PostingSettings[] @relation("PostingLandedCostClearing")
-  postingSettingsShippingExpense     PostingSettings[] @relation("PostingShippingExpense")
+  postingSettingsSalesRevenue        PostingSettings[]     @relation("PostingSalesRevenue")
+  postingSettingsCogs                PostingSettings[]     @relation("PostingCogs")
+  postingSettingsInventory           PostingSettings[]     @relation("PostingInventory")
+  postingSettingsAr                  PostingSettings[]     @relation("PostingAr")
+  postingSettingsAp                  PostingSettings[]     @relation("PostingAp")
+  postingSettingsExpense             PostingSettings[]     @relation("PostingExpense")
+  postingSettingsSalesDiscount       PostingSettings[]     @relation("PostingSalesDiscount")
+  postingSettingsSalesReturn         PostingSettings[]     @relation("PostingSalesReturn")
+  postingSettingsInventoryAdjustment PostingSettings[]     @relation("PostingInventoryAdjustment")
+  postingSettingsPurchase            PostingSettings[]     @relation("PostingPurchase")
+  postingSettingsPurchaseReturn      PostingSettings[]     @relation("PostingPurchaseReturn")
+  postingSettingsCash                PostingSettings[]     @relation("PostingCash")
+  postingSettingsBank                PostingSettings[]     @relation("PostingBank")
+  postingSettingsVatOutput           PostingSettings[]     @relation("PostingVatOutput")
+  postingSettingsVatInput            PostingSettings[]     @relation("PostingVatInput")
+  postingSettingsRoundDifference     PostingSettings[]     @relation("PostingRoundDifference")
+  postingSettingsPurchaseDiscount    PostingSettings[]     @relation("PostingPurchaseDiscount")
+  postingSettingsExchangeDifference  PostingSettings[]     @relation("PostingExchangeDifference")
+  postingSettingsSuspense            PostingSettings[]     @relation("PostingSuspense")
+  postingSettingsRetainedEarnings    PostingSettings[]     @relation("PostingRetainedEarnings")
+  postingSettingsLandedCostClearing  PostingSettings[]     @relation("PostingLandedCostClearing")
+  postingSettingsShippingExpense     PostingSettings[]     @relation("PostingShippingExpense")
   purchaseLinesPrepaidExpense        PurchaseInvoiceItem[] @relation("PurchaseLinePrepaidExpenseAccount")
-  postingSettingsAccruedShipping     PostingSettings[] @relation("PostingAccruedShipping")
-  postingSettingsPaymentGatewayFee   PostingSettings[] @relation("PostingPaymentGatewayFee")
-  postingSettingsFulfillmentExpense  PostingSettings[] @relation("PostingFulfillmentExpense")
-  postingSettingsAccruedFulfillment  PostingSettings[] @relation("PostingAccruedFulfillment")
-  postingSettingsFixedAssets         PostingSettings[] @relation("PostingFixedAssets")
-  postingSettingsAccumDepreciation   PostingSettings[] @relation("PostingAccumDepreciation")
-  postingSettingsDepreciationExpense PostingSettings[] @relation("PostingDepreciationExpense")
-  postingSettingsPrepayments         PostingSettings[] @relation("PostingPrepayments")
-  postingSettingsAccruedExpenses     PostingSettings[] @relation("PostingAccruedExpenses")
-  postingSettingsUnrealizedFx        PostingSettings[] @relation("PostingUnrealizedFx")
-  postingSettingsOtherIncome         PostingSettings[] @relation("PostingOtherIncome")
-  postingSettingsOtherExpense        PostingSettings[] @relation("PostingOtherExpense")
-  prepaidExpenseAccounts             PrepaidExpense[]  @relation("PrepaidExpenseAccount")
-  accruedExpenseAccounts             AccruedExpense[]  @relation("AccruedExpenseAccount")
+  postingSettingsAccruedShipping     PostingSettings[]     @relation("PostingAccruedShipping")
+  postingSettingsPaymentGatewayFee   PostingSettings[]     @relation("PostingPaymentGatewayFee")
+  postingSettingsFulfillmentExpense  PostingSettings[]     @relation("PostingFulfillmentExpense")
+  postingSettingsAccruedFulfillment  PostingSettings[]     @relation("PostingAccruedFulfillment")
+  postingSettingsFixedAssets         PostingSettings[]     @relation("PostingFixedAssets")
+  postingSettingsAccumDepreciation   PostingSettings[]     @relation("PostingAccumDepreciation")
+  postingSettingsDepreciationExpense PostingSettings[]     @relation("PostingDepreciationExpense")
+  postingSettingsPrepayments         PostingSettings[]     @relation("PostingPrepayments")
+  postingSettingsAccruedExpenses     PostingSettings[]     @relation("PostingAccruedExpenses")
+  postingSettingsUnrealizedFx        PostingSettings[]     @relation("PostingUnrealizedFx")
+  postingSettingsOtherIncome         PostingSettings[]     @relation("PostingOtherIncome")
+  postingSettingsOtherExpense        PostingSettings[]     @relation("PostingOtherExpense")
+  prepaidExpenseAccounts             PrepaidExpense[]      @relation("PrepaidExpenseAccount")
+  accruedExpenseAccounts             AccruedExpense[]      @relation("AccruedExpenseAccount")
 
   /// TASK-047 — Product Category / Customer Group / Supplier Group
   /// account-mapping overrides.
@@ -2372,6 +2454,8 @@ model ChartOfAccount {
   /// CostAllocationRun that sourced its pool from this account's GL
   /// activity. Never written to by the allocation engine.
   costAllocationRuns CostAllocationRun[]
+
+  financialTransactionDebits FinancialTransaction[] @relation("FinancialTransactionDebitAccount")
 
   @@map("chart_of_accounts")
 }
@@ -2524,6 +2608,8 @@ model ReceivingAccount {
   prepaidExpenses            PrepaidExpense[]
   accruedExpenses            AccruedExpense[]
 
+  paymentSettlements PaymentSettlement[]
+
   @@map("receiving_accounts")
 }
 
@@ -2555,8 +2641,21 @@ model Payment {
   paymentSourceId String        @map("payment_source_id") @db.Uuid
   paymentSource   PaymentSource @relation(fields: [paymentSourceId], references: [id])
 
-  receivingAccountId String           @map("receiving_account_id") @db.Uuid
-  receivingAccount   ReceivingAccount @relation(fields: [receivingAccountId], references: [id])
+  /// Nullable for declarations: Sales never picks an account; Finance posting uses the method's account.
+  receivingAccountId String?           @map("receiving_account_id") @db.Uuid
+  receivingAccount   ReceivingAccount? @relation(fields: [receivingAccountId], references: [id])
+
+  paymentMethodId String?        @map("payment_method_id") @db.Uuid
+  paymentMethod   PaymentMethod? @relation(fields: [paymentMethodId], references: [id])
+
+  origin          PaymentOrigin           @default(LEGACY)
+  declarationKind PaymentDeclarationKind? @map("declaration_kind")
+  /// Client-supplied key: a retried or double-submitted declaration returns the same row.
+  idempotencyKey  String?                 @unique @map("idempotency_key")
+  disputeReason   String?                 @map("dispute_reason")
+
+  settlementStatus PaymentSettlementStatus @default(NOT_APPLICABLE) @map("settlement_status")
+  settledAmount    Decimal                 @default(0) @map("settled_amount") @db.Decimal(12, 2)
 
   referenceNumber String? @map("reference_number")
   senderName      String  @map("sender_name")
@@ -2597,11 +2696,239 @@ model Payment {
   receipts    StoreOrderReceipt[]
 
   reconciledBankTransactions BankTransaction[]
+  receiptLink                PaymentReceiptLink?
+  matches                    PaymentMatch[]
+  settlementLines            PaymentSettlementLine[]
 
   @@index([storeOrderId])
   @@index([leadId])
   @@index([status])
+  @@index([paymentMethodId, settlementStatus])
   @@map("payments")
+}
+
+/// One posted Customer Receipt per claim, enforced by the database for new postings. Historical
+/// receipts stay discoverable through notes = 'STORE_ORDER_PAYMENT:<id>' and are never rewritten.
+model PaymentReceiptLink {
+  id                     String               @id @default(uuid()) @db.Uuid
+  paymentId              String               @unique @map("payment_id") @db.Uuid
+  payment                Payment              @relation(fields: [paymentId], references: [id])
+  financialTransactionId String               @unique @map("financial_transaction_id") @db.Uuid
+  financialTransaction   FinancialTransaction @relation(fields: [financialTransactionId], references: [id])
+  createdAt              DateTime             @default(now()) @map("created_at")
+  createdBy              String?              @map("created_by") @db.Uuid
+
+  @@map("payment_receipt_links")
+}
+
+/// A batch of provider statement rows (file import, sheet sync run, or manual entry).
+model PaymentStatementImport {
+  id              String                     @id @default(uuid()) @db.Uuid
+  paymentMethodId String                     @map("payment_method_id") @db.Uuid
+  paymentMethod   PaymentMethod              @relation(fields: [paymentMethodId], references: [id])
+  sourceType      PaymentStatementSourceType @map("source_type")
+  fileName        String?                    @map("file_name")
+  sheetName       String?                    @map("sheet_name")
+  syncSourceId    String?                    @map("sync_source_id") @db.Uuid
+  mapping         Json?
+  totalRows       Int                        @default(0) @map("total_rows")
+  createdRows     Int                        @default(0) @map("created_rows")
+  duplicateRows   Int                        @default(0) @map("duplicate_rows")
+  exceptionRows   Int                        @default(0) @map("exception_rows")
+  errorRows       Int                        @default(0) @map("error_rows")
+  summary         Json?
+  createdAt       DateTime                   @default(now()) @map("created_at")
+  createdBy       String?                    @map("created_by") @db.Uuid
+
+  lines PaymentStatementLine[]
+
+  @@index([paymentMethodId, createdAt])
+  @@map("payment_statement_imports")
+}
+
+/// An actual provider transaction (Tabby, Tamara, InstaPay, Geidea, ...), stored apart from Sales claims.
+model PaymentStatementLine {
+  id                String                     @id @default(uuid()) @db.Uuid
+  paymentMethodId   String                     @map("payment_method_id") @db.Uuid
+  paymentMethod     PaymentMethod              @relation(fields: [paymentMethodId], references: [id])
+  importId          String?                    @map("import_id") @db.Uuid
+  statementImport   PaymentStatementImport?    @relation(fields: [importId], references: [id])
+  sourceType        PaymentStatementSourceType @map("source_type")
+  /// Dedupe identity: "ref:<providerReference>" or "hash:<rowHash>", unique per method.
+  dedupeKey         String                     @map("dedupe_key")
+  providerReference String?                    @map("provider_reference")
+  customerName      String?                    @map("customer_name")
+  customerPhone     String?                    @map("customer_phone")
+  /// E.164 normalization of customerPhone (null when unparseable).
+  customerPhoneE164 String?                    @map("customer_phone_e164")
+  orderReference    String?                    @map("order_reference")
+  amount            Decimal                    @db.Decimal(12, 2)
+  currencyId        String                     @map("currency_id") @db.Uuid
+  currency          Currency                   @relation("PaymentStatementLineCurrency", fields: [currencyId], references: [id])
+  transactionDate   DateTime                   @map("transaction_date") @db.Date
+  providerStatus    String?                    @map("provider_status")
+  feeAmount         Decimal?                   @map("fee_amount") @db.Decimal(12, 2)
+  netAmount         Decimal?                   @map("net_amount") @db.Decimal(12, 2)
+  sheetName         String?                    @map("sheet_name")
+  rowNumber         Int?                       @map("row_number")
+  rawRow            Json?                      @map("raw_row")
+  rowHash           String?                    @map("row_hash")
+  status            PaymentStatementLineStatus @default(UNMATCHED)
+  exceptionReason   String?                    @map("exception_reason")
+  matchedAmount     Decimal                    @default(0) @map("matched_amount") @db.Decimal(12, 2)
+  createdAt         DateTime                   @default(now()) @map("created_at")
+  updatedAt         DateTime                   @updatedAt @map("updated_at")
+  createdBy         String?                    @map("created_by") @db.Uuid
+  updatedBy         String?                    @map("updated_by") @db.Uuid
+
+  matches PaymentMatch[]
+
+  @@unique([paymentMethodId, dedupeKey])
+  @@index([paymentMethodId, status])
+  @@index([customerPhoneE164])
+  @@index([orderReference])
+  @@map("payment_statement_lines")
+}
+
+/// Allocation of a provider statement line to a claim (partial or multiple allocations).
+model PaymentMatch {
+  id              String               @id @default(uuid()) @db.Uuid
+  statementLineId String               @map("statement_line_id") @db.Uuid
+  statementLine   PaymentStatementLine @relation(fields: [statementLineId], references: [id])
+  paymentId       String               @map("payment_id") @db.Uuid
+  payment         Payment              @relation(fields: [paymentId], references: [id])
+  amount          Decimal              @db.Decimal(12, 2)
+  status          PaymentMatchStatus   @default(ACTIVE)
+  /// Match reasons: [{ signal: REFERENCE|ORDER|PHONE|NAME|AMOUNT|DATE|CURRENCY|STATUS, detail }]
+  reasons         Json?
+  confirmedAt     DateTime             @default(now()) @map("confirmed_at")
+  confirmedBy     String?              @map("confirmed_by") @db.Uuid
+  reversedAt      DateTime?            @map("reversed_at")
+  reversedBy      String?              @map("reversed_by") @db.Uuid
+  reversalReason  String?              @map("reversal_reason")
+
+  @@index([paymentId, status])
+  @@index([statementLineId, status])
+  @@map("payment_matches")
+}
+
+/// Batch provider settlement: the provider payout received in the bank for selected posted claims.
+model PaymentSettlement {
+  id                 String                     @id @default(uuid()) @db.Uuid
+  settlementNumber   String                     @unique @map("settlement_number")
+  paymentMethodId    String                     @map("payment_method_id") @db.Uuid
+  paymentMethod      PaymentMethod              @relation(fields: [paymentMethodId], references: [id])
+  /// Bank or cash account that received the payout.
+  receivingAccountId String                     @map("receiving_account_id") @db.Uuid
+  receivingAccount   ReceivingAccount           @relation(fields: [receivingAccountId], references: [id])
+  settlementDate     DateTime                   @map("settlement_date") @db.Date
+  providerReference  String?                    @map("provider_reference")
+  /// Currency of the settled claims (the clearing currency).
+  currencyId         String                     @map("currency_id") @db.Uuid
+  currency           Currency                   @relation("PaymentSettlementCurrency", fields: [currencyId], references: [id])
+  grossAmount        Decimal                    @map("gross_amount") @db.Decimal(12, 2)
+  receivedCurrencyId String                     @map("received_currency_id") @db.Uuid
+  receivedCurrency   Currency                   @relation("PaymentSettlementReceivedCurrency", fields: [receivedCurrencyId], references: [id])
+  receivedAmount     Decimal                    @map("received_amount") @db.Decimal(12, 2)
+  /// Commission in the clearing currency.
+  feeAmount          Decimal                    @map("fee_amount") @db.Decimal(12, 2)
+  /// Frozen conversion basis (rates, dates, sources and functional amounts) for audit.
+  conversionBasis    Json?                      @map("conversion_basis")
+  fxDifference       Decimal                    @default(0) @map("fx_difference") @db.Decimal(14, 2)
+  status             PaymentSettlementDocStatus @default(POSTED)
+  idempotencyKey     String?                    @unique @map("idempotency_key")
+  notes              String?
+  createdAt          DateTime                   @default(now()) @map("created_at")
+  createdBy          String?                    @map("created_by") @db.Uuid
+  reversedAt         DateTime?                  @map("reversed_at")
+  reversedBy         String?                    @map("reversed_by") @db.Uuid
+
+  lines PaymentSettlementLine[]
+
+  @@index([paymentMethodId, settlementDate])
+  @@map("payment_settlements")
+}
+
+model PaymentSettlementLine {
+  id                       String            @id @default(uuid()) @db.Uuid
+  settlementId             String            @map("settlement_id") @db.Uuid
+  settlement               PaymentSettlement @relation(fields: [settlementId], references: [id])
+  paymentId                String            @map("payment_id") @db.Uuid
+  payment                  Payment           @relation(fields: [paymentId], references: [id])
+  /// Settled portion in the claim (clearing) currency.
+  amount                   Decimal           @db.Decimal(12, 2)
+  /// Carrying value in functional currency released from clearing.
+  carryingAmountFunctional Decimal           @map("carrying_amount_functional") @db.Decimal(14, 2)
+
+  @@unique([settlementId, paymentId])
+  @@index([paymentId])
+  @@map("payment_settlement_lines")
+}
+
+/// Manual FX rate for an inclusive date range. Overlaps per pair are rejected by a Postgres
+/// EXCLUDE constraint (migration), so concurrent inserts cannot both succeed. Canonical
+/// quotation: 1 FOREIGN = rate FUNCTIONAL (EGP).
+model ExchangeRateOverride {
+  id             String    @id @default(uuid()) @db.Uuid
+  fromCurrencyId String    @map("from_currency_id") @db.Uuid
+  fromCurrency   Currency  @relation("ExchangeRateOverrideFrom", fields: [fromCurrencyId], references: [id])
+  toCurrencyId   String    @map("to_currency_id") @db.Uuid
+  toCurrency     Currency  @relation("ExchangeRateOverrideTo", fields: [toCurrencyId], references: [id])
+  rate           Decimal   @db.Decimal(18, 8)
+  dateFrom       DateTime  @map("date_from") @db.Date
+  dateTo         DateTime  @map("date_to") @db.Date
+  reason         String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  createdBy      String?   @map("created_by") @db.Uuid
+  deletedAt      DateTime? @map("deleted_at")
+  deletedBy      String?   @map("deleted_by") @db.Uuid
+
+  @@index([fromCurrencyId, toCurrencyId, dateFrom])
+  @@map("exchange_rate_overrides")
+}
+
+/// Singleton settings for the automatic daily FX import.
+model FxSyncSettings {
+  id             String   @id @default(uuid()) @db.Uuid
+  enabled        Boolean  @default(true)
+  provider       String   @default("CBE")
+  /// Currencies to import (ISO codes). Empty = every currency the provider publishes that exists here.
+  currencyCodes  String[] @default([]) @map("currency_codes")
+  /// MID (derived (buy+sell)/2, default), BUY or SELL — which CBE quote becomes `rate`.
+  rateBasis      String   @default("MID") @map("rate_basis")
+  /// Use the latest observation at most this many calendar days old; older = STALE (fail closed).
+  /// 10 covers multi-day holidays (Eid gap observed: 7 days).
+  maxStaleDays   Int      @default(10) @map("max_stale_days")
+  /// Warn in the settings UI when the newest imported rate is older than this (scraper health).
+  staleAlertDays Int      @default(4) @map("stale_alert_days")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  updatedBy      String?  @map("updated_by") @db.Uuid
+
+  @@map("fx_sync_settings")
+}
+
+/// One automatic (cron) or manual "run now" FX import attempt.
+model FxSyncRun {
+  id              String          @id @default(uuid()) @db.Uuid
+  provider        String
+  trigger         String          @default("CRON")
+  status          FxSyncRunStatus @default(RUNNING)
+  startedAt       DateTime        @default(now()) @map("started_at")
+  finishedAt      DateTime?       @map("finished_at")
+  /// Publication timestamp reported by the source.
+  sourceTimestamp DateTime?       @map("source_timestamp")
+  effectiveDate   DateTime?       @map("effective_date") @db.Date
+  fetchedCount    Int             @default(0) @map("fetched_count")
+  insertedCount   Int             @default(0) @map("inserted_count")
+  skippedCount    Int             @default(0) @map("skipped_count")
+  error           String?
+  details         Json?
+  createdBy       String?         @map("created_by") @db.Uuid
+
+  rates ExchangeRate[]
+
+  @@index([startedAt])
+  @@map("fx_sync_runs")
 }
 
 /// ADR-0018 (Order Economics M2.2) — the smallest model that closes the
@@ -4526,20 +4853,26 @@ model StoreOrder {
   employeeId String? @map("employee_id") @db.Uuid
   employee   User?   @relation("StoreOrderEmployee", fields: [employeeId], references: [id])
 
-  paymentStatus       StoreOrderPaymentStatus @default(PAYMENT_PENDING) @map("payment_status")
+  paymentStatus            StoreOrderPaymentStatus         @default(PAYMENT_PENDING) @map("payment_status")
   /// Authoritative Payment StatusDefinition — dual-written with `paymentStatus`.
-  paymentStatusId     String?                 @map("payment_status_id") @db.Uuid
-  paymentStatusDef    StatusDefinition?       @relation("StoreOrderPaymentStatusDef", fields: [paymentStatusId], references: [id])
+  paymentStatusId          String?                         @map("payment_status_id") @db.Uuid
+  paymentStatusDef         StatusDefinition?               @relation("StoreOrderPaymentStatusDef", fields: [paymentStatusId], references: [id])
   /// Fixed catalog (PREPAID / CASH_ON_DELIVERY) — not financial confirmation.
-  paymentType         StoreOrderPaymentType   @default(PREPAID) @map("payment_type")
+  paymentType              StoreOrderPaymentType           @default(PREPAID) @map("payment_type")
+  /// What Sales/Finance declared the customer paid; never implies Finance verification.
+  declaredPaymentStatus    StoreOrderDeclaredPaymentStatus @default(UNPAID) @map("declared_payment_status")
+  declaredAmount           Decimal                         @default(0) @map("declared_amount") @db.Decimal(12, 2)
+  /// Set when Finance rejects/disputes a declaration after fulfillment started; shipment history is untouched.
+  paymentDiscrepancy       Boolean                         @default(false) @map("payment_discrepancy")
+  paymentDiscrepancyReason String?                         @map("payment_discrepancy_reason")
   /// Shipping vs Pickup — independent of paymentStatus and shippingStage.
-  fulfillmentMethod   StoreOrderFulfillmentMethod @default(SHIPPING) @map("fulfillment_method")
-  shippingStage       StoreOrderShippingStage @default(NOT_READY) @map("shipping_stage")
+  fulfillmentMethod        StoreOrderFulfillmentMethod     @default(SHIPPING) @map("fulfillment_method")
+  shippingStage            StoreOrderShippingStage         @default(NOT_READY) @map("shipping_stage")
   /// Authoritative Fulfillment StatusDefinition — dual-written with `shippingStage`
   /// (and advanced by shipment / pickup events). ShippingStatus on Shipment remains the
   /// carrier-attempt catalog (sync behavior) — not a second order identity.
-  fulfillmentStatusId String?                 @map("fulfillment_status_id") @db.Uuid
-  fulfillmentStatus   StatusDefinition?       @relation("StoreOrderFulfillmentStatusDef", fields: [fulfillmentStatusId], references: [id])
+  fulfillmentStatusId      String?                         @map("fulfillment_status_id") @db.Uuid
+  fulfillmentStatus        StatusDefinition?               @relation("StoreOrderFulfillmentStatusDef", fields: [fulfillmentStatusId], references: [id])
 
   currencyId String   @map("currency_id") @db.Uuid
   currency   Currency @relation(fields: [currencyId], references: [id])
@@ -4964,10 +5297,10 @@ model SalesInvoice {
   storeOrderId String?     @map("store_order_id") @db.Uuid
   storeOrder   StoreOrder? @relation(fields: [storeOrderId], references: [id])
 
-  currencyId String?   @map("currency_id") @db.Uuid
-  currency   Currency? @relation(fields: [currencyId], references: [id])
+  currencyId   String?   @map("currency_id") @db.Uuid
+  currency     Currency? @relation(fields: [currencyId], references: [id])
   /// Snapshot of transaction→functional rate at confirm. Never rewritten.
-  exchangeRate Decimal? @map("exchange_rate") @db.Decimal(18, 8)
+  exchangeRate Decimal?  @map("exchange_rate") @db.Decimal(18, 8)
 
   /// TASK-051 Document Context Enrichment — see SalesQuotation.companyId.
   /// This is a posting document: costCenter/project are also carried here
@@ -5114,9 +5447,9 @@ model SalesReturn {
   salesInvoiceId String?       @map("sales_invoice_id") @db.Uuid
   salesInvoice   SalesInvoice? @relation(fields: [salesInvoiceId], references: [id])
 
-  currencyId String?   @map("currency_id") @db.Uuid
-  currency   Currency? @relation(fields: [currencyId], references: [id])
-  exchangeRate Decimal? @map("exchange_rate") @db.Decimal(18, 8)
+  currencyId   String?   @map("currency_id") @db.Uuid
+  currency     Currency? @relation(fields: [currencyId], references: [id])
+  exchangeRate Decimal?  @map("exchange_rate") @db.Decimal(18, 8)
 
   /// TASK-051 Document Context Enrichment — see SalesInvoice.companyId.
   companyId String?  @map("company_id") @db.Uuid
@@ -5538,9 +5871,9 @@ model PurchaseInvoice {
   purchaseOrderId String?        @map("purchase_order_id") @db.Uuid
   purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
 
-  currencyId String?   @map("currency_id") @db.Uuid
-  currency   Currency? @relation(fields: [currencyId], references: [id])
-  exchangeRate Decimal? @map("exchange_rate") @db.Decimal(18, 8)
+  currencyId   String?   @map("currency_id") @db.Uuid
+  currency     Currency? @relation(fields: [currencyId], references: [id])
+  exchangeRate Decimal?  @map("exchange_rate") @db.Decimal(18, 8)
 
   /// TASK-051 Document Context Enrichment — see SalesInvoice.companyId.
   companyId String?  @map("company_id") @db.Uuid
@@ -5633,16 +5966,16 @@ model PurchaseInvoiceItem {
 
   notes String?
 
-  treatment             PurchaseLineTreatment @default(STANDARD)
+  treatment               PurchaseLineTreatment @default(STANDARD)
   /// FIXED_ASSET lines — useful life / method / first depreciation month.
-  assetUsefulLifeMonths Int?                @map("asset_useful_life_months")
-  assetDepreciationMethod DepreciationMethod? @map("asset_depreciation_method")
+  assetUsefulLifeMonths   Int?                  @map("asset_useful_life_months")
+  assetDepreciationMethod DepreciationMethod?   @map("asset_depreciation_method")
   /// FIXED_ASSET: depreciation start; PREPAID_EXPENSE: first service month.
-  scheduleStartDate     DateTime?           @map("schedule_start_date") @db.Date
+  scheduleStartDate       DateTime?             @map("schedule_start_date") @db.Date
   /// PREPAID_EXPENSE lines — number of monthly recognitions + expense account.
-  prepaidMonths         Int?                @map("prepaid_months")
-  prepaidExpenseAccountId String?           @map("prepaid_expense_account_id") @db.Uuid
-  prepaidExpenseAccount ChartOfAccount?     @relation("PurchaseLinePrepaidExpenseAccount", fields: [prepaidExpenseAccountId], references: [id])
+  prepaidMonths           Int?                  @map("prepaid_months")
+  prepaidExpenseAccountId String?               @map("prepaid_expense_account_id") @db.Uuid
+  prepaidExpenseAccount   ChartOfAccount?       @relation("PurchaseLinePrepaidExpenseAccount", fields: [prepaidExpenseAccountId], references: [id])
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -5688,9 +6021,9 @@ model PurchaseReturn {
   purchaseInvoiceId String?          @map("purchase_invoice_id") @db.Uuid
   purchaseInvoice   PurchaseInvoice? @relation(fields: [purchaseInvoiceId], references: [id])
 
-  currencyId String?   @map("currency_id") @db.Uuid
-  currency   Currency? @relation(fields: [currencyId], references: [id])
-  exchangeRate Decimal? @map("exchange_rate") @db.Decimal(18, 8)
+  currencyId   String?   @map("currency_id") @db.Uuid
+  currency     Currency? @relation(fields: [currencyId], references: [id])
+  exchangeRate Decimal?  @map("exchange_rate") @db.Decimal(18, 8)
 
   /// TASK-051 Document Context Enrichment — see SalesInvoice.companyId.
   companyId String?  @map("company_id") @db.Uuid
@@ -6292,9 +6625,9 @@ model FinancialTransaction {
   expenseAccountId String?         @map("expense_account_id") @db.Uuid
   expenseAccount   ChartOfAccount? @relation("FinancialTransactionExpenseAccount", fields: [expenseAccountId], references: [id])
 
-  currencyId String?   @map("currency_id") @db.Uuid
-  currency   Currency? @relation(fields: [currencyId], references: [id])
-  exchangeRate Decimal? @map("exchange_rate") @db.Decimal(18, 8)
+  currencyId   String?   @map("currency_id") @db.Uuid
+  currency     Currency? @relation(fields: [currencyId], references: [id])
+  exchangeRate Decimal?  @map("exchange_rate") @db.Decimal(18, 8)
 
   /// TASK-051 Document Context Enrichment — see SalesInvoice.companyId.
   companyId String?  @map("company_id") @db.Uuid
@@ -6324,6 +6657,13 @@ model FinancialTransaction {
   /// (ADR-0015): no extra business logic attached to it here.
   receivingAccountId String?           @map("receiving_account_id") @db.Uuid
   receivingAccount   ReceivingAccount? @relation(fields: [receivingAccountId], references: [id])
+
+  /// Receipt debit override: the payment method's clearing account (payment-declaration-reconciliation).
+  debitAccountId String?         @map("debit_account_id") @db.Uuid
+  debitAccount   ChartOfAccount? @relation("FinancialTransactionDebitAccount", fields: [debitAccountId], references: [id])
+  /// Frozen FX provenance: the date the rate was taken for, and its source.
+  rateAsOf       DateTime?       @map("rate_as_of") @db.Date
+  rateSource     String?         @map("rate_source")
 
   amount Decimal @db.Decimal(12, 2)
 
@@ -6367,6 +6707,8 @@ model FinancialTransaction {
   /// generated/matched from, if any (never set for a manually-created
   /// voucher). Traceability back to the original imported row.
   matchedByBankTransactions BankTransaction[]
+
+  paymentReceiptLink PaymentReceiptLink?
 
   @@map("financial_transactions")
 }
@@ -6482,9 +6824,9 @@ model JournalEntry {
   branchId String? @map("branch_id") @db.Uuid
   branch   Branch? @relation(fields: [branchId], references: [id])
 
-  currencyId String?   @map("currency_id") @db.Uuid
-  currency   Currency? @relation(fields: [currencyId], references: [id])
-  exchangeRate Decimal? @map("exchange_rate") @db.Decimal(18, 8)
+  currencyId   String?   @map("currency_id") @db.Uuid
+  currency     Currency? @relation(fields: [currencyId], references: [id])
+  exchangeRate Decimal?  @map("exchange_rate") @db.Decimal(18, 8)
 
   projectId String?  @map("project_id") @db.Uuid
   project   Project? @relation(fields: [projectId], references: [id])
