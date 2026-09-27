@@ -1,10 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
-import { EnterpriseButton } from "@/components/ui/button";
 import type { MasterDataFormField } from "@/components/master-data/master-data-form";
 import {
   employeesService,
@@ -27,7 +25,7 @@ import {
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 
-/** Adapts `employeesService`'s narrowly-typed DTOs to `MasterDataPage`'s generic `Record<string, unknown>` service shape — only `update` is ever reached here since `hideCreateButton` routes creation to the wizard instead. */
+/** Adapts `employeesService`'s narrowly-typed DTOs to `MasterDataPage`'s generic `Record<string, unknown>` service shape — only `update` is ever reached here since `primaryAction` routes creation to the wizard instead. */
 const listService = {
   ...employeesService,
   create: (dto: Record<string, unknown>) =>
@@ -38,7 +36,6 @@ const listService = {
 
 export default function EmployeesPage() {
   const { t } = useLocale();
-  const router = useRouter();
   const { hasPermission } = useUserContext();
   const departments = useDepartments();
   const jobTitles = useJobTitles();
@@ -109,16 +106,14 @@ export default function EmployeesPage() {
       rowLabel={employeeRowLabel}
       defaultSortBy="createdAt"
       defaultSortOrder="desc"
-      hideCreateButton
       getRowHref={(row) => `/hr/employees/${row.id}`}
-      extraActions={
-        hasPermission("hr.employees.create") ? (
-          <EnterpriseButton type="button" onClick={() => router.push("/hr/employees/new")}>
-            <Plus />
-            {t("hr.employees.addNew")}
-          </EnterpriseButton>
-        ) : undefined
-      }
+      primaryAction={{
+        key: "add-new",
+        label: t("hr.employees.addNew"),
+        icon: Plus,
+        href: "/hr/employees/new",
+        hidden: !hasPermission("hr.employees.create"),
+      }}
     />
   );
 }

@@ -188,8 +188,8 @@ function LeadDetailContent() {
 
   return (
     <DetailWorkspace
-      title={lead.leadNumber}
-      subtitle={lead.customerName}
+      title={lead.customerName}
+      reference={lead.leadNumber}
       status={
         <div className="flex flex-wrap items-center gap-1.5">
           {(() => {
@@ -287,6 +287,7 @@ function LeadDetailContent() {
         entityType="LEAD"
         entityId={lead.id}
         hideConvert
+        primaryVariant="outline"
         hideTargetCodes={["FOLLOW_UP", "LOST", "DISQUALIFIED"]}
         onTransitionComplete={() => {
           void load();

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { Plus, Save, Trash2 } from "lucide-react";
 import { EditorWorkspace, EditorHeader, DetailSection } from "@/components/shared/detail-workspace";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { MasterDataForm } from "@/components/master-data/master-data-form";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -127,10 +128,15 @@ export default function NewInvestmentOpportunityPage() {
       <EditorHeader
         title={t("investors.opportunities.addNew")}
         actions={
-          <EnterpriseButton type="button" onClick={() => void handleSave()} disabled={isSaving}>
-            <Save />
-            {t("investors.opportunities.create.saveAsDraft")}
-          </EnterpriseButton>
+          <HeaderActions
+            primary={{
+              key: "save-draft",
+              label: t("investors.opportunities.create.saveAsDraft"),
+              icon: Save,
+              disabled: isSaving,
+              onSelect: () => void handleSave(),
+            }}
+          />
         }
       />
 

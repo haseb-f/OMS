@@ -33,7 +33,8 @@ import {
   DetailSplitLayout,
   RecordHighlightsHeader,
 } from "@/components/shared/detail-workspace";
-import { CompactDetailTable, RowActionsMenu } from "@/components/shared/data-table";
+import { CompactDetailTable } from "@/components/shared/data-table";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { EmptyState } from "@/components/shared/empty-state";
 import { MoneyValue } from "@/components/shared/money-value";
 import { SemanticValue } from "@/components/shared/semantic-value";
@@ -158,8 +159,6 @@ function StoreOrderDetailContent() {
     canAcceptPayment?: boolean;
   } | null>(null);
   const [feeDialogPayment, setFeeDialogPayment] = useState<StoreOrderPaymentRow | null>(null);
-  const [archiveOpen, setArchiveOpen] = useState(false);
-  const [isArchiving, setIsArchiving] = useState(false);
   const [assignmentOpen, setAssignmentOpen] = useState(false);
   const [customerEditOpen, setCustomerEditOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
@@ -254,16 +253,12 @@ function StoreOrderDetailContent() {
 
   const handleArchive = async () => {
     if (!order) return;
-    setIsArchiving(true);
     try {
       await storeOrdersService.archive(order.id);
       toast.success(t("storeOrders.toasts.archived"));
-      setArchiveOpen(false);
       router.push("/store-orders");
     } catch (error) {
       reportApiError(error, "common.failedToSave");
-    } finally {
-      setIsArchiving(false);
     }
   };
 
@@ -527,18 +522,7 @@ function StoreOrderDetailContent() {
             verifiedAmount={paidAmount}
             remainingAmount={remainingAmount}
             currency={order.currency}
-            actions={
-              canDeclarePayment && canDeclareMore ? (
-                <EnterpriseButton
-                  type="button"
-                  variant="outline"
-                  size="xs"
-                  onClick={() => setDeclareOpen(true)}
-                >
-                  {t("paymentDeclaration.action.declare")}
-                </EnterpriseButton>
-              ) : null
-            }
+            /* «إبلاغ دفع العميل» lives once, as the header primary (R2-08). */
           />
 
           {isPickup ? (
@@ -985,25 +969,29 @@ function StoreOrderDetailContent() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-2">
       <RecordHighlightsHeader
-        identity={
-          <span className="inline-flex min-w-0 items-center gap-2">
-            <SemanticValue kind="id" className="text-ui-title font-semibold">
-              {order.internalOrderId}
-            </SemanticValue>
+        identity={t("storeOrders.detail.sections.orderSummary")}
+        reference={order.internalOrderId}
+        status={
+          <>
             {/* "مكرر" is the stored source-channel value for duplicates, not display text. */}
             {order.sourceChannel === "مكرر" ? (
               <StatusBadge label={t("docUi.statusStrip.duplicate")} tone="warning" />
             ) : null}
-          </span>
+            {paymentContext?.fullySettled ? (
+              <StatusBadge label={t("storeOrders.detail.payments.settled")} tone="success" />
+            ) : null}
+          </>
         }
+        meta={[
+          order.partner?.name,
+          order.orderDate ? formatDate(order.orderDate) : null,
+          order.currency?.code,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
         statusStrip={<StoreOrderStatusStrip order={order} />}
         metrics={
           <>
-            <DetailField label={t("storeOrders.fields.customer")} value={order.partner?.name} />
-            <DetailField
-              label={t("storeOrders.fields.orderDate")}
-              value={<SemanticValue kind="date">{formatDate(order.orderDate)}</SemanticValue>}
-            />
             <DetailField
               label={t("storeOrders.fields.total")}
               value={<MoneyValue value={order.total ?? "0"} currency={order.currency} />}
@@ -1018,20 +1006,16 @@ function StoreOrderDetailContent() {
             />
           </>
         }
-        primaryActions={
-          canDeclarePayment && canDeclareMore ? (
-            <EnterpriseButton type="button" size="sm" onClick={() => setDeclareOpen(true)}>
-              <Wallet className="size-3.5" />
-              {t("paymentDeclaration.action.declare")}
-            </EnterpriseButton>
-          ) : paymentContext?.fullySettled ? (
-            <StatusBadge label={t("storeOrders.detail.payments.settled")} tone="success" />
-          ) : null
-        }
-        moreActions={
-          <RowActionsMenu
-            label={t("common.moreActions")}
-            actions={[
+        actions={
+          <HeaderActions
+            primary={{
+              key: "declare-payment",
+              label: t("paymentDeclaration.action.declare"),
+              icon: Wallet,
+              hidden: !(canDeclarePayment && canDeclareMore),
+              onSelect: () => setDeclareOpen(true),
+            }}
+            more={[
               {
                 key: "shipping",
                 label: t("storeOrders.detail.edit.shippingTitle"),
@@ -1047,14 +1031,19 @@ function StoreOrderDetailContent() {
                 disabled: isGeneratingInvoice,
                 onSelect: () => void handleGenerateInvoice(),
               },
+            ]}
+            destructive={[
               {
                 key: "archive",
                 label: t("common.archive"),
                 icon: Archive,
                 hidden: !canArchive,
-                destructive: true,
-                separatorBefore: true,
-                onSelect: () => setArchiveOpen(true),
+                confirm: {
+                  title: t("common.confirmArchiveTitle"),
+                  description: t("common.confirmArchiveDescription"),
+                  confirmLabel: t("common.archive"),
+                },
+                onSelect: handleArchive,
               },
             ]}
           />
@@ -1148,17 +1137,6 @@ function StoreOrderDetailContent() {
         shippingCompanies={shippingCompanies}
       />
 
-      <ConfirmationDialog
-        open={archiveOpen}
-        onOpenChange={setArchiveOpen}
-        tone="destructive"
-        title={t("common.confirmArchiveTitle")}
-        description={t("common.confirmArchiveDescription")}
-        confirmLabel={t("common.archive")}
-        cancelLabel={t("common.cancel")}
-        isConfirming={isArchiving}
-        onConfirm={() => void handleArchive()}
-      />
       <ConfirmationDialog
         open={Boolean(removeReceiptId)}
         onOpenChange={(open) => {

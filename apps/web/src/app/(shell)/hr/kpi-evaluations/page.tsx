@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
   EnterpriseDataTable,
@@ -139,12 +140,15 @@ export default function KpiEvaluationsPage() {
       title={t("hr.kpiEvaluations.title")}
       description={t("hr.kpiEvaluations.description")}
       actions={
-        canCreate ? (
-          <EnterpriseButton type="button" onClick={openStart}>
-            <Plus />
-            {t("hr.kpiEvaluations.startNew")}
-          </EnterpriseButton>
-        ) : undefined
+        <HeaderActions
+          primary={{
+            key: "primary",
+            label: t("hr.kpiEvaluations.startNew"),
+            icon: Plus,
+            hidden: !canCreate,
+            onSelect: openStart,
+          }}
+        />
       }
     >
       <EnterpriseDataTable

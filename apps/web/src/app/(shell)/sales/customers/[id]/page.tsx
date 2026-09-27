@@ -9,8 +9,7 @@ import {
   DetailSection,
   DetailWorkspace,
 } from "@/components/shared/detail-workspace";
-import { RowActionsMenu } from "@/components/shared/data-table";
-import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { EntityTabs } from "@/components/business/entity-tabs";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
@@ -56,8 +55,6 @@ export default function CustomerProfilePage() {
   const [isLoadingOpenInvoices, setIsLoadingOpenInvoices] = useState(true);
   const [orders, setOrders] = useState<LeadRow[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
-  const [archiveOpen, setArchiveOpen] = useState(false);
-  const [isArchiving, setIsArchiving] = useState(false);
 
   const canEdit = hasPermission("partners.edit");
   const canArchive = hasPermission("partners.archive");
@@ -201,23 +198,19 @@ export default function CustomerProfilePage() {
   const comingSoon = <ComingSoonPanel />;
 
   const handleArchive = async () => {
-    setIsArchiving(true);
     try {
       await partnersService.archive(customer.id);
       toast.success(t("sales.customers.toasts.archived"));
-      setArchiveOpen(false);
       router.push("/sales/customers");
     } catch (error) {
       reportApiError(error, "common.failedToSave");
-    } finally {
-      setIsArchiving(false);
     }
   };
 
   return (
     <DetailWorkspace
       title={customer.name}
-      subtitle={customer.partnerNumber}
+      reference={customer.partnerNumber}
       status={
         <StatusBadge
           label={t(`common.${customer.status === "ACTIVE" ? "active" : "archived"}` as MessageKey)}
@@ -225,15 +218,15 @@ export default function CustomerProfilePage() {
         />
       }
       actions={
-        <RowActionsMenu
-          label={t("common.actions")}
-          actions={[
-            {
-              key: "print",
-              label: t("sales.customers.profile.print"),
-              icon: Printer,
-              onSelect: handlePrint,
-            },
+        <HeaderActions
+          primary={{
+            key: "edit",
+            label: t("common.edit"),
+            icon: Pencil,
+            hidden: !canEdit || !!customer.deletedAt,
+            href: `/sales/customers?edit=${customer.id}`,
+          }}
+          secondary={[
             {
               // The Journal-Entry-based statement (opening, invoices,
               // payments, returns, running and closing balance).
@@ -241,23 +234,27 @@ export default function CustomerProfilePage() {
               label: t("reports.finance.customerStatement"),
               icon: ScrollText,
               hidden: !hasPermission("reports.financial.view"),
-              onSelect: () => router.push(`/reports/customers?partner=${customer.id}`),
+              href: `/reports/customers?partner=${customer.id}`,
             },
             {
-              key: "edit",
-              label: t("common.edit"),
-              icon: Pencil,
-              hidden: !canEdit || !!customer.deletedAt,
-              onSelect: () => router.push(`/sales/customers?edit=${customer.id}`),
+              key: "print",
+              label: t("sales.customers.profile.print"),
+              icon: Printer,
+              onSelect: handlePrint,
             },
+          ]}
+          destructive={[
             {
               key: "archive",
               label: t("common.archive"),
               icon: Archive,
               hidden: !canArchive || !!customer.deletedAt,
-              destructive: true,
-              separatorBefore: true,
-              onSelect: () => setArchiveOpen(true),
+              confirm: {
+                title: t("common.confirmArchiveTitle"),
+                description: t("common.confirmArchiveDescription"),
+                confirmLabel: t("common.archive"),
+              },
+              onSelect: handleArchive,
             },
           ]}
         />
@@ -490,18 +487,6 @@ export default function CustomerProfilePage() {
             ),
           },
         ]}
-      />
-
-      <ConfirmationDialog
-        open={archiveOpen}
-        onOpenChange={setArchiveOpen}
-        tone="destructive"
-        title={t("common.confirmArchiveTitle")}
-        description={t("common.confirmArchiveDescription")}
-        confirmLabel={t("common.archive")}
-        cancelLabel={t("common.cancel")}
-        isConfirming={isArchiving}
-        onConfirm={() => void handleArchive()}
       />
     </DetailWorkspace>
   );

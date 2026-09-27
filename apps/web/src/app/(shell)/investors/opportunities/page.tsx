@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
-import { EnterpriseButton } from "@/components/ui/button";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import {
   EnterpriseDataTable,
@@ -135,15 +135,15 @@ export default function InvestmentOpportunitiesPage() {
       title={t("investors.opportunities.title")}
       description={t("investors.opportunities.description")}
       actions={
-        canCreate ? (
-          <EnterpriseButton
-            type="button"
-            onClick={() => router.push("/investors/opportunities/new")}
-          >
-            <Plus />
-            {t("investors.opportunities.addNew")}
-          </EnterpriseButton>
-        ) : undefined
+        <HeaderActions
+          primary={{
+            key: "primary",
+            label: t("investors.opportunities.addNew"),
+            icon: Plus,
+            hidden: !canCreate,
+            href: "/investors/opportunities/new",
+          }}
+        />
       }
     >
       <EnterpriseDataTable

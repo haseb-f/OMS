@@ -7,8 +7,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Archive, FileText, RotateCcw } from "lucide-react";
 import { DetailSection, DetailWorkspace } from "@/components/shared/detail-workspace";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
-import { RowActionsMenu } from "@/components/shared/data-table";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
   MasterDataForm,
@@ -199,23 +199,22 @@ export default function KpiTemplateDetailPage() {
         />
       }
       actions={
-        <RowActionsMenu
-          label={t("common.actions")}
-          actions={[
-            {
-              key: "archive",
-              label: t("common.archive"),
-              icon: Archive,
-              hidden: !canArchive || !!template.deletedAt,
-              destructive: true,
-              onSelect: () => setArchiveOpen(true),
-            },
+        <HeaderActions
+          more={[
             {
               key: "restore",
               label: t("common.restore"),
               icon: RotateCcw,
               hidden: !canArchive || !template.deletedAt,
               onSelect: () => setRestoreOpen(true),
+            },
+            // Archive keeps its own ConfirmationDialog (setArchiveOpen).
+            {
+              key: "archive",
+              label: t("common.archive"),
+              icon: Archive,
+              hidden: !canArchive || !!template.deletedAt,
+              onSelect: () => setArchiveOpen(true),
             },
           ]}
         />

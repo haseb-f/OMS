@@ -5,6 +5,7 @@ import { z } from "zod";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PageWorkspace } from "@/components/shared/page-workspace";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
   EnterpriseCard,
@@ -206,23 +207,22 @@ function FxPageContent() {
       title={t("accounting.fx.title")}
       description={t("accounting.fx.description")}
       actions={
-        <div className="flex flex-wrap gap-2">
-          {canCreateRate && baseCurrencyId ? (
-            <EnterpriseButton type="button" size="sm" onClick={openRateForm}>
-              {t("accounting.fx.addRate")}
-            </EnterpriseButton>
-          ) : null}
-          {canRevalue && (
-            <EnterpriseButton
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => setRevalueOpen(true)}
-            >
-              {t("accounting.fx.runRevaluation")}
-            </EnterpriseButton>
-          )}
-        </div>
+        <HeaderActions
+          secondary={[
+            {
+              key: "revalue",
+              label: t("accounting.fx.runRevaluation"),
+              hidden: !canRevalue,
+              onSelect: () => setRevalueOpen(true),
+            },
+          ]}
+          primary={{
+            key: "add-rate",
+            label: t("accounting.fx.addRate"),
+            hidden: !(canCreateRate && baseCurrencyId),
+            onSelect: openRateForm,
+          }}
+        />
       }
     >
       {baseCurrencyId !== undefined ? (

@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Pencil, Archive } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { PermissionGate } from "@/components/shared/permission-gate";
-import { EnterpriseButton } from "@/components/ui/button";
 import {
   EnterpriseDataTable,
   exportColumnsFromKeys,
@@ -143,18 +143,18 @@ function SalesTeamsPageContent() {
       title={t("crm.salesTeams.title")}
       description={t("crm.salesTeams.description")}
       actions={
-        canCreate ? (
-          <EnterpriseButton
-            size="sm"
-            onClick={() => {
+        <HeaderActions
+          primary={{
+            key: "add-new",
+            label: t("crm.salesTeams.new"),
+            icon: Plus,
+            hidden: !canCreate,
+            onSelect: () => {
               setEditing(null);
               setEditorOpen(true);
-            }}
-          >
-            <Plus className="size-3.5" />
-            {t("crm.salesTeams.new")}
-          </EnterpriseButton>
-        ) : undefined
+            },
+          }}
+        />
       }
     >
       <EnterpriseDataTable

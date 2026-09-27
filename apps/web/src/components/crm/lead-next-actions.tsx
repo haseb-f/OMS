@@ -1,13 +1,7 @@
 "use client";
 
-import { CalendarClock, MoreHorizontal, ShoppingCart, UserCheck } from "lucide-react";
-import { EnterpriseButton } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Archive, CalendarClock, ShoppingCart, UserCheck } from "lucide-react";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { useLocale } from "@/providers/locale-provider";
 import type { LeadRow } from "@/services/leads-service";
 
@@ -72,44 +66,52 @@ export function LeadNextActions({
           : null;
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {primary ? (
-        <EnterpriseButton size="sm" variant={primary.variant} onClick={primary.run}>
-          <primary.icon />
-          {primary.label}
-        </EnterpriseButton>
-      ) : null}
-      {canConvert && primary?.key !== "convert" ? (
-        <EnterpriseButton size="sm" variant="outline" onClick={onConvert}>
-          <ShoppingCart />
-          {t("crm.leads.convert.cta")}
-        </EnterpriseButton>
-      ) : null}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <EnterpriseButton size="sm" variant="outline">
-            <MoreHorizontal />
-            {t("common.moreActions")}
-          </EnterpriseButton>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          {canEdit && primary?.key !== "followUp" ? (
-            <DropdownMenuItem onSelect={onFollowUp}>
-              {t("crm.leads.actions.addFollowUp")}
-            </DropdownMenuItem>
-          ) : null}
-          {canAssign ? (
-            <DropdownMenuItem onSelect={onAssign}>
-              {lead.salesEmployee ? t("crm.leads.actions.transfer") : t("crm.leads.actions.assign")}
-            </DropdownMenuItem>
-          ) : null}
-          {canEdit ? (
-            <DropdownMenuItem onSelect={onClose}>
-              {t("crm.leads.actions.closeWithoutPurchase")}
-            </DropdownMenuItem>
-          ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+    <HeaderActions
+      primary={
+        primary
+          ? {
+              key: primary.key,
+              label: primary.label,
+              icon: primary.icon,
+              variant: primary.variant,
+              onSelect: primary.run,
+            }
+          : undefined
+      }
+      secondary={[
+        {
+          key: "convert",
+          label: t("crm.leads.convert.cta"),
+          icon: ShoppingCart,
+          hidden: !canConvert || primary?.key === "convert",
+          onSelect: onConvert,
+        },
+      ]}
+      more={[
+        {
+          key: "followUp",
+          label: t("crm.leads.actions.addFollowUp"),
+          icon: CalendarClock,
+          hidden: !canEdit || primary?.key === "followUp",
+          onSelect: onFollowUp,
+        },
+        {
+          key: "assign",
+          label: lead.salesEmployee
+            ? t("crm.leads.actions.transfer")
+            : t("crm.leads.actions.assign"),
+          icon: UserCheck,
+          hidden: !canAssign,
+          onSelect: onAssign,
+        },
+        {
+          key: "close",
+          label: t("crm.leads.actions.closeWithoutPurchase"),
+          icon: Archive,
+          hidden: !canEdit,
+          onSelect: onClose,
+        },
+      ]}
+    />
   );
 }

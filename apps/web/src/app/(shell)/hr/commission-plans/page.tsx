@@ -1,10 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
-import { EnterpriseButton } from "@/components/ui/button";
 import type { MasterDataFormField } from "@/components/master-data/master-data-form";
 import {
   commissionPlansService,
@@ -37,7 +35,6 @@ const listService = {
 
 export default function CommissionPlansPage() {
   const { t } = useLocale();
-  const router = useRouter();
   const { hasPermission } = useUserContext();
 
   const columns = useMemo(() => buildCommissionPlansColumns(t), [t]);
@@ -74,16 +71,14 @@ export default function CommissionPlansPage() {
       rowLabel={commissionPlanRowLabel}
       defaultSortBy="sortOrder"
       defaultSortOrder="asc"
-      hideCreateButton
       getRowHref={(row) => `/hr/commission-plans/${row.id}`}
-      extraActions={
-        hasPermission("hr.commission-plans.create") ? (
-          <EnterpriseButton type="button" onClick={() => router.push("/hr/commission-plans/new")}>
-            <Plus />
-            {t("hr.commissionPlans.addNew")}
-          </EnterpriseButton>
-        ) : undefined
-      }
+      primaryAction={{
+        key: "add-new",
+        label: t("hr.commissionPlans.addNew"),
+        icon: Plus,
+        href: "/hr/commission-plans/new",
+        hidden: !hasPermission("hr.commission-plans.create"),
+      }}
     />
   );
 }

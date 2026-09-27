@@ -35,7 +35,7 @@ import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
-import { reportApiError, toast } from "@/lib/toast";
+import { reportApiError, reportSuccess } from "@/lib/toast";
 
 let nextLineId = 1;
 
@@ -200,10 +200,10 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
       if (id) {
         const updated = await customerReceiptsService.update(id, buildPayload());
         applyReceipt(updated);
-        toast.success(t("common.saved"));
+        reportSuccess(t("common.saved"));
       } else {
         const created = await customerReceiptsService.create(buildPayload());
-        toast.success(t("common.saved"));
+        reportSuccess(t("common.saved"));
         router.replace(`/sales/payments/${created.id}`);
       }
     } catch (error) {
@@ -222,7 +222,7 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
     try {
       const updated = await action(id);
       applyReceipt(updated);
-      toast.success(t(successKey));
+      reportSuccess(t(successKey));
       refreshActivity(id);
     } catch (error) {
       reportApiError(error, "errors.generic");
@@ -255,7 +255,7 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
     setIsTransitioning(true);
     try {
       const confirmed = await customerReceiptsService.createConfirmed(buildPayload());
-      toast.success(t("financialTransactions.toasts.confirmed"));
+      reportSuccess(t("financialTransactions.toasts.confirmed"));
       router.replace(`/sales/payments/${confirmed.id}`);
     } catch (error) {
       reportApiError(error, "errors.generic");
@@ -297,7 +297,7 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
       }
       const refreshed = await customerReceiptsService.get(receipt.id);
       applyReceipt(refreshed);
-      toast.success(t("financialTransactions.toasts.allocated"));
+      reportSuccess(t("financialTransactions.toasts.allocated"));
     } catch (error) {
       reportApiError(error, "errors.generic");
     } finally {
@@ -381,7 +381,7 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
       remaining -= toApply;
     }
     void handleAllocationsChange(nextLines);
-    toast.success(t("financialTransactions.toasts.payAllRemainingApplied"));
+    reportSuccess(t("financialTransactions.toasts.payAllRemainingApplied"));
   };
 
   /** Hard delete — Draft only, server-enforced. Unlike Cancel (Confirmed → Cancelled, keeps the record), this removes the draft entirely; there is nothing to reverse since a Draft never posted. */
@@ -390,7 +390,7 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
     setIsTransitioning(true);
     try {
       await customerReceiptsService.remove(id);
-      toast.success(t("financialTransactions.toasts.deleted"));
+      reportSuccess(t("financialTransactions.toasts.deleted"));
       router.push("/sales/payments");
     } catch (error) {
       reportApiError(error, "errors.generic");

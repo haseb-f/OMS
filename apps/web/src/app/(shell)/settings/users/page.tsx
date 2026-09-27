@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { PermissionGate } from "@/components/shared/permission-gate";
-import { EnterpriseButton } from "@/components/ui/button";
 import {
   EnterpriseDataTable,
   exportColumnsFromKeys,
@@ -89,10 +89,14 @@ function UsersPageContent() {
       title={t("settings.users.title")}
       description={t("settings.users.description")}
       actions={
-        <EnterpriseButton type="button" onClick={openCreate}>
-          <Plus />
-          {t("settings.users.newUser")}
-        </EnterpriseButton>
+        <HeaderActions
+          primary={{
+            key: "primary",
+            label: t("settings.users.newUser"),
+            icon: Plus,
+            onSelect: openCreate,
+          }}
+        />
       }
     >
       <EnterpriseDataTable

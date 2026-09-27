@@ -1,10 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
-import { EnterpriseButton } from "@/components/ui/button";
 import type { MasterDataFormField } from "@/components/master-data/master-data-form";
 import {
   kpiTemplatesService,
@@ -45,7 +43,6 @@ const listService = {
 
 export default function KpiTemplatesPage() {
   const { t } = useLocale();
-  const router = useRouter();
   const { hasPermission } = useUserContext();
 
   const columns = useMemo(() => buildKpiTemplatesColumns(), []);
@@ -74,16 +71,14 @@ export default function KpiTemplatesPage() {
       rowLabel={kpiTemplateRowLabel}
       defaultSortBy="sortOrder"
       defaultSortOrder="asc"
-      hideCreateButton
       getRowHref={(row) => `/hr/kpi-templates/${row.id}`}
-      extraActions={
-        hasPermission("hr.kpi-templates.create") ? (
-          <EnterpriseButton type="button" onClick={() => router.push("/hr/kpi-templates/new")}>
-            <Plus />
-            {t("hr.kpiTemplates.addNew")}
-          </EnterpriseButton>
-        ) : undefined
-      }
+      primaryAction={{
+        key: "add-new",
+        label: t("hr.kpiTemplates.addNew"),
+        icon: Plus,
+        href: "/hr/kpi-templates/new",
+        hidden: !hasPermission("hr.kpi-templates.create"),
+      }}
     />
   );
 }

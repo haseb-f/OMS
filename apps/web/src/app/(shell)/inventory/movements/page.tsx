@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PageWorkspace } from "@/components/shared/page-workspace";
+import { HeaderActions } from "@/components/shared/header-actions";
 import {
   EnterpriseDateRangePicker,
   type DateRangeValue,
@@ -367,34 +368,38 @@ function InventoryMovementsPageContent() {
       title={t("nav.inventoryMovements")}
       description={t("inventory.movements.description")}
       actions={
-        <>
-          <ModuleImportButtons
-            importType={["OPENING_STOCK", "INVENTORY_ADJUSTMENTS"]}
-            onImported={load}
-          />
-          {canCreate && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <EnterpriseButton type="button">
-                  <Plus />
-                  {t("inventory.createMovement.title")}
-                  <ChevronDown className="size-3.5" />
-                </EnterpriseButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => setOpeningOpen(true)}>
-                  {t("inventory.openingInventory.title")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setAdjustmentOpen(true)}>
-                  {t("inventory.adjustment.title")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setTransferOpen(true)}>
-                  {t("inventory.transfer.title")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </>
+        <HeaderActions
+          inline={
+            <ModuleImportButtons
+              importType={["OPENING_STOCK", "INVENTORY_ADJUSTMENTS"]}
+              onImported={load}
+            />
+          }
+          primary={
+            canCreate ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <EnterpriseButton type="button">
+                    <Plus />
+                    {t("inventory.createMovement.title")}
+                    <ChevronDown className="size-3.5" />
+                  </EnterpriseButton>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => setOpeningOpen(true)}>
+                    {t("inventory.openingInventory.title")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setAdjustmentOpen(true)}>
+                    {t("inventory.adjustment.title")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setTransferOpen(true)}>
+                    {t("inventory.transfer.title")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : undefined
+          }
+        />
       }
     >
       <EnterpriseDataTable

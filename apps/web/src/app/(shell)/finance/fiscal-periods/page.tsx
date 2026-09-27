@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Plus, Star, Archive, CalendarRange, Lock, Unlock } from "lucide-react";
-import { EnterpriseButton } from "@/components/ui/button";
 import { PageWorkspace } from "@/components/shared/page-workspace";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { StatusBadge } from "@/components/business/status-badge";
 import type { StatusTone } from "@/components/business/status-badge";
@@ -218,12 +218,15 @@ export default function FiscalPeriodsPage() {
       title={t("nav.financeFiscalPeriods")}
       description={t("accounting.fiscalYears.description")}
       actions={
-        canCreate && (
-          <EnterpriseButton type="button" onClick={() => setCreateOpen(true)}>
-            <Plus />
-            {t("accounting.fiscalYears.createTitle")}
-          </EnterpriseButton>
-        )
+        <HeaderActions
+          primary={{
+            key: "create",
+            label: t("accounting.fiscalYears.createTitle"),
+            icon: Plus,
+            hidden: !canCreate,
+            onSelect: () => setCreateOpen(true),
+          }}
+        />
       }
     >
       <EnterpriseDataTable

@@ -25,6 +25,7 @@ export function PageWorkspace({
   title,
   description,
   actions,
+  meta,
   children,
   secondary,
   className,
@@ -33,7 +34,10 @@ export function PageWorkspace({
 }: {
   title: string;
   description?: string;
+  /** Normally `<HeaderActions />` — one primary, ≤2 secondary, «المزيد» overflow. */
   actions?: ReactNode;
+  /** Quiet labeled chips beside/under the title (list KPIs, status counters). */
+  meta?: ReactNode;
   children?: ReactNode;
   secondary?: ReactNode;
   className?: string;
@@ -61,7 +65,13 @@ export function PageWorkspace({
           className,
         )}
       >
-        <PageHeader title={title} subtitle={description} actions={actions} dense={dense} />
+        <PageHeader
+          title={title}
+          subtitle={description}
+          actions={actions}
+          meta={meta}
+          dense={dense}
+        />
         {children ? (
           <div
             className={cn(

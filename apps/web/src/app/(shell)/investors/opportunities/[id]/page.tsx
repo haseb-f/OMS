@@ -18,6 +18,7 @@ import {
   DetailWorkspace,
 } from "@/components/shared/detail-workspace";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -217,7 +218,7 @@ export default function OpportunityWorkspacePage() {
     <>
       <DetailWorkspace
         title={opportunity.nameAr}
-        subtitle={opportunity.code}
+        reference={opportunity.code}
         status={
           <StatusBadge
             label={t(`investors.opportunities.status.${opportunity.status}` as MessageKey)}
@@ -225,56 +226,65 @@ export default function OpportunityWorkspacePage() {
           />
         }
         actions={
-          <>
-            {canManage && opportunity.status === "DRAFT" ? (
-              <EnterpriseButton
-                onClick={() => runAction(() => investmentOpportunitiesService.open(opportunity.id))}
-              >
-                <DoorOpen />
-                {t("investors.opportunities.actions.open")}
-              </EnterpriseButton>
-            ) : null}
-            {canManage && (opportunity.status === "OPEN" || opportunity.status === "FUNDED") ? (
-              <EnterpriseButton
-                onClick={() =>
-                  runAction(() => investmentOpportunitiesService.activate(opportunity.id))
-                }
-              >
-                <CirclePlay />
-                {t("investors.opportunities.actions.activate")}
-              </EnterpriseButton>
-            ) : null}
-            {canManage && opportunity.status === "ACTIVE" ? (
-              <EnterpriseButton
-                onClick={() => runAction(() => investmentOpportunitiesService.end(opportunity.id))}
-              >
-                <StopCircle />
-                {t("investors.opportunities.actions.end")}
-              </EnterpriseButton>
-            ) : null}
-            {canManage && opportunity.status === "SETTLED" ? (
-              <EnterpriseButton
-                onClick={() =>
-                  runAction(() => investmentOpportunitiesService.close(opportunity.id))
-                }
-              >
-                <ArchiveIcon />
-                {t("investors.opportunities.actions.close")}
-              </EnterpriseButton>
-            ) : null}
-            {canCancel && ["DRAFT", "OPEN", "FUNDED"].includes(opportunity.status) ? (
-              <EnterpriseButton variant="ghost" onClick={() => setCancelOpen(true)}>
-                <Ban />
-                {t("investors.opportunities.actions.cancel")}
-              </EnterpriseButton>
-            ) : null}
-            {canArchive && ["DRAFT", "CANCELLED", "CLOSED"].includes(opportunity.status) ? (
-              <EnterpriseButton variant="ghost" onClick={() => setArchiveOpen(true)}>
-                <ArchiveIcon />
-                {t("investors.opportunities.actions.archive")}
-              </EnterpriseButton>
-            ) : null}
-          </>
+          <HeaderActions
+            primary={
+              opportunity.status === "DRAFT"
+                ? {
+                    key: "open",
+                    label: t("investors.opportunities.actions.open"),
+                    icon: DoorOpen,
+                    hidden: !canManage,
+                    onSelect: () =>
+                      runAction(() => investmentOpportunitiesService.open(opportunity.id)),
+                  }
+                : opportunity.status === "OPEN" || opportunity.status === "FUNDED"
+                  ? {
+                      key: "activate",
+                      label: t("investors.opportunities.actions.activate"),
+                      icon: CirclePlay,
+                      hidden: !canManage,
+                      onSelect: () =>
+                        runAction(() => investmentOpportunitiesService.activate(opportunity.id)),
+                    }
+                  : opportunity.status === "ACTIVE"
+                    ? {
+                        key: "end",
+                        label: t("investors.opportunities.actions.end"),
+                        icon: StopCircle,
+                        hidden: !canManage,
+                        onSelect: () =>
+                          runAction(() => investmentOpportunitiesService.end(opportunity.id)),
+                      }
+                    : opportunity.status === "SETTLED"
+                      ? {
+                          key: "close",
+                          label: t("investors.opportunities.actions.close"),
+                          icon: ArchiveIcon,
+                          hidden: !canManage,
+                          onSelect: () =>
+                            runAction(() => investmentOpportunitiesService.close(opportunity.id)),
+                        }
+                      : undefined
+            }
+            more={[
+              // Cancel / Archive keep their own ConfirmationDialogs.
+              {
+                key: "cancel",
+                label: t("investors.opportunities.actions.cancel"),
+                icon: Ban,
+                hidden: !canCancel || !["DRAFT", "OPEN", "FUNDED"].includes(opportunity.status),
+                onSelect: () => setCancelOpen(true),
+              },
+              {
+                key: "archive",
+                label: t("investors.opportunities.actions.archive"),
+                icon: ArchiveIcon,
+                hidden:
+                  !canArchive || !["DRAFT", "CANCELLED", "CLOSED"].includes(opportunity.status),
+                onSelect: () => setArchiveOpen(true),
+              },
+            ]}
+          />
         }
       >
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">

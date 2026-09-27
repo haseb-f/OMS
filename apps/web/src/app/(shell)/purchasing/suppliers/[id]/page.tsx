@@ -10,7 +10,7 @@ import {
   DetailWorkspace,
 } from "@/components/shared/detail-workspace";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
-import { RowActionsMenu } from "@/components/shared/data-table";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { EntityTabs } from "@/components/business/entity-tabs";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
@@ -205,7 +205,7 @@ export default function SupplierProfilePage() {
   return (
     <DetailWorkspace
       title={supplier.name}
-      subtitle={supplier.partnerNumber}
+      reference={supplier.partnerNumber}
       status={
         <StatusBadge
           label={t(`common.${supplier.status === "ACTIVE" ? "active" : "archived"}` as MessageKey)}
@@ -213,15 +213,15 @@ export default function SupplierProfilePage() {
         />
       }
       actions={
-        <RowActionsMenu
-          label={t("common.actions")}
-          actions={[
-            {
-              key: "print",
-              label: t("purchasing.suppliers.profile.print"),
-              icon: Printer,
-              onSelect: handlePrint,
-            },
+        <HeaderActions
+          primary={{
+            key: "edit",
+            label: t("common.edit"),
+            icon: Pencil,
+            hidden: !canEdit || !!supplier.deletedAt,
+            href: `/purchasing/suppliers?edit=${supplier.id}`,
+          }}
+          secondary={[
             {
               // The Journal-Entry-based statement (opening, invoices,
               // payments, returns, running and closing balance).
@@ -229,22 +229,22 @@ export default function SupplierProfilePage() {
               label: t("reports.finance.supplierStatement"),
               icon: ScrollText,
               hidden: !hasPermission("reports.financial.view"),
-              onSelect: () => router.push(`/reports/suppliers?partner=${supplier.id}`),
+              href: `/reports/suppliers?partner=${supplier.id}`,
             },
             {
-              key: "edit",
-              label: t("common.edit"),
-              icon: Pencil,
-              hidden: !canEdit || !!supplier.deletedAt,
-              onSelect: () => router.push(`/purchasing/suppliers?edit=${supplier.id}`),
+              key: "print",
+              label: t("purchasing.suppliers.profile.print"),
+              icon: Printer,
+              onSelect: handlePrint,
             },
+          ]}
+          more={[
+            // Archive keeps its own ConfirmationDialog (setArchiveOpen).
             {
               key: "archive",
               label: t("common.archive"),
               icon: Archive,
               hidden: !canArchive || !!supplier.deletedAt,
-              destructive: true,
-              separatorBefore: true,
               onSelect: () => setArchiveOpen(true),
             },
           ]}

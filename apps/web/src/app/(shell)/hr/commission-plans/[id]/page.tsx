@@ -8,9 +8,9 @@ import {
   DetailSection,
   DetailFieldRow,
 } from "@/components/shared/detail-workspace";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { ModalSection } from "@/components/shared/modal-section";
 import { EntityTabs } from "@/components/business/entity-tabs";
-import { RowActionsMenu } from "@/components/shared/data-table";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/business/status-badge";
@@ -287,23 +287,22 @@ export default function CommissionPlanEditorPage() {
         />
       }
       actions={
-        <RowActionsMenu
-          label={t("common.actions")}
-          actions={[
-            {
-              key: "archive",
-              label: t("common.archive"),
-              icon: Archive,
-              hidden: !canArchive || !!plan.deletedAt,
-              destructive: true,
-              onSelect: () => setArchiveOpen(true),
-            },
+        <HeaderActions
+          more={[
             {
               key: "restore",
               label: t("common.restore"),
               icon: RotateCcw,
               hidden: !canArchive || !plan.deletedAt,
               onSelect: () => setRestoreOpen(true),
+            },
+            // Archive keeps its own ConfirmationDialog (setArchiveOpen).
+            {
+              key: "archive",
+              label: t("common.archive"),
+              icon: Archive,
+              hidden: !canArchive || !!plan.deletedAt,
+              onSelect: () => setArchiveOpen(true),
             },
           ]}
         />
@@ -316,7 +315,7 @@ export default function CommissionPlanEditorPage() {
             label: t("common.generalInformation"),
             content: (
               <div className="flex flex-col gap-3">
-                <ModalSection title={t("common.generalInformation")} columns={2}>
+                <ModalSection variant="card" title={t("common.generalInformation")} columns={2}>
                   <div className="flex flex-col gap-1.5 md:col-span-2">
                     <label className="text-caption font-medium">
                       {t("hr.commissionPlans.fields.name")}
@@ -447,6 +446,7 @@ export default function CommissionPlanEditorPage() {
 
                 {canEdit && (
                   <ModalSection
+                    variant="card"
                     title={t("hr.commissionPlans.assignment.addAssignment")}
                     columns={2}
                   >

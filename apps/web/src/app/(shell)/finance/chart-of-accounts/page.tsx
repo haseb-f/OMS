@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageWorkspace } from "@/components/shared/page-workspace";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { ListSurface, ListToolbar } from "@/components/shared/data-table/list-surface";
 import { SearchInput } from "@/components/shared/search-input";
 import { TreeToggleButton } from "@/components/shared/tree-toggle-button";
@@ -597,33 +598,19 @@ function ChartOfAccountsPageContent() {
       title={t("masterData.chartOfAccounts.title")}
       description={t("masterData.chartOfAccounts.description")}
       actions={
-        <div className="flex items-center gap-2">
-          <ModuleImportButtons importType="CHART_OF_ACCOUNTS" onImported={load} />
-          <EnterpriseButton
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={handleExport}
-          >
-            <Download className="size-3.5" />
-            {t("table.export")}
-          </EnterpriseButton>
-          <EnterpriseButton
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={handlePrint}
-          >
-            <Printer className="size-3.5" />
-            {t("table.print")}
-          </EnterpriseButton>
-          <EnterpriseButton type="button" onClick={() => openCreate(null)}>
-            <Plus />
-            {t("masterData.chartOfAccounts.addAccount")}
-          </EnterpriseButton>
-        </div>
+        <HeaderActions
+          inline={<ModuleImportButtons importType="CHART_OF_ACCOUNTS" onImported={load} />}
+          secondary={[
+            { key: "export", label: t("table.export"), icon: Download, onSelect: handleExport },
+            { key: "print", label: t("table.print"), icon: Printer, onSelect: handlePrint },
+          ]}
+          primary={{
+            key: "add-account",
+            label: t("masterData.chartOfAccounts.addAccount"),
+            icon: Plus,
+            onSelect: () => openCreate(null),
+          }}
+        />
       }
     >
       <ListSurface>

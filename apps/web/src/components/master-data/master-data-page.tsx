@@ -17,6 +17,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { PageWorkspace } from "@/components/shared/page-workspace";
+import { HeaderActions, type ActionSpec } from "@/components/shared/header-actions";
 import { EnterpriseModal, type EnterpriseModalSize } from "@/components/shared/enterprise-modal";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { LoadingOverlay } from "@/components/shared/loading-overlay";
@@ -43,7 +44,14 @@ import type { MasterDataActivityEntry, MasterDataListParams } from "@/services/m
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast, reportApiError } from "@/lib/toast";
+import { toast, reportApiError, reportSuccess } from "@/lib/toast";
+import {
+  FormErrorSummary,
+  applyServerFieldErrors,
+  formErrorsFromRhf,
+  useFocusFirstInvalid,
+  type FormErrorItem,
+} from "@/components/shared/form-error-summary";
 import { formatDateTime } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
 
@@ -108,6 +116,10 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   extraFilterCount = 0,
   onClearExtraFilters,
   extraActions,
+  headerSecondary,
+  headerMore,
+  headerMeta,
+  primaryAction,
   extraBulkActions,
   defaultSortBy = "name",
   defaultSortOrder = "asc",
@@ -150,6 +162,14 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   onClearExtraFilters?: () => void;
   /** Opt-in extra toolbar action(s) rendered before the internal "+ New" button — e.g. `<ModuleImportButtons />` (TASK-060B Part 5). */
   extraActions?: ReactNode;
+  /** Header secondary actions (outline, max 2 inline; collapse into «المزيد» on phones). */
+  headerSecondary?: ActionSpec[];
+  /** Header overflow («المزيد») actions. */
+  headerMore?: ActionSpec[];
+  /** Quiet labeled chips in the page header (status counters). */
+  headerMeta?: ReactNode;
+  /** Replaces the internal "+ New" as the page's ONE primary action (e.g. Leads' own create dialog). */
+  primaryAction?: ActionSpec;
   extraBulkActions?: (selectedIds: string[]) => ReactNode;
   /** Initial sort field — defaults to "name" (every existing Master Data entity has one); override for an entity that doesn't (e.g. Leads, sorted by "createdAt"). */
   defaultSortBy?: string;
@@ -242,8 +262,36 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
     defaultValues,
   });
 
+  // Submit feedback (design-system §11.4): inline field errors + a persistent
+  // FormErrorSummary at the top of the modal body after a failed submit.
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [serverFormErrors, setServerFormErrors] = useState<FormErrorItem[]>([]);
+  const formBodyRef = useRef<HTMLDivElement>(null);
+  const focusFirstInvalid = useFocusFirstInvalid(formBodyRef);
+  const formFieldList = useMemo(
+    () => (formSections ? formSections.flatMap((section) => section.fields) : (formFields ?? [])),
+    [formSections, formFields],
+  );
+  const fieldNames = useMemo(() => formFieldList.map((field) => field.name), [formFieldList]);
+  const labelFor = useCallback(
+    (name: string) => {
+      const field = formFieldList.find((candidate) => candidate.name === name);
+      return field ? t(field.label) : undefined;
+    },
+    [formFieldList, t],
+  );
+  const formErrorItems: FormErrorItem[] = submitAttempted
+    ? [
+        ...formErrorsFromRhf(form.formState.errors, { labelFor, order: fieldNames }),
+        ...serverFormErrors,
+      ]
+    : [];
+
   useEffect(() => {
     if (!modalOpen) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSubmitAttempted(false);
+    setServerFormErrors([]);
     const source = editingEntity ?? duplicateSource;
     const values = source
       ? toFormValues
@@ -385,30 +433,42 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
     if (!open) setDuplicateSource(null);
   };
 
-  const submit = (andNew: boolean) =>
-    form.handleSubmit(async (values) => {
-      setIsSubmitting(true);
-      try {
-        if (editingEntity) {
-          await service.update(editingEntity.id, values);
-        } else {
-          await service.create(values);
-        }
-        toast.success(t("common.saved"));
-        onRecordsChanged?.();
-        await load();
-        if (andNew) {
+  const submit = (andNew: boolean) => {
+    setSubmitAttempted(true);
+    setServerFormErrors([]);
+    return form.handleSubmit(
+      async (values) => {
+        setIsSubmitting(true);
+        try {
+          const saved = editingEntity
+            ? await service.update(editingEntity.id, values)
+            : await service.create(values);
+          // Only after the request resolved — never optimistic. A new record
+          // gets a link that reopens it (the page honours `?edit=<id>`).
+          setSubmitAttempted(false);
+          reportSuccess(t("common.saved"), {
+            href: !editingEntity && saved?.id ? `${pathname}?edit=${saved.id}` : undefined,
+            navigate: (href) => router.push(href, { scroll: false }),
+          });
+          onRecordsChanged?.();
+          await load();
           form.reset(defaultValues);
-        } else {
-          form.reset(defaultValues);
-          setModalOpen(false);
+          if (!andNew) setModalOpen(false);
+        } catch (error) {
+          // Field-level server problems go beside their fields; the rest
+          // stays in the modal's summary (no toast — the summary is the
+          // persistent, in-context explanation).
+          setServerFormErrors(
+            applyServerFieldErrors(error, form.setError, { knownFields: fieldNames, labelFor }),
+          );
+          focusFirstInvalid();
+        } finally {
+          setIsSubmitting(false);
         }
-      } catch (error) {
-        reportApiError(error, "errors.saveFailed");
-      } finally {
-        setIsSubmitting(false);
-      }
-    })();
+      },
+      () => focusFirstInvalid(),
+    )();
+  };
 
   const confirmArchive = async () => {
     if (!archiveTarget) return;
@@ -629,16 +689,22 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
       title={t(titleKey)}
       description={t(descriptionKey)}
       dense
+      meta={headerMeta}
       actions={
-        <>
-          {extraActions}
-          {canCreate && !hideCreateButton && (
-            <EnterpriseButton type="button" onClick={openCreate}>
-              <Plus />
-              {t("masterData.actions.addNew")}
-            </EnterpriseButton>
-          )}
-        </>
+        <HeaderActions
+          inline={extraActions}
+          secondary={headerSecondary}
+          more={headerMore}
+          primary={
+            primaryAction ?? {
+              key: "add-new",
+              label: t("masterData.actions.addNew"),
+              icon: Plus,
+              hidden: !canCreate || hideCreateButton,
+              onSelect: openCreate,
+            }
+          }
+        />
       }
     >
       {stats && stats.length > 0 && (
@@ -753,6 +819,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
         }
         description={t(descriptionKey)}
         isDirty={isDirty}
+        errorSummary={<FormErrorSummary errors={formErrorItems} />}
         footer={(requestClose) => (
           <>
             <EnterpriseButton
@@ -779,17 +846,19 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
           </>
         )}
       >
-        {formSections ? (
-          <MasterDataForm form={form} sections={formSections} countries={phoneCountries} />
-        ) : (
-          <MasterDataForm
-            form={form}
-            fields={formFields ?? []}
-            sectionTitle={t("common.generalInformation")}
-            columns={modalSize === "xl" ? 3 : 2}
-            countries={phoneCountries}
-          />
-        )}
+        <div ref={formBodyRef}>
+          {formSections ? (
+            <MasterDataForm form={form} sections={formSections} countries={phoneCountries} />
+          ) : (
+            <MasterDataForm
+              form={form}
+              fields={formFields ?? []}
+              sectionTitle={t("common.generalInformation")}
+              columns={modalSize === "xl" ? 3 : 2}
+              countries={phoneCountries}
+            />
+          )}
+        </div>
       </EnterpriseModal>
 
       <ConfirmationDialog

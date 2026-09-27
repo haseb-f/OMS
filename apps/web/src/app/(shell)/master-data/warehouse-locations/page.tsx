@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import { PageWorkspace } from "@/components/shared/page-workspace";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { ListSurface, ListToolbar } from "@/components/shared/data-table/list-surface";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/business/status-badge";
@@ -284,14 +285,15 @@ function WarehouseLocationsPageContent() {
       title={t("masterData.warehouseLocations.title")}
       description={t("masterData.warehouseLocations.description")}
       actions={
-        <EnterpriseButton
-          type="button"
-          onClick={() => openCreate(null)}
-          disabled={!warehouseId || !canCreate}
-        >
-          <Plus />
-          {t("masterData.warehouseLocations.addLocation")}
-        </EnterpriseButton>
+        <HeaderActions
+          primary={{
+            key: "add-location",
+            label: t("masterData.warehouseLocations.addLocation"),
+            icon: Plus,
+            disabled: !warehouseId || !canCreate,
+            onSelect: () => openCreate(null),
+          }}
+        />
       }
     >
       <ListSurface>

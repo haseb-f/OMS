@@ -81,7 +81,7 @@ export function ModuleImportButtons({
         <DropdownMenuTrigger asChild>
           <EnterpriseButton type="button" variant="outline" size="sm" className="gap-1.5">
             <FileUp className="size-3.5" />
-            {t("docFlow.import.menu")}
+            <span data-slot="action-label">{t("docFlow.import.menu")}</span>
             <ChevronDown className="size-3.5 opacity-60" />
           </EnterpriseButton>
         </DropdownMenuTrigger>

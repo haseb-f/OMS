@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
+import { HeaderActions } from "@/components/shared/header-actions";
 import {
   EnterpriseDataTable,
   exportColumnsFromKeys,
@@ -278,12 +279,15 @@ export default function CommissionsPage() {
       title={t("hr.commissions.title")}
       description={t("hr.commissions.description")}
       actions={
-        canCalculate ? (
-          <EnterpriseButton type="button" onClick={openCalculate}>
-            <Plus />
-            {t("hr.commissions.calculateNew")}
-          </EnterpriseButton>
-        ) : undefined
+        <HeaderActions
+          primary={{
+            key: "primary",
+            label: t("hr.commissions.calculateNew"),
+            icon: Plus,
+            hidden: !canCalculate,
+            onSelect: openCalculate,
+          }}
+        />
       }
     >
       <EnterpriseDataTable

@@ -4,10 +4,11 @@ import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Landmark, RefreshCw, Search, Tag, CheckCircle2, Undo2 } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
+import { PageHeaderStat } from "@/components/shared/page-header";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EnterpriseButton } from "@/components/ui/button";
-import { KpiCard } from "@/components/shared/kpi-card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -318,22 +319,76 @@ function CashFlowPageContent() {
       dense
       title={t("masterData.bankTransactions.title")}
       description={t("masterData.bankTransactions.description")}
+      meta={
+        summary ? (
+          direction === "INCOMING" ? (
+            <>
+              <PageHeaderStat
+                label={t("masterData.bankTransactions.summary.total")}
+                value={summary.incoming.total}
+              />
+              <PageHeaderStat
+                label={t("masterData.bankTransactions.summary.matched")}
+                value={summary.incoming.matched}
+              />
+              <PageHeaderStat
+                label={t("masterData.bankTransactions.summary.unmatched")}
+                value={summary.incoming.unmatched}
+                tone={summary.incoming.unmatched > 0 ? "warning" : "neutral"}
+              />
+              <PageHeaderStat
+                label={t("masterData.bankTransactions.summary.storeOrderMatches")}
+                value={summary.incoming.storeOrderMatches}
+              />
+              <PageHeaderStat
+                label={t("masterData.bankTransactions.summary.b2bMatches")}
+                value={summary.incoming.b2bSalesInvoiceMatches}
+              />
+            </>
+          ) : (
+            <>
+              <PageHeaderStat
+                label={t("masterData.bankTransactions.summary.total")}
+                value={summary.outgoing.total}
+              />
+              <PageHeaderStat
+                label={t("masterData.bankTransactions.summary.supplierPayments")}
+                value={summary.outgoing.supplierPayments}
+              />
+              <PageHeaderStat
+                label={t("masterData.bankTransactions.summary.expenses")}
+                value={summary.outgoing.expenses}
+              />
+              <PageHeaderStat
+                label={t("masterData.bankTransactions.summary.unclassified")}
+                value={summary.outgoing.unclassified}
+                tone={summary.outgoing.unclassified > 0 ? "warning" : "neutral"}
+              />
+              <PageHeaderStat
+                label={t("masterData.bankTransactions.summary.posted")}
+                value={summary.outgoing.posted}
+              />
+            </>
+          )
+        ) : null
+      }
       actions={
-        <div className="flex items-center gap-2">
-          <SyncButton sourceType="CASH_FLOW" onSynced={load} />
-          <ModuleImportButtons importType="BANK_TRANSACTIONS" onImported={load} />
-          {canManage && direction === "INCOMING" && (
-            <EnterpriseButton
-              type="button"
-              variant="outline"
-              onClick={handleRunMatching}
-              disabled={isRunningMatch}
-            >
-              <RefreshCw className={isRunningMatch ? "animate-spin" : undefined} />
-              {t("masterData.bankTransactions.runMatching")}
-            </EnterpriseButton>
-          )}
-        </div>
+        <HeaderActions
+          inline={
+            <>
+              <ModuleImportButtons importType="BANK_TRANSACTIONS" onImported={load} />
+              <SyncButton sourceType="CASH_FLOW" onSynced={load} />
+            </>
+          }
+          primary={{
+            key: "run-matching",
+            label: t("masterData.bankTransactions.runMatching"),
+            icon: RefreshCw,
+            hidden: !(canManage && direction === "INCOMING"),
+            loading: isRunningMatch,
+            onSelect: handleRunMatching,
+          }}
+        />
       }
     >
       <Tabs
@@ -352,68 +407,6 @@ function CashFlowPageContent() {
           </TabsTrigger>
         </TabsList>
       </Tabs>
-
-      {summary && (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-          {direction === "INCOMING" ? (
-            <>
-              <KpiCard
-                size="compact"
-                label={t("masterData.bankTransactions.summary.total")}
-                value={summary.incoming.total}
-              />
-              <KpiCard
-                size="compact"
-                label={t("masterData.bankTransactions.summary.matched")}
-                value={summary.incoming.matched}
-              />
-              <KpiCard
-                size="compact"
-                label={t("masterData.bankTransactions.summary.unmatched")}
-                value={summary.incoming.unmatched}
-              />
-              <KpiCard
-                size="compact"
-                label={t("masterData.bankTransactions.summary.storeOrderMatches")}
-                value={summary.incoming.storeOrderMatches}
-              />
-              <KpiCard
-                size="compact"
-                label={t("masterData.bankTransactions.summary.b2bMatches")}
-                value={summary.incoming.b2bSalesInvoiceMatches}
-              />
-            </>
-          ) : (
-            <>
-              <KpiCard
-                size="compact"
-                label={t("masterData.bankTransactions.summary.total")}
-                value={summary.outgoing.total}
-              />
-              <KpiCard
-                size="compact"
-                label={t("masterData.bankTransactions.summary.supplierPayments")}
-                value={summary.outgoing.supplierPayments}
-              />
-              <KpiCard
-                size="compact"
-                label={t("masterData.bankTransactions.summary.expenses")}
-                value={summary.outgoing.expenses}
-              />
-              <KpiCard
-                size="compact"
-                label={t("masterData.bankTransactions.summary.unclassified")}
-                value={summary.outgoing.unclassified}
-              />
-              <KpiCard
-                size="compact"
-                label={t("masterData.bankTransactions.summary.posted")}
-                value={summary.outgoing.posted}
-              />
-            </>
-          )}
-        </div>
-      )}
 
       <div className="max-w-full overflow-x-auto">
         <Tabs

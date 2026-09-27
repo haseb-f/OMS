@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Package, Plus, Eye, Pencil, Copy, Archive as ArchiveIcon, RotateCcw } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { PageWorkspace } from "@/components/shared/page-workspace";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { StatusBadge } from "@/components/business/status-badge";
 import {
@@ -220,15 +221,16 @@ function ProductsPageContent() {
       title={t("products.title")}
       description={t("products.description")}
       actions={
-        <>
-          <ModuleImportButtons importType="PRODUCTS" onImported={load} />
-          {canCreate && (
-            <EnterpriseButton type="button" onClick={openCreate}>
-              <Plus />
-              {t("products.addNew")}
-            </EnterpriseButton>
-          )}
-        </>
+        <HeaderActions
+          inline={<ModuleImportButtons importType="PRODUCTS" onImported={load} />}
+          primary={{
+            key: "add-new",
+            label: t("products.addNew"),
+            icon: Plus,
+            hidden: !canCreate,
+            onSelect: openCreate,
+          }}
+        />
       }
     >
       <EnterpriseDataTable

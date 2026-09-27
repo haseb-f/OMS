@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { RowSelectionState } from "@tanstack/react-table";
 import { PageWorkspace } from "@/components/shared/page-workspace";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import { SyncButton } from "@/components/shared/sync-button";
@@ -208,10 +209,14 @@ function ShippingPageContent() {
       title={t("shipping.title")}
       description={t("shipping.description")}
       actions={
-        <>
-          <ModuleImportButtons importType="SHIPPING_UPDATES" onImported={load} />
-          <SyncButton sourceType="SHIPPING_UPDATES" onSynced={load} />
-        </>
+        <HeaderActions
+          inline={
+            <>
+              <ModuleImportButtons importType="SHIPPING_UPDATES" onImported={load} />
+              <SyncButton sourceType="SHIPPING_UPDATES" onSynced={load} />
+            </>
+          }
+        />
       }
     >
       <EnterpriseDataTable

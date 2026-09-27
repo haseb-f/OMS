@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
 import { Ban, Eye, Pencil, Plus, Printer, Archive } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
-import { EnterpriseButton } from "@/components/ui/button";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import {
@@ -366,15 +366,16 @@ function SupplierPaymentsPageContent() {
       title={t("purchasing.payments.title")}
       description={t("purchasing.payments.description")}
       actions={
-        <>
-          <ModuleImportButtons importType="SUPPLIER_PAYMENTS" onImported={load} />
-          {canCreate && (
-            <EnterpriseButton type="button" onClick={() => router.push("/purchasing/payments/new")}>
-              <Plus />
-              {t("purchasing.payments.addNew")}
-            </EnterpriseButton>
-          )}
-        </>
+        <HeaderActions
+          inline={<ModuleImportButtons importType="SUPPLIER_PAYMENTS" onImported={load} />}
+          primary={{
+            key: "add-new",
+            label: t("purchasing.payments.addNew"),
+            icon: Plus,
+            href: "/purchasing/payments/new",
+            hidden: !canCreate,
+          }}
+        />
       }
     >
       <EnterpriseDataTable

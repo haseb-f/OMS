@@ -3,8 +3,8 @@
 import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { EditorWorkspace, EditorHeader, DetailSection } from "@/components/shared/detail-workspace";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { ModalSection } from "@/components/shared/modal-section";
-import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -99,13 +99,18 @@ export default function NewCommissionPlanPage() {
       <EditorHeader
         title={t("hr.commissionPlans.addNew")}
         actions={
-          <EnterpriseButton type="button" onClick={() => void submit()} disabled={isSaving}>
-            {t("common.save")}
-          </EnterpriseButton>
+          <HeaderActions
+            primary={{
+              key: "save",
+              label: t("common.save"),
+              disabled: isSaving,
+              onSelect: () => void submit(),
+            }}
+          />
         }
       />
       <div className="flex flex-col gap-3">
-        <ModalSection title={t("common.generalInformation")} columns={2}>
+        <ModalSection variant="card" title={t("common.generalInformation")} columns={2}>
           <div className="flex flex-col gap-1.5 md:col-span-2">
             <label className="text-caption font-medium">
               {t("hr.commissionPlans.fields.name")}

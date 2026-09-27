@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Ban, UploadCloud, Eye } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
-import { EnterpriseButton } from "@/components/ui/button";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/business/status-badge";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
@@ -149,19 +149,19 @@ function ShippingImportContent() {
       title={t("nav.storeOrdersShippingImport")}
       description={t("shipping.import.description")}
       actions={
-        typeDef ? (
-          <EnterpriseButton
-            type="button"
-            disabled={!canImport || !typeDef.isAvailable}
-            onClick={() => {
+        <HeaderActions
+          primary={{
+            key: "start-import",
+            label: t("importCenter.startImport"),
+            icon: UploadCloud,
+            hidden: !typeDef,
+            disabled: !canImport || !typeDef?.isAvailable,
+            onSelect: () => {
               setWizardJobId(undefined);
               setWizardOpen(true);
-            }}
-          >
-            <UploadCloud />
-            {t("importCenter.startImport")}
-          </EnterpriseButton>
-        ) : undefined
+            },
+          }}
+        />
       }
     >
       {!typeDef ? (

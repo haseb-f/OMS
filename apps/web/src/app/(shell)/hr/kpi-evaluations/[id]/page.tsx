@@ -9,8 +9,8 @@ import {
   DetailSection,
   DetailWorkspace,
 } from "@/components/shared/detail-workspace";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
-import { RowActionsMenu } from "@/components/shared/data-table";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/business/status-badge";
@@ -182,30 +182,31 @@ export default function KpiEvaluationDetailPage() {
         />
       }
       actions={
-        <RowActionsMenu
-          label={t("common.actions")}
-          actions={[
-            {
-              key: "submit",
-              label: t("hr.kpiEvaluations.actions.submit"),
-              icon: Send,
-              hidden: !canSubmit || evaluation.status !== "DRAFT",
-              onSelect: () => setSubmitOpen(true),
-            },
-            {
-              key: "approve",
-              label: t("hr.kpiEvaluations.actions.approve"),
-              icon: CheckCircle2,
-              hidden: !canApprove || evaluation.status !== "MANAGER_SUBMITTED",
-              onSelect: () => setApproveOpen(true),
-            },
+        <HeaderActions
+          primary={
+            evaluation.status === "DRAFT"
+              ? {
+                  key: "submit",
+                  label: t("hr.kpiEvaluations.actions.submit"),
+                  icon: Send,
+                  hidden: !canSubmit,
+                  onSelect: () => setSubmitOpen(true),
+                }
+              : {
+                  key: "approve",
+                  label: t("hr.kpiEvaluations.actions.approve"),
+                  icon: CheckCircle2,
+                  hidden: !canApprove || evaluation.status !== "MANAGER_SUBMITTED",
+                  onSelect: () => setApproveOpen(true),
+                }
+          }
+          more={[
+            // Reopen keeps its own ConfirmationDialog (setReopenOpen).
             {
               key: "reopen",
               label: t("hr.kpiEvaluations.actions.reopen"),
               icon: RotateCcw,
               hidden: !canReopen || evaluation.status !== "HR_APPROVED",
-              destructive: true,
-              separatorBefore: true,
               onSelect: () => setReopenOpen(true),
             },
           ]}

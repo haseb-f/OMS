@@ -12,7 +12,6 @@ import { formatAmount } from "@/lib/money";
 import { StatusBadge } from "@/components/business/status-badge";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
-import { EnterpriseButton } from "@/components/ui/button";
 import type { RowAction } from "@/components/shared/data-table";
 import {
   prepaidExpensesService,
@@ -210,18 +209,14 @@ function PrepaidExpensesPageContent() {
         defaultSortBy="createdAt"
         defaultSortOrder="desc"
         disableArchiveRestore
-        extraActions={
-          hasPermission("prepaid-expenses.edit") ? (
-            <EnterpriseButton
-              type="button"
-              size="sm"
-              variant="secondary"
-              onClick={() => setRecognizeOpen(true)}
-            >
-              {t("accounting.prepaid.recognize")}
-            </EnterpriseButton>
-          ) : undefined
-        }
+        headerSecondary={[
+          {
+            key: "recognize",
+            label: t("accounting.prepaid.recognize"),
+            hidden: !hasPermission("prepaid-expenses.edit"),
+            onSelect: () => setRecognizeOpen(true),
+          },
+        ]}
         extraRowActions={(entity): RowAction[] => [
           {
             key: "activate",

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
+import { HeaderActions } from "@/components/shared/header-actions";
+import { RefreshCw } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -68,9 +70,17 @@ export default function LeadFunnelPage() {
         title={t("workflow.funnel.title")}
         subtitle={t("workflow.funnel.description")}
         actions={
-          <EnterpriseButton size="sm" onClick={() => void load()} disabled={loading}>
-            {t("table.refresh")}
-          </EnterpriseButton>
+          <HeaderActions
+            secondary={[
+              {
+                key: "refresh",
+                label: t("table.refresh"),
+                icon: RefreshCw,
+                disabled: loading,
+                onSelect: () => void load(),
+              },
+            ]}
+          />
         }
       />
 

@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
 import { Plus, Eye } from "lucide-react";
-import { EnterpriseButton } from "@/components/ui/button";
 import { PageWorkspace } from "@/components/shared/page-workspace";
+import { HeaderActions } from "@/components/shared/header-actions";
 import {
   EnterpriseDateRangePicker,
   type DateRangeValue,
@@ -195,12 +195,15 @@ function PhysicalCountPageContent() {
       title={t("nav.inventoryPhysicalCount")}
       description={t("inventory.physicalCount.description")}
       actions={
-        canCreate && (
-          <EnterpriseButton type="button" onClick={() => setCreateOpen(true)}>
-            <Plus />
-            {t("inventory.physicalCount.createTitle")}
-          </EnterpriseButton>
-        )
+        <HeaderActions
+          primary={{
+            key: "primary",
+            label: t("inventory.physicalCount.createTitle"),
+            icon: Plus,
+            hidden: !canCreate,
+            onSelect: () => setCreateOpen(true),
+          }}
+        />
       }
     >
       <EnterpriseDataTable

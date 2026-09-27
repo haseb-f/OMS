@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
 import { Ban, Eye, Pencil, Plus, Printer, Archive } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
-import { EnterpriseButton } from "@/components/ui/button";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import {
@@ -399,15 +399,20 @@ function CustomerReceiptsPageContent() {
       title={t(isRefunds ? "sales.refunds.title" : "sales.receipts.title")}
       description={t(isRefunds ? "sales.refunds.description" : "sales.receipts.description")}
       actions={
-        <>
-          {!isRefunds && <ModuleImportButtons importType="CUSTOMER_RECEIPTS" onImported={load} />}
-          {canCreate && (
-            <EnterpriseButton type="button" onClick={() => router.push("/sales/payments/new")}>
-              <Plus />
-              {t("sales.receipts.addNew")}
-            </EnterpriseButton>
-          )}
-        </>
+        <HeaderActions
+          inline={
+            !isRefunds ? (
+              <ModuleImportButtons importType="CUSTOMER_RECEIPTS" onImported={load} />
+            ) : null
+          }
+          primary={{
+            key: "add-new",
+            label: t("sales.receipts.addNew"),
+            icon: Plus,
+            onSelect: () => router.push("/sales/payments/new"),
+            hidden: !canCreate,
+          }}
+        />
       }
     >
       {canViewRefunds && (

@@ -24,7 +24,6 @@ import {
 } from "@/services/receiving-accounts-service";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { PermissionGate } from "@/components/shared/permission-gate";
-import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { RowAction } from "@/components/shared/data-table";
 import { useLocale } from "@/providers/locale-provider";
@@ -177,16 +176,13 @@ function FixedAssetsPageContent() {
         permissionPrefix="masterdata.fixed-assets"
         rowLabel={fixedAssetRowLabel}
         defaultSortBy="acquisitionDate"
-        extraActions={
-          <EnterpriseButton
-            type="button"
-            size="sm"
-            variant="secondary"
-            onClick={() => setRunOpen(true)}
-          >
-            {t("masterData.fixedAssets.actions.runDepreciation")}
-          </EnterpriseButton>
-        }
+        headerSecondary={[
+          {
+            key: "run-depreciation",
+            label: t("masterData.fixedAssets.actions.runDepreciation"),
+            onSelect: () => setRunOpen(true),
+          },
+        ]}
         extraRowActions={(entity): RowAction[] => [
           {
             key: "capitalize",

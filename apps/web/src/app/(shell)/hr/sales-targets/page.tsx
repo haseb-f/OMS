@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
 import { RowActionsMenu, type RowAction } from "@/components/shared/data-table";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -241,12 +242,15 @@ export default function SalesTargetsPage() {
       title={t("hr.salesTargets.title")}
       description={t("hr.salesTargets.description")}
       actions={
-        canCreate ? (
-          <EnterpriseButton type="button" onClick={openCreate}>
-            <Plus />
-            {t("hr.salesTargets.addNew")}
-          </EnterpriseButton>
-        ) : undefined
+        <HeaderActions
+          primary={{
+            key: "primary",
+            label: t("hr.salesTargets.addNew"),
+            icon: Plus,
+            hidden: !canCreate,
+            onSelect: openCreate,
+          }}
+        />
       }
     >
       <EnterpriseDataTable

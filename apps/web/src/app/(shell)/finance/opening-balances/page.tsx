@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { BookCheck } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
 import {
@@ -155,7 +156,7 @@ function OpeningBalancesPageContent() {
     <PageWorkspace
       title={t("nav.financeOpeningBalances")}
       description={t("accounting.openingBalances.description")}
-      actions={<ModuleImportButtons importType="OPENING_BALANCES" />}
+      actions={<HeaderActions inline={<ModuleImportButtons importType="OPENING_BALANCES" />} />}
     >
       <EnterpriseCard size="sm">
         <EnterpriseCardContent className="flex flex-col gap-3">

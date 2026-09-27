@@ -12,7 +12,7 @@ import {
   RecordHighlightsHeader,
   StatusStrip,
 } from "@/components/shared/detail-workspace";
-import { RowActionsMenu } from "@/components/shared/data-table";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -22,8 +22,6 @@ import { StatusBadge, type StatusTone } from "@/components/business/status-badge
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { IconActionButton } from "@/components/shared/icon-action-button";
-import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
-import { EnterpriseButton } from "@/components/ui/button";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
@@ -83,8 +81,6 @@ function ProductDetailContent() {
   const [editOpen, setEditOpen] = useState(false);
   const [editInitialTab, setEditInitialTab] = useState<string | undefined>(undefined);
   const [isActivating, setIsActivating] = useState(false);
-  const [archiveOpen, setArchiveOpen] = useState(false);
-  const [isArchiving, setIsArchiving] = useState(false);
 
   useBreadcrumbLabel(product?.displayName ?? product?.name ?? null);
 
@@ -144,16 +140,12 @@ function ProductDetailContent() {
 
   const confirmArchive = async () => {
     if (!product) return;
-    setIsArchiving(true);
     try {
       await productsService.archive(product.id);
       toast.success(t("products.archived"));
-      setArchiveOpen(false);
       router.push("/products");
     } catch (error) {
       reportApiError(error, "errors.archiveFailed");
-    } finally {
-      setIsArchiving(false);
     }
   };
 
@@ -324,16 +316,8 @@ function ProductDetailContent() {
   return (
     <EditorWorkspace>
       <RecordHighlightsHeader
-        identity={
-          <span className="inline-flex min-w-0 items-center gap-2">
-            <h1 className="text-ui-title">
-              <span className="num">{product.sku}</span>
-            </h1>
-            <span className="min-w-0 truncate text-body text-muted-foreground">
-              {product.displayName || product.name}
-            </span>
-          </span>
-        }
+        identity={product.displayName || product.name}
+        reference={product.sku}
         status={
           <StatusBadge
             label={t(`products.status.${product.status}`)}
@@ -399,39 +383,48 @@ function ProductDetailContent() {
             />
           </>
         }
-        primaryActions={
-          isDraft && canEdit ? (
-            <EnterpriseButton
-              type="button"
-              variant="success"
-              size="sm"
-              onClick={() => void handleActivate()}
-              disabled={isActivating}
-            >
-              <CheckCircle2 className="size-3.5" />
-              {t("products.detail.activate")}
-            </EnterpriseButton>
-          ) : null
-        }
-        moreActions={
-          <RowActionsMenu
-            label={t("common.moreActions")}
-            actions={[
+        actions={
+          <HeaderActions
+            primary={
+              isDraft
+                ? {
+                    key: "activate",
+                    label: t("products.detail.activate"),
+                    icon: CheckCircle2,
+                    variant: "success",
+                    hidden: !canEdit,
+                    loading: isActivating,
+                    onSelect: () => void handleActivate(),
+                  }
+                : {
+                    key: "edit",
+                    label: t("common.edit"),
+                    icon: Pencil,
+                    hidden: !canEdit,
+                    onSelect: () => openEdit(undefined),
+                  }
+            }
+            secondary={[
               {
                 key: "edit",
                 label: t("common.edit"),
                 icon: Pencil,
-                hidden: !canEdit,
+                hidden: !canEdit || !isDraft,
                 onSelect: () => openEdit(undefined),
               },
+            ]}
+            destructive={[
               {
                 key: "archive",
                 label: t("common.archive"),
                 icon: Archive,
                 hidden: !canArchive || !!product.deletedAt,
-                destructive: true,
-                separatorBefore: true,
-                onSelect: () => setArchiveOpen(true),
+                confirm: {
+                  title: t("common.confirmArchiveTitle"),
+                  description: `${product.displayName} — ${t("common.confirmArchiveDescription")}`,
+                  confirmLabel: t("common.archive"),
+                },
+                onSelect: confirmArchive,
               },
             ]}
           />
@@ -476,16 +469,6 @@ function ProductDetailContent() {
         }}
         onCategoryCreated={(category) => useProductCategories.add(category)}
         initialTab={editInitialTab}
-      />
-
-      <ConfirmationDialog
-        open={archiveOpen}
-        onOpenChange={setArchiveOpen}
-        title={t("common.confirmArchiveTitle")}
-        description={`${product.displayName} — ${t("common.confirmArchiveDescription")}`}
-        onConfirm={() => void confirmArchive()}
-        confirmLabel={t("common.archive")}
-        isConfirming={isArchiving}
       />
     </EditorWorkspace>
   );

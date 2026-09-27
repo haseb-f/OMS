@@ -11,6 +11,7 @@ import {
 } from "@/components/shared/detail-workspace";
 import { JournalTraceLinks } from "@/components/accounting/journal-trace-links";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/shared/searchable-select";
@@ -177,56 +178,49 @@ export default function PayrollRunDetailPage() {
     return <EmptyState icon={FileText} title={t("common.noResults")} />;
   }
 
+  const nextStep =
+    run.status === "DRAFT"
+      ? {
+          action: "hr-review" as const,
+          label: t("hr.payroll.actions.hrReview"),
+          allowed: canHrReview,
+        }
+      : run.status === "HR_REVIEWED"
+        ? {
+            action: "finance-approve" as const,
+            label: t("hr.payroll.actions.financeApprove"),
+            allowed: canFinanceApprove,
+          }
+        : run.status === "FINANCE_APPROVED"
+          ? { action: "post" as const, label: t("hr.payroll.actions.post"), allowed: canPost }
+          : run.status === "POSTED"
+            ? { action: "pay" as const, label: t("hr.payroll.actions.pay"), allowed: canPay }
+            : null;
+
   const actionButtons = (
-    <div className="flex flex-wrap items-center gap-2">
-      {run.status === "DRAFT" && canEdit && (
-        <EnterpriseButton
-          type="button"
-          variant="outline"
-          onClick={() => handleActionClick("recalculate")}
-          disabled={isActing}
-        >
-          <RefreshCw className={isActing ? "animate-spin motion-reduce:animate-none" : undefined} />
-          {t("hr.payroll.actions.recalculate")}
-        </EnterpriseButton>
-      )}
-      {run.status === "DRAFT" && canHrReview && (
-        <EnterpriseButton
-          type="button"
-          onClick={() => handleActionClick("hr-review")}
-          disabled={isActing}
-        >
-          {t("hr.payroll.actions.hrReview")}
-        </EnterpriseButton>
-      )}
-      {run.status === "HR_REVIEWED" && canFinanceApprove && (
-        <EnterpriseButton
-          type="button"
-          onClick={() => handleActionClick("finance-approve")}
-          disabled={isActing}
-        >
-          {t("hr.payroll.actions.financeApprove")}
-        </EnterpriseButton>
-      )}
-      {run.status === "FINANCE_APPROVED" && canPost && (
-        <EnterpriseButton
-          type="button"
-          onClick={() => handleActionClick("post")}
-          disabled={isActing}
-        >
-          {t("hr.payroll.actions.post")}
-        </EnterpriseButton>
-      )}
-      {run.status === "POSTED" && canPay && (
-        <EnterpriseButton
-          type="button"
-          onClick={() => handleActionClick("pay")}
-          disabled={isActing}
-        >
-          {t("hr.payroll.actions.pay")}
-        </EnterpriseButton>
-      )}
-    </div>
+    <HeaderActions
+      secondary={[
+        {
+          key: "recalculate",
+          label: t("hr.payroll.actions.recalculate"),
+          icon: RefreshCw,
+          hidden: run.status !== "DRAFT" || !canEdit,
+          disabled: isActing,
+          onSelect: () => handleActionClick("recalculate"),
+        },
+      ]}
+      primary={
+        nextStep
+          ? {
+              key: nextStep.action,
+              label: nextStep.label,
+              hidden: !nextStep.allowed,
+              disabled: isActing,
+              onSelect: () => handleActionClick(nextStep.action),
+            }
+          : undefined
+      }
+    />
   );
 
   const confirmCopy: Record<"post" | "pay", { title: string; description: string }> = {

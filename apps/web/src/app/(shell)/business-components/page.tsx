@@ -2,6 +2,7 @@
 
 import { Archive, Copy, Globe, Printer, ShoppingBag, Truck, UserRound } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
+import { HeaderActions } from "@/components/shared/header-actions";
 import {
   StatusBadge,
   CurrencyDisplay,
@@ -44,11 +45,13 @@ export default function BusinessComponentsPage() {
             </span>
           }
           status={<StatusBadge label="Active" tone="success" />}
-          primaryActions={
-            <QuickActions
-              actions={[
-                { label: t("businessComponents.actionPrint"), icon: Printer },
-                { label: t("businessComponents.actionDuplicate"), icon: Copy },
+          actions={
+            <HeaderActions
+              secondary={[
+                { key: "print", label: t("businessComponents.actionPrint"), icon: Printer },
+              ]}
+              more={[
+                { key: "duplicate", label: t("businessComponents.actionDuplicate"), icon: Copy },
               ]}
             />
           }

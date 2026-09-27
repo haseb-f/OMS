@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { CheckCircle2, Link2, Unlink, UploadCloud } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
-import { EnterpriseButton } from "@/components/ui/button";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { StatusBadge } from "@/components/business/status-badge";
 import { MoneyValue } from "@/components/shared/money-value";
 import { SemanticValue } from "@/components/shared/semantic-value";
@@ -204,54 +204,61 @@ function CarrierReconciliationContent() {
     [t, canMatch, canConfirm],
   );
 
+  const openImportPicker = () => {
+    if (isImporting) return;
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".csv,text/csv";
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      setIsImporting(true);
+      carrierReconciliationService
+        .import(file)
+        .then((summary) => {
+          toast.success(
+            t("carrierReconciliation.import.summary", {
+              matched: String(summary.matchedRows),
+              review: String(summary.reviewRows),
+              unmatched: String(summary.unmatchedRows),
+              duplicate: String(summary.duplicateRows),
+            }),
+          );
+          if (summary.errorRows.length > 0) {
+            toast.error(
+              t("carrierReconciliation.import.errors", {
+                count: String(summary.errorRows.length),
+              }),
+            );
+          }
+          void load();
+        })
+        .catch((error: unknown) => {
+          reportApiError(error, "common.failedToSave");
+        })
+        .finally(() => setIsImporting(false));
+    };
+    input.click();
+  };
+
   return (
     <PageWorkspace
       dense
       title={t("carrierReconciliation.title")}
       description={t("carrierReconciliation.description")}
       actions={
-        <EnterpriseButton
-          type="button"
-          disabled={!canImport || isImporting}
-          onClick={() => {
-            const input = document.createElement("input");
-            input.type = "file";
-            input.accept = ".csv,text/csv";
-            input.onchange = () => {
-              const file = input.files?.[0];
-              if (!file) return;
-              setIsImporting(true);
-              carrierReconciliationService
-                .import(file)
-                .then((summary) => {
-                  toast.success(
-                    t("carrierReconciliation.import.summary", {
-                      matched: String(summary.matchedRows),
-                      review: String(summary.reviewRows),
-                      unmatched: String(summary.unmatchedRows),
-                      duplicate: String(summary.duplicateRows),
-                    }),
-                  );
-                  if (summary.errorRows.length > 0) {
-                    toast.error(
-                      t("carrierReconciliation.import.errors", {
-                        count: String(summary.errorRows.length),
-                      }),
-                    );
-                  }
-                  void load();
-                })
-                .catch((error: unknown) => {
-                  reportApiError(error, "common.failedToSave");
-                })
-                .finally(() => setIsImporting(false));
-            };
-            input.click();
-          }}
-        >
-          <UploadCloud />
-          {t("carrierReconciliation.import.action")}
-        </EnterpriseButton>
+        <HeaderActions
+          secondary={[
+            {
+              key: "import",
+              label: t("carrierReconciliation.import.action"),
+              icon: UploadCloud,
+              disabled: !canImport,
+              loading: isImporting,
+              onSelect: openImportPicker,
+            },
+          ]}
+        />
       }
     >
       <EnterpriseDataTable

@@ -29,7 +29,11 @@ import { LeadCloseWithoutPurchaseDialog } from "@/components/crm/lead-close-dial
 import { AssignLeadDialog } from "@/components/business/assign-lead-dialog";
 import { LeadOrderCreateDialog } from "@/components/business/lead-order-create-dialog";
 import { LeadDistributionModal } from "@/components/crm/lead-distribution-modal";
-import { LeadDistributionControl } from "@/components/crm/lead-distribution-control";
+import {
+  LeadDistributionStatus,
+  leadDistributionAction,
+  useLeadDistribution,
+} from "@/components/crm/lead-distribution-control";
 import { BulkLeadStatusDialog } from "@/components/crm/bulk-lead-status-dialog";
 import { reportApiError } from "@/lib/toast";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -77,6 +81,10 @@ function CrmLeadsPageContent() {
   >([]);
   const [unassignedCount, setUnassignedCount] = useState<number | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
+  const distribution = useLeadDistribution({
+    refreshKey: refreshToken,
+    onChanged: () => setRefreshToken((n) => n + 1),
+  });
 
   useEffect(() => {
     leadsService
@@ -233,7 +241,6 @@ function CrmLeadsPageContent() {
         defaultSortBy="createdAt"
         defaultSortOrder="desc"
         disableArchiveRestore
-        hideCreateButton
         supportsSelectAllMatching
         selectCustomCountCopy={{
           title: t("crm.leads.bulkSelection.customCountTitle"),
@@ -368,25 +375,34 @@ function CrmLeadsPageContent() {
             </EnterpriseButton>
           </>
         )}
+        headerMeta={
+          canAssign ? (
+            <LeadDistributionStatus
+              state={distribution}
+              onOpenModes={() => setDistributionOpen(true)}
+            />
+          ) : null
+        }
         extraActions={
           <>
-            {canAssign ? (
-              <LeadDistributionControl
-                onOpenModes={() => setDistributionOpen(true)}
-                onChanged={() => setRefreshToken((n) => n + 1)}
-              />
-            ) : null}
-            <SyncButton sourceType="LEADS" onSynced={() => setRefreshToken((n) => n + 1)} />
             <ModuleImportButtons
               importType="LEADS"
               onImported={() => setRefreshToken((n) => n + 1)}
             />
-            <EnterpriseButton type="button" onClick={() => setCreateDialogOpen(true)}>
-              <Plus />
-              {t("masterData.actions.addNew")}
-            </EnterpriseButton>
+            <SyncButton sourceType="LEADS" onSynced={() => setRefreshToken((n) => n + 1)} />
           </>
         }
+        headerMore={
+          canAssign
+            ? [leadDistributionAction(distribution, t, () => setDistributionOpen(true))]
+            : undefined
+        }
+        primaryAction={{
+          key: "add-new",
+          label: t("masterData.actions.addNew"),
+          icon: Plus,
+          onSelect: () => setCreateDialogOpen(true),
+        }}
         extraRowActions={(entity): RowAction[] => [
           {
             key: "view",

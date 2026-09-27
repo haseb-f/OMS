@@ -14,6 +14,7 @@ import {
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
+import { HeaderActions } from "@/components/shared/header-actions";
 import {
   MasterDataForm,
   type MasterDataFormField,
@@ -230,20 +231,25 @@ export default function InvestorProfilePage() {
           />
         }
         actions={
-          <>
-            {canEdit ? (
-              <EnterpriseButton variant="outline" onClick={openEdit}>
-                <Pencil />
-                {t("common.edit")}
-              </EnterpriseButton>
-            ) : null}
-            {canArchive ? (
-              <EnterpriseButton variant="ghost" onClick={() => setArchiveOpen(true)}>
-                {investor.deletedAt ? <RotateCcw /> : <Archive />}
-                {investor.deletedAt ? t("common.restore") : t("common.archive")}
-              </EnterpriseButton>
-            ) : null}
-          </>
+          <HeaderActions
+            primary={{
+              key: "edit",
+              label: t("common.edit"),
+              icon: Pencil,
+              hidden: !canEdit,
+              onSelect: openEdit,
+            }}
+            more={[
+              {
+                // Opens its own confirm (archive is destructive, restore is not).
+                key: "archive",
+                label: investor.deletedAt ? t("common.restore") : t("common.archive"),
+                icon: investor.deletedAt ? RotateCcw : Archive,
+                hidden: !canArchive,
+                onSelect: () => setArchiveOpen(true),
+              },
+            ]}
+          />
         }
       >
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">

@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Plus } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
+import { HeaderActions } from "@/components/shared/header-actions";
 import {
   EnterpriseDataTable,
   exportColumnsFromKeys,
@@ -109,12 +110,15 @@ export default function PayrollRunsPage() {
       title={t("hr.payroll.title")}
       description={t("hr.payroll.description")}
       actions={
-        canCreate && (
-          <EnterpriseButton type="button" onClick={() => setCreateOpen(true)}>
-            <Plus />
-            {t("hr.payroll.createNew")}
-          </EnterpriseButton>
-        )
+        <HeaderActions
+          primary={{
+            key: "primary",
+            label: t("hr.payroll.createNew"),
+            icon: Plus,
+            hidden: !canCreate,
+            onSelect: () => setCreateOpen(true),
+          }}
+        />
       }
     >
       <EnterpriseDataTable

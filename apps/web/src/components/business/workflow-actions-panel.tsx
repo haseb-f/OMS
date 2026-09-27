@@ -30,6 +30,7 @@ export function WorkflowActionsPanel({
   convertDefaults,
   hideConvert,
   hideTargetCodes,
+  primaryVariant = "default",
 }: {
   entityType: string;
   entityId: string;
@@ -38,6 +39,8 @@ export function WorkflowActionsPanel({
   convertDefaults?: Partial<LeadConvertPayload>;
   hideConvert?: boolean;
   hideTargetCodes?: string[];
+  /** `outline` when the page header already owns the one filled primary action. */
+  primaryVariant?: "default" | "outline";
 }) {
   const { t, locale } = useLocale();
   const paymentTypeFieldId = useId();
@@ -138,7 +141,12 @@ export function WorkflowActionsPanel({
       {visibleActions.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2">
           {primary ? (
-            <EnterpriseButton size="sm" disabled={pending} onClick={() => handleAction(primary)}>
+            <EnterpriseButton
+              size="sm"
+              variant={primaryVariant}
+              disabled={pending}
+              onClick={() => handleAction(primary)}
+            >
               {locale === "ar" ? primary.label : (primary.labelEn ?? primary.label)}
             </EnterpriseButton>
           ) : null}

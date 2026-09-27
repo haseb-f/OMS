@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { RowSelectionState } from "@tanstack/react-table";
 import { Plus, UserSearch } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { SyncButton } from "@/components/shared/sync-button";
@@ -364,23 +365,20 @@ function StoreOrdersPageContent() {
       title={t("storeOrders.title")}
       description={t("storeOrders.description")}
       actions={
-        <>
-          {canCreate && (
-            <EnterpriseButton
-              type="button"
-              className="gap-1.5"
-              onClick={() => {
-                setCreatePrefillCustomer(null);
-                setCreateDialogSession((session) => session + 1);
-                setCreateDialogOpen(true);
-              }}
-            >
-              <Plus className="size-4" />
-              {t("storeOrders.createDialog.trigger")}
-            </EnterpriseButton>
-          )}
-          <SyncButton sourceType="STORE_ORDERS" onSynced={load} />
-        </>
+        <HeaderActions
+          inline={<SyncButton sourceType="STORE_ORDERS" onSynced={load} />}
+          primary={{
+            key: "create",
+            label: t("storeOrders.createDialog.trigger"),
+            icon: Plus,
+            hidden: !canCreate,
+            onSelect: () => {
+              setCreatePrefillCustomer(null);
+              setCreateDialogSession((session) => session + 1);
+              setCreateDialogOpen(true);
+            },
+          }}
+        />
       }
     >
       {profitabilityFilterCapped && (

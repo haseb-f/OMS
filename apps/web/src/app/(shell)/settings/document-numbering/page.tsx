@@ -18,6 +18,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { PageWorkspace } from "@/components/shared/page-workspace";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
@@ -376,12 +377,15 @@ export default function SettingsDocumentNumberingPage() {
       title={t("settings.documentNumbering.title")}
       description={t("settings.documentNumbering.description")}
       actions={
-        canManage && (
-          <EnterpriseButton type="button" onClick={openCreate}>
-            <Plus />
-            {t("settings.documentNumbering.addNew")}
-          </EnterpriseButton>
-        )
+        <HeaderActions
+          primary={{
+            key: "primary",
+            label: t("settings.documentNumbering.addNew"),
+            icon: Plus,
+            hidden: !canManage,
+            onSelect: openCreate,
+          }}
+        />
       }
     >
       {!canManage && (

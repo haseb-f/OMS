@@ -12,8 +12,8 @@ import {
   DetailSection,
   DetailWorkspace,
 } from "@/components/shared/detail-workspace";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
-import { RowActionsMenu } from "@/components/shared/data-table";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
@@ -389,7 +389,7 @@ export default function EmployeeProfilePage() {
   return (
     <DetailWorkspace
       title={employee.name}
-      subtitle={employee.employeeCode}
+      reference={employee.employeeCode}
       status={
         <StatusBadge
           label={t(`hr.employees.status.${employee.employmentStatus}` as MessageKey)}
@@ -403,31 +403,29 @@ export default function EmployeeProfilePage() {
         />
       }
       actions={
-        <RowActionsMenu
-          label={t("common.actions")}
-          actions={[
-            {
-              key: "edit",
-              label: t("common.edit"),
-              icon: Pencil,
-              hidden: !canEdit || !!employee.deletedAt,
-              onSelect: () => setEditOpen(true),
-            },
-            {
-              key: "archive",
-              label: t("common.archive"),
-              icon: Archive,
-              hidden: !canArchive || !!employee.deletedAt,
-              destructive: true,
-              separatorBefore: true,
-              onSelect: () => setArchiveOpen(true),
-            },
+        <HeaderActions
+          primary={{
+            key: "edit",
+            label: t("common.edit"),
+            icon: Pencil,
+            hidden: !canEdit || !!employee.deletedAt,
+            onSelect: () => setEditOpen(true),
+          }}
+          more={[
             {
               key: "restore",
               label: t("common.restore"),
               icon: RotateCcw,
               hidden: !canArchive || !employee.deletedAt,
               onSelect: () => setRestoreOpen(true),
+            },
+            // Archive keeps its own ConfirmationDialog (setArchiveOpen).
+            {
+              key: "archive",
+              label: t("common.archive"),
+              icon: Archive,
+              hidden: !canArchive || !!employee.deletedAt,
+              onSelect: () => setArchiveOpen(true),
             },
           ]}
         />

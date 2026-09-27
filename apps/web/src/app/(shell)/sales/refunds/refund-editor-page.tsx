@@ -32,7 +32,7 @@ import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
-import { toast, reportApiError } from "@/lib/toast";
+import { reportApiError, reportSuccess } from "@/lib/toast";
 
 function allocationToLine(
   allocation: FinancialTransactionRow["allocations"][number],
@@ -150,7 +150,7 @@ export function RefundEditorPage({ id }: { id: string }) {
     setIsSaving(true);
     try {
       applyRefund(await customerRefundsService.update(id, buildPayload()));
-      toast.success(t("common.saved"));
+      reportSuccess(t("common.saved"));
     } catch (error) {
       reportApiError(error, t("errors.generic"));
     } finally {
@@ -165,7 +165,7 @@ export function RefundEditorPage({ id }: { id: string }) {
     setIsTransitioning(true);
     try {
       applyRefund(await action(id));
-      toast.success(t(successKey));
+      reportSuccess(t(successKey));
       refreshActivity();
     } catch (error) {
       reportApiError(error, t("errors.generic"));
@@ -190,7 +190,7 @@ export function RefundEditorPage({ id }: { id: string }) {
     setIsTransitioning(true);
     try {
       await customerRefundsService.remove(id);
-      toast.success(t("financialTransactions.toasts.deleted"));
+      reportSuccess(t("financialTransactions.toasts.deleted"));
       router.push("/sales/payments?view=refunds");
     } catch (error) {
       reportApiError(error, t("errors.generic"));

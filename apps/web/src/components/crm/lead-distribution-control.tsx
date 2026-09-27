@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Pause, Play, Clock, Hand, CircleOff } from "lucide-react";
 import { EnterpriseBadge } from "@/components/ui/badge";
-import { EnterpriseButton } from "@/components/ui/button";
+import type { ActionSpec } from "@/components/shared/header-actions";
 import { leadsService, type LeadDistributionSnapshot } from "@/services/leads-service";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
@@ -23,13 +23,16 @@ function resolveStatus(snapshot: LeadDistributionSnapshot | null): RuntimeStatus
   return "PAUSED";
 }
 
-export function LeadDistributionControl({
-  onOpenModes,
+/**
+ * Lead-distribution runtime state + the pause action, shared by the header's
+ * status group (`LeadDistributionStatus`, in `PageHeader` meta) and the
+ * header overflow (Start / Pause), so the page header stays one organized
+ * row instead of a strip of loose chips and buttons.
+ */
+export function useLeadDistribution({
   onChanged,
-}: {
-  onOpenModes: () => void;
-  onChanged?: () => void;
-}) {
+  refreshKey = 0,
+}: { onChanged?: () => void; refreshKey?: number } = {}) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
   const canManage = hasPermission("crm.leads.manage");
@@ -48,19 +51,10 @@ export function LeadDistributionControl({
     if (!canManage) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh();
-  }, [canManage]);
-
-  if (!canManage) return null;
+  }, [canManage, refreshKey]);
 
   const status = resolveStatus(snapshot);
   const running = status === "CONTINUOUS" || status === "TIME_LIMITED";
-  const remainingHours =
-    snapshot?.policy?.remainingMs != null
-      ? Math.ceil(snapshot.policy.remainingMs / 3_600_000)
-      : null;
-  const heldCount = snapshot?.held?.count ?? 0;
-  const pendingCount = snapshot?.pendingEligibleCount ?? 0;
-  const failureReason = snapshot?.failureReason ?? snapshot?.lastRun?.failureMessage ?? null;
 
   const pause = async () => {
     setBusy(true);
@@ -74,6 +68,33 @@ export function LeadDistributionControl({
       setBusy(false);
     }
   };
+
+  return { canManage, snapshot, status, running, busy, pause };
+}
+
+export type LeadDistributionState = ReturnType<typeof useLeadDistribution>;
+
+/**
+ * Compact labeled status group for the leads page header: «توزيع الليدز:»
+ * + state badge (opens the modes dialog) + pending / held / problem chips.
+ */
+export function LeadDistributionStatus({
+  state,
+  onOpenModes,
+}: {
+  state: LeadDistributionState;
+  onOpenModes: () => void;
+}) {
+  const { t } = useLocale();
+  if (!state.canManage) return null;
+  const { snapshot, status, running } = state;
+  const remainingHours =
+    snapshot?.policy?.remainingMs != null
+      ? Math.ceil(snapshot.policy.remainingMs / 3_600_000)
+      : null;
+  const heldCount = snapshot?.held?.count ?? 0;
+  const pendingCount = snapshot?.pendingEligibleCount ?? 0;
+  const failureReason = snapshot?.failureReason ?? snapshot?.lastRun?.failureMessage ?? null;
 
   const badge = {
     CONTINUOUS: {
@@ -98,13 +119,26 @@ export function LeadDistributionControl({
     },
   }[status];
   const Icon = badge.icon;
+  const lastRun = snapshot?.lastRun?.at
+    ? `${t("crm.leads.distribution.lastRun")}: ${t("crm.leads.distribution.lastRunAssigned", {
+        count: snapshot.lastRun.assigned,
+      })}`
+    : undefined;
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <button type="button" onClick={onOpenModes} className="rounded-md">
+    <div
+      role="group"
+      aria-label={t("crm.leads.distribution.title")}
+      className="flex flex-wrap items-center gap-1.5"
+      title={lastRun}
+    >
+      <span className="text-caption text-muted-foreground">
+        {t("crm.leads.distribution.title")}:
+      </span>
+      <button type="button" onClick={onOpenModes} className="rounded-xs">
         <EnterpriseBadge
           variant={badge.variant}
-          className={cn("h-7 cursor-pointer gap-1 px-2", running && "border-success/40")}
+          className={cn("cursor-pointer gap-1", running && "border-success/40")}
         >
           <Icon className="size-3.5" />
           {running ? t("crm.leads.distribution.running") : badge.label}
@@ -114,49 +148,48 @@ export function LeadDistributionControl({
         </EnterpriseBadge>
       </button>
       {pendingCount > 0 ? (
-        <EnterpriseBadge variant="outline" className="h-7">
+        <EnterpriseBadge variant="outline">
           {t("crm.leads.distribution.pendingCount", { count: pendingCount })}
         </EnterpriseBadge>
       ) : null}
       {heldCount > 0 ? (
-        <EnterpriseBadge variant="outline" className="h-7">
+        <EnterpriseBadge variant="outline">
           {t("crm.leads.distribution.heldCount", { count: heldCount })}
         </EnterpriseBadge>
       ) : null}
       {failureReason ? (
         <EnterpriseBadge
           variant="destructive"
-          className="h-7 max-w-[18rem] truncate"
+          className="max-w-[18rem] truncate"
           title={failureReason}
         >
           {t("crm.leads.distribution.failureReason")}
         </EnterpriseBadge>
       ) : null}
-      {snapshot?.lastRun?.at ? (
-        <span className="text-caption text-muted-foreground" dir="ltr">
-          {t("crm.leads.distribution.lastRun")}:{" "}
-          {t("crm.leads.distribution.lastRunAssigned", {
-            count: snapshot.lastRun.assigned,
-          })}
-        </span>
-      ) : null}
-      {running ? (
-        <EnterpriseButton
-          type="button"
-          size="sm"
-          variant="warning"
-          disabled={busy}
-          onClick={() => void pause()}
-        >
-          <Pause className="size-3.5" />
-          {t("crm.leads.distribution.pause")}
-        </EnterpriseButton>
-      ) : (
-        <EnterpriseButton type="button" size="sm" variant="outline" onClick={onOpenModes}>
-          <Play className="size-3.5" />
-          {t("crm.leads.distribution.start")}
-        </EnterpriseButton>
-      )}
     </div>
   );
+}
+
+/** Header action (overflow) for the distribution lifecycle: Pause while running, else Start. */
+export function leadDistributionAction(
+  state: LeadDistributionState,
+  t: (key: "crm.leads.distribution.pause" | "crm.leads.distribution.start") => string,
+  onOpenModes: () => void,
+): ActionSpec {
+  return state.running
+    ? {
+        key: "distribution-pause",
+        label: t("crm.leads.distribution.pause"),
+        icon: Pause,
+        hidden: !state.canManage,
+        disabled: state.busy,
+        onSelect: () => state.pause(),
+      }
+    : {
+        key: "distribution-start",
+        label: t("crm.leads.distribution.start"),
+        icon: Play,
+        hidden: !state.canManage,
+        onSelect: onOpenModes,
+      };
 }

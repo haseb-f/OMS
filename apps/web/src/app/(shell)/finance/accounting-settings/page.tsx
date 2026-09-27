@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
+import { HeaderActions } from "@/components/shared/header-actions";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
   EnterpriseCard,
@@ -391,15 +392,14 @@ export default function AccountingSettingsPage() {
         title={t("accounting.settings.title")}
         description={t("accounting.settings.description")}
         actions={
-          <EnterpriseButton
-            type="button"
-            size="sm"
-            className="gap-1.5"
-            disabled={isSaving}
-            onClick={handleSave}
-          >
-            {t("common.save")}
-          </EnterpriseButton>
+          <HeaderActions
+            primary={{
+              key: "save",
+              label: t("common.save"),
+              disabled: isSaving,
+              onSelect: handleSave,
+            }}
+          />
         }
       />
 
