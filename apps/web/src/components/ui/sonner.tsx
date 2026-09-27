@@ -15,16 +15,16 @@ import { useIsMobile } from "@/hooks/use-mobile";
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme();
   const { direction } = useLocale();
-  // Phones pin the document action bar to the bottom edge; toasts go to the
-  // top there so feedback never covers (or steals taps from) the next step.
-  // Elsewhere toasts sit at the logical END corner: bottom-left in RTL,
-  // bottom-right in LTR — mirrored with the UI, never a fixed physical side.
+  // Toasts SUPPLEMENT on-page feedback (inline errors, form summary, header
+  // status) — they never replace it. Top of the viewport so they don't cover
+  // the sticky document action bar: logical END corner on desktop (top-left in
+  // RTL, top-right in LTR), centered on phones.
   const isMobile = useIsMobile();
   const position: ToasterProps["position"] = isMobile
     ? "top-center"
     : direction === "rtl"
-      ? "bottom-left"
-      : "bottom-right";
+      ? "top-left"
+      : "top-right";
 
   return (
     <Sonner

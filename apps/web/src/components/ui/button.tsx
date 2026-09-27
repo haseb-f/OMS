@@ -21,8 +21,13 @@ const enterpriseButtonVariants = cva(
          * filter triggers, date/month pickers): input boundary, normal
          * weight, focus/open state drawn like an Input.
          */
+        /**
+         * Selector trigger (select, combobox, filter, picker): a neutral TONAL
+         * button with an inset hairline — visibly "click to choose", distinct
+         * from white text inputs, never competing with the primary action.
+         */
         field:
-          "border-input bg-card font-normal text-foreground not-disabled:hover:border-foreground/45 aria-expanded:border-focus-ring aria-expanded:ring-1 aria-expanded:ring-focus-ring focus-visible:outline-0 focus-visible:border-focus-ring focus-visible:ring-1 focus-visible:ring-focus-ring aria-invalid:ring-1 aria-invalid:ring-destructive",
+          "border-transparent bg-selector font-normal text-selector-foreground shadow-[inset_0_0_0_1px_var(--selector-border)] not-disabled:hover:bg-selector-hover not-disabled:active:bg-selector-active not-disabled:active:shadow-[inset_0_0_0_1px_var(--focus-ring)] aria-expanded:bg-selector-active aria-expanded:not-disabled:hover:bg-selector-active data-[state=open]:not-disabled:hover:bg-selector-active aria-expanded:shadow-[inset_0_0_0_1px_var(--focus-ring)] data-[state=open]:bg-selector-active data-[state=open]:shadow-[inset_0_0_0_1px_var(--focus-ring)] aria-invalid:shadow-[inset_0_0_0_1px_var(--destructive)] disabled:bg-muted disabled:shadow-none [&_svg]:text-muted-foreground",
         secondary:
           "border-border bg-secondary text-secondary-foreground not-disabled:hover:bg-accent aria-expanded:bg-accent",
         info: "bg-info text-info-foreground not-disabled:hover:bg-info/90",

@@ -222,7 +222,7 @@ function Sidebar({
           "group-data-[collapsible=offcanvas]:w-0",
           "group-data-[side=right]:rotate-180",
           variant === "floating" || variant === "inset"
-            ? "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(8)))]"
+            ? "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4)))]"
             : "group-data-[collapsible=icon]:w-(--sidebar-width-icon)",
         )}
       />
@@ -233,7 +233,7 @@ function Sidebar({
           "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-(--duration-base) ease-(--ease-standard) data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] lg:flex",
           // Adjust the padding for floating and inset variants.
           variant === "floating" || variant === "inset"
-            ? "p-4 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(8))+2px)]"
+            ? "p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]"
             : "group-data-[collapsible=icon]:w-(--sidebar-width-icon) border-sidebar-border group-data-[side=left]:border-e group-data-[side=right]:border-s",
           className,
         )}
@@ -242,7 +242,7 @@ function Sidebar({
         <div
           data-sidebar="sidebar"
           data-slot="sidebar-inner"
-          className="flex size-full flex-col bg-sidebar group-data-[variant=floating]:rounded-md group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border"
+          className="flex size-full flex-col bg-sidebar group-data-[variant=floating]:overflow-hidden group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border"
         >
           {children}
         </div>
@@ -661,7 +661,7 @@ function SidebarMenuSubButton({
       className={cn(
         // Sub-items: caption/normal weight vs parent's 14px/medium —
         // hover changes background/text/icon color only, never font-weight.
-        "relative flex min-h-7 min-w-0 -translate-x-px rtl:translate-x-px cursor-pointer items-center gap-2 rounded-sm px-2.5 py-1 font-normal text-sidebar-foreground ring-sidebar-ring outline-hidden transition-[background-color,color] duration-(--duration-base) ease-(--ease-standard) group-data-[collapsible=icon]:hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-focus-ring active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[size=md]:text-body data-[size=sm]:text-caption data-active:bg-sidebar-active data-active:font-medium data-active:text-sidebar-primary data-active:before:absolute data-active:before:inset-y-1 data-active:before:start-0 data-active:before:w-0.5 data-active:before:rounded-full data-active:before:bg-sidebar-primary [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:text-sidebar-muted-foreground [&>svg]:transition-colors [&>svg]:duration-(--duration-base) data-active:[&>svg]:text-sidebar-primary",
+        "relative flex min-h-7 min-w-0 -translate-x-px rtl:translate-x-px cursor-pointer items-center gap-2 rounded-sm px-2.5 py-1 font-normal text-sidebar-foreground ring-sidebar-ring outline-hidden transition-[background-color,color] duration-(--duration-base) ease-(--ease-standard) group-data-[collapsible=icon]:hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-focus-ring active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[size=md]:text-body data-[size=sm]:text-caption data-active:bg-sidebar-active data-active:font-semibold data-active:text-sidebar-primary data-active:before:absolute data-active:before:inset-y-1 data-active:before:start-0 data-active:before:w-1 data-active:before:rounded-full data-active:before:bg-sidebar-rail data-active:before:shadow-[0_0_10px_1px_var(--sidebar-rail-glow)] [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:text-sidebar-muted-foreground [&>svg]:transition-colors [&>svg]:duration-(--duration-base) data-active:[&>svg]:text-sidebar-rail",
         className,
       )}
       {...props}

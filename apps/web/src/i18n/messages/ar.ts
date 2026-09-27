@@ -3,12 +3,14 @@ import paymentReconciliationAr from "./modules/payment-reconciliation.ar";
 import paymentSettlementAr from "./modules/payment-settlement.ar";
 import fxSettingsAr from "./modules/fx-settings.ar";
 import docUiAr from "./modules/doc-ui.ar";
+import feedbackAr from "./modules/feedback.ar";
 const ar = {
   paymentDeclaration: paymentDeclarationAr,
   paymentReconciliation: paymentReconciliationAr,
   paymentSettlement: paymentSettlementAr,
   fxSettings: fxSettingsAr,
   docUi: docUiAr,
+  feedback: feedbackAr,
   pickers: {
     currency: { select: "اختر العملة", search: "ابحث بالرمز أو الاسم…", empty: "لا توجد عملات" },
     employee: {
@@ -88,6 +90,7 @@ const ar = {
     deselectAll: "إلغاء تحديد الكل",
     summary: "الملخص",
     moreActions: "المزيد من الإجراءات",
+    more: "المزيد",
     previous: "السابق",
     next: "التالي",
   },
@@ -654,6 +657,17 @@ const ar = {
     shadows: "الظلال",
     radius: "الانحناء",
     animations: "الحركة",
+    financialReport: "التقرير المالي",
+    financialReportHint:
+      "رأس التقرير المضغوط وبطاقة المطابقة بحالاتها الثلاث. الأرقام أدناه بيانات توضيحية وليست من الدفاتر.",
+    sampleData: "بيانات توضيحية",
+    stateBalanced: "متوازن",
+    stateUnbalanced: "غير متوازن (مع فرق)",
+    stateNotApplicable: "غير منطبق",
+    sampleReportTitle: "ميزان المراجعة (عيّنة)",
+    sampleRevenue: "إجمالي الإيرادات",
+    sampleExpense: "إجمالي المصروفات",
+    sampleNetProfit: "صافي الربح",
     primaryButton: "أساسي",
     secondaryButton: "ثانوي",
     outlineButton: "مخطط",
@@ -1465,6 +1479,39 @@ const ar = {
       checkNotApplicable: "غير منطبق",
       checkFilteredAccounts: "لا يُطبَّق الفحص عند اختيار حسابات بعينها.",
       exported: "تم تصدير التقرير.",
+      header: {
+        switchReport: "تبديل التقرير",
+        reportActions: "إجراءات التقرير",
+        moreFilters: "فلاتر إضافية",
+        allDates: "كل التواريخ",
+        asOfToday: "كما في اليوم",
+        postedOnly: "القيود المرحّلة فقط",
+        includesDrafts: "تشمل المسودات",
+        includesOpening: "تشمل الأرصدة الافتتاحية",
+        multiCurrency: "عملات متعددة",
+        estimateDetails: "طريقة الحساب والقيود",
+        groups: {
+          ledgers: "الدفاتر والقيود",
+          statements: "القوائم المالية",
+          partners: "الذمم والشركاء",
+          cash: "النقدية",
+        },
+      },
+      reconciliation: {
+        balancedPeriod: "القيود متوازنة لهذه الفترة",
+        unbalancedPeriod: "القيود غير متوازنة لهذه الفترة",
+        balancedAsOf: "متوازنة في تاريخ التقرير",
+        unbalancedAsOf: "غير متوازنة في تاريخ التقرير",
+        balancedPage: "القيود المعروضة متوازنة",
+        unbalancedPage: "القيود المعروضة غير متوازنة",
+        notApplicable: "المطابقة لا تنطبق",
+        difference: "الفرق",
+        viewPeriodEntries: "عرض قيود الفترة",
+        viewTrialBalance: "عرض ميزان المراجعة",
+        viewAccounts: "عرض الحسابات",
+        assetsSide: "الأصول",
+        liabilitiesEquitySide: "الخصوم + حقوق الملكية",
+      },
       side: {
         debit: "مدين",
         credit: "دائن",
@@ -2727,6 +2774,7 @@ const ar = {
         attachments: "المرفقات",
         attachmentsComingSoon: "المرفقات قريباً",
         moreDetails: "تفاصيل إضافية",
+        notesAndTerms: "الملاحظات والشروط",
       },
       grid: {
         product: "المنتج",

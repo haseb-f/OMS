@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, type ComponentProps } from "react";
-import { ChevronsUpDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseBadge } from "@/components/ui/badge";
@@ -30,7 +30,9 @@ export const FilterTrigger = forwardRef<
       aria-haspopup="listbox"
       className={cn(
         "h-(--control-height-md) min-w-36 justify-between font-normal",
-        isActive && "border-primary/40 bg-primary-soft",
+        // An applied filter reads as "selected": brand-tinted, medium weight.
+        isActive &&
+          "bg-primary-soft font-medium text-primary shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--primary)_35%,transparent)] not-disabled:hover:bg-primary-soft [&_svg]:text-primary",
         className,
       )}
       {...props}
@@ -41,7 +43,7 @@ export const FilterTrigger = forwardRef<
           {count}
         </EnterpriseBadge>
       ) : null}
-      <ChevronsUpDown className="size-3.5 shrink-0 opacity-50" />
+      <ChevronDown className="size-4 shrink-0" />
     </EnterpriseButton>
   );
 });

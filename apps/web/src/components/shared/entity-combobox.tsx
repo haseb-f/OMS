@@ -218,8 +218,7 @@ export function EntityCombobox<T>({
           }}
           className={cn(
             "h-(--control-height-md) min-w-0 w-full justify-between text-body font-normal",
-            variant === "ghost" &&
-              "border-transparent bg-transparent px-1.5 shadow-none not-disabled:hover:border-input",
+            variant === "ghost" && "bg-selector/70 px-1.5",
             triggerClassName,
             triggerProps?.className,
           )}
@@ -228,7 +227,10 @@ export function EntityCombobox<T>({
             {icon}
             <span
               dir="auto"
-              className={cn("min-w-0 truncate text-start", !value && "text-muted-foreground/80")}
+              className={cn(
+                "min-w-0 truncate text-start",
+                value ? "font-medium" : "text-placeholder",
+              )}
             >
               {value ? getTitle(value) : (placeholder ?? t("common.select"))}
             </span>
@@ -239,7 +241,7 @@ export function EntityCombobox<T>({
                 role="button"
                 tabIndex={0}
                 aria-label={t("common.clearSelection")}
-                className="rounded-xs p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="rounded-xs p-0.5 text-muted-foreground hover:bg-selector-active hover:text-foreground"
                 onPointerDown={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
@@ -263,7 +265,7 @@ export function EntityCombobox<T>({
             {isLoading ? (
               <Spinner className="size-3.5 text-muted-foreground" />
             ) : (
-              <ChevronDown className="size-3.5 text-muted-foreground" />
+              <ChevronDown className="size-4 text-muted-foreground" />
             )}
           </span>
         </EnterpriseButton>

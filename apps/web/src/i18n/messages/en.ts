@@ -3,12 +3,14 @@ import paymentReconciliationEn from "./modules/payment-reconciliation.en";
 import paymentSettlementEn from "./modules/payment-settlement.en";
 import fxSettingsEn from "./modules/fx-settings.en";
 import docUiEn from "./modules/doc-ui.en";
+import feedbackEn from "./modules/feedback.en";
 const en = {
   paymentDeclaration: paymentDeclarationEn,
   paymentReconciliation: paymentReconciliationEn,
   paymentSettlement: paymentSettlementEn,
   fxSettings: fxSettingsEn,
   docUi: docUiEn,
+  feedback: feedbackEn,
   pickers: {
     currency: { select: "Select currency", search: "Search code or name…", empty: "No currencies" },
     employee: {
@@ -84,6 +86,7 @@ const en = {
     deselectAll: "Deselect all",
     summary: "Summary",
     moreActions: "More actions",
+    more: "More",
     previous: "Previous",
     next: "Next",
   },
@@ -652,6 +655,17 @@ const en = {
     shadows: "Shadows",
     radius: "Radius",
     animations: "Animations",
+    financialReport: "Financial report",
+    financialReportHint:
+      "The compact report header and the reconciliation card in all three states. The figures below are sample data, not from the books.",
+    sampleData: "Sample data",
+    stateBalanced: "Balanced",
+    stateUnbalanced: "Unbalanced (with discrepancy)",
+    stateNotApplicable: "Not applicable",
+    sampleReportTitle: "Trial Balance (sample)",
+    sampleRevenue: "Total revenue",
+    sampleExpense: "Total expenses",
+    sampleNetProfit: "Net profit",
     primaryButton: "Primary",
     secondaryButton: "Secondary",
     outlineButton: "Outline",
@@ -1471,6 +1485,39 @@ const en = {
       checkNotApplicable: "Not applicable",
       checkFilteredAccounts: "Not checked while specific accounts are selected.",
       exported: "Report exported.",
+      header: {
+        switchReport: "Switch report",
+        reportActions: "Report actions",
+        moreFilters: "More filters",
+        allDates: "All dates",
+        asOfToday: "As of today",
+        postedOnly: "Posted entries only",
+        includesDrafts: "Includes drafts",
+        includesOpening: "Opening balances included",
+        multiCurrency: "Multiple currencies",
+        estimateDetails: "How it is calculated",
+        groups: {
+          ledgers: "Ledgers & journals",
+          statements: "Financial statements",
+          partners: "Receivables & payables",
+          cash: "Cash",
+        },
+      },
+      reconciliation: {
+        balancedPeriod: "Entries balance for this period",
+        unbalancedPeriod: "Entries do not balance for this period",
+        balancedAsOf: "Balances at the report date",
+        unbalancedAsOf: "Does not balance at the report date",
+        balancedPage: "The entries shown balance",
+        unbalancedPage: "The entries shown do not balance",
+        notApplicable: "Reconciliation not applicable",
+        difference: "Difference",
+        viewPeriodEntries: "View the period's entries",
+        viewTrialBalance: "Open the trial balance",
+        viewAccounts: "View accounts",
+        assetsSide: "Assets",
+        liabilitiesEquitySide: "Liabilities + equity",
+      },
       side: {
         debit: "Dr",
         credit: "Cr",
@@ -2748,6 +2795,7 @@ const en = {
         attachments: "Attachments",
         attachmentsComingSoon: "Attachments coming soon",
         moreDetails: "More Details",
+        notesAndTerms: "Notes & terms",
       },
       grid: {
         product: "Product",

@@ -158,6 +158,12 @@ const PAIRS = [
   ["table header text", "var(--table-header-foreground)", "var(--table-header)", TEXT, "var(--card)"],
   ["selected row text", "var(--foreground)", "var(--table-row-selected)", TEXT, "var(--card)"],
   ["toast error", "var(--destructive-foreground)", "var(--destructive)", TEXT],
+  ["selector value", "var(--selector-foreground)", "var(--selector)", TEXT, "var(--card)"],
+  ["selector placeholder", "var(--placeholder)", "var(--selector)", TEXT, "var(--card)"],
+  ["selector chevron/icon (muted)", "var(--muted-foreground)", "var(--selector-hover)", UI, "var(--card)"],
+  ["selector expanded value", "var(--selector-foreground)", "var(--selector-active)", TEXT, "var(--card)"],
+  ["selector vs input (distinct surfaces)", "var(--selector)", "var(--card)", 1.08],
+  ["sidebar rail on sidebar", "var(--sidebar-rail)", "var(--sidebar)", UI],
 ];
 
 let failed = 0;

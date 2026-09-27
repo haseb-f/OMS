@@ -111,6 +111,12 @@
   --color-table-row-selected: var(--table-row-selected);
   --color-sidebar-muted-foreground: var(--sidebar-muted-foreground);
   --color-sidebar-active: var(--sidebar-active);
+  --color-selector: var(--selector);
+  --color-selector-hover: var(--selector-hover);
+  --color-selector-active: var(--selector-active);
+  --color-selector-foreground: var(--selector-foreground);
+  --color-selector-border: var(--selector-border);
+  --color-sidebar-rail: var(--sidebar-rail);
   --color-report-revenue: var(--report-revenue);
   --color-report-revenue-soft: var(--report-revenue-soft);
   --color-report-expense: var(--report-expense);
@@ -203,6 +209,19 @@
   --input: oklch(0.665 0.01 250);
   --focus-ring: oklch(0.54 0.19 258);
   --ring: var(--focus-ring);
+
+  /* Selectors (round 2) — select/combobox/filter/picker triggers are neutral
+     tonal BUTTONS ("click to choose"), visibly different from white text
+     inputs. They never compete with the primary action. */
+  --selector: oklch(0.948 0.004 250);
+  --selector-hover: oklch(0.925 0.005 250);
+  --selector-active: oklch(0.9 0.007 250);
+  --selector-foreground: oklch(0.21 0.012 255);
+  --selector-border: oklch(0.875 0.006 250);
+  /* Sidebar active rail (round 2) — thick accent on the outer edge with a
+     restrained glow. */
+  --sidebar-rail: oklch(0.52 0.17 255);
+  --sidebar-rail-glow: color-mix(in oklab, var(--sidebar-rail) 35%, transparent);
 
   /* Tables */
   --table-header: oklch(0.975 0.003 250);
@@ -304,6 +323,14 @@
   --input: oklch(0.52 0.009 255);
   --focus-ring: oklch(0.72 0.14 255);
   --ring: var(--focus-ring);
+
+  --selector: oklch(0.255 0.005 255);
+  --selector-hover: oklch(0.31 0.006 255);
+  --selector-active: oklch(0.35 0.008 255);
+  --selector-foreground: oklch(0.96 0.003 255);
+  --selector-border: oklch(0.34 0.006 255);
+  --sidebar-rail: oklch(0.74 0.14 255);
+  --sidebar-rail-glow: color-mix(in oklab, var(--sidebar-rail) 40%, transparent);
 
   --table-header: oklch(0.205 0.005 255);
   --table-header-foreground: oklch(0.76 0.009 255);
@@ -478,33 +505,44 @@
 }
 
 /*
- * Global Feedback System (TASK-028) — Sonner renders every toast with the
- * same neutral --normal-bg/--normal-text/--normal-border regardless of
- * type by default (see components/ui/sonner.tsx); these overrides give
- * success a green surface and error a red one, matching "Green Toast" /
- * "Red Toast" exactly. A custom property set on the toast element itself
- * wins over the value inherited from the Toaster root, so no !important
- * is needed.
+ * Global Feedback System — toasts are a solid popover surface; the tone shows
+ * as a tinted border and a colored icon (round 2, Kumo toast pattern).
+ * Custom properties on the toast element win over the Toaster root values.
  */
+[data-sonner-toast][data-type="success"],
+[data-sonner-toast][data-type="error"],
+[data-sonner-toast][data-type="warning"],
+[data-sonner-toast][data-type="info"] {
+  --normal-bg: var(--popover);
+  --normal-text: var(--popover-foreground);
+}
 [data-sonner-toast][data-type="success"] {
-  --normal-bg: var(--success);
-  --normal-text: var(--success-foreground);
-  --normal-border: var(--success);
+  --normal-border: var(--success-border);
 }
 [data-sonner-toast][data-type="error"] {
-  --normal-bg: var(--destructive);
-  --normal-text: var(--destructive-foreground);
-  --normal-border: var(--destructive);
+  --normal-border: var(--destructive-border);
 }
 [data-sonner-toast][data-type="warning"] {
-  --normal-bg: var(--warning);
-  --normal-text: var(--warning-foreground);
-  --normal-border: var(--warning);
+  --normal-border: var(--warning-border);
 }
 [data-sonner-toast][data-type="info"] {
-  --normal-bg: var(--info-soft);
-  --normal-text: var(--info-soft-foreground);
   --normal-border: var(--info-border);
+}
+/* Tone is carried by icon + text (+ tinted border), never color alone. */
+[data-sonner-toast][data-type="success"] [data-icon] {
+  color: var(--success-soft-foreground);
+}
+[data-sonner-toast][data-type="error"] [data-icon] {
+  color: var(--destructive-soft-foreground);
+}
+[data-sonner-toast][data-type="warning"] [data-icon] {
+  color: var(--warning-soft-foreground);
+}
+[data-sonner-toast][data-type="info"] [data-icon] {
+  color: var(--info-soft-foreground);
+}
+[data-sonner-toast] {
+  box-shadow: var(--shadow-floating);
 }
 
 /**

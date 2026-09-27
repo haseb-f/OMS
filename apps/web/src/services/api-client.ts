@@ -109,6 +109,21 @@ export function isGenericForbiddenMessage(rawMessage: string | undefined | null)
   );
 }
 
+const ARABIC_LETTERS = /[؀-ۿ]/;
+
+/**
+ * Whether a raw server message is already written in the UI language's
+ * script, so it can be shown verbatim: Arabic text for `ar`; for `en`, text
+ * with no Arabic letters that is not the generic unique-constraint fallback
+ * ("A record with this … already exists.").
+ */
+export function isInUiLanguage(rawMessage: string | undefined | null, locale: Locale): boolean {
+  const text = rawMessage?.trim();
+  if (!text) return false;
+  if (locale === "ar") return ARABIC_LETTERS.test(text);
+  return !ARABIC_LETTERS.test(text) && !/^A record with this /.test(text);
+}
+
 function friendlyMessage(
   code: ErrorCode,
   rawMessage: string | undefined,
@@ -150,14 +165,20 @@ function friendlyMessage(
   const label = primaryField
     ? (dict.errors.fields as Record<string, string | undefined>)[primaryField]
     : undefined;
+  // A service-thrown conflict can carry specific guidance (e.g. "exists but
+  // is archived — restore it instead"), but only show it when it is written
+  // in the UI language — an English sentence never leaks into the Arabic UI;
+  // everything else gets the localized field template / generic key.
+  const duplicateRaw =
+    code === "DUPLICATE" && isInUiLanguage(rawMessage, locale) ? rawMessage : undefined;
+  if (duplicateRaw) {
+    return duplicateRaw;
+  }
   if (code === "DUPLICATE" && primaryField === "email") {
     return translate(dict, "errors.DUPLICATE_EMAIL");
   }
   if (label && (code === "VALIDATION_ERROR" || code === "DUPLICATE")) {
     return translate(dict, `errors.${code}_FIELD` as MessageKey, { field: label });
-  }
-  if (code === "DUPLICATE" && !label && rawMessage) {
-    return rawMessage;
   }
   return translate(dict, `errors.${code}` as MessageKey);
 }

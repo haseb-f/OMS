@@ -162,7 +162,20 @@ function FormDescription({ className, ...props }: React.ComponentProps<"p">) {
   );
 }
 
-function FieldMessage({ className, children, ...props }: React.ComponentProps<"p">) {
+/**
+ * The error line under a field: icon + text, never color alone. Give it an
+ * `id` and point the control's `aria-describedby` at it (FormControl does
+ * this for RHF fields). `announce` (default true) makes a standalone message
+ * a live alert; RHF-bound `FormMessage` turns it off because the form-level
+ * `FormErrorSummary` announces once and focus moves to the first invalid
+ * field, so N field alerts would only talk over each other.
+ */
+function FieldMessage({
+  className,
+  children,
+  announce = true,
+  ...props
+}: React.ComponentProps<"p"> & { announce?: boolean }) {
   if (!children) {
     return null;
   }
@@ -170,7 +183,7 @@ function FieldMessage({ className, children, ...props }: React.ComponentProps<"p
   return (
     <p
       data-slot="field-message"
-      role="alert"
+      role={announce ? "alert" : undefined}
       className={cn("flex items-start gap-1 text-caption font-medium text-destructive", className)}
       {...props}
     >
@@ -189,7 +202,13 @@ function FormMessage({ className, ...props }: React.ComponentProps<"p">) {
   }
 
   return (
-    <FieldMessage data-slot="form-message" id={formMessageId} className={className} {...props}>
+    <FieldMessage
+      data-slot="form-message"
+      id={formMessageId}
+      announce={false}
+      className={className}
+      {...props}
+    >
       {body}
     </FieldMessage>
   );

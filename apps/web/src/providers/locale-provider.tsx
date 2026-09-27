@@ -2,11 +2,13 @@
 
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
 import { Direction as RadixDirection } from "radix-ui";
+import * as z from "zod";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { STORAGE_KEYS } from "@/constants/storage-keys";
 import { defaultLocale, localeDirection, type Locale } from "@/i18n/locales";
 import { messages } from "@/i18n/messages";
 import { translate, type MessageKey } from "@/i18n/translate";
+import { createZodErrorMap } from "@/lib/zod-error-map";
 
 interface LocaleContextValue {
   locale: Locale;
@@ -31,6 +33,16 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     document.documentElement.dir = direction;
     document.documentElement.lang = locale;
   }, [direction, locale]);
+
+  // Schema messages without a custom text (e.g. a bare `.min(1)`) follow the
+  // UI language: friendly required/length/range/format texts first, zod's
+  // locale messages for everything else.
+  useEffect(() => {
+    z.config({
+      ...(locale === "ar" ? z.locales.ar() : z.locales.en()),
+      customError: createZodErrorMap(messages[locale]),
+    });
+  }, [locale]);
 
   const value = useMemo<LocaleContextValue>(
     () => ({

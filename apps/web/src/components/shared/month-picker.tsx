@@ -84,7 +84,7 @@ export function EnterpriseMonthPicker({
             className ?? "w-(--width-control-date)",
           )}
         >
-          <span className={cn("truncate", !value && "text-muted-foreground")} dir="ltr">
+          <span className={cn("truncate", value ? "font-medium" : "text-placeholder")} dir="ltr">
             {formatMonthValue(value) || placeholder}
           </span>
           <CalendarIcon className="size-3.5 shrink-0 text-muted-foreground" />

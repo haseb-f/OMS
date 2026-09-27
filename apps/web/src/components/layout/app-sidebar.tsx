@@ -138,7 +138,7 @@ export function AppSidebar() {
   return (
     <Sidebar
       collapsible="icon"
-      variant="sidebar"
+      variant="floating"
       side={direction === "rtl" ? "right" : "left"}
       dir={direction}
     >
@@ -217,7 +217,7 @@ function NavTreeItem({
           tooltip={title}
           className={cn(
             isActive &&
-              "bg-sidebar-active font-semibold text-sidebar-primary before:absolute before:inset-y-1.5 before:start-0 before:w-0.5 before:rounded-full before:bg-sidebar-primary hover:bg-sidebar-active",
+              "bg-sidebar-active font-semibold text-sidebar-primary [&_svg]:text-sidebar-rail before:absolute before:inset-y-1 before:start-0 before:w-1 before:rounded-full before:bg-sidebar-rail before:shadow-[0_0_10px_1px_var(--sidebar-rail-glow)] hover:bg-sidebar-active",
           )}
         >
           <Link href={item.route ?? "#"} onClick={onNavigate}>
@@ -252,7 +252,7 @@ function NavTreeItem({
               "group/trigger",
               containsActive &&
                 !open &&
-                "bg-sidebar-active font-semibold text-sidebar-primary before:absolute before:inset-y-1.5 before:start-0 before:w-0.5 before:rounded-full before:bg-sidebar-primary",
+                "bg-sidebar-active font-semibold text-sidebar-primary [&_svg]:text-sidebar-rail before:absolute before:inset-y-1 before:start-0 before:w-1 before:rounded-full before:bg-sidebar-rail before:shadow-[0_0_10px_1px_var(--sidebar-rail-glow)]",
             )}
           >
             <NavIcon name={item.icon} />
@@ -281,7 +281,9 @@ function NavTreeItem({
                   <SidebarMenuSubButton asChild isActive={currentId === child.id}>
                     <Link href={child.route ?? "#"} onClick={onNavigate} className="group/pin">
                       <NavIcon name={child.icon} compact />
-                      <span className="min-w-0 flex-1 truncate">{childTitle}</span>
+                      {/* Wrap to a second line instead of truncating (R2-09) — English
+                          labels like "Purchasing Reports" must stay whole. */}
+                      <span className="line-clamp-2 min-w-0 flex-1 break-words">{childTitle}</span>
                       <EnterpriseButton
                         type="button"
                         variant="ghost"
