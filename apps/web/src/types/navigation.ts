@@ -1,6 +1,9 @@
 import type { IconName } from "../navigation/icon-registry";
 import type { MessageKey } from "../i18n/translate";
 
+export type NavigationGroupId =
+  "finance-operations" | "finance-ledger" | "finance-assets" | "finance-setup";
+
 /**
  * Config-driven navigation contract. Every sidebar/topbar navigation
  * surface renders from `navigation.config.ts` entries shaped like this —
@@ -21,6 +24,12 @@ export interface NavigationItem {
   parent?: string;
   /** Lower renders first among siblings. */
   order?: number;
+  /**
+   * Sub-group inside a large parent (e.g. Finance → "Daily operations"),
+   * one of `NAVIGATION_GROUPS` in navigation.config.ts. Siblings render
+   * grouped under a small heading, groups ordered by their `order`.
+   */
+  group?: NavigationGroupId;
   /** Permission keys required to see this item. No permission system exists yet — reserved for when Identity/Auth is wired up; an empty/undefined list means "always visible." */
   permissions?: string[];
   /** Feature flag key gating this item. No feature-flag system exists yet — reserved for future use. */

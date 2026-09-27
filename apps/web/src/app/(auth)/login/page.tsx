@@ -130,7 +130,7 @@ function LoginForm() {
 
           <SubmitButton
             isSubmitting={isSubmitting}
-            className="mt-1 w-full from-brand-navy to-brand-navy text-brand-navy-foreground hover:brightness-110 dark:from-brand-navy dark:to-brand-navy"
+            className="mt-1 w-full bg-brand-navy text-brand-navy-foreground not-disabled:hover:bg-brand-navy/90"
           >
             {isSubmitting ? t("auth.signingIn") : t("auth.signIn")}
           </SubmitButton>

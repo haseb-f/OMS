@@ -99,7 +99,7 @@ function CommandInput({
 
   return (
     <div data-slot="command-input-wrapper" className="sticky top-0 z-10 bg-popover p-1 pb-1">
-      <InputGroup className="h-(--control-height-sm)! rounded-xs! border-input/30 bg-input/30 shadow-none! *:data-[slot=input-group-addon]:ps-2.5!">
+      <InputGroup className="h-(--control-height-md)! rounded-sm! border-border bg-surface-sunken shadow-none! *:data-[slot=input-group-addon]:ps-2.5!">
         <CommandPrimitive.Input
           data-slot="command-input"
           className={cn(

@@ -33,7 +33,7 @@ export function ThemeSwitch() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <EnterpriseButton variant="ghost" size="icon-sm" aria-label={t("topbar.changeTheme")}>
+        <EnterpriseButton variant="ghost" size="icon" aria-label={t("topbar.changeTheme")}>
           {mounted ? <ActiveIcon /> : <SunMoon />}
         </EnterpriseButton>
       </DropdownMenuTrigger>

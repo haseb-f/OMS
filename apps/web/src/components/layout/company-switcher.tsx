@@ -35,18 +35,18 @@ export function CompanySwitcher() {
           type="button"
           variant="ghost"
           aria-label={t("company.switcherLabel")}
-          className="h-16 w-full justify-start gap-2 rounded-lg border border-sidebar-border bg-sidebar-accent/40 px-2.5 text-sidebar-foreground hover:bg-sidebar-accent group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+          className="h-10 w-full justify-start gap-2 rounded-sm border border-sidebar-border bg-card px-2 font-normal text-sidebar-foreground hover:bg-sidebar-accent group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:px-0"
         >
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+          <span className="flex size-6 shrink-0 items-center justify-center rounded-xs bg-primary-soft text-primary">
             <Building2 className="size-3.5" />
           </span>
-          <span className="flex min-w-0 flex-1 flex-col justify-center leading-tight group-data-[collapsible=icon]:hidden">
+          <span className="flex min-w-0 flex-1 flex-col items-start justify-center text-start leading-tight group-data-[collapsible=icon]:hidden">
             <span className="truncate text-caption font-semibold">{activeCompany.name}</span>
-            <span className="truncate text-[11px] leading-tight text-sidebar-foreground/60">
+            <span className="truncate text-micro text-sidebar-muted-foreground">
               {activeBranch?.name ?? t("company.noBranch")}
             </span>
           </span>
-          <ChevronsUpDown className="size-3.5 shrink-0 text-sidebar-foreground/50 group-data-[collapsible=icon]:hidden" />
+          <ChevronsUpDown className="size-3.5 shrink-0 text-sidebar-muted-foreground group-data-[collapsible=icon]:hidden" />
         </EnterpriseButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">

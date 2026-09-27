@@ -41,26 +41,26 @@
   --color-foreground: var(--foreground);
   --color-background: var(--background);
   /*
-   * OMS Design Bible (ADR-0018, ADR-0022 density pass) — the radius scale is
-   * a closed set, tightened to read as a dense operational console rather
-   * than a consumer app: 6 / 8 / 12 / 16px. Small surfaces and controls stay
+   * OMS Design Bible (ADR-0018, ADR-0022 density pass; enterprise-ui-overhaul)
+   * — the radius scale is a closed set, tightened to read as a precise
+   * operational console rather than a consumer app: 4 / 6 / 8 / 10 / 12px. Small surfaces and controls stay
    * near-square; only true containers and floating layers round off. No
    * component may introduce a value outside this set — badges (999px pill)
    * and avatars (full circle) are the only intentional exceptions, via
    * `rounded-full`, not a scale step.
-   * --radius-xs  6px  — inputs, dropdown/select menus, badges, tooltips
-   * --radius-sm  8px  — buttons, table containers, toolbars
-   * --radius-md 12px  — cards, panels (also backs --radius-xl / --radius-2xl)
-   * --radius-lg 12px  — dialogs/modals, drawers, floating containers
-   * --radius-3xl 16px — full-screen surfaces only
+   * --radius-xs  4px — badges, tooltips, checkboxes, small chips
+   * --radius-sm  6px — buttons, inputs, selects, menus, toolbars
+   * --radius-md  8px — cards, panels, table containers
+   * --radius-lg 10px — dialogs/modals, drawers, popovers (also --radius-xl)
+   * --radius-2xl/3xl 12px — full-screen surfaces only
    */
-  --radius-xs: 6px;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 12px;
-  --radius-xl: 12px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 10px;
   --radius-2xl: 12px;
-  --radius-3xl: 16px;
+  --radius-3xl: 12px;
 
   /*
    * Shadow scale — soft, neutral-tinted elevation only, never dark/black.
@@ -89,6 +89,28 @@
   --color-info-foreground: var(--info-foreground);
   --color-info-soft: var(--info-soft);
   --color-destructive-soft: var(--destructive-soft);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success-soft-foreground: var(--success-soft-foreground);
+  --color-success-border: var(--success-border);
+  --color-warning-soft-foreground: var(--warning-soft-foreground);
+  --color-warning-border: var(--warning-border);
+  --color-info-soft-foreground: var(--info-soft-foreground);
+  --color-info-border: var(--info-border);
+  --color-destructive-soft-foreground: var(--destructive-soft-foreground);
+  --color-destructive-border: var(--destructive-border);
+  --color-neutral-soft: var(--neutral-soft);
+  --color-neutral-soft-foreground: var(--neutral-soft-foreground);
+  --color-neutral-border: var(--neutral-border);
+  --color-placeholder: var(--placeholder);
+  --color-border-strong: var(--border-strong);
+  --color-focus-ring: var(--focus-ring);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-table-header: var(--table-header);
+  --color-table-header-foreground: var(--table-header-foreground);
+  --color-table-row-hover: var(--table-row-hover);
+  --color-table-row-selected: var(--table-row-selected);
+  --color-sidebar-muted-foreground: var(--sidebar-muted-foreground);
+  --color-sidebar-active: var(--sidebar-active);
   --color-report-revenue: var(--report-revenue);
   --color-report-revenue-soft: var(--report-revenue-soft);
   --color-report-expense: var(--report-expense);
@@ -108,163 +130,212 @@
 }
 
 /*
- * OMS Brand — navy identity + semantic status (ADR-0017 refined).
- * Primary actions, active navigation, focus, and selection use official
- * brand navy so the product is recognizable without the logo.
- * Success green is reserved for completed/paid/saved — never for primary
- * buttons. Danger red is reserved for destructive/failed states.
+ * OMS Enterprise tokens (enterprise-ui-overhaul, design-system.md §3).
+ * Solid surfaces, one restrained brand accent (navy), semantic status sets
+ * (solid / foreground / soft / soft-foreground / border) that all hold WCAG
+ * AA — verified by `node scripts/design/contrast-check.mjs`. Success green
+ * is reserved for completed/paid/saved; danger red for destructive/failed.
  */
 :root {
-  /* Pure white — the page disappears behind the content (ADR-0019). Cards
-     are the only visual hierarchy; no background gradient. */
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.2 0.006 90);
+  /* Surfaces — canvas < surface. Cards and tables sit on the canvas as
+     solid white surfaces separated by a 1px border, never a shadow. */
+  --background: oklch(0.984 0.002 250);
+  --foreground: oklch(0.21 0.012 255);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2 0.006 90);
+  --card-foreground: oklch(0.21 0.012 255);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.2 0.006 90);
+  --popover-foreground: oklch(0.21 0.012 255);
+  --surface-sunken: oklch(0.975 0.003 250);
+
   --primary: #04203c;
   --primary-foreground: #ffffff;
-  --primary-hover: color-mix(in oklab, var(--primary) 82%, white);
-  --primary-active: color-mix(in oklab, var(--primary) 78%, black);
-  --primary-soft: color-mix(in oklab, var(--primary) 8%, white);
-  --secondary: oklch(0.955 0.014 255);
-  --secondary-foreground: oklch(0.32 0.045 255);
-  --muted: oklch(0.965 0.004 90);
-  --muted-foreground: oklch(0.53 0.008 90);
-  --accent: oklch(0.955 0.014 255);
-  --accent-foreground: oklch(0.32 0.045 255);
-  --success: oklch(0.55 0.13 165.6);
-  --success-foreground: oklch(0.985 0 0);
-  --success-soft: color-mix(in oklab, var(--success) 14%, transparent);
-  --warning: oklch(0.77 0.15 78);
-  --warning-foreground: oklch(0.28 0.06 78);
-  --warning-soft: color-mix(in oklab, var(--warning) 18%, transparent);
-  --info: #3c78d0;
-  --info-foreground: #ffffff;
-  --info-soft: color-mix(in oklab, var(--info) 12%, transparent);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-soft: color-mix(in oklab, var(--destructive) 12%, transparent);
+  --primary-hover: color-mix(in oklab, var(--primary) 86%, white);
+  --primary-active: color-mix(in oklab, var(--primary) 80%, black);
+  --primary-soft: color-mix(in oklab, var(--primary) 7%, white);
+  /* Neutral secondary actions (Vercel-style gray), not a tinted brand fill. */
+  --secondary: oklch(0.963 0.003 250);
+  --secondary-foreground: oklch(0.25 0.014 255);
+  --muted: oklch(0.963 0.003 250);
+  --muted-foreground: oklch(0.49 0.013 255);
+  --placeholder: oklch(0.53 0.011 255);
+  --accent: oklch(0.955 0.004 250);
+  --accent-foreground: oklch(0.21 0.012 255);
+
+  --success: oklch(0.5 0.12 158);
+  --success-foreground: oklch(1 0 0);
+  --success-soft: oklch(0.962 0.032 158);
+  --success-soft-foreground: oklch(0.4 0.1 158);
+  --success-border: oklch(0.84 0.07 158);
+  --warning: oklch(0.79 0.15 75);
+  --warning-foreground: oklch(0.26 0.06 60);
+  --warning-soft: oklch(0.972 0.045 88);
+  --warning-soft-foreground: oklch(0.43 0.1 60);
+  --warning-border: oklch(0.85 0.1 82);
+  --info: oklch(0.5 0.14 255);
+  --info-foreground: oklch(1 0 0);
+  --info-soft: oklch(0.962 0.022 255);
+  --info-soft-foreground: oklch(0.43 0.13 255);
+  --info-border: oklch(0.85 0.05 255);
+  --destructive: oklch(0.53 0.2 27);
+  --destructive-foreground: oklch(1 0 0);
+  --destructive-soft: oklch(0.965 0.02 25);
+  --destructive-soft-foreground: oklch(0.46 0.18 27);
+  --destructive-border: oklch(0.85 0.07 25);
+  --neutral-soft: oklch(0.955 0.003 250);
+  --neutral-soft-foreground: oklch(0.38 0.012 255);
+  --neutral-border: oklch(0.88 0.004 250);
+
   /* Financial-report summary categories ONLY (revenue / expenses / net
      result) — never report rows. Text tones hold >= 4.5:1 on the card. */
   --report-revenue: oklch(0.48 0.12 250);
-  --report-revenue-soft: color-mix(in oklab, var(--report-revenue) 8%, transparent);
-  --report-expense: oklch(0.52 0.16 42);
-  --report-expense-soft: color-mix(in oklab, var(--report-expense) 8%, transparent);
-  --report-profit: oklch(0.47 0.12 158);
-  --report-profit-soft: color-mix(in oklab, var(--report-profit) 9%, transparent);
+  --report-revenue-soft: color-mix(in oklab, var(--report-revenue) 7%, transparent);
+  --report-expense: oklch(0.51 0.15 42);
+  --report-expense-soft: color-mix(in oklab, var(--report-expense) 7%, transparent);
+  --report-profit: oklch(0.46 0.11 158);
+  --report-profit-soft: color-mix(in oklab, var(--report-profit) 8%, transparent);
   --report-loss: oklch(0.5 0.19 27);
-  --report-loss-soft: color-mix(in oklab, var(--report-loss) 8%, transparent);
-  --border: oklch(0.928 0.006 90);
-  --input: oklch(0.928 0.006 90);
-  --ring: color-mix(in oklab, var(--primary) 40%, transparent);
+  --report-loss-soft: color-mix(in oklab, var(--report-loss) 7%, transparent);
+
+  /* Lines. --border divides surfaces (decorative); --input bounds a control
+     and must hold 3:1 against the surface (WCAG 1.4.11). */
+  --border: oklch(0.915 0.004 250);
+  --border-strong: oklch(0.86 0.005 250);
+  --input: oklch(0.665 0.01 250);
+  --focus-ring: oklch(0.54 0.19 258);
+  --ring: var(--focus-ring);
+
+  /* Tables */
+  --table-header: oklch(0.975 0.003 250);
+  --table-header-foreground: oklch(0.44 0.013 255);
+  --table-row-hover: oklch(0.975 0.003 250);
+  --table-row-selected: color-mix(in oklab, var(--focus-ring) 8%, white);
+
   --chart-1: #04203c;
   --chart-2: #3c78d0;
   --chart-3: #3cb8c0;
   --chart-4: oklch(0.556 0 0);
   --chart-5: oklch(0.371 0 0);
-  --radius: 1rem;
+  --radius: 0.5rem;
 
-  /*
-   * The Sidebar is OMS's primary navigation workspace (ADR-0021) — it now
-   * adapts to the current theme (light: warm-white surface; dark: neutral
-   * dark gray, never pure black — see .dark below). Both themes share the
-   * exact same spacing/hierarchy; only these colors change. Layered
-   * surfaces (never flat/"painted"): base < hover < expanded-group.
-   * Active nav uses `--primary-soft` + `--primary` (see app-sidebar.tsx).
-   */
-  --sidebar: oklch(0.985 0.003 80);
-  --sidebar-foreground: oklch(0.2 0.006 90);
+  /* Sidebar — flush, full-height navigation column (no floating panel). */
+  --sidebar: oklch(0.975 0.003 250);
+  --sidebar-foreground: oklch(0.25 0.012 255);
+  --sidebar-muted-foreground: oklch(0.5 0.012 255);
   --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: oklch(0.95 0.005 85);
-  --sidebar-accent-foreground: oklch(0.2 0.006 90);
-  --sidebar-expanded: oklch(0.93 0.006 85);
-  --sidebar-border: oklch(0.897 0.006 85);
-  --sidebar-ring: var(--ring);
+  --sidebar-accent: oklch(0.94 0.004 250);
+  --sidebar-accent-foreground: oklch(0.21 0.012 255);
+  --sidebar-active: color-mix(in oklab, var(--primary) 8%, white);
+  --sidebar-expanded: oklch(0.955 0.004 250);
+  --sidebar-border: oklch(0.91 0.004 250);
+  --sidebar-ring: var(--focus-ring);
 
-  /*
-   * Official OMS brand palette — sampled from Brand/ identity assets
-   * (navy lockup, mid-blue chevron, teal chevron, off-white canvas).
-   */
+  /* Official OMS brand palette — sampled from Brand/ identity assets. */
   --brand-navy: #04203c;
   --brand-navy-foreground: #ffffff;
   --brand-blue: #3c78d0;
   --brand-teal: #3cb8c0;
   --brand-canvas: #eef3f8;
 
-  /* OMS Global Scroll System (--scrollbar-size lives in theme/tokens.css) —
-     a flat percentage of --foreground rather than separate light/dark
-     literals, so light and dark mode both fall out of the one definition
-     below without a second block: --foreground is near-black in :root and
-     near-white in .dark already. */
-  --scrollbar-thumb: color-mix(in oklab, var(--foreground) 16%, transparent);
-  --scrollbar-thumb-hover: color-mix(in oklab, var(--foreground) 28%, transparent);
-  --scrollbar-thumb-active: color-mix(in oklab, var(--foreground) 38%, transparent);
+  /* OMS Global Scroll System (--scrollbar-size lives in theme/tokens.css). */
+  --scrollbar-thumb: color-mix(in oklab, var(--foreground) 18%, transparent);
+  --scrollbar-thumb-hover: color-mix(in oklab, var(--foreground) 30%, transparent);
+  --scrollbar-thumb-active: color-mix(in oklab, var(--foreground) 40%, transparent);
   --scrollbar-track: transparent;
 }
 
 .dark {
-  --background: oklch(0.16 0.004 90);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: #3c78d0;
-  --primary-foreground: #ffffff;
+  --background: oklch(0.145 0.004 255);
+  --foreground: oklch(0.96 0.003 255);
+  --card: oklch(0.185 0.005 255);
+  --card-foreground: oklch(0.96 0.003 255);
+  --popover: oklch(0.205 0.005 255);
+  --popover-foreground: oklch(0.96 0.003 255);
+  --surface-sunken: oklch(0.165 0.004 255);
+
+  --primary: oklch(0.74 0.12 250);
+  --primary-foreground: oklch(0.17 0.03 255);
   --primary-hover: color-mix(in oklab, var(--primary) 88%, white);
-  --primary-active: color-mix(in oklab, var(--primary) 80%, black);
-  --primary-soft: color-mix(in oklab, var(--primary) 18%, transparent);
-  --secondary: oklch(0.28 0.025 255);
-  --secondary-foreground: oklch(0.9 0.02 255);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.28 0.025 255);
-  --accent-foreground: oklch(0.9 0.02 255);
-  --success: oklch(0.696 0.17 162.48);
-  --success-foreground: oklch(0.145 0 0);
-  --success-soft: color-mix(in oklab, var(--success) 18%, transparent);
-  --warning: oklch(0.78 0.14 78);
-  --warning-foreground: oklch(0.22 0.05 78);
-  --warning-soft: color-mix(in oklab, var(--warning) 20%, transparent);
-  --info: #3cb8c0;
-  --info-foreground: oklch(0.145 0 0);
-  --info-soft: color-mix(in oklab, var(--info) 18%, transparent);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-soft: color-mix(in oklab, var(--destructive) 18%, transparent);
+  --primary-active: color-mix(in oklab, var(--primary) 85%, black);
+  --primary-soft: color-mix(in oklab, var(--primary) 15%, var(--card));
+  --secondary: oklch(0.255 0.005 255);
+  --secondary-foreground: oklch(0.93 0.004 255);
+  --muted: oklch(0.235 0.005 255);
+  --muted-foreground: oklch(0.72 0.009 255);
+  --placeholder: oklch(0.68 0.009 255);
+  --accent: oklch(0.25 0.005 255);
+  --accent-foreground: oklch(0.96 0.003 255);
+
+  --success: oklch(0.72 0.15 160);
+  --success-foreground: oklch(0.17 0.03 160);
+  --success-soft: color-mix(in oklab, var(--success) 14%, var(--card));
+  --success-soft-foreground: oklch(0.82 0.12 160);
+  --success-border: color-mix(in oklab, var(--success) 40%, var(--card));
+  --warning: oklch(0.8 0.14 78);
+  --warning-foreground: oklch(0.22 0.05 70);
+  --warning-soft: color-mix(in oklab, var(--warning) 14%, var(--card));
+  --warning-soft-foreground: oklch(0.86 0.12 82);
+  --warning-border: color-mix(in oklab, var(--warning) 40%, var(--card));
+  --info: oklch(0.72 0.12 250);
+  --info-foreground: oklch(0.17 0.03 255);
+  --info-soft: color-mix(in oklab, var(--info) 14%, var(--card));
+  --info-soft-foreground: oklch(0.82 0.09 250);
+  --info-border: color-mix(in oklab, var(--info) 40%, var(--card));
+  --destructive: oklch(0.7 0.17 25);
+  --destructive-foreground: oklch(0.17 0.03 25);
+  --destructive-soft: color-mix(in oklab, var(--destructive) 14%, var(--card));
+  --destructive-soft-foreground: oklch(0.82 0.11 25);
+  --destructive-border: color-mix(in oklab, var(--destructive) 40%, var(--card));
+  --neutral-soft: oklch(0.255 0.005 255);
+  --neutral-soft-foreground: oklch(0.86 0.006 255);
+  --neutral-border: oklch(0.32 0.005 255);
+
   --report-revenue: oklch(0.78 0.1 250);
-  --report-revenue-soft: color-mix(in oklab, var(--report-revenue) 12%, transparent);
+  --report-revenue-soft: color-mix(in oklab, var(--report-revenue) 10%, transparent);
   --report-expense: oklch(0.78 0.13 50);
-  --report-expense-soft: color-mix(in oklab, var(--report-expense) 12%, transparent);
+  --report-expense-soft: color-mix(in oklab, var(--report-expense) 10%, transparent);
   --report-profit: oklch(0.78 0.14 158);
-  --report-profit-soft: color-mix(in oklab, var(--report-profit) 12%, transparent);
+  --report-profit-soft: color-mix(in oklab, var(--report-profit) 10%, transparent);
   --report-loss: oklch(0.74 0.16 25);
-  --report-loss-soft: color-mix(in oklab, var(--report-loss) 12%, transparent);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: color-mix(in oklab, var(--primary) 50%, transparent);
+  --report-loss-soft: color-mix(in oklab, var(--report-loss) 10%, transparent);
+
+  --border: oklch(0.275 0.005 255);
+  --border-strong: oklch(0.33 0.006 255);
+  --input: oklch(0.52 0.009 255);
+  --focus-ring: oklch(0.72 0.14 255);
+  --ring: var(--focus-ring);
+
+  --table-header: oklch(0.205 0.005 255);
+  --table-header-foreground: oklch(0.76 0.009 255);
+  --table-row-hover: oklch(0.21 0.005 255);
+  --table-row-selected: color-mix(in oklab, var(--focus-ring) 13%, var(--card));
+
   --chart-1: #3c78d0;
   --chart-2: #3cb8c0;
   --chart-3: oklch(0.87 0 0);
   --chart-4: oklch(0.556 0 0);
   --chart-5: oklch(0.371 0 0);
 
-  /* Sidebar dark surface — neutral dark gray, never pure black. */
-  --sidebar: oklch(0.22 0.004 90);
-  --sidebar-foreground: oklch(0.93 0 0);
+  --sidebar: oklch(0.165 0.005 255);
+  --sidebar-foreground: oklch(0.92 0.004 255);
+  --sidebar-muted-foreground: oklch(0.7 0.009 255);
   --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: oklch(0.27 0.004 90);
-  --sidebar-accent-foreground: oklch(0.96 0 0);
-  --sidebar-expanded: oklch(0.3 0.004 90);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: var(--ring);
+  --sidebar-accent: oklch(0.225 0.005 255);
+  --sidebar-accent-foreground: oklch(0.96 0.003 255);
+  --sidebar-active: color-mix(in oklab, var(--primary) 16%, var(--sidebar));
+  --sidebar-expanded: oklch(0.19 0.005 255);
+  --sidebar-border: oklch(0.26 0.005 255);
+  --sidebar-ring: var(--focus-ring);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-focus-ring;
+  }
+  ::placeholder {
+    color: var(--placeholder);
+    opacity: 1;
   }
   body {
     @apply bg-background text-foreground;
@@ -422,7 +493,7 @@
 }
 [data-sonner-toast][data-type="error"] {
   --normal-bg: var(--destructive);
-  --normal-text: oklch(0.985 0 0);
+  --normal-text: var(--destructive-foreground);
   --normal-border: var(--destructive);
 }
 [data-sonner-toast][data-type="warning"] {
@@ -432,8 +503,8 @@
 }
 [data-sonner-toast][data-type="info"] {
   --normal-bg: var(--info-soft);
-  --normal-text: var(--info);
-  --normal-border: var(--info);
+  --normal-text: var(--info-soft-foreground);
+  --normal-border: var(--info-border);
 }
 
 /**

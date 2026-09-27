@@ -4,20 +4,72 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+/**
+ * OMS table primitives (design-system §6). Every table in the app — the
+ * `EnterpriseDataTable` grid, `CompactDetailTable`, document line tables and
+ * the plain `ui/table` users — renders its header, body and footer cells
+ * through these, so one header style, one cell inset and one density lever
+ * apply everywhere:
+ *
+ * - header: `--table-head-height`, `text-table-head`, `bg-table-header`,
+ *   `text-table-header-foreground`, bottom rule `border-border-strong`
+ * - body:   `--table-row-height` (min), `--table-cell-py`, `text-table`
+ * - inset:  `--table-cell-px` on header, body and footer alike
+ *
+ * Density is ONE lever: `<Table density="comfortable">` re-points the row
+ * height and vertical padding tokens for that table only.
+ */
+export type TableDensity = "compact" | "comfortable";
+
+const COMFORTABLE_DENSITY_VARS = {
+  "--table-row-height": "var(--table-row-height-comfortable)",
+  "--table-cell-py": "var(--table-cell-py-comfortable)",
+} as React.CSSProperties;
+
+function Table({
+  className,
+  density = "compact",
+  container = true,
+  containerClassName,
+  style,
+  ...props
+}: React.ComponentProps<"table"> & {
+  density?: TableDensity;
+  /**
+   * `false` renders the bare `<table>` without its own `overflow-x-auto`
+   * wrapper — required when the caller owns the scroll container (a sticky
+   * header only sticks to its nearest scroll container, so a second,
+   * nested one silently disables it).
+   */
+  container?: boolean;
+  containerClassName?: string;
+}) {
+  const table = (
+    <table
+      data-slot="table"
+      data-density={density}
+      className={cn("w-full caption-bottom text-table", className)}
+      style={density === "comfortable" ? { ...COMFORTABLE_DENSITY_VARS, ...style } : style}
+      {...props}
+    />
+  );
+  if (!container) return table;
   return (
-    <div data-slot="table-container" className="relative min-w-0 w-full overflow-x-auto">
-      <table
-        data-slot="table"
-        className={cn("w-full caption-bottom text-body", className)}
-        {...props}
-      />
+    <div
+      data-slot="table-container"
+      className={cn("relative min-w-0 w-full overflow-x-auto", containerClassName)}
+    >
+      {table}
     </div>
   );
 }
 
 function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
-  return <thead data-slot="table-header" className={cn("[&_tr]:border-b", className)} {...props} />;
+  // The header rule lives on the <th> cells (border-border-strong), which
+  // also works under `border-separate` where row borders never paint.
+  return (
+    <thead data-slot="table-header" className={cn("[&_tr]:border-b-0", className)} {...props} />
+  );
 }
 
 function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
@@ -34,7 +86,10 @@ function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
   return (
     <tfoot
       data-slot="table-footer"
-      className={cn("border-t bg-muted/50 font-medium [&>tr]:last:border-b-0", className)}
+      className={cn(
+        "border-t border-border-strong bg-surface-sunken font-semibold [&>tr]:last:border-b-0",
+        className,
+      )}
       {...props}
     />
   );
@@ -45,7 +100,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
+        "group/row border-b border-border transition-colors duration-(--duration-base) motion-reduce:transition-none hover:bg-table-row-hover has-aria-expanded:bg-table-row-hover data-[state=selected]:bg-table-row-selected",
         className,
       )}
       {...props}
@@ -58,7 +113,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-9 px-3 text-start align-middle text-caption font-medium whitespace-nowrap text-muted-foreground",
+        "h-(--table-head-height) border-b border-border-strong bg-table-header px-(--table-cell-px) text-start align-middle text-table-head whitespace-nowrap text-table-header-foreground",
         className,
       )}
       {...props}
@@ -69,17 +124,34 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
 /**
  * `dir` on a cell isolates its CONTENT only (LTR IDs, amounts, dates). The
  * cell itself keeps the table's direction, so `text-start`/`text-end` resolve
- * against the same edge as the header — putting `dir="ltr"` on the <td>
- * itself flips its alignment to the opposite side in an RTL table.
+ * against the same edge as the header — putting `dir="ltr"` (or the `num`
+ * utility, which sets `direction: ltr`) on the <td> itself flips its
+ * alignment to the opposite side in an RTL table.
+ *
+ * `numeric` is the shorthand for money/number/percent/quantity cells: logical
+ * end alignment + tabular digits on the cell, the value itself in an isolated
+ * `num` run.
  */
-function TableCell({ className, dir, children, ...props }: React.ComponentProps<"td">) {
+function TableCell({
+  className,
+  dir,
+  numeric,
+  children,
+  ...props
+}: React.ComponentProps<"td"> & { numeric?: boolean }) {
   return (
     <td
       data-slot="table-cell"
-      className={cn("px-3 py-2 align-middle whitespace-nowrap", className)}
+      className={cn(
+        "h-(--table-row-height) px-(--table-cell-px) py-(--table-cell-py) align-middle text-table whitespace-nowrap",
+        numeric && tableNumericCellClass,
+        className,
+      )}
       {...props}
     >
-      {dir ? (
+      {numeric ? (
+        <span className="num">{children}</span>
+      ) : dir ? (
         <span dir={dir} className="[unicode-bidi:isolate]">
           {children}
         </span>
@@ -91,26 +163,49 @@ function TableCell({ className, dir, children, ...props }: React.ComponentProps<
 }
 
 /**
- * Shared column inset — the only horizontal padding EDT headers and body
- * cells should add. Applied identically to THEAD and TBODY. Data columns
- * share one 12px inline padding throughout (no extra first/last offset —
- * that was shifting the first data column independently of the header).
+ * Numeric column cells (money, number, percent, quantity) — header, body and
+ * footer. Aligns to the logical end (the left edge in Arabic) with tabular
+ * digits. Put the value itself in a `num` run (or use `<TableCell numeric>`).
+ */
+const tableNumericCellClass = "text-end tabular-nums";
+
+/** Dates and references: tabular digits, start-aligned. Wrap the value in a `num` run. */
+const tableTabularCellClass = "text-start tabular-nums";
+
+/** The record's identity cell (document number, name). */
+const tableIdentityCellClass = "font-medium text-foreground";
+
+/** Secondary line under a cell's primary value. */
+const tableSecondaryTextClass = "text-caption text-muted-foreground";
+
+/** A column-aligned totals row inside a table (`<TableRow>` in `<TableFooter>`). */
+const tableTotalsRowClass = "bg-surface-sunken font-semibold hover:bg-surface-sunken";
+
+/** Logical alignment → class; `end` also switches to tabular digits. */
+function tableAlignClass(align: "start" | "center" | "end" | undefined) {
+  if (align === "end") return tableNumericCellClass;
+  if (align === "center") return "text-center";
+  return "text-start";
+}
+
+/**
+ * Shared column inset — the only horizontal padding EDT headers, body and
+ * footer cells add. Applied identically to THEAD, TBODY and TFOOT. Data
+ * columns share one `--table-cell-px` inline padding throughout (no extra
+ * first/last offset — that was shifting the first data column independently
+ * of the header).
  *
  * Utility columns (checkbox/expand/actions) are tight (4px) on the side
- * facing another column, but get the full 12px "safe gutter" on whichever
- * side is the table's own outer edge — first column's inline-start, last
- * column's inline-end. Actions is almost always the last column, so this
- * is what keeps its row-menu button from sitting flush against the table
- * border/card edge in RTL — logical `ps-`/`pe-`, never `pl-`/`pr-`, so the
- * gutter lands on the correct physical side automatically in both
- * directions. Applies to every utility column, not just actions, so a
- * pinned/leading checkbox column gets the same edge safety.
+ * facing another column, but get the full cell inset as a "safe gutter" on
+ * whichever side is the table's own outer edge — first column's
+ * inline-start, last column's inline-end — so a row-menu button never sits
+ * flush against the card edge in RTL. Logical `ps-`/`pe-` only.
  */
 function tableColumnInsetClass(index: number, count: number, kind: "data" | "utility" = "data") {
-  if (kind !== "utility") return "px-3";
+  if (kind !== "utility") return "px-(--table-cell-px)";
   const isFirst = index === 0;
   const isLast = index === count - 1;
-  return cn(isFirst ? "ps-3" : "ps-1", isLast ? "pe-3" : "pe-1");
+  return cn(isFirst ? "ps-(--table-cell-px)" : "ps-1", isLast ? "pe-(--table-cell-px)" : "pe-1");
 }
 
 /**
@@ -147,4 +242,10 @@ export {
   tableColumnInsetClass,
   tableCellContentClass,
   tableCellWrapClass,
+  tableNumericCellClass,
+  tableTabularCellClass,
+  tableIdentityCellClass,
+  tableSecondaryTextClass,
+  tableTotalsRowClass,
+  tableAlignClass,
 };

@@ -18,7 +18,7 @@ export function LocaleSwitch() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <EnterpriseButton variant="ghost" size="icon-sm" aria-label={t("topbar.changeLanguage")}>
+        <EnterpriseButton variant="ghost" size="icon" aria-label={t("topbar.changeLanguage")}>
           <Languages />
         </EnterpriseButton>
       </DropdownMenuTrigger>

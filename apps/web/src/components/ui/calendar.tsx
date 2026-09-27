@@ -51,7 +51,7 @@ export function Calendar({
         caption_label: "text-caption font-semibold",
         dropdowns: "flex items-center gap-1.5",
         dropdown_root:
-          "relative rounded-xs border border-input bg-card text-caption font-medium shadow-xs has-focus:border-ring",
+          "relative rounded-xs border border-input bg-card text-caption font-medium has-focus:border-focus-ring",
         dropdown: "absolute inset-0 cursor-pointer opacity-0",
         button_previous: cn(
           enterpriseButtonVariants({ variant: "ghost", size: "icon-sm" }),

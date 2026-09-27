@@ -77,7 +77,7 @@ export default function ForgotPasswordPage() {
           />
           <SubmitButton
             isSubmitting={isSubmitting}
-            className="w-full from-brand-navy to-brand-navy text-brand-navy-foreground hover:brightness-110 dark:from-brand-navy dark:to-brand-navy"
+            className="w-full bg-brand-navy text-brand-navy-foreground not-disabled:hover:bg-brand-navy/90"
           >
             {isSubmitting ? t("auth.sendingResetLink") : t("auth.sendResetLink")}
           </SubmitButton>

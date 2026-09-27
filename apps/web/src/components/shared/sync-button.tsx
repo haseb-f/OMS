@@ -7,8 +7,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { SyncReviewDialog } from "@/components/shared/sync-review";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError, toast } from "@/lib/toast";
 import { formatDateTime } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import {
@@ -117,7 +116,7 @@ export function SyncButton({
     try {
       await runPreview();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Sync preview failed.");
+      reportApiError(error, "errors.syncFailed");
     } finally {
       setLoading(false);
     }
@@ -181,7 +180,7 @@ export function SyncButton({
       loadSources();
       onSynced?.();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Sync failed.");
+      reportApiError(error, "errors.syncFailed");
     } finally {
       setCommitting(false);
     }
@@ -190,20 +189,13 @@ export function SyncButton({
   const actionButton = (
     <EnterpriseButton
       type="button"
-      variant="info"
+      variant="outline"
       onClick={handleClick}
       disabled={loading}
       aria-label={t("importCenter.sync.button")}
-      className={cn(
-        layout === "workspace"
-          ? SYNC_ACTION_BUTTON_CLASS
-          : "h-auto min-h-(--control-height-md) gap-2 rounded-md px-3 py-1.5 text-[length:var(--text-button)]",
-        "ring-1 ring-info-foreground/15 transition-shadow",
-      )}
+      className={cn(layout === "workspace" ? SYNC_ACTION_BUTTON_CLASS : "gap-1.5")}
     >
-      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-info-foreground/15">
-        <CloudCog className={cn("size-3.5", loading && "animate-spin")} />
-      </span>
+      <CloudCog className={cn("size-4", loading && "animate-spin")} />
       {loading ? t("importCenter.sync.loading") : t("importCenter.sync.button")}
     </EnterpriseButton>
   );

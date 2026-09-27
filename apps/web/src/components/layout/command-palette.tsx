@@ -77,11 +77,14 @@ export function CommandPalette() {
         type="button"
         variant="outline"
         onClick={() => setOpen(true)}
-        className="h-11 w-full justify-start gap-2.5 rounded-lg px-4 font-normal text-muted-foreground"
+        aria-label={t("topbar.searchPlaceholder")}
+        className="size-8 justify-center gap-2 px-0 font-normal text-muted-foreground md:w-56 md:justify-start md:px-2.5 lg:w-64"
       >
         <Search className="size-4 shrink-0" />
-        <span className="flex-1 truncate text-start">{t("topbar.searchPlaceholder")}</span>
-        <Kbd className="hidden sm:inline-flex">⌘K</Kbd>
+        <span className="hidden flex-1 truncate text-start md:inline">
+          {t("topbar.searchPlaceholder")}
+        </span>
+        <Kbd className="hidden md:inline-flex">⌘K</Kbd>
       </EnterpriseButton>
 
       <CommandDialog

@@ -61,7 +61,7 @@ export function BackButton({ href, label }: { href?: string; label?: string }) {
     <IconActionButton
       label={text}
       variant="ghost"
-      className="shrink-0 border border-primary/20 bg-primary-soft text-primary hover:border-primary/35 hover:bg-primary/15 hover:text-primary active:bg-primary/20"
+      className="size-7 shrink-0 border border-border-strong bg-card text-foreground hover:bg-accent"
       onClick={handleClick}
     >
       <ArrowLeft className="size-4 rtl:rotate-180" />

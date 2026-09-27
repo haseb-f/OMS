@@ -13,7 +13,7 @@ export function NotificationsMenu() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <EnterpriseButton variant="ghost" size="icon-sm" aria-label={t("topbar.notifications")}>
+        <EnterpriseButton variant="ghost" size="icon" aria-label={t("topbar.notifications")}>
           <Bell />
         </EnterpriseButton>
       </PopoverTrigger>

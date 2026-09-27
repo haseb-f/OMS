@@ -5,20 +5,25 @@ import { Slot } from "radix-ui";
 import { cn } from "@/lib/utils";
 
 const enterpriseBadgeVariants = cva(
-  "group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-xs border border-transparent px-1.5 py-0 text-[length:var(--text-caption)] leading-none font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pe-1 has-data-[icon=inline-start]:ps-1 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3!",
+  "group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-xs border px-1.5 py-0 text-[length:var(--text-micro)] leading-none font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-1 focus-visible:outline-focus-ring has-data-[icon=inline-end]:pe-1 has-data-[icon=inline-start]:ps-1 [&>svg]:pointer-events-none [&>svg]:size-3!",
   {
     variants: {
+      /**
+       * Status tones — soft surface + AA foreground + hairline border
+       * (tokens: --{tone}-soft / -soft-foreground / -border). Status is
+       * never carried by color alone: the label always names the state.
+       */
       variant: {
-        default: "bg-primary text-primary-foreground [a]:hover:bg-primary/80",
-        secondary: "bg-muted text-muted-foreground [a]:hover:bg-muted/80",
-        success: "bg-success-soft text-success border-success/20",
-        warning: "bg-warning-soft text-warning-foreground border-warning/30",
+        default: "border-transparent bg-primary text-primary-foreground [a]:hover:bg-primary-hover",
+        secondary: "border-neutral-border bg-neutral-soft text-neutral-soft-foreground",
+        success: "border-success-border bg-success-soft text-success-soft-foreground",
+        warning: "border-warning-border bg-warning-soft text-warning-soft-foreground",
         destructive:
-          "bg-destructive-soft text-destructive focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:focus-visible:ring-destructive/40 [a]:hover:bg-destructive/20",
-        info: "bg-info-soft text-info border-info/20",
-        outline: "border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground",
-        ghost: "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
-        link: "text-primary underline-offset-4 hover:underline",
+          "border-destructive-border bg-destructive-soft text-destructive-soft-foreground",
+        info: "border-info-border bg-info-soft text-info-soft-foreground",
+        outline: "border-border-strong bg-card text-foreground [a]:hover:bg-accent",
+        ghost: "border-transparent hover:bg-accent",
+        link: "border-transparent text-primary underline-offset-4 hover:underline",
       },
     },
     defaultVariants: {

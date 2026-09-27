@@ -4,7 +4,7 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { Slot } from "radix-ui";
 
-import { useIsMobile } from "@/hooks/use-mobile";
+import { NAVIGATION_SHEET_BREAKPOINT, useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,11 +23,11 @@ import { PanelLeftIcon } from "lucide-react";
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 /* 272px target, 280px hard max (ADR-0020) — never wider. */
-const SIDEBAR_WIDTH = "17rem";
-const SIDEBAR_WIDTH_MOBILE = "17.5rem";
+const SIDEBAR_WIDTH = "15rem";
+const SIDEBAR_WIDTH_MOBILE = "17rem";
 /* icon_width - 2*(SidebarGroup p-3 = 12px) must equal the collapsed
    SidebarMenuButton box (size-9 = 36px) — see sidebarMenuButtonVariants. */
-const SIDEBAR_WIDTH_ICON = "3.75rem";
+const SIDEBAR_WIDTH_ICON = "3.25rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
 
 type SidebarContextProps = {
@@ -64,7 +64,8 @@ function SidebarProvider({
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
-  const isMobile = useIsMobile();
+  // Phones and tablets get the navigation as a sheet (design-system §9).
+  const isMobile = useIsMobile(NAVIGATION_SHEET_BREAKPOINT);
   const [openMobile, setOpenMobile] = React.useState(false);
 
   // This is the internal state of the sidebar.
@@ -206,7 +207,7 @@ function Sidebar({
 
   return (
     <div
-      className="group peer hidden text-sidebar-foreground md:block"
+      className="group peer hidden text-sidebar-foreground lg:block"
       data-state={state}
       data-collapsible={state === "collapsed" ? collapsible : ""}
       data-variant={variant}
@@ -229,11 +230,11 @@ function Sidebar({
         data-slot="sidebar-container"
         data-side={side}
         className={cn(
-          "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-(--duration-base) ease-(--ease-standard) data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] md:flex",
+          "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-(--duration-base) ease-(--ease-standard) data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] lg:flex",
           // Adjust the padding for floating and inset variants.
           variant === "floating" || variant === "inset"
             ? "p-4 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(8))+2px)]"
-            : "group-data-[collapsible=icon]:w-(--sidebar-width-icon) group-data-[side=left]:border-e group-data-[side=right]:border-s",
+            : "group-data-[collapsible=icon]:w-(--sidebar-width-icon) border-sidebar-border group-data-[side=left]:border-e group-data-[side=right]:border-s",
           className,
         )}
         {...props}
@@ -241,7 +242,7 @@ function Sidebar({
         <div
           data-sidebar="sidebar"
           data-slot="sidebar-inner"
-          className="flex size-full flex-col bg-sidebar group-data-[variant=floating]:rounded-2xl group-data-[variant=floating]:shadow-lg group-data-[variant=floating]:ring-1 group-data-[variant=floating]:ring-sidebar-border"
+          className="flex size-full flex-col bg-sidebar group-data-[variant=floating]:rounded-md group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border"
         >
           {children}
         </div>
@@ -306,7 +307,7 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
     <main
       data-slot="sidebar-inset"
       className={cn(
-        "relative flex w-full flex-1 flex-col bg-background md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ms-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ms-2",
+        "relative flex w-full flex-1 flex-col bg-background lg:peer-data-[variant=inset]:m-2 lg:peer-data-[variant=inset]:ms-0 lg:peer-data-[variant=inset]:rounded-xl lg:peer-data-[variant=inset]:shadow-sm lg:peer-data-[variant=inset]:peer-data-[state=collapsed]:ms-2",
         className,
       )}
       {...props}
@@ -465,7 +466,7 @@ const sidebarMenuButtonVariants = cva(
   // Hover changes background/text/icon color ONLY (TASK-042) — never
   // font-weight, which shifts glyph widths and reads as text "moving" on
   // hover. Active/selected state is the only thing allowed to bump weight.
-  "peer/menu-button group/menu-button relative flex w-full cursor-pointer items-center gap-2.5 rounded-md px-3 py-1.5 text-start text-sm font-medium ring-sidebar-ring outline-hidden transition-[width,height,padding,background-color,color] duration-[170ms] ease-(--ease-standard) group-has-data-[sidebar=menu-action]/menu-item:pe-8 group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:overflow-hidden group-data-[collapsible=icon]:p-0! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground [&_svg]:size-[18px] [&_svg]:shrink-0 [&_svg]:transition-colors [&_svg]:duration-[170ms] hover:[&_svg]:text-primary",
+  "peer/menu-button group/menu-button relative flex w-full cursor-pointer items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-start text-body font-medium ring-sidebar-ring outline-hidden transition-[width,height,padding,background-color,color] duration-(--duration-base) ease-(--ease-standard) group-has-data-[sidebar=menu-action]/menu-item:pe-8 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:overflow-hidden group-data-[collapsible=icon]:p-0! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-focus-ring active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:transition-colors [&_svg]:duration-(--duration-base) hover:[&_svg]:text-primary",
   {
     variants: {
       variant: {
@@ -474,9 +475,9 @@ const sidebarMenuButtonVariants = cva(
           "bg-background shadow-[0_0_0_1px_var(--sidebar-border)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-[0_0_0_1px_var(--sidebar-accent)]",
       },
       size: {
-        default: "min-h-9 text-sm",
+        default: "min-h-8 text-body",
         sm: "min-h-8 text-caption",
-        lg: "min-h-9 text-sm group-data-[collapsible=icon]:p-0!",
+        lg: "min-h-9 text-body group-data-[collapsible=icon]:p-0!",
       },
     },
     defaultVariants: {
@@ -619,7 +620,7 @@ function SidebarMenuSub({ className, ...props }: React.ComponentProps<"ul">) {
       data-slot="sidebar-menu-sub"
       data-sidebar="menu-sub"
       className={cn(
-        "mx-3 flex min-w-0 translate-x-px rtl:-translate-x-px flex-col gap-0.5 border-s border-sidebar-border px-2 py-0.5 group-data-[collapsible=icon]:hidden",
+        "ms-4 me-1 flex min-w-0 translate-x-px rtl:-translate-x-px flex-col gap-px border-s border-sidebar-border ps-1.5 py-0.5 group-data-[collapsible=icon]:hidden",
         className,
       )}
       {...props}
@@ -660,7 +661,7 @@ function SidebarMenuSubButton({
       className={cn(
         // Sub-items: caption/normal weight vs parent's 14px/medium —
         // hover changes background/text/icon color only, never font-weight.
-        "relative flex min-h-8 min-w-0 -translate-x-px rtl:translate-x-px cursor-pointer items-center gap-2 rounded-md px-2.5 py-1 font-normal text-sidebar-foreground ring-sidebar-ring outline-hidden transition-[background-color,color] duration-[170ms] ease-(--ease-standard) group-data-[collapsible=icon]:hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[size=md]:text-sm data-[size=sm]:text-caption data-active:bg-primary-soft data-active:font-medium data-active:text-foreground data-active:before:absolute data-active:before:inset-y-1 data-active:before:start-0 data-active:before:w-[3px] data-active:before:rounded-full data-active:before:bg-primary dark:data-active:bg-primary-soft [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-current [&>svg]:transition-colors [&>svg]:duration-[170ms] hover:[&>svg]:text-primary",
+        "relative flex min-h-7 min-w-0 -translate-x-px rtl:translate-x-px cursor-pointer items-center gap-2 rounded-sm px-2.5 py-1 font-normal text-sidebar-foreground ring-sidebar-ring outline-hidden transition-[background-color,color] duration-(--duration-base) ease-(--ease-standard) group-data-[collapsible=icon]:hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-focus-ring active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[size=md]:text-body data-[size=sm]:text-caption data-active:bg-sidebar-active data-active:font-medium data-active:text-sidebar-primary data-active:before:absolute data-active:before:inset-y-1 data-active:before:start-0 data-active:before:w-0.5 data-active:before:rounded-full data-active:before:bg-sidebar-primary [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:text-sidebar-muted-foreground [&>svg]:transition-colors [&>svg]:duration-(--duration-base) data-active:[&>svg]:text-sidebar-primary",
         className,
       )}
       {...props}

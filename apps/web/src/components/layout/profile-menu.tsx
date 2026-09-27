@@ -30,11 +30,11 @@ export function ProfileMenu() {
         <EnterpriseButton
           type="button"
           variant="ghost"
-          size="icon-sm"
+          size="icon"
           className="rounded-full"
           aria-label={t("topbar.profileMenu")}
         >
-          <Avatar className="size-8">
+          <Avatar className="size-7">
             <AvatarFallback className="text-xs">
               {user ? getInitials(user.fullName) : "GU"}
             </AvatarFallback>

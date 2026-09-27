@@ -4,7 +4,6 @@ import Link from "next/link";
 import { Fragment } from "react";
 import {
   Breadcrumb,
-  BreadcrumbEllipsis,
   BreadcrumbItem,
   BreadcrumbLink,
   BreadcrumbList,
@@ -18,7 +17,8 @@ import { useBreadcrumbValue } from "@/providers/breadcrumb-provider";
 import { cn } from "@/lib/utils";
 
 /**
- * The ONE place breadcrumb + Back navigation is rendered. Pages never build
+ * The ONE place breadcrumb + Back navigation is rendered (inside the TopBar
+ * row, see `top-bar.tsx`). Pages never build
  * their own trail; a dynamic detail page only supplies the trailing crumb
  * via `useBreadcrumbLabel`. Back prefers in-app history so list state
  * survives, and falls back to the closest registered parent list.
@@ -35,11 +35,10 @@ export function BreadcrumbBar() {
     return !next || t(item.titleKey) !== t(next.titleKey);
   });
   const totalAfterHome = crumbs.length + (showDynamicCrumb ? 1 : 0);
-  const collapseMobile = totalAfterHome > 2;
 
   if (totalAfterHome === 0 && !parentRoute) {
     return (
-      <div className="flex min-w-0 items-center px-6 py-1">
+      <div className="flex min-w-0 flex-1 items-center">
         <Breadcrumb>
           <BreadcrumbList className="flex-nowrap">
             <BreadcrumbItem>
@@ -52,31 +51,26 @@ export function BreadcrumbBar() {
   }
 
   return (
-    <div className="flex min-w-0 items-center gap-2 overflow-hidden px-6 py-1">
+    <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
       {parentRoute ? <BackButton href={parentRoute} /> : null}
       <Breadcrumb className="min-w-0 flex-1 overflow-hidden">
         <BreadcrumbList className="flex-nowrap overflow-hidden">
-          <BreadcrumbItem className="shrink-0">
+          <BreadcrumbItem className="shrink-0 max-lg:hidden">
             <BreadcrumbLink asChild>
               <Link href="/">{t("common.home")}</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
-          {collapseMobile ? (
-            <>
-              <BreadcrumbSeparator className="md:hidden" />
-              <BreadcrumbItem className="md:hidden">
-                <BreadcrumbEllipsis />
-              </BreadcrumbItem>
-            </>
-          ) : null}
           {crumbs.map((item, index) => {
             const isFinalCrumb = index === crumbs.length - 1 && !showDynamicCrumb;
-            const hideOnMobile = collapseMobile && (showDynamicCrumb || index < crumbs.length - 1);
+            // Phones and tablets show only the current location (Back covers the rest).
+            const hideOnMobile = showDynamicCrumb || index < crumbs.length - 1;
             const title = t(item.titleKey);
             return (
               <Fragment key={item.id}>
-                <BreadcrumbSeparator className={hideOnMobile ? "max-md:hidden" : undefined} />
-                <BreadcrumbItem className={cn("min-w-0", hideOnMobile && "max-md:hidden")}>
+                <BreadcrumbSeparator
+                  className={hideOnMobile || index === 0 ? "max-lg:hidden" : undefined}
+                />
+                <BreadcrumbItem className={cn("min-w-0", hideOnMobile && "max-lg:hidden")}>
                   {isFinalCrumb || !item.route ? (
                     <BreadcrumbPage className="truncate">{title}</BreadcrumbPage>
                   ) : (
@@ -92,9 +86,9 @@ export function BreadcrumbBar() {
           })}
           {showDynamicCrumb ? (
             <Fragment>
-              <BreadcrumbSeparator />
+              <BreadcrumbSeparator className="max-lg:hidden" />
               <BreadcrumbItem className="min-w-0">
-                <BreadcrumbPage className="truncate" dir="ltr">
+                <BreadcrumbPage className="truncate font-medium" dir="ltr">
                   {dynamicLabel ?? "\u00a0"}
                 </BreadcrumbPage>
               </BreadcrumbItem>

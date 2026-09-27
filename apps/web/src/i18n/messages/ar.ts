@@ -2,11 +2,13 @@ import paymentDeclarationAr from "./modules/payment-declaration.ar";
 import paymentReconciliationAr from "./modules/payment-reconciliation.ar";
 import paymentSettlementAr from "./modules/payment-settlement.ar";
 import fxSettingsAr from "./modules/fx-settings.ar";
+import docUiAr from "./modules/doc-ui.ar";
 const ar = {
   paymentDeclaration: paymentDeclarationAr,
   paymentReconciliation: paymentReconciliationAr,
   paymentSettlement: paymentSettlementAr,
   fxSettings: fxSettingsAr,
+  docUi: docUiAr,
   pickers: {
     currency: { select: "اختر العملة", search: "ابحث بالرمز أو الاسم…", empty: "لا توجد عملات" },
     employee: {
@@ -143,6 +145,19 @@ const ar = {
     DEPENDENCY_ERROR: "لا يمكن إكمال هذا الإجراء لأن هذا العنصر مرتبط ببيانات أخرى في النظام.",
     NETWORK_ERROR: "تعذر الاتصال بالخادم. تحقق من اتصال الإنترنت وحاول مرة أخرى.",
     generic: "حدث خطأ ما. حاول مرة أخرى.",
+    loadFailed: "تعذر تحميل هذه البيانات. حاول مرة أخرى.",
+    saveFailed: "تعذر حفظ التغييرات. حاول مرة أخرى.",
+    updateFailed: "تعذر تحديث هذا السجل. حاول مرة أخرى.",
+    deleteFailed: "تعذر حذف هذا السجل. حاول مرة أخرى.",
+    archiveFailed: "تعذر أرشفة هذا السجل. حاول مرة أخرى.",
+    restoreFailed: "تعذر استعادة هذا السجل. حاول مرة أخرى.",
+    cancelFailed: "تعذر إلغاء هذا المستند. حاول مرة أخرى.",
+    duplicateFailed: "تعذر نسخ هذا المستند. حاول مرة أخرى.",
+    printFailed: "تعذر تجهيز المستند للطباعة. حاول مرة أخرى.",
+    selectFailed: "تعذر تحديد السجلات المطابقة. حاول مرة أخرى.",
+    actionFailed: "تعذر إتمام هذا الإجراء. حاول مرة أخرى.",
+    downloadFailed: "تعذر تنزيل الملف. حاول مرة أخرى.",
+    syncFailed: "تعذرت مزامنة البيانات. حاول مرة أخرى.",
     activationBlocked:
       "لا يمكن التفعيل قبل إكمال: {fields}. يمكنك متابعة العمل كمسودة حتى ذلك الحين.",
     fields: {
@@ -473,6 +488,12 @@ const ar = {
     modules: "الوحدات",
     pin: "تثبيت",
     unpin: "إلغاء التثبيت",
+    groups: {
+      financeOperations: "العمليات اليومية",
+      financeLedger: "الدفاتر والقيود",
+      financeAssets: "الأصول والتحليل",
+      financeSetup: "الإعداد والفترات",
+    },
   },
   topbar: {
     searchPlaceholder: "بحث…",
@@ -498,6 +519,15 @@ const ar = {
     commandPalettePlaceholder: "البحث في الوحدات والصفحات…",
     commandPaletteGroupNavigate: "التنقل",
   },
+  printDocument: {
+    vatNumber: "الرقم الضريبي",
+    crNumber: "السجل التجاري",
+    scanToOpen: "امسح الرمز لفتح المستند في النظام",
+    total: "الإجمالي",
+    preparedBy: "أعدّه",
+    approvedBy: "اعتمده",
+    receivedBy: "استلمه",
+  },
   reportExport: {
     excel: "Excel (.xlsx)",
     csv: "CSV (.csv)",
@@ -506,6 +536,8 @@ const ar = {
     allDates: "كل التواريخ",
     printedAt: "تاريخ الطباعة",
     printedBy: "طُبع بواسطة",
+    currency: "العملة",
+    language: "اللغة",
     documentNumber: "رقم",
     generatedBy: "أُنشئ بواسطة OMS",
     page: "صفحة",
@@ -585,6 +617,11 @@ const ar = {
     moveColumnEnd: "نقل نحو النهاية",
     copied: "تم النسخ إلى الحافظة.",
     loadFailed: "تعذر تحميل هذه القائمة. حاول مرة أخرى.",
+    rangeOf: "{range} من {total}",
+    selectedOfTotal: "تم تحديد {selected} من {total}",
+    columnMenu: "خيارات العمود: {column}",
+    filters: "الفلاتر",
+    applyFilters: "تطبيق",
   },
   dashboard: {
     welcomeTitle: "لوحة التحكم",
@@ -1026,6 +1063,7 @@ const ar = {
         reference: "المرجع",
         amount: "المبلغ",
         classification: "النوع",
+        matchedReference: "المستند المطابق",
       },
       summary: {
         total: "الإجمالي",
@@ -1398,8 +1436,18 @@ const ar = {
         available: "المتاح للصرف",
         egpAvailable: "المتاح بالجنيه",
         egpConsolidated: "إجمالي الجنيه",
+        currencyTotal: "إجمالي {currency}",
         empty: "لا توجد حسابات نقدية أو بنكية.",
         asOf: "حتى تاريخ",
+        formula:
+          "المتاح للصرف = رصيد الدفاتر − المحجوز − الملتزم بالصرف (حركات صرف نقدي بحالة مسودة)",
+        limitations: {
+          holdsNotTracked: "المبالغ المحجوزة غير مُتتبَّعة في النظام — قيمتها دائماً صفر.",
+          notBankConfirmed:
+            "الرصيد المتاح المؤكد من البنك غير مُتتبَّع — لا تعتبر المتاح للصرف نقداً مضموناً قابلاً للصرف.",
+          egpRates:
+            "المعادل بالجنيه يستخدم أحدث سعر صرف في تاريخ التقرير أو قبله؛ الحسابات التي ليس لها سعر لا تدخل في إجمالي الجنيه.",
+        },
       },
       arAging: "أعمار الذمم المدينة",
       apAging: "أعمار الذمم الدائنة",
@@ -1413,6 +1461,17 @@ const ar = {
       totals: "الإجماليات",
       balanced: "متوازن",
       unbalanced: "غير متوازن",
+      discrepancy: "الفارق",
+      checkNotApplicable: "غير منطبق",
+      checkFilteredAccounts: "لا يُطبَّق الفحص عند اختيار حسابات بعينها.",
+      exported: "تم تصدير التقرير.",
+      side: {
+        debit: "مدين",
+        credit: "دائن",
+      },
+      journal: {
+        entriesRange: "القيود {from}–{to} من {total}",
+      },
       expandAll: "توسيع الكل",
       collapseAll: "طي الكل",
       cashFlowSections: {
@@ -1449,10 +1508,11 @@ const ar = {
         selectDescription: "اختر عميلًا أو موردًا لعرض كشف الحساب الفرعي.",
       },
       aging: {
-        current: "٠–٣٠",
-        days31to60: "٣١–٦٠",
-        days61to90: "٦١–٩٠",
-        over90: "٩٠+",
+        current: "0–30",
+        days31to60: "31–60",
+        days61to90: "61–90",
+        over90: "90+",
+        bucket: "{range} يوم",
       },
       fields: {
         accountCode: "رمز الحساب",
@@ -1497,7 +1557,7 @@ const ar = {
         accounts: "الحسابات",
         accountsRange: "الحسابات {from}–{to} من {total}",
         periodMovement: "حركة الفترة",
-        signHint: "الأرصدة مدينة موجبة (مدين − دائن)؛ الرصيد الدائن يظهر بالسالب.",
+        signHint: "الأرصدة تُعرض بجانبها: مدين أو دائن.",
       },
       filters: {
         company: "الشركة",
@@ -3949,6 +4009,7 @@ const ar = {
         allocationMethod: "طريقة التوزيع",
         netTotal: "الإجمالي الصافي",
         taxTotal: "إجمالي ضريبة القيمة المضافة",
+        grandTotal: "الإجمالي شامل الضريبة",
         createdBy: "أنشئ بواسطة",
       },
       filters: {
@@ -3989,6 +4050,9 @@ const ar = {
       },
       confirmCancelTitle: "إلغاء مستند التكاليف المرحلة هذا؟",
       confirmCancelDescription: "لا يمكن التراجع عن هذا الإجراء. سينتقل المستند إلى حالة ملغى.",
+      confirmPostTitle: "ترحيل التكاليف المرحلة؟",
+      confirmPostDescription:
+        "ستُرسمل التكاليف ضمن قيمة المخزون ويُنشأ قيد يومية. لا يمكن تعديل المستند بعد الترحيل.",
       purchaseInvoicePicker: {
         placeholder: "اختر فاتورة شراء مؤكدة…",
         searchPlaceholder: "ابحث برقم الفاتورة أو اسم المورد…",
@@ -4291,6 +4355,7 @@ const ar = {
       allocationExceedsAmount: "لا يمكن أن يتجاوز إجمالي المخصص المبلغ.",
       receivingAccountRequired: "اختر الحساب المستلم (نقدي أو بنكي) قبل التأكيد.",
       allocationExceedsRemaining: "المبلغ يتجاوز الرصيد المتبقي على الفاتورة.",
+      allocationMustEqualAmount: "يجب أن يساوي إجمالي المخصص مبلغ الاسترداد.",
     },
     confirmCancelTitle: "إلغاء هذه المعاملة؟",
     confirmCancelDescription:
@@ -4338,6 +4403,7 @@ const ar = {
         reversed: "معكوس",
       },
       lines: {
+        title: "بنود القيد",
         account: "الحساب",
         description: "الوصف",
         costCenter: "مركز التكلفة",
@@ -4446,6 +4512,7 @@ const ar = {
         INVESTOR_DISTRIBUTION: "توزيع مستثمر",
         INVESTOR_PROFIT_PAYMENT: "دفع أرباح مستثمر",
         CAPITAL_RETURN: "رد رأس مال",
+        PAYMENT_SETTLEMENT: "تسوية مدفوعات",
       },
     },
     fiscalYears: {
@@ -4524,7 +4591,11 @@ const ar = {
       },
       validation: {
         minLines: "أدخل حساباً واحداً على الأقل بمبلغ مدين أو دائن.",
+        openingDateRequired: "اختر تاريخ الافتتاح.",
       },
+      confirmGenerateTitle: "إنشاء وترحيل القيد الافتتاحي؟",
+      confirmGenerateDescription:
+        "سيُرحَّل قيد افتتاحي متوازن واحد لهذه السنة المالية ولا يمكن إنشاء قيد افتتاحي آخر لها.",
     },
     yearClosing: {
       description:
@@ -5686,6 +5757,7 @@ const ar = {
         targetCapital: "إجمالي رأس المال المستهدف",
         confirmedCapital: "رأس المال المؤكد",
         totalInvestors: "عدد المستثمرين",
+        activeScope: "المفتوحة والممولة والنشطة",
       },
       endingSoon: {
         title: "فرص تقترب من الانتهاء",
@@ -5874,6 +5946,7 @@ const ar = {
         allocatedRevenue: "الإيراد المخصص",
         type: "النوع",
         status: "الحالة",
+        storeOrderItemId: "معرّف بند طلب المتجر",
       },
       type: {
         AUTO: "تلقائي",
@@ -5905,6 +5978,7 @@ const ar = {
     expenses: {
       title: "مصروفات الفرصة",
       addNew: "إضافة مصروف",
+      approvedOnly: "المعتمدة فقط",
       fields: {
         date: "التاريخ",
         category: "الفئة",
@@ -5935,6 +6009,8 @@ const ar = {
     },
     profit: {
       waterfall: {
+        title: "تفصيل الربح",
+        amount: "المبلغ",
         revenue: "الإيراد المنسوب",
         cogs: "تكلفة البضاعة المباعة",
         expenses: "المصروفات المعتمدة",
@@ -6074,6 +6150,7 @@ const ar = {
         debit: "مدين",
         credit: "دائن",
         empty: "لا توجد قيود في دفتر الأستاذ بعد.",
+        range: "{from}–{to} من {total}",
       },
       entryType: {
         CAPITAL_FUNDED: "تمويل رأس المال",

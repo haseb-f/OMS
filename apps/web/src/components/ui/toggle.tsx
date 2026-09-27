@@ -14,13 +14,13 @@ import { cn } from "@/lib/utils";
  * with a swapped `variant` never did.
  */
 const toggleVariants = cva(
-  "group/toggle inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-sm border border-border bg-linear-to-b from-card to-card/95 text-[length:var(--text-button)] leading-none font-medium whitespace-nowrap text-foreground shadow-xs transition-all duration-[170ms] ease-(--ease-standard) outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/18 disabled:cursor-not-allowed disabled:opacity-45 motion-reduce:transition-none dark:border-input dark:bg-input/30 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/toggle inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-sm border border-border-strong bg-card text-[length:var(--text-button)] leading-none font-medium whitespace-nowrap text-foreground transition-colors duration-(--duration-base) ease-(--ease-standard) outline-none select-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-focus-ring disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       size: {
         sm: "h-(--control-height-sm) px-2.5 text-[length:var(--text-caption)]",
         default: "h-(--control-height-md) px-3",
-        "icon-sm": "size-8 p-0",
+        "icon-sm": "size-(--control-height-sm) p-0",
       },
     },
     defaultVariants: {
@@ -31,7 +31,7 @@ const toggleVariants = cva(
 
 /** Shared pressed-state tint, also used by `ToggleGroup` items. */
 const togglePressedClasses =
-  "not-disabled:hover:border-primary/40 not-disabled:hover:bg-primary-soft not-disabled:hover:text-primary data-[state=on]:border-primary/40 data-[state=on]:bg-primary-soft data-[state=on]:text-primary data-on:border-primary/40 data-on:bg-primary-soft data-on:text-primary";
+  "not-disabled:hover:bg-accent data-[state=on]:border-primary/40 data-[state=on]:bg-primary-soft data-[state=on]:text-primary data-on:border-primary/40 data-on:bg-primary-soft data-on:text-primary";
 
 function Toggle({
   className,

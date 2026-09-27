@@ -20,14 +20,13 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Separator } from "@/components/ui/separator";
 import { CompanySwitcher } from "./company-switcher";
 import { cn } from "@/lib/utils";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { EnterpriseButton } from "@/components/ui/button";
 import { BrandMark } from "@/components/brand/brand-logo";
 import { siteConfig } from "@/config/site";
-import { navigationConfig } from "@/navigation/navigation.config";
+import { NAVIGATION_GROUPS, navigationConfig } from "@/navigation/navigation.config";
 import { buildNavigationTree, filterNavigationByAuth } from "@/navigation/build-navigation-tree";
 import { iconRegistry, type IconName } from "@/navigation/icon-registry";
 import type { NavigationItem } from "@/types/navigation";
@@ -42,7 +41,7 @@ import type { MessageKey } from "@/i18n/translate";
 function NavIcon({ name, compact = false }: { name?: IconName; compact?: boolean }) {
   // Every item needs an icon — in icon-collapsed mode a nav row shows only
   // the icon, so an icon-less item would otherwise clip to unreadable text.
-  const className = compact ? "size-4" : "size-[18px]";
+  const className = compact ? "size-3.5" : "size-4";
   if (!name) return <Circle className={className} strokeWidth={1.75} />;
   const Icon = iconRegistry[name];
   return <Icon className={className} strokeWidth={1.75} />;
@@ -139,33 +138,26 @@ export function AppSidebar() {
   return (
     <Sidebar
       collapsible="icon"
-      variant="floating"
+      variant="sidebar"
       side={direction === "rtl" ? "right" : "left"}
       dir={direction}
     >
-      <SidebarHeader className="gap-1.5 p-2 pb-1.5">
-        <div className="flex items-center gap-2 px-1 py-0.5 group-data-[collapsible=icon]:justify-center">
-          <BrandMark />
-          <span className="text-[13px] font-semibold tracking-[0.04em] text-sidebar-foreground group-data-[collapsible=icon]:hidden">
-            {siteConfig.name}
-          </span>
-        </div>
-        {/* Desktop collapse toggle. Mobile open/close lives on TopBar + Sheet. */}
-        <div className="hidden px-1 md:block">
-          <SidebarTrigger className="w-full justify-start gap-2 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:w-auto group-data-[collapsible=icon]:justify-center" />
-        </div>
+      {/* One header row the height of the TopBar: brand + desktop collapse
+          toggle (mobile open/close lives on TopBar + Sheet). */}
+      <SidebarHeader className="h-(--shell-topbar-height) shrink-0 flex-row items-center gap-2 border-b border-sidebar-border px-3 py-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+        <BrandMark />
+        <span className="min-w-0 flex-1 truncate text-body font-semibold text-sidebar-foreground group-data-[collapsible=icon]:hidden">
+          {siteConfig.name}
+        </span>
+        <SidebarTrigger className="hidden size-7 text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground lg:inline-flex group-data-[collapsible=icon]:hidden" />
       </SidebarHeader>
 
-      <Separator className="mx-2 w-auto bg-sidebar-border" />
-
       {/* Context only, never a dashboard widget — kept compact so it never competes with navigation below. */}
-      <div className="px-2 pt-1.5">
+      <div className="px-2 pt-2 group-data-[collapsible=icon]:px-1">
         <CompanySwitcher />
       </div>
 
-      {/* Navigation starts immediately below the Company EnterpriseCard — no section
-          title, no extra wrapper, no separator (TASK-023A). */}
-      <SidebarContent className="px-2 pt-1.5">
+      <SidebarContent className="px-2 pt-1 pb-2 group-data-[collapsible=icon]:px-1">
         <SidebarMenu>
           {navigationTree.map((item) => (
             <NavTreeItem
@@ -183,7 +175,10 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarContent>
 
-      <SidebarFooter />
+      {/* Icon-collapsed mode keeps an expand control reachable at the bottom. */}
+      <SidebarFooter className="hidden border-t border-sidebar-border p-1 lg:group-data-[collapsible=icon]:flex">
+        <SidebarTrigger className="mx-auto size-8 text-sidebar-muted-foreground hover:bg-sidebar-accent" />
+      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   );
@@ -222,7 +217,7 @@ function NavTreeItem({
           tooltip={title}
           className={cn(
             isActive &&
-              "bg-primary-soft font-semibold text-foreground shadow-xs before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-primary hover:bg-primary-soft",
+              "bg-sidebar-active font-semibold text-sidebar-primary before:absolute before:inset-y-1.5 before:start-0 before:w-0.5 before:rounded-full before:bg-sidebar-primary hover:bg-sidebar-active",
           )}
         >
           <Link href={item.route ?? "#"} onClick={onNavigate}>
@@ -234,7 +229,7 @@ function NavTreeItem({
           <SidebarMenuBadge>
             <EnterpriseBadge
               variant={item.badge.variant ?? "default"}
-              className="h-4 px-1.5 text-[10px]"
+              className="h-4 px-1 text-micro"
             >
               {item.badge.label}
             </EnterpriseBadge>
@@ -248,12 +243,7 @@ function NavTreeItem({
 
   return (
     <Collapsible open={open} onOpenChange={() => onToggle(item.id)}>
-      <SidebarMenuItem
-        className={cn(
-          open &&
-            "rounded-md bg-sidebar-expanded py-1 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:py-0",
-        )}
-      >
+      <SidebarMenuItem className={cn(open && "pb-1 group-data-[collapsible=icon]:pb-0")}>
         <CollapsibleTrigger asChild>
           <SidebarMenuButton
             isActive={containsActive && !open}
@@ -262,7 +252,7 @@ function NavTreeItem({
               "group/trigger",
               containsActive &&
                 !open &&
-                "bg-primary-soft font-semibold text-foreground before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-primary",
+                "bg-sidebar-active font-semibold text-sidebar-primary before:absolute before:inset-y-1.5 before:start-0 before:w-0.5 before:rounded-full before:bg-sidebar-primary",
             )}
           >
             <NavIcon name={item.icon} />
@@ -272,10 +262,22 @@ function NavTreeItem({
         </CollapsibleTrigger>
         <CollapsibleContent>
           <SidebarMenuSub>
-            {item.children!.map((child) => {
+            {groupChildren(item.children!).map((child, index, list) => {
               const childTitle = t(child.titleKey);
+              const groupHeading =
+                child.group && child.group !== list[index - 1]?.group
+                  ? t(NAVIGATION_GROUPS[child.group].titleKey)
+                  : null;
               return (
                 <SidebarMenuSubItem key={child.id}>
+                  {groupHeading ? (
+                    <div
+                      role="presentation"
+                      className="px-2.5 pt-2 pb-0.5 text-micro text-sidebar-muted-foreground first:pt-0.5"
+                    >
+                      {groupHeading}
+                    </div>
+                  ) : null}
                   <SidebarMenuSubButton asChild isActive={currentId === child.id}>
                     <Link href={child.route ?? "#"} onClick={onNavigate} className="group/pin">
                       <NavIcon name={child.icon} compact />
@@ -312,4 +314,17 @@ function NavTreeItem({
       </SidebarMenuItem>
     </Collapsible>
   );
+}
+
+/** Stable-sorts a section's children by their navigation group (ungrouped first). */
+function groupChildren(children: NavigationItem[]): NavigationItem[] {
+  if (!children.some((child) => child.group)) return children;
+  return children
+    .map((child, index) => ({ child, index }))
+    .sort((a, b) => {
+      const ga = a.child.group ? NAVIGATION_GROUPS[a.child.group].order : -1;
+      const gb = b.child.group ? NAVIGATION_GROUPS[b.child.group].order : -1;
+      return ga - gb || a.index - b.index;
+    })
+    .map(({ child }) => child);
 }
