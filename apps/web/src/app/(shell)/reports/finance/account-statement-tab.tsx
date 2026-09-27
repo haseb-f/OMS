@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Landmark } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FinancialReport } from "@/components/accounting/financial-report";
@@ -10,18 +11,61 @@ import {
   type AccountLedger,
 } from "@/services/accounting-reports-service";
 import type { ChartOfAccountRow } from "@/config/master-data/entities";
+import { createMasterDataService } from "@/services/master-data-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
-import { buildLedgerBlock, indexLedgerMovements, ledgerTextColumns } from "./ledger-lines";
+import { reportApiError } from "@/lib/toast";
+import {
+  LEDGER_COLUMNS,
+  buildLedgerBlock,
+  indexLedgerMovements,
+  ledgerSummaryItems,
+  ledgerTextColumns,
+} from "./ledger-lines";
 import { useReportQuery } from "./use-report-query";
+
+const accountsService = createMasterDataService<ChartOfAccountRow>("/chart-of-accounts");
+
+/** The URL key that keeps the selected account (drill-down target, reloads, shared links). */
+const ACCOUNT_PARAM = "account";
 
 /** Account Statement — the General Ledger block of one account (same builder, same numbers). */
 export function AccountStatementTab() {
   const { t } = useLocale();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const openFullRecord = useOpenFullRecord();
   const { filters, setFilters, params } = useReportQuery();
-  const [account, setAccount] = useState<ChartOfAccountRow | null>(null);
+  const [account, setAccountState] = useState<ChartOfAccountRow | null>(null);
+  const accountIdFromUrl = searchParams.get(ACCOUNT_PARAM);
+  // The account this tab itself last chose — so its own URL write never
+  // triggers a reload of the previous account.
+  const selectedIdRef = useRef<string | null>(null);
+
+  // Restore the account from a drill-down link (Trial Balance, Balance
+  // Sheet, Income Statement), a reload or a shared link.
+  useEffect(() => {
+    if (!accountIdFromUrl || accountIdFromUrl === selectedIdRef.current) return;
+    const target = accountIdFromUrl;
+    selectedIdRef.current = target;
+    accountsService
+      .get(target)
+      .then((row) => {
+        // Ignore a late answer once another account was chosen.
+        if (selectedIdRef.current === target) setAccountState(row);
+      })
+      .catch(() => undefined);
+  }, [accountIdFromUrl]);
+
+  const setAccount = (next: ChartOfAccountRow | null) => {
+    selectedIdRef.current = next?.id ?? null;
+    setAccountState(next);
+    const query = new URLSearchParams(window.location.search);
+    if (next) query.set(ACCOUNT_PARAM, next.id);
+    else query.delete(ACCOUNT_PARAM);
+    const text = query.toString();
+    router.replace(text ? `${pathname}?${text}` : pathname, { scroll: false });
+  };
   const [statement, setStatement] = useState<AccountLedger | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -34,11 +78,11 @@ export function AccountStatementTab() {
     try {
       setStatement(await accountingReportsService.accountStatement(account.id, params));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      reportApiError(error, "common.noResults");
     } finally {
       setIsLoading(false);
     }
-  }, [account, params, t]);
+  }, [account, params]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -72,11 +116,7 @@ export function AccountStatementTab() {
     <div className="flex flex-col gap-3">
       <FinancialReport
         lines={account ? lines : []}
-        columns={[
-          { key: "debit", labelKey: "reports.finance.fields.debit" },
-          { key: "credit", labelKey: "reports.finance.fields.credit" },
-          { key: "balance", labelKey: "reports.finance.fields.runningBalance", emphasize: true },
-        ]}
+        columns={LEDGER_COLUMNS}
         textColumns={textColumns}
         nameHeaderKey="reports.finance.fields.description"
         defaultExpanded="all"
@@ -91,6 +131,7 @@ export function AccountStatementTab() {
             : t("reports.finance.accountStatement.title")
         }
         exportFileName="account-statement.xlsx"
+        summary={statement ? { items: ledgerSummaryItems(t, statement) } : undefined}
         onPostingClick={(line) => {
           const movement = movementIndex.get(line.id);
           if (movement) {

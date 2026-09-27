@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
+import type { NegativeStyle } from "@/lib/money";
 
+/** The data kind a line arrives with (API tree or client-built). */
 export type FinancialReportLineKind =
   | "section"
   | "group"
@@ -24,6 +26,7 @@ export interface FinancialReportLine {
   accountType?: string;
   allowsPosting?: boolean;
   expandable: boolean;
+  /** Amounts by column key. A missing key renders blank (not applicable); 0 renders "—". */
   values: Record<string, number>;
   /** Plain-text values for `textColumns` (also what Excel/CSV/print export). */
   text?: Record<string, string>;
@@ -42,7 +45,7 @@ export interface FinancialReportTextColumn {
   /** Column width in rem (default 8). */
   width?: number;
   /** Hidden on narrow screens below this breakpoint (still exported/printed). */
-  hideBelow?: "md" | "lg";
+  hideBelow?: "md" | "lg" | "xl" | "2xl";
   render?: (line: FinancialReportLine) => ReactNode;
 }
 
@@ -50,8 +53,12 @@ export interface FinancialReportColumn {
   key: string;
   labelKey: string;
   emphasize?: boolean;
-  /** When false, negative values stay dark (unsigned debit/credit columns). */
-  signed?: boolean;
+  /**
+   * How a negative is written (default `minus`). Debit-positive balance
+   * columns (Trial Balance, ledgers, statements) use `drcr`, so a normal
+   * credit balance reads "1,234.00 Cr" instead of a red minus.
+   */
+  negative?: NegativeStyle;
 }
 
 export interface FinancialReportFooter {
@@ -59,24 +66,49 @@ export interface FinancialReportFooter {
 }
 
 /**
+ * Presentation row kinds — the closed set every report renders with (one
+ * style map, design-system §7). Resolved from the data kind by
+ * {@link resolveRowKinds}.
+ */
+export type FinancialReportRowKind = "section" | "parent" | "detail" | "subtotal" | "grand-total";
+
+/**
+ * Summary tile tone (summary strip only — never on report rows). `result`
+ * resolves to profit / loss / neutral by the value's sign.
+ */
+export type FinancialReportSummaryTone =
+  "revenue" | "expense" | "profit" | "loss" | "result" | "neutral";
+
+export interface FinancialReportSummaryItem {
+  /** Stable key (React key, export/print id). */
+  id: string;
+  label: string;
+  value: number;
+  /** A final balance/total — framed as the figure that counts. */
+  emphasize?: boolean;
+  tone?: FinancialReportSummaryTone;
+  /** Negative style (default `minus`; `drcr` for debit-positive balances). */
+  negative?: NegativeStyle;
+  /** Currency of this tile when it differs from the report currency. */
+  currency?: string;
+}
+
+export interface FinancialReportCheck {
+  balanced: boolean;
+  difference: number;
+  label: string;
+  /** When set, the check does not apply to the current filters — shown instead of a verdict. */
+  notApplicable?: string;
+}
+
+/**
  * The deliberate summary above a report: its key final figures, and — for
  * reports that must balance (Trial Balance, Balance Sheet) — the check with
  * the exact discrepancy, so an imbalance is never a single red word.
  */
-export type FinancialReportSummaryTone = "revenue" | "expense" | "result";
-
-export interface FinancialReportSummaryItem {
-  label: string;
-  value: number;
-  /** A final balance/total — weighted and framed as the figure that counts. */
-  emphasize?: boolean;
-  /** Category color (summary only). "result" is green/red/neutral by sign. */
-  tone?: FinancialReportSummaryTone;
-}
-
 export interface FinancialReportSummary {
   items: FinancialReportSummaryItem[];
-  check?: { balanced: boolean; difference: number; label: string };
+  check?: FinancialReportCheck;
 }
 
 /** Finds a line anywhere in the tree by id (e.g. "revenue:total"). */
@@ -132,4 +164,74 @@ export function defaultExpandedIds(lines: FinancialReportLine[]): Set<string> {
   };
   walk(lines);
   return ids;
+}
+
+const FINAL_KINDS = new Set<FinancialReportLineKind>(["grand_total", "result", "closing"]);
+
+/**
+ * Maps every line to its presentation row kind:
+ * - section → `section`; COA group / opening balance → `parent`;
+ *   account / movement rows → `detail`.
+ * - subtotal, section total and ledger closing rows → `subtotal` (stressed,
+ *   never muted — a closing balance is the block's key figure).
+ * - An in-section `result` (Balance Sheet "Current Earnings") is an
+ *   ordinary `detail` row.
+ * - Exactly ONE `grand-total` per report: the last top-level final line
+ *   (grand total / result / closing). When the report has a totals footer,
+ *   the footer is the grand total and no line is.
+ */
+export function resolveRowKinds(
+  lines: FinancialReportLine[],
+  { hasFooter = false }: { hasFooter?: boolean } = {},
+): Map<string, FinancialReportRowKind> {
+  const kinds = new Map<string, FinancialReportRowKind>();
+  let grandTotalId: string | null = null;
+  if (!hasFooter) {
+    for (const line of lines) {
+      if (FINAL_KINDS.has(line.kind)) grandTotalId = line.id;
+    }
+  }
+  const walk = (nodes: FinancialReportLine[]) => {
+    for (const line of nodes) {
+      kinds.set(line.id, rowKindOf(line, line.id === grandTotalId));
+      walk(line.children);
+    }
+  };
+  walk(lines);
+  return kinds;
+}
+
+function rowKindOf(line: FinancialReportLine, isGrandTotal: boolean): FinancialReportRowKind {
+  if (isGrandTotal) return "grand-total";
+  switch (line.kind) {
+    case "section":
+      return "section";
+    case "group":
+    case "opening":
+      return "parent";
+    case "subtotal":
+    case "section_total":
+    case "closing":
+    case "grand_total":
+      return "subtotal";
+    case "result":
+      return line.parentId === null && line.level === 0 ? "subtotal" : "detail";
+    default:
+      return "detail";
+  }
+}
+
+/**
+ * The value a cell shows for a line. A net LOSS row is already labelled
+ * "Net Loss", so its figure is shown as an absolute amount (the label carries
+ * the sign) and flagged adverse — never "Net Loss -1,000".
+ */
+export function displayAmount(
+  line: Pick<FinancialReportLine, "id" | "values">,
+  key: string,
+): { value: number | undefined; adverse: boolean } {
+  const value = line.values[key];
+  if (value === undefined) return { value: undefined, adverse: false };
+  if (line.id === "net-income" && value < 0) return { value: Math.abs(value), adverse: true };
+  return { value, adverse: false };
 }

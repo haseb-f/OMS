@@ -17,9 +17,14 @@ import {
   type PartnerPickerRow,
 } from "@/services/partners-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
-import { buildLedgerBlock, indexLedgerMovements, ledgerTextColumns } from "./ledger-lines";
+import { reportApiError } from "@/lib/toast";
+import {
+  LEDGER_COLUMNS,
+  buildLedgerBlock,
+  indexLedgerMovements,
+  ledgerSummaryItems,
+  ledgerTextColumns,
+} from "./ledger-lines";
 import { useReportQuery } from "./use-report-query";
 
 /** The URL key that keeps the selected partner across reloads and shared links. */
@@ -82,11 +87,11 @@ export function PartnerStatementTab({ role }: { role: PartnerRoleValue }) {
         await accountingReportsService.partnerStatement(partner.id, { ...params, controlType }),
       );
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      reportApiError(error, "common.noResults");
     } finally {
       setIsLoading(false);
     }
-  }, [partner, params, controlType, t]);
+  }, [partner, params, controlType]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -125,11 +130,7 @@ export function PartnerStatementTab({ role }: { role: PartnerRoleValue }) {
     <div className="flex flex-col gap-3">
       <FinancialReport
         lines={partner ? lines : []}
-        columns={[
-          { key: "debit", labelKey: "reports.finance.fields.debit" },
-          { key: "credit", labelKey: "reports.finance.fields.credit" },
-          { key: "balance", labelKey: "reports.finance.fields.runningBalance", emphasize: true },
-        ]}
+        columns={LEDGER_COLUMNS}
         textColumns={textColumns}
         nameHeaderKey="reports.finance.fields.description"
         defaultExpanded="all"
@@ -140,25 +141,7 @@ export function PartnerStatementTab({ role }: { role: PartnerRoleValue }) {
         printTitle={statement ? `${statementTitle} — ${statement.partner.name}` : statementTitle}
         exportFileName={`${role.toLowerCase()}-statement.xlsx`}
         toolbarExtra={<PartnerPicker role={role} value={partner} onChange={selectPartner} />}
-        summary={
-          statement
-            ? {
-                items: [
-                  {
-                    label: t("reports.finance.fields.openingBalance"),
-                    value: statement.openingBalance,
-                  },
-                  { label: t("reports.finance.fields.debit"), value: statement.periodDebit },
-                  { label: t("reports.finance.fields.credit"), value: statement.periodCredit },
-                  {
-                    label: t("reports.finance.fields.closingBalance"),
-                    value: statement.closingBalance,
-                    emphasize: true,
-                  },
-                ],
-              }
-            : undefined
-        }
+        summary={statement ? { items: ledgerSummaryItems(t, statement) } : undefined}
         onPostingClick={(line) => {
           const movement = movementIndex.get(line.id);
           if (movement) {

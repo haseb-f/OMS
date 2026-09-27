@@ -3,7 +3,9 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import type {
+  FinancialReportColumn,
   FinancialReportLine,
+  FinancialReportSummaryItem,
   FinancialReportTextColumn,
 } from "@/components/accounting/financial-report";
 import { RelatedRecordLink } from "@/components/shared/record-preview";
@@ -33,6 +35,48 @@ export interface LedgerBlockInput {
   periodCredit: number;
   closingBalance: number;
   movements: AccountLedgerMovement[];
+}
+
+/**
+ * Debit · Credit · Running balance — the balance is debit-positive, so it is
+ * written with a Dr/Cr side (a credit balance is a side, never a red minus).
+ */
+export const LEDGER_COLUMNS: FinancialReportColumn[] = [
+  { key: "debit", labelKey: "reports.finance.fields.debit" },
+  { key: "credit", labelKey: "reports.finance.fields.credit" },
+  {
+    key: "balance",
+    labelKey: "reports.finance.fields.runningBalance",
+    emphasize: true,
+    negative: "drcr",
+  },
+];
+
+/** Opening · Debit · Credit · Closing tiles of one ledger block (account / partner statement). */
+export function ledgerSummaryItems(
+  t: Translate,
+  totals: Pick<
+    LedgerBlockInput,
+    "openingBalance" | "periodDebit" | "periodCredit" | "closingBalance"
+  >,
+): FinancialReportSummaryItem[] {
+  return [
+    {
+      id: "openingBalance",
+      label: t("reports.finance.fields.openingBalance"),
+      value: totals.openingBalance,
+      negative: "drcr",
+    },
+    { id: "periodDebit", label: t("reports.finance.fields.debit"), value: totals.periodDebit },
+    { id: "periodCredit", label: t("reports.finance.fields.credit"), value: totals.periodCredit },
+    {
+      id: "closingBalance",
+      label: t("reports.finance.fields.closingBalance"),
+      value: totals.closingBalance,
+      emphasize: true,
+      negative: "drcr",
+    },
+  ];
 }
 
 export function movementLineId(blockId: string, movement: AccountLedgerMovement) {
@@ -143,7 +187,9 @@ export function ledgerTextColumns(
       key: "journal",
       labelKey: "reports.finance.fields.journal",
       width: 7,
-      hideBelow: "lg",
+      // Lowest-value column (the entry number already identifies the line):
+      // only on wide screens, so the account names keep their width.
+      hideBelow: "2xl",
     },
     {
       key: "entry",
@@ -205,7 +251,8 @@ export function ledgerTextColumns(
       key: "partner",
       labelKey: "reports.finance.fields.partnerName",
       width: 9,
-      hideBelow: "lg",
+      // Wide screens only, so a 1440 desktop fits the ledger without scrolling.
+      hideBelow: "2xl",
     });
   }
   return columns;

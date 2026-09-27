@@ -5,24 +5,49 @@ import { useRouter } from "next/navigation";
 import { Eye, ScrollText } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
-import { FinancialReport } from "@/components/accounting/financial-report";
-import type { FinancialReportLine } from "@/components/accounting/financial-report";
+import {
+  FinancialReport,
+  FinancialReportTable,
+  ReportPagination,
+} from "@/components/accounting/financial-report";
+import type {
+  FinancialReportColumn,
+  FinancialReportLine,
+  FinancialReportTextColumn,
+} from "@/components/accounting/financial-report";
 import {
   accountingReportsService,
   type JournalReportEntry,
 } from "@/services/accounting-reports-service";
+import { journalSourceLabelKey } from "@/config/accounting/journal-source";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError } from "@/lib/toast";
 import { formatDate } from "@/lib/date";
-import { MoneyCell } from "./shared";
+import type { ReportFilterValue } from "@/components/accounting/report-filter-bar";
 import { useReportQuery } from "./use-report-query";
+
+/** Entries per page — the range label always states which slice is shown. */
+const ENTRIES_PER_PAGE = 100;
+
+const COLUMNS: FinancialReportColumn[] = [
+  { key: "debit", labelKey: "reports.finance.fields.debit" },
+  { key: "credit", labelKey: "reports.finance.fields.credit" },
+];
+
+const TEXT_COLUMNS: FinancialReportTextColumn[] = [
+  { key: "date", labelKey: "reports.finance.fields.entryDate", width: 6.5 },
+  { key: "source", labelKey: "reports.finance.fields.sourceType", width: 11, hideBelow: "md" },
+];
+
+const NO_EXPANSION = new Set<string>();
 
 export function JournalReportTab() {
   const { t } = useLocale();
   const router = useRouter();
   const { filters, setFilters, params } = useReportQuery();
+  const [page, setPage] = useState(1);
   const [items, setItems] = useState<JournalReportEntry[]>([]);
+  const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [detail, setDetail] = useState<JournalReportEntry | null>(null);
 
@@ -31,60 +56,103 @@ export function JournalReportTab() {
     try {
       const result = await accountingReportsService.journalReport({
         ...params,
-        page: 1,
-        pageSize: 200,
+        page,
+        pageSize: ENTRIES_PER_PAGE,
         sortOrder: "desc",
       });
       setItems(result.items);
+      setTotal(result.total ?? result.items.length);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      reportApiError(error, "common.noResults");
     } finally {
       setIsLoading(false);
     }
-  }, [params, t]);
+  }, [params, page]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
+  const changeFilters = (next: ReportFilterValue) => {
+    setPage(1);
+    setFilters(next);
+  };
+
   const lines = useMemo<FinancialReportLine[]>(
     () =>
-      items.map((entry) => ({
-        id: entry.id,
+      items.map((entry) => {
+        const source = t(journalSourceLabelKey(entry.sourceType));
+        return {
+          id: entry.id,
+          parentId: null,
+          kind: "posting",
+          level: 0,
+          code: entry.entryNumber,
+          label: entry.description || source,
+          expandable: false,
+          values: {
+            debit: Number(entry.totalDebit),
+            credit: Number(entry.totalCredit),
+          },
+          text: {
+            date: formatDate(entry.entryDate),
+            source: entry.referenceNumber ? `${source} ${entry.referenceNumber}` : source,
+          },
+          children: [],
+        };
+      }),
+    [items, t],
+  );
+
+  const detailLines = useMemo<FinancialReportLine[]>(
+    () =>
+      (detail?.lines ?? []).map((line) => ({
+        id: line.id,
         parentId: null,
         kind: "posting",
         level: 0,
-        code: entry.entryNumber,
-        label: `${formatDate(entry.entryDate)} · ${entry.sourceType ?? "—"} · ${entry.description ?? ""}`,
+        code: line.account.code,
+        label: line.account.name,
         expandable: false,
-        values: {
-          debit: Number(entry.totalDebit),
-          credit: Number(entry.totalCredit),
-        },
+        values: { debit: Number(line.debit), credit: Number(line.credit) },
+        text: { description: line.description ?? "" },
         children: [],
       })),
-    [items],
+    [detail],
   );
+
+  const pageCount = Math.max(1, Math.ceil(total / ENTRIES_PER_PAGE));
 
   return (
     <>
       <FinancialReport
         lines={lines}
-        columns={[
-          { key: "debit", labelKey: "reports.finance.fields.debit" },
-          { key: "credit", labelKey: "reports.finance.fields.credit" },
-        ]}
+        columns={COLUMNS}
+        textColumns={TEXT_COLUMNS}
         isLoading={isLoading}
         filters={filters}
-        onFiltersChange={setFilters}
+        onFiltersChange={changeFilters}
         printTitle={t("reports.finance.journalReport")}
         exportFileName="journal-report.csv"
-        nameHeaderKey="reports.finance.fields.sourceDocument"
+        nameHeaderKey="reports.finance.fields.description"
         onPostingClick={(line) => {
           const match = items.find((entry) => entry.id === line.id);
           if (match) setDetail(match);
         }}
+        pagination={
+          <ReportPagination
+            rangeLabel={t("reports.finance.journal.entriesRange", {
+              from: (page - 1) * ENTRIES_PER_PAGE + 1,
+              to: Math.min(page * ENTRIES_PER_PAGE, total),
+              total,
+            })}
+            page={page}
+            pageCount={pageCount}
+            isLoading={isLoading}
+            onPageChange={setPage}
+          />
+        }
       />
 
       <EnterpriseModal
@@ -112,39 +180,27 @@ export function JournalReportTab() {
         )}
       >
         {detail ? (
-          <div className="max-h-96 overflow-y-auto rounded-md border border-border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50">
-                <tr>
-                  <th className="p-2 text-start font-medium">
-                    {t("reports.finance.fields.accountCode")}
-                  </th>
-                  <th className="p-2 text-start font-medium">
-                    {t("reports.finance.fields.accountName")}
-                  </th>
-                  <th className="p-2 text-start font-medium">
-                    {t("reports.finance.fields.description")}
-                  </th>
-                  <th className="p-2 text-end font-medium">{t("reports.finance.fields.debit")}</th>
-                  <th className="p-2 text-end font-medium">{t("reports.finance.fields.credit")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {detail.lines.map((line) => (
-                  <tr key={line.id} className="border-t border-border">
-                    <td className="p-2">{line.account.code}</td>
-                    <td className="p-2">{line.account.name}</td>
-                    <td className="p-2">{line.description ?? "—"}</td>
-                    <td className="p-2 text-end">
-                      <MoneyCell value={Number(line.debit)} />
-                    </td>
-                    <td className="p-2 text-end">
-                      <MoneyCell value={Number(line.credit)} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="overflow-hidden rounded-md border border-border">
+            <FinancialReportTable
+              lines={detailLines}
+              columns={COLUMNS}
+              textColumns={[
+                {
+                  key: "description",
+                  labelKey: "reports.finance.fields.description",
+                  width: 12,
+                  hideBelow: "md",
+                },
+              ]}
+              expanded={NO_EXPANSION}
+              onToggle={() => undefined}
+              emptyLabel={t("common.noResults")}
+              nameHeaderKey="reports.finance.fields.account"
+              footer={{
+                values: { debit: Number(detail.totalDebit), credit: Number(detail.totalCredit) },
+              }}
+              maxHeightClassName="max-h-96"
+            />
           </div>
         ) : null}
       </EnterpriseModal>

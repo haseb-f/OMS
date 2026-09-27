@@ -48,9 +48,34 @@ export interface GenericListPrintPayload {
   printedByName: string | null;
   columns: PrintColumn[];
   rows: Record<string, string>[];
+  /**
+   * Financial-report hierarchy, one entry per row (same order as `rows`):
+   * `section` bold with a top rule, `parent` medium, `detail` regular,
+   * `subtotal` bold + top hairline + light fill, `grand-total` bold + double
+   * top rule. When present the table renders without zebra striping. The
+   * indent is already carried in the label text.
+   */
+  rowKinds?: Array<"section" | "parent" | "detail" | "subtotal" | "grand-total">;
 }
 
 export type DocumentPrintVariant = "invoice" | "statement" | "receipt" | "voucher";
+
+/** One line of a journal voucher (account / description / debit / credit). */
+export interface PrintLedgerLine {
+  /** Pre-resolved "code — name". */
+  account: string;
+  description?: string;
+  debit: number;
+  credit: number;
+}
+
+/** A journal voucher's own layout — never shimmed onto invoice columns. */
+export interface PrintLedger {
+  lines: PrintLedgerLine[];
+  totalDebit: number;
+  totalCredit: number;
+  labels: { account: string; description: string; debit: string; credit: string };
+}
 
 /** Backs Invoice/Statement/Receipt/Voucher print templates — reuses the existing `DocumentData` shape (already carries its own company/branding/paper-size), so no second company-info shape is invented for this family. */
 export interface DocumentPrintPayload {
@@ -58,6 +83,13 @@ export interface DocumentPrintPayload {
   title: string;
   printedByName: string | null;
   data: DocumentData;
+  /**
+   * In-app path of the record (e.g. `/sales/invoices/<id>`). When set, the
+   * printed document carries a QR code that opens it in OMS.
+   */
+  recordPath?: string;
+  /** Set for journal vouchers — renders the account/description/debit/credit layout. */
+  ledger?: PrintLedger;
   labels: {
     documentNumber: string;
     documentDate: string;

@@ -1,4 +1,5 @@
 import { downloadBlob } from "./download";
+import type { NegativeStyle } from "./money";
 
 /**
  * The one report-export engine — every financial/operational report hands a
@@ -19,14 +20,27 @@ export interface ReportExportColumn {
   label: string;
   /** Numeric (money) column — written as a real number, never a formatted string. */
   numeric?: boolean;
+  /**
+   * Display convention of a numeric column (Excel number format): minus,
+   * parentheses or a Dr/Cr side — zero shows "—". Unset keeps the plain
+   * `#,##0.00;-#,##0.00` format.
+   */
+  negative?: NegativeStyle;
 }
 
+/** Presentation row kind (financial reports) — drives bold and rules, never zebra. */
+export type ReportExportRowKind = "section" | "parent" | "detail" | "subtotal" | "grand-total";
+
 export interface ReportExportRow {
+  /** Source line id (lets print apply line-specific display rules). */
+  id?: string;
   cells: Record<string, ReportExportCell>;
   /** Hierarchy depth, rendered as an Excel indent on the document's `indentKey` column. */
   level?: number;
   /** Group/subtotal/total rows are written bold. */
   emphasize?: boolean;
+  /** Subtotal rows get a top hairline, the grand total a double rule. */
+  kind?: ReportExportRowKind;
 }
 
 export interface ReportExportDocument {
@@ -39,10 +53,42 @@ export interface ReportExportDocument {
   indentKey?: string;
   rows: ReportExportRow[];
   /** Final totals row, written bold beneath the body. */
-  totals?: { label: string; cells: Record<string, ReportExportCell> };
+  totals?: {
+    label: string;
+    cells: Record<string, ReportExportCell>;
+    /** Column the label is written in (default: the first column). */
+    labelKey?: string;
+  };
+  /** Localized Dr/Cr side labels for `drcr` columns (default Dr / Cr). */
+  drcrLabels?: { debit: string; credit: string };
 }
 
 const MONEY_FORMAT = "#,##0.00;-#,##0.00";
+
+function excelLiteral(text: string): string {
+  return `"${text.replace(/"/g, "")}"`;
+}
+
+/**
+ * The Excel number format of a numeric column — the same convention the
+ * screen and print use (`formatAmount`), while the cell stays a raw number.
+ */
+export function excelNumberFormat(
+  column: ReportExportColumn,
+  drcrLabels: { debit: string; credit: string } = { debit: "Dr", credit: "Cr" },
+): string {
+  const zero = excelLiteral("—");
+  switch (column.negative) {
+    case "minus":
+      return `#,##0.00;-#,##0.00;${zero}`;
+    case "parens":
+      return `#,##0.00;(#,##0.00);${zero}`;
+    case "drcr":
+      return `#,##0.00 ${excelLiteral(drcrLabels.debit)};#,##0.00 ${excelLiteral(drcrLabels.credit)};${zero}`;
+    default:
+      return MONEY_FORMAT;
+  }
+}
 
 function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
@@ -58,11 +104,19 @@ function normalizeCell(column: ReportExportColumn, value: ReportExportCell): Rep
 function totalsRowCells(document: ReportExportDocument): ReportExportCell[] | null {
   if (!document.totals) return null;
   const totals = document.totals;
-  return document.columns.map((column, index) => {
+  const labelKey = totals.labelKey ?? document.columns[0]?.key;
+  return document.columns.map((column) => {
     const value = totals.cells[column.key];
-    if (index === 0 && (value === undefined || value === null || value === "")) return totals.label;
+    if (column.key === labelKey && (value === undefined || value === null || value === ""))
+      return totals.label;
     return normalizeCell(column, value);
   });
+}
+
+/** CSV has no cell indent: the hierarchy is kept as two leading spaces per level. */
+function indentText(value: ReportExportCell, level: number): ReportExportCell {
+  if (level <= 0 || typeof value !== "string" || value === "") return value;
+  return `${"  ".repeat(Math.min(level, 10))}${value}`;
 }
 
 function csvEscape(value: ReportExportCell): string {
@@ -84,10 +138,14 @@ export function buildReportCsv(document: ReportExportDocument): string {
   }
   lines.push("");
   lines.push(document.columns.map((column) => csvEscape(column.label)).join(","));
+  const indentKey = document.indentKey ?? document.columns[0]?.key;
   for (const row of document.rows) {
     lines.push(
       document.columns
-        .map((column) => csvEscape(normalizeCell(column, row.cells[column.key])))
+        .map((column) => {
+          const cell = normalizeCell(column, row.cells[column.key]);
+          return csvEscape(column.key === indentKey ? indentText(cell, row.level ?? 0) : cell);
+        })
         .join(","),
     );
   }
@@ -142,31 +200,45 @@ export async function buildReportXlsx(document: ReportExportDocument): Promise<A
     document.columns.findIndex((column) => column.key === document.indentKey),
     0,
   );
-  const writeRow = (values: ReportExportCell[], bold: boolean, level = 0) => {
+  const numberFormats = document.columns.map((column) =>
+    column.numeric ? excelNumberFormat(column, document.drcrLabels) : null,
+  );
+  const writeRow = (
+    values: ReportExportCell[],
+    bold: boolean,
+    level = 0,
+    rule?: "thin" | "double",
+  ) => {
     const row = sheet.addRow(values.map((value) => (value === undefined ? null : value)));
     document.columns.forEach((column, index) => {
       const cell = row.getCell(index + 1);
       cell.font = { ...font, bold };
-      if (column.numeric) cell.numFmt = MONEY_FORMAT;
+      const numFmt = numberFormats[index];
+      if (numFmt) cell.numFmt = numFmt;
       if (index === indentIndex && level > 0) cell.alignment = { indent: Math.min(level, 10) };
+      if (rule) {
+        cell.border = {
+          top: {
+            style: rule,
+            color: { argb: rule === "double" ? "FF0F172A" : "FF94A3B8" },
+          },
+        };
+      }
     });
     return row;
   };
 
   for (const row of document.rows) {
+    const kind = row.kind;
     writeRow(
       document.columns.map((column) => normalizeCell(column, row.cells[column.key])),
-      Boolean(row.emphasize),
+      Boolean(row.emphasize) || kind === "section" || kind === "subtotal" || kind === "grand-total",
       row.level ?? 0,
+      kind === "grand-total" ? "double" : kind === "subtotal" ? "thin" : undefined,
     );
   }
   const totals = totalsRowCells(document);
-  if (totals) {
-    const row = writeRow(totals, true);
-    row.eachCell((cell) => {
-      cell.border = { top: { style: "double", color: { argb: "FF0F172A" } } };
-    });
-  }
+  if (totals) writeRow(totals, true, 0, "double");
 
   document.columns.forEach((column, index) => {
     const longest = Math.max(

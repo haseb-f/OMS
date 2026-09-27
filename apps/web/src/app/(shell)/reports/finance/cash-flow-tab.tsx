@@ -13,16 +13,15 @@ import {
   type CashFlowView,
 } from "@/services/accounting-reports-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError } from "@/lib/toast";
 import { useReportQuery, useReportUrlParam } from "./use-report-query";
 
 const VIEWS = ["activities", "movement"] as const satisfies readonly CashFlowView[];
 
 const MOVEMENT_COLUMNS: FinancialReportColumn[] = [
   { key: "opening", labelKey: "reports.finance.fields.openingBalance" },
-  { key: "inflow", labelKey: "reports.finance.cashFlowSections.inflowsDebit", signed: false },
-  { key: "outflow", labelKey: "reports.finance.cashFlowSections.outflowsCredit", signed: false },
+  { key: "inflow", labelKey: "reports.finance.cashFlowSections.inflowsDebit" },
+  { key: "outflow", labelKey: "reports.finance.cashFlowSections.outflowsCredit" },
   { key: "netChange", labelKey: "reports.finance.fields.netChange" },
   { key: "closing", labelKey: "reports.finance.fields.closingBalance", emphasize: true },
 ];
@@ -43,11 +42,11 @@ export function CashFlowTab() {
     try {
       setResult(await accountingReportsService.cashFlow({ ...params, view }));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      reportApiError(error, "common.noResults");
     } finally {
       setIsLoading(false);
     }
-  }, [params, view, t]);
+  }, [params, view]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -64,17 +63,28 @@ export function CashFlowTab() {
     ? {
         items: [
           {
+            id: "openingCash",
             label: t("reports.finance.cashFlowSections.openingCash"),
             value: totals?.openingBalance ?? 0,
           },
-          { label: t("reports.finance.cashFlowSections.inflows"), value: totals?.inflows ?? 0 },
-          { label: t("reports.finance.cashFlowSections.outflows"), value: totals?.outflows ?? 0 },
           {
+            id: "inflows",
+            label: t("reports.finance.cashFlowSections.inflows"),
+            value: totals?.inflows ?? 0,
+          },
+          {
+            id: "outflows",
+            label: t("reports.finance.cashFlowSections.outflows"),
+            value: totals?.outflows ?? 0,
+          },
+          {
+            id: "netChange",
             label: t("reports.finance.cashFlowSections.netChange"),
             value: totals?.netCashChange ?? 0,
             tone: "result",
           },
           {
+            id: "closingCash",
             label: t("reports.finance.cashFlowSections.closingCash"),
             value: totals?.closingBalance ?? 0,
             emphasize: true,
@@ -84,15 +94,18 @@ export function CashFlowTab() {
     : {
         items: [
           {
+            id: "openingCash",
             label: t("reports.finance.cashFlowSections.openingCash"),
             value: findLine(lines, "cf-opening")?.values.balance ?? 0,
           },
           {
+            id: "netChange",
             label: t("reports.finance.cashFlowSections.netChange"),
             value: findLine(lines, "cf-net")?.values.balance ?? 0,
             tone: "result",
           },
           {
+            id: "closingCash",
             label: t("reports.finance.cashFlowSections.closingCash"),
             value: findLine(lines, "cf-closing")?.values.balance ?? 0,
             emphasize: true,

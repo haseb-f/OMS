@@ -1,18 +1,67 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   accountingReportsService,
   type CashAvailabilityResult,
 } from "@/services/accounting-reports-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
-import { formatMoney } from "@/lib/money";
+import { reportApiError } from "@/lib/toast";
 import { EnterpriseBadge } from "@/components/ui/badge";
-import { AccountingReportFilterBar } from "@/components/accounting/report-filter-bar";
+import { FinancialReport } from "@/components/accounting/financial-report";
+import type { MessageKey } from "@/i18n/translate";
+import type {
+  FinancialReportColumn,
+  FinancialReportLine,
+  FinancialReportSummaryItem,
+} from "@/components/accounting/financial-report";
 import { useReportQuery } from "./use-report-query";
 
+const COLUMNS: FinancialReportColumn[] = [
+  { key: "bookBalance", labelKey: "reports.finance.cashAvailabilityReport.bookBalance" },
+  { key: "holds", labelKey: "reports.finance.cashAvailabilityReport.holds" },
+  { key: "committed", labelKey: "reports.finance.cashAvailabilityReport.committed" },
+  {
+    key: "available",
+    labelKey: "reports.finance.cashAvailabilityReport.available",
+    emphasize: true,
+  },
+  { key: "egpAvailable", labelKey: "reports.finance.cashAvailabilityReport.egpAvailable" },
+];
+
+/**
+ * The API states its formula and limitations as English prose. The known
+ * ones are recognised by their leading term and shown from the dictionary;
+ * only text the web layer does not know yet falls back to the API's own.
+ */
+const KNOWN_NOTES: Array<{ prefix: string; key: MessageKey }> = [
+  { prefix: "availableToSpend =", key: "reports.finance.cashAvailabilityReport.formula" },
+  {
+    prefix: "recordedHolds",
+    key: "reports.finance.cashAvailabilityReport.limitations.holdsNotTracked",
+  },
+  {
+    prefix: "bankConfirmedAvailable",
+    key: "reports.finance.cashAvailabilityReport.limitations.notBankConfirmed",
+  },
+  {
+    prefix: "EGP equivalents",
+    key: "reports.finance.cashAvailabilityReport.limitations.egpRates",
+  },
+];
+
+function localizeCashAvailabilityNote(text: string, t: (key: MessageKey) => string): string {
+  const known = KNOWN_NOTES.find((note) => text.trim().startsWith(note.prefix));
+  return known ? t(known.key) : text;
+}
+
+/**
+ * Cash & bank availability (an estimate) — one section per currency (its
+ * accounts, then the currency total), the EGP consolidated figure as the
+ * grand total. Only the filters the API reads (as-of date, currency) are
+ * shown. Amounts are stated per currency (never summed across currencies);
+ * the EGP column is the converted equivalent where a rate exists.
+ */
 export function CashAvailabilityTab() {
   const { t } = useLocale();
   const { filters, setFilters, params } = useReportQuery();
@@ -29,129 +78,144 @@ export function CashAvailabilityTab() {
         }),
       );
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      reportApiError(error, "common.noResults");
       setResult(null);
     } finally {
       setIsLoading(false);
     }
-  }, [params.currencyId, params.dateTo, t]);
+  }, [params.currencyId, params.dateTo]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
+  const lines = useMemo<FinancialReportLine[]>(() => {
+    if (!result || result.accounts.length === 0) return [];
+    const currencies = [
+      ...new Set([
+        ...result.totalsByCurrency.map((total) => total.currencyCode),
+        ...result.accounts.map((row) => row.currencyCode),
+      ]),
+    ];
+    const sections = currencies.map((currencyCode): FinancialReportLine => {
+      const sectionId = `ccy:${currencyCode}`;
+      const total = result.totalsByCurrency.find((row) => row.currencyCode === currencyCode);
+      const accounts = result.accounts
+        .filter((row) => row.currencyCode === currencyCode)
+        .map((row): FinancialReportLine => ({
+          id: `${sectionId}:${row.receivingAccountId}`,
+          parentId: sectionId,
+          kind: "posting",
+          level: 1,
+          code: row.accountCode,
+          label: row.accountName,
+          expandable: false,
+          values: {
+            bookBalance: row.bookBalance,
+            holds: row.recordedHolds,
+            committed: row.committedOutgoing,
+            available: row.availableToSpend,
+            ...(row.egpEquivalent.availableToSpend == null
+              ? {}
+              : { egpAvailable: row.egpEquivalent.availableToSpend }),
+          },
+          children: [],
+        }));
+      const totalValues: Record<string, number> = total
+        ? { bookBalance: total.book, available: total.available }
+        : {};
+      const totalLabel = t("reports.finance.cashAvailabilityReport.currencyTotal", {
+        currency: currencyCode,
+      });
+      return {
+        id: sectionId,
+        parentId: null,
+        kind: "section",
+        level: 0,
+        label: currencyCode,
+        expandable: accounts.length > 0,
+        values: totalValues,
+        children: [
+          ...accounts,
+          {
+            id: `${sectionId}:total`,
+            parentId: sectionId,
+            kind: "section_total",
+            level: 1,
+            label: totalLabel,
+            labelEn: totalLabel,
+            expandable: false,
+            values: totalValues,
+            children: [],
+          },
+        ],
+      };
+    });
+    const grandLabel = t("reports.finance.cashAvailabilityReport.egpConsolidated");
+    return [
+      ...sections,
+      {
+        id: "cash-egp-consolidated",
+        parentId: null,
+        kind: "grand_total",
+        level: 0,
+        label: grandLabel,
+        labelEn: grandLabel,
+        expandable: false,
+        values: { egpAvailable: result.egpConsolidated.availableToSpend },
+        children: [],
+      },
+    ];
+  }, [result, t]);
+
+  const summaryItems: FinancialReportSummaryItem[] = result
+    ? [
+        ...result.totalsByCurrency.map((total) => ({
+          id: `available:${total.currencyCode}`,
+          label: t("reports.finance.cashAvailabilityReport.available"),
+          value: total.available,
+          currency: total.currencyCode,
+        })),
+        {
+          id: "egpConsolidated",
+          label: t("reports.finance.cashAvailabilityReport.egpConsolidated"),
+          value: result.egpConsolidated.availableToSpend,
+          currency: "EGP",
+          emphasize: true,
+        },
+      ]
+    : [];
+
   return (
-    <div className="flex flex-col gap-3">
-      <AccountingReportFilterBar value={filters} onChange={setFilters} />
-
-      <div className="flex flex-wrap items-center gap-2">
-        <EnterpriseBadge variant="warning">
-          {t("reports.finance.cashAvailabilityReport.estimateBadge")}
-        </EnterpriseBadge>
-        {result ? (
-          <p className="text-caption text-muted-foreground">
-            {result.formula}. {result.limitations[1]}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="overflow-x-auto rounded-md border border-border">
-        <table className="w-full min-w-[48rem] text-start text-body">
-          <thead className="bg-muted/40 text-caption text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2 font-medium">
-                {t("reports.finance.cashAvailabilityReport.account")}
-              </th>
-              <th className="px-3 py-2 font-medium">
-                {t("reports.finance.cashAvailabilityReport.currency")}
-              </th>
-              <th className="px-3 py-2 text-end font-medium">
-                {t("reports.finance.cashAvailabilityReport.bookBalance")}
-              </th>
-              <th className="px-3 py-2 text-end font-medium">
-                {t("reports.finance.cashAvailabilityReport.holds")}
-              </th>
-              <th className="px-3 py-2 text-end font-medium">
-                {t("reports.finance.cashAvailabilityReport.committed")}
-              </th>
-              <th className="px-3 py-2 text-end font-medium">
-                {t("reports.finance.cashAvailabilityReport.available")}
-              </th>
-              <th className="px-3 py-2 text-end font-medium">
-                {t("reports.finance.cashAvailabilityReport.egpAvailable")}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-muted-foreground">
-                  {t("common.loading")}
-                </td>
-              </tr>
-            ) : !result?.accounts.length ? (
-              <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-muted-foreground">
-                  {t("reports.finance.cashAvailabilityReport.empty")}
-                </td>
-              </tr>
-            ) : (
-              result.accounts.map((row) => (
-                <tr key={row.receivingAccountId} className="border-t border-border">
-                  <td className="px-3 py-2">
-                    <div className="font-medium">{row.accountName}</div>
-                    <div className="text-caption text-muted-foreground" dir="ltr">
-                      {row.accountCode}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2" dir="ltr">
-                    {row.currencyCode}
-                  </td>
-                  <td className="px-3 py-2 text-end" dir="ltr">
-                    {formatMoney(row.bookBalance, row.currencyCode)}
-                  </td>
-                  <td className="px-3 py-2 text-end" dir="ltr">
-                    {formatMoney(row.recordedHolds, row.currencyCode)}
-                  </td>
-                  <td className="px-3 py-2 text-end" dir="ltr">
-                    {formatMoney(row.committedOutgoing, row.currencyCode)}
-                  </td>
-                  <td className="px-3 py-2 text-end font-semibold" dir="ltr">
-                    {formatMoney(row.availableToSpend, row.currencyCode)}
-                  </td>
-                  <td className="px-3 py-2 text-end" dir="ltr">
-                    {row.egpEquivalent.availableToSpend == null
-                      ? "—"
-                      : formatMoney(row.egpEquivalent.availableToSpend, "EGP")}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {result ? (
-        <div className="flex flex-wrap gap-4 rounded-md border border-border bg-muted/20 px-3 py-2 text-caption">
-          {result.totalsByCurrency.map((total) => (
-            <div key={total.currencyCode} dir="ltr">
-              <span className="text-muted-foreground">{total.currencyCode}: </span>
-              <span className="font-medium">
-                {formatMoney(total.available, total.currencyCode)}
-              </span>
-            </div>
-          ))}
-          <div dir="ltr">
-            <span className="text-muted-foreground">
-              {t("reports.finance.cashAvailabilityReport.egpConsolidated")}:{" "}
+    <FinancialReport
+      lines={lines}
+      columns={COLUMNS}
+      isLoading={isLoading}
+      filters={filters}
+      onFiltersChange={setFilters}
+      filterFields={["currency", "asOf"]}
+      // Mixed currencies: each section / tile names its own currency.
+      currency=""
+      defaultExpanded="all"
+      printTitle={t("reports.finance.cashAvailability")}
+      exportFileName="cash-availability.xlsx"
+      summary={result ? { items: summaryItems } : undefined}
+      notice={
+        <div className="flex flex-wrap items-center gap-2">
+          <EnterpriseBadge variant="warning">
+            {t("reports.finance.cashAvailabilityReport.estimateBadge")}
+          </EnterpriseBadge>
+          {result ? (
+            <span>
+              {[result.formula, ...result.limitations]
+                .filter(Boolean)
+                .map((note) => localizeCashAvailabilityNote(note, t))
+                .join(" · ")}
             </span>
-            <span className="font-semibold">
-              {formatMoney(result.egpConsolidated.availableToSpend, "EGP")}
-            </span>
-          </div>
+          ) : null}
         </div>
-      ) : null}
-    </div>
+      }
+    />
   );
 }

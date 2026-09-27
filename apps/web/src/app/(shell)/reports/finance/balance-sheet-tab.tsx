@@ -7,9 +7,9 @@ import {
   type HierarchicalReportLine,
 } from "@/services/accounting-reports-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError } from "@/lib/toast";
 import { useReportQuery } from "./use-report-query";
+import { accountStatementHref } from "./report-url";
 
 export function BalanceSheetTab() {
   const { t } = useLocale();
@@ -30,11 +30,11 @@ export function BalanceSheetTab() {
       setLines(result.lines ?? []);
       setTotals(result.totals);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      reportApiError(error, "common.noResults");
     } finally {
       setIsLoading(false);
     }
-  }, [params, t]);
+  }, [params]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -48,18 +48,43 @@ export function BalanceSheetTab() {
       isLoading={isLoading}
       filters={filters}
       onFiltersChange={setFilters}
+      // Point-in-time: the Balance Sheet reads only an "as of" date.
+      filterFields={[
+        "company",
+        "branch",
+        "costCenter",
+        "project",
+        "currency",
+        "asOf",
+        "postedOnly",
+      ]}
+      rowHref={(line) =>
+        line.accountId && line.kind === "posting"
+          ? accountStatementHref(line.accountId, filters)
+          : null
+      }
       printTitle={t("reports.finance.balanceSheet")}
       exportFileName="balance-sheet.csv"
       summary={{
         items: [
           {
+            id: "totalAssets",
             label: t("reports.finance.fields.totalAssets"),
             value: totals.totalAssets,
             emphasize: true,
           },
-          { label: t("reports.finance.fields.totalLiabilities"), value: totals.totalLiabilities },
-          { label: t("reports.finance.fields.totalEquity"), value: totals.totalEquity },
           {
+            id: "totalLiabilities",
+            label: t("reports.finance.fields.totalLiabilities"),
+            value: totals.totalLiabilities,
+          },
+          {
+            id: "totalEquity",
+            label: t("reports.finance.fields.totalEquity"),
+            value: totals.totalEquity,
+          },
+          {
+            id: "totalLiabilitiesAndEquity",
             label: t("reports.finance.fields.totalLiabilitiesAndEquity"),
             value: totals.totalLiabilities + totals.totalEquity,
             emphasize: true,

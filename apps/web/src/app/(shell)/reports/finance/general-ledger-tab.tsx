@@ -1,9 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { EnterpriseButton } from "@/components/ui/button";
-import { FinancialReport } from "@/components/accounting/financial-report";
+import { FinancialReport, ReportPagination } from "@/components/accounting/financial-report";
 import type { ReportFilterValue } from "@/components/accounting/report-filter-bar";
 import { MultiEntityFilter } from "@/components/shared/data-table/multi-entity-filter";
 import { useOpenFullRecord } from "@/components/shared/record-preview";
@@ -14,9 +12,13 @@ import {
 import { createMasterDataService } from "@/services/master-data-service";
 import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
-import { buildLedgerBlock, indexLedgerMovements, ledgerTextColumns } from "./ledger-lines";
+import { reportApiError } from "@/lib/toast";
+import {
+  LEDGER_COLUMNS,
+  buildLedgerBlock,
+  indexLedgerMovements,
+  ledgerTextColumns,
+} from "./ledger-lines";
 import { useReportQuery } from "./use-report-query";
 
 const accountsService = createMasterDataService<ChartOfAccountRow>("/chart-of-accounts");
@@ -54,11 +56,11 @@ export function GeneralLedgerTab() {
         }),
       );
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      reportApiError(error, "common.noResults");
     } finally {
       setIsLoading(false);
     }
-  }, [params, accountIds, page, t]);
+  }, [params, accountIds, page]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -105,11 +107,7 @@ export function GeneralLedgerTab() {
   return (
     <FinancialReport
       lines={lines}
-      columns={[
-        { key: "debit", labelKey: "reports.finance.fields.debit" },
-        { key: "credit", labelKey: "reports.finance.fields.credit" },
-        { key: "balance", labelKey: "reports.finance.fields.runningBalance", emphasize: true },
-      ]}
+      columns={LEDGER_COLUMNS}
       textColumns={textColumns}
       nameHeaderKey="reports.finance.fields.account"
       // A handful of selected accounts open straight to their movements; the
@@ -147,24 +145,28 @@ export function GeneralLedgerTab() {
       summary={
         result
           ? {
+              // Period debits / credits are the figures that count; the net
+              // opening / closing of many accounts is ~0 and stays in the footer.
               items: [
-                { label: t("reports.finance.fields.openingBalance"), value: totals.openingBalance },
-                { label: t("reports.finance.fields.debit"), value: totals.periodDebit },
-                { label: t("reports.finance.fields.credit"), value: totals.periodCredit },
                 {
-                  label: t("reports.finance.fields.closingBalance"),
-                  value: totals.closingBalance,
-                  emphasize: true,
+                  id: "periodDebit",
+                  label: t("reports.finance.fields.debitTotal"),
+                  value: totals.periodDebit,
+                },
+                {
+                  id: "periodCredit",
+                  label: t("reports.finance.fields.creditTotal"),
+                  value: totals.periodCredit,
                 },
               ],
-              check:
-                accounts.length === 0
-                  ? {
-                      balanced: result.balanced,
-                      difference: totals.periodDebit - totals.periodCredit,
-                      label: t("docFlow.reports.debitsEqualCredits"),
-                    }
-                  : undefined,
+              check: {
+                balanced: result.balanced,
+                difference: totals.periodDebit - totals.periodCredit,
+                label: t("docFlow.reports.debitsEqualCredits"),
+                // Selected accounts never balance on their own — say so.
+                notApplicable:
+                  accounts.length > 0 ? t("reports.finance.checkFilteredAccounts") : undefined,
+              },
             }
           : undefined
       }
@@ -176,37 +178,17 @@ export function GeneralLedgerTab() {
         },
       }}
       pagination={
-        pageCount > 1 ? (
-          <div className="flex items-center justify-end gap-2 border-t border-border px-3 py-2 text-caption text-muted-foreground">
-            <span>
-              {t("reports.finance.ledger.accountsRange", {
-                from: (page - 1) * ACCOUNTS_PER_PAGE + 1,
-                to: Math.min(page * ACCOUNTS_PER_PAGE, total),
-                total,
-              })}
-            </span>
-            <EnterpriseButton
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={page <= 1 || isLoading}
-              onClick={() => setPage((current) => current - 1)}
-              aria-label={t("common.previous")}
-            >
-              <ChevronRight className="size-3.5 ltr:rotate-180" />
-            </EnterpriseButton>
-            <EnterpriseButton
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={page >= pageCount || isLoading}
-              onClick={() => setPage((current) => current + 1)}
-              aria-label={t("common.next")}
-            >
-              <ChevronLeft className="size-3.5 ltr:rotate-180" />
-            </EnterpriseButton>
-          </div>
-        ) : null
+        <ReportPagination
+          rangeLabel={t("reports.finance.ledger.accountsRange", {
+            from: (page - 1) * ACCOUNTS_PER_PAGE + 1,
+            to: Math.min(page * ACCOUNTS_PER_PAGE, total),
+            total,
+          })}
+          page={page}
+          pageCount={pageCount}
+          isLoading={isLoading}
+          onPageChange={setPage}
+        />
       }
     />
   );

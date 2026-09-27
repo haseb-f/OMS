@@ -22,16 +22,15 @@ import {
   type WarehouseBalanceRow,
 } from "@/services/inventory-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError } from "@/lib/toast";
 import { formatDateTime } from "@/lib/date";
+import { formatAmount } from "@/lib/money";
 import type { MessageKey } from "@/i18n/translate";
 import { PermissionGate } from "@/components/shared/permission-gate";
 
+/** Latin digits in both languages (shared formatter); unknown cost stays "—". */
 function formatMoney(value: number | null) {
-  return value === null
-    ? "—"
-    : value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return value === null ? "—" : formatAmount(value);
 }
 
 /** Shared CSV-export wiring for every tab on this page — builds display-value rows straight from each tab's own `accessorFn`, never a second hand-written mapping. */
@@ -71,16 +70,13 @@ function ReportsInventoryPageContent() {
         setStockCards(stockRows);
         setWarehouseBalances(balanceRows);
       })
-      .catch((error) =>
-        toast.error(error instanceof ApiError ? error.message : t("common.noResults")),
-      )
+      .catch((error) => reportApiError(error, "common.noResults"))
       .finally(() => setIsLoading(false));
   };
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const negativeStock = useMemo(() => stockCards.filter((row) => row.onHand < 0), [stockCards]);

@@ -1,15 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { FinancialReport } from "@/components/accounting/financial-report";
+import {
+  FinancialReport,
+  type FinancialReportColumn,
+} from "@/components/accounting/financial-report";
 import {
   accountingReportsService,
   type HierarchicalReportLine,
 } from "@/services/accounting-reports-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { ApiError } from "@/services/api-client";
+import { reportApiError } from "@/lib/toast";
 import { useReportQuery } from "./use-report-query";
+import { accountStatementHref } from "./report-url";
 
 export function TrialBalanceTab() {
   const { t } = useLocale();
@@ -43,29 +46,37 @@ export function TrialBalanceTab() {
         result.balanced ?? Math.abs(result.totals.debitTotal - result.totals.creditTotal) < 0.01,
       );
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t("common.noResults"));
+      reportApiError(error, "common.noResults");
     } finally {
       setIsLoading(false);
     }
-  }, [params, includeOpeningBalance, t]);
+  }, [params, includeOpeningBalance]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
-  const columns = includeOpeningBalance
-    ? [
-        { key: "opening", labelKey: "reports.finance.fields.openingBalance" },
-        { key: "debit", labelKey: "reports.finance.fields.debit" },
-        { key: "credit", labelKey: "reports.finance.fields.credit" },
-        { key: "closing", labelKey: "reports.finance.fields.closingBalance", emphasize: true },
-      ]
-    : [
-        { key: "debit", labelKey: "reports.finance.fields.debit" },
-        { key: "credit", labelKey: "reports.finance.fields.credit" },
-        { key: "closing", labelKey: "reports.finance.fields.closingBalance", emphasize: true },
-      ];
+  // Balances are debit-positive: shown with a Dr/Cr side, never a red minus.
+  const columns: FinancialReportColumn[] = [
+    ...(includeOpeningBalance
+      ? [
+          {
+            key: "opening",
+            labelKey: "reports.finance.fields.openingBalance",
+            negative: "drcr" as const,
+          },
+        ]
+      : []),
+    { key: "debit", labelKey: "reports.finance.fields.debit" },
+    { key: "credit", labelKey: "reports.finance.fields.credit" },
+    {
+      key: "closing",
+      labelKey: "reports.finance.fields.closingBalance",
+      emphasize: true,
+      negative: "drcr",
+    },
+  ];
 
   return (
     <FinancialReport
@@ -76,16 +87,26 @@ export function TrialBalanceTab() {
       onFiltersChange={setFilters}
       includeOpeningBalance={includeOpeningBalance}
       onIncludeOpeningBalanceChange={setIncludeOpeningBalance}
+      rowHref={(line) =>
+        line.accountId && line.kind === "posting"
+          ? accountStatementHref(line.accountId, filters)
+          : null
+      }
       printTitle={t("reports.finance.trialBalance")}
       exportFileName="trial-balance.csv"
       summary={{
+        // Period debits and credits are the figures that count; the net
+        // closing balance of all accounts is ~0 by construction (footer).
         items: [
-          { label: t("reports.finance.fields.debit"), value: totals.debitTotal },
-          { label: t("reports.finance.fields.credit"), value: totals.creditTotal },
           {
-            label: t("reports.finance.fields.closingBalance"),
-            value: totals.closingBalance,
-            emphasize: true,
+            id: "debitTotal",
+            label: t("reports.finance.fields.debitTotal"),
+            value: totals.debitTotal,
+          },
+          {
+            id: "creditTotal",
+            label: t("reports.finance.fields.creditTotal"),
+            value: totals.creditTotal,
           },
         ],
         check: {

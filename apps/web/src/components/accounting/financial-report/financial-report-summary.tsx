@@ -1,124 +1,163 @@
 "use client";
 
-import { CheckCircle2, TriangleAlert } from "lucide-react";
+import { EnterpriseBadge } from "@/components/ui/badge";
+import { formatAmountParts } from "@/lib/money";
 import { useLocale } from "@/providers/locale-provider";
+import { clsx as cx } from "clsx";
 import { cn } from "@/lib/utils";
+import { useDrCrLabels } from "./use-report-format";
+import { resolveSummaryTone, type ResolvedSummaryTone } from "./summary-format";
 import type {
+  FinancialReportCheck,
   FinancialReportSummary as Summary,
   FinancialReportSummaryItem,
-  FinancialReportSummaryTone,
 } from "./types";
 
-const ZERO = 0.005;
-
-type ResolvedTone = "revenue" | "expense" | "profit" | "loss" | "neutral";
-
-/** Category color lives in the summary only — a net result is green when
- *  positive, red when negative and neutral at zero. */
-function resolveTone(tone: FinancialReportSummaryTone | undefined, value: number): ResolvedTone {
-  if (tone === "revenue" || tone === "expense") return tone;
-  if (tone === "result") {
-    if (value > ZERO) return "profit";
-    if (value < -ZERO) return "loss";
-  }
-  return "neutral";
-}
-
-const TONE_CLASS: Record<ResolvedTone, { tile: string; value: string }> = {
+const TONE_CLASS: Record<ResolvedSummaryTone, { tile: string; value: string }> = {
   revenue: { tile: "border-s-report-revenue bg-report-revenue-soft", value: "text-report-revenue" },
   expense: { tile: "border-s-report-expense bg-report-expense-soft", value: "text-report-expense" },
   profit: { tile: "border-s-report-profit bg-report-profit-soft", value: "text-report-profit" },
   loss: { tile: "border-s-report-loss bg-report-loss-soft", value: "text-report-loss" },
-  neutral: { tile: "border-s-border bg-card", value: "text-foreground" },
+  neutral: { tile: "border-s-border-strong bg-card", value: "text-foreground" },
 };
 
-function formatAmount(value: number): string {
-  return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
+const TILE =
+  "flex min-w-0 flex-col justify-center gap-0.5 rounded-sm border border-border border-s-2 px-2 py-1.5 sm:px-3 sm:py-2";
 
-function SummaryTile({ item }: { item: FinancialReportSummaryItem }) {
-  const tone = resolveTone(item.tone, item.value);
-  const zero = Math.abs(item.value) < ZERO;
+function TileFigure({
+  figure,
+  suffix,
+  className,
+}: {
+  figure: string;
+  suffix: string;
+  className?: string;
+}) {
   return (
-    <div
-      data-tone={tone}
-      className={cn(
-        "flex min-w-0 flex-col justify-center rounded-sm border border-border border-s-[3px] px-3 py-1.5",
-        TONE_CLASS[tone].tile,
-        item.emphasize && "ring-1 ring-foreground/10",
+    // clsx, not cn: tailwind-merge would drop `text-metric` next to a text color.
+    // Phones: a smaller figure so two tiles fit side by side without clipping.
+    <span
+      className={cx(
+        "flex min-w-0 items-baseline gap-1 text-metric max-sm:text-card-title",
+        className,
       )}
     >
-      <span className="truncate text-micro text-muted-foreground" title={item.label}>
+      <span className="num truncate">{figure}</span>
+      {suffix ? (
+        <span className="shrink-0 text-caption font-normal text-muted-foreground">{suffix}</span>
+      ) : null}
+    </span>
+  );
+}
+
+function SummaryTile({ item, currency }: { item: FinancialReportSummaryItem; currency: string }) {
+  const drcrLabels = useDrCrLabels();
+  const tone = resolveSummaryTone(item.tone, item.value);
+  const parts = formatAmountParts(item.value, {
+    negative: item.negative ?? "minus",
+    zero: "dash",
+    drcrLabels,
+  });
+  const suffix = [parts.side, item.currency ?? currency].filter(Boolean).join(" ");
+  return (
+    <div
+      id={`report-summary-${item.id}`}
+      data-summary-id={item.id}
+      data-tone={tone}
+      className={cn(TILE, TONE_CLASS[tone].tile)}
+    >
+      <span className="truncate text-caption text-muted-foreground" title={item.label}>
         {item.label}
       </span>
-      <span
-        className={cn(
-          "text-body tabular-nums",
-          item.emphasize ? "font-semibold" : "font-medium",
-          zero ? "text-muted-foreground" : TONE_CLASS[tone].value,
-        )}
-      >
-        <span dir="ltr" className="[unicode-bidi:isolate]">
-          {zero ? "0.00" : formatAmount(item.value)}
+      <TileFigure
+        figure={parts.figure}
+        suffix={parts.isZero ? "" : suffix}
+        className={parts.isZero ? "text-muted-foreground" : TONE_CLASS[tone].value}
+      />
+    </div>
+  );
+}
+
+/** The balance check as a deliberate tile: verdict badge + the exact discrepancy. */
+function CheckTile({ check, currency }: { check: FinancialReportCheck; currency: string }) {
+  const { t } = useLocale();
+  const parts = formatAmountParts(Math.abs(check.difference), { zero: "dash" });
+  const notApplicable = Boolean(check.notApplicable);
+  return (
+    <div
+      id="report-summary-check"
+      data-summary-id="check"
+      role="status"
+      data-balanced={notApplicable ? undefined : check.balanced}
+      className={cn(
+        TILE,
+        notApplicable
+          ? "border-s-border-strong bg-card"
+          : check.balanced
+            ? "border-s-success bg-card"
+            : "border-destructive-border border-s-destructive bg-destructive-soft",
+      )}
+    >
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="truncate text-caption text-muted-foreground" title={check.label}>
+          {check.label}
         </span>
+        <EnterpriseBadge
+          variant={notApplicable ? "secondary" : check.balanced ? "success" : "destructive"}
+        >
+          {notApplicable
+            ? t("reports.finance.checkNotApplicable")
+            : check.balanced
+              ? t("reports.finance.balanced")
+              : t("reports.finance.unbalanced")}
+        </EnterpriseBadge>
       </span>
+      {notApplicable ? (
+        <span className="truncate text-caption text-muted-foreground" title={check.notApplicable}>
+          {check.notApplicable}
+        </span>
+      ) : (
+        <span className="flex min-w-0 items-baseline gap-1">
+          <span className="shrink-0 text-caption text-muted-foreground">
+            {t("reports.finance.discrepancy")}
+          </span>
+          <TileFigure
+            figure={parts.figure}
+            suffix={parts.isZero ? "" : currency}
+            className={
+              check.balanced ? "text-muted-foreground" : "text-destructive-soft-foreground"
+            }
+          />
+        </span>
+      )}
     </div>
   );
 }
 
 /**
- * The report's final figures as one compact card row above the table —
+ * The report's final figures as one compact strip above the grid —
  * revenue / expenses / net result carry their category color here and
- * nowhere else. Reports that must balance show the check as the last tile,
- * with the exact discrepancy when they don't.
+ * nowhere else. Reports that must balance show the check as a dedicated
+ * tile with the exact discrepancy.
  */
-export function FinancialReportSummary({ summary }: { summary: Summary }) {
-  const { t } = useLocale();
-  const check = summary.check;
+export function FinancialReportSummary({
+  summary,
+  currency,
+}: {
+  summary: Summary;
+  /** Report currency shown with every figure (ISO code). */
+  currency: string;
+}) {
   return (
-    <div className="grid grid-cols-2 gap-2 border-b border-border bg-muted/20 px-3 py-2 sm:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]">
+    <div
+      data-slot="report-summary"
+      // Phones: a compact two-column grid, so the report rows start on the first screen.
+      className="grid grid-cols-2 gap-1.5 border-b border-border px-3 py-2 sm:grid-cols-[repeat(auto-fit,minmax(12rem,1fr))] sm:gap-2"
+    >
       {summary.items.map((item) => (
-        <SummaryTile key={item.label} item={item} />
+        <SummaryTile key={item.id} item={item} currency={currency} />
       ))}
-      {check ? (
-        <div
-          role="status"
-          className={cn(
-            "flex min-w-0 items-center gap-2 rounded-sm border border-s-[3px] px-3 py-1.5",
-            check.balanced
-              ? "border-border border-s-success bg-success-soft"
-              : "border-destructive/40 border-s-destructive bg-destructive-soft",
-          )}
-        >
-          {check.balanced ? (
-            <CheckCircle2 className="size-4 shrink-0 text-report-profit" />
-          ) : (
-            <TriangleAlert className="size-4 shrink-0 text-report-loss" />
-          )}
-          <div className="flex min-w-0 flex-col">
-            <span className="truncate text-micro text-muted-foreground" title={check.label}>
-              {check.label}
-            </span>
-            <span
-              className={cn(
-                "text-body font-semibold",
-                check.balanced ? "text-report-profit" : "text-report-loss",
-              )}
-            >
-              {check.balanced ? (
-                t("reports.finance.balanced")
-              ) : (
-                <>
-                  {t("docFlow.reports.unbalancedBy")}{" "}
-                  <span dir="ltr" className="tabular-nums [unicode-bidi:isolate]">
-                    {formatAmount(Math.abs(check.difference))}
-                  </span>
-                </>
-              )}
-            </span>
-          </div>
-        </div>
-      ) : null}
+      {summary.check ? <CheckTile check={summary.check} currency={currency} /> : null}
     </div>
   );
 }

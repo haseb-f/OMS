@@ -2,15 +2,22 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import {
-  EMPTY_REPORT_FILTERS,
-  type ReportFilterValue,
-} from "@/components/accounting/report-filter-bar";
+import type { ReportFilterValue } from "@/components/accounting/report-filter-bar";
 import { toISODate } from "@/lib/date";
 import type { ReportFilterParams } from "@/services/accounting-reports-service";
+import { filtersFromSearchParams, writeFiltersToSearchParams } from "./report-url";
 
+/**
+ * A report tab's filters: initialised from the URL (a drill-down, reload or
+ * shared link lands on the same scope) and written back to it on change.
+ */
 export function useReportQuery() {
-  const [filters, setFilters] = useState<ReportFilterValue>(EMPTY_REPORT_FILTERS);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [filters, setFilters] = useState<ReportFilterValue>(() =>
+    filtersFromSearchParams(searchParams),
+  );
 
   const params = useMemo<ReportFilterParams>(
     () => ({
@@ -26,9 +33,17 @@ export function useReportQuery() {
     [filters],
   );
 
-  const setReportFilters = useCallback((next: ReportFilterValue) => {
-    setFilters(next);
-  }, []);
+  const setReportFilters = useCallback(
+    (next: ReportFilterValue) => {
+      setFilters(next);
+      const query = writeFiltersToSearchParams(
+        next,
+        new URLSearchParams(window.location.search),
+      ).toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    },
+    [pathname, router],
+  );
 
   return { filters, setFilters: setReportFilters, params };
 }
