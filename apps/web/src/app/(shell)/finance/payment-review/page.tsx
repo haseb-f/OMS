@@ -199,7 +199,11 @@ function PaymentReviewPageContent() {
     () => [
       {
         id: "paymentNumber",
-        meta: { titleKey: "finance.paymentReview.fields.number" },
+        meta: {
+          titleKey: "finance.paymentReview.fields.number",
+          identity: true,
+          type: "reference",
+        },
         cell: ({ row }) => (
           <RelatedRecordLink
             kind="PAYMENT"
@@ -218,7 +222,11 @@ function PaymentReviewPageContent() {
       },
       {
         id: "order",
-        meta: { titleKey: "finance.paymentReview.fields.order" },
+        meta: {
+          titleKey: "finance.paymentReview.fields.order",
+          type: "reference",
+          importance: "high",
+        },
         cell: ({ row }) =>
           row.original.storeOrder ? (
             <RelatedRecordLink
@@ -274,7 +282,7 @@ function PaymentReviewPageContent() {
       },
       {
         id: "account",
-        meta: { titleKey: "paymentDeclaration.review.debitAccount" },
+        meta: { titleKey: "paymentDeclaration.review.debitAccount", importance: "low" },
         accessorFn: (row) => debitAccountLabel(row, t),
       },
       {
