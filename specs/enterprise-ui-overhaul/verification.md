@@ -119,3 +119,84 @@ The file names are identical in both folders.
 10. **Observation for the owner, not a design change.** After Finance disputes a claim, the sales agent
     again sees «إبلاغ دفع العميل», because remaining-to-claim becomes > 0. The same logic was in
     `0426316`, so this is a payment-rule question.
+
+## Round 2: compact controls, headers, feedback, report UI, sidebar (2026-09-28)
+
+Evidence comes from Production:
+
+- Before: `tmp/ui-controls/r2-before/shots/`, captured on Production before the Round 2 deploy.
+- After: `tmp/ui-controls/r2-after/shots/`, captured on Production after the deploy.
+- Both sets use the same viewports (1440×900, 1280×720, 390×844 and 820×1180), Arabic light and
+  English dark. They were captured with `scripts/acceptance/ui-controls.mjs`.
+
+**Records used:**
+
+- The Lead → Order dialog is shown on demo lead LD-2026-000081.
+- The declaration dialog is shown on demo order STO-2026-000102.
+- Both are opened read-only and closed with Escape.
+
+### Gates
+
+| Gate           | Result                                             |
+| -------------- | -------------------------------------------------- |
+| tsc, apps/web  | clean                                              |
+| ESLint         | 0 errors                                           |
+| Vitest         | 33 files, 250 tests                                |
+| next build     | success                                            |
+| contrast-check | all pairs pass, including selector and rail tokens |
+
+### Headers and first content (px from viewport top, Production, desktop 1440 Arabic light)
+
+| Screen                                    | Before                                     | After                                                       |
+| ----------------------------------------- | ------------------------------------------ | ----------------------------------------------------------- |
+| Leads list (title → list surface)         | 175 band / 198                             | 161 band / 184                                              |
+| Lead → Store Order dialog (content start) | 349 (10 fields, half-width product column) | 281 (9 fields in view, full-width lines, whole dialog fits) |
+| Payment review                            | 164                                        | 144                                                         |
+| Payment reconciliation workspace          | 122                                        | 102                                                         |
+
+### Financial report table top (px)
+
+| Report            | Before, 1440 / 1280 / 390 | After, 1440 / 1280 / 390 |
+| ----------------- | ------------------------- | ------------------------ |
+| Trial balance     | 261 / 287 / 327           | 192 / 192 / 281          |
+| General ledger    | 261 / 323 / 331           | 192 / 192 / 262          |
+| P&L               | 261 / 286 / 293           | 193 / 193 / 292          |
+| Balance sheet     | 261 / 361 / 391           | 217 / 217 / 364          |
+| Cash flow         | 293 / 318 / 327           | 193 / 193 / 292          |
+| Aging             | 229 / 360 / 391           | 215 / 215 / 342          |
+| Cash availability | 313 / 313 / 425           | 221 / 221 / 269          |
+
+### Controls
+
+- **Selector triggers:**
+  - Before, they were white bordered boxes: computed `lab(100 0 0)`, identical to text inputs.
+  - After, they are tonal buttons: `lab(≈94)`, with an inset hairline and a chevron.
+  - Hover, pressed and expanded are distinct and verified with computed styles in light and dark.
+  - Examples: `state-trigger-{rest,hover,focus,expanded}--*.png`.
+- **Text inputs:** still white with a 3:1 border, 32px on desktop and 40px on touch.
+- **Report reconciliation:**
+  - On Production books the trial balance shows the balanced strip (`tb--*.png`).
+  - The balanced, unbalanced and not-applicable states are shown with labeled sample data on
+    `/design-system` (`reconciliation-states--desktop-{ar-light,en-dark}.png`).
+
+### Coverage and workflows
+
+- **Production sweep:** all 114 sidebar routes on desktop and phone (228 captures). No horizontal
+  overflow, no error text and no load errors.
+- **Production journeys:**
+  - `DEMO-UI-20260928`: 123 PASS, 1 BLOCKED (transfer needs a second warehouse, by design) and 13
+    NOT TESTED. The HR and investor create actions are now links, and the old script looked for
+    buttons.
+  - The script was fixed. `-R2` (hr) and `-R3` (master and investors) then gave 17 PASS each, with 0
+    FAIL.
+- **Independent review:** `review-r2.md` found 12 issues (1 high, 5 medium, 6 low). All are fixed
+  and verified, and the status is in its appendix.
+
+### Remaining gaps (Round 2)
+
+- Phone financial tables still open with the amount columns off-screen at the logical end, and you
+  scroll inside the table. This predates Round 2.
+- The report header on desktop is 12px above the ~180px target, because the 8px rhythm was kept.
+- On phones, Sync and Import on leads stay inline as icon-only buttons (they own their own dialogs).
+- The disabled trigger state was verified in code only. Import progress while an import is running
+  and a live toast were not exercised on Production, because they would create data.

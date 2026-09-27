@@ -1,6 +1,18 @@
 # Handoff — enterprise-ui-overhaul
 
-**Status: COMPLETE (2026-09-27).**
+**Status:** Round 1 COMPLETE (2026-09-27); Round 2 COMPLETE (2026-09-28).
+
+- **Round 2** covers:
+  - selector triggers as tonal buttons
+  - compact fields
+  - organized headers (`HeaderActions`)
+  - visible feedback (form error summary, task progress, top toasts)
+  - the financial report header and reconciliation card
+  - the sidebar active rail
+- **Round 2 evidence:** `verification.md` (Round 2 section), `review-r2.md`, `kumo-research.md`, and
+  `tmp/ui-controls/r2-{before,after}`.
+- **Decision pending for the owner:** on phones, «تحويل إلى طلب» on a lead sits under «المزيد»
+  because «إضافة متابعة» is the page's primary action.
 
 - **Evidence:** see `verification.md` for gates, before/after density, route coverage, Production
   journeys and remaining gaps, and `review.md` for the independent review and its re-verification.

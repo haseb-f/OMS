@@ -18,7 +18,7 @@
  * Output: tmp/ui-controls/<PHASE>/report.json + shots/*.png
  */
 /* global document, window */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 import { API, BASE, EMAIL, PW, ROOT, apiClient, items, login } from "./_tour-lib.mjs";
@@ -266,6 +266,18 @@ try {
   }
 } finally {
   await browser.close();
-  writeFileSync(resolve(OUT, "report.json"), JSON.stringify(report, null, 2));
+  // Partial runs (SCENARIOS/VARIANTS subsets) MERGE into an existing report so
+  // earlier evidence for other scenarios in the same PHASE is never lost.
+  const file = resolve(OUT, "report.json");
+  if (existsSync(file)) {
+    try {
+      const prev = JSON.parse(readFileSync(file, "utf8"));
+      const fresh = new Set(report.results.map((r) => `${r.scenario}|${r.variant}`));
+      report.results = [...(prev.results ?? []).filter((r) => !fresh.has(`${r.scenario}|${r.variant}`)), ...report.results];
+    } catch {
+      /* unreadable previous report: keep the fresh one */
+    }
+  }
+  writeFileSync(file, JSON.stringify(report, null, 2));
 }
 void API;

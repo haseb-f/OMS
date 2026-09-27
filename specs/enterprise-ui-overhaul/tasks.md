@@ -1,4 +1,4 @@
-# Tasks — enterprise-ui-overhaul (Round 1 COMPLETE; Round 2 ACTIVE 2026-09-27)
+# Tasks — enterprise-ui-overhaul (Round 1 COMPLETE 2026-09-27; Round 2 COMPLETE 2026-09-28)
 
 ## Round 1
 
@@ -19,14 +19,14 @@
 
 ## Round 2 — compact controls, organized headers, feedback, report UI, sidebar rail
 
-| ID     | Task                                                                                                                  | Owner             | Depends | Status      |
-| ------ | --------------------------------------------------------------------------------------------------------------------- | ----------------- | ------- | ----------- |
-| R2-INV | Kumo research (kumo-research.md); before capture `tmp/ui-controls/r2-before` (controls, headers, dialogs, reports)    | Master + Research | —       | done        |
-| R2-DS  | Selector/rail tokens (AA-checked); selector triggers; filter applied state; sidebar rail; top toasts; §11             | Master            | R2-INV  | done        |
-| R2-HDR | Shared `HeaderActions` + page / document / record header anatomy across routes                                        | Implementer       | R2-DS   | in progress |
-| R2-RPT | Financial report header, reconciliation summary, report cards; design-system showcase (balanced/unbalanced)           | Implementer       | R2-DS   | in progress |
-| R2-FB  | FormErrorSummary + first-invalid focus, persistent alerts, import progress, success status/link                       | Implementer       | R2-DS   | in progress |
-| R2-DOC | Lead→Store Order dialog, sales invoice, purchase quotation/invoice, payment declaration/reconciliation, card language | Implementer       | R2-HDR  | pending     |
-| R2-REV | Independent visual / RTL / a11y review                                                                                | Reviewer          | R2-DOC  | pending     |
-| R2-REL | Gates, logical commits, push, deploy, verify SHA                                                                      | Master            | R2-REV  | pending     |
-| R2-QA  | Production after capture (ui-controls + ui-baseline), journeys, Arabic guide screenshots                              | Master            | R2-REL  | pending     |
+| ID     | Task                                                                                                                  | Owner             | Depends | Status |
+| ------ | --------------------------------------------------------------------------------------------------------------------- | ----------------- | ------- | ------ |
+| R2-INV | Kumo research (kumo-research.md); before capture `tmp/ui-controls/r2-before` (controls, headers, dialogs, reports)    | Master + Research | —       | done   |
+| R2-DS  | Selector/rail tokens (AA-checked); selector triggers; filter applied state; sidebar rail; top toasts; §11             | Master            | R2-INV  | done   |
+| R2-HDR | Shared `HeaderActions` + page / document / record header anatomy across routes                                        | Implementer       | R2-DS   | done   |
+| R2-RPT | Financial report header, reconciliation card, report cards; design-system showcase (balanced/unbalanced)              | Implementer       | R2-DS   | done   |
+| R2-FB  | FormErrorSummary + first-invalid focus, persistent alerts, import progress, success status/link                       | Implementer       | R2-DS   | done   |
+| R2-DOC | Lead→Store Order dialog, sales invoice, purchase quotation/invoice, payment declaration/reconciliation, card language | Implementer       | R2-HDR  | done   |
+| R2-REV | Independent visual / RTL / a11y review — review-r2.md (12 findings, all fixed and verified)                           | Reviewer          | R2-DOC  | done   |
+| R2-REL | Gates, logical commits, push, deploy, verify SHA (a3b22dc + follow-ups)                                               | Master            | R2-REV  | done   |
+| R2-QA  | Production after capture (r2-after, 228/0 sweep), journeys DEMO-UI-20260928 (+R2/R3), Arabic guide screenshots        | Master            | R2-REL  | done   |
