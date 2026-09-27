@@ -64,6 +64,7 @@ export function createSelectionColumn<TData>(
     cell: ({ row }) => (
       <Checkbox
         checked={row.getIsSelected()}
+        disabled={!row.getCanSelect()}
         onCheckedChange={(value) => row.toggleSelected(!!value)}
         aria-label={ariaLabels.selectRow}
       />

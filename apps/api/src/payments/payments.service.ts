@@ -348,7 +348,8 @@ export class PaymentsService {
    *   substituted) / Cr customer AR. No fee deduction. FX frozen as of
    *   `opts.rateAsOf ?? payment.paymentDate` (rate, date, source stored on
    *   the receipt; JE dated that day — a closed period fails clearly).
-   *   The claim moves to AWAITING_SETTLEMENT.
+   *   The claim moves to AWAITING_SETTLEMENT when the method requires
+   *   reconciliation, otherwise NOT_APPLICABLE (nothing to settle).
    * - Legacy claim (no method): the receiving-account path, unchanged.
    *
    * Never touches fulfillment/shipping state.
@@ -507,11 +508,17 @@ export class PaymentsService {
                     verifiedAt: now,
                     verifiedById: userId,
                   }),
-              // Posted to the method clearing account → awaits provider settlement.
+              // Posted to a reconciled method's clearing account → awaits
+              // provider settlement. A non-reconciled method (e.g. a direct
+              // bank transfer whose linked account IS the bank) has no
+              // provider statement and no settlement workspace, so its claim
+              // is NOT_APPLICABLE — never stranded as "awaiting settlement".
               ...(override
                 ? {
-                    settlementStatus:
-                      PaymentSettlementStatus.AWAITING_SETTLEMENT,
+                    settlementStatus: payment.paymentMethod
+                      ?.requiresReconciliation
+                      ? PaymentSettlementStatus.AWAITING_SETTLEMENT
+                      : PaymentSettlementStatus.NOT_APPLICABLE,
                   }
                 : {}),
               updatedBy: userId,

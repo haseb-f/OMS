@@ -282,4 +282,47 @@ describe('ChartOfAccountsService — Safe Account Deletion', () => {
     });
     expect(lineAfter).not.toBeNull();
   });
+  it('FIX-QA D2 — proposes a child code unique across the whole tree, skipping codes owned by deeper or archived accounts', async () => {
+    // Parent P (level 2 → 1-digit child suffix) with children P1..P9. The
+    // naive "max sibling suffix + 1" gives P10, but a grandchild under P1
+    // already owns it, and an ARCHIVED grandchild owns P11 (codes stay
+    // unique even after archive) — the proposal must be P12.
+    const parent = await createLeaf({ code: `${prefix}-9` });
+    const children = [];
+    for (let i = 1; i <= 9; i++) {
+      children.push(
+        await createLeaf({
+          code: `${prefix}-9${i}`,
+          parentAccountId: parent.id,
+        }),
+      );
+    }
+    await createLeaf({
+      code: `${prefix}-910`,
+      parentAccountId: children[0].id,
+    });
+    const archived = await createLeaf({
+      code: `${prefix}-911`,
+      parentAccountId: children[0].id,
+    });
+    await service.archive(archived.id, overrideUserId);
+
+    const proposal = await service.proposeNextCode(parent.id);
+    expect(proposal.code).toBe(`${prefix}-912`);
+    const clash = await prisma.chartOfAccount.findUnique({
+      where: { code: proposal.code },
+    });
+    expect(clash).toBeNull();
+
+    // And an auto-coded create actually succeeds with that code.
+    const created = await service.create(
+      {
+        name: `Test Account ${prefix} auto`,
+        accountType: AccountType.ASSET,
+        parentAccountId: parent.id,
+      },
+      overrideUserId,
+    );
+    expect(created.code).toBe(`${prefix}-912`);
+  });
 });

@@ -5,6 +5,8 @@
  * paid declaration always carries a method and an actual date.
  */
 
+import { ApiError, isGenericForbiddenMessage } from "@/services/api-client";
+
 export type DeclarationKind = "UNPAID" | "FULL" | "PARTIAL";
 export type DeclaredPaymentStatus = "UNPAID" | "PARTIALLY_PAID" | "PAID";
 
@@ -129,4 +131,26 @@ export function newIdempotencyKey(): string {
     return crypto.randomUUID();
   }
   return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}`;
+}
+
+/**
+ * Toast content for a failed declaration save. A 403 carrying a real
+ * explanation (e.g. a correction after fulfillment needs
+ * store-orders.manage or sales.receipts.confirm) keeps the localized
+ * "no permission" headline AND shows the server's reason underneath —
+ * never just the bare generic text that leaves the user guessing.
+ */
+export function declarationFailureToast(
+  err: unknown,
+  labels: { permissionTitle: string; failed: string },
+): { title: string; description?: string } {
+  if (!(err instanceof ApiError)) return { title: labels.failed };
+  if (
+    err.status === 403 &&
+    err.message !== labels.permissionTitle &&
+    !isGenericForbiddenMessage(err.message)
+  ) {
+    return { title: labels.permissionTitle, description: err.message };
+  }
+  return { title: err.message || labels.failed };
 }

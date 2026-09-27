@@ -756,9 +756,20 @@ export function EnterpriseDataTable<TData>({
   // authored their own cell tree (and therefore own their own direction)
   // versus which are just the `accessorFn` default, computed from the raw
   // column config *before* TanStack merges in that default.
+  //
+  // The injected utility columns (the `select` checkbox and the `__expand`
+  // chevron) always author their own `cell` too — they are not in the
+  // caller's `columns`, so they must be listed explicitly, otherwise their
+  // cells fall through to `renderValue()` (no accessor → empty) and only the
+  // header's select-all checkbox ever renders.
   const columnsWithExplicitCell = useMemo(
-    () => new Set(columns.filter((column) => column.cell != null).map((column) => column.id)),
-    [columns],
+    () =>
+      new Set(
+        [selectionColumn, ...(expandColumn ? [expandColumn] : []), ...columns]
+          .filter((column) => column.cell != null)
+          .map((column) => column.id),
+      ),
+    [columns, selectionColumn, expandColumn],
   );
   const resolvedColumns = useMemo(() => Array.from(layoutById.values()), [layoutById]);
   const detailColumnAxes = useMemo(

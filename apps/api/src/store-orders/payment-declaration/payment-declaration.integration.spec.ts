@@ -529,7 +529,9 @@ describe('Payment declaration → fulfillment gate → confirm & post', () => {
       where: { id: payment!.id },
     });
     expect(claim.status).toBe(PaymentStatus.VERIFIED);
-    expect(claim.settlementStatus).toBe('AWAITING_SETTLEMENT');
+    // FIX-QA OBS2 — a NON-reconciled method has no provider statement and no
+    // settlement workspace: never stranded as AWAITING_SETTLEMENT.
+    expect(claim.settlementStatus).toBe('NOT_APPLICABLE');
 
     const again = await payments.confirm(payment!.id, userId);
     expect(again.alreadyPosted).toBe(true);
@@ -669,6 +671,11 @@ describe('Payment declaration → fulfillment gate → confirm & post', () => {
       }),
     );
     expect(viaMatching.alreadyPosted).toBe(false);
+    // FIX-QA OBS2 — a reconciled method's posted claim awaits settlement.
+    const matched = await prisma.payment.findUniqueOrThrow({
+      where: { id: payment!.id },
+    });
+    expect(matched.settlementStatus).toBe('AWAITING_SETTLEMENT');
   });
 
   it('M2: lowering the total below standing claims is refused; raising it reopens the prepaid gate without creating claims', async () => {

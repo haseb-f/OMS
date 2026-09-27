@@ -60,7 +60,7 @@ export class StoreOrderPaymentDeclarationService {
     // declare as well (owner decision at integration).
     if (!canEdit && !canCreateReceipt && !canManage) {
       throw new ForbiddenException(
-        'Missing permission "store-orders.edit", "store-orders.manage" or "sales.receipts.create" to declare a customer payment.',
+        'لا تملك صلاحية تسجيل إفادة دفع العميل — Missing permission "store-orders.edit", "store-orders.manage" or "sales.receipts.create" to declare a customer payment.',
       );
     }
     return {

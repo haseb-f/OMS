@@ -133,7 +133,26 @@ export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount
       if (Number.isInteger(suffix) && suffix > maxSuffix) maxSuffix = suffix;
     }
 
-    const code = parent.code + String(maxSuffix + 1).padStart(width, '0');
+    // `code` is unique across the ENTIRE table (archived rows included), not
+    // only among this parent's children: parent "1" with children "11".."19"
+    // would otherwise propose "110"/"111" even though a grandchild under
+    // "11" already owns it, and the save then fails on the unique index.
+    // Keep the sibling-suffix convention, but skip any suffix whose code is
+    // already taken anywhere in the tree.
+    const taken = new Set(
+      (
+        await this.prisma.chartOfAccount.findMany({
+          where: { code: { startsWith: parent.code } },
+          select: { code: true },
+        })
+      ).map((row) => row.code),
+    );
+    let next = maxSuffix + 1;
+    let code = parent.code + String(next).padStart(width, '0');
+    while (taken.has(code)) {
+      next += 1;
+      code = parent.code + String(next).padStart(width, '0');
+    }
     return { code, accountType: parent.accountType };
   }
 

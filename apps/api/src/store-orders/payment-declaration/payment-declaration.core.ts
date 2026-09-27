@@ -189,7 +189,7 @@ export async function resolvePaymentSourceId(
     });
     if (!source) {
       throw new BadRequestException(
-        'Payment source not found or is not active.',
+        'مصدر الدفع غير موجود أو غير نشط — Payment source not found or is not active.',
       );
     }
     return source.id;
@@ -199,7 +199,9 @@ export async function resolvePaymentSourceId(
       where: { id: input.paymentMethodId, deletedAt: null },
     });
     if (!method) {
-      throw new BadRequestException('Payment method not found.');
+      throw new BadRequestException(
+        'طريقة الدفع غير موجودة — Payment method not found.',
+      );
     }
     const byName = await tx.paymentSource.findFirst({
       where: {
@@ -215,7 +217,9 @@ export async function resolvePaymentSourceId(
     orderBy: [{ isDefault: 'desc' }, { sortOrder: 'asc' }],
   });
   if (!fallback) {
-    throw new BadRequestException('No active Payment Source is configured.');
+    throw new BadRequestException(
+      'لا يوجد مصدر دفع نشط مُعرّف — No active Payment Source is configured.',
+    );
   }
   return fallback.id;
 }
@@ -235,14 +239,20 @@ export function assertIdempotencyKey(key: string | undefined): string {
 
 function parsePaymentDate(value: string | undefined): Date {
   if (!value) {
-    throw new BadRequestException('Payment date is required.');
+    throw new BadRequestException(
+      'تاريخ الدفع مطلوب — Payment date is required.',
+    );
   }
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
-    throw new BadRequestException('Payment date is invalid.');
+    throw new BadRequestException(
+      'تاريخ الدفع غير صالح — Payment date is invalid.',
+    );
   }
   if (date.getTime() > Date.now() + FUTURE_TOLERANCE_MS) {
-    throw new BadRequestException('Payment date cannot be in the future.');
+    throw new BadRequestException(
+      'لا يمكن أن يكون تاريخ الدفع في المستقبل — Payment date cannot be in the future.',
+    );
   }
   return date;
 }
@@ -258,7 +268,7 @@ export async function findByIdempotencyKey(
   });
   if (existing && existing.storeOrderId !== storeOrderId) {
     throw new ConflictException(
-      'This idempotency key was already used for a different order.',
+      'هذا الطلب سبق حفظه لطلب مختلف؛ أعد فتح النافذة وحاول مرة أخرى — This idempotency key was already used for a different order.',
     );
   }
   return existing;
@@ -339,7 +349,7 @@ export async function declarePaymentInTx(
     });
     if (posted > 0 || (await hasFulfillmentStarted(tx, storeOrderId))) {
       throw new ForbiddenException(
-        'Fulfillment has started or a payment is already posted for this order — changing the payment declaration now is a correction that requires the store-orders.manage or sales.receipts.confirm permission.',
+        'بدأ تنفيذ الطلب أو تم ترحيل دفعة له، لذا يُعدّ تغيير إفادة الدفع الآن تصحيحًا يتطلب صلاحية إدارة الطلبات أو تأكيد المقبوضات — Fulfillment has started or a payment is already posted for this order; changing the payment declaration now is a correction that requires the store-orders.manage or sales.receipts.confirm permission.',
       );
     }
   };
@@ -371,7 +381,7 @@ export async function declarePaymentInTx(
 
   if (total <= EPSILON) {
     throw new BadRequestException(
-      'This order has no priced lines (total 0.00) — set the agreed line amounts before declaring a payment.',
+      'لا توجد أسعار لبنود الطلب (الإجمالي 0.00)؛ حدّد المبالغ المتفق عليها قبل الإفادة بالدفع — This order has no priced lines (total 0.00); set the agreed line amounts before declaring a payment.',
     );
   }
   if (remaining <= EPSILON) {
@@ -399,19 +409,23 @@ export async function declarePaymentInTx(
   }
 
   if (!input.currencyId) {
-    throw new BadRequestException('Currency is required.');
+    throw new BadRequestException('العملة مطلوبة — Currency is required.');
   }
   assertPaymentCurrency(order.currencyId, input.currencyId);
 
   if (!input.paymentMethodId) {
-    throw new BadRequestException('Payment method is required.');
+    throw new BadRequestException(
+      'طريقة الدفع مطلوبة — Payment method is required.',
+    );
   }
   const method = await tx.paymentMethod.findFirst({
     where: { id: input.paymentMethodId, deletedAt: null },
     select: { id: true, name: true, isActive: true },
   });
   if (!method || !method.isActive) {
-    throw new BadRequestException('Payment method not found or is not active.');
+    throw new BadRequestException(
+      'طريقة الدفع غير موجودة أو غير نشطة — Payment method not found or is not active.',
+    );
   }
   const paymentDate = parsePaymentDate(input.paymentDate);
 

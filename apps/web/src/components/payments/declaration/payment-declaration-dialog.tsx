@@ -6,12 +6,12 @@ import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { CreateOperationFooter, CreateOperationLayout } from "@/components/shared/create-operation";
 import { stagingIdsOf, type ReceiptUploadItem } from "@/components/business/payment-receipts-field";
 import { storeOrdersService } from "@/services/store-orders-service";
-import { ApiError } from "@/services/api-client";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { PaymentDeclarationFields } from "./payment-declaration-fields";
 import {
   buildDeclarationPayload,
+  declarationFailureToast,
   emptyDeclaration,
   newIdempotencyKey,
   remainingDeclarable,
@@ -90,7 +90,14 @@ export function PaymentDeclarationDialog({
       onOpenChange(false);
       onDeclared();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : t("paymentDeclaration.dialog.failed"));
+      const failure = declarationFailureToast(err, {
+        permissionTitle: t("errors.PERMISSION_ERROR"),
+        failed: t("paymentDeclaration.dialog.failed"),
+      });
+      toast.error(
+        failure.title,
+        failure.description ? { description: failure.description } : undefined,
+      );
     } finally {
       setIsSaving(false);
     }

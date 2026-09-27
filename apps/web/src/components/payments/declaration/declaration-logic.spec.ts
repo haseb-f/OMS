@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { ApiError } from "@/services/api-client";
 import {
   buildDeclarationPayload,
   declarationAmount,
+  declarationFailureToast,
   emptyDeclaration,
   projectedDeclaredStatus,
   remainingDeclarable,
@@ -121,5 +123,34 @@ describe("payment status separation", () => {
         { status: "VERIFIED", settlementStatus: "SETTLED" },
       ]),
     ).toBe("PARTIALLY_SETTLED");
+  });
+});
+
+describe("declarationFailureToast (FIX-QA OBS1)", () => {
+  const labels = { permissionTitle: "لا توجد صلاحية", failed: "تعذر الحفظ" };
+
+  it("a 403 with an explanation keeps the headline and shows the reason", () => {
+    const reason =
+      "Changing the payment declaration now is a correction that requires the store-orders.manage or sales.receipts.confirm permission.";
+    expect(declarationFailureToast(new ApiError(403, reason, "PERMISSION_ERROR"), labels)).toEqual({
+      title: labels.permissionTitle,
+      description: reason,
+    });
+  });
+
+  it("a generic 403 shows only the generic text", () => {
+    expect(
+      declarationFailureToast(
+        new ApiError(403, labels.permissionTitle, "PERMISSION_ERROR"),
+        labels,
+      ),
+    ).toEqual({ title: labels.permissionTitle });
+  });
+
+  it("other API errors show their message; unknown errors the fallback", () => {
+    expect(
+      declarationFailureToast(new ApiError(409, "Conflict here", "DUPLICATE"), labels),
+    ).toEqual({ title: "Conflict here" });
+    expect(declarationFailureToast(new Error("boom"), labels)).toEqual({ title: labels.failed });
   });
 });

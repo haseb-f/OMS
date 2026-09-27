@@ -90,14 +90,42 @@ function codeForStatus(status: number): ErrorCode {
  * messages, so they're shown as-is instead of being flattened into a
  * generic translation.
  */
+/**
+ * A 403 whose message is only the framework default ("Forbidden",
+ * "Forbidden resource") or the PermissionsGuard's technical
+ * `Missing permission "x.y".` / `No permission is registered …` carries no
+ * explanation worth showing — those keep the generic localized text. Any
+ * other 403 message was deliberately authored by a business rule (e.g. "a
+ * declaration correction after fulfillment needs store-orders.manage or
+ * sales.receipts.confirm") and is shown as-is, so the user learns WHY.
+ */
+export function isGenericForbiddenMessage(rawMessage: string | undefined | null): boolean {
+  const text = rawMessage?.trim();
+  if (!text) return true;
+  return (
+    /^forbidden( resource)?\.?$/i.test(text) ||
+    /^missing permission "[^"]+"\.?$/i.test(text) ||
+    /^no permission is registered for /i.test(text)
+  );
+}
+
 function friendlyMessage(
   code: ErrorCode,
   rawMessage: string | undefined,
   fields: ErrorFieldDetail[] | undefined,
   locale: Locale,
+  status?: number,
 ): string {
   const dict = messages[locale];
   if (code === "VALIDATION_ERROR" && fields === undefined && rawMessage) {
+    return rawMessage;
+  }
+  if (
+    status === 403 &&
+    code === "PERMISSION_ERROR" &&
+    rawMessage &&
+    !isGenericForbiddenMessage(rawMessage)
+  ) {
     return rawMessage;
   }
   if ((code === "MISSING_EXCHANGE_RATE" || code === "STALE_EXCHANGE_RATE") && rawMessage) {
@@ -188,7 +216,7 @@ async function requestRaw(path: string, init?: RequestInit): Promise<Response> {
     // not a fault — keep it visible for developers without flagging it red.
     const log = response.status === 404 ? console.warn : console.error;
     log(`[api-client] ${response.status} ${code} on ${path}:`, body?.message, body?.fields);
-    const message = friendlyMessage(code, body?.message, body?.fields, locale);
+    const message = friendlyMessage(code, body?.message, body?.fields, locale, response.status);
     throw new ApiError(response.status, message, code, body?.fields, body?.details);
   }
 
