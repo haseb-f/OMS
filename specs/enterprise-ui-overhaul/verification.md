@@ -86,6 +86,17 @@ The file names are identical in both folders.
     and no longer printing `-0.00`.
   - Trial-balance closing Dr/Cr matches balance-sheet signs.
 
+## Final Production pass fixes
+
+- `fcd9938`: alert tones use the AA soft-surface text colors. The exchange-rates info banner was
+  nearly unreadable.
+- `601c964`:
+  - Payment review actions now fit their column; they had overflowed into the date.
+  - FX day labels isolate the Latin date in Arabic.
+- `7bede83`: payment review keeps the payment and order references visible. At 1280 the grid
+  scrolls inside its own container with the actions pinned.
+- The final Production captures are in `tmp/ui-baseline/final*`.
+
 ## Remaining gaps and exceptions (documented)
 
 1. **Horizontal scroll inside tables.** Some grids still scroll sideways inside their own container,
