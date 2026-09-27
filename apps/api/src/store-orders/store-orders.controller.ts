@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
+  Headers,
   HttpCode,
   Param,
   Patch,
@@ -18,7 +20,10 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
 import { PermissionModule } from '../auth/decorators/permission-module.decorator';
-import { PermissionAction } from '../auth/decorators/permission-action.decorator';
+import {
+  PermissionAction,
+  SkipPermissionCheck,
+} from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 import { StoreOrdersService } from './store-orders.service';
@@ -32,6 +37,11 @@ import { SetPaymentReviewStatusDto } from './dto/set-payment-review-status.dto';
 import { ReportStoreOrderPaymentDto } from './dto/report-store-order-payment.dto';
 import { CreateStoreOrderReceiptDto } from './dto/create-store-order-receipt.dto';
 import { ATTACHMENT_MAX_BYTES } from '../common/storage/file-validation';
+import { DeclareStoreOrderPaymentDto } from './dto/declare-store-order-payment.dto';
+import { StoreOrderPaymentDeclarationService } from './payment-declaration/store-order-payment-declaration.service';
+
+/** Recording pickup steps: store staff (`store-orders.edit`) or shipping staff (`shipping.edit`) — any-of. */
+const PICKUP_PERMISSIONS = ['store-orders.edit', 'shipping.edit'] as const;
 
 /**
  * Business operations, not generic CRUD — `update` is deliberately narrow
@@ -44,11 +54,28 @@ export class StoreOrdersController {
   constructor(
     private readonly storeOrdersService: StoreOrdersService,
     private readonly permissionsResolver: PermissionsResolverService,
+    private readonly declarations: StoreOrderPaymentDeclarationService,
   ) {}
 
   @Post()
-  create(@Body() dto: CreateStoreOrderDto, @CurrentUser() user: JwtPayload) {
-    return this.storeOrdersService.create(dto, user.sub);
+  async create(
+    @Body() dto: CreateStoreOrderDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    // An optional declaration on create needs the same any-of permission as
+    // the standalone declaration endpoint.
+    const declaration = dto.declaration;
+    if (!declaration) return this.storeOrdersService.create(dto, user.sub);
+    const actor = await this.declarations.resolveActor(user.sub);
+    return this.storeOrdersService.create(dto, user.sub, (tx, orderId) =>
+      this.declarations.declareInTx(
+        tx,
+        orderId,
+        declaration,
+        declaration.idempotencyKey,
+        actor,
+      ),
+    );
   }
 
   @Get()
@@ -146,8 +173,14 @@ export class StoreOrdersController {
     return this.storeOrdersService.addNote(id, dto, user.sub);
   }
 
+  /**
+   * Finance-only voucher-style claim (receiving account chosen). Sales no
+   * longer registers payments this way — it declares them through
+   * `POST :id/payment-declaration` (payment-declaration-reconciliation).
+   */
   @Post(':id/payments')
-  @PermissionAction('edit')
+  @PermissionModule('customer-receipts')
+  @PermissionAction('create')
   addPayment(
     @Param('id') id: string,
     @Body() dto: CreateStoreOrderPaymentDto,
@@ -156,15 +189,49 @@ export class StoreOrdersController {
     return this.storeOrdersService.addPayment(id, dto, user.sub);
   }
 
-  /** Agent payment report — PAYMENT_REVIEW only; never PAID without reconciliation. */
+  /**
+   * Legacy payment report (free amount + receiving account). Superseded for
+   * Sales by `POST :id/payment-declaration`; kept for Finance callers only.
+   */
   @Post(':id/report-payment')
-  @PermissionAction('edit')
+  @PermissionModule('customer-receipts')
+  @PermissionAction('create')
   reportPayment(
     @Param('id') id: string,
     @Body() dto: ReportStoreOrderPaymentDto,
     @CurrentUser() user: JwtPayload,
   ) {
     return this.storeOrdersService.reportPayment(id, dto, user.sub);
+  }
+
+  /**
+   * Sales/Finance payment declaration (Unpaid / Paid in full / Partially
+   * paid). Creates at most one unverified claim per idempotency key and no
+   * accounting entries. Permission: `store-orders.edit` OR
+   * `sales.receipts.create` (any-of, checked in the service — the guard
+   * maps one route to one permission).
+   */
+  @Post(':id/payment-declaration')
+  @HttpCode(200)
+  @SkipPermissionCheck()
+  async declarePayment(
+    @Param('id') id: string,
+    @Body() dto: DeclareStoreOrderPaymentDto,
+    @CurrentUser() user: JwtPayload,
+    @Headers('idempotency-key') headerKey?: string,
+  ) {
+    const actor = await this.declarations.resolveActor(user.sub);
+    await this.storeOrdersService.findOne(id, user.sub);
+    const result = await this.declarations.declare(
+      id,
+      dto,
+      dto.idempotencyKey ?? headerKey ?? '',
+      actor,
+    );
+    return {
+      ...result,
+      order: await this.storeOrdersService.findOne(id, user.sub),
+    };
   }
 
   @Get(':id/can-fulfill')
@@ -174,13 +241,23 @@ export class StoreOrdersController {
 
   @Post(':id/pickup/:code')
   @HttpCode(200)
-  @PermissionAction('edit')
-  transitionPickup(
+  @SkipPermissionCheck()
+  async transitionPickup(
     @Param('id') id: string,
     @Param('code')
     code: 'READY_FOR_PICKUP' | 'COLLECTED' | 'CANCELLED' | 'RETURNED',
     @CurrentUser() user: JwtPayload,
   ) {
+    const allowed = await Promise.all(
+      PICKUP_PERMISSIONS.map((name) =>
+        this.permissionsResolver.hasPermission(user.sub, name),
+      ),
+    );
+    if (!allowed.some(Boolean)) {
+      throw new ForbiddenException(
+        'Missing permission "store-orders.edit" or "shipping.edit" to record pickup steps.',
+      );
+    }
     return this.storeOrdersService.transitionPickup(id, code, user.sub);
   }
 

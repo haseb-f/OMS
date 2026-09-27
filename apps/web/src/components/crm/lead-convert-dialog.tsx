@@ -23,18 +23,22 @@ import {
 import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { CurrencyPicker } from "@/components/business/currency-picker";
 import { useCurrencies, usePaymentMethods, useCountries } from "@/hooks/use-reference-data";
+import { PaymentDeclarationFields } from "@/components/payments/declaration/payment-declaration-fields";
+import {
+  buildDeclarationPayload,
+  declarationAmount,
+  emptyDeclaration,
+  validateDeclaration,
+  type DeclarationFormState,
+} from "@/components/payments/declaration/declaration-logic";
 import { leadsService, type LeadRow } from "@/services/leads-service";
 import { ApiError } from "@/services/api-client";
 import type { ProductRow } from "@/services/products-service";
-import type { CityRow, CurrencyRow, PaymentMethodRow } from "@/config/master-data/entities";
+import type { CityRow, CurrencyRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
 import { toast } from "@/lib/toast";
 import { createMasterDataService } from "@/services/master-data-service";
-import {
-  PaymentReceiptsField,
-  stagingIdsOf,
-  type ReceiptUploadItem,
-} from "@/components/business/payment-receipts-field";
+import { stagingIdsOf, type ReceiptUploadItem } from "@/components/business/payment-receipts-field";
 import { attachmentsService } from "@/services/attachments-service";
 
 const citiesService = createMasterDataService<CityRow>("/cities");
@@ -62,10 +66,12 @@ export function LeadConvertDialog({
   const [showLineErrors, setShowLineErrors] = useState(false);
   const [paymentType, setPaymentType] = useState<"PREPAID" | "CASH_ON_DELIVERY">("PREPAID");
   const [fulfillmentMethod, setFulfillmentMethod] = useState<"SHIPPING" | "PICKUP">("SHIPPING");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodRow | null>(null);
   const [currency, setCurrency] = useState<CurrencyRow | null>(null);
-  const [amountPaid, setAmountPaid] = useState("0");
-  const [paymentReference, setPaymentReference] = useState("");
+  // Sales payment declaration (Unpaid / Paid in full / Partial) — the same
+  // form and server service as the order page; never a free "amount paid".
+  const [declaration, setDeclaration] = useState<DeclarationFormState>(() =>
+    emptyDeclaration("UNPAID"),
+  );
   const [receiptItems, setReceiptItems] = useState<ReceiptUploadItem[]>([]);
   const [countryId, setCountryId] = useState(lead.countryId);
   const [city, setCity] = useState(lead.city ?? "");
@@ -97,10 +103,8 @@ export function LeadConvertDialog({
       },
     ]);
     setPaymentType("PREPAID");
-    setPaymentMethod(null);
     setCurrency(currencies.find((c) => c.id === lead.currencyId) ?? null);
-    setAmountPaid("0");
-    setPaymentReference("");
+    setDeclaration(emptyDeclaration("UNPAID"));
     setReceiptItems([]);
     setCountryId(lead.countryId);
     setCity(lead.city ?? "");
@@ -118,8 +122,11 @@ export function LeadConvertDialog({
 
   const productLines = lines.filter((line) => line.product);
   const orderTotal = productLines.reduce((sum, line) => sum + (line.lineAmount ?? 0), 0);
-  const paid = Number(amountPaid) || 0;
+  const declares = paymentType === "PREPAID" && declaration.kind !== "UNPAID";
+  const paid = declares ? declarationAmount(declaration, orderTotal) : 0;
   const remaining = Math.max(orderTotal - paid, 0);
+  const paymentMethod =
+    paymentMethods.find((row) => row.id === declaration.paymentMethodId) ?? null;
   const selectedCountry = countries.find((c) => c.id === countryId) ?? null;
   const selectedCity = cities.find((c) => c.name === city) ?? null;
 
@@ -141,8 +148,11 @@ export function LeadConvertDialog({
       setFieldError(t("crm.leads.convert.validation.total"));
       return false;
     }
-    if (paymentType === "PREPAID" && paid > 0 && !paymentMethod) {
-      setFieldError(t("crm.leads.convert.validation.paymentMethod"));
+    const declarationError = declares
+      ? validateDeclaration(declaration, { total: orderTotal, remaining: orderTotal })
+      : null;
+    if (declarationError) {
+      setFieldError(t(`paymentDeclaration.dialog.errors.${declarationError}`));
       return false;
     }
     if (!address.trim() && !city.trim()) {
@@ -165,11 +175,21 @@ export function LeadConvertDialog({
         })),
         paymentType,
         fulfillmentMethod,
-        paymentMethodId: paymentMethod?.id,
         currencyId: currency?.id ?? lead.currencyId,
-        amountPaid: paymentType === "CASH_ON_DELIVERY" ? 0 : paid,
-        paymentReference: paymentReference.trim() || undefined,
-        stagingAttachmentIds: stagingIdsOf(receiptItems),
+        // The conversion claim is idempotent per lead server-side.
+        ...(declares
+          ? (() => {
+              const payload = buildDeclarationPayload(declaration, undefined);
+              return {
+                declarationKind: payload.kind,
+                amountPaid: payload.amount,
+                paymentMethodId: payload.paymentMethodId,
+                paymentDate: payload.paymentDate,
+                paymentReference: payload.referenceNumber,
+                stagingAttachmentIds: stagingIdsOf(receiptItems),
+              };
+            })()
+          : { declarationKind: "UNPAID" }),
         countryId,
         city: city.trim() || undefined,
         address: address.trim() || undefined,
@@ -288,7 +308,7 @@ export function LeadConvertDialog({
                       }
                     }
                     setReceiptItems([]);
-                    setAmountPaid("0");
+                    setDeclaration(emptyDeclaration("UNPAID"));
                   }
                 }}
                 items={[
@@ -319,18 +339,6 @@ export function LeadConvertDialog({
               />
             </div>
             <div className="flex flex-col gap-1">
-              <Label>{t("crm.leads.convert.paymentMethod")}</Label>
-              <EntityCombobox
-                value={paymentMethod}
-                onChange={setPaymentMethod}
-                items={paymentMethods}
-                getId={(item) => item.id}
-                getTitle={(item) => item.name}
-                allowClear
-                placeholder={t("storeOrders.detail.payments.selectMethod")}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
               <Label htmlFor={currencyFieldId}>{t("crm.leads.fields.currency")}</Label>
               <CurrencyPicker
                 id={currencyFieldId}
@@ -339,33 +347,23 @@ export function LeadConvertDialog({
                 onValueChange={(id) => setCurrency(currencies.find((row) => row.id === id) ?? null)}
               />
             </div>
-            <div className="flex flex-col gap-1">
-              <Label>{t("crm.leads.convert.amountPaid")}</Label>
-              <Input
-                dir="ltr"
-                type="number"
-                min={0}
-                step="0.01"
-                value={paymentType === "CASH_ON_DELIVERY" ? "0" : amountPaid}
-                disabled={paymentType === "CASH_ON_DELIVERY"}
-                onChange={(event) => setAmountPaid(event.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label>{t("crm.leads.convert.paymentReference")}</Label>
-              <Input
-                dir="ltr"
-                value={paymentReference}
-                onChange={(event) => setPaymentReference(event.target.value)}
-              />
-            </div>
-            <PaymentReceiptsField
-              items={receiptItems}
-              onChange={setReceiptItems}
-              disabled={isSaving}
-              visible={paymentType === "PREPAID" && paid > 0}
-            />
           </ModalSection>
+
+          {paymentType === "PREPAID" ? (
+            <PaymentDeclarationFields
+              value={declaration}
+              onChange={(next) => {
+                setDeclaration(next);
+                if (fieldError) setFieldError(null);
+              }}
+              receipts={receiptItems}
+              onReceiptsChange={setReceiptItems}
+              total={orderTotal}
+              remaining={orderTotal}
+              currency={currency}
+              disabled={isSaving}
+            />
+          ) : null}
 
           <ModalSection title={t("crm.leads.convert.sectionShipping")} columns={2}>
             <div className="flex flex-col gap-1">
@@ -458,8 +456,18 @@ export function LeadConvertDialog({
                     ? t("crm.leads.convert.cod")
                     : t("crm.leads.convert.prepaid"),
               },
+              {
+                label: t("paymentDeclaration.dialog.question"),
+                value:
+                  paymentType === "PREPAID"
+                    ? t(`paymentDeclaration.dialog.kinds.${declaration.kind}`)
+                    : undefined,
+              },
               { label: t("crm.leads.convert.paymentMethod"), value: paymentMethod?.name },
-              { label: t("crm.leads.convert.amountPaid"), value: String(paid) },
+              {
+                label: t("crm.leads.convert.amountPaid"),
+                value: paid > 0 ? paid.toFixed(2) : undefined,
+              },
               { label: t("crm.leads.fields.currency"), value: currency?.code },
               {
                 label: t("crm.leads.convert.sectionShipping"),

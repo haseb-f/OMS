@@ -9,11 +9,10 @@ import {
   PartnerRoleType,
   PartnerSource,
   PartnerStatus,
-  PaymentStatus,
+  PaymentOrigin,
   Prisma,
   StatusChangeSource,
   StoreOrderFulfillmentMethod,
-  StoreOrderPaymentStatus,
   StoreOrderPaymentType,
   StoreOrderShippingStage,
   WorkflowApprovalStatus,
@@ -30,10 +29,8 @@ import {
 } from '../sales-scope/sales-scope.service';
 import { AttachmentsService } from '../common/storage/attachments.service';
 import { derivedUnitPrice } from '../store-orders/store-order-line-amount';
-import {
-  assertCanAcceptPayment,
-  computeStoreOrderSettlement,
-} from '../store-orders/store-order-payment-settlement.util';
+import { declarePaymentInTx } from '../store-orders/payment-declaration/payment-declaration.core';
+import { ORDER_PAYMENT_STATUS_CODE } from './workflow-status-map';
 import {
   type WorkflowEntityType,
   isWorkflowEntityType,
@@ -73,7 +70,12 @@ export interface LeadConvertPayload {
   paymentSourceId?: string;
   paymentMethodId?: string;
   currencyId?: string;
+  /** Legacy free amount — read as a PARTIAL declaration when `declarationKind` is absent. */
   amountPaid?: number;
+  /** Sales declaration at conversion: UNPAID / FULL (validated order total) / PARTIAL (`amountPaid`). */
+  declarationKind?: 'UNPAID' | 'FULL' | 'PARTIAL';
+  /** Actual payment date (defaults to today). */
+  paymentDate?: string;
   paymentReference?: string;
   paymentProofUrl?: string;
   stagingAttachmentIds?: string[];
@@ -828,12 +830,15 @@ export class WorkflowEngineService {
       },
     });
 
-    const amountPaid = payload?.amountPaid ?? 0;
-    if (amountPaid > 0) {
+    const declarationKind =
+      payload?.declarationKind ??
+      ((payload?.amountPaid ?? 0) > 0 ? 'PARTIAL' : undefined);
+    if (declarationKind) {
       await this.createConversionPaymentClaim(
         storeOrder.id,
+        lead.id,
         currencyId,
-        amountPaid,
+        declarationKind,
         payload,
         userId,
         tx,
@@ -897,72 +902,57 @@ export class WorkflowEngineService {
     return [{ productId, quantity, unitPrice, agreedAmount }];
   }
 
+  /**
+   * The Sales declaration captured at conversion — the SAME declaration
+   * service as the order page (payment-declaration.core), origin
+   * LEAD_CONVERSION. The idempotency key is derived from the lead, so a
+   * retried conversion can never create a second claim. Sets the declared
+   * status and dual-writes the Finance status (enum + StatusDefinition).
+   */
   private async createConversionPaymentClaim(
     storeOrderId: string,
+    leadId: string,
     orderCurrencyId: string,
-    amount: number,
+    kind: 'UNPAID' | 'FULL' | 'PARTIAL',
     payload: LeadConvertPayload | undefined,
     userId: string,
     tx: Prisma.TransactionClient,
   ) {
-    // Same guard as every other payment entry point: a conversion claim can
-    // never exceed (or exist without) the order's own priced total, or it
-    // would later fail verification as an "overpayment".
-    assertCanAcceptPayment(
-      await computeStoreOrderSettlement(tx, storeOrderId),
-      amount,
-    );
-    const paymentSourceId = await this.resolvePaymentSourceId(
-      payload?.paymentMethodId,
-      payload?.paymentSourceId,
+    const result = await declarePaymentInTx(
       tx,
-    );
-    const receivingAccount = await tx.receivingAccount.findFirst({
-      where: { deletedAt: null, isActive: true },
-      orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
-    });
-    if (!receivingAccount) {
-      throw new BadRequestException(
-        'No active Receiving Account configured for payment reporting.',
-      );
-    }
-    const paymentNumber = await this.numberingEngine.generateNumber(
-      'PAYMENT',
-      undefined,
-      tx,
-    );
-    const payment = await tx.payment.create({
-      data: {
-        paymentNumber,
+      {
+        generatePaymentNumber: (client) =>
+          this.numberingEngine.generateNumber('PAYMENT', undefined, client),
+        paymentStatusId: (status) =>
+          this.statusDefinitions
+            .findByCode(WorkflowType.PAYMENT, ORDER_PAYMENT_STATUS_CODE[status])
+            .then((row) => row?.id),
+        finalizeAttachments: (paymentId, orderId, ids, actorId, client) =>
+          this.attachments.finalizeForPayment(
+            paymentId,
+            orderId,
+            ids,
+            actorId,
+            client,
+          ),
+      },
+      {
         storeOrderId,
-        paymentDate: new Date(),
-        amount,
+        kind,
+        amount: payload?.amountPaid,
+        paymentMethodId: payload?.paymentMethodId,
         currencyId: orderCurrencyId,
-        paymentSourceId,
-        receivingAccountId: receivingAccount.id,
+        paymentDate: payload?.paymentDate ?? new Date().toISOString(),
         referenceNumber: payload?.paymentReference,
-        senderName: 'Reported',
-        status: PaymentStatus.PENDING,
-        createdBy: userId,
-        updatedBy: userId,
-      },
-    });
-    await tx.storeOrder.update({
-      where: { id: storeOrderId },
-      data: {
-        paymentStatus: StoreOrderPaymentStatus.PAYMENT_REVIEW,
-      },
-    });
-    if (payload?.stagingAttachmentIds?.length) {
-      await this.attachments.finalizeForPayment(
-        payment.id,
-        storeOrderId,
-        payload.stagingAttachmentIds,
+        stagedAttachmentIds: payload?.stagingAttachmentIds,
+        idempotencyKey: `lead-convert:${leadId}`,
+        origin: PaymentOrigin.LEAD_CONVERSION,
         userId,
-        tx,
-      );
-    }
-    if (payload?.paymentProofUrl?.trim()) {
+        allowCorrection: false,
+      },
+    );
+    const payment = result.payment;
+    if (payment && payload?.paymentProofUrl?.trim()) {
       await tx.paymentAttachment.create({
         data: {
           paymentId: payment.id,
@@ -982,48 +972,6 @@ export class WorkflowEngineService {
         },
       });
     }
-  }
-
-  private async resolvePaymentSourceId(
-    paymentMethodId: string | undefined,
-    paymentSourceId: string | undefined,
-    tx: Prisma.TransactionClient,
-  ): Promise<string> {
-    if (paymentSourceId) {
-      const source = await tx.paymentSource.findFirst({
-        where: { id: paymentSourceId, deletedAt: null, isActive: true },
-      });
-      if (!source) {
-        throw new BadRequestException(
-          'Payment source not found or is not active.',
-        );
-      }
-      return source.id;
-    }
-    if (paymentMethodId) {
-      const method = await tx.paymentMethod.findFirst({
-        where: { id: paymentMethodId, deletedAt: null },
-      });
-      if (!method) {
-        throw new BadRequestException('Payment method not found.');
-      }
-      const byName = await tx.paymentSource.findFirst({
-        where: {
-          deletedAt: null,
-          isActive: true,
-          name: { equals: method.name, mode: 'insensitive' },
-        },
-      });
-      if (byName) return byName.id;
-    }
-    const fallback = await tx.paymentSource.findFirst({
-      where: { deletedAt: null, isActive: true },
-      orderBy: [{ isDefault: 'desc' }, { sortOrder: 'asc' }],
-    });
-    if (!fallback) {
-      throw new BadRequestException('No active Payment Source is configured.');
-    }
-    return fallback.id;
   }
 
   /**

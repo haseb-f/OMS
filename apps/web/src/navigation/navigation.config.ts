@@ -683,6 +683,15 @@ export const navigationConfig: NavigationItem[] = [
     permissions: ["sales.receipts.view"],
   },
   {
+    id: "finance-payment-reconciliation",
+    titleKey: "paymentReconciliation.nav.title",
+    parent: "finance",
+    route: "/finance/payment-reconciliation",
+    icon: "arrow-left-right",
+    order: 10.6,
+    permissions: ["finance.payment-reconciliation.view"],
+  },
+  {
     id: "finance-bank-transactions",
     titleKey: "nav.financeBankTransactions",
     parent: "finance",

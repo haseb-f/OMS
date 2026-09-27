@@ -6,7 +6,14 @@ import { ApiError } from "@/services/api-client";
 import { exchangeRatesService, type RequiredExchangeRate } from "@/services/fx-service";
 
 function missingRateFromError(error: unknown): RequiredExchangeRate | null {
-  if (!(error instanceof ApiError) || error.code !== "MISSING_EXCHANGE_RATE") return null;
+  // A stale rate (newest observation older than the allowed window) is
+  // recovered the same way: record the dated rate, then retry.
+  if (
+    !(error instanceof ApiError) ||
+    (error.code !== "MISSING_EXCHANGE_RATE" && error.code !== "STALE_EXCHANGE_RATE")
+  ) {
+    return null;
+  }
   const details = error.details ?? {};
   if (typeof details.fromCurrencyId !== "string" || typeof details.asOf !== "string") return null;
   const text = (value: unknown) => (typeof value === "string" ? value : null);

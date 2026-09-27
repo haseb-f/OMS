@@ -49,6 +49,8 @@ const INTENTIONALLY_UNGATED: Record<string, string> = {
   'health/health.controller.ts': 'Public health check — no data, no auth.',
   'accounting/schedules/accounting-schedules-cron.controller.ts':
     'Vercel Cron target — authenticated by the CRON_SECRET bearer (timing-safe compare), refuses to run when unset; only posts schedule rows already due, idempotently.',
+  'accounting/fx/fx-rates-cron.controller.ts':
+    'Vercel Cron target — same CRON_SECRET bearer check (shared assertCronAuthorized); only runs the idempotent official FX import, never posts documents.',
   'traceability/traceability.controller.ts':
     "Read-only related-records view for any signed-in user; every linked record is filtered by the caller's own view permission inside TraceabilityService (hidden groups return UNAUTHORIZED).",
   'common/storage/attachments.controller.ts':
@@ -100,7 +102,8 @@ describe('Controller authorization coverage (TASK-062 safety net)', () => {
       if (relPath === 'health/health.controller.ts') return; // deliberately public
       if (
         relPath ===
-        'accounting/schedules/accounting-schedules-cron.controller.ts'
+          'accounting/schedules/accounting-schedules-cron.controller.ts' ||
+        relPath === 'accounting/fx/fx-rates-cron.controller.ts'
       )
         return; // CRON_SECRET bearer, see INTENTIONALLY_UNGATED
       if (relPath === 'investor-portal/investor-portal-auth.controller.ts')

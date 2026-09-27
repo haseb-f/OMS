@@ -6,6 +6,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateExchangeRateDto, ExchangeRateQueryDto } from './dto/fx.dto';
+import { dayStart, daysBetween, isoDay } from './fx-dates';
 
 type DbClient = PrismaService | Prisma.TransactionClient;
 
@@ -18,12 +19,23 @@ type DbClient = PrismaService | Prisma.TransactionClient;
 export class ExchangeRatesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** Manual (or bulk-imported) daily rate. Canonical pairs only
+   *  (1 FOREIGN = X functional); official provenance (CBE) is written only
+   *  by the automatic import, never through this endpoint. */
   async create(dto: CreateExchangeRateDto, userId?: string) {
     if (dto.fromCurrencyId === dto.toCurrencyId) {
       throw new BadRequestException(
         'From and To currencies must be different.',
       );
     }
+    const source = dto.source ?? 'MANUAL';
+    if (source !== 'MANUAL' && source !== 'IMPORT') {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: `Rates entered by hand are recorded as MANUAL (or IMPORT for a file import); "${source}" is reserved for the automatic official import.`,
+      });
+    }
+    await this.assertCanonicalPair(dto.fromCurrencyId, dto.toCurrencyId);
     const existing = await this.prisma.exchangeRate.findUnique({
       where: {
         fromCurrencyId_toCurrencyId_effectiveDate: {
@@ -44,7 +56,7 @@ export class ExchangeRatesService {
         toCurrencyId: dto.toCurrencyId,
         rate: dto.rate,
         effectiveDate: new Date(dto.effectiveDate),
-        source: dto.source ?? 'MANUAL',
+        source,
         provider: dto.provider ?? null,
         notes: dto.notes,
         createdBy: userId ?? null,
@@ -125,9 +137,11 @@ export class ExchangeRatesService {
     return row;
   }
 
-  /** Pre-posting check: does this document need a rate, and is one on
-   *  record for its date? Lets the UI ask for the rate before posting
-   *  instead of failing mid-transition. Never invents a rate. */
+  /** Pre-posting check: does this document need a rate, and which one
+   *  would it get? Lets the UI ask for the rate before posting instead of
+   *  failing mid-transition. Uses the exact resolution posting uses
+   *  (override → official/manual within the staleness window). Never
+   *  invents a rate. */
   async checkRate(currencyId: string, asOf: Date) {
     const functionalId = await this.resolveFunctionalCurrencyId();
     const [currency, functional] = await Promise.all([
@@ -147,7 +161,7 @@ export class ExchangeRatesService {
       toCurrencyId: functionalId,
       fromCurrencyCode: currency?.code ?? null,
       toCurrencyCode: functional?.code ?? null,
-      asOf: asOf.toISOString().slice(0, 10),
+      asOf: isoDay(asOf),
     };
     if (!functionalId || currencyId === functionalId) {
       return {
@@ -158,19 +172,35 @@ export class ExchangeRatesService {
         effectiveDate: null,
         source: 'IDENTITY',
         provider: null,
+        overrideId: null,
+        errorCode: null,
+        message: null,
         convention:
           '1 unit of document currency = 1 unit of functional currency',
       };
     }
-    const row = await this.prisma.exchangeRate.findFirst({
-      where: {
-        fromCurrencyId: currencyId,
-        toCurrencyId: functionalId,
-        effectiveDate: { lte: asOf },
-      },
-      orderBy: { effectiveDate: 'desc' },
-    });
-    if (!row) {
+    try {
+      const resolved = await this.resolveRateDetailed(
+        currencyId,
+        functionalId,
+        asOf,
+      );
+      return {
+        ...base,
+        required: true,
+        available: true,
+        rate: resolved.rate,
+        effectiveDate: isoDay(resolved.effectiveDate),
+        source: resolved.source,
+        provider: resolved.provider ?? null,
+        overrideId: resolved.overrideId,
+        errorCode: null,
+        message: null,
+        convention: `1 ${currency?.code ?? 'from'} = ${resolved.rate} ${functional?.code ?? 'to'}`,
+      };
+    } catch (error) {
+      const failure = rateFailure(error);
+      if (!failure) throw error;
       return {
         ...base,
         required: true,
@@ -179,19 +209,12 @@ export class ExchangeRatesService {
         effectiveDate: null,
         source: null,
         provider: null,
+        overrideId: null,
+        errorCode: failure.code,
+        message: failure.message,
         convention: `1 ${currency?.code ?? 'from'} = X ${functional?.code ?? 'to'}`,
       };
     }
-    return {
-      ...base,
-      required: true,
-      available: true,
-      rate: Number(row.rate),
-      effectiveDate: row.effectiveDate.toISOString().slice(0, 10),
-      source: row.source,
-      provider: row.provider,
-      convention: `1 ${currency?.code ?? 'from'} = ${Number(row.rate)} ${functional?.code ?? 'to'}`,
-    };
   }
 
   /** The company's configured functional (base) currency, or null when it
@@ -238,11 +261,18 @@ export class ExchangeRatesService {
 
   /**
    * CONTRACT (payment-declaration-reconciliation): rate + provenance for
-   * freezing on posted documents. `snapshotRate`/`resolveRate` keep their
-   * signatures and must return the same `rate` this returns. IMPL-FX owns the
-   * precedence (dated override → latest official/manual rate within the
-   * staleness window → fail closed MISSING_/STALE_EXCHANGE_RATE); this initial
-   * version only wraps the legacy lookup.
+   * freezing on posted documents. `snapshotRate`/`resolveRate` delegate here,
+   * so every caller gets the same rate. Precedence for the calendar day of
+   * `asOf` (canonical pair only — a reverse pair is never inverted):
+   *   1. an active dated override whose inclusive [dateFrom, dateTo] contains
+   *      the day → source 'OVERRIDE';
+   *   2. the latest official (CBE) or manual daily rate with
+   *      effectiveDate ≤ day, accepted only when at most
+   *      `FxSyncSettings.maxStaleDays` calendar days old — this is what
+   *      covers weekends/holidays (e.g. Thursday's rate for Saturday), and
+   *      `effectiveDate` says so explicitly;
+   *   3. otherwise fail closed: MISSING_EXCHANGE_RATE (no observation at all)
+   *      or STALE_EXCHANGE_RATE (newest observation too old).
    */
   async resolveRateDetailed(
     fromCurrencyId: string,
@@ -250,32 +280,82 @@ export class ExchangeRatesService {
     asOf: Date,
     client: DbClient = this.prisma,
   ): Promise<ResolvedRate> {
+    const day = dayStart(asOf);
     if (fromCurrencyId === toCurrencyId) {
       return {
         rate: 1,
-        effectiveDate: asOf,
+        effectiveDate: day,
         source: 'IDENTITY',
         rateId: null,
         overrideId: null,
       };
     }
-    const rate = await this.resolveRate(
-      fromCurrencyId,
-      toCurrencyId,
-      asOf,
-      client,
-    );
-    const row = await client.exchangeRate.findFirst({
-      where: { fromCurrencyId, toCurrencyId, effectiveDate: { lte: asOf } },
-      orderBy: { effectiveDate: 'desc' },
-      select: { id: true, effectiveDate: true, source: true },
+
+    const override = await client.exchangeRateOverride.findFirst({
+      where: {
+        fromCurrencyId,
+        toCurrencyId,
+        deletedAt: null,
+        dateFrom: { lte: day },
+        dateTo: { gte: day },
+      },
+      orderBy: { dateFrom: 'desc' },
     });
+    if (override) {
+      return {
+        rate: Number(override.rate),
+        effectiveDate: day,
+        source: 'OVERRIDE',
+        rateId: null,
+        overrideId: override.id,
+        ageDays: 0,
+        overrideRange: {
+          dateFrom: isoDay(override.dateFrom),
+          dateTo: isoDay(override.dateTo),
+        },
+      };
+    }
+
+    const row = await client.exchangeRate.findFirst({
+      where: { fromCurrencyId, toCurrencyId, effectiveDate: { lte: day } },
+      orderBy: [{ effectiveDate: 'desc' }, { createdAt: 'desc' }],
+    });
+    const { maxStaleDays } = await this.getFxSettings(client);
+    if (!row) {
+      throw await this.rateError(
+        'MISSING_EXCHANGE_RATE',
+        fromCurrencyId,
+        toCurrencyId,
+        day,
+        client,
+        { maxStaleDays },
+      );
+    }
+    const ageDays = daysBetween(row.effectiveDate, day);
+    if (ageDays > maxStaleDays) {
+      throw await this.rateError(
+        'STALE_EXCHANGE_RATE',
+        fromCurrencyId,
+        toCurrencyId,
+        day,
+        client,
+        {
+          maxStaleDays,
+          lastEffectiveDate: isoDay(row.effectiveDate),
+          lastRate: Number(row.rate),
+          lastSource: row.source,
+          ageDays,
+        },
+      );
+    }
     return {
-      rate,
-      effectiveDate: row?.effectiveDate ?? asOf,
-      source: row?.source ?? 'EXCHANGE_RATE',
-      rateId: row?.id ?? null,
+      rate: Number(row.rate),
+      effectiveDate: row.effectiveDate,
+      source: row.source,
+      rateId: row.id,
       overrideId: null,
+      provider: row.provider,
+      ageDays,
     };
   }
 
@@ -288,7 +368,7 @@ export class ExchangeRatesService {
     if (!currencyId) {
       return {
         rate: 1,
-        effectiveDate: asOf,
+        effectiveDate: dayStart(asOf),
         source: 'IDENTITY',
         rateId: null,
         overrideId: null,
@@ -298,24 +378,92 @@ export class ExchangeRatesService {
     return this.resolveRateDetailed(currencyId, functionalId, asOf, client);
   }
 
+  /** Same rate as `resolveRateDetailed` (delegates), without provenance. */
   async resolveRate(
     fromCurrencyId: string,
     toCurrencyId: string,
     asOf: Date,
     client: DbClient = this.prisma,
   ): Promise<number> {
-    if (fromCurrencyId === toCurrencyId) return 1;
-    // Convention: rate means "1 from = rate to". Never silently invert a
-    // reverse pair — that would guess the wrong day/source and rewrite history.
-    const direct = await client.exchangeRate.findFirst({
-      where: {
-        fromCurrencyId,
-        toCurrencyId,
-        effectiveDate: { lte: asOf },
-      },
-      orderBy: { effectiveDate: 'desc' },
+    const resolved = await this.resolveRateDetailed(
+      fromCurrencyId,
+      toCurrencyId,
+      asOf,
+      client,
+    );
+    return resolved.rate;
+  }
+
+  /** FX sync/resolution settings (singleton row, seeded by migration). */
+  async getFxSettings(client: DbClient = this.prisma): Promise<FxSettingsView> {
+    const row = await client.fxSyncSettings.findFirst({
+      orderBy: { updatedAt: 'asc' },
     });
-    if (direct) return Number(direct.rate);
+    return {
+      id: row?.id ?? null,
+      enabled: row?.enabled ?? true,
+      provider: row?.provider ?? 'CBE',
+      currencyCodes: row?.currencyCodes ?? [],
+      rateBasis: normaliseBasis(row?.rateBasis),
+      maxStaleDays: row?.maxStaleDays ?? DEFAULT_MAX_STALE_DAYS,
+      staleAlertDays: row?.staleAlertDays ?? DEFAULT_STALE_ALERT_DAYS,
+      updatedAt: row?.updatedAt ?? null,
+      updatedBy: row?.updatedBy ?? null,
+    };
+  }
+
+  /**
+   * Canonical quotation guard: every stored rate/override is
+   * "1 FOREIGN = X functional". Returns the functional currency id.
+   */
+  async assertCanonicalPair(
+    fromCurrencyId: string,
+    toCurrencyId: string | null | undefined,
+    client: DbClient = this.prisma,
+  ): Promise<string> {
+    const functionalId = await this.requireFunctionalCurrencyId(client);
+    const ids = [fromCurrencyId, functionalId];
+    if (toCurrencyId) ids.push(toCurrencyId);
+    const currencies = await client.currency.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, code: true },
+    });
+    const codeOf = (id: string) =>
+      currencies.find((c) => c.id === id)?.code ?? id;
+    const functionalCode = codeOf(functionalId);
+    const from = currencies.find((c) => c.id === fromCurrencyId);
+    if (!from) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: 'The selected currency does not exist.',
+        fields: [{ field: 'fromCurrencyId', constraints: ['not_found'] }],
+      });
+    }
+    if (fromCurrencyId === functionalId) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        details: { reason: 'NON_CANONICAL_EXCHANGE_RATE' },
+        message: `${functionalCode} is the base (functional) currency, so it cannot be the "from" currency. Rates are always quoted as 1 FOREIGN = X ${functionalCode}: record the foreign currency (e.g. 1 USD = X ${functionalCode}) instead of a reverse rate.`,
+      });
+    }
+    if (toCurrencyId && toCurrencyId !== functionalId) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        details: { reason: 'NON_CANONICAL_EXCHANGE_RATE' },
+        message: `Rates must be quoted into the base (functional) currency ${functionalCode}: 1 ${from.code} = X ${functionalCode}. A rate into ${codeOf(toCurrencyId)} is not accepted, and reverse pairs are never stored or inverted.`,
+      });
+    }
+    return functionalId;
+  }
+
+  private async rateError(
+    code: 'MISSING_EXCHANGE_RATE' | 'STALE_EXCHANGE_RATE',
+    fromCurrencyId: string,
+    toCurrencyId: string,
+    day: Date,
+    client: DbClient,
+    extra: Record<string, string | number | null>,
+  ): Promise<BadRequestException> {
     const [from, to] = await Promise.all([
       client.currency.findUnique({
         where: { id: fromCurrencyId },
@@ -326,19 +474,67 @@ export class ExchangeRatesService {
         select: { code: true },
       }),
     ]);
-    const asOfDate = asOf.toISOString().slice(0, 10);
-    throw new BadRequestException({
-      code: 'MISSING_EXCHANGE_RATE',
-      message: `No exchange rate from ${from?.code ?? fromCurrencyId} to ${to?.code ?? toCurrencyId} on or before ${asOfDate}. Record the directed rate (1 ${from?.code ?? 'from'} = X ${to?.code ?? 'to'}) for that date, then post again.`,
+    const fromCode = from?.code ?? fromCurrencyId;
+    const toCode = to?.code ?? toCurrencyId;
+    const asOfDate = isoDay(day);
+    const message =
+      code === 'MISSING_EXCHANGE_RATE'
+        ? `No exchange rate from ${fromCode} to ${toCode} on or before ${asOfDate}. Record the directed rate (1 ${fromCode} = X ${toCode}) for that date or a dated override covering it, then post again.`
+        : `The latest ${fromCode} → ${toCode} rate is from ${extra.lastEffectiveDate} — ${extra.ageDays} days before ${asOfDate}, more than the ${extra.maxStaleDays}-day limit. Run the automatic import, or record the rate for ${asOfDate} (1 ${fromCode} = X ${toCode}) or a dated override covering it, then post again.`;
+    return new BadRequestException({
+      code,
+      message,
       details: {
         fromCurrencyId,
         toCurrencyId,
         fromCurrencyCode: from?.code ?? null,
         toCurrencyCode: to?.code ?? null,
         asOf: asOfDate,
+        ...extra,
       },
     });
   }
+}
+
+export const DEFAULT_MAX_STALE_DAYS = 10;
+export const DEFAULT_STALE_ALERT_DAYS = 4;
+export const FX_RATE_BASES = ['MID', 'BUY', 'SELL'] as const;
+export type FxRateBasis = (typeof FX_RATE_BASES)[number];
+
+function normaliseBasis(value: string | null | undefined): FxRateBasis {
+  return (FX_RATE_BASES as readonly string[]).includes(value ?? '')
+    ? (value as FxRateBasis)
+    : 'MID';
+}
+
+export interface FxSettingsView {
+  id: string | null;
+  enabled: boolean;
+  provider: string;
+  currencyCodes: string[];
+  rateBasis: FxRateBasis;
+  maxStaleDays: number;
+  staleAlertDays: number;
+  updatedAt: Date | null;
+  updatedBy: string | null;
+}
+
+/** The fail-closed FX error carried by a thrown exception, if any. */
+export function rateFailure(
+  error: unknown,
+): { code: string; message: string; details: Record<string, unknown> } | null {
+  if (!(error instanceof BadRequestException)) return null;
+  const body = error.getResponse();
+  if (typeof body !== 'object' || body === null) return null;
+  const { code, message, details } = body as {
+    code?: string;
+    message?: string;
+    details?: Record<string, unknown>;
+  };
+  if (code !== 'MISSING_EXCHANGE_RATE' && code !== 'STALE_EXCHANGE_RATE') {
+    return null;
+  }
+  return { code, message: message ?? code, details: details ?? {} };
 }
 
 /** Rate with provenance — frozen on posted documents (rate, date, source). */
@@ -350,4 +546,9 @@ export interface ResolvedRate {
   source: string;
   rateId: string | null;
   overrideId: string | null;
+  /** Optional provenance extras (display only; never needed to freeze a document). */
+  provider?: string | null;
+  /** Calendar days between the observation and the requested date (> 0 = weekend/holiday fallback). */
+  ageDays?: number;
+  overrideRange?: { dateFrom: string; dateTo: string };
 }

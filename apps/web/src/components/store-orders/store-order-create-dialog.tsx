@@ -23,7 +23,6 @@ import {
   DateFormField,
   FileDropField,
   FileUrlField,
-  NumberFormField,
   PhoneFormField,
   SelectFormField,
   TextareaFormField,
@@ -37,29 +36,32 @@ import {
 } from "@/components/sales/product-line-items-grid";
 import { FieldLabel, FieldMessage, Form } from "@/components/ui/form";
 import { PartnerPicker } from "@/components/business/partner-picker";
-import { AccountPicker } from "@/components/business/account-picker";
-import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { storeOrdersService, type StoreOrderRow } from "@/services/store-orders-service";
+import { PaymentDeclarationFields } from "@/components/payments/declaration/payment-declaration-fields";
 import {
-  paymentSourcesService,
-  type PaymentSourceOption,
-} from "@/services/payment-sources-service";
+  buildDeclarationPayload,
+  declarationAmount,
+  emptyDeclaration,
+  newIdempotencyKey,
+  validateDeclaration,
+  type DeclarationFormState,
+} from "@/components/payments/declaration/declaration-logic";
+import { stagingIdsOf, type ReceiptUploadItem } from "@/components/business/payment-receipts-field";
 import {
   partnersService,
   type CustomerGlobalLookupResult,
   type PartnerPickerRow,
 } from "@/services/partners-service";
-import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import {
   buildStoreOrderCreateSchema,
   storeOrderCreateDefaultValues,
   type StoreOrderCreateFormValues,
 } from "@/config/store-orders/store-order-create-schema";
 import { useLocale } from "@/providers/locale-provider";
+import { useUserContext } from "@/providers/user-context";
 import { useCountries, useCurrencies } from "@/hooks/use-reference-data";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
-import { toISODate } from "@/lib/date";
 import {
   PAYMENT_STATUS_LABEL_KEY,
   PAYMENT_TYPE_LABEL_KEY,
@@ -92,16 +94,23 @@ export function StoreOrderCreateDialog({
   prefillCustomer?: StoreOrderCreatePrefillCustomer | null;
 }) {
   const { t } = useLocale();
+  const { hasPermission } = useUserContext();
+  // Same any-of rule the API applies to payment declarations.
+  const canDeclarePayment =
+    hasPermission("store-orders.edit") || hasPermission("sales.receipts.create");
   const currencies = useCurrencies();
   const countries = useCountries();
   const [selectedCustomer, setSelectedCustomer] = useState<PartnerPickerRow | null>(null);
   const [lines, setLines] = useState<ProductLineItemsGridLine[]>([createEmptyLine()]);
   const [itemsError, setItemsError] = useState<string | null>(null);
   const [showLineErrors, setShowLineErrors] = useState(false);
-  const [paymentSources, setPaymentSources] = useState<PaymentSourceOption[]>([]);
-  const [paymentSource, setPaymentSource] = useState<PaymentSourceOption | null>(null);
-  const [receivingAccount, setReceivingAccount] = useState<ChartOfAccountRow | null>(null);
-  const [paymentError, setPaymentError] = useState<string | null>(null);
+  // Optional Sales payment declaration (never a voucher / receiving account).
+  const [declaration, setDeclaration] = useState<DeclarationFormState>(() =>
+    emptyDeclaration("UNPAID"),
+  );
+  const [declarationReceipts, setDeclarationReceipts] = useState<ReceiptUploadItem[]>([]);
+  const [showDeclarationError, setShowDeclarationError] = useState(false);
+  const [declarationKey, setDeclarationKey] = useState("");
   const [receiptError, setReceiptError] = useState<string | null>(null);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [existingCustomer, setExistingCustomer] = useState<CustomerGlobalLookupResult | null>(null);
@@ -132,18 +141,10 @@ export function StoreOrderCreateDialog({
       form.setValue("address", prefillCustomer.address || "", { shouldDirty: true });
       setExistingCustomerApplied(true);
     }
-    let cancelled = false;
-    paymentSourcesService
-      .list()
-      .then((rows) => {
-        if (!cancelled) setPaymentSources(rows);
-      })
-      .catch(() => {
-        if (!cancelled) setPaymentSources([]);
-      });
-    return () => {
-      cancelled = true;
-    };
+    setDeclarationKey(newIdempotencyKey());
+    setDeclaration(emptyDeclaration("UNPAID"));
+    setDeclarationReceipts([]);
+    setShowDeclarationError(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -151,7 +152,6 @@ export function StoreOrderCreateDialog({
   const isSubmitting = form.formState.isSubmitting;
   const countryId = useWatch({ control: form.control, name: "countryId" });
   const selectedCurrencyId = useWatch({ control: form.control, name: "currencyId" });
-  const paymentAmount = useWatch({ control: form.control, name: "paymentAmount" });
   const receiptName = useWatch({ control: form.control, name: "receiptName" });
   const receiptUrl = useWatch({ control: form.control, name: "receiptUrl" });
   const customerName = useWatch({ control: form.control, name: "customerName" });
@@ -171,7 +171,12 @@ export function StoreOrderCreateDialog({
       ?.code ?? "";
 
   const itemsTotal = lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0);
-  const paidAmount = typeof paymentAmount === "number" && paymentAmount > 0 ? paymentAmount : 0;
+  const declares =
+    canDeclarePayment && paymentType !== "CASH_ON_DELIVERY" && declaration.kind !== "UNPAID";
+  const declarationError = declares
+    ? validateDeclaration(declaration, { total: itemsTotal, remaining: itemsTotal })
+    : null;
+  const paidAmount = declares ? declarationAmount(declaration, itemsTotal) : 0;
   const namedLines = lines.filter((line) => line.product);
   const summaryProduct =
     namedLines.map((line) => line.product!.displayName || line.product!.name).join(" · ") || "—";
@@ -188,9 +193,6 @@ export function StoreOrderCreateDialog({
     form.setValue("countryId", customer.countryId || "", { shouldDirty: true });
     form.setValue("city", customer.city || "", { shouldDirty: true });
     form.setValue("address", customer.address || "", { shouldDirty: true });
-    if (!form.getValues("senderName")) {
-      form.setValue("senderName", customer.name, { shouldDirty: false });
-    }
     setExistingCustomer(null);
     setExistingCustomerStatus("idle");
   };
@@ -257,12 +259,11 @@ export function StoreOrderCreateDialog({
       return;
     }
 
-    const wantsPayment = typeof values.paymentAmount === "number" && values.paymentAmount > 0;
-    if (wantsPayment && (!paymentSource || !receivingAccount || !values.senderName?.trim())) {
-      setPaymentError(t("storeOrders.createDialog.paymentIncomplete"));
+    if (declarationError) {
+      setShowDeclarationError(true);
       return;
     }
-    setPaymentError(null);
+    if (declarationReceipts.some((item) => item.status === "uploading")) return;
 
     const hasReceiptName = Boolean(values.receiptName?.trim());
     const hasReceiptUrl = Boolean(values.receiptUrl?.trim());
@@ -293,15 +294,14 @@ export function StoreOrderCreateDialog({
           quantity: line.quantity,
           unitPrice: line.unitPrice,
         })),
-        ...(wantsPayment && paymentSource && receivingAccount
+        ...(declares
           ? {
-              payment: {
-                paymentSourceId: paymentSource.id,
-                receivingAccountId: receivingAccount.id,
-                paymentDate: toISODate(new Date()),
-                amount: values.paymentAmount!,
-                senderName: values.senderName!.trim(),
-                currencyId: values.currencyId,
+              declaration: {
+                ...buildDeclarationPayload(
+                  { ...declaration, stagedAttachmentIds: stagingIdsOf(declarationReceipts) },
+                  values.currencyId,
+                ),
+                idempotencyKey: declarationKey,
               },
             }
           : {}),
@@ -545,47 +545,22 @@ export function StoreOrderCreateDialog({
             </div>
           </ModalSection>
 
-          <ModalSection
-            title={t("storeOrders.createDialog.sections.payment")}
-            optional
-            collapsible
-            defaultOpen={false}
-            columns={3}
-          >
-            <NumberFormField
-              control={form.control}
-              name="paymentAmount"
-              label={t("storeOrders.createDialog.fields.paymentAmount")}
-              optional
-              min={0}
-              step="0.01"
+          {canDeclarePayment && paymentType !== "CASH_ON_DELIVERY" ? (
+            <PaymentDeclarationFields
+              value={declaration}
+              onChange={(next) => {
+                setDeclaration(next);
+                setShowDeclarationError(false);
+              }}
+              receipts={declarationReceipts}
+              onReceiptsChange={setDeclarationReceipts}
+              total={itemsTotal}
+              remaining={itemsTotal}
+              currency={currencyCode}
+              error={showDeclarationError ? declarationError : null}
+              disabled={isSubmitting}
             />
-            <div className="flex flex-col gap-1">
-              <FieldLabel>{t("storeOrders.createDialog.fields.paymentSource")}</FieldLabel>
-              <EntityCombobox
-                items={paymentSources}
-                value={paymentSource}
-                onChange={setPaymentSource}
-                getId={(source) => source.id}
-                getTitle={(source) => source.name}
-                allowClear
-                placeholder={t("common.select")}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <FieldLabel>{t("storeOrders.createDialog.fields.receivingAccount")}</FieldLabel>
-              <AccountPicker value={receivingAccount} onChange={setReceivingAccount} postingOnly />
-            </div>
-            <TextFormField
-              control={form.control}
-              name="senderName"
-              label={t("storeOrders.createDialog.fields.senderName")}
-              optional
-            />
-            <div className="col-span-full">
-              <FieldMessage>{paymentError}</FieldMessage>
-            </div>
-          </ModalSection>
+          ) : null}
 
           <ModalSection
             title={t("storeOrders.createDialog.sections.notes")}
@@ -670,7 +645,7 @@ export function StoreOrderCreateDialog({
                 label: t("storeOrders.fields.payment"),
                 value:
                   paidAmount > 0
-                    ? t("storeOrders.createDialog.summary.paymentAwaitingMatch")
+                    ? t("paymentDeclaration.gate.readyDeclared")
                     : paymentType === "CASH_ON_DELIVERY"
                       ? t("storeOrders.paymentStatus.AWAITING_COLLECTION")
                       : t("storeOrders.paymentStatus.AWAITING_RECONCILIATION"),

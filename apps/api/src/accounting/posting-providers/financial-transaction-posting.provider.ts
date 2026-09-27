@@ -101,8 +101,16 @@ export class FinancialTransactionPostingProvider
         }),
       transaction.currencyId,
       transaction.exchangeRate,
-      transaction.confirmedAt ?? transaction.transactionDate,
+      transaction.rateAsOf ??
+        transaction.confirmedAt ??
+        transaction.transactionDate,
     );
+    // A frozen source date (declared-claim receipts) dates the entry on
+    // that date — a closed period fails clearly, never silently re-dated.
+    const entryDate =
+      transaction.rateAsOf ??
+      transaction.confirmedAt ??
+      transaction.transactionDate;
     if (sourceType === 'EXPENSE_PAYMENT') {
       const amount = Number(transaction.amount);
       if (amount === 0) return null;
@@ -137,7 +145,7 @@ export class FinancialTransactionPostingProvider
         branchId: transaction.branchId,
         costCenterId: transaction.costCenterId,
         projectId: transaction.projectId,
-        entryDate: transaction.confirmedAt ?? transaction.transactionDate,
+        entryDate,
       };
     }
     const amount = Number(transaction.amount);
@@ -146,12 +154,17 @@ export class FinancialTransactionPostingProvider
     // A plain user-input mistake, not a system fault — must surface as a clean 400,
     // never an unhandled 500 (a `throw new Error` here was previously swallowed by
     // Nest's default filter into an opaque "Internal server error").
-    if (!transaction.receivingAccount?.chartOfAccountId) {
+    // Customer Receipt debit override: a declared claim's receipt debits the
+    // Payment Method's clearing account (`debitAccountId`); otherwise the
+    // receiving account's ledger account as before.
+    const bankAccountId =
+      (sourceType === 'CUSTOMER_RECEIPT' ? transaction.debitAccountId : null) ??
+      transaction.receivingAccount?.chartOfAccountId;
+    if (!bankAccountId) {
       throw new BadRequestException(
         `Select a Payment Source / Receiving Account (Cash or Bank) before confirming ${transaction.transactionNumber} — the Posting Engine needs it to know which account to debit or credit.`,
       );
     }
-    const bankAccountId = transaction.receivingAccount.chartOfAccountId;
 
     if (sourceType === 'CUSTOMER_RECEIPT') {
       const arAccountId = await this.accountMapping.resolveReceivableAccount(
@@ -219,7 +232,7 @@ export class FinancialTransactionPostingProvider
         branchId: transaction.branchId,
         costCenterId: transaction.costCenterId,
         projectId: transaction.projectId,
-        entryDate: transaction.confirmedAt ?? transaction.transactionDate,
+        entryDate,
       };
     }
 

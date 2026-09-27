@@ -6,6 +6,10 @@ import { MoneyValue } from "@/components/shared/money-value";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { formatDate, formatTime, hasClockTime } from "@/lib/date";
+import {
+  DECLARED_STATUS_TONE,
+  declaredShortLabelKey,
+} from "@/components/payments/declaration/declaration-status";
 import { useLocale } from "@/providers/locale-provider";
 import type { StoreOrderRow } from "@/services/store-orders-service";
 import {
@@ -69,10 +73,16 @@ export function StoreOrderPaymentCell({ order }: { order: StoreOrderRow }) {
   return (
     <StackedCell
       primary={
-        <StatusBadge
-          label={t(financialStatusLabelKey(order.paymentStatus, order.paymentType))}
-          tone={PAYMENT_STATUS_TONE[order.paymentStatus]}
-        />
+        <span className="inline-flex flex-wrap items-center gap-1">
+          <StatusBadge
+            label={t(declaredShortLabelKey(order.declaredPaymentStatus))}
+            tone={DECLARED_STATUS_TONE[order.declaredPaymentStatus ?? "UNPAID"]}
+          />
+          <StatusBadge
+            label={t(financialStatusLabelKey(order.paymentStatus, order.paymentType))}
+            tone={PAYMENT_STATUS_TONE[order.paymentStatus]}
+          />
+        </span>
       }
       secondary={
         <MoneyValue value={order.total ?? "0"} currency={order.currency} className="font-normal" />

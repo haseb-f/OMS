@@ -12,7 +12,16 @@ import {
   Truck,
   Wallet,
 } from "lucide-react";
-import { StoreOrderAddPaymentDialog } from "@/components/store-orders/store-order-add-payment-dialog";
+import { PaymentDeclarationDialog } from "@/components/payments/declaration/payment-declaration-dialog";
+import {
+  OrderPaymentStatusPanel,
+  PaymentDiscrepancyAlert,
+} from "@/components/payments/declaration/order-payment-status-panel";
+import {
+  DECLARED_STATUS_TONE,
+  declaredShortLabelKey,
+} from "@/components/payments/declaration/declaration-status";
+import { StoreOrderPickupPanel } from "@/components/store-orders/store-order-pickup-panel";
 import { SetPaymentFeeDialog } from "@/components/store-orders/set-payment-fee-dialog";
 import { StoreOrderEditAssignmentDialog } from "@/components/store-orders/store-order-edit-assignment-dialog";
 import { StoreOrderEditCustomerDialog } from "@/components/store-orders/store-order-edit-customer-dialog";
@@ -130,6 +139,10 @@ function StoreOrderDetailContent() {
   const canViewProfitability = hasPermission("orders.profitability.view");
   const canEditProfitabilityCosts = hasPermission("orders.profitability.editCosts");
   const canEditCustomer = hasPermission("partners.edit");
+  // Declaring a customer payment: Sales (store-orders.edit) OR Finance (sales.receipts.create).
+  const canDeclarePayment = canEdit || hasPermission("sales.receipts.create");
+  // Recording pickup steps: store staff or shipping staff.
+  const canRecordPickup = canEdit || hasPermission("shipping.edit");
 
   const [order, setOrder] = useState<StoreOrderRow | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -144,11 +157,13 @@ function StoreOrderDetailContent() {
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [removeReceiptId, setRemoveReceiptId] = useState<string | null>(null);
   const [isRemovingReceipt, setIsRemovingReceipt] = useState(false);
-  const [addPaymentOpen, setAddPaymentOpen] = useState(false);
+  const [declareOpen, setDeclareOpen] = useState(false);
   const [paymentContext, setPaymentContext] = useState<{
     total: string;
     paid: string;
     outstanding: string;
+    claimed?: string;
+    remainingToClaim?: string;
     fullySettled?: boolean;
     canAcceptPayment?: boolean;
   } | null>(null);
@@ -206,6 +221,10 @@ function StoreOrderDetailContent() {
   const refreshOrder = async () => {
     const [next] = await Promise.all([storeOrdersService.get(params.id), loadActivities()]);
     setOrder(next);
+    storeOrdersService
+      .paymentContext(params.id)
+      .then(setPaymentContext)
+      .catch(() => setPaymentContext(null));
   };
 
   const handleAddNote = async () => {
@@ -364,10 +383,13 @@ function StoreOrderDetailContent() {
   const remainingAmount = Number(
     paymentContext?.outstanding ?? Math.max(Number(order.total ?? 0) - paidAmount, 0),
   );
-  const canAcceptPayment = paymentContext
-    ? Boolean(paymentContext.canAcceptPayment) && !paymentContext.fullySettled
-    : order.paymentStatus !== "FULLY_PAID_RECONCILED" && order.paymentStatus !== "OVERPAID";
-  const latestPayment = order.payments?.[0] ?? null;
+  // Something is still declarable (the server re-validates against the order total).
+  const canDeclareMore = paymentContext
+    ? Number(paymentContext.remainingToClaim ?? paymentContext.outstanding) > 0.005 &&
+      !paymentContext.fullySettled
+    : order.declaredPaymentStatus !== "PAID";
+  const isPickup = order.fulfillmentMethod === "PICKUP";
+  const fulfillmentAllowed = isReadyForShipping(order);
   const latestShipmentRow = order.shipments?.[0] ?? null;
   const phone = order.partner?.phone || order.partner?.mobile || null;
   const visibleActivity = showAllActivity
@@ -377,6 +399,7 @@ function StoreOrderDetailContent() {
   const shipmentForDialog = latestShipmentRow ? toShipmentListRow(order, latestShipmentRow) : null;
   const relatedRefreshKey = [
     order.paymentStatus,
+    order.declaredPaymentStatus,
     order.updatedAt,
     order.invoices?.map((row) => row.status).join(),
     order.payments?.map((row) => row.status).join(),
@@ -473,43 +496,42 @@ function StoreOrderDetailContent() {
               round-trips back here. */}
           <RelatedRecordsPanel kind="STORE_ORDER" id={order.id} refreshKey={relatedRefreshKey} />
 
-          <DetailGroup
-            title={t("storeOrders.detail.sections.payments")}
+          {order.paymentDiscrepancy ? (
+            <PaymentDiscrepancyAlert reason={order.paymentDiscrepancyReason} />
+          ) : null}
+          <OrderPaymentStatusPanel
+            declaredPaymentStatus={order.declaredPaymentStatus}
+            declaredAmount={order.declaredAmount}
+            paymentStatus={order.paymentStatus}
+            claims={order.payments ?? []}
+            verifiedAmount={paidAmount}
+            remainingAmount={remainingAmount}
+            currency={order.currency}
             actions={
-              canEdit ? (
+              canDeclarePayment && canDeclareMore ? (
                 <EnterpriseButton
                   type="button"
                   variant="outline"
                   size="xs"
-                  onClick={() => setAddPaymentOpen(true)}
+                  onClick={() => setDeclareOpen(true)}
                 >
-                  {t("storeOrders.detail.payments.add")}
+                  {t("paymentDeclaration.action.declare")}
                 </EnterpriseButton>
               ) : null
             }
-          >
-            <DetailFieldRow
-              label={t("storeOrders.fields.paymentStatus")}
-              value={t(financialStatusLabelKey(order.paymentStatus, order.paymentType))}
-            />
-            <DetailFieldRow
-              label={t("storeOrders.detail.payments.method")}
-              value={latestPayment?.paymentSource?.name}
-            />
-            <DetailFieldRow
-              label={t("storeOrders.detail.payments.paid")}
-              value={<MoneyValue value={paidAmount} currency={order.currency} />}
-            />
-            <DetailFieldRow
-              label={t("storeOrders.detail.payments.remaining")}
-              value={<MoneyValue value={remainingAmount} currency={order.currency} />}
-            />
-            <p className="py-1.5 text-caption text-muted-foreground">
-              {t("storeOrders.detail.paymentDerivedHint")}
-            </p>
-          </DetailGroup>
+          />
 
+          {isPickup ? (
+            <StoreOrderPickupPanel
+              orderId={order.id}
+              fulfillmentStatusCode={order.fulfillmentStatus?.code}
+              canTransition={canRecordPickup}
+              paymentAllowsCollection={fulfillmentAllowed}
+              onChanged={() => void refreshOrder()}
+            />
+          ) : null}
           <DetailGroup
+            className={isPickup ? "hidden" : undefined}
             title={t("storeOrders.detail.sections.shipping")}
             actions={
               canEdit && latestShipmentRow
@@ -534,9 +556,9 @@ function StoreOrderDetailContent() {
               value={latestShipmentRow?.trackingNumber}
               ltr
             />
-            {!isReadyForShipping(order.paymentStatus) && !latestShipmentRow ? (
+            {!fulfillmentAllowed && !latestShipmentRow ? (
               <p className="py-1.5 text-caption text-muted-foreground">
-                {t("storeOrders.detail.shippingSummary.notReadyHint")}
+                {t("paymentDeclaration.gate.notReadyHint")}
               </p>
             ) : null}
           </DetailGroup>
@@ -674,6 +696,19 @@ function StoreOrderDetailContent() {
                   cell: (payment) => formatDate(payment.paymentDate),
                 },
                 {
+                  id: "method",
+                  header: t("paymentDeclaration.fields.method"),
+                  cell: (payment) => payment.paymentMethod?.name ?? payment.paymentSource?.name,
+                },
+                {
+                  id: "origin",
+                  header: t("paymentDeclaration.fields.origin"),
+                  cell: (payment) =>
+                    payment.origin
+                      ? t(`paymentDeclaration.origin.${payment.origin}` as MessageKey)
+                      : null,
+                },
+                {
                   id: "amount",
                   header: t("storeOrders.detail.payments.amount"),
                   align: "end",
@@ -686,15 +721,21 @@ function StoreOrderDetailContent() {
                   header: t("common.status"),
                   cell: (payment) => {
                     const paymentStatus = paymentRecordStatusBadge(payment.status);
+                    const reason = payment.disputeReason ?? payment.rejectionReason;
                     return (
-                      <StatusBadge
-                        label={
-                          paymentStatus.labelKey
-                            ? t(paymentStatus.labelKey)
-                            : paymentStatus.fallback
-                        }
-                        tone={paymentStatus.tone}
-                      />
+                      <span className="inline-flex flex-col items-start gap-0.5">
+                        <StatusBadge
+                          label={
+                            paymentStatus.labelKey
+                              ? t(paymentStatus.labelKey)
+                              : paymentStatus.fallback
+                          }
+                          tone={paymentStatus.tone}
+                        />
+                        {reason ? (
+                          <span className="text-caption text-muted-foreground">{reason}</span>
+                        ) : null}
+                      </span>
                     );
                   },
                 },
@@ -935,6 +976,10 @@ function StoreOrderDetailContent() {
         status={
           <>
             <StatusBadge
+              label={t(declaredShortLabelKey(order.declaredPaymentStatus))}
+              tone={DECLARED_STATUS_TONE[order.declaredPaymentStatus ?? "UNPAID"]}
+            />
+            <StatusBadge
               label={t(financialStatusLabelKey(order.paymentStatus, order.paymentType))}
               tone={PAYMENT_STATUS_TONE[order.paymentStatus]}
             />
@@ -978,12 +1023,12 @@ function StoreOrderDetailContent() {
           </>
         }
         primaryActions={
-          canEdit && canAcceptPayment ? (
-            <EnterpriseButton type="button" size="sm" onClick={() => setAddPaymentOpen(true)}>
+          canDeclarePayment && canDeclareMore ? (
+            <EnterpriseButton type="button" size="sm" onClick={() => setDeclareOpen(true)}>
               <Wallet className="size-3.5" />
-              {t("storeOrders.detail.payments.add")}
+              {t("paymentDeclaration.action.declare")}
             </EnterpriseButton>
-          ) : canEdit && paymentContext?.fullySettled ? (
+          ) : paymentContext?.fullySettled ? (
             <StatusBadge label={t("storeOrders.detail.payments.settled")} tone="success" />
           ) : null
         }
@@ -1055,13 +1100,13 @@ function StoreOrderDetailContent() {
         ]}
       />
 
-      <StoreOrderAddPaymentDialog
+      <PaymentDeclarationDialog
         storeOrderId={order.id}
         orderCurrencyId={order.currencyId}
-        customerName={order.partner?.name ?? ""}
-        open={addPaymentOpen}
-        onOpenChange={setAddPaymentOpen}
-        onAdded={() => void refreshOrder()}
+        currency={order.currency}
+        open={declareOpen}
+        onOpenChange={setDeclareOpen}
+        onDeclared={() => void refreshOrder()}
       />
       <SetPaymentFeeDialog
         payment={feeDialogPayment}

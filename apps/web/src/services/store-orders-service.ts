@@ -79,6 +79,40 @@ export type StoreOrderFulfillmentMethodValue = "SHIPPING" | "PICKUP";
 
 export type StoreOrderShippingStageValue = "NOT_READY" | "READY_FOR_SHIPPING";
 
+/** What Sales/Finance DECLARED — never Finance verification (see `paymentStatus`). */
+export type StoreOrderDeclaredPaymentStatusValue = "UNPAID" | "PARTIALLY_PAID" | "PAID";
+export type PaymentOriginValue =
+  "LEGACY" | "SALES_DECLARATION" | "FINANCE_DECLARATION" | "LEAD_CONVERSION";
+export type PaymentSettlementStatusValue =
+  "NOT_APPLICABLE" | "AWAITING_SETTLEMENT" | "PARTIALLY_SETTLED" | "SETTLED";
+export type PickupTransitionCode = "READY_FOR_PICKUP" | "COLLECTED" | "CANCELLED" | "RETURNED";
+
+export interface PaymentDeclarationInput {
+  kind: "UNPAID" | "FULL" | "PARTIAL";
+  amount?: number;
+  paymentMethodId?: string;
+  currencyId?: string;
+  paymentDate?: string;
+  referenceNumber?: string;
+  stagedAttachmentIds?: string[];
+}
+
+export interface PaymentDeclarationResult {
+  payment: StoreOrderPaymentRow | null;
+  /** False when the idempotency key had already produced this claim (a retry). */
+  created: boolean;
+  declaredPaymentStatus: StoreOrderDeclaredPaymentStatusValue;
+  declaredAmount: string;
+  order: StoreOrderRow;
+}
+
+export interface FulfillmentGateResult {
+  allowed: boolean;
+  settlementMode: "COD" | "PREPAID";
+  basis: "COD" | "DECLARED_PAID" | "VERIFIED_PAID" | null;
+  reason: string | null;
+}
+
 export interface StoreOrderPartnerRef {
   id: string;
   partnerNumber?: string;
@@ -119,6 +153,13 @@ export interface StoreOrderPaymentRow {
   paymentDate: string;
   referenceNumber?: string | null;
   paymentSource?: { id?: string; name: string } | null;
+  paymentMethod?: { id: string; name: string; requiresReconciliation?: boolean } | null;
+  origin?: PaymentOriginValue;
+  declarationKind?: "FULL" | "PARTIAL" | null;
+  disputeReason?: string | null;
+  rejectionReason?: string | null;
+  settlementStatus?: PaymentSettlementStatusValue;
+  receiptLink?: { financialTransactionId: string } | null;
   attachments?: StoreOrderPaymentAttachmentRow[];
   /** ADR-0018 (M2.2) — the ACTUAL provider transaction fee, once reconciled. Null means not recorded yet. */
   actualFeeAmount?: string | null;
@@ -207,6 +248,11 @@ export interface StoreOrderRow {
   employee?: { id: string; fullName: string } | null;
   paymentStatus: StoreOrderPaymentStatusValue;
   paymentType: StoreOrderPaymentTypeValue;
+  declaredPaymentStatus?: StoreOrderDeclaredPaymentStatusValue;
+  declaredAmount?: string;
+  paymentDiscrepancy?: boolean;
+  paymentDiscrepancyReason?: string | null;
+  fulfillmentStatus?: { id: string; code: string; name: string; nameEn?: string | null } | null;
   fulfillmentMethod?: StoreOrderFulfillmentMethodValue;
   shippingStage: StoreOrderShippingStageValue;
   shippingStatus?: { id: string; code: string; name: string; color: string } | null;
@@ -228,6 +274,8 @@ export interface StoreOrderRow {
 export interface StoreOrderListParams {
   search?: string;
   paymentStatus?: StoreOrderPaymentStatusValue | StoreOrderPaymentStatusValue[];
+  declaredPaymentStatus?:
+    StoreOrderDeclaredPaymentStatusValue | StoreOrderDeclaredPaymentStatusValue[];
   shippingStage?: StoreOrderShippingStageValue | StoreOrderShippingStageValue[];
   source?: StoreOrderSourceValue | StoreOrderSourceValue[];
   dateFrom?: string;
@@ -321,37 +369,28 @@ export const storeOrdersService = {
     currencyId: string;
     paymentType?: StoreOrderPaymentTypeValue;
     notes?: string;
+    fulfillmentMethod?: StoreOrderFulfillmentMethodValue;
     items: { productId: string; quantity: number; unitPrice: number }[];
-    payment?: {
-      paymentSourceId: string;
-      receivingAccountId: string;
-      paymentDate: string;
-      amount: number;
-      senderName: string;
-      currencyId?: string;
-      referenceNumber?: string;
-      bankAccount?: string;
-      receivedDate?: string;
-    };
+    /** Optional Sales declaration recorded atomically with the order — never an accounting voucher. */
+    declaration?: PaymentDeclarationInput & { idempotencyKey: string };
   }) => apiClient.post<StoreOrderRow>("/store-orders", dto),
   addNote: (id: string, note: string) =>
     apiClient.post<StoreOrderRow>(`/store-orders/${id}/notes`, { text: note }),
-  /** Manual "Add Payment" (Part 4 of the four-gaps task) — a normal `Payment` row, same shape the optional first-payment-on-create path already uses; recomputes `paymentStatus`/`shippingStage` server-side exactly like every other payment write. */
-  addPayment: (
-    id: string,
-    dto: {
-      paymentDate: string;
-      receivedDate?: string;
-      amount: number;
-      currencyId?: string;
-      paymentSourceId?: string;
-      paymentMethodId?: string;
-      receivingAccountId: string;
-      referenceNumber?: string;
-      senderName: string;
-      bankAccount?: string;
-    },
-  ) => apiClient.post<StoreOrderPaymentRow>(`/store-orders/${id}/payments`, dto),
+  /**
+   * Sales/Finance payment declaration (Unpaid / Paid in full / Partially
+   * paid). `idempotencyKey` is generated once per dialog open, so a retry
+   * or double click returns the same claim instead of a second one.
+   */
+  declarePayment: (id: string, dto: PaymentDeclarationInput, idempotencyKey: string) =>
+    apiClient.post<PaymentDeclarationResult>(`/store-orders/${id}/payment-declaration`, {
+      ...dto,
+      idempotencyKey,
+    }),
+  /** Pickup workflow step — never automatic; COLLECTED is payment-gated server-side. */
+  transitionPickup: (id: string, code: PickupTransitionCode) =>
+    apiClient.post<StoreOrderRow>(`/store-orders/${id}/pickup/${code}`),
+  canFulfill: (id: string) =>
+    apiClient.get<FulfillmentGateResult>(`/store-orders/${id}/can-fulfill`),
   /** ADR-0018 (M2.2) — records the ACTUAL provider transaction fee for a Payment, superseding any PaymentSource fee estimate for it. */
   setPaymentActualFee: (paymentId: string, actualFeeAmount: number) =>
     apiClient.post<StoreOrderPaymentRow>(`/payments/${paymentId}/fee`, { actualFeeAmount }),

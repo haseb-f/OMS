@@ -108,6 +108,8 @@ import { InvestmentDistributionsModule } from './investment-distributions/invest
 import { CapitalReturnsModule } from './capital-returns/capital-returns.module';
 import { InvestorTypesModule } from './investor-types/investor-types.module';
 import { InvestorPortalModule } from './investor-portal/investor-portal.module';
+import { PaymentSettlementsModule } from './payment-settlements/payment-settlements.module';
+import { PaymentReconciliationModule } from './payment-reconciliation/payment-reconciliation.module';
 
 @Module({
   imports: [
@@ -219,6 +221,8 @@ import { InvestorPortalModule } from './investor-portal/investor-portal.module';
     CapitalReturnsModule,
     InvestorTypesModule,
     InvestorPortalModule,
+    PaymentSettlementsModule,
+    PaymentReconciliationModule,
   ],
   controllers: [HealthController],
   providers: [],

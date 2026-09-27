@@ -21,6 +21,7 @@ import { OrderEconomicsService } from './order-economics/order-economics.service
 import { FulfillmentCostRulesModule } from '../fulfillment-cost-rules/fulfillment-cost-rules.module';
 import { StoreOrderCollectionModule } from '../accounting/store-order-collection/store-order-collection.module';
 import { AccountMappingModule } from '../accounting/account-mapping/account-mapping.module';
+import { StoreOrderPaymentDeclarationService } from './payment-declaration/store-order-payment-declaration.service';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { AccountMappingModule } from '../accounting/account-mapping/account-mapp
     StoreOrderShipmentsService,
     StoreOrderShipmentOperationsService,
     OrderEconomicsService,
+    StoreOrderPaymentDeclarationService,
   ],
   // `StoreOrderPaymentSyncService` is exported so `PaymentsModule` can keep
   // `StoreOrder.paymentStatus` in sync after Match/Verify/Reject without a
@@ -67,6 +69,7 @@ import { AccountMappingModule } from '../accounting/account-mapping/account-mapp
     StoreOrderShipmentsService,
     StoreOrderActivityService,
     OrderEconomicsService,
+    StoreOrderPaymentDeclarationService,
   ],
 })
 export class StoreOrdersModule {}

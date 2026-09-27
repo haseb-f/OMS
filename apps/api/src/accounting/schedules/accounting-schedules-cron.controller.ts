@@ -1,11 +1,5 @@
-import {
-  Controller,
-  Get,
-  Headers,
-  ServiceUnavailableException,
-  UnauthorizedException,
-} from '@nestjs/common';
-import { timingSafeEqual } from 'crypto';
+import { Controller, Get, Headers } from '@nestjs/common';
+import { assertCronAuthorized } from '../../common/cron/assert-cron-authorized';
 import { AccountingSchedulesService } from './accounting-schedules.service';
 
 /**
@@ -19,18 +13,7 @@ export class AccountingSchedulesCronController {
 
   @Get('accounting-schedules')
   run(@Headers('authorization') authorization?: string) {
-    const secret = process.env.CRON_SECRET;
-    if (!secret) {
-      throw new ServiceUnavailableException('CRON_SECRET is not configured.');
-    }
-    const expected = Buffer.from('Bearer ' + secret);
-    const received = Buffer.from(authorization ?? '');
-    if (
-      expected.length !== received.length ||
-      !timingSafeEqual(expected, received)
-    ) {
-      throw new UnauthorizedException();
-    }
+    assertCronAuthorized(authorization);
     return this.schedules.runDue();
   }
 }

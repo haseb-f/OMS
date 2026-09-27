@@ -11,9 +11,15 @@ import { PaymentAttachmentsController } from './attachments/payment-attachments.
 import { PaymentAttachmentsService } from './attachments/payment-attachments.service';
 import { PaymentAutoMatchingService } from './auto-matching/payment-auto-matching.service';
 import { NumberingModule } from '../numbering/numbering.module';
+import { FxModule } from '../accounting/fx/fx.module';
 
 @Module({
-  imports: [StoreOrdersModule, NumberingModule, StoreOrderCollectionModule],
+  imports: [
+    StoreOrdersModule,
+    NumberingModule,
+    StoreOrderCollectionModule,
+    FxModule,
+  ],
   controllers: [
     PaymentsController,
     PaymentActivitiesController,

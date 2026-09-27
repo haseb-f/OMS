@@ -132,6 +132,71 @@ describe('PaymentMethodsService — account link', () => {
     await prisma.chartOfAccount.delete({ where: { id: otherLeaf.id } });
   });
 
+  it('refuses to re-point the account while posted claims await settlement (409 with count); allowed once settled', async () => {
+    const suffix = randomUUID().slice(0, 8);
+    const otherLeaf = await prisma.chartOfAccount.create({
+      data: {
+        code: `PMTEST-LEAF3-${suffix}`,
+        name: `Payment Method Test Leaf 3 ${suffix}`,
+        accountType: 'ASSET',
+      },
+    });
+    const created = await service.create({
+      name: `Cash Flow Test Payment Method ${suffix}`,
+      accountId: postingAccountId,
+    });
+    createdPaymentMethodIds.push(created.id);
+    const currency = await prisma.currency.findFirstOrThrow({
+      where: { deletedAt: null },
+    });
+    const source = await prisma.paymentSource.findFirstOrThrow({
+      where: { deletedAt: null, isActive: true },
+    });
+    const claim = await prisma.payment.create({
+      data: {
+        paymentNumber: `PAY-PMTEST-${suffix}`,
+        paymentDate: new Date(),
+        amount: 10,
+        currencyId: currency.id,
+        paymentSourceId: source.id,
+        paymentMethodId: created.id,
+        senderName: 'Payment method test',
+        status: 'VERIFIED',
+        settlementStatus: 'AWAITING_SETTLEMENT',
+      },
+    });
+    try {
+      await expect(
+        service.update(created.id, { accountId: otherLeaf.id }),
+      ).rejects.toThrow(/1 posted payment awaiting provider settlement/);
+      // Same account (no change) and other fields still save.
+      await expect(
+        service.update(created.id, { accountId: postingAccountId }),
+      ).resolves.toBeTruthy();
+
+      await prisma.payment.update({
+        where: { id: claim.id },
+        data: { settlementStatus: 'SETTLED' },
+      });
+      const updated = await service.update(created.id, {
+        accountId: otherLeaf.id,
+      });
+      expect((updated as { account?: { id: string } }).account?.id).toBe(
+        otherLeaf.id,
+      );
+    } finally {
+      await prisma.paymentActivity.deleteMany({
+        where: { paymentId: claim.id },
+      });
+      await prisma.payment.delete({ where: { id: claim.id } });
+      await prisma.paymentMethod.update({
+        where: { id: created.id },
+        data: { accountId: postingAccountId },
+      });
+      await prisma.chartOfAccount.delete({ where: { id: otherLeaf.id } });
+    }
+  });
+
   it('never forces Currency or Country onto a Payment Method — the model has no such fields', async () => {
     const created = await service.create({
       name: `Cash Flow Test Payment Method ${randomUUID().slice(0, 8)}`,

@@ -35,7 +35,8 @@ export type ErrorCode =
   | "INVALID_CREDENTIALS"
   | "ACCOUNT_DISABLED"
   | "ACCOUNT_LOCKED"
-  | "MISSING_EXCHANGE_RATE";
+  | "MISSING_EXCHANGE_RATE"
+  | "STALE_EXCHANGE_RATE";
 
 export interface ErrorFieldDetail {
   field: string;
@@ -99,7 +100,7 @@ function friendlyMessage(
   if (code === "VALIDATION_ERROR" && fields === undefined && rawMessage) {
     return rawMessage;
   }
-  if (code === "MISSING_EXCHANGE_RATE" && rawMessage) {
+  if ((code === "MISSING_EXCHANGE_RATE" || code === "STALE_EXCHANGE_RATE") && rawMessage) {
     return rawMessage;
   }
 

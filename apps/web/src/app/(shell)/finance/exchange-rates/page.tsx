@@ -23,9 +23,17 @@ import { toISODate, formatDate } from "@/lib/date";
 import {
   exchangeRatesService,
   fxRevaluationsService,
+  fxSyncService,
   type ExchangeRateRow,
   type FxRevaluationRunRow,
+  type FxSyncRunRow,
+  type FxSyncStatus,
 } from "@/services/fx-service";
+import { FxAutoImportCard } from "@/components/finance/fx/fx-auto-import-card";
+import { FxStaleBanner } from "@/components/finance/fx/fx-stale-banner";
+import { FxRateLookupCard } from "@/components/finance/fx/fx-rate-lookup-card";
+import { FxOverridesCard } from "@/components/finance/fx/fx-overrides-card";
+import { FxRatesTable } from "@/components/finance/fx/fx-rates-table";
 import { accountingSettingsService } from "@/services/accounting-settings-service";
 import { useCurrencies } from "@/hooks/use-reference-data";
 import { useLocale } from "@/providers/locale-provider";
@@ -47,9 +55,12 @@ function FxPageContent() {
   const { hasPermission } = useUserContext();
   const canCreateRate = hasPermission("exchange-rates.create");
   const canRevalue = hasPermission("fx-revaluations.post");
+  const canManageFx = hasPermission("exchange-rates.manage");
 
   const [rates, setRates] = useState<ExchangeRateRow[]>([]);
   const [runs, setRuns] = useState<FxRevaluationRunRow[]>([]);
+  const [syncStatus, setSyncStatus] = useState<FxSyncStatus | null>(null);
+  const [syncRuns, setSyncRuns] = useState<FxSyncRunRow[]>([]);
   // Session-cached reference list (no per-mount /currencies fetch).
   const currencies = useCurrencies();
   const [rateOpen, setRateOpen] = useState(false);
@@ -71,14 +82,18 @@ function FxPageContent() {
 
   const load = useCallback(async () => {
     try {
-      const [rateRows, runRows, settings] = await Promise.all([
+      const [rateRows, runRows, settings, status, recentSyncRuns] = await Promise.all([
         exchangeRatesService.list(),
         fxRevaluationsService.list().catch(() => [] as FxRevaluationRunRow[]),
         accountingSettingsService.get().catch(() => null),
+        fxSyncService.status().catch(() => null),
+        fxSyncService.runs(15).catch(() => [] as FxSyncRunRow[]),
       ]);
       setBaseCurrencyId(settings ? settings.functionalCurrencyId : null);
       setRates(rateRows);
       setRuns(runRows);
+      setSyncStatus(status);
+      setSyncRuns(recentSyncRuns);
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t("errors.generic"));
     }
@@ -118,10 +133,16 @@ function FxPageContent() {
     setRateOpen(true);
   };
 
-  const currencyOptions = currencies.map((currency) => ({
-    value: currency.id,
-    label: `${currency.code} — ${currency.name}`,
-  }));
+  // Canonical quotation only: 1 FOREIGN = X base — the base is never a "from" currency.
+  const currencyOptions = currencies
+    .filter((currency) => currency.id !== baseCurrencyId)
+    .map((currency) => ({
+      value: currency.id,
+      label: `${currency.code} — ${currency.name}`,
+    }));
+  const baseOption = currencies
+    .filter((currency) => currency.id === baseCurrencyId)
+    .map((currency) => ({ value: currency.id, label: `${currency.code} — ${currency.name}` }));
 
   const handleCreateRate = form.handleSubmit(async (values) => {
     setBusy(true);
@@ -159,11 +180,11 @@ function FxPageContent() {
       description={t("accounting.fx.description")}
       actions={
         <div className="flex flex-wrap gap-2">
-          {canCreateRate && (
-            <EnterpriseButton type="button" size="sm" onClick={openRateForm}>
+          {canCreateRate && baseCurrencyId ? (
+            <EnterpriseButton type="button" size="sm" variant="secondary" onClick={openRateForm}>
               {t("accounting.fx.addRate")}
             </EnterpriseButton>
-          )}
+          ) : null}
           {canRevalue && (
             <EnterpriseButton
               type="button"
@@ -186,6 +207,24 @@ function FxPageContent() {
           </AlertDescription>
         </Alert>
       ) : null}
+      <FxStaleBanner status={syncStatus} />
+      <div className="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <FxAutoImportCard
+          status={syncStatus}
+          runs={syncRuns}
+          baseCode={baseCode}
+          canManage={canManageFx}
+          onChanged={load}
+        />
+        <div className="flex min-w-0 flex-col gap-4">
+          <FxRateLookupCard />
+          <FxOverridesCard
+            canManage={canManageFx && Boolean(baseCurrencyId)}
+            baseCurrencyId={baseCurrencyId ?? null}
+            baseCode={baseCode}
+          />
+        </div>
+      </div>
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <EnterpriseCard className="gap-0 py-3">
           <EnterpriseCardHeader className="px-4 pb-2">
@@ -193,37 +232,8 @@ function FxPageContent() {
               {t("accounting.fx.rates")}
             </EnterpriseCardTitle>
           </EnterpriseCardHeader>
-          <EnterpriseCardContent className="overflow-x-auto px-4">
-            <table className="w-full text-caption">
-              <thead>
-                <tr className="border-b text-muted-foreground">
-                  <th className="py-2 text-start">{t("accounting.fx.fields.effectiveDate")}</th>
-                  <th className="py-2 text-start">{t("accounting.fx.fields.fromCurrency")}</th>
-                  <th className="py-2 text-start">{t("accounting.fx.fields.toCurrency")}</th>
-                  <th className="py-2 text-end">{t("accounting.fx.fields.rate")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rates.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="py-6 text-center text-muted-foreground">
-                      {t("common.noDataAvailable")}
-                    </td>
-                  </tr>
-                ) : (
-                  rates.map((row) => (
-                    <tr key={row.id} className="border-b last:border-0">
-                      <td className="py-2">{formatDate(row.effectiveDate)}</td>
-                      <td className="py-2">{row.fromCurrency?.code ?? row.fromCurrencyId}</td>
-                      <td className="py-2">{row.toCurrency?.code ?? row.toCurrencyId}</td>
-                      <td className="py-2 text-end tabular-nums" dir="ltr">
-                        {`1 ${row.fromCurrency?.code ?? ""} = ${Number(row.rate)} ${row.toCurrency?.code ?? ""}`}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          <EnterpriseCardContent className="px-4">
+            <FxRatesTable rates={rates} />
           </EnterpriseCardContent>
         </EnterpriseCard>
 
@@ -301,7 +311,7 @@ function FxPageContent() {
               label: "accounting.fx.fields.toCurrency",
               type: "select",
               required: true,
-              options: currencyOptions,
+              options: baseOption,
             },
             {
               name: "rate",
@@ -318,6 +328,9 @@ function FxPageContent() {
             { name: "notes", label: "masterData.fields.notes", type: "textarea" },
           ]}
         />
+        <p className="mt-2 text-caption text-muted-foreground">
+          {t("fxSettings.addRate.canonicalNote", { base: baseCode })}
+        </p>
         {ratePreview ? (
           <p className="mt-2 text-caption text-muted-foreground" data-testid="fx-rate-preview">
             {ratePreview}

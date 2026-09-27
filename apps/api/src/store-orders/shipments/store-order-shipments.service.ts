@@ -13,6 +13,7 @@ import {
   shipmentTransitionError,
 } from './store-order-shipment-transitions';
 import { isOperationalShipmentStatus } from '../../shipping/shipping-status.catalog';
+import { evaluateFulfillmentGate } from '../store-order-fulfillment-gate';
 
 /**
  * Store Orders shipping pipeline — copies the exact operational pattern of
@@ -73,6 +74,8 @@ export class StoreOrderShipmentsService {
       select: {
         paymentType: true,
         paymentStatus: true,
+        declaredPaymentStatus: true,
+        paymentStatusDef: { select: { code: true } },
         fulfillmentMethod: true,
       },
     });
@@ -84,16 +87,17 @@ export class StoreOrderShipmentsService {
         'Pickup orders do not create shipping labels or enter carrier queues. Record collection on the pickup workflow instead.',
       );
     }
-    // Central fulfillment gate: PREPAID requires verified reconciled payment;
-    // COD may ship before payment.
-    if (
-      order.paymentType === 'PREPAID' &&
-      order.paymentStatus !== 'FULLY_PAID_RECONCILED' &&
-      order.paymentStatus !== 'OVERPAID'
-    ) {
-      throw new BadRequestException(
-        'Prepaid orders require verified reconciled payment before shipment.',
-      );
+    // Central fulfillment gate: PREPAID needs a full paid declaration or
+    // verified payment (a partial declaration never passes); COD may ship
+    // before payment. Finance reconciliation is NOT required.
+    const gate = evaluateFulfillmentGate({
+      paymentType: order.paymentType,
+      declaredPaymentStatus: order.declaredPaymentStatus,
+      paymentStatus: order.paymentStatus,
+      paymentStatusCode: order.paymentStatusDef?.code ?? null,
+    });
+    if (!gate.allowed) {
+      throw new BadRequestException(gate.reason);
     }
 
     const previousCount = await tx.shipment.count({ where: { storeOrderId } });

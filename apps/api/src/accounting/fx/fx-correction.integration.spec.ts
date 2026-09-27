@@ -66,7 +66,8 @@ describe('FX receipt posting + audited FX correction', () => {
         fromCurrencyId: currencyId,
         toCurrencyId: functionalId,
         rate: 0.25,
-        effectiveDate: new Date('2020-01-01'),
+        // Within the staleness window of the receipts below (dated today).
+        effectiveDate: new Date(new Date().toISOString().slice(0, 10)),
       },
     });
 

@@ -15,6 +15,8 @@ export const PaymentActivityType = {
   /** Single-step Match + Verify + Customer Receipt/JE posting. */
   CONFIRMED_AND_POSTED: 'CONFIRMED_AND_POSTED',
   REJECTED: 'REJECTED',
+  /** Finance disputes a Sales declaration (payment-declaration-reconciliation). */
+  DISPUTED: 'DISPUTED',
   ATTACHMENT_ADDED: 'ATTACHMENT_ADDED',
   NOTE_ADDED: 'NOTE_ADDED',
   /// ADR-0018 (Order Economics M2.2).

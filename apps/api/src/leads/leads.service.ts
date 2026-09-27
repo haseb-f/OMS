@@ -767,6 +767,8 @@ export class LeadsService {
       paymentMethodId: dto.paymentMethodId,
       currencyId: dto.currencyId,
       amountPaid: dto.amountPaid,
+      declarationKind: dto.declarationKind,
+      paymentDate: dto.paymentDate,
       paymentReference: dto.paymentReference,
       paymentProofUrl: dto.paymentProofUrl,
       stagingAttachmentIds: dto.stagingAttachmentIds,

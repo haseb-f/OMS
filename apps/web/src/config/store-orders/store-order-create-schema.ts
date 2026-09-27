@@ -24,8 +24,6 @@ export function buildStoreOrderCreateSchema(t: (key: MessageKey) => string) {
       currencyId: z.string().min(1, t("common.required")),
       paymentType: z.enum(["PREPAID", "CASH_ON_DELIVERY"]),
       notes: z.string().optional().or(z.literal("")),
-      paymentAmount: z.number().optional(),
-      senderName: z.string().optional().or(z.literal("")),
       receiptName: z.string().optional().or(z.literal("")),
       receiptUrl: z.string().optional().or(z.literal("")),
     })
@@ -53,8 +51,6 @@ export type StoreOrderCreateFormValues = {
   currencyId: string;
   paymentType: "PREPAID" | "CASH_ON_DELIVERY";
   notes?: string;
-  paymentAmount?: number;
-  senderName?: string;
   receiptName?: string;
   receiptUrl?: string;
 };
@@ -73,8 +69,6 @@ export function storeOrderCreateDefaultValues(): StoreOrderCreateFormValues {
     currencyId: "",
     paymentType: "PREPAID",
     notes: "",
-    paymentAmount: undefined,
-    senderName: "",
     receiptName: "",
     receiptUrl: "",
   };

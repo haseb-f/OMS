@@ -1,9 +1,10 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PaymentMethod } from '@prisma/client';
+import { PaymentMethod, PaymentSettlementStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MasterDataActivityLogService } from '../master-data/master-data-activity-log.service';
 import {
@@ -58,9 +59,41 @@ export class PaymentMethodsService extends MasterDataCrudService<PaymentMethod> 
   }
 
   async update(id: string, dto: UpdatePaymentMethodDto, userId?: string) {
-    if (dto.accountId) await this.assertPostingAccount(dto.accountId);
+    if (dto.accountId) {
+      await this.assertPostingAccount(dto.accountId);
+      await this.assertAccountChangeAllowed(id, dto.accountId);
+    }
     const updated = await super.update(id, dto, userId);
     return this.findOne(updated.id);
+  }
+
+  /**
+   * Claims posted to this method's clearing account and still awaiting
+   * provider settlement are settled against the method's CURRENT account;
+   * re-pointing it would make them unsettleable (the settlement would
+   * credit an account that never received the debit). 409 until they are
+   * settled.
+   */
+  private async assertAccountChangeAllowed(id: string, accountId: string) {
+    const current = await this.findOne(id);
+    if (current.accountId === accountId) return;
+    const open = await this.prisma.payment.count({
+      where: {
+        paymentMethodId: id,
+        deletedAt: null,
+        settlementStatus: {
+          in: [
+            PaymentSettlementStatus.AWAITING_SETTLEMENT,
+            PaymentSettlementStatus.PARTIALLY_SETTLED,
+          ],
+        },
+      },
+    });
+    if (open > 0) {
+      throw new ConflictException(
+        `"${current.name}" has ${open} posted payment${open === 1 ? '' : 's'} awaiting provider settlement on its current account — settle them (Finance → Payment reconciliation → Awaiting settlement) before changing the linked account.`,
+      );
+    }
   }
 
   /**

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -7,6 +8,9 @@ import {
   FinancialTransactionStatus,
   FinancialTransactionType,
   PartnerRoleType,
+  PaymentMatchStatus,
+  PaymentSettlementStatus,
+  PaymentStatus,
   Prisma,
   SalesDocumentStatus,
   PurchaseDocumentStatus,
@@ -32,6 +36,9 @@ import { prismaEnumFilter } from '../common/query/enum-list';
 import { partnerLedgerBalances } from '../accounting/reports/partner-ledger-balance';
 
 type DbClient = Prisma.TransactionClient | PrismaService;
+
+/** Historical Store Order claim receipts carry this note (see traceability). */
+const STORE_ORDER_PAYMENT_PREFIX = 'STORE_ORDER_PAYMENT:';
 
 const NUMBERING_DOCUMENT_TYPE: Record<FinancialTransactionType, string> = {
   CUSTOMER_RECEIPT: 'CUSTOMER_RECEIPT',
@@ -478,36 +485,112 @@ export class FinancialTransactionsService {
 
   /** Reverses a Confirmed transaction — reverses its posted Journal Entry, removes its allocations (freeing invoice balance), and marks it Cancelled. */
   async cancel(id: string, userId?: string) {
-    const existing = await this.findOneById(id);
+    await this.findOneById(id);
+    return this.prisma.$transaction((tx) => this.cancelInTx(tx, id, userId));
+  }
+
+  /**
+   * Cancel inside the caller's transaction (row-locked). A Customer Receipt
+   * that posts a Store Order payment claim (PaymentReceiptLink, or the
+   * historical `STORE_ORDER_PAYMENT:<id>` note while that claim is VERIFIED)
+   * is refused: cancelling it here would leave the claim VERIFIED with no
+   * receipt. Only the reconciliation correction path may cancel it, and it
+   * says so explicitly with `allowLinkedClaim` (it resets the claim itself).
+   */
+  async cancelInTx(
+    tx: Prisma.TransactionClient,
+    id: string,
+    userId?: string,
+    opts: {
+      allowLinkedClaim?: boolean;
+      /** Appended to the activity description (audited correction reason). */
+      note?: string;
+      metadata?: Record<string, unknown>;
+    } = {},
+  ) {
+    await tx.$queryRaw`
+      SELECT id FROM financial_transactions
+      WHERE id = ${id}::uuid
+      FOR UPDATE
+    `;
+    const existing = await this.findOneById(id, tx);
     if (existing.status !== FinancialTransactionStatus.CONFIRMED) {
       throw new BadRequestException(
         `Cannot cancel ${this.label(existing.type)} ${existing.transactionNumber} from ${existing.status}.`,
       );
     }
+    if (
+      existing.type === FinancialTransactionType.CUSTOMER_RECEIPT &&
+      !opts.allowLinkedClaim
+    ) {
+      await this.assertNotClaimReceipt(tx, existing);
+    }
 
-    return this.prisma.$transaction(async (tx) => {
-      await this.postingEngine.reverse(existing.type, id, userId, tx);
-      await tx.financialTransactionAllocation.deleteMany({
-        where: { transactionId: id },
-      });
-      const transaction = await tx.financialTransaction.update({
-        where: { id },
-        data: {
-          status: FinancialTransactionStatus.CANCELLED,
-          cancelledAt: new Date(),
-          cancelledBy: userId ?? null,
-        },
-        include: TRANSACTION_INCLUDE,
-      });
-      await this.activityService.log(
-        id,
-        FinancialTransactionActivityType.TRANSACTION_CANCELLED,
-        `${this.label(existing.type)} ${transaction.transactionNumber} cancelled`,
-        undefined,
-        tx,
-      );
-      return transaction;
+    await this.postingEngine.reverse(existing.type, id, userId, tx);
+    await tx.financialTransactionAllocation.deleteMany({
+      where: { transactionId: id },
     });
+    const transaction = await tx.financialTransaction.update({
+      where: { id },
+      data: {
+        status: FinancialTransactionStatus.CANCELLED,
+        cancelledAt: new Date(),
+        cancelledBy: userId ?? null,
+      },
+      include: TRANSACTION_INCLUDE,
+    });
+    await this.activityService.log(
+      id,
+      FinancialTransactionActivityType.TRANSACTION_CANCELLED,
+      `${this.label(existing.type)} ${transaction.transactionNumber} cancelled${opts.note ? ` — ${opts.note}` : ''}`,
+      opts.metadata,
+      tx,
+    );
+    return transaction;
+  }
+
+  /** 409 when this receipt posts a Store Order payment claim (see cancelInTx). */
+  private async assertNotClaimReceipt(
+    tx: Prisma.TransactionClient,
+    receipt: { id: string; transactionNumber: string; notes: string | null },
+  ) {
+    const link = await tx.paymentReceiptLink.findUnique({
+      where: { financialTransactionId: receipt.id },
+      select: { paymentId: true },
+    });
+    let paymentId = link?.paymentId ?? null;
+    if (!paymentId && receipt.notes?.startsWith(STORE_ORDER_PAYMENT_PREFIX)) {
+      const noted = receipt.notes.slice(STORE_ORDER_PAYMENT_PREFIX.length);
+      const verified = await tx.payment.findFirst({
+        where: { id: noted, status: PaymentStatus.VERIFIED },
+        select: { id: true },
+      });
+      paymentId = verified?.id ?? null;
+    }
+    if (!paymentId) return;
+    const payment = await tx.payment.findUniqueOrThrow({
+      where: { id: paymentId },
+      select: {
+        paymentNumber: true,
+        settledAmount: true,
+        settlementStatus: true,
+        _count: {
+          select: { matches: { where: { status: PaymentMatchStatus.ACTIVE } } },
+        },
+      },
+    });
+    const settled =
+      Number(payment.settledAmount) > 0 ||
+      payment.settlementStatus === PaymentSettlementStatus.PARTIALLY_SETTLED ||
+      payment.settlementStatus === PaymentSettlementStatus.SETTLED;
+    const how = settled
+      ? `Payment ${payment.paymentNumber} is already included in a provider settlement — reverse the settlement first, then correct the match in Finance → Payment reconciliation ("Correct match").`
+      : payment._count.matches > 0
+        ? `Correct it from Finance → Payment reconciliation → the payment method workspace → "Correct match"; that reverses this receipt and returns the claim to review in one audited step.`
+        : `Cancelling it here would leave the claim verified with no receipt; a verified claim is corrected through Finance → Payment reconciliation ("Correct match"), never by cancelling its receipt.`;
+    throw new ConflictException(
+      `Customer Receipt ${receipt.transactionNumber} posts Store Order payment ${payment.paymentNumber} and cannot be cancelled directly. ${how}`,
+    );
   }
 
   /** Soft-delete — only once no longer actively progressing (Draft/Cancelled), mirroring every other document's archive rule. */

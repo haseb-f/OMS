@@ -214,6 +214,10 @@ const REVIEWED_MUTATING_SKIPS: Record<string, string> = {
     'Payment-proof metadata attach (legacy JSON path) — controller asserts AttachmentsService.assertCanMutatePaymentEvidence and forces uploadedById to the caller.',
   'payments/payments.controller.ts POST :id/notes':
     'Payment note — controller asserts AttachmentsService.assertCanMutatePaymentEvidence and forces the author to the caller.',
+  'store-orders/store-orders.controller.ts POST :id/payment-declaration':
+    'Any-of store-orders.edit / store-orders.manage / sales.receipts.create — StoreOrderPaymentDeclarationService.resolveActor throws 403 otherwise, and findOne applies the order visibility scope.',
+  'store-orders/store-orders.controller.ts POST :id/pickup/:code':
+    'Any-of store-orders.edit / shipping.edit — the controller checks PICKUP_PERMISSIONS and throws 403 before transitionPickup.',
 };
 
 function mutatingSkips(): string[] {

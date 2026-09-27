@@ -188,6 +188,10 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
     await prisma.storeOrderReceipt.deleteMany({
       where: { storeOrderId: { in: orderIds } },
     });
+    // One-receipt-per-payment links (payment-declaration-reconciliation) go first.
+    await prisma.paymentReceiptLink.deleteMany({
+      where: { payment: { storeOrderId: { in: orderIds } } },
+    });
     await prisma.payment.deleteMany({
       where: { storeOrderId: { in: orderIds } },
     });

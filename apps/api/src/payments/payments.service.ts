@@ -1,14 +1,32 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
-import { PaymentStatus, Prisma } from '@prisma/client';
+import {
+  AccountType,
+  PaymentMatchStatus,
+  PaymentSettlementStatus,
+  PaymentStatus,
+  Prisma,
+  type Payment,
+} from '@prisma/client';
+import {
+  ExchangeRatesService,
+  type ResolvedRate,
+} from '../accounting/fx/exchange-rates.service';
+import {
+  flagDiscrepancyIfFulfilled,
+  recomputeDeclaredPaymentStatus,
+} from '../store-orders/payment-declaration/payment-declaration.core';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import { StoreOrderPaymentSyncService } from '../store-orders/store-order-payment-sync.service';
 import {
   StoreOrderCollectionService,
+  type MethodReceiptOverride,
   type PostedPaymentReceipt,
 } from '../accounting/store-order-collection/store-order-collection.service';
 import {
@@ -30,6 +48,34 @@ import {
   lockStoreOrderRow,
   verifiedPaymentNumbers,
 } from '../store-orders/store-order-payment-settlement.util';
+
+export interface ConfirmClaimOptions {
+  /** FX + JE date; defaults to the payment's actual date (e.g. the matched statement date for reconciled methods). */
+  rateAsOf?: Date;
+  /** Provenance only (reconciliation), recorded on the activity log. */
+  statementLineId?: string;
+}
+
+export interface ConfirmInTxResult {
+  payment: Payment;
+  receiptId: string;
+  receipt: PostedPaymentReceipt;
+  alreadyPosted: boolean;
+}
+
+/** UTC midnight of the date's calendar day (FinancialTransaction.rateAsOf is a DATE). */
+function toDateOnly(value: Date): Date {
+  const d = new Date(value);
+  return new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()),
+  );
+}
+
+/** Frozen provenance, e.g. `CBE:<rateId>`, `OVERRIDE:<overrideId>`, `IDENTITY`. */
+function describeRateSource(resolved: ResolvedRate): string {
+  const ref = resolved.overrideId ?? resolved.rateId;
+  return ref ? `${resolved.source}:${ref}` : resolved.source;
+}
 
 export interface PaymentConfirmResult {
   id: string;
@@ -57,6 +103,7 @@ export class PaymentsService {
     private readonly numberingEngine: NumberingEngineService,
     private readonly storeOrderPaymentSync: StoreOrderPaymentSyncService,
     private readonly storeOrderCollection: StoreOrderCollectionService,
+    private readonly exchangeRates: ExchangeRatesService,
   ) {}
 
   /** Business operation: Create Payment. Must reference BOTH a PaymentSource (how the
@@ -139,11 +186,24 @@ export class PaymentsService {
           currency: { select: { id: true, code: true, name: true } },
           paymentSource: { select: { id: true, name: true } },
           receivingAccount: { select: { id: true, name: true } },
+          // Read-only for Finance: the account a confirmation will debit.
+          paymentMethod: {
+            select: {
+              id: true,
+              name: true,
+              requiresReconciliation: true,
+              account: { select: { id: true, code: true, name: true } },
+            },
+          },
+          receiptLink: { select: { financialTransactionId: true } },
           storeOrder: {
             select: {
               id: true,
               internalOrderId: true,
               paymentStatus: true,
+              declaredPaymentStatus: true,
+              paymentType: true,
+              paymentDiscrepancy: true,
               partner: {
                 select: { id: true, name: true, partnerNumber: true },
               },
@@ -257,127 +317,19 @@ export class PaymentsService {
 
   /**
    * Business operation: Confirm & Post. One decision replaces Match →
-   * Verify: validates the payment's order allocation, receiving account and
+   * Verify: validates the payment's order allocation, debit account and
    * currency, marks it VERIFIED and posts exactly one Customer Receipt with
    * its balanced Journal Entry — all in ONE database transaction, so it
-   * either fully succeeds or changes nothing (no "verified but not posted"
-   * half state). Retries and double-clicks are safe: the Store Order row
-   * lock serializes them and a second call returns the already-posted
-   * receipt instead of posting again.
+   * either fully succeeds or changes nothing. Retries and double-clicks are
+   * safe: the Store Order row lock serializes them, the DB-unique
+   * PaymentReceiptLink blocks a second receipt, and a repeated call returns
+   * the already-posted receipt.
    */
   async confirm(id: string, userId: string): Promise<PaymentConfirmResult> {
-    const head = await this.findOne(id);
-    if (!head.storeOrderId) {
-      throw new BadRequestException(
-        `Payment ${head.paymentNumber} is not linked to a Store Order — there is no customer or order to post it against. Reject it with a reason, or record it from the order.`,
-      );
-    }
-    const storeOrderId = head.storeOrderId;
-
     const result = await this.prisma.$transaction(
-      async (tx) => {
-        await lockStoreOrderRow(tx, storeOrderId);
-        const payment = await tx.payment.findFirstOrThrow({
-          where: { id, deletedAt: null },
-          include: {
-            receivingAccount: {
-              select: {
-                name: true,
-                isActive: true,
-                deletedAt: true,
-                currencyId: true,
-                chartOfAccount: {
-                  select: {
-                    code: true,
-                    name: true,
-                    allowsPosting: true,
-                    deletedAt: true,
-                  },
-                },
-              },
-            },
-          },
-        });
-        if (payment.status === PaymentStatus.REJECTED) {
-          throw new BadRequestException(
-            `Payment ${payment.paymentNumber} was rejected${payment.rejectionReason ? ` (${payment.rejectionReason})` : ''} and cannot be confirmed.`,
-          );
-        }
-        const alreadyVerified = payment.status === PaymentStatus.VERIFIED;
-        const existingReceipt =
-          await this.storeOrderCollection.findReceiptForPayment(tx, id);
-        if (alreadyVerified && existingReceipt?.status === 'CONFIRMED') {
-          return {
-            payment,
-            receipt: await this.storeOrderCollection.describeReceipt(
-              tx,
-              existingReceipt,
-            ),
-            alreadyPosted: true,
-          };
-        }
-
-        const order = await tx.storeOrder.findFirst({
-          where: { id: storeOrderId, deletedAt: null },
-          select: { currencyId: true, internalOrderId: true },
-        });
-        if (!order) {
-          throw new BadRequestException(
-            `The Store Order of payment ${payment.paymentNumber} no longer exists.`,
-          );
-        }
-        assertPaymentCurrency(order.currencyId, payment.currencyId);
-        this.assertReceivingAccountPostable(payment);
-
-        if (!alreadyVerified) {
-          const settlement = await computeStoreOrderSettlement(
-            tx,
-            storeOrderId,
-            { excludePaymentId: id },
-          );
-          assertCanVerifyPayment(
-            settlement,
-            Number(payment.amount),
-            await verifiedPaymentNumbers(tx, storeOrderId, id),
-          );
-        }
-
-        const now = new Date();
-        const verified = alreadyVerified
-          ? payment
-          : await tx.payment.update({
-              where: { id },
-              data: {
-                status: PaymentStatus.VERIFIED,
-                matchedAt: payment.matchedAt ?? now,
-                matchedById: payment.matchedById ?? userId,
-                verifiedAt: now,
-                verifiedById: userId,
-                updatedBy: userId,
-              },
-            });
-        const receipt = await this.storeOrderCollection.postPaymentReceipt(
-          tx,
-          id,
-          userId,
-        );
-        await this.activityService.log(
-          id,
-          PaymentActivityType.CONFIRMED_AND_POSTED,
-          `Confirmed & posted — Customer Receipt ${receipt.transactionNumber}${receipt.journalEntry ? `, Journal Entry ${receipt.journalEntry.entryNumber}` : ''}`,
-          {
-            userId,
-            receiptId: receipt.id,
-            journalEntryId: receipt.journalEntry?.id ?? null,
-          },
-          tx,
-        );
-        await this.storeOrderPaymentSync.recompute(storeOrderId, tx);
-        return { payment: verified, receipt, alreadyPosted: false };
-      },
+      (tx) => this.confirmInTx(tx, id, userId),
       { maxWait: 10_000, timeout: 30_000 },
     );
-
     return {
       id: result.payment.id,
       paymentNumber: result.payment.paymentNumber,
@@ -385,6 +337,269 @@ export class PaymentsService {
       alreadyPosted: result.alreadyPosted,
       receipt: result.receipt,
     };
+  }
+
+  /**
+   * CONTRACT (payment-declaration-reconciliation §2): Confirm & Post inside
+   * the caller's transaction (reconciliation wraps match + confirm).
+   *
+   * - Claim WITH a Payment Method: Dr `PaymentMethod.accountId` (validated:
+   *   exists, postable leaf, ASSET, currency null or equal — else 422, never
+   *   substituted) / Cr customer AR. No fee deduction. FX frozen as of
+   *   `opts.rateAsOf ?? payment.paymentDate` (rate, date, source stored on
+   *   the receipt; JE dated that day — a closed period fails clearly).
+   *   The claim moves to AWAITING_SETTLEMENT.
+   * - Legacy claim (no method): the receiving-account path, unchanged.
+   *
+   * Never touches fulfillment/shipping state.
+   */
+  async confirmInTx(
+    tx: Prisma.TransactionClient,
+    id: string,
+    userId: string,
+    opts: ConfirmClaimOptions = {},
+  ): Promise<ConfirmInTxResult> {
+    const head = await tx.payment.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true, paymentNumber: true, storeOrderId: true },
+    });
+    if (!head) {
+      throw new NotFoundException(`Payment ${id} not found`);
+    }
+    if (!head.storeOrderId) {
+      throw new BadRequestException(
+        `Payment ${head.paymentNumber} is not linked to a Store Order — there is no customer or order to post it against. Reject it with a reason, or record it from the order.`,
+      );
+    }
+    const storeOrderId = head.storeOrderId;
+
+    await lockStoreOrderRow(tx, storeOrderId);
+    const payment = await tx.payment.findFirstOrThrow({
+      where: { id, deletedAt: null },
+      include: {
+        receivingAccount: {
+          select: {
+            name: true,
+            isActive: true,
+            deletedAt: true,
+            currencyId: true,
+            chartOfAccount: {
+              select: {
+                code: true,
+                name: true,
+                allowsPosting: true,
+                deletedAt: true,
+              },
+            },
+          },
+        },
+        paymentMethod: {
+          select: {
+            id: true,
+            name: true,
+            requiresReconciliation: true,
+            account: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                allowsPosting: true,
+                deletedAt: true,
+                accountType: true,
+                currencyId: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    if (payment.status === PaymentStatus.REJECTED) {
+      throw new BadRequestException(
+        `Payment ${payment.paymentNumber} was rejected${payment.rejectionReason ? ` (${payment.rejectionReason})` : ''} and cannot be confirmed.`,
+      );
+    }
+    if (payment.status === PaymentStatus.DISPUTED) {
+      throw new BadRequestException(
+        `Payment ${payment.paymentNumber} is disputed${payment.disputeReason ? ` (${payment.disputeReason})` : ''} — resolve the dispute before confirming.`,
+      );
+    }
+    const alreadyVerified = payment.status === PaymentStatus.VERIFIED;
+    const existingReceipt =
+      await this.storeOrderCollection.findReceiptForPayment(tx, id);
+    if (alreadyVerified && existingReceipt?.status === 'CONFIRMED') {
+      return {
+        payment,
+        receiptId: existingReceipt.id,
+        receipt: await this.storeOrderCollection.describeReceipt(
+          tx,
+          existingReceipt,
+        ),
+        alreadyPosted: true,
+      };
+    }
+
+    // A reconciliation-enabled method is confirmed ONLY by matching it to a
+    // provider statement line (which passes `statementLineId`): direct
+    // Finance-review confirmation would post without statement evidence.
+    // (An already-posted claim returned above — a retry — posts nothing.)
+    if (
+      payment.paymentMethod?.requiresReconciliation &&
+      !opts.statementLineId
+    ) {
+      throw new ConflictException(
+        `Payment ${payment.paymentNumber} uses "${payment.paymentMethod.name}", which requires reconciliation — confirm it by matching it to the provider statement in Finance → Payment reconciliation → ${payment.paymentMethod.name} (Confirm Match & Post), not from payment review.`,
+      );
+    }
+    const order = await tx.storeOrder.findFirst({
+      where: { id: storeOrderId, deletedAt: null },
+      select: { currencyId: true, internalOrderId: true },
+    });
+    if (!order) {
+      throw new BadRequestException(
+        `The Store Order of payment ${payment.paymentNumber} no longer exists.`,
+      );
+    }
+    assertPaymentCurrency(order.currencyId, payment.currencyId);
+
+    let override: MethodReceiptOverride | undefined;
+    if (payment.paymentMethodId) {
+      const debitAccountId = this.assertMethodAccountPostable(payment);
+      const rateAsOf = toDateOnly(opts.rateAsOf ?? payment.paymentDate);
+      const resolved = await this.exchangeRates.snapshotRateDetailed(
+        payment.currencyId,
+        rateAsOf,
+        tx,
+      );
+      override = {
+        debitAccountId,
+        exchangeRate: resolved.rate,
+        rateAsOf,
+        rateSource: describeRateSource(resolved),
+      };
+    } else {
+      this.assertReceivingAccountPostable(payment);
+    }
+
+    if (!alreadyVerified) {
+      const settlement = await computeStoreOrderSettlement(tx, storeOrderId, {
+        excludePaymentId: id,
+      });
+      assertCanVerifyPayment(
+        settlement,
+        Number(payment.amount),
+        await verifiedPaymentNumbers(tx, storeOrderId, id),
+      );
+    }
+
+    const now = new Date();
+    const verified =
+      alreadyVerified && !override
+        ? payment
+        : await tx.payment.update({
+            where: { id },
+            data: {
+              ...(alreadyVerified
+                ? {}
+                : {
+                    status: PaymentStatus.VERIFIED,
+                    matchedAt: payment.matchedAt ?? now,
+                    matchedById: payment.matchedById ?? userId,
+                    verifiedAt: now,
+                    verifiedById: userId,
+                  }),
+              // Posted to the method clearing account → awaits provider settlement.
+              ...(override
+                ? {
+                    settlementStatus:
+                      PaymentSettlementStatus.AWAITING_SETTLEMENT,
+                  }
+                : {}),
+              updatedBy: userId,
+            },
+          });
+    const receipt = await this.storeOrderCollection.postPaymentReceipt(
+      tx,
+      id,
+      userId,
+      override,
+    );
+    const debitNote = override
+      ? ` (Dr ${payment.paymentMethod?.account?.code ?? ''} ${payment.paymentMethod?.name ?? ''}, rate ${override.exchangeRate} as of ${override.rateAsOf.toISOString().slice(0, 10)})`
+      : '';
+    await this.activityService.log(
+      id,
+      PaymentActivityType.CONFIRMED_AND_POSTED,
+      `Confirmed & posted — Customer Receipt ${receipt.transactionNumber}${receipt.journalEntry ? `, Journal Entry ${receipt.journalEntry.entryNumber}` : ''}${debitNote}`,
+      {
+        userId,
+        receiptId: receipt.id,
+        journalEntryId: receipt.journalEntry?.id ?? null,
+        debitAccountId: override?.debitAccountId ?? null,
+        exchangeRate: override?.exchangeRate ?? null,
+        rateAsOf: override?.rateAsOf.toISOString() ?? null,
+        rateSource: override?.rateSource ?? null,
+        statementLineId: opts.statementLineId ?? null,
+      },
+      tx,
+    );
+    await this.storeOrderPaymentSync.recompute(storeOrderId, tx);
+    await recomputeDeclaredPaymentStatus(tx, storeOrderId);
+    return {
+      payment: verified,
+      receiptId: receipt.id,
+      receipt,
+      alreadyPosted: false,
+    };
+  }
+
+  /**
+   * The method's clearing account must be a real posting target — never
+   * silently replaced by a default (owner rule 1). 422 with the fix.
+   */
+  private assertMethodAccountPostable(payment: {
+    paymentNumber: string;
+    currencyId: string | null;
+    paymentMethod: {
+      name: string;
+      account: {
+        id: string;
+        code: string;
+        name: string;
+        allowsPosting: boolean;
+        deletedAt: Date | null;
+        accountType: AccountType;
+        currencyId: string | null;
+      } | null;
+    } | null;
+  }): string {
+    const method = payment.paymentMethod;
+    const account = method?.account;
+    const fix = `Fix the account on Payment Method "${method?.name ?? '?'}" (Master Data → Payment Methods), then confirm again.`;
+    if (!account || account.deletedAt) {
+      throw new UnprocessableEntityException(
+        `Payment ${payment.paymentNumber} cannot be posted: its payment method has no active linked ledger account. ${fix}`,
+      );
+    }
+    if (!account.allowsPosting) {
+      throw new UnprocessableEntityException(
+        `Account ${account.code} ${account.name} is a header account and cannot receive postings. ${fix}`,
+      );
+    }
+    if (account.accountType !== AccountType.ASSET) {
+      throw new UnprocessableEntityException(
+        `Account ${account.code} ${account.name} is a ${account.accountType} account — a payment method must post to an ASSET (clearing/receivable) account. ${fix}`,
+      );
+    }
+    if (
+      account.currencyId &&
+      payment.currencyId &&
+      account.currencyId !== payment.currencyId
+    ) {
+      throw new UnprocessableEntityException(
+        `Account ${account.code} ${account.name} is locked to a different currency than payment ${payment.paymentNumber}. ${fix}`,
+      );
+    }
+    return account.id;
   }
 
   private assertReceivingAccountPostable(payment: {
@@ -450,6 +665,117 @@ export class PaymentsService {
     return payment;
   }
 
+  /**
+   * Business operation: Dispute a declaration (Finance). PENDING/MATCHED →
+   * DISPUTED with a required reason. The claim stops counting toward the
+   * declared status; when fulfillment already started the order is flagged
+   * with a payment discrepancy — shipment/pickup history is never touched.
+   */
+  async dispute(id: string, userId: string, reason: string) {
+    const trimmed = reason?.trim();
+    if (!trimmed) {
+      throw new BadRequestException('A dispute reason is required.');
+    }
+    const existing = await this.findOne(id);
+    const payment = await this.prisma.$transaction(async (tx) => {
+      const current = await this.lockClaimForDecision(
+        tx,
+        id,
+        existing.storeOrderId,
+      );
+      if (
+        !current ||
+        (current.status !== PaymentStatus.PENDING &&
+          current.status !== PaymentStatus.MATCHED)
+      ) {
+        throw new BadRequestException(
+          'Only a PENDING or MATCHED payment can be disputed.',
+        );
+      }
+      await this.assertNoActiveMatches(tx, current, 'disputing');
+      const updated = await tx.payment.update({
+        where: { id },
+        data: {
+          status: PaymentStatus.DISPUTED,
+          disputeReason: trimmed,
+          updatedBy: userId,
+        },
+      });
+      await this.activityService.log(
+        id,
+        PaymentActivityType.DISPUTED,
+        `Disputed: ${trimmed}`,
+        { userId, reason: trimmed },
+        tx,
+      );
+      if (updated.storeOrderId) {
+        await this.afterClaimWithdrawn(
+          tx,
+          updated.storeOrderId,
+          `Payment ${updated.paymentNumber} disputed by Finance: ${trimmed}`,
+          userId,
+        );
+      }
+      return updated;
+    });
+    if (payment.storeOrderId) {
+      await this.storeOrderPaymentSync.recompute(payment.storeOrderId);
+    }
+    return payment;
+  }
+
+  /**
+   * Reject/dispute lock order: Store Order row, then the payment row
+   * (FOR UPDATE) — the same order reconciliation's confirm uses, so a
+   * decision and a concurrent statement match serialize.
+   */
+  private async lockClaimForDecision(
+    tx: Prisma.TransactionClient,
+    id: string,
+    storeOrderId: string | null,
+  ) {
+    if (storeOrderId) await lockStoreOrderRow(tx, storeOrderId);
+    await tx.$queryRaw`SELECT id FROM payments WHERE id = ${id}::uuid FOR UPDATE`;
+    return tx.payment.findFirst({ where: { id, deletedAt: null } });
+  }
+
+  /** 409 while provider-statement allocations stand on the claim — reverse the match first. */
+  private async assertNoActiveMatches(
+    tx: Prisma.TransactionClient,
+    payment: { id: string; paymentNumber: string },
+    action: 'rejecting' | 'disputing',
+  ) {
+    const active = await tx.paymentMatch.count({
+      where: { paymentId: payment.id, status: PaymentMatchStatus.ACTIVE },
+    });
+    if (active > 0) {
+      throw new ConflictException(
+        `Payment ${payment.paymentNumber} has ${active} active provider-statement match${active === 1 ? '' : 'es'} — reverse the match first (Finance → Payment reconciliation → "Correct match") before ${action} it.`,
+      );
+    }
+  }
+
+  /** A claim stopped counting (dispute/reject): recompute declared status, flag if already fulfilled. */
+  private async afterClaimWithdrawn(
+    tx: Prisma.TransactionClient,
+    storeOrderId: string,
+    reason: string,
+    userId: string,
+  ) {
+    await recomputeDeclaredPaymentStatus(tx, storeOrderId);
+    const flagged = await flagDiscrepancyIfFulfilled(tx, storeOrderId, reason);
+    await tx.storeOrderActivity.create({
+      data: {
+        storeOrderId,
+        action: flagged
+          ? 'PAYMENT_DISCREPANCY_FLAGGED'
+          : 'PAYMENT_CLAIM_WITHDRAWN',
+        details: reason,
+        performedById: userId,
+      },
+    });
+  }
+
   /** Business operation: Reject Payment. Requires current status MATCHED (per the given
    *  diagram: PENDING -> MATCHED -> {VERIFIED or REJECTED}). */
   async reject(id: string, dto: RejectPaymentDto & { rejectedById: string }) {
@@ -463,9 +789,11 @@ export class PaymentsService {
       );
     }
     const payment = await this.prisma.$transaction(async (tx) => {
-      const current = await tx.payment.findFirst({
-        where: { id, deletedAt: null },
-      });
+      const current = await this.lockClaimForDecision(
+        tx,
+        id,
+        existing.storeOrderId,
+      );
       if (
         !current ||
         (current.status !== PaymentStatus.MATCHED &&
@@ -475,6 +803,7 @@ export class PaymentsService {
           'Only a PENDING or MATCHED payment can be rejected.',
         );
       }
+      await this.assertNoActiveMatches(tx, current, 'rejecting');
       const updated = await tx.payment.update({
         where: { id },
         data: {
@@ -494,6 +823,14 @@ export class PaymentsService {
         },
         tx,
       );
+      if (updated.storeOrderId) {
+        await this.afterClaimWithdrawn(
+          tx,
+          updated.storeOrderId,
+          `Payment ${updated.paymentNumber} rejected by Finance${dto.rejectionReason ? `: ${dto.rejectionReason}` : ''}`,
+          dto.rejectedById,
+        );
+      }
       return updated;
     });
 

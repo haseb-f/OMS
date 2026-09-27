@@ -29,6 +29,7 @@ import { ArchivePaymentAttachmentDto } from './dto/archive-payment-attachment.dt
 import { MatchPaymentDto } from './dto/match-payment.dto';
 import { VerifyPaymentDto } from './dto/verify-payment.dto';
 import { RejectPaymentDto } from './dto/reject-payment.dto';
+import { DisputePaymentDto } from './dto/dispute-payment.dto';
 import { FindPaymentsQueryDto } from './dto/find-payments-query.dto';
 import { SetActualFeeDto } from './dto/set-actual-fee.dto';
 import { ATTACHMENT_MAX_BYTES } from '../common/storage/file-validation';
@@ -105,6 +106,18 @@ export class PaymentsController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.paymentsService.reject(id, { ...dto, rejectedById: user.sub });
+  }
+
+  /** Finance disputes a Sales declaration (reason required); flags the order if already fulfilled. */
+  @Post(':id/dispute')
+  @HttpCode(200)
+  @PermissionAction('confirm')
+  dispute(
+    @Param('id') id: string,
+    @Body() dto: DisputePaymentDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.paymentsService.dispute(id, user.sub, dto.reason);
   }
 
   /**

@@ -28,6 +28,10 @@ function buildTx(overrides: Record<string, unknown> = {}) {
       }),
     },
     salesInvoice: { findFirst: jest.fn().mockResolvedValue(null) },
+    paymentReceiptLink: {
+      findUnique: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({ id: 'link-1' }),
+    },
     financialTransactionAllocation: {
       groupBy: jest.fn().mockResolvedValue([]),
     },

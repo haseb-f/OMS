@@ -727,6 +727,51 @@ describe('Sales Flow Hardening', () => {
     },
   );
 
+  liveIt(
+    'conversion with "Paid in full" declares the validated total once (idempotent), dual-writes Finance status and permits shipping',
+    async () => {
+      const owner = await salesUser('Declared Convert Owner');
+      const ownerScope = await salesScope.resolve(owner.id);
+      const [skuA] = await productIds();
+      const paymentMethod = await prisma.paymentMethod.findFirst({
+        where: { deletedAt: null, isActive: true },
+        select: { id: true },
+      });
+      if (!paymentMethod) throw new Error('Active payment method required.');
+      const lead = await createOwnedLead(owner.id);
+      await leads.firstOpen(lead.id, owner.id, ownerScope);
+      const payload = {
+        items: [{ productId: skuA, quantity: 2, agreedAmount: 450 }],
+        paymentType: 'PREPAID' as const,
+        declarationKind: 'FULL' as const,
+        amountPaid: 1, // ignored for FULL — never re-entered
+        paymentMethodId: paymentMethod.id,
+        address: 'Declared St',
+        city: 'Riyadh',
+      };
+      await leads.convertToStoreOrder(lead.id, payload, owner.id, ownerScope);
+      await leads.convertToStoreOrder(lead.id, payload, owner.id, ownerScope);
+
+      const order = await prisma.storeOrder.findFirstOrThrow({
+        where: { leadId: lead.id },
+        include: {
+          payments: true,
+          paymentStatusDef: { select: { code: true } },
+        },
+      });
+      expect(order.payments).toHaveLength(1);
+      expect(Number(order.payments[0].amount)).toBe(450);
+      expect(order.payments[0].origin).toBe('LEAD_CONVERSION');
+      expect(order.payments[0].declarationKind).toBe('FULL');
+      expect(order.payments[0].receivingAccountId).toBeNull();
+      expect(order.declaredPaymentStatus).toBe('PAID');
+      expect(order.paymentStatus).toBe(StoreOrderPaymentStatus.PAYMENT_REVIEW);
+      expect(order.paymentStatusDef?.code).toBe('PAYMENT_REPORTED');
+      const gate = await storeOrders.canFulfill(order.id);
+      expect(gate.allowed).toBe(true);
+    },
+  );
+
   describe('Bulk status change (Smart Selection)', () => {
     liveIt(
       'a mixed-status batch applies to every valid transition and reports the rest as failed, never throwing for the whole batch',
@@ -1024,7 +1069,7 @@ describe('Sales Flow Hardening', () => {
         accountId: account.id,
       });
       createdPaymentMethodIds.push(method.id);
-      const methodList = await paymentMethods.findAll({});
+      const methodList = await paymentMethods.findAll({ search: method.name });
       expect(methodList.items.some((row) => row.id === method.id)).toBe(true);
 
       const classification = await classifications.create({
@@ -1044,7 +1089,7 @@ describe('Sales Flow Hardening', () => {
         (await departments.findAll({})).items.some((row) => row.id === dept.id),
       ).toBe(false);
       expect(
-        (await paymentMethods.findAll({})).items.some(
+        (await paymentMethods.findAll({ search: method.name })).items.some(
           (row) => row.id === method.id,
         ),
       ).toBe(false);
@@ -1061,7 +1106,7 @@ describe('Sales Flow Hardening', () => {
         (await departments.findAll({})).items.some((row) => row.id === dept.id),
       ).toBe(true);
       expect(
-        (await paymentMethods.findAll({})).items.some(
+        (await paymentMethods.findAll({ search: method.name })).items.some(
           (row) => row.id === method.id,
         ),
       ).toBe(true);

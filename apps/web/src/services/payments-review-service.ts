@@ -1,6 +1,6 @@
 import { apiClient } from "./api-client";
 
-export type PaymentReviewStatus = "PENDING" | "MATCHED" | "VERIFIED" | "REJECTED";
+export type PaymentReviewStatus = "PENDING" | "MATCHED" | "VERIFIED" | "REJECTED" | "DISPUTED";
 
 export interface PaymentReviewRow {
   id: string;
@@ -14,10 +14,24 @@ export interface PaymentReviewRow {
   currency: { id: string; code: string; name: string } | null;
   paymentSource: { id: string; name: string } | null;
   receivingAccount: { id: string; name: string } | null;
+  /** Declared claims: the method whose account a confirmation debits (read-only for Finance). */
+  paymentMethod: {
+    id: string;
+    name: string;
+    requiresReconciliation: boolean;
+    account: { id: string; code: string; name: string } | null;
+  } | null;
+  origin?: "LEGACY" | "SALES_DECLARATION" | "FINANCE_DECLARATION" | "LEAD_CONVERSION";
+  declarationKind?: "FULL" | "PARTIAL" | null;
+  disputeReason?: string | null;
+  rejectionReason?: string | null;
   storeOrder: {
     id: string;
     internalOrderId: string;
     paymentStatus: string;
+    declaredPaymentStatus?: "UNPAID" | "PARTIALLY_PAID" | "PAID";
+    paymentType?: "PREPAID" | "CASH_ON_DELIVERY";
+    paymentDiscrepancy?: boolean;
     partner: { id: string; name: string; partnerNumber: string } | null;
   } | null;
   lead: { id: string; leadNumber: string; customerName: string } | null;
@@ -72,4 +86,6 @@ export const paymentsReviewService = {
   /** The reason is required and saved on the payment; nothing is posted. */
   reject: (id: string, rejectionReason: string) =>
     apiClient.post(`/payments/${id}/reject`, { rejectionReason }),
+  /** Finance disputes a Sales declaration; flags the order if it was already fulfilled. */
+  dispute: (id: string, reason: string) => apiClient.post(`/payments/${id}/dispute`, { reason }),
 };

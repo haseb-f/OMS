@@ -282,3 +282,62 @@ once- or twice-daily fetching with attribution is defensible. Heavy or bulk scra
 - https://api.worldbank.org/v2/country/EGY/indicator/PA.NUS.FCRF?format=json&per_page=5 (annual only)
 - https://www.centralbank.ae/en/forex-eibor/exchange-rates/ (403; content unverified)
 - https://www.sama.gov.sa/en-us/FinExc/Pages/Currency.aspx (404)
+
+---
+
+## 7. Implementation notes (IMPL-FX, 2026-09-27)
+
+- **Quotation convention.** Only `FOREIGN → functional (EGP)` is stored: "1 FOREIGN = X EGP". Manual
+  daily rates (`POST /exchange-rates`, bulk import) and overrides are rejected with a 400 when the "from"
+  currency is the functional currency or the "to" currency is anything else. Existing reverse-pair rows
+  are left untouched, and resolution never inverts a pair.
+- **Resolution** (`ExchangeRatesService.resolveRateDetailed`, used by `snapshotRate`/`resolveRate`), on the
+  UTC calendar day of `asOf`:
+  1. an active override (`deletedAt IS NULL`) whose inclusive `[dateFrom, dateTo]` contains the day
+     → `source = OVERRIDE`;
+  2. the latest daily rate (CBE, MANUAL or IMPORT) with `effectiveDate ≤ day`, accepted only if
+     `day − effectiveDate ≤ FxSyncSettings.maxStaleDays` (default **10**) → `source` from the row;
+  3. otherwise fail closed: `MISSING_EXCHANGE_RATE` (no observation) or `STALE_EXCHANGE_RATE` (message and
+     `details` carry the last date, its age, the limit, and the fix: run the import, or record a rate or override).
+- **Weekends and holidays** are covered by step 2. The result carries the explicit `effectiveDate`, so for
+  example Thursday 24/09's rate is used for Saturday 26/09. The rate-lookup tool on the settings page shows this.
+- **Overrides** (`/exchange-rates/overrides`) cover inclusive date ranges and require a reason. They are
+  soft-deleted with a reason, which is appended to `reason` because there is no dedicated column. A Postgres
+  `EXCLUDE` constraint rejects overlapping active ranges per pair, even under concurrency; `23P01` becomes a
+  409 naming the conflicting range. Automatic imports never touch overrides, and overrides win by precedence.
+  Deleting or adding an override never changes a posted document, which keeps its frozen rate.
+- **Source adapter** (`accounting/fx/providers/cbe.provider.ts` + `cbe-parser.ts`):
+  - Fetch: GET of the latest page with a browser UA, a 15 s timeout, and one retry on 5xx or network errors.
+    A 403 or WAF page is never retried.
+  - Validation: a strict parse (one `table-comp`, exact headers, the `Rates for Date` line, a closed label
+    dictionary, `^\d+\.\d{1,6}$`, `0 < buy ≤ sell`, spread < 2%, USD/EUR/GBP/SAR/AED/KWD all present).
+    Any violation rejects the whole payload. An unknown label is skipped and reported as a warning.
+  - Units: "Japanese Yen 100" is divided by 100.
+  - Historical backfill: GET the form (token, cookie and CMS ids scraped each time), pause 1.5 s, then one POST
+    for the range with all 18 labels. It runs from "Repair last 10 days" in the settings dialog.
+- **Rate basis.** `FxSyncSettings.rateBasis` defaults to **MID = (buy + sell) / 2 (derived by OMS)**. The owner
+  can switch to BUY or SELL in the settings. Buy and sell are always stored (`buyRate`/`sellRate`), with
+  `source = provider = 'CBE'`, `syncRunId`, and `sourceTimestamp`. CBE publishes no time of day, so
+  `sourceTimestamp` is the time the published page was fetched. The UI carries the CBE citation and the
+  "mid derived" statement required by the CBE terms.
+- **Idempotency.** Rows are keyed on `(from, to, effectiveDate)`:
+  - An existing CBE row is kept. A differing later value is recorded as a warning and the run is `PARTIAL`.
+  - An existing MANUAL or IMPORT row is never overwritten; it is skipped and counted.
+  - A day-over-day move above 15% is imported but flagged as a warning.
+- **Schedule.** `vercel.json` crons: `/api/cron/fx-rates` runs at **14:00 UTC** and
+  `/api/cron/fx-rates?slot=late` at **20:00 UTC** (two daily entries, so it stays valid on plans that allow
+  daily crons only). The endpoint is secured like `/api/cron/accounting-schedules`: the `CRON_SECRET` bearer is
+  compared with a timing-safe check (shared `assertCronAuthorized`), and the endpoint refuses to run when
+  the secret is unset.
+- **Runs.** Each attempt is one `FxSyncRun` with status, counts, error, effective date and details
+  (inserted/skipped keys, warnings, raw sha256, source URL).
+  - `enabled = false` makes a scheduled run `SKIPPED`. "Run now" is an explicit user action and still runs.
+  - Only one run happens at a time: a transaction-scoped advisory lock plus a check for a `RUNNING` row.
+    A `RUNNING` row older than 10 minutes is marked `FAILED`.
+  - The whole payload is validated before anything is written, and all rows are written in one transaction.
+- **Failure modes.**
+  - Provider, network, WAF or parse failure → the run is `FAILED` with the reason, shown in the UI, and
+    nothing is written.
+  - Resolution keeps using the latest valid rate within `maxStaleDays`, and fails closed after that.
+  - A banner appears when the newest CBE rate is older than `staleAlertDays` (default 4).
+- **Credentials:** none (public source). `CRON_SECRET` is already required by the existing cron.

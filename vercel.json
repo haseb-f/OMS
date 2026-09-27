@@ -19,6 +19,14 @@
     {
       "path": "/api/cron/accounting-schedules",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/fx-rates",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/fx-rates?slot=late",
+      "schedule": "0 20 * * *"
     }
   ]
 }

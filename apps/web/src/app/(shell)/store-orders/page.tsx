@@ -13,6 +13,11 @@ import {
   type DateRangeValue,
 } from "@/components/shared/date-range-picker";
 import { MultiSelectFilter } from "@/components/shared/data-table";
+import { SelectFilter } from "@/components/shared/data-table/select-filter";
+import {
+  DECLARED_STATUS_VALUES,
+  declaredStatusLabelKey,
+} from "@/components/payments/declaration/declaration-status";
 import {
   EnterpriseDataTable,
   exportRowsToCsv,
@@ -28,6 +33,7 @@ import { buildStoreOrderDetailRegions } from "@/components/store-orders/store-or
 import { StoreOrderMobileCard } from "@/components/store-orders/store-order-mobile-card";
 import {
   storeOrdersService,
+  type StoreOrderDeclaredPaymentStatusValue,
   type StoreOrderPaymentStatusValue,
   type StoreOrderRow,
   type StoreOrderShippingStageValue,
@@ -87,6 +93,11 @@ function StoreOrdersPageContent() {
     "shippingStage",
     [],
   );
+  // What Sales declared — separate from the Finance-verified payment status.
+  const [declaredStatusFilter, setDeclaredStatusFilter] = usePathRestorableState<string>(
+    "declaredPaymentStatus",
+    "",
+  );
   const [sourceFilter, setSourceFilter] = usePathRestorableState<string[]>("source", []);
   const [dateRange, setDateRange] = usePathRestorableState<DateRangeValue>(
     "dateRange",
@@ -125,6 +136,9 @@ function StoreOrdersPageContent() {
     () => ({
       search: search || undefined,
       paymentStatus: paymentStatusFilter as StoreOrderPaymentStatusValue[],
+      declaredPaymentStatus: declaredStatusFilter
+        ? (declaredStatusFilter as StoreOrderDeclaredPaymentStatusValue)
+        : undefined,
       shippingStage: shippingStageFilter as StoreOrderShippingStageValue[],
       source: sourceFilter as StoreOrderSourceValue[],
       dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
@@ -140,6 +154,7 @@ function StoreOrdersPageContent() {
     [
       search,
       paymentStatusFilter,
+      declaredStatusFilter,
       shippingStageFilter,
       sourceFilter,
       dateRange,
@@ -432,6 +447,18 @@ function StoreOrdersPageContent() {
                 label: t(PAYMENT_STATUS_LABEL_KEY[status]),
               }))}
             />
+            <SelectFilter
+              label={t("paymentDeclaration.filter.declaredStatus")}
+              value={declaredStatusFilter}
+              onChange={(value) => {
+                setDeclaredStatusFilter(value);
+                setPage(1);
+              }}
+              options={DECLARED_STATUS_VALUES.map((status) => ({
+                value: status,
+                label: t(declaredStatusLabelKey(status)),
+              }))}
+            />
             <MultiSelectFilter
               label={t("storeOrders.filters.shippingStage")}
               values={shippingStageFilter}
@@ -491,6 +518,7 @@ function StoreOrdersPageContent() {
               </>
             )}
             {(paymentStatusFilter.length > 0 ||
+              declaredStatusFilter ||
               shippingStageFilter.length > 0 ||
               sourceFilter.length > 0 ||
               costStateFilter.length > 0 ||
@@ -503,6 +531,7 @@ function StoreOrdersPageContent() {
                 size="sm"
                 onClick={() => {
                   setPaymentStatusFilter([]);
+                  setDeclaredStatusFilter("");
                   setShippingStageFilter([]);
                   setSourceFilter([]);
                   setCostStateFilter([]);

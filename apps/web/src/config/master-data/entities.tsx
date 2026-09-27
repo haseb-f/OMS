@@ -209,6 +209,10 @@ export interface PaymentMethodRow {
   description: string | null;
   accountId: string | null;
   account: { id: string; code: string; name: string } | null;
+  /** Claims for this method go through the provider statement reconciliation workspace. */
+  requiresReconciliation?: boolean;
+  /** Inactive methods cannot be chosen for new payment declarations. */
+  isActive?: boolean;
   deletedAt: string | null;
 }
 
@@ -958,20 +962,37 @@ export const paymentMethodsFormFields: MasterDataFormField[] = [
     required: true,
     postingOnly: true,
   },
+  // Changing either flag never re-processes existing claims.
+  {
+    name: "requiresReconciliation",
+    label: "paymentDeclaration.method.requiresReconciliation",
+    type: "boolean",
+  },
+  { name: "isActive", label: "paymentDeclaration.method.isActive", type: "boolean" },
 ];
 
 export const paymentMethodsSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional().or(z.literal("")),
   accountId: z.string().uuid(),
+  requiresReconciliation: z.boolean().optional(),
+  isActive: z.boolean().optional(),
 });
 
-export const paymentMethodsDefaultValues = { name: "", description: "", accountId: "" };
+export const paymentMethodsDefaultValues = {
+  name: "",
+  description: "",
+  accountId: "",
+  requiresReconciliation: false,
+  isActive: true,
+};
 export const paymentMethodsExportColumns = ["name"];
 export const paymentMethodsToFormValues = (row: PaymentMethodRow) => ({
   name: row.name,
   description: row.description ?? "",
   accountId: row.accountId ?? "",
+  requiresReconciliation: row.requiresReconciliation ?? false,
+  isActive: row.isActive ?? true,
 });
 export const paymentMethodRowLabel = (row: PaymentMethodRow) => row.name;
 

@@ -71,12 +71,23 @@ describe('FinancialTransactionPostingProvider — CUSTOMER_REFUND', () => {
         findFirst: jest
           .fn()
           .mockImplementation(
-            ({ where }: { where: { fromCurrencyId: string } }) =>
+            ({
+              where,
+            }: {
+              where: { fromCurrencyId: string; effectiveDate: { lte: Date } };
+            }) =>
               where.fromCurrencyId === USD && options.usdRate
-                ? { rate: options.usdRate }
+                ? {
+                    rate: options.usdRate,
+                    effectiveDate: where.effectiveDate.lte,
+                    source: 'MANUAL',
+                  }
                 : null,
           ),
       },
+      // Resolution precedence (IMPL-FX): no dated override, default settings.
+      exchangeRateOverride: { findFirst: jest.fn().mockResolvedValue(null) },
+      fxSyncSettings: { findFirst: jest.fn().mockResolvedValue(null) },
       currency: { findUnique: jest.fn().mockResolvedValue({ code: 'X' }) },
     };
     const accountMapping = {

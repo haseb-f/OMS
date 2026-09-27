@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { CheckCheck, RefreshCw, Tags, X } from "lucide-react";
+import Link from "next/link";
+import { CheckCheck, CircleAlert, RefreshCw, Scale, Tags, X } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
@@ -27,6 +28,36 @@ import {
   type PaymentReviewRow,
   type PaymentReviewStatus,
 } from "@/services/payments-review-service";
+import { paymentRecordStatusBadge } from "@/config/store-orders/status";
+import type { MessageKey } from "@/i18n/translate";
+
+/**
+ * The ledger account a confirmation will debit: the payment method's
+ * clearing account for declared claims, the receiving account for legacy
+ * vouchers. Read-only — Finance never re-points it here.
+ */
+function debitAccountLabel(payment: PaymentReviewRow, t: (key: MessageKey) => string): string {
+  if (payment.paymentMethod) {
+    const account = payment.paymentMethod.account;
+    return account
+      ? `${account.code} — ${account.name}`
+      : t("paymentDeclaration.review.noMethodAccount");
+  }
+  return payment.receivingAccount
+    ? `${payment.receivingAccount.name} (${t("paymentDeclaration.review.legacyReceivingAccount")})`
+    : "—";
+}
+
+type ReasonMode = "reject" | "dispute";
+
+/**
+ * Claims of a reconciliation-enabled method are confirmed only by matching
+ * them to the provider statement (the API refuses a direct confirm) — the
+ * review queue links to the method's workspace instead.
+ */
+function reconciledMethodId(payment: PaymentReviewRow): string | null {
+  return payment.paymentMethod?.requiresReconciliation ? payment.paymentMethod.id : null;
+}
 
 /** A store-order payment can only be confirmed once its order carries an agreed price. */
 function needsPrice(payment: PaymentReviewRow): boolean {
@@ -49,6 +80,8 @@ function PaymentReviewPageContent() {
   const inFlight = useRef(new Set<string>());
   const [confirmTarget, setConfirmTarget] = useState<PaymentReviewRow | null>(null);
   const [rejectTarget, setRejectTarget] = useState<PaymentReviewRow | null>(null);
+  // Reject and Dispute share one reason dialog (both require a reason).
+  const [reasonMode, setReasonMode] = useState<ReasonMode>("reject");
   const [rejectReason, setRejectReason] = useState("");
   const [rejectError, setRejectError] = useState<string | null>(null);
   const [priceTarget, setPriceTarget] = useState<PaymentReviewRow | null>(null);
@@ -123,20 +156,36 @@ function PaymentReviewPageContent() {
     [runExclusive, t, load],
   );
 
+  const openReasonDialog = (payment: PaymentReviewRow, mode: ReasonMode) => {
+    setReasonMode(mode);
+    setRejectReason("");
+    setRejectError(null);
+    setRejectTarget(payment);
+  };
+
   const submitReject = async () => {
     const target = rejectTarget;
     if (!target) return;
     const reason = rejectReason.trim();
     if (!reason) {
-      setRejectError(t("finance.paymentReview.rejectDialog.reasonRequired"));
+      setRejectError(
+        reasonMode === "dispute"
+          ? t("paymentDeclaration.review.disputeReasonRequired")
+          : t("finance.paymentReview.rejectDialog.reasonRequired"),
+      );
       return;
     }
     await runExclusive(target.id, async () => {
       try {
-        await paymentsReviewService.reject(target.id, reason);
-        toast.success(
-          t("finance.paymentReview.toasts.rejected", { payment: target.paymentNumber }),
-        );
+        if (reasonMode === "dispute") {
+          await paymentsReviewService.dispute(target.id, reason);
+          toast.success(t("paymentDeclaration.review.disputed"));
+        } else {
+          await paymentsReviewService.reject(target.id, reason);
+          toast.success(
+            t("finance.paymentReview.toasts.rejected", { payment: target.paymentNumber }),
+          );
+        }
         setRejectTarget(null);
         setRejectReason("");
         await load();
@@ -201,14 +250,32 @@ function PaymentReviewPageContent() {
         ),
       },
       {
-        id: "source",
-        meta: { titleKey: "finance.paymentReview.fields.source" },
-        accessorFn: (row) => row.paymentSource?.name ?? "—",
+        id: "method",
+        meta: { titleKey: "paymentDeclaration.review.method" },
+        cell: ({ row }) => (
+          <span className="inline-flex flex-col">
+            <span>
+              {row.original.paymentMethod?.name ?? row.original.paymentSource?.name ?? "—"}
+            </span>
+            {row.original.origin && row.original.origin !== "LEGACY" ? (
+              <span className="text-caption text-muted-foreground">
+                {[
+                  t(`paymentDeclaration.origin.${row.original.origin}` as MessageKey),
+                  row.original.declarationKind
+                    ? t(`paymentDeclaration.kind.${row.original.declarationKind}` as MessageKey)
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
+            ) : null}
+          </span>
+        ),
       },
       {
         id: "account",
-        meta: { titleKey: "finance.paymentReview.fields.account" },
-        accessorFn: (row) => row.receivingAccount?.name ?? "—",
+        meta: { titleKey: "paymentDeclaration.review.debitAccount" },
+        accessorFn: (row) => debitAccountLabel(row, t),
       },
       {
         id: "reference",
@@ -228,18 +295,15 @@ function PaymentReviewPageContent() {
       {
         id: "status",
         meta: { titleKey: "finance.paymentReview.fields.status" },
-        cell: ({ row }) => (
-          <StatusBadge
-            label={t(`storeOrders.detail.payments.recordStatus.${row.original.status}` as never)}
-            tone={
-              row.original.status === "VERIFIED"
-                ? "success"
-                : row.original.status === "REJECTED"
-                  ? "destructive"
-                  : "warning"
-            }
-          />
-        ),
+        cell: ({ row }) => {
+          const badge = paymentRecordStatusBadge(row.original.status);
+          return (
+            <StatusBadge
+              label={badge.labelKey ? t(badge.labelKey) : badge.fallback}
+              tone={badge.tone}
+            />
+          );
+        },
       },
       {
         id: "__actions",
@@ -249,6 +313,7 @@ function PaymentReviewPageContent() {
           const busy = busyId === payment.id;
           const open = payment.status === "PENDING" || payment.status === "MATCHED";
           const missingPrice = needsPrice(payment);
+          const workspaceMethodId = reconciledMethodId(payment);
           return (
             <div className="flex flex-wrap items-center gap-1">
               {canConfirm && open && missingPrice && canEditOrders ? (
@@ -266,7 +331,21 @@ function PaymentReviewPageContent() {
                   {t("finance.paymentReview.actions.setPrice")}
                 </EnterpriseButton>
               ) : null}
-              {canConfirm && open ? (
+              {canConfirm && open && workspaceMethodId ? (
+                <EnterpriseButton
+                  size="xs"
+                  variant="outline"
+                  asChild
+                  data-testid="payment-reconcile-link"
+                  title={t("paymentDeclaration.review.reconcileHint")}
+                >
+                  <Link href={`/finance/payment-reconciliation/${workspaceMethodId}`}>
+                    <Scale className="size-3" />
+                    {t("paymentDeclaration.review.reconcileInWorkspace")}
+                  </Link>
+                </EnterpriseButton>
+              ) : null}
+              {canConfirm && open && !workspaceMethodId ? (
                 <EnterpriseButton
                   size="xs"
                   variant="success"
@@ -296,17 +375,25 @@ function PaymentReviewPageContent() {
                   {t("docFlow.payments.syncReceipt")}
                 </EnterpriseButton>
               ) : null}
+              {canConfirm && open && payment.storeOrder ? (
+                <EnterpriseButton
+                  size="xs"
+                  variant="outline"
+                  disabled={busy}
+                  data-testid="payment-dispute"
+                  onClick={() => openReasonDialog(payment, "dispute")}
+                >
+                  <CircleAlert className="size-3" />
+                  {t("paymentDeclaration.review.dispute")}
+                </EnterpriseButton>
+              ) : null}
               {canConfirm && open ? (
                 <EnterpriseButton
                   size="xs"
                   variant="destructive"
                   disabled={busy}
                   data-testid="payment-reject"
-                  onClick={() => {
-                    setRejectReason("");
-                    setRejectError(null);
-                    setRejectTarget(payment);
-                  }}
+                  onClick={() => openReasonDialog(payment, "reject")}
                 >
                   <X className="size-3" />
                   {t("finance.paymentReview.actions.reject")}
@@ -357,6 +444,7 @@ function PaymentReviewPageContent() {
               { value: "MATCHED", label: t("storeOrders.detail.payments.recordStatus.MATCHED") },
               { value: "VERIFIED", label: t("storeOrders.detail.payments.recordStatus.VERIFIED") },
               { value: "REJECTED", label: t("storeOrders.detail.payments.recordStatus.REJECTED") },
+              { value: "DISPUTED", label: t("paymentDeclaration.recordStatus.DISPUTED") },
             ]}
           />
         }
@@ -387,8 +475,16 @@ function PaymentReviewPageContent() {
         open={!!rejectTarget}
         onOpenChange={(open) => !open && setRejectTarget(null)}
         size="md"
-        title={`${t("finance.paymentReview.actions.reject")} ${rejectTarget?.paymentNumber ?? ""}`}
-        description={t("finance.paymentReview.rejectDialog.description")}
+        title={
+          reasonMode === "dispute"
+            ? `${t("paymentDeclaration.review.disputeTitle")} ${rejectTarget?.paymentNumber ?? ""}`
+            : `${t("finance.paymentReview.actions.reject")} ${rejectTarget?.paymentNumber ?? ""}`
+        }
+        description={
+          reasonMode === "dispute"
+            ? t("paymentDeclaration.review.disputeDescription")
+            : t("finance.paymentReview.rejectDialog.description")
+        }
         isDirty={rejectReason.trim().length > 0}
         footer={(requestClose) => (
           <>
@@ -402,13 +498,19 @@ function PaymentReviewPageContent() {
               disabled={!rejectTarget || busyId === rejectTarget.id}
               onClick={() => void submitReject()}
             >
-              {t("finance.paymentReview.actions.reject")}
+              {reasonMode === "dispute"
+                ? t("paymentDeclaration.review.dispute")
+                : t("finance.paymentReview.actions.reject")}
             </EnterpriseButton>
           </>
         )}
       >
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="payment-reject-reason">{t("finance.paymentReview.fields.reason")}</Label>
+          <Label htmlFor="payment-reject-reason">
+            {reasonMode === "dispute"
+              ? t("paymentDeclaration.review.disputeReason")
+              : t("finance.paymentReview.fields.reason")}
+          </Label>
           <Textarea
             id="payment-reject-reason"
             rows={3}
@@ -461,10 +563,44 @@ function PaymentReviewDetail({ payment }: { payment: PaymentReviewRow }) {
         {formatMoney(payment.amount, payment.currency?.code)}
       </span>,
     ],
-    [t("finance.paymentReview.fields.source"), payment.paymentSource?.name ?? "—"],
-    [t("finance.paymentReview.fields.account"), payment.receivingAccount?.name ?? "—"],
+    [
+      t("paymentDeclaration.review.method"),
+      payment.paymentMethod?.name ?? payment.paymentSource?.name ?? "—",
+    ],
+    [
+      t("paymentDeclaration.review.debitAccount"),
+      <span key="debit" className="inline-flex flex-col">
+        <span>{debitAccountLabel(payment, t)}</span>
+        <span className="text-caption text-muted-foreground">
+          {t("paymentDeclaration.review.debitAccountHint")}
+        </span>
+      </span>,
+    ],
     [t("finance.paymentReview.fields.proof"), payment.attachments.length],
   ];
+  if (payment.origin && payment.origin !== "LEGACY") {
+    rows.push([
+      t("paymentDeclaration.review.origin"),
+      t(`paymentDeclaration.origin.${payment.origin}` as MessageKey),
+    ]);
+  }
+  if (payment.declarationKind) {
+    rows.push([
+      t("paymentDeclaration.review.kind"),
+      t(`paymentDeclaration.kind.${payment.declarationKind}` as MessageKey),
+    ]);
+  }
+  if (payment.paymentMethod) {
+    rows.push([
+      t("paymentDeclaration.review.requiresReconciliation"),
+      payment.paymentMethod.requiresReconciliation
+        ? t("paymentDeclaration.method.yes")
+        : t("paymentDeclaration.method.no"),
+    ]);
+  }
+  if (payment.disputeReason) {
+    rows.push([t("paymentDeclaration.fields.reason"), payment.disputeReason]);
+  }
   if (payment.settlement) {
     rows.push([
       t("finance.paymentReview.fields.remaining"),

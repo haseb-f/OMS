@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -68,7 +69,12 @@ import { FulfillmentCostService } from '../fulfillment-cost-rules/fulfillment-co
 import { StoreOrderCollectionService } from '../accounting/store-order-collection/store-order-collection.service';
 import { OrderEconomicsService } from './order-economics/order-economics.service';
 import { AccountMappingService } from '../accounting/account-mapping/account-mapping.service';
-import { PAID_PAYMENT_CODES } from '../workflow/workflow-status-map';
+import { evaluateFulfillmentGate } from './store-order-fulfillment-gate';
+import {
+  recomputeDeclaredPaymentStatus,
+  resolvePaymentSourceId,
+  standingClaimsTotal,
+} from './payment-declaration/payment-declaration.core';
 import { randomUUID } from 'node:crypto';
 import { findArabicNormalizedIds } from '../common/text/arabic-search.query';
 
@@ -115,6 +121,10 @@ const ORDER_INCLUDE = {
     where: { deletedAt: null },
     orderBy: { createdAt: 'desc' as const },
     include: {
+      paymentMethod: {
+        select: { id: true, name: true, requiresReconciliation: true },
+      },
+      receiptLink: { select: { financialTransactionId: true } },
       attachments: {
         where: { deletedAt: null },
         orderBy: { createdAt: 'asc' as const },
@@ -238,7 +248,15 @@ export class StoreOrdersService {
    * identity: a repeat is rejected, naming the existing internalOrderId,
    * never a second row.
    */
-  async create(dto: CreateStoreOrderDto, userId?: string) {
+  async create(
+    dto: CreateStoreOrderDto,
+    userId?: string,
+    /** Optional in-transaction step (e.g. a payment declaration) — commits or rolls back with the order. */
+    afterCreate?: (
+      tx: Prisma.TransactionClient,
+      storeOrderId: string,
+    ) => Promise<unknown>,
+  ) {
     if (dto.externalOrderId) {
       const normalized = dto.externalOrderId.trim().toLocaleLowerCase('en-US');
       const existing = await this.prisma.storeOrder.findFirst({
@@ -349,6 +367,8 @@ export class StoreOrdersService {
           );
         }
 
+        if (afterCreate) await afterCreate(tx, created.id);
+
         return created;
       });
 
@@ -444,6 +464,7 @@ export class StoreOrdersService {
             },
           },
         });
+        await recomputeDeclaredPaymentStatus(tx, id);
         await this.activityService.log(
           id,
           StoreOrderActivityType.ORDER_UPDATED,
@@ -472,6 +493,7 @@ export class StoreOrdersService {
       | 'partnerId'
       | 'phone'
       | 'paymentStatus'
+      | 'declaredPaymentStatus'
       | 'shippingStage'
       | 'source'
       | 'search'
@@ -483,6 +505,7 @@ export class StoreOrdersService {
       deletedAt: null,
       partnerId: query.partnerId,
       paymentStatus: prismaEnumFilter(query.paymentStatus),
+      declaredPaymentStatus: prismaEnumFilter(query.declaredPaymentStatus),
       shippingStage: prismaEnumFilter(query.shippingStage),
       source: prismaEnumFilter(query.source),
     };
@@ -700,6 +723,7 @@ export class StoreOrdersService {
       | 'partnerId'
       | 'phone'
       | 'paymentStatus'
+      | 'declaredPaymentStatus'
       | 'shippingStage'
       | 'source'
       | 'search'
@@ -974,6 +998,17 @@ export class StoreOrdersService {
         );
       }
 
+      // Standing claims (PENDING / MATCHED / VERIFIED) are money the
+      // customer is reported to have paid — the total may never drop below
+      // them. Raising it simply re-opens the declared remainder (PAID →
+      // PARTIALLY_PAID, closing the prepaid gate); no claim is ever created.
+      const standing = await standingClaimsTotal(tx, id);
+      if (nextTotal + 0.005 < standing) {
+        throw new ConflictException(
+          `The new order total ${nextTotal.toFixed(2)} is below the ${standing.toFixed(2)} already declared as paid by the customer. Ask Finance to reject or dispute the excess claim first, then correct the amounts.`,
+        );
+      }
+
       const changes: string[] = [];
       for (const line of dto.items) {
         const item = itemsById.get(line.itemId)!;
@@ -995,6 +1030,7 @@ export class StoreOrdersService {
         where: { id },
         data: { updatedBy: userId },
       });
+      await recomputeDeclaredPaymentStatus(tx, id);
       await this.activityService.log(
         id,
         StoreOrderActivityType.ORDER_UPDATED,
@@ -1150,38 +1186,17 @@ export class StoreOrdersService {
   }
 
   /**
-   * Central fulfillment gate — PREPAID requires verified payment;
-   * COD may ship before payment.
+   * Central fulfillment gate — see `evaluateFulfillmentGate`: PREPAID needs a
+   * full paid declaration OR verified payment; COD may ship before payment.
    */
   async canFulfill(id: string) {
     const order = await this.findOne(id);
-    if (order.paymentType === StoreOrderPaymentType.CASH_ON_DELIVERY) {
-      return {
-        allowed: true,
-        settlementMode: 'COD' as const,
-        reason: null as string | null,
-      };
-    }
-    const paymentCode =
-      order.paymentStatusDef?.code ??
-      (order.paymentStatus === StoreOrderPaymentStatus.FULLY_PAID_RECONCILED
-        ? 'PAID'
-        : order.paymentStatus === StoreOrderPaymentStatus.OVERPAID
-          ? 'OVERPAID'
-          : 'UNPAID');
-    if (PAID_PAYMENT_CODES.has(paymentCode)) {
-      return {
-        allowed: true,
-        settlementMode: 'PREPAID' as const,
-        reason: null as string | null,
-      };
-    }
-    return {
-      allowed: false,
-      settlementMode: 'PREPAID' as const,
-      reason:
-        'Prepaid orders require verified reconciled payment before fulfillment.',
-    };
+    return evaluateFulfillmentGate({
+      paymentType: order.paymentType,
+      declaredPaymentStatus: order.declaredPaymentStatus,
+      paymentStatus: order.paymentStatus,
+      paymentStatusCode: order.paymentStatusDef?.code ?? null,
+    });
   }
 
   /**
@@ -1212,9 +1227,12 @@ export class StoreOrdersService {
         `Cannot move pickup from ${current} to ${code}.`,
       );
     }
-    if (code === 'COLLECTED' || code === 'READY_FOR_PICKUP') {
+    // Prepaid pickup readiness and collection need the same payment basis as
+    // shipping (declared PAID in full or verified paid); COD is never gated.
+    // Nothing here is automatic — an authorized user records each step.
+    if (code === 'READY_FOR_PICKUP' || code === 'COLLECTED') {
       const gate = await this.canFulfill(id);
-      if (!gate.allowed && code === 'COLLECTED') {
+      if (!gate.allowed) {
         throw new BadRequestException(gate.reason ?? 'Payment required.');
       }
     }
@@ -1533,45 +1551,11 @@ export class StoreOrdersService {
     });
   }
 
-  private async resolvePaymentSourceId(
+  private resolvePaymentSourceId(
     dto: { paymentSourceId?: string; paymentMethodId?: string },
     tx: Prisma.TransactionClient,
   ): Promise<string> {
-    if (dto.paymentSourceId) {
-      const source = await tx.paymentSource.findFirst({
-        where: { id: dto.paymentSourceId, deletedAt: null, isActive: true },
-      });
-      if (!source) {
-        throw new BadRequestException(
-          'Payment source not found or is not active.',
-        );
-      }
-      return source.id;
-    }
-    if (dto.paymentMethodId) {
-      const method = await tx.paymentMethod.findFirst({
-        where: { id: dto.paymentMethodId, deletedAt: null },
-      });
-      if (!method) {
-        throw new BadRequestException('Payment method not found.');
-      }
-      const byName = await tx.paymentSource.findFirst({
-        where: {
-          deletedAt: null,
-          isActive: true,
-          name: { equals: method.name, mode: 'insensitive' },
-        },
-      });
-      if (byName) return byName.id;
-    }
-    const fallback = await tx.paymentSource.findFirst({
-      where: { deletedAt: null, isActive: true },
-      orderBy: [{ isDefault: 'desc' }, { sortOrder: 'asc' }],
-    });
-    if (!fallback) {
-      throw new BadRequestException('No active Payment Source is configured.');
-    }
-    return fallback.id;
+    return resolvePaymentSourceId(tx, dto);
   }
 
   /**

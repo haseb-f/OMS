@@ -44,6 +44,8 @@ const SOURCE_TYPE_JOURNAL: Record<string, JournalType> = {
   CUSTOMER_RECEIPT: JournalType.CASH,
   SUPPLIER_PAYMENT: JournalType.CASH,
   CUSTOMER_REFUND: JournalType.CASH,
+  // Provider payout into the bank (payment-declaration-reconciliation).
+  PAYMENT_SETTLEMENT: JournalType.CASH,
   INVENTORY_ADJUSTMENT: JournalType.GENERAL,
   // Investor Engine Milestone 3.
   CAPITAL_CONTRIBUTION: JournalType.CASH,

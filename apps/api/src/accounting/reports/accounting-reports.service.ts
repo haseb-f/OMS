@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import {
   AccountType,
   ChartOfAccount,
@@ -20,6 +20,7 @@ import { IncomeStatementQueryDto } from './dto/income-statement-query.dto';
 import { CashFlowQueryDto } from './dto/cash-flow-query.dto';
 import { AgingQueryDto } from './dto/aging-query.dto';
 import { PartnerStatementQueryDto } from './dto/partner-statement-query.dto';
+import { ExchangeRatesService } from '../fx/exchange-rates.service';
 import {
   agingBucket,
   daysOutstanding,
@@ -70,7 +71,45 @@ const DEBIT_NORMAL_TYPES: AccountType[] = [
  */
 @Injectable()
 export class AccountingReportsService {
-  constructor(private readonly prisma: PrismaService) {}
+  /** Presentation conversions resolve rates through the shared FX service so
+   *  dated overrides and the staleness window apply exactly as in posting. */
+  private readonly fx: ExchangeRatesService;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() fx?: ExchangeRatesService,
+  ) {
+    this.fx = fx ?? new ExchangeRatesService(prisma);
+  }
+
+  /** Rate FOREIGN → functional for display; never assumed — errors surface as a code. */
+  private async presentationRate(
+    fromCurrencyId: string,
+    toCurrencyId: string,
+    asOf: Date,
+  ): Promise<
+    | { ok: true; rate: number; effectiveDate: Date; source: string }
+    | { ok: false; error: string }
+  > {
+    try {
+      const r = await this.fx.resolveRateDetailed(
+        fromCurrencyId,
+        toCurrencyId,
+        asOf,
+      );
+      return {
+        ok: true,
+        rate: r.rate,
+        effectiveDate: r.effectiveDate,
+        source: r.source,
+      };
+    } catch (error) {
+      const code = (
+        error as { getResponse?: () => unknown }
+      ).getResponse?.() as { code?: string } | undefined;
+      return { ok: false, error: code?.code ?? 'MISSING_EXCHANGE_RATE' };
+    }
+  }
 
   private buildStatusFilter(
     postedOnly?: boolean,
@@ -1365,7 +1404,6 @@ export class AccountingReportsService {
       );
     }
 
-    const exchangeRates = this.prisma.exchangeRate;
     const functionalId = (
       await this.prisma.postingSettings.findFirst({
         select: { functionalCurrencyId: true },
@@ -1395,18 +1433,15 @@ export class AccountingReportsService {
       let rateEffectiveDate: string | null = null;
       let rateSource: string | null = 'IDENTITY';
       if (functionalId && currencyId && currencyId !== functionalId) {
-        const rateRow = await exchangeRates.findFirst({
-          where: {
-            fromCurrencyId: currencyId,
-            toCurrencyId: functionalId,
-            effectiveDate: { lte: asOf },
-          },
-          orderBy: { effectiveDate: 'desc' },
-        });
-        if (rateRow) {
-          rateToEgp = Number(rateRow.rate);
-          rateEffectiveDate = rateRow.effectiveDate.toISOString().slice(0, 10);
-          rateSource = rateRow.source;
+        const resolved = await this.presentationRate(
+          currencyId,
+          functionalId,
+          asOf,
+        );
+        if (resolved.ok) {
+          rateToEgp = resolved.rate;
+          rateEffectiveDate = resolved.effectiveDate.toISOString().slice(0, 10);
+          rateSource = resolved.source;
         } else {
           rateToEgp = NaN;
           rateSource = null;
@@ -1536,15 +1571,12 @@ export class AccountingReportsService {
       if (!functionalId) continue;
       // Profit is in functional (EGP). Equivalent in target = EGP / (1 target = X EGP)
       // i.e. need rate from target→EGP: amount_target = egp / rate.
-      const rateRow = await this.prisma.exchangeRate.findFirst({
-        where: {
-          fromCurrencyId: currency.id,
-          toCurrencyId: functionalId,
-          effectiveDate: { lte: asOf },
-        },
-        orderBy: { effectiveDate: 'desc' },
-      });
-      if (!rateRow || Number(rateRow.rate) === 0) {
+      const resolvedRate = await this.presentationRate(
+        currency.id,
+        functionalId,
+        asOf,
+      );
+      if (!resolvedRate.ok || resolvedRate.rate === 0) {
         equivalents.push({
           currencyId: currency.id,
           currencyCode: currency.code,
@@ -1554,18 +1586,20 @@ export class AccountingReportsService {
           source: null,
           convention: null,
           presentationOnly: true,
-          error: 'MISSING_EXCHANGE_RATE',
+          error: resolvedRate.ok ? 'MISSING_EXCHANGE_RATE' : resolvedRate.error,
         });
         continue;
       }
-      const rate = Number(rateRow.rate);
+      const rate = resolvedRate.rate;
       equivalents.push({
         currencyId: currency.id,
         currencyCode: currency.code,
         amount: roundReportMoney(netProfitEgp / rate),
         rate,
-        rateEffectiveDate: rateRow.effectiveDate.toISOString().slice(0, 10),
-        source: rateRow.source,
+        rateEffectiveDate: resolvedRate.effectiveDate
+          .toISOString()
+          .slice(0, 10),
+        source: resolvedRate.source,
         convention: `1 ${currency.code} = ${rate} ${functional?.code ?? 'EGP'}`,
         presentationOnly: true,
       });

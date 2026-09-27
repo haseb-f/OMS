@@ -18,6 +18,7 @@ describe('StoreOrdersController.findAll — profitability authorization', () => 
     const controller = new StoreOrdersController(
       storeOrdersService as never,
       permissionsResolver as never,
+      {} as never,
     );
     return { controller, storeOrdersService, permissionsResolver };
   }

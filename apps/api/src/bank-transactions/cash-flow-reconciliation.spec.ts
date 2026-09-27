@@ -307,6 +307,10 @@ describe('Cash Flow Reconciliation', () => {
       await prisma.journalEntry.deleteMany({
         where: { id: { in: journalEntries.map((j) => j.id) } },
       });
+      // One-receipt-per-payment links (payment-declaration-reconciliation) go first.
+      await prisma.paymentReceiptLink.deleteMany({
+        where: { financialTransactionId: { in: financialTransactionIds } },
+      });
       await prisma.financialTransactionActivity.deleteMany({
         where: { transactionId: { in: financialTransactionIds } },
       });
@@ -339,6 +343,9 @@ describe('Cash Flow Reconciliation', () => {
       select: { id: true },
     });
     const paymentIds = payments.map((p) => p.id);
+    await prisma.paymentReceiptLink.deleteMany({
+      where: { paymentId: { in: paymentIds } },
+    });
     await prisma.paymentActivity.deleteMany({
       where: { paymentId: { in: paymentIds } },
     });

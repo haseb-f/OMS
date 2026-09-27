@@ -12,6 +12,7 @@ import {
 } from 'class-validator';
 import {
   StoreOrderPaymentStatus,
+  StoreOrderDeclaredPaymentStatus,
   StoreOrderShippingStage,
   StoreOrderSource,
 } from '@prisma/client';
@@ -32,6 +33,12 @@ export class FindStoreOrdersQueryDto {
   @IsEnum(StoreOrderPaymentStatus, { each: true })
   @IsOptional()
   paymentStatus?: StoreOrderPaymentStatus[];
+
+  /** What Sales/Finance declared — independent of the Finance-verified `paymentStatus`. */
+  @TransformEnumList()
+  @IsEnum(StoreOrderDeclaredPaymentStatus, { each: true })
+  @IsOptional()
+  declaredPaymentStatus?: StoreOrderDeclaredPaymentStatus[];
 
   @TransformEnumList()
   @IsEnum(StoreOrderShippingStage, { each: true })

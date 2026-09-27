@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from '@nestjs/common';
 import {
   FinancialTransactionStatus,
   PaymentStatus,
@@ -12,6 +16,19 @@ import { sumConfirmedAllocations } from '../../financial-transactions/shared/inv
 
 const PAYMENT_NOTE_PREFIX = 'STORE_ORDER_PAYMENT:';
 const EPSILON = 0.005;
+
+/**
+ * Posting overrides for a declared claim with a Payment Method
+ * (payment-declaration-reconciliation): the receipt debits the method's
+ * clearing account instead of a receiving account, and its FX rate, rate
+ * date and source are frozen before confirmation (JE dated `rateAsOf`).
+ */
+export interface MethodReceiptOverride {
+  debitAccountId: string;
+  exchangeRate: number;
+  rateAsOf: Date;
+  rateSource: string;
+}
 
 export interface PostedPaymentReceipt {
   id: string;
@@ -45,10 +62,38 @@ export class StoreOrderCollectionService {
     private readonly accountMapping: AccountMappingService,
   ) {}
 
-  findReceiptForPayment(
+  /**
+   * The payment's receipt: the DB-unique `PaymentReceiptLink` first (new
+   * postings), then the legacy notes prefix (historical receipts — adopted
+   * read-only, never rewritten or re-posted).
+   */
+  async findReceiptForPayment(
     client: Prisma.TransactionClient | PrismaService,
     paymentId: string,
   ) {
+    const select = {
+      id: true,
+      transactionNumber: true,
+      status: true,
+      amount: true,
+      feeAmount: true,
+      allocations: { select: { allocatedAmount: true } },
+    } as const;
+    const link = await client.paymentReceiptLink.findUnique({
+      where: { paymentId },
+      select: { financialTransactionId: true },
+    });
+    if (link) {
+      const linked = await client.financialTransaction.findFirst({
+        where: {
+          id: link.financialTransactionId,
+          deletedAt: null,
+          status: { not: FinancialTransactionStatus.CANCELLED },
+        },
+        select,
+      });
+      if (linked) return linked;
+    }
     return client.financialTransaction.findFirst({
       where: {
         deletedAt: null,
@@ -56,15 +101,20 @@ export class StoreOrderCollectionService {
         status: { not: FinancialTransactionStatus.CANCELLED },
         notes: `${PAYMENT_NOTE_PREFIX}${paymentId}`,
       },
-      select: {
-        id: true,
-        transactionNumber: true,
-        status: true,
-        amount: true,
-        feeAmount: true,
-        allocations: { select: { allocatedAmount: true } },
-      },
+      select,
     });
+  }
+
+  /** True when a link row exists for the payment (even to a cancelled receipt). */
+  async hasReceiptLink(
+    client: Prisma.TransactionClient | PrismaService,
+    paymentId: string,
+  ): Promise<boolean> {
+    const link = await client.paymentReceiptLink.findUnique({
+      where: { paymentId },
+      select: { id: true },
+    });
+    return link != null;
   }
 
   async describeReceipt(
@@ -98,6 +148,7 @@ export class StoreOrderCollectionService {
     tx: Prisma.TransactionClient,
     paymentId: string,
     userId?: string,
+    override?: MethodReceiptOverride,
   ): Promise<PostedPaymentReceipt> {
     const existing = await this.findReceiptForPayment(tx, paymentId);
     if (existing) {
@@ -110,6 +161,13 @@ export class StoreOrderCollectionService {
         return this.describeReceipt(tx, confirmed);
       }
       return this.describeReceipt(tx, existing);
+    }
+
+    if (await this.hasReceiptLink(tx, paymentId)) {
+      // Its linked receipt was cancelled: never post a second one silently.
+      throw new ConflictException(
+        'This payment already had a Customer Receipt that was cancelled. Re-posting needs an audited Finance correction, not a second confirmation.',
+      );
     }
 
     const payment = await tx.payment.findFirstOrThrow({
@@ -137,7 +195,11 @@ export class StoreOrderCollectionService {
     });
 
     const cashAmount = round2(Number(payment.amount));
-    const feeAmount = round2(Number(payment.actualFeeAmount ?? 0));
+    // Method claims never deduct a fee at confirmation: the provider fee is
+    // recognized at batch settlement (owner rule 1).
+    const feeAmount = override
+      ? 0
+      : round2(Number(payment.actualFeeAmount ?? 0));
     let allocatedAmount = 0;
     if (invoice) {
       const allocated = await sumConfirmedAllocations(tx, 'salesInvoiceId', [
@@ -160,13 +222,14 @@ export class StoreOrderCollectionService {
       {
         partnerId: payment.storeOrder.partnerId,
         currencyId: payment.currencyId ?? payment.storeOrder.currencyId,
-        transactionDate: (
-          payment.receivedDate ??
-          payment.verifiedAt ??
-          payment.paymentDate
+        transactionDate: (override
+          ? override.rateAsOf
+          : (payment.receivedDate ?? payment.verifiedAt ?? payment.paymentDate)
         ).toISOString(),
         paymentSourceId: payment.paymentSourceId,
-        receivingAccountId: payment.receivingAccountId ?? undefined,
+        receivingAccountId: override
+          ? undefined
+          : (payment.receivingAccountId ?? undefined),
         amount: cashAmount,
         feeAmount,
         feeAccountId,
@@ -181,6 +244,29 @@ export class StoreOrderCollectionService {
       undefined,
       tx,
     );
+    if (override) {
+      // Frozen before confirmation, so the posting provider uses exactly
+      // this account, rate, rate date and source (it never re-resolves a
+      // rate that is already set).
+      await tx.financialTransaction.update({
+        where: { id: created.id },
+        data: {
+          debitAccountId: override.debitAccountId,
+          receivingAccountId: null,
+          exchangeRate: override.exchangeRate,
+          rateAsOf: override.rateAsOf,
+          rateSource: override.rateSource,
+        },
+      });
+    }
+    // DB-unique: a second receipt for the same payment cannot be linked.
+    await tx.paymentReceiptLink.create({
+      data: {
+        paymentId: payment.id,
+        financialTransactionId: created.id,
+        createdBy: userId ?? null,
+      },
+    });
     const confirmed = await this.financialTransactions.confirm(
       created.id,
       userId,

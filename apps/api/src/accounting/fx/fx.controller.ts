@@ -3,7 +3,9 @@ import {
   Controller,
   Get,
   Param,
+  ParseIntPipe,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -20,9 +22,17 @@ import type { JwtPayload } from '../../auth/guards/jwt-auth.guard';
 import { ExchangeRatesService } from './exchange-rates.service';
 import { FxRevaluationService } from './fx-revaluation.service';
 import { FxCorrectionService } from './fx-correction.service';
+import { FxOverridesService } from './fx-overrides.service';
+import { FxSyncService } from './fx-sync.service';
 import {
   CheckExchangeRateQueryDto,
   CreateExchangeRateDto,
+  CreateFxOverrideDto,
+  DeleteFxOverrideDto,
+  FxBackfillDto,
+  FxOverrideQueryDto,
+  ResolveRateQueryDto,
+  UpdateFxSyncSettingsDto,
   BulkImportExchangeRatesDto,
   ExchangeRateQueryDto,
   FxCorrectionDto,
@@ -33,7 +43,11 @@ import {
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @PermissionModule('exchange-rates')
 export class ExchangeRatesController {
-  constructor(private readonly exchangeRates: ExchangeRatesService) {}
+  constructor(
+    private readonly exchangeRates: ExchangeRatesService,
+    private readonly overrides: FxOverridesService,
+    private readonly sync: FxSyncService,
+  ) {}
 
   @Post()
   create(@Body() dto: CreateExchangeRateDto, @CurrentUser() user: JwtPayload) {
@@ -66,8 +80,79 @@ export class ExchangeRatesController {
     );
   }
 
+  /** Rate lookup tool: the rate a document dated `asOf` would freeze, with
+   *  provenance, or the fail-closed reason (never throws for MISSING/STALE). */
+  @Get('resolve')
+  resolve(@Query() query: ResolveRateQueryDto) {
+    return this.exchangeRates.checkRate(query.currencyId, new Date(query.asOf));
+  }
+
+  // --- Dated manual overrides (exchange-rates.manage to change) ----------
+
+  @Get('overrides')
+  listOverrides(@Query() query: FxOverrideQueryDto) {
+    return this.overrides.list(query);
+  }
+
+  @Post('overrides')
+  @PermissionAction('manage')
+  createOverride(
+    @Body() dto: CreateFxOverrideDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.overrides.create(dto, user.sub);
+  }
+
+  /** Soft delete with a reason (never a hard delete). */
+  @Post('overrides/:id/delete')
+  @PermissionAction('manage')
+  deleteOverride(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: DeleteFxOverrideDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.overrides.remove(id, dto, user.sub);
+  }
+
+  // --- Automatic official import -----------------------------------------
+
+  @Get('sync/status')
+  syncStatus() {
+    return this.sync.status();
+  }
+
+  @Get('sync/runs')
+  syncRuns(
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+  ) {
+    return this.sync.listRuns(limit ?? 20);
+  }
+
+  @Patch('sync/settings')
+  @PermissionAction('manage')
+  updateSyncSettings(
+    @Body() dto: UpdateFxSyncSettingsDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.sync.updateSettings(dto, user.sub);
+  }
+
+  @Post('sync/run')
+  @PermissionAction('manage')
+  async runSync(@CurrentUser() user: JwtPayload) {
+    await this.sync.assertCooldown();
+    return this.sync.runNow(user.sub);
+  }
+
+  @Post('sync/backfill')
+  @PermissionAction('manage')
+  async backfill(@Body() dto: FxBackfillDto, @CurrentUser() user: JwtPayload) {
+    await this.sync.assertCooldown();
+    return this.sync.backfill(dto.days, user.sub);
+  }
+
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.exchangeRates.findOne(id);
   }
 }

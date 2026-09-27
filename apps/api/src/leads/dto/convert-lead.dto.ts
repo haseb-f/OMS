@@ -1,6 +1,8 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsDateString,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -47,11 +49,26 @@ export class ConvertLeadDto {
   @IsOptionalUuid()
   currencyId?: string;
 
+  /**
+   * Sales payment declaration at conversion (payment-declaration-reconciliation):
+   * UNPAID, FULL (the validated order total — no amount re-entry) or PARTIAL
+   * (`amountPaid`). Absent + `amountPaid > 0` is read as PARTIAL (legacy clients).
+   */
+  @IsIn(['UNPAID', 'FULL', 'PARTIAL'])
+  @IsOptional()
+  declarationKind?: 'UNPAID' | 'FULL' | 'PARTIAL';
+
+  /** Amount for a PARTIAL declaration. */
   @Type(() => Number)
   @IsNumber()
   @Min(0)
   @IsOptional()
   amountPaid?: number;
+
+  /** Actual payment date for a paid declaration (defaults to today; never in the future). */
+  @IsDateString()
+  @IsOptional()
+  paymentDate?: string;
 
   @IsString()
   @IsOptional()

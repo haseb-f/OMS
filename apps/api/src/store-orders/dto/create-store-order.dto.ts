@@ -20,6 +20,7 @@ import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorat
 import { FindOrCreatePartnerDto } from '../../partners/dto/find-or-create-partner.dto';
 import { CreateStoreOrderItemDto } from './create-store-order-item.dto';
 import { CreateStoreOrderPaymentDto } from './create-store-order-payment.dto';
+import { CreateOrderPaymentDeclarationDto } from './declare-store-order-payment.dto';
 
 /** The store order's counterparty is always CUSTOMER-role — `role` is fixed server-side, never accepted from the caller. */
 export class StoreOrderPartnerDto extends OmitType(FindOrCreatePartnerDto, [
@@ -86,4 +87,13 @@ export class CreateStoreOrderDto {
   @Type(() => CreateStoreOrderPaymentDto)
   @IsOptional()
   payment?: CreateStoreOrderPaymentDto;
+
+  /**
+   * Optional Sales/Finance payment declaration recorded with the order
+   * (Unpaid / Paid in full / Partially paid) — never an accounting voucher.
+   */
+  @ValidateNested()
+  @Type(() => CreateOrderPaymentDeclarationDto)
+  @IsOptional()
+  declaration?: CreateOrderPaymentDeclarationDto;
 }

@@ -1,5 +1,7 @@
 import type { StatusTone } from "@/components/business/status-badge";
+import { isPrepaidFulfillmentAllowed } from "@/components/payments/declaration/declaration-status";
 import type {
+  StoreOrderDeclaredPaymentStatusValue,
   StoreOrderPaymentStatusValue,
   StoreOrderPaymentTypeValue,
   StoreOrderShippingStageValue,
@@ -52,7 +54,13 @@ export const FULFILLMENT_METHOD_LABEL_KEY: Record<"SHIPPING" | "PICKUP", Message
  * `StatusBadge` like every other status in the product instead of printing
  * the raw enum value.
  */
-const PAYMENT_RECORD_STATUS_VALUES = ["PENDING", "MATCHED", "VERIFIED", "REJECTED"] as const;
+const PAYMENT_RECORD_STATUS_VALUES = [
+  "PENDING",
+  "MATCHED",
+  "VERIFIED",
+  "REJECTED",
+  "DISPUTED",
+] as const;
 
 type PaymentRecordStatusValue = (typeof PAYMENT_RECORD_STATUS_VALUES)[number];
 
@@ -61,6 +69,7 @@ const PAYMENT_RECORD_STATUS_LABEL_KEY: Record<PaymentRecordStatusValue, MessageK
   MATCHED: "storeOrders.detail.payments.recordStatus.MATCHED",
   VERIFIED: "storeOrders.detail.payments.recordStatus.VERIFIED",
   REJECTED: "storeOrders.detail.payments.recordStatus.REJECTED",
+  DISPUTED: "paymentDeclaration.recordStatus.DISPUTED",
 };
 
 const PAYMENT_RECORD_STATUS_TONE: Record<PaymentRecordStatusValue, StatusTone> = {
@@ -68,6 +77,7 @@ const PAYMENT_RECORD_STATUS_TONE: Record<PaymentRecordStatusValue, StatusTone> =
   MATCHED: "info",
   VERIFIED: "success",
   REJECTED: "destructive",
+  DISPUTED: "destructive",
 };
 
 function isPaymentRecordStatus(value: string): value is PaymentRecordStatusValue {
@@ -118,7 +128,15 @@ export function financialStatusLabelKey(
   return PAYMENT_STATUS_LABEL_KEY[paymentStatus];
 }
 
-/** "Ready for Shipping" is only reachable once payment is fully reconciled — every Shipping entry point/action gates on this, never just the stage flag alone. */
-export function isReadyForShipping(paymentStatus: StoreOrderPaymentStatusValue): boolean {
-  return paymentStatus === "FULLY_PAID_RECONCILED";
+/**
+ * Prepaid orders may ship / be collected once the customer payment is
+ * DECLARED paid in full or VERIFIED paid by Finance — a partial declaration
+ * never passes, COD always may. Mirrors the API gate; the server decides.
+ */
+export function isReadyForShipping(order: {
+  paymentType?: StoreOrderPaymentTypeValue | null;
+  declaredPaymentStatus?: StoreOrderDeclaredPaymentStatusValue | null;
+  paymentStatus?: StoreOrderPaymentStatusValue | null;
+}): boolean {
+  return isPrepaidFulfillmentAllowed(order);
 }
