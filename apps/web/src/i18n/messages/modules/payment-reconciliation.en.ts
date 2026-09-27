@@ -21,6 +21,13 @@ const paymentReconciliationEn = {
   workspace: {
     back: "All methods",
     notFound: "This payment method was not found or does not require reconciliation.",
+    noAccountTitle: "Clearing account not configured",
+    noAccountBody:
+      "No match for this method can be posted until a clearing account is set for it in the payment method settings.",
+    inactiveTitle: "Payment method is inactive",
+    inactiveBody:
+      "It cannot be chosen on new payment declarations — existing statement lines can still be matched.",
+    summaryLabel: "Reconciliation summary",
   },
   tabs: {
     statement: "Statement",

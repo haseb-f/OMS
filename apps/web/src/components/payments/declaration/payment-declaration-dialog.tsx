@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Wallet } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
-import { CreateOperationFooter, CreateOperationLayout } from "@/components/shared/create-operation";
+import { CreateOperationFooter } from "@/components/shared/create-operation";
+import { FormErrorSummary, useFocusFirstInvalid } from "@/components/shared/form-error-summary";
 import { stagingIdsOf, type ReceiptUploadItem } from "@/components/business/payment-receipts-field";
 import { storeOrdersService } from "@/services/store-orders-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
-import { PaymentDeclarationFields } from "./payment-declaration-fields";
+import { reportSuccess, toast } from "@/lib/toast";
+import { PaymentDeclarationFields, declarationErrorItem } from "./payment-declaration-fields";
 import {
   buildDeclarationPayload,
   declarationFailureToast,
@@ -45,8 +46,11 @@ export function PaymentDeclarationDialog({
   const [state, setState] = useState<DeclarationFormState>(() => emptyDeclaration());
   const [receipts, setReceipts] = useState<ReceiptUploadItem[]>([]);
   const [showErrors, setShowErrors] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const keyRef = useRef<string>("");
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const focusFirstInvalid = useFocusFirstInvalid(bodyRef);
 
   useEffect(() => {
     if (!open) return;
@@ -55,6 +59,7 @@ export function PaymentDeclarationDialog({
     setState(emptyDeclaration());
     setReceipts([]);
     setShowErrors(false);
+    setServerError(null);
     setContext(null);
     storeOrdersService
       .paymentContext(storeOrderId)
@@ -69,10 +74,19 @@ export function PaymentDeclarationDialog({
   const remaining = remainingDeclarable(total, alreadyDeclared);
   const error = context ? validateDeclaration(state, { total, remaining }) : null;
   const uploading = receipts.some((item) => item.status === "uploading");
+  const summary = [
+    ...(showErrors && error ? [declarationErrorItem(error, t)] : []),
+    ...(serverError ? [{ message: serverError }] : []),
+  ];
 
   const handleSave = async () => {
     setShowErrors(true);
-    if (!context || error || uploading || isSaving) return;
+    setServerError(null);
+    if (error) {
+      focusFirstInvalid();
+      return;
+    }
+    if (!context || uploading || isSaving) return;
     setIsSaving(true);
     try {
       const payload = buildDeclarationPayload(
@@ -80,7 +94,8 @@ export function PaymentDeclarationDialog({
         orderCurrencyId,
       );
       const result = await storeOrdersService.declarePayment(storeOrderId, payload, keyRef.current);
-      toast.success(
+      // The order page re-reads its payment strip (onDeclared) — the toast only supplements it.
+      reportSuccess(
         !result.created && result.payment
           ? t("paymentDeclaration.dialog.success.retry")
           : state.kind === "UNPAID"
@@ -94,6 +109,9 @@ export function PaymentDeclarationDialog({
         permissionTitle: t("errors.PERMISSION_ERROR"),
         failed: t("paymentDeclaration.dialog.failed"),
       });
+      setServerError(
+        failure.description ? `${failure.title} — ${failure.description}` : failure.title,
+      );
       toast.error(
         failure.title,
         failure.description ? { description: failure.description } : undefined,
@@ -111,17 +129,18 @@ export function PaymentDeclarationDialog({
       icon={Wallet}
       title={t("paymentDeclaration.dialog.title")}
       description={t("paymentDeclaration.dialog.description")}
+      errorSummary={<FormErrorSummary errors={summary} />}
       footer={(requestClose) => (
         <CreateOperationFooter
           requestClose={requestClose}
           onSubmit={() => void handleSave()}
           isSubmitting={isSaving}
-          submitDisabled={!context || uploading || (showErrors && Boolean(error))}
+          submitDisabled={!context || uploading}
           submitLabel={t("paymentDeclaration.dialog.submit")}
         />
       )}
     >
-      <CreateOperationLayout>
+      <div ref={bodyRef} className="flex flex-col gap-3">
         <PaymentDeclarationFields
           value={state}
           onChange={setState}
@@ -134,7 +153,7 @@ export function PaymentDeclarationDialog({
           error={showErrors ? error : null}
           disabled={isSaving}
         />
-      </CreateOperationLayout>
+      </div>
     </EnterpriseModal>
   );
 }

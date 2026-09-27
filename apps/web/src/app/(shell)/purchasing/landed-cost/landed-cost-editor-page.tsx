@@ -57,7 +57,7 @@ import {
 } from "@/config/purchasing/landed-cost-status";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { reportApiError, toast } from "@/lib/toast";
+import { reportApiError, reportSuccess } from "@/lib/toast";
 import { formatDateTime, toISODate } from "@/lib/date";
 
 interface LandedCostFieldErrors {
@@ -245,10 +245,10 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
         const updated = await landedCostService.update(id, buildPayload());
         applyDocument(updated);
         refreshPreview(id);
-        toast.success(t("purchasing.landedCost.toasts.saved"));
+        reportSuccess(t("purchasing.landedCost.toasts.saved"));
       } else {
         const created = await landedCostService.create(buildPayload());
-        toast.success(t("purchasing.landedCost.toasts.created"));
+        reportSuccess(t("purchasing.landedCost.toasts.created"));
         router.replace(`/purchasing/landed-cost/${created.id}`);
       }
     } catch (error) {
@@ -268,7 +268,7 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
       const updated = await action(id);
       applyDocument(updated);
       refreshPreview(id);
-      toast.success(t(successKey));
+      reportSuccess(t(successKey));
     } catch (error) {
       reportApiError(error, "errors.generic");
     } finally {

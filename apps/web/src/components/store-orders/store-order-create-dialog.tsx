@@ -1,20 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Banknote, Globe, Loader2, UserCheck } from "lucide-react";
+import { Banknote, ChevronDown, Globe, Loader2, UserCheck } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
+import { ModalFieldFullWidth, ModalFieldSpan } from "@/components/shared/modal-section";
+import { FormSection } from "@/components/documents/form-section";
 import {
-  ModalFieldFullWidth,
-  ModalFieldSpan,
-  ModalSection,
-} from "@/components/shared/modal-section";
+  FormErrorSummary,
+  applyServerFieldErrors,
+  formErrorsFromRhf,
+  useFocusFirstInvalid,
+  type FormErrorItem,
+} from "@/components/shared/form-error-summary";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   CreateOperationFooter,
-  CreateOperationLayout,
   CreateOperationSummary,
 } from "@/components/shared/create-operation";
 import { MoneyValue } from "@/components/shared/money-value";
@@ -37,7 +41,10 @@ import {
 import { FieldLabel, FieldMessage, Form } from "@/components/ui/form";
 import { PartnerPicker } from "@/components/business/partner-picker";
 import { storeOrdersService, type StoreOrderRow } from "@/services/store-orders-service";
-import { PaymentDeclarationFields } from "@/components/payments/declaration/payment-declaration-fields";
+import {
+  PaymentDeclarationFields,
+  declarationErrorItem,
+} from "@/components/payments/declaration/payment-declaration-fields";
 import {
   buildDeclarationPayload,
   declarationAmount,
@@ -60,7 +67,7 @@ import {
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useCountries, useCurrencies } from "@/hooks/use-reference-data";
-import { toast, reportApiError } from "@/lib/toast";
+import { toast, reportApiError, reportSuccess } from "@/lib/toast";
 import {
   PAYMENT_STATUS_LABEL_KEY,
   PAYMENT_TYPE_LABEL_KEY,
@@ -71,6 +78,23 @@ import type {
   StoreOrderShippingStageValue,
 } from "@/services/store-orders-service";
 import { formatDate } from "@/lib/date";
+import type { MessageKey } from "@/i18n/translate";
+
+/** Field order + label keys for the error summary (matches the form's visual order). */
+const FIELD_LABEL_KEY: Record<string, MessageKey> = {
+  customerName: "storeOrders.createDialog.fields.customerName",
+  customerPhone: "storeOrders.fields.phone",
+  countryId: "storeOrders.createDialog.fields.country",
+  city: "storeOrders.createDialog.fields.city",
+  customerEmail: "storeOrders.createDialog.fields.customerEmail",
+  address: "storeOrders.createDialog.fields.address",
+  externalOrderId: "storeOrders.fields.externalOrderId",
+  orderDate: "storeOrders.fields.orderDate",
+  currencyId: "storeOrders.createDialog.fields.currency",
+  paymentType: "storeOrders.fields.paymentType",
+  notes: "storeOrders.createDialog.fields.notes",
+};
+const FIELD_ORDER = Object.keys(FIELD_LABEL_KEY);
 
 export interface StoreOrderCreatePrefillCustomer {
   name: string;
@@ -117,6 +141,10 @@ export function StoreOrderCreateDialog({
     "idle" | "checking" | "found" | "not-found"
   >("idle");
   const [existingCustomerApplied, setExistingCustomerApplied] = useState(false);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [serverErrors, setServerErrors] = useState<FormErrorItem[]>([]);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const focusFirstInvalid = useFocusFirstInvalid(bodyRef);
 
   const schema = useMemo(() => buildStoreOrderCreateSchema(t), [t]);
 
@@ -144,6 +172,8 @@ export function StoreOrderCreateDialog({
     setDeclaration(emptyDeclaration("UNPAID"));
     setDeclarationReceipts([]);
     setShowDeclarationError(false);
+    setSubmitAttempted(false);
+    setServerErrors([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -245,21 +275,50 @@ export function StoreOrderCreateDialog({
     };
   }, [customerPhone, open, selectedCustomer, existingCustomerApplied]);
 
-  const submit = form.handleSubmit(async (values) => {
+  const labelFor = (name: string) => {
+    const key = FIELD_LABEL_KEY[name];
+    return key ? t(key) : undefined;
+  };
+  const priceMissing = showLineErrors && lines.some((line) => isLinePriceMissing(line));
+  // Recomputed from live state, so each item disappears as the user fixes it.
+  const summaryErrors: FormErrorItem[] = submitAttempted
+    ? [
+        ...formErrorsFromRhf(form.formState.errors, { labelFor, order: FIELD_ORDER }),
+        ...(itemsError || priceMissing
+          ? [
+              {
+                fieldId: "lines",
+                label: t("storeOrders.createDialog.items.title"),
+                message: itemsError ?? t("docFlow.lines.priceRequired"),
+              },
+            ]
+          : []),
+        ...(showDeclarationError && declarationError
+          ? [declarationErrorItem(declarationError, t)]
+          : []),
+        ...(receiptError ? [{ fieldId: "receipts", message: receiptError }] : []),
+        ...serverErrors,
+      ]
+    : [];
+
+  const onValid = async (values: StoreOrderCreateFormValues) => {
     const validLines = lines.filter((line) => line.product && line.quantity > 0);
     if (validLines.length === 0) {
       setItemsError(t("storeOrders.createDialog.items.required"));
+      focusFirstInvalid();
       return;
     }
     setItemsError(null);
     // The agreed price is required — a blank or 0 price is never sent as a 0.00 order.
     if (validLines.some((line) => isLinePriceMissing(line))) {
       setShowLineErrors(true);
+      focusFirstInvalid();
       return;
     }
 
     if (declarationError) {
       setShowDeclarationError(true);
+      focusFirstInvalid();
       return;
     }
     if (declarationReceipts.some((item) => item.status === "uploading")) return;
@@ -325,13 +384,30 @@ export function StoreOrderCreateDialog({
         reportApiError(error, "common.failedToSave");
       }
 
-      toast.success(t("storeOrders.createDialog.success"));
+      setSubmitAttempted(false);
+      reportSuccess(t("storeOrders.createDialog.success"), {
+        href: `/store-orders/${created.id}`,
+      });
       onOpenChange(false);
       onCreated(created);
     } catch (error) {
+      setServerErrors(
+        applyServerFieldErrors(error, form.setError, {
+          knownFields: FIELD_ORDER,
+          labelFor,
+          fallback: "common.failedToSave",
+        }),
+      );
+      focusFirstInvalid();
       reportApiError(error, "common.failedToSave");
     }
-  });
+  };
+
+  const submit = () => {
+    setSubmitAttempted(true);
+    setServerErrors([]);
+    return form.handleSubmit(onValid, () => focusFirstInvalid())();
+  };
 
   return (
     <EnterpriseModal
@@ -341,6 +417,7 @@ export function StoreOrderCreateDialog({
       title={t("storeOrders.createDialog.title")}
       description={t("storeOrders.createDialog.description")}
       isDirty={isDirty}
+      errorSummary={<FormErrorSummary errors={summaryErrors} />}
       footer={(requestClose) => (
         <CreateOperationFooter
           requestClose={requestClose}
@@ -351,177 +428,185 @@ export function StoreOrderCreateDialog({
       )}
     >
       <Form {...form}>
-        <CreateOperationLayout>
-          <ModalSection title={t("storeOrders.createDialog.sections.customer")} columns={3}>
-            <ModalFieldSpan span={2}>
-              <div className="flex flex-col gap-1">
-                <FieldLabel>{t("storeOrders.createDialog.fields.customer")}</FieldLabel>
-                <PartnerPicker
-                  role="CUSTOMER"
-                  value={selectedCustomer}
-                  onChange={applyCustomer}
-                  className="max-w-none"
-                />
-              </div>
-            </ModalFieldSpan>
-            <TextFormField
-              control={form.control}
-              name="customerName"
-              label={t("storeOrders.createDialog.fields.customerName")}
-              required
-            />
-            <PhoneFormField
-              control={form.control}
-              name="customerPhone"
-              label={t("storeOrders.fields.phone")}
-              required
-              countryCode={countryCode}
-            />
-            {existingCustomerStatus === "not-found" && (
-              <ModalFieldFullWidth>
-                <p className="text-xs text-muted-foreground">
-                  {t("storeOrders.globalLookup.notFoundCustomer")}
-                </p>
-              </ModalFieldFullWidth>
-            )}
-            {existingCustomerStatus === "checking" && (
-              <ModalFieldFullWidth>
-                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Loader2 className="size-3.5 animate-spin" />
-                  {t("storeOrders.createDialog.existingCustomer.checking")}
-                </p>
-              </ModalFieldFullWidth>
-            )}
-            {existingCustomerStatus === "found" && existingCustomer && (
-              <ModalFieldFullWidth>
-                <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/40 p-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <EnterpriseBadge variant="info" className="gap-1">
-                      <UserCheck className="size-3.5" />
-                      {t("storeOrders.createDialog.existingCustomer.badge")}
-                    </EnterpriseBadge>
-                    <span className="text-xs text-muted-foreground">
-                      {t("storeOrders.createDialog.existingCustomer.previousOrders", {
-                        count: existingCustomer.totalOrders,
-                      })}
-                    </span>
-                  </div>
-                  {existingCustomer.lastOrder && (
-                    <p className="text-xs text-muted-foreground">
-                      {t("storeOrders.createDialog.existingCustomer.lastOrder")}:{" "}
-                      {existingCustomer.lastOrder.orderNumber} ·{" "}
-                      {formatDate(existingCustomer.lastOrder.orderDate)} ·{" "}
-                      {existingCustomer.lastOrder.products} ·{" "}
-                      {t(
-                        PAYMENT_STATUS_LABEL_KEY[
-                          existingCustomer.lastOrder.paymentStatus as StoreOrderPaymentStatusValue
-                        ] ?? "storeOrders.paymentStatus.PAYMENT_PENDING",
-                      )}{" "}
-                      ·{" "}
-                      {t(
-                        SHIPPING_STAGE_LABEL_KEY[
-                          existingCustomer.lastOrder.shippingStage as StoreOrderShippingStageValue
-                        ] ?? "storeOrders.shippingStage.NOT_READY",
-                      )}
-                    </p>
-                  )}
-                  {!existingCustomerApplied && (
-                    <EnterpriseButton
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="w-fit gap-1.5"
-                      onClick={() => applyExistingCustomer(existingCustomer)}
-                    >
-                      <UserCheck className="size-3.5" />
-                      {t("storeOrders.createDialog.existingCustomer.useData")}
-                    </EnterpriseButton>
-                  )}
+        <div ref={bodyRef} className="flex flex-col gap-4">
+          <FormSection title={t("storeOrders.createDialog.sections.customer")}>
+            <div className="grid grid-cols-1 gap-x-3 gap-y-2 @md:grid-cols-2 @2xl:grid-cols-3">
+              <ModalFieldSpan span={2}>
+                <div className="flex flex-col gap-1">
+                  <FieldLabel>{t("storeOrders.createDialog.fields.customer")}</FieldLabel>
+                  <PartnerPicker
+                    role="CUSTOMER"
+                    value={selectedCustomer}
+                    onChange={applyCustomer}
+                    className="max-w-none"
+                  />
                 </div>
-              </ModalFieldFullWidth>
-            )}
-            <ComboboxFormField
-              control={form.control}
-              name="countryId"
-              label={t("storeOrders.createDialog.fields.country")}
-              optional
-              items={countries}
-              getId={(country) => country.id}
-              getTitle={(country) => country.name}
-              getSearchText={(country) =>
-                [country.name, country.nameEn, country.code, country.iso3, country.callingCode]
-                  .filter(Boolean)
-                  .join(" ")
-              }
-              allowClear
-              icon={<Globe className="size-3.5 shrink-0 text-muted-foreground" />}
-            />
-            <TextFormField
-              control={form.control}
-              name="city"
-              label={t("storeOrders.createDialog.fields.city")}
-              optional
-            />
-            <TextFormField
-              control={form.control}
-              name="customerEmail"
-              label={t("storeOrders.createDialog.fields.customerEmail")}
-              optional
-              dir="ltr"
-              inputMode="email"
-            />
-            <ModalFieldFullWidth>
+              </ModalFieldSpan>
               <TextFormField
                 control={form.control}
-                name="address"
-                label={t("storeOrders.createDialog.fields.address")}
+                name="customerName"
+                label={t("storeOrders.createDialog.fields.customerName")}
+                required
+              />
+              <PhoneFormField
+                control={form.control}
+                name="customerPhone"
+                label={t("storeOrders.fields.phone")}
+                required
+                countryCode={countryCode}
+              />
+              {existingCustomerStatus === "not-found" && (
+                <ModalFieldFullWidth>
+                  <p className="text-xs text-muted-foreground">
+                    {t("storeOrders.globalLookup.notFoundCustomer")}
+                  </p>
+                </ModalFieldFullWidth>
+              )}
+              {existingCustomerStatus === "checking" && (
+                <ModalFieldFullWidth>
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Loader2 className="size-3.5 animate-spin" />
+                    {t("storeOrders.createDialog.existingCustomer.checking")}
+                  </p>
+                </ModalFieldFullWidth>
+              )}
+              {existingCustomerStatus === "found" && existingCustomer && (
+                <ModalFieldFullWidth>
+                  <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/40 p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <EnterpriseBadge variant="info" className="gap-1">
+                        <UserCheck className="size-3.5" />
+                        {t("storeOrders.createDialog.existingCustomer.badge")}
+                      </EnterpriseBadge>
+                      <span className="text-xs text-muted-foreground">
+                        {t("storeOrders.createDialog.existingCustomer.previousOrders", {
+                          count: existingCustomer.totalOrders,
+                        })}
+                      </span>
+                    </div>
+                    {existingCustomer.lastOrder && (
+                      <p className="text-xs text-muted-foreground">
+                        {t("storeOrders.createDialog.existingCustomer.lastOrder")}:{" "}
+                        {existingCustomer.lastOrder.orderNumber} ·{" "}
+                        {formatDate(existingCustomer.lastOrder.orderDate)} ·{" "}
+                        {existingCustomer.lastOrder.products} ·{" "}
+                        {t(
+                          PAYMENT_STATUS_LABEL_KEY[
+                            existingCustomer.lastOrder.paymentStatus as StoreOrderPaymentStatusValue
+                          ] ?? "storeOrders.paymentStatus.PAYMENT_PENDING",
+                        )}{" "}
+                        ·{" "}
+                        {t(
+                          SHIPPING_STAGE_LABEL_KEY[
+                            existingCustomer.lastOrder.shippingStage as StoreOrderShippingStageValue
+                          ] ?? "storeOrders.shippingStage.NOT_READY",
+                        )}
+                      </p>
+                    )}
+                    {!existingCustomerApplied && (
+                      <EnterpriseButton
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-fit gap-1.5"
+                        onClick={() => applyExistingCustomer(existingCustomer)}
+                      >
+                        <UserCheck className="size-3.5" />
+                        {t("storeOrders.createDialog.existingCustomer.useData")}
+                      </EnterpriseButton>
+                    )}
+                  </div>
+                </ModalFieldFullWidth>
+              )}
+              <ComboboxFormField
+                control={form.control}
+                name="countryId"
+                label={t("storeOrders.createDialog.fields.country")}
+                optional
+                items={countries}
+                getId={(country) => country.id}
+                getTitle={(country) => country.name}
+                getSearchText={(country) =>
+                  [country.name, country.nameEn, country.code, country.iso3, country.callingCode]
+                    .filter(Boolean)
+                    .join(" ")
+                }
+                allowClear
+                icon={<Globe className="size-3.5 shrink-0 text-muted-foreground" />}
+              />
+              <TextFormField
+                control={form.control}
+                name="city"
+                label={t("storeOrders.createDialog.fields.city")}
                 optional
               />
-            </ModalFieldFullWidth>
-          </ModalSection>
+              <TextFormField
+                control={form.control}
+                name="customerEmail"
+                label={t("storeOrders.createDialog.fields.customerEmail")}
+                optional
+                dir="ltr"
+                inputMode="email"
+              />
+              <ModalFieldFullWidth>
+                <TextFormField
+                  control={form.control}
+                  name="address"
+                  label={t("storeOrders.createDialog.fields.address")}
+                  optional
+                />
+              </ModalFieldFullWidth>
+            </div>
+          </FormSection>
 
-          <ModalSection title={t("storeOrders.createDialog.sections.orderInfo")} columns={3}>
-            <TextFormField
-              control={form.control}
-              name="externalOrderId"
-              label={t("storeOrders.fields.externalOrderId")}
-              optional
-              dir="ltr"
-            />
-            <DateFormField
-              control={form.control}
-              name="orderDate"
-              label={t("storeOrders.fields.orderDate")}
-            />
-            <ComboboxFormField
-              control={form.control}
-              name="currencyId"
-              label={t("storeOrders.createDialog.fields.currency")}
-              required
-              items={currencies}
-              getId={(currency) => currency.id}
-              getTitle={(currency) => currency.code}
-              getSubtitle={(currency) => currency.name}
-              getSearchText={(currency) => `${currency.code} ${currency.name}`}
-              subtitleDir="ltr"
-              icon={<Banknote className="size-3.5 shrink-0 text-muted-foreground" />}
-            />
-            <SelectFormField
-              control={form.control}
-              name="paymentType"
-              label={t("storeOrders.fields.paymentType")}
-              options={[
-                { value: "PREPAID", label: t("storeOrders.paymentType.PREPAID") },
-                {
-                  value: "CASH_ON_DELIVERY",
-                  label: t("storeOrders.paymentType.CASH_ON_DELIVERY"),
-                },
-              ]}
-            />
-          </ModalSection>
+          <FormSection title={t("storeOrders.createDialog.sections.orderInfo")}>
+            <div className="grid grid-cols-1 gap-x-3 gap-y-2 @md:grid-cols-2 @2xl:grid-cols-4">
+              <TextFormField
+                control={form.control}
+                name="externalOrderId"
+                label={t("storeOrders.fields.externalOrderId")}
+                optional
+                dir="ltr"
+              />
+              <DateFormField
+                control={form.control}
+                name="orderDate"
+                label={t("storeOrders.fields.orderDate")}
+              />
+              <ComboboxFormField
+                control={form.control}
+                name="currencyId"
+                label={t("storeOrders.createDialog.fields.currency")}
+                required
+                items={currencies}
+                getId={(currency) => currency.id}
+                getTitle={(currency) => currency.code}
+                getSubtitle={(currency) => currency.name}
+                getSearchText={(currency) => `${currency.code} ${currency.name}`}
+                subtitleDir="ltr"
+                icon={<Banknote className="size-3.5 shrink-0 text-muted-foreground" />}
+              />
+              <SelectFormField
+                control={form.control}
+                name="paymentType"
+                label={t("storeOrders.fields.paymentType")}
+                options={[
+                  { value: "PREPAID", label: t("storeOrders.paymentType.PREPAID") },
+                  {
+                    value: "CASH_ON_DELIVERY",
+                    label: t("storeOrders.paymentType.CASH_ON_DELIVERY"),
+                  },
+                ]}
+              />
+            </div>
+          </FormSection>
 
-          <ModalSection title={t("storeOrders.createDialog.items.title")} columns={2}>
-            <div className="col-span-full flex flex-col gap-2">
+          <FormSection
+            title={t("storeOrders.createDialog.items.title")}
+            data-field-name="lines"
+            data-invalid={itemsError || priceMissing ? "true" : undefined}
+          >
+            <div className="flex flex-col gap-2">
               <ProductLineItemsGrid
                 lines={lines}
                 onChange={(next) => {
@@ -542,7 +627,7 @@ export function StoreOrderCreateDialog({
               />
               <FieldMessage>{itemsError}</FieldMessage>
             </div>
-          </ModalSection>
+          </FormSection>
 
           {canDeclarePayment && paymentType !== "CASH_ON_DELIVERY" ? (
             <PaymentDeclarationFields
@@ -561,53 +646,71 @@ export function StoreOrderCreateDialog({
             />
           ) : null}
 
-          <ModalSection
-            title={t("storeOrders.createDialog.sections.notes")}
-            optional
-            collapsible
-            defaultOpen={false}
-            columns={2}
-          >
-            <ModalFieldFullWidth>
-              <TextareaFormField
-                control={form.control}
-                name="notes"
-                label={t("storeOrders.createDialog.fields.notes")}
-                optional
-              />
-            </ModalFieldFullWidth>
-          </ModalSection>
-
-          <ModalSection
-            title={t("storeOrders.createDialog.sections.receipts")}
-            optional
-            collapsible
-            defaultOpen={false}
-            columns={2}
-          >
-            <ModalFieldFullWidth>
-              <div className="flex flex-col gap-3">
-                <FileDropField files={pendingFiles} onFilesChange={setPendingFiles} />
-                <FileUrlField
-                  fileName={receiptName ?? ""}
-                  fileUrl={receiptUrl ?? ""}
-                  onFileNameChange={(value) =>
-                    form.setValue("receiptName", value, { shouldDirty: true })
-                  }
-                  onFileUrlChange={(value) =>
-                    form.setValue("receiptUrl", value, { shouldDirty: true })
-                  }
-                  onClear={() => {
-                    form.setValue("receiptName", "", { shouldDirty: true });
-                    form.setValue("receiptUrl", "", { shouldDirty: true });
-                  }}
-                  namePlaceholder={t("storeOrders.createDialog.fields.receiptName")}
-                  urlPlaceholder={t("storeOrders.createDialog.fields.receiptUrl")}
-                  error={receiptError}
+          {/* Optional extras: progressive disclosure, no bordered boxes. */}
+          <div className="flex flex-col gap-1 border-t border-border pt-2">
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <EnterpriseButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="group w-fit gap-1.5 px-1.5 text-muted-foreground"
+                >
+                  <ChevronDown className="size-3.5 transition-transform group-data-[state=open]:rotate-180" />
+                  {t("storeOrders.createDialog.sections.notes")}
+                  <span className="font-normal">({t("common.optional")})</span>
+                </EnterpriseButton>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-2">
+                <TextareaFormField
+                  control={form.control}
+                  name="notes"
+                  label={t("storeOrders.createDialog.fields.notes")}
+                  optional
                 />
-              </div>
-            </ModalFieldFullWidth>
-          </ModalSection>
+              </CollapsibleContent>
+            </Collapsible>
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <EnterpriseButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="group w-fit gap-1.5 px-1.5 text-muted-foreground"
+                >
+                  <ChevronDown className="size-3.5 transition-transform group-data-[state=open]:rotate-180" />
+                  {t("storeOrders.createDialog.sections.receipts")}
+                  <span className="font-normal">({t("common.optional")})</span>
+                </EnterpriseButton>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-2">
+                <div
+                  className="flex flex-col gap-3"
+                  data-field-name="receipts"
+                  data-invalid={receiptError ? "true" : undefined}
+                >
+                  <FileDropField files={pendingFiles} onFilesChange={setPendingFiles} />
+                  <FileUrlField
+                    fileName={receiptName ?? ""}
+                    fileUrl={receiptUrl ?? ""}
+                    onFileNameChange={(value) =>
+                      form.setValue("receiptName", value, { shouldDirty: true })
+                    }
+                    onFileUrlChange={(value) =>
+                      form.setValue("receiptUrl", value, { shouldDirty: true })
+                    }
+                    onClear={() => {
+                      form.setValue("receiptName", "", { shouldDirty: true });
+                      form.setValue("receiptUrl", "", { shouldDirty: true });
+                    }}
+                    namePlaceholder={t("storeOrders.createDialog.fields.receiptName")}
+                    urlPlaceholder={t("storeOrders.createDialog.fields.receiptUrl")}
+                    error={receiptError}
+                  />
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
 
           <CreateOperationSummary
             title={t("storeOrders.createDialog.summary.title")}
@@ -651,7 +754,7 @@ export function StoreOrderCreateDialog({
               },
             ]}
           />
-        </CreateOperationLayout>
+        </div>
       </Form>
     </EnterpriseModal>
   );

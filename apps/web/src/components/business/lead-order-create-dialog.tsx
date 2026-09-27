@@ -1,18 +1,33 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { LucideIcon } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import {
+  FormErrorSummary,
+  applyServerFieldErrors,
+  formErrorsFromRhf,
+  useFocusFirstInvalid,
+  type FormErrorItem,
+} from "@/components/shared/form-error-summary";
+import {
   MasterDataForm,
   type MasterDataFormSection,
 } from "@/components/master-data/master-data-form";
 import type { PhoneCountryOption } from "@/components/shared/phone-country-selector";
 import { useLocale } from "@/providers/locale-provider";
-import { toast, reportApiError } from "@/lib/toast";
+import { reportApiError, reportSuccess } from "@/lib/toast";
+import type { MessageKey } from "@/i18n/translate";
+
+const FIELD_LABEL_KEY: Record<string, MessageKey> = {
+  customerName: "crm.leads.fields.customerName",
+  countryId: "crm.leads.fields.country",
+  mobileNumber: "crm.leads.fields.mobileNumber",
+};
+const FIELD_ORDER = Object.keys(FIELD_LABEL_KEY);
 import { leadsService, type LeadRow } from "@/services/leads-service";
 import {
   buildLeadOrderCreateSchema,
@@ -51,8 +66,21 @@ export function LeadOrderCreateDialog({
     defaultValues: leadOrderCreateDefaultValues,
   });
 
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const focusFirstInvalid = useFocusFirstInvalid(bodyRef);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [serverErrors, setServerErrors] = useState<FormErrorItem[]>([]);
+  const labelFor = (name: string) => {
+    const key = FIELD_LABEL_KEY[name];
+    return key ? t(key) : undefined;
+  };
+
   useEffect(() => {
-    if (open) form.reset(leadOrderCreateDefaultValues);
+    if (!open) return;
+    form.reset(leadOrderCreateDefaultValues);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSubmitAttempted(false);
+    setServerErrors([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -84,15 +112,16 @@ export function LeadOrderCreateDialog({
     return [base];
   }, [t]);
 
-  // Field-level messages already mark the invalid field and receive focus
-  // (react-hook-form's default `shouldFocusError`) — this compact toast is
-  // the required "تعذر الحفظ" summary on top of that, per the global
-  // feedback standard (Part D.1.B): never rely on field marking alone.
-  const onInvalid = () => {
-    toast.error(t("common.failedToSave"));
-  };
+  // Field messages stay beside each field; the summary banner lists them and
+  // focus moves once to the first invalid field (design-system §11.4).
+  const summaryErrors: FormErrorItem[] = submitAttempted
+    ? [
+        ...formErrorsFromRhf(form.formState.errors, { labelFor, order: FIELD_ORDER }),
+        ...serverErrors,
+      ]
+    : [];
 
-  const submit = form.handleSubmit(async (values) => {
+  const onValid = async (values: LeadOrderCreateFormValues) => {
     try {
       const payload = {
         customerName: values.customerName,
@@ -108,13 +137,28 @@ export function LeadOrderCreateDialog({
         salesEmployeeId: values.salesEmployeeId || undefined,
       };
       const created = await leadsService.create(payload);
-      toast.success(t("crm.leads.toasts.created"));
+      setSubmitAttempted(false);
+      reportSuccess(t("crm.leads.toasts.created"), { href: `/crm/leads/${created.id}` });
       onOpenChange(false);
       onCreated(created);
     } catch (error) {
+      setServerErrors(
+        applyServerFieldErrors(error, form.setError, {
+          knownFields: FIELD_ORDER,
+          labelFor,
+          fallback: "common.failedToSave",
+        }),
+      );
+      focusFirstInvalid();
       reportApiError(error, "common.failedToSave");
     }
-  }, onInvalid);
+  };
+
+  const submit = () => {
+    setSubmitAttempted(true);
+    setServerErrors([]);
+    return form.handleSubmit(onValid, () => focusFirstInvalid())();
+  };
 
   return (
     <EnterpriseModal
@@ -125,6 +169,7 @@ export function LeadOrderCreateDialog({
       title={t("crm.leads.createDialog.title")}
       description={t("crm.leads.createDialog.description")}
       isDirty={isDirty}
+      errorSummary={<FormErrorSummary errors={summaryErrors} />}
       footer={(requestClose) => (
         <>
           <EnterpriseButton
@@ -141,7 +186,7 @@ export function LeadOrderCreateDialog({
         </>
       )}
     >
-      <div className="flex flex-col gap-5">
+      <div ref={bodyRef} className="flex flex-col gap-3">
         <p className="text-caption text-muted-foreground">
           {t("crm.leads.createDialog.modeLeadHint")}
         </p>

@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
-import { BackButton } from "@/components/shared/back-button";
+import { DismissibleAlert } from "@/components/shared/dismissible-alert";
+import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
 import { ErrorState } from "@/components/shared/error-state";
 import { PageLoading } from "@/components/shared/page-loading";
 import { StatusBadge } from "@/components/business/status-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
 import { AwaitingSettlementTab, SettlementsTab } from "@/components/payments/settlement";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
@@ -35,7 +35,11 @@ export function MethodSummaryStrip({ method }: { method: ReconciliationMethod })
   const { t } = useLocale();
   const summary = method.summary;
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div
+      role="group"
+      aria-label={t("paymentReconciliation.workspace.summaryLabel")}
+      className="grid grid-cols-2 gap-x-3 gap-y-2 lg:grid-cols-4 lg:[&>*+*]:border-s lg:[&>*+*]:border-border lg:[&>*+*]:ps-3"
+    >
       <CurrencyTotalsList
         label={t("paymentReconciliation.list.awaitingReconciliation")}
         totals={summary?.claimsAwaitingReconciliation}
@@ -108,19 +112,34 @@ export function ReconciliationWorkspace({ methodId }: { methodId: string }) {
           : t("paymentReconciliation.list.noAccount")
       }
       actions={
-        <div className="flex items-center gap-2">
-          {!method.isActive ? (
-            <StatusBadge label={t("paymentReconciliation.list.inactive")} tone="neutral" />
-          ) : null}
-          <BackButton
-            href="/finance/payment-reconciliation"
-            label={t("paymentReconciliation.workspace.back")}
-          />
-        </div>
+        !method.isActive ? (
+          <StatusBadge label={t("paymentReconciliation.list.inactive")} tone="neutral" />
+        ) : undefined
       }
     >
       <div className="flex flex-col gap-3">
-        <EnterpriseCard>
+        {/* Persistent until fixed: a method without a clearing account can never post a match. */}
+        {!method.account ? (
+          <DismissibleAlert
+            tone="warning"
+            dismissible={false}
+            title={t("paymentReconciliation.workspace.noAccountTitle")}
+          >
+            {t("paymentReconciliation.workspace.noAccountBody")}
+          </DismissibleAlert>
+        ) : null}
+        {!method.isActive ? (
+          <DismissibleAlert
+            tone="info"
+            dismissKey={`recon-inactive-${method.id}`}
+            title={t("paymentReconciliation.workspace.inactiveTitle")}
+          >
+            {t("paymentReconciliation.workspace.inactiveBody")}
+          </DismissibleAlert>
+        ) : null}
+
+        {/* Compact summary strip — one surface, figures separated by hairlines. */}
+        <EnterpriseCard size="sm">
           <EnterpriseCardContent>
             <MethodSummaryStrip method={method} />
           </EnterpriseCardContent>

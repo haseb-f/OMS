@@ -1,7 +1,7 @@
 "use client";
 
 import { RelatedRecordsPanel } from "@/components/shared/related-records-panel";
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Archive,
@@ -34,6 +34,7 @@ import { cachedLookup } from "@/lib/lookup-cache";
 import { DocumentActionBar, type DocumentAction } from "@/components/documents/document-action-bar";
 import { FieldMessage } from "@/components/ui/form";
 import { EditorHeader, EditorWorkspace } from "@/components/shared/detail-workspace";
+import { FormErrorSummary, useFocusFirstInvalid } from "@/components/shared/form-error-summary";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { StatusBadge } from "@/components/business/status-badge";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
@@ -65,8 +66,8 @@ import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { useCurrencies } from "@/hooks/use-reference-data";
-import { formatDateTime } from "@/lib/date";
-import { reportApiError, toast } from "@/lib/toast";
+import { formatDate, formatDateTime } from "@/lib/date";
+import { reportApiError, toast, reportSuccess } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import {
   isGeneratedJournalSource,
@@ -154,6 +155,8 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
   const [isDuplicating, setIsDuplicating] = useState(false);
   /** Inline (not toast-only) validation, shown under the lines; entered data is never cleared. */
   const [validationError, setValidationError] = useState<string | null>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const focusFirstInvalid = useFocusFirstInvalid(bodyRef);
 
   const applyEntry = useCallback((data: JournalEntryRow) => {
     setEntry(data);
@@ -255,16 +258,19 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
   const handleSave = async () => {
     const error = validate();
     setValidationError(error);
-    if (error) return;
+    if (error) {
+      focusFirstInvalid();
+      return;
+    }
     setIsSaving(true);
     try {
       if (id) {
         const updated = await journalEntriesService.update(id, buildPayload());
         applyEntry(updated);
-        toast.success(t("common.saved"));
+        reportSuccess(t("common.saved"));
       } else {
         const created = await journalEntriesService.create(buildPayload());
-        toast.success(t("common.saved"));
+        reportSuccess(t("common.saved"));
         router.replace(`/finance/journal-entries/${created.id}`);
       }
     } catch (error) {
@@ -283,7 +289,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
     try {
       const updated = await action(id);
       applyEntry(updated);
-      toast.success(t(successKey));
+      reportSuccess(t(successKey));
       refreshActivity(id);
     } catch (error) {
       reportApiError(error, "errors.generic");
@@ -310,7 +316,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
     setIsTransitioning(true);
     try {
       await journalEntriesService.remove(id);
-      toast.success(t("accounting.journalEntries.toasts.deleted"));
+      reportSuccess(t("accounting.journalEntries.toasts.deleted"));
       router.push("/finance/journal-entries");
     } catch (error) {
       reportApiError(error, "errors.generic");
@@ -324,7 +330,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
     setIsDuplicating(true);
     try {
       const duplicated = await journalEntriesService.duplicate(id);
-      toast.success(t("accounting.journalEntries.toasts.duplicated"));
+      reportSuccess(t("accounting.journalEntries.toasts.duplicated"));
       router.push(`/finance/journal-entries/${duplicated.id}`);
     } catch (error) {
       reportApiError(error, "errors.generic");
@@ -339,7 +345,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
     if (!template) return;
     setJournalId(template.journalId ?? "");
     setLines(template.lines.map(templateLineToGridRow));
-    toast.success(t("accounting.journalEntries.templates.applied"));
+    reportSuccess(t("accounting.journalEntries.templates.applied"));
   };
 
   const handleSaveTemplate = async () => {
@@ -364,7 +370,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
           a.name.localeCompare(b.name),
         ),
       );
-      toast.success(t("accounting.journalEntries.templates.saved"));
+      reportSuccess(t("accounting.journalEntries.templates.saved"));
       setSaveTemplateOpen(false);
       setTemplateName("");
       setTemplateDescription("");
@@ -500,7 +506,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
                 return null;
               });
               if (reversed) {
-                toast.success(t("accounting.journalEntries.toasts.reversed"));
+                reportSuccess(t("accounting.journalEntries.toasts.reversed"));
                 router.push(`/finance/journal-entries/${reversed.id}`);
               }
             },
@@ -556,11 +562,21 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
       {isLoading ? (
         <div className="p-8 text-caption text-muted-foreground">{t("common.loading")}</div>
       ) : (
-        <EnterpriseCard size="sm" className="pb-20 md:pb-0">
-          <EnterpriseCardContent className="flex flex-col gap-3">
+        <EnterpriseCard size="sm" className="overflow-visible pb-20 md:pb-(--card-spacing)">
+          <EnterpriseCardContent ref={bodyRef} data-form-scope="" className="flex flex-col gap-3">
             <EditorHeader
+              sticky
               title={t("accounting.journalEntries.editorTitle")}
-              documentNumber={entry?.entryNumber ?? "JV-…"}
+              meta={
+                entryDate || currency ? (
+                  <>
+                    {entryDate ? <bdi>{formatDate(entryDate)}</bdi> : null}
+                    {entryDate && currency ? " · " : null}
+                    {currency ? <bdi>{currency.code}</bdi> : null}
+                  </>
+                ) : undefined
+              }
+              documentNumber={<span>{entry?.entryNumber ?? "JV-…"}</span>}
               status={
                 statusOption ? (
                   <StatusBadge label={statusOption.label} tone={statusOption.tone} />
@@ -613,6 +629,21 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
               }
             />
 
+            <FormErrorSummary
+              className="mb-0"
+              errors={
+                validationError
+                  ? [
+                      {
+                        fieldId: "lines",
+                        label: t("accounting.journalEntries.lines.title"),
+                        message: validationError,
+                      },
+                    ]
+                  : []
+              }
+            />
+
             {isGenerated ? (
               <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-caption text-muted-foreground">
                 {t("accounting.journalEntries.systemGeneratedHint")}
@@ -620,8 +651,8 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
             ) : null}
 
             {/* Main form — compact grid */}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="flex flex-col gap-1">
+            <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="flex min-w-0 flex-col gap-1">
                 <label
                   htmlFor={`${fieldId}-journal`}
                   className="text-caption text-muted-foreground"
@@ -648,11 +679,14 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-caption text-muted-foreground">
+                <label
+                  htmlFor={`${fieldId}-reference`}
+                  className="text-caption text-muted-foreground"
+                >
                   {t("accounting.journalEntries.fields.referenceNumber")}
                 </label>
                 <Input
-                  inputSize="sm"
+                  id={`${fieldId}-reference`}
                   dir="ltr"
                   value={referenceNumber}
                   disabled={!canEdit}
@@ -676,11 +710,15 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
                   disabled={!canEdit}
                 />
               </div>
-              <div className="flex flex-col gap-1 sm:col-span-3">
-                <label className="text-caption text-muted-foreground">
+              <div className="flex flex-col gap-1 sm:col-span-2 lg:col-span-4">
+                <label
+                  htmlFor={`${fieldId}-description`}
+                  className="text-caption text-muted-foreground"
+                >
                   {t("accounting.journalEntries.fields.description")}
                 </label>
                 <Textarea
+                  id={`${fieldId}-description`}
                   value={description}
                   disabled={!canEdit}
                   onChange={(event) => setDescription(event.target.value)}
@@ -689,8 +727,12 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
               </div>
             </div>
 
-            {/* Lines — immediately below the main form */}
-            <div className="flex flex-col gap-2">
+            {/* Lines — immediately below the main form, divided by a hairline */}
+            <div
+              data-field-name="lines"
+              data-invalid={validationError ? "true" : undefined}
+              className="flex min-w-0 flex-col gap-2 border-t border-border pt-3"
+            >
               <h2 className="text-card-title font-heading">
                 {t("accounting.journalEntries.lines.title")}
               </h2>

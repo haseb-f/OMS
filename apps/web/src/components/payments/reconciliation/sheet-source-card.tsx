@@ -2,14 +2,6 @@
 
 import { useCallback, useEffect, useId, useState } from "react";
 import { Link2, RefreshCw, Sheet } from "lucide-react";
-import {
-  EnterpriseCard,
-  EnterpriseCardAction,
-  EnterpriseCardContent,
-  EnterpriseCardDescription,
-  EnterpriseCardHeader,
-  EnterpriseCardTitle,
-} from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +22,11 @@ import { MappingEditor } from "./mapping-editor";
 import { StatementPreviewPanel } from "./statement-preview";
 import { missingRequiredFields } from "./reconciliation-model";
 
-/** Google Sheet connection + repeatable "Sync now" for one payment method. */
+/**
+ * Google Sheet connection + repeatable "Sync now" for one payment method.
+ * A bare panel (heading + body) — the Statement tab places it beside the
+ * import history inside ONE card, so there is no card-in-card.
+ */
 export function SheetSourceCard({
   methodId,
   canImport,
@@ -83,17 +79,19 @@ export function SheetSourceCard({
 
   const connection = source?.connection ?? null;
   return (
-    <EnterpriseCard>
-      <EnterpriseCardHeader>
-        <EnterpriseCardTitle className="flex items-center gap-2">
-          <Sheet className="size-4" />
-          {t("paymentReconciliation.sheet.title")}
-        </EnterpriseCardTitle>
-        <EnterpriseCardDescription>
-          {t("paymentReconciliation.sheet.description")}
-        </EnterpriseCardDescription>
+    <section className="flex min-w-0 flex-col gap-2">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <h3 className="flex items-center gap-2 text-card-title">
+            <Sheet className="size-4 text-muted-foreground" aria-hidden />
+            {t("paymentReconciliation.sheet.title")}
+          </h3>
+          <p className="text-caption text-muted-foreground">
+            {t("paymentReconciliation.sheet.description")}
+          </p>
+        </div>
         {canImport && source?.configured ? (
-          <EnterpriseCardAction className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2">
             <EnterpriseButton
               type="button"
               variant="outline"
@@ -119,10 +117,10 @@ export function SheetSourceCard({
                   : t("paymentReconciliation.sheet.syncNow")}
               </EnterpriseButton>
             ) : null}
-          </EnterpriseCardAction>
+          </div>
         ) : null}
-      </EnterpriseCardHeader>
-      <EnterpriseCardContent className="flex flex-col gap-2 text-caption">
+      </div>
+      <div className="flex flex-col gap-2 text-caption">
         {source && !source.configured ? (
           <Alert tone="warning">
             <AlertDescription>{t("paymentReconciliation.sheet.notConfigured")}</AlertDescription>
@@ -203,7 +201,7 @@ export function SheetSourceCard({
         ) : source?.configured ? (
           <p className="text-muted-foreground">{t("paymentReconciliation.sheet.notConnected")}</p>
         ) : null}
-      </EnterpriseCardContent>
+      </div>
       {connectOpen ? (
         <SheetConnectDialog
           methodId={methodId}
@@ -217,7 +215,7 @@ export function SheetSourceCard({
           }}
         />
       ) : null}
-    </EnterpriseCard>
+    </section>
   );
 }
 

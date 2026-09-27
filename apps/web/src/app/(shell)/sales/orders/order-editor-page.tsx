@@ -37,7 +37,7 @@ import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
-import { reportApiError, toast } from "@/lib/toast";
+import { reportApiError, toast, reportSuccess } from "@/lib/toast";
 import { lifecycleActions } from "@/config/documents/lifecycle-actions";
 import { ApiError } from "@/services/api-client";
 import { ConvertToInvoiceDialog } from "./convert-to-invoice-dialog";
@@ -170,10 +170,10 @@ export function OrderEditorPage({ id }: { id: string | null }) {
       if (id) {
         const updated = await salesOrdersService.update(id, buildPayload());
         applyOrder(updated);
-        toast.success(t("common.saved"));
+        reportSuccess(t("common.saved"));
       } else {
         const created = await salesOrdersService.create(buildPayload());
-        toast.success(t("common.saved"));
+        reportSuccess(t("common.saved"));
         router.replace(`/sales/orders/${created.id}`);
       }
     } catch (error) {
@@ -195,7 +195,7 @@ export function OrderEditorPage({ id }: { id: string | null }) {
       // Transition responses are partial (no payment summary / related
       // documents); always re-read the full document before rendering it.
       applyOrder(await salesOrdersService.get(id));
-      toast.success(t(successKey));
+      reportSuccess(t(successKey));
       refreshActivity(id);
     } catch (error) {
       reportApiError(error, "errors.generic");
@@ -329,7 +329,7 @@ export function OrderEditorPage({ id }: { id: string | null }) {
             if (!id) return;
             try {
               const copy = await salesOrdersService.duplicate(id);
-              toast.success(t("docFlow.lifecycle.duplicated", { number: copy.orderNumber }));
+              reportSuccess(t("docFlow.lifecycle.duplicated", { number: copy.orderNumber }));
               router.push(`/sales/orders/${copy.id}`);
             } catch (error) {
               toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));

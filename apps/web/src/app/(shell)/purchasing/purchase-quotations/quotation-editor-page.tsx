@@ -32,7 +32,7 @@ import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
-import { reportApiError, toast } from "@/lib/toast";
+import { reportApiError, reportSuccess } from "@/lib/toast";
 import { lifecycleActions } from "@/config/documents/lifecycle-actions";
 import type { CommercialDocumentFieldErrors } from "@/components/documents/commercial-document-editor";
 
@@ -171,10 +171,10 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
       if (id) {
         const updated = await purchaseQuotationsService.update(id, buildPayload());
         applyQuotation(updated);
-        toast.success(t("common.saved"));
+        reportSuccess(t("common.saved"));
       } else {
         const created = await purchaseQuotationsService.create(buildPayload());
-        toast.success(t("common.saved"));
+        reportSuccess(t("common.saved"));
         router.replace(`/purchasing/purchase-quotations/${created.id}`);
       }
     } catch (error) {
@@ -196,7 +196,7 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
       // Transition responses are partial (no payment summary / related
       // documents); always re-read the full document before rendering it.
       applyQuotation(await purchaseQuotationsService.get(id));
-      toast.success(t(successKey));
+      reportSuccess(t(successKey));
       refreshActivity(id);
     } catch (error) {
       reportApiError(error, "errors.generic");
@@ -211,7 +211,7 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
     setIsTransitioning(true);
     try {
       const order = await purchaseQuotationsService.convertToOrder(id);
-      toast.success(t("purchasing.quotations.convertToOrder.success"));
+      reportSuccess(t("purchasing.quotations.convertToOrder.success"));
       router.push(`/purchasing/purchase-orders/${order.id}`);
     } catch (error) {
       reportApiError(error, "errors.generic");
@@ -334,7 +334,7 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
             if (!id) return;
             try {
               const copy = await purchaseQuotationsService.duplicate(id);
-              toast.success(t("docFlow.lifecycle.duplicated", { number: copy.quotationNumber }));
+              reportSuccess(t("docFlow.lifecycle.duplicated", { number: copy.quotationNumber }));
               router.push(`/purchasing/purchase-quotations/${copy.id}`);
             } catch (error) {
               reportApiError(error, "common.failedToSave");

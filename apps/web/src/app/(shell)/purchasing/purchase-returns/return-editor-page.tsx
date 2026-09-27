@@ -31,7 +31,7 @@ import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
-import { reportApiError, toast } from "@/lib/toast";
+import { reportApiError, reportSuccess } from "@/lib/toast";
 import type { CommercialDocumentFieldErrors } from "@/components/documents/commercial-document-editor";
 
 function itemToLine(item: PurchaseReturnItemRow): ProductLineItemsGridLine {
@@ -162,7 +162,7 @@ export function ReturnEditorPage({ id }: { id: string }) {
     try {
       const updated = await purchaseReturnsService.update(id, buildPayload());
       applyReturn(updated);
-      toast.success(t("common.saved"));
+      reportSuccess(t("common.saved"));
     } catch (error) {
       reportApiError(error, "errors.generic");
     } finally {
@@ -178,7 +178,7 @@ export function ReturnEditorPage({ id }: { id: string }) {
     try {
       const updated = await action(id);
       applyReturn(updated);
-      toast.success(t(successKey));
+      reportSuccess(t(successKey));
       refreshActivity(id);
     } catch (error) {
       reportApiError(error, "errors.generic");

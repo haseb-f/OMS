@@ -38,7 +38,7 @@ import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
-import { reportApiError, toast } from "@/lib/toast";
+import { reportApiError, toast, reportSuccess } from "@/lib/toast";
 import { useExchangeRateRecovery } from "@/hooks/use-exchange-rate-recovery";
 import { lifecycleActions } from "@/config/documents/lifecycle-actions";
 import { ApiError } from "@/services/api-client";
@@ -177,10 +177,10 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
       if (id) {
         const updated = await salesInvoicesService.update(id, buildPayload());
         applyInvoice(updated);
-        toast.success(t("common.saved"));
+        reportSuccess(t("common.saved"));
       } else {
         const created = await salesInvoicesService.create(buildPayload());
-        toast.success(t("common.saved"));
+        reportSuccess(t("common.saved"));
         router.replace(`/sales/invoices/${created.id}`);
       }
     } catch (error) {
@@ -202,7 +202,7 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
       // Transition responses are partial (no payment summary / related
       // documents); always re-read the full document before rendering it.
       applyInvoice(await salesInvoicesService.get(id));
-      toast.success(t(successKey));
+      reportSuccess(t(successKey));
       refreshActivity(id);
     } catch (error) {
       reportApiError(error, "errors.generic");
@@ -356,7 +356,7 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
             if (!id) return;
             try {
               const copy = await salesInvoicesService.duplicate(id);
-              toast.success(t("docFlow.lifecycle.duplicated", { number: copy.invoiceNumber }));
+              reportSuccess(t("docFlow.lifecycle.duplicated", { number: copy.invoiceNumber }));
               router.push(`/sales/invoices/${copy.id}`);
             } catch (error) {
               toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));

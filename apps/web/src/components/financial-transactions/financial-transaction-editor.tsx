@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -18,6 +18,11 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { EditorHeader } from "@/components/shared/detail-workspace";
+import {
+  FormErrorSummary,
+  useFocusFirstInvalid,
+  type FormErrorItem,
+} from "@/components/shared/form-error-summary";
 import { StatusBadge } from "@/components/business/status-badge";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
 import { DocumentActionBar, type DocumentAction } from "@/components/documents/document-action-bar";
@@ -26,7 +31,8 @@ import { AllocationGrid } from "./allocation-grid";
 import { PaymentSummary } from "./payment-summary";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
-import { formatDateTime } from "@/lib/date";
+import { formatDate, formatDateTime } from "@/lib/date";
+import { formatMoney } from "@/lib/money";
 import {
   FINANCIAL_TRANSACTION_TYPE_LABEL_KEY,
   typesForDirection,
@@ -103,6 +109,8 @@ export function FinancialTransactionEditor({
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
   const fieldId = useId();
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const focusFirstInvalid = useFocusFirstInvalid(bodyRef);
   const [paymentSources, setPaymentSources] = useState<LookupRow[]>([]);
   const [receivingAccounts, setReceivingAccounts] = useState<ReceivingAccountOption[]>([]);
   const [transactionTypes, setTransactionTypes] = useState<FinancialTransactionTypeRow[]>(() =>
@@ -182,16 +190,76 @@ export function FinancialTransactionEditor({
         : "pending",
   }));
 
+  const summaryItems = (
+    [
+      fieldErrors?.party
+        ? { fieldId: "party", label: config.partyLabel, message: fieldErrors.party }
+        : null,
+      fieldErrors?.amount
+        ? {
+            fieldId: "amount",
+            label: t("financialTransactions.fields.amount"),
+            message: fieldErrors.amount,
+          }
+        : null,
+      fieldErrors?.receivingAccount
+        ? {
+            fieldId: "receivingAccount",
+            label: t("financialTransactions.fields.receivingAccount"),
+            message: fieldErrors.receivingAccount,
+          }
+        : null,
+      fieldErrors?.allocations
+        ? {
+            fieldId: "allocations",
+            label: t("financialTransactions.sections.allocations"),
+            message: fieldErrors.allocations,
+          }
+        : null,
+      fieldErrors?.form ? { message: fieldErrors.form } : null,
+    ] as (FormErrorItem | null)[]
+  ).filter((item): item is FormErrorItem => item !== null);
+
+  // Focus moves once to the first invalid field when a failed save surfaces new problems.
+  const errorSignature = summaryItems.map((item) => item.fieldId ?? item.message).join("|");
+  const lastSignature = useRef("");
+  useEffect(() => {
+    if (errorSignature && errorSignature !== lastSignature.current) focusFirstInvalid();
+    lastSignature.current = errorSignature;
+  }, [errorSignature, focusFirstInvalid]);
+
   if (isLoading) {
     return <div className="p-8 text-caption text-muted-foreground">{t("common.loading")}</div>;
   }
 
+  // Key meta: date · amount — each part isolated so LTR values never reorder in Arabic.
+  const metaParts = [
+    state.transactionDate ? formatDate(state.transactionDate) : null,
+    state.amount ? `${formatMoney(state.amount)} ${currencyCode ?? ""}`.trim() : null,
+  ].filter((part): part is string => Boolean(part));
+  const meta =
+    metaParts.length > 0 ? (
+      <>
+        {metaParts.map((part, index) => (
+          <Fragment key={index}>
+            {index > 0 ? " · " : null}
+            <bdi>{part}</bdi>
+          </Fragment>
+        ))}
+      </>
+    ) : undefined;
+
   return (
-    <EnterpriseCard size="sm" className="pb-20 md:pb-0">
-      <EnterpriseCardContent className="flex flex-col gap-3">
+    <EnterpriseCard size="sm" className="overflow-visible pb-20 md:pb-(--card-spacing)">
+      <EnterpriseCardContent ref={bodyRef} data-form-scope="" className="flex flex-col gap-3">
         <EditorHeader
+          sticky
+          meta={meta}
           title={config.title}
-          documentNumber={state.documentNumber ?? `${config.docCodePreview ?? ""}-…`}
+          documentNumber={
+            // EditorHeader puts the number in a dir="ltr" span; this keeps the gap on the title side in RTL.
+            <span>{state.documentNumber ?? `${config.docCodePreview ?? ""}-…`}</span>
+          }
           status={
             currentStatusOption ? (
               <StatusBadge label={currentStatusOption.label} tone={currentStatusOption.tone} />
@@ -208,8 +276,10 @@ export function FinancialTransactionEditor({
           }
         />
 
-        {/* Main form — compact grid, default-visible fields only */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <FormErrorSummary errors={summaryItems} className="mb-0" />
+
+        {/* Main form — compact grid, default-visible fields only; the party takes two columns. */}
+        <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
           <div className="flex flex-col gap-1">
             <label htmlFor={`${fieldId}-type`} className="text-caption text-muted-foreground">
               {t("financialTransactions.fields.type")}
@@ -227,7 +297,11 @@ export function FinancialTransactionEditor({
               </SelectContent>
             </Select>
           </div>
-          <div className="flex flex-col gap-1">
+          <div
+            data-field-name="party"
+            data-invalid={fieldErrors?.party ? "true" : undefined}
+            className="flex min-w-0 flex-col gap-1 lg:col-span-2"
+          >
             <label className="text-caption text-muted-foreground">{config.partyLabel}</label>
             {renderPartyPicker({ disabled: !canEdit })}
             <FieldMessage>{fieldErrors?.party}</FieldMessage>
@@ -242,12 +316,16 @@ export function FinancialTransactionEditor({
               disabled={!canEdit}
             />
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-caption text-muted-foreground">
+          <div
+            data-field-name="amount"
+            data-invalid={fieldErrors?.amount ? "true" : undefined}
+            className="flex min-w-0 flex-col gap-1"
+          >
+            <label htmlFor={`${fieldId}-amount`} className="text-caption text-muted-foreground">
               {t("financialTransactions.fields.amount")}
             </label>
             <MoneyInput
-              inputSize="sm"
+              id={`${fieldId}-amount`}
               value={state.amount}
               disabled={!canEdit}
               aria-invalid={fieldErrors?.amount ? true : undefined}
@@ -268,7 +346,11 @@ export function FinancialTransactionEditor({
               allowClear
             />
           </div>
-          <div className="flex flex-col gap-1">
+          <div
+            data-field-name="receivingAccount"
+            data-invalid={fieldErrors?.receivingAccount ? "true" : undefined}
+            className="flex min-w-0 flex-col gap-1"
+          >
             <label htmlFor={`${fieldId}-receiving`} className="text-caption text-muted-foreground">
               {t("financialTransactions.fields.receivingAccount")}
             </label>
@@ -282,15 +364,17 @@ export function FinancialTransactionEditor({
                 label: account.name,
               }))}
               allowClear
+              error={Boolean(fieldErrors?.receivingAccount)}
             />
             <FieldMessage>{fieldErrors?.receivingAccount}</FieldMessage>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-caption text-muted-foreground">
+            <label htmlFor={`${fieldId}-reference`} className="text-caption text-muted-foreground">
               {t("financialTransactions.fields.referenceNumber")}
             </label>
             <Input
-              inputSize="sm"
+              id={`${fieldId}-reference`}
+              dir="auto"
               value={state.referenceNumber}
               disabled={!canEdit}
               onChange={(event) => handlers.onReferenceNumberChange(event.target.value)}
@@ -298,8 +382,12 @@ export function FinancialTransactionEditor({
           </div>
         </div>
 
-        {/* Allocation section — immediately below the main form */}
-        <div className="flex flex-col gap-2">
+        {/* Allocation section — immediately below the main form, divided by a hairline */}
+        <div
+          data-field-name="allocations"
+          data-invalid={fieldErrors?.allocations ? "true" : undefined}
+          className="flex min-w-0 flex-col gap-2 border-t border-border pt-3"
+        >
           <h2 className="text-card-title font-heading">
             {t("financialTransactions.sections.allocations")}
           </h2>
@@ -323,10 +411,11 @@ export function FinancialTransactionEditor({
 
         {/* Notes */}
         <div className="flex flex-col gap-1">
-          <label className="text-caption text-muted-foreground">
+          <label htmlFor={`${fieldId}-notes`} className="text-caption text-muted-foreground">
             {t("sales.editor.sections.notes")}
           </label>
           <Textarea
+            id={`${fieldId}-notes`}
             value={state.notes}
             disabled={!canEdit}
             onChange={(event) => handlers.onNotesChange(event.target.value)}

@@ -93,6 +93,8 @@ export function PartnerPicker({
   className,
   id,
   "aria-label": ariaLabel,
+  "aria-describedby": ariaDescribedBy,
+  error,
 }: {
   role: PartnerRoleValue;
   value: PartnerPickerRow | null | undefined;
@@ -102,6 +104,10 @@ export function PartnerPicker({
   /** Forwarded to the trigger so an external `<Label htmlFor>` / `FormControl` can name it. */
   id?: string;
   "aria-label"?: string;
+  /** Links the trigger to an external field-error message. */
+  "aria-describedby"?: string;
+  /** Draws the invalid state on the trigger (`aria-invalid`). */
+  error?: boolean;
 }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
@@ -147,7 +153,8 @@ export function PartnerPicker({
     <>
       <EntityCombobox
         id={id}
-        triggerProps={{ "aria-label": ariaLabel }}
+        triggerProps={{ "aria-label": ariaLabel, "aria-describedby": ariaDescribedBy }}
+        error={error}
         value={value ?? null}
         onChange={(partner) => {
           if (partner) selectPartner(partner);

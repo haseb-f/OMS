@@ -1,16 +1,22 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ShoppingCart } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import {
   CreateOperationFooter,
   CreateOperationLayout,
   CreateOperationSummary,
-  CreateOperationTotals,
 } from "@/components/shared/create-operation";
-import { ModalSection } from "@/components/shared/modal-section";
+import {
+  FormErrorSummary,
+  useFocusFirstInvalid,
+  type FormErrorItem,
+} from "@/components/shared/form-error-summary";
+import { AmountStrip, FormSection } from "@/components/documents/form-section";
 import { EnterpriseButton } from "@/components/ui/button";
+import { FieldMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,25 +29,53 @@ import {
 import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { CurrencyPicker } from "@/components/business/currency-picker";
 import { useCurrencies, usePaymentMethods, useCountries } from "@/hooks/use-reference-data";
-import { PaymentDeclarationFields } from "@/components/payments/declaration/payment-declaration-fields";
+import {
+  PaymentDeclarationFields,
+  declarationErrorItem,
+} from "@/components/payments/declaration/payment-declaration-fields";
 import {
   buildDeclarationPayload,
   declarationAmount,
   emptyDeclaration,
   validateDeclaration,
+  type DeclarationError,
   type DeclarationFormState,
 } from "@/components/payments/declaration/declaration-logic";
 import { leadsService, type LeadRow } from "@/services/leads-service";
 import type { ProductRow } from "@/services/products-service";
 import type { CityRow, CurrencyRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
-import { toast, reportApiError } from "@/lib/toast";
+import { apiErrorMessage, reportApiError, reportSuccess } from "@/lib/toast";
+import { formatMoney } from "@/lib/money";
 import { createMasterDataService } from "@/services/master-data-service";
 import { stagingIdsOf, type ReceiptUploadItem } from "@/components/business/payment-receipts-field";
 import { attachmentsService } from "@/services/attachments-service";
 
 const citiesService = createMasterDataService<CityRow>("/cities");
 
+type ValidationIssue =
+  | { kind: "lines"; message: string }
+  | { kind: "declaration"; error: DeclarationError }
+  | { kind: "address"; message: string };
+
+/** Read-only lead facts — a compact label/value grid, not disabled inputs. */
+function LeadFact({ label, value, ltr }: { label: string; value: string; ltr?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-caption text-muted-foreground">{label}</dt>
+      <dd className="truncate text-body font-medium text-foreground" title={value}>
+        {ltr ? <bdi dir="ltr">{value}</bdi> : value}
+      </dd>
+    </div>
+  );
+}
+
+/**
+ * Lead → Store Order. One modal surface with heading + hairline sections
+ * (customer facts · products · settlement · payment declaration · shipping),
+ * product lines across the full dialog width, compact figures, and a
+ * `FormErrorSummary` on a failed step. "Summary" reviews before creating.
+ */
 export function LeadConvertDialog({
   lead,
   open,
@@ -53,11 +87,19 @@ export function LeadConvertDialog({
   onOpenChange: (open: boolean) => void;
   onConverted: (result: LeadRow) => void;
 }) {
-  const { t, locale } = useLocale();
+  const { t } = useLocale();
+  const router = useRouter();
   const currencies = useCurrencies();
   const currencyFieldId = useId();
+  const paymentTypeFieldId = useId();
+  const fulfillmentFieldId = useId();
+  const countryFieldId = useId();
+  const cityFieldId = useId();
+  const addressFieldId = useId();
   const paymentMethods = usePaymentMethods();
   const countries = useCountries();
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const focusFirstInvalid = useFocusFirstInvalid(bodyRef);
 
   const [step, setStep] = useState<"form" | "summary">("form");
   const [isSaving, setIsSaving] = useState(false);
@@ -77,13 +119,15 @@ export function LeadConvertDialog({
   const [address, setAddress] = useState(lead.address ?? "");
   const [notes, setNotes] = useState("");
   const [cities, setCities] = useState<CityRow[]>([]);
-  const [fieldError, setFieldError] = useState<string | null>(null);
+  const [issue, setIssue] = useState<ValidationIssue | null>(null);
+  const [serverError, setServerError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setStep("form");
-    setFieldError(null);
+    setIssue(null);
+    setServerError(null);
     setShowLineErrors(false);
     setLines([
       {
@@ -128,43 +172,71 @@ export function LeadConvertDialog({
     paymentMethods.find((row) => row.id === declaration.paymentMethodId) ?? null;
   const selectedCountry = countries.find((c) => c.id === countryId) ?? null;
   const selectedCity = cities.find((c) => c.name === city) ?? null;
+  const currencyCode = currency?.code ?? "";
 
-  const validate = (): boolean => {
+  const findIssue = (): ValidationIssue | null => {
     if (productLines.length === 0) {
-      setFieldError(t("crm.leads.convert.validation.product"));
-      return false;
+      return { kind: "lines", message: t("crm.leads.convert.validation.product") };
     }
     if (productLines.some((line) => !Number.isInteger(line.quantity) || line.quantity < 1)) {
-      setFieldError(t("crm.leads.convert.validation.quantity"));
-      return false;
+      return { kind: "lines", message: t("crm.leads.convert.validation.quantity") };
     }
     if (productLines.some((line) => isLinePriceMissing(line, "lineAmount"))) {
-      setShowLineErrors(true);
-      setFieldError(t("crm.leads.convert.validation.amount"));
-      return false;
+      return { kind: "lines", message: t("crm.leads.convert.validation.amount") };
     }
     if (orderTotal <= 0) {
-      setFieldError(t("crm.leads.convert.validation.total"));
-      return false;
+      return { kind: "lines", message: t("crm.leads.convert.validation.total") };
     }
     const declarationError = declares
       ? validateDeclaration(declaration, { total: orderTotal, remaining: orderTotal })
       : null;
-    if (declarationError) {
-      setFieldError(t(`paymentDeclaration.dialog.errors.${declarationError}`));
-      return false;
-    }
+    if (declarationError) return { kind: "declaration", error: declarationError };
     if (!address.trim() && !city.trim()) {
-      setFieldError(t("crm.leads.convert.validation.shipping"));
-      return false;
+      return { kind: "address", message: t("crm.leads.convert.validation.shipping") };
     }
-    setFieldError(null);
-    return true;
+    return null;
   };
 
+  const validate = (): boolean => {
+    const found = findIssue();
+    setIssue(found);
+    if (found?.kind === "lines") setShowLineErrors(true);
+    if (found) focusFirstInvalid();
+    return !found;
+  };
+
+  // A fixed problem clears its summary item as the user edits.
+  const liveIssue = issue ? findIssue() : null;
+  const summaryItems: FormErrorItem[] = [
+    ...(liveIssue?.kind === "lines"
+      ? [
+          {
+            fieldId: "lines",
+            label: t("crm.leads.convert.sectionProducts"),
+            message: liveIssue.message,
+          },
+        ]
+      : []),
+    ...(liveIssue?.kind === "declaration" ? [declarationErrorItem(liveIssue.error, t)] : []),
+    ...(liveIssue?.kind === "address"
+      ? [
+          {
+            fieldId: addressFieldId,
+            label: t("crm.leads.fields.address"),
+            message: liveIssue.message,
+          },
+        ]
+      : []),
+    ...(serverError ? [{ message: serverError }] : []),
+  ];
+
   const submit = async () => {
-    if (!validate()) return;
+    if (!validate()) {
+      setStep("form");
+      return;
+    }
     setIsSaving(true);
+    setServerError(null);
     try {
       const result = await leadsService.convert(lead.id, {
         items: productLines.map((line) => ({
@@ -194,12 +266,16 @@ export function LeadConvertDialog({
         address: address.trim() || undefined,
         notes: notes.trim() || undefined,
       });
-      toast.success(
+      reportSuccess(
         `${t("crm.leads.convert.success")} ${result.storeOrder?.internalOrderId ?? ""}`.trim(),
+        result.storeOrder
+          ? { href: `/store-orders/${result.storeOrder.id}`, navigate: router.push }
+          : {},
       );
       onOpenChange(false);
       onConverted(result);
     } catch (error) {
+      setServerError(apiErrorMessage(error, "common.failedToSave"));
       reportApiError(error, "common.failedToSave");
     } finally {
       setIsSaving(false);
@@ -207,6 +283,42 @@ export function LeadConvertDialog({
   };
 
   const countryOptions = useMemo(() => countries.filter((c) => !c.deletedAt), [countries]);
+  const paymentTypeItems = [
+    { id: "PREPAID", name: t("crm.leads.convert.prepaid") },
+    { id: "CASH_ON_DELIVERY", name: t("crm.leads.convert.cod") },
+  ];
+  const fulfillmentItems = [
+    { id: "SHIPPING", name: t("crm.leads.convert.shipping") },
+    { id: "PICKUP", name: t("crm.leads.convert.pickup") },
+  ];
+
+  const figures = (
+    <AmountStrip
+      label={t("crm.leads.convert.orderTotal")}
+      items={[
+        ...(declares
+          ? [
+              {
+                key: "paid",
+                label: t("crm.leads.convert.amountPaid"),
+                value: formatMoney(paid),
+              },
+              {
+                key: "remaining",
+                label: t("crm.leads.convert.remaining"),
+                value: formatMoney(remaining),
+              },
+            ]
+          : []),
+        {
+          key: "total",
+          label: t("crm.leads.convert.orderTotal"),
+          value: `${formatMoney(orderTotal)} ${currencyCode}`.trim(),
+          strong: true,
+        },
+      ]}
+    />
+  );
 
   return (
     <EnterpriseModal
@@ -216,20 +328,22 @@ export function LeadConvertDialog({
       icon={ShoppingCart}
       title={t("crm.leads.convert.title")}
       description={t("crm.leads.convert.description")}
+      errorSummary={<FormErrorSummary errors={summaryItems} />}
       footer={(requestClose) =>
         step === "summary" ? (
-          <div className="flex w-full flex-wrap items-center justify-end gap-2">
+          <>
             <EnterpriseButton variant="outline" onClick={() => setStep("form")}>
               {t("crm.leads.convert.backToEdit")}
             </EnterpriseButton>
             <EnterpriseButton
               variant="success"
+              isLoading={isSaving}
               disabled={isSaving || receiptItems.some((item) => item.status === "uploading")}
               onClick={() => void submit()}
             >
               {t("crm.leads.convert.confirmCreate")}
             </EnterpriseButton>
-          </div>
+          </>
         ) : (
           <CreateOperationFooter
             requestClose={requestClose}
@@ -243,33 +357,29 @@ export function LeadConvertDialog({
       }
     >
       {step === "form" ? (
-        <CreateOperationLayout>
-          {fieldError ? <p className="text-caption text-destructive">{fieldError}</p> : null}
-          <ModalSection title={t("crm.leads.convert.sectionCustomer")} columns={2}>
-            <div className="flex flex-col gap-1">
-              <Label>{t("crm.leads.fields.customerName")}</Label>
-              <Input value={lead.customerName} readOnly />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label>{t("crm.leads.fields.mobileNumber")}</Label>
-              <Input dir="ltr" value={lead.mobileNumber} readOnly />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label>{t("crm.leads.convert.owner")}</Label>
-              <Input value={lead.salesEmployee?.fullName ?? "—"} readOnly />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label>{t("crm.leads.fields.source")}</Label>
-              <Input value={lead.source} readOnly dir="ltr" />
-            </div>
-          </ModalSection>
+        <div ref={bodyRef} className="flex flex-col gap-4">
+          <FormSection title={t("crm.leads.convert.sectionCustomer")}>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 @2xl:grid-cols-4">
+              <LeadFact label={t("crm.leads.fields.customerName")} value={lead.customerName} />
+              <LeadFact label={t("crm.leads.fields.mobileNumber")} value={lead.mobileNumber} ltr />
+              <LeadFact
+                label={t("crm.leads.convert.owner")}
+                value={lead.salesEmployee?.fullName ?? "—"}
+              />
+              <LeadFact label={t("crm.leads.fields.source")} value={lead.source} ltr />
+            </dl>
+          </FormSection>
 
-          <ModalSection title={t("crm.leads.convert.sectionProducts")}>
+          <FormSection
+            title={t("crm.leads.convert.sectionProducts")}
+            data-field-name="lines"
+            data-invalid={liveIssue?.kind === "lines" ? "true" : undefined}
+          >
             <ProductLineItemsGrid
               lines={lines}
               onChange={(next) => {
                 setLines(next);
-                if (fieldError) setFieldError(null);
+                setServerError(null);
               }}
               requireWarehouse={false}
               showWarehouse={false}
@@ -281,151 +391,140 @@ export function LeadConvertDialog({
               unitPriceLabel={t("crm.leads.convert.agreedAmount")}
               requirePrice
               showErrors={showLineErrors}
-              totalLabel={t("crm.leads.convert.orderTotal")}
-              currencyCode={currency?.code}
             />
-          </ModalSection>
+            {liveIssue?.kind === "lines" ? (
+              <FieldMessage announce={false}>{liveIssue.message}</FieldMessage>
+            ) : null}
+          </FormSection>
 
-          <ModalSection title={t("crm.leads.convert.sectionPayment")} columns={2}>
-            <div className="flex flex-col gap-1">
-              <Label>{t("crm.leads.convert.paymentType")}</Label>
-              <EntityCombobox
-                value={
-                  paymentType === "CASH_ON_DELIVERY"
-                    ? { id: "CASH_ON_DELIVERY", name: t("crm.leads.convert.cod") }
-                    : { id: "PREPAID", name: t("crm.leads.convert.prepaid") }
-                }
-                onChange={(value) => {
-                  const next = (value?.id as "PREPAID" | "CASH_ON_DELIVERY") ?? "PREPAID";
-                  setPaymentType(next);
-                  if (next === "CASH_ON_DELIVERY") {
-                    for (const item of receiptItems) {
-                      if (item.staging) {
-                        void attachmentsService
-                          .discardStaging(item.staging.id)
-                          .catch(() => undefined);
+          <FormSection title={t("crm.leads.convert.sectionPayment")}>
+            <div className="grid grid-cols-1 gap-x-3 gap-y-2 @md:grid-cols-2 @3xl:grid-cols-3">
+              <div className="flex min-w-0 flex-col gap-1">
+                <Label htmlFor={paymentTypeFieldId}>{t("crm.leads.convert.paymentType")}</Label>
+                <EntityCombobox
+                  id={paymentTypeFieldId}
+                  value={paymentTypeItems.find((item) => item.id === paymentType) ?? null}
+                  onChange={(value) => {
+                    const next = (value?.id as "PREPAID" | "CASH_ON_DELIVERY") ?? "PREPAID";
+                    setPaymentType(next);
+                    if (next === "CASH_ON_DELIVERY") {
+                      for (const item of receiptItems) {
+                        if (item.staging) {
+                          void attachmentsService
+                            .discardStaging(item.staging.id)
+                            .catch(() => undefined);
+                        }
                       }
+                      setReceiptItems([]);
+                      setDeclaration(emptyDeclaration("UNPAID"));
                     }
-                    setReceiptItems([]);
-                    setDeclaration(emptyDeclaration("UNPAID"));
+                  }}
+                  items={paymentTypeItems}
+                  getId={(item) => item.id}
+                  getTitle={(item) => item.name}
+                />
+              </div>
+              <div className="flex min-w-0 flex-col gap-1">
+                <Label htmlFor={fulfillmentFieldId}>
+                  {t("crm.leads.convert.fulfillmentMethod")}
+                </Label>
+                <EntityCombobox
+                  id={fulfillmentFieldId}
+                  value={fulfillmentItems.find((item) => item.id === fulfillmentMethod) ?? null}
+                  onChange={(value) => {
+                    setFulfillmentMethod((value?.id as "SHIPPING" | "PICKUP") ?? "SHIPPING");
+                  }}
+                  items={fulfillmentItems}
+                  getId={(item) => item.id}
+                  getTitle={(item) => item.name}
+                />
+              </div>
+              <div className="flex min-w-0 flex-col gap-1">
+                <Label htmlFor={currencyFieldId}>{t("crm.leads.fields.currency")}</Label>
+                <CurrencyPicker
+                  id={currencyFieldId}
+                  valueKey="id"
+                  value={currency?.id ?? ""}
+                  onValueChange={(id) =>
+                    setCurrency(currencies.find((row) => row.id === id) ?? null)
                   }
-                }}
-                items={[
-                  { id: "PREPAID", name: t("crm.leads.convert.prepaid") },
-                  { id: "CASH_ON_DELIVERY", name: t("crm.leads.convert.cod") },
-                ]}
-                getId={(item) => item.id}
-                getTitle={(item) => item.name}
-              />
+                />
+              </div>
             </div>
-            <div className="flex flex-col gap-1">
-              <Label>{t("crm.leads.convert.fulfillmentMethod")}</Label>
-              <EntityCombobox
-                value={
-                  fulfillmentMethod === "PICKUP"
-                    ? { id: "PICKUP", name: t("crm.leads.convert.pickup") }
-                    : { id: "SHIPPING", name: t("crm.leads.convert.shipping") }
-                }
-                onChange={(value) => {
-                  setFulfillmentMethod((value?.id as "SHIPPING" | "PICKUP") ?? "SHIPPING");
-                }}
-                items={[
-                  { id: "SHIPPING", name: t("crm.leads.convert.shipping") },
-                  { id: "PICKUP", name: t("crm.leads.convert.pickup") },
-                ]}
-                getId={(item) => item.id}
-                getTitle={(item) => item.name}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor={currencyFieldId}>{t("crm.leads.fields.currency")}</Label>
-              <CurrencyPicker
-                id={currencyFieldId}
-                valueKey="id"
-                value={currency?.id ?? ""}
-                onValueChange={(id) => setCurrency(currencies.find((row) => row.id === id) ?? null)}
-              />
-            </div>
-          </ModalSection>
+          </FormSection>
 
           {paymentType === "PREPAID" ? (
             <PaymentDeclarationFields
               value={declaration}
               onChange={(next) => {
                 setDeclaration(next);
-                if (fieldError) setFieldError(null);
+                setServerError(null);
               }}
               receipts={receiptItems}
               onReceiptsChange={setReceiptItems}
               total={orderTotal}
               remaining={orderTotal}
               currency={currency}
+              error={liveIssue?.kind === "declaration" ? liveIssue.error : null}
               disabled={isSaving}
             />
           ) : null}
 
-          <ModalSection title={t("crm.leads.convert.sectionShipping")} columns={2}>
-            <div className="flex flex-col gap-1">
-              <Label>{t("crm.leads.fields.country")}</Label>
-              <EntityCombobox
-                value={selectedCountry}
-                onChange={(value) => {
-                  setCountryId(value?.id ?? lead.countryId);
-                  setCity("");
-                }}
-                items={countryOptions}
-                getId={(item) => item.id}
-                getTitle={(item) => item.name}
-                getSearchText={(item) => `${item.code} ${item.name}`}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label>{t("crm.leads.fields.city")}</Label>
-              {cities.length > 0 ? (
+          <FormSection title={t("crm.leads.convert.sectionShipping")}>
+            <div className="grid grid-cols-1 gap-x-3 gap-y-2 @md:grid-cols-2 @3xl:grid-cols-3">
+              <div className="flex min-w-0 flex-col gap-1">
+                <Label htmlFor={countryFieldId}>{t("crm.leads.fields.country")}</Label>
                 <EntityCombobox
-                  value={selectedCity}
-                  onChange={(value) => setCity(value?.name ?? "")}
-                  items={cities}
+                  id={countryFieldId}
+                  value={selectedCountry}
+                  onChange={(value) => {
+                    setCountryId(value?.id ?? lead.countryId);
+                    setCity("");
+                  }}
+                  items={countryOptions}
                   getId={(item) => item.id}
                   getTitle={(item) => item.name}
-                  allowClear
+                  getSearchText={(item) => `${item.code} ${item.name}`}
                 />
-              ) : (
-                <Input value={city} onChange={(event) => setCity(event.target.value)} />
-              )}
+              </div>
+              <div className="flex min-w-0 flex-col gap-1">
+                <Label htmlFor={cityFieldId}>{t("crm.leads.fields.city")}</Label>
+                {cities.length > 0 ? (
+                  <EntityCombobox
+                    id={cityFieldId}
+                    value={selectedCity}
+                    onChange={(value) => setCity(value?.name ?? "")}
+                    items={cities}
+                    getId={(item) => item.id}
+                    getTitle={(item) => item.name}
+                    allowClear
+                  />
+                ) : (
+                  <Input
+                    id={cityFieldId}
+                    value={city}
+                    onChange={(event) => setCity(event.target.value)}
+                  />
+                )}
+              </div>
+              <div className="col-span-full flex min-w-0 flex-col gap-1 @3xl:col-span-1 @3xl:row-span-2">
+                <Label htmlFor={addressFieldId}>{t("crm.leads.fields.address")}</Label>
+                <Textarea
+                  id={addressFieldId}
+                  value={address}
+                  aria-invalid={liveIssue?.kind === "address" || undefined}
+                  onChange={(event) => setAddress(event.target.value)}
+                  rows={2}
+                />
+                {liveIssue?.kind === "address" ? (
+                  <FieldMessage announce={false}>{liveIssue.message}</FieldMessage>
+                ) : null}
+              </div>
             </div>
-            <div className="col-span-full flex flex-col gap-1">
-              <Label>{t("crm.leads.fields.address")}</Label>
-              <Textarea
-                value={address}
-                onChange={(event) => setAddress(event.target.value)}
-                rows={2}
-              />
-            </div>
-          </ModalSection>
+          </FormSection>
 
-          <CreateOperationTotals
-            rows={[
-              {
-                label: t("crm.leads.convert.orderTotal"),
-                value: (
-                  <span dir="ltr">
-                    {orderTotal.toFixed(2)} {currency?.code ?? ""}
-                  </span>
-                ),
-                emphasis: "strong",
-              },
-              {
-                label: t("crm.leads.convert.amountPaid"),
-                value: <span dir="ltr">{paid.toFixed(2)}</span>,
-              },
-              {
-                label: t("crm.leads.convert.remaining"),
-                value: <span dir="ltr">{remaining.toFixed(2)}</span>,
-              },
-            ]}
-          />
-        </CreateOperationLayout>
+          {figures}
+        </div>
       ) : (
         <CreateOperationLayout>
           <CreateOperationSummary
@@ -440,13 +539,9 @@ export function LeadConvertDialog({
                 value: productLines
                   .map(
                     (line) =>
-                      `${line.product?.displayName ?? line.product?.name} × ${line.quantity} = ${(line.lineAmount ?? 0).toFixed(2)}`,
+                      `${line.product?.displayName ?? line.product?.name} × ${line.quantity} = ${formatMoney(line.lineAmount ?? 0)}`,
                   )
                   .join(" · "),
-              },
-              {
-                label: t("crm.leads.convert.orderTotal"),
-                value: `${orderTotal.toFixed(2)} ${currency?.code ?? ""}`,
               },
               {
                 label: t("crm.leads.convert.paymentType"),
@@ -456,6 +551,13 @@ export function LeadConvertDialog({
                     : t("crm.leads.convert.prepaid"),
               },
               {
+                label: t("crm.leads.convert.fulfillmentMethod"),
+                value:
+                  fulfillmentMethod === "PICKUP"
+                    ? t("crm.leads.convert.pickup")
+                    : t("crm.leads.convert.shipping"),
+              },
+              {
                 label: t("paymentDeclaration.dialog.question"),
                 value:
                   paymentType === "PREPAID"
@@ -463,10 +565,6 @@ export function LeadConvertDialog({
                     : undefined,
               },
               { label: t("crm.leads.convert.paymentMethod"), value: paymentMethod?.name },
-              {
-                label: t("crm.leads.convert.amountPaid"),
-                value: paid > 0 ? paid.toFixed(2) : undefined,
-              },
               { label: t("crm.leads.fields.currency"), value: currency?.code },
               {
                 label: t("crm.leads.convert.sectionShipping"),
@@ -474,9 +572,9 @@ export function LeadConvertDialog({
               },
             ]}
           />
+          {figures}
         </CreateOperationLayout>
       )}
-      <span className="sr-only">{locale}</span>
     </EnterpriseModal>
   );
 }

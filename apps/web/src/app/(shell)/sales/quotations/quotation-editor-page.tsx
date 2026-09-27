@@ -29,7 +29,7 @@ import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
-import { reportApiError, toast } from "@/lib/toast";
+import { reportApiError, toast, reportSuccess } from "@/lib/toast";
 import { ApiError } from "@/services/api-client";
 import { ConvertToOrderDialog } from "./convert-to-order-dialog";
 import { lifecycleActions } from "@/config/documents/lifecycle-actions";
@@ -167,10 +167,10 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
       if (id) {
         const updated = await salesQuotationsService.update(id, buildPayload());
         applyQuotation(updated);
-        toast.success(t("common.saved"));
+        reportSuccess(t("common.saved"));
       } else {
         const created = await salesQuotationsService.create(buildPayload());
-        toast.success(t("common.saved"));
+        reportSuccess(t("common.saved"));
         router.replace(`/sales/quotations/${created.id}`);
       }
     } catch (error) {
@@ -192,7 +192,7 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
       // Transition responses are partial (no payment summary / related
       // documents); always re-read the full document before rendering it.
       applyQuotation(await salesQuotationsService.get(id));
-      toast.success(t(successKey));
+      reportSuccess(t(successKey));
       refreshActivity(id);
     } catch (error) {
       reportApiError(error, "errors.generic");
@@ -301,7 +301,7 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
             if (!id) return;
             try {
               const copy = await salesQuotationsService.duplicate(id);
-              toast.success(t("docFlow.lifecycle.duplicated", { number: copy.quotationNumber }));
+              reportSuccess(t("docFlow.lifecycle.duplicated", { number: copy.quotationNumber }));
               router.push(`/sales/quotations/${copy.id}`);
             } catch (error) {
               toast.error(error instanceof ApiError ? error.message : t("common.failedToSave"));

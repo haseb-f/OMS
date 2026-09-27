@@ -2,19 +2,15 @@
 
 import { cloneElement, isValidElement, useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Loader2, MoreHorizontal } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { ConfirmationDialog, type ConfirmationTone } from "@/components/shared/confirmation-dialog";
+import {
+  HeaderActions,
+  type ActionSpec,
+  type DestructiveActionSpec,
+} from "@/components/shared/header-actions";
 import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
 import { useLocale } from "@/providers/locale-provider";
-import { cn } from "@/lib/utils";
 
 /** Explains, before it happens, what a transition creates and changes. */
 export interface DocumentActionConfirmation {
@@ -32,6 +28,12 @@ export interface DocumentAction<TContext = void> {
   primary?: boolean;
   /** Irreversible/negative (Cancel, Archive) — listed last, in red. */
   destructive?: boolean;
+  /**
+   * A frequent secondary action shown inline (outline) on sm+ — at most two
+   * are shown; everything else lives in «المزيد». Print is secondary by
+   * default.
+   */
+  secondary?: boolean;
   /** Legacy visual hint from older configs; `primary`/`destructive` win. */
   variant?: "default" | "outline" | "destructive" | "ghost";
   visibleForStatuses?: string[];
@@ -39,13 +41,19 @@ export interface DocumentAction<TContext = void> {
   onAction: (context: TContext) => void | Promise<void>;
 }
 
+const isSecondary = (action: { key: string; secondary?: boolean }) =>
+  action.secondary ?? action.key === "print";
+
 /**
- * The one action bar every document editor uses: exactly one primary
- * action for the current status, everything else in a compact "More" menu,
- * and a confirmation that states the next state/document and its effects
- * before any consequential transition runs. On phones the same bar is
- * pinned to the bottom of the screen above the keyboard, so the next step
- * is always reachable with a thumb.
+ * The one action bar every document editor uses, built on the shared
+ * `HeaderActions` (design-system §11.2): exactly one filled primary for the
+ * current status, up to two frequent secondary actions (outline), the rest
+ * in «المزيد», and destructive actions separated in red at the bottom of that
+ * menu. Every consequential transition states its next state/effects in a
+ * confirmation before it runs.
+ *
+ * Phones (<768px): the same controls are pinned to the bottom of the screen
+ * above the keyboard, with the primary stretched to a full tap target.
  */
 export function DocumentActionBar<TContext>({
   status,
@@ -75,13 +83,16 @@ export function DocumentActionBar<TContext>({
         (action) => !action.visibleForStatuses || action.visibleForStatuses.includes(status),
       );
   const primary = visible.find((action) => action.primary) ?? null;
-  const secondary = visible.filter((action) => action !== primary && !action.destructive);
+  const rest = visible.filter((action) => action !== primary && !action.destructive);
   const destructive = visible.filter((action) => action !== primary && action.destructive);
   const busy = Boolean(isBusy || running);
   // Exactly one filled button per bar: while a status transition is the
-  // primary action, a leading Save button is shown as secondary (outline).
+  // primary action — or Save is unavailable (a posted document) — a leading
+  // Save button is shown as secondary (outline), never as a greyed primary.
   const leadingControl =
-    primary && isValidElement<{ variant?: string }>(leading) && leading.type === EnterpriseButton
+    isValidElement<{ variant?: string; disabled?: boolean }>(leading) &&
+    leading.type === EnterpriseButton &&
+    (primary || leading.props.disabled)
       ? cloneElement(leading, { variant: "outline" })
       : leading;
 
@@ -102,84 +113,48 @@ export function DocumentActionBar<TContext>({
     void execute(action);
   };
 
-  const renderBar = (mobile: boolean) => (
-    <div className={cn("flex items-center gap-2", mobile ? "w-full" : "flex-wrap justify-end")}>
-      {leadingControl}
-      {primary ? (
-        <EnterpriseButton
-          type="button"
-          size={mobile ? "default" : "sm"}
-          className={cn("gap-1.5", mobile && "h-(--control-height-lg) flex-1")}
-          disabled={busy}
-          onClick={() => trigger(primary)}
-        >
-          {running === primary.key ? (
-            <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" />
-          ) : primary.icon ? (
-            <primary.icon className="size-3.5" />
-          ) : null}
-          {primary.label}
-        </EnterpriseButton>
-      ) : null}
-      {secondary.length + destructive.length > 0 ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <EnterpriseButton
-              type="button"
-              variant="outline"
-              size={mobile ? "icon" : "sm"}
-              className={cn("gap-1.5", mobile && "size-(--control-height-lg) shrink-0")}
-              disabled={busy}
-              aria-label={t("docFlow.actions.more")}
-            >
-              <MoreHorizontal className="size-4" />
-              {mobile ? null : t("docFlow.actions.more")}
-            </EnterpriseButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-48">
-            {secondary.map((action) => (
-              <DropdownMenuItem
-                key={action.key}
-                className="min-h-9 gap-2"
-                onSelect={() => trigger(action)}
-              >
-                {action.icon ? <action.icon className="size-3.5" /> : null}
-                {action.label}
-              </DropdownMenuItem>
-            ))}
-            {destructive.length > 0 && secondary.length > 0 ? <DropdownMenuSeparator /> : null}
-            {destructive.map((action) => (
-              <DropdownMenuItem
-                key={action.key}
-                variant="destructive"
-                className="min-h-9 gap-2"
-                onSelect={() => trigger(action)}
-              >
-                {action.icon ? <action.icon className="size-3.5" /> : null}
-                {action.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ) : null}
-    </div>
-  );
+  const toSpec = (action: DocumentAction<TContext>): ActionSpec => ({
+    key: action.key,
+    label: action.label,
+    icon: action.icon,
+    disabled: busy,
+    loading: running === action.key,
+    onSelect: () => trigger(action),
+  });
+
+  const destructiveSpecs: DestructiveActionSpec[] = destructive.map((action) => ({
+    ...toSpec(action),
+    // HeaderActions confirms destructive actions itself — run directly after it.
+    onSelect: () => execute(action),
+    confirm: {
+      title: action.confirm?.title ?? action.label,
+      description: action.confirm?.description,
+      confirmLabel: action.confirm?.confirmLabel ?? action.label,
+    },
+  }));
 
   return (
     <>
-      <div className="hidden md:block">{renderBar(false)}</div>
       <div
-        className="fixed inset-x-0 z-(--z-action-bar) border-t border-border bg-card px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden"
+        data-slot="document-action-bar"
+        className="max-md:fixed max-md:inset-x-0 max-md:z-(--z-action-bar) max-md:border-t max-md:border-border max-md:bg-card max-md:px-3 max-md:pt-2 max-md:pb-[max(0.5rem,env(safe-area-inset-bottom))]"
         style={{ bottom: keyboardInset }}
       >
-        {renderBar(true)}
+        <HeaderActions
+          className="max-md:flex-nowrap max-md:[&>button]:h-(--control-height-lg) max-md:[&>button:last-child]:flex-1"
+          primary={primary ? toSpec(primary) : undefined}
+          secondary={rest.filter(isSecondary).map(toSpec)}
+          more={rest.filter((action) => !isSecondary(action)).map(toSpec)}
+          destructive={destructiveSpecs}
+          inline={leadingControl}
+        />
       </div>
       <ConfirmationDialog
         open={pending !== null}
         onOpenChange={(open) => {
           if (!open) setPending(null);
         }}
-        tone={pending?.confirm?.tone ?? (pending?.destructive ? "destructive" : "default")}
+        tone={pending?.confirm?.tone ?? "default"}
         title={pending?.confirm?.title ?? ""}
         description={pending?.confirm?.description}
         confirmLabel={pending?.confirm?.confirmLabel ?? pending?.label}
