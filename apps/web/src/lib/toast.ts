@@ -14,7 +14,10 @@
  * hover/focus-pause are sonner defaults and are not affected by this.
  */
 import { toast as sonnerToast, type ExternalToast } from "sonner";
-import { ApiError } from "@/services/api-client";
+import { ApiError, currentLocale } from "@/services/api-client";
+import { messages } from "@/i18n/messages";
+import { translate, type MessageKey } from "@/i18n/translate";
+import type { Locale } from "@/i18n/locales";
 
 const DEFAULT_DURATIONS = {
   success: 5000,
@@ -56,14 +59,45 @@ export const toast: typeof sonnerToast = Object.assign(sonnerToast, {
     withDefaultDuration("error", message, options),
 });
 
+/** A caller-supplied fallback: an i18n key (preferred) or already-translated text from `t(...)`. */
+export type ApiErrorFallback = MessageKey | (string & {});
+
+function isMessageKey(value: string): value is MessageKey {
+  // A key resolves to a different string in the dictionary; plain text resolves to itself.
+  return (
+    /^[A-Za-z][\w-]*(\.[\w-]+)+$/.test(value) &&
+    translate(messages.en, value as MessageKey) !== value
+  );
+}
+
 /**
- * Canonical "surface an API failure" helper — replaces the
- * `toast.error(error instanceof ApiError ? error.message : fallback)`
- * pattern repeated across the app (a real API error's own message is
- * shown to the user; anything else falls back to a caller-supplied,
- * already-translated string). Callers keep doing their own try/catch;
- * this only standardizes the one line that turns `error` into a toast.
+ * The text `reportApiError` shows — exported for inline error panels and tests.
+ * An `ApiError` already carries the localized, user-facing message built by
+ * `api-client` (including the server's own authored business message when it
+ * sent one), so that wins. Anything else — a network/JS error, an empty
+ * message — shows the fallback in the active UI language; a raw JS error
+ * message is never shown to the user.
  */
-export function reportApiError(error: unknown, fallback: string, options?: ExternalToast) {
-  return toast.error(error instanceof ApiError ? error.message : fallback, options);
+export function apiErrorMessage(
+  error: unknown,
+  fallback: ApiErrorFallback = "errors.generic",
+  locale: Locale = currentLocale(),
+): string {
+  if (error instanceof ApiError && error.message.trim()) return error.message;
+  return isMessageKey(fallback) ? translate(messages[locale], fallback) : fallback;
+}
+
+/**
+ * Canonical "surface an API failure" helper — the single path every module
+ * uses instead of `toast.error(error instanceof ApiError ? error.message : "…")`.
+ * Pass an i18n key as the fallback (`reportApiError(error, "errors.loadFailed")`);
+ * an already-translated `t(...)` string also works. Callers keep their own
+ * try/catch; this only standardizes the line that turns `error` into a toast.
+ */
+export function reportApiError(
+  error: unknown,
+  fallback: ApiErrorFallback = "errors.generic",
+  options?: ExternalToast,
+) {
+  return toast.error(apiErrorMessage(error, fallback), options);
 }

@@ -6,10 +6,14 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
 
+/**
+ * Column count follows the SECTION's own width (container queries), not the
+ * viewport — a 768px modal on a wide screen must not get 4 cramped columns.
+ */
 const columnClass: Record<2 | 3 | 4, string> = {
-  2: "md:grid-cols-2",
-  3: "md:grid-cols-2 xl:grid-cols-3",
-  4: "md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+  2: "@md:grid-cols-2",
+  3: "@md:grid-cols-2 @3xl:grid-cols-3",
+  4: "@md:grid-cols-2 @2xl:grid-cols-3 @4xl:grid-cols-4",
 };
 
 /**
@@ -46,7 +50,7 @@ export function ModalSection({
   const heading = (
     <div className="flex items-center justify-between gap-2 px-3 py-2">
       <div className="flex min-w-0 items-baseline gap-2">
-        <h3 className="text-body font-semibold leading-snug">{title}</h3>
+        <h3 className="text-body font-semibold">{title}</h3>
         {optional && (
           <span className="text-caption font-normal text-muted-foreground">
             {t("common.optional")}
@@ -59,7 +63,7 @@ export function ModalSection({
     </div>
   );
 
-  const shell = cn("rounded-md border border-border bg-card", className);
+  const shell = cn("@container rounded-md border border-border bg-card", className);
 
   if (!collapsible) {
     return (
@@ -107,8 +111,8 @@ export function ModalFieldSpan({
     <div
       className={cn(
         span === "full" && "col-span-full",
-        span === 2 && "md:col-span-2",
-        span === 3 && "md:col-span-2 xl:col-span-3",
+        span === 2 && "@md:col-span-2",
+        span === 3 && "@md:col-span-2 @3xl:col-span-3",
         className,
       )}
     >

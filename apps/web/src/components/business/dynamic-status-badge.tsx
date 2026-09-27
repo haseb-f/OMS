@@ -1,16 +1,8 @@
-import { StatusBadge, type StatusTone } from "@/components/business/status-badge";
-
-const COLOR_TO_TONE: Record<string, StatusTone> = {
-  neutral: "neutral",
-  info: "info",
-  warning: "warning",
-  success: "success",
-  destructive: "destructive",
-};
+import { StatusBadge } from "@/components/business/status-badge";
 
 /**
- * Renders a status badge from dynamic Master Data — label + semantic color
- * token from the API, never hard-coded enum labels in page components.
+ * @deprecated Use `<StatusBadge label colorKey />` directly. Kept as a thin
+ * wrapper so existing call sites keep working during adoption.
  */
 export function DynamicStatusBadge({
   label,
@@ -21,6 +13,5 @@ export function DynamicStatusBadge({
   colorKey?: string | null;
   className?: string;
 }) {
-  const tone = COLOR_TO_TONE[colorKey ?? "neutral"] ?? "neutral";
-  return <StatusBadge label={label} tone={tone} className={className} />;
+  return <StatusBadge label={label} colorKey={colorKey} className={className} />;
 }

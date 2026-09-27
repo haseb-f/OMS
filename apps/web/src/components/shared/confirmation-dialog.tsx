@@ -17,11 +17,11 @@ import { cn } from "@/lib/utils";
 
 export type ConfirmationTone = "default" | "destructive" | "warning";
 
-const actionToneClasses: Record<ConfirmationTone, string | undefined> = {
-  default: undefined,
-  destructive:
-    "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20",
-  warning: "bg-warning text-warning-foreground hover:bg-warning/90 focus-visible:ring-warning/30",
+/** Confirm action = the shared button variant for the tone — never a one-off color class. */
+const actionVariant: Record<ConfirmationTone, "default" | "destructive" | "warning"> = {
+  default: "default",
+  destructive: "destructive",
+  warning: "warning",
 };
 
 /**
@@ -84,8 +84,10 @@ export function ConfirmationDialog({
             {showAlertIcon && (
               <TriangleAlert
                 className={cn(
-                  "size-5",
-                  resolvedTone === "destructive" ? "text-destructive" : "text-warning",
+                  "size-5 shrink-0",
+                  resolvedTone === "destructive"
+                    ? "text-destructive"
+                    : "text-warning-soft-foreground",
                 )}
               />
             )}
@@ -101,7 +103,7 @@ export function ConfirmationDialog({
           <AlertDialogAction
             disabled={confirmDisabled || isConfirming}
             aria-busy={isConfirming || undefined}
-            className={actionToneClasses[resolvedTone]}
+            variant={actionVariant[resolvedTone]}
             onClick={(event) => {
               if (isConfirming !== undefined) event.preventDefault();
               onConfirm();

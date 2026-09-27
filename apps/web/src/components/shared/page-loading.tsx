@@ -12,8 +12,14 @@ import { useLocale } from "@/providers/locale-provider";
 export function PageLoading() {
   const { t } = useLocale();
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-24 text-center">
-      <Loader2 className="size-6 animate-spin text-muted-foreground" />
+    <div
+      role="status"
+      className="flex flex-1 flex-col items-center justify-center gap-2 px-4 py-16 text-center"
+    >
+      <Loader2
+        className="size-5 animate-spin text-muted-foreground motion-reduce:animate-none"
+        aria-hidden
+      />
       <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
     </div>
   );

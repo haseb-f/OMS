@@ -3,11 +3,9 @@
 import { useLocale } from "@/providers/locale-provider";
 
 /**
- * Repeats on every printed sheet via `position: fixed` (a standard print
- * CSS technique — fixed-position elements re-render at the same physical
- * spot on each page). Page numbering uses the CSS Paged Media `@page`
- * counters declared in `PrintPage` — a progressive enhancement that
- * degrades to no text (never broken layout) in browsers without support.
+ * On-screen preview of the sheet footer. On paper the same line and the page
+ * numbers are drawn in `@page` margin boxes by `PrintPage` (repeated on every
+ * sheet, never overlapping content), so this block is hidden when printing.
  */
 export function PrintFooter({
   printedAt,
@@ -18,14 +16,14 @@ export function PrintFooter({
 }) {
   const { t } = useLocale();
   return (
-    <footer className="fixed inset-x-0 bottom-0 flex items-end justify-between border-t border-slate-300 bg-white px-[12mm] py-2 text-[9px] text-slate-500">
+    <footer className="mt-6 flex items-end justify-between gap-4 border-t border-border pt-2 text-[9px] text-muted-foreground print:hidden">
       <span>
-        {t("reportExport.generatedBy")} · {t("reportExport.printedAt")} {printedAt}
+        {t("reportExport.generatedBy")} · {t("reportExport.printedAt")}{" "}
+        <span className="num">{printedAt}</span>
       </span>
       {signatureLabel && (
-        <span className="border-t border-slate-400 px-8 pt-1 text-slate-600">{signatureLabel}</span>
+        <span className="border-t border-border-strong px-8 pt-1">{signatureLabel}</span>
       )}
-      <span className="print-page-counter" />
     </footer>
   );
 }

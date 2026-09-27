@@ -57,7 +57,7 @@ interface StructuredErrorBody {
  * read-only, and only ever affects which language an error message renders
  * in, never app state.
  */
-function currentLocale(): Locale {
+export function currentLocale(): Locale {
   if (typeof window === "undefined") return defaultLocale;
   try {
     const stored = window.localStorage.getItem(STORAGE_KEYS.locale);

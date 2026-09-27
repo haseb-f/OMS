@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { DynamicStatusBadge } from "@/components/business/dynamic-status-badge";
+import { StatusBadge, STATUS_TONE_DOT_CLASS } from "@/components/business/status-badge";
 import { EnterpriseButton } from "@/components/ui/button";
 import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
@@ -16,13 +16,7 @@ export const CLASSIFICATION_COLOR_TOKENS = [
 
 export type ClassificationColorToken = (typeof CLASSIFICATION_COLOR_TOKENS)[number];
 
-const TOKEN_SWATCH: Record<ClassificationColorToken, string> = {
-  neutral: "bg-muted-foreground",
-  info: "bg-info",
-  warning: "bg-warning",
-  success: "bg-success",
-  destructive: "bg-destructive",
-};
+const TOKEN_SWATCH: Record<ClassificationColorToken, string> = STATUS_TONE_DOT_CLASS;
 
 export function ClassificationColorPicker({
   value,
@@ -52,7 +46,7 @@ export function ClassificationColorPicker({
             onClick={() => onChange(option)}
             className={cn(
               "border",
-              token === option ? "border-foreground ring-2 ring-ring/40" : "border-border",
+              token === option ? "border-foreground ring-2 ring-focus-ring" : "border-border",
             )}
           >
             <span className={cn("size-4 rounded-full", TOKEN_SWATCH[option])} />
@@ -69,14 +63,10 @@ export function ClassificationColorPicker({
   );
 }
 
+/** Customer classification chip — the shared StatusBadge in its `dot` variant. */
 export function ClassificationBadge({ label, color }: { label: string; color?: string | null }) {
   const token = (CLASSIFICATION_COLOR_TOKENS as readonly string[]).includes(color ?? "")
     ? (color as ClassificationColorToken)
     : "neutral";
-  return (
-    <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
-      <span className={cn("size-2 shrink-0 rounded-full", TOKEN_SWATCH[token])} aria-hidden />
-      <DynamicStatusBadge label={label} colorKey={token} />
-    </span>
-  );
+  return <StatusBadge label={label} tone={token} dot />;
 }

@@ -1,18 +1,47 @@
 "use client";
 
-import type { LucideIcon } from "lucide-react";
+import { Construction, type LucideIcon } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
+import { cn } from "@/lib/utils";
+
+/**
+ * Placeholder panel for a feature that is planned but not built — a dashed
+ * frame + "Coming soon" so it can never be mistaken for an empty data state.
+ * Use inside tabs/sections; full routes use `ComingSoonPage`.
+ */
+export function ComingSoonPanel({
+  icon = Construction,
+  className,
+}: {
+  icon?: LucideIcon;
+  className?: string;
+}) {
+  const { t } = useLocale();
+  return (
+    <div
+      data-placeholder="coming-soon"
+      className={cn(
+        "flex flex-1 items-center justify-center rounded-md border border-dashed border-border-strong",
+        className,
+      )}
+    >
+      <EmptyState
+        icon={icon}
+        title={t("common.comingSoon")}
+        description={t("common.comingSoonDescription")}
+      />
+    </div>
+  );
+}
 
 /**
  * The one shell every "prepared, not yet implemented" page renders through
  * (Settings categories, Reports categories) — a real breadcrumb + header
- * plus the shared `EmptyState`, never a bespoke placeholder layout. Once a
- * category gets real functionality, its page.tsx stops rendering this and
- * renders its own content instead — this component only exists for pages
- * that are foundation-only by design.
+ * plus the shared placeholder panel, never a bespoke placeholder layout.
+ * Once a category gets real functionality, its page.tsx stops rendering this.
  */
 export function ComingSoonPage({
   titleKey,
@@ -27,13 +56,7 @@ export function ComingSoonPage({
 
   return (
     <PageWorkspace title={t(titleKey)} description={descriptionKey ? t(descriptionKey) : undefined}>
-      <div className="rounded-sm border border-dashed border-border py-6">
-        <EmptyState
-          icon={Icon}
-          title={t("common.comingSoon")}
-          description={t("common.comingSoonDescription")}
-        />
-      </div>
+      <ComingSoonPanel icon={Icon} />
     </PageWorkspace>
   );
 }
