@@ -1,0 +1,110 @@
+# Verification — enterprise-ui-overhaul
+
+Evidence folders:
+
+- `tmp/ui-baseline/{before,after,after-nav}`: Production before and after.
+- `tmp/ui-baseline/rev-sweep*`: local review.
+- `tmp/acceptance/DEMO-UI-20260927{,-R3}`: Production journeys.
+- `docs/user-guide/screenshots/`: refreshed guide screenshots.
+
+Recaptures use `scripts/acceptance/ui-baseline.mjs`: `PHASE=before|after`, or `PAGES=nav` for every
+sidebar route.
+
+## Gates (final tree)
+
+| Gate                                     | Result                                  |
+| ---------------------------------------- | --------------------------------------- |
+| `tsc --noEmit` (apps/web)                | clean                                   |
+| ESLint (apps/web/src)                    | 0 errors; 11 warnings, all pre-existing |
+| Vitest (apps/web)                        | 27 files, 207 tests pass                |
+| `next build`                             | success                                 |
+| `node scripts/design/contrast-check.mjs` | all token pairs pass AA, light and dark |
+| API                                      | untouched (no `apps/api` changes)       |
+
+## Density: before vs after (Production, same pages, same data)
+
+Rows fully visible at 1440×900 (desktop, Arabic, light).
+
+| Page                        | Before: rows (row height) | After: rows (row height)  |
+| --------------------------- | ------------------------- | ------------------------- |
+| Leads                       | 10 (63px)                 | 13 (51px)                 |
+| Store orders                | 7 (80px)                  | 12 (54px)                 |
+| Sales invoices              | 8 (78px)                  | 13 (54px)                 |
+| Journal entries             | 10 (63px)                 | 13 (51px)                 |
+| Inventory movements         | 11 (57px)                 | 13 (51px)                 |
+| Trial balance / IS / BS     | 19                        | 20                        |
+| Payment review              | 5 (121px)                 | one-line rows (`3490007`) |
+| Trial balance, phone 390    | 11                        | 16                        |
+| Income statement, phone 390 | 12                        | 17                        |
+
+**Why rows are denser:**
+
+- Rows are 36px for a single line and 51–54px for two lines (name plus phone, badge plus caption).
+- Headers are more compact: breadcrumbs moved into the 48px top bar, and the list page header
+  starts at y=198–232.
+- Type sizes did not shrink: body text stays at 13–14px.
+
+**Screenshots:**
+
+- Before: `tmp/ui-baseline/before/shots/`.
+- After: `tmp/ui-baseline/after/shots/`.
+
+The file names are identical in both folders.
+
+## Route coverage
+
+| Pass                                                 | Captures | Page overflow | Error text | Load errors |
+| ---------------------------------------------------- | -------- | ------------- | ---------- | ----------- |
+| Production, all 114 sidebar routes × desktop + phone | 228      | 0             | 0          | 0           |
+| Production before/after, 12 pages × 5 variants       | 60       | 0             | 0          | 0           |
+| Local independent review, 114 routes × 3 variants    | 342      | 0             | 0          | 0           |
+| Local review, dark English, representative routes    | 22       | 0             | 0          | 0           |
+
+- The 5 variants are desktop ar light, laptop ar light, desktop en dark, tablet ar light and phone ar
+  light.
+- The review (`review.md`, 19 findings plus 4 from re-verification) was fixed and re-verified. That
+  covers keyboard focus, general-ledger labels, the journal editor, Arabic bidi, tablet navigation,
+  table widths and header minimums.
+
+## Production workflows (real UI, QA personas, tagged data)
+
+- `DEMO-UI-20260927`: 129 PASS, 4 FAIL, 3 NOT TESTED, 1 BLOCKED.
+  - One failure was a real UI bug: a dropdown menu stole focus from the dialog it had opened. It was
+    fixed in `f28d692`.
+  - The payment → invoice → shipping failures came from a stale script step. The pre-milestone "إضافة
+    دفعة" button had been replaced by «إبلاغ دفع العميل». The script was updated.
+- `DEMO-UI-20260927-R3` (master, inventory, crm, store-orders and shipping journeys, after
+  `a81c898`): 30 PASS, 1 BLOCKED.
+  - The blocked step is a transfer. It needs a second warehouse, which the audit deliberately does
+    not create.
+  - This run covers opening stock, adjustment, physical count, lead → store order, payment
+    declaration → Finance confirm and post → invoice, and shipping prepare → ship → deliver.
+- The `R2` run was interrupted by a local network outage and is not evidence.
+- Financial accuracy:
+  - The independent review compared `formatAmount`/`formatMoney`, the report row mapping and
+    `document-totals-math.ts` against HEAD `0426316`. Output is unchanged, apart from Latin digits
+    and no longer printing `-0.00`.
+  - Trial-balance closing Dr/Cr matches balance-sheet signs.
+
+## Remaining gaps and exceptions (documented)
+
+1. **Horizontal scroll inside tables.** Some grids still scroll sideways inside their own container,
+   never the page:
+   - bank transactions in English at 1280: 19px, with the actions column pinned
+   - the trial balance on tablets, for its last amount column
+2. **Long Latin names truncate from the wrong end.** In Arabic views, Latin-only account labels and
+   product names truncate at the start. Arabic data is unaffected.
+3. **Print page numbers** need Chrome or Edge 131+ (`@page` margin boxes).
+4. **Company print header** shows logo and name only. The Company model has no tax number, address
+   or phone.
+5. **Investors overview totals** are computed client-side from the list endpoint, in parallel pages.
+   A server aggregate would be better.
+6. **Pinned table columns** use estimated offsets. There is no keyboard column resize.
+7. **Legacy detail headers.** `DetailWorkspace` has no highlights variant; `/products/[id]` uses
+   `EditorWorkspace`.
+8. **Investor portal layout** duplicates the auth layout. This is a brand exception.
+9. **Historical guide screenshots.** 65 payment-milestone shots and a few one-time dialog shots stay
+   in the previous design, labelled «لقطة تاريخية».
+10. **Observation for the owner, not a design change.** After Finance disputes a claim, the sales agent
+    again sees «إبلاغ دفع العميل», because remaining-to-claim becomes > 0. The same logic was in
+    `0426316`, so this is a payment-rule question.

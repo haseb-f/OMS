@@ -1,37 +1,34 @@
 # Handoff — enterprise-ui-overhaul
 
-- **Status: ACTIVE since 2026-09-27.** Started after the payment milestone was verified. At the
-  baseline, HEAD = origin/main = Production = `0426316`.
-- **Session:** "OMS enterprise UI/UX design system overhaul" is the Master. Nothing is committed yet;
-  all work is in the working tree.
-- **Done (Master):**
-  - Inventories: `inventory-*.md`, four files.
-  - Before baseline in `tmp/ui-baseline/before`, captured by `scripts/acceptance/ui-baseline.mjs`.
-  - `design-system.md`, `plan.md`, `tasks.md`.
-  - Tokens in `globals.css` and `theme/tokens.css`. They pass `node scripts/design/contrast-check.mjs`.
-  - Primitives in `components/ui/*`: flat, one focus ring, a `field` variant, AA badges, no
-    blur/zoom.
-  - Shell:
-    - flush sidebar
-    - breadcrumbs inside the 48px top bar
-    - token gutters and 1720px content
-    - the `data-viewport-fill` hook
-    - Finance navigation grouped into four sub-groups
-- **Running:** SC-TABLE, SC-REPORTS, SC-DOCS and SC-FEEDBACK. Ownership is listed in `plan.md`.
-- **Next:**
-  1. Integrate the four tracks.
-  2. Gates.
-  3. Local renders of the sample screens.
-  4. ADOPT for the remaining modules.
-  5. REV.
-  6. Release: commit, push, check the Production SHA.
-  7. Production browser QA.
-  8. After baseline and the Arabic guide screenshots.
-- **Recovery:** if the session dies, `git status` shows the full working-tree change set. Re-run the
-  gates, typecheck and lint before committing.
+**Status: COMPLETE (2026-09-27).**
+
+- **Evidence:** see `verification.md` for gates, before/after density, route coverage, Production
+  journeys and remaining gaps, and `review.md` for the independent review and its re-verification.
+- **Release:** HEAD = origin/main = Production, verified at the final push (see the git log; the
+  SHA isn't recorded here because recording it would change it).
+- **Commits:**
+  - foundation 169f4c9
+  - feedback dbc839b
+  - reports b140965
+  - tables d263b2b
+  - documents bef13f9
+  - adoption a39cbb1
+  - specs 6947515
+  - fixes 3490007 (payment review rows), f28d692 (menu focus), a81c898 (picker focus), fcd9938
+    (alert contrast)
+  - Arabic guide d468b41
+- **Design system:**
+  - `design-system.md` is canonical.
+  - Tokens are in `apps/web/src/app/globals.css` and `theme/tokens.css`. Run
+    `node scripts/design/contrast-check.mjs` before changing any color token.
+  - Before/after captures come from `scripts/acceptance/ui-baseline.mjs` (`PHASE=…`, `PAGES=nav` for
+    every sidebar route).
 - **Decisions:**
-  - Numbers align to the logical end (the left edge in Arabic).
-  - Digits are Latin in both locales, on screen and in print.
+  - Numeric columns align to the logical end.
+  - Latin digits in both locales.
   - Buttons and fields share one height: 32px, or 40px on touch.
-- **Input kept from the payment milestone:** `ProductPicker` options show "SKU · price" (`0331a58`).
-  The redesigned picker keeps this.
+  - Phones and tablets below 1024px use the navigation sheet.
+  - List pages fill the viewport on desktop, so the grid is the only scroller.
+  - Report balances show Dr/Cr, and zero shows as "—".
+- **Open items:** see `verification.md` §"Remaining gaps". Item 10 (declare after dispute) is a
+  payment-rule question for the owner.
