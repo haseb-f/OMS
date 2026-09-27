@@ -24,7 +24,8 @@ export function fxWeekday(t: Translate, value: string | null | undefined): strin
 /** "Thu 24 Sep 2026". */
 export function fxDayLabel(t: Translate, value: string | null | undefined): string {
   if (!value) return "—";
-  return `${fxWeekday(t, value)} ${formatDate(value.slice(0, 10))}`.trim();
+  // FSI (U+2068) … PDI (U+2069) isolates the Latin date so it keeps its order after an Arabic weekday.
+  return `${fxWeekday(t, value)} \u2068${formatDate(value.slice(0, 10))}\u2069`.trim();
 }
 
 /** Rates are exact decimals (up to 8 dp); show them without float noise. */

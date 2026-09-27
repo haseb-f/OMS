@@ -307,7 +307,8 @@ function PaymentReviewPageContent() {
       },
       {
         id: "__actions",
-        meta: { titleKey: "common.actions" },
+        // Primary action + Reject + row menu on one line — never spilling into the date.
+        meta: { titleKey: "common.actions", fixedWidth: 300 },
         cell: ({ row }) => {
           const payment = row.original;
           const busy = busyId === payment.id;
