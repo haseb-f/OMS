@@ -8,8 +8,7 @@ import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { formatDisplayDate } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
-import { useUiPilot } from "@/providers/ui-pilot-provider";
-import { pilotLeadBadge } from "@/components/crm/pilot/lead-status-label";
+import { leadStatusBadge } from "@/components/crm/lead-status-label";
 import type { LeadRow } from "@/services/leads-service";
 import type { MessageKey } from "@/i18n/translate";
 
@@ -38,20 +37,13 @@ export function leadLifecycleBadge(
 }
 
 export function LeadStatusCell({ lead }: { lead: Pick<LeadRow, "status" | "salesEmployeeId"> }) {
-  const locale = useLocale();
-  const { t } = locale;
-  const pilot = useUiPilot().active;
-  const badge = pilot
-    ? pilotLeadBadge(lead, locale)
-    : leadLifecycleBadge(lead, t("crm.leads.ownership.assigned"));
+  const badge = leadStatusBadge(lead, useLocale());
   return <StatusBadge label={badge.label} colorKey={badge.colorKey} />;
 }
 
-/** Round 3.1 pilot: the lead source in the UI language, never the raw code. */
+/** The lead source in the UI language, never the raw code. */
 function LeadSourceCell({ source }: { source: string }) {
   const { t } = useLocale();
-  const pilot = useUiPilot().active;
-  if (!pilot) return <>{source}</>;
   return <>{t(`crm.leads.source.${source}` as MessageKey)}</>;
 }
 

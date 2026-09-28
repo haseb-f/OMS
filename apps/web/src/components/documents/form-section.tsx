@@ -1,7 +1,6 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useUiPilot } from "@/providers/ui-pilot-provider";
 import { FormCardSection, useFormCard } from "@/components/shared/form-card/form-card";
 import { cn } from "@/lib/utils";
 
@@ -35,9 +34,7 @@ export function FormSection({
   "data-field-name"?: string;
   "data-invalid"?: "true";
 }) {
-  // Round 3 pilot: a little more air between groups, same hairline rhythm.
-  const pilot = useUiPilot().active;
-  // Round 3.1 pilot: inside a vertical form card every group is a tinted panel.
+  // Inside a compact form card every group is a compact hairline section.
   const formCard = useFormCard();
   if (formCard) {
     return (
@@ -59,8 +56,7 @@ export function FormSection({
       data-field-name={fieldName}
       data-invalid={invalid}
       className={cn(
-        "@container flex min-w-0 flex-col gap-2 border-t border-border pt-3 first:border-t-0 first:pt-0",
-        pilot && "gap-3 pt-4",
+        "@container flex min-w-0 flex-col gap-3 border-t border-border pt-4 first:border-t-0 first:pt-0",
         className,
       )}
     >
@@ -91,15 +87,12 @@ export function AmountStrip({
   label?: string;
   className?: string;
 }) {
-  // Round 3.1 pilot: on a tinted form-card panel the strip is a white surface.
-  const formCard = useFormCard();
   return (
     <dl
       aria-label={label}
       data-slot="amount-strip"
       className={cn(
         "flex flex-wrap items-baseline justify-end gap-x-6 gap-y-1 rounded-md bg-surface-sunken px-3 py-2",
-        formCard && "border border-border bg-card",
         className,
       )}
     >

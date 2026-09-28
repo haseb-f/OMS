@@ -1,0 +1,570 @@
+/*
+ * OMS design recipes (design-system.md §12; rolled out 2026-09-28). Tokens live in app/globals.css :root/.dark
+ * and theme/tokens.css.
+ *
+ * Recipes are the few structural rules tokens cannot express, keyed on the
+ * primitives' `data-slot` / `data-variant` attributes. They are unlayered on
+ * purpose (they must win over the component utilities) and set visual
+ * properties only (color, border, shadow, radius), never size or layout, so
+ * a caller's layout classes still apply.
+ */
+
+html {
+  font-feature-settings:
+    "calt" 0,
+    "ss11" 1;
+}
+
+/* Geist's negative heading tracking breaks Arabic joins — Latin only. */
+html[dir="rtl"] :is(h1, h2, h3) {
+  letter-spacing: 0;
+}
+html[dir="ltr"] :is(h1, h2) {
+  letter-spacing: -0.02em;
+}
+
+/* ── Round 3.2: compact summary tiles (design-system §12.8) ───────────────
+   `InsightCard` is a compact tile: tone = a small tinted icon, the verdict
+   colour on the figure only where it means something, and — for open work /
+   discrepancies — a start-edge accent. Neutral surface otherwise. Only
+   cards that open something react to hover/focus: tone border + faint tint
+   + a soft elevation. No transform, no size change, no layout shift. */
+
+[data-slot="insight-card"] {
+  --tone: var(--insight-neutral);
+  --accent-edge: 3px;
+  background-color: var(--card);
+  border-color: var(--border);
+  box-shadow: var(--shadow-card);
+  color: var(--card-foreground);
+  transition:
+    border-color var(--duration-base) var(--ease-standard),
+    background-color var(--duration-base) var(--ease-standard),
+    box-shadow var(--duration-base) var(--ease-standard);
+}
+[data-slot="insight-card"][data-tone="info"] {
+  --tone: var(--insight-info);
+}
+[data-slot="insight-card"][data-tone="success"] {
+  --tone: var(--insight-success);
+}
+[data-slot="insight-card"][data-tone="warning"] {
+  --tone: var(--insight-warning);
+}
+[data-slot="insight-card"][data-tone="destructive"] {
+  --tone: var(--insight-destructive);
+}
+[data-slot="insight-card"][data-tone="revenue"] {
+  --tone: var(--insight-revenue);
+}
+[data-slot="insight-card"][data-tone="expense"] {
+  --tone: var(--insight-expense);
+}
+[data-slot="insight-card"][data-tone="profit"] {
+  --tone: var(--insight-profit);
+}
+[data-slot="insight-card"][data-tone="loss"] {
+  --tone: var(--insight-loss);
+}
+
+[data-slot="insight-card"] [data-slot="insight-icon"] {
+  color: var(--tone);
+  background-color: color-mix(in oklab, var(--tone) 11%, var(--card));
+}
+[data-slot="insight-card"] [data-slot="insight-bar"] {
+  background-color: var(--tone);
+}
+/* Emphasis (open work / discrepancy): start-edge accent, tone figure. */
+[data-slot="insight-card"][data-emphasis] {
+  box-shadow:
+    inset var(--accent-edge) 0 0 var(--tone),
+    var(--shadow-card);
+}
+[dir="rtl"] [data-slot="insight-card"][data-emphasis] {
+  box-shadow:
+    inset calc(var(--accent-edge) * -1) 0 0 var(--tone),
+    var(--shadow-card);
+}
+[data-slot="insight-card"][data-emphasis] [data-slot="insight-value"] {
+  color: var(--tone);
+}
+[data-slot="insight-card"] [data-slot="insight-action"] {
+  color: var(--muted-foreground);
+  transition: color var(--duration-base) var(--ease-standard);
+}
+
+/* Interactive tiles: hover and keyboard focus read the same. */
+[data-slot="insight-card"][data-interactive]:is(:hover, :focus-visible) {
+  border-color: color-mix(in oklab, var(--tone) 55%, var(--input-hover));
+  background-color: color-mix(in oklab, var(--tone) 4%, var(--card));
+  box-shadow: var(--insight-lift);
+}
+[data-slot="insight-card"][data-interactive][data-emphasis]:is(:hover, :focus-visible) {
+  box-shadow:
+    inset var(--accent-edge) 0 0 var(--tone),
+    var(--insight-lift);
+}
+[dir="rtl"] [data-slot="insight-card"][data-interactive][data-emphasis]:is(:hover, :focus-visible) {
+  box-shadow:
+    inset calc(var(--accent-edge) * -1) 0 0 var(--tone),
+    var(--insight-lift);
+}
+[data-slot="insight-card"][data-interactive]:is(:hover, :focus-visible)
+  [data-slot="insight-action"] {
+  color: var(--foreground);
+}
+/* Metric group (`InsightGroup`): related figures share ONE surface split by
+   hairlines — the way a report groups a metric row — instead of a box per
+   number. Cells keep their own padding; dividers are 1px shadows on the
+   block-start and inline-start edge, so the outer ones clip at the
+   container and any wrap (4 → 2 × 2 on phones) stays correct. */
+[data-slot="insight-group"] {
+  background-color: var(--card);
+  border-color: var(--border);
+  box-shadow: var(--shadow-card);
+}
+[data-slot="insight-group"] > [data-slot="insight-card"],
+[data-slot="insight-group"] > * > [data-slot="insight-card"] {
+  border: 0;
+  border-radius: 0;
+  box-shadow:
+    -1px 0 0 var(--border),
+    0 -1px 0 var(--border);
+}
+[dir="rtl"] [data-slot="insight-group"] > [data-slot="insight-card"],
+[dir="rtl"] [data-slot="insight-group"] > * > [data-slot="insight-card"] {
+  box-shadow:
+    1px 0 0 var(--border),
+    0 -1px 0 var(--border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="insight-card"],
+  [data-slot="insight-card"] [data-slot="insight-action"] {
+    transition: none;
+  }
+}
+
+/* ── 2. Recipes ───────────────────────────────────────────────────────── */
+
+/* Buttons: Geist error = a solid red, not a soft tint. */
+[data-slot="button"][data-variant="destructive"] {
+  background-color: var(--destructive);
+  border-color: transparent;
+  color: var(--destructive-foreground);
+}
+[data-slot="button"][data-variant="destructive"]:not(:disabled):hover {
+  background-color: var(--destructive-hover);
+  color: var(--destructive-foreground);
+}
+/* Refined green: Confirm / Approve / Convert to Order. */
+[data-slot="button"][data-variant="success"]:not(:disabled):hover {
+  background-color: var(--success-hover);
+}
+/* Round 4 tactile buttons (design-system §12.10). Solid actions carry a
+   soft drop + faint top light; secondary buttons a firm control edge and a
+   whisper of depth. Hover is a visible fill/edge change; pressed and open
+   sink (inset shadow, darker fill) — nothing moves or resizes. */
+[data-slot="button"]:is(
+  [data-variant="default"],
+  [data-variant="success"],
+  [data-variant="destructive"],
+  [data-variant="info"]
+) {
+  box-shadow: var(--control-shadow-solid);
+}
+[data-slot="button"]:is(
+    [data-variant="default"],
+    [data-variant="success"],
+    [data-variant="destructive"],
+    [data-variant="info"]
+  ):not(:disabled):is(:active, [aria-expanded="true"]) {
+  box-shadow: var(--control-inset-solid);
+}
+/* Outline / ghost fills and borders live in the button variants (so a
+   caller's tone classes still win); the recipe only adds depth. */
+[data-slot="button"][data-variant="outline"] {
+  box-shadow: var(--control-shadow);
+}
+[data-slot="button"][data-variant="outline"]:not(:disabled):is(
+    :active,
+    [aria-expanded="true"],
+    [data-state="open"]
+  ) {
+  box-shadow: var(--control-inset);
+}
+/* Keyboard focus: the ring plus a soft halo, on every button variant. */
+[data-slot="button"]:focus-visible {
+  outline-offset: 1px;
+  box-shadow: 0 0 0 4px var(--focus-halo);
+}
+
+/* Selector triggers (select, combobox, filter, picker): a white control with
+   a firm ring and a fixed chevron. Hover darkens the ring; open / pressed
+   shows the focus border + halo; invalid stays red. */
+:is([data-slot="button"][data-variant="field"], [data-slot="select-trigger"]) {
+  font-weight: 400;
+  box-shadow:
+    inset 0 0 0 1px var(--control-border),
+    var(--control-shadow);
+}
+:is([data-slot="button"][data-variant="field"], [data-slot="select-trigger"]):disabled {
+  box-shadow: none;
+}
+:is([data-slot="button"][data-variant="field"], [data-slot="select-trigger"]):not(
+    :disabled,
+    [aria-expanded="true"],
+    [data-state="open"]
+  ):hover {
+  background-color: var(--control-hover);
+  box-shadow:
+    inset 0 0 0 1px var(--control-border-hover),
+    var(--control-shadow);
+}
+:is([data-slot="button"][data-variant="field"], [data-slot="select-trigger"]):is(
+  [aria-expanded="true"],
+  [data-state="open"]
+),
+:is([data-slot="button"][data-variant="field"], [data-slot="select-trigger"]):not(
+    :disabled
+  ):active {
+  background-color: var(--selector-active);
+  box-shadow:
+    inset 0 0 0 1px var(--focus-ring),
+    0 0 0 3px var(--focus-halo);
+}
+:is([data-slot="button"][data-variant="field"], [data-slot="select-trigger"])[aria-invalid="true"] {
+  box-shadow:
+    inset 0 0 0 1px var(--destructive),
+    0 0 0 3px color-mix(in oklab, var(--destructive) 14%, transparent);
+}
+:is([data-slot="button"][data-variant="field"], [data-slot="select-trigger"]) svg:last-child {
+  color: var(--muted-foreground);
+  transition:
+    transform var(--duration-base) var(--ease-standard),
+    color var(--duration-base) var(--ease-standard);
+}
+/* Open: the chevron turns and darkens — the trigger says "this is open". */
+:is([data-slot="button"][data-variant="field"], [data-slot="select-trigger"]):is(
+    [aria-expanded="true"],
+    [data-state="open"]
+  )
+  svg:last-child:is(.lucide-chevron-down, [class*="chevron-down"]) {
+  transform: rotate(180deg);
+}
+:is([data-slot="button"][data-variant="field"], [data-slot="select-trigger"]):is(
+    [aria-expanded="true"],
+    [data-state="open"]
+  )
+  svg:last-child {
+  color: var(--foreground);
+}
+/* Keyboard focus on a trigger: focus edge + halo (same as a text input). */
+:is([data-slot="button"][data-variant="field"], [data-slot="select-trigger"]):focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 0 0 1px var(--focus-ring),
+    0 0 0 3px var(--focus-halo);
+}
+@media (prefers-reduced-motion: reduce) {
+  :is([data-slot="button"][data-variant="field"], [data-slot="select-trigger"]) svg:last-child {
+    transition: none;
+  }
+}
+
+/* Text inputs: same ring as selectors; focus = focus border + halo. */
+:is([data-slot="input"], [data-slot="textarea"]) {
+  border-color: var(--input);
+}
+:is([data-slot="input"], [data-slot="textarea"]):not(:disabled):not(:read-only):hover {
+  border-color: var(--input-hover);
+}
+:is([data-slot="input"], [data-slot="textarea"]):read-only:not([data-picker]) {
+  border-color: var(--border);
+}
+:is([data-slot="input"], [data-slot="textarea"]):focus-visible,
+[data-slot="input-group"]:focus-within {
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 3px var(--focus-halo);
+}
+:is([data-slot="input"], [data-slot="textarea"])[aria-invalid="true"] {
+  border-color: var(--destructive);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--destructive) 14%, transparent);
+}
+
+/* Cards: solid surface, hairline, whisper shadow. */
+[data-slot="card"] {
+  box-shadow: var(--shadow-card);
+}
+
+/* Badges: Geist subtle pills. */
+[data-slot="badge"] {
+  border-radius: 9999px;
+}
+[data-slot="badge"]:not([class*="px-"]) {
+  padding-inline: 0.5rem;
+}
+
+/* Menus and popovers: Geist menu material (8px, soft layered shadow). */
+:is(
+  [data-slot="dropdown-menu-content"],
+  [data-slot="dropdown-menu-sub-content"],
+  [data-slot="select-content"],
+  [data-slot="popover-content"],
+  [data-slot="combobox-content"]
+) {
+  border-radius: var(--radius-menu);
+  border-color: var(--border);
+  box-shadow: var(--shadow-floating);
+}
+:is(
+  [data-slot="dropdown-menu-item"],
+  [data-slot="dropdown-menu-checkbox-item"],
+  [data-slot="dropdown-menu-radio-item"],
+  [data-slot="select-item"],
+  [data-slot="command-item"]
+) {
+  border-radius: 6px;
+}
+
+/* Dialogs: Geist modal material. */
+:is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) {
+  border-radius: var(--radius-dialog);
+  box-shadow: var(--shadow-modal);
+}
+:is([data-slot="dialog-overlay"], [data-slot="alert-dialog-overlay"]) {
+  background-color: rgb(0 0 0 / 0.32);
+}
+
+/* Segmented control (period switch etc.): a recessed track; the selected
+   segment is a raised white control — the choice reads at a glance. */
+[data-slot="toggle-group"] {
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-control);
+  background-color: var(--segment-track);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+[data-slot="toggle-group-item"] {
+  height: calc(var(--control-height-md) - 4px);
+  border-color: transparent;
+  border-radius: 6px;
+  background-color: transparent;
+  color: var(--muted-foreground);
+}
+[data-slot="toggle-group-item"]:not(:disabled):hover {
+  color: var(--foreground);
+}
+[data-slot="toggle-group-item"]:is([data-state="on"], [data-on]) {
+  border-color: transparent;
+  background-color: var(--segment-on);
+  color: var(--foreground);
+  box-shadow:
+    0 0 0 1px var(--control-border),
+    var(--control-shadow);
+}
+
+/* Tabs (default): Geist underline tabs. */
+[data-slot="tabs-list"][data-variant="default"] {
+  gap: 1.25rem;
+  padding: 0;
+  border-radius: 0;
+  background-color: transparent;
+  box-shadow: inset 0 -1px 0 var(--border);
+}
+[data-slot="tabs-list"][data-variant="default"] [data-slot="tabs-trigger"] {
+  flex: none;
+  padding-inline: 2px;
+  border-radius: 0;
+  background-color: transparent;
+  box-shadow: none;
+  color: var(--muted-foreground);
+}
+[data-slot="tabs-list"][data-variant="default"]
+  [data-slot="tabs-trigger"]:is([data-state="active"], [data-active]) {
+  color: var(--foreground);
+  box-shadow: inset 0 -2px 0 var(--foreground);
+}
+
+/* Kbd hints: Geist ring, not a grey chip. */
+[data-slot="kbd"] {
+  background-color: var(--card);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+
+/* Form error summary: a Geist error Note — white surface, tinted hairline,
+   red title/icon; the list stays in body text so it reads, not shouts. */
+[data-slot="form-error-summary"] [data-slot="alert"] {
+  background-color: var(--card);
+  border-color: var(--destructive-border);
+  color: var(--foreground);
+  box-shadow: inset 3px 0 0 var(--destructive);
+}
+[dir="rtl"] [data-slot="form-error-summary"] [data-slot="alert"] {
+  box-shadow: inset -3px 0 0 var(--destructive);
+}
+[data-slot="form-error-summary"] :is([data-slot="alert-title"], svg) {
+  color: var(--destructive-soft-foreground);
+}
+
+/* Applied filters read as selected: a clear blue tint (not a grey). */
+
+.dark [data-filter-trigger][data-active] {
+  color: var(--focus-ring);
+}
+/* An unset filter shows its name as a placeholder, never as a chosen value. */
+[data-filter-trigger]:not([data-active]) > span:first-child {
+  color: var(--placeholder);
+}
+
+/* Disabled buttons: a quiet muted surface, not a heavy grey pill. Loading
+   keeps its variant color (the spinner says "busy"). */
+[data-slot="button"]:disabled:not([aria-busy="true"]):not([data-variant="ghost"]):not(
+    [data-variant="link"]
+  ):not([data-variant="field"]) {
+  background-color: var(--muted);
+  border-color: var(--border);
+  color: var(--placeholder);
+  box-shadow: none;
+  opacity: 1;
+}
+[data-slot="button"][aria-busy="true"] {
+  opacity: 0.75;
+}
+
+/* Switch: checked = primary, unchecked = control ring grey (both themes). */
+[data-slot="switch"][data-state="checked"] {
+  background-color: var(--primary);
+}
+[data-slot="switch"][data-state="unchecked"] {
+  background-color: var(--input);
+}
+
+/* Touch: top-bar icon buttons get the 40px target like every other control. */
+@media (pointer: coarse) {
+  [data-slot="top-bar"] :is([data-slot="button"], [data-slot="sidebar-trigger"]) {
+    min-width: var(--control-height-md);
+    min-height: var(--control-height-md);
+  }
+}
+
+/* Pressed fills (Round 3.1; Round 4 adds the inset "sink" above). Colour
+   and shadow only — no scale/press animation, no layout shift. */
+[data-slot="button"][data-variant="success"]:not(:disabled):active {
+  background-color: color-mix(in oklab, var(--success-hover) 88%, black);
+}
+[data-slot="button"][data-variant="destructive"]:not(:disabled):active {
+  background-color: color-mix(in oklab, var(--destructive-hover) 88%, black);
+}
+
+/* ── 3. Round 3.2 compact form ──────────────────────────────────────────
+   Creation dialogs with `EnterpriseModal layout="form-card"` stay bounded
+   (520 / 640px) and stack compact sections split by hairlines
+   (`components/shared/form-card`) — no tinted panel per section. */
+
+/* A section flagged by the error summary shows it on its divider, not by
+   color alone (the field message and the summary name the problem). */
+[data-slot="form-card-section"][data-invalid="true"] {
+  border-top-color: var(--destructive-border);
+}
+
+/* Field grid (design-system §12.9): short related fields share a row, each
+   starting at its content basis (`--field-*`) and growing in proportion;
+   the row wraps to two columns and then one on narrow screens. */
+[data-slot="field-grid"] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  column-gap: 0.75rem;
+  row-gap: 0.625rem;
+}
+[data-slot="field-grid"] > * {
+  flex: 2 1 var(--field-md);
+  min-width: 0;
+}
+/* A control with a natural width (date picker) never exceeds its field. */
+[data-slot="field-grid"] > * > * {
+  max-width: 100%;
+}
+[data-slot="field-grid"] > [data-size="xs"] {
+  flex: 1 1 var(--field-xs);
+}
+[data-slot="field-grid"] > [data-size="sm"] {
+  flex: 1.5 1 var(--field-sm);
+}
+[data-slot="field-grid"] > [data-size="lg"] {
+  flex: 3 1 var(--field-lg);
+}
+[data-slot="field-grid"] > [data-size="full"] {
+  flex: 1 1 100%;
+}
+
+/* A picker's text field is read-only because the picker owns the value — it
+   stays a live white control, never the sunken "read-only" look. */
+[data-picker]:read-only:not(:disabled) {
+  background-color: transparent;
+}
+
+/* Phones: medium fields start at the short basis so related pairs (amount ·
+   method, date · reference) keep two per row; wide fields still take a row. */
+@media (max-width: 639px) {
+  [data-slot="field-grid"] > :is([data-size="md"], :not([data-size])) {
+    flex-basis: var(--field-sm);
+  }
+}
+
+/* Review follow-ups (rollout, 2026-09-28). */
+
+/* Fields and selector triggers: a 3:1 bottom edge under the light hairline
+   ring (WCAG 1.4.11, the Fluent/Clarity field pattern). */
+:is([data-slot="input"], [data-slot="textarea"]):not(:read-only):not(:disabled):not(
+    [aria-invalid="true"]
+  ):not(:focus-visible),
+[data-slot="input-group"]:not(:focus-within) {
+  border-bottom-color: var(--control-edge);
+}
+:is([data-slot="button"][data-variant="field"], [data-slot="select-trigger"]):not(
+  :disabled,
+  [aria-invalid="true"],
+  [aria-expanded="true"],
+  [data-state="open"],
+  :active,
+  :focus-visible
+) {
+  box-shadow:
+    inset 0 0 0 1px var(--control-border),
+    inset 0 -1px 0 var(--control-edge),
+    var(--control-shadow);
+}
+:is([data-slot="button"][data-variant="field"], [data-slot="select-trigger"]):not(
+    :disabled,
+    [aria-invalid="true"],
+    [aria-expanded="true"],
+    [data-state="open"],
+    :active,
+    :focus-visible
+  ):hover {
+  box-shadow:
+    inset 0 0 0 1px var(--control-border-hover),
+    inset 0 -1px 0 var(--control-edge),
+    var(--control-shadow);
+}
+
+/* An applied filter reads as selected (brand tint + ring), also on hover. */
+[data-slot="button"][data-variant="field"][data-filter-trigger][data-active]:not(:disabled),
+[data-slot="button"][data-variant="field"][data-filter-trigger][data-active]:not(:disabled):hover {
+  background-color: var(--primary-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--focus-ring) 45%, transparent);
+}
+
+/* Error text (field messages, required marks) keeps AA in dark mode.
+   Plain text elements only — interactive rows keep their own hover colors. */
+.dark :is(p, span, li, small, label).text-destructive {
+  color: var(--destructive-text);
+}
+
+/* Sign-in: the brand-navy focus ring on auth fields. */
+.oms-auth-form [data-slot="input"]:focus-visible {
+  border-color: var(--brand-navy);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand-navy) 20%, transparent);
+}

@@ -54,6 +54,8 @@ const docUiEn = {
     bankUnmatchedHint: "Not matched to any document yet",
     bankReviewHint: "Conflicts or potential matches awaiting a decision",
     metricsTitle: "Sales metrics",
+    groupLeads: "Leads",
+    groupOrders: "Orders",
     metricsDescription: "Figures for the selected period, within your access.",
     now: "now",
     rankingDescription: "Orders created in the selected period.",

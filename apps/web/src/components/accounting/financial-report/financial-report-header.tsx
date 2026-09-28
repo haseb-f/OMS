@@ -29,9 +29,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useLocale } from "@/providers/locale-provider";
-import { useUiPilot } from "@/providers/ui-pilot-provider";
 import type { ReportExportFormat } from "@/lib/report-export";
-import { FinancialReportHeaderPilot } from "./pilot/financial-report-header-pilot";
+import { FinancialReportHeaderBar } from "./financial-report-header-bar";
 
 /* ------------------------------------------------------------------ */
 /* Page chrome: the page that hosts a report hands it the title and the */
@@ -69,12 +68,11 @@ export function useFinancialReportChrome() {
 /* ------------------------------------------------------------------ */
 
 /**
- * The financial report header (design-system §11.5) — one compact block:
- * Row 1 = title (h1) + a quiet context line (period · currency · posted-only ·
- * opening balances) with the switcher and actions at the logical end.
- * Row 2 = the one filter row. An optional notice sits under it as a caption
- * line. Purely presentational (the design-system showcase renders it with
- * sample data).
+ * The financial report header (design-system §12.5) — one compact block:
+ * the title with its context line (period · currency · posted-only · opening
+ * balances), the switcher and actions at the logical end, then the one filter
+ * row and an optional caption notice. Purely presentational (the
+ * design-system showcase renders it with sample data).
  */
 export function FinancialReportHeader({
   title,
@@ -96,66 +94,16 @@ export function FinancialReportHeader({
   filters?: ReactNode;
   notice?: ReactNode;
 }) {
-  // Round 3 pilot (design-system §12.1): the pilot arrangement, same slots.
-  const pilot = useUiPilot().active;
-  const parts = context.filter(Boolean);
-  if (pilot) {
-    return (
-      <FinancialReportHeaderPilot
-        title={title}
-        titleAs={TitleTag}
-        context={parts}
-        switcher={switcher}
-        actions={actions}
-        filters={filters}
-        notice={notice}
-      />
-    );
-  }
   return (
-    <div data-slot="report-header" className="flex min-w-0 flex-col gap-2 print:hidden">
-      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
-        <div className="flex min-w-0 flex-1 basis-64 flex-wrap items-baseline gap-x-3 gap-y-0.5">
-          {title ? (
-            <TitleTag className="text-ui-title font-semibold tracking-tight text-foreground">
-              {title}
-            </TitleTag>
-          ) : null}
-          {parts.length > 0 ? (
-            <p
-              data-slot="report-context"
-              className="flex min-w-0 flex-wrap items-baseline text-caption text-muted-foreground"
-            >
-              {parts.map((part, index) => (
-                <span key={`${index}:${part}`} className="whitespace-nowrap">
-                  {index > 0 ? (
-                    <span aria-hidden className="px-1.5 text-border-strong">
-                      ·
-                    </span>
-                  ) : null}
-                  {/* Isolate each run: a Latin date range ("1 Jan 2026 – 30 Sep
-                      2026") inside an RTL line would otherwise have its leading
-                      day reordered to the end by the bidi algorithm. */}
-                  <bdi>{part}</bdi>
-                </span>
-              ))}
-            </p>
-          ) : null}
-        </div>
-        {switcher || actions ? (
-          <div className="flex shrink-0 items-center gap-1.5">
-            {switcher}
-            {actions}
-          </div>
-        ) : null}
-      </div>
-      {filters}
-      {notice ? (
-        <div data-slot="report-notice" className="text-caption text-muted-foreground">
-          {notice}
-        </div>
-      ) : null}
-    </div>
+    <FinancialReportHeaderBar
+      title={title}
+      titleAs={TitleTag}
+      context={context}
+      switcher={switcher}
+      actions={actions}
+      filters={filters}
+      notice={notice}
+    />
   );
 }
 

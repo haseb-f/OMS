@@ -3,31 +3,20 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { FileText } from "lucide-react";
-import {
-  DetailField,
-  DetailFieldGrid,
-  DetailSection,
-  DetailWorkspace,
-} from "@/components/shared/detail-workspace";
+import { DetailField, DetailSection } from "@/components/shared/detail-workspace";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { EnterpriseButton } from "@/components/ui/button";
-import { EntityTabs } from "@/components/business/entity-tabs";
-import { StatusBadge } from "@/components/business/status-badge";
-import { ClassificationBadge } from "@/components/business/classification-badge";
-import { WorkflowActionsPanel } from "@/components/business/workflow-actions-panel";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
 import { AssignLeadDialog } from "@/components/business/assign-lead-dialog";
 import { LeadFollowUpDialog } from "@/components/crm/lead-follow-up-dialog";
 import { LeadConvertDialog } from "@/components/crm/lead-convert-dialog";
 import { LeadCloseWithoutPurchaseDialog } from "@/components/crm/lead-close-dialog";
-import { LeadNextActions, isLeadStartFollowUp } from "@/components/crm/lead-next-actions";
-import { LeadDetailPilot, type LeadOutcome } from "@/components/crm/pilot/lead-detail-pilot";
-import { useUiPilot } from "@/providers/ui-pilot-provider";
-import { pilotLeadStatusName } from "@/components/crm/pilot/lead-status-label";
+import { isLeadStartFollowUp } from "@/components/crm/lead-next-actions";
+import { LeadDetailView, type LeadOutcome } from "@/components/crm/lead-detail-view";
+import { leadStatusName } from "@/components/crm/lead-status-label";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
-import { leadLifecycleBadge } from "@/config/crm/lead-columns";
 import { Textarea } from "@/components/ui/textarea";
 import {
   leadsService,
@@ -41,7 +30,7 @@ import { useCustomerClassifications } from "@/hooks/use-reference-data";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { reportApiError } from "@/lib/toast";
-import { formatDate, formatDateTime } from "@/lib/date";
+import { formatDateTime } from "@/lib/date";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import type { MessageKey } from "@/i18n/translate";
 import { workflowService, type WorkflowAction } from "@/services/workflow-service";
@@ -87,11 +76,10 @@ function LeadDetailContent() {
   const [convertOpen, setConvertOpen] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
   const [canAssign, setCanAssign] = useState(false);
-  const pilot = useUiPilot().active;
-  // Round 3 pilot: the last action's result, shown in place (§11.4).
+  // The last action's result, shown in place (§11.4).
   const [outcome, setOutcome] = useState<LeadOutcome | null>(null);
   const announce = (message: string) => setOutcome({ key: Date.now(), message });
-  // Round 3.1 pilot: the folded Start follow-up transition is running.
+  // The folded Start follow-up transition is running.
   const [followUpBusy, setFollowUpBusy] = useState(false);
 
   const canEdit = hasPermission("crm.leads.edit");
@@ -236,10 +224,9 @@ function LeadDetailContent() {
     />
   );
 
-  // Round 3.1 pilot: follow-up titles never show a lone «—» or a raw outcome
+  // Follow-up titles never show a lone «—» or a raw outcome
   // key; the dialog stores the outcome as a key (e.g. `noAnswer`).
   const followUpTitle = (item: LeadFollowUpRow) => {
-    if (!pilot) return item.outcome || "—";
     if (item.outcome) {
       return FOLLOW_UP_OUTCOME_KEYS.has(item.outcome)
         ? t(`crm.leads.followUp.outcomes.${item.outcome}` as MessageKey)
@@ -260,7 +247,7 @@ function LeadDetailContent() {
             <div key={item.id} className="border-t border-border pt-2 first:border-t-0 first:pt-0">
               <p
                 className={
-                  pilot && !item.outcome && !item.followUpType
+                  !item.outcome && !item.followUpType
                     ? "text-body text-muted-foreground"
                     : "text-body font-medium"
                 }
@@ -268,26 +255,17 @@ function LeadDetailContent() {
                 {followUpTitle(item)}
               </p>
               {item.note ? <p className="text-caption">{item.note}</p> : null}
-              {pilot ? (
-                <p className="text-caption text-muted-foreground">
-                  {item.user?.fullName} ·{" "}
-                  <SemanticValue kind="date">{formatDateTime(item.createdAt)}</SemanticValue>
-                  {item.followUpAt ? (
-                    <>
-                      {" "}
-                      · {t("crm.leads.fields.nextFollowUp")}:{" "}
-                      <SemanticValue kind="date">{formatDateTime(item.followUpAt)}</SemanticValue>
-                    </>
-                  ) : null}
-                </p>
-              ) : (
-                <p className="text-caption text-muted-foreground">
-                  {item.user?.fullName} · {formatDateTime(item.createdAt)}
-                  {item.followUpAt
-                    ? ` · ${t("crm.leads.fields.nextFollowUp")}: ${formatDateTime(item.followUpAt)}`
-                    : ""}
-                </p>
-              )}
+              <p className="text-caption text-muted-foreground">
+                {item.user?.fullName} ·{" "}
+                <SemanticValue kind="date">{formatDateTime(item.createdAt)}</SemanticValue>
+                {item.followUpAt ? (
+                  <>
+                    {" "}
+                    · {t("crm.leads.fields.nextFollowUp")}:{" "}
+                    <SemanticValue kind="date">{formatDateTime(item.followUpAt)}</SemanticValue>
+                  </>
+                ) : null}
+              </p>
             </div>
           ))}
         </div>
@@ -314,23 +292,16 @@ function LeadDetailContent() {
             : undefined
         }
       />
-      {(assignments ?? []).map((assignment) =>
-        pilot ? (
-          // Round 3.1 pilot: isolated LTR date, method in the UI language.
-          <p key={assignment.id} className="text-caption text-muted-foreground">
-            <SemanticValue kind="date">{formatDateTime(assignment.assignedAt)}</SemanticValue> ·{" "}
-            {assignment.assignedTo?.fullName} ·{" "}
-            {ASSIGNMENT_METHODS.has(assignment.method)
-              ? t(`crm.leads.assignmentMethod.${assignment.method}` as MessageKey)
-              : assignment.method}
-          </p>
-        ) : (
-          <p key={assignment.id} className="text-caption text-muted-foreground">
-            {formatDateTime(assignment.assignedAt)} · {assignment.assignedTo?.fullName} ·{" "}
-            {assignment.method}
-          </p>
-        ),
-      )}
+      {/* Isolated LTR date, method in the UI language. */}
+      {(assignments ?? []).map((assignment) => (
+        <p key={assignment.id} className="text-caption text-muted-foreground">
+          <SemanticValue kind="date">{formatDateTime(assignment.assignedAt)}</SemanticValue> ·{" "}
+          {assignment.assignedTo?.fullName} ·{" "}
+          {ASSIGNMENT_METHODS.has(assignment.method)
+            ? t(`crm.leads.assignmentMethod.${assignment.method}` as MessageKey)
+            : assignment.method}
+        </p>
+      ))}
     </DetailSection>
   );
 
@@ -366,19 +337,19 @@ function LeadDetailContent() {
   const transitionedMessage = (action: Pick<WorkflowAction, "toStatusCode" | "toStatusName">) =>
     t("crm.leads.transitioned", {
       status:
-        pilotLeadStatusName(
+        leadStatusName(
           { code: action.toStatusCode, name: action.toStatusName } as LeadRow["status"],
           locale,
         ) ?? action.toStatusName,
     });
 
   /**
-   * Round 3.1 pilot: «بدء المتابعة» (NEW → IN_PROGRESS) is folded into Add
-   * Follow-up. Recording a follow-up never changes the status server-side, so
-   * on a NEW lead the pilot then runs that same workflow transition — only if
+   * «بدء المتابعة» (NEW → IN_PROGRESS) is folded into Add Follow-up.
+   * Recording a follow-up never changes the status server-side, so on a NEW
+   * lead the page then runs that same workflow transition — only if
    * the engine offers it to this user — keeping its business effect.
    */
-  const finishPilotFollowUp = async () => {
+  const finishFollowUp = async () => {
     let message = t("crm.leads.followUp.saved");
     if (lead.status?.code === "NEW") {
       setFollowUpBusy(true);
@@ -406,15 +377,7 @@ function LeadDetailContent() {
         open={followUpOpen}
         onOpenChange={setFollowUpOpen}
         leadId={lead.id}
-        onSaved={() => {
-          if (pilot) {
-            void finishPilotFollowUp();
-            return;
-          }
-          announce(t("crm.leads.followUp.saved"));
-          void load();
-          reloadSidePanels();
-        }}
+        onSaved={() => void finishFollowUp()}
       />
       <LeadConvertDialog
         lead={lead}
@@ -452,193 +415,37 @@ function LeadDetailContent() {
     </>
   );
 
-  if (pilot) {
-    return (
-      <LeadDetailPilot
-        lead={lead}
-        actions={{
-          canEdit,
-          canConvert,
-          canAssign,
-          onFollowUp: () => setFollowUpOpen(true),
-          onConvert: () => setConvertOpen(true),
-          onAssign: () => setAssignOpen(true),
-          onClose: () => setCloseOpen(true),
-        }}
-        followUpBusy={followUpBusy}
-        classificationControl={canEdit && operational ? classificationCombobox : null}
-        outcome={outcome}
-        onDismissOutcome={() => setOutcome(null)}
-        onTransitionComplete={(action) => {
-          announce(transitionedMessage(action));
-          void load();
-          reloadSidePanels();
-        }}
-        tabs={{
-          followUps: followUpsContent,
-          timeline: timelineContent,
-          assignment: assignmentContent,
-          notes: notesContent,
-        }}
-        followUpCount={followUps?.length ?? 0}
-      >
-        {dialogs}
-      </LeadDetailPilot>
-    );
-  }
-
   return (
-    <DetailWorkspace
-      title={lead.customerName}
-      reference={lead.leadNumber}
-      status={
-        <div className="flex flex-wrap items-center gap-1.5">
-          {(() => {
-            const badge = leadLifecycleBadge(lead, t("crm.leads.ownership.assigned"));
-            return <StatusBadge label={badge.label} colorKey={badge.colorKey} />;
-          })()}
-          {lead.customerClassification ? (
-            <ClassificationBadge
-              label={lead.customerClassification.name}
-              color={lead.customerClassification.color}
-            />
-          ) : null}
-          {lead.possibleDuplicate ? (
-            <StatusBadge label={t("crm.leads.possibleDuplicate")} colorKey="warning" />
-          ) : null}
-        </div>
-      }
-      actions={
-        <LeadNextActions
-          lead={lead}
-          canEdit={canEdit}
-          canConvert={canConvert}
-          canAssign={canAssign}
-          onFollowUp={() => setFollowUpOpen(true)}
-          onConvert={() => setConvertOpen(true)}
-          onAssign={() => setAssignOpen(true)}
-          onClose={() => setCloseOpen(true)}
-        />
-      }
+    <LeadDetailView
+      lead={lead}
+      actions={{
+        canEdit,
+        canConvert,
+        canAssign,
+        onFollowUp: () => setFollowUpOpen(true),
+        onConvert: () => setConvertOpen(true),
+        onAssign: () => setAssignOpen(true),
+        onClose: () => setCloseOpen(true),
+      }}
+      followUpBusy={followUpBusy}
+      classificationControl={canEdit && operational ? classificationCombobox : null}
+      outcome={outcome}
+      onDismissOutcome={() => setOutcome(null)}
+      onTransitionComplete={(action) => {
+        announce(transitionedMessage(action));
+        void load();
+        reloadSidePanels();
+      }}
+      tabs={{
+        followUps: followUpsContent,
+        timeline: timelineContent,
+        assignment: assignmentContent,
+        notes: notesContent,
+      }}
+      followUpCount={followUps?.length ?? 0}
     >
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        <DetailField
-          label={t("crm.leads.fields.assignedTo")}
-          value={lead.salesEmployee?.fullName}
-        />
-        <DetailField
-          label={t("crm.leads.fields.nextFollowUp")}
-          value={lead.nextFollowUpAt ? formatDateTime(lead.nextFollowUpAt) : undefined}
-        />
-        <DetailField
-          label={t("crm.leads.fields.classification")}
-          value={
-            canEdit && operational ? (
-              classificationCombobox
-            ) : lead.customerClassification ? (
-              <ClassificationBadge
-                label={lead.customerClassification.name}
-                color={lead.customerClassification.color}
-              />
-            ) : undefined
-          }
-        />
-      </div>
-
-      {lead.storeOrder ? (
-        <p className="text-body">
-          {t("crm.leads.convert.convertedTo")}{" "}
-          <EnterpriseButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-auto p-0 font-medium"
-            onClick={() => router.push(`/store-orders/${lead.storeOrder!.id}`)}
-          >
-            {lead.storeOrder.internalOrderId}
-          </EnterpriseButton>
-        </p>
-      ) : null}
-
-      {/*
-        Always mounted, not just while `operational` — the backend-authorized
-        "Reopen" transition (LOST/DISQUALIFIED -> IN_PROGRESS, Manager-only)
-        only exists on a CLOSED Lead. Gating this panel on `operational` hid
-        it exactly when Reopen would apply, leaving no way to reopen a Lead
-        from this page at all. `hideConvert` already makes the panel render
-        nothing for a user with zero available actions, so this is safe for
-        every other status too.
-      */}
-      <WorkflowActionsPanel
-        entityType="LEAD"
-        entityId={lead.id}
-        hideConvert
-        primaryVariant="outline"
-        hideTargetCodes={["FOLLOW_UP", "LOST", "DISQUALIFIED"]}
-        onTransitionComplete={() => {
-          void load();
-          reloadSidePanels();
-        }}
-      />
-
-      <EntityTabs
-        tabs={[
-          {
-            value: "general",
-            label: t("crm.leads.sections.general"),
-            content: (
-              <DetailSection>
-                <DetailFieldGrid>
-                  <DetailField
-                    label={t("crm.leads.fields.mobileNumber")}
-                    value={lead.mobileNumber}
-                  />
-                  <DetailField label={t("crm.leads.fields.country")} value={lead.country?.name} />
-                  <DetailField label={t("crm.leads.fields.city")} value={lead.city} />
-                  <DetailField label={t("crm.leads.fields.address")} value={lead.address} />
-                  <DetailField
-                    label={t("crm.leads.fields.source")}
-                    value={t(`crm.leads.source.${lead.source}` as MessageKey)}
-                  />
-                  <DetailField
-                    label={t("crm.leads.fields.createdAt")}
-                    value={<SemanticValue kind="date">{formatDate(lead.createdAt)}</SemanticValue>}
-                  />
-                  {lead.noPurchaseReason ? (
-                    <DetailField
-                      label={t("crm.leads.fields.noPurchaseReason")}
-                      value={lead.noPurchaseReason.name}
-                    />
-                  ) : null}
-                </DetailFieldGrid>
-              </DetailSection>
-            ),
-          },
-          {
-            value: "followUps",
-            label: t("crm.leads.sections.followUps"),
-            content: followUpsContent,
-          },
-          {
-            value: "timeline",
-            label: t("crm.leads.sections.timeline"),
-            content: timelineContent,
-          },
-          {
-            value: "assignment",
-            label: t("crm.leads.sections.assignment"),
-            content: assignmentContent,
-          },
-          {
-            value: "notes",
-            label: t("crm.leads.sections.notes"),
-            content: notesContent,
-          },
-        ]}
-      />
-
       {dialogs}
-    </DetailWorkspace>
+    </LeadDetailView>
   );
 }
 

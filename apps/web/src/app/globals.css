@@ -2,7 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "../theme/tokens.css";
-@import "../theme/pilot-geist.css";
+@import "../theme/recipes.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -44,22 +44,25 @@
   /*
    * OMS Design Bible (ADR-0018, ADR-0022 density pass; enterprise-ui-overhaul)
    * — the radius scale is a closed set, tightened to read as a precise
-   * operational console rather than a consumer app: 4 / 6 / 8 / 10 / 12px. Small surfaces and controls stay
+   * operational console rather than a consumer app: 4 / 8 / 10 / 12 / 14px. Small surfaces and controls stay
    * near-square; only true containers and floating layers round off. No
    * component may introduce a value outside this set — badges (999px pill)
    * and avatars (full circle) are the only intentional exceptions, via
    * `rounded-full`, not a scale step.
    * --radius-xs  4px — badges, tooltips, checkboxes, small chips
-   * --radius-sm  6px — buttons, inputs, selects, menus, toolbars
-   * --radius-md  8px — cards, panels, table containers
-   * --radius-lg 10px — dialogs/modals, drawers, popovers (also --radius-xl)
+   * --radius-sm  8px — buttons, inputs, selects, toolbars (--radius-control)
+   * --radius-md 10px — cards, panels, table containers (--radius-surface)
+   * --radius-lg 12px — drawers, popovers (also --radius-xl; --radius-overlay); menus 10px, dialogs 14px (recipes)
    * --radius-2xl/3xl 12px — full-screen surfaces only
+   * sm/md/lg resolve through runtime tokens (`theme/tokens.css`
+   * --radius-control/-surface/-overlay) so a design mode can re-point the
+   * whole scale in one place — `@theme inline` would otherwise bake the px.
    */
   --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 10px;
-  --radius-xl: 10px;
+  --radius-sm: var(--radius-control);
+  --radius-md: var(--radius-surface);
+  --radius-lg: var(--radius-overlay);
+  --radius-xl: var(--radius-overlay);
   --radius-2xl: 12px;
   --radius-3xl: 12px;
 
@@ -145,55 +148,55 @@
  */
 :root {
   /* IBM Plex Sans Arabic (next/font, app/layout.tsx) covers Arabic and Latin. */
-  --font-sans: var(--font-plex);
+  --font-sans: var(--font-geist), var(--font-plex);
 
   /* Surfaces — canvas < surface. Cards and tables sit on the canvas as
      solid white surfaces separated by a 1px border, never a shadow. */
-  --background: oklch(0.984 0.002 250);
-  --foreground: oklch(0.21 0.012 255);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.21 0.012 255);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.21 0.012 255);
-  --surface-sunken: oklch(0.975 0.003 250);
+  --background: #ffffff;
+  --foreground: #171717;
+  --card: #ffffff;
+  --card-foreground: #171717;
+  --popover: #ffffff;
+  --popover-foreground: #171717;
+  --surface-sunken: #fafafa;
 
   --primary: #04203c;
   --primary-foreground: #ffffff;
-  --primary-hover: color-mix(in oklab, var(--primary) 86%, white);
-  --primary-active: color-mix(in oklab, var(--primary) 80%, black);
-  --primary-soft: color-mix(in oklab, var(--primary) 7%, white);
+  --primary-hover: color-mix(in oklab, #04203c 84%, white);
+  --primary-active: color-mix(in oklab, #04203c 88%, black);
+  --primary-soft: color-mix(in oklab, #0072f5 8%, white);
   /* Neutral secondary actions (Vercel-style gray), not a tinted brand fill. */
-  --secondary: oklch(0.963 0.003 250);
-  --secondary-foreground: oklch(0.25 0.014 255);
-  --muted: oklch(0.963 0.003 250);
-  --muted-foreground: oklch(0.49 0.013 255);
-  --placeholder: oklch(0.53 0.011 255);
-  --accent: oklch(0.955 0.004 250);
-  --accent-foreground: oklch(0.21 0.012 255);
+  --secondary: #f2f2f2;
+  --secondary-foreground: #171717;
+  --muted: #f2f2f2;
+  --muted-foreground: #666666;
+  --placeholder: #737373;
+  --accent: #f2f2f2;
+  --accent-foreground: #171717;
 
-  --success: oklch(0.5 0.12 158);
-  --success-foreground: oklch(1 0 0);
-  --success-soft: oklch(0.962 0.032 158);
-  --success-soft-foreground: oklch(0.4 0.1 158);
-  --success-border: oklch(0.84 0.07 158);
-  --warning: oklch(0.79 0.15 75);
-  --warning-foreground: oklch(0.26 0.06 60);
-  --warning-soft: oklch(0.972 0.045 88);
-  --warning-soft-foreground: oklch(0.43 0.1 60);
-  --warning-border: oklch(0.85 0.1 82);
-  --info: oklch(0.5 0.14 255);
-  --info-foreground: oklch(1 0 0);
-  --info-soft: oklch(0.962 0.022 255);
-  --info-soft-foreground: oklch(0.43 0.13 255);
-  --info-border: oklch(0.85 0.05 255);
-  --destructive: oklch(0.53 0.2 27);
-  --destructive-foreground: oklch(1 0 0);
-  --destructive-soft: oklch(0.965 0.02 25);
-  --destructive-soft-foreground: oklch(0.46 0.18 27);
-  --destructive-border: oklch(0.85 0.07 25);
-  --neutral-soft: oklch(0.955 0.003 250);
-  --neutral-soft-foreground: oklch(0.38 0.012 255);
-  --neutral-border: oklch(0.88 0.004 250);
+  --success: hsl(133 50% 31%);
+  --success-foreground: #ffffff;
+  --success-soft: hsl(120 60% 96%);
+  --success-soft-foreground: hsl(133 50% 27%);
+  --success-border: hsl(122 50% 84%);
+  --warning: #ff990a;
+  --warning-foreground: #0a0a0a;
+  --warning-soft: hsl(39 100% 95%);
+  --warning-soft-foreground: hsl(30 100% 29%);
+  --warning-border: hsl(42 100% 76%);
+  --info: #0068d6;
+  --info-foreground: #ffffff;
+  --info-soft: hsl(212 100% 97%);
+  --info-soft-foreground: hsl(211 100% 38%);
+  --info-border: hsl(209 100% 89%);
+  --destructive: #da2f35;
+  --destructive-foreground: #ffffff;
+  --destructive-soft: hsl(0 100% 97%);
+  --destructive-soft-foreground: hsl(358 66% 44%);
+  --destructive-border: hsl(0 85% 90%);
+  --neutral-soft: #f2f2f2;
+  --neutral-soft-foreground: #4c4c4c;
+  --neutral-border: #e5e5e5;
 
   /* Financial-report summary categories ONLY (revenue / expenses / net
      result) — never report rows. Text tones hold >= 4.5:1 on the card. */
@@ -208,30 +211,30 @@
 
   /* Lines. --border divides surfaces (decorative); --input bounds a control
      and must hold 3:1 against the surface (WCAG 1.4.11). */
-  --border: oklch(0.915 0.004 250);
-  --border-strong: oklch(0.86 0.005 250);
-  --input: oklch(0.665 0.01 250);
-  --focus-ring: oklch(0.54 0.19 258);
+  --border: #ebebeb;
+  --border-strong: #dedede;
+  --input: #d1d1d1;
+  --focus-ring: #0072f5;
   --ring: var(--focus-ring);
 
   /* Selectors (round 2) — select/combobox/filter/picker triggers are neutral
      tonal BUTTONS ("click to choose"), visibly different from white text
      inputs. They never compete with the primary action. */
-  --selector: oklch(0.948 0.004 250);
-  --selector-hover: oklch(0.925 0.005 250);
-  --selector-active: oklch(0.9 0.007 250);
-  --selector-foreground: oklch(0.21 0.012 255);
-  --selector-border: oklch(0.875 0.006 250);
+  --selector: #ffffff;
+  --selector-hover: #f5f5f5;
+  --selector-active: #ffffff;
+  --selector-foreground: #171717;
+  --selector-border: var(--input);
   /* Sidebar active rail (round 2) — thick accent on the outer edge with a
      restrained glow. */
-  --sidebar-rail: oklch(0.52 0.17 255);
-  --sidebar-rail-glow: color-mix(in oklab, var(--sidebar-rail) 35%, transparent);
+  --sidebar-rail: #3c78d0;
+  --sidebar-rail-glow: color-mix(in oklab, #3c78d0 22%, transparent);
 
   /* Tables */
-  --table-header: oklch(0.975 0.003 250);
-  --table-header-foreground: oklch(0.44 0.013 255);
-  --table-row-hover: oklch(0.975 0.003 250);
-  --table-row-selected: color-mix(in oklab, var(--focus-ring) 8%, white);
+  --table-header: #fafafa;
+  --table-header-foreground: #666666;
+  --table-row-hover: #fafafa;
+  --table-row-selected: color-mix(in oklab, #0072f5 6%, white);
 
   --chart-1: #04203c;
   --chart-2: #3c78d0;
@@ -241,16 +244,16 @@
   --radius: 0.5rem;
 
   /* Sidebar — flush, full-height navigation column (no floating panel). */
-  --sidebar: oklch(0.975 0.003 250);
-  --sidebar-foreground: oklch(0.25 0.012 255);
-  --sidebar-muted-foreground: oklch(0.5 0.012 255);
-  --sidebar-primary: var(--primary);
+  --sidebar: #fafafa;
+  --sidebar-foreground: #3d3d3d;
+  --sidebar-muted-foreground: #737373;
+  --sidebar-primary: #171717;
   --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: oklch(0.94 0.004 250);
-  --sidebar-accent-foreground: oklch(0.21 0.012 255);
-  --sidebar-active: color-mix(in oklab, var(--primary) 8%, white);
-  --sidebar-expanded: oklch(0.955 0.004 250);
-  --sidebar-border: oklch(0.91 0.004 250);
+  --sidebar-accent: #efefef;
+  --sidebar-accent-foreground: #171717;
+  --sidebar-active: #ebebeb;
+  --sidebar-expanded: #fafafa;
+  --sidebar-border: #ebebeb;
   --sidebar-ring: var(--focus-ring);
 
   /* Official OMS brand palette — sampled from Brand/ identity assets. */
@@ -265,53 +268,95 @@
   --scrollbar-thumb-hover: color-mix(in oklab, var(--foreground) 30%, transparent);
   --scrollbar-thumb-active: color-mix(in oklab, var(--foreground) 40%, transparent);
   --scrollbar-track: transparent;
+
+  /* Design tokens (Round 3-4, design-system §12): control recipes, summary tiles, forms. */
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --success-hover: hsl(133 52% 26%);
+  --destructive-hover: #c1272d;
+  --input-hover: #a8a8a8;
+  --focus-halo: color-mix(in oklab, #0072f5 18%, transparent);
+  --radius-menu: 10px;
+  --radius-dialog: 14px;
+  --control-border: var(--input);
+  /* Field bottom edge: holds 3:1 against the surface (WCAG 1.4.11) while
+     the ring stays a light hairline (design-system §12.10). */
+  --control-edge: #8f8f8f;
+  /* Error text: the solid red in light, the soft red in dark (>= 4.5:1). */
+  --destructive-text: var(--destructive);
+  /* Links: navy in light; dark primary is near-white, so links take blue. */
+  --link: var(--primary);
+  --control-border-hover: #b3b3b3;
+  --control-hover: #f7f7f7;
+  --control-pressed: #ededed;
+  --control-shadow: 0 1px 1px rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.08);
+  --control-shadow-solid: 0 1px 2px rgb(0 0 0 / 0.16), inset 0 1px 0 rgb(255 255 255 / 0.1);
+  --control-inset: inset 0 1px 2px rgb(0 0 0 / 0.1);
+  --control-inset-solid: inset 0 1px 3px rgb(0 0 0 / 0.3);
+  --segment-track: #f2f2f2;
+  --segment-on: #ffffff;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.05);
+  --shadow-modal:
+    0 1px 1px rgb(0 0 0 / 0.02), 0 8px 16px -4px rgb(0 0 0 / 0.05),
+    0 24px 32px -8px rgb(0 0 0 / 0.1);
+  --insight-neutral: var(--muted-foreground);
+  --insight-info: var(--info-soft-foreground);
+  --insight-success: var(--success-soft-foreground);
+  --insight-warning: var(--warning-soft-foreground);
+  --insight-destructive: var(--destructive-soft-foreground);
+  --insight-revenue: var(--report-revenue);
+  --insight-expense: var(--report-expense);
+  --insight-profit: var(--report-profit);
+  --insight-loss: var(--report-loss);
+  --insight-lift: 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 14px -6px rgb(0 0 0 / 0.14);
+  --form-card-width-narrow: 32.5rem;
+  --form-card-width: 40rem;
 }
 
 .dark {
-  --background: oklch(0.145 0.004 255);
-  --foreground: oklch(0.96 0.003 255);
-  --card: oklch(0.185 0.005 255);
-  --card-foreground: oklch(0.96 0.003 255);
-  --popover: oklch(0.205 0.005 255);
-  --popover-foreground: oklch(0.96 0.003 255);
-  --surface-sunken: oklch(0.165 0.004 255);
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --card: #111111;
+  --card-foreground: #ededed;
+  --popover: #151515;
+  --popover-foreground: #ededed;
+  --surface-sunken: #0d0d0d;
 
-  --primary: oklch(0.74 0.12 250);
-  --primary-foreground: oklch(0.17 0.03 255);
-  --primary-hover: color-mix(in oklab, var(--primary) 88%, white);
-  --primary-active: color-mix(in oklab, var(--primary) 85%, black);
-  --primary-soft: color-mix(in oklab, var(--primary) 15%, var(--card));
-  --secondary: oklch(0.255 0.005 255);
-  --secondary-foreground: oklch(0.93 0.004 255);
-  --muted: oklch(0.235 0.005 255);
-  --muted-foreground: oklch(0.72 0.009 255);
-  --placeholder: oklch(0.68 0.009 255);
-  --accent: oklch(0.25 0.005 255);
-  --accent-foreground: oklch(0.96 0.003 255);
+  --primary: #ededed;
+  --primary-foreground: #0a0a0a;
+  --primary-hover: #cccccc;
+  --primary-active: #b3b3b3;
+  --primary-soft: color-mix(in oklab, #52a8ff 16%, #111111);
+  --secondary: #1a1a1a;
+  --secondary-foreground: #ededed;
+  --muted: #1a1a1a;
+  --muted-foreground: #a1a1a1;
+  --placeholder: #878787;
+  --accent: #1f1f1f;
+  --accent-foreground: #ededed;
 
-  --success: oklch(0.72 0.15 160);
-  --success-foreground: oklch(0.17 0.03 160);
-  --success-soft: color-mix(in oklab, var(--success) 14%, var(--card));
-  --success-soft-foreground: oklch(0.82 0.12 160);
-  --success-border: color-mix(in oklab, var(--success) 40%, var(--card));
-  --warning: oklch(0.8 0.14 78);
-  --warning-foreground: oklch(0.22 0.05 70);
-  --warning-soft: color-mix(in oklab, var(--warning) 14%, var(--card));
-  --warning-soft-foreground: oklch(0.86 0.12 82);
-  --warning-border: color-mix(in oklab, var(--warning) 40%, var(--card));
-  --info: oklch(0.72 0.12 250);
-  --info-foreground: oklch(0.17 0.03 255);
-  --info-soft: color-mix(in oklab, var(--info) 14%, var(--card));
-  --info-soft-foreground: oklch(0.82 0.09 250);
-  --info-border: color-mix(in oklab, var(--info) 40%, var(--card));
-  --destructive: oklch(0.7 0.17 25);
-  --destructive-foreground: oklch(0.17 0.03 25);
-  --destructive-soft: color-mix(in oklab, var(--destructive) 14%, var(--card));
-  --destructive-soft-foreground: oklch(0.82 0.11 25);
-  --destructive-border: color-mix(in oklab, var(--destructive) 40%, var(--card));
-  --neutral-soft: oklch(0.255 0.005 255);
-  --neutral-soft-foreground: oklch(0.86 0.006 255);
-  --neutral-border: oklch(0.32 0.005 255);
+  --success: hsl(133 50% 33%);
+  --success-foreground: #ffffff;
+  --success-soft: hsl(136 50% 9%);
+  --success-soft-foreground: hsl(131 43% 60%);
+  --success-border: hsl(135 60% 18%);
+  --warning: #ff990a;
+  --warning-foreground: #0a0a0a;
+  --warning-soft: hsl(35 100% 8%);
+  --warning-soft-foreground: hsl(39 90% 55%);
+  --warning-border: hsl(35 100% 18%);
+  --info: #52a8ff;
+  --info-foreground: #0a0a0a;
+  --info-soft: hsl(216 50% 12%);
+  --info-soft-foreground: #6cb6ff;
+  --info-border: hsl(212 70% 25%);
+  --destructive: #da2f35;
+  --destructive-foreground: #ffffff;
+  --destructive-soft: hsl(357 37% 12%);
+  --destructive-soft-foreground: #ff6166;
+  --destructive-border: hsl(357 50% 28%);
+  --neutral-soft: #1a1a1a;
+  --neutral-soft-foreground: #c7c7c7;
+  --neutral-border: #2e2e2e;
 
   --report-revenue: oklch(0.78 0.1 250);
   --report-revenue-soft: color-mix(in oklab, var(--report-revenue) 10%, transparent);
@@ -322,24 +367,24 @@
   --report-loss: oklch(0.74 0.16 25);
   --report-loss-soft: color-mix(in oklab, var(--report-loss) 10%, transparent);
 
-  --border: oklch(0.275 0.005 255);
-  --border-strong: oklch(0.33 0.006 255);
-  --input: oklch(0.52 0.009 255);
-  --focus-ring: oklch(0.72 0.14 255);
+  --border: #262626;
+  --border-strong: #333333;
+  --input: #3d3d3d;
+  --focus-ring: #52a8ff;
   --ring: var(--focus-ring);
 
-  --selector: oklch(0.255 0.005 255);
-  --selector-hover: oklch(0.31 0.006 255);
-  --selector-active: oklch(0.35 0.008 255);
-  --selector-foreground: oklch(0.96 0.003 255);
-  --selector-border: oklch(0.34 0.006 255);
-  --sidebar-rail: oklch(0.74 0.14 255);
-  --sidebar-rail-glow: color-mix(in oklab, var(--sidebar-rail) 40%, transparent);
+  --selector: #111111;
+  --selector-hover: #1a1a1a;
+  --selector-active: #111111;
+  --selector-foreground: #ededed;
+  --selector-border: var(--input);
+  --sidebar-rail: #52a8ff;
+  --sidebar-rail-glow: color-mix(in oklab, #52a8ff 25%, transparent);
 
-  --table-header: oklch(0.205 0.005 255);
-  --table-header-foreground: oklch(0.76 0.009 255);
-  --table-row-hover: oklch(0.21 0.005 255);
-  --table-row-selected: color-mix(in oklab, var(--focus-ring) 13%, var(--card));
+  --table-header: #0d0d0d;
+  --table-header-foreground: #a1a1a1;
+  --table-row-hover: #161616;
+  --table-row-selected: color-mix(in oklab, #52a8ff 12%, #111111);
 
   --chart-1: #3c78d0;
   --chart-2: #3cb8c0;
@@ -347,17 +392,40 @@
   --chart-4: oklch(0.556 0 0);
   --chart-5: oklch(0.371 0 0);
 
-  --sidebar: oklch(0.165 0.005 255);
-  --sidebar-foreground: oklch(0.92 0.004 255);
-  --sidebar-muted-foreground: oklch(0.7 0.009 255);
-  --sidebar-primary: var(--primary);
+  --sidebar: #0a0a0a;
+  --sidebar-foreground: #c7c7c7;
+  --sidebar-muted-foreground: #8f8f8f;
+  --sidebar-primary: #ededed;
   --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: oklch(0.225 0.005 255);
-  --sidebar-accent-foreground: oklch(0.96 0.003 255);
-  --sidebar-active: color-mix(in oklab, var(--primary) 16%, var(--sidebar));
-  --sidebar-expanded: oklch(0.19 0.005 255);
-  --sidebar-border: oklch(0.26 0.005 255);
+  --sidebar-accent: #1a1a1a;
+  --sidebar-accent-foreground: #ededed;
+  --sidebar-active: #1f1f1f;
+  --sidebar-expanded: #0a0a0a;
+  --sidebar-border: #262626;
   --sidebar-ring: var(--focus-ring);
+
+  /* Design tokens (Round 3-4, design-system §12), dark values. */
+  --success-hover: hsl(133 50% 38%);
+  --destructive-hover: #e5484d;
+  --input-hover: #5c5c5c;
+  --focus-halo: color-mix(in oklab, #52a8ff 26%, transparent);
+  --shadow-card: 0 0 #0000;
+  --shadow-floating: 0 0 0 1px rgb(255 255 255 / 0.04), 0 12px 32px -8px rgb(0 0 0 / 0.7);
+  --control-border: #3d3d3d;
+  --control-edge: #7a7a7a;
+  --destructive-text: var(--destructive-soft-foreground);
+  --link: #52a8ff;
+  --control-border-hover: #5c5c5c;
+  --control-hover: #1a1a1a;
+  --control-pressed: #232323;
+  --control-shadow: 0 1px 2px rgb(0 0 0 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.04);
+  --control-shadow-solid: 0 1px 2px rgb(0 0 0 / 0.6);
+  --control-inset: inset 0 1px 2px rgb(0 0 0 / 0.6);
+  --control-inset-solid: inset 0 1px 3px rgb(0 0 0 / 0.35);
+  --segment-track: #0d0d0d;
+  --segment-on: #262626;
+  --shadow-modal: 0 0 0 1px rgb(255 255 255 / 0.05), 0 24px 48px -12px rgb(0 0 0 / 0.8);
+  --insight-lift: 0 0 0 1px rgb(255 255 255 / 0.03), 0 8px 18px -8px rgb(0 0 0 / 0.75);
 }
 
 @layer base {
@@ -476,11 +544,6 @@
    * Auth screens only — navy focus ring matching the official brand,
    * without retinting every input in the application.
    */
-  .oms-auth-form [data-slot="input"]:focus-visible {
-    border-color: var(--brand-navy);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand-navy) 20%, transparent);
-  }
-
   @media (prefers-reduced-motion: reduce) {
     html:focus-within {
       scroll-behavior: auto;

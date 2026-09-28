@@ -5,16 +5,12 @@ import { useRouter } from "next/navigation";
 import { CircleAlert, ShoppingCart } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import {
-  CreateOperationFooter,
   CreateOperationLayout,
   CreateOperationSummary,
 } from "@/components/shared/create-operation";
-import {
-  FormErrorSummary,
-  useFocusFirstInvalid,
-  type FormErrorItem,
-} from "@/components/shared/form-error-summary";
+import { useFocusFirstInvalid, type FormErrorItem } from "@/components/shared/form-error-summary";
 import { AmountStrip, FormSection } from "@/components/documents/form-section";
+import { Field, FieldGrid } from "@/components/shared/form-card/form-card";
 import { EnterpriseButton } from "@/components/ui/button";
 import { FieldMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -46,7 +42,6 @@ import type { ProductRow } from "@/services/products-service";
 import type { CityRow, CurrencyRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
-import { useUiPilot } from "@/providers/ui-pilot-provider";
 import { apiErrorMessage, reportApiError, reportSuccess } from "@/lib/toast";
 import { formatMoney } from "@/lib/money";
 import { createMasterDataService } from "@/services/master-data-service";
@@ -60,11 +55,11 @@ type ValidationIssue =
   | { kind: "declaration"; error: DeclarationError }
   | { kind: "address"; message: string };
 
-/** Read-only lead facts — a compact label/value grid, not disabled inputs. */
+/** Read-only lead fact — label and value on one line, not a disabled input. */
 function LeadFact({ label, value, ltr }: { label: string; value: string; ltr?: boolean }) {
   return (
-    <div className="min-w-0">
-      <dt className="text-caption text-muted-foreground">{label}</dt>
+    <div className="flex min-w-0 items-baseline gap-1.5">
+      <dt className="shrink-0 text-caption text-muted-foreground">{label}</dt>
       <dd className="truncate text-body font-medium text-foreground" title={value}>
         {ltr ? <bdi dir="ltr">{value}</bdi> : value}
       </dd>
@@ -75,8 +70,8 @@ function LeadFact({ label, value, ltr }: { label: string; value: string; ltr?: b
 /**
  * Lead → Store Order. One modal surface with heading + hairline sections
  * (customer facts · products · settlement · payment declaration · shipping),
- * product lines across the full dialog width, compact figures, and a
- * `FormErrorSummary` on a failed step. "Summary" reviews before creating.
+ * product lines across the full dialog width, and the reason for a failed
+ * step beside the action. "Summary" reviews before creating.
  */
 export function LeadConvertDialog({
   lead,
@@ -90,9 +85,8 @@ export function LeadConvertDialog({
   onConverted: (result: LeadRow) => void;
 }) {
   const { t } = useLocale();
-  // Round 3 pilot (design-system §12): lead identity in the header, the
-  // order total beside the final action, Cancel/Back at the start edge.
-  const pilot = useUiPilot().active;
+  // Design-system §12: lead identity in the header, the order total beside
+  // the final action, Cancel/Back at the start edge.
   const router = useRouter();
   const currencies = useCurrencies();
   const currencyFieldId = useId();
@@ -178,7 +172,7 @@ export function LeadConvertDialog({
   const selectedCountry = countries.find((c) => c.id === countryId) ?? null;
   const selectedCity = cities.find((c) => c.name === city) ?? null;
   const currencyCode = currency?.code ?? "";
-  // Pilot: the lead source as its label (as on lead detail), never the raw code.
+  // The lead source as its label (as on lead detail), never the raw code.
   const sourceLabel = t(`crm.leads.source.${lead.source}` as MessageKey);
 
   const findIssue = (): ValidationIssue | null => {
@@ -327,10 +321,13 @@ export function LeadConvertDialog({
     />
   );
 
-  // Pilot: the operational total sits beside the final action (paid ·
+  // The operational total sits beside the final action (paid ·
   // remaining when a payment is declared), always visible in the sticky footer.
   const footerTotal = (
-    <dl aria-label={t("crm.leads.convert.orderTotal")} className="flex min-w-0 flex-col text-end">
+    <dl
+      aria-label={t("crm.leads.convert.orderTotal")}
+      className="flex min-w-0 flex-col text-end max-sm:order-first max-sm:basis-full"
+    >
       <div className="flex items-baseline justify-end gap-2">
         <dt className="text-caption text-muted-foreground">{t("crm.leads.convert.orderTotal")}</dt>
         <dd dir="ltr" className="num text-card-title font-semibold whitespace-nowrap">
@@ -353,134 +350,89 @@ export function LeadConvertDialog({
       open={open}
       onOpenChange={onOpenChange}
       size="xl"
-      // Round 3.1 pilot: a 640px vertical form card (tinted section panels).
+      // A 640px vertical form card (tinted section panels).
       layout="form-card"
       icon={ShoppingCart}
       title={t("crm.leads.convert.title")}
       description={
-        pilot ? (
-          <>
-            <bdi>{lead.customerName}</bdi>
-            {" · "}
-            <bdi dir="ltr" className="num">
-              {lead.leadNumber}
-            </bdi>
-          </>
-        ) : (
-          t("crm.leads.convert.description")
-        )
+        <>
+          <bdi>{lead.customerName}</bdi>
+          {" · "}
+          <bdi dir="ltr" className="num">
+            {lead.leadNumber}
+          </bdi>
+        </>
       }
-      // Pilot: the reason sits beside the failing action (footer) and under the
+      // The reason sits beside the failing action (footer) and under the
       // field — no third copy at the top of the body.
-      errorSummary={pilot ? null : <FormErrorSummary errors={summaryItems} />}
-      footer={(requestClose) =>
-        pilot ? (
-          <>
-            {step === "summary" ? (
-              <EnterpriseButton variant="outline" onClick={() => setStep("form")}>
-                {t("crm.leads.convert.backToEdit")}
-              </EnterpriseButton>
-            ) : (
-              <EnterpriseButton variant="outline" onClick={requestClose}>
-                {t("common.cancel")}
-              </EnterpriseButton>
-            )}
-            <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 sm:justify-end">
-              <div aria-live="polite" className="contents">
-                {summaryItems.length > 0 ? (
-                  // Why the step failed, next to the action; announced politely.
-                  <button
-                    type="button"
-                    onClick={() => focusFirstInvalid()}
-                    className="flex max-w-full min-w-0 basis-full items-center gap-1.5 text-start text-caption text-destructive hover:underline sm:max-w-72 sm:basis-auto"
-                  >
-                    <CircleAlert className="size-3.5 shrink-0" aria-hidden />
-                    <span className="truncate">
-                      {summaryItems[0].message}
-                      {summaryItems.length > 1 ? ` (+${summaryItems.length - 1})` : ""}
-                    </span>
-                  </button>
-                ) : null}
-              </div>
-              {footerTotal}
-              {step === "summary" ? (
-                <EnterpriseButton
-                  variant="success"
-                  isLoading={isSaving}
-                  disabled={isSaving || receiptItems.some((item) => item.status === "uploading")}
-                  onClick={() => void submit()}
-                >
-                  {t("crm.leads.convert.confirmCreate")}
-                </EnterpriseButton>
-              ) : (
-                <EnterpriseButton
-                  onClick={() => {
-                    if (validate()) setStep("summary");
-                  }}
-                >
-                  {t("common.summary")}
-                </EnterpriseButton>
-              )}
-            </div>
-          </>
-        ) : step === "summary" ? (
-          <>
+      footer={(requestClose) => (
+        <>
+          {step === "summary" ? (
             <EnterpriseButton variant="outline" onClick={() => setStep("form")}>
               {t("crm.leads.convert.backToEdit")}
             </EnterpriseButton>
-            <EnterpriseButton
-              variant="success"
-              isLoading={isSaving}
-              disabled={isSaving || receiptItems.some((item) => item.status === "uploading")}
-              onClick={() => void submit()}
-            >
-              {t("crm.leads.convert.confirmCreate")}
+          ) : (
+            <EnterpriseButton variant="outline" onClick={requestClose}>
+              {t("common.cancel")}
             </EnterpriseButton>
-          </>
-        ) : (
-          <CreateOperationFooter
-            requestClose={requestClose}
-            onSubmit={() => {
-              if (validate()) setStep("summary");
-            }}
-            isSubmitting={false}
-            submitLabel={t("common.summary")}
-          />
-        )
-      }
+          )}
+          {/* Phones: `contents` — the total and any error take their own rows
+                above, Cancel and the final action share the last row. */}
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 max-sm:contents sm:justify-end">
+            <div aria-live="polite" className="contents">
+              {summaryItems.length > 0 ? (
+                // Why the step failed, next to the action; announced politely.
+                <button
+                  type="button"
+                  onClick={() => focusFirstInvalid()}
+                  className="flex max-w-full min-w-0 basis-full items-center gap-1.5 text-start text-caption text-destructive hover:underline max-sm:order-first sm:max-w-72 sm:basis-auto"
+                >
+                  <CircleAlert className="size-3.5 shrink-0" aria-hidden />
+                  <span className="truncate">
+                    {summaryItems[0].message}
+                    {summaryItems.length > 1 ? ` (+${summaryItems.length - 1})` : ""}
+                  </span>
+                </button>
+              ) : null}
+            </div>
+            {footerTotal}
+            {step === "summary" ? (
+              <EnterpriseButton
+                variant="success"
+                isLoading={isSaving}
+                disabled={isSaving || receiptItems.some((item) => item.status === "uploading")}
+                onClick={() => void submit()}
+              >
+                {t("crm.leads.convert.confirmCreate")}
+              </EnterpriseButton>
+            ) : (
+              <EnterpriseButton
+                onClick={() => {
+                  if (validate()) setStep("summary");
+                }}
+              >
+                {t("common.summary")}
+              </EnterpriseButton>
+            )}
+          </div>
+        </>
+      )}
     >
       {step === "form" ? (
-        <div ref={bodyRef} className={pilot ? "flex flex-col gap-3" : "flex flex-col gap-4"}>
-          <FormSection
-            title={t("crm.leads.convert.sectionCustomer")}
-            description={pilot ? t("crm.leads.convert.sectionCustomerHint") : undefined}
-          >
-            <dl
-              className={
-                pilot
-                  ? "grid grid-cols-2 gap-x-3 gap-y-2 @md:grid-cols-3"
-                  : "grid grid-cols-2 gap-x-4 gap-y-2 @2xl:grid-cols-4"
-              }
-            >
-              {pilot ? null : (
-                <LeadFact label={t("crm.leads.fields.customerName")} value={lead.customerName} />
-              )}
+        <div ref={bodyRef} className="flex flex-col gap-3">
+          <FormSection title={t("crm.leads.convert.sectionCustomer")}>
+            <dl className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
               <LeadFact label={t("crm.leads.fields.mobileNumber")} value={lead.mobileNumber} ltr />
               <LeadFact
                 label={t("crm.leads.convert.owner")}
                 value={lead.salesEmployee?.fullName ?? "—"}
               />
-              <LeadFact
-                label={t("crm.leads.fields.source")}
-                value={pilot ? sourceLabel : lead.source}
-                ltr={!pilot}
-              />
+              <LeadFact label={t("crm.leads.fields.source")} value={sourceLabel} />
             </dl>
           </FormSection>
 
           <FormSection
             title={t("crm.leads.convert.sectionProducts")}
-            description={pilot ? t("crm.leads.convert.sectionProductsHint") : undefined}
             data-field-name="lines"
             data-invalid={liveIssue?.kind === "lines" ? "true" : undefined}
           >
@@ -501,19 +453,17 @@ export function LeadConvertDialog({
               requirePrice
               showErrors={showLineErrors}
             />
-            {/* Pilot: the grid already explains a missing amount under its rows. */}
+            {/* The grid already explains a missing amount under its rows. */}
             {liveIssue?.kind === "lines" &&
-            !(pilot && productLines.some((line) => isLinePriceMissing(line, "lineAmount"))) ? (
+            !productLines.some((line) => isLinePriceMissing(line, "lineAmount")) ? (
               <FieldMessage announce={false}>{liveIssue.message}</FieldMessage>
             ) : null}
           </FormSection>
 
-          <FormSection
-            title={t("crm.leads.convert.sectionPayment")}
-            description={pilot ? t("crm.leads.convert.sectionPaymentHint") : undefined}
-          >
-            <div className="grid grid-cols-1 gap-x-3 gap-y-2 @md:grid-cols-2 @3xl:grid-cols-3">
-              <div className="flex min-w-0 flex-col gap-1">
+          <FormSection title={t("crm.leads.convert.sectionPayment")}>
+            {/* Settlement · fulfillment · currency share one compact row. */}
+            <FieldGrid className="grid grid-cols-1 gap-x-3 gap-y-2 @md:grid-cols-2 @3xl:grid-cols-3">
+              <Field size="sm">
                 <Label htmlFor={paymentTypeFieldId}>{t("crm.leads.convert.paymentType")}</Label>
                 <EntityCombobox
                   id={paymentTypeFieldId}
@@ -537,8 +487,8 @@ export function LeadConvertDialog({
                   getId={(item) => item.id}
                   getTitle={(item) => item.name}
                 />
-              </div>
-              <div className="flex min-w-0 flex-col gap-1">
+              </Field>
+              <Field size="sm">
                 <Label htmlFor={fulfillmentFieldId}>
                   {t("crm.leads.convert.fulfillmentMethod")}
                 </Label>
@@ -552,8 +502,8 @@ export function LeadConvertDialog({
                   getId={(item) => item.id}
                   getTitle={(item) => item.name}
                 />
-              </div>
-              <div className="flex min-w-0 flex-col gap-1">
+              </Field>
+              <Field size="sm">
                 <Label htmlFor={currencyFieldId}>{t("crm.leads.fields.currency")}</Label>
                 <CurrencyPicker
                   id={currencyFieldId}
@@ -563,8 +513,8 @@ export function LeadConvertDialog({
                     setCurrency(currencies.find((row) => row.id === id) ?? null)
                   }
                 />
-              </div>
-            </div>
+              </Field>
+            </FieldGrid>
           </FormSection>
 
           {paymentType === "PREPAID" ? (
@@ -584,12 +534,9 @@ export function LeadConvertDialog({
             />
           ) : null}
 
-          <FormSection
-            title={t("crm.leads.convert.sectionShipping")}
-            description={pilot ? t("crm.leads.convert.sectionShippingHint") : undefined}
-          >
-            <div className="grid grid-cols-1 gap-x-3 gap-y-2 @md:grid-cols-2 @3xl:grid-cols-3">
-              <div className="flex min-w-0 flex-col gap-1">
+          <FormSection title={t("crm.leads.convert.sectionShipping")}>
+            <FieldGrid className="grid grid-cols-1 gap-x-3 gap-y-2 @md:grid-cols-2 @3xl:grid-cols-3">
+              <Field size="md">
                 <Label htmlFor={countryFieldId}>{t("crm.leads.fields.country")}</Label>
                 <EntityCombobox
                   id={countryFieldId}
@@ -603,8 +550,8 @@ export function LeadConvertDialog({
                   getTitle={(item) => item.name}
                   getSearchText={(item) => `${item.code} ${item.name}`}
                 />
-              </div>
-              <div className="flex min-w-0 flex-col gap-1">
+              </Field>
+              <Field size="md">
                 <Label htmlFor={cityFieldId}>{t("crm.leads.fields.city")}</Label>
                 {cities.length > 0 ? (
                   <EntityCombobox
@@ -623,8 +570,8 @@ export function LeadConvertDialog({
                     onChange={(event) => setCity(event.target.value)}
                   />
                 )}
-              </div>
-              <div className="col-span-full flex min-w-0 flex-col gap-1 @3xl:col-span-1 @3xl:row-span-2">
+              </Field>
+              <Field size="full" className="col-span-full @3xl:col-span-1 @3xl:row-span-2">
                 <Label htmlFor={addressFieldId}>{t("crm.leads.fields.address")}</Label>
                 <Textarea
                   id={addressFieldId}
@@ -636,28 +583,25 @@ export function LeadConvertDialog({
                 {liveIssue?.kind === "address" ? (
                   <FieldMessage announce={false}>{liveIssue.message}</FieldMessage>
                 ) : null}
-              </div>
-            </div>
+              </Field>
+            </FieldGrid>
           </FormSection>
-
-          {pilot ? null : figures}
         </div>
       ) : (
         <CreateOperationLayout>
           <CreateOperationSummary
             title={t("crm.leads.convert.sectionSummary")}
-            description={pilot ? t("crm.leads.convert.sectionSummaryHint") : undefined}
             rows={[
               { label: t("crm.leads.fields.customerName"), value: lead.customerName },
               {
                 label: t("crm.leads.fields.mobileNumber"),
-                value: pilot ? <bdi dir="ltr">{lead.mobileNumber}</bdi> : lead.mobileNumber,
+                value: <bdi dir="ltr">{lead.mobileNumber}</bdi>,
               },
               { label: t("crm.leads.convert.owner"), value: lead.salesEmployee?.fullName ?? "—" },
-              { label: t("crm.leads.fields.source"), value: pilot ? sourceLabel : lead.source },
+              { label: t("crm.leads.fields.source"), value: sourceLabel },
               {
                 label: t("crm.leads.convert.sectionProducts"),
-                value: pilot ? (
+                value: (
                   <ul className="flex flex-col gap-0.5">
                     {productLines.map((line) => (
                       <li key={line.id} className="flex items-baseline justify-end gap-2">
@@ -673,13 +617,6 @@ export function LeadConvertDialog({
                       </li>
                     ))}
                   </ul>
-                ) : (
-                  productLines
-                    .map(
-                      (line) =>
-                        `${line.product?.displayName ?? line.product?.name} × ${line.quantity} = ${formatMoney(line.lineAmount ?? 0)}`,
-                    )
-                    .join(" · ")
                 ),
               },
               {
@@ -711,7 +648,7 @@ export function LeadConvertDialog({
               },
             ]}
           />
-          {pilot && !declares ? null : figures}
+          {declares ? figures : null}
         </CreateOperationLayout>
       )}
     </EnterpriseModal>

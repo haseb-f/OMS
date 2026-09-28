@@ -9,6 +9,8 @@ import { useLocale } from "@/providers/locale-provider";
 import { formatFileSize } from "@/lib/format-file-size";
 import { isImageAttachmentMime } from "@/lib/order-attachments";
 import { toast } from "@/lib/toast";
+import { useFormCard } from "@/components/shared/form-card/form-card";
+import { cn } from "@/lib/utils";
 
 export type ReceiptUploadItem = {
   localId: string;
@@ -30,6 +32,8 @@ export function PaymentReceiptsField({
   visible?: boolean;
 }) {
   const { t } = useLocale();
+  // Compact form: the title and accepted types share one line.
+  const compact = useFormCard();
 
   if (!visible) return null;
 
@@ -98,8 +102,8 @@ export function PaymentReceiptsField({
   };
 
   return (
-    <div className="col-span-full flex flex-col gap-2">
-      <div>
+    <div className={cn("col-span-full flex flex-col", compact ? "gap-1.5" : "gap-2")}>
+      <div className={compact ? "flex flex-wrap items-baseline gap-x-2" : undefined}>
         <p className="text-sm font-medium">{t("crm.leads.convert.paymentProof")}</p>
         <p className="text-caption text-muted-foreground">
           {t("storeOrders.detail.receipts.acceptedTypes")}

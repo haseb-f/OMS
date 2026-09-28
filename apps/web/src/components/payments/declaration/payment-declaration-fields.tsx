@@ -2,6 +2,7 @@
 
 import { useId, useMemo } from "react";
 import { FormSection, AmountStrip } from "@/components/documents/form-section";
+import { Field, FieldGrid, useFormCard } from "@/components/shared/form-card/form-card";
 import { SegmentedRadioGroup } from "@/components/documents/segmented-radio-group";
 import type { FormErrorItem } from "@/components/shared/form-error-summary";
 import { SearchableSelect } from "@/components/shared/searchable-select";
@@ -71,6 +72,9 @@ export function declarationErrorItem(
  * `role="radio"`), then method · date · reference in one row on desktop,
  * the receipt drop, and a compact figures strip. Errors sit under their
  * field; the host dialog lists them in its `FormErrorSummary`.
+ *
+ * Compact form (`useFormCard`): the kind hint sits beside the
+ * segmented control and the fields are a content-sized `FieldGrid`.
  */
 export function PaymentDeclarationFields({
   value,
@@ -112,6 +116,26 @@ export function PaymentDeclarationFields({
   const errorField = error ? declarationErrorField(error) : null;
   const errorText = error ? t(`paymentDeclaration.dialog.errors.${error}` as MessageKey) : null;
   const fieldError = (name: string) => (errorField === name ? errorText : null);
+  const compact = useFormCard();
+  const kindHint = paid ? (
+    <p className="text-caption text-muted-foreground">
+      {value.kind === "FULL"
+        ? t("paymentDeclaration.dialog.fullHint")
+        : t("paymentDeclaration.dialog.partialHint")}
+    </p>
+  ) : null;
+  const segmented = (
+    <SegmentedRadioGroup
+      value={value.kind}
+      onValueChange={(kind) => set({ kind })}
+      disabled={disabled}
+      aria-labelledby={`${fieldId}-question`}
+      options={KINDS.map((kind) => ({
+        value: kind,
+        label: t(`paymentDeclaration.dialog.kinds.${kind}` as MessageKey),
+      }))}
+    />
+  );
 
   return (
     <FormSection
@@ -120,30 +144,24 @@ export function PaymentDeclarationFields({
       }
       description={t("paymentDeclaration.dialog.notVerifiedNote")}
     >
-      <SegmentedRadioGroup
-        value={value.kind}
-        onValueChange={(kind) => set({ kind })}
-        disabled={disabled}
-        aria-labelledby={`${fieldId}-question`}
-        options={KINDS.map((kind) => ({
-          value: kind,
-          label: t(`paymentDeclaration.dialog.kinds.${kind}` as MessageKey),
-        }))}
-      />
+      {compact ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          {segmented}
+          {kindHint}
+        </div>
+      ) : (
+        segmented
+      )}
 
       {paid ? (
         <>
-          <p className="text-caption text-muted-foreground">
-            {value.kind === "FULL"
-              ? t("paymentDeclaration.dialog.fullHint")
-              : t("paymentDeclaration.dialog.partialHint")}
-          </p>
-          <div className="grid grid-cols-1 gap-x-3 gap-y-2 @md:grid-cols-2 @3xl:grid-cols-3">
+          {compact ? null : kindHint}
+          <FieldGrid className="grid grid-cols-1 gap-x-3 gap-y-2 @md:grid-cols-2 @3xl:grid-cols-3">
             {value.kind === "PARTIAL" ? (
-              <div
+              <Field
+                size="sm"
                 data-field-name="declarationAmount"
                 data-invalid={fieldError("declarationAmount") ? "true" : undefined}
-                className="flex min-w-0 flex-col gap-1"
               >
                 <Label htmlFor={`${fieldId}-amount`}>
                   {t("paymentDeclaration.dialog.amount")}{" "}
@@ -164,12 +182,12 @@ export function PaymentDeclarationFields({
                   onChange={(event) => set({ amount: event.target.value })}
                 />
                 <FieldMessage announce={false}>{fieldError("declarationAmount")}</FieldMessage>
-              </div>
+              </Field>
             ) : null}
-            <div
+            <Field
+              size="md"
               data-field-name="declarationMethod"
               data-invalid={fieldError("declarationMethod") ? "true" : undefined}
-              className="flex min-w-0 flex-col gap-1"
             >
               <Label htmlFor={`${fieldId}-method`}>
                 {t("paymentDeclaration.dialog.method")} <span className="text-destructive">*</span>
@@ -185,11 +203,11 @@ export function PaymentDeclarationFields({
                 error={Boolean(fieldError("declarationMethod"))}
               />
               <FieldMessage announce={false}>{fieldError("declarationMethod")}</FieldMessage>
-            </div>
-            <div
+            </Field>
+            <Field
+              size="sm"
               data-field-name="declarationDate"
               data-invalid={fieldError("declarationDate") ? "true" : undefined}
-              className="flex min-w-0 flex-col gap-1"
             >
               <Label htmlFor={`${fieldId}-date`}>
                 {t("paymentDeclaration.dialog.paymentDate")}{" "}
@@ -203,8 +221,8 @@ export function PaymentDeclarationFields({
                 aria-invalid={Boolean(fieldError("declarationDate")) || undefined}
               />
               <FieldMessage announce={false}>{fieldError("declarationDate")}</FieldMessage>
-            </div>
-            <div className="flex min-w-0 flex-col gap-1">
+            </Field>
+            <Field size="md">
               <Label htmlFor={`${fieldId}-reference`}>
                 {t("paymentDeclaration.dialog.reference")}
               </Label>
@@ -215,8 +233,8 @@ export function PaymentDeclarationFields({
                 disabled={disabled}
                 onChange={(event) => set({ referenceNumber: event.target.value })}
               />
-            </div>
-          </div>
+            </Field>
+          </FieldGrid>
           <PaymentReceiptsField items={receipts} onChange={onReceiptsChange} disabled={disabled} />
           <AmountStrip
             items={[

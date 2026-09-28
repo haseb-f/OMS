@@ -14,13 +14,13 @@ const SYSTEM_CODES = new Set([
 ]);
 
 /**
- * Round 3 pilot: `leadLifecycleBadge` with the protected system statuses
+ * `leadLifecycleBadge` with the protected system statuses
  * named in the UI language. Status names are admin data stored in Arabic, so
  * outside Arabic the known codes use the translated workflow stage names;
  * unknown (admin-added) codes keep their stored name. Arabic keeps the stored
- * names exactly as the classic UI shows them.
+ * names exactly as stored.
  */
-export function pilotLeadBadge(
+export function leadStatusBadge(
   lead: Pick<LeadRow, "status" | "salesEmployeeId">,
   { t, locale }: Pick<Locale, "t" | "locale">,
 ) {
@@ -34,11 +34,11 @@ export function pilotLeadBadge(
   };
 }
 
-/** Name of a lead status for the pilot (closed marker, notes). */
-export function pilotLeadStatusName(
+/** Name of a lead status in the UI language (closed marker, notes). */
+export function leadStatusName(
   status: LeadRow["status"],
   locale: Pick<Locale, "t" | "locale">,
 ): string | undefined {
   if (!status) return undefined;
-  return pilotLeadBadge({ status, salesEmployeeId: null }, locale).label;
+  return leadStatusBadge({ status, salesEmployeeId: null }, locale).label;
 }

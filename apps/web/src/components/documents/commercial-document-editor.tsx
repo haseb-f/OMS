@@ -2,14 +2,12 @@
 
 import { Fragment, useEffect, useId, useMemo, useRef, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
-import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { CurrencyPicker } from "@/components/business/currency-picker";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
-import { EditorHeader } from "@/components/shared/detail-workspace";
 import {
   FormErrorSummary,
   useFocusFirstInvalid,
@@ -41,13 +39,9 @@ import type { PartnerRoleValue, PartnerPickerRow } from "@/services/partners-ser
 import type { CurrencyRow } from "@/config/master-data/entities";
 import type { TraceKind } from "@/services/traceability-service";
 import { FieldMessage } from "@/components/ui/form";
-import { useUiPilot } from "@/providers/ui-pilot-provider";
 import { DocumentActionBar, type DocumentAction } from "./document-action-bar";
-import {
-  DocumentEditorPilotLayout,
-  pilotFieldClass,
-  pilotFieldGridClass,
-} from "./pilot/document-editor-pilot-layout";
+import { DocumentEditorLayout } from "./document-editor-layout";
+import { Field, FieldGrid } from "@/components/shared/form-card/form-card";
 
 export interface CommercialDocumentActivityEntry {
   id: string;
@@ -74,6 +68,7 @@ export interface CommercialDocumentFieldErrors {
 export interface CommercialDocumentEditorProps<TContext> {
   title: string;
   documentNumber: string | null;
+  /** Not rendered: an unsaved document shows "number on save" instead. Kept for callers. */
   docCodePreview?: string;
   status: string;
   statusOptions: CommercialDocumentStatusOption[];
@@ -117,7 +112,7 @@ export interface CommercialDocumentEditorProps<TContext> {
    * header (e.g. an invoice's payment status) — each badge names its state.
    */
   headerStatus?: ReactNode;
-  /** Round 3.1 pilot: read-only workflow tracker(s) under the header (pilot layout only). */
+  /** Read-only workflow tracker(s) under the header. */
   headerTracker?: ReactNode;
   /** Inline validation (never toast-only); entered data is never cleared. */
   fieldErrors?: CommercialDocumentFieldErrors;
@@ -148,8 +143,6 @@ export function CommercialDocumentEditor<TContext>(props: CommercialDocumentEdit
   const bodyRef = useRef<HTMLDivElement>(null);
   const focusFirstInvalid = useFocusFirstInvalid(bodyRef);
   const { canEdit, lines, totals: serverTotals, status, statusOptions, activity } = props;
-  // Round 3 pilot (design-system §12.6): same state and handlers, Geist page anatomy.
-  const pilot = useUiPilot().active;
 
   // Unsaved edits survive "Open full record" from a related-record preview.
   useNavigationDraft({
@@ -489,126 +482,62 @@ export function CommercialDocumentEditor<TContext>(props: CommercialDocumentEdit
 
   const formError = <FieldMessage data-testid="field-error-form">{errors?.form}</FieldMessage>;
 
-  if (pilot) {
-    return (
-      <DocumentEditorPilotLayout
-        bodyRef={bodyRef}
-        title={props.title}
-        documentNumber={props.documentNumber}
-        pendingNumberLabel={t("sales.editor.header.numberOnSave")}
-        status={statusNode}
-        meta={meta}
-        tracker={props.headerTracker}
-        actions={actionBar}
-        errorSummary={errorSummary}
-        fields={
-          <div className={pilotFieldGridClass}>
-            <div
-              data-field-name="party"
-              data-invalid={errors?.party ? "true" : undefined}
-              className={pilotFieldClass.wide}
-            >
-              {partyField}
-            </div>
-            <div
-              data-field-name="documentDate"
-              data-invalid={errors?.documentDate ? "true" : undefined}
-              className={pilotFieldClass.narrow}
-            >
-              {dateField}
-            </div>
-            <div className={pilotFieldClass.narrow}>{currencyField}</div>
-            <div className={pilotFieldClass.wide}>{referenceField}</div>
-            {props.headerFields}
-          </div>
-        }
-        lines={
-          <div
-            data-field-name="lines"
-            data-invalid={errors?.lines ? "true" : undefined}
-            className="flex min-w-0 flex-col gap-1"
-          >
-            {linesGrid}
-          </div>
-        }
-        details={details}
-        totals={totalsBlock}
-        formError={formError}
-        related={
-          props.trace?.id ? (
-            <RelatedRecordsPanel
-              kind={props.trace.kind}
-              id={props.trace.id}
-              refreshKey={status}
-              className="bg-card"
-            />
-          ) : null
-        }
-      />
-    );
-  }
-
+  // Design-system §12.6 page anatomy; the editor owns all state and handlers.
   return (
-    <EnterpriseCard size="sm" className="overflow-visible pb-20 md:pb-(--card-spacing)">
-      <EnterpriseCardContent ref={bodyRef} data-form-scope="" className="flex flex-col gap-3">
-        <EditorHeader
-          sticky
-          title={props.title}
-          documentNumber={
-            // EditorHeader puts the number in a dir="ltr" span; this keeps the gap on the title side in RTL.
-            <span>{props.documentNumber ?? `${props.docCodePreview ?? ""}-…`}</span>
-          }
-          meta={meta}
-          status={statusNode}
-          actions={actionBar}
-        />
-
-        {errorSummary}
-
-        {/* Compact header fields: the party takes the room it needs; date,
-            currency and reference keep their natural widths on sm+. */}
-        <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
-          <div
+    <DocumentEditorLayout
+      bodyRef={bodyRef}
+      title={props.title}
+      documentNumber={props.documentNumber}
+      pendingNumberLabel={t("sales.editor.header.numberOnSave")}
+      status={statusNode}
+      meta={meta}
+      tracker={props.headerTracker}
+      actions={actionBar}
+      errorSummary={errorSummary}
+      fields={
+        // Content-sized fields — party wide, date/currency short.
+        <FieldGrid>
+          <Field
+            size="lg"
             data-field-name="party"
             data-invalid={errors?.party ? "true" : undefined}
-            className="flex w-full min-w-0 flex-col gap-1 sm:w-80 sm:max-w-full lg:w-96"
           >
             {partyField}
-          </div>
-          <div
+          </Field>
+          <Field
+            size="sm"
             data-field-name="documentDate"
             data-invalid={errors?.documentDate ? "true" : undefined}
-            className="flex w-[calc(50%-0.375rem)] min-w-0 flex-col gap-1 sm:w-44"
           >
             {dateField}
-          </div>
-          <div className="flex w-[calc(50%-0.375rem)] min-w-0 flex-col gap-1 sm:w-40">
-            {currencyField}
-          </div>
-          <div className="flex w-full min-w-0 flex-col gap-1 sm:w-48">{referenceField}</div>
+          </Field>
+          <Field size="sm">{currencyField}</Field>
+          <Field size="md">{referenceField}</Field>
           {props.headerFields}
-        </div>
-
+        </FieldGrid>
+      }
+      lines={
         <div
           data-field-name="lines"
           data-invalid={errors?.lines ? "true" : undefined}
-          className="flex min-w-0 flex-col gap-1 border-t border-border pt-3"
+          className="flex min-w-0 flex-col gap-1"
         >
           {linesGrid}
         </div>
-
-        {/* Notes/terms (start) beside a right-sized totals block (end, on the numeric edge). */}
-        <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]">
-          <div className="order-2 flex min-w-0 flex-col gap-1 lg:order-1">{details}</div>
-          <div className="order-1 flex min-w-0 flex-col gap-2 lg:order-2">{totalsBlock}</div>
-        </div>
-        {formError}
-
-        {/* Related records are secondary context — after the document body, not above the fields. */}
-        {props.trace?.id ? (
-          <RelatedRecordsPanel kind={props.trace.kind} id={props.trace.id} refreshKey={status} />
-        ) : null}
-      </EnterpriseCardContent>
-    </EnterpriseCard>
+      }
+      details={details}
+      totals={totalsBlock}
+      formError={formError}
+      related={
+        props.trace?.id ? (
+          <RelatedRecordsPanel
+            kind={props.trace.kind}
+            id={props.trace.id}
+            refreshKey={status}
+            className="bg-card"
+          />
+        ) : null
+      }
+    />
   );
 }

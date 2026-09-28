@@ -29,14 +29,9 @@ import { LeadCloseWithoutPurchaseDialog } from "@/components/crm/lead-close-dial
 import { AssignLeadDialog } from "@/components/business/assign-lead-dialog";
 import { LeadOrderCreateDialog } from "@/components/business/lead-order-create-dialog";
 import { LeadDistributionModal } from "@/components/crm/lead-distribution-modal";
-import {
-  LeadDistributionStatus,
-  leadDistributionAction,
-  useLeadDistribution,
-} from "@/components/crm/lead-distribution-control";
+import { useLeadDistribution } from "@/components/crm/lead-distribution-control";
 import { BulkLeadStatusDialog } from "@/components/crm/bulk-lead-status-dialog";
-import { LeadDistributionControlPilot } from "@/components/crm/pilot/lead-list-pilot";
-import { useUiPilot } from "@/providers/ui-pilot-provider";
+import { LeadDistributionMenu } from "@/components/crm/lead-distribution-menu";
 import { reportApiError } from "@/lib/toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -51,7 +46,6 @@ function CrmLeadsPageContent() {
   const router = useRouter();
   const { hasPermission } = useUserContext();
   const classifications = useCustomerClassifications();
-  const pilot = useUiPilot().active;
   const [canAssign, setCanAssign] = useState(false);
 
   const currencies = useCurrencies();
@@ -60,7 +54,7 @@ function CrmLeadsPageContent() {
   const [closeTarget, setCloseTarget] = useState<LeadRow | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [distributionOpen, setDistributionOpen] = useState(false);
-  // Pilot: the header control owns the mode; the dialog opens for manual tools only.
+  // The header control owns the mode; the dialog opens for manual tools only.
   const [distributionToolsOnly, setDistributionToolsOnly] = useState(false);
   const [bulkAssignIds, setBulkAssignIds] = useState<string[]>([]);
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
@@ -278,18 +272,14 @@ function CrmLeadsPageContent() {
           setUnassignedOnly(false);
         }}
         extraFilters={
-          <div
-            className={
-              // Pilot: the toolbar's own 6px rhythm, so search → filters → view options share a row.
-              pilot ? "flex flex-wrap items-center gap-1.5" : "flex flex-wrap items-center gap-3"
-            }
-          >
+          // The toolbar's own 6px rhythm, so search → filters → view options share a row.
+          <div className="flex flex-wrap items-center gap-1.5">
             <SelectFilter
               label={t("crm.leads.lifecycle.all")}
               value={lifecycle}
               onChange={setLifecycle}
               allLabel={t("crm.leads.lifecycle.all")}
-              className={pilot ? "min-w-24" : undefined}
+              className="min-w-24"
               options={[
                 { value: "active", label: t("crm.leads.lifecycle.active") },
                 { value: "converted", label: t("crm.leads.lifecycle.converted") },
@@ -297,12 +287,8 @@ function CrmLeadsPageContent() {
               ]}
             />
             <SelectFilter
-              label={
-                pilot
-                  ? t("crm.leads.filters.classificationShort")
-                  : t("crm.leads.fields.classification")
-              }
-              className={pilot ? "min-w-24" : undefined}
+              label={t("crm.leads.filters.classificationShort")}
+              className="min-w-24"
               value={classificationFilter}
               onChange={setClassificationFilter}
               options={classifications.map((row) => ({ value: row.id, label: row.name }))}
@@ -312,7 +298,7 @@ function CrmLeadsPageContent() {
               value={followUpFilter}
               onChange={setFollowUpFilter}
               allLabel={t("crm.leads.filters.followUpAll")}
-              className={pilot ? "min-w-24" : undefined}
+              className="min-w-24"
               options={[
                 { value: "today", label: t("crm.leads.followUp.today") },
                 { value: "overdue", label: t("crm.leads.followUp.overdue") },
@@ -327,7 +313,7 @@ function CrmLeadsPageContent() {
                 another employee — the backend AND's this with scope
                 regardless, but hiding it here keeps the UI honest too. */}
             {canAssign ? (
-              <div className={pilot ? "w-full sm:w-44" : "w-full sm:w-52"}>
+              <div className="w-full sm:w-44">
                 <EmployeePicker
                   items={eligibleEmployees}
                   value={
@@ -394,20 +380,13 @@ function CrmLeadsPageContent() {
         )}
         headerMeta={
           canAssign ? (
-            pilot ? (
-              <LeadDistributionControlPilot
-                state={distribution}
-                onOpenTools={() => {
-                  setDistributionToolsOnly(true);
-                  setDistributionOpen(true);
-                }}
-              />
-            ) : (
-              <LeadDistributionStatus
-                state={distribution}
-                onOpenModes={() => setDistributionOpen(true)}
-              />
-            )
+            <LeadDistributionMenu
+              state={distribution}
+              onOpenTools={() => {
+                setDistributionToolsOnly(true);
+                setDistributionOpen(true);
+              }}
+            />
           ) : null
         }
         extraActions={
@@ -418,12 +397,6 @@ function CrmLeadsPageContent() {
             />
             <SyncButton sourceType="LEADS" onSynced={() => setRefreshToken((n) => n + 1)} />
           </>
-        }
-        headerMore={
-          // Pilot: Start / Pause live in the one distribution control instead.
-          canAssign && !pilot
-            ? [leadDistributionAction(distribution, t, () => setDistributionOpen(true))]
-            : undefined
         }
         primaryAction={{
           key: "add-new",
@@ -478,7 +451,7 @@ function CrmLeadsPageContent() {
           }
         }}
         selectedLeadIds={bulkAssignIds}
-        assignOnly={pilot && (distributionToolsOnly || bulkAssignIds.length > 0)}
+        assignOnly={distributionToolsOnly || bulkAssignIds.length > 0}
         onChanged={() => setRefreshToken((n) => n + 1)}
       />
       <BulkLeadStatusDialog

@@ -16,7 +16,6 @@ import { useSuppliers } from "@/hooks/use-reference-data";
 import { cn } from "@/lib/utils";
 import { cachedLookup, invalidateLookups } from "@/lib/lookup-cache";
 import { useUserContext } from "@/providers/user-context";
-import { useUiPilot } from "@/providers/ui-pilot-provider";
 import type { MessageKey } from "@/i18n/translate";
 
 const ROLE_ICON: Record<PartnerRoleValue, typeof UserCircle> = {
@@ -115,8 +114,6 @@ export function PartnerPicker({
   const canCreate = hasPermission("partners.create");
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [quickCreateName, setQuickCreateName] = useState("");
-  // Round 3 pilot: same-name partners are told apart by number · phone.
-  const pilot = useUiPilot().active;
   const text = ROLE_TEXT[role];
   const Icon = ROLE_ICON[role];
   const [recentIds, setRecentIds] = useLocalStorage<string[]>(text.storageKey, []);
@@ -171,15 +168,12 @@ export function PartnerPicker({
         }}
         getId={(partner) => partner.id}
         getTitle={(partner) => partner.name}
-        getSubtitle={
-          pilot
-            ? (partner) =>
-                [partner.partnerNumber, partner.mobile ?? partner.phone]
-                  .filter(Boolean)
-                  .join(" · ") || undefined
-            : undefined
+        // Same-name partners are told apart by number · phone.
+        getSubtitle={(partner) =>
+          [partner.partnerNumber, partner.mobile ?? partner.phone].filter(Boolean).join(" · ") ||
+          undefined
         }
-        subtitleDir={pilot ? "ltr" : undefined}
+        subtitleDir="ltr"
         placeholder={t(text.select)}
         searchPlaceholder={t(text.placeholder)}
         emptyText={t(text.noResults)}

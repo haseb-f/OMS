@@ -521,7 +521,6 @@ const en = {
     },
   },
   topbar: {
-    pilotDesign: "New design (pilot)",
     searchPlaceholder: "Search…",
     notifications: "Notifications",
     notificationsEmptyTitle: "You're all caught up",
@@ -664,7 +663,7 @@ const en = {
     pinnedModulesEmptyDescription: "Pin a page from the sidebar to find it here.",
   },
   designSystem: {
-    pilotStates: {
+    controlStates: {
       title: "Control states",
       description: "Every state as it appears on screens. Hover or Tab to see hover and focus.",
       buttons: "Buttons",
@@ -2559,9 +2558,7 @@ const en = {
         nextAt: "Next follow-up",
         note: "Notes",
         sectionContact: "Contact",
-        sectionContactHint: "The follow-up type and how this contact went.",
         sectionNext: "Next step",
-        sectionNextHint: "When to follow up again, and any note for the team.",
         saved: "Follow-up recorded.",
         noOutcome: "Follow-up with no recorded outcome",
         overdue: "Overdue",
@@ -2608,11 +2605,6 @@ const en = {
         sectionShipping: "Shipping address",
         sectionAttachments: "Attachments",
         sectionSummary: "Order summary",
-        sectionCustomerHint: "The lead this order is created for.",
-        sectionProductsHint: "Products, quantities and the agreed amount for each.",
-        sectionPaymentHint: "How the order is settled, fulfilled and in which currency.",
-        sectionShippingHint: "Where the order is delivered — a city or an address is required.",
-        sectionSummaryHint: "Review the order before creating it.",
         owner: "Sales owner",
         validation: {
           product: "Select the product",

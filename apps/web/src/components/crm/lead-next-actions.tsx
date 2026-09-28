@@ -1,7 +1,7 @@
 "use client";
 
 import { AlarmClock, Archive, CalendarClock, ShoppingCart, UserCheck } from "lucide-react";
-import { HeaderActions, type ActionSpec } from "@/components/shared/header-actions";
+import type { ActionSpec } from "@/components/shared/header-actions";
 import type { WorkflowActionItem } from "@/components/business/workflow-actions-panel";
 import { useLocale } from "@/providers/locale-provider";
 import type { LeadRow } from "@/services/leads-service";
@@ -29,94 +29,6 @@ export function isLeadFollowUpOverdue(lead: Pick<LeadRow, "nextFollowUpAt">, now
   return Boolean(lead.nextFollowUpAt && new Date(lead.nextFollowUpAt).getTime() < now);
 }
 
-/**
- * The lead's header actions by workflow priority (design-system §12.6):
- * convert when qualified → assign when unassigned → (overdue) follow-up.
- * Pure, so the classic header and the Round 3 pilot header share one rule.
- */
-export function planLeadNextActions(
-  {
-    lead,
-    canEdit,
-    canConvert,
-    canAssign,
-    onFollowUp,
-    onConvert,
-    onAssign,
-    onClose,
-  }: LeadNextActionsProps,
-  t: ReturnType<typeof useLocale>["t"],
-  now: number,
-): { primary?: ActionSpec; secondary: ActionSpec[]; more: ActionSpec[] } {
-  const overdue = isLeadFollowUpOverdue(lead, now);
-  const qualified = lead.status?.code === "QUALIFIED";
-  const unassigned = !lead.salesEmployeeId;
-
-  const primary: ActionSpec | undefined =
-    qualified && canConvert
-      ? {
-          key: "convert",
-          label: t("crm.leads.convert.cta"),
-          icon: ShoppingCart,
-          onSelect: onConvert,
-          variant: "success",
-        }
-      : unassigned && canAssign
-        ? {
-            key: "assign",
-            label: t("crm.leads.actions.assign"),
-            icon: UserCheck,
-            onSelect: onAssign,
-            variant: "default",
-          }
-        : canEdit
-          ? {
-              key: "followUp",
-              label: overdue ? t("crm.leads.followUp.overdue") : t("crm.leads.actions.addFollowUp"),
-              icon: CalendarClock,
-              onSelect: onFollowUp,
-              variant: overdue ? "warning" : "default",
-            }
-          : undefined;
-
-  return {
-    primary,
-    secondary: [
-      {
-        key: "convert",
-        label: t("crm.leads.convert.cta"),
-        icon: ShoppingCart,
-        hidden: !canConvert || primary?.key === "convert",
-        onSelect: onConvert,
-      },
-    ],
-    more: [
-      {
-        key: "followUp",
-        label: t("crm.leads.actions.addFollowUp"),
-        icon: CalendarClock,
-        hidden: !canEdit || primary?.key === "followUp",
-        onSelect: onFollowUp,
-      },
-      {
-        key: "assign",
-        label: lead.salesEmployee ? t("crm.leads.actions.transfer") : t("crm.leads.actions.assign"),
-        icon: UserCheck,
-        hidden: !canAssign,
-        onSelect: onAssign,
-      },
-      {
-        key: "close",
-        label: t("crm.leads.actions.closeWithoutPurchase"),
-        icon: Archive,
-        hidden: !canEdit,
-        onSelect: onClose,
-      },
-    ],
-  };
-}
-
-/** The fields of an offered workflow transition the pilot plan reads. */
 export interface LeadTransitionLike {
   toStatusCode: string;
   requiresReason?: boolean;
@@ -125,8 +37,8 @@ export interface LeadTransitionLike {
 
 /**
  * The seeded NEW → IN_PROGRESS transition («بدء المتابعة / Start follow-up»)
- * only starts working the lead — the same intent as «إضافة متابعة». Round 3.1
- * pilot folds it into Add Follow-up: hidden from the header, run right after
+ * only starts working the lead — the same intent as «إضافة متابعة». It is
+ * folded into Add Follow-up: hidden from the header, run right after
  * a follow-up is saved on a NEW lead (the follow-up API itself never changes
  * the status). Plain transitions only — never one that needs a reason or
  * carries a business action.
@@ -143,7 +55,7 @@ export function isLeadStartFollowUp(
   );
 }
 
-export interface LeadPilotActionPlan {
+export interface LeadActionPlan {
   /** «إضافة متابعة» — first in reading order. */
   followUp?: ActionSpec;
   /** «تحويل إلى طلب» — the green positive action, second. */
@@ -157,14 +69,13 @@ export interface LeadPilotActionPlan {
 }
 
 /**
- * Round 3.1 pilot action group, read in logical order (mirrors in RTL):
- * Add Follow-up → Convert to Order → More. Same permissions as the classic
- * plan. Assign / Transfer lives in More (first while the lead is unassigned —
+ * The lead action group, read in logical order (mirrors in RTL):
+ * Add Follow-up → Convert to Order → More. Assign / Transfer lives in More (first while the lead is unassigned —
  * the detail card also offers Assign next to «غير مسند»). Other transitions
  * (e.g. «تأهيل») sit in More; the Start follow-up transition is folded into
  * Add Follow-up when the user may add one, and stays in More otherwise.
  */
-export function planLeadPilotActions(
+export function planLeadActions(
   {
     lead,
     canEdit,
@@ -179,7 +90,7 @@ export function planLeadPilotActions(
   transitions: (WorkflowActionItem & LeadTransitionLike)[],
   t: ReturnType<typeof useLocale>["t"],
   now: number,
-): LeadPilotActionPlan {
+): LeadActionPlan {
   const overdue = isLeadFollowUpOverdue(lead, now);
   const unassigned = !lead.salesEmployeeId;
   const busy = transitions.some((item) => item.loading);
@@ -244,16 +155,4 @@ export function planLeadPilotActions(
     ],
     running,
   };
-}
-
-export function LeadNextActions(props: LeadNextActionsProps) {
-  const { t } = useLocale();
-  if (!isLeadOperational(props.lead)) return null;
-
-  // Follow-up urgency is evaluated at render time against the current clock.
-  // eslint-disable-next-line react-hooks/purity -- overdue state is time-based
-  const now = Date.now();
-  const plan = planLeadNextActions(props, t, now);
-
-  return <HeaderActions primary={plan.primary} secondary={plan.secondary} more={plan.more} />;
 }

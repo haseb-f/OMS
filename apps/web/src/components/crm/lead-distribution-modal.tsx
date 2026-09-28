@@ -37,7 +37,7 @@ export function LeadDistributionModal({
   selectedLeadIds: string[];
   onChanged?: () => void;
   /**
-   * Round 3.1 pilot: the mode lives on the page's one distribution control,
+   * The mode lives on the page's one distribution control,
    * so this dialog only carries manual assignment and held batches — it
    * never changes the policy.
    */

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useMemo, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowRightLeft,
@@ -17,8 +17,14 @@ import {
   UserPlus,
   type LucideIcon,
 } from "lucide-react";
+import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseCard } from "@/components/ui/card";
-import { InsightBar, InsightCard, type InsightTone } from "@/components/shared/insight-card";
+import {
+  InsightBar,
+  InsightCard,
+  InsightGroup,
+  type InsightTone,
+} from "@/components/shared/insight-card";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -54,7 +60,6 @@ interface AttentionItem {
   key: string;
   icon: LucideIcon;
   title: string;
-  hint: string;
   action: string;
   count: number;
   severity: Severity;
@@ -62,12 +67,12 @@ interface AttentionItem {
 }
 
 /**
- * Round 3 pilot dashboard (design-system §12.6): 1) needs attention — the
- * open work queues as one entity list, most urgent first; 2) the sales
- * metrics for the selected period; 3) operational detail (ranking). Every
- * figure comes from the same endpoints as the classic dashboard.
+ * The dashboard (design-system §12.6; tiles and metric groups §12.8): 1) needs attention — the open work queues as clickable tiles, most
+ * urgent first; 2) the sales metrics for the selected period, grouped
+ * (leads · orders); 3) operational detail (ranking). Every figure comes from
+ * a real endpoint — no filler text.
  */
-export function DashboardPilot({
+export function DashboardOverview({
   showSales,
   showPaymentReview,
   showBank,
@@ -99,17 +104,16 @@ export function DashboardPilot({
     <PageWorkspace title={t("dashboard.welcomeTitle")} description={t("dashboard.welcomeSubtitle")}>
       {/* Reading order = priority: needs attention → metrics → details. On wide
           screens the metrics and the ranking share the second row. */}
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-5">
         {showAttention ? (
           <AttentionSection sales={sales} pending={pending} showSales={showSales} />
         ) : null}
-        <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
+        <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
           {showSales ? (
-            <section aria-labelledby="dash-metrics" className="flex min-w-0 flex-col gap-3">
+            <section aria-labelledby="dash-metrics" className="flex min-w-0 flex-col gap-2.5">
               <SectionHeading
                 id="dash-metrics"
                 title={t("docUi.dashboard.metricsTitle")}
-                description={t("docUi.dashboard.metricsDescription")}
                 action={
                   <ToggleGroup
                     type="single"
@@ -136,7 +140,6 @@ export function DashboardPilot({
                 <MetricsStrip
                   data={sales.state.status === "ready" ? sales.state.data : null}
                   loading={sales.state.status === "loading"}
-                  periodLabel={t(PERIOD_LABEL_KEY[period])}
                 />
               )}
             </section>
@@ -163,7 +166,15 @@ function AttentionSection({
   const { t, direction } = useLocale();
   const loading =
     pending.state.status === "loading" || (showSales && sales.state.status === "loading");
-  const failed = pending.state.status === "error" || (showSales && sales.state.status === "error");
+  const pendingFailed = pending.state.status === "error";
+  const salesFailed = showSales && sales.state.status === "error";
+  // One source failing never hides the queues the other one loaded.
+  const failed = pendingFailed && (!showSales || salesFailed);
+  const partialFailed = !failed && (pendingFailed || salesFailed);
+  const retry = () => {
+    if (pendingFailed) void pending.retry();
+    if (salesFailed) void sales.retry();
+  };
 
   const items: AttentionItem[] = [];
   if (sales.state.status === "ready" && sales.state.data) {
@@ -173,7 +184,6 @@ function AttentionSection({
         key: "overdue",
         icon: BellRing,
         title: t("crm.leads.dashboard.overdue"),
-        hint: t("docUi.dashboard.overdueHint"),
         action: t("docUi.dashboard.actionOverdue"),
         count: overdue,
         severity: "destructive",
@@ -183,7 +193,6 @@ function AttentionSection({
         key: "dueToday",
         icon: CalendarClock,
         title: t("crm.leads.dashboard.dueToday"),
-        hint: t("docUi.dashboard.dueTodayHint"),
         action: t("docUi.dashboard.actionDueToday"),
         count: dueToday,
         severity: "warning",
@@ -198,7 +207,6 @@ function AttentionSection({
         key: "paymentReview",
         icon: ReceiptText,
         title: t("docUi.dashboard.paymentReview"),
-        hint: t("docUi.dashboard.paymentReviewHint"),
         action: t("docUi.dashboard.actionPaymentReview"),
         count: figures.paymentReview,
         severity: "warning",
@@ -211,7 +219,6 @@ function AttentionSection({
           key: "bankReview",
           icon: Scale,
           title: t("docUi.dashboard.bankReview"),
-          hint: t("docUi.dashboard.bankReviewHint"),
           action: t("docUi.dashboard.actionBankReview"),
           count: figures.bank.review,
           severity: "warning",
@@ -221,7 +228,6 @@ function AttentionSection({
           key: "bankUnmatched",
           icon: Landmark,
           title: t("docUi.dashboard.bankUnmatched"),
-          hint: t("docUi.dashboard.bankUnmatchedHint"),
           action: t("docUi.dashboard.actionBankUnmatched"),
           count: figures.bank.unmatched,
           severity: "warning",
@@ -238,13 +244,12 @@ function AttentionSection({
   const cleared = items.filter((item) => item.count === 0);
 
   return (
-    <section aria-labelledby="dash-attention" className="flex flex-col gap-3" aria-busy={loading}>
+    <section aria-labelledby="dash-attention" className="flex flex-col gap-2.5" aria-busy={loading}>
       <SectionHeading
         id="dash-attention"
         title={t("docUi.dashboard.attentionTitle")}
-        description={t("docUi.dashboard.attentionDescription")}
         badge={
-          !loading && !failed ? (
+          !loading && !failed && !partialFailed ? (
             <EnterpriseBadge variant={open.length > 0 ? "warning" : "success"}>
               {open.length > 0 ? null : <CircleCheck />}
               {open.length > 0
@@ -255,30 +260,28 @@ function AttentionSection({
         }
       />
       {failed ? (
-        <ErrorState
-          description={t("docUi.dashboard.loadFailed")}
-          onRetry={() => {
-            void pending.retry();
-            if (showSales) void sales.retry();
-          }}
-        />
+        <ErrorState description={t("docUi.dashboard.loadFailed")} onRetry={retry} />
       ) : loading ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className={TILE_GRID}>
           {Array.from({ length: 3 }, (_, index) => (
-            <div
-              key={index}
-              className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4"
-            >
-              <Skeleton className="h-8 w-40" />
-              <Skeleton className="h-7 w-16" />
-              <Skeleton className="h-3 w-48" />
-            </div>
+            <TileSkeleton key={index} />
           ))}
         </div>
       ) : (
         <>
+          {partialFailed ? (
+            <p
+              role="alert"
+              className="flex flex-wrap items-center gap-2 text-caption text-muted-foreground"
+            >
+              {t("docUi.dashboard.loadFailed")}
+              <EnterpriseButton type="button" variant="link" size="inline" onClick={retry}>
+                {t("common.retry")}
+              </EnterpriseButton>
+            </p>
+          ) : null}
           {open.length > 0 ? (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className={TILE_GRID}>
               {open.map((item) => (
                 <InsightCard
                   key={item.key}
@@ -287,7 +290,6 @@ function AttentionSection({
                   emphasis
                   label={item.title}
                   value={item.count}
-                  context={item.hint}
                   href={item.href}
                   actionLabel={item.action}
                   direction={direction}
@@ -316,37 +318,71 @@ function AttentionSection({
     </section>
   );
 }
+/** Tile grid: equal-width compact tiles that wrap (never sideways scroll). */
+const TILE_GRID = "grid grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))]";
+/** Metric groups: four equal columns from `sm`, so a group never wraps 3 + 1. */
+const METRIC_GRID = "grid grid-cols-2 gap-2 sm:grid-cols-4";
+/**
+ * A metric group's surface: the same four-column rhythm as `METRIC_GRID`,
+ * as one hairline-split row; a shorter group spans only its share of it
+ * (`--span` = metrics / 4) so figures line up with the group above.
+ */
+const GROUP_GRID =
+  "grid-cols-2 sm:w-[calc(100%*var(--span))] sm:grid-cols-[repeat(var(--count),minmax(0,1fr))]";
+
+function TileSkeleton() {
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-border bg-card px-3 py-2.5">
+      <Skeleton className="h-5 w-28" />
+      <Skeleton className="h-6 w-14" />
+    </div>
+  );
+}
 
 interface Metric {
   key: string;
   labelKey: MessageKey;
   value: string;
+  unit?: string;
   icon: LucideIcon;
   tone: InsightTone;
-  context: string;
   bar?: number;
 }
 
+/**
+ * The period metrics in two labelled groups — the lead funnel and the
+ * orders it produced. The period is the toggle above, so tiles carry no
+ * repeated context line.
+ */
 function MetricsStrip({
   data,
   loading,
-  periodLabel,
 }: {
   data: SalesPerformanceDashboard | null;
   loading: boolean;
-  periodLabel: string;
 }) {
   const { t } = useLocale();
   const kpis = data?.kpis;
-  const metrics: Metric[] = kpis
-    ? [
+  if (loading || !kpis) {
+    return (
+      <div className={METRIC_GRID}>
+        {Array.from({ length: 6 }, (_, index) => (
+          <TileSkeleton key={index} />
+        ))}
+      </div>
+    );
+  }
+  const groups: { key: string; labelKey: MessageKey; metrics: Metric[] }[] = [
+    {
+      key: "leads",
+      labelKey: "docUi.dashboard.groupLeads",
+      metrics: [
         {
           key: "newLeads",
           labelKey: "crm.leads.dashboard.newLeads",
           value: String(kpis.newLeads),
           icon: UserPlus,
           tone: "info",
-          context: t("docUi.dashboard.newLeadsContext", { period: periodLabel }),
         },
         {
           key: "inProgress",
@@ -354,7 +390,6 @@ function MetricsStrip({
           value: String(kpis.inProgress),
           icon: Clock,
           tone: "neutral",
-          context: t("docUi.dashboard.nowContext"),
         },
         {
           key: "converted",
@@ -362,7 +397,6 @@ function MetricsStrip({
           value: String(kpis.converted),
           icon: ArrowRightLeft,
           tone: "success",
-          context: t("docUi.dashboard.convertedContext", { period: periodLabel }),
         },
         {
           key: "conversionRate",
@@ -370,16 +404,20 @@ function MetricsStrip({
           value: `${kpis.conversionRate}%`,
           icon: Percent,
           tone: "success",
-          context: t("docUi.dashboard.conversionContext", { period: periodLabel }),
           bar: kpis.conversionRate,
         },
+      ],
+    },
+    {
+      key: "orders",
+      labelKey: "docUi.dashboard.groupOrders",
+      metrics: [
         {
           key: "orders",
           labelKey: "docUi.dashboard.ordersInScope",
           value: String(kpis.orders),
           icon: ShoppingBag,
           tone: "neutral",
-          context: t("docUi.dashboard.ordersContext", { period: periodLabel }),
         },
         {
           key: "delivered",
@@ -387,37 +425,55 @@ function MetricsStrip({
           value: String(kpis.delivered),
           icon: PackageCheck,
           tone: "success",
-          context: t("docUi.dashboard.deliveredContext", { period: periodLabel }),
         },
-      ]
-    : [];
+      ],
+    },
+  ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-      {loading || !kpis
-        ? Array.from({ length: 6 }, (_, index) => (
-            <div
-              key={index}
-              className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4"
-            >
-              <Skeleton className="h-8 w-28" />
-              <Skeleton className="h-7 w-12" />
-            </div>
-          ))
-        : metrics.map((metric) => (
-            <InsightCard
-              key={metric.key}
-              icon={metric.icon}
-              tone={metric.tone}
-              label={t(metric.labelKey)}
-              value={metric.value}
-              context={metric.context}
-            >
-              {metric.bar !== undefined ? (
-                <InsightBar value={metric.bar} label={`${t(metric.labelKey)} ${metric.value}`} />
-              ) : null}
-            </InsightCard>
-          ))}
+    <div className="flex flex-col gap-3">
+      {groups.map((group) => (
+        <div
+          key={group.key}
+          role="group"
+          aria-labelledby={`dash-group-${group.key}`}
+          className="flex flex-col gap-1.5"
+        >
+          <h3
+            id={`dash-group-${group.key}`}
+            className="text-caption font-medium text-muted-foreground"
+          >
+            {t(group.labelKey)}
+          </h3>
+          <InsightGroup
+            className={GROUP_GRID}
+            style={
+              {
+                "--count": group.metrics.length,
+                "--span": group.metrics.length / 4,
+              } as CSSProperties
+            }
+          >
+            {group.metrics.map((metric) => (
+              <InsightCard
+                key={metric.key}
+                icon={metric.icon}
+                tone={metric.tone}
+                label={t(metric.labelKey)}
+                value={metric.value}
+                unit={metric.unit}
+              >
+                {metric.bar !== undefined ? (
+                  <InsightBar
+                    value={metric.bar}
+                    label={`${t(metric.labelKey)} ${metric.value}${metric.unit ?? ""}`}
+                  />
+                ) : null}
+              </InsightCard>
+            ))}
+          </InsightGroup>
+        </div>
+      ))}
     </div>
   );
 }
@@ -429,11 +485,10 @@ function RankingSection({ data }: { data: SalesPerformanceDashboard }) {
   if (leaderboard.length === 0) return null;
 
   return (
-    <section aria-labelledby="dash-ranking" className="flex flex-col gap-3">
+    <section aria-labelledby="dash-ranking" className="flex flex-col gap-2.5">
       <SectionHeading
         id="dash-ranking"
         title={t("crm.leads.dashboard.ranking")}
-        description={t("docUi.dashboard.rankingDescription")}
         action={
           <span className="text-caption text-muted-foreground">
             <span className="num font-medium text-foreground">

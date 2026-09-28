@@ -96,7 +96,7 @@ export function invoicePaymentTrack(
 }
 
 /**
- * Round 3.1 pilot: the invoice's document workflow and its payment as two
+ * The invoice's document workflow and its payment as two
  * separate read-only trackers (design-system §12.7).
  */
 export function InvoiceWorkflowTracks({

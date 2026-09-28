@@ -17,16 +17,16 @@ import { SectionHeading } from "@/components/shared/section-heading";
 import { useLocale } from "@/providers/locale-provider";
 
 /**
- * Round 3 pilot reviewer board (design-system §12.4): every control variant
+ * Control states board (design-system §12.4, §12.10): every control variant
  * and static state side by side, on real shared primitives. Hover, focus and
- * open states are live. Rendered only on the showcase while the pilot is on.
+ * open states are live.
  */
-export function PilotStatesBoard() {
+export function ControlStatesBoard() {
   const { t } = useLocale();
-  const k = (key: string) => t(`designSystem.pilotStates.${key}` as never);
+  const k = (key: string) => t(`designSystem.controlStates.${key}` as never);
 
   return (
-    <section className="flex flex-col gap-3" data-testid="pilot-states-board">
+    <section className="flex flex-col gap-3" data-testid="control-states-board">
       <SectionHeading title={k("title")} description={k("description")} />
       <EnterpriseCard>
         <EnterpriseCardContent className="flex flex-col gap-5">
@@ -89,10 +89,10 @@ export function PilotStatesBoard() {
             <Input className="w-52" placeholder={k("placeholder")} aria-label={k("placeholder")} />
             <Input className="w-52" defaultValue={k("filled")} aria-label={k("filled")} />
             <div className="flex w-52 flex-col gap-1">
-              <Label htmlFor="pilot-invalid" className="sr-only">
+              <Label htmlFor="states-invalid" className="sr-only">
                 {k("invalid")}
               </Label>
-              <Input id="pilot-invalid" aria-invalid defaultValue="" placeholder={k("invalid")} />
+              <Input id="states-invalid" aria-invalid defaultValue="" placeholder={k("invalid")} />
               <FieldMessage announce={false}>{k("required")}</FieldMessage>
             </div>
             <Input className="w-52" readOnly value={k("readOnly")} aria-label={k("readOnly")} />

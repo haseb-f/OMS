@@ -125,14 +125,14 @@ const RESULT_TEXT_CLASS: Record<StatusTone, string> = {
 };
 
 /**
- * Round 3.1 pilot: ONE stateful control for lead distribution. The button
+ * ONE stateful control for lead distribution. The button
  * names the applied mode and its state (active / paused / blocked + pending
  * count); its menu holds the modes as radio items. Choosing an automatic
  * mode saves and distributes in the same server call, and the result shown
  * is what the server confirmed. Manual assignment / held batches stay in the
  * existing dialog (`onOpenTools`).
  */
-export function LeadDistributionControlPilot({
+export function LeadDistributionMenu({
   state,
   onOpenTools,
 }: {

@@ -53,7 +53,7 @@ export function SalesDocumentEditor<TDocument>({
   paymentSummary?: ReactNode;
   /** Independent status next to the workflow badge (e.g. invoice payment status). */
   headerStatus?: ReactNode;
-  /** Round 3.1 pilot: read-only workflow tracker(s) under the header (pilot layout only). */
+  /** Read-only workflow tracker(s) under the header. */
   headerTracker?: ReactNode;
   /** Inline validation messages under their fields. */
   fieldErrors?: CommercialDocumentFieldErrors;

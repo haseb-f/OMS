@@ -57,10 +57,9 @@ export function WorkflowActionsPanel({
   /** `outline` when the page header already owns the one filled primary action. */
   primaryVariant?: "default" | "outline";
   /**
-   * Round 3 pilot only (design-system §12.6): the caller places the
+   * design-system §12.6: the caller places the
    * transitions itself (e.g. as secondary header actions) instead of the
    * loose button row. The reason / convert dialogs still live here.
-   * Omitted everywhere else, so the classic output is unchanged.
    */
   renderActions?: (items: WorkflowActionItem[]) => ReactNode;
 }) {

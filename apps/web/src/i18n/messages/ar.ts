@@ -523,7 +523,6 @@ const ar = {
     },
   },
   topbar: {
-    pilotDesign: "التصميم الجديد (تجريبي)",
     searchPlaceholder: "بحث…",
     notifications: "الإشعارات",
     notificationsEmptyTitle: "أنت على اطلاع بكل شيء",
@@ -666,7 +665,7 @@ const ar = {
     pinnedModulesEmptyDescription: "ثبّت صفحة من القائمة الجانبية لتظهر هنا.",
   },
   designSystem: {
-    pilotStates: {
+    controlStates: {
       title: "حالات عناصر التحكم",
       description:
         "كل حالة تظهر هنا كما تظهر في الشاشات. مرّر المؤشر أو استخدم Tab لرؤية التمرير والتركيز.",
@@ -2539,9 +2538,7 @@ const ar = {
         nextAt: "موعد المتابعة القادمة",
         note: "ملاحظات",
         sectionContact: "التواصل",
-        sectionContactHint: "نوع المتابعة ونتيجة هذا التواصل.",
         sectionNext: "الخطوة القادمة",
-        sectionNextHint: "متى تتابع مجددًا، وأي ملاحظة للفريق.",
         saved: "تم تسجيل المتابعة.",
         noOutcome: "متابعة بدون نتيجة مسجّلة",
         overdue: "متأخرة",
@@ -2588,11 +2585,6 @@ const ar = {
         sectionShipping: "عنوان الشحن",
         sectionAttachments: "المرفقات",
         sectionSummary: "ملخص الطلب",
-        sectionCustomerHint: "بيانات الليد الذي سيُنشأ الطلب باسمه.",
-        sectionProductsHint: "المنتجات والكمية والمبلغ المتفق عليه لكل منتج.",
-        sectionPaymentHint: "طريقة التسوية والتنفيذ وعملة الطلب.",
-        sectionShippingHint: "أين يُسلَّم الطلب — المدينة أو العنوان مطلوب.",
-        sectionSummaryHint: "راجع الطلب قبل إنشائه.",
         owner: "الموظف المسؤول",
         validation: {
           product: "اختر المنتج",

@@ -89,6 +89,13 @@
   --duration-base: 170ms;
   --ease-standard: cubic-bezier(0, 0, 0.2, 1);
 
+  /* Radius tiers behind `rounded-sm/md/lg` (globals.css @theme): controls
+     (buttons, fields, dropdown triggers), surfaces (cards, panels, table
+     containers) and overlays (popovers, drawers). */
+  --radius-control: 8px;
+  --radius-surface: 10px;
+  --radius-overlay: 12px;
+
   /* Control heights (TASK-042) — the one height scale every form control
      (Input/Select/DatePicker/search) shares, referenced via
      `h-(--control-height-md)` etc. Three tiers only, matching the Button
@@ -114,14 +121,15 @@
   --table-row-height: 2.25rem; /* 36px compact (default) */
   --table-row-height-comfortable: 2.75rem; /* 44px */
   --table-cell-px: 0.75rem; /* 12px */
-  --table-cell-py: 0.375rem; /* 6px compact */
+  --table-cell-py: 0.25rem; /* 4px compact — two-line cells stay tight at 36px rows */
   --table-cell-py-comfortable: 0.625rem; /* 10px */
 
   /* Elevation — on-page surfaces are border-only; only floating layers
      (menus, popovers, dialogs, toasts) cast a shadow. */
   --shadow-surface: none;
   --shadow-floating:
-    0 8px 24px -8px oklch(0.22 0.02 255 / 0.16), 0 2px 6px -2px oklch(0.22 0.02 255 / 0.08);
+    0 1px 1px rgb(0 0 0 / 0.02), 0 4px 8px -4px rgb(0 0 0 / 0.05),
+    0 16px 24px -8px rgb(0 0 0 / 0.08);
 
   /* Natural control widths (TASK-042) — enterprise controls are sized to
      their content, not stretched to fill a column, unless a layout
@@ -144,6 +152,14 @@
   --width-picker-customer: 420px;
   --width-picker-product: 340px;
   --width-picker-warehouse: 300px;
+
+  /* Field grid basis widths (Round 3.2, `components/shared/form-card`): a
+     field in a `FieldGrid` starts at its content size and grows in
+     proportion, so short selects share a row and long fields stay wide. */
+  --field-xs: 6.5rem; /* 104px — quantity, short numbers */
+  --field-sm: 9.5rem; /* 152px — date, currency, short choice lists */
+  --field-md: 13rem; /* 208px — method, reference, city, country */
+  --field-lg: 18rem; /* 288px — party, address, product */
 
   /* OMS Global Scroll System — the one scrollbar treatment every scrollable
      surface in the app shares (tables, dialogs/sheets, sidebar, dropdown/

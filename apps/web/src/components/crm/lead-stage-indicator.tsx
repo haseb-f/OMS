@@ -62,7 +62,7 @@ export function leadCompletedStages(
   return done;
 }
 
-/** Round 3 pilot: lead stage tracker (design-system §12.6), on the shared WorkflowTracker (§12.7). */
+/** Lead stage tracker (design-system §12.6), on the shared WorkflowTracker (§12.7). */
 export function LeadStageIndicator({
   leadId,
   statusCode,

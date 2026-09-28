@@ -16,7 +16,7 @@ export interface NavigationItem {
   /** Stable unique identifier — used for expand/pin/recent state, never the route. */
   id: string;
   titleKey: MessageKey;
-  /** Round 3 pilot: a shorter sidebar label when `titleKey` does not fit on one line. */
+  /** A shorter sidebar label when `titleKey` does not fit on one line. */
   shortTitleKey?: MessageKey;
   subtitleKey?: MessageKey;
   /** Looked up in the icon registry (`navigation/icon-registry.ts`) — config stores a name, not a component reference. */

@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { SubmitButton } from "@/components/shared/form-fields/submit-button";
 import { useLocale } from "@/providers/locale-provider";
-import { useUiPilot } from "@/providers/ui-pilot-provider";
 import { FormCardSection, useFormCard } from "@/components/shared/form-card/form-card";
 import { cn } from "@/lib/utils";
 
@@ -47,13 +46,12 @@ export function CreateOperationSummary({
   rows: { label: string; value: ReactNode }[];
   className?: string;
 }) {
-  const pilot = useUiPilot().active;
   const formCard = useFormCard();
   const visible = rows.filter((row) => !isSummaryValueEmpty(row.value));
   if (visible.length === 0) return null;
 
   if (formCard) {
-    // Round 3.1 pilot: the review list on a tinted form-card panel, one column.
+    // Compact form card: the review list as a compact section, one column.
     return (
       <FormCardSection title={title} description={description} className={className}>
         <dl className="flex flex-col">
@@ -71,35 +69,19 @@ export function CreateOperationSummary({
     );
   }
 
-  if (pilot) {
-    // Round 3 pilot: a review list — heading, then hairline-divided rows
-    // (label at the start, value at the end), no tinted box.
-    return (
-      <section className={cn("@container flex flex-col gap-1", className)}>
-        <h3 className="text-body font-semibold">{title}</h3>
-        <dl className="grid grid-cols-1 gap-x-8 @2xl:grid-cols-2">
-          {visible.map((row) => (
-            <div
-              key={row.label}
-              className="flex min-w-0 items-baseline justify-between gap-4 border-b border-border py-2"
-            >
-              <dt className="shrink-0 text-caption text-muted-foreground">{row.label}</dt>
-              <dd className="min-w-0 text-end text-body font-medium">{row.value}</dd>
-            </div>
-          ))}
-        </dl>
-      </section>
-    );
-  }
-
+  // A review list — heading, then hairline-divided rows (label at the
+  // start, value at the end), no tinted box.
   return (
-    <section className={cn("rounded-md border border-border bg-muted/30 px-3 py-2", className)}>
-      <h3 className="mb-1.5 text-caption font-semibold">{title}</h3>
-      <dl className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
+    <section className={cn("@container flex flex-col gap-1", className)}>
+      <h3 className="text-body font-semibold">{title}</h3>
+      <dl className="grid grid-cols-1 gap-x-8 @2xl:grid-cols-2">
         {visible.map((row) => (
-          <div key={row.label} className="flex items-baseline justify-between gap-3">
-            <dt className="text-caption text-muted-foreground">{row.label}</dt>
-            <dd className="text-caption font-medium text-end">{row.value}</dd>
+          <div
+            key={row.label}
+            className="flex min-w-0 items-baseline justify-between gap-4 border-b border-border py-2"
+          >
+            <dt className="shrink-0 text-caption text-muted-foreground">{row.label}</dt>
+            <dd className="min-w-0 text-end text-body font-medium">{row.value}</dd>
           </div>
         ))}
       </dl>
@@ -165,14 +147,13 @@ export function CreateOperationFooter({
   submitDisabled?: boolean;
 }) {
   const { t } = useLocale();
-  // Pilot: Cancel is a white secondary (Geist), still never a second primary.
-  const pilot = useUiPilot().active;
+  // Cancel is a white secondary, never a second primary.
 
   return (
     <>
       <EnterpriseButton
         type="button"
-        variant={pilot ? "outline" : "ghost"}
+        variant="outline"
         size="sm"
         onClick={requestClose}
         disabled={isSubmitting}

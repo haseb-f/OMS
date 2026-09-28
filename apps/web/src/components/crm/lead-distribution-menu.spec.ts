@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   describeDistributionControl,
   describeDistributionResult,
-} from "@/components/crm/pilot/lead-list-pilot";
+} from "@/components/crm/lead-distribution-menu";
 import type { LeadDistributionSnapshot } from "@/services/leads-service";
 
 function snap(partial: Partial<LeadDistributionSnapshot>): LeadDistributionSnapshot {

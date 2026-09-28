@@ -8,17 +8,15 @@ import { EnterpriseButton } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
 import { useLocale } from "@/providers/locale-provider";
-import { useUiPilot } from "@/providers/ui-pilot-provider";
 import { FormCardProvider } from "@/components/shared/form-card/form-card";
 import { cn } from "@/lib/utils";
 
 export type EnterpriseModalSize = "sm" | "md" | "lg" | "xl";
 
 /**
- * `form-card` (Round 3.1 pilot only): a vertical data-entry card — bounded
- * 520px (`sm`/`md`) or 640px (`lg`/`xl`) wide, one field column, tinted
- * section panels (see components/shared/form-card). Ignored when the pilot
- * is off, so the classic dialog is unchanged.
+ * `form-card`: a compact data-entry card — bounded 520px (`sm`/`md`) or
+ * 640px (`lg`/`xl`) wide, compact hairline sections and content-sized field
+ * rows (see components/shared/form-card).
  */
 export type EnterpriseModalLayout = "default" | "form-card";
 
@@ -61,7 +59,6 @@ export function EnterpriseModal({
   open,
   onOpenChange,
   size = "lg",
-  icon: Icon,
   title,
   description,
   isDirty = false,
@@ -76,6 +73,7 @@ export function EnterpriseModal({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   size?: EnterpriseModalSize;
+  /** Accepted for callers; the modal draws no decorative header icon (design-system §12). */
   icon?: LucideIcon;
   title: ReactNode;
   /** One line under the title. Inline content only (renders inside a `<p>`). */
@@ -104,10 +102,9 @@ export function EnterpriseModal({
   const { t } = useLocale();
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const keyboardInset = useKeyboardInset();
-  // Round 3 pilot (design-system §12): Geist modal — roomier header/body,
-  // no decorative icon, footer actions split to the two edges.
-  const pilot = useUiPilot().active;
-  const formCard = pilot && layout === "form-card";
+  // design-system §12: roomier header/body, no decorative icon, footer
+  // actions split to the two edges.
+  const formCard = layout === "form-card";
 
   const requestClose = () => {
     if (isDirty) {
@@ -156,18 +153,14 @@ export function EnterpriseModal({
         >
           <div
             className={cn(
-              "flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3",
-              pilot && "px-5 py-3.5",
+              "flex shrink-0 items-start justify-between gap-3 border-b border-border py-3",
+              // Compact form (Round 3.2): the header is one tight title block.
+              formCard ? "px-4" : "px-5",
             )}
           >
-            <div className="flex min-w-0 items-start gap-2.5">
-              {Icon && !pilot && (
-                <Icon className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />
-              )}
-              <div className="flex min-w-0 flex-col gap-0.5">
-                <DialogTitle className="text-card-title leading-snug">{title}</DialogTitle>
-                {description && <DialogDescription>{description}</DialogDescription>}
-              </div>
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <DialogTitle className="text-card-title leading-snug">{title}</DialogTitle>
+              {description && <DialogDescription>{description}</DialogDescription>}
             </div>
             <EnterpriseButton
               type="button"
@@ -183,9 +176,10 @@ export function EnterpriseModal({
 
           <div
             className={cn(
-              "min-h-0 flex-1 overflow-y-auto px-4 py-3",
-              pilot && "px-5 py-4",
-              formCard && "max-sm:px-3 max-sm:py-3",
+              "min-h-0 flex-1 overflow-y-auto",
+              // Compact form: tighter body; focused fields scroll clear of the
+              // header/footer (the body is the only scroller, nothing overlays it).
+              formCard ? "scroll-py-4 px-4 py-3 max-sm:px-3" : "px-5 py-4",
               bodyClassName,
             )}
           >
@@ -198,11 +192,13 @@ export function EnterpriseModal({
           {footer !== undefined && footer !== null && (
             <div
               className={cn(
-                "flex shrink-0 flex-col-reverse gap-2 border-t border-border bg-surface-sunken px-4 py-2.5 sm:flex-row sm:justify-end",
-                // Pilot: secondary at the start edge, the final action at the end edge.
-                pilot && "px-5 py-3 sm:items-center sm:[&>*:first-child:not(:only-child)]:me-auto",
-                // Form card on phones: every action full width, the primary on top.
-                formCard && "max-sm:px-3 max-sm:[&_[data-slot=button]]:w-full",
+                "flex shrink-0 flex-col-reverse gap-2 border-t border-border bg-surface-sunken px-5 py-3 sm:flex-row sm:items-center sm:justify-end",
+                // Secondary at the start edge, the final action at the end edge.
+                "sm:[&>*:first-child:not(:only-child)]:me-auto",
+                // Compact form on phones: the actions share one row (secondary at
+                // the start, the final action at the end), each an equal touch target.
+                formCard &&
+                  "px-4 py-2.5 max-sm:flex-row max-sm:flex-wrap max-sm:items-center max-sm:px-3 max-sm:[&_[data-slot=button]]:flex-1",
               )}
             >
               {typeof footer === "function" ? footer(requestClose) : footer}

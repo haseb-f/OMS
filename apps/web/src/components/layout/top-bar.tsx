@@ -9,7 +9,6 @@ import { NotificationsMenu } from "./notifications-menu";
 import { ThemeSwitch } from "./theme-switch";
 import { LocaleSwitch } from "./locale-switch";
 import { ProfileMenu } from "./profile-menu";
-import { PilotSwitch } from "./pilot-switch";
 
 /**
  * App Bar — sticky, solid, one 48px row (`--shell-topbar-height`) that
@@ -35,7 +34,6 @@ export function TopBar() {
       <BreadcrumbBar />
 
       <div className="ms-auto flex shrink-0 items-center gap-1">
-        <PilotSwitch />
         <CommandPalette />
         <LocaleSwitch />
         <ThemeSwitch />

@@ -3,13 +3,13 @@
 import type { ReactNode } from "react";
 
 /**
- * Round 3 pilot (design-system §12.5/§12.6) — the financial report header:
+ * The financial report header (design-system §12.5/§12.6):
  * the title with its context line underneath (period · currency · posted-only
  * · opening balances), the switcher and the report actions at the logical
- * end of the same row, then the one filter row. Same props and slots as the
- * classic `FinancialReportHeader`; only the arrangement differs.
+ * end of the same row, then the one filter row. Rendered by
+ * `FinancialReportHeader`, which owns the props and slots.
  */
-export function FinancialReportHeaderPilot({
+export function FinancialReportHeaderBar({
   title,
   titleAs: TitleTag = "h1",
   context = [],

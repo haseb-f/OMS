@@ -11,7 +11,6 @@ import {
 } from "@/components/shared/header-actions";
 import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
 import { useLocale } from "@/providers/locale-provider";
-import { useUiPilot } from "@/providers/ui-pilot-provider";
 
 /** Explains, before it happens, what a transition creates and changes. */
 export interface DocumentActionConfirmation {
@@ -37,7 +36,7 @@ export interface DocumentAction<TContext = void> {
   secondary?: boolean;
   /**
    * A confirming step (Approve, Confirm, Post): drawn in the refined green
-   * success variant when it is the primary (Round 3 pilot, design-system §12.4).
+   * success variant when it is the primary (design-system §12.4).
    */
   success?: boolean;
   /** Legacy visual hint from older configs; `primary`/`destructive` win. */
@@ -80,7 +79,6 @@ export function DocumentActionBar<TContext>({
 }) {
   const { t } = useLocale();
   const keyboardInset = useKeyboardInset();
-  const pilot = useUiPilot().active;
   const [pending, setPending] = useState<DocumentAction<TContext> | null>(null);
   const [running, setRunning] = useState<string | null>(null);
 
@@ -153,7 +151,7 @@ export function DocumentActionBar<TContext>({
             primary
               ? {
                   ...toSpec(primary),
-                  ...(pilot && primary.success ? { variant: "success" as const } : {}),
+                  ...(primary.success ? { variant: "success" as const } : {}),
                 }
               : undefined
           }
@@ -168,7 +166,7 @@ export function DocumentActionBar<TContext>({
         onOpenChange={(open) => {
           if (!open) setPending(null);
         }}
-        tone={pending?.confirm?.tone ?? (pilot && pending?.success ? "success" : "default")}
+        tone={pending?.confirm?.tone ?? (pending?.success ? "success" : "default")}
         title={pending?.confirm?.title ?? ""}
         description={pending?.confirm?.description}
         confirmLabel={pending?.confirm?.confirmLabel ?? pending?.label}

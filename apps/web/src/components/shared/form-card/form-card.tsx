@@ -5,18 +5,15 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 /**
- * Round 3.1 PILOT — vertical data-entry card (spec "Round 3.1" item 3,
- * design-system §12). A creation form reads top to bottom as a stack of
- * softly tinted section panels inside a bounded (520–640px) dialog: one
- * field column, short related fields paired with `FormCardRow`.
+ * Compact data-entry form (spec "Round 3.2",
+ * design-system §12.9). Supersedes the Round 3.1 single-column tinted
+ * panels: a creation form is a stack of compact sections split by hairline
+ * dividers, and short related fields share a row (`FieldGrid`), each sized
+ * to its content (`Field size`).
  *
- * `EnterpriseModal layout="form-card"` provides the context while the pilot
- * is active, so shared building blocks (`FormSection`, `AmountStrip`,
+ * `EnterpriseModal layout="form-card"` provides the context, so shared building blocks (`FormSection`, `AmountStrip`,
  * `CreateOperationSummary`, the payment declaration) adopt the pattern
  * without per-screen code. Outside that context nothing changes.
- *
- * Visual properties (tint, hairline, radius) come from the "Round 3.1 form
- * card" tokens/recipes at the end of `theme/pilot-geist.css`.
  */
 const FormCardContext = createContext(false);
 
@@ -24,7 +21,7 @@ export function FormCardProvider({ active, children }: { active: boolean; childr
   return <FormCardContext.Provider value={active}>{children}</FormCardContext.Provider>;
 }
 
-/** True inside an active vertical form card. */
+/** True inside an active compact form card. */
 export function useFormCard(): boolean {
   return useContext(FormCardContext);
 }
@@ -40,7 +37,11 @@ export function FormCardStack({
   return <div className={cn("flex min-w-0 flex-col gap-3", className)}>{children}</div>;
 }
 
-/** One tinted section panel: a title, a one-line description, then its fields. */
+/**
+ * One compact section: a one-line heading (an optional short note on the
+ * same line), then its fields. Sections after the first are separated by a
+ * hairline — never a tinted card inside the dialog card.
+ */
 export function FormCardSection({
   title,
   description,
@@ -51,9 +52,9 @@ export function FormCardSection({
   "data-invalid": invalid,
 }: {
   title: ReactNode;
-  /** One muted line under the title. */
+  /** A short muted note, on the heading line where it fits. */
   description?: ReactNode;
-  /** Small controls at the title's logical end. */
+  /** Small controls at the heading's logical end. */
   actions?: ReactNode;
   children: ReactNode;
   className?: string;
@@ -66,10 +67,13 @@ export function FormCardSection({
       data-slot="form-card-section"
       data-field-name={fieldName}
       data-invalid={invalid}
-      className={cn("@container flex min-w-0 flex-col gap-3 p-4 max-sm:p-3", className)}
+      className={cn(
+        "@container flex min-w-0 flex-col gap-2 border-t border-border pt-3 first:border-t-0 first:pt-0",
+        className,
+      )}
     >
-      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
-        <div className="flex min-w-0 flex-col gap-0.5">
+      <div className="flex min-h-6 flex-wrap items-center justify-between gap-x-3 gap-y-0.5">
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
           <h3 className="text-body font-semibold text-foreground">{title}</h3>
           {description ? <p className="text-caption text-muted-foreground">{description}</p> : null}
         </div>
@@ -80,16 +84,55 @@ export function FormCardSection({
   );
 }
 
+/** Content-based basis of a field inside a `FieldGrid` (tokens `--field-*`). */
+export type FieldSize = "xs" | "sm" | "md" | "lg" | "full";
+
 /**
- * Pairs short related fields (quantity + price, date + time, type +
- * outcome) side by side when the section is wide enough; one column below.
+ * Compact field grid: short related fields share a row on desktop, each
+ * starting at its `Field size` and growing in proportion; the row wraps to
+ * two columns and then one on narrow screens (never sideways scrolling).
+ *
+ * The layout is carried by `data-slot`/`data-size` and applied by the field
+ * grid recipe (`theme/recipes.css`).
  */
-export function FormCardRow({ children, className }: { children: ReactNode; className?: string }) {
+export function FieldGrid({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn("grid grid-cols-1 gap-x-3 gap-y-3 @sm:grid-cols-2", className)}>
+    <div data-slot="field-grid" className={className}>
       {children}
     </div>
   );
+}
+
+/** One field cell of a `FieldGrid` (label above its control). */
+export function Field({
+  size = "md",
+  children,
+  className,
+  "data-field-name": fieldName,
+  "data-invalid": invalid,
+}: {
+  size?: FieldSize;
+  children: ReactNode;
+  className?: string;
+  "data-field-name"?: string;
+  "data-invalid"?: "true";
+}) {
+  return (
+    <div
+      data-slot="field"
+      data-size={size}
+      data-field-name={fieldName}
+      data-invalid={invalid}
+      className={cn("flex min-w-0 flex-col gap-1", className)}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Short related fields side by side (a `FieldGrid`). */
+export function FormCardRow({ children, className }: { children: ReactNode; className?: string }) {
+  return <FieldGrid className={className}>{children}</FieldGrid>;
 }
 
 /** Label above its control, with an optional message underneath. */
@@ -99,6 +142,7 @@ export function FormCardField({
   required,
   message,
   children,
+  size = "full",
   className,
 }: {
   label: ReactNode;
@@ -107,16 +151,18 @@ export function FormCardField({
   /** A field-level message (e.g. a `FieldMessage`). */
   message?: ReactNode;
   children: ReactNode;
+  /** Basis inside a `FormCardRow`; ignored in a plain stack. */
+  size?: FieldSize;
   className?: string;
 }) {
   return (
-    <div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
+    <Field size={size} className={className}>
       <Label htmlFor={htmlFor}>
         {label}
         {required ? <span className="text-destructive"> *</span> : null}
       </Label>
       {children}
       {message}
-    </div>
+    </Field>
   );
 }

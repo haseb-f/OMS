@@ -23,11 +23,11 @@ import {
 import {
   isLeadFollowUpOverdue,
   isLeadOperational,
-  planLeadPilotActions,
+  planLeadActions,
   type LeadNextActionsProps,
 } from "@/components/crm/lead-next-actions";
-import { LeadStageIndicator } from "@/components/crm/pilot/lead-stage-indicator";
-import { pilotLeadBadge, pilotLeadStatusName } from "@/components/crm/pilot/lead-status-label";
+import { LeadStageIndicator } from "@/components/crm/lead-stage-indicator";
+import { leadStatusBadge, leadStatusName } from "@/components/crm/lead-status-label";
 import { useLocale } from "@/providers/locale-provider";
 import { formatDate, formatDateTime } from "@/lib/date";
 import type { WorkflowAction } from "@/services/workflow-service";
@@ -60,11 +60,10 @@ function GroupButton({ action }: { action: ActionSpec }) {
 }
 
 /**
- * Round 3 pilot layout for the lead detail page (design-system §12.6).
- * Presentational only: data, handlers, permissions and dialogs come from the
- * page, so the business behavior is exactly the classic page's.
+ * Lead detail page layout (design-system §12.6). Presentational only:
+ * data, handlers, permissions and dialogs come from the page.
  */
-export function LeadDetailPilot({
+export function LeadDetailView({
   lead,
   actions,
   followUpBusy = false,
@@ -77,7 +76,7 @@ export function LeadDetailPilot({
   children,
 }: {
   lead: LeadRow;
-  /** Same props the classic `LeadNextActions` receives. */
+  /** Header action handlers and permissions (see `planLeadActions`). */
   actions: Omit<LeadNextActionsProps, "lead">;
   /** A saved follow-up is still finishing (folded Start follow-up running). */
   followUpBusy?: boolean;
@@ -97,7 +96,7 @@ export function LeadDetailPilot({
   // eslint-disable-next-line react-hooks/purity -- overdue state is time-based
   const now = Date.now();
   const overdue = operational && isLeadFollowUpOverdue(lead, now);
-  const statusBadge = pilotLeadBadge(lead, locale);
+  const statusBadge = leadStatusBadge(lead, locale);
   const closed = lead.status?.code === "LOST" || lead.status?.code === "DISQUALIFIED";
 
   const renderHeaderActions = (transitions: WorkflowActionItem[]) => {
@@ -111,7 +110,7 @@ export function LeadDetailPilot({
       // Closed / converted: only the backend-offered transitions (e.g. Reopen).
       return <HeaderActions secondary={transitionSpecs} />;
     }
-    const plan = planLeadPilotActions({ lead, ...actions, followUpBusy }, transitions, t, now);
+    const plan = planLeadActions({ lead, ...actions, followUpBusy }, transitions, t, now);
     // Reading order (logical, mirrors in RTL): Add Follow-up → Convert to
     // Order → More. `HeaderActions` supplies the «المزيد» menu only, since its
     // own order puts the overflow first.
@@ -205,7 +204,7 @@ export function LeadDetailPilot({
           <LeadStageIndicator
             leadId={lead.id}
             statusCode={lead.status?.code}
-            closedLabel={closed ? pilotLeadStatusName(lead.status, locale) : undefined}
+            closedLabel={closed ? leadStatusName(lead.status, locale) : undefined}
           />
         </div>
         <div className="pt-1">

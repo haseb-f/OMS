@@ -50,7 +50,6 @@ import type { ProductRow } from "@/services/products-service";
 import type { ChartOfAccountRow, WarehouseRow } from "@/config/master-data/entities";
 import { previewSalesLine } from "./sales-line-preview-math";
 import { useLocale } from "@/providers/locale-provider";
-import { useUiPilot } from "@/providers/ui-pilot-provider";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/money";
 
@@ -143,11 +142,11 @@ function requiredTableWidth(columns: LineColumnWidth[], productScale = 1): numbe
 }
 
 /**
- * Round 3 pilot: tighter columns (the same width tokens, scaled) so a
+ * Tighter columns (the same width tokens, scaled) so a
  * 1280px laptop keeps the full row grid instead of stacked cards; tax is a
  * little wider so "No tax" / "VAT15 (15%)" reads without clipping.
  */
-const PILOT_COLUMN_SCALE: Record<string, number> = {
+const COLUMN_SCALE: Record<string, number> = {
   "--width-control-product-min": 0.82,
   "--width-control-warehouse": 0.83,
   "--width-control-quantity": 0.72,
@@ -159,9 +158,9 @@ const PILOT_COLUMN_SCALE: Record<string, number> = {
   "--width-control-actions": 1,
 };
 
-/** Pilot `<col>` width: the token × its pilot scale (inline style beats the class). */
-function pilotColStyle(pilot: boolean, token: string) {
-  return pilot ? { width: `calc(var(${token}) * ${PILOT_COLUMN_SCALE[token] ?? 1})` } : undefined;
+/** `<col>` width: the token × its column scale (inline style beats the class). */
+function colStyle(token: string) {
+  return { width: `calc(var(${token}) * ${COLUMN_SCALE[token] ?? 1})` };
 }
 
 /** API payload fields for a line's fixed-asset / prepaid treatment. */
@@ -457,11 +456,10 @@ export function ProductLineItemsGrid({
   currencyCode?: string;
 }) {
   const { t, direction } = useLocale();
-  // Round 3 pilot (design-system §12.6): every cell is the same bordered
-  // control, and without a section title "Browse products" joins "Add line"
-  // under the rows instead of taking a row of its own.
-  const pilot = useUiPilot().active;
-  const browseInFooter = pilot && !title;
+  // Design-system §12.6: every cell is the same bordered control, and
+  // without a section title "Browse products" joins "Add line" under the
+  // rows instead of taking a row of its own.
+  const browseInFooter = !title;
   const numericAlign = numericEndAlignClass(direction);
   const taxes = useTaxes();
   const isMobile = useIsMobile();
@@ -485,18 +483,14 @@ export function ProductLineItemsGrid({
   ]
     .filter((column): column is LineColumnWidth => Boolean(column))
     .map((column): LineColumnWidth => {
-      if (!pilot) return column;
       const [token, scale] = typeof column === "string" ? [column, 1] : column;
-      return [token, scale * (PILOT_COLUMN_SCALE[token] ?? 1)];
+      return [token, scale * (COLUMN_SCALE[token] ?? 1)];
     });
   const stacked =
     isMobile ||
     (containerWidth !== null &&
       containerWidth <
-        requiredTableWidth(
-          tableColumns,
-          pilot ? PILOT_COLUMN_SCALE["--width-control-product-min"] : 1,
-        ));
+        requiredTableWidth(tableColumns, COLUMN_SCALE["--width-control-product-min"]));
 
   const updateLine = (id: string, patch: Partial<ProductLineItemsGridLine>) => {
     const index = lines.findIndex((line) => line.id === id);
@@ -665,8 +659,8 @@ export function ProductLineItemsGrid({
   );
 
   // Cleared ("") is "no tax" (null), as the old "__none__" row was. Table
-  // cells render the ghost trigger; the keyboard grid focuses it through the
-  // cell's own data-row/data-col.
+  // cells render the same bordered trigger; the keyboard grid focuses it
+  // through the cell's own data-row/data-col.
   const taxSelect = (line: ProductLineItemsGridLine, inCell?: boolean) => (
     <SearchableSelect
       value={line.taxId ?? ""}
@@ -674,7 +668,7 @@ export function ProductLineItemsGrid({
       onValueChange={(value) => updateLine(line.id, { taxId: value || null })}
       options={taxOptions}
       allowClear
-      variant={inCell && !pilot ? "ghost" : "default"}
+      variant="default"
       // Mobile line cards size every control like their neighbours (h-10).
       className={cn(isMobile && !inCell && "h-10")}
       placeholder={t("sales.editor.grid.noTax")}
@@ -717,10 +711,7 @@ export function ProductLineItemsGrid({
             <div
               key={line.id}
               data-testid="document-line"
-              className={cn(
-                "flex flex-col gap-2 rounded-sm border border-border bg-card p-2.5",
-                pilot && "rounded-md p-3",
-              )}
+              className="flex flex-col gap-2 rounded-md border border-border bg-card p-3"
             >
               <div className="flex items-center gap-1.5">
                 <span className="w-5 shrink-0 text-center text-caption text-muted-foreground tabular-nums">
@@ -867,14 +858,7 @@ export function ProductLineItemsGrid({
             </div>
           );
         })}
-        <div
-          className={cn(
-            "overflow-hidden rounded-sm border border-border",
-            pilot && "rounded-md bg-card",
-          )}
-        >
-          {footer}
-        </div>
+        <div className="overflow-hidden rounded-md border border-border bg-card">{footer}</div>
         {totals}
         {browser}
       </div>
@@ -886,51 +870,35 @@ export function ProductLineItemsGrid({
       {toolbar}
       {/* Stacked cards take over below the columns' combined width, so the
           table never needs a minimum width (or a sideways scroll) of its own. */}
-      <DocumentLineTable
-        minWidthClass="min-w-0"
-        footer={footer}
-        className={pilot ? "rounded-md bg-card" : undefined}
-      >
+      <DocumentLineTable minWidthClass="min-w-0" footer={footer} className="rounded-md bg-card">
         <colgroup>
           <col />
           {warehouseColumn ? (
             <col
               className="w-(--width-control-warehouse)"
-              style={pilotColStyle(pilot, "--width-control-warehouse")}
+              style={colStyle("--width-control-warehouse")}
             />
           ) : null}
-          <col
-            className={QUANTITY_WIDTH}
-            style={pilotColStyle(pilot, "--width-control-quantity")}
-          />
+          <col className={QUANTITY_WIDTH} style={colStyle("--width-control-quantity")} />
           {showUnit ? (
-            <col
-              className="w-(--width-control-unit)"
-              style={pilotColStyle(pilot, "--width-control-unit")}
-            />
+            <col className="w-(--width-control-unit)" style={colStyle("--width-control-unit")} />
           ) : null}
-          <col className={PRICE_WIDTH} style={pilotColStyle(pilot, "--width-control-price")} />
+          <col className={PRICE_WIDTH} style={colStyle("--width-control-price")} />
           {showDiscount ? (
             <col
               className="w-(--width-control-discount)"
-              style={pilotColStyle(pilot, "--width-control-discount")}
+              style={colStyle("--width-control-discount")}
             />
           ) : null}
           {showTax ? (
-            <col
-              className="w-(--width-control-tax)"
-              style={pilotColStyle(pilot, "--width-control-tax")}
-            />
+            <col className="w-(--width-control-tax)" style={colStyle("--width-control-tax")} />
           ) : null}
           {lineAmountMode ? null : (
-            <col
-              className={LINE_TOTAL_WIDTH}
-              style={pilotColStyle(pilot, "--width-control-line-total")}
-            />
+            <col className={LINE_TOTAL_WIDTH} style={colStyle("--width-control-line-total")} />
           )}
           <col
             className="w-(--width-control-actions)"
-            style={pilotColStyle(pilot, "--width-control-actions")}
+            style={colStyle("--width-control-actions")}
           />
         </colgroup>
         <DocumentLineTableHeader>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { leadCompletedStages } from "@/components/crm/pilot/lead-stage-indicator";
+import { leadCompletedStages } from "@/components/crm/lead-stage-indicator";
 import { resolveWorkflowTrack } from "@/components/shared/workflow-tracker";
 
 const STAGES = ["NEW", "IN_PROGRESS", "QUALIFIED", "CONVERTED"];

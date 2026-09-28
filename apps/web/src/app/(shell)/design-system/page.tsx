@@ -53,8 +53,7 @@ import {
   ReportSwitcher,
   type FinancialReportCheck,
 } from "@/components/accounting/financial-report";
-import { PilotStatesBoard } from "@/components/design-system/pilot-states-board";
-import { useUiPilot } from "@/providers/ui-pilot-provider";
+import { ControlStatesBoard } from "@/components/design-system/control-states-board";
 import { FilterTrigger } from "@/components/shared/data-table/filter-popover";
 
 /** Sample rows for the Tables section — clearly-labeled placeholder data, not a real business dataset. */
@@ -122,7 +121,6 @@ export default function DesignSystemPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [animationKey, setAnimationKey] = useState(0);
   const [loadingVisible, setLoadingVisible] = useState(false);
-  const pilot = useUiPilot().active;
 
   const columns: ColumnDef<SampleRow, unknown>[] = [
     {
@@ -145,7 +143,7 @@ export default function DesignSystemPage() {
   return (
     <PageWorkspace title={t("designSystem.title")} description={t("designSystem.subtitle")}>
       <div className="flex flex-col gap-10 pb-16">
-        {pilot ? <PilotStatesBoard /> : null}
+        <ControlStatesBoard />
         {/* Typography */}
         <Section title={t("designSystem.typography")}>
           <EnterpriseCard>

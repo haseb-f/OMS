@@ -5,7 +5,6 @@ import { CalendarClock } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { EnterpriseButton } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -18,7 +17,6 @@ import { leadsService } from "@/services/leads-service";
 import { useLocale } from "@/providers/locale-provider";
 import { toast, reportApiError } from "@/lib/toast";
 import { useLeadFollowUpTypes } from "@/hooks/use-reference-data";
-import { useUiPilot } from "@/providers/ui-pilot-provider";
 import {
   FormCardField,
   FormCardRow,
@@ -49,7 +47,6 @@ export function LeadFollowUpDialog({
   const { t } = useLocale();
   const followUpTypes = useLeadFollowUpTypes();
   const fieldId = useId();
-  const pilot = useUiPilot().active;
   const [followUpTypeId, setFollowUpTypeId] = useState("");
   const [outcome, setOutcome] = useState("");
   const [note, setNote] = useState("");
@@ -140,60 +137,41 @@ export function LeadFollowUpDialog({
           <EnterpriseButton variant="outline" onClick={requestClose}>
             {t("common.cancel")}
           </EnterpriseButton>
-          <EnterpriseButton disabled={busy} isLoading={pilot && busy} onClick={() => void save()}>
+          <EnterpriseButton disabled={busy} isLoading={busy} onClick={() => void save()}>
             {t("common.save")}
           </EnterpriseButton>
         </>
       )}
     >
-      {pilot ? (
-        // Round 3.1 pilot: vertical form card — contact result, then the next step.
-        <FormCardStack>
-          <FormCardSection
-            title={t("crm.leads.followUp.sectionContact")}
-            description={t("crm.leads.followUp.sectionContactHint")}
-          >
-            <FormCardRow>
-              <FormCardField label={t("crm.leads.followUp.type")} htmlFor={`${fieldId}-type`}>
-                {typeSelect}
-              </FormCardField>
-              <FormCardField label={t("crm.leads.followUp.outcome")} htmlFor={`${fieldId}-outcome`}>
-                {outcomeSelect}
-              </FormCardField>
-            </FormCardRow>
-          </FormCardSection>
-          <FormCardSection
-            title={t("crm.leads.followUp.sectionNext")}
-            description={t("crm.leads.followUp.sectionNextHint")}
-          >
-            <FormCardField label={t("crm.leads.followUp.nextAt")} htmlFor={`${fieldId}-next`}>
-              {nextAtPicker}
+      {/* Compact form: contact result (type · outcome in one row), then the next step. */}
+      <FormCardStack>
+        <FormCardSection title={t("crm.leads.followUp.sectionContact")}>
+          <FormCardRow>
+            <FormCardField
+              size="sm"
+              label={t("crm.leads.followUp.type")}
+              htmlFor={`${fieldId}-type`}
+            >
+              {typeSelect}
             </FormCardField>
-            <FormCardField label={t("crm.leads.followUp.note")} htmlFor={`${fieldId}-note`}>
-              {noteInput}
+            <FormCardField
+              size="md"
+              label={t("crm.leads.followUp.outcome")}
+              htmlFor={`${fieldId}-outcome`}
+            >
+              {outcomeSelect}
             </FormCardField>
-          </FormCardSection>
-        </FormCardStack>
-      ) : (
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1">
-            <Label htmlFor={`${fieldId}-type`}>{t("crm.leads.followUp.type")}</Label>
-            {typeSelect}
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor={`${fieldId}-outcome`}>{t("crm.leads.followUp.outcome")}</Label>
-            {outcomeSelect}
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label>{t("crm.leads.followUp.nextAt")}</Label>
+          </FormCardRow>
+        </FormCardSection>
+        <FormCardSection title={t("crm.leads.followUp.sectionNext")}>
+          <FormCardField label={t("crm.leads.followUp.nextAt")} htmlFor={`${fieldId}-next`}>
             {nextAtPicker}
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label>{t("crm.leads.followUp.note")}</Label>
+          </FormCardField>
+          <FormCardField label={t("crm.leads.followUp.note")} htmlFor={`${fieldId}-note`}>
             {noteInput}
-          </div>
-        </div>
-      )}
+          </FormCardField>
+        </FormCardSection>
+      </FormCardStack>
     </EnterpriseModal>
   );
 }

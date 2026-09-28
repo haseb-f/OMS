@@ -36,7 +36,6 @@ import { usePinnedItems } from "@/hooks/use-pinned-items";
 import { STORAGE_KEYS } from "@/constants/storage-keys";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { useUiPilot } from "@/providers/ui-pilot-provider";
 import type { MessageKey } from "@/i18n/translate";
 
 function NavIcon({ name, compact = false }: { name?: IconName; compact?: boolean }) {
@@ -115,8 +114,6 @@ export function AppSidebar() {
   // Pinned/Recent sections, not pinning itself).
   const { isPinned, togglePin } = usePinnedItems();
   const { setOpenMobile, isMobile } = useSidebar();
-  // Round 3 pilot: a flush Geist sidebar with one-line labels (design-system §12).
-  const pilot = useUiPilot().active;
 
   // The active route's parent module becomes the (only) expanded one
   // whenever the route changes.
@@ -141,7 +138,8 @@ export function AppSidebar() {
   return (
     <Sidebar
       collapsible="icon"
-      variant={pilot ? "sidebar" : "floating"}
+      // A flush sidebar with one-line labels (design-system §12).
+      variant="sidebar"
       side={direction === "rtl" ? "right" : "left"}
       dir={direction}
     >
@@ -173,7 +171,6 @@ export function AppSidebar() {
               onTogglePin={togglePin}
               onNavigate={closeMobileOnNavigate}
               t={t}
-              pilot={pilot}
             />
           ))}
         </SidebarMenu>
@@ -197,7 +194,6 @@ function NavTreeItem({
   onTogglePin,
   onNavigate,
   t,
-  pilot,
 }: {
   item: NavigationItem;
   currentId?: string;
@@ -207,12 +203,11 @@ function NavTreeItem({
   onTogglePin: (id: string) => void;
   onNavigate: () => void;
   t: (key: MessageKey) => string;
-  pilot: boolean;
 }) {
   const hasChildren = !!item.children?.length;
   const isActive = currentId === item.id;
   const containsActive = hasChildren && item.children!.some((child) => child.id === currentId);
-  const title = t(pilot && item.shortTitleKey ? item.shortTitleKey : item.titleKey);
+  const title = t(item.shortTitleKey ?? item.titleKey);
 
   if (!hasChildren) {
     return (
@@ -228,9 +223,7 @@ function NavTreeItem({
         >
           <Link href={item.route ?? "#"} onClick={onNavigate}>
             <NavIcon name={item.icon} />
-            <span className={cn("group-data-[collapsible=icon]:hidden", pilot && "truncate")}>
-              {title}
-            </span>
+            <span className="truncate group-data-[collapsible=icon]:hidden">{title}</span>
           </Link>
         </SidebarMenuButton>
         {item.badge && (
@@ -264,20 +257,14 @@ function NavTreeItem({
             )}
           >
             <NavIcon name={item.icon} />
-            <span
-              className={cn("group-data-[collapsible=icon]:hidden", pilot && "min-w-0 truncate")}
-            >
-              {title}
-            </span>
+            <span className="min-w-0 truncate group-data-[collapsible=icon]:hidden">{title}</span>
             <ChevronRight className="ms-auto size-3.5 shrink-0 transition-transform duration-(--duration-base) ease-(--ease-standard) group-data-[collapsible=icon]:hidden rtl:rotate-180 group-data-[state=open]/trigger:rotate-90 rtl:group-data-[state=open]/trigger:-rotate-90" />
           </SidebarMenuButton>
         </CollapsibleTrigger>
         <CollapsibleContent>
           <SidebarMenuSub>
             {groupChildren(item.children!).map((child, index, list) => {
-              const childTitle = t(
-                pilot && child.shortTitleKey ? child.shortTitleKey : child.titleKey,
-              );
+              const childTitle = t(child.shortTitleKey ?? child.titleKey);
               const groupHeading =
                 child.group && child.group !== list[index - 1]?.group
                   ? t(NAVIGATION_GROUPS[child.group].titleKey)
@@ -296,20 +283,12 @@ function NavTreeItem({
                     <Link
                       href={child.route ?? "#"}
                       onClick={onNavigate}
-                      className={cn("group/pin", pilot && "relative")}
-                      title={pilot ? childTitle : undefined}
+                      className="group/pin relative"
+                      title={childTitle}
                     >
                       <NavIcon name={child.icon} compact />
-                      {/* Classic: wrap to a second line (R2-09). Pilot: one line — labels
-                          are short enough, the full text is in the title. */}
-                      <span
-                        className={cn(
-                          "min-w-0 flex-1",
-                          pilot ? "truncate" : "line-clamp-2 break-words",
-                        )}
-                      >
-                        {childTitle}
-                      </span>
+                      {/* One line — labels are short enough, the full text is in the title. */}
+                      <span className="min-w-0 flex-1 truncate">{childTitle}</span>
                       <EnterpriseButton
                         type="button"
                         variant="ghost"
@@ -321,10 +300,9 @@ function NavTreeItem({
                         }}
                         className={cn(
                           "shrink-0 opacity-0 group-hover/pin:opacity-100 hover:text-primary",
-                          // Pilot: the pin floats over the row end so it never
-                          // takes width from the label.
-                          pilot &&
-                            "absolute end-1 bg-sidebar-accent group-focus-within/pin:opacity-100",
+                          // The pin floats over the row end so it never takes
+                          // width from the label.
+                          "absolute end-1 bg-sidebar-accent group-focus-within/pin:opacity-100",
                         )}
                         aria-label={
                           isPinned(child.id)

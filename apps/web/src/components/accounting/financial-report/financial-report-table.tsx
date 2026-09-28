@@ -5,7 +5,6 @@ import Link from "next/link";
 import { clsx as cx } from "clsx";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useLocale } from "@/providers/locale-provider";
-import { useUiPilot } from "@/providers/ui-pilot-provider";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { MessageKey } from "@/i18n/translate";
 import { ReportMoney } from "./report-money";
@@ -63,37 +62,29 @@ export const ROW_STYLE: Record<FinancialReportRowKind, string> = {
     "font-semibold text-foreground [&>td]:bg-surface-sunken [&>td]:border-t-2 [&>td]:border-t-foreground/60",
 };
 
+/*
+ * A quiet Geist table (design-system §12.6): hairline header rule and rows,
+ * the label column pinned at the logical start on every width (narrower on
+ * phones, with an end hairline while the figures scroll past it).
+ */
 /** Identical inline padding for header, body and footer cells — the single source of column alignment. */
-const CELL = "px-3 align-middle whitespace-nowrap";
-
-/** Label column pinned at the logical start from `sm` up (phones scroll it with the rest). */
-const PIN_BODY = "sm:sticky sm:start-0 sm:z-(--z-pinned)";
+const CELL = "px-3 align-middle whitespace-nowrap first:ps-4 last:pe-4";
+const PIN_BODY = "sticky start-0 z-(--z-pinned) max-sm:border-e max-sm:border-e-border";
 /** Every header cell sticks to the top of the grid's scroll area; the label header is also the pinned corner. */
 const HEAD =
-  "sticky top-0 z-(--z-sticky) h-9 border-b border-border-strong bg-table-header text-table-head text-table-header-foreground";
-const PIN_HEAD = "sm:start-0 sm:z-(--z-sticky-corner)";
-
-/*
- * Round 3 pilot (design-system §12.6): a quiet Geist table — hairline header
- * rule and rows, a little more row air, the label column pinned on phones too
- * (narrower there, with an end hairline while the figures scroll past it).
- * Selected by `useUiPilot().active`; the classic classes above are untouched.
- */
-const PILOT_CELL = "px-3 align-middle whitespace-nowrap first:ps-4 last:pe-4";
-const PILOT_PIN_BODY = "sticky start-0 z-(--z-pinned) max-sm:border-e max-sm:border-e-border";
-const PILOT_HEAD =
   "sticky top-0 z-(--z-sticky) h-9 border-b border-border bg-table-header text-table-head text-table-header-foreground";
-const PILOT_PIN_HEAD = "start-0 z-(--z-sticky-corner) max-sm:border-e max-sm:border-e-border";
-const PILOT_ROW_RULE = "[&>td]:border-b [&>td]:border-b-border hover:[&>td]:bg-table-row-hover";
-const PILOT_LABEL_MIN_PHONE_REM = 12;
+const PIN_HEAD = "start-0 z-(--z-sticky-corner) max-sm:border-e max-sm:border-e-border";
+const ROW_RULE = "[&>td]:border-b [&>td]:border-b-border hover:[&>td]:bg-table-row-hover";
+const ROW_PAD = "py-1.5";
+const LABEL_MIN_PHONE_REM = 12;
 /** Dr/Cr balance column on phones — fits 1,000,000.00 + the side, so label + closing fit 390px. */
-const PILOT_DRCR_PHONE_REM = 9.5;
-/** Same widths as CSS (literal for Tailwind): 9.5rem on phones, the classic 11rem from `sm`. */
-const PILOT_DRCR_WIDTH = "[--report-drcr-w:9.5rem] sm:[--report-drcr-w:11rem]";
-/** Phone breakpoint (Tailwind `sm`) for the pilot's phone-only column order. */
+const DRCR_PHONE_REM = 9.5;
+/** Same widths as CSS (literal for Tailwind): 9.5rem on phones, 11rem from `sm`. */
+const DRCR_WIDTH = "[--report-drcr-w:9.5rem] sm:[--report-drcr-w:11rem]";
+/** Phone breakpoint (Tailwind `sm`) for the phone-only column order. */
 const SM_PX = 640;
 /** Hierarchy indent per level — tighter on phones so the pinned label keeps its text. */
-const PILOT_INDENT = "[--report-indent:0.6rem] sm:[--report-indent:1.1rem]";
+const INDENT = "[--report-indent:0.6rem] sm:[--report-indent:1.1rem]";
 
 /** Minimum label-column width (rem): statements, and ledgers with descriptive columns. */
 const LABEL_MIN_REM = 14;
@@ -105,11 +96,11 @@ function amountWidthRem(column: FinancialReportColumn): number {
 }
 
 /**
- * Pilot label run: isolated in its own direction (`dir="auto"`), so a Latin
+ * Row label run: isolated in its own direction (`dir="auto"`), so a Latin
  * account name inside an Arabic row truncates at its own end ("Tamara cl…"),
  * never at the start.
  */
-function PilotLabel({ label }: { label: string }) {
+function RowLabel({ label }: { label: string }) {
   return (
     <bdi dir="auto" className="block truncate">
       {label}
@@ -148,27 +139,19 @@ export function FinancialReportTable({
   maxHeightClassName?: string;
 }) {
   const { t, locale } = useLocale();
-  const pilot = useUiPilot().active;
-  const cell = pilot ? PILOT_CELL : CELL;
-  const pinBody = pilot ? PILOT_PIN_BODY : PIN_BODY;
-  const head = pilot ? PILOT_HEAD : HEAD;
-  const pinHead = pilot ? PILOT_PIN_HEAD : PIN_HEAD;
-  const rowPad = pilot ? "py-1.5" : "py-1";
-  // Pilot phones: the figure that counts (`emphasize`, e.g. the closing
+  // Phones: the figure that counts (`emphasize`, e.g. the closing
   // balance) comes right after the pinned label, so it is visible without
   // scrolling; the other amounts follow, one swipe away. Screen only —
   // export and print keep the report's own column order.
   const phone = useIsMobile(SM_PX);
-  const columns =
-    pilot && phone
-      ? [
-          ...columnsProp.filter((column) => column.emphasize),
-          ...columnsProp.filter((column) => !column.emphasize),
-        ]
-      : columnsProp;
+  const columns = phone
+    ? [
+        ...columnsProp.filter((column) => column.emphasize),
+        ...columnsProp.filter((column) => !column.emphasize),
+      ]
+    : columnsProp;
   const phoneAmountWidth = columns.reduce(
-    (sum, column) =>
-      sum + (column.negative === "drcr" ? PILOT_DRCR_PHONE_REM : amountWidthRem(column)),
+    (sum, column) => sum + (column.negative === "drcr" ? DRCR_PHONE_REM : amountWidthRem(column)),
     0,
   );
   const rows = flattenVisibleLines(lines, expanded);
@@ -190,8 +173,8 @@ export function FinancialReportTable({
   const minWidthStyle = Object.fromEntries(
     BREAKPOINTS.map((breakpoint) => [
       `--report-min-w-${breakpoint}`,
-      pilot && breakpoint === "base"
-        ? `${Math.min(labelMin, PILOT_LABEL_MIN_PHONE_REM) + textWidthAt(breakpoint) + phoneAmountWidth}rem`
+      breakpoint === "base"
+        ? `${Math.min(labelMin, LABEL_MIN_PHONE_REM) + textWidthAt(breakpoint) + phoneAmountWidth}rem`
         : `${labelMin + textWidthAt(breakpoint) + amountWidth}rem`,
     ]),
   ) as CSSProperties;
@@ -199,7 +182,7 @@ export function FinancialReportTable({
   // When the grid scrolls sideways, open it on the label + the first
   // amounts: the descriptive text columns (source document, journal no.)
   // start scrolled past, one swipe away. Only while the label column is
-  // pinned (sm+) — otherwise the label itself would scroll out of view.
+  // pinned — otherwise the label itself would scroll out of view.
   // Runs when the column set changes, never on data refreshes, so it does
   // not fight the user's own scroll position.
   const gridRef = useRef<HTMLDivElement>(null);
@@ -216,7 +199,7 @@ export function FinancialReportTable({
     const firstAmount = heads[1 + textColumns.length];
     if (!label || !firstAmount) return;
     const rtl = getComputedStyle(grid).direction === "rtl";
-    // Pinned = sticky at the inline start (sm+); on phones it scrolls too.
+    // Pinned = sticky at the inline start.
     const labelStyle = getComputedStyle(label);
     if ((rtl ? labelStyle.right : labelStyle.left) === "auto") return;
     const labelBox = label.getBoundingClientRect();
@@ -238,7 +221,7 @@ export function FinancialReportTable({
         data-slot="table"
         className={cx(
           "w-full min-w-(--report-min-w-base) table-fixed border-separate border-spacing-0 text-table md:min-w-(--report-min-w-md) lg:min-w-(--report-min-w-lg) xl:min-w-(--report-min-w-xl) 2xl:min-w-(--report-min-w-2xl)",
-          pilot && PILOT_DRCR_WIDTH,
+          DRCR_WIDTH,
         )}
         style={minWidthStyle}
       >
@@ -257,7 +240,7 @@ export function FinancialReportTable({
               key={column.key}
               style={{
                 width:
-                  pilot && column.negative === "drcr"
+                  column.negative === "drcr"
                     ? "var(--report-drcr-w)"
                     : `${amountWidthRem(column)}rem`,
               }}
@@ -269,7 +252,7 @@ export function FinancialReportTable({
             <th
               scope="col"
               data-slot="table-head"
-              className={cx(cell, head, pinHead, "truncate text-start")}
+              className={cx(CELL, HEAD, PIN_HEAD, "truncate text-start")}
               title={t(nameHeaderKey ?? "reports.finance.fields.accountName")}
             >
               {t(nameHeaderKey ?? "reports.finance.fields.accountName")}
@@ -280,8 +263,8 @@ export function FinancialReportTable({
                 scope="col"
                 data-slot="table-head"
                 className={cx(
-                  cell,
-                  head,
+                  CELL,
+                  HEAD,
                   "truncate text-start",
                   column.hideBelow && HIDE_BELOW_CELL[column.hideBelow],
                 )}
@@ -296,7 +279,7 @@ export function FinancialReportTable({
                 scope="col"
                 data-slot="table-head"
                 // Same end edge as the values below it.
-                className={cx(cell, head, "truncate text-end")}
+                className={cx(CELL, HEAD, "truncate text-end")}
                 title={t(column.labelKey as MessageKey)}
               >
                 {t(column.labelKey as MessageKey)}
@@ -317,9 +300,7 @@ export function FinancialReportTable({
                 data-slot="table-row"
                 data-row-kind={kind}
                 className={cx(
-                  pilot
-                    ? PILOT_ROW_RULE
-                    : "[&>td]:border-b [&>td]:border-b-border/60 hover:[&>td]:bg-table-row-hover",
+                  ROW_RULE,
                   ROW_STYLE[kind],
                   canDrill &&
                     "cursor-pointer focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-focus-ring",
@@ -338,13 +319,11 @@ export function FinancialReportTable({
                     : undefined
                 }
               >
-                <td data-slot="table-cell" className={cx(cell, pinBody, rowPad)}>
+                <td data-slot="table-cell" className={cx(CELL, PIN_BODY, ROW_PAD)}>
                   <div
-                    className={cx("flex min-w-0 items-center gap-1.5", pilot && PILOT_INDENT)}
+                    className={cx("flex min-w-0 items-center gap-1.5", INDENT)}
                     style={{
-                      paddingInlineStart: pilot
-                        ? `calc(${Math.max(line.level, 0)} * var(--report-indent))`
-                        : `${Math.max(line.level, 0) * 1.1}rem`,
+                      paddingInlineStart: `calc(${Math.max(line.level, 0)} * var(--report-indent))`,
                     }}
                   >
                     {line.children.length > 0 ? (
@@ -377,20 +356,16 @@ export function FinancialReportTable({
                         href={href}
                         className={cx(
                           "rounded-xs hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-focus-ring",
-                          pilot ? "block min-w-0" : "truncate",
+                          "block min-w-0",
                         )}
                         title={label}
                         onClick={(event) => event.stopPropagation()}
                       >
-                        {pilot ? <PilotLabel label={label} /> : label}
+                        <RowLabel label={label} />
                       </Link>
-                    ) : pilot ? (
-                      <span className="block min-w-0" title={label}>
-                        <PilotLabel label={label} />
-                      </span>
                     ) : (
-                      <span className="truncate" title={label}>
-                        {label}
+                      <span className="block min-w-0" title={label}>
+                        <RowLabel label={label} />
                       </span>
                     )}
                   </div>
@@ -400,8 +375,8 @@ export function FinancialReportTable({
                     key={column.key}
                     data-slot="table-cell"
                     className={cx(
-                      cell,
-                      rowPad,
+                      CELL,
+                      ROW_PAD,
                       "truncate font-normal",
                       column.hideBelow && HIDE_BELOW_CELL[column.hideBelow],
                     )}
@@ -421,17 +396,14 @@ export function FinancialReportTable({
                     <td
                       key={column.key}
                       data-slot="table-cell"
-                      className={cx(cell, rowPad, "text-end")}
+                      className={cx(CELL, ROW_PAD, "text-end")}
                     >
                       <ReportMoney
                         // An expanded section's figures are repeated by its
                         // total row right below — shown once, there. An
-                        // expanded COA parent keeps its figure, quietly, so
-                        // it is never read (or re-added) as a separate amount.
+                        // expanded COA parent keeps its figure, row weight
+                        // and color (§7 hierarchy) — a subtotal of what it holds.
                         value={kind === "section" && isExpanded ? undefined : value}
-                        // Pilot: the parent keeps its row weight and color
-                        // (§7 hierarchy) — it is a subtotal of what it holds.
-                        quiet={!pilot && kind === "parent" && isExpanded}
                         adverse={adverse}
                         negative={column.negative}
                       />
@@ -449,18 +421,22 @@ export function FinancialReportTable({
               data-row-kind="grand-total"
               className={ROW_STYLE["grand-total"]}
             >
-              <td data-slot="table-cell" className={cx(cell, pinBody, "py-1.5")}>
+              <td data-slot="table-cell" className={cx(CELL, PIN_BODY, ROW_PAD)}>
                 {t("reports.finance.totals")}
               </td>
               {textColumns.map((column) => (
                 <td
                   key={column.key}
                   data-slot="table-cell"
-                  className={cx(cell, column.hideBelow && HIDE_BELOW_CELL[column.hideBelow])}
+                  className={cx(CELL, column.hideBelow && HIDE_BELOW_CELL[column.hideBelow])}
                 />
               ))}
               {columns.map((column) => (
-                <td key={column.key} data-slot="table-cell" className={cx(cell, "py-1.5 text-end")}>
+                <td
+                  key={column.key}
+                  data-slot="table-cell"
+                  className={cx(CELL, ROW_PAD, "text-end")}
+                >
                   <ReportMoney value={footer.values[column.key]} negative={column.negative} />
                 </td>
               ))}

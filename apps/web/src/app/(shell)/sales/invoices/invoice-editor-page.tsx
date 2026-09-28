@@ -464,7 +464,7 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
           ) : null
         }
         headerTracker={
-          // Rendered by the pilot layout only (classic editor unchanged).
+          // Read-only document + payment tracks under the header.
           invoice ? (
             <InvoiceWorkflowTracks status={invoice.status} paymentStatus={invoice.paymentStatus} />
           ) : null

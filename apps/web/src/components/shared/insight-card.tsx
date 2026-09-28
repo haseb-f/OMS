@@ -1,6 +1,6 @@
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, type LucideIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type InsightTone =
@@ -15,16 +15,18 @@ export type InsightTone =
   | "loss";
 
 /**
- * Insight card (design-system §12.8): a clear label, a prominent value, one
- * line of context and — only when the card leads somewhere — an action. The
- * tone is a restrained accent (icon tile + soft tinted surface); the label
- * and context carry the meaning, never the colour alone. Only cards with an
- * `href` react to hover (border + 1px lift, no layout shift, off under
- * reduced motion); static cards stay still.
+ * Compact summary tile (design-system §12.8, Round 3.2): a concise label, the
+ * figure with its unit on one line, and at most one line of essential
+ * context. The tone is a restrained accent (a small tinted icon; a start-edge
+ * accent + tone figure with `emphasis`); the label carries the meaning,
+ * never the colour alone. Only tiles with an `href` react to hover and
+ * keyboard focus (tone border, faint tint, soft elevation — no transform, no
+ * layout shift); static tiles stay still.
  */
 export function InsightCard({
   label,
   value,
+  unit,
   context,
   icon: Icon,
   tone = "neutral",
@@ -38,66 +40,86 @@ export function InsightCard({
 }: {
   label: string;
   value: ReactNode;
-  /** One line that says what the number means (period, currency, basis). */
+  /** Muted unit right after the figure (currency code, %, "orders"). */
+  unit?: ReactNode;
+  /** One line that says what the number means — only when it adds something. */
   context?: ReactNode;
   icon?: LucideIcon;
   tone?: InsightTone;
   href?: string;
   /** Verb phrase for the drill-down, e.g. «مراجعة المدفوعات». Needs `href`. */
   actionLabel?: string;
-  /** Small chip at the end of the label row (period, "now", status). */
+  /** Small chip at the end of the label row (period, status). */
   meta?: ReactNode;
   /** Optional meaningful mark under the value (e.g. a proportion bar). */
   children?: ReactNode;
-  /** Tint the surface with the tone (open work, discrepancies). */
+  /** Open work / discrepancy: start-edge accent and a tone figure. */
   emphasis?: boolean;
   className?: string;
   direction?: "rtl" | "ltr";
 }) {
-  const Arrow = direction === "rtl" ? ArrowLeft : ArrowRight;
+  const Chevron = direction === "rtl" ? ChevronLeft : ChevronRight;
   const body = (
     <>
-      <div className="flex items-start gap-2.5">
+      <div className="flex min-w-0 items-center gap-2">
         {Icon ? (
           <span
             data-slot="insight-icon"
-            className="flex size-8 shrink-0 items-center justify-center rounded-md border"
+            className="flex size-6 shrink-0 items-center justify-center rounded-sm"
             aria-hidden
           >
-            <Icon className="size-4" strokeWidth={1.75} />
+            <Icon className="size-3.5" strokeWidth={2} />
           </span>
         ) : null}
-        <span className="min-w-0 flex-1 pt-0.5 text-caption font-medium text-muted-foreground">
+        <span
+          className={cn(
+            "min-w-0 flex-1 text-caption font-medium text-muted-foreground",
+            // An emphasized tile (discrepancy, open work) never hides its words.
+            emphasis ? "break-words" : "truncate",
+          )}
+        >
           {label}
         </span>
         {meta ? <span className="shrink-0">{meta}</span> : null}
       </div>
-      <div
-        data-slot="insight-value"
-        className="num mt-2 text-section-title leading-none font-semibold sm:mt-3 sm:text-page-title"
-      >
-        {value}
+      <div className="mt-1.5 flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+        <div className="flex min-w-0 items-baseline gap-1.5">
+          <span
+            data-slot="insight-value"
+            className="num text-metric leading-tight font-semibold tracking-tight"
+          >
+            {value}
+          </span>
+          {unit ? (
+            <span className="shrink-0 text-caption font-medium text-muted-foreground">{unit}</span>
+          ) : null}
+        </div>
+        {href && actionLabel ? (
+          <span
+            data-slot="insight-action"
+            className="flex shrink-0 items-center gap-0.5 text-caption font-medium"
+          >
+            {actionLabel}
+            <Chevron className="size-3.5" aria-hidden />
+          </span>
+        ) : null}
       </div>
-      {children ? <div className="mt-2">{children}</div> : null}
+      {children ? <div className="mt-1.5">{children}</div> : null}
       {context ? (
-        <p className="mt-1.5 line-clamp-2 text-caption text-muted-foreground sm:mt-2">{context}</p>
-      ) : null}
-      {href && actionLabel ? (
-        <span
-          data-slot="insight-action"
-          className="mt-auto flex items-center gap-1.5 pt-3 text-caption font-medium text-foreground"
+        <p
+          className={cn(
+            "mt-1 text-caption text-muted-foreground",
+            emphasis ? "break-words" : "truncate",
+          )}
+          title={typeof context === "string" ? context : undefined}
         >
-          {actionLabel}
-          <Arrow className="size-3.5 transition-transform duration-(--duration-base) group-hover/insight:translate-x-0.5 rtl:group-hover/insight:-translate-x-0.5 motion-reduce:transition-none" />
-        </span>
+          {context}
+        </p>
       ) : null}
     </>
   );
 
-  const shared = cn(
-    "group/insight relative flex min-w-0 flex-col rounded-xl border p-3 sm:p-4",
-    className,
-  );
+  const shared = cn("relative flex min-w-0 flex-col rounded-md border px-3 py-2.5", className);
 
   if (href) {
     return (
@@ -128,15 +150,29 @@ export function InsightCard({
   );
 }
 
+/**
+ * Related static `InsightCard`s on ONE surface split by hairlines (Round 4,
+ * design-system §12.8) — a metric row, not a box per number. The caller
+ * sets the columns (`grid-cols-*`); dividers survive any wrap. Interactive
+ * (href) tiles stay separate cards.
+ */
+export function InsightGroup({ children, className, ...props }: ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="insight-group"
+      className={cn("grid min-w-0 overflow-hidden rounded-md border", className)}
+      {...props}
+    >
+      {children}
+    </div>
+  );
+}
+
 /** A thin, labelled proportion bar (e.g. conversion rate) — real value only. */
 export function InsightBar({ value, label }: { value: number; label: string }) {
   const clamped = Math.max(0, Math.min(100, value));
   return (
-    <div
-      role="img"
-      aria-label={label}
-      className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
-    >
+    <div role="img" aria-label={label} className="h-1 w-full overflow-hidden rounded-full bg-muted">
       <div
         data-slot="insight-bar"
         className="h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none"

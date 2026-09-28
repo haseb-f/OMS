@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isLeadStartFollowUp, planLeadPilotActions } from "@/components/crm/lead-next-actions";
+import { isLeadStartFollowUp, planLeadActions } from "@/components/crm/lead-next-actions";
 import type { WorkflowActionItem } from "@/components/business/workflow-actions-panel";
 import type { LeadRow } from "@/services/leads-service";
 
@@ -45,9 +45,9 @@ describe("isLeadStartFollowUp", () => {
   });
 });
 
-describe("planLeadPilotActions (Add Follow-up → Convert → More)", () => {
+describe("planLeadActions (Add Follow-up → Convert → More)", () => {
   it("presents follow-up, green convert, and transitions in More", () => {
-    const plan = planLeadPilotActions(
+    const plan = planLeadActions(
       { lead: lead({}), ...perms },
       [transition({ label: "تأهيل" })],
       t,
@@ -60,7 +60,7 @@ describe("planLeadPilotActions (Add Follow-up → Convert → More)", () => {
   });
 
   it("folds Start follow-up into Add Follow-up on a NEW lead", () => {
-    const plan = planLeadPilotActions(
+    const plan = planLeadActions(
       { lead: lead({ status: { code: "NEW" } as never }), ...perms },
       [start],
       t,
@@ -71,7 +71,7 @@ describe("planLeadPilotActions (Add Follow-up → Convert → More)", () => {
   });
 
   it("keeps Start follow-up reachable when the user cannot add a follow-up", () => {
-    const plan = planLeadPilotActions(
+    const plan = planLeadActions(
       { lead: lead({ status: { code: "NEW" } as never }), ...perms, canEdit: false },
       [start],
       t,
@@ -83,42 +83,32 @@ describe("planLeadPilotActions (Add Follow-up → Convert → More)", () => {
 
   it("puts Assign first in More while unassigned; hides it without permission", () => {
     const unassigned = lead({ salesEmployeeId: null, salesEmployee: null } as never);
-    const plan = planLeadPilotActions({ lead: unassigned, ...perms }, [transition({})], t, NOW);
+    const plan = planLeadActions({ lead: unassigned, ...perms }, [transition({})], t, NOW);
     expect(plan.more[0]).toMatchObject({ key: "assign", label: "crm.leads.actions.assign" });
-    const denied = planLeadPilotActions(
-      { lead: unassigned, ...perms, canAssign: false },
-      [],
-      t,
-      NOW,
-    );
+    const denied = planLeadActions({ lead: unassigned, ...perms, canAssign: false }, [], t, NOW);
     expect(denied.more.find((a) => a.key === "assign")?.hidden).toBe(true);
   });
 
   it("emphasizes an overdue follow-up and makes follow-up primary without convert", () => {
-    const overdue = planLeadPilotActions(
+    const overdue = planLeadActions(
       { lead: lead({ nextFollowUpAt: "2026-09-27T12:00:00Z" }), ...perms },
       [],
       t,
       NOW,
     );
     expect(overdue.followUp?.variant).toBe("warning");
-    const noConvert = planLeadPilotActions(
-      { lead: lead({}), ...perms, canConvert: false },
-      [],
-      t,
-      NOW,
-    );
+    const noConvert = planLeadActions({ lead: lead({}), ...perms, canConvert: false }, [], t, NOW);
     expect(noConvert.convert).toBeUndefined();
     expect(noConvert.followUp?.variant).toBe("default");
   });
 
   it("disables the group and surfaces the running transition", () => {
     const running = transition({ loading: true, disabled: true });
-    const plan = planLeadPilotActions({ lead: lead({}), ...perms }, [running], t, NOW);
+    const plan = planLeadActions({ lead: lead({}), ...perms }, [running], t, NOW);
     expect(plan.running).toBe(running);
     expect(plan.followUp?.disabled).toBe(true);
     expect(plan.convert?.disabled).toBe(true);
-    const busy = planLeadPilotActions({ lead: lead({}), ...perms, followUpBusy: true }, [], t, NOW);
+    const busy = planLeadActions({ lead: lead({}), ...perms, followUpBusy: true }, [], t, NOW);
     expect(busy.followUp?.loading).toBe(true);
     expect(busy.convert?.disabled).toBe(true);
   });

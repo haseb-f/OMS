@@ -15,7 +15,7 @@ const enterpriseButtonVariants = cva(
           "bg-primary text-primary-foreground not-disabled:hover:bg-primary-hover active:not-aria-[haspopup]:bg-primary-active",
         /** Secondary actions: solid surface, neutral hairline, neutral hover. */
         outline:
-          "border-border-strong bg-card text-foreground not-disabled:hover:bg-accent aria-expanded:bg-accent",
+          "border-(--control-border) bg-card text-foreground not-disabled:hover:border-(--control-border-hover) not-disabled:hover:bg-(--control-hover) not-disabled:active:border-(--control-border-hover) not-disabled:active:bg-(--control-pressed) aria-expanded:border-(--control-border-hover) aria-expanded:bg-(--control-pressed) data-[state=open]:bg-(--control-pressed)",
         /**
          * A trigger that behaves like a form field (pickers, comboboxes,
          * filter triggers, date/month pickers): input boundary, normal
@@ -34,10 +34,11 @@ const enterpriseButtonVariants = cva(
         /** The one green "primary positive" action (Activate, Approve, ...) — never a one-off inline green className. */
         success: "bg-success text-success-foreground not-disabled:hover:bg-success/90",
         warning: "bg-warning text-warning-foreground not-disabled:hover:bg-warning/90",
-        ghost: "text-foreground not-disabled:hover:bg-accent aria-expanded:bg-accent",
+        ghost:
+          "text-foreground not-disabled:hover:bg-(--control-hover) not-disabled:active:bg-(--control-pressed) aria-expanded:bg-(--control-pressed)",
         destructive:
           "border-destructive-border bg-destructive-soft text-destructive-soft-foreground not-disabled:hover:border-destructive not-disabled:hover:bg-destructive not-disabled:hover:text-destructive-foreground",
-        link: "text-primary underline-offset-4 not-disabled:hover:underline dark:text-primary",
+        link: "text-(--link) underline-offset-4 not-disabled:hover:underline",
       },
       size: {
         // One height scale shared with Input/Select (theme/tokens.css):

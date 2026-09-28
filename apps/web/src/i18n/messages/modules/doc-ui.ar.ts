@@ -54,6 +54,8 @@ const docUiAr = {
     bankUnmatchedHint: "لم تُطابق مع أي مستند بعد",
     bankReviewHint: "تعارض أو مطابقة محتملة بانتظار قرار",
     metricsTitle: "مؤشرات المبيعات",
+    groupLeads: "العملاء المحتملون",
+    groupOrders: "الطلبات",
     metricsDescription: "أرقام الفترة المحددة ونطاق صلاحياتك.",
     now: "الآن",
     rankingDescription: "الطلبات المنشأة في الفترة المحددة.",

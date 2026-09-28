@@ -13,8 +13,8 @@ import type { ReconciliationState, ResolvedSummaryTone } from "./summary-format"
 import type { FinancialReportCheckScope } from "./types";
 
 /*
- * Presentation vocabulary shared by the summary strip (classic) and its
- * Round 3 pilot variant — one source for tone colors, icons and wording.
+ * Presentation vocabulary of the report summary — one source for tone
+ * colors, icons and wording.
  */
 
 /** Category color lives on the summary only — the icon and the figure, never the card fill. */

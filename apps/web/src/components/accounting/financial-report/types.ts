@@ -92,9 +92,9 @@ export interface FinancialReportSummaryItem {
   /** Currency of this tile when it differs from the report currency. */
   currency?: string;
   /**
-   * Round 3.1 pilot summary cards: a label that says exactly what the figure
+   * Summary cards: a label that says exactly what the figure
    * is ("Net profit for the period"; defaults to `label`) and one short
-   * context line ("Revenue minus expenses"). Ignored by the classic strip.
+   * context line ("Revenue minus expenses").
    */
   cardLabel?: string;
   hint?: string;
@@ -120,7 +120,7 @@ export interface FinancialReportCheck {
     id: string;
     label: string;
     value: number;
-    /** Pilot summary card label / context line (see {@link FinancialReportSummaryItem}). */
+    /** Summary card label / context line (see {@link FinancialReportSummaryItem}). */
     cardLabel?: string;
     hint?: string;
   }>;

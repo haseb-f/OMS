@@ -2,7 +2,6 @@
 
 import { formatAmountParts, type NegativeStyle } from "@/lib/money";
 import { useLocale } from "@/providers/locale-provider";
-import { useUiPilot } from "@/providers/ui-pilot-provider";
 import { clsx as cx } from "clsx";
 import { useDrCrLabels } from "./use-report-format";
 
@@ -34,10 +33,6 @@ export function ReportMoney({
   adverse?: boolean;
 }) {
   const drcrLabels = useDrCrLabels();
-  // Pilot: the AA-safe red for text (solid --destructive is 4.0:1 on dark).
-  const adverseClass = useUiPilot().active
-    ? "text-destructive-soft-foreground"
-    : "text-destructive";
   const parts =
     value === undefined ? null : formatAmountParts(value, { negative, zero: "dash", drcrLabels });
   return (
@@ -45,7 +40,8 @@ export function ReportMoney({
       className={cx(
         "block w-full text-end whitespace-nowrap",
         quiet && "text-muted-foreground",
-        adverse && adverseClass,
+        // The AA-safe red for text (solid --destructive is 4.0:1 on dark).
+        adverse && "text-destructive-soft-foreground",
         parts?.isZero && "font-normal text-muted-foreground",
       )}
     >
