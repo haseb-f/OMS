@@ -218,10 +218,11 @@ async function runApi() {
       `held=${created.distributionHeld} owner=${created.salesEmployeeId ?? "none"}`,
     );
 
-    await api(manager, "POST", "/leads/distribution/activate-continuous");
+    // A held batch stays held while distribution is paused (activating an
+    // automatic mode drains pending leads, held ones included, by design).
     const still = await api(manager, "GET", `/leads/${created.id}`);
     assert(
-      "continuous does not auto-assign held batch",
+      "held batch stays unassigned while paused",
       still.salesEmployeeId == null && still.distributionHeld === true,
       `held=${still.distributionHeld} owner=${still.salesEmployeeId ?? "none"}`,
     );
@@ -536,21 +537,33 @@ async function runBrowser(sampleLeadId) {
     } else {
       record("distribution control lists the modes", false, "distribution control missing");
     }
+    // Import actions live in the header's «Import» menu (Round 2 headers).
+    const importMenu = managerPage
+      .getByRole("button", { name: /^Import$|^استيراد$/ })
+      .first();
+    const openImportMenu = async () => {
+      await importMenu.click();
+      await managerPage.waitForTimeout(400);
+    };
+    await openImportMenu();
+    const importText = await managerPage.locator("[role='menu']").last().innerText();
+    await managerPage.keyboard.press("Escape");
     assert(
       "import actions are explicit",
-      (distText.includes("Download Excel Template") &&
-        distText.includes("Upload Excel/CSV from Device") &&
-        distText.includes("Import from Google Sheets")) ||
-        (distText.includes("تنزيل قالب Excel") &&
-          distText.includes("رفع Excel/CSV من الجهاز") &&
-          distText.includes("استيراد من Google Sheets")),
+      (importText.includes("Download Excel Template") &&
+        importText.includes("Upload Excel/CSV from Device") &&
+        importText.includes("Import from Google Sheets")) ||
+        (importText.includes("تنزيل قالب Excel") &&
+          importText.includes("رفع Excel/CSV من الجهاز") &&
+          importText.includes("استيراد من Google Sheets")),
       "template/device/sheets",
     );
 
-    const uploadBtn = managerPage
-      .getByRole("button", { name: /Upload Excel\/CSV from Device|رفع Excel\/CSV من الجهاز/ })
-      .first();
-    await uploadBtn.click();
+    await openImportMenu();
+    await managerPage
+      .getByRole("menuitem", { name: /Upload Excel\/CSV from Device|رفع Excel\/CSV من الجهاز/ })
+      .first()
+      .click();
     await managerPage.waitForTimeout(500);
     const wizardText = await managerPage.locator("body").innerText();
     assert(
@@ -564,8 +577,10 @@ async function runBrowser(sampleLeadId) {
     });
     await managerPage.keyboard.press("Escape");
 
+    await openImportMenu();
     await managerPage
-      .getByRole("button", { name: /Import from Google Sheets|استيراد من Google Sheets/ })
+      .getByRole("menuitem", { name: /Import from Google Sheets|استيراد من Google Sheets/ })
+      .first()
       .click();
     await managerPage.waitForTimeout(500);
     const sheetsText = await managerPage.locator("body").innerText();
@@ -657,7 +672,11 @@ async function runBrowser(sampleLeadId) {
       "no duplicated total labels",
     );
 
-    const reportSelect = financePage.locator("button[role='combobox']").first();
+    // The report switcher is a button opening a listbox (Round 2 header).
+    const reportSelect = financePage
+      .locator("main button[aria-haspopup='listbox']")
+      .filter({ hasText: /Switch report|تبديل التقرير/ })
+      .first();
     async function openReport(label, check) {
       await reportSelect.click();
       await financePage
@@ -840,15 +859,22 @@ async function runBrowser(sampleLeadId) {
       !tabletOverflow,
       `overflow=${tabletOverflow}`,
     );
-    const tabletSidebarSide = await tabletPage
-      .locator("[data-slot='sidebar'][data-side], [data-slot='sidebar-container']")
-      .first()
-      .getAttribute("data-side");
+    // Below 1024px navigation is a sheet (Round 2): open it and check it
+    // docks on the right edge in Arabic.
+    await tabletPage.locator("[data-slot='top-bar'] [data-slot='sidebar-trigger']").first().click();
+    const sheet = tabletPage.locator("[data-slot='sidebar'][data-mobile='true'], [role='dialog']").first();
+    await sheet.waitFor({ timeout: 15000 });
+    await tabletPage.waitForTimeout(500);
+    const sheetBox = await sheet.boundingBox();
+    const tabletWidth = tabletPage.viewportSize()?.width ?? 0;
+    const tabletSidebarSide =
+      sheetBox && sheetBox.x + sheetBox.width >= tabletWidth - 2 ? "right" : "left";
     assert(
       "Arabic tablet sidebar is on the right",
       tabletSidebarSide === "right",
-      `side=${tabletSidebarSide}`,
+      `side=${tabletSidebarSide} x=${sheetBox?.x} w=${sheetBox?.width}`,
     );
+    await tabletPage.keyboard.press("Escape");
     await tabletPage.screenshot({
       path: resolve(EVIDENCE_DIR, "leads-tablet-rtl.png"),
       fullPage: true,
