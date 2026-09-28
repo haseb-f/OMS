@@ -61,7 +61,7 @@ function metrics(scopeSel) {
   const scope = document.querySelector(scopeSel) ?? document.querySelector("main") ?? document.body;
   const vis = (el) => {
     const b = el.getBoundingClientRect();
-    const cs = getComputedStyle(el);
+    const cs = window.getComputedStyle(el);
     return b.width > 0 && b.height > 0 && cs.visibility !== "hidden" && b.bottom > 0 && b.top < vh;
   };
   const topbar = document.querySelector("header")?.getBoundingClientRect().height ?? null;
@@ -83,7 +83,7 @@ function metrics(scopeSel) {
       const kind = kindOf(el);
       if (!kind) return null;
       const b = el.getBoundingClientRect();
-      const cs = getComputedStyle(el);
+      const cs = window.getComputedStyle(el);
       return {
         kind,
         h: Math.round(b.height),
