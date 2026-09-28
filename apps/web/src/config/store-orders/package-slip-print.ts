@@ -22,7 +22,9 @@ export function slipLineAmount(item: {
  * - CASH_ON_DELIVERY: collect the order total minus what was already
  *   declared paid (standing PENDING / MATCHED / VERIFIED claims =
  *   `declaredAmount`), floored at zero; nothing to collect once fully
- *   declared.
+ *   declared — worded as "covered by declared payments" (`COD_SETTLED`), or
+ *   as Finance-verified only when the order's Finance payment status is
+ *   fully paid / overpaid.
  * - PREPAID: the server's fulfillment gate decides. Allowed (declared PAID in
  *   full, or Finance-verified) → no collection, stating which basis — a
  *   declaration is never presented as Finance verification. Not allowed
@@ -31,7 +33,8 @@ export function slipLineAmount(item: {
  * The accounting balance (invoices, Finance matching) is never used here.
  */
 export function resolveSlipCollection(
-  order: Pick<StoreOrderRow, "paymentType" | "declaredAmount">,
+  order: Pick<StoreOrderRow, "paymentType" | "declaredAmount"> &
+    Partial<Pick<StoreOrderRow, "paymentStatus">>,
   orderTotal: number,
   gate: Pick<FulfillmentGateResult, "allowed" | "basis">,
 ): SlipCollection {
@@ -39,7 +42,14 @@ export function resolveSlipCollection(
   const declared = round2(Math.max(0, Number(order.declaredAmount ?? 0) || 0));
   if (order.paymentType === "CASH_ON_DELIVERY") {
     const due = round2(Math.max(0, total - declared));
-    if (due <= EPSILON) return { kind: "none", basis: "COD_SETTLED" };
+    if (due <= EPSILON) {
+      // Nothing left to collect. Finance verification (the same statuses the
+      // server's fulfillment gate treats as verified) is stated as such; a
+      // declaration alone is never presented as verified.
+      const verified =
+        order.paymentStatus === "FULLY_PAID_RECONCILED" || order.paymentStatus === "OVERPAID";
+      return { kind: "none", basis: verified ? "VERIFIED_PAID" : "COD_SETTLED" };
+    }
     return { kind: "collect", amount: due, orderTotal: total, declaredPaid: declared };
   }
   if (!gate.allowed) return { kind: "hold" };

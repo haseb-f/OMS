@@ -590,6 +590,19 @@ const en = {
     balance: "Balance",
     noMovements: "No movements in this period.",
     rowCount: "{count} rows",
+    rowCountCapped:
+      "Showing {count} of {total} rows — print limit reached; narrow the filters for the rest",
+    rowCountPageOnly:
+      "Only the {count} rows loaded on screen were printed — {total} rows match the filters",
+    preparing: "Preparing the print preview…",
+    previewOpened: "Print preview opened in a new tab",
+    previewFailed: "The print preview could not be prepared",
+    popupBlocked: "The browser blocked the print preview tab",
+    openPreview: "Open print preview",
+    storageFailed:
+      "The print job could not be stored in this browser (storage is full or disabled). Close other print tabs and try again.",
+    basisCodSettled:
+      "Cash on delivery — the order total is already covered by declared payments (not yet verified by Finance)",
     statementTitleCustomer: "Customer account statement",
     statementTitleSupplier: "Supplier account statement",
     slipTitle: "Package slip",

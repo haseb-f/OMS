@@ -44,7 +44,6 @@ export function buildReceiptPrintPayload(
         amount: Number(allocation.allocatedAmount),
       })),
       amount: Number(receipt.amount),
-      notes: receipt.notes,
       recordPath: `/sales/payments/${receipt.id}`,
     },
     options,

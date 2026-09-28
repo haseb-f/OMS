@@ -6,6 +6,12 @@ import { useLocale } from "@/providers/locale-provider";
 import type { PrintCompanyInfo, PrintInfoItem } from "@/types/print-engine";
 
 /**
+ * Numbers inside block-level lines use an inline `<bdi className="num">`, not
+ * `num` on the block itself: an LTR block would align to the left edge of an
+ * RTL sheet, while an inline isolate keeps the line's own start alignment.
+ */
+
+/**
  * Shared print blocks (spec §2) — the visual vocabulary every template is
  * built from. Styling lives in `theme/print.css` (`.pr-*`), never in the
  * templates, so one change restyles every printed document.
@@ -51,9 +57,15 @@ export function PrintDocumentHeader({
             </span>
           )}
           {company.addressLines?.map((line) => (
-            <span key={line}>{line}</span>
+            <span key={line}>
+              <bdi dir="auto">{line}</bdi>
+            </span>
           ))}
-          {contact.length > 0 && <span className="num">{contact.join("  ·  ")}</span>}
+          {contact.length > 0 && (
+            <span>
+              <bdi className="num">{contact.join("  ·  ")}</bdi>
+            </span>
+          )}
         </div>
       </div>
       <div className="pr-doc-id">
@@ -78,7 +90,7 @@ export function PrintInfo({ items }: { items: PrintInfoItem[] }) {
       {shown.map((item) => (
         <div key={item.label} style={{ display: "contents" }}>
           <dt>{item.label}</dt>
-          <dd className={item.ltr ? "num" : undefined}>{item.value}</dd>
+          <dd>{item.ltr ? <bdi className="num">{item.value}</bdi> : item.value}</dd>
         </div>
       ))}
     </dl>
@@ -111,9 +123,15 @@ export function PrintParty({
           </span>
         )}
         {lines.map((line) => (
-          <span key={line}>{line}</span>
+          <span key={line}>
+            <bdi dir="auto">{line}</bdi>
+          </span>
         ))}
-        {phone && <span className="num">{phone}</span>}
+        {phone && (
+          <span>
+            <bdi className="num">{phone}</bdi>
+          </span>
+        )}
       </div>
     </div>
   );

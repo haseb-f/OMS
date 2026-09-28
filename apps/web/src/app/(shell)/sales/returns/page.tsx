@@ -56,7 +56,7 @@ function SalesReturnsPageContent() {
   const router = useRouter();
   const { user } = useUserContext();
   const { activeCompany } = useCompany();
-  const { printList, printDocument } = usePrintEngine();
+  const { printList, runPrint } = usePrintEngine();
 
   const [items, setItems] = useState<SalesReturnRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -168,21 +168,22 @@ function SalesReturnsPageContent() {
     }
   };
 
-  const handlePrintRow = async (row: SalesReturnRow) => {
-    try {
-      const full = await salesReturnsService.get(row.id);
-      printDocument(
-        buildReturnPrintPayload(full, {
+  // The preview tab opens inside the click; runPrint closes it and shows
+  // the reason if the record cannot be loaded.
+  const handlePrintRow = (row: SalesReturnRow) =>
+    void runPrint(
+      "document",
+      async () => {
+        const full = await salesReturnsService.get(row.id);
+        return buildReturnPrintPayload(full, {
           companyName: activeCompany?.name ?? siteConfig.fullName,
           companyLogoUrl: activeCompany?.logoUrl ?? null,
           printedByName: user?.fullName ?? null,
           t,
-        }),
-      );
-    } catch (error) {
-      reportApiError(error, "errors.printFailed");
-    }
-  };
+        });
+      },
+      "errors.printFailed",
+    );
 
   const handleCancelConfirmed = async () => {
     if (!cancelTarget) return;

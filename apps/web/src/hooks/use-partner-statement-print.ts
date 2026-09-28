@@ -9,7 +9,6 @@ import { accountingReportsService } from "@/services/accounting-reports-service"
 import type { PartnerRow } from "@/services/partners-service";
 import { loadFunctionalCurrency } from "@/components/accounting/financial-report";
 import { formatDate } from "@/lib/date";
-import { reportApiError, toast } from "@/lib/toast";
 import type { StatementPrintPayload } from "@/types/print-engine";
 
 /**
@@ -22,16 +21,17 @@ import type { StatementPrintPayload } from "@/types/print-engine";
  */
 export function usePartnerStatementPrint(role: "customer" | "supplier") {
   const { t } = useLocale();
-  const { printDocument } = usePrintEngine();
+  const { runPrint } = usePrintEngine();
   const { activeCompany } = useCompany();
   const { user } = useUserContext();
   const [isPreparing, setIsPreparing] = useState(false);
 
   const printStatement = useCallback(
-    async (partner: PartnerRow) => {
+    (partner: PartnerRow) => {
       setIsPreparing(true);
-      const loadingToast = toast.loading(t("common.loading"));
-      try {
+      // Opens the preview tab now (inside the click); runPrint closes it and
+      // shows the API reason if the statement cannot be loaded.
+      void runPrint("document", async (): Promise<StatementPrintPayload> => {
         const [statement, currency] = await Promise.all([
           accountingReportsService.partnerStatement(partner.id, {
             controlType: role === "supplier" ? "PAYABLE" : "RECEIVABLE",
@@ -74,15 +74,10 @@ export function usePartnerStatementPrint(role: "customer" | "supplier") {
           closingBalance: statement.closingBalance,
           recordPath: `/${role === "supplier" ? "purchasing/suppliers" : "sales/customers"}/${partner.id}`,
         };
-        printDocument(payload);
-      } catch (error) {
-        reportApiError(error, "errors.loadFailed");
-      } finally {
-        toast.dismiss(loadingToast);
-        setIsPreparing(false);
-      }
+        return payload;
+      }).finally(() => setIsPreparing(false));
     },
-    [activeCompany, printDocument, role, t, user],
+    [activeCompany, runPrint, role, t, user],
   );
 
   return { printStatement, isPreparing };

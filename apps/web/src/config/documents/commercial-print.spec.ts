@@ -148,6 +148,7 @@ describe("commercial print builders", () => {
         partner,
         currency: { code: "EGP" },
         amount: "300",
+        notes: "STORE_ORDER_PAYMENT:1b2c",
         allocations: [
           { id: "a1", allocatedAmount: "300", purchaseInvoice: { invoiceNumber: "PI-7" } },
         ],
@@ -161,5 +162,8 @@ describe("commercial print builders", () => {
       { label: "printDocument.amount", value: 300, emphasis: true },
     ]);
     expect(payload.data.signatures).toHaveLength(3);
+    // Internal transaction notes never reach the printed voucher.
+    expect(payload.data.notes).toBeUndefined();
+    expect(JSON.stringify(payload)).not.toContain("STORE_ORDER_PAYMENT");
   });
 });

@@ -132,7 +132,7 @@ export default function CustomerProfilePage() {
     status: entry.type === "ARCHIVED" ? "rejected" : entry.type === "CREATED" ? "done" : "pending",
   }));
 
-  const handlePrint = () => void printStatement(customer);
+  const handlePrint = () => printStatement(customer);
 
   const comingSoon = <ComingSoonPanel />;
 

@@ -123,7 +123,7 @@ export default function SupplierProfilePage() {
         : "pending",
   }));
 
-  const handlePrint = () => void printStatement(supplier);
+  const handlePrint = () => printStatement(supplier);
 
   const handleArchive = async () => {
     setIsArchiving(true);

@@ -195,13 +195,23 @@ function StoreOrdersPageContent() {
   }, [listFilters, page, pageSize, t]);
 
   // Print: every row matching the current filters/sort, not just the loaded page.
-  const fetchAllRows = useCallback(
-    () =>
-      fetchAllPages((nextPage, nextPageSize) =>
-        storeOrdersService.list({ ...listFilters, page: nextPage, pageSize: nextPageSize }),
-      ),
-    [listFilters],
-  );
+  // The profitability filter is evaluated server-side over a bounded window;
+  // when any page reports that cap, the printout states it too.
+  const fetchAllRows = useCallback(async () => {
+    let filterCapped = false;
+    const result = await fetchAllPages(async (nextPage, nextPageSize) => {
+      const pageResult = await storeOrdersService.list({
+        ...listFilters,
+        page: nextPage,
+        pageSize: nextPageSize,
+      });
+      filterCapped ||= !!pageResult.profitabilityFilterCapped;
+      return pageResult;
+    });
+    return filterCapped
+      ? { ...result, notes: [t("storeOrders.profitability.filterCappedNotice")] }
+      : result;
+  }, [listFilters, t]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

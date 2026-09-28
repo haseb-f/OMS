@@ -101,7 +101,9 @@
   [data-print-avoid-break] {
     break-inside: avoid;
   }
-  [data-print-keep-with-next] {
+  [data-print-keep-with-next],
+  /* A report section / parent heading never ends a page on its own. */
+  [data-print-sheet] tr:is([data-kind="section"], [data-kind="parent"]) {
     break-after: avoid;
   }
 }

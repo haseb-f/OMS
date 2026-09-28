@@ -166,7 +166,6 @@ export interface VoucherPrintInput {
   /** Documents the amount is applied to (invoice / return numbers). */
   allocations: { id: string; description: string; amount: number }[];
   amount: number;
-  notes?: string | null;
   recordPath: string;
 }
 
@@ -197,7 +196,8 @@ export function buildVoucherPrintPayload(
       total: allocation.amount,
     })),
     totals: [{ label: t("printDocument.amount"), value: input.amount, emphasis: true }],
-    notes: input.notes || undefined,
+    // No notes: `FinancialTransaction.notes` is an internal field (it can hold
+    // system markers such as "STORE_ORDER_PAYMENT:<id>") — never printed.
     signatures: [
       { label: t("printDocument.preparedBy") },
       { label: t("printDocument.approvedBy") },

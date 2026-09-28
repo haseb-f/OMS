@@ -58,7 +58,7 @@ function QuotationsPageContent() {
   const router = useRouter();
   const { hasPermission, user } = useUserContext();
   const { activeCompany } = useCompany();
-  const { printList, printDocument } = usePrintEngine();
+  const { printList, runPrint } = usePrintEngine();
 
   const [items, setItems] = useState<SalesQuotationRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -166,21 +166,22 @@ function QuotationsPageContent() {
     }
   };
 
-  const handlePrintRow = async (row: SalesQuotationRow) => {
-    try {
-      const full = await salesQuotationsService.get(row.id);
-      printDocument(
-        buildQuotationPrintPayload(full, {
+  // The preview tab opens inside the click; runPrint closes it and shows
+  // the reason if the record cannot be loaded.
+  const handlePrintRow = (row: SalesQuotationRow) =>
+    void runPrint(
+      "document",
+      async () => {
+        const full = await salesQuotationsService.get(row.id);
+        return buildQuotationPrintPayload(full, {
           companyName: activeCompany?.name ?? siteConfig.fullName,
           companyLogoUrl: activeCompany?.logoUrl ?? null,
           printedByName: user?.fullName ?? null,
           t,
-        }),
-      );
-    } catch (error) {
-      reportApiError(error, "errors.printFailed");
-    }
-  };
+        });
+      },
+      "errors.printFailed",
+    );
 
   const handleCancelConfirmed = async () => {
     if (!cancelTarget) return;

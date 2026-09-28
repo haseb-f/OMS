@@ -20,11 +20,21 @@ export function usePrintJob<T>(): T | null | undefined {
   return payload;
 }
 
+/**
+ * No job to show: either the tab was opened ahead of its data (`?pending=1`,
+ * see `usePrintEngine().runPrint` — the opener points it at the job once the
+ * data is loaded, or closes it on failure), or the job expired.
+ */
 export function PrintJobExpired() {
   const { t } = useLocale();
+  const pending = useSearchParams().get("pending") === "1";
   return (
-    <div className="flex min-h-screen items-center justify-center p-6 text-sm text-muted-foreground">
-      {t("reportExport.printExpired")}
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex min-h-screen items-center justify-center p-6 text-sm text-muted-foreground"
+    >
+      {pending ? t("printDocument.preparing") : t("reportExport.printExpired")}
     </div>
   );
 }

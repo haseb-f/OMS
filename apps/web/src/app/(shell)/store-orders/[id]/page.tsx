@@ -129,7 +129,7 @@ function StoreOrderDetailContent() {
   const isMobile = useIsMobile();
   const { hasPermission, user } = useUserContext();
   const { activeCompany } = useCompany();
-  const { printSlip } = usePrintEngine();
+  const { runPrint } = usePrintEngine();
   const [isPreparingSlip, setIsPreparingSlip] = useState(false);
   const canEdit = hasPermission("store-orders.edit");
   const canGenerateInvoiceAction = hasPermission("store-orders.generate_invoice") || canEdit;
@@ -246,22 +246,20 @@ function StoreOrderDetailContent() {
 
   // Package slip (A5): reads the server's fulfillment gate so the collection
   // instruction follows the authorized payment rule; printing changes nothing.
-  const handlePrintSlip = async () => {
+  // The preview tab opens inside the click (before the gate is fetched);
+  // runPrint closes it and shows the API reason if loading fails.
+  const handlePrintSlip = () => {
     if (!order) return;
     setIsPreparingSlip(true);
-    try {
-      const gate = await storeOrdersService.canFulfill(order.id);
-      printSlip(
-        buildPackageSlipPayload(order, gate, {
+    void runPrint(
+      "slip",
+      async () =>
+        buildPackageSlipPayload(order, await storeOrdersService.canFulfill(order.id), {
           company: { name: activeCompany?.name ?? "", logoUrl: activeCompany?.logoUrl ?? null },
           printedByName: user?.fullName ?? null,
         }),
-      );
-    } catch (error) {
-      reportApiError(error, "common.loadFailed");
-    } finally {
-      setIsPreparingSlip(false);
-    }
+      "common.loadFailed",
+    ).finally(() => setIsPreparingSlip(false));
   };
 
   const handleGenerateInvoice = async () => {
@@ -1052,7 +1050,7 @@ function StoreOrderDetailContent() {
                 icon: Printer,
                 testId: "print-package-slip",
                 disabled: isPreparingSlip,
-                onSelect: () => void handlePrintSlip(),
+                onSelect: handlePrintSlip,
               },
             ]}
             more={[

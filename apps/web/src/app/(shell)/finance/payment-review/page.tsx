@@ -30,7 +30,7 @@ import {
 } from "@/services/payments-review-service";
 import { paymentRecordStatusBadge } from "@/config/store-orders/status";
 import type { MessageKey } from "@/i18n/translate";
-import { fetchAllPages } from "@/lib/fetch-all-pages";
+import { FETCH_ALL_ROW_CAP, fetchAllPages } from "@/lib/fetch-all-pages";
 
 /**
  * The ledger account a confirmation will debit: the payment method's
@@ -122,10 +122,13 @@ function PaymentReviewPageContent() {
       );
     if (status !== "") return fetchStatus(status);
     const [pending, matched] = await Promise.all([fetchStatus("PENDING"), fetchStatus("MATCHED")]);
+    // Each side is already its newest ≤ cap rows, so the newest `cap` of the
+    // union are exactly the first `cap` after merging. `total` stays the true
+    // match count, so the sheet states the cap when it applies.
     return {
-      rows: [...pending.rows, ...matched.rows].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      ),
+      rows: [...pending.rows, ...matched.rows]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, FETCH_ALL_ROW_CAP),
       total: pending.total + matched.total,
     };
   }, [status]);

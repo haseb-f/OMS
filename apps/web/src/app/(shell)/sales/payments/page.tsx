@@ -84,7 +84,7 @@ function CustomerReceiptsPageContent() {
     [isRefunds],
   );
   const { activeCompany } = useCompany();
-  const { printList, printDocument } = usePrintEngine();
+  const { printList, runPrint } = usePrintEngine();
 
   const [items, setItems] = useState<FinancialTransactionRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -164,21 +164,22 @@ function CustomerReceiptsPageContent() {
     [t, usersById],
   );
 
-  const handlePrintRow = async (row: FinancialTransactionRow) => {
-    try {
-      const full = await service.get(row.id);
-      printDocument(
-        buildReceiptPrintPayload(full, {
+  // The preview tab opens inside the click; runPrint closes it and shows
+  // the reason if the record cannot be loaded.
+  const handlePrintRow = (row: FinancialTransactionRow) =>
+    void runPrint(
+      "document",
+      async () => {
+        const full = await service.get(row.id);
+        return buildReceiptPrintPayload(full, {
           companyName: activeCompany?.name ?? siteConfig.fullName,
           companyLogoUrl: activeCompany?.logoUrl ?? null,
           printedByName: user?.fullName ?? null,
           t,
-        }),
-      );
-    } catch (error) {
-      reportApiError(error, "errors.printFailed");
-    }
-  };
+        });
+      },
+      "errors.printFailed",
+    );
 
   const handleCancelConfirmed = async () => {
     if (!cancelTarget) return;

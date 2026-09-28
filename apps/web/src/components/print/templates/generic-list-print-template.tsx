@@ -22,6 +22,16 @@ function ListPrintTemplate({ payload }: { payload: GenericListPrintPayload }) {
   const printedAt = formatDateTime(new Date());
   const identity = usePrintIdentity(payload.company);
   const count = payload.rows.length;
+  const capped = !!payload.totalRowCount && payload.totalRowCount > count;
+  const countText = capped
+    ? t(
+        payload.rowScope === "page"
+          ? "printDocument.rowCountPageOnly"
+          : "printDocument.rowCountCapped",
+        { count, total: payload.totalRowCount! },
+      )
+    : t("printDocument.rowCount", { count });
+  const notes = payload.notes ?? [];
 
   return (
     <PrintPage
@@ -39,6 +49,9 @@ function ListPrintTemplate({ payload }: { payload: GenericListPrintPayload }) {
           ...(payload.printedByName
             ? [`${t("reportExport.printedBy")}: ${payload.printedByName}`]
             : []),
+          // A capped printout says so up front, not only after the last row.
+          ...(capped ? [<b key="capped">{countText}</b>] : []),
+          ...notes.map((note) => <b key={note}>{note}</b>),
         ]}
       />
       {payload.meta && payload.meta.length > 0 ? (
@@ -57,12 +70,14 @@ function ListPrintTemplate({ payload }: { payload: GenericListPrintPayload }) {
         />
       </div>
       {payload.variant === "list" ? (
-        <p className="pr-footnote">
-          {t("printDocument.rowCount", { count })}
-          {payload.totalRowCount && payload.totalRowCount > count
-            ? ` / ${payload.totalRowCount}`
-            : ""}
-        </p>
+        <>
+          <p className="pr-footnote">{countText}</p>
+          {notes.map((note) => (
+            <p key={note} className="pr-footnote">
+              {note}
+            </p>
+          ))}
+        </>
       ) : null}
     </PrintPage>
   );

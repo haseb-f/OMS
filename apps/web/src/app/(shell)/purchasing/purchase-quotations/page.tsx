@@ -62,7 +62,7 @@ function PurchaseQuotationsPageContent() {
   const router = useRouter();
   const { hasPermission, user } = useUserContext();
   const { activeCompany } = useCompany();
-  const { printList, printDocument } = usePrintEngine();
+  const { printList, runPrint } = usePrintEngine();
 
   const [items, setItems] = useState<PurchaseQuotationRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -170,21 +170,22 @@ function PurchaseQuotationsPageContent() {
     }
   };
 
-  const handlePrintRow = async (row: PurchaseQuotationRow) => {
-    try {
-      const full = await purchaseQuotationsService.get(row.id);
-      printDocument(
-        buildQuotationPrintPayload(full, {
+  // The preview tab opens inside the click; runPrint closes it and shows
+  // the reason if the record cannot be loaded.
+  const handlePrintRow = (row: PurchaseQuotationRow) =>
+    void runPrint(
+      "document",
+      async () => {
+        const full = await purchaseQuotationsService.get(row.id);
+        return buildQuotationPrintPayload(full, {
           companyName: activeCompany?.name ?? siteConfig.fullName,
           companyLogoUrl: activeCompany?.logoUrl ?? null,
           printedByName: user?.fullName ?? null,
           t,
-        }),
-      );
-    } catch (error) {
-      reportApiError(error, "errors.printFailed");
-    }
-  };
+        });
+      },
+      "errors.printFailed",
+    );
 
   const handleCancelConfirmed = async () => {
     if (!cancelTarget) return;

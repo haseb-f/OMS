@@ -8,7 +8,16 @@ const text = (value: PrintCell | undefined) =>
 function Cell({ column, value }: { column: PrintColumn; value: PrintCell | undefined }) {
   const main = text(value);
   const sub = value && typeof value === "object" ? value.sub : undefined;
-  const body = column.align === "end" ? <span className="num">{main}</span> : main;
+  // Text cells take their reading order from their own content (an Arabic
+  // name in an English sheet, or the reverse, keeps its numbers in place).
+  const body =
+    column.align === "end" ? (
+      <span className="num">{main}</span>
+    ) : main ? (
+      <bdi dir="auto">{main}</bdi>
+    ) : (
+      main
+    );
   return (
     <>
       {body}

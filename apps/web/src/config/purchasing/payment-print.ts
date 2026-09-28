@@ -40,7 +40,6 @@ export function buildPaymentPrintPayload(
         amount: Number(allocation.allocatedAmount),
       })),
       amount: Number(payment.amount),
-      notes: payment.notes,
       recordPath: `/purchasing/payments/${payment.id}`,
     },
     options,

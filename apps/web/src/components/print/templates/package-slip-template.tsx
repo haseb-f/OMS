@@ -19,19 +19,29 @@ function useBilingual() {
   return (key: MessageKey, params?: Record<string, string | number>) => ({
     main: t(key, params),
     alt: translate(other, key, params),
+    altDir: (locale === "ar" ? "ltr" : "rtl") as "ltr" | "rtl",
   });
 }
 
-function Bilingual({ text, altClass }: { text: { main: string; alt: string }; altClass?: string }) {
+function Bilingual({
+  text,
+  altClass,
+}: {
+  text: { main: string; alt: string; altDir?: "ltr" | "rtl" };
+  altClass?: string;
+}) {
   return (
     <>
       <span>{text.main}</span>
       {text.alt !== text.main ? (
+        // The other language keeps its own reading order (an isolated run,
+        // so numbers and currency stay in place) on a line that still starts
+        // at the sheet's start edge.
         <span
           className={altClass}
           style={{ display: "block", fontSize: "0.72em", fontWeight: 600 }}
         >
-          {text.alt}
+          <bdi dir={text.altDir}>{text.alt}</bdi>
         </span>
       ) : null}
     </>
@@ -72,8 +82,8 @@ export function PackageSlipTemplate({ payload }: { payload: PackageSlipPayload }
 
   const collection = payload.collection;
   let tone: "collect" | "none" | "hold";
-  let title: { main: string; alt: string };
-  let detail: { main: string; alt: string } | null = null;
+  let title: ReturnType<ReturnType<typeof useBilingual>>;
+  let detail: ReturnType<ReturnType<typeof useBilingual>> | null = null;
   if (collection.kind === "collect") {
     tone = "collect";
     title = b(pickup ? "printDocument.collectAtPickup" : "printDocument.collect", {
@@ -92,7 +102,9 @@ export function PackageSlipTemplate({ payload }: { payload: PackageSlipPayload }
     detail =
       collection.basis === "VERIFIED_PAID"
         ? b("printDocument.basisVerified")
-        : b("printDocument.basisDeclared");
+        : collection.basis === "COD_SETTLED"
+          ? b("printDocument.basisCodSettled")
+          : b("printDocument.basisDeclared");
   } else {
     tone = "hold";
     title = b("printDocument.hold");
@@ -100,7 +112,7 @@ export function PackageSlipTemplate({ payload }: { payload: PackageSlipPayload }
   }
 
   const columns: PrintColumn[] = [
-    { key: "index", label: "#", align: "center", width: "6mm" },
+    { key: "index", label: "#", align: "center", width: "8mm", nowrap: true },
     { key: "item", label: t("printDocument.item") },
     { key: "qty", label: t("printDocument.qty"), align: "end", width: "14mm" },
   ];
@@ -173,8 +185,8 @@ export function PackageSlipTemplate({ payload }: { payload: PackageSlipPayload }
             {payload.customer.name}
           </div>
           {payload.customer.phone ? (
-            <div className="num" style={{ fontSize: "13pt", fontWeight: 600 }}>
-              {payload.customer.phone}
+            <div style={{ fontSize: "13pt", fontWeight: 600 }}>
+              <bdi className="num">{payload.customer.phone}</bdi>
             </div>
           ) : null}
           {!pickup && payload.customer.addressLines.length > 0 ? (

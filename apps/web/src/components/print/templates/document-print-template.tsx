@@ -102,12 +102,12 @@ function DocumentFamilyPrintTemplate({ payload }: { payload: DocumentPrintPayloa
 
   const columns: PrintColumn[] = isVoucher
     ? [
-        { key: "index", label: "#", align: "center", width: "7mm" },
+        { key: "index", label: "#", align: "center", width: "8mm", nowrap: true },
         { key: "item", label: t("printDocument.appliedTo") },
         { key: "total", label: t("printDocument.amount"), align: "end", width: "34mm" },
       ]
     : [
-        { key: "index", label: "#", align: "center", width: "7mm" },
+        { key: "index", label: "#", align: "center", width: "8mm", nowrap: true },
         { key: "item", label: t("printDocument.item") },
         { key: "qty", label: t("printDocument.qty"), align: "end", width: "18mm" },
         { key: "unitPrice", label: t("printDocument.unitPrice"), align: "end", width: "23mm" },

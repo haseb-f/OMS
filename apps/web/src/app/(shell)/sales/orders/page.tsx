@@ -58,7 +58,7 @@ function SalesOrdersPageContent() {
   const router = useRouter();
   const { hasPermission, user } = useUserContext();
   const { activeCompany } = useCompany();
-  const { printList, printDocument } = usePrintEngine();
+  const { printList, runPrint } = usePrintEngine();
 
   const [items, setItems] = useState<SalesOrderRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -178,21 +178,22 @@ function SalesOrdersPageContent() {
     }
   };
 
-  const handlePrintRow = async (row: SalesOrderRow) => {
-    try {
-      const full = await salesOrdersService.get(row.id);
-      printDocument(
-        buildOrderPrintPayload(full, {
+  // The preview tab opens inside the click; runPrint closes it and shows
+  // the reason if the record cannot be loaded.
+  const handlePrintRow = (row: SalesOrderRow) =>
+    void runPrint(
+      "document",
+      async () => {
+        const full = await salesOrdersService.get(row.id);
+        return buildOrderPrintPayload(full, {
           companyName: activeCompany?.name ?? siteConfig.fullName,
           companyLogoUrl: activeCompany?.logoUrl ?? null,
           printedByName: user?.fullName ?? null,
           t,
-        }),
-      );
-    } catch (error) {
-      reportApiError(error, "errors.printFailed");
-    }
-  };
+        });
+      },
+      "errors.printFailed",
+    );
 
   const handleCancelConfirmed = async () => {
     if (!cancelTarget) return;

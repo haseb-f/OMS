@@ -130,7 +130,7 @@ export function FinancialReport({
   nameHeaderKey?: MessageKey;
 }) {
   const { t, locale, direction } = useLocale();
-  const { printList } = usePrintEngine();
+  const { runPrint } = usePrintEngine();
   const { activeCompany, companies } = useCompany();
   const { user } = useUserContext();
   const filterOptions = useReportFilterOptions();
@@ -235,29 +235,35 @@ export function FinancialReport({
 
   const handleExport = async (format: ReportExportFormat) => {
     if (isPreparingOutput) return;
+    let document;
     try {
-      await downloadReport(await loadOutputDocument(), format, exportFileName);
+      document = await loadOutputDocument();
+    } catch (error) {
+      // The reason the full report could not be loaded (API message).
+      reportApiError(error, "errors.loadFailed");
+      return;
+    }
+    try {
+      await downloadReport(document, format, exportFileName);
       toast.success(t("reports.finance.exported"));
     } catch {
       toast.error(t("common.failedToSave"));
     }
   };
 
-  const handlePrint = async () => {
+  // The preview tab opens inside the click, before a paged report loads
+  // every page (see `usePrintEngine().runPrint`); runPrint reports failures.
+  const handlePrint = () => {
     if (isPreparingOutput) return;
-    let document;
-    try {
-      document = await loadOutputDocument();
-    } catch (error) {
-      reportApiError(error, "common.noResults");
-      return;
-    }
-    printList(
-      toReportPrintPayload(
-        document,
-        { name: companyName, logoUrl: activeCompany?.logoUrl ?? null },
-        printedByName,
-      ),
+    void runPrint(
+      "list",
+      async () =>
+        toReportPrintPayload(
+          await loadOutputDocument(),
+          { name: companyName, logoUrl: activeCompany?.logoUrl ?? null },
+          printedByName,
+        ),
+      "errors.loadFailed",
     );
   };
 
@@ -321,7 +327,7 @@ export function FinancialReport({
               onExpandAll={() => setExpanded(new Set(expandableIds))}
               onCollapseAll={() => setExpanded(new Set())}
               onExport={(format) => void handleExport(format)}
-              onPrint={() => void handlePrint()}
+              onPrint={handlePrint}
               busy={isPreparingOutput}
             />
           )

@@ -77,8 +77,16 @@ export interface GenericListPrintPayload {
    * indent is already carried in the label text.
    */
   rowKinds?: Array<"section" | "parent" | "detail" | "subtotal" | "grand-total">;
-  /** Rows the source holds in total, when the printout is capped below it. */
+  /** Rows the source holds in total, when the printout holds fewer. */
   totalRowCount?: number;
+  /**
+   * Why `rows` is shorter than `totalRowCount`: `"cap"` — the full-dataset
+   * print hit its row limit; `"page"` — only the loaded page could be
+   * printed. Defaults to `"cap"`.
+   */
+  rowScope?: "cap" | "page";
+  /** Source-specific limits stated on the sheet (e.g. a filter evaluated over a bounded window). */
+  notes?: string[];
 }
 
 export type DocumentPrintVariant = "invoice" | "statement" | "receipt" | "voucher";

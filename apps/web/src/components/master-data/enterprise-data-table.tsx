@@ -105,7 +105,8 @@ import { bidiLineClass, isStackedCellNode } from "@/components/shared/stacked-ce
 import { cn } from "@/lib/utils";
 import { useElementWidth } from "@/hooks/use-element-width";
 import { siteConfig } from "@/config/site";
-import { reportApiError, toast } from "@/lib/toast";
+import { toast } from "@/lib/toast";
+import type { GenericListPrintPayload } from "@/types/print-engine";
 import type { MessageKey } from "@/i18n/translate";
 
 /** Sane resize bounds when a column has no declared min/max in the Smart Column Engine. */
@@ -293,7 +294,7 @@ export function EnterpriseDataTable<TData>({
    * it exceeds `rows.length` the sheet states "N / M rows". Omit and Print
    * falls back to the loaded page, still stating the true total.
    */
-  fetchAllRows?: () => Promise<{ rows: TData[]; total: number }>;
+  fetchAllRows?: () => Promise<{ rows: TData[]; total: number; notes?: string[] }>;
   /** Overrides the empty-state message — falls back to the generic "No results." copy. */
   emptyTitle?: string;
   /** Row identity for stable selection across sorts/pagination. Defaults to `row.id` when present, otherwise the row's index — pass this for rows with no natural single-field id (e.g. a report keyed by product+warehouse). */
@@ -346,7 +347,7 @@ export function EnterpriseDataTable<TData>({
   const { t, direction, locale } = useLocale();
   const router = useRouter();
   const viewportFill = useViewportFill();
-  const { printList } = usePrintEngine();
+  const { printList, runPrint } = usePrintEngine();
   const { activeCompany } = useCompany();
   const { user } = useUserContext();
   const [columnVisibility, setColumnVisibility] = useLocalStorage<VisibilityState>(
@@ -976,34 +977,15 @@ export function EnterpriseDataTable<TData>({
   // asks the page for every matching row (`fetchAllRows`), since there is no
   // "next page" for a printed report.
   const [isPreparingPrint, setIsPreparingPrint] = useState(false);
-  const handlePrint = async () => {
+  const buildPrintPayload = (
+    rowsToPrint: TData[],
+    extra: Pick<GenericListPrintPayload, "totalRowCount" | "rowScope" | "notes">,
+  ): GenericListPrintPayload => {
     const printableColumns = columns.filter(
       (column) =>
         column.id && column.id !== "__actions" && effectiveColumnVisibility[column.id] !== false,
     );
-    let rowsToPrint: TData[];
-    let totalRowCount: number | undefined;
-    if (!isServerMode) {
-      rowsToPrint = table.getFilteredRowModel().rows.map((row) => row.original);
-    } else if (fetchAllRows) {
-      setIsPreparingPrint(true);
-      const loadingToast = toast.loading(t("common.loading"));
-      try {
-        const result = await fetchAllRows();
-        rowsToPrint = result.rows;
-        totalRowCount = result.total > result.rows.length ? result.total : undefined;
-      } catch (err) {
-        reportApiError(err, "table.loadFailed");
-        return;
-      } finally {
-        toast.dismiss(loadingToast);
-        setIsPreparingPrint(false);
-      }
-    } else {
-      rowsToPrint = data;
-      totalRowCount = totalCount !== undefined && totalCount > data.length ? totalCount : undefined;
-    }
-    printList({
+    return {
       variant: "list",
       title: printTitle ?? tableId,
       company: {
@@ -1020,8 +1002,45 @@ export function EnterpriseDataTable<TData>({
           printableColumns.map((column) => [column.id!, getColumnDisplayValue(column, row)]),
         ),
       ),
-      ...(totalRowCount !== undefined ? { totalRowCount } : {}),
-    });
+      ...extra,
+    };
+  };
+  // The preview tab opens inside the click (before any await) — see `runPrint`.
+  const handlePrint = () => {
+    if (!isServerMode) {
+      printList(
+        buildPrintPayload(
+          table.getFilteredRowModel().rows.map((row) => row.original),
+          {},
+        ),
+      );
+      return;
+    }
+    if (!fetchAllRows) {
+      // Only the loaded page is available — say so on the sheet.
+      printList(
+        buildPrintPayload(data, {
+          ...(totalCount !== undefined && totalCount > data.length
+            ? { totalRowCount: totalCount, rowScope: "page" as const }
+            : {}),
+        }),
+      );
+      return;
+    }
+    setIsPreparingPrint(true);
+    void runPrint(
+      "list",
+      async () => {
+        const result = await fetchAllRows();
+        return buildPrintPayload(result.rows, {
+          ...(result.total > result.rows.length
+            ? { totalRowCount: result.total, rowScope: "cap" as const }
+            : {}),
+          ...(result.notes?.length ? { notes: result.notes } : {}),
+        });
+      },
+      "table.loadFailed",
+    ).finally(() => setIsPreparingPrint(false));
   };
 
   // The table's own utilities, behind the shared overflow menu. These are
@@ -1033,7 +1052,7 @@ export function EnterpriseDataTable<TData>({
       label: t("table.print"),
       icon: Printer,
       disabled: isPreparingPrint,
-      onSelect: () => void handlePrint(),
+      onSelect: handlePrint,
     },
     {
       key: "import",

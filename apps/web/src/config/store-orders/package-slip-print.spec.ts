@@ -28,6 +28,39 @@ describe("resolveSlipCollection (package slip collection instruction)", () => {
     ).toEqual({ kind: "none", basis: "COD_SETTLED" });
   });
 
+  it("COD fully covered: declared basis unless Finance verified the payment", () => {
+    expect(
+      resolveSlipCollection(
+        {
+          paymentType: "CASH_ON_DELIVERY",
+          declaredAmount: "450",
+          paymentStatus: "PAYMENT_PENDING",
+        },
+        450,
+        cod,
+      ),
+    ).toEqual({ kind: "none", basis: "COD_SETTLED" });
+    expect(
+      resolveSlipCollection(
+        {
+          paymentType: "CASH_ON_DELIVERY",
+          declaredAmount: "450",
+          paymentStatus: "FULLY_PAID_RECONCILED",
+        },
+        450,
+        cod,
+      ),
+    ).toEqual({ kind: "none", basis: "VERIFIED_PAID" });
+    // A verified status never waives an amount still due.
+    expect(
+      resolveSlipCollection(
+        { paymentType: "CASH_ON_DELIVERY", declaredAmount: "100", paymentStatus: "OVERPAID" },
+        450,
+        cod,
+      ),
+    ).toEqual({ kind: "collect", amount: 350, orderTotal: 450, declaredPaid: 100 });
+  });
+
   it("prepaid, declared paid in full: no collection, declared basis (not reconciled)", () => {
     expect(
       resolveSlipCollection({ paymentType: "PREPAID", declaredAmount: "450" }, 450, allowed),

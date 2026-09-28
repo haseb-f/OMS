@@ -58,7 +58,7 @@ function SalesInvoicesPageContent() {
   const router = useRouter();
   const { hasPermission, user } = useUserContext();
   const { activeCompany } = useCompany();
-  const { printList, printDocument } = usePrintEngine();
+  const { printList, runPrint } = usePrintEngine();
 
   const [items, setItems] = useState<SalesInvoiceRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -166,21 +166,22 @@ function SalesInvoicesPageContent() {
     }
   };
 
-  const handlePrintRow = async (row: SalesInvoiceRow) => {
-    try {
-      const full = await salesInvoicesService.get(row.id);
-      printDocument(
-        buildInvoicePrintPayload(full, {
+  // The preview tab opens inside the click; runPrint closes it and shows
+  // the reason if the record cannot be loaded.
+  const handlePrintRow = (row: SalesInvoiceRow) =>
+    void runPrint(
+      "document",
+      async () => {
+        const full = await salesInvoicesService.get(row.id);
+        return buildInvoicePrintPayload(full, {
           companyName: activeCompany?.name ?? siteConfig.fullName,
           companyLogoUrl: activeCompany?.logoUrl ?? null,
           printedByName: user?.fullName ?? null,
           t,
-        }),
-      );
-    } catch (error) {
-      reportApiError(error, "errors.printFailed");
-    }
-  };
+        });
+      },
+      "errors.printFailed",
+    );
 
   const handleCancelConfirmed = async () => {
     if (!cancelTarget) return;
