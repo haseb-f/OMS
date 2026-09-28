@@ -84,6 +84,14 @@ function parse(value, vars, seen = new Set()) {
     const alpha = ok[5] == null ? 1 : Number(ok[5]) / (ok[6] ? 100 : 1);
     return { lab: [L, C * Math.cos(h), C * Math.sin(h)], alpha };
   }
+  const hsl = value.match(/^hsl\(\s*([\d.]+)\s+([\d.]+)%\s+([\d.]+)%\s*\)$/);
+  if (hsl) {
+    const [h, sat, l] = [Number(hsl[1]), Number(hsl[2]) / 100, Number(hsl[3]) / 100];
+    const k = (n) => (n + h / 30) % 12;
+    const a = sat * Math.min(l, 1 - l);
+    const f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1));
+    return { lab: linearToOklab([f(0), f(8), f(4)].map(lin)), alpha: 1 };
+  }
   const mix = value.match(/^color-mix\(in oklab,\s*(.+?)\s+([\d.]+)%\s*,\s*(.+?)\s*\)$/);
   if (mix) {
     const a = parse(mix[1], vars, new Set(seen));
@@ -130,7 +138,7 @@ const PAIRS = [
   ["primary text on primary-soft", "var(--primary)", "var(--primary-soft)", TEXT, "var(--card)"],
   ["secondary button", "var(--secondary-foreground)", "var(--secondary)", TEXT, "var(--card)"],
   ["destructive button", "var(--destructive-foreground)", "var(--destructive)", TEXT],
-  ["destructive text", "var(--destructive)", "var(--card)", TEXT],
+  ["destructive text", "var(--destructive-text)", "var(--card)", TEXT],
   ["success button", "var(--success-foreground)", "var(--success)", TEXT],
   ["warning button", "var(--warning-foreground)", "var(--warning)", TEXT],
   ["info button", "var(--info-foreground)", "var(--info)", TEXT],
@@ -149,7 +157,9 @@ const PAIRS = [
     TEXT,
     "var(--card)",
   ]),
-  ["control boundary (input)", "var(--input)", "var(--card)", UI],
+  // design-system §12.10: the hairline ring stays light; the field's bottom
+  // edge (--control-edge) carries the 3:1 boundary.
+  ["control boundary (field edge)", "var(--control-edge)", "var(--card)", UI],
   ["focus ring on surface", "var(--focus-ring)", "var(--card)", UI],
   ["focus ring on canvas", "var(--focus-ring)", "var(--background)", UI],
   ["sidebar text", "var(--sidebar-foreground)", "var(--sidebar)", TEXT],
@@ -162,7 +172,8 @@ const PAIRS = [
   ["selector placeholder", "var(--placeholder)", "var(--selector)", TEXT, "var(--card)"],
   ["selector chevron/icon (muted)", "var(--muted-foreground)", "var(--selector-hover)", UI, "var(--card)"],
   ["selector expanded value", "var(--selector-foreground)", "var(--selector-active)", TEXT, "var(--card)"],
-  ["selector vs input (distinct surfaces)", "var(--selector)", "var(--card)", 1.08],
+  // Round 2's tonal-selector rule is superseded (§12.4): selectors are white
+  // like inputs and are told apart by the chevron checked above.
   ["sidebar rail on sidebar", "var(--sidebar-rail)", "var(--sidebar)", UI],
 ];
 

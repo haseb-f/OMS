@@ -514,35 +514,27 @@ async function runBrowser(sampleLeadId) {
       (await distributeAction.count()) === 0,
       `count=${await distributeAction.count()}`,
     );
-    const startOrBadge = managerPage.getByRole("button", {
-      name: /Start Distribution|Pause Distribution|Continuous|Every 24 Hours|Manual|Paused|بدء التوزيع|إيقاف التوزيع|مستمر|كل 24 ساعة|يدوي|متوقف/,
-    });
-    if ((await startOrBadge.count()) > 0) {
-      await startOrBadge.first().click();
+    // One stateful distribution control (design-system §12, Round 3.1): the
+    // current mode on the trigger, the modes in its menu.
+    const distControl = managerPage.locator('[data-testid="lead-distribution-control"]').first();
+    if ((await distControl.count()) > 0) {
+      await distControl.click();
       await managerPage.waitForTimeout(600);
-      const dialog = managerPage.locator("[role='dialog']");
-      const dialogText = (await dialog.count()) > 0 ? await dialog.innerText() : "";
+      const menu = managerPage.locator("[role='menu']").last();
+      const menuText = (await menu.count()) > 0 ? await menu.innerText() : "";
+      const modeItems = menu.locator("[role^='menuitem']");
       assert(
-        "distribution dialog has Done and Close",
-        /Done|تم/.test(dialogText) && /Close|إغلاق/.test(dialogText),
-        dialogText.slice(0, 160).replace(/\s+/g, " "),
-      );
-      const modeButtons = dialog.getByRole("button", {
-        name: /Continuous|Every 24 Hours|Manual|مستمر|كل 24 ساعة|يدوي/,
-      });
-      assert(
-        "distribution dialog has one mode control set",
-        (await modeButtons.count()) >= 3 && (await modeButtons.count()) <= 6,
-        `modeButtons=${await modeButtons.count()}`,
+        "distribution control lists the modes",
+        (await modeItems.count()) >= 3 &&
+          /Continuous|Every 24 Hours|Manual|Pause|مستمر|كل 24 ساعة|يدوي|إيقاف/i.test(menuText),
+        `items=${await modeItems.count()} ${menuText.slice(0, 120).replace(/\s+/g, " ")}`,
       );
       await managerPage.screenshot({
         path: resolve(EVIDENCE_DIR, "lead-distribution-dialog.png"),
       });
-      const closeBtn = dialog.getByRole("button", { name: /^Close$|^إغلاق$/ });
-      if ((await closeBtn.count()) > 0) await closeBtn.first().click();
-      else await managerPage.keyboard.press("Escape");
+      await managerPage.keyboard.press("Escape");
     } else {
-      record("distribution dialog has Done and Close", false, "start/status control missing");
+      record("distribution control lists the modes", false, "distribution control missing");
     }
     assert(
       "import actions are explicit",

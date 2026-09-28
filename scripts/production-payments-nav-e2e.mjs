@@ -477,7 +477,8 @@ async function main() {
         .filter({ has: page.locator("label", { hasText: /^Receiving Account$/ }) })
         .locator("button[role=combobox]")
         .last();
-      if (/—/.test(await field.innerText())) {
+      // Empty picker: "—" before Round 2, the "Select…" placeholder since.
+      if (/—|Select…|اختر/.test(await field.innerText())) {
         await field.click();
         await page.getByRole("option").filter({ hasText: receivingAccount.name }).first().click();
       }
