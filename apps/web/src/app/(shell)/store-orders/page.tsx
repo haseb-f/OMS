@@ -64,6 +64,7 @@ import { toISODate } from "@/lib/date";
 import { siteConfig } from "@/config/site";
 import { ApiError } from "@/services/api-client";
 import { PermissionGate } from "@/components/shared/permission-gate";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 
 const EMPTY_DATE_RANGE: DateRangeValue = { from: null, to: null };
 
@@ -165,17 +166,20 @@ function StoreOrdersPageContent() {
     ],
   );
 
+  const listFilters = useMemo(
+    () => ({
+      ...listParams(),
+      sortBy,
+      sortOrder,
+    }),
+    [listParams, sortBy, sortOrder],
+  );
+
   const load = useCallback(async () => {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const result = await storeOrdersService.list({
-        ...listParams(),
-        page,
-        pageSize,
-        sortBy,
-        sortOrder,
-      });
+      const result = await storeOrdersService.list({ ...listFilters, page, pageSize });
       setItems(result.items);
       setTotal(result.total);
       setProfitabilityFilterCapped(!!result.profitabilityFilterCapped);
@@ -188,7 +192,16 @@ function StoreOrdersPageContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [listParams, page, pageSize, sortBy, sortOrder, t]);
+  }, [listFilters, page, pageSize, t]);
+
+  // Print: every row matching the current filters/sort, not just the loaded page.
+  const fetchAllRows = useCallback(
+    () =>
+      fetchAllPages((nextPage, nextPageSize) =>
+        storeOrdersService.list({ ...listFilters, page: nextPage, pageSize: nextPageSize }),
+      ),
+    [listFilters],
+  );
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -395,6 +408,7 @@ function StoreOrdersPageContent() {
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        fetchAllRows={fetchAllRows}
         onPageSizeChange={(size) => {
           setPageSize(size);
           setPage(1);

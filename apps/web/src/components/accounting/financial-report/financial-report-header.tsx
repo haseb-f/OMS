@@ -189,10 +189,12 @@ export function ReportSwitcher({
 function HeaderIconButton({
   label,
   onClick,
+  busy = false,
   children,
 }: {
   label: string;
   onClick: () => void;
+  busy?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -204,8 +206,9 @@ function HeaderIconButton({
           size="icon"
           aria-label={label}
           onClick={onClick}
+          isLoading={busy}
         >
-          {children}
+          {busy ? null : children}
         </EnterpriseButton>
       </TooltipTrigger>
       <TooltipContent side="top">{label}</TooltipContent>
@@ -223,12 +226,15 @@ export function FinancialReportActions({
   onCollapseAll,
   onExport,
   onPrint,
+  busy = false,
 }: {
   canExpand: boolean;
   onExpandAll: () => void;
   onCollapseAll: () => void;
   onExport: (format: ReportExportFormat) => void;
   onPrint: () => void;
+  /** The full report is being loaded for export / print — both show busy and ignore clicks. */
+  busy?: boolean;
 }) {
   const { t } = useLocale();
   return (
@@ -248,8 +254,8 @@ export function FinancialReportActions({
         ) : null}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <EnterpriseButton type="button" variant="outline">
-              <Download data-icon="inline-start" />
+            <EnterpriseButton type="button" variant="outline" isLoading={busy}>
+              {busy ? null : <Download data-icon="inline-start" />}
               {t("table.export")}
               <ChevronDown className="size-3.5 text-muted-foreground" />
             </EnterpriseButton>
@@ -263,7 +269,7 @@ export function FinancialReportActions({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <HeaderIconButton label={t("table.print")} onClick={onPrint}>
+        <HeaderIconButton label={t("table.print")} onClick={onPrint} busy={busy}>
           <Printer />
         </HeaderIconButton>
       </div>
@@ -275,8 +281,9 @@ export function FinancialReportActions({
               variant="outline"
               size="icon"
               aria-label={t("reports.finance.header.reportActions")}
+              isLoading={busy}
             >
-              <MoreHorizontal />
+              {busy ? null : <MoreHorizontal />}
             </EnterpriseButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-44">

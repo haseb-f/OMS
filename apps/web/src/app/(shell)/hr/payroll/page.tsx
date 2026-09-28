@@ -26,6 +26,7 @@ import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { toast, reportApiError } from "@/lib/toast";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 
 const createRunSchema = z.object({
   period: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, { message: "YYYY-MM" }),
@@ -58,6 +59,15 @@ export default function PayrollRunsPage() {
       setIsLoading(false);
     }
   }, [page, pageSize]);
+
+  // Print: every row matching the current view, not just the loaded page.
+  const fetchAllRows = useCallback(
+    () =>
+      fetchAllPages((nextPage, nextPageSize) =>
+        payrollService.list({ page: nextPage, pageSize: nextPageSize }),
+      ),
+    [],
+  );
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -130,6 +140,7 @@ export default function PayrollRunsPage() {
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        fetchAllRows={fetchAllRows}
         onPageSizeChange={(size) => {
           setPageSize(size);
           setPage(1);

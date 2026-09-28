@@ -402,6 +402,7 @@ export default function SettingsDocumentNumberingPage() {
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        fetchAllRows={async () => ({ rows: filteredSorted, total: filteredSorted.length })}
         onPageSizeChange={(size) => {
           setPageSize(size);
           setPage(1);

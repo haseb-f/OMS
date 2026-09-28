@@ -57,7 +57,7 @@ export function buildJournalEntryPrintPayload(
 
   return {
     variant: "voucher",
-    title: `${t("accounting.journalEntries.title")} — ${entry.entryNumber}`,
+    title: t("printDocument.docTitle.journalVoucher"),
     printedByName,
     recordPath: `/finance/journal-entries/${entry.id}`,
     data,
@@ -77,15 +77,6 @@ export function buildJournalEntryPrintPayload(
         credit: t("accounting.journalEntries.lines.credit"),
       },
     },
-    labels: {
-      documentNumber: t("accounting.journalEntries.fields.number"),
-      documentDate: t("accounting.journalEntries.fields.entryDate"),
-      billTo: t("accounting.journalEntries.fields.description"),
-      description: t("accounting.journalEntries.lines.account"),
-      quantity: "",
-      unitPrice: t("accounting.journalEntries.lines.debit"),
-      lineTotal: t("accounting.journalEntries.lines.credit"),
-      notes: t("accounting.journalEntries.fields.description"),
-    },
+    labels: { notes: t("accounting.journalEntries.fields.description") },
   };
 }

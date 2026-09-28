@@ -49,6 +49,7 @@ import { reportApiError, toast } from "@/lib/toast";
 import { formatDate, toISODate } from "@/lib/date";
 import { siteConfig } from "@/config/site";
 import { PermissionGate } from "@/components/shared/permission-gate";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 
 const EMPTY_DATE_RANGE: DateRangeValue = { from: null, to: null };
 
@@ -90,20 +91,23 @@ function SalesOrdersPageContent() {
   const [archiveTarget, setArchiveTarget] = useState<SalesOrderRow | null>(null);
   const [bulkArchiveOpen, setBulkArchiveOpen] = useState(false);
 
+  const listFilters = useMemo(
+    () => ({
+      search: search || undefined,
+      status: statusFilter as SalesDocumentStatusValue[],
+      partnerId: customerFilter.map((customer) => customer.id),
+      dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
+      dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
+      sortBy,
+      sortOrder,
+    }),
+    [search, statusFilter, customerFilter, dateRange, sortBy, sortOrder],
+  );
+
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const result = await salesOrdersService.list({
-        search: search || undefined,
-        status: statusFilter as SalesDocumentStatusValue[],
-        partnerId: customerFilter.map((customer) => customer.id),
-        dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
-        dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
-        page,
-        pageSize,
-        sortBy,
-        sortOrder,
-      });
+      const result = await salesOrdersService.list({ ...listFilters, page, pageSize });
       setItems(result.items);
       setTotal(result.total);
       setItemsCache((cache) => ({
@@ -115,7 +119,16 @@ function SalesOrdersPageContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [search, statusFilter, customerFilter, dateRange, page, pageSize, sortBy, sortOrder]);
+  }, [listFilters, page, pageSize]);
+
+  // Print: every row matching the current filters/sort, not just the loaded page.
+  const fetchAllRows = useCallback(
+    () =>
+      fetchAllPages((nextPage, nextPageSize) =>
+        salesOrdersService.list({ ...listFilters, page: nextPage, pageSize: nextPageSize }),
+      ),
+    [listFilters],
+  );
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -370,6 +383,7 @@ function SalesOrdersPageContent() {
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        fetchAllRows={fetchAllRows}
         onPageSizeChange={(size) => {
           setPageSize(size);
           setPage(1);

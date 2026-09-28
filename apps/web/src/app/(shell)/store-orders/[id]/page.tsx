@@ -7,6 +7,7 @@ import {
   FileText,
   Image as ImageIcon,
   Pencil,
+  Printer,
   Receipt,
   Trash2,
   Truck,
@@ -74,6 +75,9 @@ import {
 import { shipmentStatusLabelKey, shipmentStatusTone } from "@/config/shipping/shipment-status";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
+import { useCompany } from "@/providers/company-provider";
+import { usePrintEngine } from "@/hooks/use-print-engine";
+import { buildPackageSlipPayload } from "@/config/store-orders/package-slip-print";
 import { toast, reportApiError } from "@/lib/toast";
 import { formatDate, formatDateTime } from "@/lib/date";
 import { formatFileSize } from "@/lib/format-file-size";
@@ -123,7 +127,10 @@ function StoreOrderDetailContent() {
   const router = useRouter();
   const { t } = useLocale();
   const isMobile = useIsMobile();
-  const { hasPermission } = useUserContext();
+  const { hasPermission, user } = useUserContext();
+  const { activeCompany } = useCompany();
+  const { printSlip } = usePrintEngine();
+  const [isPreparingSlip, setIsPreparingSlip] = useState(false);
   const canEdit = hasPermission("store-orders.edit");
   const canGenerateInvoiceAction = hasPermission("store-orders.generate_invoice") || canEdit;
   const canArchive = hasPermission("store-orders.archive");
@@ -234,6 +241,26 @@ function StoreOrderDetailContent() {
       reportApiError(error, "storeOrders.detail.notes.saveFailed");
     } finally {
       setIsSavingNote(false);
+    }
+  };
+
+  // Package slip (A5): reads the server's fulfillment gate so the collection
+  // instruction follows the authorized payment rule; printing changes nothing.
+  const handlePrintSlip = async () => {
+    if (!order) return;
+    setIsPreparingSlip(true);
+    try {
+      const gate = await storeOrdersService.canFulfill(order.id);
+      printSlip(
+        buildPackageSlipPayload(order, gate, {
+          company: { name: activeCompany?.name ?? "", logoUrl: activeCompany?.logoUrl ?? null },
+          printedByName: user?.fullName ?? null,
+        }),
+      );
+    } catch (error) {
+      reportApiError(error, "common.loadFailed");
+    } finally {
+      setIsPreparingSlip(false);
     }
   };
 
@@ -1018,6 +1045,16 @@ function StoreOrderDetailContent() {
               hidden: !(canDeclarePayment && canDeclareMore),
               onSelect: () => setDeclareOpen(true),
             }}
+            secondary={[
+              {
+                key: "print-slip",
+                label: t("printDocument.printSlipAction"),
+                icon: Printer,
+                testId: "print-package-slip",
+                disabled: isPreparingSlip,
+                onSelect: () => void handlePrintSlip(),
+              },
+            ]}
             more={[
               {
                 key: "shipping",

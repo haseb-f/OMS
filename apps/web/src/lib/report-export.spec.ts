@@ -146,7 +146,7 @@ describe("report export carries scope, summary and hierarchy", () => {
       "1,500.00 دائن",
       "—",
     ]);
-    expect(payload.rows[1]?.account.startsWith(" ")).toBe(true);
+    expect(String(payload.rows[1]?.account).startsWith(" ")).toBe(true);
     expect(payload.rows[3]?.account).toBe(translate(messages.ar, "reports.finance.totals"));
     expect(payload.rowKinds).toEqual(["parent", "detail", "detail", "grand-total"]);
     expect(payload.orientation).toBe("landscape");

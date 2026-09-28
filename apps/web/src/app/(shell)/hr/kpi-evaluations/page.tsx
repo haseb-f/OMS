@@ -29,6 +29,7 @@ import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { toast, reportApiError } from "@/lib/toast";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 
 const PERIOD_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -58,16 +59,19 @@ export default function KpiEvaluationsPage() {
     setPage(1);
   };
 
+  const listFilters = useMemo(
+    () => ({
+      period: periodFilter && PERIOD_PATTERN.test(periodFilter) ? periodFilter : undefined,
+      status: (statusFilter || undefined) as KpiEvaluationRow["status"] | undefined,
+      departmentId: departmentFilter || undefined,
+    }),
+    [periodFilter, statusFilter, departmentFilter],
+  );
+
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const result = await kpiEvaluationsService.list({
-        period: periodFilter && PERIOD_PATTERN.test(periodFilter) ? periodFilter : undefined,
-        status: (statusFilter || undefined) as KpiEvaluationRow["status"] | undefined,
-        departmentId: departmentFilter || undefined,
-        page,
-        pageSize,
-      });
+      const result = await kpiEvaluationsService.list({ ...listFilters, page, pageSize });
       setItems(result.items);
       setTotal(result.total);
     } catch (error) {
@@ -75,7 +79,16 @@ export default function KpiEvaluationsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [periodFilter, statusFilter, departmentFilter, page, pageSize]);
+  }, [listFilters, page, pageSize]);
+
+  // Print: every row matching the current filters, not just the loaded page.
+  const fetchAllRows = useCallback(
+    () =>
+      fetchAllPages((nextPage, nextPageSize) =>
+        kpiEvaluationsService.list({ ...listFilters, page: nextPage, pageSize: nextPageSize }),
+      ),
+    [listFilters],
+  );
 
   useEffect(() => {
     // Fetch-on-dependency-change: the standard data-fetching effect pattern
@@ -198,6 +211,7 @@ export default function KpiEvaluationsPage() {
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        fetchAllRows={fetchAllRows}
         onPageSizeChange={(size) => {
           setPageSize(size);
           setPage(1);

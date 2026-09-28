@@ -1,82 +1,42 @@
-import type { DocumentData } from "@/types/document-engine";
 import type { DocumentPrintPayload } from "@/types/print-engine";
-import { documentPrintBranding } from "@/components/print/print-brand";
 import type { PurchaseOrderRow } from "@/services/purchase-orders-service";
-import { formatDate } from "@/lib/date";
-import type { MessageKey } from "@/i18n/translate";
+import {
+  buildCommercialPrintPayload,
+  type PrintBuilderOptions,
+} from "@/config/documents/commercial-print";
 
-/** Mirrors `config/sales/quotation-print.ts` — feeds the existing Print Engine's "invoice" variant, no new template. Totals are derived by summing each item's subtotal/taxAmount/lineTotal (PurchaseOrder stores no aggregate columns of its own, ADR-0015). */
+/**
+ * Purchase order print — the shared commercial template. A Purchase Order
+ * stores no aggregate columns (ADR-0015), so the totals are the sums of the
+ * stored line values: `subtotal` is each line's taxable amount (after its
+ * discount), plus its `taxAmount`, and `lineTotal` for the grand total.
+ */
 export function buildOrderPrintPayload(
   order: PurchaseOrderRow,
-  options: {
-    companyName: string;
-    companyLogoUrl: string | null;
-    printedByName: string | null;
-    t: (key: MessageKey, params?: Record<string, string | number>) => string;
-  },
+  options: PrintBuilderOptions,
 ): DocumentPrintPayload {
-  const { companyName, companyLogoUrl, printedByName, t } = options;
-  const subtotal = order.items.reduce((sum, item) => sum + Number(item.subtotal), 0);
-  const taxTotal = order.items.reduce((sum, item) => sum + Number(item.taxAmount), 0);
-  const grandTotal = subtotal + taxTotal;
-
-  const data: DocumentData = {
-    type: "purchase-order",
-    documentNumber: order.poNumber,
-    documentDate: formatDate(order.createdAt),
-    currency: "",
-    company: {
-      name: companyName,
-      addressLines: [],
-      branding: documentPrintBranding(companyLogoUrl),
+  const sum = (pick: (item: PurchaseOrderRow["items"][number]) => string) =>
+    order.items.reduce((total, item) => total + Number(pick(item)), 0);
+  return buildCommercialPrintPayload(
+    {
+      type: "purchase-order",
+      titleKey: "printDocument.docTitle.purchaseOrder",
+      documentNumber: order.poNumber,
+      date: order.createdAt,
+      partner: order.partner,
+      partyRole: "supplier",
+      currency: order.currency,
+      referenceNumber: order.referenceNumber,
+      sourceNumber: order.quotation?.quotationNumber,
+      items: order.items,
+      totals: {
+        subtotal: sum((item) => item.subtotal),
+        tax: sum((item) => item.taxAmount),
+        grandTotal: sum((item) => item.lineTotal),
+      },
+      notes: order.supplierNotes,
+      recordPath: `/purchasing/purchase-orders/${order.id}`,
     },
-    party: {
-      name: order.partner?.name ?? "",
-      taxNumber: order.partner?.taxNumber ?? undefined,
-      addressLines: [
-        order.partner?.address,
-        order.partner?.city,
-        order.partner?.country?.name,
-      ].filter((value): value is string => !!value),
-      phone: order.partner?.phone ?? undefined,
-      email: order.partner?.email ?? undefined,
-    },
-    meta: [
-      ...(order.referenceNumber
-        ? [{ label: t("purchasing.orders.fields.reference"), value: order.referenceNumber }]
-        : []),
-    ],
-    lineItems: order.items.map((item) => ({
-      id: item.id,
-      description: item.product?.displayName || item.product?.name || item.description || "",
-      quantity: item.quantity,
-      unit: item.unit?.name,
-      unitPrice: Number(item.unitPrice),
-      total: Number(item.lineTotal),
-    })),
-    totals: [
-      { label: t("sales.editor.totals.subtotal"), value: subtotal },
-      ...(taxTotal > 0 ? [{ label: t("sales.editor.totals.tax"), value: taxTotal }] : []),
-      { label: t("sales.editor.totals.grandTotal"), value: grandTotal, emphasis: true },
-    ],
-    notes: order.supplierNotes ?? undefined,
-  };
-
-  return {
-    variant: "invoice",
-    title: `${t("purchasing.orders.title")} — ${order.poNumber}`,
-    printedByName,
-    recordPath: `/purchasing/purchase-orders/${order.id}`,
-    data,
-    labels: {
-      documentNumber: t("purchasing.orders.fields.number"),
-      documentDate: t("sales.editor.header.documentDate"),
-      billTo: t("purchasing.suppliers.picker.selectSupplier"),
-      description: t("sales.editor.grid.product"),
-      quantity: t("sales.editor.grid.quantity"),
-      unitPrice: t("sales.editor.grid.unitPrice"),
-      lineTotal: t("sales.editor.grid.lineTotal"),
-      notes: t("sales.editor.sections.notes"),
-    },
-  };
+    options,
+  );
 }

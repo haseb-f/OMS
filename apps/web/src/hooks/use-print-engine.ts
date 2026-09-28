@@ -2,13 +2,19 @@
 
 import { useCallback } from "react";
 import { createPrintJob } from "@/lib/print-bridge";
-import type { GenericListPrintPayload, DocumentPrintPayload } from "@/types/print-engine";
+import type {
+  DocumentPrintPayload,
+  GenericListPrintPayload,
+  PackageSlipPayload,
+  StatementPrintPayload,
+} from "@/types/print-engine";
 
 /**
  * The single entry point every module uses to print. Never call
  * `window.print()` directly from an app page — hand the data here instead,
  * and the Enterprise Print Engine renders it in an isolated `/print/*` tab
- * that contains only the business document (see `app/print/*`).
+ * that contains only the business document and its print preview toolbar
+ * (see `app/print/*`).
  */
 export function usePrintEngine() {
   const printList = useCallback((payload: GenericListPrintPayload) => {
@@ -18,10 +24,16 @@ export function usePrintEngine() {
     window.open(`/print/list?job=${jobId}`, "_blank");
   }, []);
 
-  const printDocument = useCallback((payload: DocumentPrintPayload) => {
+  const printDocument = useCallback((payload: DocumentPrintPayload | StatementPrintPayload) => {
     const jobId = createPrintJob(payload);
     window.open(`/print/document?job=${jobId}`, "_blank");
   }, []);
 
-  return { printList, printDocument };
+  /** Store-order A5 package slip. */
+  const printSlip = useCallback((payload: PackageSlipPayload) => {
+    const jobId = createPrintJob(payload);
+    window.open(`/print/slip?job=${jobId}`, "_blank");
+  }, []);
+
+  return { printList, printDocument, printSlip };
 }

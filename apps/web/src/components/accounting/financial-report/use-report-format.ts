@@ -15,7 +15,11 @@ export function useDrCrLabels(): { debit: string; credit: string } {
 
 let functionalCurrencyRequest: Promise<string> | null = null;
 
-function loadFunctionalCurrency(): Promise<string> {
+/**
+ * The functional (reporting) currency code, for code paths outside a render
+ * (e.g. a print action) — shares the one cached request with `useReportCurrency`.
+ */
+export function loadFunctionalCurrency(): Promise<string> {
   functionalCurrencyRequest ??= accountingSettingsService
     .get()
     .then((settings) => settings.functionalCurrency?.code ?? "")

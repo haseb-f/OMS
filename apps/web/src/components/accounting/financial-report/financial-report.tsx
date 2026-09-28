@@ -19,7 +19,7 @@ import { useLocale } from "@/providers/locale-provider";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { siteConfig } from "@/config/site";
 import { downloadReport, type ReportExportFormat } from "@/lib/report-export";
-import { toast } from "@/lib/toast";
+import { reportApiError, toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import type { MessageKey } from "@/i18n/translate";
 import { FinancialReportTable } from "./financial-report-table";
@@ -70,6 +70,7 @@ export function FinancialReport({
   defaultExpanded = "auto",
   pagination,
   exportAllLines = false,
+  loadAllLines,
 }: {
   lines: FinancialReportLine[];
   columns: FinancialReportColumn[];
@@ -84,6 +85,12 @@ export function FinancialReport({
   pagination?: ReactNode;
   /** Export/print every line (fully expanded) instead of only the visible ones — ledgers. */
   exportAllLines?: boolean;
+  /**
+   * Paged reports: loads every line of the report (all pages, same filters).
+   * When set, print and Excel/CSV are built from it instead of the lines on
+   * screen, so the output is the complete dataset, never the current page.
+   */
+  loadAllLines?: () => Promise<FinancialReportLine[]>;
   isLoading?: boolean;
   filters: ReportFilterValue;
   onFiltersChange: (next: ReportFilterValue) => void;
@@ -131,6 +138,8 @@ export function FinancialReport({
   const drcrLabels = useDrCrLabels();
   const currency = currencyOverride ?? functionalCurrency;
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  /** A full-dataset load for print / export is in flight. */
+  const [isPreparingOutput, setIsPreparingOutput] = useState(false);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -161,8 +170,12 @@ export function FinancialReport({
   const companyName = activeCompany?.name ?? siteConfig.fullName;
   const printedByName = user?.fullName ?? null;
 
-  /** One language-resolved document behind Excel, CSV and print alike. */
-  const buildDocument = () => {
+  /**
+   * One language-resolved document behind Excel, CSV and print alike.
+   * `allLines` (from `loadAllLines`) replaces the on-screen page of a paged
+   * report; its hierarchy is resolved on its own tree.
+   */
+  const buildDocument = (allLines?: FinancialReportLine[]) => {
     const filterMeta = describeReportFilters(filters, {
       fields: filterFields,
       companies,
@@ -186,8 +199,12 @@ export function FinancialReport({
     const asOf = filterFields.includes("asOf") && !filterFields.includes("dateRange");
     return buildFinancialReportDocument({
       title: printTitle,
-      lines: exportAllLines ? flattenVisibleLines(lines, new Set(expandableIds)) : visible,
-      rowKinds,
+      lines: allLines
+        ? flattenVisibleLines(allLines, new Set(collectExpandableIds(allLines)))
+        : exportAllLines
+          ? flattenVisibleLines(lines, new Set(expandableIds))
+          : visible,
+      rowKinds: allLines ? resolveRowKinds(allLines, { hasFooter }) : rowKinds,
       columns,
       textColumns,
       footer,
@@ -205,19 +222,39 @@ export function FinancialReport({
     });
   };
 
-  const handleExport = async (format: ReportExportFormat) => {
+  /** The whole report for output: every page when the report is paged, else the lines in hand. */
+  const loadOutputDocument = async () => {
+    if (!loadAllLines) return buildDocument();
+    setIsPreparingOutput(true);
     try {
-      await downloadReport(buildDocument(), format, exportFileName);
+      return buildDocument(await loadAllLines());
+    } finally {
+      setIsPreparingOutput(false);
+    }
+  };
+
+  const handleExport = async (format: ReportExportFormat) => {
+    if (isPreparingOutput) return;
+    try {
+      await downloadReport(await loadOutputDocument(), format, exportFileName);
       toast.success(t("reports.finance.exported"));
     } catch {
       toast.error(t("common.failedToSave"));
     }
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
+    if (isPreparingOutput) return;
+    let document;
+    try {
+      document = await loadOutputDocument();
+    } catch (error) {
+      reportApiError(error, "common.noResults");
+      return;
+    }
     printList(
       toReportPrintPayload(
-        buildDocument(),
+        document,
         { name: companyName, logoUrl: activeCompany?.logoUrl ?? null },
         printedByName,
       ),
@@ -284,7 +321,8 @@ export function FinancialReport({
               onExpandAll={() => setExpanded(new Set(expandableIds))}
               onCollapseAll={() => setExpanded(new Set())}
               onExport={(format) => void handleExport(format)}
-              onPrint={handlePrint}
+              onPrint={() => void handlePrint()}
+              busy={isPreparingOutput}
             />
           )
         }

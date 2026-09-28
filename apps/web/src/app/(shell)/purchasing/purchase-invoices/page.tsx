@@ -50,6 +50,7 @@ import { formatDate, toISODate } from "@/lib/date";
 import { siteConfig } from "@/config/site";
 import { CreateReturnDialog } from "./create-return-dialog";
 import { PermissionGate } from "@/components/shared/permission-gate";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 
 const EMPTY_DATE_RANGE: DateRangeValue = { from: null, to: null };
 
@@ -85,20 +86,23 @@ function PurchaseInvoicesPageContent() {
   const [returnTarget, setReturnTarget] = useState<PurchaseInvoiceRow | null>(null);
   const [bulkArchiveOpen, setBulkArchiveOpen] = useState(false);
 
+  const listFilters = useMemo(
+    () => ({
+      search: search || undefined,
+      status: statusFilter as PurchaseDocumentStatusValue[],
+      partnerId: supplierFilter.map((supplier) => supplier.id),
+      dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
+      dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
+      sortBy,
+      sortOrder,
+    }),
+    [search, statusFilter, supplierFilter, dateRange, sortBy, sortOrder],
+  );
+
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const result = await purchaseInvoicesService.list({
-        search: search || undefined,
-        status: statusFilter as PurchaseDocumentStatusValue[],
-        partnerId: supplierFilter.map((supplier) => supplier.id),
-        dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
-        dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
-        page,
-        pageSize,
-        sortBy,
-        sortOrder,
-      });
+      const result = await purchaseInvoicesService.list({ ...listFilters, page, pageSize });
       setItems(result.items);
       setTotal(result.total);
     } catch (error) {
@@ -106,7 +110,16 @@ function PurchaseInvoicesPageContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [search, statusFilter, supplierFilter, dateRange, page, pageSize, sortBy, sortOrder]);
+  }, [listFilters, page, pageSize]);
+
+  // Print: every row matching the current filters/sort, not just the loaded page.
+  const fetchAllRows = useCallback(
+    () =>
+      fetchAllPages((nextPage, nextPageSize) =>
+        purchaseInvoicesService.list({ ...listFilters, page: nextPage, pageSize: nextPageSize }),
+      ),
+    [listFilters],
+  );
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -346,6 +359,7 @@ function PurchaseInvoicesPageContent() {
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        fetchAllRows={fetchAllRows}
         onPageSizeChange={(size) => {
           setPageSize(size);
           setPage(1);

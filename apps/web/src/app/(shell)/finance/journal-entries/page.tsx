@@ -33,6 +33,7 @@ import {
   type JournalEntryStatusValue,
 } from "@/services/journal-entries-service";
 import { useUsersLookup } from "@/hooks/use-reference-data";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 import { createMasterDataService } from "@/services/master-data-service";
 import type { JournalRow } from "@/config/master-data/entities";
 import {
@@ -97,20 +98,23 @@ function JournalEntriesPageContent() {
       .catch(() => setJournals([]));
   }, []);
 
+  const listFilters = useMemo(
+    () => ({
+      search: search || undefined,
+      status: statusFilter as JournalEntryStatusValue[],
+      journalId: journalFilter,
+      dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
+      dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
+      sortBy,
+      sortOrder,
+    }),
+    [search, statusFilter, journalFilter, dateRange, sortBy, sortOrder],
+  );
+
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const result = await journalEntriesService.list({
-        search: search || undefined,
-        status: statusFilter as JournalEntryStatusValue[],
-        journalId: journalFilter,
-        dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
-        dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
-        page,
-        pageSize,
-        sortBy,
-        sortOrder,
-      });
+      const result = await journalEntriesService.list({ ...listFilters, page, pageSize });
       setItems(result.items);
       setTotal(result.total);
       setItemsCache((cache) => ({
@@ -122,7 +126,16 @@ function JournalEntriesPageContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [search, statusFilter, journalFilter, dateRange, page, pageSize, sortBy, sortOrder]);
+  }, [listFilters, page, pageSize]);
+
+  // Print: every row matching the current filters/sort, not just the loaded page.
+  const fetchAllRows = useCallback(
+    () =>
+      fetchAllPages((nextPage, nextPageSize) =>
+        journalEntriesService.list({ ...listFilters, page: nextPage, pageSize: nextPageSize }),
+      ),
+    [listFilters],
+  );
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -514,6 +527,7 @@ function JournalEntriesPageContent() {
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        fetchAllRows={fetchAllRows}
         onPageSizeChange={(size) => {
           setPageSize(size);
           setPage(1);

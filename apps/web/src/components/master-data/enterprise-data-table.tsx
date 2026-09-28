@@ -105,7 +105,7 @@ import { bidiLineClass, isStackedCellNode } from "@/components/shared/stacked-ce
 import { cn } from "@/lib/utils";
 import { useElementWidth } from "@/hooks/use-element-width";
 import { siteConfig } from "@/config/site";
-import { toast } from "@/lib/toast";
+import { reportApiError, toast } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
 
 /** Sane resize bounds when a column has no declared min/max in the Smart Column Engine. */
@@ -219,6 +219,7 @@ export function EnterpriseDataTable<TData>({
   onRefresh,
   tableId,
   printTitle,
+  fetchAllRows,
   emptyTitle,
   getRowId,
   error,
@@ -285,6 +286,14 @@ export function EnterpriseDataTable<TData>({
   tableId: string;
   /** Title the Print Engine's document header shows — e.g. "Products List". Falls back to `tableId` when omitted. */
   printTitle?: string;
+  /**
+   * Server mode only — loads EVERY row matching the current search/filters/
+   * sort (bounded; see `lib/fetch-all-pages.ts`) so Print outputs the whole
+   * dataset, not just the loaded page. `total` is the full match count; when
+   * it exceeds `rows.length` the sheet states "N / M rows". Omit and Print
+   * falls back to the loaded page, still stating the true total.
+   */
+  fetchAllRows?: () => Promise<{ rows: TData[]; total: number }>;
   /** Overrides the empty-state message — falls back to the generic "No results." copy. */
   emptyTitle?: string;
   /** Row identity for stable selection across sorts/pagination. Defaults to `row.id` when present, otherwise the row's index — pass this for rows with no natural single-field id (e.g. a report keyed by product+warehouse). */
@@ -963,16 +972,37 @@ export function EnterpriseDataTable<TData>({
   // Print only real business columns — never the actions/checkbox column,
   // and never a column the user has hidden on screen — through the shared
   // Enterprise Print Engine (never `window.print()` on this page itself).
-  // Client mode prints every row matching the current search, not just the
-  // on-screen page, since there's no "next page" for a printed report.
-  const handlePrint = () => {
+  // Client mode prints every row matching the current search; server mode
+  // asks the page for every matching row (`fetchAllRows`), since there is no
+  // "next page" for a printed report.
+  const [isPreparingPrint, setIsPreparingPrint] = useState(false);
+  const handlePrint = async () => {
     const printableColumns = columns.filter(
       (column) =>
         column.id && column.id !== "__actions" && effectiveColumnVisibility[column.id] !== false,
     );
-    const rowsToPrint = isServerMode
-      ? data
-      : table.getFilteredRowModel().rows.map((row) => row.original);
+    let rowsToPrint: TData[];
+    let totalRowCount: number | undefined;
+    if (!isServerMode) {
+      rowsToPrint = table.getFilteredRowModel().rows.map((row) => row.original);
+    } else if (fetchAllRows) {
+      setIsPreparingPrint(true);
+      const loadingToast = toast.loading(t("common.loading"));
+      try {
+        const result = await fetchAllRows();
+        rowsToPrint = result.rows;
+        totalRowCount = result.total > result.rows.length ? result.total : undefined;
+      } catch (err) {
+        reportApiError(err, "table.loadFailed");
+        return;
+      } finally {
+        toast.dismiss(loadingToast);
+        setIsPreparingPrint(false);
+      }
+    } else {
+      rowsToPrint = data;
+      totalRowCount = totalCount !== undefined && totalCount > data.length ? totalCount : undefined;
+    }
     printList({
       variant: "list",
       title: printTitle ?? tableId,
@@ -990,6 +1020,7 @@ export function EnterpriseDataTable<TData>({
           printableColumns.map((column) => [column.id!, getColumnDisplayValue(column, row)]),
         ),
       ),
+      ...(totalRowCount !== undefined ? { totalRowCount } : {}),
     });
   };
 
@@ -997,7 +1028,13 @@ export function EnterpriseDataTable<TData>({
   // occasional controls; keeping them out of the strip leaves the filters
   // that actually drive the list as the only labelled things in it.
   const tableOptions: RowAction[] = [
-    { key: "print", label: t("table.print"), icon: Printer, onSelect: handlePrint },
+    {
+      key: "print",
+      label: t("table.print"),
+      icon: Printer,
+      disabled: isPreparingPrint,
+      onSelect: () => void handlePrint(),
+    },
     {
       key: "import",
       label: t("common.import"),

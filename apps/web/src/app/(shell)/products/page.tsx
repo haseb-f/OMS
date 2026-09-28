@@ -43,6 +43,7 @@ import { formatDateTime } from "@/lib/date";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import { formatNumber } from "@/lib/format-number";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 
 function ProductsPageContent() {
   const { t } = useLocale();
@@ -84,17 +85,31 @@ function ProductsPageContent() {
   const [restoreTarget, setRestoreTarget] = useState<ProductRow | null>(null);
   const [previewProduct, setPreviewProduct] = useState<ProductRow | null>(null);
 
+  const listFilters = useMemo(
+    () => ({ search: search || undefined, sortBy, sortOrder, includeArchived }),
+    [search, sortBy, sortOrder, includeArchived],
+  );
+
   const load = useCallback(() => {
     setIsLoading(true);
     productsService
-      .list({ search: search || undefined, page, pageSize, sortBy, sortOrder, includeArchived })
+      .list({ ...listFilters, page, pageSize })
       .then((result) => {
         setItems(result.items);
         setTotal(result.total);
       })
       .catch((error) => reportApiError(error, "common.noResults"))
       .finally(() => setIsLoading(false));
-  }, [search, page, pageSize, sortBy, sortOrder, includeArchived]);
+  }, [listFilters, page, pageSize]);
+
+  // Print: every row matching the current filters/sort, not just the loaded page.
+  const fetchAllRows = useCallback(
+    () =>
+      fetchAllPages((nextPage, nextPageSize) =>
+        productsService.list({ ...listFilters, page: nextPage, pageSize: nextPageSize }),
+      ),
+    [listFilters],
+  );
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -253,6 +268,7 @@ function ProductsPageContent() {
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        fetchAllRows={fetchAllRows}
         onPageSizeChange={(size) => {
           setPageSize(size);
           setPage(1);

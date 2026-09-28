@@ -15,7 +15,7 @@ export {
 export { resolveReconciliationState, type ReconciliationState } from "./summary-format";
 export { ReportMoney } from "./report-money";
 export { findLine, resolveRowKinds } from "./types";
-export { useReportCurrency, useDrCrLabels } from "./use-report-format";
+export { loadFunctionalCurrency, useReportCurrency, useDrCrLabels } from "./use-report-format";
 export type {
   FinancialReportCheck,
   FinancialReportCheckScope,
@@ -29,3 +29,4 @@ export type {
   FinancialReportTextColumn,
 } from "./types";
 export { ReportPagination } from "./report-pagination";
+export { fetchAllReportPages, MAX_REPORT_PAGES } from "./fetch-all-pages";

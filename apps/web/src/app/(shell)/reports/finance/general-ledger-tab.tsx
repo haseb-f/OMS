@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FinancialReport, ReportPagination } from "@/components/accounting/financial-report";
+import {
+  FinancialReport,
+  ReportPagination,
+  fetchAllReportPages,
+} from "@/components/accounting/financial-report";
 import type { ReportFilterValue } from "@/components/accounting/report-filter-bar";
 import { MultiEntityFilter } from "@/components/shared/data-table/multi-entity-filter";
 import { useOpenFullRecord } from "@/components/shared/record-preview";
@@ -26,6 +30,21 @@ const accountsService = createMasterDataService<ChartOfAccountRow>("/chart-of-ac
 
 /** Accounts per page — each carries its full movement list for the period. */
 const ACCOUNTS_PER_PAGE = 100;
+
+/** Report rows of each account ledger (opening, movements, closing). */
+function toLedgerBlocks(items: GeneralLedgerResult["items"]) {
+  return items.map((ledger) => ({
+    id: `account:${ledger.account.id}`,
+    code: ledger.account.code,
+    label: ledger.account.name,
+    labelEn: ledger.account.nameEn,
+    openingBalance: ledger.openingBalance,
+    periodDebit: ledger.periodDebit,
+    periodCredit: ledger.periodCredit,
+    closingBalance: ledger.closingBalance,
+    movements: ledger.movements,
+  }));
+}
 
 /**
  * General Ledger (Odoo-style) — every account (or the selected ones) with
@@ -77,22 +96,23 @@ export function GeneralLedgerTab() {
     setAccounts(next);
   };
 
-  const blocks = useMemo(
-    () =>
-      (result?.items ?? []).map((ledger) => ({
-        id: `account:${ledger.account.id}`,
-        code: ledger.account.code,
-        label: ledger.account.name,
-        labelEn: ledger.account.nameEn,
-        openingBalance: ledger.openingBalance,
-        periodDebit: ledger.periodDebit,
-        periodCredit: ledger.periodCredit,
-        closingBalance: ledger.closingBalance,
-        movements: ledger.movements,
-      })),
-    [result],
-  );
+  const blocks = useMemo(() => toLedgerBlocks(result?.items ?? []), [result]);
   const lines = useMemo(() => blocks.map((block) => buildLedgerBlock(block, t)), [blocks, t]);
+
+  // Print / Excel / CSV: every page of accounts with the same filters.
+  const loadAllLines = useCallback(async () => {
+    const items = await fetchAllReportPages(
+      (nextPage) =>
+        accountingReportsService.generalLedger({
+          ...params,
+          accountIds,
+          page: nextPage,
+          pageSize: ACCOUNTS_PER_PAGE,
+        }),
+      ACCOUNTS_PER_PAGE,
+    );
+    return toLedgerBlocks(items).map((block) => buildLedgerBlock(block, t));
+  }, [params, accountIds, t]);
   const movementIndex = useMemo(() => indexLedgerMovements(blocks), [blocks]);
   const textColumns = useMemo(() => ledgerTextColumns(movementIndex), [movementIndex]);
 
@@ -115,6 +135,7 @@ export function GeneralLedgerTab() {
       // full ledger starts collapsed to one row per account.
       defaultExpanded={accounts.length > 0 && blocks.length <= 3 ? "all" : "none"}
       exportAllLines
+      loadAllLines={loadAllLines}
       isLoading={isLoading}
       filters={filters}
       onFiltersChange={changeFilters}

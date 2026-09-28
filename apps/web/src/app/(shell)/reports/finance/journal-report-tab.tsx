@@ -9,6 +9,7 @@ import {
   FinancialReport,
   FinancialReportTable,
   ReportPagination,
+  fetchAllReportPages,
 } from "@/components/accounting/financial-report";
 import type {
   FinancialReportColumn,
@@ -81,9 +82,9 @@ export function JournalReportTab() {
     setFilters(next);
   };
 
-  const lines = useMemo<FinancialReportLine[]>(
-    () =>
-      items.map((entry) => {
+  const toLines = useCallback(
+    (entries: JournalReportEntry[]): FinancialReportLine[] =>
+      entries.map((entry) => {
         const source = t(journalSourceLabelKey(entry.sourceType));
         return {
           id: entry.id,
@@ -104,8 +105,24 @@ export function JournalReportTab() {
           children: [],
         };
       }),
-    [items, t],
+    [t],
   );
+  const lines = useMemo(() => toLines(items), [items, toLines]);
+
+  // Print / Excel / CSV: every entry of the period, not just this page.
+  const loadAllLines = useCallback(async () => {
+    const all = await fetchAllReportPages(
+      (nextPage) =>
+        accountingReportsService.journalReport({
+          ...params,
+          page: nextPage,
+          pageSize: ENTRIES_PER_PAGE,
+          sortOrder: "desc",
+        }),
+      ENTRIES_PER_PAGE,
+    );
+    return toLines(all);
+  }, [params, toLines]);
 
   const detailLines = useMemo<FinancialReportLine[]>(
     () =>
@@ -146,6 +163,7 @@ export function JournalReportTab() {
         lines={lines}
         columns={COLUMNS}
         textColumns={TEXT_COLUMNS}
+        loadAllLines={loadAllLines}
         isLoading={isLoading}
         filters={filters}
         onFiltersChange={changeFilters}

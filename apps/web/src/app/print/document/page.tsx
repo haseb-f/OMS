@@ -1,17 +1,15 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import {
+  AccountStatementPrintTemplate,
   InvoicePrintTemplate,
-  StatementPrintTemplate,
   ReceiptPrintTemplate,
+  StatementPrintTemplate,
   VoucherPrintTemplate,
 } from "@/components/print/templates";
-import { useTriggerPrint } from "@/components/print/use-trigger-print";
-import { readPrintJob } from "@/lib/print-bridge";
-import { useLocale } from "@/providers/locale-provider";
-import type { DocumentPrintPayload } from "@/types/print-engine";
+import { PrintJobExpired, usePrintJob } from "@/components/print/print-job";
+import type { DocumentPrintPayload, StatementPrintPayload } from "@/types/print-engine";
 
 const TEMPLATES_BY_VARIANT = {
   invoice: InvoicePrintTemplate,
@@ -21,27 +19,12 @@ const TEMPLATES_BY_VARIANT = {
 } as const;
 
 function PrintDocumentContent() {
-  const { t } = useLocale();
-  const searchParams = useSearchParams();
-  const jobId = searchParams.get("job");
-  const [payload, setPayload] = useState<DocumentPrintPayload | null | undefined>(undefined);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPayload(jobId ? readPrintJob<DocumentPrintPayload>(jobId) : null);
-  }, [jobId]);
-
-  useTriggerPrint(!!payload);
-
+  const payload = usePrintJob<DocumentPrintPayload | StatementPrintPayload>();
   if (payload === undefined) return null;
-  if (!payload) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-sm text-slate-500">
-        {t("reportExport.printExpired")}
-      </div>
-    );
+  if (!payload) return <PrintJobExpired />;
+  if (payload.variant === "account-statement") {
+    return <AccountStatementPrintTemplate payload={payload} />;
   }
-
   const Template = TEMPLATES_BY_VARIANT[payload.variant];
   return <Template payload={payload} />;
 }

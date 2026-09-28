@@ -26,6 +26,7 @@ import {
 } from "@/services/payment-settlements-service";
 import { RecordLink } from "./settlement-parts";
 import { SettlementDetailSheet, ReverseSettlementDialog } from "./settlement-detail-sheet";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 
 const STATUSES: SettlementDocStatus[] = ["POSTED", "REVERSED"];
 
@@ -47,18 +48,21 @@ export function SettlementsTab({ methodId }: { methodId: string }) {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [reverseTarget, setReverseTarget] = useState<SettlementSummary | null>(null);
 
+  const listFilters = useMemo(
+    () => ({
+      paymentMethodId: methodId,
+      status: status || undefined,
+      dateFrom: range.from ? toISODate(range.from) : undefined,
+      dateTo: range.to ? toISODate(range.to) : undefined,
+      search: search || undefined,
+    }),
+    [methodId, status, range, search],
+  );
+
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const result = await paymentSettlementsService.list({
-        paymentMethodId: methodId,
-        status: status || undefined,
-        dateFrom: range.from ? toISODate(range.from) : undefined,
-        dateTo: range.to ? toISODate(range.to) : undefined,
-        search: search || undefined,
-        page,
-        pageSize,
-      });
+      const result = await paymentSettlementsService.list({ ...listFilters, page, pageSize });
       setItems(result.items);
       setTotal(result.total);
       setError(null);
@@ -67,7 +71,16 @@ export function SettlementsTab({ methodId }: { methodId: string }) {
     } finally {
       setIsLoading(false);
     }
-  }, [methodId, status, range, search, page, pageSize, t]);
+  }, [listFilters, page, pageSize, t]);
+
+  // Print: every row matching the current filters/sort, not just the loaded page.
+  const fetchAllRows = useCallback(
+    () =>
+      fetchAllPages((nextPage, nextPageSize) =>
+        paymentSettlementsService.list({ ...listFilters, page: nextPage, pageSize: nextPageSize }),
+      ),
+    [listFilters],
+  );
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -229,6 +242,7 @@ export function SettlementsTab({ methodId }: { methodId: string }) {
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        fetchAllRows={fetchAllRows}
         onPageSizeChange={(size) => {
           setPageSize(size);
           setPage(1);

@@ -1,88 +1,48 @@
-import type { DocumentData } from "@/types/document-engine";
 import type { DocumentPrintPayload } from "@/types/print-engine";
-import { documentPrintBranding } from "@/components/print/print-brand";
 import type { FinancialTransactionRow } from "@/services/financial-transactions-service";
-import { formatDate } from "@/lib/date";
-import type { MessageKey } from "@/i18n/translate";
+import {
+  buildVoucherPrintPayload,
+  type PrintBuilderOptions,
+} from "@/config/documents/commercial-print";
 
-/** Feeds the existing Print Engine's dedicated "voucher" variant/template — no new template built, per "reuse the Print Engine" instruction. */
+/** Supplier payment voucher — the shared voucher layout. */
 export function buildPaymentPrintPayload(
   payment: FinancialTransactionRow,
-  options: {
-    companyName: string;
-    companyLogoUrl: string | null;
-    printedByName: string | null;
-    t: (key: MessageKey, params?: Record<string, string | number>) => string;
-  },
+  options: PrintBuilderOptions,
 ): DocumentPrintPayload {
-  const { companyName, companyLogoUrl, printedByName, t } = options;
-
-  const data: DocumentData = {
-    type: "payment-voucher",
-    documentNumber: payment.transactionNumber,
-    documentDate: formatDate(payment.transactionDate),
-    currency: payment.currency?.code ?? "",
-    company: {
-      name: companyName,
-      addressLines: [],
-      branding: documentPrintBranding(companyLogoUrl),
+  const { t } = options;
+  return buildVoucherPrintPayload(
+    {
+      type: "payment-voucher",
+      variant: "voucher",
+      titleKey: "printDocument.docTitle.paymentVoucher",
+      documentNumber: payment.transactionNumber,
+      date: payment.transactionDate,
+      partner: payment.partner,
+      partyRole: "supplier",
+      currency: payment.currency,
+      meta: [
+        ...(payment.referenceNumber
+          ? [{ label: t("printDocument.reference"), value: payment.referenceNumber }]
+          : []),
+        ...(payment.paymentSource
+          ? [
+              {
+                label: t("financialTransactions.fields.paymentSource"),
+                value: payment.paymentSource.name,
+              },
+            ]
+          : []),
+      ],
+      allocations: payment.allocations.map((allocation) => ({
+        id: allocation.id,
+        description: allocation.purchaseInvoice?.invoiceNumber ?? "",
+        amount: Number(allocation.allocatedAmount),
+      })),
+      amount: Number(payment.amount),
+      notes: payment.notes,
+      recordPath: `/purchasing/payments/${payment.id}`,
     },
-    party: {
-      name: payment.partner?.name ?? "",
-      taxNumber: payment.partner?.taxNumber ?? undefined,
-      addressLines: [
-        payment.partner?.address,
-        payment.partner?.city,
-        payment.partner?.country?.name,
-      ].filter((value): value is string => !!value),
-      phone: payment.partner?.phone ?? undefined,
-      email: payment.partner?.email ?? undefined,
-    },
-    meta: [
-      ...(payment.referenceNumber
-        ? [{ label: t("purchasing.payments.fields.reference"), value: payment.referenceNumber }]
-        : []),
-      ...(payment.paymentSource
-        ? [
-            {
-              label: t("financialTransactions.fields.paymentSource"),
-              value: payment.paymentSource.name,
-            },
-          ]
-        : []),
-    ],
-    lineItems: payment.allocations.map((allocation) => ({
-      id: allocation.id,
-      description: allocation.purchaseInvoice?.invoiceNumber ?? "",
-      quantity: 1,
-      unitPrice: Number(allocation.allocatedAmount),
-      total: Number(allocation.allocatedAmount),
-    })),
-    totals: [
-      {
-        label: t("financialTransactions.summary.amount"),
-        value: Number(payment.amount),
-        emphasis: true,
-      },
-    ],
-    notes: payment.notes ?? undefined,
-  };
-
-  return {
-    variant: "voucher",
-    title: `${t("purchasing.payments.title")} — ${payment.transactionNumber}`,
-    printedByName,
-    recordPath: `/purchasing/payments/${payment.id}`,
-    data,
-    labels: {
-      documentNumber: t("purchasing.payments.fields.number"),
-      documentDate: t("financialTransactions.fields.transactionDate"),
-      billTo: t("purchasing.suppliers.picker.selectSupplier"),
-      description: t("financialTransactions.allocationGrid.invoice"),
-      quantity: "",
-      unitPrice: "",
-      lineTotal: t("financialTransactions.allocationGrid.amount"),
-      notes: t("sales.editor.sections.notes"),
-    },
-  };
+    options,
+  );
 }

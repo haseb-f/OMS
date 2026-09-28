@@ -9,6 +9,7 @@ import { StatusBadge } from "@/components/business/status-badge";
 import { MoneyValue } from "@/components/shared/money-value";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 import { RowActionsMenu } from "@/components/shared/data-table";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { CarrierChargeMatchDialog } from "@/components/shared/carrier-charge-match-dialog";
@@ -64,15 +65,18 @@ function CarrierReconciliationContent() {
   const [isUnmatching, setIsUnmatching] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
 
+  const listFilters = useMemo(
+    () => ({
+      state: stateFilter === "ALL" ? undefined : stateFilter,
+      search: search || undefined,
+    }),
+    [stateFilter, search],
+  );
+
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const result = await carrierReconciliationService.list({
-        state: stateFilter === "ALL" ? undefined : stateFilter,
-        search: search || undefined,
-        page,
-        pageSize,
-      });
+      const result = await carrierReconciliationService.list({ ...listFilters, page, pageSize });
       setItems(result.items);
       setTotalCount(result.total);
     } catch (error) {
@@ -80,7 +84,20 @@ function CarrierReconciliationContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [stateFilter, search, page, pageSize]);
+  }, [listFilters, page, pageSize]);
+
+  // Print: every row matching the current filters, not just the loaded page.
+  const fetchAllRows = useCallback(
+    () =>
+      fetchAllPages((nextPage, nextPageSize) =>
+        carrierReconciliationService.list({
+          ...listFilters,
+          page: nextPage,
+          pageSize: nextPageSize,
+        }),
+      ),
+    [listFilters],
+  );
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -270,6 +287,7 @@ function CarrierReconciliationContent() {
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        fetchAllRows={fetchAllRows}
         onPageSizeChange={(size) => {
           setPageSize(size);
           setPage(1);

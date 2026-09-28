@@ -26,6 +26,7 @@ import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { toast, reportApiError } from "@/lib/toast";
 import { formatDate } from "@/lib/date";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 
 const OPPORTUNITY_STATUSES: InvestmentOpportunityStatus[] = [
   "DRAFT",
@@ -55,17 +56,20 @@ export default function InvestmentOpportunitiesPage() {
   const [cancelTarget, setCancelTarget] = useState<InvestmentOpportunityRow | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<InvestmentOpportunityRow | null>(null);
 
+  const listFilters = useMemo(
+    () => ({
+      search: search || undefined,
+      status: statusFilter as InvestmentOpportunityStatus[],
+      sortBy,
+      sortOrder,
+    }),
+    [search, statusFilter, sortBy, sortOrder],
+  );
+
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const result = await investmentOpportunitiesService.list({
-        search: search || undefined,
-        status: statusFilter as InvestmentOpportunityStatus[],
-        page,
-        pageSize,
-        sortBy,
-        sortOrder,
-      });
+      const result = await investmentOpportunitiesService.list({ ...listFilters, page, pageSize });
       setItems(result.items);
       setTotal(result.total);
     } catch (error) {
@@ -73,7 +77,20 @@ export default function InvestmentOpportunitiesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [search, statusFilter, page, pageSize, sortBy, sortOrder, t]);
+  }, [listFilters, page, pageSize, t]);
+
+  // Print: every row matching the current filters/sort, not just the loaded page.
+  const fetchAllRows = useCallback(
+    () =>
+      fetchAllPages((nextPage, nextPageSize) =>
+        investmentOpportunitiesService.list({
+          ...listFilters,
+          page: nextPage,
+          pageSize: nextPageSize,
+        }),
+      ),
+    [listFilters],
+  );
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -169,6 +186,7 @@ export default function InvestmentOpportunitiesPage() {
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        fetchAllRows={fetchAllRows}
         onPageSizeChange={(size) => {
           setPageSize(size);
           setPage(1);

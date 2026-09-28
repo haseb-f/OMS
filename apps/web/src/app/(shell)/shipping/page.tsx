@@ -43,6 +43,7 @@ import { reportApiError, toast } from "@/lib/toast";
 import { formatDate, toISODate } from "@/lib/date";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { useCountries } from "@/hooks/use-reference-data";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 
 const EMPTY_DATE_RANGE: DateRangeValue = { from: null, to: null };
 
@@ -121,16 +122,19 @@ function ShippingPageContent() {
     );
   }, []);
 
+  const listFilters = useMemo(
+    () => ({
+      ...listParams(),
+      sortBy,
+      sortOrder,
+    }),
+    [listParams, sortBy, sortOrder],
+  );
+
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const result = await shippingService.list({
-        ...listParams(),
-        page,
-        pageSize,
-        sortBy,
-        sortOrder,
-      });
+      const result = await shippingService.list({ ...listFilters, page, pageSize });
       setItems(result.items);
       setTotal(result.total);
     } catch (error) {
@@ -138,7 +142,16 @@ function ShippingPageContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [listParams, page, pageSize, sortBy, sortOrder]);
+  }, [listFilters, page, pageSize]);
+
+  // Print: every row matching the current filters/sort, not just the loaded page.
+  const fetchAllRows = useCallback(
+    () =>
+      fetchAllPages((nextPage, nextPageSize) =>
+        shippingService.list({ ...listFilters, page: nextPage, pageSize: nextPageSize }),
+      ),
+    [listFilters],
+  );
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -338,6 +351,7 @@ function ShippingPageContent() {
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        fetchAllRows={fetchAllRows}
         onPageSizeChange={(size) => {
           setPageSize(size);
           setPage(1);

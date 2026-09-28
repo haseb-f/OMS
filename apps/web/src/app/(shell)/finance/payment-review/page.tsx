@@ -30,6 +30,7 @@ import {
 } from "@/services/payments-review-service";
 import { paymentRecordStatusBadge } from "@/config/store-orders/status";
 import type { MessageKey } from "@/i18n/translate";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 
 /**
  * The ledger account a confirmation will debit: the payment method's
@@ -111,6 +112,23 @@ function PaymentReviewPageContent() {
       setIsLoading(false);
     }
   }, [status, page, pageSize]);
+
+  // Print: every row in the current status view, not just the loaded page. The
+  // "all" view merges PENDING + MATCHED newest-first, like the on-screen list.
+  const fetchAllRows = useCallback(async () => {
+    const fetchStatus = (value: PaymentReviewStatus) =>
+      fetchAllPages((nextPage, nextPageSize) =>
+        paymentsReviewService.list({ status: value, page: nextPage, pageSize: nextPageSize }),
+      );
+    if (status !== "") return fetchStatus(status);
+    const [pending, matched] = await Promise.all([fetchStatus("PENDING"), fetchStatus("MATCHED")]);
+    return {
+      rows: [...pending.rows, ...matched.rows].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      ),
+      total: pending.total + matched.total,
+    };
+  }, [status]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -437,6 +455,7 @@ function PaymentReviewPageContent() {
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        fetchAllRows={fetchAllRows}
         onPageSizeChange={(size) => {
           setPageSize(size);
           setPage(1);

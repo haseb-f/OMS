@@ -1,0 +1,446 @@
+/*
+ * OMS Print Design System (specs/print-design-system/spec.md §2).
+ *
+ * Everything a printed sheet needs, scoped to `[data-print-sheet]` (the
+ * isolated `/print/*` routes) so the app's screen tokens and dark mode never
+ * leak onto paper. Sizes are in pt/mm — physical units — so A4 and A5 print at
+ * a predictable actual size. One accent (the company brand color) is the only
+ * color; every meaning is also carried by weight, rules or words, so a sheet
+ * reads the same in monochrome.
+ */
+
+[data-print-sheet] {
+  --pr-ink: #111111;
+  --pr-muted: #4d4d4d;
+  --pr-faint: #737373;
+  --pr-rule: #cfcfcf;
+  --pr-rule-strong: #8a8a8a;
+  --pr-fill: #f3f3f3;
+  --pr-accent: var(--pr-brand, #04203c);
+
+  --pr-fs-title: 15pt;
+  --pr-fs-number: 12pt;
+  --pr-fs-heading: 10pt;
+  --pr-fs-body: 9pt;
+  --pr-fs-table: 8.75pt;
+  --pr-fs-compact: 8pt;
+  --pr-fs-micro: 7.25pt;
+
+  --pr-gap: 2mm;
+  --pr-gap-lg: 4mm;
+
+  color: var(--pr-ink);
+  background: #fff;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: var(--pr-fs-body);
+  line-height: 1.45;
+  font-feature-settings: normal;
+}
+
+/* ── Preview toolbar (screen only) ─────────────────────────────────────── */
+.pr-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #e5e5e5;
+  background: #fafafa;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #333;
+}
+.pr-toolbar-hint {
+  flex: 1 1 260px;
+  color: #666;
+  font-size: 12px;
+}
+.pr-toolbar-paper {
+  font-weight: 600;
+  color: #111;
+}
+/* The sheet on screen: a white page on a neutral desk, at its paper width. */
+.pr-desk {
+  background: #ececec;
+  padding: 24px 12px 48px;
+}
+.pr-sheet {
+  margin-inline: auto;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+}
+@media print {
+  .pr-toolbar {
+    display: none !important;
+  }
+  .pr-desk {
+    background: none;
+    padding: 0;
+  }
+  .pr-sheet {
+    width: auto !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    box-shadow: none;
+  }
+}
+
+/* ── Pagination ─────────────────────────────────────────────────────────── */
+@media print {
+  [data-print-sheet] {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  [data-print-sheet] thead {
+    display: table-header-group;
+  }
+  [data-print-sheet] tr,
+  [data-print-avoid-break] {
+    break-inside: avoid;
+  }
+  [data-print-keep-with-next] {
+    break-after: avoid;
+  }
+}
+[data-print-page-break] {
+  break-before: page;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.pr-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--pr-gap-lg);
+  padding-bottom: var(--pr-gap);
+  border-bottom: 1.5pt solid var(--pr-accent);
+}
+.pr-company {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--pr-gap);
+}
+.pr-logo {
+  height: 14mm;
+  width: auto;
+  max-width: 38mm;
+  object-fit: contain;
+}
+.pr-logo-fallback {
+  display: flex;
+  height: 12mm;
+  width: 12mm;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1.5mm;
+  background: var(--pr-accent);
+  color: #fff;
+  font-size: 12pt;
+  font-weight: 600;
+}
+.pr-company-lines {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.3mm;
+  color: var(--pr-muted);
+  font-size: var(--pr-fs-micro);
+}
+.pr-company-name {
+  color: var(--pr-ink);
+  font-size: var(--pr-fs-heading);
+  font-weight: 600;
+}
+.pr-doc-id {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5mm;
+  text-align: end;
+}
+.pr-title {
+  margin: 0;
+  font-size: var(--pr-fs-title);
+  font-weight: 700;
+  line-height: 1.2;
+}
+.pr-number {
+  font-size: var(--pr-fs-number);
+  font-weight: 600;
+}
+.pr-doc-sub {
+  color: var(--pr-muted);
+  font-size: var(--pr-fs-micro);
+}
+
+/* ── Info blocks ────────────────────────────────────────────────────────── */
+.pr-panels {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--pr-gap-lg);
+  padding-block: var(--pr-gap);
+  border-bottom: 0.5pt solid var(--pr-rule);
+}
+.pr-panel-title {
+  margin-bottom: 0.8mm;
+  color: var(--pr-muted);
+  font-size: var(--pr-fs-micro);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.pr-party-name {
+  font-size: var(--pr-fs-heading);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.pr-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3mm;
+  color: var(--pr-muted);
+  overflow-wrap: anywhere;
+}
+.pr-info {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.6mm var(--pr-gap-lg);
+  margin: 0;
+  align-content: start;
+}
+.pr-info dt {
+  color: var(--pr-muted);
+  white-space: nowrap;
+}
+.pr-info dd {
+  margin: 0;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.pr-meta-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1mm var(--pr-gap-lg);
+  padding-block: var(--pr-gap);
+  border-bottom: 0.5pt solid var(--pr-rule);
+  font-size: var(--pr-fs-micro);
+}
+.pr-meta-strip span b {
+  font-weight: 600;
+  color: var(--pr-ink);
+}
+.pr-meta-strip span {
+  color: var(--pr-muted);
+}
+
+/* ── Tables ─────────────────────────────────────────────────────────────── */
+.pr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--pr-fs-table);
+  line-height: 1.4;
+}
+.pr-table[data-density="compact"] {
+  font-size: var(--pr-fs-compact);
+}
+.pr-table th {
+  padding: 1.3mm 1.6mm;
+  border-top: 0.75pt solid var(--pr-rule-strong);
+  border-bottom: 0.75pt solid var(--pr-rule-strong);
+  background: var(--pr-fill);
+  font-weight: 600;
+  text-align: start;
+  vertical-align: bottom;
+}
+.pr-table td {
+  padding: 1.2mm 1.6mm;
+  border-bottom: 0.5pt solid var(--pr-rule);
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.pr-table[data-density="compact"] :is(th, td) {
+  padding: 0.8mm 1.2mm;
+}
+.pr-table :is(th, td)[data-align="end"] {
+  text-align: end;
+  white-space: nowrap;
+}
+.pr-table :is(th, td)[data-align="center"] {
+  text-align: center;
+}
+.pr-table td[data-wrap="nowrap"] {
+  white-space: nowrap;
+}
+.pr-cell-sub {
+  display: block;
+  color: var(--pr-faint);
+  font-size: var(--pr-fs-micro);
+}
+.pr-table tr[data-kind="section"] > td {
+  border-top: 0.75pt solid var(--pr-rule-strong);
+  font-weight: 700;
+}
+.pr-table tr[data-kind="parent"] > td {
+  font-weight: 600;
+}
+.pr-table tr[data-kind="subtotal"] > td {
+  border-top: 0.75pt solid var(--pr-rule-strong);
+  font-weight: 700;
+}
+.pr-table tr:is([data-kind="grand-total"], [data-kind="total"]) > td {
+  border-top: 2.25pt double var(--pr-ink);
+  border-bottom: 0.75pt solid var(--pr-ink);
+  font-weight: 700;
+}
+.pr-table tr[data-kind="opening"] > td,
+.pr-table tr[data-kind="closing"] > td {
+  background: var(--pr-fill);
+  font-weight: 600;
+}
+
+/* ── Totals / notes / signatures ────────────────────────────────────────── */
+.pr-after-table {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--pr-gap-lg);
+  margin-top: var(--pr-gap);
+}
+.pr-totals {
+  display: flex;
+  width: 72mm;
+  max-width: 100%;
+  flex-direction: column;
+  gap: 0.8mm;
+  margin-inline-start: auto;
+}
+.pr-total-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--pr-gap-lg);
+}
+.pr-total-row > span:first-child {
+  color: var(--pr-muted);
+}
+.pr-total-row[data-emphasis] {
+  margin-top: 0.6mm;
+  padding-top: 1mm;
+  border-top: 1pt solid var(--pr-ink);
+  font-size: var(--pr-fs-heading);
+  font-weight: 700;
+}
+.pr-total-row[data-emphasis] > span:first-child {
+  color: var(--pr-ink);
+}
+.pr-status {
+  display: inline-block;
+  padding: 0.3mm 1.6mm;
+  border: 0.75pt solid var(--pr-ink);
+  border-radius: 1mm;
+  font-size: var(--pr-fs-micro);
+  font-weight: 600;
+}
+.pr-section {
+  margin-top: var(--pr-gap-lg);
+  padding-top: var(--pr-gap);
+  border-top: 0.5pt solid var(--pr-rule);
+}
+.pr-section-title {
+  margin-bottom: 1mm;
+  font-size: var(--pr-fs-body);
+  font-weight: 600;
+}
+.pr-section p {
+  margin: 0;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.pr-qr {
+  display: flex;
+  align-items: center;
+  gap: var(--pr-gap);
+  color: var(--pr-muted);
+  font-size: var(--pr-fs-micro);
+}
+.pr-signatures {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12mm;
+  margin-top: 10mm;
+}
+.pr-signature-line {
+  margin-top: 10mm;
+  padding-top: 1mm;
+  border-top: 0.75pt solid var(--pr-rule-strong);
+  color: var(--pr-muted);
+}
+.pr-footnote {
+  margin-top: var(--pr-gap);
+  color: var(--pr-faint);
+  font-size: var(--pr-fs-micro);
+}
+
+/* ── Instructions (package slip) — monochrome-first ─────────────────────── */
+.pr-instruction {
+  padding: 2.5mm 3mm;
+  border: 1.5pt solid var(--pr-ink);
+  border-radius: 1.5mm;
+}
+.pr-instruction[data-tone="collect"] {
+  background: var(--pr-ink);
+  color: #fff;
+}
+.pr-instruction[data-tone="none"] {
+  border-style: double;
+  border-width: 3pt;
+}
+.pr-instruction[data-tone="hold"] {
+  border-style: dashed;
+  border-width: 2pt;
+}
+.pr-instruction-title {
+  font-size: 13pt;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.pr-instruction-amount {
+  font-size: 18pt;
+  font-weight: 800;
+  line-height: 1.15;
+}
+.pr-instruction-detail {
+  margin-top: 0.8mm;
+  font-size: var(--pr-fs-micro);
+  opacity: 0.9;
+}
+.pr-band {
+  padding: 2mm 3mm;
+  border: 2pt solid var(--pr-ink);
+  text-align: center;
+  font-size: 13pt;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+/* ── App pages printed directly (Ctrl+P): paper shows content only ─────── */
+@media print {
+  :is(
+    [data-slot="sidebar"],
+    [data-slot="sidebar-container"],
+    [data-slot="sidebar-gap"],
+    [data-slot="top-bar"],
+    [data-testid="nav-trail"],
+    [data-sonner-toaster]
+  ):not([data-print-sheet] *) {
+    display: none !important;
+  }
+  main :is(button, [role="button"], [data-slot="button"]):not([data-print-sheet] *) {
+    display: none !important;
+  }
+}

@@ -1,84 +1,41 @@
-import type { DocumentData } from "@/types/document-engine";
 import type { DocumentPrintPayload } from "@/types/print-engine";
-import { documentPrintBranding } from "@/components/print/print-brand";
 import type { PurchaseInvoiceRow } from "@/services/purchase-invoices-service";
-import { formatDate } from "@/lib/date";
-import type { MessageKey } from "@/i18n/translate";
+import {
+  buildCommercialPrintPayload,
+  type PrintBuilderOptions,
+} from "@/config/documents/commercial-print";
 
-/** Mirrors `config/sales/quotation-print.ts` — feeds the existing Print Engine's "invoice" variant. */
+/** Purchase invoice print — the shared commercial template (Print Design System spec §3). */
 export function buildInvoicePrintPayload(
   invoice: PurchaseInvoiceRow,
-  options: {
-    companyName: string;
-    companyLogoUrl: string | null;
-    printedByName: string | null;
-    t: (key: MessageKey, params?: Record<string, string | number>) => string;
-  },
+  options: PrintBuilderOptions,
 ): DocumentPrintPayload {
-  const { companyName, companyLogoUrl, printedByName, t } = options;
-
-  const data: DocumentData = {
-    type: "tax-invoice",
-    documentNumber: invoice.invoiceNumber,
-    documentDate: formatDate(invoice.createdAt),
-    currency: "",
-    company: {
-      name: companyName,
-      addressLines: [],
-      branding: documentPrintBranding(companyLogoUrl),
-    },
-    party: {
-      name: invoice.partner?.name ?? "",
-      taxNumber: invoice.partner?.taxNumber ?? undefined,
-      addressLines: [
-        invoice.partner?.address,
-        invoice.partner?.city,
-        invoice.partner?.country?.name,
-      ].filter((value): value is string => !!value),
-      phone: invoice.partner?.phone ?? undefined,
-      email: invoice.partner?.email ?? undefined,
-    },
-    meta: [
-      ...(invoice.referenceNumber
-        ? [{ label: t("purchasing.invoices.fields.reference"), value: invoice.referenceNumber }]
-        : []),
-    ],
-    lineItems: invoice.items.map((item) => ({
-      id: item.id,
-      description: item.product?.displayName || item.product?.name || item.description || "",
-      quantity: item.quantity,
-      unit: item.unit?.name,
-      unitPrice: Number(item.unitPrice),
-      total: Number(item.lineTotal),
-    })),
-    totals: [
-      { label: t("sales.editor.totals.subtotal"), value: Number(invoice.subtotal) },
-      { label: t("sales.editor.totals.discount"), value: Number(invoice.discountTotal) },
-      { label: t("sales.editor.totals.tax"), value: Number(invoice.taxTotal) },
-      {
-        label: t("sales.editor.totals.grandTotal"),
-        value: Number(invoice.grandTotal),
-        emphasis: true,
+  return buildCommercialPrintPayload(
+    {
+      type: "tax-invoice",
+      titleKey: "printDocument.docTitle.purchaseInvoice",
+      documentNumber: invoice.invoiceNumber,
+      date: invoice.createdAt,
+      partner: invoice.partner,
+      partyRole: "supplier",
+      currency: invoice.currency,
+      referenceNumber: invoice.referenceNumber,
+      sourceNumber: invoice.purchaseOrder?.poNumber,
+      items: invoice.items,
+      totals: {
+        subtotal: Number(invoice.subtotal),
+        discount: Number(invoice.discountTotal),
+        tax: Number(invoice.taxTotal),
+        grandTotal: Number(invoice.grandTotal),
       },
-    ],
-    notes: invoice.supplierNotes ?? undefined,
-  };
-
-  return {
-    variant: "invoice",
-    title: `${t("purchasing.invoices.title")} — ${invoice.invoiceNumber}`,
-    printedByName,
-    recordPath: `/purchasing/purchase-invoices/${invoice.id}`,
-    data,
-    labels: {
-      documentNumber: t("purchasing.invoices.fields.number"),
-      documentDate: t("sales.editor.header.documentDate"),
-      billTo: t("purchasing.suppliers.picker.selectSupplier"),
-      description: t("sales.editor.grid.product"),
-      quantity: t("sales.editor.grid.quantity"),
-      unitPrice: t("sales.editor.grid.unitPrice"),
-      lineTotal: t("sales.editor.grid.lineTotal"),
-      notes: t("sales.editor.sections.notes"),
+      payment: {
+        status: invoice.paymentStatus,
+        paid: invoice.allocatedTotal,
+        remaining: invoice.remainingBalance,
+      },
+      notes: invoice.supplierNotes,
+      recordPath: `/purchasing/purchase-invoices/${invoice.id}`,
     },
-  };
+    options,
+  );
 }

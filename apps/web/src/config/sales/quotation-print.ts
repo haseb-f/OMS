@@ -1,91 +1,35 @@
-import type { DocumentData } from "@/types/document-engine";
 import type { DocumentPrintPayload } from "@/types/print-engine";
-import { documentPrintBranding } from "@/components/print/print-brand";
 import type { SalesQuotationRow } from "@/services/sales-quotations-service";
-import { formatDate } from "@/lib/date";
-import type { MessageKey } from "@/i18n/translate";
+import {
+  buildCommercialPrintPayload,
+  type PrintBuilderOptions,
+} from "@/config/documents/commercial-print";
 
-/**
- * TASK-040 — the Quotation `SalesDocumentPrintPayloadBuilder` implementation
- * (the interface itself was defined in TASK-039). Feeds the existing Print
- * Engine's "invoice" variant — no new template, per this task's "reuse the
- * shared Print Engine" instruction. Real quotation data only: company
- * branding from the active company, party from the real selected customer,
- * line items and totals straight from the server-computed record.
- */
+/** Sales quotation (no validity field exists in the data model — none is printed; customer notes are the terms) print — the shared commercial template (Print Design System spec §3). */
 export function buildQuotationPrintPayload(
   quotation: SalesQuotationRow,
-  options: {
-    companyName: string;
-    companyLogoUrl: string | null;
-    printedByName: string | null;
-    t: (key: MessageKey, params?: Record<string, string | number>) => string;
-  },
+  options: PrintBuilderOptions,
 ): DocumentPrintPayload {
-  const { companyName, companyLogoUrl, printedByName, t } = options;
-
-  const data: DocumentData = {
-    type: "quotation",
-    documentNumber: quotation.quotationNumber,
-    documentDate: formatDate(quotation.documentDate),
-    currency: "",
-    company: {
-      name: companyName,
-      addressLines: [],
-      branding: documentPrintBranding(companyLogoUrl),
-    },
-    party: {
-      name: quotation.partner?.name ?? "",
-      taxNumber: quotation.partner?.taxNumber ?? undefined,
-      addressLines: [
-        quotation.partner?.address,
-        quotation.partner?.city,
-        quotation.partner?.country?.name,
-      ].filter((value): value is string => !!value),
-      phone: quotation.partner?.phone ?? undefined,
-      email: quotation.partner?.email ?? undefined,
-    },
-    meta: [
-      ...(quotation.referenceNumber
-        ? [{ label: t("sales.quotations.fields.reference"), value: quotation.referenceNumber }]
-        : []),
-    ],
-    lineItems: quotation.items.map((item) => ({
-      id: item.id,
-      description: item.product?.displayName || item.product?.name || item.description || "",
-      quantity: item.quantity,
-      unit: item.unit?.name,
-      unitPrice: Number(item.unitPrice),
-      total: Number(item.lineTotal),
-    })),
-    totals: [
-      { label: t("sales.editor.totals.subtotal"), value: Number(quotation.subtotal) },
-      { label: t("sales.editor.totals.discount"), value: Number(quotation.discountTotal) },
-      { label: t("sales.editor.totals.tax"), value: Number(quotation.taxTotal) },
-      {
-        label: t("sales.editor.totals.grandTotal"),
-        value: Number(quotation.grandTotal),
-        emphasis: true,
+  return buildCommercialPrintPayload(
+    {
+      type: "quotation",
+      titleKey: "printDocument.docTitle.salesQuotation",
+      documentNumber: quotation.quotationNumber,
+      date: quotation.documentDate,
+      partner: quotation.partner,
+      partyRole: "customer",
+      currency: quotation.currency,
+      referenceNumber: quotation.referenceNumber,
+      items: quotation.items,
+      totals: {
+        subtotal: Number(quotation.subtotal),
+        discount: Number(quotation.discountTotal),
+        tax: Number(quotation.taxTotal),
+        grandTotal: Number(quotation.grandTotal),
       },
-    ],
-    notes: quotation.customerNotes ?? undefined,
-  };
-
-  return {
-    variant: "invoice",
-    title: `${t("sales.quotations.title")} — ${quotation.quotationNumber}`,
-    printedByName,
-    recordPath: `/sales/quotations/${quotation.id}`,
-    data,
-    labels: {
-      documentNumber: t("sales.quotations.fields.number"),
-      documentDate: t("sales.editor.header.documentDate"),
-      billTo: t("sales.customers.picker.selectCustomer"),
-      description: t("sales.editor.grid.product"),
-      quantity: t("sales.editor.grid.quantity"),
-      unitPrice: t("sales.editor.grid.unitPrice"),
-      lineTotal: t("sales.editor.grid.lineTotal"),
-      notes: t("sales.editor.sections.notes"),
+      notes: quotation.customerNotes,
+      recordPath: `/sales/quotations/${quotation.id}`,
     },
-  };
+    options,
+  );
 }

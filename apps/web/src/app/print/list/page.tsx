@@ -1,35 +1,14 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { GenericListPrintTemplate } from "@/components/print/templates";
-import { useTriggerPrint } from "@/components/print/use-trigger-print";
-import { readPrintJob } from "@/lib/print-bridge";
-import { useLocale } from "@/providers/locale-provider";
+import { PrintJobExpired, usePrintJob } from "@/components/print/print-job";
 import type { GenericListPrintPayload } from "@/types/print-engine";
 
 function PrintListContent() {
-  const { t } = useLocale();
-  const searchParams = useSearchParams();
-  const jobId = searchParams.get("job");
-  const [payload, setPayload] = useState<GenericListPrintPayload | null | undefined>(undefined);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPayload(jobId ? readPrintJob<GenericListPrintPayload>(jobId) : null);
-  }, [jobId]);
-
-  useTriggerPrint(!!payload);
-
+  const payload = usePrintJob<GenericListPrintPayload>();
   if (payload === undefined) return null;
-  if (!payload) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-sm text-slate-500">
-        {t("reportExport.printExpired")}
-      </div>
-    );
-  }
-
+  if (!payload) return <PrintJobExpired />;
   return <GenericListPrintTemplate payload={payload} />;
 }
 

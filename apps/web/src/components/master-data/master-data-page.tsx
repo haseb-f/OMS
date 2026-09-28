@@ -54,6 +54,7 @@ import {
 } from "@/components/shared/form-error-summary";
 import { formatDateTime } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 
 export interface MasterDataEntity {
   id: string;
@@ -311,18 +312,23 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
     return () => window.removeEventListener("beforeunload", handler);
   }, [isDirty]);
 
+  // `extraKey` stands in for `extraListParams` (a fresh object each render).
+  const listFilters = useMemo(
+    () => ({
+      search: search || undefined,
+      sortBy,
+      sortOrder,
+      includeArchived,
+      ...extraListParams,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [search, sortBy, sortOrder, includeArchived, extraKey],
+  );
+
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const result = await service.list({
-        search: search || undefined,
-        page,
-        pageSize,
-        sortBy,
-        sortOrder,
-        includeArchived,
-        ...extraListParams,
-      });
+      const result = await service.list({ ...listFilters, page, pageSize });
       setItems(result.items);
       setTotal(result.total);
     } catch (error) {
@@ -331,7 +337,16 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
       setIsLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, page, pageSize, sortBy, sortOrder, includeArchived, extraKey]);
+  }, [listFilters, page, pageSize]);
+
+  // Print: every row matching the current filters/sort, not just the loaded page.
+  const fetchAllRows = useCallback(
+    () =>
+      fetchAllPages((nextPage, nextPageSize) =>
+        service.list({ ...listFilters, page: nextPage, pageSize: nextPageSize }),
+      ),
+    [service, listFilters],
+  );
 
   useEffect(() => {
     // Fetch-on-dependency-change: the standard data-fetching effect pattern
@@ -745,6 +760,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
           page={page}
           pageSize={pageSize}
           onPageChange={setPage}
+          fetchAllRows={fetchAllRows}
           onPageSizeChange={(size) => {
             setPageSize(size);
             setPage(1);

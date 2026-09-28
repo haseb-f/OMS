@@ -44,6 +44,7 @@ import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { toast, reportApiError } from "@/lib/toast";
 import { currentMonthValue } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 
 const PERIOD_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 const STATUSES: CommissionStatus[] = ["CALCULATED", "APPROVED", "INCLUDED_IN_PAYROLL", "ADJUSTED"];
@@ -88,16 +89,19 @@ export default function CommissionsPage() {
     setPage(1);
   };
 
+  const listFilters = useMemo(
+    () => ({
+      period: periodFilter && PERIOD_PATTERN.test(periodFilter) ? periodFilter : undefined,
+      employeeProfileId: employeeFilter?.id || undefined,
+      status: (statusFilter || undefined) as CommissionStatus | undefined,
+    }),
+    [periodFilter, employeeFilter, statusFilter],
+  );
+
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const result = await commissionsService.list({
-        period: periodFilter && PERIOD_PATTERN.test(periodFilter) ? periodFilter : undefined,
-        employeeProfileId: employeeFilter?.id || undefined,
-        status: (statusFilter || undefined) as CommissionStatus | undefined,
-        page,
-        pageSize,
-      });
+      const result = await commissionsService.list({ ...listFilters, page, pageSize });
       setRows(result.items);
       setTotal(result.total);
     } catch (error) {
@@ -105,7 +109,16 @@ export default function CommissionsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [periodFilter, employeeFilter, statusFilter, page, pageSize]);
+  }, [listFilters, page, pageSize]);
+
+  // Print: every row matching the current filters, not just the loaded page.
+  const fetchAllRows = useCallback(
+    () =>
+      fetchAllPages((nextPage, nextPageSize) =>
+        commissionsService.list({ ...listFilters, page: nextPage, pageSize: nextPageSize }),
+      ),
+    [listFilters],
+  );
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -299,6 +312,7 @@ export default function CommissionsPage() {
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        fetchAllRows={fetchAllRows}
         onPageSizeChange={(size) => {
           setPageSize(size);
           setPage(1);

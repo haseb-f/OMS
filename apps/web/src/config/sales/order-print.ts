@@ -1,83 +1,36 @@
-import type { DocumentData } from "@/types/document-engine";
 import type { DocumentPrintPayload } from "@/types/print-engine";
-import { documentPrintBranding } from "@/components/print/print-brand";
 import type { SalesOrderRow } from "@/services/sales-orders-service";
-import { formatDate } from "@/lib/date";
-import type { MessageKey } from "@/i18n/translate";
+import {
+  buildCommercialPrintPayload,
+  type PrintBuilderOptions,
+} from "@/config/documents/commercial-print";
 
+/** Sales order print — the shared commercial template (Print Design System spec §3). */
 export function buildOrderPrintPayload(
   order: SalesOrderRow,
-  options: {
-    companyName: string;
-    companyLogoUrl: string | null;
-    printedByName: string | null;
-    t: (key: MessageKey, params?: Record<string, string | number>) => string;
-  },
+  options: PrintBuilderOptions,
 ): DocumentPrintPayload {
-  const { companyName, companyLogoUrl, printedByName, t } = options;
-
-  const data: DocumentData = {
-    type: "sales-order",
-    documentNumber: order.orderNumber,
-    documentDate: formatDate(order.createdAt),
-    currency: "",
-    company: {
-      name: companyName,
-      addressLines: [],
-      branding: documentPrintBranding(companyLogoUrl),
-    },
-    party: {
-      name: order.partner?.name ?? "",
-      taxNumber: order.partner?.taxNumber ?? undefined,
-      addressLines: [
-        order.partner?.address,
-        order.partner?.city,
-        order.partner?.country?.name,
-      ].filter((value): value is string => !!value),
-      phone: order.partner?.phone ?? undefined,
-      email: order.partner?.email ?? undefined,
-    },
-    meta: [
-      ...(order.referenceNumber
-        ? [{ label: t("sales.orders.fields.reference"), value: order.referenceNumber }]
-        : []),
-    ],
-    lineItems: order.items.map((item) => ({
-      id: item.id,
-      description: item.product?.displayName || item.product?.name || item.description || "",
-      quantity: item.quantity,
-      unit: item.unit?.name,
-      unitPrice: Number(item.unitPrice),
-      total: Number(item.lineTotal),
-    })),
-    totals: [
-      { label: t("sales.editor.totals.subtotal"), value: Number(order.subtotal) },
-      { label: t("sales.editor.totals.discount"), value: Number(order.discountTotal) },
-      { label: t("sales.editor.totals.tax"), value: Number(order.taxTotal) },
-      {
-        label: t("sales.editor.totals.grandTotal"),
-        value: Number(order.grandTotal),
-        emphasis: true,
+  return buildCommercialPrintPayload(
+    {
+      type: "sales-order",
+      titleKey: "printDocument.docTitle.salesOrder",
+      documentNumber: order.orderNumber,
+      date: order.createdAt,
+      partner: order.partner,
+      partyRole: "customer",
+      currency: order.currency,
+      referenceNumber: order.referenceNumber,
+      sourceNumber: order.quotation?.quotationNumber,
+      items: order.items,
+      totals: {
+        subtotal: Number(order.subtotal),
+        discount: Number(order.discountTotal),
+        tax: Number(order.taxTotal),
+        grandTotal: Number(order.grandTotal),
       },
-    ],
-    notes: order.customerNotes ?? undefined,
-  };
-
-  return {
-    variant: "invoice",
-    title: `${t("sales.orders.title")} — ${order.orderNumber}`,
-    printedByName,
-    recordPath: `/sales/orders/${order.id}`,
-    data,
-    labels: {
-      documentNumber: t("sales.orders.fields.number"),
-      documentDate: t("sales.editor.header.documentDate"),
-      billTo: t("sales.customers.picker.selectCustomer"),
-      description: t("sales.editor.grid.product"),
-      quantity: t("sales.editor.grid.quantity"),
-      unitPrice: t("sales.editor.grid.unitPrice"),
-      lineTotal: t("sales.editor.grid.lineTotal"),
-      notes: t("sales.editor.sections.notes"),
+      notes: order.customerNotes,
+      recordPath: `/sales/orders/${order.id}`,
     },
-  };
+    options,
+  );
 }

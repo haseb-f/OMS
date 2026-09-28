@@ -24,25 +24,21 @@ import {
 } from "@/services/supplier-payments-service";
 import type { MasterDataActivityEntry } from "@/services/master-data-service";
 import { StatusBadge } from "@/components/business/status-badge";
-import { usePrintEngine } from "@/hooks/use-print-engine";
-import { useCompany } from "@/providers/company-provider";
+import { usePartnerStatementPrint } from "@/hooks/use-partner-statement-print";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { formatDate, formatDateTime } from "@/lib/date";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { MoneyValue } from "@/components/shared/money-value";
-import { documentPrintBranding } from "@/components/print/print-brand";
-import type { DocumentData } from "@/types/document-engine";
 import { toast, reportApiError } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
 
 /** Mirrors `sales/customers/[id]/page.tsx` — bespoke Profile page, not `MasterDataPage`'s built-in quick-preview sheet. */
 export default function SupplierProfilePage() {
   const params = useParams<{ id: string }>();
-  const { t, direction } = useLocale();
-  const { printDocument } = usePrintEngine();
-  const { activeCompany } = useCompany();
-  const { user, hasPermission } = useUserContext();
+  const { t } = useLocale();
+  const { printStatement, isPreparing: isPreparingPrint } = usePartnerStatementPrint("supplier");
+  const { hasPermission } = useUserContext();
   const router = useRouter();
 
   const [supplier, setSupplier] = useState<PartnerRow | null>(null);
@@ -127,66 +123,7 @@ export default function SupplierProfilePage() {
         : "pending",
   }));
 
-  const handlePrint = () => {
-    const data: DocumentData = {
-      type: "supplier-statement",
-      documentNumber: supplier.partnerNumber,
-      documentDate: formatDate(new Date().toISOString()),
-      currency: supplier.currency?.code ?? "",
-      company: {
-        name: activeCompany?.name ?? "",
-        addressLines: [],
-        branding: {
-          ...documentPrintBranding(activeCompany?.logoUrl ?? null),
-          language: direction === "rtl" ? "rtl" : "ltr",
-        },
-      },
-      party: {
-        name: supplier.name,
-        taxNumber: supplier.taxNumber ?? undefined,
-        addressLines: [supplier.address, supplier.city, supplier.country?.name].filter(
-          (v): v is string => !!v,
-        ),
-        phone: supplier.phone ?? undefined,
-        email: supplier.email ?? undefined,
-      },
-      meta: [
-        {
-          label: t("purchasing.suppliers.fields.status"),
-          value: t(`common.${supplier.status === "ACTIVE" ? "active" : "archived"}`),
-        },
-      ],
-      // Real Partner data only — no transaction lines here (Purchase
-      // Invoice/Return list-by-supplier UI is out of this task's scope).
-      lineItems: [],
-      totals:
-        creditLimit !== null
-          ? [
-              {
-                label: t("purchasing.suppliers.fields.creditLimit"),
-                value: creditLimit,
-                emphasis: true,
-              },
-            ]
-          : [],
-    };
-    printDocument({
-      variant: "statement",
-      title: `${t("purchasing.suppliers.title")} — ${supplier.name}`,
-      printedByName: user?.fullName ?? null,
-      data,
-      labels: {
-        documentNumber: t("purchasing.suppliers.fields.supplierNumber"),
-        documentDate: t("purchasing.suppliers.fields.createdAt"),
-        billTo: t("purchasing.suppliers.picker.selectSupplier"),
-        description: t("common.status"),
-        quantity: "",
-        unitPrice: "",
-        lineTotal: t("purchasing.suppliers.fields.creditLimit"),
-        notes: t("purchasing.suppliers.fields.notes"),
-      },
-    });
-  };
+  const handlePrint = () => void printStatement(supplier);
 
   const handleArchive = async () => {
     setIsArchiving(true);
@@ -235,6 +172,9 @@ export default function SupplierProfilePage() {
               key: "print",
               label: t("purchasing.suppliers.profile.print"),
               icon: Printer,
+              // The full partner statement is a financial report (same permission).
+              hidden: !hasPermission("reports.financial.view"),
+              disabled: isPreparingPrint,
               onSelect: handlePrint,
             },
           ]}

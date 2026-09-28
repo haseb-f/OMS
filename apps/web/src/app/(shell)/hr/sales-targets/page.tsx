@@ -36,6 +36,7 @@ import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { toast, reportApiError } from "@/lib/toast";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 
 const SCOPE_TYPES: TargetScopeType[] = ["EMPLOYEE", "TEAM"];
 const METRICS: TargetMetric[] = ["COLLECTED_SALES", "SALES_REVENUE", "ORDERS_COUNT"];
@@ -80,16 +81,19 @@ export default function SalesTargetsPage() {
     setPage(1);
   };
 
+  const listFilters = useMemo(
+    () => ({
+      period: filterPeriod || undefined,
+      scopeType: (filterScopeType || undefined) as TargetScopeType | undefined,
+      metric: (filterMetric || undefined) as TargetMetric | undefined,
+    }),
+    [filterPeriod, filterScopeType, filterMetric],
+  );
+
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const result = await salesTargetsService.list({
-        period: filterPeriod || undefined,
-        scopeType: (filterScopeType || undefined) as TargetScopeType | undefined,
-        metric: (filterMetric || undefined) as TargetMetric | undefined,
-        page,
-        pageSize,
-      });
+      const result = await salesTargetsService.list({ ...listFilters, page, pageSize });
       setRows(result.items);
       setTotal(result.total);
     } catch (error) {
@@ -97,7 +101,16 @@ export default function SalesTargetsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [filterPeriod, filterScopeType, filterMetric, page, pageSize]);
+  }, [listFilters, page, pageSize]);
+
+  // Print: every row matching the current filters, not just the loaded page.
+  const fetchAllRows = useCallback(
+    () =>
+      fetchAllPages((nextPage, nextPageSize) =>
+        salesTargetsService.list({ ...listFilters, page: nextPage, pageSize: nextPageSize }),
+      ),
+    [listFilters],
+  );
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -262,6 +275,7 @@ export default function SalesTargetsPage() {
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        fetchAllRows={fetchAllRows}
         onPageSizeChange={(size) => {
           setPageSize(size);
           setPage(1);

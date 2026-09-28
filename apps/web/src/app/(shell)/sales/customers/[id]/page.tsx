@@ -26,24 +26,20 @@ import { leadsService, type LeadRow } from "@/services/leads-service";
 import type { MasterDataActivityEntry } from "@/services/master-data-service";
 import { StatusBadge } from "@/components/business/status-badge";
 import { EnterpriseButton } from "@/components/ui/button";
-import { usePrintEngine } from "@/hooks/use-print-engine";
-import { useCompany } from "@/providers/company-provider";
+import { usePartnerStatementPrint } from "@/hooks/use-partner-statement-print";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { formatDate, formatDateTime } from "@/lib/date";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { MoneyValue } from "@/components/shared/money-value";
-import { documentPrintBranding } from "@/components/print/print-brand";
-import type { DocumentData } from "@/types/document-engine";
 import { toast, reportApiError } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
 
 export default function CustomerProfilePage() {
   const params = useParams<{ id: string }>();
-  const { t, direction } = useLocale();
-  const { printDocument } = usePrintEngine();
-  const { activeCompany } = useCompany();
-  const { user, hasPermission } = useUserContext();
+  const { t } = useLocale();
+  const { printStatement, isPreparing: isPreparingPrint } = usePartnerStatementPrint("customer");
+  const { hasPermission } = useUserContext();
   const router = useRouter();
 
   const [customer, setCustomer] = useState<PartnerRow | null>(null);
@@ -136,64 +132,7 @@ export default function CustomerProfilePage() {
     status: entry.type === "ARCHIVED" ? "rejected" : entry.type === "CREATED" ? "done" : "pending",
   }));
 
-  const handlePrint = () => {
-    const data: DocumentData = {
-      type: "customer-statement",
-      documentNumber: customer.partnerNumber,
-      documentDate: formatDate(new Date().toISOString()),
-      currency: "",
-      company: {
-        name: activeCompany?.name ?? "",
-        addressLines: [],
-        branding: {
-          ...documentPrintBranding(activeCompany?.logoUrl ?? null),
-          language: direction === "rtl" ? "rtl" : "ltr",
-        },
-      },
-      party: {
-        name: customer.name,
-        taxNumber: customer.taxNumber ?? undefined,
-        addressLines: [customer.address, customer.city, customer.country?.name].filter(
-          (v): v is string => !!v,
-        ),
-        phone: customer.phone ?? undefined,
-        email: customer.email ?? undefined,
-      },
-      meta: [
-        {
-          label: t("sales.customers.fields.status"),
-          value: t(`common.${customer.status === "ACTIVE" ? "active" : "archived"}`),
-        },
-      ],
-      // Real Partner/balance data only — no transaction lines yet (Sales
-      // Invoices UI is out of scope for this task; the balance itself is
-      // already computed server-side from real confirmed invoices/returns).
-      lineItems: [],
-      totals: [
-        {
-          label: t("sales.customers.profile.statistics.balance"),
-          value: customer.receivableBalance,
-          emphasis: true,
-        },
-      ],
-    };
-    printDocument({
-      variant: "statement",
-      title: `${t("sales.customers.title")} — ${customer.name}`,
-      printedByName: user?.fullName ?? null,
-      data,
-      labels: {
-        documentNumber: t("sales.customers.fields.customerNumber"),
-        documentDate: t("sales.customers.fields.createdAt"),
-        billTo: t("sales.customers.picker.selectCustomer"),
-        description: t("common.status"),
-        quantity: "",
-        unitPrice: "",
-        lineTotal: t("sales.customers.profile.statistics.balance"),
-        notes: t("sales.customers.fields.notes"),
-      },
-    });
-  };
+  const handlePrint = () => void printStatement(customer);
 
   const comingSoon = <ComingSoonPanel />;
 
@@ -240,6 +179,9 @@ export default function CustomerProfilePage() {
               key: "print",
               label: t("sales.customers.profile.print"),
               icon: Printer,
+              // The full partner statement is a financial report (same permission).
+              hidden: !hasPermission("reports.financial.view"),
+              disabled: isPreparingPrint,
               onSelect: handlePrint,
             },
           ]}

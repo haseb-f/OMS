@@ -22,6 +22,7 @@ import {
 } from "@/services/payment-reconciliation-service";
 import { LINE_STATUS_TONE } from "./reconciliation-model";
 import { ReasonDialog } from "./reason-dialog";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 
 const ALL_STATUSES: StatementLineStatus[] = ["UNMATCHED", "MATCHED", "EXCEPTION", "IGNORED"];
 
@@ -103,12 +104,16 @@ export function StatementLinesTable({
   const [pageSize, setPageSize] = useState(50);
   const [pending, setPending] = useState<PendingAction | null>(null);
 
+  const listFilters = useMemo(
+    () => ({ status: status || undefined, search: search || undefined }),
+    [status, search],
+  );
+
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
       const result = await paymentReconciliationService.listLines(methodId, {
-        status: status || undefined,
-        search: search || undefined,
+        ...listFilters,
         page,
         pageSize,
       });
@@ -119,7 +124,20 @@ export function StatementLinesTable({
     } finally {
       setIsLoading(false);
     }
-  }, [methodId, status, search, page, pageSize, t]);
+  }, [methodId, listFilters, page, pageSize, t]);
+
+  // Print: every line matching the current filters, not just the loaded page.
+  const fetchAllRows = useCallback(
+    () =>
+      fetchAllPages((nextPage, nextPageSize) =>
+        paymentReconciliationService.listLines(methodId, {
+          ...listFilters,
+          page: nextPage,
+          pageSize: nextPageSize,
+        }),
+      ),
+    [methodId, listFilters],
+  );
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -335,6 +353,7 @@ export function StatementLinesTable({
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        fetchAllRows={fetchAllRows}
         onPageSizeChange={(size) => {
           setPageSize(size);
           setPage(1);

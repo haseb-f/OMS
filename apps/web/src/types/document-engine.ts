@@ -66,10 +66,22 @@ export interface DocumentLineItem {
   unit?: string;
   unitPrice: number;
   total: number;
+  /** Product code, printed under the name. */
+  sku?: string;
+  /** Line discount as an amount (server value); omitted = no discount column. */
+  discount?: number;
+  /** Line discount percent, shown next to the amount when set. */
+  discountPercent?: number;
+  /** Tax name/rate of the line ("VAT 15%"). */
+  taxLabel?: string;
+  /** Line tax amount (server value). */
+  taxAmount?: number;
 }
 
 export interface DocumentParty {
   name: string;
+  /** Partner number. */
+  number?: string;
   taxNumber?: string;
   addressLines: string[];
   phone?: string;
@@ -104,6 +116,10 @@ export interface DocumentData {
     branding: DocumentBranding;
   };
   party: DocumentParty;
+  /** Role label of the party block; defaults to "customer". */
+  partyRole?: "customer" | "supplier" | "account";
+  /** Invoices: server-computed payment status (never re-derived on the client). */
+  payment?: { statusLabel: string; paid: number; remaining: number };
   /** Extra document-specific fields shown in the "Document Information" block (e.g. due date, PO reference). */
   meta: { label: string; value: string }[];
   lineItems: DocumentLineItem[];
