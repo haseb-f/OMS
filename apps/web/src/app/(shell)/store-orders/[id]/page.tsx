@@ -19,6 +19,7 @@ import {
 } from "@/components/payments/declaration/order-payment-status-panel";
 import { StoreOrderPickupPanel } from "@/components/store-orders/store-order-pickup-panel";
 import { StoreOrderStatusStrip } from "@/components/store-orders/store-order-status-strip";
+import { StoreOrderWorkflowTracks } from "@/components/store-orders/store-order-workflow-tracks";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SetPaymentFeeDialog } from "@/components/store-orders/set-payment-fee-dialog";
 import { StoreOrderEditAssignmentDialog } from "@/components/store-orders/store-order-edit-assignment-dialog";
@@ -73,6 +74,7 @@ import {
 } from "@/config/store-orders/status";
 import { shipmentStatusLabelKey, shipmentStatusTone } from "@/config/shipping/shipment-status";
 import { useLocale } from "@/providers/locale-provider";
+import { useUiPilot } from "@/providers/ui-pilot-provider";
 import { useUserContext } from "@/providers/user-context";
 import { toast, reportApiError } from "@/lib/toast";
 import { formatDate, formatDateTime } from "@/lib/date";
@@ -122,6 +124,7 @@ function StoreOrderDetailContent() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { t } = useLocale();
+  const pilot = useUiPilot().active;
   const isMobile = useIsMobile();
   const { hasPermission } = useUserContext();
   const canEdit = hasPermission("store-orders.edit");
@@ -989,7 +992,14 @@ function StoreOrderDetailContent() {
         ]
           .filter(Boolean)
           .join(" · ")}
-        statusStrip={<StoreOrderStatusStrip order={order} />}
+        statusStrip={
+          // Round 3.1 pilot: payment and fulfillment as separate read-only trackers.
+          pilot ? (
+            <StoreOrderWorkflowTracks order={order} className="border-t border-border/70 pt-2" />
+          ) : (
+            <StoreOrderStatusStrip order={order} />
+          )
+        }
         metrics={
           <>
             <DetailField

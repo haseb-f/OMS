@@ -27,7 +27,11 @@ export interface WorkflowActionItem {
   key: string;
   label: string;
   toStatusCode: string;
+  requiresReason: boolean;
+  businessAction: string;
   disabled: boolean;
+  /** This transition is running right now. */
+  loading: boolean;
   onSelect: () => void;
 }
 
@@ -65,6 +69,7 @@ export function WorkflowActionsPanel({
   const [actions, setActions] = useState<WorkflowAction[]>([]);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
+  const [runningId, setRunningId] = useState<string | null>(null);
   const [dialogAction, setDialogAction] = useState<WorkflowAction | null>(null);
   const [reason, setReason] = useState("");
   const [convertAction, setConvertAction] = useState<WorkflowAction | null>(null);
@@ -96,6 +101,7 @@ export function WorkflowActionsPanel({
     convert?: LeadConvertPayload,
   ) => {
     setPending(true);
+    setRunningId(action.transitionId);
     try {
       await workflowService.transition(entityType, entityId, {
         transitionId: action.transitionId,
@@ -123,6 +129,7 @@ export function WorkflowActionsPanel({
       reportApiError(error, "common.failedToSave");
     } finally {
       setPending(false);
+      setRunningId(null);
     }
   };
 
@@ -163,6 +170,7 @@ export function WorkflowActionsPanel({
             </EnterpriseButton>
             <EnterpriseButton
               disabled={pending || !reason.trim()}
+              isLoading={Boolean(renderActions) && pending}
               onClick={() => dialogAction && void runTransition(dialogAction, reason.trim())}
             >
               {t("common.confirm")}
@@ -257,7 +265,10 @@ export function WorkflowActionsPanel({
             key: action.transitionId,
             label: locale === "ar" ? action.label : (action.labelEn ?? action.label),
             toStatusCode: action.toStatusCode,
+            requiresReason: action.requiresReason,
+            businessAction: action.businessAction,
             disabled: pending,
+            loading: runningId === action.transitionId,
             onSelect: () => handleAction(action),
           })),
         )}

@@ -24,6 +24,21 @@ export interface ActivatePolicyInput {
   distributePending?: boolean;
 }
 
+/** Outcome of one pending-lead drain, as confirmed by the server. */
+export interface LeadDistributionRunResult {
+  assigned: number;
+  skipped: number;
+  failureCode: string | null;
+  failureReason: string | null;
+  /** Another drain held the lock — this call assigned nothing on purpose. */
+  alreadyRunning?: boolean;
+}
+
+/** Postgres advisory-lock key serializing pending-lead drains (any policy). */
+const DRAIN_LOCK_KEY = 7_341_026;
+/** Advisory-lock key serializing policy saves (mode changes). */
+const POLICY_LOCK_KEY = 7_341_027;
+
 function isAutoMode(mode: LeadDistributionMode) {
   return (
     mode === LeadDistributionMode.CONTINUOUS ||
@@ -154,7 +169,15 @@ export class LeadAutoDistributionService {
       : null;
 
     let failureReason: string | null = state?.lastFailureMessage ?? null;
+    let failureCode: string | null = state?.lastFailureCode ?? null;
+    // An empty-pool failure from the last run is stale once the pool has
+    // members again — the next lead or drain will assign normally.
+    if (failureCode === 'NO_ELIGIBLE_EMPLOYEES' && eligible.length > 0) {
+      failureCode = null;
+      failureReason = null;
+    }
     if (!failureReason && eligible.length === 0 && status !== 'PAUSED') {
+      failureCode = 'NO_ELIGIBLE_EMPLOYEES';
       failureReason =
         'No eligible sales employees. Grant crm.leads.edit to active, unlocked users (and ensure they are in the selected team when team-scoped).';
     } else if (
@@ -163,6 +186,7 @@ export class LeadAutoDistributionService {
       status !== 'CONTINUOUS' &&
       status !== 'TIME_LIMITED'
     ) {
+      failureCode = 'PENDING_NOT_AUTO';
       failureReason =
         'Distribution is paused or manual. Pending unowned leads will not assign until Continuous or 24-hour mode is activated (or a batch is released).';
     }
@@ -191,6 +215,7 @@ export class LeadAutoDistributionService {
           }
         : null,
       failureReason,
+      failureCode,
       held: {
         count: heldCount,
         batches: heldBatches,
@@ -199,15 +224,58 @@ export class LeadAutoDistributionService {
   }
 
   async activate(input: ActivatePolicyInput) {
+    return (await this.applyMode(input)).policy;
+  }
+
+  /**
+   * Save a distribution mode and — for Continuous / 24-hour — drain the
+   * pending unowned leads in the same call, returning the server-confirmed
+   * run. Re-selecting the mode that is already in effect (same scope) keeps
+   * the current policy (cursor, 24h window) instead of starting a new one,
+   * and the drain it re-runs never touches owned leads.
+   */
+  async applyMode(input: ActivatePolicyInput): Promise<{
+    policy: Awaited<ReturnType<LeadAutoDistributionService['getLatestPolicy']>>;
+    reused: boolean;
+    run: LeadDistributionRunResult | null;
+  }> {
     const now = input.now ?? new Date();
+    const shouldDrain =
+      input.distributePending !== false && isAutoMode(input.mode);
+
+    const { policy, reused } = await this.savePolicy(input, now);
+
+    const run = shouldDrain
+      ? await this.distributePending({ now, includeHeld: true })
+      : null;
+
+    return { policy, reused, run };
+  }
+
+  /**
+   * Serialized save: two concurrent mode changes (double click, two admins)
+   * queue on an advisory lock, so the second sees the first's policy and
+   * reuses it instead of leaving two active policies behind.
+   */
+  private async savePolicy(input: ActivatePolicyInput, now: Date) {
     const expiresAt =
       input.mode === LeadDistributionMode.TIME_LIMITED
         ? new Date(now.getTime() + 24 * 60 * 60 * 1000)
         : null;
-    const shouldDrain =
-      input.distributePending !== false && isAutoMode(input.mode);
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${POLICY_LOCK_KEY})`;
+      const current = await tx.leadDistributionPolicy.findFirst({
+        where: { isActive: true, deletedAt: null },
+        orderBy: { startedAt: 'desc' },
+      });
+      const sameMode =
+        current !== null &&
+        current.mode === input.mode &&
+        (current.teamId ?? null) === (input.teamId ?? null) &&
+        (current.departmentId ?? null) === (input.departmentId ?? null) &&
+        (!isAutoMode(input.mode) || this.isPolicyEffective(current, now));
+      if (current && sameMode) return { policy: current, reused: true };
 
-    const policy = await this.prisma.$transaction(async (tx) => {
       await tx.leadDistributionPolicy.updateMany({
         where: { isActive: true, deletedAt: null },
         data: { isActive: false, updatedBy: input.actorId ?? null },
@@ -234,14 +302,8 @@ export class LeadAutoDistributionService {
           data: { policyId: created.id, cursorPosition: 0 },
         });
       }
-      return created;
+      return { policy: created, reused: false };
     });
-
-    if (shouldDrain) {
-      await this.distributePending({ now, includeHeld: true });
-    }
-
-    return policy;
   }
 
   async pause(actorId?: string) {
@@ -275,17 +337,14 @@ export class LeadAutoDistributionService {
     now?: Date;
     includeHeld?: boolean;
     importBatch?: string | null;
-  }): Promise<{
-    assigned: number;
-    skipped: number;
-    failureReason: string | null;
-  }> {
+  }): Promise<LeadDistributionRunResult> {
     const now = options?.now ?? new Date();
     const policy = await this.getEffectivePolicy(now);
     if (!policy) {
       return {
         assigned: 0,
         skipped: 0,
+        failureCode: 'NO_EFFECTIVE_POLICY',
         failureReason:
           'No effective Continuous or 24-hour distribution policy.',
       };
@@ -311,7 +370,12 @@ export class LeadAutoDistributionService {
         failureMessage: null,
         now,
       });
-      return { assigned: 0, skipped: 0, failureReason: null };
+      return {
+        assigned: 0,
+        skipped: 0,
+        failureCode: null,
+        failureReason: null,
+      };
     }
 
     const eligible = await this.getEligibleEmployeeIds(policy.teamId);
@@ -334,13 +398,24 @@ export class LeadAutoDistributionService {
       return {
         assigned: 0,
         skipped: pending.length,
+        failureCode: 'NO_ELIGIBLE_EMPLOYEES',
         failureReason: message,
       };
     }
 
     let assigned = 0;
+    let alreadyRunning = false;
     await this.prisma.$transaction(
       async (tx) => {
+        // One drain at a time: a concurrent drain (double click, two admins)
+        // returns immediately instead of racing the Round Robin cursor.
+        const [lock] = await tx.$queryRaw<{ locked: boolean }[]>`
+          SELECT pg_try_advisory_xact_lock(${DRAIN_LOCK_KEY}) AS locked
+        `;
+        if (!lock?.locked) {
+          alreadyRunning = true;
+          return;
+        }
         for (const lead of pending) {
           const before = await tx.lead.findFirst({
             where: { id: lead.id, deletedAt: null },
@@ -366,9 +441,19 @@ export class LeadAutoDistributionService {
       { timeout: 120_000 },
     );
 
+    if (alreadyRunning) {
+      return {
+        assigned: 0,
+        skipped: 0,
+        failureCode: null,
+        failureReason: null,
+        alreadyRunning: true,
+      };
+    }
     return {
       assigned,
       skipped: pending.length - assigned,
+      failureCode: null,
       failureReason: null,
     };
   }
@@ -576,6 +661,10 @@ export class LeadAutoDistributionService {
     now: Date,
     options?: { includeHeld?: boolean },
   ) {
+    // Row-lock the lead so two concurrent assigners (lead create + a drain)
+    // serialize on it; the loser re-reads the committed owner and skips —
+    // an owned lead is never reassigned by auto distribution.
+    await tx.$queryRaw`SELECT id FROM leads WHERE id = ${leadId}::uuid FOR UPDATE`;
     const lead = await tx.lead.findFirst({
       where: { id: leadId, deletedAt: null },
       select: { id: true, salesEmployeeId: true, distributionHeld: true },

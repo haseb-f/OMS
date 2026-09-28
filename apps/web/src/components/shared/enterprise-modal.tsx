@@ -9,9 +9,18 @@ import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
 import { useLocale } from "@/providers/locale-provider";
 import { useUiPilot } from "@/providers/ui-pilot-provider";
+import { FormCardProvider } from "@/components/shared/form-card/form-card";
 import { cn } from "@/lib/utils";
 
 export type EnterpriseModalSize = "sm" | "md" | "lg" | "xl";
+
+/**
+ * `form-card` (Round 3.1 pilot only): a vertical data-entry card — bounded
+ * 520px (`sm`/`md`) or 640px (`lg`/`xl`) wide, one field column, tinted
+ * section panels (see components/shared/form-card). Ignored when the pilot
+ * is off, so the classic dialog is unchanged.
+ */
+export type EnterpriseModalLayout = "default" | "form-card";
 
 const sizeClasses: Record<EnterpriseModalSize, string> = {
   sm: "sm:max-w-md",
@@ -62,6 +71,7 @@ export function EnterpriseModal({
   bodyClassName,
   testId,
   errorSummary,
+  layout = "default",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -89,6 +99,7 @@ export function EnterpriseModal({
    * (design-system §11.4). It renders nothing while there are no errors.
    */
   errorSummary?: ReactNode;
+  layout?: EnterpriseModalLayout;
 }) {
   const { t } = useLocale();
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
@@ -96,6 +107,7 @@ export function EnterpriseModal({
   // Round 3 pilot (design-system §12): Geist modal — roomier header/body,
   // no decorative icon, footer actions split to the two edges.
   const pilot = useUiPilot().active;
+  const formCard = pilot && layout === "form-card";
 
   const requestClose = () => {
     if (isDirty) {
@@ -111,6 +123,7 @@ export function EnterpriseModal({
         <DialogContent
           showCloseButton={false}
           data-testid={testId}
+          data-layout={formCard ? "form-card" : undefined}
           style={{ "--keyboard-inset": `${keyboardInset}px` } as CSSProperties}
           onEscapeKeyDown={(event) => {
             event.preventDefault();
@@ -133,7 +146,11 @@ export function EnterpriseModal({
             // Phones: near-full-width sheet on the bottom edge, lifted above the keyboard.
             "max-sm:inset-x-2 max-sm:start-2 max-sm:top-auto max-sm:bottom-[calc(0.5rem+var(--keyboard-inset,0px))] max-sm:w-auto max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rtl:translate-x-0",
             "max-sm:max-h-[calc(100dvh-1rem-var(--keyboard-inset,0px))]",
-            sizeClasses[size],
+            formCard
+              ? size === "sm" || size === "md"
+                ? "sm:max-w-(--form-card-width-narrow)"
+                : "sm:max-w-(--form-card-width)"
+              : sizeClasses[size],
             className,
           )}
         >
@@ -168,11 +185,14 @@ export function EnterpriseModal({
             className={cn(
               "min-h-0 flex-1 overflow-y-auto px-4 py-3",
               pilot && "px-5 py-4",
+              formCard && "max-sm:px-3 max-sm:py-3",
               bodyClassName,
             )}
           >
-            {errorSummary}
-            {children}
+            <FormCardProvider active={formCard}>
+              {errorSummary}
+              {children}
+            </FormCardProvider>
           </div>
 
           {footer !== undefined && footer !== null && (
@@ -181,6 +201,8 @@ export function EnterpriseModal({
                 "flex shrink-0 flex-col-reverse gap-2 border-t border-border bg-surface-sunken px-4 py-2.5 sm:flex-row sm:justify-end",
                 // Pilot: secondary at the start edge, the final action at the end edge.
                 pilot && "px-5 py-3 sm:items-center sm:[&>*:first-child:not(:only-child)]:me-auto",
+                // Form card on phones: every action full width, the primary on top.
+                formCard && "max-sm:px-3 max-sm:[&_[data-slot=button]]:w-full",
               )}
             >
               {typeof footer === "function" ? footer(requestClose) : footer}

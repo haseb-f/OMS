@@ -3,16 +3,22 @@
 import { useMemo, type ReactNode } from "react";
 import Link from "next/link";
 import {
-  Bell,
+  ArrowRightLeft,
+  BellRing,
   CalendarClock,
-  ChevronLeft,
-  ChevronRight,
   CircleCheck,
-  ClipboardCheck,
+  Clock,
   Landmark,
+  PackageCheck,
+  Percent,
+  ReceiptText,
+  Scale,
+  ShoppingBag,
+  UserPlus,
   type LucideIcon,
 } from "lucide-react";
 import { EnterpriseCard } from "@/components/ui/card";
+import { InsightBar, InsightCard, type InsightTone } from "@/components/shared/insight-card";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -30,7 +36,6 @@ import { ErrorState } from "@/components/shared/error-state";
 import { loadPendingFigures, useLoad } from "@/components/dashboard/dashboard-data";
 import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
-import { cn } from "@/lib/utils";
 import {
   salesPerformanceService,
   type SalesPeriod,
@@ -50,6 +55,7 @@ interface AttentionItem {
   icon: LucideIcon;
   title: string;
   hint: string;
+  action: string;
   count: number;
   severity: Severity;
   href: string;
@@ -130,6 +136,7 @@ export function DashboardPilot({
                 <MetricsStrip
                   data={sales.state.status === "ready" ? sales.state.data : null}
                   loading={sales.state.status === "loading"}
+                  periodLabel={t(PERIOD_LABEL_KEY[period])}
                 />
               )}
             </section>
@@ -153,7 +160,7 @@ function AttentionSection({
   pending: ReturnType<typeof useLoad<Awaited<ReturnType<typeof loadPendingFigures>>>>;
   showSales: boolean;
 }) {
-  const { t } = useLocale();
+  const { t, direction } = useLocale();
   const loading =
     pending.state.status === "loading" || (showSales && sales.state.status === "loading");
   const failed = pending.state.status === "error" || (showSales && sales.state.status === "error");
@@ -164,9 +171,10 @@ function AttentionSection({
     items.push(
       {
         key: "overdue",
-        icon: Bell,
+        icon: BellRing,
         title: t("crm.leads.dashboard.overdue"),
         hint: t("docUi.dashboard.overdueHint"),
+        action: t("docUi.dashboard.actionOverdue"),
         count: overdue,
         severity: "destructive",
         href: "/crm/leads?followUp=overdue",
@@ -176,6 +184,7 @@ function AttentionSection({
         icon: CalendarClock,
         title: t("crm.leads.dashboard.dueToday"),
         hint: t("docUi.dashboard.dueTodayHint"),
+        action: t("docUi.dashboard.actionDueToday"),
         count: dueToday,
         severity: "warning",
         href: "/crm/leads?followUp=today",
@@ -187,9 +196,10 @@ function AttentionSection({
     if (figures.paymentReview !== null) {
       items.push({
         key: "paymentReview",
-        icon: ClipboardCheck,
+        icon: ReceiptText,
         title: t("docUi.dashboard.paymentReview"),
         hint: t("docUi.dashboard.paymentReviewHint"),
+        action: t("docUi.dashboard.actionPaymentReview"),
         count: figures.paymentReview,
         severity: "warning",
         href: "/finance/payment-review",
@@ -199,9 +209,10 @@ function AttentionSection({
       items.push(
         {
           key: "bankReview",
-          icon: Landmark,
+          icon: Scale,
           title: t("docUi.dashboard.bankReview"),
           hint: t("docUi.dashboard.bankReviewHint"),
+          action: t("docUi.dashboard.actionBankReview"),
           count: figures.bank.review,
           severity: "warning",
           href: "/finance/bank-transactions",
@@ -211,6 +222,7 @@ function AttentionSection({
           icon: Landmark,
           title: t("docUi.dashboard.bankUnmatched"),
           hint: t("docUi.dashboard.bankUnmatchedHint"),
+          action: t("docUi.dashboard.actionBankUnmatched"),
           count: figures.bank.unmatched,
           severity: "warning",
           href: "/finance/bank-transactions",
@@ -218,11 +230,12 @@ function AttentionSection({
       );
     }
   }
-  // Open work first (destructive before warning, then by size); cleared queues last.
-  const rank = (item: AttentionItem) =>
-    item.count > 0 ? (item.severity === "destructive" ? 0 : 1) : 2;
-  items.sort((a, b) => rank(a) - rank(b) || b.count - a.count);
-  const openCount = items.filter((item) => item.count > 0).length;
+  // Open work first (destructive before warning, then by size).
+  const rank = (item: AttentionItem) => (item.severity === "destructive" ? 0 : 1);
+  const open = items
+    .filter((item) => item.count > 0)
+    .sort((a, b) => rank(a) - rank(b) || b.count - a.count);
+  const cleared = items.filter((item) => item.count === 0);
 
   return (
     <section aria-labelledby="dash-attention" className="flex flex-col gap-3" aria-busy={loading}>
@@ -230,12 +243,12 @@ function AttentionSection({
         id="dash-attention"
         title={t("docUi.dashboard.attentionTitle")}
         description={t("docUi.dashboard.attentionDescription")}
-        action={
+        badge={
           !loading && !failed ? (
-            <EnterpriseBadge variant={openCount > 0 ? "warning" : "success"}>
-              {openCount > 0 ? null : <CircleCheck />}
-              {openCount > 0
-                ? t("docUi.dashboard.openQueues", { count: openCount })
+            <EnterpriseBadge variant={open.length > 0 ? "warning" : "success"}>
+              {open.length > 0 ? null : <CircleCheck />}
+              {open.length > 0
+                ? t("docUi.dashboard.openQueues", { count: open.length })
                 : t("docUi.dashboard.allClear")}
             </EnterpriseBadge>
           ) : undefined
@@ -249,79 +262,58 @@ function AttentionSection({
             if (showSales) void sales.retry();
           }}
         />
+      ) : loading ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 3 }, (_, index) => (
+            <div
+              key={index}
+              className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4"
+            >
+              <Skeleton className="h-8 w-40" />
+              <Skeleton className="h-7 w-16" />
+              <Skeleton className="h-3 w-48" />
+            </div>
+          ))}
+        </div>
       ) : (
-        <EnterpriseCard className="gap-0 py-0">
-          <ul className="divide-y divide-border">
-            {loading
-              ? Array.from({ length: 3 }, (_, index) => (
-                  <li key={index} className="flex items-center gap-3 px-4 py-3">
-                    <Skeleton className="size-8 rounded-sm" />
-                    <div className="flex flex-1 flex-col gap-1.5">
-                      <Skeleton className="h-3.5 w-40" />
-                      <Skeleton className="h-3 w-56" />
-                    </div>
-                    <Skeleton className="h-5 w-8" />
-                  </li>
-                ))
-              : items.map((item) => <AttentionRow key={item.key} item={item} />)}
-          </ul>
-        </EnterpriseCard>
+        <>
+          {open.length > 0 ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {open.map((item) => (
+                <InsightCard
+                  key={item.key}
+                  icon={item.icon}
+                  tone={item.severity}
+                  emphasis
+                  label={item.title}
+                  value={item.count}
+                  context={item.hint}
+                  href={item.href}
+                  actionLabel={item.action}
+                  direction={direction}
+                />
+              ))}
+            </div>
+          ) : null}
+          {cleared.length > 0 ? (
+            <ul className="flex flex-wrap items-center gap-2">
+              {cleared.map((item) => (
+                <li key={item.key}>
+                  <Link
+                    href={item.href}
+                    className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border bg-card px-2.5 text-caption text-muted-foreground transition-colors duration-(--duration-base) hover:border-input-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+                  >
+                    <CircleCheck className="size-3.5 text-success-soft-foreground" aria-hidden />
+                    {item.title}
+                    <span className="text-placeholder">· {t("docUi.dashboard.allClear")}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </>
       )}
     </section>
-  );
-}
-
-function AttentionRow({ item }: { item: AttentionItem }) {
-  const { t, direction } = useLocale();
-  const Icon = item.icon;
-  const open = item.count > 0;
-  const Chevron = direction === "rtl" ? ChevronLeft : ChevronRight;
-  return (
-    <li>
-      <Link
-        href={item.href}
-        className="group/row flex items-center gap-3 px-4 py-3 transition-colors duration-(--duration-base) outline-none hover:bg-table-row-hover focus-visible:bg-table-row-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-ring"
-      >
-        <span
-          className={cn(
-            "flex size-8 shrink-0 items-center justify-center rounded-sm border",
-            open &&
-              item.severity === "destructive" &&
-              "border-destructive-border bg-destructive-soft text-destructive-soft-foreground",
-            open &&
-              item.severity === "warning" &&
-              "border-warning-border bg-warning-soft text-warning-soft-foreground",
-            !open && "border-border bg-card text-muted-foreground",
-          )}
-          aria-hidden
-        >
-          <Icon className="size-4" />
-        </span>
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className={cn("truncate text-body font-medium", !open && "text-muted-foreground")}>
-            {item.title}
-          </span>
-          <span className="truncate text-caption text-muted-foreground">
-            {open ? item.hint : t("docUi.dashboard.allClear")}
-          </span>
-        </span>
-        <span
-          className={cn(
-            "num shrink-0 text-card-title",
-            open && item.severity === "destructive" && "text-destructive-soft-foreground",
-            open && item.severity === "warning" && "text-foreground",
-            !open && "text-muted-foreground",
-          )}
-        >
-          {item.count}
-        </span>
-        <Chevron
-          className="size-4 shrink-0 text-muted-foreground transition-colors group-hover/row:text-foreground"
-          aria-hidden
-        />
-        <span className="sr-only">{t("docUi.dashboard.open")}</span>
-      </Link>
-    </li>
   );
 }
 
@@ -329,72 +321,104 @@ interface Metric {
   key: string;
   labelKey: MessageKey;
   value: string;
-  now?: boolean;
+  icon: LucideIcon;
+  tone: InsightTone;
+  context: string;
+  bar?: number;
 }
 
 function MetricsStrip({
   data,
   loading,
+  periodLabel,
 }: {
   data: SalesPerformanceDashboard | null;
   loading: boolean;
+  periodLabel: string;
 }) {
   const { t } = useLocale();
   const kpis = data?.kpis;
   const metrics: Metric[] = kpis
     ? [
-        { key: "newLeads", labelKey: "crm.leads.dashboard.newLeads", value: String(kpis.newLeads) },
+        {
+          key: "newLeads",
+          labelKey: "crm.leads.dashboard.newLeads",
+          value: String(kpis.newLeads),
+          icon: UserPlus,
+          tone: "info",
+          context: t("docUi.dashboard.newLeadsContext", { period: periodLabel }),
+        },
         {
           key: "inProgress",
           labelKey: "crm.leads.dashboard.inProgress",
           value: String(kpis.inProgress),
-          now: true,
+          icon: Clock,
+          tone: "neutral",
+          context: t("docUi.dashboard.nowContext"),
         },
         {
           key: "converted",
           labelKey: "crm.leads.dashboard.converted",
           value: String(kpis.converted),
+          icon: ArrowRightLeft,
+          tone: "success",
+          context: t("docUi.dashboard.convertedContext", { period: periodLabel }),
         },
         {
           key: "conversionRate",
           labelKey: "crm.leads.dashboard.conversionRate",
           value: `${kpis.conversionRate}%`,
+          icon: Percent,
+          tone: "success",
+          context: t("docUi.dashboard.conversionContext", { period: periodLabel }),
+          bar: kpis.conversionRate,
         },
-        { key: "orders", labelKey: "docUi.dashboard.ordersInScope", value: String(kpis.orders) },
+        {
+          key: "orders",
+          labelKey: "docUi.dashboard.ordersInScope",
+          value: String(kpis.orders),
+          icon: ShoppingBag,
+          tone: "neutral",
+          context: t("docUi.dashboard.ordersContext", { period: periodLabel }),
+        },
         {
           key: "delivered",
           labelKey: "crm.leads.dashboard.delivered",
           value: String(kpis.delivered),
+          icon: PackageCheck,
+          tone: "success",
+          context: t("docUi.dashboard.deliveredContext", { period: periodLabel }),
         },
       ]
     : [];
 
   return (
-    <EnterpriseCard className="gap-0 py-0">
-      {/* Hairline grid: the card's border color shows through a 1px gap. */}
-      <dl className="grid grid-cols-2 gap-px bg-border sm:grid-cols-3">
-        {loading || !kpis
-          ? Array.from({ length: 6 }, (_, index) => (
-              <div key={index} className="flex flex-col gap-2 bg-card px-4 py-3">
-                <Skeleton className="h-3 w-20" />
-                <Skeleton className="h-6 w-12" />
-              </div>
-            ))
-          : metrics.map((metric) => (
-              <div key={metric.key} className="flex min-w-0 flex-col gap-1 bg-card px-4 py-3">
-                <dt className="flex items-center gap-1.5 truncate text-caption text-muted-foreground">
-                  {t(metric.labelKey)}
-                  {metric.now ? (
-                    <span className="text-micro text-placeholder">
-                      · {t("docUi.dashboard.now")}
-                    </span>
-                  ) : null}
-                </dt>
-                <dd className="num text-metric">{metric.value}</dd>
-              </div>
-            ))}
-      </dl>
-    </EnterpriseCard>
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      {loading || !kpis
+        ? Array.from({ length: 6 }, (_, index) => (
+            <div
+              key={index}
+              className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4"
+            >
+              <Skeleton className="h-8 w-28" />
+              <Skeleton className="h-7 w-12" />
+            </div>
+          ))
+        : metrics.map((metric) => (
+            <InsightCard
+              key={metric.key}
+              icon={metric.icon}
+              tone={metric.tone}
+              label={t(metric.labelKey)}
+              value={metric.value}
+              context={metric.context}
+            >
+              {metric.bar !== undefined ? (
+                <InsightBar value={metric.bar} label={`${t(metric.labelKey)} ${metric.value}`} />
+              ) : null}
+            </InsightCard>
+          ))}
+    </div>
   );
 }
 

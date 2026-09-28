@@ -234,18 +234,30 @@ export function ReconciliationCard({
 export function FinancialReportSummary({
   summary,
   currency,
+  period,
+  basis,
   className,
 }: {
   summary: Summary;
   /** Report currency (stated once in the header; cards omit it). */
   currency: string;
+  /** The period / as-of date the figures cover (pilot cards state it per card). */
+  period?: string;
+  /** What the figures include, e.g. "Posted entries only" (pilot cards). */
+  basis?: string;
   className?: string;
 }) {
-  // Round 3 pilot (design-system §12.1): the pilot strip, same data and logic.
+  // Round 3 pilot (design-system §12.1): the pilot cards, same data and logic.
   const pilot = useUiPilot().active;
   if (pilot) {
     return (
-      <FinancialReportSummaryPilot summary={summary} currency={currency} className={className} />
+      <FinancialReportSummaryPilot
+        summary={summary}
+        currency={currency}
+        period={period}
+        basis={basis}
+        className={className}
+      />
     );
   }
   const items = summary.items;

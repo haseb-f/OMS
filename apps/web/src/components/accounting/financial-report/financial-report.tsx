@@ -307,6 +307,8 @@ export function FinancialReport({
         <FinancialReportSummary
           summary={summary}
           currency={currency}
+          period={context[0]}
+          basis={context[2] || undefined}
           className={cn(isLoading && "opacity-60")}
         />
       ) : null}

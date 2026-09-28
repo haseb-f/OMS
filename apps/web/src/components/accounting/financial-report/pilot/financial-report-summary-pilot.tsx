@@ -1,18 +1,19 @@
 "use client";
 
-import Link from "next/link";
 import type { ReactNode } from "react";
-import { ChevronRight } from "lucide-react";
+import { Sigma } from "lucide-react";
 import { clsx as cx } from "clsx";
 import { formatAmountParts } from "@/lib/money";
 import { useLocale } from "@/providers/locale-provider";
+import { EnterpriseBadge } from "@/components/ui/badge";
+import { InsightCard } from "@/components/shared/insight-card";
 import { useDrCrLabels } from "../use-report-format";
 import {
   resolveReconciliationState,
   resolveSummaryTone,
   type ResolvedSummaryTone,
 } from "../summary-format";
-import { STATE_ICON, TONE } from "../summary-meta";
+import { STATE_ICON, TONE, VERDICT_KEY } from "../summary-meta";
 import type {
   FinancialReportCheck,
   FinancialReportSummary as Summary,
@@ -20,83 +21,22 @@ import type {
 } from "../types";
 
 /*
- * Round 3 pilot (design-system §12.6 "Financial reports") — the summary strip
- * as ONE metric card split by hairlines: the reconciliation status first, then
- * the report's figures, then the compared totals and their difference. Same
- * data, same verdict logic (`resolveReconciliationState`) and the same
- * formatter as the classic strip; only the presentation differs.
+ * Round 3.1 pilot (spec "Round 3.1" item 4, design-system §12) — the report
+ * summary as informative cards built on the shared `InsightCard`: a label that
+ * says exactly what the number is, the figure, its currency and period
+ * directly under it, one context line, and an action only where one exists
+ * (the drill-down of an imbalance). Same data, same formatter
+ * (`formatAmountParts`) and the same verdict logic
+ * (`resolveReconciliationState`) as the classic strip.
  *
  * `clsx`, not `cn`: tailwind-merge would drop the type-scale utilities next
  * to a text color.
  */
 
 /**
- * Cells draw their own end and bottom hairlines; the strip clips the last
- * column's and the last row's (negative margin + overflow-hidden), so the
- * dividers stay correct however the grid wraps.
- */
-const CELL =
-  "flex min-w-0 flex-col justify-center gap-0.5 border-e border-b border-border px-3 py-2 md:px-4 md:py-2.5";
-
-function Metric({
-  id,
-  summaryId,
-  slot,
-  label,
-  icon,
-  figure,
-  suffix,
-  figureClassName,
-  className,
-  children,
-  tone,
-}: {
-  id?: string;
-  summaryId: string;
-  slot?: string;
-  label: string;
-  icon?: ReactNode;
-  figure: string;
-  suffix?: string;
-  figureClassName?: string;
-  className?: string;
-  children?: ReactNode;
-  tone?: string;
-}) {
-  return (
-    <div
-      id={id}
-      data-slot={slot}
-      data-summary-id={summaryId}
-      data-tone={tone}
-      className={cx(CELL, className)}
-    >
-      <span className="flex min-w-0 items-center gap-1.5 text-caption text-muted-foreground">
-        {icon}
-        <span className="truncate" title={label}>
-          {label}
-        </span>
-      </span>
-      <span
-        className={cx(
-          "flex min-w-0 flex-wrap items-baseline gap-x-1 text-metric font-semibold max-md:text-card-title",
-          figureClassName,
-        )}
-      >
-        <span className="num">{figure}</span>
-        {suffix ? (
-          <span className="text-caption font-normal text-muted-foreground">{suffix}</span>
-        ) : null}
-      </span>
-      {children}
-    </div>
-  );
-}
-
-/**
  * Figure colors that pass AA as text in light and dark: the category color
- * stays on the icon (graphic, 3:1); only a result carries its verdict color
- * on the figure (profit green, loss red — §7 "red only for a net loss").
+ * stays on the icon tile; only a result carries its verdict color on the
+ * figure (profit green, loss red — §7 "red only for a net loss").
  */
 const FIGURE_TONE: Record<ResolvedSummaryTone, string> = {
   revenue: "text-foreground",
@@ -106,61 +46,203 @@ const FIGURE_TONE: Record<ResolvedSummaryTone, string> = {
   neutral: "text-foreground",
 };
 
-function ItemMetric({
+/**
+ * Phones: one stacked column (the verdict first, then the figures), compact
+ * padding, no sideways scrolling; md+: an auto-fit grid.
+ */
+const SLOT = "flex min-w-0 [&>*]:w-full max-md:[&>*]:p-3";
+
+function Figure({
+  figure,
+  side,
+  className,
+  summaryId,
+}: {
+  figure: string;
+  side?: string;
+  className?: string;
+  summaryId?: string;
+}) {
+  return (
+    <span data-summary-id={summaryId} className="flex flex-wrap items-baseline gap-x-1.5">
+      <span className={className}>{figure}</span>
+      {side ? <span className="text-caption font-normal text-muted-foreground">{side}</span> : null}
+    </span>
+  );
+}
+
+/** The line directly under a value: its currency (when it has one) and period. */
+function Scope({ currency, period }: { currency?: string; period?: string }) {
+  if (!currency && !period) return null;
+  return (
+    <p className="flex flex-wrap items-center gap-x-1.5 text-caption text-muted-foreground">
+      {currency ? <span className="font-medium text-foreground">{currency}</span> : null}
+      {currency && period ? <span aria-hidden>·</span> : null}
+      {period ? <span>{period}</span> : null}
+    </p>
+  );
+}
+
+const joinContext = (...parts: Array<string | undefined>) =>
+  parts.filter(Boolean).join(" · ") || undefined;
+
+function ItemCard({
   item,
   currency,
-  className,
+  period,
+  basis,
 }: {
   item: FinancialReportSummaryItem;
   currency: string;
-  className?: string;
+  period?: string;
+  basis?: string;
 }) {
+  const { direction } = useLocale();
   const drcrLabels = useDrCrLabels();
   const tone = resolveSummaryTone(item.tone, item.value);
-  const Icon = TONE[tone].icon;
   const parts = formatAmountParts(item.value, {
     negative: item.negative ?? "minus",
     zero: "dash",
     drcrLabels,
   });
-  const ownCurrency = item.currency && item.currency !== currency ? item.currency : "";
   return (
-    <Metric
+    <div
       id={`report-summary-${item.id}`}
-      slot="report-kpi"
-      summaryId={item.id}
-      tone={tone}
-      label={item.label}
-      icon={
-        Icon ? <Icon aria-hidden className={cx("size-3.5 shrink-0", TONE[tone].className)} /> : null
-      }
-      figure={parts.figure}
-      suffix={parts.isZero ? "" : [parts.side, ownCurrency].filter(Boolean).join(" ")}
-      figureClassName={parts.isZero ? "text-muted-foreground" : FIGURE_TONE[tone]}
-      className={className}
-    />
+      data-slot="report-kpi"
+      data-summary-id={item.id}
+      data-tone={tone}
+      className={SLOT}
+    >
+      <InsightCard
+        direction={direction}
+        tone={tone}
+        icon={TONE[tone].icon ?? undefined}
+        label={item.cardLabel ?? item.label}
+        value={
+          <Figure
+            figure={parts.figure}
+            side={parts.isZero ? "" : parts.side}
+            className={parts.isZero ? "text-muted-foreground" : FIGURE_TONE[tone]}
+          />
+        }
+        context={joinContext(item.hint, basis)}
+      >
+        <Scope currency={item.currency ?? currency} period={period} />
+      </InsightCard>
+    </div>
   );
 }
 
-/** The reconciliation status cell — what balances, never "the accounting is correct". */
-function StatusCell({ check }: { check: FinancialReportCheck }) {
-  const { t } = useLocale();
+function SideCard({
+  side,
+  currency,
+  period,
+  basis,
+}: {
+  side: NonNullable<FinancialReportCheck["sides"]>[number];
+  currency: string;
+  period?: string;
+  basis?: string;
+}) {
+  const { direction } = useLocale();
+  const parts = formatAmountParts(side.value, { zero: "dash" });
+  return (
+    <div data-slot="report-kpi" data-summary-id={`check:${side.id}`} className={SLOT}>
+      <InsightCard
+        direction={direction}
+        icon={Sigma}
+        label={side.cardLabel ?? side.label}
+        value={
+          <Figure
+            figure={parts.figure}
+            className={parts.isZero ? "text-muted-foreground" : "text-foreground"}
+          />
+        }
+        context={joinContext(side.hint, basis)}
+      >
+        <Scope currency={currency} period={period} />
+      </InsightCard>
+    </div>
+  );
+}
+
+/**
+ * The reconciliation card — states what balances, never "the accounting is
+ * correct"; the verdict is always icon + text, never colour alone.
+ * - balanced: success icon, «متوازن», the equation, "Difference = 0";
+ * - unbalanced: destructive icon, the discrepancy as the figure (tinted card),
+ *   «غير متوازن» + the verdict for the scope, and the drill-down;
+ * - not applicable: a neutral note with the reason.
+ */
+function ReconciliationCard({
+  check,
+  currency,
+  period,
+}: {
+  check: FinancialReportCheck;
+  currency: string;
+  period?: string;
+}) {
+  const { t, direction } = useLocale();
   const state = resolveReconciliationState(check);
-  const Icon = STATE_ICON[state];
+  const scope = check.scope ?? "period";
   const unbalanced = state === "unbalanced";
-  const verdict =
-    state === "not-applicable"
-      ? t("reports.finance.reconciliation.notApplicable")
-      : unbalanced
-        ? t("reports.finance.unbalanced")
-        : t("reports.finance.balanced");
-  const detail =
-    state === "not-applicable"
-      ? check.notApplicable
-      : unbalanced
-        ? // The equation, negated: "Debits ≠ Credits" under an unbalanced verdict.
-          check.label?.replace(" = ", " ≠ ")
-        : check.label;
+  let card: ReactNode;
+  if (state === "unbalanced") {
+    const difference = formatAmountParts(Math.abs(check.difference), { zero: "dash" });
+    card = (
+      <InsightCard
+        direction={direction}
+        tone="destructive"
+        emphasis
+        icon={STATE_ICON.unbalanced}
+        // The check's equation, negated: "Debits ≠ Credits".
+        label={joinContext(
+          t("reports.finance.summaryCards.discrepancy"),
+          check.label?.replace(" = ", " ≠ "),
+        )!}
+        meta={
+          <EnterpriseBadge variant="destructive">{t("reports.finance.unbalanced")}</EnterpriseBadge>
+        }
+        value={<Figure summaryId="check:difference" figure={difference.figure} />}
+        context={t(VERDICT_KEY[scope].unbalanced)}
+        href={check.drillDown?.href}
+        actionLabel={check.drillDown?.label}
+      >
+        <Scope currency={currency} period={period} />
+      </InsightCard>
+    );
+  } else if (state === "balanced") {
+    card = (
+      <InsightCard
+        direction={direction}
+        tone="success"
+        icon={STATE_ICON.balanced}
+        label={check.label}
+        value={t("reports.finance.balanced")}
+        context={joinContext(
+          t(VERDICT_KEY[scope].balanced),
+          t("reports.finance.summaryCards.differenceZero"),
+        )}
+      >
+        <Scope period={period} />
+      </InsightCard>
+    );
+  } else {
+    card = (
+      <InsightCard
+        direction={direction}
+        icon={STATE_ICON["not-applicable"]}
+        label={check.label}
+        value={
+          <span className="text-muted-foreground">{t("reports.finance.checkNotApplicable")}</span>
+        }
+        context={check.notApplicable}
+      >
+        <Scope period={period} />
+      </InsightCard>
+    );
+  }
   return (
     <div
       id="report-summary-check"
@@ -169,131 +251,51 @@ function StatusCell({ check }: { check: FinancialReportCheck }) {
       data-state={state}
       data-balanced={state === "not-applicable" ? undefined : state === "balanced"}
       role={unbalanced ? "alert" : "status"}
-      className={cx(
-        CELL,
-        // Phones: verdict and equation on one line across the strip.
-        "max-md:col-span-2 max-md:flex-row max-md:flex-wrap max-md:items-baseline max-md:gap-x-3",
-        unbalanced && "bg-destructive-soft",
-      )}
+      className={SLOT}
     >
-      <span className="flex min-w-0 items-center gap-2">
-        <Icon
-          aria-hidden
-          className={cx(
-            "size-4 shrink-0",
-            state === "balanced" && "text-success",
-            unbalanced && "text-destructive",
-            state === "not-applicable" && "text-muted-foreground",
-          )}
-        />
-        <span
-          className={cx(
-            "text-card-title font-semibold",
-            unbalanced ? "text-destructive-soft-foreground" : "text-foreground",
-          )}
-        >
-          {verdict}
-        </span>
-      </span>
-      {detail ? (
-        <span
-          className={cx(
-            "text-caption md:ps-6",
-            unbalanced ? "text-destructive-soft-foreground" : "text-muted-foreground",
-          )}
-        >
-          {detail}
-        </span>
-      ) : null}
+      {card}
     </div>
   );
 }
 
 /**
- * The pilot summary strip. Keeps every hook the acceptance scripts and the
+ * The pilot summary cards. Keeps every hook the acceptance scripts and the
  * classic strip expose (`report-summary`, `report-kpi`, `report-reconciliation`,
  * `data-summary-id`, `data-state`, `data-balanced`).
  */
 export function FinancialReportSummaryPilot({
   summary,
   currency,
+  period,
+  basis,
   className,
 }: {
   summary: Summary;
   currency: string;
+  period?: string;
+  basis?: string;
   className?: string;
 }) {
   const { t } = useLocale();
   const check = summary.check;
-  const state = check ? resolveReconciliationState(check) : null;
-  const unbalanced = state === "unbalanced";
-  const difference = check ? formatAmountParts(Math.abs(check.difference), { zero: "dash" }) : null;
-  const sides = check?.sides ?? [];
-  const showDifference = Boolean(check && difference && state !== "not-applicable");
-  // Phones lay the figures two per row under the status; an odd one out
-  // spans the row instead of leaving an empty half cell.
-  const figureCount = summary.items.length + sides.length + (showDifference ? 1 : 0);
-  const lastSpan = (index: number) =>
-    figureCount % 2 === 1 && index === figureCount - 1
-      ? // …as one label · figure line.
-        "max-md:col-span-2 max-md:flex-row max-md:flex-wrap max-md:items-baseline max-md:justify-between max-md:gap-x-3"
-      : undefined;
   return (
-    <div
+    <section
       data-slot="report-summary"
+      aria-label={t("reports.finance.summaryCards.region")}
       className={cx(
-        "overflow-hidden rounded-md border bg-card text-card-foreground shadow-(--shadow-card) print:hidden",
-        unbalanced ? "border-destructive-border" : "border-border",
+        "grid min-w-0 grid-cols-1 gap-2 md:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))] md:gap-3 print:hidden",
         className,
       )}
     >
-      <div className="-me-px -mb-px grid grid-cols-2 md:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]">
-        {check ? <StatusCell check={check} /> : null}
-        {summary.items.map((item, index) => (
-          <ItemMetric key={item.id} item={item} currency={currency} className={lastSpan(index)} />
-        ))}
-        {check
-          ? sides.map((side, index) => {
-              const parts = formatAmountParts(side.value, { zero: "dash" });
-              return (
-                <Metric
-                  key={side.id}
-                  summaryId={`check:${side.id}`}
-                  label={side.label}
-                  figure={parts.figure}
-                  figureClassName={parts.isZero ? "text-muted-foreground" : "text-foreground"}
-                  className={lastSpan(summary.items.length + index)}
-                />
-              );
-            })
-          : null}
-        {check && difference && showDifference ? (
-          <Metric
-            summaryId="check:difference"
-            label={t("reports.finance.reconciliation.difference")}
-            figure={difference.figure}
-            suffix={unbalanced && !difference.isZero ? currency : ""}
-            figureClassName={
-              unbalanced
-                ? "text-destructive-soft-foreground"
-                : difference.isZero
-                  ? "text-muted-foreground"
-                  : "text-foreground"
-            }
-            className={cx(unbalanced && "bg-destructive-soft", lastSpan(figureCount - 1))}
-          >
-            {unbalanced && check.drillDown ? (
-              <Link
-                href={check.drillDown.href}
-                className="inline-flex w-fit items-center gap-1 rounded-xs text-caption font-medium text-destructive-soft-foreground underline underline-offset-2 hover:no-underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-focus-ring"
-              >
-                {check.drillDown.label}
-                <ChevronRight aria-hidden className="size-3.5 rtl:rotate-180" />
-              </Link>
-            ) : null}
-          </Metric>
-        ) : null}
-      </div>
-    </div>
+      {check ? <ReconciliationCard check={check} currency={currency} period={period} /> : null}
+      {summary.items.map((item) => (
+        <ItemCard key={item.id} item={item} currency={currency} period={period} basis={basis} />
+      ))}
+      {check
+        ? (check.sides ?? []).map((side) => (
+            <SideCard key={side.id} side={side} currency={currency} period={period} basis={basis} />
+          ))
+        : null}
+    </section>
   );
 }

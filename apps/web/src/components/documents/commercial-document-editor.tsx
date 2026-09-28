@@ -117,6 +117,8 @@ export interface CommercialDocumentEditorProps<TContext> {
    * header (e.g. an invoice's payment status) — each badge names its state.
    */
   headerStatus?: ReactNode;
+  /** Round 3.1 pilot: read-only workflow tracker(s) under the header (pilot layout only). */
+  headerTracker?: ReactNode;
   /** Inline validation (never toast-only); entered data is never cleared. */
   fieldErrors?: CommercialDocumentFieldErrors;
   activity?: CommercialDocumentActivityEntry[] | null;
@@ -496,6 +498,7 @@ export function CommercialDocumentEditor<TContext>(props: CommercialDocumentEdit
         pendingNumberLabel={t("sales.editor.header.numberOnSave")}
         status={statusNode}
         meta={meta}
+        tracker={props.headerTracker}
         actions={actionBar}
         errorSummary={errorSummary}
         fields={

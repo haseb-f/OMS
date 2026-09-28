@@ -4,13 +4,18 @@ import { useEffect, useState } from "react";
 import { Pause, Play, Clock, Hand, CircleOff } from "lucide-react";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import type { ActionSpec } from "@/components/shared/header-actions";
-import { leadsService, type LeadDistributionSnapshot } from "@/services/leads-service";
+import {
+  leadsService,
+  type LeadDistributionActivateResult,
+  type LeadDistributionRun,
+  type LeadDistributionSnapshot,
+} from "@/services/leads-service";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { toast, reportApiError } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
-type RuntimeStatus = "CONTINUOUS" | "TIME_LIMITED" | "MANUAL" | "PAUSED";
+export type RuntimeStatus = "CONTINUOUS" | "TIME_LIMITED" | "MANUAL" | "PAUSED";
 
 function resolveStatus(snapshot: LeadDistributionSnapshot | null): RuntimeStatus {
   if (snapshot?.status) return snapshot.status;
@@ -38,6 +43,7 @@ export function useLeadDistribution({
   const canManage = hasPermission("crm.leads.manage");
   const [snapshot, setSnapshot] = useState<LeadDistributionSnapshot | null>(null);
   const [busy, setBusy] = useState(false);
+  const [pendingMode, setPendingMode] = useState<RuntimeStatus | null>(null);
 
   const refresh = async () => {
     try {
@@ -69,7 +75,40 @@ export function useLeadDistribution({
     }
   };
 
-  return { canManage, snapshot, status, running, busy, pause };
+  /**
+   * One-action mode change (Round 3.1 pilot control): save the mode and, for
+   * the automatic modes, run the drain in the same request. Resolves with
+   * the server-confirmed run (null for Manual / Pause) — callers show the
+   * result only after this settles; nothing is claimed optimistically.
+   */
+  const applyMode = async (
+    mode: RuntimeStatus,
+  ): Promise<{ run: LeadDistributionRun | null; snapshot: LeadDistributionSnapshot } | null> => {
+    if (busy) return null;
+    setBusy(true);
+    setPendingMode(mode);
+    try {
+      const next =
+        mode === "CONTINUOUS"
+          ? await leadsService.activateContinuous()
+          : mode === "TIME_LIMITED"
+            ? await leadsService.activate24h()
+            : mode === "MANUAL"
+              ? await leadsService.activateManual()
+              : await leadsService.pauseDistribution();
+      setSnapshot(next);
+      onChanged?.();
+      return { run: (next as LeadDistributionActivateResult).run ?? null, snapshot: next };
+    } catch (error) {
+      reportApiError(error, "common.failedToSave");
+      return null;
+    } finally {
+      setBusy(false);
+      setPendingMode(null);
+    }
+  };
+
+  return { canManage, snapshot, status, running, busy, pendingMode, pause, applyMode };
 }
 
 export type LeadDistributionState = ReturnType<typeof useLeadDistribution>;

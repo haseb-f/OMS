@@ -109,11 +109,15 @@ export function TrialBalanceTab() {
               id: "debitTotal",
               label: t("reports.finance.fields.debitTotal"),
               value: totals.debitTotal,
+              cardLabel: t("reports.finance.summaryCards.debitTotalPeriod"),
+              hint: t("reports.finance.summaryCards.debitHint"),
             },
             {
               id: "creditTotal",
               label: t("reports.finance.fields.creditTotal"),
               value: totals.creditTotal,
+              cardLabel: t("reports.finance.summaryCards.creditTotalPeriod"),
+              hint: t("reports.finance.summaryCards.creditHint"),
             },
           ],
           drillDown: {

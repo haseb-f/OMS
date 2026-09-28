@@ -161,22 +161,26 @@ export class LeadsController {
   @HttpCode(200)
   @PermissionAction('manage')
   async activateContinuous(@CurrentUser() user: JwtPayload) {
-    await this.leadAutoDistributionService.activate({
+    // Save + drain in one call; the confirmed run rides on the snapshot.
+    const { run, reused } = await this.leadAutoDistributionService.applyMode({
       mode: LeadDistributionMode.CONTINUOUS,
       actorId: user.sub,
     });
-    return this.leadAutoDistributionService.getPolicySnapshot();
+    const snapshot = await this.leadAutoDistributionService.getPolicySnapshot();
+    return { ...snapshot, run, reused };
   }
 
   @Post('distribution/activate-24h')
   @HttpCode(200)
   @PermissionAction('manage')
   async activate24h(@CurrentUser() user: JwtPayload) {
-    await this.leadAutoDistributionService.activate({
+    // Save + drain in one call; the confirmed run rides on the snapshot.
+    const { run, reused } = await this.leadAutoDistributionService.applyMode({
       mode: LeadDistributionMode.TIME_LIMITED,
       actorId: user.sub,
     });
-    return this.leadAutoDistributionService.getPolicySnapshot();
+    const snapshot = await this.leadAutoDistributionService.getPolicySnapshot();
+    return { ...snapshot, run, reused };
   }
 
   @Post('bulk-assign')

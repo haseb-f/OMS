@@ -30,15 +30,23 @@ export function LeadDistributionModal({
   onOpenChange,
   selectedLeadIds,
   onChanged,
+  assignOnly = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedLeadIds: string[];
   onChanged?: () => void;
+  /**
+   * Round 3.1 pilot: the mode lives on the page's one distribution control,
+   * so this dialog only carries manual assignment and held batches — it
+   * never changes the policy.
+   */
+  assignOnly?: boolean;
 }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
-  const canManagePolicy = hasPermission("crm.leads.manage");
+  const canManagePolicy = hasPermission("crm.leads.manage") && !assignOnly;
+  const canReleaseHeld = hasPermission("crm.leads.manage");
   const [snapshot, setSnapshot] = useState<LeadDistributionSnapshot | null>(null);
   const [draftMode, setDraftMode] = useState<Mode | "PAUSED">("PAUSED");
   const [employeeId, setEmployeeId] = useState("");
@@ -87,7 +95,8 @@ export function LeadDistributionModal({
     ? Math.ceil(snapshot.policy.remainingMs / 3_600_000)
     : null;
   const currentMode = resolveMode(snapshot);
-  const dirty = draftMode !== currentMode;
+  // assignOnly never touches the policy, so a mode difference is not an edit.
+  const dirty = !assignOnly && draftMode !== currentMode;
 
   const applyMode = async (mode: Mode | "PAUSED") => {
     if (mode === "CONTINUOUS") return leadsService.activateContinuous();
@@ -180,31 +189,33 @@ export function LeadDistributionModal({
       )}
     >
       <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-3 py-2">
-          <div className="flex flex-col gap-0.5">
-            <p className="text-caption text-muted-foreground">
-              {t("crm.leads.distribution.status")}
-            </p>
-            <p className="text-body font-semibold">
-              {currentMode === "CONTINUOUS" || currentMode === "TIME_LIMITED"
-                ? t("crm.leads.distribution.running")
-                : currentMode === "MANUAL"
-                  ? t("crm.leads.distribution.states.manual")
-                  : t("crm.leads.distribution.paused")}
-            </p>
+        {assignOnly ? null : (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-3 py-2">
+            <div className="flex flex-col gap-0.5">
+              <p className="text-caption text-muted-foreground">
+                {t("crm.leads.distribution.status")}
+              </p>
+              <p className="text-body font-semibold">
+                {currentMode === "CONTINUOUS" || currentMode === "TIME_LIMITED"
+                  ? t("crm.leads.distribution.running")
+                  : currentMode === "MANUAL"
+                    ? t("crm.leads.distribution.states.manual")
+                    : t("crm.leads.distribution.paused")}
+              </p>
+            </div>
+            {(currentMode === "CONTINUOUS" || currentMode === "TIME_LIMITED") && canManagePolicy ? (
+              <EnterpriseButton
+                size="sm"
+                variant="warning"
+                disabled={busy}
+                onClick={() => setDraftMode("PAUSED")}
+              >
+                <Pause />
+                {t("crm.leads.distribution.pause")}
+              </EnterpriseButton>
+            ) : null}
           </div>
-          {(currentMode === "CONTINUOUS" || currentMode === "TIME_LIMITED") && canManagePolicy ? (
-            <EnterpriseButton
-              size="sm"
-              variant="warning"
-              disabled={busy}
-              onClick={() => setDraftMode("PAUSED")}
-            >
-              <Pause />
-              {t("crm.leads.distribution.pause")}
-            </EnterpriseButton>
-          ) : null}
-        </div>
+        )}
 
         {canManagePolicy ? (
           <div className="grid gap-2 sm:grid-cols-3">
@@ -254,7 +265,7 @@ export function LeadDistributionModal({
           </p>
         ) : null}
 
-        {(snapshot?.held?.batches.length ?? 0) > 0 && canManagePolicy ? (
+        {(snapshot?.held?.batches.length ?? 0) > 0 && canReleaseHeld ? (
           <div className="flex flex-col gap-2 rounded-md border border-warning/30 bg-warning-soft/40 p-3">
             <p className="text-body font-medium">{t("crm.leads.distribution.heldTitle")}</p>
             <p className="text-caption text-muted-foreground">

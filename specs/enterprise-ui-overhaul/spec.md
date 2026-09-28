@@ -187,3 +187,39 @@ is not design approval. Work lives on branch `ui/vercel-pilot`.
 **After approval only:** promote the pilot tokens and `geist:` recipes to the base layer, remove the
 superseded styles and the pilot switch, cover every route, run all gates, independent visual review,
 commit, push, deploy, verify Production, refresh the Arabic guide screenshots.
+
+### Round 3.1: pilot refinement — actions, vertical forms, expressive cards, distribution (2026-09-28)
+
+Owner feedback on the first pilot: improved, **not approved yet**. Same delivery gate: local only, no
+rollout / merge / deploy until the owner explicitly approves the updated preview.
+
+1. **Lead actions** in reading order (mirrored for RTL/LTR): «إضافة متابعة / Add Follow-up» →
+   «تحويل إلى طلب / Convert to Order» (refined green) → «المزيد / More» (neutral overflow). One
+   follow-up action only: any workflow transition that duplicates it ("Start Follow-up") is folded
+   into the Add Follow-up flow, keeping its business effect. Permissions and conversion eligibility
+   respected. The stage tracker stays.
+2. **Workflow tracker** — one shared component for multi-step operations: real current stage,
+   completed stages, next steps; payment and fulfillment as separate tracks; read-only stages are
+   never styled as clickable; no invented stages. Pilot demos: lead, store order detail, sales
+   invoice. Rollout list (after approval): purchase orders/invoices, payment reconciliation, returns.
+3. **Vertical data-entry cards** — creation forms and dialogs as focused cards: softly tinted solid
+   surface, section titles + one-line descriptions, 520–640px on desktop, one field column (short
+   related fields paired), 10–12px radius, compact (not stretched) buttons, clear footer with
+   primary + secondary, mobile scroll with reachable actions. Wide layouts only where needed (line
+   tables). Pilot: Add Follow-up and Lead → Order. Data, validation and unsaved-change behavior kept.
+4. **Dashboard and report cards** — label, prominent value, context, relevant action; semantic
+   accents and coherent icons; small meaningful vector marks only; restrained tinted backgrounds;
+   hover = small border/elevation change, no layout shift, reduced-motion respected; only interactive
+   cards look clickable. Report summaries state what each number is, its currency and period;
+   discrepancies emphasized with text + icon, never colour alone.
+5. **Lead distribution — one stateful control** showing the current applied mode/status; options in
+   its menu. Active = green, paused = neutral/amber, failure/blocked = red with the reason. Selecting
+   an enabled mode saves and triggers distribution immediately (no second "Start"); scheduled modes
+   show the next run; Pause stops future assignments. Saving/running state, then the server-confirmed
+   assigned/pending result; empty employee pool and failures explained; no duplicate runs; existing
+   ownership preserved. Verified against local demo leads (activation, pause, repeat, empty pool).
+6. **Finishing touches** — consistent icons, refined surfaces, meaningful accents, short transitions,
+   clear feedback; an extension of §12, not a new library or theme.
+
+Pilot routes add `/store-orders/[id]` (tracker demo). Evidence: `tmp/pilot/r31-before` (= the
+Round 3 pilot) vs `tmp/pilot/r31-after`, plus `tmp/pilot/distribution-test.md`.

@@ -5,6 +5,7 @@ import { EnterpriseButton } from "@/components/ui/button";
 import { SubmitButton } from "@/components/shared/form-fields/submit-button";
 import { useLocale } from "@/providers/locale-provider";
 import { useUiPilot } from "@/providers/ui-pilot-provider";
+import { FormCardSection, useFormCard } from "@/components/shared/form-card/form-card";
 import { cn } from "@/lib/utils";
 
 /**
@@ -36,16 +37,39 @@ function isSummaryValueEmpty(value: ReactNode): boolean {
  */
 export function CreateOperationSummary({
   title,
+  description,
   rows,
   className,
 }: {
   title: string;
+  /** One line under the title (shown in the Round 3.1 form card only). */
+  description?: ReactNode;
   rows: { label: string; value: ReactNode }[];
   className?: string;
 }) {
   const pilot = useUiPilot().active;
+  const formCard = useFormCard();
   const visible = rows.filter((row) => !isSummaryValueEmpty(row.value));
   if (visible.length === 0) return null;
+
+  if (formCard) {
+    // Round 3.1 pilot: the review list on a tinted form-card panel, one column.
+    return (
+      <FormCardSection title={title} description={description} className={className}>
+        <dl className="flex flex-col">
+          {visible.map((row) => (
+            <div
+              key={row.label}
+              className="flex min-w-0 items-baseline justify-between gap-4 border-b border-border py-2 first:pt-0 last:border-b-0 last:pb-0"
+            >
+              <dt className="shrink-0 text-caption text-muted-foreground">{row.label}</dt>
+              <dd className="min-w-0 text-end text-body font-medium">{row.value}</dd>
+            </div>
+          ))}
+        </dl>
+      </FormCardSection>
+    );
+  }
 
   if (pilot) {
     // Round 3 pilot: a review list — heading, then hairline-divided rows

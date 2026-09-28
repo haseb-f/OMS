@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useUiPilot } from "@/providers/ui-pilot-provider";
+import { FormCardSection, useFormCard } from "@/components/shared/form-card/form-card";
 import { cn } from "@/lib/utils";
 
 /**
@@ -36,6 +37,22 @@ export function FormSection({
 }) {
   // Round 3 pilot: a little more air between groups, same hairline rhythm.
   const pilot = useUiPilot().active;
+  // Round 3.1 pilot: inside a vertical form card every group is a tinted panel.
+  const formCard = useFormCard();
+  if (formCard) {
+    return (
+      <FormCardSection
+        title={title}
+        description={description}
+        actions={actions}
+        className={className}
+        data-field-name={fieldName}
+        data-invalid={invalid}
+      >
+        {children}
+      </FormCardSection>
+    );
+  }
   return (
     <section
       data-slot="form-section"
@@ -74,12 +91,15 @@ export function AmountStrip({
   label?: string;
   className?: string;
 }) {
+  // Round 3.1 pilot: on a tinted form-card panel the strip is a white surface.
+  const formCard = useFormCard();
   return (
     <dl
       aria-label={label}
       data-slot="amount-strip"
       className={cn(
         "flex flex-wrap items-baseline justify-end gap-x-6 gap-y-1 rounded-md bg-surface-sunken px-3 py-2",
+        formCard && "border border-border bg-card",
         className,
       )}
     >

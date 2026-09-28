@@ -462,3 +462,62 @@ a build with `NEXT_PUBLIC_UI_PILOT=geist`; see spec "Round 3"). Reference values
   (debit total = credit total, difference 0) — never a floating badge.
 - **Feedback:** validation next to the field and summarized next to the action that failed;
   success shown in place (status, link, inline note). Toasts only supplement.
+
+### 12.7 Workflow tracker (Round 3.1)
+
+One shared, read-only tracker for multi-step operations: `components/shared/workflow-tracker.tsx`.
+
+**API.**
+
+- `WorkflowTracker` — `label` (accessible name), `stages: {key, label, caption?, optional?}[]` (the happy
+  path, in order), `current` (stage key), `currentComplete` (the final stage was reached),
+  `completed?` (explicit set; default = every stage before `current`), `state?: {label, tone}`
+  (a branch/terminal state — Lost, Cancelled, Returned, Payment review… — which becomes the
+  current step, drawn by `state.placement`: `before` the first stage for pre-start states
+  (Unfulfilled), `inline` after the last completed stage for branches (Payment review,
+  Submitted), `after` for terminal states (Cancelled, Returned, Lost)), `fullFrom` (container width for the full form).
+- `WorkflowTracks` — independent, labeled tracks of one record (`tracks: {key, label, meta?, …}`),
+  e.g. «الدفع / Payment» and «التنفيذ / Fulfillment». Tracks never merge.
+- `resolveWorkflowTrack()` — the pure mapping (unit-tested in `workflow-tracker.spec.tsx`).
+
+**Rules.**
+
+- Stages come only from the real status codes the API stores. If a status set is not linear,
+  show the linear happy path and the record's branch/terminal state honestly as `state` — never
+  invent a stage, never mark a step done that the data does not imply. A stage a record may skip
+  (Partially paid; Draft/Approved when Confirm approves implicitly or a document is created
+  confirmed) is `optional`: shown only while current or when the caller proves it was passed
+  (listed in `completed`). Each screen keeps its
+  code → track mapping in one pure function next to the screen (unit-tested).
+- Read-only: an ordered list, no buttons/links/tabindex, no pointer or hover; status changes
+  happen through the page's actions. `aria-current="step"` on the current step; each step carries
+  visually hidden «مكتملة / قادمة / المرحلة الحالية». Markers never look selectable: done = filled check, current = solid dot with a soft
+  halo, upcoming = small muted dot. The compact count is i18n («2 من 3» / “2 of 3”). Stage labels
+  reuse the status badge wording.
+- Full form (dot + label + connector, captions such as dates under a stage) when the tracker's own
+  container is wide enough; otherwise the compact form «stage · 2 / 3» + a segmented bar
+  (`role="progressbar"`), never clipped at 390px. Tokens only; logical properties; no motion.
+- Payment and fulfillment are always separate tracks (payment never advances fulfillment).
+
+**Live in the pilot.**
+
+| Screen               | Track(s)          | Source                                                                                                                                                                                                     |
+| -------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lead detail          | Stage             | `Lead.status.code`: NEW → (working, optional) → (QUALIFIED, optional) → CONVERTED, optional stages proven by `GET /workflow/LEAD/:id/status-history`; LOST/DISQUALIFIED = state                            |
+| Store order detail   | Payment           | `StoreOrder.paymentStatus`: PAYMENT_PENDING → (PARTIALLY_PAID, optional) → FULLY_PAID_RECONCILED; OVERPAID, PAYMENT_REVIEW, UNMATCHED = state after PAYMENT_PENDING; meta = Sales declaration, type        |
+|                      | Fulfillment       | `fulfillmentStatus.code`: shipping (READY, optional) → SHIPPED → DELIVERED (shipment dates as captions); pickup AWAITING_PREPARATION → READY_FOR_PICKUP → COLLECTED; others = state; meta = carrier        |
+| Sales invoice editor | Document, Payment | `SalesInvoice.status`: (DRAFT, optional) → (APPROVED, optional) → CONFIRMED (PENDING_APPROVAL, CLOSED, CANCELLED = state); `paymentStatus`: UNPAID → (PARTIALLY_PAID, optional) → PAID (CANCELLED = state) |
+
+Mappings: `components/crm/pilot/lead-stage-indicator.tsx`,
+`components/store-orders/store-order-workflow-tracks.tsx`,
+`app/(shell)/sales/invoices/invoice-workflow-tracks.tsx`. The document editor takes it through the
+`headerTracker` slot (pilot layout only).
+
+**Rollout list (after approval).**
+
+| Screen                 | Status source                                                                                                                                    |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Purchase orders        | `PurchaseOrderStatus`: DRAFT → APPROVED → CLOSED; CANCELLED = state (ADR-0015)                                                                   |
+| Purchase invoices      | `PurchaseDocumentStatus` (same shape as sales) + the shared server-computed invoice `paymentStatus` as a second track                            |
+| Payment reconciliation | Payment record `PaymentStatus`: PENDING → MATCHED → VERIFIED; REJECTED/DISPUTED = state. Bank line `BankTransactionMatchStatus` as its own track |
+| Returns                | Sales/purchase return `status` (`SalesDocumentStatus` / `PurchaseDocumentStatus`): DRAFT → APPROVED → CONFIRMED; CANCELLED = state               |

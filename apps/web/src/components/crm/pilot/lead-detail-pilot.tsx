@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, UserCheck } from "lucide-react";
 import {
   DetailField,
   DetailFieldGrid,
@@ -23,7 +23,7 @@ import {
 import {
   isLeadFollowUpOverdue,
   isLeadOperational,
-  planLeadNextActions,
+  planLeadPilotActions,
   type LeadNextActionsProps,
 } from "@/components/crm/lead-next-actions";
 import { LeadStageIndicator } from "@/components/crm/pilot/lead-stage-indicator";
@@ -41,6 +41,24 @@ export interface LeadOutcome {
   message: string;
 }
 
+/** One inline action of the lead group (shared Button, 32px / 40px touch). */
+function GroupButton({ action }: { action: ActionSpec }) {
+  const Icon = action.icon;
+  return (
+    <EnterpriseButton
+      type="button"
+      variant={action.variant ?? "outline"}
+      disabled={action.disabled}
+      isLoading={action.loading}
+      data-testid={action.testId}
+      onClick={() => void action.onSelect?.()}
+    >
+      {Icon && !action.loading ? <Icon /> : null}
+      {action.label}
+    </EnterpriseButton>
+  );
+}
+
 /**
  * Round 3 pilot layout for the lead detail page (design-system §12.6).
  * Presentational only: data, handlers, permissions and dialogs come from the
@@ -49,6 +67,7 @@ export interface LeadOutcome {
 export function LeadDetailPilot({
   lead,
   actions,
+  followUpBusy = false,
   classificationControl,
   outcome,
   onDismissOutcome,
@@ -60,6 +79,8 @@ export function LeadDetailPilot({
   lead: LeadRow;
   /** Same props the classic `LeadNextActions` receives. */
   actions: Omit<LeadNextActionsProps, "lead">;
+  /** A saved follow-up is still finishing (folded Start follow-up running). */
+  followUpBusy?: boolean;
   /** The editable classification combobox, or null when it is read-only. */
   classificationControl: ReactNode;
   outcome: LeadOutcome | null;
@@ -90,16 +111,28 @@ export function LeadDetailPilot({
       // Closed / converted: only the backend-offered transitions (e.g. Reopen).
       return <HeaderActions secondary={transitionSpecs} />;
     }
-    const plan = planLeadNextActions({ lead, ...actions }, t, now);
+    const plan = planLeadPilotActions({ lead, ...actions, followUpBusy }, transitions, t, now);
+    // Reading order (logical, mirrors in RTL): Add Follow-up → Convert to
+    // Order → More. `HeaderActions` supplies the «المزيد» menu only, since its
+    // own order puts the overflow first.
     return (
-      <HeaderActions
-        primary={plan.primary}
-        secondary={[...plan.secondary, ...transitionSpecs]}
-        // Closing without purchase ends the lead: red, separated, last. Its own
-        // dialog asks for the reason, so it needs no extra confirm step.
-        more={plan.more.filter((action) => action.key !== "close")}
-        destructive={plan.more.filter((action) => action.key === "close")}
-      />
+      <div
+        data-lead-actions=""
+        aria-busy={Boolean(plan.running) || followUpBusy || undefined}
+        className="flex min-w-0 flex-wrap items-center justify-end gap-2"
+      >
+        {plan.followUp ? <GroupButton action={plan.followUp} /> : null}
+        {plan.convert ? <GroupButton action={plan.convert} /> : null}
+        {plan.running ? (
+          <GroupButton action={{ key: "running", label: plan.running.label, loading: true }} />
+        ) : null}
+        <HeaderActions
+          more={plan.more}
+          // Closing without purchase ends the lead: red, separated, last. Its
+          // own dialog asks for the reason, so it needs no extra confirm step.
+          destructive={plan.destructive}
+        />
+      </div>
     );
   };
 
@@ -170,6 +203,7 @@ export function LeadDetailPilot({
             {t("crm.leads.stage.label")}
           </span>
           <LeadStageIndicator
+            leadId={lead.id}
             statusCode={lead.status?.code}
             closedLabel={closed ? pilotLeadStatusName(lead.status, locale) : undefined}
           />
@@ -180,8 +214,22 @@ export function LeadDetailPilot({
               label={t("crm.leads.fields.assignedTo")}
               value={
                 lead.salesEmployee?.fullName ?? (
-                  <span className="font-normal text-muted-foreground">
-                    {t("crm.leads.unassigned")}
+                  <span className="inline-flex flex-wrap items-center gap-2">
+                    <span className="font-normal text-muted-foreground">
+                      {t("crm.leads.unassigned")}
+                    </span>
+                    {operational && actions.canAssign ? (
+                      // Workflow priority stays visible where the gap is.
+                      <EnterpriseButton
+                        type="button"
+                        variant="link"
+                        size="inline"
+                        onClick={actions.onAssign}
+                      >
+                        <UserCheck />
+                        {t("crm.leads.actions.assign")}
+                      </EnterpriseButton>
+                    ) : null}
                   </span>
                 )
               }

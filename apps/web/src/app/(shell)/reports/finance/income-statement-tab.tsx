@@ -57,12 +57,16 @@ export function IncomeStatementTab() {
             label: t("reports.finance.fields.totalRevenue"),
             value: findLine(lines, "revenue:total")?.values.balance ?? 0,
             tone: "revenue",
+            cardLabel: t("reports.finance.summaryCards.revenuePeriod"),
+            hint: t("reports.finance.summaryCards.revenueHint"),
           },
           {
             id: "totalExpense",
             label: t("reports.finance.fields.totalExpense"),
             value: findLine(lines, "expense:total")?.values.balance ?? 0,
             tone: "expense",
+            cardLabel: t("reports.finance.summaryCards.expensePeriod"),
+            hint: t("reports.finance.summaryCards.expenseHint"),
           },
           // The label carries the sign (Net Profit / Net Loss); the figure is
           // the absolute amount, green for a profit, red for a loss.
@@ -75,6 +79,11 @@ export function IncomeStatementTab() {
             value: Math.abs(netIncome),
             emphasize: true,
             tone: netIncome < 0 ? "loss" : netIncome > 0 ? "profit" : "neutral",
+            cardLabel:
+              netIncome < 0
+                ? t("reports.finance.summaryCards.netLossPeriod")
+                : t("reports.finance.summaryCards.netProfitPeriod"),
+            hint: t("reports.finance.summaryCards.netHint"),
           },
         ],
       }}

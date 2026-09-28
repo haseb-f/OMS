@@ -220,6 +220,89 @@ html[data-ui="geist"][dir="ltr"] :is(h1, h2) {
   letter-spacing: -0.02em;
 }
 
+/* ── Round 3.1: insight cards (design-system §12.8) ───────────────────── */
+
+html[data-ui="geist"] {
+  /* Per-tone accent (icon/text) and a restrained tinted surface. */
+  --insight-neutral: var(--muted-foreground);
+  --insight-info: var(--info-soft-foreground);
+  --insight-success: var(--success-soft-foreground);
+  --insight-warning: var(--warning-soft-foreground);
+  --insight-destructive: var(--destructive-soft-foreground);
+  --insight-revenue: var(--report-revenue);
+  --insight-expense: var(--report-expense);
+  --insight-profit: var(--report-profit);
+  --insight-loss: var(--report-loss);
+  --insight-lift: 0 6px 16px -8px rgb(0 0 0 / 0.14);
+}
+html.dark[data-ui="geist"] {
+  --insight-lift: 0 8px 20px -8px rgb(0 0 0 / 0.7);
+}
+
+[data-ui="geist"] [data-slot="insight-card"] {
+  --tone: var(--insight-neutral);
+  background-color: var(--card);
+  border-color: var(--border);
+  box-shadow: var(--shadow-card);
+  color: var(--card-foreground);
+  transition:
+    border-color var(--duration-base) var(--ease-standard),
+    box-shadow var(--duration-base) var(--ease-standard),
+    transform var(--duration-base) var(--ease-standard);
+}
+[data-ui="geist"] [data-slot="insight-card"][data-tone="info"] {
+  --tone: var(--insight-info);
+}
+[data-ui="geist"] [data-slot="insight-card"][data-tone="success"] {
+  --tone: var(--insight-success);
+}
+[data-ui="geist"] [data-slot="insight-card"][data-tone="warning"] {
+  --tone: var(--insight-warning);
+}
+[data-ui="geist"] [data-slot="insight-card"][data-tone="destructive"] {
+  --tone: var(--insight-destructive);
+}
+[data-ui="geist"] [data-slot="insight-card"][data-tone="revenue"] {
+  --tone: var(--insight-revenue);
+}
+[data-ui="geist"] [data-slot="insight-card"][data-tone="expense"] {
+  --tone: var(--insight-expense);
+}
+[data-ui="geist"] [data-slot="insight-card"][data-tone="profit"] {
+  --tone: var(--insight-profit);
+}
+[data-ui="geist"] [data-slot="insight-card"][data-tone="loss"] {
+  --tone: var(--insight-loss);
+}
+
+[data-ui="geist"] [data-slot="insight-card"] [data-slot="insight-icon"] {
+  color: var(--tone);
+  border-color: color-mix(in oklab, var(--tone) 22%, var(--border));
+  background-color: color-mix(in oklab, var(--tone) 8%, var(--card));
+}
+[data-ui="geist"] [data-slot="insight-card"] [data-slot="insight-bar"] {
+  background-color: var(--tone);
+}
+/* Emphasis: open work / discrepancy — a soft tinted surface + tinted edge. */
+[data-ui="geist"] [data-slot="insight-card"][data-emphasis] {
+  background-color: color-mix(in oklab, var(--tone) 4%, var(--card));
+  border-color: color-mix(in oklab, var(--tone) 28%, var(--border));
+}
+[data-ui="geist"] [data-slot="insight-card"][data-emphasis] [data-slot="insight-value"] {
+  color: var(--tone);
+}
+/* Only interactive cards react: border + 1px lift, never a layout shift. */
+[data-ui="geist"] [data-slot="insight-card"][data-interactive]:hover {
+  border-color: color-mix(in oklab, var(--tone) 40%, var(--input-hover));
+  box-shadow: var(--insight-lift);
+  transform: translateY(-1px);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-ui="geist"] [data-slot="insight-card"][data-interactive]:hover {
+    transform: none;
+  }
+}
+
 /* ── 2. Recipes ───────────────────────────────────────────────────────── */
 
 /* Buttons: Geist error = a solid red, not a soft tint. */
@@ -293,7 +376,7 @@ html.dark[data-ui="geist"] [data-slot="button"][data-variant="outline"] {
   :is([data-slot="input"], [data-slot="textarea"]):not(:disabled):not(:read-only):hover {
   border-color: var(--input-hover);
 }
-[data-ui="geist"] :is([data-slot="input"], [data-slot="textarea"]):read-only {
+[data-ui="geist"] :is([data-slot="input"], [data-slot="textarea"]):read-only:not([data-picker]) {
   border-color: var(--border);
 }
 [data-ui="geist"] :is([data-slot="input"], [data-slot="textarea"]):focus-visible,
@@ -466,4 +549,59 @@ html.dark[data-ui="geist"] [data-filter-trigger][data-active] {
     min-width: var(--control-height-md);
     min-height: var(--control-height-md);
   }
+}
+
+/* Pressed states (Round 3.1): every button variant answers a press, not only
+   the primary. Colour only — no scale/press animation. */
+[data-ui="geist"] [data-slot="button"][data-variant="outline"]:not(:disabled):active {
+  background-color: var(--secondary);
+  border-color: var(--input-hover);
+}
+[data-ui="geist"] [data-slot="button"][data-variant="success"]:not(:disabled):active {
+  background-color: color-mix(in oklab, var(--success-hover) 88%, black);
+}
+[data-ui="geist"] [data-slot="button"][data-variant="destructive"]:not(:disabled):active {
+  background-color: color-mix(in oklab, var(--destructive-hover) 88%, black);
+}
+[data-ui="geist"] [data-slot="button"][data-variant="ghost"]:not(:disabled):active {
+  background-color: var(--secondary);
+}
+
+/* ── 3. Round 3.1 form card ───────────────────────────────────────────────
+   Vertical data-entry card (spec "Round 3.1" item 3): creation dialogs with
+   `EnterpriseModal layout="form-card"` are bounded (520 / 640px) and stack
+   softly tinted, solid section panels (`components/shared/form-card`).
+   White controls sit on the tint; the dialog itself stays the white card. */
+html[data-ui="geist"] {
+  --form-card-width-narrow: 32.5rem;
+  --form-card-width: 40rem;
+  --form-card-radius: 10px;
+  --form-section: color-mix(in oklab, #0072f5 6%, #f7f7f8);
+  --form-section-border: color-mix(in oklab, #0072f5 14%, #e6e6e6);
+  /* Error text / required mark on the tint: >= 4.5:1 in both themes. */
+  --form-error-text: var(--destructive-soft-foreground);
+}
+html.dark[data-ui="geist"] {
+  --form-section: color-mix(in oklab, #52a8ff 7%, #151515);
+  --form-section-border: color-mix(in oklab, #52a8ff 16%, #262626);
+}
+[data-ui="geist"] [data-slot="form-card-section"] {
+  background-color: var(--form-section);
+  border: 1px solid var(--form-section-border);
+  border-radius: var(--form-card-radius);
+}
+/* A section flagged by the error summary shows it on its edge, not by color alone
+   (the field message and the summary name the problem). */
+[data-ui="geist"] [data-slot="form-card-section"][data-invalid="true"] {
+  border-color: var(--destructive-border);
+}
+/* Error messages and required marks on a tinted panel use the higher-contrast
+   error text (plain --destructive falls just under 4.5:1 on the tint). */
+[data-ui="geist"] [data-slot="form-card-section"] .text-destructive {
+  color: var(--form-error-text);
+}
+/* A picker's text field is read-only because the picker owns the value — it
+   stays a live white control, never the sunken "read-only" look. */
+[data-ui="geist"] [data-picker]:read-only:not(:disabled) {
+  background-color: transparent;
 }

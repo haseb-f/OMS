@@ -172,6 +172,7 @@ export function EnterpriseDatePicker({
             placeholder={showTime ? "DD MMM YYYY — HH:mm" : placeholder}
             disabled={disabled}
             readOnly={showTime}
+            data-picker=""
             aria-invalid={ariaInvalid || error}
             onChange={
               showTime

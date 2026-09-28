@@ -91,6 +91,13 @@ export interface FinancialReportSummaryItem {
   negative?: NegativeStyle;
   /** Currency of this tile when it differs from the report currency. */
   currency?: string;
+  /**
+   * Round 3.1 pilot summary cards: a label that says exactly what the figure
+   * is ("Net profit for the period"; defaults to `label`) and one short
+   * context line ("Revenue minus expenses"). Ignored by the classic strip.
+   */
+  cardLabel?: string;
+  hint?: string;
 }
 
 export interface FinancialReportCheck {
@@ -109,7 +116,14 @@ export interface FinancialReportCheck {
    */
   scope?: FinancialReportCheckScope;
   /** The two compared totals, shown in the reconciliation card and exported. */
-  sides?: Array<{ id: string; label: string; value: number }>;
+  sides?: Array<{
+    id: string;
+    label: string;
+    value: number;
+    /** Pilot summary card label / context line (see {@link FinancialReportSummaryItem}). */
+    cardLabel?: string;
+    hint?: string;
+  }>;
   /** Where to investigate an imbalance (shown in the unbalanced state only). */
   drillDown?: { href: string; label: string };
 }

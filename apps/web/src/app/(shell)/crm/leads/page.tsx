@@ -35,7 +35,7 @@ import {
   useLeadDistribution,
 } from "@/components/crm/lead-distribution-control";
 import { BulkLeadStatusDialog } from "@/components/crm/bulk-lead-status-dialog";
-import { LeadDistributionMetaPilot } from "@/components/crm/pilot/lead-list-pilot";
+import { LeadDistributionControlPilot } from "@/components/crm/pilot/lead-list-pilot";
 import { useUiPilot } from "@/providers/ui-pilot-provider";
 import { reportApiError } from "@/lib/toast";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -60,6 +60,8 @@ function CrmLeadsPageContent() {
   const [closeTarget, setCloseTarget] = useState<LeadRow | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [distributionOpen, setDistributionOpen] = useState(false);
+  // Pilot: the header control owns the mode; the dialog opens for manual tools only.
+  const [distributionToolsOnly, setDistributionToolsOnly] = useState(false);
   const [bulkAssignIds, setBulkAssignIds] = useState<string[]>([]);
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
   const [bulkStatusIds, setBulkStatusIds] = useState<string[]>([]);
@@ -393,9 +395,12 @@ function CrmLeadsPageContent() {
         headerMeta={
           canAssign ? (
             pilot ? (
-              <LeadDistributionMetaPilot
+              <LeadDistributionControlPilot
                 state={distribution}
-                onOpenModes={() => setDistributionOpen(true)}
+                onOpenTools={() => {
+                  setDistributionToolsOnly(true);
+                  setDistributionOpen(true);
+                }}
               />
             ) : (
               <LeadDistributionStatus
@@ -415,7 +420,8 @@ function CrmLeadsPageContent() {
           </>
         }
         headerMore={
-          canAssign
+          // Pilot: Start / Pause live in the one distribution control instead.
+          canAssign && !pilot
             ? [leadDistributionAction(distribution, t, () => setDistributionOpen(true))]
             : undefined
         }
@@ -466,9 +472,13 @@ function CrmLeadsPageContent() {
         open={distributionOpen}
         onOpenChange={(open) => {
           setDistributionOpen(open);
-          if (!open) setBulkAssignIds([]);
+          if (!open) {
+            setBulkAssignIds([]);
+            setDistributionToolsOnly(false);
+          }
         }}
         selectedLeadIds={bulkAssignIds}
+        assignOnly={pilot && (distributionToolsOnly || bulkAssignIds.length > 0)}
         onChanged={() => setRefreshToken((n) => n + 1)}
       />
       <BulkLeadStatusDialog

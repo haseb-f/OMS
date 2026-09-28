@@ -9,6 +9,7 @@ import type { ReactNode, Ref } from "react";
  * validation and API call and hands the rendered pieces in as slots.
  *
  *   header   title · number · status | meta line            actions (end)
+ *   tracker  read-only workflow track(s), when the editor passes one
  *   card     compact proportional header fields
  *   section  product lines (white table on the canvas)
  *   footer   notes / more details (start) | totals on the numeric edge (end)
@@ -22,6 +23,7 @@ export function DocumentEditorPilotLayout({
   pendingNumberLabel,
   status,
   meta,
+  tracker,
   actions,
   errorSummary,
   fields,
@@ -39,6 +41,8 @@ export function DocumentEditorPilotLayout({
   pendingNumberLabel: string;
   status?: ReactNode;
   meta?: ReactNode;
+  /** Round 3.1: read-only workflow tracker(s) (design-system §12.7), under the header. */
+  tracker?: ReactNode;
   actions: ReactNode;
   errorSummary: ReactNode;
   fields: ReactNode;
@@ -82,6 +86,12 @@ export function DocumentEditorPilotLayout({
           {actions}
         </div>
       </header>
+
+      {tracker ? (
+        <div className="rounded-md border border-border bg-card px-4 py-2.5 shadow-(--shadow-card)">
+          {tracker}
+        </div>
+      ) : null}
 
       {errorSummary}
 

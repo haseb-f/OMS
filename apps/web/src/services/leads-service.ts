@@ -129,6 +129,8 @@ export interface LeadDistributionSnapshot {
   eligible: { id: string; fullName: string; email: string }[];
   pendingEligibleCount?: number;
   failureReason?: string | null;
+  /** NO_ELIGIBLE_EMPLOYEES (blocked), PENDING_NOT_AUTO (paused backlog) or a last-run code. */
+  failureCode?: string | null;
   lastRun?: {
     at: string | null;
     assigned: number;
@@ -139,6 +141,21 @@ export interface LeadDistributionSnapshot {
     count: number;
     batches: { importBatch: string | null; count: number; createdAt: string | null }[];
   };
+}
+
+/** Server-confirmed outcome of the drain an activate call ran. */
+export interface LeadDistributionRun {
+  assigned: number;
+  skipped: number;
+  failureCode: string | null;
+  failureReason: string | null;
+  alreadyRunning?: boolean;
+}
+
+/** Activate responses: the fresh snapshot plus the drain it ran. */
+export interface LeadDistributionActivateResult extends LeadDistributionSnapshot {
+  run?: LeadDistributionRun | null;
+  reused?: boolean;
 }
 
 export interface LeadNoteRow {
@@ -178,9 +195,12 @@ export const leadsService = {
   eligibleAssignees: () =>
     apiClient.get<{ id: string; fullName: string; email: string }[]>("/leads/eligible-assignees"),
   distribution: () => apiClient.get<LeadDistributionSnapshot>("/leads/distribution"),
-  activateContinuous: () => apiClient.post("/leads/distribution/activate-continuous"),
-  activate24h: () => apiClient.post("/leads/distribution/activate-24h"),
-  activateManual: () => apiClient.post("/leads/distribution/activate-manual"),
+  activateContinuous: () =>
+    apiClient.post<LeadDistributionActivateResult>("/leads/distribution/activate-continuous"),
+  activate24h: () =>
+    apiClient.post<LeadDistributionActivateResult>("/leads/distribution/activate-24h"),
+  activateManual: () =>
+    apiClient.post<LeadDistributionSnapshot>("/leads/distribution/activate-manual"),
   pauseDistribution: () => apiClient.post<LeadDistributionSnapshot>("/leads/distribution/pause"),
   deactivateDistribution: () =>
     apiClient.post<LeadDistributionSnapshot>("/leads/distribution/deactivate"),

@@ -37,6 +37,7 @@ export function SalesDocumentEditor<TDocument>({
   isBusy,
   paymentSummary,
   headerStatus,
+  headerTracker,
   fieldErrors,
 }: {
   config: SalesDocumentEditorConfig<TDocument>;
@@ -52,6 +53,8 @@ export function SalesDocumentEditor<TDocument>({
   paymentSummary?: ReactNode;
   /** Independent status next to the workflow badge (e.g. invoice payment status). */
   headerStatus?: ReactNode;
+  /** Round 3.1 pilot: read-only workflow tracker(s) under the header (pilot layout only). */
+  headerTracker?: ReactNode;
   /** Inline validation messages under their fields. */
   fieldErrors?: CommercialDocumentFieldErrors;
 }) {
@@ -167,6 +170,7 @@ export function SalesDocumentEditor<TDocument>({
       moreDetails={moreDetails}
       paymentSummary={paymentSummary}
       headerStatus={headerStatus}
+      headerTracker={headerTracker}
       fieldErrors={fieldErrors}
       activity={activity}
       isLoading={isLoading}

@@ -46,3 +46,16 @@
 | R3-GATE | tsc clean · eslint 0 errors · vitest 256/256 · after capture `tmp/pilot/after`, `tmp/pilot/compare.html`                                             | Master            | done                                     |
 | R3-OK   | **Owner visual approval of the local pilot**                                                                                                         | Owner             | **WAITING — nothing deployed or merged** |
 | R3-ROLL | After approval: promote tokens/recipes, delete classic branches + pilot switch, all routes, gates, review, release                                   | —                 | blocked on R3-OK                         |
+
+### Round 3.1 — pilot refinement (LOCAL, branch `ui/vercel-pilot`)
+
+| ID       | Task                                                                                                                   | Status      |
+| -------- | ---------------------------------------------------------------------------------------------------------------------- | ----------- |
+| R31-ACT  | Lead action group (Add Follow-up → Convert → More); "Start Follow-up" folded into Add Follow-up                        | done        |
+| R31-TRK  | Shared WorkflowTracker (lead from status history; store order payment + fulfillment; invoice)                          | done        |
+| R31-FORM | Vertical form cards: Add Follow-up (520px), Lead → Order (640px)                                                       | done        |
+| R31-CARD | InsightCard: dashboard attention + metrics; report summary cards (TB, IS)                                              | done        |
+| R31-DIST | One stateful distribution control; API applyMode + locks; local tests 6/6 scenarios (`tmp/pilot/distribution-test.md`) | done        |
+| R31-REV  | Independent review (5 major, 8 minor): majors and minors 6–10 fixed; country EN name needs an API field (open)         | done        |
+| R31-GATE | web tsc clean · eslint 0 errors · vitest 291/291 · api tsc clean · distribution jest 7/7                               | done        |
+| R31-OK   | **Owner visual approval** — local :3005 API must be restarted to show server run counts in the UI                      | **WAITING** |

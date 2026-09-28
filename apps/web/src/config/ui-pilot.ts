@@ -16,7 +16,7 @@ export const UI_PILOT_STORAGE_KEY = "oms.uiPilot";
 
 /** Pilot routes, as one regex source shared with the pre-paint script. */
 export const UI_PILOT_ROUTE_PATTERN =
-  "^/(?:$|crm/leads(?:/[^/]+)?/?$|sales/invoices/[^/]+/?$|reports/finance/?$|design-system/?$)";
+  "^/(?:$|crm/leads(?:/[^/]+)?/?$|sales/invoices/[^/]+/?$|store-orders/[^/]+/?$|reports/finance/?$|design-system/?$)";
 
 const routeRegex = new RegExp(UI_PILOT_ROUTE_PATTERN);
 

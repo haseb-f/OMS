@@ -20,7 +20,7 @@ import { AssignLeadDialog } from "@/components/business/assign-lead-dialog";
 import { LeadFollowUpDialog } from "@/components/crm/lead-follow-up-dialog";
 import { LeadConvertDialog } from "@/components/crm/lead-convert-dialog";
 import { LeadCloseWithoutPurchaseDialog } from "@/components/crm/lead-close-dialog";
-import { LeadNextActions } from "@/components/crm/lead-next-actions";
+import { LeadNextActions, isLeadStartFollowUp } from "@/components/crm/lead-next-actions";
 import { LeadDetailPilot, type LeadOutcome } from "@/components/crm/pilot/lead-detail-pilot";
 import { useUiPilot } from "@/providers/ui-pilot-provider";
 import { pilotLeadStatusName } from "@/components/crm/pilot/lead-status-label";
@@ -44,6 +44,27 @@ import { reportApiError } from "@/lib/toast";
 import { formatDate, formatDateTime } from "@/lib/date";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import type { MessageKey } from "@/i18n/translate";
+import { workflowService, type WorkflowAction } from "@/services/workflow-service";
+
+/** Outcome keys the follow-up dialog stores (crm.leads.followUp.outcomes.*). */
+const FOLLOW_UP_OUTCOME_KEYS: ReadonlySet<string> = new Set([
+  "answered",
+  "noAnswer",
+  "interested",
+  "callback",
+  "wrongNumber",
+  "notInterested",
+]);
+
+/** `LeadAssignmentMethod` values with a label (crm.leads.assignmentMethod.*). */
+const ASSIGNMENT_METHODS: ReadonlySet<string> = new Set([
+  "AUTO_CONTINUOUS",
+  "AUTO_24H",
+  "MANUAL",
+  "REASSIGNMENT",
+  "IMPORT",
+  "SYSTEM",
+]);
 
 function LeadDetailContent() {
   const params = useParams<{ id: string }>();
@@ -70,6 +91,8 @@ function LeadDetailContent() {
   // Round 3 pilot: the last action's result, shown in place (§11.4).
   const [outcome, setOutcome] = useState<LeadOutcome | null>(null);
   const announce = (message: string) => setOutcome({ key: Date.now(), message });
+  // Round 3.1 pilot: the folded Start follow-up transition is running.
+  const [followUpBusy, setFollowUpBusy] = useState(false);
 
   const canEdit = hasPermission("crm.leads.edit");
   const canConvert = hasPermission("crm.leads.convert") || canEdit;
@@ -213,6 +236,20 @@ function LeadDetailContent() {
     />
   );
 
+  // Round 3.1 pilot: follow-up titles never show a lone «—» or a raw outcome
+  // key; the dialog stores the outcome as a key (e.g. `noAnswer`).
+  const followUpTitle = (item: LeadFollowUpRow) => {
+    if (!pilot) return item.outcome || "—";
+    if (item.outcome) {
+      return FOLLOW_UP_OUTCOME_KEYS.has(item.outcome)
+        ? t(`crm.leads.followUp.outcomes.${item.outcome}` as MessageKey)
+        : item.outcome;
+    }
+    const type = item.followUpType;
+    if (type) return locale.locale === "ar" ? type.name : (type.nameEn ?? type.name);
+    return t("crm.leads.followUp.noOutcome");
+  };
+
   const followUpsContent = (
     <DetailSection>
       {(followUps ?? []).length === 0 ? (
@@ -221,14 +258,36 @@ function LeadDetailContent() {
         <div className="flex flex-col gap-3">
           {(followUps ?? []).map((item) => (
             <div key={item.id} className="border-t border-border pt-2 first:border-t-0 first:pt-0">
-              <p className="text-body font-medium">{item.outcome || "—"}</p>
-              {item.note ? <p className="text-caption">{item.note}</p> : null}
-              <p className="text-caption text-muted-foreground">
-                {item.user?.fullName} · {formatDateTime(item.createdAt)}
-                {item.followUpAt
-                  ? ` · ${t("crm.leads.fields.nextFollowUp")}: ${formatDateTime(item.followUpAt)}`
-                  : ""}
+              <p
+                className={
+                  pilot && !item.outcome && !item.followUpType
+                    ? "text-body text-muted-foreground"
+                    : "text-body font-medium"
+                }
+              >
+                {followUpTitle(item)}
               </p>
+              {item.note ? <p className="text-caption">{item.note}</p> : null}
+              {pilot ? (
+                <p className="text-caption text-muted-foreground">
+                  {item.user?.fullName} ·{" "}
+                  <SemanticValue kind="date">{formatDateTime(item.createdAt)}</SemanticValue>
+                  {item.followUpAt ? (
+                    <>
+                      {" "}
+                      · {t("crm.leads.fields.nextFollowUp")}:{" "}
+                      <SemanticValue kind="date">{formatDateTime(item.followUpAt)}</SemanticValue>
+                    </>
+                  ) : null}
+                </p>
+              ) : (
+                <p className="text-caption text-muted-foreground">
+                  {item.user?.fullName} · {formatDateTime(item.createdAt)}
+                  {item.followUpAt
+                    ? ` · ${t("crm.leads.fields.nextFollowUp")}: ${formatDateTime(item.followUpAt)}`
+                    : ""}
+                </p>
+              )}
             </div>
           ))}
         </div>
@@ -255,12 +314,23 @@ function LeadDetailContent() {
             : undefined
         }
       />
-      {(assignments ?? []).map((assignment) => (
-        <p key={assignment.id} className="text-caption text-muted-foreground">
-          {formatDateTime(assignment.assignedAt)} · {assignment.assignedTo?.fullName} ·{" "}
-          {assignment.method}
-        </p>
-      ))}
+      {(assignments ?? []).map((assignment) =>
+        pilot ? (
+          // Round 3.1 pilot: isolated LTR date, method in the UI language.
+          <p key={assignment.id} className="text-caption text-muted-foreground">
+            <SemanticValue kind="date">{formatDateTime(assignment.assignedAt)}</SemanticValue> ·{" "}
+            {assignment.assignedTo?.fullName} ·{" "}
+            {ASSIGNMENT_METHODS.has(assignment.method)
+              ? t(`crm.leads.assignmentMethod.${assignment.method}` as MessageKey)
+              : assignment.method}
+          </p>
+        ) : (
+          <p key={assignment.id} className="text-caption text-muted-foreground">
+            {formatDateTime(assignment.assignedAt)} · {assignment.assignedTo?.fullName} ·{" "}
+            {assignment.method}
+          </p>
+        ),
+      )}
     </DetailSection>
   );
 
@@ -293,6 +363,43 @@ function LeadDetailContent() {
     </DetailSection>
   );
 
+  const transitionedMessage = (action: Pick<WorkflowAction, "toStatusCode" | "toStatusName">) =>
+    t("crm.leads.transitioned", {
+      status:
+        pilotLeadStatusName(
+          { code: action.toStatusCode, name: action.toStatusName } as LeadRow["status"],
+          locale,
+        ) ?? action.toStatusName,
+    });
+
+  /**
+   * Round 3.1 pilot: «بدء المتابعة» (NEW → IN_PROGRESS) is folded into Add
+   * Follow-up. Recording a follow-up never changes the status server-side, so
+   * on a NEW lead the pilot then runs that same workflow transition — only if
+   * the engine offers it to this user — keeping its business effect.
+   */
+  const finishPilotFollowUp = async () => {
+    let message = t("crm.leads.followUp.saved");
+    if (lead.status?.code === "NEW") {
+      setFollowUpBusy(true);
+      try {
+        const offered = await workflowService.availableActions("LEAD", lead.id);
+        const start = offered.find((action) => isLeadStartFollowUp(lead.status?.code, action));
+        if (start) {
+          await workflowService.transition("LEAD", lead.id, { transitionId: start.transitionId });
+          message = `${message} ${transitionedMessage(start)}`;
+        }
+      } catch (error) {
+        reportApiError(error, "common.failedToSave");
+      } finally {
+        setFollowUpBusy(false);
+      }
+    }
+    announce(message);
+    void load();
+    reloadSidePanels();
+  };
+
   const dialogs = (
     <>
       <LeadFollowUpDialog
@@ -300,6 +407,10 @@ function LeadDetailContent() {
         onOpenChange={setFollowUpOpen}
         leadId={lead.id}
         onSaved={() => {
+          if (pilot) {
+            void finishPilotFollowUp();
+            return;
+          }
           announce(t("crm.leads.followUp.saved"));
           void load();
           reloadSidePanels();
@@ -354,19 +465,12 @@ function LeadDetailContent() {
           onAssign: () => setAssignOpen(true),
           onClose: () => setCloseOpen(true),
         }}
+        followUpBusy={followUpBusy}
         classificationControl={canEdit && operational ? classificationCombobox : null}
         outcome={outcome}
         onDismissOutcome={() => setOutcome(null)}
         onTransitionComplete={(action) => {
-          announce(
-            t("crm.leads.transitioned", {
-              status:
-                pilotLeadStatusName(
-                  { code: action.toStatusCode, name: action.toStatusName } as LeadRow["status"],
-                  locale,
-                ) ?? action.toStatusName,
-            }),
-          );
+          announce(transitionedMessage(action));
           void load();
           reloadSidePanels();
         }}

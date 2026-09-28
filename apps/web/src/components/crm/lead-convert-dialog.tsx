@@ -45,6 +45,7 @@ import { leadsService, type LeadRow } from "@/services/leads-service";
 import type { ProductRow } from "@/services/products-service";
 import type { CityRow, CurrencyRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
+import type { MessageKey } from "@/i18n/translate";
 import { useUiPilot } from "@/providers/ui-pilot-provider";
 import { apiErrorMessage, reportApiError, reportSuccess } from "@/lib/toast";
 import { formatMoney } from "@/lib/money";
@@ -177,6 +178,8 @@ export function LeadConvertDialog({
   const selectedCountry = countries.find((c) => c.id === countryId) ?? null;
   const selectedCity = cities.find((c) => c.name === city) ?? null;
   const currencyCode = currency?.code ?? "";
+  // Pilot: the lead source as its label (as on lead detail), never the raw code.
+  const sourceLabel = t(`crm.leads.source.${lead.source}` as MessageKey);
 
   const findIssue = (): ValidationIssue | null => {
     if (productLines.length === 0) {
@@ -350,6 +353,8 @@ export function LeadConvertDialog({
       open={open}
       onOpenChange={onOpenChange}
       size="xl"
+      // Round 3.1 pilot: a 640px vertical form card (tinted section panels).
+      layout="form-card"
       icon={ShoppingCart}
       title={t("crm.leads.convert.title")}
       description={
@@ -445,8 +450,11 @@ export function LeadConvertDialog({
       }
     >
       {step === "form" ? (
-        <div ref={bodyRef} className="flex flex-col gap-4">
-          <FormSection title={t("crm.leads.convert.sectionCustomer")}>
+        <div ref={bodyRef} className={pilot ? "flex flex-col gap-3" : "flex flex-col gap-4"}>
+          <FormSection
+            title={t("crm.leads.convert.sectionCustomer")}
+            description={pilot ? t("crm.leads.convert.sectionCustomerHint") : undefined}
+          >
             <dl
               className={
                 pilot
@@ -462,12 +470,17 @@ export function LeadConvertDialog({
                 label={t("crm.leads.convert.owner")}
                 value={lead.salesEmployee?.fullName ?? "—"}
               />
-              <LeadFact label={t("crm.leads.fields.source")} value={lead.source} ltr />
+              <LeadFact
+                label={t("crm.leads.fields.source")}
+                value={pilot ? sourceLabel : lead.source}
+                ltr={!pilot}
+              />
             </dl>
           </FormSection>
 
           <FormSection
             title={t("crm.leads.convert.sectionProducts")}
+            description={pilot ? t("crm.leads.convert.sectionProductsHint") : undefined}
             data-field-name="lines"
             data-invalid={liveIssue?.kind === "lines" ? "true" : undefined}
           >
@@ -495,7 +508,10 @@ export function LeadConvertDialog({
             ) : null}
           </FormSection>
 
-          <FormSection title={t("crm.leads.convert.sectionPayment")}>
+          <FormSection
+            title={t("crm.leads.convert.sectionPayment")}
+            description={pilot ? t("crm.leads.convert.sectionPaymentHint") : undefined}
+          >
             <div className="grid grid-cols-1 gap-x-3 gap-y-2 @md:grid-cols-2 @3xl:grid-cols-3">
               <div className="flex min-w-0 flex-col gap-1">
                 <Label htmlFor={paymentTypeFieldId}>{t("crm.leads.convert.paymentType")}</Label>
@@ -568,7 +584,10 @@ export function LeadConvertDialog({
             />
           ) : null}
 
-          <FormSection title={t("crm.leads.convert.sectionShipping")}>
+          <FormSection
+            title={t("crm.leads.convert.sectionShipping")}
+            description={pilot ? t("crm.leads.convert.sectionShippingHint") : undefined}
+          >
             <div className="grid grid-cols-1 gap-x-3 gap-y-2 @md:grid-cols-2 @3xl:grid-cols-3">
               <div className="flex min-w-0 flex-col gap-1">
                 <Label htmlFor={countryFieldId}>{t("crm.leads.fields.country")}</Label>
@@ -627,6 +646,7 @@ export function LeadConvertDialog({
         <CreateOperationLayout>
           <CreateOperationSummary
             title={t("crm.leads.convert.sectionSummary")}
+            description={pilot ? t("crm.leads.convert.sectionSummaryHint") : undefined}
             rows={[
               { label: t("crm.leads.fields.customerName"), value: lead.customerName },
               {
@@ -634,7 +654,7 @@ export function LeadConvertDialog({
                 value: pilot ? <bdi dir="ltr">{lead.mobileNumber}</bdi> : lead.mobileNumber,
               },
               { label: t("crm.leads.convert.owner"), value: lead.salesEmployee?.fullName ?? "—" },
-              { label: t("crm.leads.fields.source"), value: lead.source },
+              { label: t("crm.leads.fields.source"), value: pilot ? sourceLabel : lead.source },
               {
                 label: t("crm.leads.convert.sectionProducts"),
                 value: pilot ? (

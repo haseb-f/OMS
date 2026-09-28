@@ -1,11 +1,20 @@
 "use client";
 
-import { Check, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { WorkflowTracker } from "@/components/shared/workflow-tracker";
 import { useLocale } from "@/providers/locale-provider";
-import { cn } from "@/lib/utils";
+import { workflowService, type StatusHistoryRow } from "@/services/workflow-service";
 
 const STAGES = ["NEW", "IN_PROGRESS", "QUALIFIED", "CONVERTED"] as const;
 type Stage = (typeof STAGES)[number];
+
+/**
+ * The LEAD workflow allows skipping (e.g. NEW → FOLLOW_UP → QUALIFIED,
+ * IN_PROGRESS → CONVERTED), so these two are shown as completed only when
+ * status history proves them (or while current).
+ */
+const OPTIONAL_STAGES: readonly Stage[] = ["IN_PROGRESS", "QUALIFIED"];
+const CLOSED_CODES = ["LOST", "DISQUALIFIED"];
 
 /**
  * Where a lead sits in its lifecycle, derived from `status.code` only:
@@ -16,17 +25,52 @@ export function leadStage(code: string | null | undefined): {
   index: number;
   closed: boolean;
 } {
-  if (code === "LOST" || code === "DISQUALIFIED") return { index: -1, closed: true };
+  if (code && CLOSED_CODES.includes(code)) return { index: -1, closed: true };
   const index = STAGES.indexOf(code as Stage);
   return { index: index === -1 ? 1 : index, closed: false };
 }
 
-/** Round 3 pilot: compact lead stage indicator (design-system §12.6). */
+/** Stage a status code belongs to (null for closed codes). */
+function stageOf(code: string): Stage | null {
+  if (CLOSED_CODES.includes(code)) return null;
+  const index = leadStage(code).index;
+  return STAGES[index];
+}
+
+/**
+ * Stages proven completed: NEW (every lead is created in the default NEW
+ * status) once the lead has moved on, any stage the status history shows the
+ * lead in before its current stage, and CONVERTED itself when converted.
+ * Without history (`null`, e.g. it failed to load) only the current status
+ * counts, so skippable stages are never assumed.
+ */
+export function leadCompletedStages(
+  code: string | null | undefined,
+  history: readonly Pick<StatusHistoryRow, "fromStatus" | "toStatus">[] | null,
+): Set<Stage> {
+  const { index, closed } = leadStage(code);
+  const limit = closed ? STAGES.length - 1 : index; // closed: anything before CONVERTED
+  const done = new Set<Stage>();
+  if (closed || index > 0) done.add("NEW");
+  for (const row of history ?? []) {
+    for (const status of [row.fromStatus, row.toStatus]) {
+      const stage = status ? stageOf(status.code) : null;
+      if (stage && STAGES.indexOf(stage) < limit) done.add(stage);
+    }
+  }
+  if (!closed && STAGES[index] === "CONVERTED") done.add("CONVERTED");
+  return done;
+}
+
+/** Round 3 pilot: lead stage tracker (design-system §12.6), on the shared WorkflowTracker (§12.7). */
 export function LeadStageIndicator({
+  leadId,
   statusCode,
   closedLabel,
   className,
 }: {
+  /** Loads the lead's status history to prove skippable stages. */
+  leadId?: string;
   statusCode: string | null | undefined;
   /** Name of the closing status (e.g. «غير مؤهل»), shown on the closed marker. */
   closedLabel?: string;
@@ -34,117 +78,41 @@ export function LeadStageIndicator({
 }) {
   const { t } = useLocale();
   const { index, closed } = leadStage(statusCode);
-  const converted = index === STAGES.length - 1;
+  const [history, setHistory] = useState<{ key: string; rows: StatusHistoryRow[] } | null>(null);
+  const historyKey = `${leadId ?? ""}:${statusCode ?? ""}`;
 
-  const position = converted ? STAGES.length : index + 1;
-  const currentLabel = closed
-    ? (closedLabel ?? t("crm.leads.stage.closed"))
-    : t(`crm.leads.stage.${STAGES[index]}`);
+  useEffect(() => {
+    if (!leadId) return;
+    let cancelled = false;
+    workflowService
+      .statusHistory("LEAD", leadId)
+      .then((rows) => {
+        if (!cancelled) setHistory({ key: historyKey, rows: Array.isArray(rows) ? rows : [] });
+      })
+      // Failure: fall back to what the current status proves (no toast — read-only aid).
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [leadId, historyKey]);
+
+  const rows = history?.key === historyKey ? history.rows : null;
 
   return (
-    <>
-      {/* Phones: current stage + position + a mini progress bar (never clipped). */}
-      <div className={cn("flex min-w-0 flex-1 items-center gap-2 sm:hidden", className)}>
-        <span className="min-w-0 truncate text-caption font-semibold text-foreground">
-          {currentLabel}
-        </span>
-        {closed ? null : (
-          <span dir="ltr" className="num shrink-0 text-caption text-muted-foreground">
-            {position} / {STAGES.length}
-          </span>
-        )}
-        <span
-          role="progressbar"
-          aria-label={t("crm.leads.stage.label")}
-          aria-valuemin={0}
-          aria-valuemax={STAGES.length}
-          aria-valuenow={closed ? 0 : position}
-          aria-valuetext={currentLabel}
-          className="ms-auto flex w-24 shrink-0 gap-0.5"
-        >
-          {STAGES.map((stage, i) => (
-            <span
-              key={stage}
-              className={cn(
-                "h-1 flex-1 rounded-full",
-                closed
-                  ? "bg-border"
-                  : i < index || converted
-                    ? "bg-success"
-                    : i === index
-                      ? "bg-foreground"
-                      : "bg-border",
-              )}
-            />
-          ))}
-        </span>
-      </div>
-      <ol
-        aria-label={t("crm.leads.stage.label")}
-        className={cn("hidden min-w-0 items-center gap-2 sm:flex", className)}
-      >
-        {STAGES.map((stage, i) => {
-          const done = !closed && (i < index || converted);
-          const current = !closed && i === index && !converted;
-          return (
-            <li
-              key={stage}
-              aria-current={current || (converted && i === index) ? "step" : undefined}
-              className="flex shrink-0 items-center gap-2"
-            >
-              <span
-                aria-hidden
-                className={cn(
-                  "flex size-4 shrink-0 items-center justify-center rounded-full border",
-                  done && "border-transparent bg-success text-success-foreground",
-                  current && "border-foreground bg-card ring-2 ring-foreground/10",
-                  !done && !current && "border-input bg-card",
-                )}
-              >
-                {done ? <Check className="size-2.5" strokeWidth={3} /> : null}
-                {current ? <span className="size-1.5 rounded-full bg-foreground" /> : null}
-              </span>
-              <span
-                className={cn(
-                  "shrink-0 text-caption whitespace-nowrap",
-                  current || (converted && i === index)
-                    ? "font-semibold text-foreground"
-                    : done
-                      ? "text-foreground"
-                      : "text-muted-foreground",
-                )}
-              >
-                {t(`crm.leads.stage.${stage}`)}
-              </span>
-              {i < STAGES.length - 1 ? (
-                <span
-                  aria-hidden
-                  className={cn(
-                    "h-px w-10 shrink-0",
-                    !closed && i < index ? "bg-success" : "bg-border",
-                  )}
-                />
-              ) : null}
-            </li>
-          );
-        })}
-        {closed ? (
-          <li
-            aria-current="step"
-            className="flex shrink-0 items-center gap-1.5 border-s border-border ps-3"
-          >
-            <span
-              aria-hidden
-              className="flex size-4 items-center justify-center rounded-full bg-destructive-soft text-destructive-soft-foreground"
-            >
-              <X className="size-2.5" strokeWidth={3} />
-            </span>
-            <span className="text-caption font-semibold whitespace-nowrap text-foreground">
-              {closedLabel ?? t("crm.leads.stage.closed")}
-            </span>
-          </li>
-        ) : null}
-      </ol>
-    </>
+    <WorkflowTracker
+      label={t("crm.leads.stage.label")}
+      stages={STAGES.map((stage) => ({
+        key: stage,
+        // Same wording as the lead status badge (workflow stage names).
+        label: t(`workflow.funnel.stages.${stage}`),
+        optional: OPTIONAL_STAGES.includes(stage),
+      }))}
+      current={closed ? null : STAGES[index]}
+      completed={leadCompletedStages(statusCode, rows)}
+      state={
+        closed ? { label: closedLabel ?? t("crm.leads.stage.closed"), tone: "destructive" } : null
+      }
+      className={className}
+    />
   );
 }

@@ -11,6 +11,7 @@ import { useLocale } from "@/providers/locale-provider";
 import { useUiPilot } from "@/providers/ui-pilot-provider";
 import { pilotLeadBadge } from "@/components/crm/pilot/lead-status-label";
 import type { LeadRow } from "@/services/leads-service";
+import type { MessageKey } from "@/i18n/translate";
 
 /**
  * Initial ownership lifecycle (blue "New" vs. orange "Assigned") layered
@@ -44,6 +45,14 @@ export function LeadStatusCell({ lead }: { lead: Pick<LeadRow, "status" | "sales
     ? pilotLeadBadge(lead, locale)
     : leadLifecycleBadge(lead, t("crm.leads.ownership.assigned"));
   return <StatusBadge label={badge.label} colorKey={badge.colorKey} />;
+}
+
+/** Round 3.1 pilot: the lead source in the UI language, never the raw code. */
+function LeadSourceCell({ source }: { source: string }) {
+  const { t } = useLocale();
+  const pilot = useUiPilot().active;
+  if (!pilot) return <>{source}</>;
+  return <>{t(`crm.leads.source.${source}` as MessageKey)}</>;
 }
 
 function NextFollowUpCell({ value }: { value: string | null }) {
@@ -138,6 +147,7 @@ export const leadColumns: ColumnDef<LeadRow, unknown>[] = [
     id: "source",
     meta: { titleKey: "crm.leads.fields.source", type: "name", importance: "low" },
     accessorFn: (row) => row.source,
+    cell: ({ row }) => <LeadSourceCell source={row.original.source} />,
   },
   {
     id: "salesEmployee",

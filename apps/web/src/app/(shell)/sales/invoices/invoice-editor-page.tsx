@@ -32,6 +32,7 @@ import {
 import type { PartnerPickerRow } from "@/services/partners-service";
 import type { CurrencyRow } from "@/config/master-data/entities";
 import { buildInvoiceStatusOptions } from "@/config/sales/invoice-status";
+import { InvoiceWorkflowTracks } from "./invoice-workflow-tracks";
 import { buildInvoicePrintPayload } from "@/config/sales/invoice-print";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
@@ -460,6 +461,12 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
         headerStatus={
           invoice?.paymentStatus ? (
             <InvoicePaymentBadge paymentStatus={invoice.paymentStatus} />
+          ) : null
+        }
+        headerTracker={
+          // Rendered by the pilot layout only (classic editor unchanged).
+          invoice ? (
+            <InvoiceWorkflowTracks status={invoice.status} paymentStatus={invoice.paymentStatus} />
           ) : null
         }
         paymentSummary={
