@@ -383,6 +383,49 @@ export class AttachmentsService {
     return created;
   }
 
+  /**
+   * Agents milestone — payout evidence (transfer proof) staged by Finance,
+   * finalized inside the payout transaction (same staging → link pattern).
+   */
+  async finalizeForAgentPayout(
+    payoutId: string,
+    stagingIds: string[],
+    userId: string,
+    tx: Db = this.prisma,
+  ) {
+    const uniqueIds = [...new Set(stagingIds.filter(Boolean))];
+    if (uniqueIds.length === 0) return [];
+    if (uniqueIds.length > ATTACHMENT_MAX_PER_PAYMENT) {
+      throw new BadRequestException(
+        `لا يمكن إرفاق أكثر من ${ATTACHMENT_MAX_PER_PAYMENT} مرفقات لكل صرف.`,
+      );
+    }
+    const rows = await tx.attachment.findMany({
+      where: {
+        id: { in: uniqueIds },
+        uploadedById: userId,
+        deletedAt: null,
+        finalizedAt: null,
+      },
+    });
+    if (rows.length !== uniqueIds.length) {
+      throw new BadRequestException('تعذر رفع المرفق، حاول مرة أخرى');
+    }
+    const created = [];
+    for (const row of rows) {
+      await tx.attachment.update({
+        where: { id: row.id },
+        data: { finalizedAt: new Date(), expiresAt: null },
+      });
+      created.push(
+        await tx.agentPayoutAttachment.create({
+          data: { payoutId, attachmentId: row.id },
+        }),
+      );
+    }
+    return created;
+  }
+
   async attachStagingToContribution(
     contributionId: string,
     stagingIds: string[],

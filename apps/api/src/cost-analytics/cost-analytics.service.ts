@@ -103,6 +103,10 @@ export class CostAnalyticsService {
   ): Prisma.StoreOrderWhereInput {
     return {
       deletedAt: null,
+      // F-M3: company management reporting covers company orders only —
+      // agent merchandise is never company revenue (the company's agent
+      // income is posted to the GL as commission / fulfillment revenue).
+      agentId: null,
       ...(scope.dateFrom || scope.dateTo
         ? { orderDate: buildDateRangeFilter(scope.dateFrom, scope.dateTo) }
         : {}),

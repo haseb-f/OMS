@@ -25,6 +25,9 @@ export const ELIGIBLE_FULFILLMENT_CODE = 'DELIVERED';
 export function eligibleStoreOrderWhere(): Prisma.StoreOrderWhereInput {
   return {
     deletedAt: null,
+    // F-L8: an agent order sells the agent's own goods — never an investor
+    // opportunity's company sale.
+    agentId: null,
     fulfillmentStatus: { code: ELIGIBLE_FULFILLMENT_CODE },
   };
 }

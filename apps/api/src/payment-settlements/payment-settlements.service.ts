@@ -31,6 +31,8 @@ import {
   type CalculationResult,
   type JeLine,
 } from './settlement-calculator';
+import { COMPANY_CASH_CLAIM } from '../agents/finance/agent-payment-scope';
+import { AgentCollectionHooksService } from '../agents/finance/agent-collection-hooks.service';
 import type {
   CreateSettlementDto,
   SettlementInputDto,
@@ -63,6 +65,8 @@ function eligibleWhere(paymentMethodId: string): Prisma.PaymentWhereInput {
     deletedAt: null,
     status: { notIn: EXCLUDED_PAYMENT_STATUSES },
     settlementStatus: { in: SETTLEABLE_STATUSES },
+    // Agents milestone: agent-received money is never settled by us.
+    AND: [COMPANY_CASH_CLAIM],
     receiptLink: {
       is: {
         financialTransaction: {
@@ -175,6 +179,7 @@ export class PaymentSettlementsService {
     private readonly exchangeRates: ExchangeRatesService,
     private readonly accountingPeriods: AccountingPeriodsService,
     private readonly fiscalYears: FiscalYearsService,
+    private readonly agentCollections: AgentCollectionHooksService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -398,6 +403,13 @@ export class PaymentSettlementsService {
                 'The settlement produced no journal entry — nothing was saved.',
             });
           }
+          // Agents milestone: provider-fee share per agent-order payment
+          // (when the agreement says the agent bears it) + availability.
+          await this.agentCollections.onSettlementPosted(
+            tx,
+            settlement.id,
+            userId,
+          );
           return settlement.id;
         },
         { timeout: 60_000, maxWait: 30_000 },
@@ -546,6 +558,12 @@ export class PaymentSettlementsService {
                 .join('\n'),
             },
           });
+          await this.agentCollections.onSettlementReversed(
+            tx,
+            settlement.id,
+            trimmed,
+            userId,
+          );
         },
         { timeout: 60_000, maxWait: 30_000 },
       );

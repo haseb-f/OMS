@@ -65,6 +65,9 @@ export const productSchema = z.object({
 
   /** Investor Engine Milestone 4, Part B — opt-in gate for the Investment Opportunity Product picker. Defaults unchecked for every new Product. */
   availableForInvestmentOpportunities: z.boolean(),
+
+  /** Agents milestone (spec §4) — owner agent of the goods; "" = company-owned. */
+  ownerAgentId: z.string().optional().or(z.literal("")),
 });
 
 export type ProductFormValues = z.infer<typeof productSchema>;
@@ -86,6 +89,7 @@ export const productDefaultValues: ProductFormValues = {
   status: "DRAFT",
   categoryId: "",
   brandId: "",
+  ownerAgentId: "",
   unitId: "",
   taxId: "",
   analyticAccountId: "",

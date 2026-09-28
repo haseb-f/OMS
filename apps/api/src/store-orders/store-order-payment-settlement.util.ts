@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { PaymentStatus, Prisma, StoreOrderPaymentStatus } from '@prisma/client';
-import { storeOrderItemsTotal } from './store-order-line-amount';
+import { storeOrderPayableTotal } from './store-order-line-amount';
 
 const OPEN_CLAIM_STATUSES: PaymentStatus[] = [
   PaymentStatus.PENDING,
@@ -174,7 +174,7 @@ export async function computeStoreOrderSettlement(
     paid + amountFor(PaymentStatus.PENDING) + amountFor(PaymentStatus.MATCHED);
 
   return settlementFromTotals({
-    total: storeOrderItemsTotal(order.items),
+    total: storeOrderPayableTotal(order),
     paid,
     claimed,
     paymentStatus: order.paymentStatus,

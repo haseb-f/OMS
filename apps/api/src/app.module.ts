@@ -111,6 +111,7 @@ import { InvestorPortalModule } from './investor-portal/investor-portal.module';
 import { PaymentSettlementsModule } from './payment-settlements/payment-settlements.module';
 import { PaymentReconciliationModule } from './payment-reconciliation/payment-reconciliation.module';
 
+import { AgentsModule } from './agents/agents.module';
 @Module({
   imports: [
     PrismaModule,
@@ -223,6 +224,7 @@ import { PaymentReconciliationModule } from './payment-reconciliation/payment-re
     InvestorPortalModule,
     PaymentSettlementsModule,
     PaymentReconciliationModule,
+    AgentsModule,
   ],
   controllers: [HealthController],
   providers: [],

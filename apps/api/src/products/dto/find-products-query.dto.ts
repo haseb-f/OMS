@@ -29,6 +29,19 @@ export class FindProductsQueryDto {
   @IsOptionalUuidList()
   ids?: string[];
 
+  /**
+   * Agents milestone — products owned by this agent. The picker catalog
+   * excludes agent-owned products unless this is given (and the controller
+   * only honors it for callers holding `agents.view`).
+   */
+  @IsOptionalUuid()
+  agentId?: string;
+
+  /** Management list: `COMPANY` = company-owned only, `AGENT` = any agent-owned. */
+  @IsIn(['COMPANY', 'AGENT'])
+  @IsOptional()
+  ownership?: 'COMPANY' | 'AGENT';
+
   @IsOptionalUuidList()
   categoryId?: string[];
 

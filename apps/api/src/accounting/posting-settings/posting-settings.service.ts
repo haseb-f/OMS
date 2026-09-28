@@ -1,5 +1,9 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { JournalEntryStatus } from '@prisma/client';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from '@nestjs/common';
+import { AccountType, JournalEntryStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpdatePostingSettingsDto } from './dto/update-posting-settings.dto';
 
@@ -48,6 +52,9 @@ const INCLUDE = {
   unrealizedFxAccount: true,
   otherIncomeAccount: true,
   otherExpenseAccount: true,
+  agentFundsPayableAccount: true,
+  agentCommissionRevenueAccount: true,
+  agentServiceRevenueAccount: true,
   functionalCurrency: true,
 } as const;
 
@@ -76,11 +83,114 @@ export class PostingSettingsService {
       existing.functionalCurrencyId,
       dto.functionalCurrencyId,
     );
+    await this.assertAgentAccounts(dto, existing);
     return this.prisma.postingSettings.update({
       where: { id: existing.id },
       data: { ...dto, updatedBy: userId ?? null },
       include: INCLUDE,
     });
+  }
+
+  /**
+   * Agents milestone (spec §11 D1): the agent funds payable account must be a
+   * postable LIABILITY; the commission and service revenue accounts must be
+   * postable REVENUE accounts. Validated here so Finance cannot point agent
+   * postings at an unsuitable account.
+   */
+  private async assertAgentAccounts(
+    dto: UpdatePostingSettingsDto,
+    existing: {
+      functionalCurrencyId: string | null;
+      agentFundsPayableAccountId: string | null;
+      agentCommissionRevenueAccountId: string | null;
+      agentServiceRevenueAccountId: string | null;
+    },
+  ) {
+    const functionalCurrencyId =
+      dto.functionalCurrencyId ?? existing.functionalCurrencyId;
+    const checks: Array<[string | undefined | null, AccountType, string]> = [
+      [
+        dto.agentFundsPayableAccountId,
+        AccountType.LIABILITY,
+        'Agent funds payable',
+      ],
+      [
+        dto.agentCommissionRevenueAccountId,
+        AccountType.REVENUE,
+        'Agent commission revenue',
+      ],
+      [
+        dto.agentServiceRevenueAccountId,
+        AccountType.REVENUE,
+        'Fulfillment service revenue',
+      ],
+    ];
+    for (const [accountId, expected, label] of checks) {
+      if (!accountId) continue;
+      const account = await this.prisma.chartOfAccount.findFirst({
+        where: { id: accountId, deletedAt: null },
+        select: {
+          code: true,
+          name: true,
+          accountType: true,
+          allowsPosting: true,
+          currencyId: true,
+        },
+      });
+      if (!account) {
+        throw new BadRequestException({
+          code: 'AGENT_ACCOUNT_INVALID',
+          message: `${label}: account not found.`,
+        });
+      }
+      if (account.accountType !== expected || !account.allowsPosting) {
+        throw new BadRequestException({
+          code: 'AGENT_ACCOUNT_INVALID',
+          message: `${label} must be a postable ${expected} account — ${account.code} ${account.name} is ${account.allowsPosting ? account.accountType : 'a header account'}.`,
+        });
+      }
+      // Agent balances are carried in the functional currency (F-M4): the
+      // account must be unrestricted or locked to that currency.
+      if (
+        account.currencyId &&
+        (!functionalCurrencyId || account.currencyId !== functionalCurrencyId)
+      ) {
+        throw new BadRequestException({
+          code: 'AGENT_ACCOUNT_CURRENCY',
+          message: `${label}: ${account.code} ${account.name} is locked to a currency other than the functional currency — choose an account without a currency lock or in the functional currency.`,
+        });
+      }
+    }
+    // F-M4: once agent entries are in the GL, the three agent accounts are
+    // frozen — re-pointing them would split one agent balance across two
+    // accounts (and strand earlier postings on the old one).
+    const fields = [
+      'agentFundsPayableAccountId',
+      'agentCommissionRevenueAccountId',
+      'agentServiceRevenueAccountId',
+    ] as const;
+    const changing = fields.filter(
+      (field) =>
+        dto[field] !== undefined &&
+        existing[field] != null &&
+        (dto[field] ?? null) !== existing[field],
+    );
+    if (changing.length > 0) {
+      const posted = await this.prisma.agentLedgerEntry.count({
+        where: { postingStatus: 'POSTED' },
+      });
+      if (posted > 0) {
+        throw new ConflictException({
+          code: 'AGENT_ACCOUNTS_LOCKED',
+          message:
+            'لا يمكن تغيير حسابات الوكلاء بعد ترحيل قيود عليها — The agent accounts cannot change once agent ledger entries have been posted to them.',
+          fields: changing.map((field) => ({
+            field,
+            constraints: ['lockedAfterPosting'],
+          })),
+        });
+      }
+    }
   }
 
   /**

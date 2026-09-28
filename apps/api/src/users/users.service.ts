@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -13,6 +14,7 @@ import {
 } from '../common/phone/phone-number.service';
 import {
   ALL_PERMISSION_NAMES,
+  isAgentPortalPermission,
   withAuthorizationImpliedPermissions,
 } from '../permissions/permission-catalog';
 import {
@@ -55,6 +57,10 @@ const PUBLIC_USER_SELECT = {
   jobTitle: { select: { id: true, name: true } },
   branchId: true,
   branch: { select: { id: true, name: true, code: true } },
+  userType: true,
+  agentId: true,
+  agentRole: true,
+  agent: { select: { id: true, agentNumber: true, name: true } },
 } satisfies Prisma.UserSelect;
 
 export type PublicUser = Prisma.UserGetPayload<{
@@ -64,6 +70,26 @@ export type PublicUser = Prisma.UserGetPayload<{
 export type UserWithTemporaryPassword = PublicUser & {
   temporaryPassword: string;
 };
+
+/** Agents milestone — input for an external agent user (never from the internal Users DTO). */
+export interface CreateAgentUserInput {
+  agentId: string;
+  agentRole: 'ADMIN' | 'SALES';
+  email: string;
+  username: string;
+  fullName: string;
+  mobile?: string;
+  /** Full `agent.*` permission set to grant (preset ± extras, validated by the caller). */
+  permissionNames: string[];
+  createdBy?: string;
+}
+
+/** Internal-only profile fields an agent user never carries (spec §3). */
+const INTERNAL_ONLY_USER_FIELDS = [
+  'departmentId',
+  'jobTitleId',
+  'branchId',
+] as const;
 
 /**
  * TASK-060 — Users & Permissions. Every permission grant/revoke here goes
@@ -153,8 +179,59 @@ export class UsersService {
     }
   }
 
-  findAll(search?: string, departmentId?: string) {
-    const where: Prisma.UserWhereInput = { deletedAt: null };
+  /**
+   * Agents milestone (spec §3) — creates an external agent user. The only
+   * path that sets `userType = AGENT` / `agentId` / `agentRole`; `create()`
+   * above keeps creating INTERNAL users only and never accepts these fields.
+   * Always a generated temporary password + forced change on first login.
+   */
+  async createAgentUser(
+    input: CreateAgentUserInput,
+  ): Promise<UserWithTemporaryPassword> {
+    const temporaryPassword = generateTemporaryPassword();
+    const passwordHash = await hashPassword(temporaryPassword);
+    let user: PublicUser;
+    try {
+      user = await this.prisma.user.create({
+        data: {
+          email: normalizeEmail(input.email),
+          username: normalizeUsername(input.username),
+          fullName: input.fullName,
+          passwordHash,
+          mobile: input.mobile ? this.normalizeUserMobile(input.mobile) : null,
+          mustChangePassword: true,
+          userType: 'AGENT',
+          agentId: input.agentId,
+          agentRole: input.agentRole,
+          isSuperAdmin: false,
+          createdBy: input.createdBy ?? null,
+          updatedBy: input.createdBy ?? null,
+        },
+        select: PUBLIC_USER_SELECT,
+      });
+    } catch (error) {
+      throw this.mapUniqueError(error);
+    }
+    await this.setPermissions(user.id, {
+      permissionNames: input.permissionNames,
+    });
+    return { ...(await this.findOne(user.id)), temporaryPassword };
+  }
+
+  /**
+   * Internal users list. Agent users (spec §3, S6) are listed only on
+   * request (`userType=AGENT|ALL`) — internal pickers built on this list keep
+   * offering internal staff only.
+   */
+  findAll(
+    search?: string,
+    departmentId?: string,
+    userType: 'INTERNAL' | 'AGENT' | 'ALL' = 'INTERNAL',
+  ) {
+    const where: Prisma.UserWhereInput = {
+      deletedAt: null,
+      ...(userType === 'ALL' ? {} : { userType }),
+    };
     if (search) {
       where.OR = [
         { fullName: { contains: search, mode: 'insensitive' } },
@@ -172,6 +249,24 @@ export class UsersService {
     });
   }
 
+  /**
+   * S6: agent users are administered only through `/agents/:id/users`
+   * (agent-scoped roles, presets and audit) — never the internal Users API.
+   */
+  async assertInternallyManaged(id: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { id, deletedAt: null },
+      select: { userType: true, agentId: true },
+    });
+    if (user?.userType === 'AGENT') {
+      throw new ConflictException({
+        code: 'AGENT_USER_MANAGED_IN_AGENTS',
+        message: `مستخدمو الوكلاء يُدارون من صفحة الوكيل — Agent users are managed from the agent workspace: /agents/${user.agentId}/users.`,
+        agentId: user.agentId,
+      });
+    }
+  }
+
   async findOne(id: string) {
     const user = await this.prisma.user.findFirst({
       where: { id, deletedAt: null },
@@ -185,6 +280,25 @@ export class UsersService {
 
   async update(id: string, dto: UpdateUserDto) {
     const existing = await this.findOne(id);
+    // Affiliation (userType / agentId / agentRole) is not part of the DTO
+    // and never changes here; agent users also never take internal
+    // organization fields (spec §3).
+    if (existing.userType === 'AGENT') {
+      const internalFields = INTERNAL_ONLY_USER_FIELDS.filter(
+        (field) => dto[field] != null,
+      );
+      if (internalFields.length > 0) {
+        throw new BadRequestException({
+          code: 'AGENT_USER_INTERNAL_FIELD',
+          message:
+            'مستخدمو الوكلاء لا يُسند لهم قسم أو مسمى وظيفي أو فرع — Agent users cannot be given a department, job title or branch.',
+          fields: internalFields.map((field) => ({
+            field,
+            constraints: ['agentUser'],
+          })),
+        });
+      }
+    }
     await this.assertDepartmentAssignment(
       dto.departmentId,
       existing.departmentId,
@@ -290,10 +404,31 @@ export class UsersService {
 
   /** Replaces the user's entire permission set (Part 3/11 — the matrix always saves the full checked list). Unknown/retired names are silently ignored rather than rejected, so a stale client payload can never 500. Authorization-bearing implied permissions (see `withAuthorizationImpliedPermissions`) are bundled in automatically — never a cross-module implication onto another module's data permission (SEC-03 H4). Missing `Permission` rows for those implied names are created rather than dropped, so a matrix grant never leaves its own sidebar section invisible. */
   async setPermissions(id: string, dto: SetUserPermissionsDto) {
-    await this.findOne(id);
-    const validNames = withAuthorizationImpliedPermissions(
-      dto.permissionNames.filter((name) => ALL_PERMISSION_NAMES.includes(name)),
+    const user = await this.findOne(id);
+    const known = dto.permissionNames.filter((name) =>
+      ALL_PERMISSION_NAMES.includes(name),
     );
+    // Agents milestone (spec §3): external agent users hold only `agent.*`
+    // permissions and internal users never do — a mismatched grant is
+    // rejected explicitly, never silently stored.
+    const isAgentUser = user.userType === 'AGENT';
+    const mismatched = known.filter(
+      (name) => isAgentPortalPermission(name) !== isAgentUser,
+    );
+    if (mismatched.length > 0) {
+      throw new BadRequestException({
+        code: isAgentUser
+          ? 'AGENT_USER_INTERNAL_PERMISSION'
+          : 'INTERNAL_USER_AGENT_PERMISSION',
+        message: isAgentUser
+          ? 'Agent users can only hold agent portal permissions.'
+          : 'Agent portal permissions can only be granted to agent users.',
+        permissions: mismatched,
+      });
+    }
+    const validNames = isAgentUser
+      ? known
+      : withAuthorizationImpliedPermissions(known);
     const existing = await this.prisma.permission.findMany({
       where: { name: { in: validNames } },
       select: { id: true, name: true },

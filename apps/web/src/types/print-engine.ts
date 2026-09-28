@@ -167,6 +167,12 @@ export interface StatementPrintPayload {
   periodCredit: number;
   closingBalance: number;
   recordPath?: string;
+  /** Overrides the party-role caption (e.g. "Agent") — defaults from `partyRole`. */
+  partyLabel?: string;
+  /** Plain-language notes printed under the movements (e.g. the sign convention). */
+  notes?: string[];
+  /** Page orientation — defaults to portrait; wide statements (e.g. the agent statement) print landscape. */
+  orientation?: "portrait" | "landscape";
 }
 
 /** What the courier / pickup desk must do about money (spec §4). */

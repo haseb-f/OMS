@@ -33,6 +33,11 @@ export interface CurrentUser extends AuthUser {
   isSuperAdmin: boolean;
   permissions: string[];
   companies: CompanyContext[];
+  /** Agents milestone — INTERNAL (company staff) or AGENT (an external agent's user). */
+  userType?: "INTERNAL" | "AGENT";
+  agentRole?: "ADMIN" | "SALES" | null;
+  /** The agent an AGENT user belongs to (null for internal users). */
+  agent?: { id: string; agentNumber: string; name: string } | null;
 }
 
 export interface LoginResponse {
@@ -49,4 +54,7 @@ export const authService = {
   resetPassword: (token: string, newPassword: string) =>
     apiClient.post<{ message: string }>("/auth/reset-password", { token, newPassword }),
   me: () => apiClient.get<CurrentUser>("/auth/me"),
+  /** Own password change (internal + agent users); clears `mustChangePassword`. */
+  changePassword: (currentPassword: string, newPassword: string) =>
+    apiClient.post<{ message: string }>("/auth/change-password", { currentPassword, newPassword }),
 };

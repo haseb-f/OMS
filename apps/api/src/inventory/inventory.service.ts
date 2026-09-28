@@ -41,6 +41,21 @@ const RESERVATION_TYPES: InventoryMovementType[] = [
   InventoryMovementType.RESERVATION_RELEASE,
 ];
 
+/**
+ * Owner agent of a product at movement time (spec §4). Share-locks the
+ * product row (conflicts with ProductsService's owner-change FOR UPDATE).
+ * Every InventoryMovement insert must stamp this value.
+ */
+export async function movementOwnerAgentId(
+  tx: Prisma.TransactionClient,
+  productId: string,
+): Promise<string | null> {
+  const rows = await tx.$queryRaw<{ owner_agent_id: string | null }[]>`
+    SELECT owner_agent_id FROM products WHERE id = ${productId}::uuid FOR SHARE
+  `;
+  return rows[0]?.owner_agent_id ?? null;
+}
+
 @Injectable()
 export class InventoryService {
   constructor(
@@ -716,6 +731,134 @@ export class InventoryService {
   }
 
   /**
+   * Agents milestone (spec §4) — an agent's stock per product/warehouse,
+   * from the owner snapshot on the movements (never re-attributed). Every
+   * product the agent owns is listed; one without movements shows zeros.
+   * `shipped` = Σ |SALES_DELIVERY|, `returned` = Σ SALES_RETURN.
+   */
+  async getAgentStock(
+    agentId: string,
+    filter: { productId?: string; warehouseId?: string } = {},
+  ) {
+    const [groups, products] = await Promise.all([
+      this.prisma.inventoryMovement.groupBy({
+        by: ['productId', 'warehouseId', 'type'],
+        where: {
+          ownerAgentId: agentId,
+          productId: filter.productId,
+          warehouseId: filter.warehouseId,
+        },
+        _sum: { quantity: true },
+      }),
+      this.prisma.product.findMany({
+        where: {
+          ownerAgentId: agentId,
+          deletedAt: null,
+          ...(filter.productId ? { id: filter.productId } : {}),
+        },
+        select: {
+          id: true,
+          sku: true,
+          name: true,
+          nameEn: true,
+          displayName: true,
+          isInventoryItem: true,
+          status: true,
+        },
+        orderBy: { name: 'asc' },
+      }),
+    ]);
+    type Row = {
+      productId: string;
+      warehouseId: string | null;
+      onHand: number;
+      reserved: number;
+      shipped: number;
+      returned: number;
+    };
+    const rows = new Map<string, Row>();
+    for (const group of groups) {
+      const key = `${group.productId}:${group.warehouseId}`;
+      const row = rows.get(key) ?? {
+        productId: group.productId,
+        warehouseId: group.warehouseId,
+        onHand: 0,
+        reserved: 0,
+        shipped: 0,
+        returned: 0,
+      };
+      const qty = group._sum.quantity ?? 0;
+      if (RESERVATION_TYPES.includes(group.type)) row.reserved += qty;
+      else row.onHand += qty;
+      if (group.type === InventoryMovementType.SALES_DELIVERY) {
+        row.shipped += Math.abs(qty);
+      }
+      if (group.type === InventoryMovementType.SALES_RETURN) {
+        row.returned += qty;
+      }
+      rows.set(key, row);
+    }
+    if (!filter.warehouseId) {
+      for (const product of products) {
+        const hasRow = [...rows.values()].some(
+          (row) => row.productId === product.id,
+        );
+        if (!hasRow) {
+          rows.set(`${product.id}:none`, {
+            productId: product.id,
+            warehouseId: null,
+            onHand: 0,
+            reserved: 0,
+            shipped: 0,
+            returned: 0,
+          });
+        }
+      }
+    }
+    const warehouseIds = [
+      ...new Set(
+        [...rows.values()]
+          .map((row) => row.warehouseId)
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    const warehouses = warehouseIds.length
+      ? await this.prisma.warehouse.findMany({
+          where: { id: { in: warehouseIds } },
+          select: { id: true, name: true, code: true },
+        })
+      : [];
+    const productById = new Map(products.map((p) => [p.id, p]));
+    const warehouseById = new Map(warehouses.map((w) => [w.id, w]));
+    const items = [...rows.values()]
+      .filter((row) => productById.has(row.productId))
+      .map((row) => ({
+        ...row,
+        available: row.onHand - row.reserved,
+        product: productById.get(row.productId)!,
+        warehouse: row.warehouseId
+          ? (warehouseById.get(row.warehouseId) ?? null)
+          : null,
+      }))
+      .sort(
+        (a, b) =>
+          a.product.name.localeCompare(b.product.name) ||
+          (a.warehouse?.name ?? '').localeCompare(b.warehouse?.name ?? ''),
+      );
+    const totals = items.reduce(
+      (acc, row) => ({
+        onHand: acc.onHand + row.onHand,
+        reserved: acc.reserved + row.reserved,
+        available: acc.available + row.available,
+        shipped: acc.shipped + row.shipped,
+        returned: acc.returned + row.returned,
+      }),
+      { onHand: 0, reserved: 0, available: 0, shipped: 0, returned: 0 },
+    );
+    return { agentId, items, totals };
+  }
+
+  /**
    * Product Stock Card (TASK-030 section 6) — on-hand/reserved/available are
    * the same derived-from-movements values `getStock` already computes;
    * cost comes from `Product.currentCost` (ADR-0014's denormalized mirror of
@@ -979,11 +1122,18 @@ export class InventoryService {
     return warehouse;
   }
 
-  private createMovement(
+  /**
+   * The single insert path for movements. Agents milestone (spec §4): every
+   * movement snapshots its product's owner agent (null = company stock),
+   * read inside the same transaction; the product row is share-locked so an
+   * owner change cannot interleave with the first movement.
+   */
+  private async createMovement(
     tx: Prisma.TransactionClient,
     data: Prisma.InventoryMovementUncheckedCreateInput,
   ) {
-    return tx.inventoryMovement.create({ data });
+    const ownerAgentId = await movementOwnerAgentId(tx, data.productId);
+    return tx.inventoryMovement.create({ data: { ...data, ownerAgentId } });
   }
 
   /** On-hand quantity: excludes the reserved ledger (RESERVATION/RESERVATION_RELEASE). */

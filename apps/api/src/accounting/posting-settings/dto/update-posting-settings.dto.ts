@@ -133,6 +133,18 @@ export class UpdatePostingSettingsDto {
   @IsOptionalUuid()
   otherExpenseAccountId?: string;
 
+  /** Agents milestone (D1) — liability holding what we owe agents (partner subledger). */
+  @IsOptionalUuid()
+  agentFundsPayableAccountId?: string;
+
+  /** Agents milestone (D1) — revenue for commission charged to agents. */
+  @IsOptionalUuid()
+  agentCommissionRevenueAccountId?: string;
+
+  /** Agents milestone (D1) — revenue for shipping/return/service fees charged to agents. */
+  @IsOptionalUuid()
+  agentServiceRevenueAccountId?: string;
+
   @IsOptionalUuid()
   functionalCurrencyId?: string;
 }

@@ -376,6 +376,7 @@ export class StoreOrderShipmentsService {
     dateTo?: string;
     hasTracking?: 'true' | 'false';
     hasAttachment?: 'true' | 'false';
+    agentId?: string;
   }): Prisma.ShipmentWhereInput {
     const countryFilter = prismaEnumFilter(query.countryId);
     const sourceFilter = prismaEnumFilter(query.source);
@@ -434,6 +435,15 @@ export class StoreOrderShipmentsService {
         ...(sourceFilter ? { source: sourceFilter } : {}),
       };
     }
+    // Agents milestone — Shipping queue filter by owner agent.
+    if (query.agentId) {
+      const storeOrderFilter: Prisma.StoreOrderWhereInput = {
+        ...((where.storeOrder as Prisma.StoreOrderWhereInput | undefined) ??
+          {}),
+        agentId: query.agentId,
+      };
+      where.storeOrder = storeOrderFilter;
+    }
     if (query.dateFrom || query.dateTo) {
       where.createdAt = {
         ...(query.dateFrom ? { gte: new Date(query.dateFrom) } : {}),
@@ -472,6 +482,7 @@ export class StoreOrderShipmentsService {
               id: true,
               internalOrderId: true,
               externalOrderId: true,
+              agent: { select: { id: true, name: true, agentNumber: true } },
               partner: {
                 select: {
                   id: true,

@@ -45,6 +45,9 @@ export interface ProductRow {
   isInventoryItem: boolean;
   /** Investor Engine Milestone 4, Part B — opt-in gate for the Investment Opportunity Product picker. */
   availableForInvestmentOpportunities: boolean;
+  /** Agents milestone (spec §4) — owner agent of the goods; null = company-owned. */
+  ownerAgentId?: string | null;
+  ownerAgent?: { id: string; agentNumber: string; name: string } | null;
   salesPrice: string | null;
   salesTaxIncluded: boolean;
   salesDescription: string | null;
@@ -121,6 +124,10 @@ export interface ProductListParams {
   isSellable?: boolean;
   isPurchasable?: boolean;
   investmentEligible?: boolean;
+  /** Agents milestone — products owned by this agent (requires `agents.view`). */
+  agentId?: string;
+  /** Management list: company-owned only, or any agent-owned. */
+  ownership?: "COMPANY" | "AGENT";
 }
 
 export interface ProductActivityEntry {

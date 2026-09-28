@@ -171,6 +171,7 @@ export class SalesTargetsService {
             employeeId: userId,
             orderDate: { gte: start, lt: end },
             deletedAt: null,
+            agentId: null,
           },
         },
       });
@@ -182,6 +183,7 @@ export class SalesTargetsService {
         employeeId: userId,
         orderDate: { gte: start, lt: end },
         deletedAt: null,
+        agentId: null,
       },
     });
   }

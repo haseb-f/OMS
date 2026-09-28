@@ -8,6 +8,7 @@ import { PaymentReconciliationService } from './payment-reconciliation.service';
 import { PaymentStatementsService } from './payment-statements.service';
 import { PaymentMatchingService } from './payment-matching.service';
 import { ClaimPostingAdapter } from './claim-posting.adapter';
+import { AgentLedgerModule } from '../agents/finance/agent-ledger.module';
 
 /**
  * Provider statements + matching per reconciliation-enabled payment method
@@ -18,7 +19,12 @@ import { ClaimPostingAdapter } from './claim-posting.adapter';
  * directly rather than importing the whole Import Center graph.
  */
 @Module({
-  imports: [PaymentsModule, StoreOrdersModule, FinancialTransactionsModule],
+  imports: [
+    PaymentsModule,
+    StoreOrdersModule,
+    FinancialTransactionsModule,
+    AgentLedgerModule,
+  ],
   controllers: [PaymentReconciliationController],
   providers: [
     PaymentReconciliationService,

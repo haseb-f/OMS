@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import {
   PartnerEntityType,
@@ -31,6 +32,15 @@ import { AttachmentsService } from '../common/storage/attachments.service';
 import { derivedUnitPrice } from '../store-orders/store-order-line-amount';
 import { declarePaymentInTx } from '../store-orders/payment-declaration/payment-declaration.core';
 import { ORDER_PAYMENT_STATUS_CODE } from './workflow-status-map';
+import { resolveAgentCustomerPartner } from '../agents/orders/agent-customer';
+import { assertCompanyOwnedProducts } from '../products/assert-company-owned-products.util';
+import {
+  agentOrderActivityDetails,
+  agentOrderColumns,
+  agentOrderInitialStage,
+  agentShippingOverrideDetails,
+  type AgentOrderPersistInput,
+} from '../agents/orders/agent-order-persist';
 import {
   type WorkflowEntityType,
   isWorkflowEntityType,
@@ -83,6 +93,14 @@ export interface LeadConvertPayload {
   city?: string;
   address?: string;
   notes?: string;
+  /** Agent orders (spec §7): the agent's authorized payment destination for the declaration. */
+  agentPaymentDestinationId?: string;
+  /**
+   * Agents milestone — set ONLY by `AgentOrdersService` (never mapped from
+   * an HTTP body): the validated agent order the conversion persists. An
+   * agent lead converts only with it; a company lead never takes it.
+   */
+  agentOrder?: AgentOrderPersistInput;
 }
 
 /**
@@ -321,8 +339,21 @@ export class WorkflowEngineService {
     userId: string,
     payload: LeadConvertPayload,
   ) {
-    await this.assertLeadScope('LEAD', leadId, userId);
-    if (!payload.items?.length && !payload.productId) {
+    // Agent conversions are authorized by AgentOrdersService (agent
+    // visibility or internal agents permission) — agent users have no
+    // internal sales scope. Company conversions keep the sales scope.
+    if (payload.agentOrder) {
+      const owner = await this.prisma.lead.findFirst({
+        where: { id: leadId, deletedAt: null },
+        select: { agentId: true },
+      });
+      if (!owner || owner.agentId !== payload.agentOrder.agentId) {
+        throw new NotFoundException('Lead not found');
+      }
+    } else {
+      await this.assertLeadScope('LEAD', leadId, userId);
+    }
+    if (!payload.agentOrder && !payload.items?.length && !payload.productId) {
       throw new BadRequestException(
         'Conversion requires at least one product line.',
       );
@@ -344,6 +375,13 @@ export class WorkflowEngineService {
     }
     if (lead.status.code === 'LOST' || lead.status.code === 'DISQUALIFIED') {
       throw new BadRequestException('A closed Lead cannot be converted.');
+    }
+    if (lead.agentId && !payload.agentOrder) {
+      throw new UnprocessableEntityException({
+        code: 'AGENT_LEAD_REQUIRES_AGENT_ORDER',
+        message:
+          'عميل الوكيل المحتمل يُحوَّل فقط كطلب وكيل — An agent lead converts only into an agent order (agent pricing and agreement).',
+      });
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -685,7 +723,17 @@ export class WorkflowEngineService {
       return;
     }
 
-    const lines = await this.resolveConvertLines(payload, lead, tx);
+    const agentOrder = payload?.agentOrder;
+    if (lead.agentId !== (agentOrder?.agentId ?? null)) {
+      throw new UnprocessableEntityException({
+        code: 'AGENT_LEAD_REQUIRES_AGENT_ORDER',
+        message:
+          'عميل الوكيل المحتمل يُحوَّل فقط كطلب وكيل — An agent lead converts only into an agent order of the same agent.',
+      });
+    }
+    const lines = agentOrder
+      ? agentOrder.lines
+      : await this.resolveConvertLines(payload, lead, tx);
     if (!lines.length) {
       throw new BadRequestException(
         'Conversion requires a product on the Lead or in the conversion payload.',
@@ -723,11 +771,18 @@ export class WorkflowEngineService {
       address: payload?.address !== undefined ? payload.address : lead.address,
     };
 
-    const partnerId = await this.resolvePartnerForLead(
-      shippingLead,
-      userId,
-      tx,
-    );
+    // Agent leads (S1): the customer is resolved among the agent's own
+    // customers only — never the shared phone match, never an update of an
+    // existing Partner (the typed customer is frozen on the order snapshot).
+    const partnerId = agentOrder
+      ? await resolveAgentCustomerPartner(
+          tx,
+          this.numberingEngine,
+          agentOrder.agentId,
+          agentOrder.customer,
+          userId,
+        )
+      : await this.resolvePartnerForLead(shippingLead, userId, tx);
 
     await tx.lead.update({
       where: { id: leadId },
@@ -735,9 +790,10 @@ export class WorkflowEngineService {
     });
 
     if (
-      payload?.city !== undefined ||
-      payload?.address !== undefined ||
-      payload?.countryId
+      !agentOrder &&
+      (payload?.city !== undefined ||
+        payload?.address !== undefined ||
+        payload?.countryId)
     ) {
       await tx.partner.update({
         where: { id: partnerId },
@@ -751,13 +807,15 @@ export class WorkflowEngineService {
       });
     }
 
-    const paymentType =
-      payload?.paymentType === 'CASH_ON_DELIVERY'
+    const paymentType = agentOrder
+      ? agentOrder.paymentType
+      : payload?.paymentType === 'CASH_ON_DELIVERY'
         ? StoreOrderPaymentType.CASH_ON_DELIVERY
         : StoreOrderPaymentType.PREPAID;
-    const fulfillmentMethod =
-      payload?.fulfillmentMethod === 'PICKUP' ||
-      lead.fulfillmentMethod === StoreOrderFulfillmentMethod.PICKUP
+    const fulfillmentMethod = agentOrder
+      ? agentOrder.fulfillmentMethod
+      : payload?.fulfillmentMethod === 'PICKUP' ||
+          lead.fulfillmentMethod === StoreOrderFulfillmentMethod.PICKUP
         ? StoreOrderFulfillmentMethod.PICKUP
         : StoreOrderFulfillmentMethod.SHIPPING;
 
@@ -773,8 +831,14 @@ export class WorkflowEngineService {
       shippingStage = StoreOrderShippingStage.READY_FOR_SHIPPING;
       fulfillmentCode = 'READY';
     }
+    if (agentOrder) {
+      const stage = agentOrderInitialStage(agentOrder);
+      shippingStage = stage.shippingStage;
+      fulfillmentCode = stage.fulfillmentCode;
+    }
 
-    const currencyId = payload?.currencyId ?? lead.currencyId;
+    const currencyId =
+      agentOrder?.currencyId ?? payload?.currencyId ?? lead.currencyId;
     if (payload?.currencyId) {
       const currency = await tx.currency.findFirst({
         where: { id: payload.currencyId, deletedAt: null },
@@ -810,6 +874,7 @@ export class WorkflowEngineService {
         createdBy: userId,
         updatedBy: userId,
         source: this.mapLeadSource(lead.source),
+        ...(agentOrder ? agentOrderColumns(agentOrder) : {}),
         items: {
           create: lines.map((line) => ({
             productId: line.productId,
@@ -820,6 +885,27 @@ export class WorkflowEngineService {
         },
       },
     });
+    if (agentOrder) {
+      await tx.storeOrderActivity.create({
+        data: {
+          storeOrderId: storeOrder.id,
+          action: 'AGENT_ORDER_CREATED',
+          details: agentOrderActivityDetails(agentOrder),
+          performedById: userId,
+        },
+      });
+      const override = agentShippingOverrideDetails(agentOrder);
+      if (override) {
+        await tx.storeOrderActivity.create({
+          data: {
+            storeOrderId: storeOrder.id,
+            action: 'AGENT_SHIPPING_OVERRIDE',
+            details: override,
+            performedById: userId,
+          },
+        });
+      }
+    }
 
     await tx.storeOrderActivity.create({
       data: {
@@ -867,6 +953,14 @@ export class WorkflowEngineService {
       agreedAmount: number;
     }>
   > {
+    // Company conversion (agent leads never reach here): agent-owned goods
+    // are sold only through agent orders (S2) — items, payload or lead product.
+    await assertCompanyOwnedProducts(
+      payload?.items?.length
+        ? payload.items.map((item) => item.productId)
+        : [payload?.productId ?? lead.productId],
+      tx,
+    );
     if (payload?.items?.length) {
       const lines = [];
       for (const item of payload.items) {
@@ -945,6 +1039,7 @@ export class WorkflowEngineService {
         paymentDate: payload?.paymentDate ?? new Date().toISOString(),
         referenceNumber: payload?.paymentReference,
         stagedAttachmentIds: payload?.stagingAttachmentIds,
+        agentPaymentDestinationId: payload?.agentPaymentDestinationId,
         idempotencyKey: `lead-convert:${leadId}`,
         origin: PaymentOrigin.LEAD_CONVERSION,
         userId,

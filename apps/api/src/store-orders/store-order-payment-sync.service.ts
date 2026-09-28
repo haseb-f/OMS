@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, PaymentStatus, StoreOrderPaymentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { WorkflowStatusResolverService } from '../workflow/workflow-status-resolver.service';
-import { storeOrderItemsTotal } from './store-order-line-amount';
+import { storeOrderPayableTotal } from './store-order-line-amount';
 import { roundMoney } from './store-order-payment-settlement.util';
 
 /**
@@ -33,7 +33,7 @@ export class StoreOrderPaymentSyncService {
     });
     if (!order) return;
 
-    const orderTotal = roundMoney(storeOrderItemsTotal(order.items));
+    const orderTotal = roundMoney(storeOrderPayableTotal(order));
     const verified = await client.payment.aggregate({
       where: {
         storeOrderId,

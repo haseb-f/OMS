@@ -33,6 +33,27 @@ export function storeOrderItemsTotal(
   return items.reduce((sum, item) => sum + storeOrderLineAmount(item), 0);
 }
 
+/**
+ * What the customer pays for the order. Agent orders store an explicit
+ * breakdown (`payableTotal` = merchandise + tax + shipping + service charge,
+ * specs/agents-fulfillment-partners §5); every legacy / company order keeps
+ * `payableTotal = null` and its payable total stays Σ line amounts, exactly as
+ * before.
+ */
+export function storeOrderPayableTotal(order: {
+  payableTotal?: Decimalish;
+  items: Array<{
+    quantity: number;
+    unitPrice: Decimalish;
+    agreedAmount?: Decimalish;
+  }>;
+}): number {
+  if (order.payableTotal != null && order.payableTotal !== '') {
+    return toNumber(order.payableTotal);
+  }
+  return storeOrderItemsTotal(order.items);
+}
+
 export function derivedUnitPrice(
   quantity: number,
   agreedAmount: number,

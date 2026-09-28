@@ -27,6 +27,14 @@ model User {
   /// System-level bypass, orthogonal to `UserPermission` grants (still no Role/RBAC layer — this is a single superuser flag, not a role). A super admin always passes every permission check, including actions with no registered catalog entry; individual `UserPermission` rows are still recorded and shown for audit/UI, they just stop being the gate for this user. Defaults false; must be granted explicitly, never inferred from a permission count.
   isSuperAdmin       Boolean   @default(false) @map("is_super_admin")
 
+  /// Agents milestone — INTERNAL (company staff, default) vs AGENT (an external
+  /// agent's Admin/Sales user). Set at creation, immutable. Agent users can
+  /// only call `@AgentPortal()` handlers and only hold `agent.*` permissions.
+  userType  UserType   @default(INTERNAL) @map("user_type")
+  agentId   String?    @map("agent_id") @db.Uuid
+  agent     Agent?     @relation("AgentUsers", fields: [agentId], references: [id])
+  agentRole AgentRole? @map("agent_role")
+
   jobTitleId String?   @map("job_title_id") @db.Uuid
   jobTitle   JobTitle? @relation(fields: [jobTitleId], references: [id])
 
@@ -463,10 +471,14 @@ model PasswordResetToken {
 // ---------------------------------------------------------------------------
 
 model Currency {
-  id     String  @id @default(uuid()) @db.Uuid
-  code   String  @unique
-  name   String
-  symbol String?
+  id                 String             @id @default(uuid()) @db.Uuid
+  agents             Agent[]
+  agentLedgerEntries AgentLedgerEntry[]
+  agentPayouts       AgentPayout[]
+  agentAgreements    AgentAgreement[]
+  code               String             @unique
+  name               String
+  symbol             String?
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -518,13 +530,14 @@ model Currency {
 /// own supported-region list + the `i18n-iso-countries` reference package —
 /// never hand-typed codes) instead of being admin-created master data.
 model Country {
-  id     String  @id @default(uuid()) @db.Uuid
+  id                 String              @id @default(uuid()) @db.Uuid
+  agentShippingRates AgentShippingRate[]
   /// ISO 3166-1 alpha-2 — the one code the phone-validation architecture
   /// already keys everything off of.
-  code   String  @unique
+  code               String              @unique
   /// Arabic name — primary identity, matches the Product/Lead convention.
-  name   String
-  nameEn String? @map("name_en")
+  name               String
+  nameEn             String?             @map("name_en")
 
   /// ISO 3166-1 alpha-3 / numeric — reference identifiers, not used for
   /// lookups anywhere yet.
@@ -629,9 +642,10 @@ model CostCenter {
 /// Currency/Country field — a Payment Method identifies the channel +
 /// account only; Currency/Country belong to the transaction (spec 7/8).
 model PaymentMethod {
-  id          String  @id @default(uuid()) @db.Uuid
-  name        String  @unique
-  description String?
+  id                       String                    @id @default(uuid()) @db.Uuid
+  agentPaymentDestinations AgentPaymentDestination[]
+  name                     String                    @unique
+  description              String?
 
   accountId String?         @map("account_id") @db.Uuid
   account   ChartOfAccount? @relation("PaymentMethodAccount", fields: [accountId], references: [id])
@@ -1511,6 +1525,11 @@ model Lead {
   salesEmployeeId String?   @map("sales_employee_id") @db.Uuid
   salesEmployee   User?     @relation(fields: [salesEmployeeId], references: [id])
   assignedAt      DateTime? @map("assigned_at")
+
+  /// Agents milestone — set (server-side, from the creating agent user) for an
+  /// agent's lead. Agent leads never enter internal distribution.
+  agentId String? @map("agent_id") @db.Uuid
+  agent   Agent?  @relation(fields: [agentId], references: [id])
 
   statusId String           @map("status_id") @db.Uuid
   status   StatusDefinition @relation(fields: [statusId], references: [id])
@@ -2402,6 +2421,9 @@ model ChartOfAccount {
   postingSettingsExchangeDifference  PostingSettings[]     @relation("PostingExchangeDifference")
   postingSettingsSuspense            PostingSettings[]     @relation("PostingSuspense")
   postingSettingsRetainedEarnings    PostingSettings[]     @relation("PostingRetainedEarnings")
+  postingSettingsAgentFundsPayable   PostingSettings[]     @relation("PostingAgentFundsPayable")
+  postingSettingsAgentCommissionRev  PostingSettings[]     @relation("PostingAgentCommissionRevenue")
+  postingSettingsAgentServiceRev     PostingSettings[]     @relation("PostingAgentServiceRevenue")
   postingSettingsLandedCostClearing  PostingSettings[]     @relation("PostingLandedCostClearing")
   postingSettingsShippingExpense     PostingSettings[]     @relation("PostingShippingExpense")
   purchaseLinesPrepaidExpense        PurchaseInvoiceItem[] @relation("PurchaseLinePrepaidExpenseAccount")
@@ -2570,9 +2592,10 @@ model PaymentSource {
 /// different PaymentSources (e.g. both "Visa" and "Mada" might settle into
 /// the same bank account).
 model ReceivingAccount {
-  id   String @id @default(uuid()) @db.Uuid
-  name String
-  code String @unique
+  id           String        @id @default(uuid()) @db.Uuid
+  agentPayouts AgentPayout[]
+  name         String
+  code         String        @unique
 
   /// No Company/multi-entity module exists yet — same placeholder pattern
   /// as Lead.productId / OrderItem.productId, intentionally not a foreign key.
@@ -2656,6 +2679,14 @@ model Payment {
 
   settlementStatus PaymentSettlementStatus @default(NOT_APPLICABLE) @map("settlement_status")
   settledAmount    Decimal                 @default(0) @map("settled_amount") @db.Decimal(12, 2)
+
+  /// Agents milestone — copied from the order's agent; COMPANY = our account/provider,
+  /// AGENT = money went straight to the agent (never company cash).
+  agentId                   String?                    @map("agent_id") @db.Uuid
+  agent                     Agent?                     @relation(fields: [agentId], references: [id])
+  destinationOwnership      AgentDestinationOwnership? @map("destination_ownership")
+  agentPaymentDestinationId String?                    @map("agent_payment_destination_id") @db.Uuid
+  agentPaymentDestination   AgentPaymentDestination?   @relation(fields: [agentPaymentDestinationId], references: [id])
 
   referenceNumber String? @map("reference_number")
   senderName      String  @map("sender_name")
@@ -3298,7 +3329,8 @@ model BankTransaction {
 /// PostgreSQL. Staging rows (`finalizedAt` null) expire and are cleaned up
 /// if conversion/payment linking does not complete.
 model Attachment {
-  id String @id @default(uuid()) @db.Uuid
+  id                     String                  @id @default(uuid()) @db.Uuid
+  agentPayoutAttachments AgentPayoutAttachment[]
 
   fileName        String  @map("file_name")
   originalName    String  @map("original_name")
@@ -3463,10 +3495,16 @@ enum ProductStatus {
 }
 
 model Product {
-  id   String @id @default(uuid()) @db.Uuid
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Agents milestone — null = company-owned (unchanged behavior). Set = goods owned
+  /// by that external Agent and held by us. Immutable once the product has stock
+  /// movements or order lines (history is never re-attributed).
+  ownerAgentId String? @map("owner_agent_id") @db.Uuid
+  ownerAgent   Agent?  @relation("AgentProducts", fields: [ownerAgentId], references: [id])
   /// Arabic name — the primary identity field (Arabic is the default locale
   /// throughout OMS); unchanged column from ADR-0011's `name`.
-  name String
+  name         String
 
   /// English name (TASK-027) — optional, additive to `name`.
   nameEn String? @map("name_en")
@@ -3814,6 +3852,10 @@ model InventoryMovement {
   /// On-hand quantity snapshot (product+warehouse), not the reserved ledger.
   quantityBefore Int @map("quantity_before")
   quantityAfter  Int @map("quantity_after")
+
+  /// Agents milestone — owner snapshot at insert (product's ownerAgentId); null =
+  /// company stock. Never updated.
+  ownerAgentId String? @map("owner_agent_id") @db.Uuid
 
   /// Free-form link to whatever business document caused this movement
   /// (e.g. a future Sales Order, Purchase Order, or this movement's own
@@ -4414,6 +4456,8 @@ enum PartnerRoleType {
   OWNER
   INVESTOR
   OTHER
+  /// Agents milestone — an external fulfillment-partner business (see `Agent`).
+  AGENT
 }
 
 /// Which control-account role a Chart of Account plays, server-set (never
@@ -4446,7 +4490,8 @@ enum PartnerSource {
 }
 
 model Partner {
-  id String @id @default(uuid()) @db.Uuid
+  id    String @id @default(uuid()) @db.Uuid
+  agent Agent?
 
   /// App-generated ("PT-2026-000001") via the Numbering Engine — never
   /// user-typed (spec: "user should not manually manage technical IDs").
@@ -4879,11 +4924,41 @@ model StoreOrder {
 
   notes String?
 
+  /// Agents milestone — the owner agent, derived server-side from the lines'
+  /// product owner (one owner per order). Null = company order (unchanged).
+  agentId            String?         @map("agent_id") @db.Uuid
+  agent              Agent?          @relation(fields: [agentId], references: [id])
+  agentAgreementId   String?         @map("agent_agreement_id") @db.Uuid
+  agentAgreement     AgentAgreement? @relation(fields: [agentAgreementId], references: [id])
+  /// Terms in force at submission (spec §2 snapshot) — never rewritten.
+  agentTermsSnapshot Json?           @map("agent_terms_snapshot")
+
+  /// Explicit price breakdown (spec §5). Null on legacy orders: their payable
+  /// total stays Σ line agreed amounts (`storeOrderPayableTotal`).
+  pricingMode            StoreOrderPricingMode? @map("pricing_mode")
+  merchandiseAmount      Decimal?               @map("merchandise_amount") @db.Decimal(12, 2)
+  discountAmount         Decimal?               @map("discount_amount") @db.Decimal(12, 2)
+  taxAmount              Decimal?               @map("tax_amount") @db.Decimal(12, 2)
+  shippingCharge         Decimal?               @map("shipping_charge") @db.Decimal(12, 2)
+  shippingChargeSource   ShippingChargeSource?  @map("shipping_charge_source")
+  /// Configured rate at entry (kept when a manual override differs).
+  shippingRateAmount     Decimal?               @map("shipping_rate_amount") @db.Decimal(12, 2)
+  shippingOverrideReason String?                @map("shipping_override_reason")
+  serviceCharge          Decimal?               @map("service_charge") @db.Decimal(12, 2)
+  payableTotal           Decimal?               @map("payable_total") @db.Decimal(12, 2)
+
+  /// Set once when agent stock is issued (shipment SHIPPED / pickup handover).
+  agentDispatchedAt DateTime? @map("agent_dispatched_at")
+  /// Set once when the agreement's earning event is reached.
+  agentEarnedAt     DateTime? @map("agent_earned_at")
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   createdBy String?   @map("created_by") @db.Uuid
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
+
+  agentReturns AgentOrderReturn[]
 
   items      StoreOrderItem[]
   receipts   StoreOrderReceipt[]
@@ -4910,6 +4985,7 @@ model StoreOrder {
   @@index([fulfillmentStatusId])
   @@index([orderDate])
   @@index([employeeId])
+  @@index([agentId, createdAt])
   @@map("store_orders")
 }
 
@@ -7134,6 +7210,17 @@ model PostingSettings {
   retainedEarningsAccountId String?         @map("retained_earnings_account_id") @db.Uuid
   retainedEarningsAccount   ChartOfAccount? @relation("PostingRetainedEarnings", fields: [retainedEarningsAccountId], references: [id])
 
+  /// Agents milestone (spec §8, decision D1) — until all three are set, agent
+  /// ledger entries stay PENDING_CONFIGURATION and are never posted to a guessed account.
+  agentFundsPayableAccountId String?         @map("agent_funds_payable_account_id") @db.Uuid
+  agentFundsPayableAccount   ChartOfAccount? @relation("PostingAgentFundsPayable", fields: [agentFundsPayableAccountId], references: [id])
+
+  agentCommissionRevenueAccountId String?         @map("agent_commission_revenue_account_id") @db.Uuid
+  agentCommissionRevenueAccount   ChartOfAccount? @relation("PostingAgentCommissionRevenue", fields: [agentCommissionRevenueAccountId], references: [id])
+
+  agentServiceRevenueAccountId String?         @map("agent_service_revenue_account_id") @db.Uuid
+  agentServiceRevenueAccount   ChartOfAccount? @relation("PostingAgentServiceRevenue", fields: [agentServiceRevenueAccountId], references: [id])
+
   /// HR Milestone 1 — PayrollRunPostingProvider defaults. Every field a
   /// fallback only: a PayrollComponent's own accountingMappingAccountId
   /// (if set) always wins first, same tiered-override pattern as Product
@@ -9144,4 +9231,351 @@ model GlobalLookupAudit {
   @@index([matchedPartnerId])
   @@index([matchedStoreOrderId])
   @@map("global_lookup_audits")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Agents / Fulfillment Partners (الوكلاء) — specs/agents-fulfillment-partners.
+// External businesses whose goods we hold and fulfill. NOT the HR commission
+// module (CommissionPlan etc.) — nothing here touches payroll.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum UserType {
+  INTERNAL
+  AGENT
+}
+
+enum AgentRole {
+  ADMIN
+  SALES
+}
+
+enum AgentStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AgentAgreementStatus {
+  DRAFT
+  ACTIVE
+  ENDED
+}
+
+enum AgentCommissionEarningEvent {
+  /// Shipment delivered / pickup handed over / digital-only order verified paid.
+  DELIVERED
+  /// The order's payment is Finance-verified in full.
+  PAYMENT_VERIFIED
+}
+
+enum AgentReturnCommissionTreatment {
+  REVERSE
+  RETAIN
+}
+
+enum AgentChargeOwner {
+  COMPANY
+  AGENT
+}
+
+enum AgentDestinationOwnership {
+  COMPANY
+  AGENT
+}
+
+enum StoreOrderPricingMode {
+  /// "Shipping added / الشحن يُضاف" — merchandise + shipping = payable.
+  SHIPPING_ADDED
+  /// "Shipping included / السعر شامل الشحن" — agreed total includes shipping.
+  SHIPPING_INCLUDED
+}
+
+enum ShippingChargeSource {
+  NONE
+  RATE
+  MANUAL
+}
+
+enum AgentLedgerEntryType {
+  COLLECTION_RECEIVED
+  COLLECTION_BY_AGENT
+  COLLECTION_REVERSAL
+  COMMISSION
+  COMMISSION_REVERSAL
+  CUSTOMER_SHIPPING_RETAINED
+  CUSTOMER_SHIPPING_RETAINED_REVERSAL
+  SHIPPING_FEE
+  RETURN_FEE
+  SERVICE_FEE
+  PROVIDER_FEE
+  CUSTOMER_REFUND
+  PAYOUT
+  PAYOUT_REVERSAL
+  ADJUSTMENT
+}
+
+enum AgentLedgerPostingStatus {
+  /// Memo line (e.g. collected by the agent) — nothing to post.
+  NOT_APPLICABLE
+  /// Agent GL accounts not configured yet (decision D1) — posted later by Finance.
+  PENDING_CONFIGURATION
+  POSTED
+}
+
+enum AgentPayoutStatus {
+  CONFIRMED
+  REVERSED
+}
+
+model Agent {
+  id          String @id @default(uuid()) @db.Uuid
+  /// App-generated ("AG-0001") — never user-typed.
+  agentNumber String @unique @map("agent_number")
+
+  /// Subledger identity (role AGENT) for Agent funds payable postings.
+  partnerId String  @unique @map("partner_id") @db.Uuid
+  partner   Partner @relation(fields: [partnerId], references: [id])
+
+  name        String
+  legalName   String?     @map("legal_name")
+  contactName String?     @map("contact_name")
+  phone       String?
+  email       String?
+  address     String?
+  notes       String?
+  status      AgentStatus @default(ACTIVE)
+  /// Settlement currency — agent orders, ledger and payouts use it (D6).
+  currencyId  String      @map("currency_id") @db.Uuid
+  currency    Currency    @relation(fields: [currencyId], references: [id])
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  users               User[]                    @relation("AgentUsers")
+  products            Product[]                 @relation("AgentProducts")
+  agreements          AgentAgreement[]
+  paymentDestinations AgentPaymentDestination[]
+  leads               Lead[]
+  storeOrders         StoreOrder[]
+  payments            Payment[]
+  ledgerEntries       AgentLedgerEntry[]
+  payouts             AgentPayout[]
+  returns             AgentOrderReturn[]
+
+  @@index([status])
+  @@map("agents")
+}
+
+/// Effective-dated contract terms (spec §2). An ACTIVE agreement's terms are
+/// immutable; orders snapshot the terms they used.
+model AgentAgreement {
+  id      String @id @default(uuid()) @db.Uuid
+  agentId String @map("agent_id") @db.Uuid
+  agent   Agent  @relation(fields: [agentId], references: [id])
+
+  /// App-generated ("AGR-0001").
+  agreementNumber String               @unique @map("agreement_number")
+  status          AgentAgreementStatus @default(DRAFT)
+  effectiveFrom   DateTime             @map("effective_from") @db.Date
+  /// Inclusive; null = open-ended.
+  effectiveTo     DateTime?            @map("effective_to") @db.Date
+
+  currencyId String   @map("currency_id") @db.Uuid
+  currency   Currency @relation(fields: [currencyId], references: [id])
+
+  commissionRatePercent       Decimal                        @map("commission_rate_percent") @db.Decimal(7, 4)
+  commissionEarningEvent      AgentCommissionEarningEvent    @map("commission_earning_event")
+  returnCommissionTreatment   AgentReturnCommissionTreatment @map("return_commission_treatment")
+  customerShippingChargeOwner AgentChargeOwner               @map("customer_shipping_charge_owner")
+  providerFeesBorneBy         AgentChargeOwner               @map("provider_fees_borne_by")
+  shippingFeePerShipment      Decimal                        @map("shipping_fee_per_shipment") @db.Decimal(12, 2)
+  returnFeePerShipment        Decimal                        @map("return_fee_per_shipment") @db.Decimal(12, 2)
+  serviceFeePerOrder          Decimal                        @map("service_fee_per_order") @db.Decimal(12, 2)
+  allowAgentDestinations      Boolean                        @default(false) @map("allow_agent_destinations")
+  payoutHoldDays              Int                            @default(0) @map("payout_hold_days")
+  notes                       String?
+
+  activatedAt DateTime? @map("activated_at")
+  activatedBy String?   @map("activated_by") @db.Uuid
+  endedAt     DateTime? @map("ended_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  shippingRates AgentShippingRate[]
+  storeOrders   StoreOrder[]
+
+  @@index([agentId, status, effectiveFrom])
+  @@map("agent_agreements")
+}
+
+/// Configured customer shipping charge by destination (the "configured rate").
+model AgentShippingRate {
+  id          String         @id @default(uuid()) @db.Uuid
+  agreementId String         @map("agreement_id") @db.Uuid
+  agreement   AgentAgreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  countryId   String         @map("country_id") @db.Uuid
+  country     Country        @relation(fields: [countryId], references: [id])
+  /// Empty string = whole country; a city row wins over the country row.
+  city        String         @default("")
+  amount      Decimal        @db.Decimal(12, 2)
+
+  @@unique([agreementId, countryId, city])
+  @@map("agent_shipping_rates")
+}
+
+/// Which payment methods an agent's Sales may choose, and who owns the money.
+model AgentPaymentDestination {
+  id              String                    @id @default(uuid()) @db.Uuid
+  agentId         String                    @map("agent_id") @db.Uuid
+  agent           Agent                     @relation(fields: [agentId], references: [id])
+  paymentMethodId String                    @map("payment_method_id") @db.Uuid
+  paymentMethod   PaymentMethod             @relation(fields: [paymentMethodId], references: [id])
+  ownership       AgentDestinationOwnership
+  label           String
+  /// Account details shown to the agent's customers (agent-owned destinations).
+  details         String?
+  isActive        Boolean                   @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  payments Payment[]
+
+  @@unique([agentId, paymentMethodId, ownership])
+  @@map("agent_payment_destinations")
+}
+
+/// Append-only agent statement ledger (spec §8). Balance = credits − debits =
+/// what the company owes the agent. Never updated except posting metadata and
+/// availability.
+model AgentLedgerEntry {
+  id          String               @id @default(uuid()) @db.Uuid
+  /// App-generated ("AL-000001").
+  entryNumber String               @unique @map("entry_number")
+  agentId     String               @map("agent_id") @db.Uuid
+  agent       Agent                @relation(fields: [agentId], references: [id])
+  entryType   AgentLedgerEntryType @map("entry_type")
+  entryDate   DateTime             @map("entry_date")
+
+  /// Idempotency key — one entry per (source, type).
+  sourceType String @map("source_type")
+  sourceId   String @map("source_id")
+
+  storeOrderId String? @map("store_order_id") @db.Uuid
+  paymentId    String? @map("payment_id") @db.Uuid
+  payoutId     String? @map("payout_id") @db.Uuid
+
+  currencyId String   @map("currency_id") @db.Uuid
+  currency   Currency @relation(fields: [currencyId], references: [id])
+  debit      Decimal  @default(0) @db.Decimal(14, 2)
+  credit     Decimal  @default(0) @db.Decimal(14, 2)
+  /// Memo amount for balance-neutral lines (collected by agent).
+  memoAmount Decimal? @map("memo_amount") @db.Decimal(14, 2)
+
+  /// Calculation inputs, e.g. {base, ratePercent} for commission.
+  basis       Json?
+  description String
+
+  /// Credits only: when the amount becomes eligible for payout (null = not yet).
+  availableAt DateTime? @map("available_at")
+
+  postingStatus  AgentLedgerPostingStatus @default(NOT_APPLICABLE) @map("posting_status")
+  journalEntryId String?                  @map("journal_entry_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  payoutAllocations AgentPayoutAllocation[]
+
+  @@unique([sourceType, sourceId, entryType])
+  @@index([agentId, entryDate])
+  @@index([storeOrderId])
+  @@index([postingStatus])
+  @@map("agent_ledger_entries")
+}
+
+model AgentPayout {
+  id           String            @id @default(uuid()) @db.Uuid
+  /// App-generated ("APO-0001").
+  payoutNumber String            @unique @map("payout_number")
+  agentId      String            @map("agent_id") @db.Uuid
+  agent        Agent             @relation(fields: [agentId], references: [id])
+  status       AgentPayoutStatus @default(CONFIRMED)
+
+  amount     Decimal  @db.Decimal(14, 2)
+  currencyId String   @map("currency_id") @db.Uuid
+  currency   Currency @relation(fields: [currencyId], references: [id])
+
+  payingAccountId String           @map("paying_account_id") @db.Uuid
+  payingAccount   ReceivingAccount @relation(fields: [payingAccountId], references: [id])
+  payoutDate      DateTime         @map("payout_date")
+  reference       String
+  notes           String?
+  idempotencyKey  String           @unique @map("idempotency_key")
+
+  reversedAt     DateTime? @map("reversed_at")
+  reversedBy     String?   @map("reversed_by") @db.Uuid
+  reversalReason String?   @map("reversal_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  allocations AgentPayoutAllocation[]
+  attachments AgentPayoutAttachment[]
+
+  @@index([agentId, payoutDate])
+  @@map("agent_payouts")
+}
+
+/// Which available credits a payout paid (FIFO by availableAt).
+model AgentPayoutAllocation {
+  id            String           @id @default(uuid()) @db.Uuid
+  payoutId      String           @map("payout_id") @db.Uuid
+  payout        AgentPayout      @relation(fields: [payoutId], references: [id])
+  ledgerEntryId String           @map("ledger_entry_id") @db.Uuid
+  ledgerEntry   AgentLedgerEntry @relation(fields: [ledgerEntryId], references: [id])
+  amount        Decimal          @db.Decimal(14, 2)
+
+  @@index([ledgerEntryId])
+  @@map("agent_payout_allocations")
+}
+
+model AgentPayoutAttachment {
+  id           String      @id @default(uuid()) @db.Uuid
+  payoutId     String      @map("payout_id") @db.Uuid
+  payout       AgentPayout @relation(fields: [payoutId], references: [id])
+  attachmentId String      @map("attachment_id") @db.Uuid
+  attachment   Attachment  @relation(fields: [attachmentId], references: [id])
+  createdAt    DateTime    @default(now()) @map("created_at")
+
+  @@unique([payoutId, attachmentId])
+  @@map("agent_payout_attachments")
+}
+
+/// A return received by internal Shipping for an agent order (full or partial).
+model AgentOrderReturn {
+  id                String     @id @default(uuid()) @db.Uuid
+  /// App-generated ("ART-0001").
+  returnNumber      String     @unique @map("return_number")
+  agentId           String     @map("agent_id") @db.Uuid
+  agent             Agent      @relation(fields: [agentId], references: [id])
+  storeOrderId      String     @map("store_order_id") @db.Uuid
+  storeOrder        StoreOrder @relation(fields: [storeOrderId], references: [id])
+  warehouseId       String     @map("warehouse_id") @db.Uuid
+  /// [{storeOrderItemId, productId, quantity, merchandiseAmount}]
+  lines             Json
+  merchandiseAmount Decimal    @map("merchandise_amount") @db.Decimal(12, 2)
+  reason            String?
+  idempotencyKey    String     @unique @map("idempotency_key")
+  createdAt         DateTime   @default(now()) @map("created_at")
+  createdBy         String?    @map("created_by") @db.Uuid
+
+  @@index([storeOrderId])
+  @@map("agent_order_returns")
 }

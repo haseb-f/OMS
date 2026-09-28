@@ -24,6 +24,7 @@ import {
   storeOrderShippingLabel,
   storeOrderShippingText,
 } from "@/components/store-orders/store-order-row-cells";
+import { AgentBadge } from "@/components/agents/agent-options";
 
 export interface StoreOrderRowHandlers {
   onView: (row: StoreOrderRow) => void;
@@ -142,6 +143,19 @@ export function buildStoreOrderColumns(
         return phone ? `${row.partner?.name ?? "—"} ${phone}` : (row.partner?.name ?? "—");
       },
       cell: ({ row }) => <StoreOrderCustomerCell order={row.original} />,
+    },
+    {
+      // Agents milestone — the owner agent of agent orders ("—" for company orders).
+      id: "agent",
+      meta: {
+        titleKey: "agents.storeOrder.column",
+        importance: "low",
+        minWidth: 120,
+        maxWidth: 220,
+      },
+      enableSorting: false,
+      accessorFn: (row) => (row.agent ? `${row.agent.name} ${row.agent.agentNumber}` : ""),
+      cell: ({ row }) => <AgentBadge agent={row.original.agent} />,
     },
     {
       id: "orderDate",
@@ -281,6 +295,7 @@ const EXPORT_FIELDS: { key: string; titleKey: MessageKey }[] = [
   { key: "internalOrderId", titleKey: "storeOrders.fields.internalOrderId" },
   { key: "externalOrderId", titleKey: "storeOrders.fields.externalOrderId" },
   { key: "customer", titleKey: "storeOrders.fields.customer" },
+  { key: "agent", titleKey: "agents.storeOrder.column" },
   { key: "phone", titleKey: "storeOrders.fields.phone" },
   { key: "orderDate", titleKey: "storeOrders.fields.orderDate" },
   { key: "paymentStatus", titleKey: "storeOrders.fields.paymentStatus" },
@@ -302,6 +317,7 @@ export function storeOrderPrintRow(
     internalOrderId: item.internalOrderId,
     externalOrderId: item.externalOrderId ?? "",
     customer: item.partner?.name ?? "",
+    agent: item.agent ? `${item.agent.name} (${item.agent.agentNumber})` : "",
     phone: customerPhone(item) ?? "",
     orderDate: formatDate(item.orderDate),
     paymentStatus: t(financialStatusLabelKey(item.paymentStatus, item.paymentType)),

@@ -12,6 +12,11 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
+import {
+  AgentShared,
+  AllowPendingPasswordChange,
+} from './decorators/agent-access.decorator';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import type { JwtPayload } from './guards/jwt-auth.guard';
 
 @Controller('auth')
@@ -38,6 +43,8 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(200)
+  @AgentShared()
+  @AllowPendingPasswordChange()
   @UseGuards(JwtAuthGuard)
   logout() {
     // Stateless JWT — logout is a client-side token discard. This endpoint
@@ -47,8 +54,23 @@ export class AuthController {
   }
 
   @Get('me')
+  @AgentShared()
+  @AllowPendingPasswordChange()
   @UseGuards(JwtAuthGuard)
   me(@CurrentUser() user: JwtPayload) {
     return this.authService.getCurrentUser(user.sub);
+  }
+
+  /** Own password change (internal and agent users); clears `mustChangePassword`. */
+  @Post('change-password')
+  @HttpCode(200)
+  @AgentShared()
+  @AllowPendingPasswordChange()
+  @UseGuards(JwtAuthGuard)
+  changePassword(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(user.sub, dto);
   }
 }

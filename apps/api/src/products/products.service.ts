@@ -1,7 +1,9 @@
 import {
   Injectable,
   BadRequestException,
+  ConflictException,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { Prisma, ProductStatus, ProductType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -67,6 +69,11 @@ const DEFAULT_FLAGS_BY_TYPE: Record<
 };
 
 const DOCUMENT_TYPE = 'PRODUCT';
+
+/** Agents milestone — owner agent summary on product detail/list rows. */
+const OWNER_AGENT_SELECT = {
+  select: { id: true, name: true, agentNumber: true },
+} as const;
 
 /** Arabic-bearing product columns for the shared Arabic-normalized search (`common/text/arabic-search.ts`). */
 export const PRODUCT_NORMALIZED_SEARCH = {
@@ -136,6 +143,9 @@ export class ProductsService {
     // Minted before the transaction — same trade-off as every other
     // caller of the Numbering Engine (Suppliers/Leads/SalesOrders/...):
     // a rollback leaves a gap in the sequence, which is fine.
+    if (dto.ownerAgentId)
+      await this.assertOwnerAgentAssignable(dto.ownerAgentId);
+
     const sku = await this.numberingEngine.generateNumber(DOCUMENT_TYPE);
 
     try {
@@ -215,6 +225,13 @@ export class ProductsService {
       isInventoryItem: query.isInventoryItem,
       isSellable: query.isSellable,
       isPurchasable: query.isPurchasable,
+      ownerAgentId: query.agentId
+        ? query.agentId
+        : query.ownership === 'COMPANY'
+          ? null
+          : query.ownership === 'AGENT'
+            ? { not: null }
+            : undefined,
     };
 
     if (query.search) where.OR = await this.buildSearchOr(query.search);
@@ -241,6 +258,7 @@ export class ProductsService {
         include: {
           category: { select: { id: true, name: true } },
           brand: { select: { id: true, name: true } },
+          ownerAgent: OWNER_AGENT_SELECT,
         },
       }),
       this.prisma.product.count({ where }),
@@ -271,6 +289,11 @@ export class ProductsService {
       // Investment Opportunity selector: together with ACTIVE + not deleted
       // above, this is exactly `isInvestmentEligible` (investment-opportunities/shared).
       availableForInvestmentOpportunities: query.investmentEligible,
+      // Agents milestone (spec §4): company flows never offer agent-owned
+      // goods; an agent's products are listed only for an explicit agentId
+      // (the controller honors it only for `agents.view` holders; the agent
+      // portal passes its server-derived agent).
+      ownerAgentId: query.agentId ?? null,
     };
 
     if (query.search) where.OR = await this.buildSearchOr(query.search);
@@ -312,6 +335,7 @@ export class ProductsService {
           unit: { select: { id: true, name: true } },
           // Document lines default their tax from the product.
           taxId: true,
+          ownerAgentId: true,
         },
       }),
       this.prisma.product.count({ where }),
@@ -331,6 +355,7 @@ export class ProductsService {
         analyticAccount: true,
         preferredPartner: true,
         preferredWarehouse: true,
+        ownerAgent: OWNER_AGENT_SELECT,
       },
     });
     if (!product) {
@@ -348,11 +373,14 @@ export class ProductsService {
   async findManyForValidation(productIds: string[]) {
     const uniqueIds = [...new Set(productIds)];
     if (uniqueIds.length === 0) {
-      return new Map<string, { id: string; status: ProductStatus }>();
+      return new Map<
+        string,
+        { id: string; status: ProductStatus; ownerAgentId: string | null }
+      >();
     }
     const products = await this.prisma.product.findMany({
       where: { id: { in: uniqueIds }, deletedAt: null },
-      select: { id: true, status: true },
+      select: { id: true, status: true, ownerAgentId: true },
     });
     return new Map(products.map((p) => [p.id, p]));
   }
@@ -372,8 +400,16 @@ export class ProductsService {
       });
     }
 
+    const ownerChanging =
+      dto.ownerAgentId !== undefined &&
+      (dto.ownerAgentId ?? null) !== existing.ownerAgentId;
+    if (ownerChanging && dto.ownerAgentId) {
+      await this.assertOwnerAgentAssignable(dto.ownerAgentId);
+    }
+
     try {
       return await this.prisma.$transaction(async (tx) => {
+        if (ownerChanging) await this.assertOwnerUnlocked(tx, id);
         const product = await tx.product.update({
           where: { id },
           data: { ...dto, updatedBy: userId ?? null },
@@ -381,7 +417,9 @@ export class ProductsService {
         await this.activityService.log(
           id,
           ProductActivityType.PRODUCT_UPDATED,
-          `Product ${product.sku} updated`,
+          ownerChanging
+            ? `Product ${product.sku} updated — owner agent ${existing.ownerAgentId ?? 'company'} → ${product.ownerAgentId ?? 'company'}`
+            : `Product ${product.sku} updated`,
           undefined,
           tx,
         );
@@ -528,6 +566,59 @@ export class ProductsService {
       );
       return product;
     });
+  }
+
+  /** Owner agent must exist, not be archived and be ACTIVE (spec §4). */
+  private async assertOwnerAgentAssignable(agentId: string) {
+    const agent = await this.prisma.agent.findFirst({
+      where: { id: agentId, deletedAt: null },
+      select: { status: true },
+    });
+    if (!agent || agent.status !== 'ACTIVE') {
+      throw new UnprocessableEntityException({
+        code: 'AGENT_NOT_ACTIVE',
+        message:
+          'الوكيل غير موجود أو غير نشط — The owner agent does not exist or is not active.',
+      });
+    }
+  }
+
+  /**
+   * Ownership is history: once the product has any stock movement or order
+   * line it can no longer change owner (spec §4). Locks the product row so
+   * a concurrent first movement cannot slip in between check and update.
+   */
+  private async assertOwnerUnlocked(
+    tx: Prisma.TransactionClient,
+    productId: string,
+  ) {
+    await tx.$queryRaw`SELECT id FROM products WHERE id = ${productId}::uuid FOR UPDATE`;
+    // Sequential: queries share the interactive transaction's connection.
+    // Any document, lead or order line referencing the product locks its
+    // owner (S2) — company documents were validated against the old owner.
+    const where = { productId };
+    const counts = [
+      await tx.inventoryMovement.count({ where }),
+      await tx.storeOrderItem.count({ where }),
+      await tx.lead.count({ where }),
+      await tx.orderItem.count({ where }),
+      await tx.salesQuotationItem.count({ where }),
+      await tx.salesOrderDocumentItem.count({ where }),
+      await tx.salesInvoiceItem.count({ where }),
+      await tx.salesReturnItem.count({ where }),
+      await tx.purchaseOrderItem.count({ where }),
+      await tx.purchaseQuotationItem.count({ where }),
+      await tx.purchaseInvoiceItem.count({ where }),
+      await tx.purchaseReturnItem.count({ where }),
+      await tx.opportunityProduct.count({ where }),
+    ];
+    if (counts.some((count) => count > 0)) {
+      throw new ConflictException({
+        code: 'PRODUCT_OWNER_LOCKED',
+        message:
+          'لا يمكن تغيير مالك المنتج بعد وجود حركات مخزون أو بنود طلبات عليه — The product owner cannot change once the product has stock movements, leads, order or document lines.',
+      });
+    }
   }
 
   private mapError(error: unknown): Error {

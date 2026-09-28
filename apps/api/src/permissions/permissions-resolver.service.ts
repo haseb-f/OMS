@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { withAuthorizationImpliedPermissions } from './permission-catalog';
+import {
+  isAgentPortalPermission,
+  withAuthorizationImpliedPermissions,
+} from './permission-catalog';
 
 interface CacheEntry {
   isSuperAdmin: boolean;
+  isAgentUser: boolean;
   /** Explicit grants + authorization-bearing implications only (SEC-03 H4). */
   permissions: Set<string>;
   expiresAt: number;
@@ -52,7 +56,7 @@ export class PermissionsResolverService {
     const [user, rows] = await Promise.all([
       this.prisma.user.findUnique({
         where: { id: userId },
-        select: { isSuperAdmin: true },
+        select: { isSuperAdmin: true, userType: true, agentRole: true },
       }),
       this.prisma.userPermission.findMany({
         where: { userId },
@@ -60,9 +64,30 @@ export class PermissionsResolverService {
       }),
     ]);
     const stored = rows.map((row) => row.permission.name);
+    // Agents milestone (spec §3): shared login never means shared
+    // privileges. An agent user's effective set is only its `agent.*` rows —
+    // any internal row (e.g. a same-named role grant) is ignored — and an
+    // internal user never holds `agent.*`. Agent users are never super admins.
+    const isAgentUser = user?.userType === 'AGENT';
+    // `agent.team.manage` is an Agent Admin capability only (S7) — a SALES
+    // user never holds it, whatever rows exist.
+    const permissions = isAgentUser
+      ? new Set(
+          stored.filter(
+            (name) =>
+              isAgentPortalPermission(name) &&
+              (name !== 'agent.team.manage' || user?.agentRole === 'ADMIN'),
+          ),
+        )
+      : new Set(
+          withAuthorizationImpliedPermissions(
+            stored.filter((name) => !isAgentPortalPermission(name)),
+          ),
+        );
     const entry: CacheEntry = {
-      isSuperAdmin: user?.isSuperAdmin ?? false,
-      permissions: new Set(withAuthorizationImpliedPermissions(stored)),
+      isSuperAdmin: !isAgentUser && (user?.isSuperAdmin ?? false),
+      isAgentUser,
+      permissions,
       expiresAt: Date.now() + CACHE_TTL_MS,
     };
     this.cache.set(userId, entry);
@@ -85,6 +110,10 @@ export class PermissionsResolverService {
     return entry.isSuperAdmin || entry.permissions.has(permissionName);
   }
 
+  async isAgentUser(userId: string): Promise<boolean> {
+    return (await this.load(userId)).isAgentUser;
+  }
+
   invalidate(userId: string) {
     this.cache.delete(userId);
   }
@@ -97,8 +126,13 @@ export class PermissionsResolverService {
    * anywhere else.
    */
   async getUsersWithPermission(permissionName: string): Promise<string[]> {
+    // Internal work pools (lead round robin, assignment pickers) never
+    // include external agent users (spec §3).
     const rows = await this.prisma.userPermission.findMany({
-      where: { permission: { name: permissionName } },
+      where: {
+        permission: { name: permissionName },
+        user: { userType: 'INTERNAL' },
+      },
       select: { userId: true },
     });
     return [...new Set(rows.map((row) => row.userId))];

@@ -35,6 +35,7 @@ import { PartnerPicker } from "@/components/business/partner-picker";
 import { WarehousePicker } from "@/components/business/warehouse-picker";
 import { ProductPicker } from "@/components/business/product-picker";
 import { useUserContext } from "@/providers/user-context";
+import { agentOptionLabel, useAgentOptions } from "@/components/agents/agent-options";
 import { cachedLookup } from "@/lib/lookup-cache";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
@@ -154,6 +155,7 @@ function toFormValues(source: ProductRow | null): ProductFormValues {
     status: source.status,
     categoryId: source.categoryId,
     brandId: source.brandId ?? "",
+    ownerAgentId: source.ownerAgentId ?? "",
     unitId: source.unitId,
     taxId: source.taxId ?? "",
     analyticAccountId: source.analyticAccountId ?? "",
@@ -195,12 +197,14 @@ function toPayload(values: ProductFormValues) {
         .map((tag) => tag.trim())
         .filter(Boolean)
     : [];
-  const { tagsInput: _tagsInput, inventoryTracking, ...rest } = values;
+  const { tagsInput: _tagsInput, inventoryTracking, ownerAgentId, ...rest } = values;
   void _tagsInput;
   return {
     ...rest,
     tags,
     brandId: values.brandId || undefined,
+    // Agents milestone — null = company-owned (sent only by staff who may see agents).
+    ownerAgentId: ownerAgentId || null,
     taxId: values.taxId || undefined,
     analyticAccountId: values.analyticAccountId || undefined,
     preferredPartnerId: values.preferredPartnerId || undefined,
@@ -279,6 +283,18 @@ export function ProductModal({
   /** The record the form was loaded from — its embedded relations label a value missing from the (active-only) option lists. */
   const sourceProduct = savedProduct ?? duplicateSource;
   const canCreateCategory = hasPermission(CREATE_CATEGORY_PERMISSION);
+  // Agents milestone — only staff who may see agents choose a product's owner agent.
+  const canSetOwnerAgent = hasPermission("agents.view");
+  const { agents } = useAgentOptions();
+  const ownerAgentOptions = useMemo<SearchableSelectOption[]>(
+    () =>
+      agents.map((agent) => ({
+        value: agent.id,
+        label: agentOptionLabel(agent),
+        searchText: agent.agentNumber,
+      })),
+    [agents],
+  );
 
   const categoryOptions = useMemo<SearchableSelectOption[]>(
     () => categories.map((category) => ({ value: category.id, label: category.name })),
@@ -375,7 +391,8 @@ export function ProductModal({
   const submit = form.handleSubmit(async (values) => {
     setIsSubmitting(true);
     try {
-      const payload = toPayload(values);
+      const payload: Record<string, unknown> = toPayload(values);
+      if (!canSetOwnerAgent) delete payload.ownerAgentId;
       const saved = isEditing
         ? await productsService.update(editingProduct!.id, payload)
         : await productsService.create(payload);
@@ -807,6 +824,36 @@ export function ProductModal({
                     </FormItem>
                   )}
                 />
+                {canSetOwnerAgent ? (
+                  <FormField
+                    control={form.control}
+                    name="ownerAgentId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t("agents.products.ownerAgent")}</FormLabel>
+                        <FormControl>
+                          <SearchableSelect
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            options={ownerAgentOptions}
+                            allowClear
+                            placeholder={t("agents.products.companyOwned")}
+                            selectedLabel={
+                              sourceProduct?.ownerAgent &&
+                              sourceProduct.ownerAgentId === field.value
+                                ? agentOptionLabel(sourceProduct.ownerAgent)
+                                : undefined
+                            }
+                          />
+                        </FormControl>
+                        <p className="text-caption text-muted-foreground">
+                          {t("agents.products.ownerAgentHint")}
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ) : null}
                 <FormField
                   control={form.control}
                   name="analyticAccountId"

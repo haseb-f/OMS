@@ -20,6 +20,7 @@ import { FixedAssetPostingProvider } from './fixed-asset-posting.provider';
 import { PrepaidExpensePostingProvider } from './prepaid-expense-posting.provider';
 import { AccruedExpensePostingProvider } from './accrued-expense-posting.provider';
 import { FxRevaluationPostingProvider } from './fx-revaluation-posting.provider';
+import { AgentLedgerPostingProvider } from './agent-ledger-posting.provider';
 
 /**
  * Accounting Posting Engine (TASK-046/047, HR Milestone 1) — every default
@@ -59,6 +60,7 @@ import { FxRevaluationPostingProvider } from './fx-revaluation-posting.provider'
     PrepaidExpensePostingProvider,
     AccruedExpensePostingProvider,
     FxRevaluationPostingProvider,
+    AgentLedgerPostingProvider,
   ],
 })
 export class PostingProvidersModule {}

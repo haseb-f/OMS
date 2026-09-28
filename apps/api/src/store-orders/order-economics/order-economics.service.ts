@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { round2 } from '../../sales/shared/sales-totals.util';
@@ -71,6 +75,20 @@ type OrderEconomicsRow = Prisma.StoreOrderGetPayload<{
  * the immutable `StoreOrderFulfillmentCost` snapshot — an UNKNOWN
  * component is never fabricated as 0.
  */
+/**
+ * F-M3: an agent order's merchandise is the agent's, not company revenue —
+ * no company COGS, margin or contribution exists for it. The company's
+ * income from it (commission, fees, retained charges) is on the agent
+ * statement and in the GL (AGENT_CHARGE postings).
+ */
+function agentOrderHasNoCompanyEconomics() {
+  return new UnprocessableEntityException({
+    code: 'AGENT_ORDER_NO_COMPANY_ECONOMICS',
+    message:
+      'طلبات الوكلاء ليست إيراد مبيعات للشركة — Agent orders are not company sales: see the agent statement for the company’s commission and fees.',
+  });
+}
+
 @Injectable()
 export class OrderEconomicsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -81,11 +99,12 @@ export class OrderEconomicsService {
   ): Promise<OrderEconomics> {
     const order = await tx.storeOrder.findFirst({
       where: { id: storeOrderId, deletedAt: null },
-      select: ORDER_ECONOMICS_SELECT,
+      select: { ...ORDER_ECONOMICS_SELECT, agentId: true },
     });
     if (!order) {
       throw new NotFoundException(`Store Order ${storeOrderId} not found.`);
     }
+    if (order.agentId) throw agentOrderHasNoCompanyEconomics();
     return this.computeEconomics(order);
   }
 
@@ -101,7 +120,9 @@ export class OrderEconomicsService {
   ): Promise<Map<string, OrderEconomics>> {
     if (storeOrderIds.length === 0) return new Map();
     const orders = await this.prisma.storeOrder.findMany({
-      where: { id: { in: storeOrderIds }, deletedAt: null },
+      // Agent orders have no company order economics (F-M3) — skipped like
+      // any id without a live company order.
+      where: { id: { in: storeOrderIds }, deletedAt: null, agentId: null },
       select: ORDER_ECONOMICS_SELECT,
     });
     const result = new Map<string, OrderEconomics>();

@@ -230,6 +230,16 @@ async function requestRaw(path: string, init?: RequestInit): Promise<Response> {
 
   if (!response.ok) {
     const body: StructuredErrorBody | undefined = await response.json().catch(() => undefined);
+    // S7 — a temporary password must be replaced before anything else works:
+    // any API refusal for that reason sends the user to the own-password page.
+    if (
+      response.status === 403 &&
+      (body?.code as string | undefined) === "MUST_CHANGE_PASSWORD" &&
+      typeof window !== "undefined" &&
+      window.location.pathname !== "/profile/password"
+    ) {
+      window.location.href = "/profile/password";
+    }
     const code = body?.code ?? codeForStatus(response.status);
     // The technical detail (constraint names, the original English message)
     // stays in the console for developers — never in the toast the user sees.

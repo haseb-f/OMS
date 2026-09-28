@@ -34,6 +34,13 @@ export interface NavigationItem {
   group?: NavigationGroupId;
   /** Permission keys required to see this item. No permission system exists yet — reserved for when Identity/Auth is wired up; an empty/undefined list means "always visible." */
   permissions?: string[];
+  /**
+   * Who the item is for. `agent` items (the external agent portal) are shown
+   * only to AGENT users; every other item only to INTERNAL users — even a
+   * super admin never sees the other audience's navigation. Defaults to
+   * `internal`.
+   */
+  audience?: "internal" | "agent";
   /** Feature flag key gating this item. No feature-flag system exists yet — reserved for future use. */
   featureFlag?: string;
   badge?: {

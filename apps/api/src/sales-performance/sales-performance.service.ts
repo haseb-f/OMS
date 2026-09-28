@@ -40,13 +40,17 @@ export class SalesPerformanceService {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
+    // Agents milestone (spec §3): external agents' leads/orders never count
+    // toward internal sales performance.
     const leadWhere: Prisma.LeadWhereInput = {
       ...leadScope,
       deletedAt: null,
+      agentId: null,
     };
     const orderWhere: Prisma.StoreOrderWhereInput = {
       ...orderScope,
       deletedAt: null,
+      agentId: null,
     };
 
     const [
@@ -151,6 +155,7 @@ export class SalesPerformanceService {
       by: ['employeeId'],
       where: {
         deletedAt: null,
+        agentId: null,
         createdAt: { gte: start, lte: end },
         ...(cancelled ? { fulfillmentStatusId: { not: cancelled.id } } : {}),
         ...(scope.kind === 'OWN'

@@ -113,19 +113,31 @@ function OrderCostTraceTab({ initialStoreOrderId }: { initialStoreOrderId: strin
   const [economics, setEconomics] = useState<OrderEconomics | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Agent orders have no company economics (the goods are the agent's) — the
+  // economics call is skipped and a note points to the agent statement.
+  const [agentOrder, setAgentOrder] = useState<{ agentId: string | null } | null>(null);
 
   const loadById = useCallback(
     (id: string) => {
       setIsLoading(true);
       setError(null);
+      setAgentOrder(null);
       storeOrdersService
         .getEconomics(id)
         .then((result) => setEconomics(result))
         .catch((err: unknown) => {
+          setEconomics(null);
+          // A deep link (?storeOrderId=) to an agent order: the API refuses with this code.
+          if (
+            err instanceof ApiError &&
+            (err.code as string) === "AGENT_ORDER_NO_COMPANY_ECONOMICS"
+          ) {
+            setAgentOrder({ agentId: null });
+            return;
+          }
           const message =
             err instanceof ApiError ? err.message : t("costExplorer.order.loadFailed");
           setError(message);
-          setEconomics(null);
         })
         .finally(() => setIsLoading(false));
     },
@@ -157,6 +169,12 @@ function OrderCostTraceTab({ initialStoreOrderId }: { initialStoreOrderId: strin
         }
         setStoreOrderId(order.id);
         setOrderLabel(order.internalOrderId);
+        if (order.agentId) {
+          setEconomics(null);
+          setAgentOrder({ agentId: order.agentId });
+          setIsLoading(false);
+          return;
+        }
         loadById(order.id);
       })
       .catch((err: unknown) => {
@@ -180,6 +198,29 @@ function OrderCostTraceTab({ initialStoreOrderId }: { initialStoreOrderId: strin
         <p className="text-caption text-muted-foreground">{t("costExplorer.order.empty")}</p>
       ) : isLoading ? (
         <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
+      ) : agentOrder ? (
+        <p className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-caption text-muted-foreground">
+          <span>{t("agents.storeOrder.noEconomics")}</span>
+          {agentOrder.agentId ? (
+            <EnterpriseButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push(`/agents/${agentOrder.agentId}?tab=statement`)}
+            >
+              {t("agents.storeOrder.openAgentStatement")}
+            </EnterpriseButton>
+          ) : storeOrderId ? (
+            <EnterpriseButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push(`/store-orders/${storeOrderId}`)}
+            >
+              {t("costExplorer.order.viewOrder")}
+            </EnterpriseButton>
+          ) : null}
+        </p>
       ) : error || !economics ? (
         <p className="text-caption text-muted-foreground">{error ?? t("common.noResults")}</p>
       ) : (

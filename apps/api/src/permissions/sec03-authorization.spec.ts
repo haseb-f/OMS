@@ -218,6 +218,12 @@ const REVIEWED_MUTATING_SKIPS: Record<string, string> = {
     'Any-of store-orders.edit / store-orders.manage / sales.receipts.create — StoreOrderPaymentDeclarationService.resolveActor throws 403 otherwise, and findOne applies the order visibility scope.',
   'store-orders/store-orders.controller.ts POST :id/pickup/:code':
     'Any-of store-orders.edit / shipping.edit — the controller checks PICKUP_PERMISSIONS and throws 403 before transitionPickup.',
+  'agents/orders/agent-orders.controller.ts POST':
+    'Internal agent order: AgentOrdersService.assertInternalCreate requires agents.edit, or store-orders.create + agents.view (403 otherwise); agent users never reach this internal route.',
+  'agents/orders/agent-orders.controller.ts POST leads/:leadId/convert':
+    'Same any-of rule as agent order creation (AgentOrdersService.assertInternalCreate) before WorkflowEngineService.convertLead.',
+  'agents/orders/agent-orders.controller.ts POST :orderId/payment-declaration':
+    'StoreOrderPaymentDeclarationService.resolveActor enforces the same any-of declaration permissions as the store-order declaration route.',
 };
 
 function mutatingSkips(): string[] {

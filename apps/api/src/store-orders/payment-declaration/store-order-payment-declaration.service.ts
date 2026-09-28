@@ -105,6 +105,7 @@ export class StoreOrderPaymentDeclarationService {
       paymentDate: dto.paymentDate,
       referenceNumber: dto.referenceNumber,
       stagedAttachmentIds: dto.stagedAttachmentIds,
+      agentPaymentDestinationId: dto.agentPaymentDestinationId,
       idempotencyKey,
       origin: actor.origin,
       userId: actor.userId,

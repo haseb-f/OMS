@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { LeadAssignmentMethod, Prisma } from '@prisma/client';
+import { assertOwnerAffiliation } from '../../agents/common/agent-affiliation';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 import {
@@ -75,6 +76,26 @@ export class LeadAssignmentsService {
     return salesEmployee;
   }
 
+  private async assertSameAffiliation(
+    client: Prisma.TransactionClient,
+    leadAgentId: string | null,
+    targetUserId: string,
+  ) {
+    await assertOwnerAffiliation(client, leadAgentId, targetUserId, {
+      agentScope: {
+        code: 'AGENT_LEAD_ASSIGNMENT_SCOPE',
+        message:
+          'عميل الوكيل المحتمل يُسند فقط لمستخدم نشط من نفس الوكيل — An agent lead can only be assigned to an active user of the same agent.',
+      },
+      internalOnly: {
+        code: 'AGENT_USER_NOT_ASSIGNABLE',
+        message:
+          'لا يمكن إسناد عميل محتمل للشركة إلى مستخدم وكيل — A company lead cannot be assigned to an agent user.',
+      },
+      notFound: 'Sales employee not found or is not active.',
+    });
+  }
+
   async assign(
     leadId: string,
     dto: AssignLeadInput,
@@ -88,7 +109,15 @@ export class LeadAssignmentsService {
         throw new NotFoundException(`Lead ${leadId} not found`);
       }
 
-      if (!dto.skipEligibilityCheck) {
+      // Agents milestone (spec §3/§6): an agent's lead stays inside that
+      // agent's team and a company lead never goes to an agent user —
+      // enforced on this single write path (manual, bulk, auto, import).
+      await this.assertSameAffiliation(
+        client,
+        lead.agentId,
+        dto.salesEmployeeId,
+      );
+      if (!dto.skipEligibilityCheck && !lead.agentId) {
         await this.assertEligibleEmployee(dto.salesEmployeeId);
       }
 

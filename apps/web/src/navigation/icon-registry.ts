@@ -59,6 +59,7 @@ import {
   HandCoins,
   TrendingUp,
   Briefcase,
+  Handshake,
 } from "lucide-react";
 
 /**
@@ -127,6 +128,7 @@ export const iconRegistry = {
   "hand-coins": HandCoins,
   "trending-up": TrendingUp,
   briefcase: Briefcase,
+  handshake: Handshake,
 } as const;
 
 export type IconName = keyof typeof iconRegistry;

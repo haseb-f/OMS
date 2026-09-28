@@ -20,6 +20,8 @@ import { StoreOrderPaymentSyncService } from '../store-orders/store-order-paymen
 import { lockStoreOrderRow } from '../store-orders/store-order-payment-settlement.util';
 import { recomputeDeclaredPaymentStatus } from '../store-orders/payment-declaration/payment-declaration.core';
 import { ClaimPostingAdapter } from './claim-posting.adapter';
+import { COMPANY_CASH_CLAIM } from '../agents/finance/agent-payment-scope';
+import { AgentCollectionHooksService } from '../agents/finance/agent-collection-hooks.service';
 import {
   classifyProviderStatus,
   statusFromAllocation,
@@ -146,6 +148,7 @@ export class PaymentMatchingService {
     private readonly claims: ClaimPostingAdapter,
     private readonly financialTransactions: FinancialTransactionsService,
     private readonly storeOrderPaymentSync: StoreOrderPaymentSyncService,
+    private readonly agentCollections: AgentCollectionHooksService,
   ) {}
 
   // ---------------------------------------------------------------- helpers
@@ -245,6 +248,7 @@ export class PaymentMatchingService {
       status: { in: ELIGIBLE_CLAIM_STATUSES },
       storeOrderId: { not: null },
       storeOrder: { deletedAt: null },
+      AND: [COMPANY_CASH_CLAIM],
     };
   }
 
@@ -363,6 +367,7 @@ export class PaymentMatchingService {
         status: { in: MATCHABLE_CLAIM_STATUSES },
         storeOrderId: { not: null },
         storeOrder: { deletedAt: null },
+        AND: [COMPANY_CASH_CLAIM],
         ...(query.currencyId ? { currencyId: query.currencyId } : {}),
         ...(search
           ? {
@@ -416,6 +421,7 @@ export class PaymentMatchingService {
         paymentMethodId: methodId,
         deletedAt: null,
         status: { in: [...ELIGIBLE_CLAIM_STATUSES, PaymentStatus.DISPUTED] },
+        AND: [COMPANY_CASH_CLAIM],
       },
       include: CLAIM_INCLUDE,
       orderBy: { paymentDate: 'desc' },
@@ -538,6 +544,11 @@ export class PaymentMatchingService {
           if (claim.paymentMethodId !== methodId) {
             throw new BadRequestException(
               `Claim ${claim.paymentNumber} belongs to a different payment method.`,
+            );
+          }
+          if (claim.destinationOwnership === 'AGENT') {
+            throw new BadRequestException(
+              `Claim ${claim.paymentNumber} was received by the agent — it is not company cash and is reviewed in Finance → Agent collections.`,
             );
           }
           if (!MATCHABLE_CLAIM_STATUSES.includes(claim.status)) {
@@ -900,6 +911,17 @@ export class PaymentMatchingService {
             id: receipt.id,
             transactionNumber: receipt.transactionNumber,
           };
+          if (payment.agentId) {
+            // Agents milestone: the agent's COLLECTION_RECEIVED credit is
+            // debited back (COLLECTION_REVERSAL, idempotent per receipt).
+            await this.agentCollections.onCollectionReceiptCancelled(
+              tx,
+              payment.id,
+              receipt.id,
+              reason,
+              userId,
+            );
+          }
         }
         if (payment.receiptLink && !receiptPredatesMatching) {
           await tx.paymentReceiptLink.delete({

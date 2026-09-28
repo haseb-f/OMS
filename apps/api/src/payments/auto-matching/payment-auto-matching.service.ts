@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { BankTransactionMatchStatus, PaymentStatus } from '@prisma/client';
+import { COMPANY_CASH_CLAIM } from '../../agents/finance/agent-payment-scope';
 import { PrismaService } from '../../prisma/prisma.service';
 
 export interface MatchCandidate {
@@ -78,6 +79,8 @@ export class PaymentAutoMatchingService {
       where: {
         status: PaymentStatus.PENDING,
         deletedAt: null,
+        // Agents milestone: agent-received claims are never bank-matched.
+        AND: [COMPANY_CASH_CLAIM],
         ...(transaction.currencyId
           ? { currencyId: transaction.currencyId }
           : {}),
@@ -127,7 +130,11 @@ export class PaymentAutoMatchingService {
   ): Promise<Map<string, ClassificationResult>> {
     const [allPendingPayments, confirmedMatches] = await Promise.all([
       this.prisma.payment.findMany({
-        where: { status: PaymentStatus.PENDING, deletedAt: null },
+        where: {
+          status: PaymentStatus.PENDING,
+          deletedAt: null,
+          AND: [COMPANY_CASH_CLAIM],
+        },
         include: PENDING_PAYMENT_INCLUDE,
       }),
       this.prisma.bankTransaction.findMany({

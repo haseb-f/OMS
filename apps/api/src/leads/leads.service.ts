@@ -5,8 +5,14 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
-import { LeadAssignmentMethod, Prisma, WorkflowType } from '@prisma/client';
+import {
+  LeadAssignmentMethod,
+  Prisma,
+  StoreOrderFulfillmentMethod,
+  WorkflowType,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import {
@@ -32,6 +38,7 @@ import {
   phoneErrorMessage,
 } from '../common/phone/phone-number.service';
 import { WorkflowEngineService } from '../workflow/workflow-engine.service';
+import { assertCompanyOwnedProducts } from '../products/assert-company-owned-products.util';
 import { LeadFollowUpTypesService } from '../lead-follow-up-types/lead-follow-up-types.service';
 import {
   SalesScopeService,
@@ -182,8 +189,23 @@ export class LeadsService {
   async create(
     dto: CreateLeadDto,
     userId?: string,
-    options?: { defaultStatusId?: string; skipFullRefetch?: boolean },
+    options?: {
+      defaultStatusId?: string;
+      skipFullRefetch?: boolean;
+      /**
+       * Agents milestone (spec §6.1) — set only by `AgentLeadsService` from
+       * the server-verified agent context: the lead belongs to that agent,
+       * is owned by `dto.salesEmployeeId` (the creating agent user) and
+       * never enters internal distribution.
+       */
+      agentId?: string;
+      /** Agent leads: preferred fulfillment captured at entry (default on conversion). */
+      fulfillmentMethod?: StoreOrderFulfillmentMethod;
+    },
   ) {
+    if (options?.agentId && !dto.salesEmployeeId) {
+      throw new BadRequestException('An agent lead needs its agent owner.');
+    }
     if (dto.recordType === 'ORDER') {
       throw new BadRequestException(
         'Lead-as-Order is retired. Create a Store Order for operational orders, or a Lead for CRM prospects.',
@@ -206,10 +228,16 @@ export class LeadsService {
     }
     const mobileNumber = phone.e164;
 
+    await this.assertLeadProductOwner(dto.productId, options?.agentId ?? null);
+
+    // Scoped to the lead's own world (S8): an agent lead is checked only
+    // against that agent's leads (no cross-agent / company existence oracle);
+    // company leads only against company leads.
     const duplicateCheck = await this.leadDuplicateDetectionService.check({
       mobileNumber,
       customerName: dto.customerName,
       productId: dto.productId,
+      agentId: options?.agentId ?? null,
     });
 
     if (duplicateCheck.isExactDuplicate) {
@@ -254,7 +282,12 @@ export class LeadsService {
       : await this.leadAutoDistributionService.getEffectivePolicy();
     const distributionHeld = !explicitOwnerId && !autoPolicy;
 
-    if (explicitOwnerId && userId && explicitOwnerId !== userId) {
+    if (
+      explicitOwnerId &&
+      userId &&
+      explicitOwnerId !== userId &&
+      !options?.agentId
+    ) {
       const scope = await this.salesScope.resolve(userId);
       this.salesScope.assertCanAssign(scope);
       if (!this.salesScope.canSetOrderOwner(scope, explicitOwnerId)) {
@@ -279,7 +312,9 @@ export class LeadsService {
             currencyId,
             source: dto.source,
             importBatch: dto.importBatch,
-            distributionHeld,
+            distributionHeld: options?.agentId ? false : distributionHeld,
+            agentId: options?.agentId ?? null,
+            fulfillmentMethod: options?.fulfillmentMethod,
             externalOrderId: dto.externalOrderId,
             leadNumber,
             statusId: defaultStatusId,
@@ -512,6 +547,12 @@ export class LeadsService {
         );
       }
     }
+    if (dto.productId) {
+      await this.assertLeadProductOwner(
+        dto.productId,
+        existing.agentId ?? null,
+      );
+    }
 
     try {
       return await this.prisma.lead.update({
@@ -529,6 +570,32 @@ export class LeadsService {
         );
       }
       throw error;
+    }
+  }
+
+  /**
+   * Agents milestone (S2): a company lead may reference only company-owned
+   * products; an agent lead only products of its own agent.
+   */
+  private async assertLeadProductOwner(
+    productId: string | null | undefined,
+    agentId: string | null,
+  ) {
+    if (!productId) return;
+    if (!agentId) {
+      await assertCompanyOwnedProducts([productId], this.prisma);
+      return;
+    }
+    const product = await this.prisma.product.findFirst({
+      where: { id: productId, deletedAt: null },
+      select: { ownerAgentId: true },
+    });
+    if (product && product.ownerAgentId !== agentId) {
+      throw new UnprocessableEntityException({
+        code: 'PRODUCT_NOT_AVAILABLE',
+        message:
+          'المنتج غير متاح — The product is not available for this agent lead.',
+      });
     }
   }
 

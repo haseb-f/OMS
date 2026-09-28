@@ -5,6 +5,7 @@ import { PostingEngineService } from '../posting-engine/posting-engine.service';
 import { AccountMappingService } from '../account-mapping/account-mapping.service';
 import { ExchangeRatesService } from '../fx/exchange-rates.service';
 import { snapshotDocumentExchangeRate } from '../fx/snapshot-document-rate';
+import { resolveAgentCollectionCredit } from './agent-collection-credit';
 import type {
   PostingProvider,
   PostingResult,
@@ -167,10 +168,20 @@ export class FinancialTransactionPostingProvider
     }
 
     if (sourceType === 'CUSTOMER_RECEIPT') {
-      const arAccountId = await this.accountMapping.resolveReceivableAccount(
-        transaction.partner!.id,
+      // Agents milestone: an agent order's company-destination collection
+      // credits Agent funds payable (partner = agent), never customer AR.
+      const agentCredit = await resolveAgentCollectionCredit(
         tx,
+        this.accountMapping,
+        transaction.id,
       );
+      const arAccountId =
+        agentCredit?.accountId ??
+        (await this.accountMapping.resolveReceivableAccount(
+          transaction.partner!.id,
+          tx,
+        ));
+      const creditPartnerId = agentCredit?.partnerId ?? transaction.partner!.id;
       // Net-receipt / bank-fee settlement (Part G) — the bank kept
       // `feeAmount`, so the invoice(s) still clear their full
       // `amount + feeAmount` while only `amount` actually moved through
@@ -198,7 +209,7 @@ export class FinancialTransactionPostingProvider
           accountId: arAccountId,
           credit: arFunctional,
           description: `Customer Receipt Voucher ${transaction.transactionNumber}`,
-          partnerId: transaction.partner!.id,
+          partnerId: creditPartnerId,
         },
       ];
       if (feeFunctional > 0) {

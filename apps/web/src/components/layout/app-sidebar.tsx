@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { CompanySwitcher } from "./company-switcher";
+import { AgentPortalIdentity } from "@/components/agent-portal/agent-portal-identity";
 import { cn } from "@/lib/utils";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -50,7 +51,7 @@ function NavIcon({ name, compact = false }: { name?: IconName; compact?: boolean
 export function AppSidebar() {
   const { t, direction } = useLocale();
   const { current } = useCurrentNavigation();
-  const { permissions, isSuperAdmin, status } = useUserContext();
+  const { permissions, isSuperAdmin, status, user } = useUserContext();
 
   // Sidebar must display only modules the user has permission to access
   // (ADR-0022 Part 4) — hidden modules never reach the render tree at all.
@@ -67,8 +68,9 @@ export function AppSidebar() {
       filterNavigationByAuth(navigationConfig, permissions, {
         isSuperAdmin,
         accessReady: status !== "loading",
+        userType: user?.userType,
       }),
-    [permissions, isSuperAdmin, status],
+    [permissions, isSuperAdmin, status, user?.userType],
   );
 
   // Until `/auth/me` resolves, `accessReady` is false and the line above
@@ -155,7 +157,7 @@ export function AppSidebar() {
 
       {/* Context only, never a dashboard widget — kept compact so it never competes with navigation below. */}
       <div className="px-2 pt-2 group-data-[collapsible=icon]:px-1">
-        <CompanySwitcher />
+        {user?.userType === "AGENT" ? <AgentPortalIdentity /> : <CompanySwitcher />}
       </div>
 
       <SidebarContent className="px-2 pt-1 pb-2 group-data-[collapsible=icon]:px-1">

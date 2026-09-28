@@ -5,6 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { Reflector } from '@nestjs/core';
 import { randomUUID, createHash } from 'crypto';
 import { AccountType, InvestorPortalAccountStatus } from '@prisma/client';
 import { PrismaModule } from '../prisma/prisma.module';
@@ -701,15 +702,19 @@ describe('Investor Portal — dashboard/investments/profits/statement/documents 
       );
     });
 
-    it('CORE SECURITY PROPERTY: the internal JwtAuthGuard rejects a Portal token', () => {
+    it('CORE SECURITY PROPERTY: the internal JwtAuthGuard rejects a Portal token', async () => {
       const portalToken = portalJwt.sign({
         portalAccountId: accountId,
         investorId: investorBId,
         type: 'investor-portal',
       });
-      const internalGuard = new JwtAuthGuard(internalJwt);
+      const internalGuard = new JwtAuthGuard(
+        internalJwt,
+        new Reflector(),
+        prisma,
+      );
       const ctx = makeHttpContext(portalToken);
-      expect(() => internalGuard.canActivate(ctx)).toThrow(
+      await expect(internalGuard.canActivate(ctx)).rejects.toThrow(
         UnauthorizedException,
       );
     });

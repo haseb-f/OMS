@@ -217,4 +217,12 @@ export class CreateProductDto {
   @IsNumber()
   @IsOptional()
   length?: number;
+
+  /**
+   * Agents milestone (spec §4) — owner agent of the goods; null/omitted =
+   * company-owned. Settable only while the product has no stock movement
+   * and no order line (ProductsService enforces PRODUCT_OWNER_LOCKED).
+   */
+  @IsOptionalUuid()
+  ownerAgentId?: string | null;
 }

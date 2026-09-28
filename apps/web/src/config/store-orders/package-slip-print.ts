@@ -16,6 +16,20 @@ export function slipLineAmount(item: {
 }
 
 /**
+ * What the customer pays for the order (mirrors the API's
+ * `storeOrderPayableTotal`): agent orders store an explicit `payableTotal`
+ * (merchandise + tax + shipping + service charge, specs/agents-fulfillment-
+ * partners §5); every other order keeps it null and pays Σ line amounts.
+ */
+export function slipOrderTotal(order: {
+  payableTotal?: string | null;
+  items?: { quantity: number; unitPrice: string; agreedAmount?: string | null }[];
+}): number {
+  if (order.payableTotal != null && order.payableTotal !== "") return Number(order.payableTotal);
+  return (order.items ?? []).reduce((sum, item) => sum + slipLineAmount(item), 0);
+}
+
+/**
  * What the courier / pickup desk must do about money — derived only from the
  * existing authorized rules (specs/print-design-system §4):
  *
@@ -71,7 +85,7 @@ export function buildPackageSlipPayload(
   options: { company: PrintCompanyInfo; printedByName: string | null },
 ): PackageSlipPayload {
   const items = order.items ?? [];
-  const orderTotal = items.reduce((sum, item) => sum + slipLineAmount(item), 0);
+  const orderTotal = slipOrderTotal(order);
   const method = order.fulfillmentMethod === "PICKUP" ? "PICKUP" : "SHIPPING";
   // The current shipment attempt (a reshipment supersedes earlier attempts).
   const shipment = [...(order.shipments ?? [])].sort(

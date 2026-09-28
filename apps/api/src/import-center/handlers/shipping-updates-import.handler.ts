@@ -1,5 +1,9 @@
 import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
 import { Prisma, ShipmentStatus, StoreOrder } from '@prisma/client';
+import {
+  AgentFulfillmentService,
+  shipmentFulfillmentCode,
+} from '../../agents/finance/agent-fulfillment.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StoreOrderShipmentsService } from '../../store-orders/shipments/store-order-shipments.service';
 import {
@@ -186,6 +190,7 @@ export class ShippingUpdatesImportHandler
     private readonly activityService: StoreOrderActivityService,
     private readonly registry: ImportTypeRegistryService,
     private readonly referenceData: ReferenceDataRegistryService,
+    private readonly agentFulfillment: AgentFulfillmentService,
   ) {}
 
   onModuleInit() {
@@ -589,6 +594,18 @@ export class ShippingUpdatesImportHandler
           where: { id: updated.id },
           data: { lastExternalSyncAt: syncedAt, updatedAt: syncedAt },
         });
+
+        // Agents milestone (S3): the same agent hook the manual shipment
+        // operations run — stock issue at dispatch, per-shipment fee and the
+        // DELIVERED earning event — in this transaction. Idempotent (dispatch
+        // stamp + ledger keys), a no-op for company orders.
+        await this.agentFulfillment.onShipmentProgress(
+          tx,
+          order.id,
+          { id: updated.id },
+          shipmentFulfillmentCode(updated.status),
+          userId,
+        );
 
         await this.activityService.log(
           order.id,

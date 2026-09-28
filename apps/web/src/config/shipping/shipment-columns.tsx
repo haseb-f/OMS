@@ -12,6 +12,7 @@ import { shipmentStatusLabelKey } from "./shipment-status";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import type { ShipmentListRow } from "@/services/shipping-service";
+import { AgentBadge } from "@/components/agents/agent-options";
 import {
   ShippingCompanyQuickCell,
   ShippingStatusQuickCell,
@@ -111,6 +112,22 @@ export function buildShipmentColumns(
       ),
     },
     {
+      // Agents milestone — the owner agent of an agent order ("—" for company orders).
+      id: "agent",
+      meta: {
+        titleKey: "agents.storeOrder.column",
+        importance: "low",
+        minWidth: 120,
+        maxWidth: 220,
+      },
+      enableSorting: false,
+      accessorFn: (row) =>
+        row.storeOrder.agent
+          ? `${row.storeOrder.agent.name} ${row.storeOrder.agent.agentNumber}`
+          : "",
+      cell: ({ row }) => <AgentBadge agent={row.original.storeOrder.agent} />,
+    },
+    {
       id: "shippingCompany",
       meta: { titleKey: "shipping.fields.shippingCompany", type: "name" },
       accessorFn: (row) => row.shippingCompany?.name ?? "—",
@@ -180,6 +197,7 @@ export const shipmentExportColumns = [
   "internalOrderId",
   "externalOrderId",
   "customer",
+  "agent",
   "shippingCompany",
   "trackingNumber",
   "status",

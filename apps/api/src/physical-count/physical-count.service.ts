@@ -11,7 +11,10 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
-import { InventoryService } from '../inventory/inventory.service';
+import {
+  InventoryService,
+  movementOwnerAgentId,
+} from '../inventory/inventory.service';
 import { WarehousesService } from '../warehouses/warehouses.service';
 import {
   InventoryMovementActivityService,
@@ -192,6 +195,7 @@ export class PhysicalCountService {
 
         const movement = await tx.inventoryMovement.create({
           data: {
+            ownerAgentId: await movementOwnerAgentId(tx, line.productId),
             movementNumber: `${count.countNumber}-${i + 1}`,
             type: InventoryMovementType.PHYSICAL_COUNT,
             productId: line.productId,

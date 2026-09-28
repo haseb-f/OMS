@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveSlipCollection, slipLineAmount } from "./package-slip-print";
+import { resolveSlipCollection, slipLineAmount, slipOrderTotal } from "./package-slip-print";
 
 const allowed = { allowed: true, basis: "DECLARED_PAID" as const };
 const verified = { allowed: true, basis: "VERIFIED_PAID" as const };
@@ -99,5 +99,25 @@ describe("slipLineAmount", () => {
   });
   it("falls back to qty × unit price for legacy rows", () => {
     expect(slipLineAmount({ quantity: 3, unitPrice: "10", agreedAmount: null })).toBe(30);
+  });
+});
+
+describe("slipOrderTotal", () => {
+  const items = [
+    { quantity: 2, unitPrice: "300", agreedAmount: "600" },
+    { quantity: 1, unitPrice: "400", agreedAmount: "400" },
+  ];
+  it("legacy / company orders pay the sum of their lines", () => {
+    expect(slipOrderTotal({ payableTotal: null, items })).toBe(1000);
+    expect(slipOrderTotal({ items })).toBe(1000);
+  });
+  it("agent orders pay the stored payable total (merchandise + shipping + service)", () => {
+    expect(slipOrderTotal({ payableTotal: "1150.00", items })).toBe(1150);
+  });
+  it("an agent COD slip collects the payable total, not just the lines", () => {
+    const total = slipOrderTotal({ payableTotal: "1150.00", items });
+    expect(
+      resolveSlipCollection({ paymentType: "CASH_ON_DELIVERY", declaredAmount: "0" }, total, cod),
+    ).toEqual({ kind: "collect", amount: 1150, orderTotal: 1150, declaredPaid: 0 });
   });
 });

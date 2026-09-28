@@ -10,6 +10,7 @@ import {
   Prisma,
   PaymentStatus,
 } from '@prisma/client';
+import { assertCompanyCashClaim } from '../agents/finance/agent-payment-scope';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsService } from '../payments/payments.service';
 import { PaymentAutoMatchingService } from '../payments/auto-matching/payment-auto-matching.service';
@@ -323,6 +324,8 @@ export class BankTransactionsService {
       );
     }
     const payment = await this.paymentsService.findOne(dto.paymentId);
+    // Agents milestone: an agent-received claim is not company cash.
+    assertCompanyCashClaim(payment);
     if (payment.status !== PaymentStatus.PENDING) {
       throw new BadRequestException('Only a PENDING payment can be matched.');
     }

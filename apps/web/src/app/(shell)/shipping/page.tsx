@@ -42,6 +42,7 @@ import { useUserContext } from "@/providers/user-context";
 import { reportApiError, toast } from "@/lib/toast";
 import { formatDate, toISODate } from "@/lib/date";
 import { PermissionGate } from "@/components/shared/permission-gate";
+import { AgentFilter } from "@/components/agents/agent-options";
 import { useCountries } from "@/hooks/use-reference-data";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
 
@@ -64,6 +65,8 @@ function ShippingPageContent() {
   const [companyFilter, setCompanyFilter] = usePathRestorableState<string[]>("company", []);
   const [countryFilter, setCountryFilter] = usePathRestorableState<string[]>("country", []);
   const [sourceFilter, setSourceFilter] = usePathRestorableState<string[]>("source", []);
+  // Agents milestone — shipments of one owner agent.
+  const [agentFilter, setAgentFilter] = usePathRestorableState<string>("agentId", "");
   const [trackingFilter, setTrackingFilter] = usePathRestorableState<string[]>("hasTracking", []);
   const [attachmentFilter, setAttachmentFilter] = usePathRestorableState<string[]>(
     "hasAttachment",
@@ -99,6 +102,7 @@ function ShippingPageContent() {
       shippingCompanyId: companyFilter,
       countryId: countryFilter,
       source: sourceFilter as StoreOrderSourceValue[],
+      agentId: agentFilter || undefined,
       hasTracking: trackingFilter[0] as "true" | "false" | undefined,
       hasAttachment: attachmentFilter[0] as "true" | "false" | undefined,
       dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
@@ -110,6 +114,7 @@ function ShippingPageContent() {
       companyFilter,
       countryFilter,
       sourceFilter,
+      agentFilter,
       trackingFilter,
       attachmentFilter,
       dateRange,
@@ -178,6 +183,9 @@ function ShippingPageContent() {
       internalOrderId: item.storeOrder.internalOrderId,
       externalOrderId: item.storeOrder.externalOrderId ?? "",
       customer: item.storeOrder.partner?.name ?? "",
+      agent: item.storeOrder.agent
+        ? `${item.storeOrder.agent.name} (${item.storeOrder.agent.agentNumber})`
+        : "",
       shippingCompany: item.shippingCompany?.name ?? "",
       trackingNumber: item.trackingNumber ?? "",
       status: t(SHIPMENT_STATUS_LABEL_KEY[item.status]),
@@ -283,6 +291,13 @@ function ShippingPageContent() {
                 { value: "IMPORT", label: t("storeOrders.source.IMPORT") },
               ]}
             />
+            <AgentFilter
+              value={agentFilter}
+              onChange={(value) => {
+                setAgentFilter(value);
+                setPage(1);
+              }}
+            />
             <MultiSelectFilter
               label={t("shipping.filters.tracking")}
               values={trackingFilter}
@@ -320,6 +335,7 @@ function ShippingPageContent() {
               trackingFilter.length > 0 ||
               attachmentFilter.length > 0 ||
               sourceFilter.length > 0 ||
+              agentFilter ||
               dateRange.from ||
               dateRange.to) && (
               <EnterpriseButton
@@ -331,6 +347,7 @@ function ShippingPageContent() {
                   setCompanyFilter([]);
                   setCountryFilter([]);
                   setSourceFilter([]);
+                  setAgentFilter("");
                   setTrackingFilter([]);
                   setAttachmentFilter([]);
                   setDateRange(EMPTY_DATE_RANGE);

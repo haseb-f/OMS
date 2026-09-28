@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import { AgentShared } from '../../auth/decorators/agent-access.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../../auth/guards/jwt-auth.guard';
@@ -22,7 +23,9 @@ import { AttachmentsService } from './attachments.service';
 export class AttachmentsController {
   constructor(private readonly attachments: AttachmentsService) {}
 
+  /** Agents may stage proof files (their portal links them to their own records). */
   @Post('staging')
+  @AgentShared()
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
@@ -37,6 +40,7 @@ export class AttachmentsController {
   }
 
   @Delete('staging/:id')
+  @AgentShared()
   discard(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.attachments.discardStaging(id, user.sub);
   }

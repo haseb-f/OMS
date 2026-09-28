@@ -20,7 +20,14 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { SetUserPermissionsDto } from './dto/set-user-permissions.dto';
 
-/** User administration lives under the "Settings" permission module (Part 3 lists one "Settings" row, not a separate "Users" row) — every action here requires `settings.manage`. */
+/**
+ * User administration lives under the "Settings" permission module (Part 3
+ * lists one "Settings" row, not a separate "Users" row) — every action here
+ * requires `settings.manage`. Every mutation refuses agent users (S6: 409
+ * AGENT_USER_MANAGED_IN_AGENTS) — they are administered in the agent
+ * workspace (`/agents/:id/users`); the list shows internal users unless
+ * `userType=AGENT|ALL` is requested.
+ */
 @Controller('users')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @PermissionModule('settings')
@@ -38,8 +45,13 @@ export class UsersController {
   findAll(
     @Query('search') search?: string,
     @Query('departmentId') departmentId?: string,
+    @Query('userType') userType?: string,
   ) {
-    return this.usersService.findAll(search, departmentId);
+    return this.usersService.findAll(
+      search,
+      departmentId,
+      userType === 'AGENT' || userType === 'ALL' ? userType : 'INTERNAL',
+    );
   }
 
   @Get(':id')
@@ -50,41 +62,47 @@ export class UsersController {
 
   @Patch(':id')
   @PermissionAction('manage')
-  update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
+  async update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
+    await this.usersService.assertInternallyManaged(id);
     return this.usersService.update(id, dto);
   }
 
   @Delete(':id')
   @PermissionAction('manage')
-  remove(@Param('id') id: string) {
+  async remove(@Param('id') id: string) {
+    await this.usersService.assertInternallyManaged(id);
     return this.usersService.remove(id);
   }
 
   @Post(':id/lock')
   @HttpCode(200)
   @PermissionAction('manage')
-  lock(@Param('id') id: string) {
+  async lock(@Param('id') id: string) {
+    await this.usersService.assertInternallyManaged(id);
     return this.usersService.lock(id);
   }
 
   @Post(':id/unlock')
   @HttpCode(200)
   @PermissionAction('manage')
-  unlock(@Param('id') id: string) {
+  async unlock(@Param('id') id: string) {
+    await this.usersService.assertInternallyManaged(id);
     return this.usersService.unlock(id);
   }
 
   @Post(':id/reset-password')
   @HttpCode(200)
   @PermissionAction('manage')
-  resetPassword(@Param('id') id: string, @Body() dto: ResetPasswordDto) {
+  async resetPassword(@Param('id') id: string, @Body() dto: ResetPasswordDto) {
+    await this.usersService.assertInternallyManaged(id);
     return this.usersService.resetPassword(id, dto ?? {});
   }
 
   @Post(':id/force-password-change')
   @HttpCode(200)
   @PermissionAction('manage')
-  forcePasswordChange(@Param('id') id: string) {
+  async forcePasswordChange(@Param('id') id: string) {
+    await this.usersService.assertInternallyManaged(id);
     return this.usersService.forcePasswordChange(id);
   }
 
@@ -97,7 +115,11 @@ export class UsersController {
   @Post(':id/permissions')
   @HttpCode(200)
   @PermissionAction('manage')
-  setPermissions(@Param('id') id: string, @Body() dto: SetUserPermissionsDto) {
+  async setPermissions(
+    @Param('id') id: string,
+    @Body() dto: SetUserPermissionsDto,
+  ) {
+    await this.usersService.assertInternallyManaged(id);
     return this.usersService.setPermissions(id, dto);
   }
 
@@ -105,10 +127,12 @@ export class UsersController {
   @Post(':id/permissions/copy-from/:sourceUserId')
   @HttpCode(200)
   @PermissionAction('manage')
-  copyPermissionsFrom(
+  async copyPermissionsFrom(
     @Param('id') id: string,
     @Param('sourceUserId') sourceUserId: string,
   ) {
+    await this.usersService.assertInternallyManaged(id);
+    await this.usersService.assertInternallyManaged(sourceUserId);
     return this.usersService.copyPermissionsFrom(id, sourceUserId);
   }
 }

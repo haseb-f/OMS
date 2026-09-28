@@ -269,6 +269,23 @@ export interface StoreOrderRow {
   updatedAt: string;
   /** ADR-0018 (M2 gap closure) — present only when the list was fetched with `includeProfitability: true` AND the caller holds `orders.profitability.view`. */
   profitability?: OrderEconomics | null;
+  /** Agents milestone — the owner agent (null = company order). */
+  agentId?: string | null;
+  agent?: { id: string; name: string; agentNumber: string } | null;
+  /** Agents milestone (spec §5) — explicit price breakdown; null on legacy orders. */
+  pricingMode?: "SHIPPING_ADDED" | "SHIPPING_INCLUDED" | null;
+  merchandiseAmount?: string | null;
+  discountAmount?: string | null;
+  taxAmount?: string | null;
+  shippingCharge?: string | null;
+  shippingChargeSource?: "NONE" | "RATE" | "MANUAL" | null;
+  shippingRateAmount?: string | null;
+  shippingOverrideReason?: string | null;
+  serviceCharge?: string | null;
+  /** What the customer pays; null on legacy orders (their payable total is Σ lines). */
+  payableTotal?: string | null;
+  agentDispatchedAt?: string | null;
+  agentEarnedAt?: string | null;
 }
 
 export interface StoreOrderListParams {
@@ -290,6 +307,8 @@ export interface StoreOrderListParams {
   includeProfitability?: boolean;
   costState?: CostState[];
   lossMaking?: boolean;
+  /** Agents milestone — orders of one owner agent. */
+  agentId?: string;
 }
 
 export interface StoreOrderListResult {

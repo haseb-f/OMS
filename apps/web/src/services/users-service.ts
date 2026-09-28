@@ -28,6 +28,10 @@ export interface UserRow {
   jobTitle: { id: string; name: string } | null;
   branchId: string | null;
   branch: { id: string; name: string; code: string } | null;
+  /** Agents milestone — INTERNAL (company staff) or AGENT (an external agent's user). */
+  userType?: "INTERNAL" | "AGENT";
+  agentRole?: "ADMIN" | "SALES" | null;
+  agent?: { id: string; agentNumber: string; name: string } | null;
 }
 
 export interface UserFormPayload {
@@ -56,8 +60,9 @@ export interface UserPermissionsResult {
  * unmodified; every field below is additive.
  */
 export const usersService = {
-  list: (search?: string, departmentId?: string) =>
-    apiClient.get<UserRow[]>(`/users${buildQueryString({ search, departmentId })}`),
+  /** `userType` defaults to INTERNAL server-side (pickers never see agent users); the Users page asks for ALL. */
+  list: (search?: string, departmentId?: string, userType?: "INTERNAL" | "AGENT" | "ALL") =>
+    apiClient.get<UserRow[]>(`/users${buildQueryString({ search, departmentId, userType })}`),
   get: (id: string) => apiClient.get<UserRow>(`/users/${id}`),
   create: (dto: UserFormPayload) => apiClient.post<UserMutationResult>("/users", dto),
   update: (id: string, dto: UserFormPayload) => apiClient.patch<UserRow>(`/users/${id}`, dto),

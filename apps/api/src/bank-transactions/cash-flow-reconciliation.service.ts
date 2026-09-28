@@ -8,6 +8,7 @@ import {
   SalesDocumentStatus,
   PurchaseDocumentStatus,
 } from '@prisma/client';
+import { COMPANY_CASH_CLAIM } from '../agents/finance/agent-payment-scope';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentAutoMatchingService } from '../payments/auto-matching/payment-auto-matching.service';
 import { PaymentsService } from '../payments/payments.service';
@@ -496,6 +497,8 @@ export class CashFlowReconciliationService {
         deletedAt: null,
         status: { in: [PaymentStatus.PENDING, PaymentStatus.MATCHED] },
         amount: { gte: amount - 0.005, lte: amount + 0.005 },
+        // Agents milestone: money an agent received is never company cash.
+        AND: [COMPANY_CASH_CLAIM],
       },
       orderBy: { createdAt: 'asc' },
       select: { id: true, status: true },

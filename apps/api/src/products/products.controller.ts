@@ -106,6 +106,18 @@ export class ProductsController {
           'You need an order- or movement-creation permission to browse the product catalog.',
         );
       }
+      // Agents milestone — an agent's products are listed only for internal
+      // staff who may see agents (company flows never see agent goods).
+      if (
+        query.agentId &&
+        !(await this.permissions.hasPermission(user.sub, 'agents.view'))
+      ) {
+        throw new ForbiddenException({
+          code: 'AGENT_PERMISSION_REQUIRED',
+          message:
+            'عرض منتجات الوكلاء يتطلب صلاحية عرض الوكلاء — Listing an agent’s products requires the agents.view permission.',
+        });
+      }
     }
     return this.productsService.findSellableCatalog(query);
   }

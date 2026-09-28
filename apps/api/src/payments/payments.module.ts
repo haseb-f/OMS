@@ -12,6 +12,7 @@ import { PaymentAttachmentsService } from './attachments/payment-attachments.ser
 import { PaymentAutoMatchingService } from './auto-matching/payment-auto-matching.service';
 import { NumberingModule } from '../numbering/numbering.module';
 import { FxModule } from '../accounting/fx/fx.module';
+import { AgentLedgerModule } from '../agents/finance/agent-ledger.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { FxModule } from '../accounting/fx/fx.module';
     NumberingModule,
     StoreOrderCollectionModule,
     FxModule,
+    AgentLedgerModule,
   ],
   controllers: [
     PaymentsController,

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { Archive, KeyRound, Lock, Pencil, ShieldAlert, Unlock } from "lucide-react";
+import { Archive, ExternalLink, KeyRound, Lock, Pencil, ShieldAlert, Unlock } from "lucide-react";
 import { StatusBadge } from "@/components/business/status-badge";
 import { RowActionsMenu, type RowAction } from "@/components/shared/data-table";
 import { SemanticValue } from "@/components/shared/semantic-value";
@@ -19,6 +19,8 @@ export interface UserRowHandlers {
   onResetPassword: (row: UserRow) => void;
   onForcePasswordChange: (row: UserRow) => void;
   onArchive: (row: UserRow) => void;
+  /** Agent users are administered in their agent's team tab (API 409 AGENT_USER_MANAGED_IN_AGENTS). */
+  onOpenAgentTeam: (row: UserRow) => void;
 }
 
 function StatusCell({ row }: { row: UserRow }) {
@@ -33,12 +35,42 @@ function StatusCell({ row }: { row: UserRow }) {
   );
 }
 
+/** Agents milestone — Internal vs Agent (+ the agent's name). */
+function UserTypeCell({ row }: { row: UserRow }) {
+  const { t } = useLocale();
+  if (row.userType !== "AGENT") {
+    return <StatusBadge label={t("agents.users.INTERNAL")} tone="neutral" />;
+  }
+  return (
+    <StackedCell
+      primary={<StatusBadge label={t("agents.users.AGENT")} tone="info" />}
+      secondary={row.agent ? `${row.agent.name} · ${row.agent.agentNumber}` : undefined}
+    />
+  );
+}
+
 function ActionsCell({ row, handlers }: { row: UserRow; handlers: UserRowHandlers }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
   const { user } = useAuth();
   const canManage = hasPermission("settings.manage");
   const isSelf = user?.id === row.id;
+  if (row.userType === "AGENT") {
+    return (
+      <RowActionsMenu
+        label={t("common.actions")}
+        actions={[
+          {
+            key: "openAgentTeam",
+            label: t("agents.users.openTeam"),
+            icon: ExternalLink,
+            hidden: !row.agent,
+            onSelect: () => handlers.onOpenAgentTeam(row),
+          },
+        ]}
+      />
+    );
+  }
   const actions: RowAction[] = [
     {
       key: "edit",
@@ -142,6 +174,13 @@ export function buildUserColumns(handlers: UserRowHandlers): ColumnDef<UserRow, 
         ),
     },
     {
+      id: "userType",
+      meta: { titleKey: "agents.users.type", stacked: true },
+      accessorFn: (row) =>
+        row.userType === "AGENT" ? `AGENT ${row.agent?.name ?? ""}` : "INTERNAL",
+      cell: ({ row }) => <UserTypeCell row={row.original} />,
+    },
+    {
       id: "jobTitle",
       meta: { titleKey: "settings.users.fields.jobTitle" },
       accessorFn: (row) => row.jobTitle?.name ?? "—",
@@ -187,6 +226,7 @@ export const userExportColumns = [
   "username",
   "email",
   "mobile",
+  "userType",
   "jobTitle",
   "department",
   "branch",

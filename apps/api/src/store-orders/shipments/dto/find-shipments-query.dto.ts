@@ -14,6 +14,7 @@ import {
   TransformEnumList,
   IsOptionalUuidList,
 } from '../../../common/query/enum-list';
+import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.decorator';
 
 /** Flat, cross-order shipment listing for the Shipping list page. */
 export class FindShipmentsQueryDto {
@@ -28,6 +29,10 @@ export class FindShipmentsQueryDto {
   /** The order's Customer's Country (Part 2 of the four-gaps task) — there is no separate shipping-address concept in this pipeline yet. */
   @IsOptionalUuidList()
   countryId?: string[];
+
+  /** Agents milestone — only shipments of this owner agent's orders. */
+  @IsOptionalUuid()
+  agentId?: string;
 
   /** The shipment's own Store Order's `source` (Manual vs Import) — same field the Store Orders list filters by. */
   @TransformEnumList()

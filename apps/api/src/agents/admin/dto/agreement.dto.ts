@@ -1,0 +1,116 @@
+import { PartialType } from '@nestjs/mapped-types';
+import { Transform, Type } from 'class-transformer';
+import {
+  IsBoolean,
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
+import {
+  AgentChargeOwner,
+  AgentCommissionEarningEvent,
+  AgentReturnCommissionTreatment,
+} from '@prisma/client';
+import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.decorator';
+import { emptyToUndefined } from '../../../common/transforms/empty-to-undefined';
+
+/**
+ * Agreement terms (spec §2, decision D3) — every term is entered explicitly;
+ * the system applies no default rate, event, owner or fee.
+ */
+export class CreateAgreementDto {
+  @IsDateString()
+  effectiveFrom!: string;
+
+  /** Inclusive; omitted = open-ended. */
+  @Transform(emptyToUndefined)
+  @IsDateString()
+  @IsOptional()
+  effectiveTo?: string;
+
+  /** Defaults to the agent's settlement currency and must equal it. */
+  @IsOptionalUuid()
+  currencyId?: string;
+
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0)
+  @Max(100)
+  commissionRatePercent!: number;
+
+  @IsEnum(AgentCommissionEarningEvent)
+  commissionEarningEvent!: AgentCommissionEarningEvent;
+
+  @IsEnum(AgentReturnCommissionTreatment)
+  returnCommissionTreatment!: AgentReturnCommissionTreatment;
+
+  @IsEnum(AgentChargeOwner)
+  customerShippingChargeOwner!: AgentChargeOwner;
+
+  @IsEnum(AgentChargeOwner)
+  providerFeesBorneBy!: AgentChargeOwner;
+
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  shippingFeePerShipment!: number;
+
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  returnFeePerShipment!: number;
+
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  serviceFeePerOrder!: number;
+
+  @IsBoolean()
+  allowAgentDestinations!: boolean;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(3650)
+  payoutHoldDays!: number;
+
+  @Transform(emptyToUndefined)
+  @IsString()
+  @IsOptional()
+  @MaxLength(2000)
+  notes?: string;
+}
+
+/** DRAFT agreements only. */
+export class UpdateAgreementDto extends PartialType(CreateAgreementDto) {}
+
+export class EndAgreementDto {
+  /** Last day the agreement applies (inclusive); defaults to today. */
+  @Transform(emptyToUndefined)
+  @IsDateString()
+  @IsOptional()
+  effectiveTo?: string;
+}
+
+export class UpsertShippingRateDto {
+  @IsUUID()
+  countryId!: string;
+
+  /** Empty / omitted = the whole country; a city row wins over it. */
+  @IsString()
+  @IsOptional()
+  @MaxLength(120)
+  city?: string;
+
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  amount!: number;
+}

@@ -53,6 +53,7 @@ describe('AuthService.login', () => {
         deletedAt: null,
         email: { equals: 'admin@example.com', mode: 'insensitive' },
       },
+      include: { agent: { select: { status: true, deletedAt: true } } },
     });
     expect(result.accessToken).toBe('token');
     expect(result.user.email).toBe('admin@example.com');
@@ -93,5 +94,61 @@ describe('AuthService.login', () => {
     await expect(
       service.login({ email: 'admin@example.com', password }),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('issues an agent-scoped token to an external agent user', async () => {
+    const password = 'Secret123!';
+    prisma.user.findFirst.mockResolvedValue({
+      ...baseUser,
+      userType: 'AGENT',
+      agentId: 'agent-1',
+      agent: { status: 'ACTIVE', deletedAt: null },
+      passwordHash: await hashPassword(password),
+    });
+    const result = await service.login({
+      email: 'admin@example.com',
+      password,
+    });
+    expect(jwtService.sign).toHaveBeenCalledWith(
+      {
+        sub: 'user-1',
+        email: 'admin@example.com',
+        typ: 'agent',
+        agentId: 'agent-1',
+      },
+      undefined,
+    );
+    expect(result.user.userType).toBe('AGENT');
+  });
+
+  it('never gives an internal user an agent claim', async () => {
+    const password = 'Secret123!';
+    prisma.user.findFirst.mockResolvedValue({
+      ...baseUser,
+      userType: 'INTERNAL',
+      agentId: null,
+      agent: null,
+      passwordHash: await hashPassword(password),
+    });
+    await service.login({ email: 'admin@example.com', password });
+    expect(jwtService.sign).toHaveBeenCalledWith(
+      { sub: 'user-1', email: 'admin@example.com' },
+      undefined,
+    );
+  });
+
+  it('refuses login for a user of an inactive agent', async () => {
+    const password = 'Secret123!';
+    prisma.user.findFirst.mockResolvedValue({
+      ...baseUser,
+      userType: 'AGENT',
+      agentId: 'agent-1',
+      agent: { status: 'INACTIVE', deletedAt: null },
+      passwordHash: await hashPassword(password),
+    });
+    await expect(
+      service.login({ email: 'admin@example.com', password }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(jwtService.sign).not.toHaveBeenCalled();
   });
 });

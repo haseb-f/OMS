@@ -25,6 +25,8 @@ import type { DepartmentRow } from "@/config/master-data/entities";
 import { useCompany } from "@/providers/company-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { toast, reportApiError } from "@/lib/toast";
+import Link from "next/link";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface FormState {
   fullName: string;
@@ -237,7 +239,12 @@ export function UserEditorModal({
     }
   };
 
-  const otherUsers = allUsers.filter((candidate) => candidate.id !== user?.id);
+  // Agents milestone (spec §3): agent users hold only agent-portal permissions,
+  // and permissions are never copied across user types.
+  const isAgentUser = user?.userType === "AGENT";
+  const otherUsers = allUsers.filter(
+    (candidate) => candidate.id !== user?.id && (candidate.userType === "AGENT") === isAgentUser,
+  );
   const loading = isLoadingRecord || isLoadingPermissions;
 
   return (
@@ -449,8 +456,27 @@ export function UserEditorModal({
           )}
 
           <ModalSection title={t("settings.users.editor.sectionPermissions")} columns={2}>
+            {isAgentUser ? (
+              <Alert tone="info" className="col-span-full">
+                <AlertDescription className="flex flex-wrap items-center gap-2">
+                  <span>{t("agents.users.agentNote")}</span>
+                  {user?.agent ? (
+                    <Link
+                      href={`/agents/${user.agent.id}?tab=team`}
+                      className="font-medium underline"
+                    >
+                      {t("agents.users.openTeam")}
+                    </Link>
+                  ) : null}
+                </AlertDescription>
+              </Alert>
+            ) : null}
             <div className="col-span-full">
-              <PermissionMatrix value={permissions} onChange={setPermissions} />
+              <PermissionMatrix
+                value={permissions}
+                onChange={setPermissions}
+                audience={isAgentUser ? "agent" : "internal"}
+              />
             </div>
           </ModalSection>
         </div>

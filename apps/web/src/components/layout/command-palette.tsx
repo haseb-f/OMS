@@ -34,7 +34,7 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const { t } = useLocale();
-  const { permissions, isSuperAdmin, status } = useUserContext();
+  const { permissions, isSuperAdmin, status, user } = useUserContext();
 
   // Same canonical authorization filter the sidebar uses (ADR-0022 Part 4)
   // — the palette must never offer a destination the user would then hit
@@ -49,10 +49,11 @@ export function CommandPalette() {
           filterNavigationByAuth(navigationConfig, permissions, {
             isSuperAdmin,
             accessReady: status !== "loading",
+            userType: user?.userType,
           }),
         ),
       ).filter((item) => item.route),
-    [permissions, isSuperAdmin, status],
+    [permissions, isSuperAdmin, status, user?.userType],
   );
 
   useEffect(() => {

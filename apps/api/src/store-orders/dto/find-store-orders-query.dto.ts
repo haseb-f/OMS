@@ -24,6 +24,10 @@ export class FindStoreOrdersQueryDto {
   @IsOptionalUuid()
   partnerId?: string;
 
+  /** Agents milestone — only orders of this owner agent (internal staff filter). */
+  @IsOptionalUuid()
+  agentId?: string;
+
   /** Matches the Customer's phone OR mobile — never the Order's own key (rule: "Phone is the CUSTOMER matching key, never the Order key"). */
   @IsString()
   @IsOptional()

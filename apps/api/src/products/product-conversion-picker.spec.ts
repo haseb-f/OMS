@@ -371,8 +371,15 @@ describe('Product catalog endpoint authorization', () => {
       ],
     });
 
+    // Scoped to this spec's category: the shared local DB accumulates other
+    // specs' tagged products, which would push ours off the first page.
     const result = await controller.catalog(
-      { pageSize: 25, sortBy: 'displayName', sortOrder: 'asc' },
+      {
+        pageSize: 25,
+        sortBy: 'displayName',
+        sortOrder: 'asc',
+        categoryId: [categoryId],
+      },
       { sub: agent.id, email: agent.email },
     );
 

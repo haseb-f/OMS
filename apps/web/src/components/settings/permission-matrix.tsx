@@ -14,6 +14,10 @@ import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
 import { cn } from "@/lib/utils";
 import { normalizeArabicSearch } from "@/lib/arabic-search";
+import {
+  AGENT_PORTAL_SECTION_KEY,
+  agentPermissionLabelKey,
+} from "@/config/agents/agent-permissions";
 
 const ACTION_LABEL_KEY: Record<string, MessageKey> = {
   view: "permissions.actions.view",
@@ -44,10 +48,17 @@ export function PermissionMatrix({
   value,
   onChange,
   disabled,
+  audience = "internal",
 }: {
   value: string[];
   onChange: (next: string[]) => void;
   disabled?: boolean;
+  /**
+   * Agents milestone (spec §3): an INTERNAL user sees every section except
+   * the agent portal; an AGENT user sees only the agent-portal section (the
+   * server rejects cross-type grants either way).
+   */
+  audience?: "internal" | "agent";
 }) {
   const { t } = useLocale();
   const [groups, setGroups] = useState<PermissionCatalogGroup[] | null>(null);
@@ -57,9 +68,15 @@ export function PermissionMatrix({
   useEffect(() => {
     permissionsService
       .getCatalog()
-      .then(setGroups)
+      .then((catalog) =>
+        setGroups(
+          catalog.filter(
+            (group) => (group.sectionKey === AGENT_PORTAL_SECTION_KEY) === (audience === "agent"),
+          ),
+        ),
+      )
       .catch(() => setGroups([]));
-  }, []);
+  }, [audience]);
 
   const allModules = useMemo(() => groups?.flatMap((group) => group.modules) ?? [], [groups]);
 
@@ -239,7 +256,12 @@ export function PermissionMatrix({
                                 disabled={disabled}
                                 onCheckedChange={(checked) => setPermission(action.name, !!checked)}
                               />
-                              {t(ACTION_LABEL_KEY[action.action] ?? action.action)}
+                              {t(
+                                action.name.startsWith("agent.")
+                                  ? agentPermissionLabelKey(action.name)
+                                  : (ACTION_LABEL_KEY[action.action] ??
+                                      (action.action as MessageKey)),
+                              )}
                             </label>
                           ))}
                         </div>

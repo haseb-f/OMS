@@ -37,6 +37,7 @@ import { StoreOrdersImportHandler } from './handlers/store-orders-import.handler
 import { ShippingUpdatesImportHandler } from './handlers/shipping-updates-import.handler';
 import { PartnersModule } from '../partners/partners.module';
 import { ProductsModule } from '../products/products.module';
+import { AgentLedgerModule } from '../agents/finance/agent-ledger.module';
 import { ProductCategoriesModule } from '../product-categories/product-categories.module';
 import { UnitsModule } from '../units/units.module';
 import { InventoryModule } from '../inventory/inventory.module';
@@ -85,6 +86,7 @@ import { ReferenceDataController } from './reference-data/reference-data.control
  */
 @Module({
   imports: [
+    AgentLedgerModule,
     PartnersModule,
     ProductsModule,
     ProductCategoriesModule,

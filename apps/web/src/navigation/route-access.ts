@@ -3,6 +3,32 @@ import { findNavigationAncestorByRoute, findNavigationItemByRoute } from "./buil
 
 type SearchParamsInput = URLSearchParams | string | null | undefined;
 
+/** Agents milestone — the external agent portal's route prefix and home. */
+export const AGENT_PORTAL_PREFIX = "/agent";
+export const AGENT_PORTAL_HOME = "/agent";
+
+/** Routes both audiences may open (own profile / password). */
+const SHARED_ROUTES = ["/profile"];
+
+function isUnderRoute(pathname: string, route: string): boolean {
+  return pathname === route || pathname.startsWith(`${route}/`);
+}
+
+/**
+ * Which audience a route belongs to (spec §3): `/agent` and its children are
+ * the agent portal; everything else is internal. Returns the mismatch for the
+ * given user type, or null when the route is allowed.
+ */
+export function routeAudienceMismatch(
+  userType: "INTERNAL" | "AGENT" | undefined,
+  pathname: string,
+): "agent-outside-portal" | "internal-in-portal" | null {
+  if (SHARED_ROUTES.some((route) => isUnderRoute(pathname, route))) return null;
+  const inPortal = isUnderRoute(pathname, AGENT_PORTAL_PREFIX);
+  if (userType === "AGENT") return inPortal ? null : "agent-outside-portal";
+  return inPortal ? "internal-in-portal" : null;
+}
+
 /**
  * Resolves a pathname (+ search params) to the navigation entry that owns it:
  * an exact route match first, otherwise the most specific registered
@@ -66,6 +92,7 @@ export function resolveRouteRequiredPermissions(
  * | /hr/kpi-templates/new                 | hr.kpi-templates.create            | POST /kpi-templates (kpi-templates)          |
  * | /hr/commission-plans/new              | hr.commission-plans.create         | POST /commission-plans (commission-plans)    |
  * | /investors/opportunities/new          | investment-opportunities.create    | POST /investment-opportunities (investment-opportunities) |
+ * | /agent/orders/new                     | agent.orders.create                | POST /agent-portal/orders (agent portal)     |
  *
  * Detail routes (`/<list>/<id>`) are NOT overridden — they keep the list's
  * `.view` key. `route-access.spec.ts` fails if a `/new` page is added
@@ -86,6 +113,9 @@ export const CREATE_ROUTE_PERMISSIONS: Readonly<Record<string, readonly string[]
   "/hr/kpi-templates/new": ["hr.kpi-templates.create"],
   "/hr/commission-plans/new": ["hr.commission-plans.create"],
   "/investors/opportunities/new": ["investment-opportunities.create"],
+  // Agent portal: new order + its live quote both need agent.orders.create
+  // (POST /agent-portal/orders, POST /agent-portal/orders/quote).
+  "/agent/orders/new": ["agent.orders.create"],
 };
 
 export type PermissionMatch = "all" | "any";

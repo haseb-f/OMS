@@ -67,7 +67,11 @@ export function AccountStatementPrintTemplate({ payload }: { payload: StatementP
   const kinds: PrintRowKind[] = ["opening", ...payload.movements.map(() => "detail" as const)];
 
   return (
-    <PrintPage orientation="portrait" printedAt={printedAt} accentColor={identity.accentColor}>
+    <PrintPage
+      orientation={payload.orientation ?? "portrait"}
+      printedAt={printedAt}
+      accentColor={identity.accentColor}
+    >
       <PrintDocumentHeader
         company={identity.company}
         title={payload.title}
@@ -81,11 +85,14 @@ export function AccountStatementPrintTemplate({ payload }: { payload: StatementP
       <PrintPanels
         start={
           <PrintParty
-            role={t(
-              payload.partyRole === "supplier"
-                ? "printDocument.supplier"
-                : "printDocument.customer",
-            )}
+            role={
+              payload.partyLabel ??
+              t(
+                payload.partyRole === "supplier"
+                  ? "printDocument.supplier"
+                  : "printDocument.customer",
+              )
+            }
             name={payload.party.name}
             lines={payload.party.lines}
             phone={payload.party.phone}
@@ -130,6 +137,11 @@ export function AccountStatementPrintTemplate({ payload }: { payload: StatementP
         {payload.movements.length === 0 ? (
           <p className="pr-footnote">{t("printDocument.noMovements")}</p>
         ) : null}
+        {payload.notes?.map((note) => (
+          <p key={note} className="pr-footnote">
+            {note}
+          </p>
+        ))}
       </div>
 
       <div className="pr-after-table" data-print-avoid-break>

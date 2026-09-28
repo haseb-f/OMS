@@ -88,6 +88,15 @@ export interface AccountingSettingsRow {
   otherIncomeAccount: AccountRef | null;
   otherExpenseAccountId: string | null;
   otherExpenseAccount: AccountRef | null;
+  /** Agents milestone (decision D1) — what we owe agents (liability, partner subledger). */
+  agentFundsPayableAccountId: string | null;
+  agentFundsPayableAccount: AccountRef | null;
+  /** Agents milestone (D1) — commission charged to agents (revenue). */
+  agentCommissionRevenueAccountId: string | null;
+  agentCommissionRevenueAccount: AccountRef | null;
+  /** Agents milestone (D1) — shipping / return / service fees charged to agents (revenue). */
+  agentServiceRevenueAccountId: string | null;
+  agentServiceRevenueAccount: AccountRef | null;
   functionalCurrencyId: string | null;
   functionalCurrency: AccountRef | null;
 }

@@ -34,9 +34,13 @@ interface FieldConfig {
   key: AccountingSettingsField;
   labelKey: MessageKey;
   required?: boolean;
+  /** Restricts the picker to one account type (e.g. the agent liability / revenue accounts). */
+  accountType?: ChartOfAccountRow["accountType"];
 }
 interface SectionConfig {
   titleKey: MessageKey;
+  /** A short explanation under the section title. */
+  hintKey?: MessageKey;
   fields: FieldConfig[];
 }
 
@@ -216,6 +220,29 @@ const SECTIONS: SectionConfig[] = [
       {
         key: "defaultDeductionAccountId",
         labelKey: "accounting.settings.fields.defaultDeduction",
+      },
+    ],
+  },
+  {
+    // Agents milestone — decision D1: until all three are set, agent ledger
+    // entries wait as PENDING_CONFIGURATION and nothing is posted to a guess.
+    titleKey: "agents.settings.sectionTitle",
+    hintKey: "agents.settings.hint",
+    fields: [
+      {
+        key: "agentFundsPayableAccountId",
+        labelKey: "agents.settings.fundsPayable",
+        accountType: "LIABILITY",
+      },
+      {
+        key: "agentCommissionRevenueAccountId",
+        labelKey: "agents.settings.commissionRevenue",
+        accountType: "REVENUE",
+      },
+      {
+        key: "agentServiceRevenueAccountId",
+        labelKey: "agents.settings.serviceRevenue",
+        accountType: "REVENUE",
       },
     ],
   },
@@ -416,6 +443,9 @@ export default function AccountingSettingsPage() {
               <EnterpriseCardTitle className="text-body">{t(section.titleKey)}</EnterpriseCardTitle>
             </EnterpriseCardHeader>
             <EnterpriseCardContent className="flex flex-col gap-2.5 px-4">
+              {section.hintKey ? (
+                <p className="text-caption text-muted-foreground">{t(section.hintKey)}</p>
+              ) : null}
               {section.titleKey === "accounting.settings.sections.general" && (
                 <div className="flex flex-col gap-1">
                   <label
@@ -459,6 +489,7 @@ export default function AccountingSettingsPage() {
                     </label>
                     <AccountPicker
                       value={values[field.key]}
+                      accountType={field.accountType}
                       onChange={(account) =>
                         setValues((prev) => ({ ...prev, [field.key]: account }))
                       }

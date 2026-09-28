@@ -57,6 +57,75 @@ const INVESTORS_SECTION = {
   sectionLabelKey: 'permissions.sections.investors',
 } as const;
 
+/** Agents milestone — internal management of external agents. */
+const AGENTS_SECTION = {
+  sectionKey: 'agents',
+  sectionLabelKey: 'permissions.sections.agents',
+} as const;
+
+/** Agents milestone — permissions an external agent user may hold. */
+const AGENT_PORTAL_SECTION = {
+  sectionKey: 'agent-portal',
+  sectionLabelKey: 'permissions.sections.agentPortal',
+} as const;
+
+/**
+ * The complete `agent.*` vocabulary (spec §3). An AGENT user can hold only
+ * these; an INTERNAL user can hold none of them.
+ */
+export const AGENT_PORTAL_PERMISSIONS = [
+  'agent.dashboard.view',
+  'agent.leads.view',
+  'agent.leads.create',
+  'agent.leads.convert',
+  'agent.orders.view',
+  'agent.orders.create',
+  'agent.orders.override_shipping',
+  'agent.payments.declare',
+  'agent.records.view_all',
+  'agent.stock.view',
+  'agent.statement.view',
+  'agent.payouts.view',
+  'agent.team.view',
+  'agent.team.manage',
+] as const;
+
+export type AgentPortalPermission = (typeof AGENT_PORTAL_PERMISSIONS)[number];
+
+export function isAgentPortalPermission(name: string): boolean {
+  return (AGENT_PORTAL_PERMISSIONS as readonly string[]).includes(name);
+}
+
+/** Role presets for agent users (spec §3). Admin still needs `agent.team.manage` delegated explicitly. */
+export const AGENT_ROLE_PRESETS: Record<
+  'ADMIN' | 'SALES',
+  AgentPortalPermission[]
+> = {
+  SALES: [
+    'agent.dashboard.view',
+    'agent.leads.view',
+    'agent.leads.create',
+    'agent.leads.convert',
+    'agent.orders.view',
+    'agent.orders.create',
+    'agent.payments.declare',
+  ],
+  ADMIN: [
+    'agent.dashboard.view',
+    'agent.leads.view',
+    'agent.leads.create',
+    'agent.leads.convert',
+    'agent.orders.view',
+    'agent.orders.create',
+    'agent.payments.declare',
+    'agent.records.view_all',
+    'agent.stock.view',
+    'agent.statement.view',
+    'agent.payouts.view',
+    'agent.team.view',
+  ],
+};
+
 /** Groups catalog rows for the Permission Matrix: Sales children render under المبيعات, standalone modules stay as top-level rows. */
 export function groupPermissionCatalog(
   modules: PermissionModuleDef[] = PERMISSION_CATALOG,
@@ -1247,6 +1316,54 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
       { action: 'manage', name: 'investor-portal.manage' },
       { action: 'create', name: 'investor-portal.invite' },
     ],
+  },
+  // ── Agents / Fulfillment Partners (specs/agents-fulfillment-partners) ──
+  // Internal staff permissions for managing external agents. Only INTERNAL
+  // users can hold these (UsersService rejects them for agent users and the
+  // resolver drops them).
+  {
+    key: 'agents',
+    labelKey: 'permissions.modules.agents',
+    ...AGENTS_SECTION,
+    actions: [
+      ...crud('agents', { export: true }),
+      { action: 'delete', name: 'agents.archive' },
+      { action: 'manage', name: 'agents.agreements.manage' },
+    ],
+  },
+  {
+    key: 'agent-users',
+    labelKey: 'permissions.modules.agentUsers',
+    ...AGENTS_SECTION,
+    actions: [
+      { action: 'view', name: 'agents.users.view' },
+      { action: 'manage', name: 'agents.users.manage' },
+    ],
+  },
+  {
+    key: 'agent-finance',
+    labelKey: 'permissions.modules.agentFinance',
+    ...AGENTS_SECTION,
+    actions: [
+      { action: 'view', name: 'agents.finance.view' },
+      { action: 'confirm', name: 'agents.finance.verify' },
+      { action: 'create', name: 'agents.payouts.create' },
+      { action: 'reverse', name: 'agents.payouts.reverse' },
+      { action: 'post', name: 'agents.finance.post' },
+      { action: 'edit', name: 'agents.finance.adjust' },
+      { action: 'print', name: 'agents.statement.print' },
+    ],
+  },
+  // External agent-user permissions (`agent.*`). Only AGENT users can hold
+  // these, and they unlock nothing but `@AgentPortal()` handlers.
+  {
+    key: 'agent-portal',
+    labelKey: 'permissions.modules.agentPortal',
+    ...AGENT_PORTAL_SECTION,
+    actions: AGENT_PORTAL_PERMISSIONS.map((name) => ({
+      action: name.slice('agent.'.length),
+      name,
+    })),
   },
 ];
 

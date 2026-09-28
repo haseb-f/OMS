@@ -441,6 +441,42 @@ export class AccountMappingService {
     );
   }
 
+  /**
+   * Agents milestone (spec §8, decision D1) — the three agent accounts, or
+   * null while ANY of them is unset. Callers never fall back to a guessed
+   * account: null means "record as PENDING_CONFIGURATION" (charges) or
+   * "refuse" (company collections, payouts).
+   */
+  async resolveAgentAccounts(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<{
+    fundsPayableAccountId: string;
+    commissionRevenueAccountId: string;
+    serviceRevenueAccountId: string;
+  } | null> {
+    const settings = await this.getSettings(tx);
+    if (
+      !settings?.agentFundsPayableAccountId ||
+      !settings.agentCommissionRevenueAccountId ||
+      !settings.agentServiceRevenueAccountId
+    ) {
+      return null;
+    }
+    return {
+      fundsPayableAccountId: settings.agentFundsPayableAccountId,
+      commissionRevenueAccountId: settings.agentCommissionRevenueAccountId,
+      serviceRevenueAccountId: settings.agentServiceRevenueAccountId,
+    };
+  }
+
+  /** The configured Payment Gateway Fees account, or null (never throws). */
+  async findPaymentGatewayFeeAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string | null> {
+    const settings = await this.getSettings(tx);
+    return settings?.paymentGatewayFeeAccountId ?? null;
+  }
+
   async resolveFulfillmentExpenseAccount(
     tx: Prisma.TransactionClient | PrismaService = this.prisma,
   ): Promise<string> {

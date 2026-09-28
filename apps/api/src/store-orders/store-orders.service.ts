@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import {
   PartnerRoleType,
@@ -25,6 +26,7 @@ import {
   computeSalesDocumentTotals,
   computeSalesLine,
 } from '../sales/shared/sales-totals.util';
+import { resolveStoreOrderLineWarehouses } from './store-order-warehouse.util';
 import { resolveTaxesById } from '../taxes/document-tax';
 import { buildDateRangeFilter } from '../sales/shared/sales-list-query.util';
 import { prismaEnumFilter } from '../common/query/enum-list';
@@ -35,7 +37,7 @@ import {
 import { StoreOrderPaymentSyncService } from './store-order-payment-sync.service';
 import {
   derivedUnitPrice,
-  storeOrderItemsTotal,
+  storeOrderPayableTotal,
   storeOrderLineAmount,
 } from './store-order-line-amount';
 import {
@@ -77,6 +79,37 @@ import {
 } from './payment-declaration/payment-declaration.core';
 import { randomUUID } from 'node:crypto';
 import { findArabicNormalizedIds } from '../common/text/arabic-search.query';
+import { agentUnprocessable } from '../agents/common/agent-errors';
+import { AgentFulfillmentService } from '../agents/finance/agent-fulfillment.service';
+import { resolveAgentCustomerPartner } from '../agents/orders/agent-customer';
+import {
+  assertOwnerAffiliation,
+  STORE_ORDER_OWNER_ERRORS,
+} from '../agents/common/agent-affiliation';
+import { assertCompanyOwnedProduct } from '../products/assert-company-owned-products.util';
+import {
+  agentOrderActivityDetails,
+  agentOrderColumns,
+  agentOrderInitialStage,
+  agentOrderItems,
+  agentShippingOverrideDetails,
+  type AgentOrderPersistInput,
+} from '../agents/orders/agent-order-persist';
+
+/**
+ * Agents milestone (spec §7): an agent order's payments are recorded only
+ * through the declaration flow with an authorized agent destination, so each
+ * claim carries its agent and destination ownership.
+ */
+function assertNotAgentOrderPayment(agentId: string | null) {
+  if (agentId) {
+    throw agentUnprocessable(
+      'AGENT_ORDER_USE_DECLARATION',
+      'سجّل دفعات طلبات الوكلاء من خلال إفادة الدفع مع وجهة الدفع المعتمدة',
+      'Record agent-order payments through the payment declaration with an authorized agent destination.',
+    );
+  }
+}
 
 /** Customer (Partner) name for the shared Arabic-normalized search (`common/text/arabic-search.ts`). */
 export const CUSTOMER_NAME_NORMALIZED_SEARCH = {
@@ -92,8 +125,14 @@ const STATUS_DEF_SELECT = {
   color: true,
 } as const;
 
+/** Agents milestone — the owner agent badge/column on internal screens. */
+export const STORE_ORDER_AGENT_SELECT = {
+  select: { id: true, name: true, agentNumber: true },
+} as const;
+
 const ORDER_INCLUDE = {
   partner: true,
+  agent: STORE_ORDER_AGENT_SELECT,
   currency: true,
   employee: { select: { id: true, fullName: true } },
   paymentStatusDef: { select: STATUS_DEF_SELECT },
@@ -159,6 +198,7 @@ const ORDER_INCLUDE = {
  * latest shipment), without pulling payments/receipts/invoices/history.
  */
 const ORDER_LIST_INCLUDE = {
+  agent: STORE_ORDER_AGENT_SELECT,
   partner: {
     select: {
       id: true,
@@ -236,6 +276,9 @@ export class StoreOrdersService {
     private readonly storeOrderCollection: StoreOrderCollectionService,
     private readonly orderEconomicsService: OrderEconomicsService,
     private readonly accountMapping: AccountMappingService,
+    /** Agents milestone — pickup handover hook (B2). Optional only so unit specs can omit it. */
+    @Optional()
+    private readonly agentFulfillment?: AgentFulfillmentService,
   ) {}
 
   /**
@@ -256,7 +299,18 @@ export class StoreOrdersService {
       tx: Prisma.TransactionClient,
       storeOrderId: string,
     ) => Promise<unknown>,
+    /**
+     * Agents milestone — a validated, server-derived agent order from
+     * `AgentOrdersService` (never a client field): owner agent, agreement
+     * snapshot, price breakdown, lines and owner are taken from it.
+     */
+    agentOrder?: AgentOrderPersistInput,
   ) {
+    if (agentOrder && (dto.externalOrderId || dto.payment)) {
+      throw new BadRequestException(
+        'Agent orders take no external order id or direct payment.',
+      );
+    }
     if (dto.externalOrderId) {
       const normalized = dto.externalOrderId.trim().toLocaleLowerCase('en-US');
       const existing = await this.prisma.storeOrder.findFirst({
@@ -276,12 +330,23 @@ export class StoreOrdersService {
       dto.externalOrderId = normalized;
     }
 
-    await this.assertActiveProducts(dto.items.map((item) => item.productId));
+    // Agent orders were validated by AgentOrdersService (owner, status,
+    // sellable); the company-order check would reject agent-owned goods.
+    if (!agentOrder) {
+      await this.assertActiveProducts(dto.items.map((item) => item.productId));
+    }
 
-    const { partner } = await this.partnersService.findOrCreateWithRole(
-      { ...dto.partner, role: PartnerRoleType.CUSTOMER },
-      userId,
-    );
+    // Agent orders never go through the shared Partner dedup (S1): the
+    // customer is resolved among that agent's own customers inside the
+    // transaction, and no existing Partner is ever updated.
+    const partnerId = agentOrder
+      ? null
+      : (
+          await this.partnersService.findOrCreateWithRole(
+            { ...dto.partner, role: PartnerRoleType.CUSTOMER },
+            userId,
+          )
+        ).partner.id;
 
     const internalOrderId =
       await this.numberingEngine.generateNumber('STORE_ORDER');
@@ -291,17 +356,22 @@ export class StoreOrdersService {
       dto.fulfillmentMethod ?? StoreOrderFulfillmentMethod.SHIPPING;
     // Confirmed orders: shipping → Ready for Shipping; pickup → Awaiting Preparation.
     // Payment status never sets these.
-    const shippingStage =
+    let shippingStage: StoreOrderShippingStage =
       fulfillmentMethod === StoreOrderFulfillmentMethod.PICKUP
         ? StoreOrderShippingStage.NOT_READY
         : StoreOrderShippingStage.READY_FOR_SHIPPING;
-    const fulfillmentCode =
+    let fulfillmentCode =
       fulfillmentMethod === StoreOrderFulfillmentMethod.PICKUP
         ? 'AWAITING_PREPARATION'
         : 'READY';
+    if (agentOrder) {
+      const stage = agentOrderInitialStage(agentOrder);
+      shippingStage = stage.shippingStage;
+      fulfillmentCode = stage.fulfillmentCode;
+    }
 
-    let employeeId = dto.employeeId;
-    if (userId) {
+    let employeeId = agentOrder ? agentOrder.employeeId : dto.employeeId;
+    if (userId && !agentOrder) {
       const scope = await this.salesScope.resolve(userId);
       if (!employeeId) employeeId = userId;
       if (!this.salesScope.canSetOrderOwner(scope, employeeId)) {
@@ -310,14 +380,33 @@ export class StoreOrdersService {
         );
       }
     }
+    // Owner affiliation (S4): company order → internal user; agent order →
+    // active user of that agent (AgentOrdersService already resolved it).
+    if (employeeId) {
+      await assertOwnerAffiliation(
+        this.prisma,
+        agentOrder?.agentId ?? null,
+        employeeId,
+        STORE_ORDER_OWNER_ERRORS,
+      );
+    }
 
     try {
       const order = await this.prisma.$transaction(async (tx) => {
+        const orderPartnerId =
+          partnerId ??
+          (await resolveAgentCustomerPartner(
+            tx,
+            this.numberingEngine,
+            agentOrder!.agentId,
+            agentOrder!.customer,
+            userId,
+          ));
         const created = await tx.storeOrder.create({
           data: {
             internalOrderId,
             externalOrderId: dto.externalOrderId,
-            partnerId: partner.id,
+            partnerId: orderPartnerId,
             orderDate: dto.orderDate ? new Date(dto.orderDate) : undefined,
             source: dto.source,
             sourceChannel: dto.sourceChannel,
@@ -334,13 +423,16 @@ export class StoreOrdersService {
             notes: dto.notes,
             createdBy: userId,
             updatedBy: userId,
+            ...(agentOrder ? agentOrderColumns(agentOrder) : {}),
             items: {
-              create: dto.items.map((item) => ({
-                productId: item.productId,
-                quantity: item.quantity,
-                unitPrice: item.unitPrice,
-                agreedAmount: item.quantity * item.unitPrice,
-              })),
+              create: agentOrder
+                ? agentOrderItems(agentOrder)
+                : dto.items.map((item) => ({
+                    productId: item.productId,
+                    quantity: item.quantity,
+                    unitPrice: item.unitPrice,
+                    agreedAmount: item.quantity * item.unitPrice,
+                  })),
             },
           },
         });
@@ -352,6 +444,9 @@ export class StoreOrdersService {
           userId,
           tx,
         );
+        if (agentOrder) {
+          await this.logAgentOrderCreated(tx, created.id, agentOrder, userId);
+        }
 
         if (dto.payment) {
           assertCanAcceptPayment(
@@ -376,7 +471,9 @@ export class StoreOrdersService {
         await this.paymentSync.recompute(order.id);
       }
 
-      return this.findOne(order.id, userId);
+      // Agent callers (portal) are outside the internal sales scope; the
+      // agent orders service applies the agent visibility itself.
+      return this.findOne(order.id, agentOrder ? undefined : userId);
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -387,6 +484,34 @@ export class StoreOrdersService {
         );
       }
       throw error;
+    }
+  }
+
+  /** Breakdown + audited shipping override on the order timeline (spec §5). */
+  async logAgentOrderCreated(
+    tx: Prisma.TransactionClient,
+    storeOrderId: string,
+    agentOrder: AgentOrderPersistInput,
+    userId?: string,
+  ) {
+    await tx.storeOrderActivity.create({
+      data: {
+        storeOrderId,
+        action: 'AGENT_ORDER_CREATED',
+        details: agentOrderActivityDetails(agentOrder),
+        performedById: userId ?? null,
+      },
+    });
+    const override = agentShippingOverrideDetails(agentOrder);
+    if (override) {
+      await tx.storeOrderActivity.create({
+        data: {
+          storeOrderId,
+          action: 'AGENT_SHIPPING_OVERRIDE',
+          details: override,
+          performedById: userId ?? null,
+        },
+      });
     }
   }
 
@@ -435,6 +560,19 @@ export class StoreOrdersService {
     }
 
     await this.assertActiveProducts(dto.items.map((item) => item.productId));
+    if (order.agentId) {
+      throw new BadRequestException(
+        'Agent orders are never updated from an import source.',
+      );
+    }
+    if (dto.employeeId) {
+      await assertOwnerAffiliation(
+        this.prisma,
+        null,
+        dto.employeeId,
+        STORE_ORDER_OWNER_ERRORS,
+      );
+    }
 
     const { partner } = await this.partnersService.findOrCreateWithRole(
       { ...dto.partner, role: PartnerRoleType.CUSTOMER },
@@ -499,11 +637,13 @@ export class StoreOrdersService {
       | 'search'
       | 'dateFrom'
       | 'dateTo'
+      | 'agentId'
     >,
   ): Promise<Prisma.StoreOrderWhereInput> {
     const where: Prisma.StoreOrderWhereInput = {
       deletedAt: null,
       partnerId: query.partnerId,
+      agentId: query.agentId,
       paymentStatus: prismaEnumFilter(query.paymentStatus),
       declaredPaymentStatus: prismaEnumFilter(query.declaredPaymentStatus),
       shippingStage: prismaEnumFilter(query.shippingStage),
@@ -729,6 +869,7 @@ export class StoreOrdersService {
       | 'search'
       | 'dateFrom'
       | 'dateTo'
+      | 'agentId'
       | 'sortBy'
       | 'sortOrder'
       | 'limit'
@@ -867,6 +1008,7 @@ export class StoreOrdersService {
         unitPrice: Prisma.Decimal;
         agreedAmount?: Prisma.Decimal;
       }[];
+      payableTotal?: Prisma.Decimal | null;
     },
   >(order: T) {
     const latestShipment = order.shipments[0];
@@ -877,7 +1019,7 @@ export class StoreOrdersService {
         : null);
     const currentShippingStatus: ShipmentStatus | StoreOrderShippingStage =
       latestShipment?.status ?? order.shippingStage;
-    const total = storeOrderItemsTotal(order.items);
+    const total = storeOrderPayableTotal(order);
     return {
       ...order,
       currentShippingStatus,
@@ -904,7 +1046,15 @@ export class StoreOrdersService {
   }
 
   async update(id: string, dto: UpdateStoreOrderDto, userId?: string) {
-    await this.findOne(id, userId);
+    const current = await this.findOne(id, userId);
+    if (dto.employeeId) {
+      await assertOwnerAffiliation(
+        this.prisma,
+        current.agentId ?? null,
+        dto.employeeId,
+        STORE_ORDER_OWNER_ERRORS,
+      );
+    }
     if (dto.employeeId && userId) {
       const scope = await this.salesScope.resolve(userId);
       if (!this.salesScope.canSetOrderOwner(scope, dto.employeeId)) {
@@ -969,6 +1119,15 @@ export class StoreOrdersService {
           },
         },
       });
+      // Agent orders carry a snapshotted price breakdown (spec §5); editing
+      // single lines would desynchronize merchandise / payable total.
+      if (order.agentId) {
+        throw agentUnprocessable(
+          'AGENT_ORDER_PRICING_LOCKED',
+          'تسعير طلب الوكيل ثابت بعد الإنشاء',
+          'An agent order keeps the price breakdown it was submitted with; its line amounts cannot be corrected here.',
+        );
+      }
       if (order.invoices.length > 0) {
         throw new BadRequestException(
           `Store Order ${order.internalOrderId} is already invoiced (${order.invoices.map((i) => i.invoiceNumber).join(', ')}) — its prices can no longer change.`,
@@ -1093,6 +1252,7 @@ export class StoreOrdersService {
       if (!order) {
         throw new NotFoundException(`Store Order ${id} not found`);
       }
+      assertNotAgentOrderPayment(order.agentId);
       const settlement = await computeStoreOrderSettlement(tx, id);
       assertCanAcceptPayment(settlement, dto.amount);
       const created = await this.createPaymentRow(
@@ -1125,6 +1285,7 @@ export class StoreOrdersService {
     userId?: string,
   ) {
     const order = await this.findOne(id, userId);
+    assertNotAgentOrderPayment(order.agentId);
     const settlement = await computeStoreOrderSettlement(this.prisma, id);
     assertCanAcceptPayment(settlement, dto.reportedAmount);
 
@@ -1221,6 +1382,15 @@ export class StoreOrdersService {
       CANCELLED: ['AWAITING_PREPARATION', 'READY_FOR_PICKUP'],
       RETURNED: ['COLLECTED'],
     };
+    // F-L5: an agent order's goods come back only through an agent return
+    // receipt (stock, return fee and commission reversal in one place).
+    if (code === 'RETURNED' && order.agentId) {
+      throw agentUnprocessable(
+        'AGENT_ORDER_USE_RETURN_RECEIPT',
+        'مرتجعات طلبات الوكلاء تُسجَّل من "استلام مرتجع الوكيل" وليس من حالة الاستلام',
+        'Agent orders are returned through the agent return receipt (Shipping → agent return), not the pickup RETURNED status.',
+      );
+    }
     const current = order.fulfillmentStatus?.code ?? 'AWAITING_PREPARATION';
     if (!allowedFrom[code]?.includes(current)) {
       throw new BadRequestException(
@@ -1235,6 +1405,14 @@ export class StoreOrdersService {
       if (!gate.allowed) {
         throw new BadRequestException(gate.reason ?? 'Payment required.');
       }
+    }
+    // Agents milestone (spec §6.4): handover issues the agent's stock and is
+    // the DELIVERED earning event — idempotent, before the status moves.
+    if (code === 'COLLECTED' && order.agentId) {
+      if (!this.agentFulfillment) {
+        throw new Error('Agent fulfillment hooks are not available.');
+      }
+      await this.agentFulfillment.onPickupHandover(id, userId);
     }
     const statusId = this.statusResolver.fulfillmentStatusIdByCode(code);
     await this.prisma.storeOrder.update({
@@ -1613,6 +1791,19 @@ export class StoreOrdersService {
    */
   async generateInvoice(id: string, userId?: string) {
     const order = await this.findOne(id, userId);
+    // Agents milestone (spec §6.4): agent-owned merchandise is not company
+    // revenue — no company sales invoice, COGS or stock issue via this path
+    // (agent stock is issued at dispatch by the agent finance hooks).
+    if (order.agentId) {
+      throw agentUnprocessable(
+        'AGENT_ORDER_NO_COMPANY_INVOICE',
+        'طلبات الوكلاء لا يصدر لها فاتورة مبيعات للشركة لأن البضاعة ملك الوكيل',
+        'Agent orders cannot generate a company sales invoice — the merchandise belongs to the agent.',
+      );
+    }
+    // Defensive (S2): even a company order never invoices agent-owned goods
+    // (checked on the loaded lines — the owner locks once a line exists).
+    for (const item of order.items) assertCompanyOwnedProduct(item.product);
     if (order.paymentStatus !== StoreOrderPaymentStatus.FULLY_PAID_RECONCILED) {
       throw new BadRequestException(
         'Invoice can only be generated once the order is Fully Paid & Reconciled.',
@@ -1629,27 +1820,11 @@ export class StoreOrdersService {
       });
     }
 
-    // Default warehouse resolution (rule 7): Product.preferredWarehouseId
-    // when set, else the active Warehouse marked default, else the first
-    // active Warehouse by name.
-    const needsDefaultWarehouse = order.items.some(
-      (item) => !item.product.preferredWarehouseId,
+    // Default warehouse resolution (rule 7) — shared with agent dispatch.
+    const resolvedWarehouseIds = await resolveStoreOrderLineWarehouses(
+      this.prisma,
+      order.items,
     );
-    const defaultWarehouse = needsDefaultWarehouse
-      ? await this.prisma.warehouse.findFirst({
-          where: { isActive: true, deletedAt: null },
-          orderBy: [
-            { isDefault: 'desc' },
-            { name: 'asc' },
-            { createdAt: 'asc' },
-          ],
-        })
-      : null;
-    if (needsDefaultWarehouse && !defaultWarehouse) {
-      throw new BadRequestException(
-        'No active Warehouse is configured to default Store Order invoice lines to.',
-      );
-    }
 
     const taxIds = order.items.map((item) => item.product.taxId);
     const taxById = await resolveTaxesById(this.prisma, taxIds);
@@ -1666,9 +1841,6 @@ export class StoreOrdersService {
       });
     });
     const totals = computeSalesDocumentTotals(computedLines);
-    const resolvedWarehouseIds = order.items.map(
-      (item) => item.product.preferredWarehouseId ?? defaultWarehouse!.id,
-    );
 
     const invoiceNumber =
       await this.numberingEngine.generateNumber('SALES_INVOICE');
@@ -1800,6 +1972,9 @@ export class StoreOrdersService {
           `Product ${id} not found or is not active.`,
         );
       }
+      // Agents milestone (spec §4, S2): agent-owned goods are sold only
+      // through an agent order (server-derived agent, agreement and pricing).
+      assertCompanyOwnedProduct(product);
     }
   }
 }

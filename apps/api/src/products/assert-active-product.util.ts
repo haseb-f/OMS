@@ -1,5 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ProductStatus } from '@prisma/client';
+import { assertCompanyOwnedProduct } from './assert-company-owned-products.util';
 
 /**
  * Shared per-line "product exists and is ACTIVE" guard, given a pre-fetched
@@ -11,7 +12,10 @@ import { ProductStatus } from '@prisma/client';
  */
 export function assertActiveProduct(
   productId: string,
-  productsById: Map<string, { id: string; status: ProductStatus }>,
+  productsById: Map<
+    string,
+    { id: string; status: ProductStatus; ownerAgentId?: string | null }
+  >,
 ): { id: string; status: ProductStatus } {
   const product = productsById.get(productId);
   if (!product) {
@@ -20,5 +24,8 @@ export function assertActiveProduct(
   if (product.status !== ProductStatus.ACTIVE) {
     throw new BadRequestException('Product is inactive.');
   }
+  // Every caller is a company sales/purchase document: agent-owned goods
+  // are sold only through agent orders (S2).
+  assertCompanyOwnedProduct(product);
   return product;
 }

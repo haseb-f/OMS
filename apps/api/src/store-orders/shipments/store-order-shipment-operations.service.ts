@@ -19,6 +19,10 @@ import {
 import { StoreOrderShipmentsService } from './store-order-shipments.service';
 import { WorkflowStatusResolverService } from '../../workflow/workflow-status-resolver.service';
 import { PostingEngineService } from '../../accounting/posting-engine/posting-engine.service';
+import {
+  AgentFulfillmentService,
+  shipmentFulfillmentCode,
+} from '../../agents/finance/agent-fulfillment.service';
 
 const MANUAL = StoreOrderActivitySource.MANUAL;
 
@@ -46,6 +50,7 @@ export class StoreOrderShipmentOperationsService {
     private readonly attachments: AttachmentsService,
     private readonly statusResolver: WorkflowStatusResolverService,
     private readonly postingEngine: PostingEngineService,
+    private readonly agentFulfillment: AgentFulfillmentService,
   ) {}
 
   private async assertOrderExists(storeOrderId: string) {
@@ -156,6 +161,7 @@ export class StoreOrderShipmentOperationsService {
         tx,
       );
       await this.syncOrderFulfillment(storeOrderId, shipment.status, tx);
+      await this.agentProgress(storeOrderId, shipment, userId, tx);
       await this.activityService.log(
         storeOrderId,
         StoreOrderActivityType.SHIPPED,
@@ -180,6 +186,7 @@ export class StoreOrderShipmentOperationsService {
         tx,
       );
       await this.syncOrderFulfillment(storeOrderId, shipment.status, tx);
+      await this.agentProgress(storeOrderId, shipment, userId, tx);
       await this.activityService.log(
         storeOrderId,
         StoreOrderActivityType.OUT_FOR_DELIVERY,
@@ -204,6 +211,7 @@ export class StoreOrderShipmentOperationsService {
         tx,
       );
       await this.syncOrderFulfillment(storeOrderId, shipment.status, tx);
+      await this.agentProgress(storeOrderId, shipment, userId, tx);
       await this.postShipmentCost(shipment, userId, tx);
       await this.activityService.log(
         storeOrderId,
@@ -278,6 +286,12 @@ export class StoreOrderShipmentOperationsService {
       await this.syncOrderFulfillment(
         storeOrderId,
         shipment.status ?? target.code,
+        tx,
+      );
+      await this.agentProgress(
+        storeOrderId,
+        { id: shipment.id, status: shipment.status ?? target.code },
+        userId,
         tx,
       );
       await this.postShipmentCost(shipment, userId, tx);
@@ -644,18 +658,7 @@ export class StoreOrderShipmentOperationsService {
   private fulfillmentCodeForShipmentStatus(
     status: string | null | undefined,
   ): string | null {
-    switch (status) {
-      case ShipmentStatus.SHIPPED:
-      case ShipmentStatus.OUT_FOR_DELIVERY:
-      case 'SHIPPED':
-      case 'OUT_FOR_DELIVERY':
-        return 'SHIPPED';
-      case ShipmentStatus.DELIVERED:
-      case 'DELIVERED':
-        return 'DELIVERED';
-      default:
-        return null;
-    }
+    return shipmentFulfillmentCode(status);
   }
 
   private async syncOrderFulfillment(
@@ -673,6 +676,27 @@ export class StoreOrderShipmentOperationsService {
       where: { id: storeOrderId },
       data: { fulfillmentStatusId },
     });
+  }
+
+  /**
+   * Agents milestone (spec §6.4, §8): an agent order's first SHIPPED /
+   * DELIVERED transition issues its stock and charges the per-shipment
+   * shipping fee; DELIVERED is also the commission earning event when the
+   * agreement says so. No-op for company orders; runs in this transaction.
+   */
+  private async agentProgress(
+    storeOrderId: string,
+    shipment: { id: string; status: string | null },
+    userId: string | undefined,
+    tx: Prisma.TransactionClient,
+  ) {
+    await this.agentFulfillment.onShipmentProgress(
+      tx,
+      storeOrderId,
+      shipment,
+      this.fulfillmentCodeForShipmentStatus(shipment.status),
+      userId,
+    );
   }
 
   private async postShipmentCost(

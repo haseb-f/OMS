@@ -1,11 +1,18 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useMemo } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useMemo } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { navigationConfig } from "@/navigation/navigation.config";
-import { resolveRouteAccess } from "@/navigation/route-access";
+import {
+  AGENT_PORTAL_HOME,
+  resolveRouteAccess,
+  routeAudienceMismatch,
+} from "@/navigation/route-access";
 import { PermissionGate } from "@/components/shared/permission-gate";
+import { AccessDenied } from "@/components/shared/access-denied";
+import { useUserContext } from "@/providers/user-context";
+import { pendingPasswordRedirect } from "@/config/account/change-password";
 
 /**
  * D2 — the ONE shell-level, config-driven route guard. Resolves the current
@@ -27,10 +34,29 @@ import { PermissionGate } from "@/components/shared/permission-gate";
 export function RouteAccessGuard({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const search = useSearchParams()?.toString() ?? "";
+  const router = useRouter();
+  const { user, status } = useUserContext();
   const requirement = useMemo(
     () => resolveRouteAccess(navigationConfig, pathname, search),
     [pathname, search],
   );
+
+  // Agents milestone (spec §3) — the shell is shared, the audiences are not.
+  // An external agent user lives in the `/agent` portal only; an internal user
+  // never renders a portal page. The API enforces the same rule server-side.
+  const audienceMismatch =
+    status === "authenticated" && user ? routeAudienceMismatch(user.userType, pathname) : null;
+  // A temporary password is not a working credential (both audiences): the
+  // own-password page comes first, before the portal or any internal page.
+  const passwordRedirect =
+    status === "authenticated" ? pendingPasswordRedirect(user, pathname) : null;
+  useEffect(() => {
+    if (passwordRedirect) router.replace(passwordRedirect);
+    else if (audienceMismatch === "agent-outside-portal") router.replace(AGENT_PORTAL_HOME);
+  }, [passwordRedirect, audienceMismatch, router]);
+  if (passwordRedirect) return null;
+  if (audienceMismatch === "agent-outside-portal") return null;
+  if (audienceMismatch === "internal-in-portal") return <AccessDenied />;
 
   if (requirement.permissions.length === 0) return <>{children}</>;
   return (

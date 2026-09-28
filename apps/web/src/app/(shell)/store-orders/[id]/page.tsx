@@ -83,6 +83,8 @@ import { formatDate, formatDateTime } from "@/lib/date";
 import { formatFileSize } from "@/lib/format-file-size";
 import { isImageAttachmentMime } from "@/lib/order-attachments";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { AgentOrderPanel } from "@/components/agents/agent-order-panel";
+import { AgentBadge } from "@/components/agents/agent-options";
 import type { MessageKey } from "@/i18n/translate";
 
 const ACTIVITY_PREVIEW = 8;
@@ -530,6 +532,11 @@ function StoreOrderDetailContent() {
               </p>
             )}
           </div>
+
+          {/* Agents milestone — owner agent, price breakdown, no company invoice, returns. */}
+          {order.agentId || order.pricingMode ? (
+            <AgentOrderPanel order={order} onChanged={() => void refreshOrder()} />
+          ) : null}
 
           {/* Invoice, payments + receipts, JEs (invoice, receipts, COGS/fulfilment),
               shipments, stock movements and returns — each opens in place and
@@ -1002,6 +1009,7 @@ function StoreOrderDetailContent() {
             {order.sourceChannel === "مكرر" ? (
               <StatusBadge label={t("docUi.statusStrip.duplicate")} tone="warning" />
             ) : null}
+            {order.agent ? <AgentBadge agent={order.agent} /> : null}
             {paymentContext?.fullySettled ? (
               <StatusBadge label={t("storeOrders.detail.payments.settled")} tone="success" />
             ) : null}
@@ -1065,7 +1073,8 @@ function StoreOrderDetailContent() {
                 key: "generate-invoice",
                 label: t("storeOrders.detail.invoice.generate"),
                 icon: FileText,
-                hidden: !canGenerateInvoiceAction || !canGenerateInvoice,
+                // Agent orders never get a company invoice (spec §6) — the panel says so.
+                hidden: !canGenerateInvoiceAction || !canGenerateInvoice || !!order.agentId,
                 disabled: isGeneratingInvoice,
                 onSelect: () => void handleGenerateInvoice(),
               },
@@ -1111,7 +1120,9 @@ function StoreOrderDetailContent() {
               ) : undefined,
             content: attachments,
           },
-          ...(canViewProfitability
+          // Agent orders have no company economics (the goods are the agent's;
+          // the API answers 422 AGENT_ORDER_NO_COMPANY_ECONOMICS) — no tab, no call.
+          ...(canViewProfitability && !order.agentId
             ? [
                 {
                   value: "profitability",

@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
+import { SelectFilter } from "@/components/shared/data-table";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { HeaderActions } from "@/components/shared/header-actions";
 import { PermissionGate } from "@/components/shared/permission-gate";
@@ -31,7 +33,9 @@ export default function SettingsUsersPage() {
 
 function UsersPageContent() {
   const { t } = useLocale();
+  const router = useRouter();
   const [users, setUsers] = useState<UserRow[]>([]);
+  const [typeFilter, setTypeFilter] = usePathRestorableState<string>("userType", "");
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = usePathRestorableState("search", "");
   const [pendingAction, setPendingAction] = useState<
@@ -50,7 +54,8 @@ function UsersPageContent() {
   const load = useCallback(() => {
     setIsLoading(true);
     usersService
-      .list()
+      // Every user type: agent users stay visible here (managed in their agent's team tab).
+      .list(undefined, undefined, "ALL")
       .then(setUsers)
       .catch((error) => reportApiError(error, "common.loadFailed"))
       .finally(() => setIsLoading(false));
@@ -61,7 +66,8 @@ function UsersPageContent() {
     load();
   }, [load]);
 
-  const filtered = filterByArabicSearch(users, search, (u) =>
+  const typed = typeFilter ? users.filter((u) => (u.userType ?? "INTERNAL") === typeFilter) : users;
+  const filtered = filterByArabicSearch(typed, search, (u) =>
     [u.fullName, u.username, u.email, u.mobile ?? ""].join(" "),
   );
 
@@ -81,6 +87,7 @@ function UsersPageContent() {
     onResetPassword: setResetPasswordTarget,
     onForcePasswordChange: setForceChangeTarget,
     onArchive: setArchiveTarget,
+    onOpenAgentTeam: (row) => row.agent && router.push(`/agents/${row.agent.id}?tab=team`),
   });
 
   return (
@@ -107,6 +114,19 @@ function UsersPageContent() {
         search={search}
         onSearchChange={setSearch}
         onRefresh={load}
+        filterBar={
+          <SelectFilter
+            label={t("agents.users.type")}
+            value={typeFilter}
+            onChange={setTypeFilter}
+            options={(["INTERNAL", "AGENT"] as const).map((value) => ({
+              value,
+              label: t(`agents.users.${value}`),
+            }))}
+          />
+        }
+        activeFilterCount={typeFilter ? 1 : 0}
+        onClearFilters={() => setTypeFilter("")}
         exportColumns={exportColumnsFromKeys(columns, userExportColumns, t)}
         onExport={(keys, labels) =>
           exportRowsToCsv(
@@ -115,6 +135,10 @@ function UsersPageContent() {
               username: row.username,
               email: row.email,
               mobile: row.mobile ?? "",
+              userType:
+                row.userType === "AGENT"
+                  ? `${t("agents.users.AGENT")}${row.agent ? ` — ${row.agent.name}` : ""}`
+                  : t("agents.users.INTERNAL"),
               jobTitle: row.jobTitle?.name ?? "",
               department: row.department?.name ?? "",
               branch: row.branch?.name ?? "",

@@ -21,6 +21,7 @@ import type {
 import { usersService, type UserRow } from "@/services/users-service";
 import { partnersService, type PartnerPickerRow } from "@/services/partners-service";
 import { useUserContext } from "@/providers/user-context";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 import {
   createScopedListCache,
   currentDataScope,
@@ -93,9 +94,21 @@ function createReferenceDataHook<T>(name: string, fetcher: () => Promise<T[]>) {
 const currenciesService = createMasterDataService<CurrencyRow>("/currencies");
 const countriesService = createMasterDataService<CountryRow>("/countries");
 
-export const useCurrencies = createReferenceDataHook<CurrencyRow>("currencies", () =>
-  currenciesService.list({ pageSize: 200 }).then((r) => r.items),
-);
+/**
+ * Every row of a paged master-data list — a picker must never silently stop
+ * at the first page (a currency or payment method past row 200 would vanish
+ * from every selector).
+ */
+function fetchAllRows<T>(service: {
+  list: (params: { page: number; pageSize: number }) => Promise<{ items: T[]; total: number }>;
+}): Promise<T[]> {
+  return fetchAllPages((page, pageSize) => service.list({ page, pageSize })).then((r) => r.rows);
+}
+
+/** All currencies (paged until done) — the shared currency picker's source. */
+export const fetchAllCurrencies = () => fetchAllRows(currenciesService);
+
+export const useCurrencies = createReferenceDataHook<CurrencyRow>("currencies", fetchAllCurrencies);
 
 /** The whole ISO list (~250 rows) — the page size must never truncate it, or a country silently vanishes from every picker. */
 export const useCountries = createReferenceDataHook<CountryRow>("countries", () =>
@@ -220,10 +233,13 @@ export const useLeadFollowUpTypes = createReferenceDataHook<LeadFollowUpTypeRow>
       .then((r) => r.items.filter((row) => !row.deletedAt && row.isActive)),
 );
 
-export const usePaymentMethods = createReferenceDataHook<PaymentMethodRow>("paymentMethods", () =>
-  paymentMethodsRefService
-    .list({ pageSize: 200 })
-    .then((r) => r.items.filter((row) => !row.deletedAt)),
+/** All non-deleted payment methods (paged until done) — the shared payment-method picker's source. */
+export const fetchAllPaymentMethods = () =>
+  fetchAllRows(paymentMethodsRefService).then((rows) => rows.filter((row) => !row.deletedAt));
+
+export const usePaymentMethods = createReferenceDataHook<PaymentMethodRow>(
+  "paymentMethods",
+  fetchAllPaymentMethods,
 );
 
 const investorTypesService = createMasterDataService<InvestorTypeRow>("/investor-types");

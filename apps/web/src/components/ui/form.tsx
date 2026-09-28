@@ -193,6 +193,24 @@ function FieldMessage({
   );
 }
 
+/**
+ * Neutral helper text under a field (a rule or format hint) for forms that
+ * are not bound to react-hook-form — the counterpart of `FormDescription`.
+ * Shown until validation fails; then the field renders `FieldMessage`.
+ */
+function FieldHint({ className, children, ...props }: React.ComponentProps<"p">) {
+  if (!children) return null;
+  return (
+    <p
+      data-slot="field-hint"
+      className={cn("text-caption text-muted-foreground", className)}
+      {...props}
+    >
+      {children}
+    </p>
+  );
+}
+
 function FormMessage({ className, ...props }: React.ComponentProps<"p">) {
   const { error, formMessageId } = useFormField();
   const body = error ? String(error?.message ?? "") : props.children;
@@ -223,6 +241,7 @@ export {
   FormControl,
   FormDescription,
   FieldMessage,
+  FieldHint,
   FormMessage,
   FormField,
 };

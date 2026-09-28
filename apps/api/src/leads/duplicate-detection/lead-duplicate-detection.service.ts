@@ -7,6 +7,13 @@ export interface DuplicateCheckInput {
   mobileNumber: string;
   customerName: string;
   productId?: string | null;
+  /**
+   * Agents milestone (S8): the lead's owner agent (null = company lead).
+   * Candidates are only leads of the same owner, so an agent never learns
+   * whether the company or another agent already has this contact.
+   * Omitted = company scope.
+   */
+  agentId?: string | null;
 }
 
 export interface DuplicateCheckResult {
@@ -42,6 +49,7 @@ export class LeadDuplicateDetectionService {
       where: {
         customerName: input.customerName,
         deletedAt: null,
+        agentId: input.agentId ?? null,
       },
       select: {
         productId: true,

@@ -543,6 +543,35 @@ export const navigationConfig: NavigationItem[] = [
     permissions: ["investor-settings.view"],
   },
 
+  // Agents / Fulfillment Partners (specs/agents-fulfillment-partners) — the
+  // INTERNAL management screens. The agent portal (audience "agent") is a
+  // separate set of entries.
+  {
+    id: "agents",
+    titleKey: "agents.nav.section",
+    icon: "handshake",
+    order: 57,
+    permissions: ["agents.view"],
+  },
+  {
+    id: "agents-list",
+    titleKey: "agents.nav.list",
+    parent: "agents",
+    route: "/agents",
+    icon: "handshake",
+    order: 0,
+    permissions: ["agents.view"],
+  },
+  {
+    id: "agents-collections",
+    titleKey: "agents.nav.collections",
+    parent: "agents",
+    route: "/agents/collections",
+    icon: "hand-coins",
+    order: 1,
+    permissions: ["agents.finance.view"],
+  },
+
   {
     id: "expenses",
     titleKey: "nav.expenses",
@@ -1175,5 +1204,72 @@ export const navigationConfig: NavigationItem[] = [
     route: "/settings/backup",
     icon: "hard-drive",
     order: 9,
+  },
+
+  // External agent portal (specs/agents-fulfillment-partners §10) — audience
+  // "agent": shown only to AGENT users, never to internal staff. Each entry
+  // gates on the `agent.*` permission its page's API requires.
+  {
+    id: "agent-portal-dashboard",
+    titleKey: "agentPortal.nav.dashboard",
+    icon: "dashboard",
+    route: "/agent",
+    order: 0,
+    audience: "agent",
+    permissions: ["agent.dashboard.view"],
+  },
+  {
+    id: "agent-portal-leads",
+    titleKey: "agentPortal.nav.leads",
+    icon: "contact",
+    route: "/agent/leads",
+    order: 1,
+    audience: "agent",
+    permissions: ["agent.leads.view"],
+  },
+  {
+    id: "agent-portal-orders",
+    titleKey: "agentPortal.nav.orders",
+    icon: "shopping-cart",
+    route: "/agent/orders",
+    order: 2,
+    audience: "agent",
+    permissions: ["agent.orders.view"],
+  },
+  {
+    id: "agent-portal-stock",
+    titleKey: "agentPortal.nav.stock",
+    icon: "boxes",
+    route: "/agent/stock",
+    order: 3,
+    audience: "agent",
+    permissions: ["agent.stock.view"],
+  },
+  {
+    id: "agent-portal-statement",
+    titleKey: "agentPortal.nav.statement",
+    icon: "book-text",
+    route: "/agent/statement",
+    order: 4,
+    audience: "agent",
+    permissions: ["agent.statement.view"],
+  },
+  {
+    id: "agent-portal-payouts",
+    titleKey: "agentPortal.nav.payouts",
+    icon: "hand-coins",
+    route: "/agent/payouts",
+    order: 5,
+    audience: "agent",
+    permissions: ["agent.payouts.view"],
+  },
+  {
+    id: "agent-portal-team",
+    titleKey: "agentPortal.nav.team",
+    icon: "users-round",
+    route: "/agent/team",
+    order: 6,
+    audience: "agent",
+    permissions: ["agent.team.view"],
   },
 ];

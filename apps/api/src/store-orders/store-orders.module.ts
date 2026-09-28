@@ -22,6 +22,7 @@ import { FulfillmentCostRulesModule } from '../fulfillment-cost-rules/fulfillmen
 import { StoreOrderCollectionModule } from '../accounting/store-order-collection/store-order-collection.module';
 import { AccountMappingModule } from '../accounting/account-mapping/account-mapping.module';
 import { StoreOrderPaymentDeclarationService } from './payment-declaration/store-order-payment-declaration.service';
+import { AgentLedgerModule } from '../agents/finance/agent-ledger.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { StoreOrderPaymentDeclarationService } from './payment-declaration/store
     FulfillmentCostRulesModule,
     StoreOrderCollectionModule,
     AccountMappingModule,
+    AgentLedgerModule,
   ],
   controllers: [
     StoreOrdersController,

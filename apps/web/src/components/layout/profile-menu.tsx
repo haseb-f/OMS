@@ -1,6 +1,7 @@
 "use client";
 
-import { LogOut, Settings, UserRound } from "lucide-react";
+import Link from "next/link";
+import { KeyRound, LogOut, Settings, UserRound } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +14,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { EnterpriseButton } from "@/components/ui/button";
 import { useLocale } from "@/providers/locale-provider";
 import { useAuth } from "@/providers/auth-provider";
+import { CHANGE_PASSWORD_ROUTE } from "@/config/account/change-password";
 
 function getInitials(fullName: string) {
   const parts = fullName.trim().split(/\s+/);
@@ -52,6 +54,12 @@ export function ProfileMenu() {
         <DropdownMenuItem disabled>
           <UserRound />
           <span>{t("topbar.profile")}</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href={CHANGE_PASSWORD_ROUTE}>
+            <KeyRound />
+            <span>{t("account.changePassword.menu")}</span>
+          </Link>
         </DropdownMenuItem>
         <DropdownMenuItem disabled>
           <Settings />

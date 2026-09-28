@@ -130,6 +130,7 @@ export class LeadAutoDistributionService {
         distributionHeld: true,
         deletedAt: null,
         salesEmployeeId: null,
+        agentId: null,
       },
       _count: { _all: true },
       _min: { createdAt: true },
@@ -151,6 +152,7 @@ export class LeadAutoDistributionService {
       where: {
         deletedAt: null,
         salesEmployeeId: null,
+        agentId: null,
       },
     });
   }
@@ -354,6 +356,8 @@ export class LeadAutoDistributionService {
       where: {
         deletedAt: null,
         salesEmployeeId: null,
+        // Agents milestone (spec §3/§6): agent leads stay inside the agent team.
+        agentId: null,
         ...(options?.includeHeld === false ? { distributionHeld: false } : {}),
         ...(options?.importBatch !== undefined
           ? { importBatch: options.importBatch || null }
@@ -575,6 +579,7 @@ export class LeadAutoDistributionService {
       distributionHeld: true,
       deletedAt: null,
       salesEmployeeId: null,
+      agentId: null,
       ...(input.importBatch !== undefined
         ? { importBatch: input.importBatch || null }
         : {}),
@@ -667,9 +672,15 @@ export class LeadAutoDistributionService {
     await tx.$queryRaw`SELECT id FROM leads WHERE id = ${leadId}::uuid FOR UPDATE`;
     const lead = await tx.lead.findFirst({
       where: { id: leadId, deletedAt: null },
-      select: { id: true, salesEmployeeId: true, distributionHeld: true },
+      select: {
+        id: true,
+        salesEmployeeId: true,
+        distributionHeld: true,
+        agentId: true,
+      },
     });
-    if (!lead || lead.salesEmployeeId) return;
+    // Agent leads are never round-robined to internal staff (spec §3).
+    if (!lead || lead.salesEmployeeId || lead.agentId) return;
     if (lead.distributionHeld && !options?.includeHeld) return;
 
     const locked = await tx.$queryRaw<{ id: string }[]>`
@@ -773,6 +784,8 @@ export class LeadAutoDistributionService {
         deletedAt: null,
         isActive: true,
         isLocked: false,
+        // Defense in depth — the resolver already returns internal users only.
+        userType: 'INTERNAL',
       },
       select: { id: true, fullName: true },
       orderBy: [{ fullName: 'asc' }, { id: 'asc' }],

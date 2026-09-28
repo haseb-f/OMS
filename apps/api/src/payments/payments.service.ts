@@ -21,6 +21,7 @@ import {
   flagDiscrepancyIfFulfilled,
   recomputeDeclaredPaymentStatus,
 } from '../store-orders/payment-declaration/payment-declaration.core';
+import { assertCompanyCashClaim } from '../agents/finance/agent-payment-scope';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import { StoreOrderPaymentSyncService } from '../store-orders/store-order-payment-sync.service';
@@ -34,6 +35,7 @@ import {
   PaymentActivityType,
 } from './activities/payment-activity.service';
 import { PaymentNotesService } from './notes/payment-notes.service';
+import { AgentCollectionHooksService } from '../agents/finance/agent-collection-hooks.service';
 import { PaymentAttachmentsService } from './attachments/payment-attachments.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { CreatePaymentNoteDto } from './dto/create-payment-note.dto';
@@ -104,6 +106,7 @@ export class PaymentsService {
     private readonly storeOrderPaymentSync: StoreOrderPaymentSyncService,
     private readonly storeOrderCollection: StoreOrderCollectionService,
     private readonly exchangeRates: ExchangeRatesService,
+    private readonly agentCollections: AgentCollectionHooksService,
   ) {}
 
   /** Business operation: Create Payment. Must reference BOTH a PaymentSource (how the
@@ -290,6 +293,7 @@ export class PaymentsService {
       if (!current || current.status !== PaymentStatus.PENDING) {
         throw new BadRequestException('Only a PENDING payment can be matched.');
       }
+      assertCompanyCashClaim(current);
       const updated = await tx.payment.update({
         where: { id },
         data: {
@@ -461,6 +465,10 @@ export class PaymentsService {
       );
     }
     assertPaymentCurrency(order.currencyId, payment.currencyId);
+    // Agents milestone (spec §7): an agent order's company-destination claim
+    // credits Agent funds payable — refused while those accounts are unset,
+    // and agent-received money never enters this company-cash flow.
+    await this.agentCollections.assertCompanyCollectionAllowed(tx, payment);
 
     let override: MethodReceiptOverride | undefined;
     if (payment.paymentMethodId) {
@@ -549,6 +557,15 @@ export class PaymentsService {
       },
       tx,
     );
+    if (payment.agentId) {
+      // COLLECTION_RECEIVED credit + earning/availability (same transaction).
+      await this.agentCollections.onCompanyCollectionPosted(
+        tx,
+        id,
+        receipt,
+        userId,
+      );
+    }
     await this.storeOrderPaymentSync.recompute(storeOrderId, tx);
     await recomputeDeclaredPaymentStatus(tx, storeOrderId);
     return {
@@ -699,6 +716,7 @@ export class PaymentsService {
           'Only a PENDING or MATCHED payment can be disputed.',
         );
       }
+      assertCompanyCashClaim(current);
       await this.assertNoActiveMatches(tx, current, 'disputing');
       const updated = await tx.payment.update({
         where: { id },
@@ -785,7 +803,12 @@ export class PaymentsService {
 
   /** Business operation: Reject Payment. Requires current status MATCHED (per the given
    *  diagram: PENDING -> MATCHED -> {VERIFIED or REJECTED}). */
-  async reject(id: string, dto: RejectPaymentDto & { rejectedById: string }) {
+  async reject(
+    id: string,
+    dto: RejectPaymentDto & { rejectedById: string },
+    /** Set only by `AgentCollectionsService` (agents.finance.verify) — never from HTTP. */
+    options: { agentCollectionReview?: boolean } = {},
+  ) {
     const existing = await this.findOne(id);
     if (
       existing.status !== PaymentStatus.MATCHED &&
@@ -810,6 +833,7 @@ export class PaymentsService {
           'Only a PENDING or MATCHED payment can be rejected.',
         );
       }
+      if (!options.agentCollectionReview) assertCompanyCashClaim(current);
       await this.assertNoActiveMatches(tx, current, 'rejecting');
       const updated = await tx.payment.update({
         where: { id },

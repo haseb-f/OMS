@@ -17,6 +17,8 @@ export interface ShipmentListRow {
       phone: string | null;
       country: { id: string; name: string; code: string } | null;
     } | null;
+    /** Agents milestone — the owner agent (null = company order). */
+    agent?: { id: string; name: string; agentNumber: string } | null;
   };
   attemptNumber: number;
   shippingCompanyId: string | null;
@@ -50,6 +52,8 @@ export interface ShipmentListParams {
   dateTo?: string;
   hasTracking?: "true" | "false";
   hasAttachment?: "true" | "false";
+  /** Agents milestone — shipments of one owner agent. */
+  agentId?: string;
   search?: string;
   page?: number;
   pageSize?: number;

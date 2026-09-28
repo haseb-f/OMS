@@ -6,6 +6,7 @@ import { FiscalPeriodsModule } from '../accounting/fiscal-periods/fiscal-periods
 import { PaymentSettlementsController } from './payment-settlements.controller';
 import { PaymentSettlementsService } from './payment-settlements.service';
 import { PaymentSettlementPostingProvider } from './payment-settlement-posting.provider';
+import { AgentLedgerModule } from '../agents/finance/agent-ledger.module';
 
 /**
  * Batch provider settlement (payment-declaration-reconciliation, IMPL-SET).
@@ -18,6 +19,7 @@ import { PaymentSettlementPostingProvider } from './payment-settlement-posting.p
     PostingEngineModule,
     FxModule,
     FiscalPeriodsModule,
+    AgentLedgerModule,
   ],
   controllers: [PaymentSettlementsController],
   providers: [PaymentSettlementsService, PaymentSettlementPostingProvider],

@@ -66,10 +66,29 @@ function sortByOrder(items: NavigationItem[]): NavigationItem[] {
 export function filterNavigationByAuth(
   items: NavigationItem[],
   userPermissions: string[],
-  options: { isSuperAdmin?: boolean; accessReady?: boolean } = {},
+  options: {
+    isSuperAdmin?: boolean;
+    accessReady?: boolean;
+    userType?: "INTERNAL" | "AGENT";
+  } = {},
 ): NavigationItem[] {
-  if (!options.accessReady) return items;
-  return filterByAccess(items, userPermissions, options.isSuperAdmin);
+  const audience = options.userType === "AGENT" ? "agent" : "internal";
+  const forAudience = filterByAudience(items, audience);
+  if (!options.accessReady) return forAudience;
+  // Agent users are never super admins; the bypass applies to internal items only.
+  return filterByAccess(
+    forAudience,
+    userPermissions,
+    audience === "internal" && options.isSuperAdmin,
+  );
+}
+
+/** Agents milestone — keeps only the items for one audience (spec §3). */
+export function filterByAudience(
+  items: NavigationItem[],
+  audience: "internal" | "agent",
+): NavigationItem[] {
+  return items.filter((item) => (item.audience ?? "internal") === audience);
 }
 
 export function filterByAccess(

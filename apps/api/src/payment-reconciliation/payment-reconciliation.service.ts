@@ -8,6 +8,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { FindStatementLinesQueryDto } from './dto/payment-reconciliation.dto';
+import { COMPANY_CASH_CLAIM } from '../agents/finance/agent-payment-scope';
 
 type CurrencyTotals = Record<string, { count: number; amount: number }>;
 
@@ -57,6 +58,7 @@ export class PaymentReconciliationService {
         where: {
           paymentMethodId: { in: methodIds },
           deletedAt: null,
+          AND: [COMPANY_CASH_CLAIM],
           status: {
             in: [
               PaymentStatus.PENDING,
@@ -73,6 +75,7 @@ export class PaymentReconciliationService {
         where: {
           paymentMethodId: { in: methodIds },
           deletedAt: null,
+          AND: [COMPANY_CASH_CLAIM],
           status: PaymentStatus.VERIFIED,
           settlementStatus: {
             in: [

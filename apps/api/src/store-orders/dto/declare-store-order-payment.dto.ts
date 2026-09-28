@@ -33,10 +33,17 @@ export class PaymentDeclarationFieldsDto {
   @Min(0.01)
   amount?: number;
 
-  /** Required unless UNPAID; must be an active Payment Method. */
-  @ValidateIf((dto: PaymentDeclarationFieldsDto) => dto.kind !== 'UNPAID')
+  /** Required unless UNPAID (or an agent destination is given); must be an active Payment Method. */
+  @ValidateIf(
+    (dto: PaymentDeclarationFieldsDto) =>
+      dto.kind !== 'UNPAID' && !dto.agentPaymentDestinationId,
+  )
   @IsUUID()
   paymentMethodId?: string;
+
+  /** Agent orders only (spec §7): the agent's authorized payment destination. */
+  @IsOptionalUuid()
+  agentPaymentDestinationId?: string;
 
   /** Must equal the order currency. */
   @IsOptionalUuid()

@@ -63,6 +63,7 @@ import { reportApiError, toast } from "@/lib/toast";
 import { toISODate } from "@/lib/date";
 import { ApiError } from "@/services/api-client";
 import { PermissionGate } from "@/components/shared/permission-gate";
+import { AgentFilter } from "@/components/agents/agent-options";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
 
 const EMPTY_DATE_RANGE: DateRangeValue = { from: null, to: null };
@@ -100,6 +101,8 @@ function StoreOrdersPageContent() {
     "",
   );
   const [sourceFilter, setSourceFilter] = usePathRestorableState<string[]>("source", []);
+  // Agents milestone — orders of one owner agent.
+  const [agentFilter, setAgentFilter] = usePathRestorableState<string>("agentId", "");
   const [dateRange, setDateRange] = usePathRestorableState<DateRangeValue>(
     "dateRange",
     EMPTY_DATE_RANGE,
@@ -142,6 +145,7 @@ function StoreOrdersPageContent() {
         : undefined,
       shippingStage: shippingStageFilter as StoreOrderShippingStageValue[],
       source: sourceFilter as StoreOrderSourceValue[],
+      agentId: agentFilter || undefined,
       dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
       dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
       ...(canViewProfitability
@@ -158,6 +162,7 @@ function StoreOrdersPageContent() {
       declaredStatusFilter,
       shippingStageFilter,
       sourceFilter,
+      agentFilter,
       dateRange,
       canViewProfitability,
       costStateFilter,
@@ -502,6 +507,13 @@ function StoreOrdersPageContent() {
                 { value: "IMPORT", label: t("storeOrders.source.IMPORT") },
               ]}
             />
+            <AgentFilter
+              value={agentFilter}
+              onChange={(value) => {
+                setAgentFilter(value);
+                setPage(1);
+              }}
+            />
             <EnterpriseDateRangePicker
               value={dateRange}
               onChange={(range) => {
@@ -540,6 +552,7 @@ function StoreOrdersPageContent() {
               declaredStatusFilter ||
               shippingStageFilter.length > 0 ||
               sourceFilter.length > 0 ||
+              agentFilter ||
               costStateFilter.length > 0 ||
               lossMakingFilter ||
               dateRange.from ||
@@ -553,6 +566,7 @@ function StoreOrdersPageContent() {
                   setDeclaredStatusFilter("");
                   setShippingStageFilter([]);
                   setSourceFilter([]);
+                  setAgentFilter("");
                   setCostStateFilter([]);
                   setLossMakingFilter(false);
                   setDateRange(EMPTY_DATE_RANGE);

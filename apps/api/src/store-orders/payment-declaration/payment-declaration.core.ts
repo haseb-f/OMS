@@ -19,7 +19,7 @@ import {
   lockStoreOrderRow,
   roundMoney,
 } from '../store-order-payment-settlement.util';
-import { storeOrderItemsTotal } from '../store-order-line-amount';
+import { storeOrderPayableTotal } from '../store-order-line-amount';
 
 /**
  * Sales/Finance payment declaration (payment-declaration-reconciliation).
@@ -55,6 +55,13 @@ export interface DeclarePaymentInput {
   paymentDate?: string;
   referenceNumber?: string;
   stagedAttachmentIds?: string[];
+  /**
+   * Agents milestone (spec §7) — required for an agent order: the agent's
+   * active payment destination the customer paid into. Its payment method
+   * is the claim's method; ownership (COMPANY / AGENT) is stamped on the
+   * claim. Rejected on company orders.
+   */
+  agentPaymentDestinationId?: string;
   idempotencyKey: string;
   origin: PaymentOrigin;
   userId: string;
@@ -123,6 +130,7 @@ export async function recomputeDeclaredPaymentStatus(
   const order = await tx.storeOrder.findUnique({
     where: { id: storeOrderId },
     select: {
+      payableTotal: true,
       items: {
         where: { deletedAt: null },
         select: { quantity: true, unitPrice: true, agreedAmount: true },
@@ -130,7 +138,8 @@ export async function recomputeDeclaredPaymentStatus(
     },
   });
   if (!order) return null;
-  const total = roundMoney(storeOrderItemsTotal(order.items));
+  // Agent orders: merchandise + shipping + service (spec §5); legacy: Σ lines.
+  const total = roundMoney(storeOrderPayableTotal(order));
   const declared = await standingClaimsTotal(tx, storeOrderId);
   const declaredPaymentStatus = declaredStatusFor(declared, total);
   await tx.storeOrder.update({
@@ -322,6 +331,8 @@ export async function declarePaymentInTx(
       currencyId: true,
       paymentStatus: true,
       declaredPaymentStatus: true,
+      agentId: true,
+      agentTermsSnapshot: true,
       partner: { select: { name: true } },
     },
   });
@@ -413,6 +424,16 @@ export async function declarePaymentInTx(
   }
   assertPaymentCurrency(order.currencyId, input.currencyId);
 
+  const agentDestination = await resolveAgentDeclarationDestination(
+    tx,
+    order,
+    input.agentPaymentDestinationId,
+    input.paymentMethodId,
+  );
+  if (agentDestination) {
+    input = { ...input, paymentMethodId: agentDestination.paymentMethodId };
+  }
+
   if (!input.paymentMethodId) {
     throw new BadRequestException(
       'طريقة الدفع مطلوبة — Payment method is required.',
@@ -453,6 +474,13 @@ export async function declarePaymentInTx(
       origin: input.origin,
       declarationKind: kind,
       idempotencyKey,
+      ...(agentDestination
+        ? {
+            agentId: agentDestination.agentId,
+            destinationOwnership: agentDestination.ownership,
+            agentPaymentDestinationId: agentDestination.id,
+          }
+        : {}),
       referenceNumber: input.referenceNumber?.trim() || undefined,
       senderName: order.partner?.name?.trim() || 'Customer',
       status: PaymentStatus.PENDING,
@@ -518,6 +546,78 @@ export async function declarePaymentInTx(
       result?.declaredPaymentStatus ?? StoreOrderDeclaredPaymentStatus.UNPAID,
     declaredAmount: (result?.declaredAmount ?? 0).toFixed(2),
   };
+}
+
+/**
+ * Agents milestone (spec §7): the payment destination of an agent-order
+ * declaration — one of the order agent's ACTIVE destinations whose payment
+ * method is active; an AGENT-owned destination only when the order's terms
+ * snapshot allowed agent destinations. Company orders take no destination.
+ */
+export async function resolveAgentDeclarationDestination(
+  tx: Prisma.TransactionClient,
+  order: { agentId: string | null; agentTermsSnapshot: Prisma.JsonValue },
+  destinationId: string | undefined,
+  paymentMethodId: string | undefined,
+) {
+  if (!order.agentId) {
+    if (destinationId) {
+      throw new BadRequestException({
+        code: 'AGENT_DESTINATION_NOT_APPLICABLE',
+        message:
+          'وجهة الدفع الخاصة بالوكلاء لا تنطبق على طلبات الشركة — Agent payment destinations apply to agent orders only.',
+      });
+    }
+    return null;
+  }
+  if (!destinationId) {
+    throw new BadRequestException({
+      code: 'AGENT_DESTINATION_REQUIRED',
+      message:
+        'اختر وجهة الدفع المعتمدة للوكيل — Choose one of the agent’s authorized payment destinations.',
+    });
+  }
+  const destination = await tx.agentPaymentDestination.findFirst({
+    where: { id: destinationId, agentId: order.agentId, isActive: true },
+    select: {
+      id: true,
+      agentId: true,
+      ownership: true,
+      paymentMethodId: true,
+      paymentMethod: { select: { isActive: true, deletedAt: true } },
+    },
+  });
+  if (
+    !destination ||
+    !destination.paymentMethod.isActive ||
+    destination.paymentMethod.deletedAt
+  ) {
+    throw new BadRequestException({
+      code: 'AGENT_DESTINATION_INVALID',
+      message:
+        'وجهة الدفع غير متاحة لهذا الوكيل — This payment destination is not available for the order’s agent.',
+    });
+  }
+  if (paymentMethodId && paymentMethodId !== destination.paymentMethodId) {
+    throw new BadRequestException({
+      code: 'AGENT_DESTINATION_METHOD_MISMATCH',
+      message:
+        'طريقة الدفع لا تطابق وجهة الدفع المختارة — The payment method does not match the chosen destination.',
+    });
+  }
+  if (destination.ownership === 'AGENT') {
+    const snapshot = order.agentTermsSnapshot as {
+      allowAgentDestinations?: boolean;
+    } | null;
+    if (!snapshot?.allowAgentDestinations) {
+      throw new BadRequestException({
+        code: 'AGENT_DESTINATION_NOT_ALLOWED',
+        message:
+          'اتفاقية هذا الطلب لا تسمح بالدفع مباشرة للوكيل — This order’s agreement does not allow payments straight to the agent.',
+      });
+    }
+  }
+  return destination;
 }
 
 export function isIdempotencyConflict(error: unknown): boolean {

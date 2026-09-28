@@ -12,6 +12,7 @@ import { PermissionsResolverService } from '../permissions/permissions-resolver.
 import { hashPassword, normalizeEmail, verifyPassword } from './password.util';
 import { LoginDto } from './dto/login.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import type { ChangePasswordDto } from './dto/change-password.dto';
 
 const RESET_TOKEN_TTL_MINUTES = 30;
 
@@ -32,6 +33,7 @@ export class AuthService {
         deletedAt: null,
         email: { equals: email, mode: 'insensitive' },
       },
+      include: { agent: { select: { status: true, deletedAt: true } } },
     });
 
     const passwordMatches =
@@ -56,6 +58,22 @@ export class AuthService {
       });
     }
 
+    // External agent users share the login but carry an explicit agent
+    // claim; the guard confines such tokens to agent-portal handlers.
+    const isAgentUser = user.userType === 'AGENT';
+    if (
+      isAgentUser &&
+      (!user.agentId ||
+        !user.agent ||
+        user.agent.deletedAt ||
+        user.agent.status !== 'ACTIVE')
+    ) {
+      throw new ForbiddenException({
+        code: 'AGENT_INACTIVE',
+        message: 'This agent account is inactive.',
+      });
+    }
+
     await this.prisma.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
@@ -63,7 +81,14 @@ export class AuthService {
 
     const expiresIn = dto.rememberMe ? '30d' : undefined;
     const accessToken = this.jwtService.sign(
-      { sub: user.id, email: user.email },
+      isAgentUser
+        ? {
+            sub: user.id,
+            email: user.email,
+            typ: 'agent',
+            agentId: user.agentId,
+          }
+        : { sub: user.id, email: user.email },
       expiresIn ? { expiresIn } : undefined,
     );
 
@@ -74,6 +99,7 @@ export class AuthService {
         email: user.email,
         fullName: user.fullName,
         mustChangePassword: user.mustChangePassword,
+        userType: user.userType,
       },
     };
   }
@@ -115,6 +141,43 @@ export class AuthService {
     };
   }
 
+  /**
+   * Self-service change (S7): the current password must match and the new
+   * one must differ. Clears `mustChangePassword`, which is what unblocks an
+   * agent user after a temporary password was issued.
+   */
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      select: { id: true, passwordHash: true },
+    });
+    if (
+      !user ||
+      !(await verifyPassword(dto.currentPassword, user.passwordHash))
+    ) {
+      throw new BadRequestException({
+        code: 'CURRENT_PASSWORD_INVALID',
+        message:
+          'كلمة المرور الحالية غير صحيحة — The current password is incorrect.',
+      });
+    }
+    if (dto.currentPassword === dto.newPassword) {
+      throw new BadRequestException({
+        code: 'PASSWORD_UNCHANGED',
+        message:
+          'كلمة المرور الجديدة يجب أن تختلف عن الحالية — The new password must differ from the current one.',
+      });
+    }
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash: await hashPassword(dto.newPassword),
+        mustChangePassword: false,
+      },
+    });
+    return { message: 'Password changed.' };
+  }
+
   async resetPassword(dto: ResetPasswordDto) {
     const tokenHash = crypto
       .createHash('sha256')
@@ -150,6 +213,15 @@ export class AuthService {
       where: { id: userId, deletedAt: null },
       include: {
         jobTitle: { select: { id: true, name: true } },
+        agent: {
+          select: {
+            id: true,
+            agentNumber: true,
+            name: true,
+            status: true,
+            deletedAt: true,
+          },
+        },
         companyMemberships: {
           include: {
             company: { include: { branches: { where: { deletedAt: null } } } },
@@ -193,6 +265,17 @@ export class AuthService {
       isSuperAdmin: user.isSuperAdmin,
       permissions,
       companies,
+      /** INTERNAL (company staff) or AGENT (external agent user). */
+      userType: user.userType,
+      agentRole: user.agentRole,
+      agent:
+        user.userType === 'AGENT' && user.agent
+          ? {
+              id: user.agent.id,
+              agentNumber: user.agent.agentNumber,
+              name: user.agent.name,
+            }
+          : null,
     };
   }
 }
