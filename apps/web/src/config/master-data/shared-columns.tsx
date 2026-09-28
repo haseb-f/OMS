@@ -33,7 +33,10 @@ function StatusCell({ deletedAt }: { deletedAt?: string | null }) {
 export function statusColumn<T extends { deletedAt?: string | null }>(): ColumnDef<T, unknown> {
   return {
     id: "status",
-    meta: { titleKey: "common.status" },
+    meta: {
+      titleKey: "common.status",
+      displayValue: (row, t) => t(row.deletedAt ? "common.archived" : "common.active"),
+    },
     accessorFn: (row) => (row.deletedAt ? "archived" : "active"),
     cell: ({ row }) => <StatusCell deletedAt={row.original.deletedAt} />,
     enableSorting: false,

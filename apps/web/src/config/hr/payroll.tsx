@@ -36,7 +36,10 @@ export function buildPayrollRunsColumns(
     },
     {
       id: "status",
-      meta: { titleKey: "hr.payroll.fields.status" },
+      meta: {
+        titleKey: "hr.payroll.fields.status",
+        displayValue: (row, tr) => tr(`hr.payroll.status.${row.status}` as MessageKey),
+      },
       accessorFn: (row) => row.status,
       cell: ({ row }) => (
         <StatusBadge

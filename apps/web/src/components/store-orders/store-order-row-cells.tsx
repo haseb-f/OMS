@@ -7,7 +7,8 @@ import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { formatDate, formatTime, hasClockTime } from "@/lib/date";
 import { declaredShortLabelKey } from "@/components/payments/declaration/declaration-status";
-import { formatMoney } from "@/lib/money";
+import { currencyCodeOf, formatMoney } from "@/lib/money";
+import type { MessageKey } from "@/i18n/translate";
 import { useLocale } from "@/providers/locale-provider";
 import type { StoreOrderRow } from "@/services/store-orders-service";
 import {
@@ -66,6 +67,41 @@ export function StoreOrderDateCell({ order }: { order: StoreOrderRow }) {
   );
 }
 
+type Translate = (key: MessageKey) => string;
+
+/**
+ * The Payment cell as plain text (print / preview): the same Finance label,
+ * order total and Sales declaration the cell shows.
+ */
+export function storeOrderPaymentText(order: StoreOrderRow, t: Translate): string {
+  const declared = order.declaredPaymentStatus ?? "UNPAID";
+  const declaredAmount = Number(order.declaredAmount ?? 0);
+  return [
+    t(financialStatusLabelKey(order.paymentStatus, order.paymentType)),
+    formatMoney(order.total ?? "0", currencyCodeOf(order.currency)),
+    declared !== "UNPAID"
+      ? `${t(declaredShortLabelKey(declared))}${
+          declared === "PARTIALLY_PAID" && declaredAmount > 0
+            ? ` ${formatMoney(declaredAmount)}`
+            : ""
+        }`
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/** The Shipping cell's status label: the catalog status the screen shows, else the stage label. */
+export function storeOrderShippingLabel(order: StoreOrderRow, t: Translate): string {
+  return order.shippingStatus?.name ?? t(SHIPPING_STAGE_LABEL_KEY[order.shippingStage]);
+}
+
+/** The Shipping cell as plain text (print / preview): status label and tracking number. */
+export function storeOrderShippingText(order: StoreOrderRow, t: Translate): string {
+  const tracking = latestShipment(order)?.trackingNumber;
+  return [storeOrderShippingLabel(order, t), tracking].filter(Boolean).join(" · ");
+}
+
 /**
  * One badge per status column (design-system §6): the Finance verification
  * state is the badge; the order total and what Sales declared sit on the
@@ -117,7 +153,7 @@ export function StoreOrderShippingCell({ order }: { order: StoreOrderRow }) {
     <StackedCell
       primary={
         <StatusBadge
-          label={catalog?.name ?? t(SHIPPING_STAGE_LABEL_KEY[order.shippingStage])}
+          label={storeOrderShippingLabel(order, t)}
           tone={
             catalog ? catalogStatusTone(catalog.color) : SHIPPING_STAGE_TONE[order.shippingStage]
           }

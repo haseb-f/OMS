@@ -137,7 +137,12 @@ export const leadColumns: ColumnDef<LeadRow, unknown>[] = [
   },
   {
     id: "source",
-    meta: { titleKey: "crm.leads.fields.source", type: "name", importance: "low" },
+    meta: {
+      titleKey: "crm.leads.fields.source",
+      type: "name",
+      importance: "low",
+      displayValue: (row, t) => t(`crm.leads.source.${row.source}` as MessageKey),
+    },
     accessorFn: (row) => row.source,
     cell: ({ row }) => <LeadSourceCell source={row.original.source} />,
   },

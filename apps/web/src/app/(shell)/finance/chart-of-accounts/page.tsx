@@ -31,14 +31,13 @@ import { StatusBadge } from "@/components/business/status-badge";
 import { createMasterDataService } from "@/services/master-data-service";
 import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import { usePrintEngine } from "@/hooks/use-print-engine";
-import { useCompany } from "@/providers/company-provider";
+import { usePrintCompany } from "@/components/print/print-brand";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { reportApiError, toast } from "@/lib/toast";
 import { apiClient } from "@/services/api-client";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import { exportRowsToCsv } from "@/components/master-data/enterprise-data-table";
-import { siteConfig } from "@/config/site";
 import type { MessageKey } from "@/i18n/translate";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { RowActionsMenu } from "@/components/shared/data-table";
@@ -133,7 +132,7 @@ const emptyForm: FormState = {
 function ChartOfAccountsPageContent() {
   const { t, locale } = useLocale();
   const { printList } = usePrintEngine();
-  const { activeCompany } = useCompany();
+  const printCompany = usePrintCompany();
   const { user, hasPermission } = useUserContext();
   const canOverrideCode = hasPermission("accounting.chart-of-accounts.override-code");
   const canCreate = hasPermission("accounting.chart-of-accounts.create");
@@ -409,8 +408,8 @@ function ChartOfAccountsPageContent() {
       variant: "list",
       title: t("masterData.chartOfAccounts.title"),
       company: {
-        name: activeCompany?.name ?? siteConfig.fullName,
-        logoUrl: activeCompany?.logoUrl ?? null,
+        name: printCompany.name,
+        logoUrl: printCompany.logoUrl ?? null,
       },
       printedByName: user?.fullName ?? null,
       columns: [

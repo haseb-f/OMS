@@ -40,7 +40,10 @@ export function buildPayrollComponentsColumns(
     },
     {
       id: "type",
-      meta: { titleKey: "hr.payrollComponents.fields.type" },
+      meta: {
+        titleKey: "hr.payrollComponents.fields.type",
+        displayValue: (row, tr) => tr(`hr.payrollComponents.type.${row.type}` as MessageKey),
+      },
       accessorFn: (row) => row.type,
       cell: ({ row }) => <PayrollComponentTypeCell row={row.original} t={t} />,
       enableSorting: false,

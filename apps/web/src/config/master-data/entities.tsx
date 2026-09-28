@@ -502,7 +502,11 @@ export const fixedAssetsColumns: ColumnDef<FixedAssetRow, unknown>[] = [
   {
     id: "assetStatus",
     accessorFn: (row) => row.status,
-    meta: { titleKey: "masterData.fixedAssets.fields.status" },
+    meta: {
+      titleKey: "masterData.fixedAssets.fields.status",
+      displayValue: (row, t) =>
+        t(`accounting.lifecycleStatus.${row.status ?? "DRAFT"}` as MessageKey),
+    },
     cell: ({ row }) => <FixedAssetStatusCell status={row.original.status ?? "DRAFT"} />,
   },
   statusColumn<FixedAssetRow>(),

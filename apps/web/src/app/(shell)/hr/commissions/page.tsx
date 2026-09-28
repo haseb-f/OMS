@@ -279,7 +279,7 @@ export default function CommissionsPage() {
     Object.fromEntries(
       columns
         .filter((column) => exportKeys.includes(column.id!))
-        .map((column) => [column.id!, getColumnDisplayValue(column, row)]),
+        .map((column) => [column.id!, getColumnDisplayValue(column, row, t)]),
     );
 
   const canAdjustNow = Boolean(

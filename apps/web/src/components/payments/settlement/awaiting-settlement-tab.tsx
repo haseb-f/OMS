@@ -192,7 +192,12 @@ export function AwaitingSettlementTab({ methodId }: { methodId: string }) {
       },
       {
         id: "status",
-        meta: { titleKey: "paymentSettlement.fields.status" as MessageKey, importance: "medium" },
+        meta: {
+          titleKey: "paymentSettlement.fields.status" as MessageKey,
+          importance: "medium",
+          displayValue: (row, tr) =>
+            tr(`paymentSettlement.claimStatus.${row.settlementStatus}` as MessageKey),
+        },
         accessorFn: (row) => row.settlementStatus,
         cell: (info) => {
           const status = info.row.original.settlementStatus;

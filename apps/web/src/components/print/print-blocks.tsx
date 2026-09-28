@@ -36,7 +36,7 @@ export function PrintDocumentHeader({
   return (
     <header className="pr-header" data-print-avoid-break>
       <div className="pr-company">
-        {company.logoUrl ? (
+        {company.placeholder ? null : company.logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={company.logoUrl} alt="" className="pr-logo" />
         ) : (
@@ -45,7 +45,9 @@ export function PrintDocumentHeader({
           </div>
         )}
         <div className="pr-company-lines">
-          <span className="pr-company-name">{company.name}</span>
+          <span className="pr-company-name" data-placeholder={company.placeholder || undefined}>
+            {company.name}
+          </span>
           {company.vatNumber && (
             <span>
               {t("printDocument.vatNumber")}: <span className="num">{company.vatNumber}</span>

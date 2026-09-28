@@ -25,7 +25,7 @@ import type { CurrencyRow } from "@/config/master-data/entities";
 import { buildQuotationStatusOptions } from "@/config/sales/quotation-status";
 import { buildQuotationPrintPayload } from "@/config/sales/quotation-print";
 import { usePrintEngine } from "@/hooks/use-print-engine";
-import { useCompany } from "@/providers/company-provider";
+import { usePrintCompany } from "@/components/print/print-brand";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
@@ -67,7 +67,7 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
   const router = useRouter();
   const { t } = useLocale();
   const { printDocument } = usePrintEngine();
-  const { activeCompany } = useCompany();
+  const printCompany = usePrintCompany();
   const { user, hasPermission } = useUserContext();
 
   const [quotation, setQuotation] = useState<SalesQuotationRow | null>(null);
@@ -204,8 +204,8 @@ export function QuotationEditorPage({ id }: { id: string | null }) {
   const handlePrint = () => {
     if (!quotation) return;
     const payload = buildQuotationPrintPayload(quotation, {
-      companyName: activeCompany?.name ?? "",
-      companyLogoUrl: activeCompany?.logoUrl ?? null,
+      companyName: printCompany.name,
+      companyLogoUrl: printCompany.logoUrl ?? null,
       printedByName: user?.fullName ?? null,
       t,
     });

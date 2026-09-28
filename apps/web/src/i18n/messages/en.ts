@@ -594,6 +594,7 @@ const en = {
       "Showing {count} of {total} rows — print limit reached; narrow the filters for the rest",
     rowCountPageOnly:
       "Only the {count} rows loaded on screen were printed — {total} rows match the filters",
+    companyNotSet: "Company profile not set",
     preparing: "Preparing the print preview…",
     previewOpened: "Print preview opened in a new tab",
     previewFailed: "The print preview could not be prepared",

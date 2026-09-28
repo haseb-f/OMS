@@ -75,7 +75,10 @@ const columns: ColumnDef<AccruedExpenseRow, unknown>[] = [
   {
     id: "status",
     accessorFn: (row) => row.status,
-    meta: { titleKey: "accounting.accruals.fields.status" },
+    meta: {
+      titleKey: "accounting.accruals.fields.status",
+      displayValue: (row, t) => t(`accounting.lifecycleStatus.${row.status}` as MessageKey),
+    },
     cell: ({ row }) => <AccrualStatusCell status={row.original.status} />,
   },
   {

@@ -162,6 +162,21 @@ const PRINT_INDENT = "   ";
  * states the report's full scope: period, currency, language, every active
  * filter, the summary figures and the balance check.
  */
+/** Longest value that still prints on one line in a report text column. */
+const NOWRAP_MAX_CHARS = 20;
+
+/** Every value of the column is short enough to keep on one line. */
+export function isShortTextColumn(rows: Record<string, unknown>[], key: string): boolean {
+  let any = false;
+  for (const row of rows) {
+    const text = String(row[key] ?? "").trim();
+    if (!text) continue;
+    if (text.length > NOWRAP_MAX_CHARS) return false;
+    any = true;
+  }
+  return any;
+}
+
 export function toReportPrintPayload(
   document: ReportExportDocument,
   company: PrintCompanyInfo,
@@ -225,6 +240,9 @@ export function toReportPrintPayload(
       key: column.key,
       label: column.label,
       align: column.numeric ? ("end" as const) : ("start" as const),
+      // Short code-like text (dates, entry / reference numbers, journal
+      // codes) stays on one line; prose columns keep wrapping.
+      ...(!column.numeric && isShortTextColumn(rows, column.key) ? { nowrap: true } : {}),
     })),
     rows,
     rowKinds,

@@ -42,12 +42,11 @@ import type { ProductRow } from "@/services/products-service";
 import type { WarehouseRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { useCompany } from "@/providers/company-provider";
+import { usePrintCompany } from "@/components/print/print-brand";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { reportApiError } from "@/lib/toast";
 import { formatDateTime } from "@/lib/date";
 import { formatAmount } from "@/lib/money";
-import { siteConfig } from "@/config/site";
 import type { MessageKey } from "@/i18n/translate";
 import { RelatedRecordsButton } from "@/components/shared/related-records-panel";
 import {
@@ -92,7 +91,7 @@ const MOVEMENT_TYPES = [
 function InventoryMovementsPageContent() {
   const { t } = useLocale();
   const { hasPermission, user } = useUserContext();
-  const { activeCompany } = useCompany();
+  const printCompany = usePrintCompany();
   const { printList } = usePrintEngine();
   const canCreate = hasPermission("inventory.movements.create");
   const [rows, setRows] = useState<InventoryMovementRow[]>([]);
@@ -157,7 +156,10 @@ function InventoryMovementsPageContent() {
       {
         id: "type",
         header: t("inventory.fields.type"),
-        meta: { titleKey: "inventory.fields.type" },
+        meta: {
+          titleKey: "inventory.fields.type",
+          displayValue: (row, tr) => tr(`inventory.movementType.${row.type}` as MessageKey),
+        },
         accessorFn: (row) => row.type,
         cell: (info) => {
           const type = info.getValue() as string;
@@ -334,7 +336,7 @@ function InventoryMovementsPageContent() {
 
   const exportKeys = columns.map((column) => column.id!);
   const toExportRow = (row: InventoryMovementRow) =>
-    Object.fromEntries(columns.map((c) => [c.id!, getColumnDisplayValue(c, row)]));
+    Object.fromEntries(columns.map((c) => [c.id!, getColumnDisplayValue(c, row, t)]));
 
   const selectedRows = filteredRows.filter((row) => rowSelection[row.id]);
 
@@ -344,8 +346,8 @@ function InventoryMovementsPageContent() {
       variant: "list",
       title: t("nav.inventoryMovements"),
       company: {
-        name: activeCompany?.name ?? siteConfig.fullName,
-        logoUrl: activeCompany?.logoUrl ?? null,
+        name: printCompany.name,
+        logoUrl: printCompany.logoUrl ?? null,
       },
       printedByName: user?.fullName ?? null,
       columns: exportColumnsFromKeys(columns, exportKeys, t),

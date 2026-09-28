@@ -14,10 +14,10 @@ import {
 } from "@/components/accounting/report-filter-bar";
 import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import { useCompany } from "@/providers/company-provider";
+import { usePrintCompany } from "@/components/print/print-brand";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { usePrintEngine } from "@/hooks/use-print-engine";
-import { siteConfig } from "@/config/site";
 import { downloadReport, type ReportExportFormat } from "@/lib/report-export";
 import { reportApiError, toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
@@ -132,6 +132,7 @@ export function FinancialReport({
   const { t, locale, direction } = useLocale();
   const { runPrint } = usePrintEngine();
   const { activeCompany, companies } = useCompany();
+  const printCompany = usePrintCompany();
   const { user } = useUserContext();
   const filterOptions = useReportFilterOptions();
   const functionalCurrency = useReportCurrency();
@@ -167,7 +168,7 @@ export function FinancialReport({
 
   const visible = flattenVisibleLines(lines, expanded);
 
-  const companyName = activeCompany?.name ?? siteConfig.fullName;
+  const companyName = printCompany.name;
   const printedByName = user?.fullName ?? null;
 
   /**

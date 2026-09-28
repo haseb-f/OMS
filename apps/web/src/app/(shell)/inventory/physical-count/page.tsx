@@ -24,11 +24,10 @@ import { CountDetailDialog } from "./count-detail-dialog";
 import { physicalCountService, type PhysicalCountListRow } from "@/services/physical-count-service";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { useCompany } from "@/providers/company-provider";
+import { usePrintCompany } from "@/components/print/print-brand";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { reportApiError } from "@/lib/toast";
 import { formatDateTime } from "@/lib/date";
-import { siteConfig } from "@/config/site";
 import type { MessageKey } from "@/i18n/translate";
 import { PermissionGate } from "@/components/shared/permission-gate";
 
@@ -43,7 +42,7 @@ const STATUS_TONE: Record<string, "success" | "neutral" | "warning"> = {
 function PhysicalCountPageContent() {
   const { t } = useLocale();
   const { hasPermission, user } = useUserContext();
-  const { activeCompany } = useCompany();
+  const printCompany = usePrintCompany();
   const { printList } = usePrintEngine();
   const canCreate = hasPermission("inventory.physical-count.create");
   const [rows, setRows] = useState<PhysicalCountListRow[]>([]);
@@ -98,7 +97,11 @@ function PhysicalCountPageContent() {
       {
         id: "status",
         header: t("common.status"),
-        meta: { titleKey: "common.status" },
+        meta: {
+          titleKey: "common.status",
+          displayValue: (row, tr) =>
+            tr(`inventory.physicalCount.status.${row.status}` as MessageKey),
+        },
         accessorFn: (row) => row.status,
         cell: (info) => {
           const status = info.getValue() as string;
@@ -161,7 +164,7 @@ function PhysicalCountPageContent() {
 
   const exportKeys = columns.map((column) => column.id!).filter((id) => id !== "__actions");
   const toExportRow = (row: PhysicalCountListRow) =>
-    Object.fromEntries(columns.map((c) => [c.id!, getColumnDisplayValue(c, row)]));
+    Object.fromEntries(columns.map((c) => [c.id!, getColumnDisplayValue(c, row, t)]));
 
   const selectedRows = filteredRows.filter((row) => rowSelection[row.id]);
 
@@ -171,8 +174,8 @@ function PhysicalCountPageContent() {
       variant: "list",
       title: t("nav.inventoryPhysicalCount"),
       company: {
-        name: activeCompany?.name ?? siteConfig.fullName,
-        logoUrl: activeCompany?.logoUrl ?? null,
+        name: printCompany.name,
+        logoUrl: printCompany.logoUrl ?? null,
       },
       printedByName: user?.fullName ?? null,
       columns: exportColumnsFromKeys(columns, exportKeys, t),

@@ -28,7 +28,7 @@ import type { PartnerPickerRow } from "@/services/partners-service";
 import { buildTransactionStatusOptions } from "@/config/financial-transactions/status";
 import { buildReceiptPrintPayload } from "@/config/sales/receipt-print";
 import { usePrintEngine } from "@/hooks/use-print-engine";
-import { useCompany } from "@/providers/company-provider";
+import { usePrintCompany } from "@/components/print/print-brand";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
@@ -58,7 +58,7 @@ export function RefundEditorPage({ id }: { id: string }) {
   const router = useRouter();
   const { t } = useLocale();
   const { printDocument } = usePrintEngine();
-  const { activeCompany } = useCompany();
+  const printCompany = usePrintCompany();
   const { user, hasPermission } = useUserContext();
 
   const [refund, setRefund] = useState<FinancialTransactionRow | null>(null);
@@ -203,8 +203,8 @@ export function RefundEditorPage({ id }: { id: string }) {
     if (!refund) return;
     printDocument(
       buildReceiptPrintPayload(refund, {
-        companyName: activeCompany?.name ?? "",
-        companyLogoUrl: activeCompany?.logoUrl ?? null,
+        companyName: printCompany.name,
+        companyLogoUrl: printCompany.logoUrl ?? null,
         printedByName: user?.fullName ?? null,
         t,
       }),

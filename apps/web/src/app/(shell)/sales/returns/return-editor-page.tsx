@@ -26,7 +26,7 @@ import type { CurrencyRow } from "@/config/master-data/entities";
 import { buildReturnStatusOptions } from "@/config/sales/return-status";
 import { buildReturnPrintPayload } from "@/config/sales/return-print";
 import { usePrintEngine } from "@/hooks/use-print-engine";
-import { useCompany } from "@/providers/company-provider";
+import { usePrintCompany } from "@/components/print/print-brand";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
@@ -70,7 +70,7 @@ function lineToPayload(line: ProductLineItemsGridLine) {
 export function ReturnEditorPage({ id }: { id: string }) {
   const { t } = useLocale();
   const { printDocument } = usePrintEngine();
-  const { activeCompany } = useCompany();
+  const printCompany = usePrintCompany();
   const { user, hasPermission } = useUserContext();
 
   const [salesReturn, setSalesReturn] = useState<SalesReturnRow | null>(null);
@@ -187,8 +187,8 @@ export function ReturnEditorPage({ id }: { id: string }) {
   const handlePrint = () => {
     if (!salesReturn) return;
     const payload = buildReturnPrintPayload(salesReturn, {
-      companyName: activeCompany?.name ?? "",
-      companyLogoUrl: activeCompany?.logoUrl ?? null,
+      companyName: printCompany.name,
+      companyLogoUrl: printCompany.logoUrl ?? null,
       printedByName: user?.fullName ?? null,
       t,
     });

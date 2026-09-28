@@ -61,7 +61,7 @@ import {
 } from "@/config/accounting/status";
 import { buildJournalEntryPrintPayload } from "@/config/accounting/journal-entry-print";
 import { usePrintEngine } from "@/hooks/use-print-engine";
-import { useCompany } from "@/providers/company-provider";
+import { usePrintCompany } from "@/components/print/print-brand";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
@@ -122,7 +122,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
   const router = useRouter();
   const { t } = useLocale();
   const { printDocument } = usePrintEngine();
-  const { activeCompany } = useCompany();
+  const printCompany = usePrintCompany();
   const { user, hasPermission } = useUserContext();
 
   const [entry, setEntry] = useState<JournalEntryRow | null>(null);
@@ -302,8 +302,8 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
     if (!entry) return;
     printDocument(
       buildJournalEntryPrintPayload(entry, {
-        companyName: activeCompany?.name ?? "",
-        companyLogoUrl: activeCompany?.logoUrl ?? null,
+        companyName: printCompany.name,
+        companyLogoUrl: printCompany.logoUrl ?? null,
         printedByName: user?.fullName ?? null,
         t,
       }),

@@ -69,7 +69,10 @@ export const productsColumns: ColumnDef<ProductRow, unknown>[] = [
   },
   {
     id: "type",
-    meta: { titleKey: "products.table.type" },
+    meta: {
+      titleKey: "products.table.type",
+      displayValue: (row, t) => t(`products.type.${row.type}` as MessageKey),
+    },
     accessorFn: (row) => row.type,
     cell: ({ row }) => <TypeCell type={row.original.type} />,
   },

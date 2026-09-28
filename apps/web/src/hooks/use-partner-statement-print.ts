@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { usePrintEngine } from "@/hooks/use-print-engine";
-import { useCompany } from "@/providers/company-provider";
+import { usePrintCompany } from "@/components/print/print-brand";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { accountingReportsService } from "@/services/accounting-reports-service";
@@ -22,7 +22,7 @@ import type { StatementPrintPayload } from "@/types/print-engine";
 export function usePartnerStatementPrint(role: "customer" | "supplier") {
   const { t } = useLocale();
   const { runPrint } = usePrintEngine();
-  const { activeCompany } = useCompany();
+  const printCompany = usePrintCompany();
   const { user } = useUserContext();
   const [isPreparing, setIsPreparing] = useState(false);
 
@@ -46,7 +46,7 @@ export function usePartnerStatementPrint(role: "customer" | "supplier") {
               : "printDocument.statementTitleCustomer",
           ),
           printedByName: user?.fullName ?? null,
-          company: { name: activeCompany?.name ?? "", logoUrl: activeCompany?.logoUrl ?? null },
+          company: { name: printCompany.name, logoUrl: printCompany.logoUrl ?? null },
           partyRole: role,
           party: {
             name: partner.name,
@@ -77,7 +77,7 @@ export function usePartnerStatementPrint(role: "customer" | "supplier") {
         return payload;
       }).finally(() => setIsPreparing(false));
     },
-    [activeCompany, runPrint, role, t, user],
+    [printCompany, runPrint, role, t, user],
   );
 
   return { printStatement, isPreparing };

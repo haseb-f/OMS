@@ -84,7 +84,10 @@ const columns: ColumnDef<PrepaidExpenseRow, unknown>[] = [
   {
     id: "status",
     accessorFn: (row) => row.status,
-    meta: { titleKey: "accounting.prepaid.fields.status" },
+    meta: {
+      titleKey: "accounting.prepaid.fields.status",
+      displayValue: (row, t) => t(`accounting.lifecycleStatus.${row.status}` as MessageKey),
+    },
     cell: ({ row }) => <PrepaidStatusCell status={row.original.status} />,
   },
   {

@@ -112,7 +112,9 @@ export default function PayrollRunsPage() {
 
   const exportKeys = columns.map((column) => column.id!);
   const toExportRow = (row: PayrollRunRow) =>
-    Object.fromEntries(columns.map((column) => [column.id!, getColumnDisplayValue(column, row)]));
+    Object.fromEntries(
+      columns.map((column) => [column.id!, getColumnDisplayValue(column, row, t)]),
+    );
 
   return (
     <PageWorkspace

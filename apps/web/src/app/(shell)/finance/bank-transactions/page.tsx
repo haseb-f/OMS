@@ -228,7 +228,17 @@ function CashFlowPageContent() {
         ? ([
             {
               id: "classification",
-              meta: { titleKey: "masterData.bankTransactions.fields.classification" },
+              meta: {
+                titleKey: "masterData.bankTransactions.fields.classification",
+                displayValue: (row, tr) =>
+                  row.outgoingType
+                    ? tr(
+                        row.outgoingType === "EXPENSE"
+                          ? "masterData.bankTransactions.classifyDialog.expense"
+                          : "masterData.bankTransactions.classifyDialog.supplierPayment",
+                      )
+                    : "",
+              },
               accessorFn: (row) => row.outgoingType ?? "",
               cell: ({ row }) =>
                 row.original.outgoingType
@@ -243,7 +253,11 @@ function CashFlowPageContent() {
         : []),
       {
         id: "matchStatus",
-        meta: { titleKey: "common.status", type: "status" },
+        meta: {
+          titleKey: "common.status",
+          type: "status",
+          displayValue: (row, tr) => tr(STATUS_LABEL_KEY[row.matchStatus]),
+        },
         accessorFn: (row) => row.matchStatus,
         cell: ({ row }) => (
           <StatusBadge

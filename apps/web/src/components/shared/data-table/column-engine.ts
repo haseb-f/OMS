@@ -67,6 +67,13 @@ declare module "@tanstack/react-table" {
     identity?: boolean;
     /** Prose columns (error reasons, notes) that must wrap rather than truncate. */
     wrap?: boolean;
+    /**
+     * The plain text the cell SHOWS (translated labels, not raw codes), used
+     * wherever a column is turned into text: Print, Quick Preview and the
+     * text fallback. Needed whenever `accessorFn` returns a code or a sort
+     * key rather than what the user reads. Falls back to `accessorFn`.
+     */
+    displayValue?: (row: TData, t: (key: MessageKey) => string) => string;
   }
 }
 

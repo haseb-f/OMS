@@ -158,6 +158,12 @@
   font-size: var(--pr-fs-heading);
   font-weight: 600;
 }
+/* No company profile resolved: a muted notice, never styled as a real name. */
+.pr-company-name[data-placeholder] {
+  color: var(--pr-muted);
+  font-weight: 400;
+  font-style: italic;
+}
 .pr-doc-id {
   display: flex;
   flex-shrink: 0;

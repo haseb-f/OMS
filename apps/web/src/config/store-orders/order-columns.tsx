@@ -7,7 +7,7 @@ import type { ExportColumn } from "@/components/shared/export-dialog";
 import type { MessageKey } from "@/i18n/translate";
 import type { StoreOrderRow } from "@/services/store-orders-service";
 import { StatusBadge } from "@/components/business/status-badge";
-import { PAYMENT_STATUS_LABEL_KEY, SHIPPING_STAGE_LABEL_KEY } from "./status";
+import { financialStatusLabelKey } from "./status";
 import { Archive, Eye, Pencil } from "lucide-react";
 import { RowActionsMenu } from "@/components/shared/data-table";
 import { useLocale } from "@/providers/locale-provider";
@@ -20,6 +20,9 @@ import {
   StoreOrderShippingCell,
   customerPhone,
   latestShipment,
+  storeOrderPaymentText,
+  storeOrderShippingLabel,
+  storeOrderShippingText,
 } from "@/components/store-orders/store-order-row-cells";
 
 export interface StoreOrderRowHandlers {
@@ -166,6 +169,7 @@ export function buildStoreOrderColumns(
         minWidth: 148,
         maxWidth: 220,
         grow: 1.4,
+        displayValue: storeOrderPaymentText,
       },
       accessorFn: (row) =>
         `${row.paymentStatus} ${formatMoney(row.total ?? "0", currencyCodeOf(row.currency))}`,
@@ -181,6 +185,7 @@ export function buildStoreOrderColumns(
         minWidth: 140,
         maxWidth: 220,
         grow: 1.4,
+        displayValue: storeOrderShippingText,
       },
       accessorFn: (row) => {
         const tracking = latestShipment(row)?.trackingNumber;
@@ -299,8 +304,8 @@ export function storeOrderPrintRow(
     customer: item.partner?.name ?? "",
     phone: customerPhone(item) ?? "",
     orderDate: formatDate(item.orderDate),
-    paymentStatus: t(PAYMENT_STATUS_LABEL_KEY[item.paymentStatus]),
-    shippingStage: t(SHIPPING_STAGE_LABEL_KEY[item.shippingStage]),
+    paymentStatus: t(financialStatusLabelKey(item.paymentStatus, item.paymentType)),
+    shippingStage: storeOrderShippingLabel(item, t),
     total: formatMoney(item.total ?? "0", currencyCodeOf(item.currency)),
   };
 }

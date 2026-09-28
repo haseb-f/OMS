@@ -168,7 +168,7 @@ export default function PayrollRunDetailPage() {
     Object.fromEntries(
       columns
         .filter((column) => exportKeys.includes(column.id!))
-        .map((column) => [column.id!, getColumnDisplayValue(column, row)]),
+        .map((column) => [column.id!, getColumnDisplayValue(column, row, t)]),
     );
 
   if (isLoading) {

@@ -39,7 +39,7 @@ export function AccountStatementPrintTemplate({ payload }: { payload: StatementP
 
   const columns: PrintColumn[] = [
     { key: "date", label: t("printDocument.date"), width: "21mm", nowrap: true },
-    { key: "reference", label: t("printDocument.reference"), width: "30mm" },
+    { key: "reference", label: t("printDocument.reference"), width: "33mm", nowrap: true },
     { key: "description", label: t("printDocument.description") },
     { key: "debit", label: t("printDocument.debit"), align: "end", width: "24mm" },
     { key: "credit", label: t("printDocument.credit"), align: "end", width: "24mm" },

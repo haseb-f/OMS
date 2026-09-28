@@ -47,11 +47,11 @@ import { buildReceiptPrintPayload } from "@/config/sales/receipt-print";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
+import { usePrintCompany } from "@/components/print/print-brand";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { reportApiError, toast } from "@/lib/toast";
 import { formatDate, toISODate } from "@/lib/date";
-import { siteConfig } from "@/config/site";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
 
@@ -84,6 +84,7 @@ function CustomerReceiptsPageContent() {
     [isRefunds],
   );
   const { activeCompany } = useCompany();
+  const printCompany = usePrintCompany();
   const { printList, runPrint } = usePrintEngine();
 
   const [items, setItems] = useState<FinancialTransactionRow[]>([]);
@@ -172,8 +173,8 @@ function CustomerReceiptsPageContent() {
       async () => {
         const full = await service.get(row.id);
         return buildReceiptPrintPayload(full, {
-          companyName: activeCompany?.name ?? siteConfig.fullName,
-          companyLogoUrl: activeCompany?.logoUrl ?? null,
+          companyName: printCompany.name,
+          companyLogoUrl: printCompany.logoUrl ?? null,
           printedByName: user?.fullName ?? null,
           t,
         });
@@ -368,8 +369,8 @@ function CustomerReceiptsPageContent() {
       variant: "list",
       title: t("sales.receipts.title"),
       company: {
-        name: activeCompany?.name ?? siteConfig.fullName,
-        logoUrl: activeCompany?.logoUrl ?? null,
+        name: printCompany.name,
+        logoUrl: printCompany.logoUrl ?? null,
       },
       printedByName: user?.fullName ?? null,
       columns: exportColumnsFromKeys(columns, exportColumnKeys, t),

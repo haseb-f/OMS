@@ -99,12 +99,11 @@ import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useRestorableState } from "@/hooks/use-restorable-state";
 import { SEARCH_DEBOUNCE_MS } from "@/hooks/use-debounced-value";
 import { usePrintEngine } from "@/hooks/use-print-engine";
-import { useCompany } from "@/providers/company-provider";
+import { usePrintCompany } from "@/components/print/print-brand";
 import { useUserContext } from "@/providers/user-context";
 import { bidiLineClass, isStackedCellNode } from "@/components/shared/stacked-cell";
 import { cn } from "@/lib/utils";
 import { useElementWidth } from "@/hooks/use-element-width";
-import { siteConfig } from "@/config/site";
 import { toast } from "@/lib/toast";
 import type { GenericListPrintPayload } from "@/types/print-engine";
 import type { MessageKey } from "@/i18n/translate";
@@ -348,7 +347,7 @@ export function EnterpriseDataTable<TData>({
   const router = useRouter();
   const viewportFill = useViewportFill();
   const { printList, runPrint } = usePrintEngine();
-  const { activeCompany } = useCompany();
+  const printCompany = usePrintCompany();
   const { user } = useUserContext();
   const [columnVisibility, setColumnVisibility] = useLocalStorage<VisibilityState>(
     `oms.table.${tableId}.columnVisibility`,
@@ -989,8 +988,8 @@ export function EnterpriseDataTable<TData>({
       variant: "list",
       title: printTitle ?? tableId,
       company: {
-        name: activeCompany?.name ?? siteConfig.fullName,
-        logoUrl: activeCompany?.logoUrl ?? null,
+        name: printCompany.name,
+        logoUrl: printCompany.logoUrl ?? null,
       },
       printedByName: user?.fullName ?? null,
       columns: printableColumns.map((column) => ({
@@ -999,7 +998,7 @@ export function EnterpriseDataTable<TData>({
       })),
       rows: rowsToPrint.map((row) =>
         Object.fromEntries(
-          printableColumns.map((column) => [column.id!, getColumnDisplayValue(column, row)]),
+          printableColumns.map((column) => [column.id!, getColumnDisplayValue(column, row, t)]),
         ),
       ),
       ...extra,
@@ -1717,7 +1716,7 @@ export function EnterpriseDataTable<TData>({
                           const isNumeric = isNumericColumnType(layout?.type);
                           const displayValue = isUtility
                             ? ""
-                            : getColumnDisplayValue(cell.column.columnDef, row.original);
+                            : getColumnDisplayValue(cell.column.columnDef, row.original, t);
                           const pin = getPinProps(cell.column.id, "body");
                           return (
                             <TableCell

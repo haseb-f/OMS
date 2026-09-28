@@ -62,7 +62,10 @@ export function buildEmployeesColumns(
     },
     {
       id: "employmentStatus",
-      meta: { titleKey: "hr.employees.fields.employmentStatus" },
+      meta: {
+        titleKey: "hr.employees.fields.employmentStatus",
+        displayValue: (row, tr) => tr(`hr.employees.status.${row.employmentStatus}` as MessageKey),
+      },
       accessorFn: (row) => row.employmentStatus,
       cell: ({ row }) => <EmploymentStatusCell row={row.original} t={t} />,
       enableSorting: false,

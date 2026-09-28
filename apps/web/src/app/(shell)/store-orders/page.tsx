@@ -56,12 +56,11 @@ import {
 } from "@/config/store-orders/status";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { usePrintEngine } from "@/hooks/use-print-engine";
-import { useCompany } from "@/providers/company-provider";
+import { usePrintCompany } from "@/components/print/print-brand";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { reportApiError, toast } from "@/lib/toast";
 import { toISODate } from "@/lib/date";
-import { siteConfig } from "@/config/site";
 import { ApiError } from "@/services/api-client";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
@@ -72,7 +71,7 @@ function StoreOrdersPageContent() {
   const { t } = useLocale();
   const router = useRouter();
   const { user, hasPermission } = useUserContext();
-  const { activeCompany } = useCompany();
+  const printCompany = usePrintCompany();
   const { printList } = usePrintEngine();
   const canCreate = hasPermission("store-orders.create");
   const canBulkShipping = hasPermission("shipping.manage");
@@ -273,8 +272,8 @@ function StoreOrdersPageContent() {
       variant: "list",
       title: t("storeOrders.title"),
       company: {
-        name: activeCompany?.name ?? siteConfig.fullName,
-        logoUrl: activeCompany?.logoUrl ?? null,
+        name: printCompany.name,
+        logoUrl: printCompany.logoUrl ?? null,
       },
       printedByName: user?.fullName ?? null,
       columns: storeOrderExportColumnList(t),

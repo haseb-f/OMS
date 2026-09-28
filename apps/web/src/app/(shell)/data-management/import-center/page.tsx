@@ -147,7 +147,10 @@ function ImportCenterPageContent() {
       {
         id: "status",
         header: t("importCenter.table.status"),
-        meta: { titleKey: "importCenter.table.status" },
+        meta: {
+          titleKey: "importCenter.table.status",
+          displayValue: (row, tr) => tr(IMPORT_JOB_STATUS_LABEL_KEY[row.status]),
+        },
         accessorFn: (row) => row.status,
         cell: (info) => {
           const status = info.getValue() as ImportJobRow["status"];

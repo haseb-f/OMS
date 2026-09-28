@@ -75,7 +75,7 @@ import {
 import { shipmentStatusLabelKey, shipmentStatusTone } from "@/config/shipping/shipment-status";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { useCompany } from "@/providers/company-provider";
+import { usePrintCompany } from "@/components/print/print-brand";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { buildPackageSlipPayload } from "@/config/store-orders/package-slip-print";
 import { toast, reportApiError } from "@/lib/toast";
@@ -128,7 +128,7 @@ function StoreOrderDetailContent() {
   const { t } = useLocale();
   const isMobile = useIsMobile();
   const { hasPermission, user } = useUserContext();
-  const { activeCompany } = useCompany();
+  const printCompany = usePrintCompany();
   const { runPrint } = usePrintEngine();
   const [isPreparingSlip, setIsPreparingSlip] = useState(false);
   const canEdit = hasPermission("store-orders.edit");
@@ -255,7 +255,7 @@ function StoreOrderDetailContent() {
       "slip",
       async () =>
         buildPackageSlipPayload(order, await storeOrdersService.canFulfill(order.id), {
-          company: { name: activeCompany?.name ?? "", logoUrl: activeCompany?.logoUrl ?? null },
+          company: { name: printCompany.name, logoUrl: printCompany.logoUrl ?? null },
           printedByName: user?.fullName ?? null,
         }),
       "common.loadFailed",

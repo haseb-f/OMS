@@ -71,7 +71,10 @@ export function buildKpiEvaluationsColumns(
     },
     {
       id: "status",
-      meta: { titleKey: "hr.kpiEvaluations.fields.status" },
+      meta: {
+        titleKey: "hr.kpiEvaluations.fields.status",
+        displayValue: (row, tr) => tr(`hr.kpiEvaluations.status.${row.status}` as MessageKey),
+      },
       accessorFn: (row) => row.status,
       cell: ({ row }) => <StatusCell row={row.original} t={t} />,
       enableSorting: false,

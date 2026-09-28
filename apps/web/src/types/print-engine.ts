@@ -20,6 +20,8 @@ export type PrintPaper = "A4" | "A5";
  */
 export interface PrintCompanyInfo {
   name: string;
+  /** No company profile could be resolved — `name` is the "not set" notice, shown muted with no logo. */
+  placeholder?: boolean;
   logoUrl?: string | null;
   vatNumber?: string;
   crNumber?: string;

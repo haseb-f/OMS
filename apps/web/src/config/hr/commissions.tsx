@@ -93,7 +93,10 @@ export function buildCommissionsColumns(
     },
     {
       id: "status",
-      meta: { titleKey: "hr.commissions.fields.status" },
+      meta: {
+        titleKey: "hr.commissions.fields.status",
+        displayValue: (row, tr) => tr(`hr.commissions.status.${row.status}` as MessageKey),
+      },
       accessorFn: (row) => row.status,
       enableSorting: false,
       cell: ({ row }) => (

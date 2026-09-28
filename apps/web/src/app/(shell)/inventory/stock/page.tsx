@@ -224,7 +224,7 @@ function InventoryStockPageContent() {
         onExport={(keys, labels) =>
           exportRowsToCsv(
             rows.map((row) =>
-              Object.fromEntries(columns.map((c) => [c.id!, getColumnDisplayValue(c, row)])),
+              Object.fromEntries(columns.map((c) => [c.id!, getColumnDisplayValue(c, row, t)])),
             ),
             keys,
             "inventory-stock.csv",

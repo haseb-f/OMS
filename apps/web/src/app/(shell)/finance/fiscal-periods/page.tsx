@@ -240,7 +240,7 @@ export default function FiscalPeriodsPage() {
         onExport={(keys, labels) =>
           exportRowsToCsv(
             rows.map((row) =>
-              Object.fromEntries(columns.map((c) => [c.id!, getColumnDisplayValue(c, row)])),
+              Object.fromEntries(columns.map((c) => [c.id!, getColumnDisplayValue(c, row, t)])),
             ),
             keys,
             "fiscal-years.csv",

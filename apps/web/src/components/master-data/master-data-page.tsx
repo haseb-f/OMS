@@ -916,7 +916,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
                     {column.meta?.titleKey ? t(column.meta.titleKey) : (column.id ?? "")}
                   </dt>
                   <dd className="text-sm font-medium">
-                    {getColumnDisplayValue(column, previewEntity)}
+                    {getColumnDisplayValue(column, previewEntity, t)}
                   </dd>
                 </div>
               ))}

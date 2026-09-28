@@ -41,11 +41,11 @@ import { buildReturnPrintPayload } from "@/config/sales/return-print";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
+import { usePrintCompany } from "@/components/print/print-brand";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { reportApiError, toast } from "@/lib/toast";
 import { formatDate, toISODate } from "@/lib/date";
-import { siteConfig } from "@/config/site";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
 
@@ -56,6 +56,7 @@ function SalesReturnsPageContent() {
   const router = useRouter();
   const { user } = useUserContext();
   const { activeCompany } = useCompany();
+  const printCompany = usePrintCompany();
   const { printList, runPrint } = usePrintEngine();
 
   const [items, setItems] = useState<SalesReturnRow[]>([]);
@@ -176,8 +177,8 @@ function SalesReturnsPageContent() {
       async () => {
         const full = await salesReturnsService.get(row.id);
         return buildReturnPrintPayload(full, {
-          companyName: activeCompany?.name ?? siteConfig.fullName,
-          companyLogoUrl: activeCompany?.logoUrl ?? null,
+          companyName: printCompany.name,
+          companyLogoUrl: printCompany.logoUrl ?? null,
           printedByName: user?.fullName ?? null,
           t,
         });
@@ -236,8 +237,8 @@ function SalesReturnsPageContent() {
       variant: "list",
       title: t("sales.returns.title"),
       company: {
-        name: activeCompany?.name ?? siteConfig.fullName,
-        logoUrl: activeCompany?.logoUrl ?? null,
+        name: printCompany.name,
+        logoUrl: printCompany.logoUrl ?? null,
       },
       printedByName: user?.fullName ?? null,
       columns: exportColumnsFromKeys(returnColumns, returnExportColumns, t),
