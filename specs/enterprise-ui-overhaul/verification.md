@@ -200,3 +200,54 @@ Evidence comes from Production:
 - On phones, Sync and Import on leads stay inline as icon-only buttons (they own their own dialogs).
 - The disabled trigger state was verified in code only. Import progress while an import is running
   and a live toast were not exercised on Production, because they would create data.
+
+## Round 4 rollout — approved design app-wide (2026-09-28)
+
+### Gates (local, before release)
+
+| Gate                                                         | Result                                                                                       |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| Web typecheck (`tsc --noEmit`)                               | pass                                                                                         |
+| Web lint                                                     | 0 errors (10 pre-existing warnings in untouched files)                                       |
+| Web unit tests (vitest)                                      | 38 files, 287 tests pass (4 classic-only action-plan tests retired)                          |
+| Web production build (`next build`)                          | pass (after review fixes)                                                                    |
+| API production compile (`tsc -p tsconfig.build.json`) + jest | pass; 124 suites, 1486 tests                                                                 |
+| Token contrast (`scripts/design/contrast-check.mjs`)         | all pairs pass, light + dark (checker now parses `hsl()`; field boundary = `--control-edge`) |
+
+### Coverage
+
+- Route sweep (`tmp/pilot/rollout-sweep.mjs`): 136 routes — every sidebar route, 13 editors, one
+  detail page per module — × desktop 1440 AR light and phone 390 AR light: **0 horizontal
+  overflow, 0 page/console errors**; visual contact sheets reviewed (`tmp/pilot/rollout-sheets`).
+- EN/LTR dark + tablet 820 on 13 representative routes: 0 overflow, 0 errors.
+- Print: `/print/document` invoice renders logo, company, print date and QR with the new tokens.
+
+### Independent review → fixes
+
+Verdict "ship after fixes". Fixed: outline/ghost fills moved into the button variants so caller
+tone classes win (distribution control tint); 3:1 field/selector bottom edge (`--control-edge`);
+applied-filter state kept; only chevrons turn on open (month picker icon); count-chip padding;
+auth focus ring; dark error text / link colors; dashboard shows the queues that loaded when one
+source fails; emphasized tiles wrap. Not changed (by design / low value): `calt` off (approved
+screens), field-grid flex layout (approved Round 3.2), `LeadDistributionModal` policy branch now
+unreachable (kept, prop-gated).
+
+### Production (release 370acfc)
+
+- Deployment `6710344498` → **success**; Production CSS carries the new tokens
+  (`--radius-control:8px`, `--control-edge`, `insight-group`).
+- `production-payments-nav-e2e.mjs` (tagged `QA-PN-*` records): **66/66**.
+- `production-operational-ux-e2e.mjs` (tagged `UX-E2E-*`): **64/65** — the failure is the
+  sales-manager QA persona lacking `sales.receipts.create` (API permission; not touched here).
+  Stale assertions fixed in the script: import actions live in the «Import» menu, the report
+  switcher is a listbox button, tablet navigation is a sheet, activating an automatic mode drains
+  held leads by design. The run restores distribution to its previous mode (Paused).
+- Guide: 21 top-level screenshots recaptured read-only from Production + `screenshots/ui-r4/`.
+
+### Remaining gaps (Round 4)
+
+- `screenshots/audit/` and `screenshots/payments/` guide sets still show the Round 2 visuals.
+- `EnterpriseModal` accepts `icon` but no longer draws it; the document editor shows «number on
+  save» instead of the `docCodePreview` placeholder.
+- Print template labels the customer block with the picker placeholder («اختر عميلاً») — pre-existing,
+  print templates untouched.

@@ -1,6 +1,18 @@
 # Handoff — enterprise-ui-overhaul
 
-**Status:** Round 1 COMPLETE (2026-09-27); Round 2 COMPLETE (2026-09-28).
+**Status:** Round 1 COMPLETE (2026-09-27); Round 2 COMPLETE (2026-09-28); Rounds 3–4 COMPLETE and released (2026-09-28).
+
+- **Rounds 3–4 (current design):** the owner approved the Round 4 local preview (Microsoft
+  Clarity reference polish on the Round 3 Vercel-reference pilot) and it was rolled out as the only
+  design on 2026-09-28. Rules: `design-system.md` §12 (tokens in `globals.css` / `tokens.css`,
+  recipes in `theme/recipes.css`); decisions: `spec.md` "Round 4 rollout".
+- **Rollout evidence:** `verification.md` §"Round 4 rollout"; route sweep
+  `tmp/pilot/rollout-sweep` (136 routes × desktop/phone, 0 overflow, 0 console errors);
+  before/after `tmp/pilot/compare-r4.html`; independent review findings and fixes listed there.
+- **Commits:** b76dabd (design app-wide), ec887d0 + 370acfc (E2E / contrast checks), b03645f
+  (specs); release verified HEAD = origin/main = Production (see `verification.md`).
+- **Known leftovers:** see `spec.md` "Round 4 rollout" → Known leftovers, and `verification.md`
+  §"Round 4 rollout" → Remaining gaps.
 
 - **Round 2** covers:
   - selector triggers as tonal buttons
