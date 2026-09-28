@@ -597,10 +597,14 @@ async function main() {
       await settle(page, 1500);
       await page.evaluate(() => window.scrollTo(0, 240));
       await page.waitForTimeout(300);
-      const scrollBefore = await page.evaluate(() => window.scrollY);
-      const started = Date.now();
       const link = page.locator('[data-testid="related-record-link"][data-kind="JOURNAL_ENTRY"]').filter({ visible: true }).first();
       await link.waitFor({ timeout: 30000 });
+      // The scroll to keep is the one at click time (the link may sit below
+      // the fold on phones, and clicking scrolls it into view first).
+      await link.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(200);
+      const scrollBefore = await page.evaluate(() => window.scrollY);
+      const started = Date.now();
       await link.click();
       const preview = page.getByTestId("record-preview");
       await preview.waitFor({ timeout: 20000 });
