@@ -93,7 +93,10 @@ export function usePrintIdentity(
   const fallback = usePrintCompany();
   const explicit =
     accentColor && accentColor.toLowerCase() !== LEGACY_BUILDER_COLOR ? accentColor : null;
-  const hasOwnName = !!company.name && !isProductName(company.name);
+  // Document payloads carry only name/logo, so a placeholder resolved at the
+  // entry point arrives without its flag — recognise it by its text.
+  const isPlaceholderText = !!fallback.placeholder && company.name === fallback.name;
+  const hasOwnName = !!company.name && !isProductName(company.name) && !isPlaceholderText;
   return {
     company: hasOwnName
       ? { ...company, logoUrl: company.logoUrl ?? fallback.logoUrl ?? null }
