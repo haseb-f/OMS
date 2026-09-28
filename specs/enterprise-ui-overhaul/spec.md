@@ -223,3 +223,57 @@ rollout / merge / deploy until the owner explicitly approves the updated preview
 
 Pilot routes add `/store-orders/[id]` (tracker demo). Evidence: `tmp/pilot/r31-before` (= the
 Round 3 pilot) vs `tmp/pilot/r31-after`, plus `tmp/pilot/distribution-test.md`.
+
+### Round 4: final local polish — Microsoft Clarity reference (2026-09-28)
+
+Bounded last UI round before returning to functional work. Keeps the Round 3.2 state (compact
+sizing, type, navy/green identity, white light canvas, approved workflows). The Stripe/Linear
+"SaaS overhaul" brief in `round4-proposal.md` is **not** adopted (owner: ignore it). Same gate: local
+only, no merge / deploy / rollout until the owner approves the preview.
+
+Reference: Microsoft Clarity (Microsoft's analytics product), official dashboard screenshots on
+learn.microsoft.com (`clarity/insights/dashboard-features`) — no authenticated project was available.
+Patterns taken: related metrics share one surface; label → figure → one context line; filter/segment
+triggers are firm bordered controls with a chevron; restrained accents; soft 8–10px radii.
+
+1. **Radius** one step softer via shared tokens only: `--radius-control` 6→8 (buttons, fields,
+   triggers), `--radius-surface` 8→10 (cards, tables), `--radius-overlay` 10→12, menus 8→10,
+   dialogs 12→14. `rounded-sm/md/lg` now resolve through these runtime tokens (design-system §12.10).
+2. **Tactile controls** — solid actions: soft drop + faint top light; secondary buttons and dropdown
+   triggers: firm `--input` edge + whisper depth; hover = fill + edge change; pressed/open = inset
+   "sink" + darker fill (no movement, no resize); open trigger turns its chevron; keyboard focus =
+   ring + halo. Segmented controls: recessed track, raised selected segment.
+3. **Summaries** — `InsightGroup`: related static figures on one hairline-split surface (dashboard
+   Leads / Orders; report figures), the reconciliation verdict stays its own card; tiles get the card
+   whisper shadow. No added padding; report tables do not move down.
+
+Evidence: `tmp/pilot/r4-before` vs `tmp/pilot/r4-after` (+ `r4-work/zoom-*` control states);
+scripts `tmp/pilot/r4-capture.mjs`, `tmp/pilot/r4-zoom.mjs`.
+
+## Round 4 rollout — the approved design becomes canonical (2026-09-28)
+
+Owner approval received for the Round 4 local preview: adopt it as the canonical OMS design, roll
+it out system-wide and release to Production. No new design direction.
+
+- **Default for everyone:** `config/ui-pilot.ts`, `providers/ui-pilot-provider.tsx`, the top-bar
+  switch, the `NEXT_PUBLIC_UI_PILOT` flag and the pre-paint script are removed. Geist + IBM Plex
+  Sans Arabic load for every route.
+- **Tokens folded:** pilot values now live in `app/globals.css` `:root` / `.dark` and
+  `theme/tokens.css` (radius tiers 8 / 10 / 12, control, insight and form-card tokens);
+  `theme/pilot-geist.css` → unscoped `theme/recipes.css`.
+- **Classic retired:** every `useUiPilot().active` branch folded (pilot kept); classic-only code
+  deleted (classic dashboard sections, lead header actions + plan, distribution header chips,
+  store-order status strip, classic report summary strip and reconciliation card, classic document
+  card layout). Presentational files renamed without "pilot" (`components/crm/*`,
+  `dashboard-overview.tsx`, `document-editor-layout.tsx`, `control-states-board.tsx`).
+- **Behavior preserved:** data, permissions, calculations and workflows unchanged; the approved
+  Round 3.1 flows (Start follow-up folded into Add Follow-up, one stateful distribution control)
+  are now the only flows. `scripts/production-operational-ux-e2e.mjs` checks the distribution
+  control instead of the retired dialog.
+- **Known leftovers:** `LeadDistributionModal` keeps a now-unreachable policy branch (always opened
+  with `assignOnly`); `EnterpriseModal` accepts but no longer draws `icon`; the document editor no
+  longer shows the `docCodePreview` placeholder number (shows «number on save»).
+
+Evidence: `tmp/pilot/rollout-sweep` (every navigable route + editors + one detail page per module,
+desktop and phone), independent review, gates and Production verification in `verification.md` /
+`handoff.md`.

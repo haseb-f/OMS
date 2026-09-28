@@ -374,21 +374,22 @@ owner's brief asks for button-like triggers.
 - **Hover and focus.** Hover is a neutral tint; focus is the inset outline. No state shifts the
   layout.
 
-## 12. Round 3 — Vercel-reference ("geist") design, LOCAL PILOT (2026-09-28)
+## 12. The OMS design (Round 3 Vercel-reference + Round 4 polish) — CANONICAL (2026-09-28)
 
-Status: **pilot, pending owner approval.** Active only under `<html data-ui="geist">` (pilot routes in
-a build with `NEXT_PUBLIC_UI_PILOT=geist`; see spec "Round 3"). Reference values:
-`geist-research.md`. Implementation: `theme/pilot-geist.css` (tokens + recipes),
-`providers/ui-pilot-provider.tsx` (`useUiPilot().active`), `config/ui-pilot.ts` (routes).
+Status: **approved by the owner and rolled out app-wide on 2026-09-28** — the only design; the
+pilot switch, `data-ui="geist"` scoping and every classic branch were removed. Reference values:
+`geist-research.md`. Implementation: tokens in `app/globals.css` (`:root` / `.dark`) and
+`theme/tokens.css`; recipes (structural rules tokens cannot express, keyed on `data-slot` /
+`data-variant`, unlayered) in `theme/recipes.css`.
 
-### 12.1 Isolation contract
+### 12.1 Change contract
 
-- Tokens and visual recipes live only in `theme/pilot-geist.css`, scoped to `[data-ui="geist"]`.
-- A structural change to a **shared** component (used outside the pilot routes) must be gated on
-  `useUiPilot().active`, so the classic output is unchanged when the pilot is off.
-- A pilot **screen** renders its pilot layout from a separate presentational component
-  (`*-pilot.tsx`) that reuses the page's data, handlers and permissions. The classic layout stays
-  as is. Rollout later deletes the classic branch.
+- Tokens first: a visual change is a token change in `globals.css` / `tokens.css`; a recipe in
+  `theme/recipes.css` only when a token cannot express it (visual properties only — never size or
+  layout, so callers' layout classes still apply).
+- Screens keep their layout in presentational components (`lead-detail-view.tsx`,
+  `dashboard-overview.tsx`, `document-editor-layout.tsx`, …) that reuse the page's data, handlers
+  and permissions.
 - Never change data flow, API calls, payment rules, shipping states, permissions, calculations,
   validation rules or accounting behavior for a visual reason.
 
@@ -499,7 +500,7 @@ One shared, read-only tracker for multi-step operations: `components/shared/work
   (`role="progressbar"`), never clipped at 390px. Tokens only; logical properties; no motion.
 - Payment and fulfillment are always separate tracks (payment never advances fulfillment).
 
-**Live in the pilot.**
+**Live screens.**
 
 | Screen               | Track(s)          | Source                                                                                                                                                                                                     |
 | -------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -508,12 +509,12 @@ One shared, read-only tracker for multi-step operations: `components/shared/work
 |                      | Fulfillment       | `fulfillmentStatus.code`: shipping (READY, optional) → SHIPPED → DELIVERED (shipment dates as captions); pickup AWAITING_PREPARATION → READY_FOR_PICKUP → COLLECTED; others = state; meta = carrier        |
 | Sales invoice editor | Document, Payment | `SalesInvoice.status`: (DRAFT, optional) → (APPROVED, optional) → CONFIRMED (PENDING_APPROVAL, CLOSED, CANCELLED = state); `paymentStatus`: UNPAID → (PARTIALLY_PAID, optional) → PAID (CANCELLED = state) |
 
-Mappings: `components/crm/pilot/lead-stage-indicator.tsx`,
+Mappings: `components/crm/lead-stage-indicator.tsx`,
 `components/store-orders/store-order-workflow-tracks.tsx`,
 `app/(shell)/sales/invoices/invoice-workflow-tracks.tsx`. The document editor takes it through the
-`headerTracker` slot (pilot layout only).
+`headerTracker` slot.
 
-**Rollout list (after approval).**
+**Next screens to adopt the tracker.**
 
 | Screen                 | Status source                                                                                                                                    |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -521,3 +522,33 @@ Mappings: `components/crm/pilot/lead-stage-indicator.tsx`,
 | Purchase invoices      | `PurchaseDocumentStatus` (same shape as sales) + the shared server-computed invoice `paymentStatus` as a second track                            |
 | Payment reconciliation | Payment record `PaymentStatus`: PENDING → MATCHED → VERIFIED; REJECTED/DISPUTED = state. Bank line `BankTransactionMatchStatus` as its own track |
 | Returns                | Sales/purchase return `status` (`SalesDocumentStatus` / `PurchaseDocumentStatus`): DRAFT → APPROVED → CONFIRMED; CANCELLED = state               |
+
+### 12.8 Summary tiles and metric groups (Round 3.2 / Round 4)
+
+- `InsightCard` (`components/shared/insight-card.tsx`): label → figure (+ muted unit) → at most one
+  context line. Tone = small tinted icon; verdict colour on the figure only where it means something;
+  `emphasis` (open work / discrepancy) adds a start-edge accent. Only `href` tiles react to hover /
+  focus (tone edge, faint tint, soft elevation — no transform, no layout shift).
+- `InsightGroup`: related static tiles on ONE surface split by 1px hairlines (block-start and
+  inline-start shadows, clipped at the container, so any wrap stays correct). Interactive or verdict
+  tiles stay separate cards beside the group. Dashboard: Leads and Orders groups share the 4-column
+  rhythm; a shorter group spans its share (`--span`). Report: reconciliation card + one figures group.
+
+### 12.10 Radius and tactile controls (Round 4)
+
+| Token (`tokens.css`; menu/dialog in `globals.css`) | Value     | Was (Round 2) | Used by                                     |
+| -------------------------------------------------- | --------- | ------------- | ------------------------------------------- |
+| `--radius-control` → `rounded-sm`                  | 8px       | 6px           | buttons, inputs, selects, pickers, toolbars |
+| `--radius-surface` → `rounded-md`                  | 10px      | 8px           | cards, tiles, table containers              |
+| `--radius-overlay` → `rounded-lg/xl`               | 12px      | 10px          | popovers, drawers                           |
+| `--radius-menu` / `--radius-dialog`                | 10 / 14px | 8 / 12px      | menus / dialogs                             |
+
+Never a pill on a control; `rounded-xs` (4px) and badge pills unchanged.
+
+Control recipe tokens (light/dark, `globals.css`): `--control-border`, `--control-border-hover`,
+`--control-hover`, `--control-pressed`, `--control-shadow` (neutral controls at rest),
+`--control-shadow-solid` (filled actions), `--control-inset` / `--control-inset-solid` (pressed),
+`--segment-track` / `--segment-on`. States: rest → hover (fill + edge) → pressed/open (inset sink,
+darker fill) → focus-visible (ring + halo). Colour and shadow only — never transform or size; the
+chevron rotation on an open trigger is disabled under reduced motion. Green stays reserved for
+confirm / approve / convert; ordinary controls stay neutral.
