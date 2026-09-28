@@ -1,31 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import {
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  ChevronRight,
-  CircleCheck,
-  Info,
-  TrendingDown,
-  TrendingUp,
-  TriangleAlert,
-  type LucideIcon,
-} from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { clsx as cx } from "clsx";
 import { formatAmountParts } from "@/lib/money";
 import { useLocale } from "@/providers/locale-provider";
-import type { MessageKey } from "@/i18n/translate";
+import { useUiPilot } from "@/providers/ui-pilot-provider";
 import { useDrCrLabels } from "./use-report-format";
-import {
-  resolveReconciliationState,
-  resolveSummaryTone,
-  type ReconciliationState,
-  type ResolvedSummaryTone,
-} from "./summary-format";
+import { resolveReconciliationState, resolveSummaryTone } from "./summary-format";
+import { STATE_ICON, TONE, VERDICT_KEY } from "./summary-meta";
+import { FinancialReportSummaryPilot } from "./pilot/financial-report-summary-pilot";
 import type {
   FinancialReportCheck,
-  FinancialReportCheckScope,
   FinancialReportSummary as Summary,
   FinancialReportSummaryItem,
 } from "./types";
@@ -35,15 +21,6 @@ import type {
  * the custom type-scale utilities (`text-metric`, `text-caption`) next to a
  * text color.
  */
-
-/** Category color lives on the summary only — the icon and the figure, never the card fill. */
-const TONE: Record<ResolvedSummaryTone, { icon: LucideIcon | null; className: string }> = {
-  revenue: { icon: ArrowDownToLine, className: "text-report-revenue" },
-  expense: { icon: ArrowUpFromLine, className: "text-report-expense" },
-  profit: { icon: TrendingUp, className: "text-report-profit" },
-  loss: { icon: TrendingDown, className: "text-report-loss" },
-  neutral: { icon: null, className: "text-foreground" },
-};
 
 /**
  * Kumo-style card (design-system §11.3): rounded-md, solid card, 1px border,
@@ -122,30 +99,6 @@ function KpiCard({ item, currency }: { item: FinancialReportSummaryItem; currenc
     </div>
   );
 }
-
-const VERDICT_KEY: Record<
-  FinancialReportCheckScope,
-  { balanced: MessageKey; unbalanced: MessageKey }
-> = {
-  period: {
-    balanced: "reports.finance.reconciliation.balancedPeriod",
-    unbalanced: "reports.finance.reconciliation.unbalancedPeriod",
-  },
-  asOf: {
-    balanced: "reports.finance.reconciliation.balancedAsOf",
-    unbalanced: "reports.finance.reconciliation.unbalancedAsOf",
-  },
-  page: {
-    balanced: "reports.finance.reconciliation.balancedPage",
-    unbalanced: "reports.finance.reconciliation.unbalancedPage",
-  },
-};
-
-const STATE_ICON: Record<ReconciliationState, LucideIcon> = {
-  balanced: CircleCheck,
-  unbalanced: TriangleAlert,
-  "not-applicable": Info,
-};
 
 /**
  * The reconciliation card (design-system §11.5) — replaces the old floating
@@ -288,6 +241,13 @@ export function FinancialReportSummary({
   currency: string;
   className?: string;
 }) {
+  // Round 3 pilot (design-system §12.1): the pilot strip, same data and logic.
+  const pilot = useUiPilot().active;
+  if (pilot) {
+    return (
+      <FinancialReportSummaryPilot summary={summary} currency={currency} className={className} />
+    );
+  }
   const items = summary.items;
   const check = summary.check;
   return (

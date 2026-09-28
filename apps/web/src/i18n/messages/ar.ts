@@ -486,6 +486,10 @@ const ar = {
     noBranch: "بلا فرع",
   },
   sidebar: {
+    short: {
+      products: "المنتجات والمخازن",
+      transitions: "قواعد الانتقال",
+    },
     pinned: "المثبتة",
     recent: "الأخيرة",
     modules: "الوحدات",
@@ -499,6 +503,7 @@ const ar = {
     },
   },
   topbar: {
+    pilotDesign: "التصميم الجديد (تجريبي)",
     searchPlaceholder: "بحث…",
     notifications: "الإشعارات",
     notificationsEmptyTitle: "أنت على اطلاع بكل شيء",
@@ -641,6 +646,27 @@ const ar = {
     pinnedModulesEmptyDescription: "ثبّت صفحة من القائمة الجانبية لتظهر هنا.",
   },
   designSystem: {
+    pilotStates: {
+      title: "حالات عناصر التحكم",
+      description:
+        "كل حالة تظهر هنا كما تظهر في الشاشات. مرّر المؤشر أو استخدم Tab لرؤية التمرير والتركيز.",
+      buttons: "الأزرار",
+      selectors: "قوائم الاختيار",
+      inputs: "الحقول النصية",
+      primary: "حفظ",
+      confirm: "اعتماد",
+      outline: "ثانوي",
+      ghost: "شفاف",
+      destructive: "حذف",
+      disabled: "معطّل",
+      loading: "جارٍ الحفظ",
+      placeholder: "اختر عميلاً",
+      value: "عميل نموذجي",
+      invalid: "غير صالح",
+      readOnly: "للقراءة فقط",
+      required: "العميل مطلوب لإنشاء الفاتورة.",
+      filled: "SAMPLE-0001",
+    },
     title: "نظام التصميم",
     subtitle: "المرجع الدائم لواجهة OMS — كل مكوّن مستقبلي يُضاف هنا أولاً.",
     typography: "الطباعة",
@@ -2288,6 +2314,17 @@ const ar = {
         GOOGLE_SHEETS: "جوجل شيتس",
       },
       possibleDuplicate: "احتمال تكرار",
+      stage: {
+        label: "المرحلة",
+        NEW: "جديد",
+        IN_PROGRESS: "قيد المتابعة",
+        QUALIFIED: "مؤهل",
+        CONVERTED: "تم التحويل",
+        closed: "مغلق",
+      },
+      unassigned: "غير مُسند",
+      openOrder: "فتح الطلب",
+      transitioned: "تم نقل الليد إلى «{status}».",
       noCustomerLinked: "لا يوجد عميل مرتبط بعد.",
       ownership: {
         assigned: "تم الإسناد",
@@ -2325,6 +2362,7 @@ const ar = {
         followUpAll: "كل المتابعات",
         followUpUpcoming: "قادمة",
         followUpNone: "بدون متابعة",
+        classificationShort: "التصنيف",
       },
       bulkSelection: {
         customCountTitle: "تحديد عدد معين من الليدز",
@@ -2761,6 +2799,7 @@ const ar = {
         noSalesperson: "غير معيّن",
         currency: "العملة",
         baseCurrency: "العملة الأساسية",
+        numberOnSave: "رقم تلقائي عند الحفظ",
         currencyNote:
           "المبالغ معروضة بعملة {code}. لم يتم إعداد تحويل سعر الصرف بعد — يسجّل دفتر الأستاذ حالياً مبالغ هذا المستند كما أُدخلت.",
       },

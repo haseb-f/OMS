@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+/** One available transition, ready to render as a header action (see `renderActions`). */
+export interface WorkflowActionItem {
+  key: string;
+  label: string;
+  toStatusCode: string;
+  disabled: boolean;
+  onSelect: () => void;
+}
+
 export function WorkflowActionsPanel({
   entityType,
   entityId,
@@ -31,16 +40,25 @@ export function WorkflowActionsPanel({
   hideConvert,
   hideTargetCodes,
   primaryVariant = "default",
+  renderActions,
 }: {
   entityType: string;
   entityId: string;
   currentStatus?: { name: string; color: string } | null;
-  onTransitionComplete: () => void;
+  /** Receives the transition that just ran (callers may ignore it). */
+  onTransitionComplete: (action: WorkflowAction) => void;
   convertDefaults?: Partial<LeadConvertPayload>;
   hideConvert?: boolean;
   hideTargetCodes?: string[];
   /** `outline` when the page header already owns the one filled primary action. */
   primaryVariant?: "default" | "outline";
+  /**
+   * Round 3 pilot only (design-system §12.6): the caller places the
+   * transitions itself (e.g. as secondary header actions) instead of the
+   * loose button row. The reason / convert dialogs still live here.
+   * Omitted everywhere else, so the classic output is unchanged.
+   */
+  renderActions?: (items: WorkflowActionItem[]) => ReactNode;
 }) {
   const { t, locale } = useLocale();
   const paymentTypeFieldId = useId();
@@ -100,7 +118,7 @@ export function WorkflowActionsPanel({
       setConvertAction(null);
       setReason("");
       await load();
-      onTransitionComplete();
+      onTransitionComplete(action);
     } catch (error) {
       reportApiError(error, "common.failedToSave");
     } finally {
@@ -120,7 +138,7 @@ export function WorkflowActionsPanel({
     void runTransition(action);
   };
 
-  if (loading) return null;
+  if (loading && !renderActions) return null;
 
   const visibleActions = actions.filter((action) => {
     if (hideConvert && action.businessAction === "LEAD_CONVERT") return false;
@@ -131,39 +149,8 @@ export function WorkflowActionsPanel({
   const primary = convert ?? visibleActions.find((a) => a.isPrimary) ?? visibleActions[0];
   const secondary = visibleActions.filter((a) => a !== primary);
 
-  if (hideConvert && visibleActions.length === 0) return null;
-
-  return (
-    <div className="flex flex-col gap-3">
-      {currentStatus ? (
-        <StatusBadge label={currentStatus.name} colorKey={currentStatus.color} />
-      ) : null}
-      {visibleActions.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2">
-          {primary ? (
-            <EnterpriseButton
-              size="sm"
-              variant={primaryVariant}
-              disabled={pending}
-              onClick={() => handleAction(primary)}
-            >
-              {locale === "ar" ? primary.label : (primary.labelEn ?? primary.label)}
-            </EnterpriseButton>
-          ) : null}
-          {secondary.map((action) => (
-            <EnterpriseButton
-              key={action.transitionId}
-              size="sm"
-              variant="outline"
-              disabled={pending}
-              onClick={() => handleAction(action)}
-            >
-              {locale === "ar" ? action.label : (action.labelEn ?? action.label)}
-            </EnterpriseButton>
-          ))}
-        </div>
-      ) : null}
-
+  const dialogs = (
+    <>
       <EnterpriseModal
         open={dialogAction !== null}
         onOpenChange={(open) => !open && setDialogAction(null)}
@@ -259,6 +246,59 @@ export function WorkflowActionsPanel({
           </div>
         </div>
       </EnterpriseModal>
+    </>
+  );
+
+  if (renderActions) {
+    return (
+      <>
+        {renderActions(
+          visibleActions.map((action) => ({
+            key: action.transitionId,
+            label: locale === "ar" ? action.label : (action.labelEn ?? action.label),
+            toStatusCode: action.toStatusCode,
+            disabled: pending,
+            onSelect: () => handleAction(action),
+          })),
+        )}
+        {dialogs}
+      </>
+    );
+  }
+
+  if (hideConvert && visibleActions.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-3">
+      {currentStatus ? (
+        <StatusBadge label={currentStatus.name} colorKey={currentStatus.color} />
+      ) : null}
+      {visibleActions.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {primary ? (
+            <EnterpriseButton
+              size="sm"
+              variant={primaryVariant}
+              disabled={pending}
+              onClick={() => handleAction(primary)}
+            >
+              {locale === "ar" ? primary.label : (primary.labelEn ?? primary.label)}
+            </EnterpriseButton>
+          ) : null}
+          {secondary.map((action) => (
+            <EnterpriseButton
+              key={action.transitionId}
+              size="sm"
+              variant="outline"
+              disabled={pending}
+              onClick={() => handleAction(action)}
+            >
+              {locale === "ar" ? action.label : (action.labelEn ?? action.label)}
+            </EnterpriseButton>
+          ))}
+        </div>
+      ) : null}
+      {dialogs}
     </div>
   );
 }

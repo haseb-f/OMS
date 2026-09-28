@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "../theme/tokens.css";
+@import "../theme/pilot-geist.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -143,6 +144,9 @@
  * is reserved for completed/paid/saved; danger red for destructive/failed.
  */
 :root {
+  /* IBM Plex Sans Arabic (next/font, app/layout.tsx) covers Arabic and Latin. */
+  --font-sans: var(--font-plex);
+
   /* Surfaces — canvas < surface. Cards and tables sit on the canvas as
      solid white surfaces separated by a 1px border, never a shadow. */
   --background: oklch(0.984 0.002 250);

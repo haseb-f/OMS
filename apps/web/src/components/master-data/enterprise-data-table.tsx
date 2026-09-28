@@ -1169,7 +1169,7 @@ export function EnterpriseDataTable<TData>({
             on phones; search and the view controls stay inline. */}
         <ListToolbar>
           <div className="contents" inert={bulkStripOpen}>
-            <div className="min-w-0 flex-1 basis-40 sm:min-w-48 sm:max-w-88 md:max-w-112">
+            <div className="min-w-0 flex-1 basis-40 sm:min-w-48 sm:max-w-88 md:min-w-56 md:max-w-112">
               <SearchInput
                 value={searchDraft}
                 onValueChange={handleSearchInput}

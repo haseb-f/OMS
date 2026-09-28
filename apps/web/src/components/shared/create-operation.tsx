@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { SubmitButton } from "@/components/shared/form-fields/submit-button";
 import { useLocale } from "@/providers/locale-provider";
+import { useUiPilot } from "@/providers/ui-pilot-provider";
 import { cn } from "@/lib/utils";
 
 /**
@@ -42,8 +43,30 @@ export function CreateOperationSummary({
   rows: { label: string; value: ReactNode }[];
   className?: string;
 }) {
+  const pilot = useUiPilot().active;
   const visible = rows.filter((row) => !isSummaryValueEmpty(row.value));
   if (visible.length === 0) return null;
+
+  if (pilot) {
+    // Round 3 pilot: a review list — heading, then hairline-divided rows
+    // (label at the start, value at the end), no tinted box.
+    return (
+      <section className={cn("@container flex flex-col gap-1", className)}>
+        <h3 className="text-body font-semibold">{title}</h3>
+        <dl className="grid grid-cols-1 gap-x-8 @2xl:grid-cols-2">
+          {visible.map((row) => (
+            <div
+              key={row.label}
+              className="flex min-w-0 items-baseline justify-between gap-4 border-b border-border py-2"
+            >
+              <dt className="shrink-0 text-caption text-muted-foreground">{row.label}</dt>
+              <dd className="min-w-0 text-end text-body font-medium">{row.value}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+    );
+  }
 
   return (
     <section className={cn("rounded-md border border-border bg-muted/30 px-3 py-2", className)}>
@@ -118,12 +141,14 @@ export function CreateOperationFooter({
   submitDisabled?: boolean;
 }) {
   const { t } = useLocale();
+  // Pilot: Cancel is a white secondary (Geist), still never a second primary.
+  const pilot = useUiPilot().active;
 
   return (
     <>
       <EnterpriseButton
         type="button"
-        variant="ghost"
+        variant={pilot ? "outline" : "ghost"}
         size="sm"
         onClick={requestClose}
         disabled={isSubmitting}

@@ -21,6 +21,9 @@ import { LeadFollowUpDialog } from "@/components/crm/lead-follow-up-dialog";
 import { LeadConvertDialog } from "@/components/crm/lead-convert-dialog";
 import { LeadCloseWithoutPurchaseDialog } from "@/components/crm/lead-close-dialog";
 import { LeadNextActions } from "@/components/crm/lead-next-actions";
+import { LeadDetailPilot, type LeadOutcome } from "@/components/crm/pilot/lead-detail-pilot";
+import { useUiPilot } from "@/providers/ui-pilot-provider";
+import { pilotLeadStatusName } from "@/components/crm/pilot/lead-status-label";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
@@ -45,7 +48,8 @@ import type { MessageKey } from "@/i18n/translate";
 function LeadDetailContent() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { t } = useLocale();
+  const locale = useLocale();
+  const { t } = locale;
   const { hasPermission } = useUserContext();
   const classifications = useCustomerClassifications();
 
@@ -62,6 +66,10 @@ function LeadDetailContent() {
   const [convertOpen, setConvertOpen] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
   const [canAssign, setCanAssign] = useState(false);
+  const pilot = useUiPilot().active;
+  // Round 3 pilot: the last action's result, shown in place (§11.4).
+  const [outcome, setOutcome] = useState<LeadOutcome | null>(null);
+  const announce = (message: string) => setOutcome({ key: Date.now(), message });
 
   const canEdit = hasPermission("crm.leads.edit");
   const canConvert = hasPermission("crm.leads.convert") || canEdit;
@@ -186,6 +194,195 @@ function LeadDetailContent() {
         }
       : null);
 
+  const classificationCombobox = (
+    <EntityCombobox
+      value={selectedClassification}
+      onChange={(row) => void saveClassification(row?.id ?? null)}
+      items={[
+        ...(lead.customerClassification &&
+        lead.customerClassification.deletedAt &&
+        !classifications.some((row) => row.id === lead.customerClassification!.id)
+          ? [lead.customerClassification as never]
+          : []),
+        ...classifications,
+      ]}
+      getId={(row) => row.id}
+      getTitle={(row) => row.name}
+      allowClear
+      placeholder={t("masterData.customerClassifications.select")}
+    />
+  );
+
+  const followUpsContent = (
+    <DetailSection>
+      {(followUps ?? []).length === 0 ? (
+        <p className="text-caption text-muted-foreground">{t("common.noResults")}</p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {(followUps ?? []).map((item) => (
+            <div key={item.id} className="border-t border-border pt-2 first:border-t-0 first:pt-0">
+              <p className="text-body font-medium">{item.outcome || "—"}</p>
+              {item.note ? <p className="text-caption">{item.note}</p> : null}
+              <p className="text-caption text-muted-foreground">
+                {item.user?.fullName} · {formatDateTime(item.createdAt)}
+                {item.followUpAt
+                  ? ` · ${t("crm.leads.fields.nextFollowUp")}: ${formatDateTime(item.followUpAt)}`
+                  : ""}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </DetailSection>
+  );
+
+  const timelineContent =
+    activities === null ? (
+      <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
+    ) : timelineEntries.length === 0 ? (
+      <p className="text-caption text-muted-foreground">{t("common.noActivity")}</p>
+    ) : (
+      <AuditTimeline entries={timelineEntries} />
+    );
+
+  const assignmentContent = (
+    <DetailSection>
+      <DetailField
+        label={t("crm.leads.fields.assignedTo")}
+        value={
+          lead.salesEmployee
+            ? `${lead.salesEmployee.fullName} — ${lead.salesEmployee.email}`
+            : undefined
+        }
+      />
+      {(assignments ?? []).map((assignment) => (
+        <p key={assignment.id} className="text-caption text-muted-foreground">
+          {formatDateTime(assignment.assignedAt)} · {assignment.assignedTo?.fullName} ·{" "}
+          {assignment.method}
+        </p>
+      ))}
+    </DetailSection>
+  );
+
+  const notesContent = (
+    <DetailSection>
+      <div className="flex flex-col gap-2">
+        <Textarea
+          value={noteDraft}
+          onChange={(event) => setNoteDraft(event.target.value)}
+          placeholder={t("crm.leads.notesPanel.placeholder")}
+        />
+        <EnterpriseButton
+          type="button"
+          size="sm"
+          className="w-fit"
+          disabled={isSavingNote || !noteDraft.trim()}
+          onClick={() => void submitNote()}
+        >
+          {t("crm.leads.actions.addNote")}
+        </EnterpriseButton>
+      </div>
+      {(notes ?? []).map((note) => (
+        <div key={note.id} className="border-t border-border pt-3">
+          <p className="whitespace-pre-wrap text-sm">{note.text}</p>
+          <p className="pt-1 text-caption text-muted-foreground">
+            {formatDateTime(note.createdAt)}
+          </p>
+        </div>
+      ))}
+    </DetailSection>
+  );
+
+  const dialogs = (
+    <>
+      <LeadFollowUpDialog
+        open={followUpOpen}
+        onOpenChange={setFollowUpOpen}
+        leadId={lead.id}
+        onSaved={() => {
+          announce(t("crm.leads.followUp.saved"));
+          void load();
+          reloadSidePanels();
+        }}
+      />
+      <LeadConvertDialog
+        lead={lead}
+        open={convertOpen}
+        onOpenChange={setConvertOpen}
+        onConverted={(result) => {
+          if (result.storeOrder?.id) {
+            router.push(`/store-orders/${result.storeOrder.id}`);
+            return;
+          }
+          void load();
+        }}
+      />
+      <LeadCloseWithoutPurchaseDialog
+        leadId={lead.id}
+        classificationId={lead.customerClassificationId}
+        open={closeOpen}
+        onOpenChange={setCloseOpen}
+        onClosed={() => {
+          announce(t("crm.leads.closeWithoutPurchase.success"));
+          void load();
+          reloadSidePanels();
+        }}
+      />
+      <AssignLeadDialog
+        open={assignOpen}
+        onOpenChange={setAssignOpen}
+        leadIds={[lead.id]}
+        onAssigned={() => {
+          announce(t("crm.leads.assignDialog.success"));
+          void load();
+          reloadSidePanels();
+        }}
+      />
+    </>
+  );
+
+  if (pilot) {
+    return (
+      <LeadDetailPilot
+        lead={lead}
+        actions={{
+          canEdit,
+          canConvert,
+          canAssign,
+          onFollowUp: () => setFollowUpOpen(true),
+          onConvert: () => setConvertOpen(true),
+          onAssign: () => setAssignOpen(true),
+          onClose: () => setCloseOpen(true),
+        }}
+        classificationControl={canEdit && operational ? classificationCombobox : null}
+        outcome={outcome}
+        onDismissOutcome={() => setOutcome(null)}
+        onTransitionComplete={(action) => {
+          announce(
+            t("crm.leads.transitioned", {
+              status:
+                pilotLeadStatusName(
+                  { code: action.toStatusCode, name: action.toStatusName } as LeadRow["status"],
+                  locale,
+                ) ?? action.toStatusName,
+            }),
+          );
+          void load();
+          reloadSidePanels();
+        }}
+        tabs={{
+          followUps: followUpsContent,
+          timeline: timelineContent,
+          assignment: assignmentContent,
+          notes: notesContent,
+        }}
+        followUpCount={followUps?.length ?? 0}
+      >
+        {dialogs}
+      </LeadDetailPilot>
+    );
+  }
+
   return (
     <DetailWorkspace
       title={lead.customerName}
@@ -233,22 +430,7 @@ function LeadDetailContent() {
           label={t("crm.leads.fields.classification")}
           value={
             canEdit && operational ? (
-              <EntityCombobox
-                value={selectedClassification}
-                onChange={(row) => void saveClassification(row?.id ?? null)}
-                items={[
-                  ...(lead.customerClassification &&
-                  lead.customerClassification.deletedAt &&
-                  !classifications.some((row) => row.id === lead.customerClassification!.id)
-                    ? [lead.customerClassification as never]
-                    : []),
-                  ...classifications,
-                ]}
-                getId={(row) => row.id}
-                getTitle={(row) => row.name}
-                allowClear
-                placeholder={t("masterData.customerClassifications.select")}
-              />
+              classificationCombobox
             ) : lead.customerClassification ? (
               <ClassificationBadge
                 label={lead.customerClassification.name}
@@ -331,141 +513,27 @@ function LeadDetailContent() {
           {
             value: "followUps",
             label: t("crm.leads.sections.followUps"),
-            content: (
-              <DetailSection>
-                {(followUps ?? []).length === 0 ? (
-                  <p className="text-caption text-muted-foreground">{t("common.noResults")}</p>
-                ) : (
-                  <div className="flex flex-col gap-3">
-                    {(followUps ?? []).map((item) => (
-                      <div
-                        key={item.id}
-                        className="border-t border-border pt-2 first:border-t-0 first:pt-0"
-                      >
-                        <p className="text-body font-medium">{item.outcome || "—"}</p>
-                        {item.note ? <p className="text-caption">{item.note}</p> : null}
-                        <p className="text-caption text-muted-foreground">
-                          {item.user?.fullName} · {formatDateTime(item.createdAt)}
-                          {item.followUpAt
-                            ? ` · ${t("crm.leads.fields.nextFollowUp")}: ${formatDateTime(item.followUpAt)}`
-                            : ""}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </DetailSection>
-            ),
+            content: followUpsContent,
           },
           {
             value: "timeline",
             label: t("crm.leads.sections.timeline"),
-            content:
-              activities === null ? (
-                <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
-              ) : timelineEntries.length === 0 ? (
-                <p className="text-caption text-muted-foreground">{t("common.noActivity")}</p>
-              ) : (
-                <AuditTimeline entries={timelineEntries} />
-              ),
+            content: timelineContent,
           },
           {
             value: "assignment",
             label: t("crm.leads.sections.assignment"),
-            content: (
-              <DetailSection>
-                <DetailField
-                  label={t("crm.leads.fields.assignedTo")}
-                  value={
-                    lead.salesEmployee
-                      ? `${lead.salesEmployee.fullName} — ${lead.salesEmployee.email}`
-                      : undefined
-                  }
-                />
-                {(assignments ?? []).map((assignment) => (
-                  <p key={assignment.id} className="text-caption text-muted-foreground">
-                    {formatDateTime(assignment.assignedAt)} · {assignment.assignedTo?.fullName} ·{" "}
-                    {assignment.method}
-                  </p>
-                ))}
-              </DetailSection>
-            ),
+            content: assignmentContent,
           },
           {
             value: "notes",
             label: t("crm.leads.sections.notes"),
-            content: (
-              <DetailSection>
-                <div className="flex flex-col gap-2">
-                  <Textarea
-                    value={noteDraft}
-                    onChange={(event) => setNoteDraft(event.target.value)}
-                    placeholder={t("crm.leads.notesPanel.placeholder")}
-                  />
-                  <EnterpriseButton
-                    type="button"
-                    size="sm"
-                    className="w-fit"
-                    disabled={isSavingNote || !noteDraft.trim()}
-                    onClick={() => void submitNote()}
-                  >
-                    {t("crm.leads.actions.addNote")}
-                  </EnterpriseButton>
-                </div>
-                {(notes ?? []).map((note) => (
-                  <div key={note.id} className="border-t border-border pt-3">
-                    <p className="whitespace-pre-wrap text-sm">{note.text}</p>
-                    <p className="pt-1 text-caption text-muted-foreground">
-                      {formatDateTime(note.createdAt)}
-                    </p>
-                  </div>
-                ))}
-              </DetailSection>
-            ),
+            content: notesContent,
           },
         ]}
       />
 
-      <LeadFollowUpDialog
-        open={followUpOpen}
-        onOpenChange={setFollowUpOpen}
-        leadId={lead.id}
-        onSaved={() => {
-          void load();
-          reloadSidePanels();
-        }}
-      />
-      <LeadConvertDialog
-        lead={lead}
-        open={convertOpen}
-        onOpenChange={setConvertOpen}
-        onConverted={(result) => {
-          if (result.storeOrder?.id) {
-            router.push(`/store-orders/${result.storeOrder.id}`);
-            return;
-          }
-          void load();
-        }}
-      />
-      <LeadCloseWithoutPurchaseDialog
-        leadId={lead.id}
-        classificationId={lead.customerClassificationId}
-        open={closeOpen}
-        onOpenChange={setCloseOpen}
-        onClosed={() => {
-          void load();
-          reloadSidePanels();
-        }}
-      />
-      <AssignLeadDialog
-        open={assignOpen}
-        onOpenChange={setAssignOpen}
-        leadIds={[lead.id]}
-        onAssigned={() => {
-          void load();
-          reloadSidePanels();
-        }}
-      />
+      {dialogs}
     </DetailWorkspace>
   );
 }

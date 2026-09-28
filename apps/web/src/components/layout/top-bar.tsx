@@ -9,6 +9,7 @@ import { NotificationsMenu } from "./notifications-menu";
 import { ThemeSwitch } from "./theme-switch";
 import { LocaleSwitch } from "./locale-switch";
 import { ProfileMenu } from "./profile-menu";
+import { PilotSwitch } from "./pilot-switch";
 
 /**
  * App Bar — sticky, solid, one 48px row (`--shell-topbar-height`) that
@@ -22,7 +23,10 @@ export function TopBar() {
   const { t } = useLocale();
 
   return (
-    <header className="sticky top-0 z-(--z-topbar) flex h-(--shell-topbar-height) shrink-0 items-center gap-2 border-b border-border bg-card px-(--shell-gutter) lg:px-(--shell-gutter-lg)">
+    <header
+      data-slot="top-bar"
+      className="sticky top-0 z-(--z-topbar) flex h-(--shell-topbar-height) shrink-0 items-center gap-2 border-b border-border bg-card px-(--shell-gutter) lg:px-(--shell-gutter-lg)"
+    >
       <SidebarTrigger
         className="-ms-1 size-8 shrink-0 lg:hidden"
         aria-label={t("topbar.openNavigation")}
@@ -31,6 +35,7 @@ export function TopBar() {
       <BreadcrumbBar />
 
       <div className="ms-auto flex shrink-0 items-center gap-1">
+        <PilotSwitch />
         <CommandPalette />
         <LocaleSwitch />
         <ThemeSwitch />

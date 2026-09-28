@@ -8,6 +8,7 @@ import { EnterpriseButton } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
 import { useLocale } from "@/providers/locale-provider";
+import { useUiPilot } from "@/providers/ui-pilot-provider";
 import { cn } from "@/lib/utils";
 
 export type EnterpriseModalSize = "sm" | "md" | "lg" | "xl";
@@ -92,6 +93,9 @@ export function EnterpriseModal({
   const { t } = useLocale();
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const keyboardInset = useKeyboardInset();
+  // Round 3 pilot (design-system §12): Geist modal — roomier header/body,
+  // no decorative icon, footer actions split to the two edges.
+  const pilot = useUiPilot().active;
 
   const requestClose = () => {
     if (isDirty) {
@@ -133,9 +137,14 @@ export function EnterpriseModal({
             className,
           )}
         >
-          <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3">
+          <div
+            className={cn(
+              "flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3",
+              pilot && "px-5 py-3.5",
+            )}
+          >
             <div className="flex min-w-0 items-start gap-2.5">
-              {Icon && (
+              {Icon && !pilot && (
                 <Icon className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />
               )}
               <div className="flex min-w-0 flex-col gap-0.5">
@@ -155,13 +164,25 @@ export function EnterpriseModal({
             </EnterpriseButton>
           </div>
 
-          <div className={cn("min-h-0 flex-1 overflow-y-auto px-4 py-3", bodyClassName)}>
+          <div
+            className={cn(
+              "min-h-0 flex-1 overflow-y-auto px-4 py-3",
+              pilot && "px-5 py-4",
+              bodyClassName,
+            )}
+          >
             {errorSummary}
             {children}
           </div>
 
           {footer !== undefined && footer !== null && (
-            <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-border bg-surface-sunken px-4 py-2.5 sm:flex-row sm:justify-end">
+            <div
+              className={cn(
+                "flex shrink-0 flex-col-reverse gap-2 border-t border-border bg-surface-sunken px-4 py-2.5 sm:flex-row sm:justify-end",
+                // Pilot: secondary at the start edge, the final action at the end edge.
+                pilot && "px-5 py-3 sm:items-center sm:[&>*:first-child:not(:only-child)]:me-auto",
+              )}
+            >
               {typeof footer === "function" ? footer(requestClose) : footer}
             </div>
           )}

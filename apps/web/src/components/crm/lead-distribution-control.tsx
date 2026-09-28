@@ -75,18 +75,13 @@ export function useLeadDistribution({
 export type LeadDistributionState = ReturnType<typeof useLeadDistribution>;
 
 /**
- * Compact labeled status group for the leads page header: «توزيع الليدز:»
- * + state badge (opens the modes dialog) + pending / held / problem chips.
+ * What the distribution header shows, derived once for the classic chips
+ * and the Round 3 pilot meta line alike.
  */
-export function LeadDistributionStatus({
-  state,
-  onOpenModes,
-}: {
-  state: LeadDistributionState;
-  onOpenModes: () => void;
-}) {
-  const { t } = useLocale();
-  if (!state.canManage) return null;
+export function describeLeadDistribution(
+  state: LeadDistributionState,
+  t: ReturnType<typeof useLocale>["t"],
+) {
   const { snapshot, status, running } = state;
   const remainingHours =
     snapshot?.policy?.remainingMs != null
@@ -118,12 +113,47 @@ export function LeadDistributionStatus({
       label: t("crm.leads.distribution.states.paused"),
     },
   }[status];
-  const Icon = badge.icon;
   const lastRun = snapshot?.lastRun?.at
     ? `${t("crm.leads.distribution.lastRun")}: ${t("crm.leads.distribution.lastRunAssigned", {
         count: snapshot.lastRun.assigned,
       })}`
     : undefined;
+  return {
+    status,
+    running,
+    remainingHours,
+    heldCount,
+    pendingCount,
+    failureReason,
+    badge,
+    lastRun,
+  };
+}
+
+/**
+ * Compact labeled status group for the leads page header: «توزيع الليدز:»
+ * + state badge (opens the modes dialog) + pending / held / problem chips.
+ */
+export function LeadDistributionStatus({
+  state,
+  onOpenModes,
+}: {
+  state: LeadDistributionState;
+  onOpenModes: () => void;
+}) {
+  const { t } = useLocale();
+  if (!state.canManage) return null;
+  const {
+    status,
+    running,
+    remainingHours,
+    heldCount,
+    pendingCount,
+    failureReason,
+    badge,
+    lastRun,
+  } = describeLeadDistribution(state, t);
+  const Icon = badge.icon;
 
   return (
     <div

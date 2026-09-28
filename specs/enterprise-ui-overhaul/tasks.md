@@ -30,3 +30,19 @@
 | R2-REV | Independent visual / RTL / a11y review — review-r2.md (12 findings, all fixed and verified)                           | Reviewer          | R2-DOC  | done   |
 | R2-REL | Gates, logical commits, push, deploy, verify SHA (a3b22dc + follow-ups)                                               | Master            | R2-REV  | done   |
 | R2-QA  | Production after capture (r2-after, 228/0 sweep), journeys DEMO-UI-20260928 (+R2/R3), Arabic guide screenshots        | Master            | R2-REL  | done   |
+
+## Round 3 — Vercel-reference redesign (LOCAL PILOT, branch `ui/vercel-pilot`)
+
+| ID      | Task                                                                                                                                                 | Owner             | Status                                   |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | ---------------------------------------- |
+| R3-REF  | Official Geist research (`geist-research.md`); spec "Round 3"; design-system §12                                                                     | Master + Research | done                                     |
+| R3-BASE | Before capture `tmp/pilot/before` (local, matched viewports)                                                                                         | Master            | done                                     |
+| R3-FND  | Scoped pilot mode (`config/ui-pilot.ts`, provider, boot script), Geist font, pilot tokens + recipes, flush sidebar, one-line labels, reviewer switch | Master            | done                                     |
+| R3-DASH | Dashboard pilot (attention → metrics → ranking); control-states board on /design-system                                                              | Master            | done                                     |
+| R3-LEAD | Lead list + lead detail pilot (next action, stage, details card, inline outcomes)                                                                    | Implementer       | done                                     |
+| R3-DOC  | Lead→Order dialog + sales invoice editor pilot                                                                                                       | Implementer       | done                                     |
+| R3-RPT  | Financial report pilot layout + reconciliation summary (TB, IS, other finance tabs)                                                                  | Implementer       | done                                     |
+| R3-REV  | Independent review (15 findings; 1–5, 6–10, 12–15 fixed; 11 fixed)                                                                                   | Reviewer          | done                                     |
+| R3-GATE | tsc clean · eslint 0 errors · vitest 256/256 · after capture `tmp/pilot/after`, `tmp/pilot/compare.html`                                             | Master            | done                                     |
+| R3-OK   | **Owner visual approval of the local pilot**                                                                                                         | Owner             | **WAITING — nothing deployed or merged** |
+| R3-ROLL | After approval: promote tokens/recipes, delete classic branches + pilot switch, all routes, gates, review, release                                   | —                 | blocked on R3-OK                         |

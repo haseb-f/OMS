@@ -15,11 +15,13 @@ import {
 import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
 
-export type ConfirmationTone = "default" | "destructive" | "warning";
+export type ConfirmationTone = "default" | "destructive" | "warning" | "success";
 
 /** Confirm action = the shared button variant for the tone — never a one-off color class. */
-const actionVariant: Record<ConfirmationTone, "default" | "destructive" | "warning"> = {
+const actionVariant: Record<ConfirmationTone, "default" | "destructive" | "warning" | "success"> = {
   default: "default",
+  /** Confirm / Approve / Post — the refined green (design-system §12.4). */
+  success: "success",
   destructive: "destructive",
   warning: "warning",
 };

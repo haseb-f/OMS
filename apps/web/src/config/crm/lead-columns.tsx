@@ -8,6 +8,8 @@ import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { formatDisplayDate } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
+import { useUiPilot } from "@/providers/ui-pilot-provider";
+import { pilotLeadBadge } from "@/components/crm/pilot/lead-status-label";
 import type { LeadRow } from "@/services/leads-service";
 
 /**
@@ -35,8 +37,12 @@ export function leadLifecycleBadge(
 }
 
 export function LeadStatusCell({ lead }: { lead: Pick<LeadRow, "status" | "salesEmployeeId"> }) {
-  const { t } = useLocale();
-  const badge = leadLifecycleBadge(lead, t("crm.leads.ownership.assigned"));
+  const locale = useLocale();
+  const { t } = locale;
+  const pilot = useUiPilot().active;
+  const badge = pilot
+    ? pilotLeadBadge(lead, locale)
+    : leadLifecycleBadge(lead, t("crm.leads.ownership.assigned"));
   return <StatusBadge label={badge.label} colorKey={badge.colorKey} />;
 }
 

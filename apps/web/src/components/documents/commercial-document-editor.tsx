@@ -41,7 +41,13 @@ import type { PartnerRoleValue, PartnerPickerRow } from "@/services/partners-ser
 import type { CurrencyRow } from "@/config/master-data/entities";
 import type { TraceKind } from "@/services/traceability-service";
 import { FieldMessage } from "@/components/ui/form";
+import { useUiPilot } from "@/providers/ui-pilot-provider";
 import { DocumentActionBar, type DocumentAction } from "./document-action-bar";
+import {
+  DocumentEditorPilotLayout,
+  pilotFieldClass,
+  pilotFieldGridClass,
+} from "./pilot/document-editor-pilot-layout";
 
 export interface CommercialDocumentActivityEntry {
   id: string;
@@ -140,6 +146,8 @@ export function CommercialDocumentEditor<TContext>(props: CommercialDocumentEdit
   const bodyRef = useRef<HTMLDivElement>(null);
   const focusFirstInvalid = useFocusFirstInvalid(bodyRef);
   const { canEdit, lines, totals: serverTotals, status, statusOptions, activity } = props;
+  // Round 3 pilot (design-system §12.6): same state and handlers, Geist page anatomy.
+  const pilot = useUiPilot().active;
 
   // Unsaved edits survive "Open full record" from a related-record preview.
   useNavigationDraft({
@@ -262,6 +270,281 @@ export function CommercialDocumentEditor<TContext>(props: CommercialDocumentEdit
     ) : undefined;
   const hasNotes = Boolean(props.notes.trim() || props.terms.trim());
 
+  const statusNode =
+    statusOption || props.headerStatus ? (
+      <span className="flex flex-wrap items-center gap-2">
+        {statusOption ? <StatusBadge label={statusOption.label} tone={statusOption.tone} /> : null}
+        {props.headerStatus ? (
+          // Payment is an independent lifecycle — its own group, never merged with the workflow status.
+          <span className="flex items-center gap-1.5 border-s border-border ps-2">
+            {props.headerStatus}
+          </span>
+        ) : null}
+      </span>
+    ) : null;
+
+  const actionBar = (
+    <DocumentActionBar
+      status={status}
+      actions={props.actions}
+      context={props.actionContext}
+      leading={props.toolbarExtra}
+      isBusy={props.isBusy}
+      isNew={!props.documentNumber}
+    />
+  );
+
+  const errorSummary = <FormErrorSummary errors={summaryItems} className="mb-0" />;
+
+  const partyField = (
+    <>
+      <label htmlFor={partyFieldId} className="text-caption text-muted-foreground">
+        {t(props.party.labelKey)}
+      </label>
+      <PartnerPicker
+        id={partyFieldId}
+        role={props.party.role}
+        value={props.party.value}
+        onChange={props.party.onChange}
+        disabled={!canEdit}
+        error={Boolean(errors?.party)}
+        aria-describedby={errors?.party ? `${partyFieldId}-error` : undefined}
+      />
+      {/* The summary already announces — no second live region here. */}
+      <FieldMessage id={`${partyFieldId}-error`} announce={false} data-testid="field-error-party">
+        {errors?.party}
+      </FieldMessage>
+    </>
+  );
+  const dateField = (
+    <>
+      <label htmlFor={dateFieldId} className="text-caption text-muted-foreground">
+        {t("sales.editor.header.documentDate")}
+      </label>
+      <EnterpriseDatePicker
+        id={dateFieldId}
+        value={props.documentDate}
+        onChange={props.onDocumentDateChange}
+        disabled={!canEdit}
+        aria-invalid={Boolean(errors?.documentDate) || undefined}
+      />
+      <FieldMessage>{errors?.documentDate}</FieldMessage>
+    </>
+  );
+  const currencyField = (
+    <>
+      <label htmlFor={currencyFieldId} className="text-caption text-muted-foreground">
+        {t("sales.editor.header.currency")}
+      </label>
+      {/* Empty = base currency (null), as the old "__base__" row was. */}
+      <CurrencyPicker
+        id={currencyFieldId}
+        valueKey="id"
+        value={props.currency?.id ?? ""}
+        disabled={!canEdit}
+        onValueChange={(value) =>
+          props.onCurrencyChange(currencies.find((currency) => currency.id === value) ?? null)
+        }
+        allowClear
+        placeholder={t("sales.editor.header.baseCurrency")}
+      />
+    </>
+  );
+  const referenceField = (
+    <>
+      <label htmlFor={referenceFieldId} className="text-caption text-muted-foreground">
+        {t("sales.editor.sections.referenceNumber")}
+      </label>
+      <Input
+        id={referenceFieldId}
+        dir="auto"
+        value={props.referenceNumber}
+        disabled={!canEdit}
+        onChange={(event) => props.onReferenceNumberChange(event.target.value)}
+      />
+    </>
+  );
+
+  const linesGrid = (
+    <>
+      <ProductLineItemsGrid
+        title={t("sales.editor.sections.productLines")}
+        lines={lines}
+        onChange={props.onLinesChange}
+        requireWarehouse={props.requireWarehouse}
+        disabled={!canEdit}
+        sellableOnly={props.lineMode === "sales"}
+        purchasableOnly={props.lineMode === "purchase"}
+        enableLineTreatment={props.enableLineTreatment}
+        showErrors={Boolean(errors?.lines)}
+      />
+      <FieldMessage data-testid="field-error-lines">{errors?.lines}</FieldMessage>
+    </>
+  );
+
+  const details = (
+    <>
+      <Collapsible defaultOpen={hasNotes}>
+        <CollapsibleTrigger asChild>
+          <EnterpriseButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="group w-fit gap-1.5 px-1.5 text-muted-foreground"
+          >
+            <ChevronDown className="size-3.5 transition-transform group-data-[state=open]:rotate-180" />
+            {t("sales.editor.sections.notesAndTerms")}
+          </EnterpriseButton>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="grid grid-cols-1 gap-3 pt-2 md:grid-cols-2">
+          <div className="flex flex-col gap-1">
+            <label htmlFor={termsFieldId} className="text-caption text-muted-foreground">
+              {t("sales.editor.sections.terms")}
+            </label>
+            <Textarea
+              id={termsFieldId}
+              value={props.terms}
+              disabled={!canEdit}
+              onChange={(event) => props.onTermsChange(event.target.value)}
+              rows={2}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor={notesFieldId} className="text-caption text-muted-foreground">
+              {t("sales.editor.sections.notes")}
+            </label>
+            <Textarea
+              id={notesFieldId}
+              value={props.notes}
+              disabled={!canEdit}
+              onChange={(event) => props.onNotesChange(event.target.value)}
+              rows={2}
+            />
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+
+      <Collapsible>
+        <CollapsibleTrigger asChild>
+          <EnterpriseButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="group w-fit gap-1.5 px-1.5 text-muted-foreground"
+          >
+            <ChevronDown className="size-3.5 transition-transform group-data-[state=open]:rotate-180" />
+            {t("sales.editor.sections.moreDetails")}
+          </EnterpriseButton>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-2 flex flex-col gap-3 border-t border-border pt-3">
+          <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="flex flex-col gap-1">
+              <dt className="text-caption text-muted-foreground">
+                {t("sales.editor.header.company")}
+              </dt>
+              <dd className="text-body font-medium">{activeCompany?.name ?? "—"}</dd>
+            </div>
+            <div className="flex flex-col gap-1">
+              <dt className="text-caption text-muted-foreground">
+                {t("sales.editor.header.branch")}
+              </dt>
+              <dd className="text-body font-medium">{activeBranch?.name ?? "—"}</dd>
+            </div>
+          </dl>
+          {props.moreDetails}
+          <div>
+            <p className="mb-1 text-caption font-medium text-muted-foreground">
+              {t("sales.editor.sidebar.activity")}
+            </p>
+            {activity === undefined || activity === null ? (
+              <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
+            ) : activityEntries.length === 0 ? (
+              <p className="text-caption text-muted-foreground">{t("common.noActivity")}</p>
+            ) : (
+              <AuditTimeline entries={activityEntries} />
+            )}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    </>
+  );
+
+  const totalsBlock = (
+    <>
+      <DocumentTotalsFooter
+        totals={previewTotals ?? serverTotals}
+        isLoading={!previewTotals && props.isTotalsLoading}
+        currency={props.currency?.code}
+      />
+      {props.currency ? (
+        <p className="text-end text-caption text-muted-foreground">
+          {t("sales.editor.header.currencyNote", { code: props.currency.code })}
+        </p>
+      ) : null}
+      {props.paymentSummary}
+    </>
+  );
+
+  const formError = <FieldMessage data-testid="field-error-form">{errors?.form}</FieldMessage>;
+
+  if (pilot) {
+    return (
+      <DocumentEditorPilotLayout
+        bodyRef={bodyRef}
+        title={props.title}
+        documentNumber={props.documentNumber}
+        pendingNumberLabel={t("sales.editor.header.numberOnSave")}
+        status={statusNode}
+        meta={meta}
+        actions={actionBar}
+        errorSummary={errorSummary}
+        fields={
+          <div className={pilotFieldGridClass}>
+            <div
+              data-field-name="party"
+              data-invalid={errors?.party ? "true" : undefined}
+              className={pilotFieldClass.wide}
+            >
+              {partyField}
+            </div>
+            <div
+              data-field-name="documentDate"
+              data-invalid={errors?.documentDate ? "true" : undefined}
+              className={pilotFieldClass.narrow}
+            >
+              {dateField}
+            </div>
+            <div className={pilotFieldClass.narrow}>{currencyField}</div>
+            <div className={pilotFieldClass.wide}>{referenceField}</div>
+            {props.headerFields}
+          </div>
+        }
+        lines={
+          <div
+            data-field-name="lines"
+            data-invalid={errors?.lines ? "true" : undefined}
+            className="flex min-w-0 flex-col gap-1"
+          >
+            {linesGrid}
+          </div>
+        }
+        details={details}
+        totals={totalsBlock}
+        formError={formError}
+        related={
+          props.trace?.id ? (
+            <RelatedRecordsPanel
+              kind={props.trace.kind}
+              id={props.trace.id}
+              refreshKey={status}
+              className="bg-card"
+            />
+          ) : null
+        }
+      />
+    );
+  }
+
   return (
     <EnterpriseCard size="sm" className="overflow-visible pb-20 md:pb-(--card-spacing)">
       <EnterpriseCardContent ref={bodyRef} data-form-scope="" className="flex flex-col gap-3">
@@ -273,34 +556,11 @@ export function CommercialDocumentEditor<TContext>(props: CommercialDocumentEdit
             <span>{props.documentNumber ?? `${props.docCodePreview ?? ""}-…`}</span>
           }
           meta={meta}
-          status={
-            statusOption || props.headerStatus ? (
-              <span className="flex flex-wrap items-center gap-2">
-                {statusOption ? (
-                  <StatusBadge label={statusOption.label} tone={statusOption.tone} />
-                ) : null}
-                {props.headerStatus ? (
-                  // Payment is an independent lifecycle — its own group, never merged with the workflow status.
-                  <span className="flex items-center gap-1.5 border-s border-border ps-2">
-                    {props.headerStatus}
-                  </span>
-                ) : null}
-              </span>
-            ) : null
-          }
-          actions={
-            <DocumentActionBar
-              status={status}
-              actions={props.actions}
-              context={props.actionContext}
-              leading={props.toolbarExtra}
-              isBusy={props.isBusy}
-              isNew={!props.documentNumber}
-            />
-          }
+          status={statusNode}
+          actions={actionBar}
         />
 
-        <FormErrorSummary errors={summaryItems} className="mb-0" />
+        {errorSummary}
 
         {/* Compact header fields: the party takes the room it needs; date,
             currency and reference keep their natural widths on sm+. */}
@@ -310,73 +570,19 @@ export function CommercialDocumentEditor<TContext>(props: CommercialDocumentEdit
             data-invalid={errors?.party ? "true" : undefined}
             className="flex w-full min-w-0 flex-col gap-1 sm:w-80 sm:max-w-full lg:w-96"
           >
-            <label htmlFor={partyFieldId} className="text-caption text-muted-foreground">
-              {t(props.party.labelKey)}
-            </label>
-            <PartnerPicker
-              id={partyFieldId}
-              role={props.party.role}
-              value={props.party.value}
-              onChange={props.party.onChange}
-              disabled={!canEdit}
-              error={Boolean(errors?.party)}
-              aria-describedby={errors?.party ? `${partyFieldId}-error` : undefined}
-            />
-            {/* The summary already announces — no second live region here. */}
-            <FieldMessage
-              id={`${partyFieldId}-error`}
-              announce={false}
-              data-testid="field-error-party"
-            >
-              {errors?.party}
-            </FieldMessage>
+            {partyField}
           </div>
           <div
             data-field-name="documentDate"
             data-invalid={errors?.documentDate ? "true" : undefined}
             className="flex w-[calc(50%-0.375rem)] min-w-0 flex-col gap-1 sm:w-44"
           >
-            <label htmlFor={dateFieldId} className="text-caption text-muted-foreground">
-              {t("sales.editor.header.documentDate")}
-            </label>
-            <EnterpriseDatePicker
-              id={dateFieldId}
-              value={props.documentDate}
-              onChange={props.onDocumentDateChange}
-              disabled={!canEdit}
-              aria-invalid={Boolean(errors?.documentDate) || undefined}
-            />
-            <FieldMessage>{errors?.documentDate}</FieldMessage>
+            {dateField}
           </div>
           <div className="flex w-[calc(50%-0.375rem)] min-w-0 flex-col gap-1 sm:w-40">
-            <label htmlFor={currencyFieldId} className="text-caption text-muted-foreground">
-              {t("sales.editor.header.currency")}
-            </label>
-            {/* Empty = base currency (null), as the old "__base__" row was. */}
-            <CurrencyPicker
-              id={currencyFieldId}
-              valueKey="id"
-              value={props.currency?.id ?? ""}
-              disabled={!canEdit}
-              onValueChange={(value) =>
-                props.onCurrencyChange(currencies.find((currency) => currency.id === value) ?? null)
-              }
-              allowClear
-              placeholder={t("sales.editor.header.baseCurrency")}
-            />
+            {currencyField}
           </div>
-          <div className="flex w-full min-w-0 flex-col gap-1 sm:w-48">
-            <label htmlFor={referenceFieldId} className="text-caption text-muted-foreground">
-              {t("sales.editor.sections.referenceNumber")}
-            </label>
-            <Input
-              id={referenceFieldId}
-              dir="auto"
-              value={props.referenceNumber}
-              disabled={!canEdit}
-              onChange={(event) => props.onReferenceNumberChange(event.target.value)}
-            />
-          </div>
+          <div className="flex w-full min-w-0 flex-col gap-1 sm:w-48">{referenceField}</div>
           {props.headerFields}
         </div>
 
@@ -385,122 +591,15 @@ export function CommercialDocumentEditor<TContext>(props: CommercialDocumentEdit
           data-invalid={errors?.lines ? "true" : undefined}
           className="flex min-w-0 flex-col gap-1 border-t border-border pt-3"
         >
-          <ProductLineItemsGrid
-            title={t("sales.editor.sections.productLines")}
-            lines={lines}
-            onChange={props.onLinesChange}
-            requireWarehouse={props.requireWarehouse}
-            disabled={!canEdit}
-            sellableOnly={props.lineMode === "sales"}
-            purchasableOnly={props.lineMode === "purchase"}
-            enableLineTreatment={props.enableLineTreatment}
-            showErrors={Boolean(errors?.lines)}
-          />
-          <FieldMessage data-testid="field-error-lines">{errors?.lines}</FieldMessage>
+          {linesGrid}
         </div>
 
         {/* Notes/terms (start) beside a right-sized totals block (end, on the numeric edge). */}
         <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]">
-          <div className="order-2 flex min-w-0 flex-col gap-1 lg:order-1">
-            <Collapsible defaultOpen={hasNotes}>
-              <CollapsibleTrigger asChild>
-                <EnterpriseButton
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="group w-fit gap-1.5 px-1.5 text-muted-foreground"
-                >
-                  <ChevronDown className="size-3.5 transition-transform group-data-[state=open]:rotate-180" />
-                  {t("sales.editor.sections.notesAndTerms")}
-                </EnterpriseButton>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="grid grid-cols-1 gap-3 pt-2 md:grid-cols-2">
-                <div className="flex flex-col gap-1">
-                  <label htmlFor={termsFieldId} className="text-caption text-muted-foreground">
-                    {t("sales.editor.sections.terms")}
-                  </label>
-                  <Textarea
-                    id={termsFieldId}
-                    value={props.terms}
-                    disabled={!canEdit}
-                    onChange={(event) => props.onTermsChange(event.target.value)}
-                    rows={2}
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label htmlFor={notesFieldId} className="text-caption text-muted-foreground">
-                    {t("sales.editor.sections.notes")}
-                  </label>
-                  <Textarea
-                    id={notesFieldId}
-                    value={props.notes}
-                    disabled={!canEdit}
-                    onChange={(event) => props.onNotesChange(event.target.value)}
-                    rows={2}
-                  />
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-
-            <Collapsible>
-              <CollapsibleTrigger asChild>
-                <EnterpriseButton
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="group w-fit gap-1.5 px-1.5 text-muted-foreground"
-                >
-                  <ChevronDown className="size-3.5 transition-transform group-data-[state=open]:rotate-180" />
-                  {t("sales.editor.sections.moreDetails")}
-                </EnterpriseButton>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="mt-2 flex flex-col gap-3 border-t border-border pt-3">
-                <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                  <div className="flex flex-col gap-1">
-                    <dt className="text-caption text-muted-foreground">
-                      {t("sales.editor.header.company")}
-                    </dt>
-                    <dd className="text-body font-medium">{activeCompany?.name ?? "—"}</dd>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <dt className="text-caption text-muted-foreground">
-                      {t("sales.editor.header.branch")}
-                    </dt>
-                    <dd className="text-body font-medium">{activeBranch?.name ?? "—"}</dd>
-                  </div>
-                </dl>
-                {props.moreDetails}
-                <div>
-                  <p className="mb-1 text-caption font-medium text-muted-foreground">
-                    {t("sales.editor.sidebar.activity")}
-                  </p>
-                  {activity === undefined || activity === null ? (
-                    <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
-                  ) : activityEntries.length === 0 ? (
-                    <p className="text-caption text-muted-foreground">{t("common.noActivity")}</p>
-                  ) : (
-                    <AuditTimeline entries={activityEntries} />
-                  )}
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-          </div>
-
-          <div className="order-1 flex min-w-0 flex-col gap-2 lg:order-2">
-            <DocumentTotalsFooter
-              totals={previewTotals ?? serverTotals}
-              isLoading={!previewTotals && props.isTotalsLoading}
-              currency={props.currency?.code}
-            />
-            {props.currency ? (
-              <p className="text-end text-caption text-muted-foreground">
-                {t("sales.editor.header.currencyNote", { code: props.currency.code })}
-              </p>
-            ) : null}
-            {props.paymentSummary}
-          </div>
+          <div className="order-2 flex min-w-0 flex-col gap-1 lg:order-1">{details}</div>
+          <div className="order-1 flex min-w-0 flex-col gap-2 lg:order-2">{totalsBlock}</div>
         </div>
-        <FieldMessage data-testid="field-error-form">{errors?.form}</FieldMessage>
+        {formError}
 
         {/* Related records are secondary context — after the document body, not above the fields. */}
         {props.trace?.id ? (

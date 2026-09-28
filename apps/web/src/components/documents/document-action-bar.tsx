@@ -11,6 +11,7 @@ import {
 } from "@/components/shared/header-actions";
 import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
 import { useLocale } from "@/providers/locale-provider";
+import { useUiPilot } from "@/providers/ui-pilot-provider";
 
 /** Explains, before it happens, what a transition creates and changes. */
 export interface DocumentActionConfirmation {
@@ -34,6 +35,11 @@ export interface DocumentAction<TContext = void> {
    * default.
    */
   secondary?: boolean;
+  /**
+   * A confirming step (Approve, Confirm, Post): drawn in the refined green
+   * success variant when it is the primary (Round 3 pilot, design-system §12.4).
+   */
+  success?: boolean;
   /** Legacy visual hint from older configs; `primary`/`destructive` win. */
   variant?: "default" | "outline" | "destructive" | "ghost";
   visibleForStatuses?: string[];
@@ -74,6 +80,7 @@ export function DocumentActionBar<TContext>({
 }) {
   const { t } = useLocale();
   const keyboardInset = useKeyboardInset();
+  const pilot = useUiPilot().active;
   const [pending, setPending] = useState<DocumentAction<TContext> | null>(null);
   const [running, setRunning] = useState<string | null>(null);
 
@@ -142,7 +149,14 @@ export function DocumentActionBar<TContext>({
       >
         <HeaderActions
           className="max-md:flex-nowrap max-md:[&>button]:h-(--control-height-lg) max-md:[&>button:last-child]:flex-1"
-          primary={primary ? toSpec(primary) : undefined}
+          primary={
+            primary
+              ? {
+                  ...toSpec(primary),
+                  ...(pilot && primary.success ? { variant: "success" as const } : {}),
+                }
+              : undefined
+          }
           secondary={rest.filter(isSecondary).map(toSpec)}
           more={rest.filter((action) => !isSecondary(action)).map(toSpec)}
           destructive={destructiveSpecs}
@@ -154,7 +168,7 @@ export function DocumentActionBar<TContext>({
         onOpenChange={(open) => {
           if (!open) setPending(null);
         }}
-        tone={pending?.confirm?.tone ?? "default"}
+        tone={pending?.confirm?.tone ?? (pilot && pending?.success ? "success" : "default")}
         title={pending?.confirm?.title ?? ""}
         description={pending?.confirm?.description}
         confirmLabel={pending?.confirm?.confirmLabel ?? pending?.label}

@@ -35,6 +35,8 @@ import {
   useLeadDistribution,
 } from "@/components/crm/lead-distribution-control";
 import { BulkLeadStatusDialog } from "@/components/crm/bulk-lead-status-dialog";
+import { LeadDistributionMetaPilot } from "@/components/crm/pilot/lead-list-pilot";
+import { useUiPilot } from "@/providers/ui-pilot-provider";
 import { reportApiError } from "@/lib/toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -49,6 +51,7 @@ function CrmLeadsPageContent() {
   const router = useRouter();
   const { hasPermission } = useUserContext();
   const classifications = useCustomerClassifications();
+  const pilot = useUiPilot().active;
   const [canAssign, setCanAssign] = useState(false);
 
   const currencies = useCurrencies();
@@ -273,12 +276,18 @@ function CrmLeadsPageContent() {
           setUnassignedOnly(false);
         }}
         extraFilters={
-          <div className="flex flex-wrap items-center gap-3">
+          <div
+            className={
+              // Pilot: the toolbar's own 6px rhythm, so search → filters → view options share a row.
+              pilot ? "flex flex-wrap items-center gap-1.5" : "flex flex-wrap items-center gap-3"
+            }
+          >
             <SelectFilter
               label={t("crm.leads.lifecycle.all")}
               value={lifecycle}
               onChange={setLifecycle}
               allLabel={t("crm.leads.lifecycle.all")}
+              className={pilot ? "min-w-24" : undefined}
               options={[
                 { value: "active", label: t("crm.leads.lifecycle.active") },
                 { value: "converted", label: t("crm.leads.lifecycle.converted") },
@@ -286,7 +295,12 @@ function CrmLeadsPageContent() {
               ]}
             />
             <SelectFilter
-              label={t("crm.leads.fields.classification")}
+              label={
+                pilot
+                  ? t("crm.leads.filters.classificationShort")
+                  : t("crm.leads.fields.classification")
+              }
+              className={pilot ? "min-w-24" : undefined}
               value={classificationFilter}
               onChange={setClassificationFilter}
               options={classifications.map((row) => ({ value: row.id, label: row.name }))}
@@ -296,6 +310,7 @@ function CrmLeadsPageContent() {
               value={followUpFilter}
               onChange={setFollowUpFilter}
               allLabel={t("crm.leads.filters.followUpAll")}
+              className={pilot ? "min-w-24" : undefined}
               options={[
                 { value: "today", label: t("crm.leads.followUp.today") },
                 { value: "overdue", label: t("crm.leads.followUp.overdue") },
@@ -310,7 +325,7 @@ function CrmLeadsPageContent() {
                 another employee — the backend AND's this with scope
                 regardless, but hiding it here keeps the UI honest too. */}
             {canAssign ? (
-              <div className="w-full sm:w-52">
+              <div className={pilot ? "w-full sm:w-44" : "w-full sm:w-52"}>
                 <EmployeePicker
                   items={eligibleEmployees}
                   value={
@@ -377,10 +392,17 @@ function CrmLeadsPageContent() {
         )}
         headerMeta={
           canAssign ? (
-            <LeadDistributionStatus
-              state={distribution}
-              onOpenModes={() => setDistributionOpen(true)}
-            />
+            pilot ? (
+              <LeadDistributionMetaPilot
+                state={distribution}
+                onOpenModes={() => setDistributionOpen(true)}
+              />
+            ) : (
+              <LeadDistributionStatus
+                state={distribution}
+                onOpenModes={() => setDistributionOpen(true)}
+              />
+            )
           ) : null
         }
         extraActions={

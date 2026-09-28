@@ -274,6 +274,7 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
         {
           key: "approve",
           primary: true,
+          success: true,
           label: t("sales.invoices.actions.approve"),
           icon: CheckCircle2,
           visibleForStatuses: ["DRAFT", "PENDING_APPROVAL"],
@@ -286,6 +287,7 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
         {
           key: "confirm",
           primary: true,
+          success: true,
           label: t("sales.invoices.actions.confirm"),
           icon: PackageCheck,
           visibleForStatuses: ["DRAFT", "PENDING_APPROVAL", "APPROVED"],

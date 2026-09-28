@@ -5,6 +5,8 @@ import Link from "next/link";
 import { clsx as cx } from "clsx";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useLocale } from "@/providers/locale-provider";
+import { useUiPilot } from "@/providers/ui-pilot-provider";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { MessageKey } from "@/i18n/translate";
 import { ReportMoney } from "./report-money";
 import { resolveFinancialLineLabel } from "./line-label";
@@ -71,6 +73,28 @@ const HEAD =
   "sticky top-0 z-(--z-sticky) h-9 border-b border-border-strong bg-table-header text-table-head text-table-header-foreground";
 const PIN_HEAD = "sm:start-0 sm:z-(--z-sticky-corner)";
 
+/*
+ * Round 3 pilot (design-system §12.6): a quiet Geist table — hairline header
+ * rule and rows, a little more row air, the label column pinned on phones too
+ * (narrower there, with an end hairline while the figures scroll past it).
+ * Selected by `useUiPilot().active`; the classic classes above are untouched.
+ */
+const PILOT_CELL = "px-3 align-middle whitespace-nowrap first:ps-4 last:pe-4";
+const PILOT_PIN_BODY = "sticky start-0 z-(--z-pinned) max-sm:border-e max-sm:border-e-border";
+const PILOT_HEAD =
+  "sticky top-0 z-(--z-sticky) h-9 border-b border-border bg-table-header text-table-head text-table-header-foreground";
+const PILOT_PIN_HEAD = "start-0 z-(--z-sticky-corner) max-sm:border-e max-sm:border-e-border";
+const PILOT_ROW_RULE = "[&>td]:border-b [&>td]:border-b-border hover:[&>td]:bg-table-row-hover";
+const PILOT_LABEL_MIN_PHONE_REM = 12;
+/** Dr/Cr balance column on phones — fits 1,000,000.00 + the side, so label + closing fit 390px. */
+const PILOT_DRCR_PHONE_REM = 9.5;
+/** Same widths as CSS (literal for Tailwind): 9.5rem on phones, the classic 11rem from `sm`. */
+const PILOT_DRCR_WIDTH = "[--report-drcr-w:9.5rem] sm:[--report-drcr-w:11rem]";
+/** Phone breakpoint (Tailwind `sm`) for the pilot's phone-only column order. */
+const SM_PX = 640;
+/** Hierarchy indent per level — tighter on phones so the pinned label keeps its text. */
+const PILOT_INDENT = "[--report-indent:0.6rem] sm:[--report-indent:1.1rem]";
+
 /** Minimum label-column width (rem): statements, and ledgers with descriptive columns. */
 const LABEL_MIN_REM = 14;
 const LEDGER_LABEL_MIN_REM = 16;
@@ -80,9 +104,22 @@ function amountWidthRem(column: FinancialReportColumn): number {
   return column.negative === "drcr" ? 11 : 9;
 }
 
+/**
+ * Pilot label run: isolated in its own direction (`dir="auto"`), so a Latin
+ * account name inside an Arabic row truncates at its own end ("Tamara cl…"),
+ * never at the start.
+ */
+function PilotLabel({ label }: { label: string }) {
+  return (
+    <bdi dir="auto" className="block truncate">
+      {label}
+    </bdi>
+  );
+}
+
 export function FinancialReportTable({
   lines,
-  columns,
+  columns: columnsProp,
   expanded,
   onToggle,
   onPostingClick,
@@ -111,6 +148,29 @@ export function FinancialReportTable({
   maxHeightClassName?: string;
 }) {
   const { t, locale } = useLocale();
+  const pilot = useUiPilot().active;
+  const cell = pilot ? PILOT_CELL : CELL;
+  const pinBody = pilot ? PILOT_PIN_BODY : PIN_BODY;
+  const head = pilot ? PILOT_HEAD : HEAD;
+  const pinHead = pilot ? PILOT_PIN_HEAD : PIN_HEAD;
+  const rowPad = pilot ? "py-1.5" : "py-1";
+  // Pilot phones: the figure that counts (`emphasize`, e.g. the closing
+  // balance) comes right after the pinned label, so it is visible without
+  // scrolling; the other amounts follow, one swipe away. Screen only —
+  // export and print keep the report's own column order.
+  const phone = useIsMobile(SM_PX);
+  const columns =
+    pilot && phone
+      ? [
+          ...columnsProp.filter((column) => column.emphasize),
+          ...columnsProp.filter((column) => !column.emphasize),
+        ]
+      : columnsProp;
+  const phoneAmountWidth = columns.reduce(
+    (sum, column) =>
+      sum + (column.negative === "drcr" ? PILOT_DRCR_PHONE_REM : amountWidthRem(column)),
+    0,
+  );
   const rows = flattenVisibleLines(lines, expanded);
   const rowKinds = rowKindsProp ?? resolveRowKinds(lines, { hasFooter: !!footer });
   // The table's minimum width is computed per breakpoint from the columns
@@ -130,7 +190,9 @@ export function FinancialReportTable({
   const minWidthStyle = Object.fromEntries(
     BREAKPOINTS.map((breakpoint) => [
       `--report-min-w-${breakpoint}`,
-      `${labelMin + textWidthAt(breakpoint) + amountWidth}rem`,
+      pilot && breakpoint === "base"
+        ? `${Math.min(labelMin, PILOT_LABEL_MIN_PHONE_REM) + textWidthAt(breakpoint) + phoneAmountWidth}rem`
+        : `${labelMin + textWidthAt(breakpoint) + amountWidth}rem`,
     ]),
   ) as CSSProperties;
 
@@ -174,7 +236,10 @@ export function FinancialReportTable({
     >
       <table
         data-slot="table"
-        className="w-full min-w-(--report-min-w-base) table-fixed border-separate border-spacing-0 text-table md:min-w-(--report-min-w-md) lg:min-w-(--report-min-w-lg) xl:min-w-(--report-min-w-xl) 2xl:min-w-(--report-min-w-2xl)"
+        className={cx(
+          "w-full min-w-(--report-min-w-base) table-fixed border-separate border-spacing-0 text-table md:min-w-(--report-min-w-md) lg:min-w-(--report-min-w-lg) xl:min-w-(--report-min-w-xl) 2xl:min-w-(--report-min-w-2xl)",
+          pilot && PILOT_DRCR_WIDTH,
+        )}
         style={minWidthStyle}
       >
         <colgroup>
@@ -188,7 +253,15 @@ export function FinancialReportTable({
             />
           ))}
           {columns.map((column) => (
-            <col key={column.key} style={{ width: `${amountWidthRem(column)}rem` }} />
+            <col
+              key={column.key}
+              style={{
+                width:
+                  pilot && column.negative === "drcr"
+                    ? "var(--report-drcr-w)"
+                    : `${amountWidthRem(column)}rem`,
+              }}
+            />
           ))}
         </colgroup>
         <thead data-slot="table-header">
@@ -196,7 +269,7 @@ export function FinancialReportTable({
             <th
               scope="col"
               data-slot="table-head"
-              className={cx(CELL, HEAD, PIN_HEAD, "truncate text-start")}
+              className={cx(cell, head, pinHead, "truncate text-start")}
               title={t(nameHeaderKey ?? "reports.finance.fields.accountName")}
             >
               {t(nameHeaderKey ?? "reports.finance.fields.accountName")}
@@ -207,8 +280,8 @@ export function FinancialReportTable({
                 scope="col"
                 data-slot="table-head"
                 className={cx(
-                  CELL,
-                  HEAD,
+                  cell,
+                  head,
                   "truncate text-start",
                   column.hideBelow && HIDE_BELOW_CELL[column.hideBelow],
                 )}
@@ -223,7 +296,7 @@ export function FinancialReportTable({
                 scope="col"
                 data-slot="table-head"
                 // Same end edge as the values below it.
-                className={cx(CELL, HEAD, "truncate text-end")}
+                className={cx(cell, head, "truncate text-end")}
                 title={t(column.labelKey as MessageKey)}
               >
                 {t(column.labelKey as MessageKey)}
@@ -244,7 +317,9 @@ export function FinancialReportTable({
                 data-slot="table-row"
                 data-row-kind={kind}
                 className={cx(
-                  "[&>td]:border-b [&>td]:border-b-border/60 hover:[&>td]:bg-table-row-hover",
+                  pilot
+                    ? PILOT_ROW_RULE
+                    : "[&>td]:border-b [&>td]:border-b-border/60 hover:[&>td]:bg-table-row-hover",
                   ROW_STYLE[kind],
                   canDrill &&
                     "cursor-pointer focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-focus-ring",
@@ -263,10 +338,14 @@ export function FinancialReportTable({
                     : undefined
                 }
               >
-                <td data-slot="table-cell" className={cx(CELL, PIN_BODY, "py-1")}>
+                <td data-slot="table-cell" className={cx(cell, pinBody, rowPad)}>
                   <div
-                    className="flex min-w-0 items-center gap-1.5"
-                    style={{ paddingInlineStart: `${Math.max(line.level, 0) * 1.1}rem` }}
+                    className={cx("flex min-w-0 items-center gap-1.5", pilot && PILOT_INDENT)}
+                    style={{
+                      paddingInlineStart: pilot
+                        ? `calc(${Math.max(line.level, 0)} * var(--report-indent))`
+                        : `${Math.max(line.level, 0) * 1.1}rem`,
+                    }}
                   >
                     {line.children.length > 0 ? (
                       <button
@@ -296,12 +375,19 @@ export function FinancialReportTable({
                     {href ? (
                       <Link
                         href={href}
-                        className="truncate rounded-xs hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-focus-ring"
+                        className={cx(
+                          "rounded-xs hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-focus-ring",
+                          pilot ? "block min-w-0" : "truncate",
+                        )}
                         title={label}
                         onClick={(event) => event.stopPropagation()}
                       >
-                        {label}
+                        {pilot ? <PilotLabel label={label} /> : label}
                       </Link>
+                    ) : pilot ? (
+                      <span className="block min-w-0" title={label}>
+                        <PilotLabel label={label} />
+                      </span>
                     ) : (
                       <span className="truncate" title={label}>
                         {label}
@@ -314,8 +400,9 @@ export function FinancialReportTable({
                     key={column.key}
                     data-slot="table-cell"
                     className={cx(
-                      CELL,
-                      "truncate py-1 font-normal",
+                      cell,
+                      rowPad,
+                      "truncate font-normal",
                       column.hideBelow && HIDE_BELOW_CELL[column.hideBelow],
                     )}
                     title={line.text?.[column.key] || undefined}
@@ -334,7 +421,7 @@ export function FinancialReportTable({
                     <td
                       key={column.key}
                       data-slot="table-cell"
-                      className={cx(CELL, "py-1 text-end")}
+                      className={cx(cell, rowPad, "text-end")}
                     >
                       <ReportMoney
                         // An expanded section's figures are repeated by its
@@ -342,7 +429,9 @@ export function FinancialReportTable({
                         // expanded COA parent keeps its figure, quietly, so
                         // it is never read (or re-added) as a separate amount.
                         value={kind === "section" && isExpanded ? undefined : value}
-                        quiet={kind === "parent" && isExpanded}
+                        // Pilot: the parent keeps its row weight and color
+                        // (§7 hierarchy) — it is a subtotal of what it holds.
+                        quiet={!pilot && kind === "parent" && isExpanded}
                         adverse={adverse}
                         negative={column.negative}
                       />
@@ -360,18 +449,18 @@ export function FinancialReportTable({
               data-row-kind="grand-total"
               className={ROW_STYLE["grand-total"]}
             >
-              <td data-slot="table-cell" className={cx(CELL, PIN_BODY, "py-1.5")}>
+              <td data-slot="table-cell" className={cx(cell, pinBody, "py-1.5")}>
                 {t("reports.finance.totals")}
               </td>
               {textColumns.map((column) => (
                 <td
                   key={column.key}
                   data-slot="table-cell"
-                  className={cx(CELL, column.hideBelow && HIDE_BELOW_CELL[column.hideBelow])}
+                  className={cx(cell, column.hideBelow && HIDE_BELOW_CELL[column.hideBelow])}
                 />
               ))}
               {columns.map((column) => (
-                <td key={column.key} data-slot="table-cell" className={cx(CELL, "py-1.5 text-end")}>
+                <td key={column.key} data-slot="table-cell" className={cx(cell, "py-1.5 text-end")}>
                   <ReportMoney value={footer.values[column.key]} negative={column.negative} />
                 </td>
               ))}

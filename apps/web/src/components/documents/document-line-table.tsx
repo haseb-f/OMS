@@ -84,10 +84,13 @@ export function DocumentLineTableAddFooter({
   onClick,
   disabled,
   label,
+  extra,
 }: {
   onClick: () => void;
   disabled?: boolean;
   label: string;
+  /** Another line action (e.g. "Browse products"), placed at the end edge. */
+  extra?: ReactNode;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-1 border-t border-border bg-muted/20 px-2 py-1.5">
@@ -102,6 +105,7 @@ export function DocumentLineTableAddFooter({
         <Plus className="size-3.5" />
         {label}
       </EnterpriseButton>
+      {extra ? <div className="ms-auto flex items-center gap-1">{extra}</div> : null}
     </div>
   );
 }

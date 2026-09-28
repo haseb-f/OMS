@@ -29,7 +29,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useLocale } from "@/providers/locale-provider";
+import { useUiPilot } from "@/providers/ui-pilot-provider";
 import type { ReportExportFormat } from "@/lib/report-export";
+import { FinancialReportHeaderPilot } from "./pilot/financial-report-header-pilot";
 
 /* ------------------------------------------------------------------ */
 /* Page chrome: the page that hosts a report hands it the title and the */
@@ -94,7 +96,22 @@ export function FinancialReportHeader({
   filters?: ReactNode;
   notice?: ReactNode;
 }) {
+  // Round 3 pilot (design-system §12.1): the pilot arrangement, same slots.
+  const pilot = useUiPilot().active;
   const parts = context.filter(Boolean);
+  if (pilot) {
+    return (
+      <FinancialReportHeaderPilot
+        title={title}
+        titleAs={TitleTag}
+        context={parts}
+        switcher={switcher}
+        actions={actions}
+        filters={filters}
+        notice={notice}
+      />
+    );
+  }
   return (
     <div data-slot="report-header" className="flex min-w-0 flex-col gap-2 print:hidden">
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">

@@ -373,3 +373,92 @@ owner's brief asks for button-like triggers.
   - the same treatment on nested items and in the mobile drawer
 - **Hover and focus.** Hover is a neutral tint; focus is the inset outline. No state shifts the
   layout.
+
+## 12. Round 3 — Vercel-reference ("geist") design, LOCAL PILOT (2026-09-28)
+
+Status: **pilot, pending owner approval.** Active only under `<html data-ui="geist">` (pilot routes in
+a build with `NEXT_PUBLIC_UI_PILOT=geist`; see spec "Round 3"). Reference values:
+`geist-research.md`. Implementation: `theme/pilot-geist.css` (tokens + recipes),
+`providers/ui-pilot-provider.tsx` (`useUiPilot().active`), `config/ui-pilot.ts` (routes).
+
+### 12.1 Isolation contract
+
+- Tokens and visual recipes live only in `theme/pilot-geist.css`, scoped to `[data-ui="geist"]`.
+- A structural change to a **shared** component (used outside the pilot routes) must be gated on
+  `useUiPilot().active`, so the classic output is unchanged when the pilot is off.
+- A pilot **screen** renders its pilot layout from a separate presentational component
+  (`*-pilot.tsx`) that reuses the page's data, handlers and permissions. The classic layout stays
+  as is. Rollout later deletes the classic branch.
+- Never change data flow, API calls, payment rules, shipping states, permissions, calculations,
+  validation rules or accounting behavior for a visual reason.
+
+### 12.2 Surfaces, lines, elevation
+
+- Canvas `--background` #fafafa (dark #0a0a0a); every surface (card, table, field, menu) is solid
+  `--card` white (dark #111). No gradients, glass, inset/embossed fills or grey tonal controls.
+- Hairlines: `--border` #ebebeb for surfaces and dividers; `--border-strong` for secondary buttons;
+  `--input` #d1d1d1 for control rings (hover `--input-hover`).
+- Elevation: cards a whisper (`--shadow-card`), menus/popovers `--shadow-floating`, dialogs
+  `--shadow-modal`. Nothing else casts a shadow.
+- Radius: 6px controls and menu rows, 8px cards/menus/popovers, 12px dialogs, pills only for
+  badges and status dots.
+
+### 12.3 Type
+
+- Geist for Latin text and digits, IBM Plex Sans Arabic for Arabic (automatic per glyph through
+  the `--font-sans` stack). Geist Mono (`font-mono`) only for machine references where a monospace
+  helps (SKU, IBAN, hashes) — never for amounts.
+- Same size scale as §2. Latin h1/h2 get −0.02em tracking; Arabic never gets negative tracking.
+- Hierarchy by weight and color: `text-foreground` primary, `text-muted-foreground` secondary.
+
+### 12.4 Controls
+
+- One height per size (32px desktop, 40px touch). Buttons weight 500, radius 6.
+- **Hierarchy per context:** exactly one filled primary (navy; light in dark mode). Confirm,
+  Approve, Convert to Order and Post use `variant="success"` (refined green, white text, ≥4.5:1).
+  Destructive uses `variant="destructive"` (solid red) and always confirms. Everything else is
+  `outline` (white, hairline) or `ghost`.
+- **Selector triggers** (Select, EntityCombobox, filters, pickers): white control, `--input` ring,
+  fixed 16px chevron at the end. States: hover = darker ring + faint fill; open/pressed = focus-blue
+  ring + 3px halo; has value = value in `text-foreground`, placeholder in `--placeholder`; focus
+  = 2px outline; invalid = red ring + halo; disabled = muted fill. Applied filter = brand tint.
+- **Text inputs:** white, `--input` border, focus = blue border + 3px halo, read-only = sunken,
+  invalid = red border + halo.
+- **Menus:** 8px panel, 6px rows (32px, 40px touch), neutral highlight, trailing check for the
+  selected row, destructive items red and separated.
+- **Segmented control** (period, view switches): one ringed track, the selected segment filled.
+- **Tabs:** underline tabs, selected = foreground text + 2px underline.
+- **Badges:** subtle pills (tone-100 surface, tone-900 text); the label always names the state.
+
+### 12.5 Page anatomy
+
+- **Shell:** flush sidebar on the canvas with a hairline edge; 48px white top bar (breadcrumb,
+  ⌘K search, locale/theme/notifications/account). Sidebar labels are one line (nested included,
+  truncated with the full text in `title`); the active item keeps the accent rail and a restrained
+  grey highlight.
+- **Page header:** title (20px/600) + one-line context, actions at the end, one row on desktop.
+- **Action toolbar:** from the end edge — primary (filled or green) → up to two outline secondaries
+  → «المزيد / More» menu (destructive last, red, separated).
+- **Sections:** a heading (16px/600) with an optional one-line description and an optional action,
+  then a white card. Settings-style forms use the Geist fieldset: body + a footer band
+  (`--surface-sunken`, top hairline) holding help text at the start and the action at the end.
+
+### 12.6 Screen rules
+
+- **Dashboard:** 1) Needs attention — an entity list of actionable queues (count, one-line reason,
+  link), zero rows shown as "clear" not hidden noise; 2) Metrics — one strip of real figures for
+  the selected period; 3) Operational details — ranking table. No decorative charts, no invented
+  data.
+- **Lead detail:** identity header (name, number, status) with ONE next action chosen by workflow
+  priority (convert when qualified → assign when unassigned → overdue follow-up → follow-up);
+  workflow transitions and other actions grouped as secondary / «More». A stage indicator shows
+  where the lead is (New → In progress → Qualified → Converted). Details in one card grid.
+- **Orders and invoices:** compact proportional fields (party wider, dates/currency/reference
+  narrow), item rows aligned on one grid, totals block aligned to the numeric edge with the grand
+  total emphasized, a predictable footer: secondary actions at the start, the final action at the
+  end.
+- **Financial reports:** one reusable layout — title + context line, filter row, actions, summary
+  strip (figures + reconciliation status), table. "Balanced" appears as a reconciliation summary
+  (debit total = credit total, difference 0) — never a floating badge.
+- **Feedback:** validation next to the field and summarized next to the action that failed;
+  success shown in place (status, link, inline note). Toasts only supplement.

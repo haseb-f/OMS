@@ -16,6 +16,7 @@ import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import { useCompany } from "@/providers/company-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
+import { useUiPilot } from "@/providers/ui-pilot-provider";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { siteConfig } from "@/config/site";
 import { downloadReport, type ReportExportFormat } from "@/lib/report-export";
@@ -123,6 +124,7 @@ export function FinancialReport({
   nameHeaderKey?: MessageKey;
 }) {
   const { t, locale, direction } = useLocale();
+  const pilot = useUiPilot().active;
   const { printList } = usePrintEngine();
   const { activeCompany, companies } = useCompany();
   const { user } = useUserContext();
@@ -266,7 +268,12 @@ export function FinancialReport({
   return (
     <div
       data-slot="financial-report"
-      className={cn("flex min-w-0 flex-col gap-2", fill && "lg:min-h-0 lg:flex-1")}
+      className={cn(
+        "flex min-w-0 flex-col",
+        // Round 3 pilot: header, summary and table read as separate blocks.
+        pilot ? "gap-4" : "gap-2",
+        fill && "lg:min-h-0 lg:flex-1",
+      )}
     >
       <FinancialReportHeader
         title={title}
@@ -304,7 +311,10 @@ export function FinancialReport({
         />
       ) : null}
       {placeholder ?? (
-        <ListSurface fill={fill} className="print:border-0 print:shadow-none">
+        <ListSurface
+          fill={fill}
+          className={cn("print:border-0 print:shadow-none", pilot && "shadow-(--shadow-card)")}
+        >
           <div
             className={cn("flex min-h-0 flex-col lg:flex-1", isLoading && "opacity-60")}
             aria-busy={isLoading || undefined}

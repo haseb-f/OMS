@@ -38,8 +38,12 @@ export interface ActionSpec {
 }
 
 export interface DestructiveActionSpec extends ActionSpec {
-  /** Destructive actions always confirm before running (design-system §11.2). */
-  confirm: { title: string; description?: ReactNode; confirmLabel: string };
+  /**
+   * Destructive actions confirm before running (design-system §11.2). Omit
+   * `confirm` only when the action itself opens a dialog that confirms (e.g.
+   * a close dialog that asks for a reason) — it then runs directly.
+   */
+  confirm?: { title: string; description?: ReactNode; confirmLabel: string };
 }
 
 /** Max secondary actions shown inline (outline) on sm+; the rest overflow. */
@@ -195,7 +199,7 @@ export function HeaderActions({
         data-phone-only={opts?.phoneOnly || undefined}
         onSelect={(event) => {
           event.preventDefault();
-          if (opts?.destructive) {
+          if (opts?.destructive && (action as DestructiveActionSpec).confirm) {
             setMenuOpen(false);
             window.setTimeout(() => setConfirming(action as DestructiveActionSpec), 50);
             return;
@@ -274,9 +278,9 @@ export function HeaderActions({
             if (!open) setConfirming(null);
           }}
           tone="destructive"
-          title={confirming.confirm.title}
-          description={confirming.confirm.description}
-          confirmLabel={confirming.confirm.confirmLabel}
+          title={confirming.confirm!.title}
+          description={confirming.confirm!.description}
+          confirmLabel={confirming.confirm!.confirmLabel}
           isConfirming={running}
           onConfirm={async () => {
             setRunning(true);

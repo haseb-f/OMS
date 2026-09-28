@@ -150,7 +150,7 @@ const TYPE_PRESETS: Record<
 > = {
   code: { grow: 1, minWidth: 96, maxWidth: 160, align: "start", importance: "medium" },
   phone: { grow: 1, minWidth: 120, maxWidth: 180, align: "start", importance: "medium" },
-  status: { grow: 1, minWidth: 90, maxWidth: 140, align: "start", importance: "high" },
+  status: { grow: 1, minWidth: 112, maxWidth: 160, align: "start", importance: "high" },
   date: { grow: 1, minWidth: 110, maxWidth: 160, align: "start", importance: "high" },
   reference: { grow: 1, minWidth: 110, maxWidth: 180, align: "start", importance: "high" },
   money: { grow: 1, minWidth: 148, maxWidth: 200, align: "end", importance: "high" },

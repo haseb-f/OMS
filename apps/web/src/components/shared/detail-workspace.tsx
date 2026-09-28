@@ -235,10 +235,19 @@ export function DetailSummaryBar({
 }
 
 /** Labeled field for detail screens (not table cells). Hidden when empty. */
-export function DetailField({ label, value }: { label: string; value: ReactNode }) {
+export function DetailField({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: ReactNode;
+  /** Grid placement only (e.g. `sm:col-span-2` for an address). */
+  className?: string;
+}) {
   if (!hasDetailValue(value)) return null;
   return (
-    <div className="min-w-0">
+    <div className={cn("min-w-0", className)}>
       <dt className="text-caption text-muted-foreground">{label}</dt>
       <dd className="mt-0.5 break-words text-body font-medium text-foreground [overflow-wrap:anywhere]">
         {value}
@@ -250,9 +259,12 @@ export function DetailField({ label, value }: { label: string; value: ReactNode 
 export function DetailFieldGrid({
   children,
   columns = 2,
+  className,
 }: {
   children: ReactNode;
   columns?: 2 | 3 | 4;
+  /** Optional overrides (e.g. a two-column phone grid for short facts). */
+  className?: string;
 }) {
   return (
     <dl
@@ -260,6 +272,7 @@ export function DetailFieldGrid({
         "grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2",
         columns === 3 && "lg:grid-cols-3",
         columns === 4 && "lg:grid-cols-4",
+        className,
       )}
     >
       {children}

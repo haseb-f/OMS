@@ -1,4 +1,7 @@
+"use client";
+
 import type { ReactNode } from "react";
+import { useUiPilot } from "@/providers/ui-pilot-provider";
 import { cn } from "@/lib/utils";
 
 /**
@@ -31,6 +34,8 @@ export function FormSection({
   "data-field-name"?: string;
   "data-invalid"?: "true";
 }) {
+  // Round 3 pilot: a little more air between groups, same hairline rhythm.
+  const pilot = useUiPilot().active;
   return (
     <section
       data-slot="form-section"
@@ -38,6 +43,7 @@ export function FormSection({
       data-invalid={invalid}
       className={cn(
         "@container flex min-w-0 flex-col gap-2 border-t border-border pt-3 first:border-t-0 first:pt-0",
+        pilot && "gap-3 pt-4",
         className,
       )}
     >

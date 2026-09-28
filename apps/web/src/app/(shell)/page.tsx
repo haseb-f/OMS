@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Bell,
@@ -37,34 +37,15 @@ import {
   type SalesPeriod,
   type SalesPerformanceDashboard,
 } from "@/services/sales-performance-service";
-import { paymentsReviewService } from "@/services/payments-review-service";
-import { bankTransactionsService } from "@/services/bank-transactions-service";
+import { loadPendingFigures, useLoad } from "@/components/dashboard/dashboard-data";
+import { DashboardPilot } from "@/components/dashboard/dashboard-pilot";
+import { useUiPilot } from "@/providers/ui-pilot-provider";
 
 const PERIOD_LABEL_KEY: Record<SalesPeriod, MessageKey> = {
   today: "crm.leads.dashboard.today",
   week: "crm.leads.dashboard.week",
   month: "crm.leads.dashboard.month",
 };
-
-type LoadState<T> = { status: "loading" } | { status: "error" } | { status: "ready"; data: T };
-
-/** One async figure set with an explicit error state (never a silent "—") and retry. */
-function useLoad<T>(loader: () => Promise<T>) {
-  const [state, setState] = useState<LoadState<T>>({ status: "loading" });
-  const load = useCallback(async () => {
-    setState({ status: "loading" });
-    try {
-      setState({ status: "ready", data: await loader() });
-    } catch {
-      setState({ status: "error" });
-    }
-  }, [loader]);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load();
-  }, [load]);
-  return { state, retry: load };
-}
 
 /**
  * Role-relevant home: every tile is a real figure from an existing endpoint
@@ -79,6 +60,20 @@ export default function DashboardPage() {
   const showPaymentReview = hasPermission("sales.receipts.view");
   const showBank = hasPermission("accounting.bank-transactions.view");
   const [period, setPeriod] = useState<SalesPeriod>("month");
+  const pilot = useUiPilot().active;
+
+  if (pilot) {
+    return (
+      <DashboardPilot
+        showSales={showSales}
+        showPaymentReview={showPaymentReview}
+        showBank={showBank}
+        period={period}
+        onPeriodChange={setPeriod}
+        emptyState={<ShortcutsEmptyState />}
+      />
+    );
+  }
 
   return (
     <PageWorkspace
@@ -251,11 +246,6 @@ function RankingPanel({ data }: { data: SalesPerformanceDashboard }) {
   );
 }
 
-interface PendingFigures {
-  paymentReview: number | null;
-  bank: { unmatched: number; review: number } | null;
-}
-
 function PendingWorkSection({
   showPaymentReview,
   showBank,
@@ -265,30 +255,7 @@ function PendingWorkSection({
 }) {
   const { t } = useLocale();
   const loader = useMemo(
-    () => async (): Promise<PendingFigures> => {
-      const [pending, matched, bankCounts] = await Promise.all([
-        showPaymentReview
-          ? paymentsReviewService.list({ status: "PENDING", page: 1, pageSize: 1 })
-          : null,
-        showPaymentReview
-          ? paymentsReviewService.list({ status: "MATCHED", page: 1, pageSize: 1 })
-          : null,
-        showBank ? bankTransactionsService.statusCounts() : null,
-      ]);
-      return {
-        // The review queue's default view is exactly PENDING + MATCHED.
-        paymentReview: pending && matched ? pending.total + matched.total : null,
-        bank: bankCounts
-          ? {
-              unmatched: bankCounts.UNMATCHED ?? 0,
-              review:
-                (bankCounts.MANUAL_REVIEW ?? 0) +
-                (bankCounts.CONFLICT ?? 0) +
-                (bankCounts.POTENTIAL ?? 0),
-            }
-          : null,
-      };
-    },
+    () => () => loadPendingFigures(showPaymentReview, showBank),
     [showPaymentReview, showBank],
   );
   const { state, retry } = useLoad(loader);

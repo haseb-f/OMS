@@ -130,3 +130,60 @@ The rules are in design-system.md §11.
   unchanged.
 - HEAD = origin/main = Production, the Arabic guide screenshots are refreshed, and verification.md is
   updated.
+
+## Round 3: Vercel-reference redesign — LOCAL PILOT (2026-09-28)
+
+The owner did not accept the Round 2 appearance. Round 3 redesigns OMS around the visual quality and
+interaction patterns of Vercel's dashboard (Geist), keeping OMS branding, Arabic and all business
+behavior. Reference values: `geist-research.md`. Rules: `design-system.md` §12.
+
+**Delivery gate (hard):** a small, working LOCAL pilot first. Nothing is deployed, merged into
+`main` or rolled out system-wide until the owner explicitly approves the pilot visually. Passing tests
+is not design approval. Work lives on branch `ui/vercel-pilot`.
+
+**Pilot isolation.** The pilot is a scoped design mode, not a fork:
+
+- `data-ui="geist"` on `<html>` activates it. It is set only when `NEXT_PUBLIC_UI_PILOT=geist`
+  (local `.env.local` only) **and** the route is a pilot route (`config/ui-pilot.ts`). Every other
+  route, and every environment without the flag, renders the current design unchanged.
+- Pilot tokens live in `theme/pilot-geist.css` under `[data-ui="geist"]`. Shared primitives gain
+  pilot recipes through the `geist:` Tailwind variant only, so their current classes are untouched.
+- Reviewers can compare in place: `?ui=classic` / `?ui=geist` (remembered per browser), and a
+  «Pilot» switch in the top bar.
+- Local data only: web :3001 → API :3005 → local Postgres (Docker :5434). No Production writes.
+
+**Pilot screens.**
+
+| Screen                                  | Route                                         |
+| --------------------------------------- | --------------------------------------------- |
+| Dashboard + shared header and sidebar   | `/`                                           |
+| Lead list                               | `/crm/leads`                                  |
+| Lead detail (workflow actions)          | `/crm/leads/[id]`                             |
+| Lead → Order dialog (products, payment) | opened from lead detail                       |
+| Sales invoice editor                    | `/sales/invoices/new`, `/sales/invoices/[id]` |
+| Financial report (Trial Balance)        | `/reports/finance?report=trialBalance`        |
+
+**Acceptance for the pilot (before asking for approval):**
+
+- Every pilot screen works with local demo data and real interactions (no static mockups).
+- Geist patterns visible: solid white surfaces on a light canvas, hairline borders, 6/8/12px radii,
+  restrained shadows only on floating layers, Geist type for Latin and digits, compact 32px controls.
+- Selector triggers are white, deliberate controls with a fixed chevron and distinct hover, open,
+  selected (has value) and focus states; no grey tonal or inset/embossed fills.
+- Button hierarchy: one filled primary (navy / light in dark); Confirm, Approve and Convert to Order
+  use the refined green; destructive actions red; everything else neutral. One height per size.
+- Sidebar labels on one line (nested included), shortened where needed; active accent rail kept.
+- Dashboard order: needs attention → metrics → operational details; real figures only.
+- Lead detail: one clear next action, grouped secondary actions.
+- Invoice and order: compact fields, aligned item rows, clear totals, predictable final actions.
+- Financial report: reusable header (title, context, filters, actions), summary with the
+  reconciliation status ("Balanced" as a meaningful summary), table.
+- Validation and outcomes shown next to the action, not only as a toast.
+- Arabic/English, RTL/LTR, light/dark, desktop and 390px phone; keyboard reachable; no page-level
+  horizontal scroll.
+- Evidence: before/after screenshots at matching viewports (`tmp/pilot/before` vs `tmp/pilot/after`),
+  open dropdowns, button states and validation examples.
+
+**After approval only:** promote the pilot tokens and `geist:` recipes to the base layer, remove the
+superseded styles and the pilot switch, cover every route, run all gates, independent visual review,
+commit, push, deploy, verify Production, refresh the Arabic guide screenshots.

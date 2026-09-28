@@ -217,6 +217,7 @@ export const navigationConfig: NavigationItem[] = [
   {
     id: "master-data-workflow-transitions",
     titleKey: "workflow.transitions.title",
+    shortTitleKey: "sidebar.short.transitions",
     parent: "master-data",
     route: "/master-data/workflow-transitions",
     icon: "git-branch",
@@ -306,6 +307,7 @@ export const navigationConfig: NavigationItem[] = [
   {
     id: "products",
     titleKey: "nav.products",
+    shortTitleKey: "sidebar.short.products",
     icon: "package",
     order: 40,
   },

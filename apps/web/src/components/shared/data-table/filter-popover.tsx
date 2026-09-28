@@ -28,6 +28,8 @@ export const FilterTrigger = forwardRef<
       size="sm"
       role="combobox"
       aria-haspopup="listbox"
+      data-filter-trigger=""
+      data-active={isActive || undefined}
       className={cn(
         "h-(--control-height-md) min-w-36 justify-between font-normal",
         // An applied filter reads as "selected": brand-tinted, medium weight.
