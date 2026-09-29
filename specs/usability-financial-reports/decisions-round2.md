@@ -573,3 +573,41 @@ Closing and reports therefore agree.
   - Serial (`--testPathIgnorePatterns /node_modules/`): the bootstrap, year-closing cycle and capital-return
     correction specs pass 3/3; the reports serial specs pass 12/12. The local DB was verified clean afterwards.
   - API `tsc` clean. ESLint on the changed files is clean.
+
+## Release and Production verification
+
+Release: `274324f` (feature) + `19f34b2` (web test timeout), pushed to `main` on 2026-09-29.
+Production deployment `6738741664`, Vercel status `success`. The Vercel build runs
+`prisma migrate deploy` first, so migration `20260929140000_fiscal_singleton_entries` is applied.
+
+Gates on the release commit, checked in a clean worktree without other sessions' uncommitted files:
+
+- Web: typecheck and lint pass; vitest 63 files / 451 tests pass.
+- API: tsc passes; full jest 134 suites / 1690 tests pass.
+- Production builds: `next build` and `nest build` succeed.
+
+The GitHub "Lint" workflow (repo-wide Prettier check) has failed on every push to `main` since
+`41f159a`. The 25 files it flags are pre-existing and none are part of this release. A cleanup
+task has been filed.
+
+Independent review: accounting/code review, round 2. Each area was confirmed against direct SQL; the
+defects it found are fixed (§Y10).
+
+Read-only Production checks, as the QA admin persona, GET requests only:
+
+| Check                                                   | Production result                                                                                   |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `tmp/acc/reconcile.mjs`, 2026-09-01..09-30, Cairo days  | 14/14 pass                                                                                          |
+| TB Dr = Cr                                              | 31,548,992.34                                                                                       |
+| BS A = L + E                                            | 377,120.90 = 9,649.50 + 367,471.40                                                                  |
+| IS YTD = BS current-year profit                         | 367,470.40                                                                                          |
+| Selling breakdown, September                            | shipping 260 + gateway 1,535.66 + fulfilment 0 + other 0 = 1,795.66, below gross profit 372,968.27  |
+| CF closing = BS cash                                    | 77,094.33                                                                                           |
+| Cairo day 2026-09-27                                    | 29 entries (13 stamped on the previous UTC day), all counted on the 27th; TB debits = journal lines |
+| `GET /accounting/year-closing/:FY2026`                  | live; FY 2026 is OPEN, so closing is blocked (`FISCAL_YEAR_NOT_CLOSED`)                             |
+| `GET /accounting/opening-balances/fiscal-years/:FY2026` | live; basis `OPENING_ENTRY` = JV-2026-000003 (the QA 1 EGP entry); no bootstrap entry was added     |
+| `GET /capital-returns/corrections/affected`             | `entries: []`, profit impact 0: nothing to correct                                                  |
+
+The QA opening entry JV-2026-000003 has not been corrected; the owner decides.
+The agent statement still uses UTC days until the commission-policy session applies the Cairo rule
+in its release.
