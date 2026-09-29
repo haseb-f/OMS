@@ -79,9 +79,24 @@ Findings fixed during the browser pass: no default phone country in the manual o
 misleading "doesn't match the selected country" error); name/country/phone not grouped; conflicting
 "+20 +966…" display with a green check on a conflicting number.
 
+## Production (after deploy)
+
+Release `f75db61` is live in Production: deployment `6728773695`, state `success`, created
+2026-09-29T07:05Z. A read-only reconciliation was run through the Production API as the QA admin
+persona (GET requests only), with the same `tmp/acc/reconcile.mjs`, for 2026-09-01..2026-09-30.
+All 12/12 checks pass:
+
+| Check                                                         | Production figures                   |
+| ------------------------------------------------------------- | ------------------------------------ |
+| TB period debits = credits                                    | 31,548,992.34 = 31,548,992.34        |
+| BS assets = liabilities + equity                              | 377,120.90 = 9,649.50 + 367,471.40   |
+| IS net profit YTD = BS current-year profit                    | 367,470.40 = 367,470.40              |
+| IS: net revenue → gross profit → operating profit (September) | 777,773.18 → 372,968.27 → 370,253.63 |
+| CF closing = independent ledger cash = BS cash                | 77,094.33                            |
+| Unclassified accounts                                         | 0 (IS and BS)                        |
+| Journal Report paging                                         | 347 rows, 347 unique                 |
+
 ## Not verified / limitations
 
-- Production figures are not reconciled until the release is deployed; Production data will be
-  re-checked read-only through the API after deployment.
 - Compliance: the statements follow the IAS 1 / IAS 7 structure documented in `accounting-review.md`,
   but that is not a compliance certification — open policy points P2–P12 remain owner decisions.
