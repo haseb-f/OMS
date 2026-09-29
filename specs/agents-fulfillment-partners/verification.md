@@ -109,3 +109,22 @@ the server's «عربي — English» message.
 Evidence: `tmp/agents-acceptance/prod/*.json`; screenshots
 `docs/user-guide/evidence/agents-20260928/prod/` (32 files). Scripts:
 `scripts/acceptance/agents-prod-acceptance.mjs`, `agents-prod-browser.mjs`.
+
+## Follow-up release `41f159a` — Production re-check
+
+| Item                                                                                                  | Result                                                 |
+| ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| Fail-closed toasts readable (payment review «تأكيد وترحيل», «ترحيل القيود المعلقة», company refund)   | PASS — Arabic server message instead of `errors.*` key |
+| Agent statement descriptions in Arabic (internal + portal print, internal + portal CSV, 24 rows each) | PASS                                                   |
+| General Ledger print wrapping                                                                         | NOT FIXED — see analysis                               |
+
+**General Ledger print analysis.** On the real Production payload (20–28 Sep, 685 rows, A4
+landscape, compact), a detail row needs ≈200 characters (Account/description p90 39, max 60; source
+document p90 29; Partner filled on 29 % of rows, up to 47; date, journal, entry and amounts ≈94) while
+≈170 fit. Five column-width strategies were measured against the browser's native layout (40 pages):
+proportional (40), fill-scaled (49), line-count greedy (41–43), exhaustive candidate search (43) and
+canvas-measured sparse hints (42–51). None beats native, so the auto-width code was removed again
+(pure revert, no behavior change vs. before `41f159a`). The remaining levers are report content —
+the Account cell prints the English journal description, and Journal/Partner could merge into other
+cells — which belong to the concurrently running `usability-financial-reports` spec; handed over to
+that session.
