@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { businessDateRangeFilter } from '../../common/time/business-date';
 import {
   AgentLedgerEntryType,
   AgentLedgerPostingStatus,
@@ -51,10 +52,19 @@ export interface LedgerListQuery {
   pageSize?: number;
 }
 
-/** Inclusive calendar-day bounds (UTC) from `YYYY-MM-DD` strings. */
+/**
+ * Inclusive business-day bounds (Africa/Cairo, like every OMS report) from
+ * `YYYY-MM-DD` strings: [start of the `from` day, start of the day after
+ * `to`), expressed as an inclusive `end` 1 ms before that exclusive bound so
+ * every caller keeps its `gte` / `lte` filters.
+ */
 export function periodBounds(from?: string, to?: string) {
-  const start = from ? new Date(`${from.slice(0, 10)}T00:00:00.000Z`) : null;
-  const end = to ? new Date(`${to.slice(0, 10)}T23:59:59.999Z`) : null;
+  const filter = businessDateRangeFilter(
+    from?.slice(0, 10) || undefined,
+    to?.slice(0, 10) || undefined,
+  );
+  const start = filter.gte ?? null;
+  const end = filter.lt ? new Date(filter.lt.getTime() - 1) : null;
   return { start, end };
 }
 
