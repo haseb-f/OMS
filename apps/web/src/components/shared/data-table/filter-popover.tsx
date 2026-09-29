@@ -1,10 +1,10 @@
 "use client";
 
 import { forwardRef, type ComponentProps } from "react";
-import { ChevronDown } from "lucide-react";
 
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseBadge } from "@/components/ui/badge";
+import { TriggerChevron } from "@/components/ui/trigger-chevron";
 import { CommandSeparator } from "@/components/ui/command";
 import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
@@ -18,8 +18,14 @@ import { cn } from "@/lib/utils";
  */
 export const FilterTrigger = forwardRef<
   HTMLButtonElement,
-  ComponentProps<typeof EnterpriseButton> & { label: string; isActive?: boolean; count?: number }
->(function FilterTrigger({ label, isActive, count, className, ...props }, ref) {
+  ComponentProps<typeof EnterpriseButton> & {
+    label: string;
+    isActive?: boolean;
+    count?: number;
+    /** `menu` for a trigger that opens more controls (e.g. "More filters"), not a value list. */
+    chevron?: "select" | "menu";
+  }
+>(function FilterTrigger({ label, isActive, count, chevron = "select", className, ...props }, ref) {
   return (
     <EnterpriseButton
       ref={ref}
@@ -31,10 +37,10 @@ export const FilterTrigger = forwardRef<
       data-filter-trigger=""
       data-active={isActive || undefined}
       className={cn(
-        "h-(--control-height-md) min-w-36 justify-between font-normal",
-        // An applied filter reads as "selected": brand-tinted, medium weight.
+        "h-(--control-height-md) min-w-36 justify-between",
+        // An applied filter reads as "selected": brand-tinted.
         isActive &&
-          "bg-primary-soft font-medium text-primary shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--primary)_35%,transparent)] not-disabled:hover:bg-primary-soft [&_svg]:text-primary",
+          "bg-primary-soft text-primary shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--primary)_35%,transparent)] not-disabled:hover:bg-primary-soft [&_svg]:text-primary",
         className,
       )}
       {...props}
@@ -45,7 +51,7 @@ export const FilterTrigger = forwardRef<
           {count}
         </EnterpriseBadge>
       ) : null}
-      <ChevronDown className="size-4 shrink-0" />
+      <TriggerChevron kind={chevron} />
     </EnterpriseButton>
   );
 });

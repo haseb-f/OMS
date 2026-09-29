@@ -1,8 +1,9 @@
 "use client";
 
+import { TriggerChevron } from "@/components/ui/trigger-chevron";
 import { useState } from "react";
 import type { ColumnDef, Table } from "@tanstack/react-table";
-import { ChevronDown } from "lucide-react";
+
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
@@ -185,7 +186,7 @@ function SelectionHeaderMenu({
             aria-haspopup="menu"
             className="relative size-5 rounded-xs text-muted-foreground after:absolute after:-inset-0.5 not-disabled:hover:text-foreground aria-expanded:text-foreground"
           >
-            <ChevronDown className="size-3.5" />
+            <TriggerChevron kind="menu" size="sm" />
           </IconActionButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-64">

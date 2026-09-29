@@ -80,11 +80,11 @@ export function EnterpriseMonthPicker({
           aria-invalid={ariaInvalid || undefined}
           aria-label={ariaLabel}
           className={cn(
-            "h-(--control-height-md) justify-between gap-2 font-normal",
+            "h-(--control-height-md) justify-between gap-2",
             className ?? "w-(--width-control-date)",
           )}
         >
-          <span className={cn("truncate", value ? "font-medium" : "text-placeholder")} dir="ltr">
+          <span className={cn("truncate", !value && "text-placeholder")} dir="ltr">
             {formatMonthValue(value) || placeholder}
           </span>
           <CalendarIcon className="size-3.5 shrink-0 text-muted-foreground" />

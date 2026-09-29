@@ -1,6 +1,7 @@
 "use client";
 
-import { Building2, ChevronsUpDown } from "lucide-react";
+import { TriggerChevron } from "@/components/ui/trigger-chevron";
+import { Building2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,7 +47,7 @@ export function CompanySwitcher() {
               {activeBranch?.name ?? t("company.noBranch")}
             </span>
           </span>
-          <ChevronsUpDown className="size-3.5 shrink-0 text-sidebar-muted-foreground group-data-[collapsible=icon]:hidden" />
+          <TriggerChevron size="sm" className="group-data-[collapsible=icon]:hidden" />
         </EnterpriseButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">

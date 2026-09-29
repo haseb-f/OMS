@@ -17,14 +17,11 @@ const enterpriseButtonVariants = cva(
         outline:
           "border-(--control-border) bg-card text-foreground not-disabled:hover:border-(--control-border-hover) not-disabled:hover:bg-(--control-hover) not-disabled:active:border-(--control-border-hover) not-disabled:active:bg-(--control-pressed) aria-expanded:border-(--control-border-hover) aria-expanded:bg-(--control-pressed) data-[state=open]:bg-(--control-pressed)",
         /**
-         * A trigger that behaves like a form field (pickers, comboboxes,
-         * filter triggers, date/month pickers): input boundary, normal
-         * weight, focus/open state drawn like an Input.
-         */
-        /**
-         * Selector trigger (select, combobox, filter, picker): a neutral TONAL
-         * button with an inset hairline — visibly "click to choose", distinct
-         * from white text inputs, never competing with the primary action.
+         * Selector trigger (combobox, filter, date/month picker) — the same
+         * control as `SelectTrigger`: white surface, control ring + 3:1 bottom
+         * edge, value at `--trigger-weight`, one `TriggerChevron` at the end.
+         * Ring / hover / open / focus / invalid states live in the shared
+         * recipe (theme/recipes.css, design-system §12.11).
          */
         field:
           "border-transparent bg-selector font-normal text-selector-foreground shadow-[inset_0_0_0_1px_var(--selector-border)] not-disabled:hover:bg-selector-hover not-disabled:active:bg-selector-active not-disabled:active:shadow-[inset_0_0_0_1px_var(--focus-ring)] aria-expanded:bg-selector-active aria-expanded:not-disabled:hover:bg-selector-active data-[state=open]:not-disabled:hover:bg-selector-active aria-expanded:shadow-[inset_0_0_0_1px_var(--focus-ring)] data-[state=open]:bg-selector-active data-[state=open]:shadow-[inset_0_0_0_1px_var(--focus-ring)] aria-invalid:shadow-[inset_0_0_0_1px_var(--destructive)] disabled:bg-muted disabled:shadow-none [&_svg]:text-muted-foreground",
@@ -45,15 +42,13 @@ const enterpriseButtonVariants = cva(
         // default = --control-height-md (32px; 40px on touch pointers).
         default:
           "h-(--control-height-md) gap-1.5 px-3 has-data-[icon=inline-end]:pe-2.5 has-data-[icon=inline-start]:ps-2.5",
-        xs: "h-(--control-height-xs) gap-1 px-2 text-micro font-medium in-data-[slot=button-group]:rounded-xs has-data-[icon=inline-end]:pe-1.5 has-data-[icon=inline-start]:ps-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-(--control-height-sm) gap-1.5 px-2.5 text-[length:var(--text-caption)] in-data-[slot=button-group]:rounded-xs has-data-[icon=inline-end]:pe-2 has-data-[icon=inline-start]:ps-2 [&_svg:not([class*='size-'])]:size-3.5",
+        xs: "h-(--control-height-xs) gap-1 px-2 text-micro font-medium has-data-[icon=inline-end]:pe-1.5 has-data-[icon=inline-start]:ps-1.5 [&_svg:not([class*='size-'])]:size-3",
+        sm: "h-(--control-height-sm) gap-1.5 px-2.5 text-[length:var(--text-caption)] has-data-[icon=inline-end]:pe-2 has-data-[icon=inline-start]:ps-2 [&_svg:not([class*='size-'])]:size-3.5",
         inline: "h-auto min-h-0 gap-1 border-0 px-0 py-0 [&_svg:not([class*='size-'])]:size-3.5",
         lg: "h-(--control-height-lg) gap-2 px-4 has-data-[icon=inline-end]:pe-3 has-data-[icon=inline-start]:ps-3",
         icon: "size-(--control-height-md)",
-        "icon-xs":
-          "size-(--control-height-xs) in-data-[slot=button-group]:rounded-xs [&_svg:not([class*='size-'])]:size-3",
-        "icon-sm":
-          "size-(--control-height-sm) in-data-[slot=button-group]:rounded-xs [&_svg:not([class*='size-'])]:size-3.5",
+        "icon-xs": "size-(--control-height-xs) [&_svg:not([class*='size-'])]:size-3",
+        "icon-sm": "size-(--control-height-sm) [&_svg:not([class*='size-'])]:size-3.5",
         "icon-lg": "size-(--control-height-lg) [&_svg:not([class*='size-'])]:size-[1.125rem]",
       },
     },
@@ -90,6 +85,11 @@ const EnterpriseButton = React.forwardRef<
     <Comp
       ref={ref}
       data-slot="button"
+      // Stable hook for the shared recipes: a Radix trigger (`PopoverTrigger`,
+      // `DropdownMenuTrigger`, `TooltipTrigger`…) rendered `asChild` replaces
+      // `data-slot` with its own, so recipes key on `data-button`, never on
+      // `data-slot="button"`.
+      data-button=""
       data-variant={variant}
       data-size={size}
       disabled={disabled || isLoading}

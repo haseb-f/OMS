@@ -8,7 +8,7 @@ import {
   type ButtonHTMLAttributes,
   type ReactNode,
 } from "react";
-import { ChevronDown, Plus, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { filterByArabicSearch } from "@/lib/arabic-search";
 import { Popover, PopoverTrigger } from "@/components/ui/popover";
@@ -24,6 +24,8 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { EnterpriseButton } from "@/components/ui/button";
+import { TriggerChevron } from "@/components/ui/trigger-chevron";
+import { useFilterBarContext } from "@/components/shared/data-table/filter-bar-context";
 import { SEARCH_DEBOUNCE_MS } from "@/hooks/use-debounced-value";
 import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
@@ -114,6 +116,9 @@ export function EntityCombobox<T>({
   variant?: "default" | "ghost";
 }) {
   const { t } = useLocale();
+  // In a list filter bar the empty text is the filter's NAME, not a hint:
+  // it reads like every other filter trigger (label weight, brand tint once set).
+  const inFilterBar = useFilterBarContext() !== null;
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [remoteItems, setRemoteItems] = useState<T[]>([]);
@@ -204,6 +209,8 @@ export function EntityCombobox<T>({
           aria-haspopup="listbox"
           aria-autocomplete="list"
           aria-invalid={error || undefined}
+          data-filter-trigger={inFilterBar ? "" : undefined}
+          data-active={inFilterBar && value ? "" : undefined}
           disabled={disabled}
           size="sm"
           {...triggerProps}
@@ -217,7 +224,7 @@ export function EntityCombobox<T>({
             }
           }}
           className={cn(
-            "h-(--control-height-md) min-w-0 w-full justify-between text-body font-normal",
+            "h-(--control-height-md) min-w-0 w-full justify-between text-body",
             variant === "ghost" && "bg-selector/70 px-1.5",
             triggerClassName,
             triggerProps?.className,
@@ -227,9 +234,11 @@ export function EntityCombobox<T>({
             {icon}
             <span
               dir="auto"
+              // Long names truncate; the full text stays one hover away.
+              title={value ? getTitle(value) : undefined}
               className={cn(
                 "min-w-0 truncate text-start",
-                value ? "font-medium" : "text-placeholder",
+                !value && !inFilterBar && "text-placeholder",
               )}
             >
               {value ? getTitle(value) : (placeholder ?? t("common.select"))}
@@ -241,7 +250,7 @@ export function EntityCombobox<T>({
                 role="button"
                 tabIndex={0}
                 aria-label={t("common.clearSelection")}
-                className="rounded-xs p-0.5 text-muted-foreground hover:bg-selector-active hover:text-foreground"
+                className="rounded-xs p-0.5 text-muted-foreground hover:bg-(--control-pressed) hover:text-foreground focus-visible:outline-2 focus-visible:outline-focus-ring"
                 onPointerDown={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
@@ -265,7 +274,7 @@ export function EntityCombobox<T>({
             {isLoading ? (
               <Spinner className="size-3.5 text-muted-foreground" />
             ) : (
-              <ChevronDown className="size-4 text-muted-foreground" />
+              <TriggerChevron />
             )}
           </span>
         </EnterpriseButton>

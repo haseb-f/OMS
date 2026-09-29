@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
+import { ChevronDown, FoldVertical, UnfoldVertical } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SearchInput } from "@/components/shared/search-input";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -153,7 +153,7 @@ export function PermissionMatrix({
             className="gap-1.5"
             onClick={expandAll}
           >
-            <ChevronsUpDown className="size-3.5" />
+            <UnfoldVertical className="size-3.5" />
             {t("permissions.expandAll")}
           </EnterpriseButton>
           <EnterpriseButton
@@ -163,7 +163,7 @@ export function PermissionMatrix({
             className="gap-1.5"
             onClick={collapseAll}
           >
-            <ChevronsDownUp className="size-3.5" />
+            <FoldVertical className="size-3.5" />
             {t("permissions.collapseAll")}
           </EnterpriseButton>
         </div>

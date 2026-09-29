@@ -148,24 +148,24 @@ html[dir="ltr"] :is(h1, h2) {
 /* ── 2. Recipes ───────────────────────────────────────────────────────── */
 
 /* Buttons: Geist error = a solid red, not a soft tint. */
-[data-slot="button"][data-variant="destructive"] {
+[data-button][data-variant="destructive"] {
   background-color: var(--destructive);
   border-color: transparent;
   color: var(--destructive-foreground);
 }
-[data-slot="button"][data-variant="destructive"]:not(:disabled):hover {
+[data-button][data-variant="destructive"]:not(:disabled):hover {
   background-color: var(--destructive-hover);
   color: var(--destructive-foreground);
 }
 /* Refined green: Confirm / Approve / Convert to Order. */
-[data-slot="button"][data-variant="success"]:not(:disabled):hover {
+[data-button][data-variant="success"]:not(:disabled):hover {
   background-color: var(--success-hover);
 }
 /* Round 4 tactile buttons (design-system §12.10). Solid actions carry a
    soft drop + faint top light; secondary buttons a firm control edge and a
    whisper of depth. Hover is a visible fill/edge change; pressed and open
    sink (inset shadow, darker fill) — nothing moves or resizes. */
-[data-slot="button"]:is(
+[data-button]:is(
   [data-variant="default"],
   [data-variant="success"],
   [data-variant="destructive"],
@@ -173,7 +173,7 @@ html[dir="ltr"] :is(h1, h2) {
 ) {
   box-shadow: var(--control-shadow-solid);
 }
-[data-slot="button"]:is(
+[data-button]:is(
     [data-variant="default"],
     [data-variant="success"],
     [data-variant="destructive"],
@@ -183,18 +183,26 @@ html[dir="ltr"] :is(h1, h2) {
 }
 /* Outline / ghost fills and borders live in the button variants (so a
    caller's tone classes still win); the recipe only adds depth. */
-[data-slot="button"][data-variant="outline"] {
+[data-button][data-variant="outline"] {
   box-shadow: var(--control-shadow);
 }
-[data-slot="button"][data-variant="outline"]:not(:disabled):is(
+[data-button][data-variant="outline"]:not(:disabled):is(
     :active,
     [aria-expanded="true"],
     [data-state="open"]
   ) {
   box-shadow: var(--control-inset);
 }
+/* Connected groups (Kumo): items drop their own drop shadow so the group
+   reads as one control; pressed / open still sink, focus keeps its halo. */
+[data-slot="button-group"]
+  > [data-button]:not(:focus-visible):not(:active):not([aria-expanded="true"]):not(
+    [data-variant="field"]
+  ) {
+  box-shadow: none;
+}
 /* Keyboard focus: the ring plus a soft halo, on every button variant. */
-[data-slot="button"]:focus-visible {
+[data-button]:focus-visible {
   outline-offset: 1px;
   box-shadow: 0 0 0 4px var(--focus-halo);
 }
@@ -202,57 +210,57 @@ html[dir="ltr"] :is(h1, h2) {
 /* Selector triggers (select, combobox, filter, picker): a white control with
    a firm ring and a fixed chevron. Hover darkens the ring; open / pressed
    shows the focus border + halo; invalid stays red. */
-:is([data-slot="button"][data-variant="field"], [data-slot="select-trigger"]) {
-  font-weight: 400;
+:is([data-button][data-variant="field"], [data-slot="select-trigger"]) {
+  font-weight: var(--trigger-weight);
   box-shadow:
     inset 0 0 0 1px var(--control-border),
     var(--control-shadow);
 }
-:is([data-slot="button"][data-variant="field"], [data-slot="select-trigger"]):disabled {
+:is([data-button][data-variant="field"], [data-slot="select-trigger"]):disabled {
   box-shadow: none;
 }
-:is([data-slot="button"][data-variant="field"], [data-slot="select-trigger"]):not(
+:is([data-button][data-variant="field"], [data-slot="select-trigger"]):not(
     :disabled,
     [aria-expanded="true"],
-    [data-state="open"]
+    [data-state="open"],
+    :focus-visible
   ):hover {
   background-color: var(--control-hover);
   box-shadow:
     inset 0 0 0 1px var(--control-border-hover),
     var(--control-shadow);
 }
-:is([data-slot="button"][data-variant="field"], [data-slot="select-trigger"]):is(
+:is([data-button][data-variant="field"], [data-slot="select-trigger"]):is(
   [aria-expanded="true"],
   [data-state="open"]
 ),
-:is([data-slot="button"][data-variant="field"], [data-slot="select-trigger"]):not(
-    :disabled
-  ):active {
+:is([data-button][data-variant="field"], [data-slot="select-trigger"]):not(:disabled):active {
   background-color: var(--selector-active);
-  box-shadow:
-    inset 0 0 0 1px var(--focus-ring),
-    0 0 0 3px var(--focus-halo);
+  /* Open = accent edge only. The halo is reserved for keyboard focus, so an
+     open trigger never stacks a second halo beside the focused search box
+     inside its popover. */
+  box-shadow: inset 0 0 0 1px var(--focus-ring);
 }
-:is([data-slot="button"][data-variant="field"], [data-slot="select-trigger"])[aria-invalid="true"] {
+:is([data-button][data-variant="field"], [data-slot="select-trigger"])[aria-invalid="true"] {
   box-shadow:
     inset 0 0 0 1px var(--destructive),
     0 0 0 3px color-mix(in oklab, var(--destructive) 14%, transparent);
 }
-:is([data-slot="button"][data-variant="field"], [data-slot="select-trigger"]) svg:last-child {
+:is([data-button][data-variant="field"], [data-slot="select-trigger"]) svg:last-child {
   color: var(--muted-foreground);
   transition:
     transform var(--duration-base) var(--ease-standard),
     color var(--duration-base) var(--ease-standard);
 }
 /* Open: the chevron turns and darkens — the trigger says "this is open". */
-:is([data-slot="button"][data-variant="field"], [data-slot="select-trigger"]):is(
+:is([data-button][data-variant="field"], [data-slot="select-trigger"]):is(
     [aria-expanded="true"],
     [data-state="open"]
   )
   svg:last-child:is(.lucide-chevron-down, [class*="chevron-down"]) {
   transform: rotate(180deg);
 }
-:is([data-slot="button"][data-variant="field"], [data-slot="select-trigger"]):is(
+:is([data-button][data-variant="field"], [data-slot="select-trigger"]):is(
     [aria-expanded="true"],
     [data-state="open"]
   )
@@ -260,14 +268,66 @@ html[dir="ltr"] :is(h1, h2) {
   color: var(--foreground);
 }
 /* Keyboard focus on a trigger: focus edge + halo (same as a text input). */
-:is([data-slot="button"][data-variant="field"], [data-slot="select-trigger"]):focus-visible {
+:is([data-button][data-variant="field"], [data-slot="select-trigger"]):focus-visible {
   outline: none;
   box-shadow:
     inset 0 0 0 1px var(--focus-ring),
     0 0 0 3px var(--focus-halo);
 }
 @media (prefers-reduced-motion: reduce) {
-  :is([data-slot="button"][data-variant="field"], [data-slot="select-trigger"]) svg:last-child {
+  :is([data-button][data-variant="field"], [data-slot="select-trigger"]) svg:last-child {
+    transition: none;
+  }
+}
+
+/* ── Kumo refinement (kumo-research.md §4, 2026-09-29) ───────────────────
+   Placeholders stay regular weight in the placeholder colour (4.5:1), so a
+   chosen value (medium, full foreground) and "nothing chosen" never look
+   alike — and neither looks washed out. */
+[data-slot="select-trigger"][data-placeholder],
+:is([data-button][data-variant="field"], [data-slot="select-trigger"])
+  :is(.text-placeholder, [data-placeholder]) {
+  color: var(--placeholder);
+  font-weight: var(--trigger-placeholder-weight);
+}
+
+/* The one trigger chevron (`TriggerChevron`): fixed size, subtle colour,
+   darkens on hover/open. `select` carets never rotate (Kumo CaretUpDown);
+   `menu` / `disclosure` carets turn while their menu or section is open. */
+[data-slot="trigger-chevron"] {
+  width: var(--trigger-chevron-size);
+  height: var(--trigger-chevron-size);
+  color: var(--muted-foreground);
+  transition:
+    transform var(--duration-base) var(--ease-standard),
+    color var(--duration-base) var(--ease-standard);
+}
+[data-slot="trigger-chevron"][data-size="sm"] {
+  width: var(--trigger-chevron-size-sm);
+  height: var(--trigger-chevron-size-sm);
+}
+:is(button, [role="button"]):not(:disabled):is(:hover, [aria-expanded="true"], [data-state="open"])
+  > [data-slot="trigger-chevron"] {
+  color: var(--foreground);
+}
+/* Solid (primary / success / …) triggers keep the chevron in their text colour. */
+[data-button]:is(
+    [data-variant="default"],
+    [data-variant="success"],
+    [data-variant="destructive"],
+    [data-variant="info"],
+    [data-variant="warning"]
+  )
+  > [data-slot="trigger-chevron"] {
+  color: currentColor;
+  opacity: 0.85;
+}
+:is([aria-expanded="true"], [data-state="open"])
+  > [data-slot="trigger-chevron"]:is([data-kind="menu"], [data-kind="disclosure"]) {
+  transform: rotate(180deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="trigger-chevron"] {
     transition: none;
   }
 }
@@ -412,14 +472,13 @@ html[dir="ltr"] :is(h1, h2) {
 .dark [data-filter-trigger][data-active] {
   color: var(--focus-ring);
 }
-/* An unset filter shows its name as a placeholder, never as a chosen value. */
-[data-filter-trigger]:not([data-active]) > span:first-child {
-  color: var(--placeholder);
-}
+/* An unset filter shows its NAME (a label, like a Kumo secondary button) in
+   full foreground at trigger weight — it must read as a solid control, not a
+   washed-out hint. "Set" is carried by the brand tint + count badge below. */
 
 /* Disabled buttons: a quiet muted surface, not a heavy grey pill. Loading
    keeps its variant color (the spinner says "busy"). */
-[data-slot="button"]:disabled:not([aria-busy="true"]):not([data-variant="ghost"]):not(
+[data-button]:disabled:not([aria-busy="true"]):not([data-variant="ghost"]):not(
     [data-variant="link"]
   ):not([data-variant="field"]) {
   background-color: var(--muted);
@@ -428,8 +487,16 @@ html[dir="ltr"] :is(h1, h2) {
   box-shadow: none;
   opacity: 1;
 }
-[data-slot="button"][aria-busy="true"] {
+[data-button][aria-busy="true"] {
   opacity: 0.75;
+}
+/* Inside a connected group a disabled item keeps the group's edge colour, so
+   the shared 1px seam never changes tone mid-group. */
+[data-slot="button-group"]
+  > [data-button]:disabled:not([aria-busy="true"]):not([data-variant="ghost"]):not(
+    [data-variant="link"]
+  ):not([data-variant="field"]) {
+  border-color: var(--control-border);
 }
 
 /* Switch: checked = primary, unchecked = control ring grey (both themes). */
@@ -442,7 +509,7 @@ html[dir="ltr"] :is(h1, h2) {
 
 /* Touch: top-bar icon buttons get the 40px target like every other control. */
 @media (pointer: coarse) {
-  [data-slot="top-bar"] :is([data-slot="button"], [data-slot="sidebar-trigger"]) {
+  [data-slot="top-bar"] :is([data-button], [data-slot="sidebar-trigger"]) {
     min-width: var(--control-height-md);
     min-height: var(--control-height-md);
   }
@@ -450,10 +517,10 @@ html[dir="ltr"] :is(h1, h2) {
 
 /* Pressed fills (Round 3.1; Round 4 adds the inset "sink" above). Colour
    and shadow only — no scale/press animation, no layout shift. */
-[data-slot="button"][data-variant="success"]:not(:disabled):active {
+[data-button][data-variant="success"]:not(:disabled):active {
   background-color: color-mix(in oklab, var(--success-hover) 88%, black);
 }
-[data-slot="button"][data-variant="destructive"]:not(:disabled):active {
+[data-button][data-variant="destructive"]:not(:disabled):active {
   background-color: color-mix(in oklab, var(--destructive-hover) 88%, black);
 }
 
@@ -523,7 +590,7 @@ html[dir="ltr"] :is(h1, h2) {
 [data-slot="input-group"]:not(:focus-within) {
   border-bottom-color: var(--control-edge);
 }
-:is([data-slot="button"][data-variant="field"], [data-slot="select-trigger"]):not(
+:is([data-button][data-variant="field"], [data-slot="select-trigger"]):not(
   :disabled,
   [aria-invalid="true"],
   [aria-expanded="true"],
@@ -536,7 +603,7 @@ html[dir="ltr"] :is(h1, h2) {
     inset 0 -1px 0 var(--control-edge),
     var(--control-shadow);
 }
-:is([data-slot="button"][data-variant="field"], [data-slot="select-trigger"]):not(
+:is([data-button][data-variant="field"], [data-slot="select-trigger"]):not(
     :disabled,
     [aria-invalid="true"],
     [aria-expanded="true"],
@@ -551,8 +618,17 @@ html[dir="ltr"] :is(h1, h2) {
 }
 
 /* An applied filter reads as selected (brand tint + ring), also on hover. */
-[data-slot="button"][data-variant="field"][data-filter-trigger][data-active]:not(:disabled),
-[data-slot="button"][data-variant="field"][data-filter-trigger][data-active]:not(:disabled):hover {
+[data-button][data-filter-trigger][data-active] {
+  color: var(--primary);
+}
+.dark [data-button][data-filter-trigger][data-active] {
+  color: var(--focus-ring);
+}
+[data-filter-trigger][data-active] :is(svg:last-child, [data-slot="trigger-chevron"]) {
+  color: currentColor;
+}
+[data-button][data-variant="field"][data-filter-trigger][data-active]:not(:disabled),
+[data-button][data-variant="field"][data-filter-trigger][data-active]:not(:disabled):hover {
   background-color: var(--primary-soft);
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--focus-ring) 45%, transparent);
 }

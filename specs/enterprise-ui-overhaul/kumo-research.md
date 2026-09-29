@@ -323,3 +323,32 @@ for RTL.
     opacity, and the active item gets a neutral tint only, with no accent bar.
     Collapsed group labels become dividers. OMS navigation stays config-driven.
     Only the visual tokens transfer.
+
+## 4. Live computed styles (kumo-ui.com, observed 2026-09-29)
+
+Measured with `getComputedStyle` on the rendered docs pages (light theme).
+
+**Select trigger, base size** (`/components/select`):
+height 36px · radius 8px · padding-inline 12px · gap 6px · 14px / weight **400** ·
+value colour oklch(0.205 0 0) (≈ #171717, forced with `!text-kumo-default`) ·
+background #fff · box-shadow `0 0 0 1px oklch(0.145 0 0 / .1), 0 1px 2px rgb(0 0 0 / .05)` ·
+chevron: 16px `CaretUpDown` in oklch(0.556) (≈ #737373) · placeholder oklch(0.708) (≈ #a1a1a1).
+Hover `bg-kumo-tint`; open keeps white (`data-[state=open]:bg-kumo-control`); focus
+`ring-kumo-focus/50` (neutral, 1.5px), focus-visible inset.
+
+**Button group** (`/components/button-group`):
+container `relative isolate inline-flex w-max` · children lose their own shadow
+(`shadow-none`) · inner edges square (`rounded-s-none` / `rounded-e-none`) · each child
+after the first gets `margin-inline-start: -1px`, so the two 1px rings overlap into ONE
+separator (no doubled border) · focused child `z-10` · heights equal (36px) · secondary
+children: white, weight **500**, text ≈ #171717, ring 10% black; primary children: brand
+fill with a darker 1px ring.
+
+**Takeaway for OMS (not yet implemented):** the OMS trigger already matches surface/ring,
+but reads faint because (a) filter triggers show the _name_ in `--placeholder` (#737373),
+(b) chevrons are `--muted-foreground` at 14px, (c) `ButtonGroup` uses `border-s-0` instead of
+the -1px overlap. Planned: value text `--foreground` weight 450–500 for action/filter
+triggers (400 kept for field values, as Kumo), 16px chevron, `ButtonGroup` → -1px overlap
+
+- shadow-none children + z-10 focus; then migrate the custom ChevronDown triggers listed in
+  the inventory (18 files, `grep -rl ChevronDown apps/web/src`).

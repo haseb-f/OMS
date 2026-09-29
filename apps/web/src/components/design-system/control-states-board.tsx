@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, ChevronDown, ShoppingCart, Trash2, UserRound } from "lucide-react";
+import { Check, ShoppingCart, Trash2, UserRound } from "lucide-react";
+import { TriggerChevron } from "@/components/ui/trigger-chevron";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -77,11 +78,11 @@ export function ControlStatesBoard() {
                 <UserRound />
                 {k("placeholder")}
               </span>
-              <ChevronDown />
+              <TriggerChevron />
             </EnterpriseButton>
             <EnterpriseButton variant="field" className="w-52 justify-between" disabled>
               <span>{k("disabled")}</span>
-              <ChevronDown />
+              <TriggerChevron />
             </EnterpriseButton>
           </Row>
 

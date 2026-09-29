@@ -198,7 +198,7 @@ export function EnterpriseModal({
                 // Compact form on phones: the actions share one row (secondary at
                 // the start, the final action at the end), each an equal touch target.
                 formCard &&
-                  "px-4 py-2.5 max-sm:flex-row max-sm:flex-wrap max-sm:items-center max-sm:px-3 max-sm:[&_[data-slot=button]]:flex-1",
+                  "px-4 py-2.5 max-sm:flex-row max-sm:flex-wrap max-sm:items-center max-sm:px-3 max-sm:[&_[data-button]]:flex-1",
               )}
             >
               {typeof footer === "function" ? footer(requestClose) : footer}

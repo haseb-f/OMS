@@ -1,10 +1,11 @@
 "use client";
 
+import { TriggerChevron } from "@/components/ui/trigger-chevron";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ChevronDown, Plus, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -384,7 +385,7 @@ function InventoryMovementsPageContent() {
                   <EnterpriseButton type="button">
                     <Plus />
                     {t("inventory.createMovement.title")}
-                    <ChevronDown className="size-3.5" />
+                    <TriggerChevron kind="menu" />
                   </EnterpriseButton>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">

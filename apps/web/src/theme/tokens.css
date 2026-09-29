@@ -108,6 +108,15 @@
   --control-height-md: 2rem; /* 32px — default for Button/Input/Select/pickers */
   --control-height-lg: 2.5rem; /* 40px — primary page CTA on touch, auth */
 
+  /* Dropdown triggers (Kumo refinement, kumo-research.md §4) — one weight
+     and one chevron size for every select, combobox, filter, picker and
+     menu trigger. A chosen value or a filter's name reads at medium weight;
+     only a real placeholder drops back to regular. */
+  --trigger-weight: 500;
+  --trigger-placeholder-weight: 400;
+  --trigger-chevron-size: 1rem; /* 16px — md/default triggers */
+  --trigger-chevron-size-sm: 0.875rem; /* 14px — sm/xs triggers, icon-only menus */
+
   /* Shell (enterprise-ui-overhaul) */
   --shell-topbar-height: 3rem; /* 48px */
   --shell-sidebar-width: 15rem; /* 240px */

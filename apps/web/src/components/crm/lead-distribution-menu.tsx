@@ -1,9 +1,9 @@
 "use client";
 
+import { TriggerChevron } from "@/components/ui/trigger-chevron";
 import { useState } from "react";
 import Link from "next/link";
 import {
-  ChevronDown,
   CircleOff,
   Clock,
   Hand,
@@ -246,7 +246,7 @@ export function LeadDistributionMenu({
                 · {t("crm.leads.distribution.control.pending", { count: d.pendingCount })}
               </span>
             ) : null}
-            <ChevronDown aria-hidden className="size-3.5 opacity-70" />
+            <TriggerChevron kind="menu" size="sm" />
           </EnterpriseButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-80 max-w-[calc(100vw-2rem)]">

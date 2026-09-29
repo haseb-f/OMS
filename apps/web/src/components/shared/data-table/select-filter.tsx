@@ -15,6 +15,7 @@ import {
 import { FilterTrigger } from "@/components/shared/data-table/filter-popover";
 import { useLocale } from "@/providers/locale-provider";
 import { filterByArabicSearch } from "@/lib/arabic-search";
+import { cn } from "@/lib/utils";
 
 export interface SelectFilterOption {
   value: string;
@@ -114,7 +115,7 @@ export function SelectFilter({
             <CommandGroup>
               {showAllOption && !search.trim() ? (
                 <CommandItem value="__all__" data-checked={!value} onSelect={() => select("")}>
-                  <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                  <span className={cn("min-w-0 flex-1 truncate", value && "text-muted-foreground")}>
                     {resolvedAllLabel}
                   </span>
                 </CommandItem>

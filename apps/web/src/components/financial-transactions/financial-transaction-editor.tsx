@@ -1,7 +1,8 @@
 "use client";
 
+import { DisclosureTrigger } from "@/components/shared/disclosure-trigger";
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronDown } from "lucide-react";
+
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -426,15 +427,7 @@ export function FinancialTransactionEditor({
         {/* Everything else — collapsed by default, flat inside the same card (no nested card) */}
         <Collapsible>
           <CollapsibleTrigger asChild>
-            <EnterpriseButton
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="group w-fit gap-1.5 text-muted-foreground"
-            >
-              <ChevronDown className="size-3.5 transition-transform group-data-[state=open]:rotate-180" />
-              {t("sales.editor.sections.moreDetails")}
-            </EnterpriseButton>
+            <DisclosureTrigger>{t("sales.editor.sections.moreDetails")}</DisclosureTrigger>
           </CollapsibleTrigger>
           <CollapsibleContent className="flex flex-col gap-4 border-t border-border pt-4">
             <div>

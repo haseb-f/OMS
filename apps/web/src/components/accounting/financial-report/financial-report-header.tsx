@@ -1,14 +1,8 @@
 "use client";
 
+import { TriggerChevron } from "@/components/ui/trigger-chevron";
 import { createContext, useContext, type ReactNode } from "react";
-import {
-  ChevronDown,
-  ChevronsDownUp,
-  ChevronsUpDown,
-  Download,
-  MoreHorizontal,
-  Printer,
-} from "lucide-react";
+import { Download, FoldVertical, MoreHorizontal, Printer, UnfoldVertical } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import {
@@ -168,10 +162,10 @@ export function FinancialReportActions({
             aria-label={`${t("reports.finance.expandAll")} / ${t("reports.finance.collapseAll")}`}
           >
             <HeaderIconButton label={t("reports.finance.expandAll")} onClick={onExpandAll}>
-              <ChevronsUpDown />
+              <UnfoldVertical />
             </HeaderIconButton>
             <HeaderIconButton label={t("reports.finance.collapseAll")} onClick={onCollapseAll}>
-              <ChevronsDownUp />
+              <FoldVertical />
             </HeaderIconButton>
           </ButtonGroup>
         ) : null}
@@ -180,7 +174,7 @@ export function FinancialReportActions({
             <EnterpriseButton type="button" variant="outline" isLoading={busy}>
               {busy ? null : <Download data-icon="inline-start" />}
               {t("table.export")}
-              <ChevronDown className="size-3.5 text-muted-foreground" />
+              <TriggerChevron kind="menu" />
             </EnterpriseButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-40">
@@ -213,11 +207,11 @@ export function FinancialReportActions({
             {canExpand ? (
               <>
                 <DropdownMenuItem onSelect={onExpandAll}>
-                  <ChevronsUpDown />
+                  <UnfoldVertical />
                   {t("reports.finance.expandAll")}
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={onCollapseAll}>
-                  <ChevronsDownUp />
+                  <FoldVertical />
                   {t("reports.finance.collapseAll")}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

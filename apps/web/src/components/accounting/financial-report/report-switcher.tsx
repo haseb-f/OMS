@@ -1,7 +1,8 @@
 "use client";
 
+import { TriggerChevron } from "@/components/ui/trigger-chevron";
 import { Fragment, useEffect, useId, useRef, useState } from "react";
-import { ChevronDown, LayoutList } from "lucide-react";
+import { LayoutList } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Popover, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -100,7 +101,7 @@ export function ReportSwitcher({
         >
           <LayoutList data-icon="inline-start" />
           <span className="max-md:sr-only">{label}</span>
-          <ChevronDown className="size-3.5 text-muted-foreground max-md:hidden" />
+          <TriggerChevron className="max-md:hidden" />
         </EnterpriseButton>
       </PopoverTrigger>
       <CommandPopoverContent align="end" className="min-w-64">

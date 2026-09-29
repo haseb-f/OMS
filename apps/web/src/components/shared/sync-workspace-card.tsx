@@ -65,7 +65,7 @@ export function SyncWorkspaceCard({
         <p className="line-clamp-2 text-caption leading-snug text-muted-foreground text-start">
           {description}
         </p>
-        <div className="mt-auto flex w-full min-w-0 flex-col gap-2 [&_[data-slot=button]]:h-(--control-height-md) [&_[data-slot=button]]:w-full [&_[data-slot=button]]:min-w-0 [&_[data-slot=button]]:max-w-full">
+        <div className="mt-auto flex w-full min-w-0 flex-col gap-2 [&_[data-button]]:h-(--control-height-md) [&_[data-button]]:w-full [&_[data-button]]:min-w-0 [&_[data-button]]:max-w-full">
           {children}
         </div>
       </EnterpriseCardContent>

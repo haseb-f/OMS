@@ -1,9 +1,10 @@
 "use client";
 
+import { DisclosureTrigger } from "@/components/shared/disclosure-trigger";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Banknote, ChevronDown, Globe, Loader2, UserCheck } from "lucide-react";
+import { Banknote, Globe, Loader2, UserCheck } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
@@ -715,16 +716,10 @@ export function StoreOrderCreateDialog({
           <div className="flex flex-col gap-1 border-t border-border pt-2">
             <Collapsible>
               <CollapsibleTrigger asChild>
-                <EnterpriseButton
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="group w-fit gap-1.5 px-1.5 text-muted-foreground"
-                >
-                  <ChevronDown className="size-3.5 transition-transform group-data-[state=open]:rotate-180" />
+                <DisclosureTrigger>
                   {t("storeOrders.createDialog.sections.notes")}
                   <span className="font-normal">({t("common.optional")})</span>
-                </EnterpriseButton>
+                </DisclosureTrigger>
               </CollapsibleTrigger>
               <CollapsibleContent className="pt-2">
                 <TextareaFormField
@@ -737,16 +732,10 @@ export function StoreOrderCreateDialog({
             </Collapsible>
             <Collapsible>
               <CollapsibleTrigger asChild>
-                <EnterpriseButton
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="group w-fit gap-1.5 px-1.5 text-muted-foreground"
-                >
-                  <ChevronDown className="size-3.5 transition-transform group-data-[state=open]:rotate-180" />
+                <DisclosureTrigger>
                   {t("storeOrders.createDialog.sections.receipts")}
                   <span className="font-normal">({t("common.optional")})</span>
-                </EnterpriseButton>
+                </DisclosureTrigger>
               </CollapsibleTrigger>
               <CollapsibleContent className="pt-2">
                 <div

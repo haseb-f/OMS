@@ -5,15 +5,25 @@ import type { ComponentProps } from "react";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
+/**
+ * Connected controls (Kumo ButtonGroup, kumo-research.md §4): one outer
+ * rounding, square inner edges, and each item after the first pulled back
+ * 1px so neighbouring edges overlap into ONE separator — never a doubled
+ * border. The hovered / open / focused item is lifted so its full edge
+ * shows. Items drop their own drop shadow (recipe). Logical properties, so
+ * the order mirrors correctly in RTL. Only for controls that genuinely act
+ * together (pager, expand/collapse, split button) — never to line up
+ * unrelated actions.
+ */
 const buttonGroupVariants = cva(
-  "group/button-group flex w-fit items-stretch has-[>[data-slot=button-group]]:gap-2 [&>[data-slot=select-trigger]:not([class*='w-'])]:w-fit *:focus-visible:relative *:focus-visible:z-10",
+  "group/button-group relative isolate flex w-fit items-stretch has-[>[data-slot=button-group]]:gap-2 [&>[data-slot=select-trigger]:not([class*='w-'])]:w-fit *:relative *:not-disabled:hover:z-[1] *:aria-expanded:z-[1] *:data-[state=open]:z-[1] *:focus-visible:z-10 *:has-[:focus-visible]:z-10",
   {
     variants: {
       orientation: {
         horizontal:
-          "[&>*:not(:first-child)]:rounded-s-none [&>*:not(:first-child)]:border-s-0 [&>*:not(:last-child)]:rounded-e-none",
+          "[&>*:not(:first-child)]:-ms-px [&>*:not(:first-child)]:rounded-s-none [&>*:not(:last-child)]:rounded-e-none",
         vertical:
-          "flex-col [&>*:not(:first-child)]:rounded-t-none [&>*:not(:first-child)]:border-t-0 [&>*:not(:last-child)]:rounded-b-none",
+          "flex-col [&>*:not(:first-child)]:-mt-px [&>*:not(:first-child)]:rounded-t-none [&>*:not(:last-child)]:rounded-b-none",
       },
     },
     defaultVariants: {
@@ -48,7 +58,7 @@ function ButtonGroupText({
   return (
     <Comp
       className={cn(
-        "flex items-center gap-2 rounded-xs border bg-muted px-2.5 text-sm font-medium [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4",
+        "flex items-center gap-2 rounded-sm border border-(--control-border) bg-muted px-2.5 text-[length:var(--text-button)] font-medium text-muted-foreground [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       {...props}

@@ -552,3 +552,31 @@ Control recipe tokens (light/dark, `globals.css`): `--control-border`, `--contro
 darker fill) → focus-visible (ring + halo). Colour and shadow only — never transform or size; the
 chevron rotation on an open trigger is disabled under reduced motion. Green stays reserved for
 confirm / approve / convert; ordinary controls stay neutral.
+
+### 12.11 Dropdown triggers and button groups (Kumo refinement, 2026-09-29)
+
+Reference: Cloudflare Kumo, measured on kumo-ui.com (`kumo-research.md` §4). Our 32px/40px-touch
+height and 8px radius stay (D2/D4); only the text, chevron and group seams change.
+
+- **One chevron:** every trigger ends with `TriggerChevron` (`components/ui/trigger-chevron.tsx`).
+  `kind="select"` = up/down caret (Select, EntityCombobox/SearchableSelect, filters, report
+  selector) and never rotates; `kind="menu"` = down caret for action menus / split buttons, turns
+  while open; `kind="disclosure"` = the caret before an inline show/hide label. Size 16px
+  (`--trigger-chevron-size`), 14px for sm triggers; colour `--muted-foreground`, `--foreground`
+  on hover/open; on a solid button it takes the button's text colour. Never a hand-placed
+  `ChevronDown` on a trigger.
+- **Text:** a chosen value and a filter's name read at `--trigger-weight` (500) in full
+  foreground; a real placeholder stays 400 in `--placeholder` (≥4.5:1). A picker inside a list
+  filter bar (`FilterBarProvider`) treats its empty text as the filter name and gets the same
+  brand tint as `FilterTrigger` once set.
+- **Disclosure:** `DisclosureTrigger` (`components/shared/disclosure-trigger.tsx`) is the one
+  "More details / Notes & terms" control inside forms and editors.
+- **Button groups:** `ButtonGroup` = one outer rounding, square inner edges, items after the first
+  pulled back 1px so the two edges overlap into one seam (no doubled border); items drop their
+  drop shadow; hovered / open / focused item is lifted (z-index) so its full edge shows; a disabled
+  item keeps the group edge colour. Logical properties — order mirrors in RTL. Only for controls
+  that act together (pager, expand/collapse all, split button); unrelated actions stay separate.
+- **Not triggers (unchanged on purpose):** row/tree expanders (`TreeToggleButton`, report-table
+  and permission-matrix row carets, journal-line detail toggle), sort icons, icon-only menus
+  without a caret (row actions ⋯, top-bar theme/language/profile), sheet-opening "Filters"
+  buttons on phones.

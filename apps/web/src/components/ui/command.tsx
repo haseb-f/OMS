@@ -256,11 +256,12 @@ function CommandResultRow({
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate font-medium">{titleNode}</span>
         {subtitle ? (
-          <span
-            dir={subtitleDir ?? "ltr"}
-            className="truncate text-caption text-muted-foreground [unicode-bidi:isolate]"
-          >
-            {subtitle}
+          // Outer line follows the row's direction (aligns to its start in
+          // RTL too); only the value inside is isolated in `subtitleDir`.
+          <span className="truncate text-caption text-muted-foreground">
+            <span dir={subtitleDir ?? "ltr"} className="[unicode-bidi:isolate]">
+              {subtitle}
+            </span>
           </span>
         ) : null}
       </span>

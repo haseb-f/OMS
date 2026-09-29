@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Select as SelectPrimitive } from "radix-ui";
 
+import { TriggerChevron } from "@/components/ui/trigger-chevron";
 import { cn } from "@/lib/utils";
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react";
 
@@ -53,7 +54,7 @@ function SelectTrigger({
     >
       {children}
       <SelectPrimitive.Icon asChild>
-        <ChevronDownIcon className="pointer-events-none size-3.5 shrink-0 text-muted-foreground" />
+        <TriggerChevron size={size === "sm" ? "sm" : "md"} />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   );

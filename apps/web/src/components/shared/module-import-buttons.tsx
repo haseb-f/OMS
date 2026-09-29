@@ -1,7 +1,8 @@
 "use client";
 
+import { TriggerChevron } from "@/components/ui/trigger-chevron";
 import { Fragment, useEffect, useState } from "react";
-import { ChevronDown, Download, FileUp, Sheet, Upload } from "lucide-react";
+import { Download, FileUp, Sheet, Upload } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -82,7 +83,7 @@ export function ModuleImportButtons({
           <EnterpriseButton type="button" variant="outline" size="sm" className="gap-1.5">
             <FileUp className="size-3.5" />
             <span data-slot="action-label">{t("docFlow.import.menu")}</span>
-            <ChevronDown className="size-3.5 opacity-60" />
+            <TriggerChevron kind="menu" size="sm" />
           </EnterpriseButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-56">

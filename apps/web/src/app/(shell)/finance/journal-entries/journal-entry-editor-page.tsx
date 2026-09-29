@@ -1,11 +1,11 @@
 "use client";
 
+import { DisclosureTrigger } from "@/components/shared/disclosure-trigger";
 import { RelatedRecordsPanel } from "@/components/shared/related-records-panel";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Archive,
-  ChevronDown,
   Copy,
   FileStack,
   Printer,
@@ -758,15 +758,7 @@ export function JournalEntryEditorPage({ id }: { id: string | null }) {
             {entry && (
               <Collapsible>
                 <CollapsibleTrigger asChild>
-                  <EnterpriseButton
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="group w-fit gap-1.5 text-muted-foreground"
-                  >
-                    <ChevronDown className="size-3.5 transition-transform group-data-[state=open]:rotate-180" />
-                    {t("sales.editor.sections.moreDetails")}
-                  </EnterpriseButton>
+                  <DisclosureTrigger>{t("sales.editor.sections.moreDetails")}</DisclosureTrigger>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="flex flex-col gap-3 border-t border-border pt-4">
                   {entry.reversalOfEntry && (

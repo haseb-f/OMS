@@ -1,7 +1,8 @@
 "use client";
 
+import { DisclosureTrigger } from "@/components/shared/disclosure-trigger";
 import { Fragment, useEffect, useId, useMemo, useRef, type ReactNode } from "react";
-import { ChevronDown } from "lucide-react";
+
 import { EnterpriseButton } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -381,15 +382,7 @@ export function CommercialDocumentEditor<TContext>(props: CommercialDocumentEdit
     <>
       <Collapsible defaultOpen={hasNotes}>
         <CollapsibleTrigger asChild>
-          <EnterpriseButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="group w-fit gap-1.5 px-1.5 text-muted-foreground"
-          >
-            <ChevronDown className="size-3.5 transition-transform group-data-[state=open]:rotate-180" />
-            {t("sales.editor.sections.notesAndTerms")}
-          </EnterpriseButton>
+          <DisclosureTrigger>{t("sales.editor.sections.notesAndTerms")}</DisclosureTrigger>
         </CollapsibleTrigger>
         <CollapsibleContent className="grid grid-cols-1 gap-3 pt-2 md:grid-cols-2">
           <div className="flex flex-col gap-1">
@@ -421,15 +414,7 @@ export function CommercialDocumentEditor<TContext>(props: CommercialDocumentEdit
 
       <Collapsible>
         <CollapsibleTrigger asChild>
-          <EnterpriseButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="group w-fit gap-1.5 px-1.5 text-muted-foreground"
-          >
-            <ChevronDown className="size-3.5 transition-transform group-data-[state=open]:rotate-180" />
-            {t("sales.editor.sections.moreDetails")}
-          </EnterpriseButton>
+          <DisclosureTrigger>{t("sales.editor.sections.moreDetails")}</DisclosureTrigger>
         </CollapsibleTrigger>
         <CollapsibleContent className="mt-2 flex flex-col gap-3 border-t border-border pt-3">
           <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">

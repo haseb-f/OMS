@@ -480,6 +480,7 @@ export function ReportFilterRow({
                 count={secondaryCount}
                 isActive={secondaryCount > 0}
                 aria-haspopup="dialog"
+                chevron="menu"
                 className="min-w-0"
               />
             </PopoverTrigger>
