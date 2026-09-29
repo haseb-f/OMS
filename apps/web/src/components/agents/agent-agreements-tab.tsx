@@ -17,14 +17,19 @@ import {
   type CompactDetailColumn,
 } from "@/components/shared/data-table/compact-detail-table";
 import { tableIdentityCellClass } from "@/components/ui/table";
-import { agentsService, type AgentAgreement } from "@/services/agents-service";
+import {
+  agentsService,
+  type AgentAgreement,
+  type AgreementPreview,
+} from "@/services/agents-service";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { formatDate, toISODate } from "@/lib/date";
-import { formatAmount } from "@/lib/money";
 import { apiErrorMessage, reportApiError, toast } from "@/lib/toast";
 import { AgreementFormDialog } from "./agreement-form-dialog";
 import { AgreementTerms } from "./agreement-terms";
+import { AgreementPreviewPanel } from "./agreement-preview-panel";
+import { formatClassRates } from "@/config/agents/agreement-form";
 import { ShippingRatesDialog } from "./shipping-rates-dialog";
 
 const STATUS_TONE = { DRAFT: "neutral", ACTIVE: "success", ENDED: "warning" } as const;
@@ -49,6 +54,12 @@ export function AgentAgreementsTab({
   const [viewTarget, setViewTarget] = useState<AgentAgreement | null>(null);
   const [ratesTarget, setRatesTarget] = useState<AgentAgreement | null>(null);
   const [activateTarget, setActivateTarget] = useState<AgentAgreement | null>(null);
+  // Activation waits for the preview; a product without a rate blocks it (A3/A4).
+  const [previewBlocked, setPreviewBlocked] = useState(true);
+  const onPreviewLoaded = useCallback(
+    (preview: AgreementPreview) => setPreviewBlocked(preview.items.some((item) => item.missing)),
+    [],
+  );
   const [endTarget, setEndTarget] = useState<AgentAgreement | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [isBusy, setIsBusy] = useState(false);
@@ -129,9 +140,7 @@ export function AgentAgreementsTab({
       id: "rate",
       header: t("agents.fields.commission"),
       align: "end",
-      cell: (row) => (
-        <span className="num">{formatAmount(Number(row.commissionRatePercent))}%</span>
-      ),
+      cell: (row) => <span className="num">{formatClassRates(row)}</span>,
     },
     {
       id: "status",
@@ -176,7 +185,10 @@ export function AgentAgreementsTab({
               icon: CheckCircle2,
               hidden: !canManage || row.status !== "DRAFT",
               separatorBefore: true,
-              onSelect: () => setActivateTarget(row),
+              onSelect: () => {
+                setPreviewBlocked(true);
+                setActivateTarget(row);
+              },
             },
             {
               key: "end",
@@ -275,6 +287,17 @@ export function AgentAgreementsTab({
           number: activateTarget?.agreementNumber ?? "",
         })}
         description={t("agents.agreements.confirm.activateDescription")}
+        extra={
+          activateTarget ? (
+            <AgreementPreviewPanel
+              agentId={agentId}
+              agreementId={activateTarget.id}
+              onLoaded={onPreviewLoaded}
+            />
+          ) : null
+        }
+        confirmDisabled={previewBlocked}
+        size="lg"
         confirmLabel={t("agents.agreements.actions.activate")}
         isConfirming={isBusy}
         onConfirm={() => void activate()}

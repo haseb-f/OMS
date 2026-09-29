@@ -246,10 +246,10 @@ async function main() {
     ctx.WH = ctx.stockBefore?.warehouseId;
     ctx.previewBefore = await preview(ctx.A.id);
     ctx.summaryBeforeA = await must("fin", "GET", `/agent-finance/agents/${ctx.A.id}/summary?from=${TODAY}&to=${TODAY}`);
-    return `A=${ctx.A.agentNumber} (${ctx.termsA.agreementNumber}, ${ctx.termsA.commissionRatePercent}%) B=${ctx.B.agentNumber} (${ctx.termsB.agreementNumber}, ${ctx.termsB.commissionRatePercent}%) currency=${ctx.currency} rates EG=${ctx.rateEG} ALX=${ctx.rateALX} available(before)=${ctx.previewBefore.available}`;
+    return `A=${ctx.A.agentNumber} (${ctx.termsA.agreementNumber}, ${ctx.termsA.productCommissionRatePercent}%) B=${ctx.B.agentNumber} (${ctx.termsB.agreementNumber}, ${ctx.termsB.productCommissionRatePercent}%) currency=${ctx.currency} rates EG=${ctx.rateEG} ALX=${ctx.rateALX} available(before)=${ctx.previewBefore.available}`;
   });
   if (!ctx.A) return;
-  const rateA = Number(ctx.termsA.commissionRatePercent) / 100;
+  const rateA = Number(ctx.termsA.productCommissionRatePercent) / 100;
   const shipFeeA = Number(ctx.termsA.shippingFeePerShipment);
   const retFeeA = Number(ctx.termsA.returnFeePerShipment);
   const retainA = ctx.termsA.customerShippingChargeOwner === "COMPANY";
@@ -645,7 +645,7 @@ async function main() {
     const bl = async () =>
       (await must("fin", "GET", `/agent-finance/agents/${ctx.B.id}/ledger?storeOrderId=${o.id}&pageSize=100`)).items;
     let entries = await bl();
-    const rateB = Number(ctx.termsB.commissionRatePercent) / 100;
+    const rateB = Number(ctx.termsB.productCommissionRatePercent) / 100;
     eq(sumType(entries, "COMMISSION", "debit"), r2(rateB * 300), "B COMMISSION at verification");
     eq(sumType(entries, "SERVICE_FEE", "debit"), Number(ctx.termsB.serviceFeePerOrder), "B SERVICE_FEE");
     eq(sumType(entries, "CUSTOMER_SHIPPING_RETAINED", "debit"), 0, "B retained shipping");
@@ -893,7 +893,7 @@ async function main() {
       const rows = Array.isArray(list) ? list : list.items;
       const current = rows.find((a) => ["ACTIVE", "ENDED"].includes(a.status) && a.effectiveFrom.slice(0, 10) <= TODAY && (!a.effectiveTo || a.effectiveTo.slice(0, 10) >= TODAY));
       expect(current, "no agreement in force today");
-      const oldRate = Number(current.commissionRatePercent);
+      const oldRate = Number(current.productCommissionRatePercent);
       const future = rows.find((a) => a.status === "ACTIVE" && a.effectiveFrom.slice(0, 10) > TODAY);
       let next = future;
       if (!future) {
@@ -902,7 +902,7 @@ async function main() {
         }
         const terms = {
           effectiveFrom: plusDays(2),
-          commissionRatePercent: oldRate + 2,
+          productCommissionRatePercent: oldRate + 2, serviceCommissionRatePercent: oldRate + 2,
           commissionEarningEvent: current.commissionEarningEvent,
           returnCommissionTreatment: current.returnCommissionTreatment,
           customerShippingChargeOwner: current.customerShippingChargeOwner,
@@ -939,9 +939,9 @@ async function main() {
       const internal = await must("admin", "GET", `/store-orders/${o.id}`);
       const snap = internal.agentTermsSnapshot;
       expect(snap, "internal order has no agentTermsSnapshot");
-      eq(snap.commissionRatePercent, oldRate, "snapshot rate");
+      eq(snap.productCommissionRatePercent, oldRate, "snapshot rate");
       expect(snap.agreementId === current.id, `snapshot agreement ${snap.agreementNumber}`);
-      return `${current.agreementNumber} ends ${plusDays(1)} (${oldRate}%); ${next.agreementNumber} from ${next.effectiveFrom?.slice(0, 10)} (${next.commissionRatePercent}%); ${o.internalOrderId} snapshot ${snap.commissionRatePercent}%`;
+      return `${current.agreementNumber} ends ${plusDays(1)} (${oldRate}%); ${next.agreementNumber} from ${next.effectiveFrom?.slice(0, 10)} (${next.productCommissionRatePercent}%); ${o.internalOrderId} snapshot ${snap.productCommissionRatePercent}%`;
     });
   }
 }

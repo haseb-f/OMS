@@ -45,6 +45,15 @@ function ProductStatusCell({
   );
 }
 
+function ItemTypeLabel({ itemType }: { itemType: "PRODUCT" | "SERVICE" | null }) {
+  const { t } = useLocale();
+  return itemType ? (
+    <span>{t(`productCommission.classValue.${itemType}`)}</span>
+  ) : (
+    <StatusBadge label={t("productCommission.itemType.UNSET")} tone="warning" />
+  );
+}
+
 export const productsColumns: ColumnDef<ProductRow, unknown>[] = [
   {
     id: "sku",
@@ -75,6 +84,17 @@ export const productsColumns: ColumnDef<ProductRow, unknown>[] = [
     },
     accessorFn: (row) => row.type,
     cell: ({ row }) => <TypeCell type={row.original.type} />,
+  },
+  {
+    // commission-policy.md A2 — explicit PRODUCT / SERVICE; unclassified items stand out for review.
+    id: "itemType",
+    meta: {
+      titleKey: "productCommission.itemType.label",
+      displayValue: (row, t) =>
+        t(`productCommission.itemType.${row.itemType ?? "UNSET"}` as MessageKey),
+    },
+    accessorFn: (row) => row.itemType ?? "UNSET",
+    cell: ({ row }) => <ItemTypeLabel itemType={row.original.itemType ?? null} />,
   },
   {
     id: "category",

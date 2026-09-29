@@ -127,7 +127,9 @@ describeDb('Agent finance (local DB)', () => {
       agreementId: randomUUID(),
       agreementNumber: `AGR-T-${tag}`,
       currencyId,
-      commissionRatePercent: 10,
+      productCommissionRatePercent: 10,
+      serviceCommissionRatePercent: 10,
+      shippingPolicy: 'FLAT_FEE_PER_SHIPMENT',
       commissionEarningEvent: 'DELIVERED',
       returnCommissionTreatment: 'REVERSE',
       customerShippingChargeOwner: 'COMPANY',
@@ -404,6 +406,7 @@ describeDb('Agent finance (local DB)', () => {
             isPurchasable: inventoryItem,
             isSellable: true,
             isInventoryItem: inventoryItem,
+            itemType: inventoryItem ? 'PRODUCT' : 'SERVICE',
             preferredWarehouseId: warehouseId,
           },
         })
@@ -512,7 +515,17 @@ describeDb('Agent finance (local DB)', () => {
     ]);
     expect(earned.every((e) => e.postingStatus === 'POSTED')).toBe(true);
     const commission = earned[0];
-    expect(commission.basis).toMatchObject({ base: 900, ratePercent: 10 });
+    // commission-policy.md A5: per-line detail, split by class.
+    expect(commission.basis).toMatchObject({
+      base: 900,
+      byClass: { PRODUCT: { sales: 900, base: 900, commission: 90 } },
+    });
+    const commissionLines = await prisma.agentCommissionLine.findMany({
+      where: { ledgerEntryId: commission.id },
+    });
+    expect(
+      commissionLines.map((l) => [l.commissionClass, Number(l.amount)]),
+    ).toEqual([['PRODUCT', 90]]);
     const commissionJe = await prisma.journalEntryLine.findMany({
       where: { journalEntryId: commission.journalEntryId! },
     });
@@ -1299,6 +1312,7 @@ describeDb('Agent finance (local DB)', () => {
         isPurchasable: false,
         isSellable: true,
         isInventoryItem: false,
+        itemType: 'SERVICE',
         preferredWarehouseId: warehouseId,
       },
     });

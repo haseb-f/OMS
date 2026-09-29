@@ -68,6 +68,8 @@ export const productSchema = z.object({
 
   /** Agents milestone (spec §4) — owner agent of the goods; "" = company-owned. */
   ownerAgentId: z.string().optional().or(z.literal("")),
+  /** commission-policy.md A2 — explicit PRODUCT / SERVICE ("" = not classified yet). */
+  itemType: z.enum(["PRODUCT", "SERVICE"]).optional().or(z.literal("")),
 });
 
 export type ProductFormValues = z.infer<typeof productSchema>;
@@ -90,6 +92,7 @@ export const productDefaultValues: ProductFormValues = {
   categoryId: "",
   brandId: "",
   ownerAgentId: "",
+  itemType: "PRODUCT",
   unitId: "",
   taxId: "",
   analyticAccountId: "",

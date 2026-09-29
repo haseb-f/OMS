@@ -1,5 +1,6 @@
 import { apiClient } from "./api-client";
 import { buildQueryString as buildQuery } from "@/lib/query-string";
+import type { AgentCommissionReport } from "./agents-service";
 
 /**
  * External agent portal API (`/agent-portal/*`, specs/agents-fulfillment-partners §3, §10).
@@ -108,7 +109,9 @@ export interface PortalMe {
     effectiveFrom: string;
     effectiveTo: string | null;
     currencyId: string;
-    commissionRatePercent: number;
+    productCommissionRatePercent: number;
+    serviceCommissionRatePercent: number;
+    shippingPolicy: "PREDETERMINED_CHARGE" | "FLAT_FEE_PER_SHIPMENT" | "NONE";
     allowAgentDestinations: boolean;
     shippingRates: PortalShippingRate[];
   } | null;
@@ -507,6 +510,10 @@ export interface PortalStatementSummary {
     charged: number;
     reversed: number;
     net: number;
+    /** commission-policy.md A7 — products vs services (per-line entries). */
+    byClass: Record<"PRODUCT" | "SERVICE", { sales: number; base: number; commission: number }>;
+    /** Entries earned before per-line detail (single agreement rate). */
+    legacySingleRate: number;
   };
   deductions: {
     commission: number;
@@ -644,6 +651,9 @@ export const agentPortalService = {
       apiClient.post<PortalOrderDetail>(`${BASE}/orders/${id}/payment-declaration`, input),
   },
 
+  /** Item-level commission and shipping settlement (commission-policy.md A7). */
+  commissionReport: (query: StatementQuery) =>
+    apiClient.get<AgentCommissionReport>(`${BASE}/commission-report${buildQuery({ ...query })}`),
   statement: (query: StatementQuery) =>
     apiClient.get<PortalStatement>(`${BASE}/statement${buildQuery({ ...query })}`),
   statementPrintData: (query: StatementQuery) =>

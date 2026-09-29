@@ -61,6 +61,11 @@ export class FindProductsQueryDto {
   @IsOptional()
   type?: ProductType[];
 
+  /** commission-policy.md A2 — UNSET lists items still to be classified (review). */
+  @IsIn(['PRODUCT', 'SERVICE', 'UNSET'])
+  @IsOptional()
+  itemType?: 'PRODUCT' | 'SERVICE' | 'UNSET';
+
   /** Inventory movement pickers (Transfer/Adjustment/Opening) — only products a movement can legally apply to (ADR-0013). */
   @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()

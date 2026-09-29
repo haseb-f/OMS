@@ -18,6 +18,7 @@ import {
   agreementFormFrom,
   emptyAgreementForm,
   validateAgreementForm,
+  withShippingPolicy,
   type AgreementFieldError,
   type AgreementFormField,
   type AgreementFormState,
@@ -114,6 +115,25 @@ export function AgreementFormDialog({
     </FormCardField>
   );
 
+  const rateField = (field: AgreementFormField, label: string) => (
+    <FormCardField
+      size="sm"
+      required
+      label={`${label} (%)`}
+      htmlFor={`${fieldId}-${field}`}
+      message={<FieldNote error={errorText(field)} />}
+    >
+      <Input
+        id={`${fieldId}-${field}`}
+        dir="ltr"
+        inputMode="decimal"
+        value={form[field] as string}
+        aria-invalid={invalid(field)}
+        onChange={(event) => set(field)(event.target.value as never)}
+      />
+    </FormCardField>
+  );
+
   return (
     <EnterpriseModal
       open
@@ -169,28 +189,14 @@ export function AgreementFormDialog({
           </FormCardRow>
         </FormCardSection>
 
-        <FormCardSection title={t("agents.agreements.sections.commission")}>
-          <FormCardField
-            size="sm"
-            required
-            label={t("agents.agreements.fields.commissionRate")}
-            htmlFor={`${fieldId}-rate`}
-            message={
-              <FieldNote
-                error={errorText("commissionRatePercent")}
-                hint={t("agents.agreements.fields.commissionRateHint")}
-              />
-            }
-          >
-            <Input
-              id={`${fieldId}-rate`}
-              dir="ltr"
-              inputMode="decimal"
-              value={form.commissionRatePercent}
-              aria-invalid={invalid("commissionRatePercent")}
-              onChange={(event) => set("commissionRatePercent")(event.target.value)}
-            />
-          </FormCardField>
+        <FormCardSection
+          title={t("agents.agreements.sections.commission")}
+          description={t("agents.agreements.fields.commissionRateHint")}
+        >
+          <FormCardRow>
+            {rateField("productCommissionRatePercent", t("agents.agreements.fields.productRate"))}
+            {rateField("serviceCommissionRatePercent", t("agents.agreements.fields.serviceRate"))}
+          </FormCardRow>
           <FormCardRow>
             <FormCardField
               size="md"
@@ -245,6 +251,37 @@ export function AgreementFormDialog({
           title={t("agents.agreements.sections.charges")}
           description={t("agents.agreements.fields.feesHint")}
         >
+          <FormCardField
+            size="lg"
+            required
+            label={t("agents.agreements.fields.shippingPolicy")}
+            htmlFor={`${fieldId}-shipPolicy`}
+            message={
+              <FieldNote
+                error={errorText("shippingPolicy")}
+                hint={
+                  form.shippingPolicy
+                    ? t(`agents.agreements.shippingPolicyHint.${form.shippingPolicy}`)
+                    : null
+                }
+              />
+            }
+          >
+            <SearchableSelect
+              id={`${fieldId}-shipPolicy`}
+              value={form.shippingPolicy}
+              placeholder={t("agents.agreements.choose")}
+              error={invalid("shippingPolicy")}
+              onValueChange={(value) =>
+                setForm((current) =>
+                  withShippingPolicy(current, value as AgreementFormState["shippingPolicy"]),
+                )
+              }
+              options={(["PREDETERMINED_CHARGE", "FLAT_FEE_PER_SHIPMENT", "NONE"] as const).map(
+                (value) => ({ value, label: t(`agents.agreements.shippingPolicy.${value}`) }),
+              )}
+            />
+          </FormCardField>
           <FormCardRow>
             <FormCardField
               size="md"

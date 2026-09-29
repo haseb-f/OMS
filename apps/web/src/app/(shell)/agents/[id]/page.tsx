@@ -26,6 +26,7 @@ import { AgentTeamTab } from "@/components/agents/agent-team-tab";
 import { AgentStockTab } from "@/components/agents/agent-stock-tab";
 import { AgentOrdersTab } from "@/components/agents/agent-orders-tab";
 import { AgentStatementTab } from "@/components/agents/agent-statement-tab";
+import { AgentCommissionReportView } from "@/components/agents/agent-commission-report";
 import { AgentPayoutsTab } from "@/components/agents/agent-payouts";
 import { PendingPostingsBanner } from "@/components/agents/pending-postings-banner";
 import {
@@ -344,6 +345,17 @@ function AgentWorkspace() {
             value: "statement",
             label: t("agents.tabs.statement"),
             content: <AgentStatementTab agentId={agent.id} />,
+          },
+          {
+            value: "commission",
+            label: t("agents.tabs.commission"),
+            content: (
+              <AgentCommissionReportView
+                load={(params) => agentFinanceService.commissionReport(agent.id, params)}
+                orderHref={(storeOrderId) => `/store-orders/${storeOrderId}`}
+                exportName={`${agent.agentNumber}-commission.csv`}
+              />
+            ),
           },
           {
             value: "payouts",

@@ -57,8 +57,16 @@ function template(line: DescribableLedgerLine): { key: MessageKey; params: Param
     case "COLLECTION_REVERSAL":
       return { key: k("collectionReversal"), params: { reverses, reason } };
     case "COMMISSION": {
-      const rate = typeof basis.ratePercent === "number" ? basis.ratePercent : null;
       const base = typeof basis.base === "number" ? formatAmount(basis.base) : null;
+      const byClass = basis.byClass as
+        Record<"PRODUCT" | "SERVICE", { base?: number; commission?: number }> | undefined;
+      if (byClass) {
+        // commission-policy.md A5 — per-line rates, split by class.
+        const physical = formatAmount(Number(byClass.PRODUCT?.commission ?? 0));
+        const service = formatAmount(Number(byClass.SERVICE?.commission ?? 0));
+        return { key: k("commissionByClass"), params: { physical, service, base, order } };
+      }
+      const rate = typeof basis.ratePercent === "number" ? basis.ratePercent : null;
       return { key: k("commission"), params: { rate, base, order } };
     }
     case "COMMISSION_REVERSAL":

@@ -4,7 +4,9 @@ import paymentSettlementEn from "./modules/payment-settlement.en";
 import fxSettingsEn from "./modules/fx-settings.en";
 import docUiEn from "./modules/doc-ui.en";
 import feedbackEn from "./modules/feedback.en";
+import productCommissionEn from "./modules/product-commission.en";
 const en = {
+  productCommission: productCommissionEn,
   paymentDeclaration: paymentDeclarationEn,
   paymentReconciliation: paymentReconciliationEn,
   paymentSettlement: paymentSettlementEn,
@@ -3549,6 +3551,35 @@ const en = {
       description:
         "Clears the match (and, if CONFIRMED, removes it as the authoritative shipping cost) — the charge returns to Unmatched.",
       saved: "Carrier charge unmatched.",
+    },
+    // commission-policy.md A6 — charge kind, cost stage, paid (company cost only).
+    columns: {
+      kind: "Charge Kind",
+      agent: "Agent",
+      stage: "Cost Stage",
+    },
+    kinds: {
+      BASE: "Base",
+      SURCHARGE: "Surcharge",
+      CREDIT: "Credit",
+    },
+    stage: {
+      INCURRED: "Incurred",
+      APPROVED: "Approved",
+      PAID: "Paid",
+    },
+    paid: {
+      action: "Mark Paid",
+      paidOn: "Paid {date}",
+      dialogTitle: "Mark this Carrier Charge Paid?",
+      dialogDescription:
+        "Records that the company paid this charge to the carrier. Paid is tracked separately from approval.",
+      reference: "Payment reference",
+      saved: "Carrier charge marked paid.",
+    },
+    csv: {
+      template: "Download CSV Template",
+      help: "CSV columns: Carrier, Charge Amount, Currency, Charge Date (required); Charge Kind (optional — BASE, SURCHARGE or CREDIT; a negative amount imports as CREDIT), Carrier Reference, Tracking Number, Shipment Reference, Charge Type.",
     },
   },
   storeOrders: {

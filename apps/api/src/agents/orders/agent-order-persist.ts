@@ -9,8 +9,10 @@ import type {
   AgentCustomerSnapshot,
   AgentLineSnapshot,
   AgentOrderSnapshot,
+  AgentShippingChargeSnapshot,
   AgentTermsSnapshot,
 } from '../common/agent-terms';
+import type { AgentLineCommissionRate } from '../commission/agent-commission';
 
 /**
  * A fully validated, server-derived agent order (spec §4–§5), produced only
@@ -50,7 +52,11 @@ export interface AgentOrderPersistInput {
     agreedAmount: number;
     /** Product moved stock at submission (F-L7) — frozen in the snapshot. */
     inventoryLine: boolean;
+    /** Commission class, source and rate resolved at submission (commission-policy.md A5). */
+    commission: AgentLineCommissionRate;
   }>;
+  /** Predetermined agent shipping charge (PREDETERMINED_CHARGE policy), else null. */
+  agentShippingCharge: AgentShippingChargeSnapshot | null;
 }
 
 /** Agreement terms + typed customer + per-line stock flags, written once. */
@@ -60,8 +66,14 @@ export function agentOrderSnapshot(
   const lines: AgentLineSnapshot[] = input.lines.map((line) => ({
     productId: line.productId,
     inventoryLine: line.inventoryLine,
+    commission: line.commission,
   }));
-  return { ...input.agentTermsSnapshot, customer: input.customer, lines };
+  return {
+    ...input.agentTermsSnapshot,
+    customer: input.customer,
+    lines,
+    agentShippingCharge: input.agentShippingCharge,
+  };
 }
 
 /** Agent columns written on the StoreOrder row (both creation paths). */

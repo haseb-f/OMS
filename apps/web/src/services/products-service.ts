@@ -47,6 +47,8 @@ export interface ProductRow {
   availableForInvestmentOpportunities: boolean;
   /** Agents milestone (spec §4) — owner agent of the goods; null = company-owned. */
   ownerAgentId?: string | null;
+  /** commission-policy.md A2 — explicit commercial type; null = not classified yet. */
+  itemType?: "PRODUCT" | "SERVICE" | null;
   ownerAgent?: { id: string; agentNumber: string; name: string } | null;
   salesPrice: string | null;
   salesTaxIncluded: boolean;

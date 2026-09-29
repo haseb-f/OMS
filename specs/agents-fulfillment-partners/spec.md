@@ -1,7 +1,10 @@
 # Spec — Agents / Fulfillment Partners (الوكلاء)
 
 **Status: ACTIVE** (2026-09-28). Owner brief: [`brief.md`](brief.md). Discovery: §1. Design: §2–§10.
-Open decisions: §11. This is NOT the internal employee sales-commission module (`CommissionPlan`,
+Open decisions: §11.
+**Amended 2026-09-29 by [`commission-policy.md`](commission-policy.md)** — per-class commission rates,
+item overrides and actual carrier-cost reimbursement supersede the single rate (§2) and the flat
+shipping fee (§8) described below. This is NOT the internal employee sales-commission module (`CommissionPlan`,
 HR/payroll); nothing here reads or writes those tables.
 
 ## 1. Discovery — integration points

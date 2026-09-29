@@ -3061,6 +3061,12 @@ model CarrierChargeImport {
 /// authoritative CONFIRMED ACTUAL shipping cost for that Shipment
 /// Attempt) — or REVIEW_REQUIRED when more than one candidate Shipment
 /// matches and auto-confirming would be a guess.
+enum CarrierChargeKind {
+  BASE
+  SURCHARGE
+  CREDIT
+}
+
 enum CarrierReconciliationState {
   UNMATCHED
   MATCHED
@@ -3095,11 +3101,19 @@ model CarrierCharge {
   /// never trusts customer name/phone (Part 3 of the gap-closure spec).
   shipmentReference String? @map("shipment_reference")
 
-  chargeAmount Decimal  @map("charge_amount") @db.Decimal(12, 2)
-  currencyId   String   @map("currency_id") @db.Uuid
-  currency     Currency @relation(fields: [currencyId], references: [id])
-  chargeDate   DateTime @map("charge_date") @db.Date
-  chargeType   String?  @map("charge_type")
+  chargeAmount Decimal           @map("charge_amount") @db.Decimal(12, 2)
+  currencyId   String            @map("currency_id") @db.Uuid
+  currency     Currency          @relation(fields: [currencyId], references: [id])
+  chargeDate   DateTime          @map("charge_date") @db.Date
+  chargeType   String?           @map("charge_type")
+  /// BASE (one CONFIRMED per shipment), SURCHARGE (late/additional) or
+  /// CREDIT (carrier credit — amount stored positive). commission-policy.md A6.
+  chargeKind   CarrierChargeKind @default(BASE) @map("charge_kind")
+
+  /// Finance marked the carrier charge as paid by the company (tracking only).
+  paidAt        DateTime? @map("paid_at")
+  paidReference String?   @map("paid_reference")
+  paidBy        String?   @map("paid_by") @db.Uuid
 
   /// Idempotency key (Part 10) — deterministic from carrierNameRaw +
   /// carrierReference when the carrier gives one, else from
@@ -3447,7 +3461,7 @@ model PaymentActivity {
 // a ProductType value.
 // ---------------------------------------------------------------------------
 
-/// Closed set (TASK-027) — replaces the earlier PHYSICAL/SERVICE/DIGITAL/
+/// Closed set (TASK-027) — replaces the earlier PRODUCT/SERVICE/DIGITAL/
 /// BUNDLE set (never seeded, no production data, safe rename). STOCKABLE is
 /// tracked in inventory; CONSUMABLE is purchased/used but not precisely
 /// stock-tracked; SERVICE has no physical form.
@@ -3466,6 +3480,14 @@ model PaymentActivity {
 /// EXPENSE_ITEM predates this behavior list and isn't one of its five named
 /// values, but nothing asked for its removal and it may already have data
 /// — kept as a sixth, additional value rather than deleted.
+/// Commercial item type (commission-policy.md A2) — a product may be stocked
+/// or not (`isInventoryItem` stays separate); courses are SERVICE. Null =
+/// not yet classified (reviewed, never guessed).
+enum ItemType {
+  PRODUCT
+  SERVICE
+}
+
 enum ProductType {
   PURCHASE_ONLY
   SALES_ONLY
@@ -3500,11 +3522,15 @@ model Product {
   /// Agents milestone — null = company-owned (unchanged behavior). Set = goods owned
   /// by that external Agent and held by us. Immutable once the product has stock
   /// movements or order lines (history is never re-attributed).
-  ownerAgentId String? @map("owner_agent_id") @db.Uuid
-  ownerAgent   Agent?  @relation("AgentProducts", fields: [ownerAgentId], references: [id])
+  ownerAgentId             String?                          @map("owner_agent_id") @db.Uuid
+  ownerAgent               Agent?                           @relation("AgentProducts", fields: [ownerAgentId], references: [id])
+  /// commission-policy.md A2 — PRODUCT / SERVICE, null until classified.
+  itemType                 ItemType?                        @map("item_type")
+  agentCommissionOverrides AgentProductCommissionOverride[]
+  agentCommissionLines     AgentCommissionLine[]
   /// Arabic name — the primary identity field (Arabic is the default locale
   /// throughout OMS); unchanged column from ADR-0011's `name`.
-  name         String
+  name                     String
 
   /// English name (TASK-027) — optional, additive to `name`.
   nameEn String? @map("name_en")
@@ -9295,6 +9321,32 @@ enum ShippingChargeSource {
   MANUAL
 }
 
+/// Agent shipping charge model (commission-policy.md A3).
+enum AgentShippingPolicy {
+  /// The agent shipping charge is the agreement's configured rate for the
+  /// order's shipping type/destination, settled by the customer shipping the
+  /// company retains (commission-policy.md A3/A6).
+  PREDETERMINED_CHARGE
+  /// Legacy: agreement's flat fee per dispatched shipment.
+  FLAT_FEE_PER_SHIPMENT
+  /// No agent shipping charge.
+  NONE
+}
+
+/// Commission class of an order line — the product's explicit item type.
+enum AgentCommissionClass {
+  PRODUCT
+  SERVICE
+}
+
+enum AgentCommissionRateSource {
+  AGREEMENT_PRODUCT
+  AGREEMENT_SERVICE
+  ITEM_OVERRIDE
+  /// Orders submitted before commission-policy.md (single agreement rate).
+  LEGACY_SINGLE_RATE
+}
+
 enum AgentLedgerEntryType {
   COLLECTION_RECEIVED
   COLLECTION_BY_AGENT
@@ -9353,8 +9405,8 @@ model Agent {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  users               User[]                    @relation("AgentUsers")
-  products            Product[]                 @relation("AgentProducts")
+  users               User[]                           @relation("AgentUsers")
+  products            Product[]                        @relation("AgentProducts")
   agreements          AgentAgreement[]
   paymentDestinations AgentPaymentDestination[]
   leads               Lead[]
@@ -9363,6 +9415,8 @@ model Agent {
   ledgerEntries       AgentLedgerEntry[]
   payouts             AgentPayout[]
   returns             AgentOrderReturn[]
+  commissionOverrides AgentProductCommissionOverride[]
+  commissionLines     AgentCommissionLine[]
 
   @@index([status])
   @@map("agents")
@@ -9385,17 +9439,22 @@ model AgentAgreement {
   currencyId String   @map("currency_id") @db.Uuid
   currency   Currency @relation(fields: [currencyId], references: [id])
 
-  commissionRatePercent       Decimal                        @map("commission_rate_percent") @db.Decimal(7, 4)
-  commissionEarningEvent      AgentCommissionEarningEvent    @map("commission_earning_event")
-  returnCommissionTreatment   AgentReturnCommissionTreatment @map("return_commission_treatment")
-  customerShippingChargeOwner AgentChargeOwner               @map("customer_shipping_charge_owner")
-  providerFeesBorneBy         AgentChargeOwner               @map("provider_fees_borne_by")
-  shippingFeePerShipment      Decimal                        @map("shipping_fee_per_shipment") @db.Decimal(12, 2)
-  returnFeePerShipment        Decimal                        @map("return_fee_per_shipment") @db.Decimal(12, 2)
-  serviceFeePerOrder          Decimal                        @map("service_fee_per_order") @db.Decimal(12, 2)
-  allowAgentDestinations      Boolean                        @default(false) @map("allow_agent_destinations")
-  payoutHoldDays              Int                            @default(0) @map("payout_hold_days")
-  notes                       String?
+  /// Default commission rate for PRODUCT items — the legacy single-rate
+  /// column (commission-policy.md A3).
+  productCommissionRatePercent Decimal                        @map("commission_rate_percent") @db.Decimal(7, 4)
+  /// Default commission rate for services / courses (non-inventory lines).
+  serviceCommissionRatePercent Decimal                        @map("service_commission_rate_percent") @db.Decimal(7, 4)
+  shippingPolicy               AgentShippingPolicy            @map("shipping_policy")
+  commissionEarningEvent       AgentCommissionEarningEvent    @map("commission_earning_event")
+  returnCommissionTreatment    AgentReturnCommissionTreatment @map("return_commission_treatment")
+  customerShippingChargeOwner  AgentChargeOwner               @map("customer_shipping_charge_owner")
+  providerFeesBorneBy          AgentChargeOwner               @map("provider_fees_borne_by")
+  shippingFeePerShipment       Decimal                        @map("shipping_fee_per_shipment") @db.Decimal(12, 2)
+  returnFeePerShipment         Decimal                        @map("return_fee_per_shipment") @db.Decimal(12, 2)
+  serviceFeePerOrder           Decimal                        @map("service_fee_per_order") @db.Decimal(12, 2)
+  allowAgentDestinations       Boolean                        @default(false) @map("allow_agent_destinations")
+  payoutHoldDays               Int                            @default(0) @map("payout_hold_days")
+  notes                        String?
 
   activatedAt DateTime? @map("activated_at")
   activatedBy String?   @map("activated_by") @db.Uuid
@@ -9492,12 +9551,77 @@ model AgentLedgerEntry {
   createdBy String?  @map("created_by") @db.Uuid
 
   payoutAllocations AgentPayoutAllocation[]
+  commissionLines   AgentCommissionLine[]
 
   @@unique([sourceType, sourceId, entryType])
   @@index([agentId, entryDate])
   @@index([storeOrderId])
   @@index([postingStatus])
   @@map("agent_ledger_entries")
+}
+
+/// Item-level commission override of an agent-owned product (commission-policy.md
+/// A4). Effective-dated history: rows are never edited except to close an open
+/// range (effectiveTo) when a newer override or "inherit" supersedes it.
+model AgentProductCommissionOverride {
+  id        String  @id @default(uuid()) @db.Uuid
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id])
+  agentId   String  @map("agent_id") @db.Uuid
+  agent     Agent   @relation(fields: [agentId], references: [id])
+
+  /// 0 is a valid explicit override.
+  ratePercent   Decimal   @map("rate_percent") @db.Decimal(7, 4)
+  effectiveFrom DateTime  @map("effective_from") @db.Date
+  /// Inclusive; null = open-ended.
+  effectiveTo   DateTime? @map("effective_to") @db.Date
+  reason        String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  endedAt   DateTime? @map("ended_at")
+  endedBy   String?   @map("ended_by") @db.Uuid
+
+  @@index([productId, effectiveFrom])
+  @@index([agentId])
+  @@map("agent_product_commission_overrides")
+}
+
+/// Per-line commission detail of a COMMISSION / COMMISSION_REVERSAL ledger
+/// entry (commission-policy.md A5). Append-only.
+model AgentCommissionLine {
+  id               String           @id @default(uuid()) @db.Uuid
+  ledgerEntryId    String           @map("ledger_entry_id") @db.Uuid
+  ledgerEntry      AgentLedgerEntry @relation(fields: [ledgerEntryId], references: [id])
+  agentId          String           @map("agent_id") @db.Uuid
+  agent            Agent            @relation(fields: [agentId], references: [id])
+  storeOrderId     String           @map("store_order_id") @db.Uuid
+  storeOrderItemId String?          @map("store_order_item_id") @db.Uuid
+  productId        String           @map("product_id") @db.Uuid
+  product          Product          @relation(fields: [productId], references: [id])
+
+  /// Null only for lines of orders earned under the legacy single rate
+  /// whose item type was never classified.
+  commissionClass AgentCommissionClass?     @map("commission_class")
+  rateSource      AgentCommissionRateSource @map("rate_source")
+  ratePercent     Decimal                   @map("rate_percent") @db.Decimal(7, 4)
+  overrideId      String?                   @map("override_id") @db.Uuid
+
+  /// Net line sales amount (after discount, excl. tax/shipping/service charge).
+  salesAmount           Decimal @map("sales_amount") @db.Decimal(14, 2)
+  returnedBeforeEarning Decimal @default(0) @map("returned_before_earning") @db.Decimal(14, 2)
+  /// Commission base of the line (also carried on reversal lines).
+  baseAmount            Decimal @map("base_amount") @db.Decimal(14, 2)
+  /// Reversal lines: cumulative returned-after-earning of the line.
+  returnedAfterEarning  Decimal @default(0) @map("returned_after_earning") @db.Decimal(14, 2)
+  /// Commission (COMMISSION) or commission reversed (COMMISSION_REVERSAL).
+  amount                Decimal @db.Decimal(14, 2)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([ledgerEntryId])
+  @@index([agentId, storeOrderId])
+  @@map("agent_commission_lines")
 }
 
 model AgentPayout {

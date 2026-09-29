@@ -41,7 +41,8 @@ function AlertDialogContent({
   size = "default",
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Content> & {
-  size?: "default" | "sm";
+  /** `lg` — a confirmation that shows a reviewable summary (e.g. a calculation preview). */
+  size?: "default" | "sm" | "lg";
 }) {
   return (
     <AlertDialogPortal>
@@ -50,7 +51,7 @@ function AlertDialogContent({
         data-slot="alert-dialog-content"
         data-size={size}
         className={cn(
-          "group/alert-dialog-content fixed top-1/2 start-1/2 z-50 grid w-full -translate-x-1/2 rtl:translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border border-border bg-popover p-5 text-popover-foreground shadow-lg duration-(--duration-base) outline-none data-[size=default]:max-w-xs data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 ",
+          "group/alert-dialog-content fixed top-1/2 start-1/2 z-50 grid w-full -translate-x-1/2 rtl:translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border border-border bg-popover p-5 text-popover-foreground shadow-lg duration-(--duration-base) outline-none data-[size=default]:max-w-xs data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-sm data-[size=lg]:max-w-[calc(100%-2rem)] data-[size=lg]:sm:max-w-2xl data-[size=lg]:max-h-[90dvh] data-[size=lg]:overflow-y-auto data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 ",
           className,
         )}
         {...props}

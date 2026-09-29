@@ -83,6 +83,7 @@ const agentsEn = {
     orders: "Orders",
     statement: "Statement",
     payouts: "Payouts",
+    commission: "Commission",
   },
   overview: {
     identity: "Agent details",
@@ -139,7 +140,7 @@ const agentsEn = {
       effectiveToHint: "Leave empty for an open-ended agreement.",
       commissionRate: "Commission rate (%)",
       commissionRateHint:
-        "Applied to the merchandise net amount — excludes tax, the customer shipping charge and the service charge.",
+        "Each item uses its own rate: an item override when set, otherwise the rate of its type (product or service/course — set on the item, independent of stock). Applied to the item's net sales — excludes tax, shipping, the service charge and carrier costs.",
       earningEvent: "Commission is earned when",
       returnTreatment: "Commission on returned goods",
       shippingChargeOwner: "Customer shipping charge belongs to",
@@ -154,6 +155,9 @@ const agentsEn = {
         "Days after the money is received and the commission is earned before it can be paid out.",
       notes: "Notes",
       currency: "Currency",
+      productRate: "Products rate",
+      serviceRate: "Services & courses rate",
+      shippingPolicy: "Agent shipping charge",
     },
     earningEvent: {
       DELIVERED: "Order delivered / handed over",
@@ -172,6 +176,9 @@ const agentsEn = {
       range: "Out of range",
       invalid: "Enter a valid number",
       decimals: "Too many decimal places",
+      notCharged: "Not charged under this policy — enter 0",
+      doubleShipping:
+        "Customer shipping belongs to the company and settles the agent charge — no second fee",
     },
     actions: {
       edit: "Edit draft",
@@ -210,6 +217,17 @@ const agentsEn = {
         "No shipping rates yet — shipping orders to a destination without a rate need a manual amount.",
       wholeCountry: "Whole country",
       readOnly: "Rates are read-only once the agreement is active.",
+    },
+    shippingPolicy: {
+      PREDETERMINED_CHARGE: "Predetermined shipping charge (from the shipping rates)",
+      FLAT_FEE_PER_SHIPMENT: "Flat fee per shipment (earlier agreements)",
+      NONE: "No agent shipping charge",
+    },
+    shippingPolicyHint: {
+      PREDETERMINED_CHARGE:
+        "The agent shipping charge is the shipping rate of the order's destination, fixed when the order is submitted. The customer shipping collected belongs to the company and settles it — the agent is not charged it again. Actual carrier invoices never create an agent deduction.",
+      FLAT_FEE_PER_SHIPMENT: "The flat fee below is charged for each dispatched shipment.",
+      NONE: "No shipping deduction from the agent.",
     },
   },
   destinations: {
@@ -380,13 +398,16 @@ const agentsEn = {
     journal: "Journal entry",
     deductions: {
       commission: "Commission",
-      customerShippingRetained: "Customer shipping retained",
+      customerShippingRetained: "Customer shipping retained (settles the agent shipping charge)",
       shippingFees: "Shipping fees",
       returnFees: "Return fees",
       serviceFees: "Service fees",
       providerFees: "Payment provider fees",
       customerRefunds: "Customer refunds",
     },
+    productCommission: "Commission — products",
+    serviceCommission: "Commission — services & courses",
+    legacyCommission: "Commission — single rate (earlier orders)",
   },
   ledgerDescription: {
     collectionReceived: "Collection {payment} received by the company — order {order}",
@@ -410,6 +431,8 @@ const agentsEn = {
     payoutReversal: "Payout {payout} reversed: {reason}",
     adjustmentCharge: "Finance adjustment (charge): {reason}",
     adjustmentCredit: "Finance adjustment (credit): {reason}",
+    commissionByClass:
+      "Commission — products {physical}, services {service} (base {base}) — order {order}",
   },
   entryType: {
     COLLECTION_RECEIVED: "Collection received",
@@ -710,6 +733,93 @@ const agentsEn = {
     ownerAgentHint:
       "Agent-owned goods are sold only through that agent. The owner can change only while the product has no stock movement and no order line.",
     companyOwned: "Company-owned",
+  },
+  commission: {
+    item: "Item",
+    class: "Type",
+    rate: "Rate",
+    source: "Rate source",
+    rateMissing: "No rate",
+    itemTypeMissing: "Item type not set",
+    unclassified: "Not classified",
+    classes: { PRODUCT: "Product", SERVICE: "Service / course" },
+    sources: {
+      AGREEMENT_PRODUCT: "Agreement — products",
+      AGREEMENT_SERVICE: "Agreement — services",
+      ITEM_OVERRIDE: "Item override",
+      LEGACY_SINGLE_RATE: "Single rate (earlier order)",
+    },
+    preview: {
+      intro:
+        "How this agreement calculates, before it applies. Customer shipping belongs to the company and settles the agent shipping charge; carrier invoices never reduce the sales used for commission.",
+      productCommission: "Products {sales} × {rate}%",
+      serviceCommission: "Services {sales} × {rate}%",
+      totalCommission: "Total commission",
+      customerShipping: "Customer shipping (company)",
+      agentShippingCharge: "Agent shipping charge",
+      chargeSettled: "{charge} — settled by the retained customer shipping ({applied})",
+      totalCollected: "Total collected",
+      companyRetains: "Company retains (commission + shipping)",
+      agentEntitlement: "Agent entitlement",
+      assumption:
+        "Example assumes everything was collected by the company, with no taxes, refunds, earlier payouts or other adjustments.",
+      noProducts: "This agent has no products yet.",
+    },
+    report: {
+      title: "Commission report",
+      description:
+        "Commission per item, shipping retained, actual carrier cost and what the agent is entitled to — separate from cash available for payout.",
+      scopeNote: "Orders dispatched or earned in the period; returns to date.",
+      productsTitle: "Products",
+      servicesTitle: "Services & courses",
+      entitlementTitle: "Entitlement (earned)",
+      cashTitle: "Cash position",
+      sales: "Sales",
+      base: "Commission base",
+      reversed: "Reversed",
+      commission: "Commission",
+      totalSales: "Total sales",
+      customerCharges: "Customer shipping & service charges",
+      returned: "Returned",
+      totalCommission: "Total commission",
+      shippingRetained: "Customer shipping retained",
+      otherCharges: "Other charges",
+      netEntitlement: "Agent net entitlement",
+      collectedByCompany: "Collected by the company",
+      collectedByAgent: "Collected by the agent",
+      refundsByCompany: "Refunds paid by the company",
+      pending: "Pending (not yet available)",
+      paidOut: "Paid out",
+      balance: "Balance",
+      available: "Available for payout",
+      entitlementNote:
+        "Entitlement is what the agent has earned; only the cash position shows what can be paid out now. Actual carrier cost is company expense and never deducted from the agent.",
+      carrierPendingNote:
+        "Carrier cost still pending: {awaiting} order(s) awaiting approval, {estimated} with an estimate only.",
+      legacyAllItems: "All items (single rate)",
+      empty: "No earned orders in this period.",
+      order: "Order",
+      item: "Item",
+      class: "Type",
+      rate: "Rate",
+      source: "Rate source",
+      shippingTitle: "Shipping by order",
+      customerShipping: "Customer shipping",
+      agentShippingCharge: "Agent shipping charge",
+      settlement: "Settlement",
+      settlements: {
+        SETTLED: "Settled by customer shipping",
+        DIFFERENCE: "Difference — decision needed",
+        NO_AGENT_CHARGE: "No agent charge",
+      },
+      carrierCost: "Actual carrier cost (company)",
+      carrierStages: {
+        NONE: "None",
+        ESTIMATED: "Estimate only",
+        AWAITING_APPROVAL: "Awaiting approval",
+        APPROVED: "Approved",
+      },
+    },
   },
 };
 

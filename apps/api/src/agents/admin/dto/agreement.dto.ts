@@ -17,6 +17,7 @@ import {
   AgentChargeOwner,
   AgentCommissionEarningEvent,
   AgentReturnCommissionTreatment,
+  AgentShippingPolicy,
 } from '@prisma/client';
 import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.decorator';
 import { emptyToUndefined } from '../../../common/transforms/empty-to-undefined';
@@ -39,11 +40,22 @@ export class CreateAgreementDto {
   @IsOptionalUuid()
   currencyId?: string;
 
+  /** Default rate for physical products (inventory items) — commission-policy.md A3. */
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
   @Max(100)
-  commissionRatePercent!: number;
+  productCommissionRatePercent!: number;
+
+  /** Default rate for services / courses (non-inventory items). */
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0)
+  @Max(100)
+  serviceCommissionRatePercent!: number;
+
+  @IsEnum(AgentShippingPolicy)
+  shippingPolicy!: AgentShippingPolicy;
 
   @IsEnum(AgentCommissionEarningEvent)
   commissionEarningEvent!: AgentCommissionEarningEvent;
@@ -97,6 +109,27 @@ export class EndAgreementDto {
   @IsDateString()
   @IsOptional()
   effectiveTo?: string;
+}
+
+/** Sample amounts for the agreement preview (defaults: the owner's A1 example). */
+export class AgreementPreviewQueryDto {
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @IsOptional()
+  productSales?: number;
+
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @IsOptional()
+  serviceSales?: number;
+
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @IsOptional()
+  customerShipping?: number;
 }
 
 export class UpsertShippingRateDto {

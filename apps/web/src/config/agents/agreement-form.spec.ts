@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   agreementFormFrom,
   emptyAgreementForm,
+  formatClassRates,
   validateAgreementForm,
+  withShippingPolicy,
   type AgreementFormState,
 } from "./agreement-form";
 import type { AgentAgreement } from "@/services/agents-service";
@@ -10,7 +12,9 @@ import type { AgentAgreement } from "@/services/agents-service";
 const complete: AgreementFormState = {
   effectiveFrom: "2026-10-01",
   effectiveTo: "",
-  commissionRatePercent: "12.5",
+  productCommissionRatePercent: "35",
+  serviceCommissionRatePercent: "25",
+  shippingPolicy: "FLAT_FEE_PER_SHIPMENT",
   commissionEarningEvent: "DELIVERED",
   returnCommissionTreatment: "REVERSE",
   customerShippingChargeOwner: "COMPANY",
@@ -31,7 +35,9 @@ describe("agreement form", () => {
       [
         "allowAgentDestinations",
         "commissionEarningEvent",
-        "commissionRatePercent",
+        "productCommissionRatePercent",
+        "serviceCommissionRatePercent",
+        "shippingPolicy",
         "customerShippingChargeOwner",
         "effectiveFrom",
         "payoutHoldDays",
@@ -50,7 +56,9 @@ describe("agreement form", () => {
     expect(payload).toEqual({
       effectiveFrom: "2026-10-01",
       effectiveTo: undefined,
-      commissionRatePercent: 12.5,
+      productCommissionRatePercent: 35,
+      serviceCommissionRatePercent: 25,
+      shippingPolicy: "FLAT_FEE_PER_SHIPMENT",
       commissionEarningEvent: "DELIVERED",
       returnCommissionTreatment: "REVERSE",
       customerShippingChargeOwner: "COMPANY",
@@ -64,32 +72,80 @@ describe("agreement form", () => {
     });
   });
 
+  it("allows an explicit 0% class rate", () => {
+    const { errors, payload } = validateAgreementForm({
+      ...complete,
+      serviceCommissionRatePercent: "0",
+    });
+    expect(errors).toEqual({});
+    expect(payload?.serviceCommissionRatePercent).toBe(0);
+  });
+
   it("enforces the DTO ranges and precision", () => {
     const { errors } = validateAgreementForm({
       ...complete,
       effectiveTo: "2026-09-01",
-      commissionRatePercent: "100.5",
+      productCommissionRatePercent: "100.5",
       shippingFeePerShipment: "1.234",
       payoutHoldDays: "1.5",
       serviceFeePerOrder: "-1",
     });
     expect(errors).toEqual({
       effectiveTo: "range",
-      commissionRatePercent: "range",
+      productCommissionRatePercent: "range",
       shippingFeePerShipment: "decimals",
       payoutHoldDays: "decimals",
       serviceFeePerOrder: "range",
     });
-    expect(validateAgreementForm({ ...complete, commissionRatePercent: "5.12345" }).errors).toEqual(
-      { commissionRatePercent: "decimals" },
+    expect(
+      validateAgreementForm({ ...complete, serviceCommissionRatePercent: "5.12345" }).errors,
+    ).toEqual({ serviceCommissionRatePercent: "decimals" });
+  });
+
+  it("predetermined shipping: customer shipping belongs to the company, no second fee (A3)", () => {
+    const { errors, payload } = validateAgreementForm({
+      ...complete,
+      shippingPolicy: "PREDETERMINED_CHARGE",
+      customerShippingChargeOwner: "AGENT",
+      shippingFeePerShipment: "10",
+    });
+    expect(payload).toBeNull();
+    expect(errors).toEqual({
+      customerShippingChargeOwner: "doubleShipping",
+      shippingFeePerShipment: "doubleShipping",
+    });
+    const filled = withShippingPolicy(
+      { ...complete, customerShippingChargeOwner: "AGENT", shippingFeePerShipment: "10" },
+      "PREDETERMINED_CHARGE",
     );
+    expect(filled).toMatchObject({
+      customerShippingChargeOwner: "COMPANY",
+      shippingFeePerShipment: "0",
+    });
+    expect(validateAgreementForm(filled).errors).toEqual({});
+  });
+
+  it("a company-borne shipping policy never keeps a flat fee it would not charge", () => {
+    expect(
+      validateAgreementForm({
+        ...complete,
+        shippingPolicy: "NONE",
+        shippingFeePerShipment: "15",
+      }).errors,
+    ).toEqual({ shippingFeePerShipment: "notCharged" });
+    expect(
+      withShippingPolicy({ ...complete, shippingFeePerShipment: "15" }, "NONE")
+        .shippingFeePerShipment,
+    ).toBe("0");
   });
 
   it("round-trips a stored agreement into the editor", () => {
     const agreement = {
       effectiveFrom: "2026-10-01T00:00:00.000Z",
       effectiveTo: null,
-      commissionRatePercent: "12.5000",
+      productCommissionRatePercent: "35.0000",
+      serviceCommissionRatePercent: "12.5000",
+      shippingPolicy: "NONE",
       commissionEarningEvent: "PAYMENT_VERIFIED",
       returnCommissionTreatment: "RETAIN",
       customerShippingChargeOwner: "AGENT",
@@ -103,8 +159,11 @@ describe("agreement form", () => {
     } as unknown as AgentAgreement;
     const form = agreementFormFrom(agreement);
     expect(form.effectiveFrom).toBe("2026-10-01");
-    expect(form.commissionRatePercent).toBe("12.5");
+    expect(form.productCommissionRatePercent).toBe("35");
+    expect(form.serviceCommissionRatePercent).toBe("12.5");
+    expect(form.shippingPolicy).toBe("NONE");
     expect(form.allowAgentDestinations).toBe("yes");
     expect(validateAgreementForm(form).payload?.payoutHoldDays).toBe(0);
+    expect(formatClassRates(agreement)).toBe("35.00% / 12.50%");
   });
 });

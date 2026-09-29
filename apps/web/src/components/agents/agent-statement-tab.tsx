@@ -13,7 +13,6 @@ import {
   EnterpriseDateRangePicker,
   type DateRangeValue,
 } from "@/components/shared/date-range-picker";
-import { DetailSection } from "@/components/shared/detail-workspace";
 import { ErrorState } from "@/components/shared/error-state";
 import { MoneyValue } from "@/components/shared/money-value";
 import { StatusBadge } from "@/components/business/status-badge";
@@ -44,50 +43,10 @@ import { formatAmount, formatMoney } from "@/lib/money";
 import { apiErrorMessage } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
 import { PayoutDetailDialog } from "./agent-payouts";
+import { SummaryCard } from "./summary-card";
 import { AdjustmentDialog } from "./agent-finance-dialogs";
 
 const EMPTY_RANGE: DateRangeValue = { from: null, to: null };
-
-type SummaryRow = { label: string; value: number | string; emphasis?: boolean };
-
-/** One summary card: label / amount rows, the emphasized row last (a total). */
-function SummaryCard({
-  title,
-  rows,
-  currency,
-}: {
-  title: string;
-  rows: SummaryRow[];
-  currency: string;
-}) {
-  return (
-    <DetailSection title={title}>
-      <dl className="flex flex-col">
-        {rows.map((row) => (
-          <div
-            key={row.label}
-            className="flex min-w-0 items-baseline justify-between gap-3 border-b border-border/60 py-1.5 last:border-b-0"
-          >
-            <dt
-              className={
-                row.emphasis ? "text-caption font-semibold" : "text-caption text-muted-foreground"
-              }
-            >
-              {row.label}
-            </dt>
-            <dd className={row.emphasis ? "font-semibold" : undefined}>
-              {typeof row.value === "number" ? (
-                <MoneyValue value={row.value} currency={currency} />
-              ) : (
-                <span className="num">{row.value}</span>
-              )}
-            </dd>
-          </div>
-        ))}
-      </dl>
-    </DetailSection>
-  );
-}
 
 function ReferenceCell({
   line,
@@ -423,15 +382,24 @@ export function AgentStatementTab({ agentId }: { agentId: string }) {
               currency={currency}
               rows={[
                 { label: t("agents.statement.commissionBase"), value: summary.commission.base },
+                // commission-policy.md A7: products vs services, never merged
+                // with the shipping reimbursement (its own deduction row).
                 {
-                  label: t("agents.statement.commissionRate"),
-                  value:
-                    summary.commission.ratePercent != null
-                      ? `${formatAmount(summary.commission.ratePercent)}%`
-                      : summary.commission.charged > 0
-                        ? t("agents.statement.commissionRateMixed")
-                        : "—",
+                  label: t("agents.statement.productCommission"),
+                  value: summary.commission.byClass.PRODUCT.commission,
                 },
+                {
+                  label: t("agents.statement.serviceCommission"),
+                  value: summary.commission.byClass.SERVICE.commission,
+                },
+                ...(summary.commission.legacySingleRate > 0
+                  ? [
+                      {
+                        label: t("agents.statement.legacyCommission"),
+                        value: summary.commission.legacySingleRate,
+                      },
+                    ]
+                  : []),
                 ...deductions.rows.map((row) => ({
                   label: t(`agents.statement.deductions.${row.key}` as MessageKey),
                   value: row.amount,

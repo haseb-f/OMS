@@ -1,11 +1,11 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import { formatClassRates } from "@/config/agents/agreement-form";
 import { StatusBadge } from "@/components/business/status-badge";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { useLocale } from "@/providers/locale-provider";
-import { formatAmount } from "@/lib/money";
 import type { MessageKey } from "@/i18n/translate";
 import type { AgentRow } from "@/services/agents-service";
 
@@ -28,7 +28,7 @@ function AgreementCell({ row }: { row: AgentRow }) {
   return (
     <StackedCell
       primary={<SemanticValue kind="id">{agreement.agreementNumber}</SemanticValue>}
-      secondary={`${t("agents.fields.commission")} ${formatAmount(Number(agreement.commissionRatePercent))}%`}
+      secondary={`${t("agents.fields.commission")} ${formatClassRates(agreement)}`}
     />
   );
 }
@@ -139,7 +139,7 @@ export function agentExportRow(
     status: t(`agents.status.${row.status}` as MessageKey),
     currency: row.currency?.code ?? "",
     activeAgreement: row.activeAgreement
-      ? `${row.activeAgreement.agreementNumber} (${formatAmount(Number(row.activeAgreement.commissionRatePercent))}%)`
+      ? `${row.activeAgreement.agreementNumber} (${formatClassRates(row.activeAgreement)})`
       : "",
     orders: String(row._count?.storeOrders ?? 0),
     users: String(row._count?.users ?? 0),

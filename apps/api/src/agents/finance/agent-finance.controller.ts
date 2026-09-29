@@ -20,6 +20,7 @@ import { AgentStatementService } from './agent-statement.service';
 import { AgentPayoutsService } from './agent-payouts.service';
 import { AgentCollectionsService } from './agent-collections.service';
 import { AgentAdjustmentsService } from './agent-adjustments.service';
+import { AgentCommissionReportService } from './agent-commission-report.service';
 import {
   AgentAdjustmentDto,
   AgentCollectionsQueryDto,
@@ -49,7 +50,19 @@ export class AgentFinanceController {
     private readonly payouts: AgentPayoutsService,
     private readonly collections: AgentCollectionsService,
     private readonly adjustments: AgentAdjustmentsService,
+    private readonly commissionReport: AgentCommissionReportService,
   ) {}
+
+  // ── Commission report (commission-policy.md A7) ──
+
+  @Get('agents/:agentId/commission-report')
+  @PermissionAction('view')
+  commissionReportFor(
+    @Param('agentId', ParseUUIDPipe) agentId: string,
+    @Query() query: AgentPeriodQueryDto,
+  ) {
+    return this.commissionReport.report(agentId, query);
+  }
 
   // ── Agent collections (agent-destination payments) ──────────────────────
 

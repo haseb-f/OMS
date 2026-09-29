@@ -48,6 +48,14 @@ import {
   type ResolvedShippingRate,
 } from '../admin/agent-agreements.service';
 import type { AgentOrderPersistInput } from './agent-order-persist';
+import { AgentCommissionRatesService } from '../commission/agent-commission-rates.service';
+import {
+  AgentCommissionRateMissingError,
+  AgentItemTypeMissingError,
+  settleAgentShipping,
+  type AgentLineCommissionRate,
+} from '../commission/agent-commission';
+import type { AgentShippingChargeSnapshot } from '../common/agent-terms';
 import type {
   AgentDeclarationFieldsDto,
   AgentOrderPricingDto,
@@ -100,8 +108,14 @@ interface PreparedOrder {
     quantity: number;
     listUnitPrice: number | null;
     isInventoryItem: boolean;
+    /** commission-policy.md A2 — explicit PRODUCT / SERVICE (null = unclassified). */
+    itemType: 'PRODUCT' | 'SERVICE' | null;
   }>;
   breakdown: AgentPricingBreakdown | null;
+  /** A3/A6 — the predetermined agent shipping charge (PREDETERMINED_CHARGE policy only). */
+  agentShippingCharge: AgentShippingChargeSnapshot | null;
+  /** Per-line commission rate resolved on the order date (commission-policy.md A4). */
+  commissionRates: AgentLineCommissionRate[] | null;
 }
 
 const issue = (code: string, message: string, lineKey?: string) => ({
@@ -137,6 +151,7 @@ export class AgentOrdersService {
     private readonly workflow: WorkflowEngineService,
     private readonly declarations: StoreOrderPaymentDeclarationService,
     private readonly phones: PhoneNumberService,
+    private readonly commissionRates: AgentCommissionRatesService,
   ) {}
 
   // ── Internal workspace list ─────────────────────────────────────────────
@@ -486,6 +501,7 @@ export class AgentOrdersService {
         status: true,
         isSellable: true,
         isInventoryItem: true,
+        itemType: true,
         salesPrice: true,
         ownerAgentId: true,
       },
@@ -523,6 +539,7 @@ export class AgentOrdersService {
         listUnitPrice:
           product.salesPrice == null ? null : Number(product.salesPrice),
         isInventoryItem: product.isInventoryItem,
+        itemType: product.itemType,
       });
     });
     if (owners.has(null)) {
@@ -604,6 +621,38 @@ export class AgentOrdersService {
             'لا توجد اتفاقية سارية للوكيل في تاريخ الطلب — The agent has no agreement in force on the order date.',
           ),
         );
+      }
+    }
+    let commissionRates: AgentLineCommissionRate[] | null = null;
+    if (agreement && lines.length === input.lines.length) {
+      try {
+        commissionRates = await this.commissionRates.resolveLineRates(
+          agreement,
+          lines.map((line) => ({
+            productId: line.productId,
+            itemType: line.itemType,
+          })),
+          orderDate,
+        );
+      } catch (error) {
+        if (error instanceof AgentItemTypeMissingError) {
+          const index = lines.findIndex((l) => l.productId === error.productId);
+          issues.push(
+            issue(
+              error.code,
+              'نوع الصنف (منتج / خدمة) غير محدد لهذا الصنف — اطلب من الشركة تصنيفه — This item has no item type (product / service); ask the company to classify it.',
+              index >= 0 ? String(index) : undefined,
+            ),
+          );
+        } else {
+          if (!(error instanceof AgentCommissionRateMissingError)) throw error;
+          issues.push(
+            issue(
+              error.code,
+              'لا توجد نسبة عمولة مُعدّة لهذا النوع من الأصناف في اتفاقية الوكيل — No commission rate is configured for this item type in the agent agreement.',
+            ),
+          );
+        }
       }
     }
     const currencyId = agreement?.currencyId ?? null;
@@ -717,6 +766,41 @@ export class AgentOrdersService {
       }
     }
 
+    // A3/A6 — predetermined agent shipping charge, settled by the customer
+    // shipping the company retains. A difference is never settled silently.
+    let agentShippingCharge: AgentShippingChargeSnapshot | null = null;
+    if (agreement?.shippingPolicy === 'PREDETERMINED_CHARGE' && breakdown) {
+      const noShipment =
+        digitalOnly || fulfillmentMethod === StoreOrderFulfillmentMethod.PICKUP;
+      const rate = noShipment ? 0 : (shipping.rate?.amount ?? null);
+      if (rate == null) {
+        issues.push(
+          issue(
+            'AGENT_SHIPPING_CHARGE_NOT_CONFIGURED',
+            'لا يوجد سعر شحن مُعدّ لهذه الوجهة في الاتفاقية لتحديد رسم شحن الوكيل — No agreement shipping rate for this destination to set the agent shipping charge.',
+          ),
+        );
+      } else {
+        const settlement = settleAgentShipping({
+          customerShipping: breakdown.shippingCharge,
+          predeterminedCharge: rate,
+        });
+        if (settlement.needsDecision) {
+          issues.push(
+            issue(
+              'AGENT_SHIPPING_DIFFERENCE_PENDING_DECISION',
+              `شحن العميل (${breakdown.shippingCharge.toFixed(2)}) يختلف عن رسم شحن الوكيل المحدد (${rate.toFixed(2)}) — معالجة الفرق بانتظار قرار الإدارة — The customer shipping (${breakdown.shippingCharge.toFixed(2)}) differs from the predetermined agent shipping charge (${rate.toFixed(2)}); settling the difference awaits the owner's decision.`,
+            ),
+          );
+        }
+        agentShippingCharge = {
+          amount: rate,
+          source: digitalOnly ? 'DIGITAL_ONLY' : noShipment ? 'PICKUP' : 'RATE',
+          rateId: noShipment ? null : (shipping.rate?.id ?? null),
+        };
+      }
+    }
+
     return {
       issues,
       agent,
@@ -729,6 +813,8 @@ export class AgentOrdersService {
       shippingOverrideReason,
       lines,
       breakdown,
+      commissionRates,
+      agentShippingCharge,
     };
   }
 
@@ -780,6 +866,8 @@ export class AgentOrdersService {
             }
           : {}),
       })),
+      /** A3/A6 — predetermined agent shipping charge (settled by the retained customer shipping). */
+      agentShippingCharge: prepared.agentShippingCharge,
       breakdown: prepared.breakdown
         ? {
             mode: prepared.breakdown.mode,
@@ -795,7 +883,13 @@ export class AgentOrdersService {
   }
 
   private throwIfInvalid(prepared: PreparedOrder) {
-    if (prepared.issues.length === 0 && prepared.breakdown) return;
+    if (
+      prepared.issues.length === 0 &&
+      prepared.breakdown &&
+      prepared.commissionRates
+    ) {
+      return;
+    }
     const first = prepared.issues[0] ?? {
       code: 'INVALID_ORDER',
       message: 'الطلب غير مكتمل — The order is incomplete.',
@@ -841,7 +935,9 @@ export class AgentOrdersService {
         unitPrice: line.unitPrice,
         agreedAmount: line.lineAmount,
         inventoryLine: prepared.lines[index].isInventoryItem,
+        commission: prepared.commissionRates![index],
       })),
+      agentShippingCharge: prepared.agentShippingCharge,
     };
   }
 

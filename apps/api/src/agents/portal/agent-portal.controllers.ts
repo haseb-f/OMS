@@ -261,6 +261,15 @@ export class AgentPortalFinanceController {
     return this.portal.summary(agent, query);
   }
 
+  @Get('commission-report')
+  @RequireAgentPermission('agent.statement.view')
+  commissionReport(
+    @CurrentAgent() agent: AgentRequestContext,
+    @Query() query: AgentPortalStatementQueryDto,
+  ) {
+    return this.portal.commissionReportFor(agent, query);
+  }
+
   @Get('statement/print-data')
   @RequireAgentPermission('agent.statement.view')
   printData(

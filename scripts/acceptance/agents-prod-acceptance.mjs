@@ -70,7 +70,9 @@ const AGENTS = [
     name: `وكيل تجريبي A — ${TAG}`,
     email: "agent-a.demo-agt@oms.haseb.org",
     terms: {
-      commissionRatePercent: 10,
+      productCommissionRatePercent: 10,
+      serviceCommissionRatePercent: 10,
+      shippingPolicy: "FLAT_FEE_PER_SHIPMENT",
       commissionEarningEvent: "DELIVERED",
       returnCommissionTreatment: "REVERSE",
       customerShippingChargeOwner: "COMPANY",
@@ -101,7 +103,9 @@ const AGENTS = [
     name: `وكيل تجريبي B — ${TAG}`,
     email: "agent-b.demo-agt@oms.haseb.org",
     terms: {
-      commissionRatePercent: 8,
+      productCommissionRatePercent: 8,
+      serviceCommissionRatePercent: 8,
+      shippingPolicy: "FLAT_FEE_PER_SHIPMENT",
       commissionEarningEvent: "PAYMENT_VERIFIED",
       returnCommissionTreatment: "RETAIN",
       customerShippingChargeOwner: "AGENT",
@@ -365,7 +369,7 @@ async function journeys() {
   const bS1 = B.email_sales1;
   const bAdm = B.email_admin;
   const me = await must(aS1, "GET", "/agent-portal/me");
-  const rate = Number(me.agreement.commissionRatePercent) / 100;
+  const rate = Number(me.agreement.productCommissionRatePercent) / 100;
   const shipFee = Number(me.agreement.shippingFeePerShipment);
   const retFee = Number(me.agreement.returnFeePerShipment);
   const destA = await must(aS1, "GET", "/agent-portal/payment-destinations");
@@ -598,11 +602,11 @@ async function journeys() {
     const list = listOf(await must(ADMIN, "GET", `/agents/${A.id}/agreements`));
     const current = list.find((a) => ["ACTIVE", "ENDED"].includes(a.status) && a.effectiveFrom.slice(0, 10) <= TODAY && (!a.effectiveTo || a.effectiveTo.slice(0, 10) >= TODAY));
     expect(current, "no agreement in force");
-    const oldRate = Number(current.commissionRatePercent);
+    const oldRate = Number(current.productCommissionRatePercent);
     let next = list.find((a) => a.status === "ACTIVE" && a.effectiveFrom.slice(0, 10) > TODAY);
     if (!next) {
       if (current.status === "ACTIVE" && !current.effectiveTo) await must(ADMIN, "POST", `/agents/${A.id}/agreements/${current.id}/end`, { effectiveTo: plusDays(1) });
-      const draft = await must(ADMIN, "POST", `/agents/${A.id}/agreements`, { ...A.terms, commissionRatePercent: oldRate + 2, effectiveFrom: plusDays(2), notes: `تغيير سعر العمولة (اختبار سريان) — ${TAG}` });
+      const draft = await must(ADMIN, "POST", `/agents/${A.id}/agreements`, { ...A.terms, productCommissionRatePercent: oldRate + 2, serviceCommissionRatePercent: oldRate + 2, effectiveFrom: plusDays(2), notes: `تغيير سعر العمولة (اختبار سريان) — ${TAG}` });
       const full = await must(ADMIN, "GET", `/agents/${A.id}/agreements/${current.id}`);
       for (const r of full.shippingRates ?? []) await must(ADMIN, "PUT", `/agents/${A.id}/agreements/${draft.id}/shipping-rates`, { countryId: r.countryId ?? r.country?.id, city: r.city ?? "", amount: Number(r.amount) });
       next = await must(ADMIN, "POST", `/agents/${A.id}/agreements/${draft.id}/activate`);
@@ -611,8 +615,8 @@ async function journeys() {
     const o = await must(aS1, "POST", "/agent-portal/orders", { pricingMode: "SHIPPING_ADDED", lines: [{ productId: cA, quantity: 1, lineAmount: 200 }], paymentType: "PREPAID", customer: cust("P6"), idempotencyKey: key("P6") });
     ctx.orders.P6 = o;
     const internal = await must(ADMIN, "GET", `/store-orders/${o.id}`);
-    eq(internal.agentTermsSnapshot?.commissionRatePercent, oldRate, "snapshot rate");
-    return `${current.agreementNumber} → ends ${plusDays(1)} (${oldRate}%); ${next.agreementNumber} from ${next.effectiveFrom?.slice(0, 10)} (${next.commissionRatePercent}%); ${o.internalOrderId} snapshot ${oldRate}%`;
+    eq(internal.agentTermsSnapshot?.productCommissionRatePercent, oldRate, "snapshot rate");
+    return `${current.agreementNumber} → ends ${plusDays(1)} (${oldRate}%); ${next.agreementNumber} from ${next.effectiveFrom?.slice(0, 10)} (${next.productCommissionRatePercent}%); ${o.internalOrderId} snapshot ${oldRate}%`;
   });
 }
 

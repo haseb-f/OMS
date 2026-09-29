@@ -74,6 +74,7 @@ import {
   type ProductFormValues,
 } from "@/config/products/schema";
 import { ProductOpeningBalanceDialog } from "./product-opening-balance-dialog";
+import { ProductCommissionSection } from "@/components/products/product-commission-section";
 import { formatDate, formatDateTime } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
 import { formatNumber } from "@/lib/format-number";
@@ -169,6 +170,7 @@ function toFormValues(source: ProductRow | null): ProductFormValues {
     purchaseDescription: source.purchaseDescription ?? "",
     isPurchasable: source.isPurchasable,
     isInventoryItem: source.isInventoryItem,
+    itemType: source.itemType ?? "",
     reorderLevel: source.reorderLevel ? Number(source.reorderLevel) : undefined,
     reorderQuantity: source.reorderQuantity ? Number(source.reorderQuantity) : undefined,
     safetyStock: source.safetyStock ? Number(source.safetyStock) : undefined,
@@ -205,6 +207,8 @@ function toPayload(values: ProductFormValues) {
     brandId: values.brandId || undefined,
     // Agents milestone — null = company-owned (sent only by staff who may see agents).
     ownerAgentId: ownerAgentId || null,
+    // "" = leave as is / let the server apply its reliable default (A2).
+    itemType: values.itemType || undefined,
     taxId: values.taxId || undefined,
     analyticAccountId: values.analyticAccountId || undefined,
     preferredPartnerId: values.preferredPartnerId || undefined,
@@ -381,6 +385,8 @@ export function ProductModal({
       return;
     }
     form.setValue("type", nextType as ProductType, { shouldDirty: true });
+    // A SERVICE product type is a service item; otherwise keep the choice.
+    if (nextType === "SERVICE") form.setValue("itemType", "SERVICE", { shouldDirty: true });
   };
 
   const confirmTypeChange = () => {
@@ -695,6 +701,42 @@ export function ProductModal({
                 />
                 <FormField
                   control={form.control}
+                  name="itemType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("productCommission.itemType.label")}</FormLabel>
+                      <Select
+                        value={field.value || "UNSET"}
+                        onValueChange={(value) => field.onChange(value === "UNSET" ? "" : value)}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="PRODUCT">
+                            {t("productCommission.itemType.PRODUCT")}
+                          </SelectItem>
+                          <SelectItem value="SERVICE">
+                            {t("productCommission.itemType.SERVICE")}
+                          </SelectItem>
+                          {!field.value ? (
+                            <SelectItem value="UNSET" disabled>
+                              {t("productCommission.itemType.UNSET")}
+                            </SelectItem>
+                          ) : null}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-caption text-muted-foreground">
+                        {t("productCommission.itemType.hint")}
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
                   name="status"
                   render={({ field }) => (
                     <FormItem>
@@ -896,6 +938,13 @@ export function ProductModal({
                   />
                 </ModalFieldFullWidth>
               </ModalSection>
+              {/* commission-policy.md A4 — only an existing agent-owned product carries a commission setting. */}
+              {canSetOwnerAgent && savedProduct?.ownerAgentId ? (
+                <ProductCommissionSection
+                  key={`${savedProduct.id}:${savedProduct.ownerAgentId}`}
+                  productId={savedProduct.id}
+                />
+              ) : null}
             </TabsContent>
 
             <TabsContent value="sales" className="flex flex-col gap-3">

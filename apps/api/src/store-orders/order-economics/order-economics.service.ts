@@ -1,3 +1,4 @@
+import { netConfirmedCarrierCost } from '../../carrier-reconciliation/carrier-charge-net';
 import {
   Injectable,
   NotFoundException,
@@ -36,8 +37,7 @@ const ORDER_ECONOMICS_SELECT = {
       additionalShippingCost: true,
       carrierCharges: {
         where: { reconciliationState: 'CONFIRMED' as const, deletedAt: null },
-        select: { chargeAmount: true },
-        take: 1,
+        select: { chargeAmount: true, chargeKind: true },
       },
     },
   },
@@ -203,12 +203,12 @@ export class OrderEconomicsService {
           base != null || additional != null
             ? round2((base ?? 0) + (additional ?? 0))
             : null;
-        // CONFIRMED ACTUAL (a reconciled carrier charge) always wins over
-        // the Shipment's own operationally-entered cost — never summed
-        // with it (ADR-0018 M2 gap closure, Part 5).
-        const confirmedCarrierCost = shipment.carrierCharges[0]
-          ? round2(Number(shipment.carrierCharges[0].chargeAmount))
-          : null;
+        // CONFIRMED ACTUAL (reconciled carrier charges: base + surcharges −
+        // credits) always wins over the Shipment's own operationally-entered
+        // cost — never summed with it (ADR-0018 M2 gap closure, Part 5;
+        // commission-policy.md A6).
+        const net = netConfirmedCarrierCost(shipment.carrierCharges);
+        const confirmedCarrierCost = net != null ? round2(net) : null;
         const totalCost = confirmedCarrierCost ?? operationalCost;
         const costVariance =
           confirmedCarrierCost != null && operationalCost != null

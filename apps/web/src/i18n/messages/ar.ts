@@ -4,7 +4,9 @@ import paymentSettlementAr from "./modules/payment-settlement.ar";
 import fxSettingsAr from "./modules/fx-settings.ar";
 import docUiAr from "./modules/doc-ui.ar";
 import feedbackAr from "./modules/feedback.ar";
+import productCommissionAr from "./modules/product-commission.ar";
 const ar = {
+  productCommission: productCommissionAr,
   paymentDeclaration: paymentDeclarationAr,
   paymentReconciliation: paymentReconciliationAr,
   paymentSettlement: paymentSettlementAr,
@@ -3523,6 +3525,35 @@ const ar = {
       description:
         "يلغي المطابقة (وإذا كانت مؤكدة، يزيلها كتكلفة الشحن المعتمدة) — تعود الرسوم إلى غير مطابقة.",
       saved: "تم إلغاء مطابقة رسوم شركة الشحن.",
+    },
+    // commission-policy.md A6 — charge kind, cost stage, paid (company cost only).
+    columns: {
+      kind: "نوع الرسوم",
+      agent: "الوكيل",
+      stage: "مرحلة التكلفة",
+    },
+    kinds: {
+      BASE: "أساسية",
+      SURCHARGE: "رسوم إضافية",
+      CREDIT: "إشعار دائن",
+    },
+    stage: {
+      INCURRED: "مستحقة",
+      APPROVED: "معتمدة",
+      PAID: "مدفوعة",
+    },
+    paid: {
+      action: "تسجيل كمدفوعة",
+      paidOn: "دُفعت {date}",
+      dialogTitle: "تسجيل رسوم الشحن كمدفوعة؟",
+      dialogDescription:
+        "يسجل أن الشركة دفعت هذه الرسوم لشركة الشحن. الدفع يُتابَع منفصلًا عن الاعتماد.",
+      reference: "مرجع الدفع",
+      saved: "تم تسجيل رسوم الشحن كمدفوعة.",
+    },
+    csv: {
+      template: "تنزيل قالب CSV",
+      help: "أعمدة ملف CSV: Carrier وCharge Amount وCurrency وCharge Date (إلزامية)؛ وCharge Kind (اختياري — BASE أو SURCHARGE أو CREDIT؛ والمبلغ السالب يُستورد كإشعار دائن CREDIT)، وCarrier Reference وTracking Number وShipment Reference وCharge Type.",
     },
   },
   storeOrders: {

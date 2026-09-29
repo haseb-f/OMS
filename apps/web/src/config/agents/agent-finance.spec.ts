@@ -89,6 +89,23 @@ describe("deductionBreakdown", () => {
     expect(result.rows).toHaveLength(7);
     expect(result.total).toBe(136.65);
   });
+
+  it("shows the retained customer shipping as its own row, apart from commission (A1)", () => {
+    const result = deductionBreakdown({
+      deductions: {
+        commission: 350,
+        customerShippingRetained: 100,
+        shippingFees: 0,
+        returnFees: 0,
+        serviceFees: 0,
+        providerFees: 0,
+        customerRefunds: 0,
+      },
+    });
+    expect(result.rows.find((row) => row.key === "commission")?.amount).toBe(350);
+    expect(result.rows.find((row) => row.key === "customerShippingRetained")?.amount).toBe(100);
+    expect(result.total).toBe(450);
+  });
 });
 
 describe("payoutAmountError", () => {

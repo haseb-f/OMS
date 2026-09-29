@@ -22,6 +22,7 @@ import {
 } from '../common/agent-terms';
 import { resolveActiveAgreement } from '../admin/agent-agreements.service';
 import { AgentDestinationsService } from '../admin/agent-destinations.service';
+import { AgentCommissionReportService } from '../finance/agent-commission-report.service';
 import { AgentStatementService } from '../finance/agent-statement.service';
 import { AgentPayoutsService } from '../finance/agent-payouts.service';
 import { portalAttachmentUrl } from './agent-portal-orders.service';
@@ -91,6 +92,7 @@ export class AgentPortalService {
     private readonly statements: AgentStatementService,
     private readonly payoutsService: AgentPayoutsService,
     private readonly storage: ObjectStorageService,
+    private readonly commissionReport: AgentCommissionReportService,
   ) {}
 
   private async permissions(agent: AgentRequestContext) {
@@ -140,7 +142,13 @@ export class AgentPortalService {
             effectiveFrom: agreement.effectiveFrom,
             effectiveTo: agreement.effectiveTo,
             currencyId: agreement.currencyId,
-            commissionRatePercent: Number(agreement.commissionRatePercent),
+            productCommissionRatePercent: Number(
+              agreement.productCommissionRatePercent,
+            ),
+            serviceCommissionRatePercent: Number(
+              agreement.serviceCommissionRatePercent,
+            ),
+            shippingPolicy: agreement.shippingPolicy,
             commissionEarningEvent: agreement.commissionEarningEvent,
             returnCommissionTreatment: agreement.returnCommissionTreatment,
             customerShippingChargeOwner: agreement.customerShippingChargeOwner,
@@ -378,6 +386,17 @@ export class AgentPortalService {
 
   summary(agent: AgentRequestContext, query: AgentPortalStatementQueryDto) {
     return this.statements.summary(agent.agentId, {
+      from: query.from,
+      to: query.to,
+    });
+  }
+
+  /** Item-level commission and shipping-recovery report (commission-policy.md A7), own agent only. */
+  commissionReportFor(
+    agent: AgentRequestContext,
+    query: AgentPortalStatementQueryDto,
+  ) {
+    return this.commissionReport.report(agent.agentId, {
       from: query.from,
       to: query.to,
     });

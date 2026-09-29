@@ -5,11 +5,16 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import { CarrierReconciliationState, Prisma } from '@prisma/client';
+import {
+  CarrierChargeKind,
+  CarrierReconciliationState,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MasterDataActivityLogService } from '../master-data/master-data-activity-log.service';
 import { parseCsv } from '../import-center/csv-parser.util';
 import { normalizeExternalOrderId } from '../import-center/sync/store-orders-sync.lifecycle';
+import { netConfirmedCarrierCost } from './carrier-charge-net';
 
 const ENTITY_TYPE = 'CARRIER_CHARGE';
 
@@ -58,11 +63,14 @@ export class CarrierReconciliationService {
     trackingNumber?: string | null;
     chargeAmount: number;
     chargeDate: string;
+    chargeKind: CarrierChargeKind;
   }): string {
     const carrier = row.carrierNameRaw.trim().toLowerCase();
+    // BASE keeps its historical key; surcharges/credits are distinct lines.
+    const kind = row.chargeKind === 'BASE' ? '' : `:${row.chargeKind}`;
     const identity = row.carrierReference?.trim()
-      ? `ref:${row.carrierReference.trim().toLowerCase()}`
-      : `fallback:${(row.trackingNumber ?? '').trim().toLowerCase()}:${row.chargeAmount.toFixed(2)}:${row.chargeDate}`;
+      ? `ref:${row.carrierReference.trim().toLowerCase()}${kind}`
+      : `fallback:${(row.trackingNumber ?? '').trim().toLowerCase()}:${row.chargeAmount.toFixed(2)}:${row.chargeDate}${kind}`;
     return createHash('sha256').update(`${carrier}|${identity}`).digest('hex');
   }
 
@@ -190,14 +198,37 @@ export class CarrierReconciliationService {
         });
         continue;
       }
-      const chargeAmount = Number(chargeAmountRaw);
-      if (!Number.isFinite(chargeAmount) || chargeAmount < 0) {
+      const signedAmount = Number(chargeAmountRaw);
+      if (!Number.isFinite(signedAmount)) {
         errorRows.push({
           row: rowNumber,
           message: `Invalid Charge Amount "${chargeAmountRaw}".`,
         });
         continue;
       }
+      // commission-policy.md A6: BASE (default), SURCHARGE (late/additional)
+      // or CREDIT; a negative amount is a carrier credit, stored positive.
+      const kindRaw = row['Charge Kind']?.trim().toUpperCase() || null;
+      if (kindRaw && !['BASE', 'SURCHARGE', 'CREDIT'].includes(kindRaw)) {
+        errorRows.push({
+          row: rowNumber,
+          message: `Invalid Charge Kind "${row['Charge Kind']}" (BASE, SURCHARGE or CREDIT).`,
+        });
+        continue;
+      }
+      if (signedAmount < 0 && kindRaw && kindRaw !== 'CREDIT') {
+        errorRows.push({
+          row: rowNumber,
+          message:
+            'A negative Charge Amount is a carrier credit — Charge Kind must be CREDIT or empty.',
+        });
+        continue;
+      }
+      const chargeKind: CarrierChargeKind =
+        signedAmount < 0
+          ? 'CREDIT'
+          : ((kindRaw as CarrierChargeKind | null) ?? 'BASE');
+      const chargeAmount = Math.abs(signedAmount);
       const chargeDate = new Date(chargeDateRaw);
       if (Number.isNaN(chargeDate.getTime())) {
         errorRows.push({
@@ -226,6 +257,7 @@ export class CarrierReconciliationService {
         trackingNumber,
         chargeAmount,
         chargeDate: chargeDateRaw,
+        chargeKind,
       });
 
       const existing = await this.prisma.carrierCharge.findUnique({
@@ -268,6 +300,7 @@ export class CarrierReconciliationService {
           currencyId,
           chargeDate,
           chargeType,
+          chargeKind,
           dedupeKey,
           shipmentId,
           reconciliationState,
@@ -385,7 +418,15 @@ export class CarrierReconciliationService {
               id: true,
               attemptNumber: true,
               storeOrderId: true,
-              storeOrder: { select: { id: true, internalOrderId: true } },
+              storeOrder: {
+                select: {
+                  id: true,
+                  internalOrderId: true,
+                  agent: {
+                    select: { id: true, name: true, agentNumber: true },
+                  },
+                },
+              },
             },
           },
         },
@@ -406,7 +447,13 @@ export class CarrierReconciliationService {
             id: true,
             attemptNumber: true,
             storeOrderId: true,
-            storeOrder: { select: { id: true, internalOrderId: true } },
+            storeOrder: {
+              select: {
+                id: true,
+                internalOrderId: true,
+                agent: { select: { id: true, name: true, agentNumber: true } },
+              },
+            },
           },
         },
       },
@@ -433,14 +480,22 @@ export class CarrierReconciliationService {
     if (!shipment)
       throw new NotFoundException(`Shipment ${shipmentId} not found`);
 
-    const updated = await this.prisma.carrierCharge.update({
-      where: { id },
+    const moved = await this.prisma.carrierCharge.updateMany({
+      where: { id, reconciliationState: { not: 'CONFIRMED' } },
       data: {
         shipmentId,
         reconciliationState: 'MATCHED',
         matchedAt: new Date(),
         matchedBy: userId ?? null,
       },
+    });
+    if (moved.count === 0) {
+      throw new ConflictException(
+        'This charge was CONFIRMED meanwhile — unmatch it first to rematch.',
+      );
+    }
+    const updated = await this.prisma.carrierCharge.findUniqueOrThrow({
+      where: { id },
     });
     await this.activityLog.log(
       ENTITY_TYPE,
@@ -452,20 +507,29 @@ export class CarrierReconciliationService {
     return updated;
   }
 
-  /** Reversal (Part 4/13) — clears the match; if the charge was CONFIRMED, this also removes it as that Shipment's authoritative actual cost. */
+  /**
+   * Reversal (Part 4/13) — clears the match; if the charge was CONFIRMED,
+   * this also removes it as that Shipment's authoritative actual cost.
+   */
   async unmatch(id: string, userId?: string) {
     const charge = await this.findOne(id);
-    const updated = await this.prisma.carrierCharge.update({
-      where: { id },
-      data: {
-        shipmentId: null,
-        reconciliationState: 'UNMATCHED',
-        matchedAt: null,
-        matchedBy: null,
-        confirmedAt: null,
-        confirmedBy: null,
+    const updated = await this.prisma.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT id FROM carrier_charges WHERE id = ${id}::uuid FOR UPDATE`;
+        return tx.carrierCharge.update({
+          where: { id },
+          data: {
+            shipmentId: null,
+            reconciliationState: 'UNMATCHED',
+            matchedAt: null,
+            matchedBy: null,
+            confirmedAt: null,
+            confirmedBy: null,
+          },
+        });
       },
-    });
+      { maxWait: 10_000, timeout: 60_000 },
+    );
     await this.activityLog.log(
       ENTITY_TYPE,
       id,
@@ -478,11 +542,12 @@ export class CarrierReconciliationService {
 
   /**
    * CONFIRMED ACTUAL (Part 5) — the one action that changes Order
-   * Economics: `OrderEconomicsService` reads a CONFIRMED charge's
-   * `chargeAmount` ahead of the Shipment's own operationally-entered
-   * base/additional cost. At most one CONFIRMED charge per Shipment
-   * (enforced here, not by a schema constraint) — confirming a second one
-   * for the same Shipment requires explicitly unmatching the first.
+   * Economics: `OrderEconomicsService` nets a Shipment's CONFIRMED charges
+   * (base + surcharges − credits) ahead of its operationally-entered
+   * base/additional cost. At most one CONFIRMED BASE charge per Shipment;
+   * SURCHARGE and CREDIT lines (late charges, carrier credits) confirm
+   * alongside it. Carrier charges are company cost only — they never
+   * create an agent deduction (commission-policy.md A6).
    */
   async confirm(id: string, userId?: string) {
     const charge = await this.findOne(id);
@@ -491,33 +556,126 @@ export class CarrierReconciliationService {
         'Match this charge to a Shipment before confirming it.',
       );
     }
-    const existingConfirmed = await this.prisma.carrierCharge.findFirst({
-      where: {
-        shipmentId: charge.shipmentId,
-        reconciliationState: 'CONFIRMED',
-        deletedAt: null,
-        id: { not: id },
+    const shipmentId = charge.shipmentId;
+    const updated = await this.prisma.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT id FROM shipments WHERE id = ${shipmentId}::uuid FOR UPDATE`;
+        await tx.$queryRaw`SELECT id FROM carrier_charges WHERE id = ${id}::uuid FOR UPDATE`;
+        const current = await tx.carrierCharge.findUniqueOrThrow({
+          where: { id },
+          select: { reconciliationState: true, shipmentId: true },
+        });
+        if (current.reconciliationState === 'CONFIRMED') {
+          throw new ConflictException('This charge is already CONFIRMED.');
+        }
+        if (current.shipmentId !== shipmentId) {
+          throw new ConflictException(
+            'The charge was rematched meanwhile — reload and try again.',
+          );
+        }
+        const confirmedOnShipment = await tx.carrierCharge.findMany({
+          where: {
+            shipmentId,
+            reconciliationState: 'CONFIRMED',
+            deletedAt: null,
+            id: { not: id },
+          },
+          select: {
+            id: true,
+            chargeKind: true,
+            chargeAmount: true,
+            currencyId: true,
+          },
+        });
+        const base = confirmedOnShipment.find((c) => c.chargeKind === 'BASE');
+        if (charge.chargeKind === 'BASE') {
+          if (base) {
+            throw new ConflictException(
+              `Shipment already has a CONFIRMED base carrier charge (${base.id}). Unmatch it first, or import the extra amount as a SURCHARGE.`,
+            );
+          }
+        } else {
+          // commission-policy.md A6: a late surcharge or a carrier credit
+          // adjusts an approved base cost — in the same currency — and a
+          // credit can never take the shipment's net cost below zero.
+          if (!base) {
+            throw new ConflictException(
+              'Confirm the base carrier charge of this shipment before a surcharge or credit.',
+            );
+          }
+          if (base.currencyId !== charge.currencyId) {
+            throw new ConflictException(
+              "A surcharge or credit must be in the same currency as the shipment's base carrier charge.",
+            );
+          }
+          if (charge.chargeKind === 'CREDIT') {
+            const net =
+              netConfirmedCarrierCost([
+                ...confirmedOnShipment,
+                { chargeAmount: charge.chargeAmount, chargeKind: 'CREDIT' },
+              ]) ?? 0;
+            if (net < 0) {
+              throw new ConflictException(
+                "This carrier credit exceeds the shipment's confirmed cost.",
+              );
+            }
+          }
+        }
+        const row = await tx.carrierCharge.update({
+          where: { id },
+          data: {
+            reconciliationState: 'CONFIRMED',
+            confirmedAt: new Date(),
+            confirmedBy: userId ?? null,
+          },
+        });
+        return row;
       },
-    });
-    if (existingConfirmed) {
-      throw new ConflictException(
-        `Shipment already has a CONFIRMED carrier charge (${existingConfirmed.id}). Unmatch it first.`,
-      );
-    }
-
-    const updated = await this.prisma.carrierCharge.update({
-      where: { id },
-      data: {
-        reconciliationState: 'CONFIRMED',
-        confirmedAt: new Date(),
-        confirmedBy: userId ?? null,
-      },
-    });
+      { maxWait: 10_000, timeout: 60_000 },
+    );
     await this.activityLog.log(
       ENTITY_TYPE,
       id,
       'CONFIRMED',
-      `Confirmed as authoritative shipping cost (${Number(charge.chargeAmount)}) for Shipment ${charge.shipmentId}`,
+      `Confirmed as authoritative ${charge.chargeKind.toLowerCase()} shipping cost (${Number(charge.chargeAmount)}) for Shipment ${shipmentId}`,
+      userId,
+    );
+    return updated;
+  }
+
+  /**
+   * Finance records that the company paid this carrier charge (tracking —
+   * the AP posting itself stays in Purchasing/Expenses). Paid is distinct
+   * from approved and from recovered (commission-policy.md A6).
+   */
+  async markPaid(id: string, reference: string, userId?: string) {
+    const charge = await this.findOne(id);
+    if (charge.reconciliationState !== 'CONFIRMED') {
+      throw new BadRequestException(
+        'Only a CONFIRMED (approved) carrier charge can be marked paid.',
+      );
+    }
+    const marked = await this.prisma.carrierCharge.updateMany({
+      where: { id, paidAt: null, reconciliationState: 'CONFIRMED' },
+      data: {
+        paidAt: new Date(),
+        paidReference: reference.trim(),
+        paidBy: userId ?? null,
+      },
+    });
+    if (marked.count === 0) {
+      throw new ConflictException(
+        `This charge was already marked paid (${charge.paidReference ?? 'no reference'}).`,
+      );
+    }
+    const updated = await this.prisma.carrierCharge.findUniqueOrThrow({
+      where: { id },
+    });
+    await this.activityLog.log(
+      ENTITY_TYPE,
+      id,
+      'PAID',
+      `Marked paid to the carrier — ${reference.trim()}`,
       userId,
     );
     return updated;

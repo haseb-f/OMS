@@ -67,7 +67,9 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
 
   const terms = (): CreateAgreementDto => ({
     effectiveFrom: '2020-01-01',
-    commissionRatePercent: 10,
+    productCommissionRatePercent: 10,
+    serviceCommissionRatePercent: 10,
+    shippingPolicy: 'FLAT_FEE_PER_SHIPMENT',
     commissionEarningEvent: 'DELIVERED',
     returnCommissionTreatment: 'REVERSE',
     customerShippingChargeOwner: 'COMPANY',
@@ -193,6 +195,7 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
           isPurchasable: true,
           isSellable: true,
           isInventoryItem: true,
+          itemType: 'PRODUCT',
           salesPrice: 600,
           ownerAgentId: agent.id,
         },
@@ -399,7 +402,8 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
       expect(me.status).toBe(200);
       expect(me.body.agent.id).toBe(agentAId);
       expect(me.body.user.agentRole).toBe('SALES');
-      expect(me.body.agreement.commissionRatePercent).toBe(10);
+      expect(me.body.agreement.productCommissionRatePercent).toBe(10);
+      expect(me.body.agreement.serviceCommissionRatePercent).toBe(10);
       expect(me.body.agreement.shippingRates[0].amount).toBe(100);
       expect(me.body.user.permissions).toContain('agent.orders.create');
 

@@ -10,6 +10,7 @@ import {
   IsUUID,
 } from 'class-validator';
 import {
+  ItemType,
   ProductCostingMethod,
   ProductStatus,
   ProductType,
@@ -128,6 +129,15 @@ export class CreateProductDto {
   @IsBoolean()
   @IsOptional()
   isInventoryItem?: boolean;
+
+  /**
+   * commission-policy.md A2 — explicit commercial type (PRODUCT / SERVICE),
+   * independent of stocking. Omitted on create: SERVICE for a SERVICE type,
+   * PRODUCT for a stocked item, otherwise left unclassified for review.
+   */
+  @IsEnum(ItemType)
+  @IsOptional()
+  itemType?: ItemType;
 
   /** Investor Engine Milestone 4, Part B — explicit opt-in for the Investment Opportunity Product picker. Defaults false. */
   @IsBoolean()

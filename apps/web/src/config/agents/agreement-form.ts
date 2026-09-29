@@ -1,8 +1,10 @@
+import { formatAmount } from "@/lib/money";
 import type {
   AgentAgreement,
   AgentChargeOwner,
   AgentEarningEvent,
   AgentReturnTreatment,
+  AgentShippingPolicy,
   AgreementInput,
 } from "@/services/agents-service";
 
@@ -14,7 +16,11 @@ import type {
 export interface AgreementFormState {
   effectiveFrom: string;
   effectiveTo: string;
-  commissionRatePercent: string;
+  /** commission-policy.md A3 — default rate for physical products. */
+  productCommissionRatePercent: string;
+  /** Default rate for services / courses. */
+  serviceCommissionRatePercent: string;
+  shippingPolicy: AgentShippingPolicy | "";
   commissionEarningEvent: AgentEarningEvent | "";
   returnCommissionTreatment: AgentReturnTreatment | "";
   customerShippingChargeOwner: AgentChargeOwner | "";
@@ -28,13 +34,23 @@ export interface AgreementFormState {
 }
 
 export type AgreementFormField = keyof AgreementFormState;
-export type AgreementFieldError = "required" | "range" | "invalid" | "decimals";
+export type AgreementFieldError =
+  | "required"
+  | "range"
+  | "invalid"
+  | "decimals"
+  /** Would recover the same shipping twice under actual-cost reimbursement (A3). */
+  | "doubleShipping"
+  /** A flat shipping fee the chosen policy would never charge. */
+  | "notCharged";
 
 export function emptyAgreementForm(): AgreementFormState {
   return {
     effectiveFrom: "",
     effectiveTo: "",
-    commissionRatePercent: "",
+    productCommissionRatePercent: "",
+    serviceCommissionRatePercent: "",
+    shippingPolicy: "",
     commissionEarningEvent: "",
     returnCommissionTreatment: "",
     customerShippingChargeOwner: "",
@@ -55,7 +71,9 @@ export function agreementFormFrom(agreement: AgentAgreement): AgreementFormState
   return {
     effectiveFrom: dateOnly(agreement.effectiveFrom),
     effectiveTo: dateOnly(agreement.effectiveTo),
-    commissionRatePercent: plain(agreement.commissionRatePercent),
+    productCommissionRatePercent: plain(agreement.productCommissionRatePercent),
+    serviceCommissionRatePercent: plain(agreement.serviceCommissionRatePercent),
+    shippingPolicy: agreement.shippingPolicy,
     commissionEarningEvent: agreement.commissionEarningEvent,
     returnCommissionTreatment: agreement.returnCommissionTreatment,
     customerShippingChargeOwner: agreement.customerShippingChargeOwner,
@@ -101,8 +119,11 @@ export function validateAgreementForm(form: AgreementFormState): {
   if (form.effectiveTo && form.effectiveFrom && form.effectiveTo < form.effectiveFrom) {
     errors.effectiveTo = "range";
   }
-  const rate = amount(form.commissionRatePercent, 4, { min: 0, max: 100 });
-  if (typeof rate !== "number") errors.commissionRatePercent = rate;
+  const productRate = amount(form.productCommissionRatePercent, 4, { min: 0, max: 100 });
+  if (typeof productRate !== "number") errors.productCommissionRatePercent = productRate;
+  const serviceRate = amount(form.serviceCommissionRatePercent, 4, { min: 0, max: 100 });
+  if (typeof serviceRate !== "number") errors.serviceCommissionRatePercent = serviceRate;
+  if (!form.shippingPolicy) errors.shippingPolicy = "required";
   const shipping = amount(form.shippingFeePerShipment, 2, { min: 0 });
   if (typeof shipping !== "number") errors.shippingFeePerShipment = shipping;
   const returnFee = amount(form.returnFeePerShipment, 2, { min: 0 });
@@ -116,6 +137,14 @@ export function validateAgreementForm(form: AgreementFormState): {
   if (!form.customerShippingChargeOwner) errors.customerShippingChargeOwner = "required";
   if (!form.providerFeesBorneBy) errors.providerFeesBorneBy = "required";
   if (!form.allowAgentDestinations) errors.allowAgentDestinations = "required";
+  if (form.shippingPolicy === "NONE" && typeof shipping === "number" && shipping !== 0) {
+    errors.shippingFeePerShipment = "notCharged";
+  }
+  if (form.shippingPolicy === "PREDETERMINED_CHARGE") {
+    for (const field of predeterminedConflicts(form, shipping)) {
+      errors[field] ??= "doubleShipping";
+    }
+  }
 
   if (Object.keys(errors).length > 0) return { errors, payload: null };
   return {
@@ -123,7 +152,9 @@ export function validateAgreementForm(form: AgreementFormState): {
     payload: {
       effectiveFrom: form.effectiveFrom,
       effectiveTo: form.effectiveTo || undefined,
-      commissionRatePercent: rate as number,
+      productCommissionRatePercent: productRate as number,
+      serviceCommissionRatePercent: serviceRate as number,
+      shippingPolicy: form.shippingPolicy as AgentShippingPolicy,
       commissionEarningEvent: form.commissionEarningEvent as AgentEarningEvent,
       returnCommissionTreatment: form.returnCommissionTreatment as AgentReturnTreatment,
       customerShippingChargeOwner: form.customerShippingChargeOwner as AgentChargeOwner,
@@ -136,4 +167,54 @@ export function validateAgreementForm(form: AgreementFormState): {
       notes: form.notes.trim() || undefined,
     },
   };
+}
+
+/**
+ * Predetermined shipping (commission-policy.md A3/A6): the customer shipping
+ * belongs to the company and settles the agent shipping charge, so the owner
+ * is the company and there is no second per-shipment fee.
+ */
+export function predeterminedConflicts(
+  form: Pick<AgreementFormState, "customerShippingChargeOwner">,
+  shipping: number | AgreementFieldError,
+): AgreementFormField[] {
+  const conflicts: AgreementFormField[] = [];
+  if (form.customerShippingChargeOwner && form.customerShippingChargeOwner !== "COMPANY") {
+    conflicts.push("customerShippingChargeOwner");
+  }
+  if (typeof shipping === "number" && shipping !== 0) {
+    conflicts.push("shippingFeePerShipment");
+  }
+  return conflicts;
+}
+
+/**
+ * Choosing a shipping policy fills the terms it requires (visible and
+ * editable — the owner still sees every value before saving).
+ */
+export function withShippingPolicy(
+  form: AgreementFormState,
+  policy: AgreementFormState["shippingPolicy"],
+): AgreementFormState {
+  if (policy === "NONE") {
+    return { ...form, shippingPolicy: policy, shippingFeePerShipment: "0" };
+  }
+  if (policy === "PREDETERMINED_CHARGE") {
+    return {
+      ...form,
+      shippingPolicy: policy,
+      customerShippingChargeOwner: "COMPANY",
+      shippingFeePerShipment: "0",
+    };
+  }
+  return { ...form, shippingPolicy: policy };
+}
+
+/** "35% / 25%" — product / service default rates (A3), for compact displays. */
+export function formatClassRates(agreement: {
+  productCommissionRatePercent: string | number;
+  serviceCommissionRatePercent: string | number;
+}): string {
+  const pct = (value: string | number) => `${formatAmount(Number(value))}%`;
+  return `${pct(agreement.productCommissionRatePercent)} / ${pct(agreement.serviceCommissionRatePercent)}`;
 }

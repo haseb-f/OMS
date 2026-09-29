@@ -119,7 +119,9 @@ describe('Agents B1 — admin + orders (integration)', () => {
     over: Partial<CreateAgreementDto> = {},
   ): CreateAgreementDto => ({
     effectiveFrom: '2020-01-01',
-    commissionRatePercent: 10,
+    productCommissionRatePercent: 10,
+    serviceCommissionRatePercent: 10,
+    shippingPolicy: 'FLAT_FEE_PER_SHIPMENT',
     commissionEarningEvent: 'DELIVERED',
     returnCommissionTreatment: 'REVERSE',
     customerShippingChargeOwner: 'COMPANY',
@@ -149,6 +151,7 @@ describe('Agents B1 — admin + orders (integration)', () => {
           isPurchasable: opts.inventory !== false,
           isSellable: true,
           isInventoryItem: opts.inventory !== false,
+          itemType: opts.inventory === false ? 'SERVICE' : 'PRODUCT',
           salesPrice: 600,
           ownerAgentId: opts.owner ?? null,
         },
@@ -436,7 +439,7 @@ describe('Agents B1 — admin + orders (integration)', () => {
         agreements.update(
           agentId,
           agreementId,
-          { commissionRatePercent: 20 },
+          { productCommissionRatePercent: 20 },
           adminId,
         ),
         'AGREEMENT_IMMUTABLE',
@@ -487,7 +490,10 @@ describe('Agents B1 — admin + orders (integration)', () => {
       await agreements.activate(agent.id, first.id, adminId);
       const second = await agreements.create(
         agent.id,
-        terms({ effectiveFrom: '2021-01-01', commissionRatePercent: 12.5 }),
+        terms({
+          effectiveFrom: '2021-01-01',
+          productCommissionRatePercent: 12.5,
+        }),
         adminId,
       );
       await agreements.activate(agent.id, second.id, adminId);
@@ -666,7 +672,9 @@ describe('Agents B1 — admin + orders (integration)', () => {
       expect(order.agent).toMatchObject({ id: agentId });
       expect(order.agentTermsSnapshot).toMatchObject({
         agreementId,
-        commissionRatePercent: 10,
+        productCommissionRatePercent: 10,
+        serviceCommissionRatePercent: 10,
+        shippingPolicy: 'FLAT_FEE_PER_SHIPMENT',
         allowAgentDestinations: false,
       });
     });

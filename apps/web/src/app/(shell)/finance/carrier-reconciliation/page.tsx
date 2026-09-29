@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { CheckCircle2, Link2, Unlink, UploadCloud } from "lucide-react";
+import { Banknote, CheckCircle2, FileDown, Link2, Unlink, UploadCloud } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { HeaderActions } from "@/components/shared/header-actions";
 import { StatusBadge } from "@/components/business/status-badge";
 import { MoneyValue } from "@/components/shared/money-value";
 import { SemanticValue } from "@/components/shared/semantic-value";
+import { StackedCell } from "@/components/shared/stacked-cell";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
 import { RowActionsMenu } from "@/components/shared/data-table";
@@ -23,6 +26,15 @@ import { PermissionGate } from "@/components/shared/permission-gate";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { formatDate } from "@/lib/date";
+import { downloadBlob } from "@/lib/download";
+import {
+  CHARGE_KIND_TONE,
+  COST_STAGE_TONE,
+  canMarkCarrierChargePaid,
+  carrierChargeCsvTemplate,
+  carrierCostStage,
+  signedChargeAmount,
+} from "@/lib/carrier-charge-status";
 import { toast, reportApiError } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
 
@@ -64,6 +76,9 @@ function CarrierReconciliationContent() {
   const [isConfirming, setIsConfirming] = useState(false);
   const [isUnmatching, setIsUnmatching] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [paidTarget, setPaidTarget] = useState<CarrierChargeRow | null>(null);
+  const [paidReference, setPaidReference] = useState("");
+  const [isMarkingPaid, setIsMarkingPaid] = useState(false);
 
   const listFilters = useMemo(
     () => ({
@@ -140,6 +155,29 @@ function CarrierReconciliationContent() {
         },
       },
       {
+        id: "agent",
+        header: t("carrierReconciliation.columns.agent"),
+        meta: { titleKey: "carrierReconciliation.columns.agent" as MessageKey },
+        accessorFn: (row) => {
+          const agent = row.shipment?.storeOrder?.agent;
+          return agent ? `${agent.name} (${agent.agentNumber})` : "—";
+        },
+      },
+      {
+        id: "kind",
+        header: t("carrierReconciliation.columns.kind"),
+        meta: { titleKey: "carrierReconciliation.columns.kind" as MessageKey },
+        cell: (info) => {
+          const kind = info.row.original.chargeKind ?? "BASE";
+          return (
+            <StatusBadge
+              label={t(`carrierReconciliation.kinds.${kind}` as MessageKey)}
+              tone={CHARGE_KIND_TONE[kind]}
+            />
+          );
+        },
+      },
+      {
         id: "amount",
         header: t("carrierReconciliation.fields.amount"),
         meta: {
@@ -147,9 +185,10 @@ function CarrierReconciliationContent() {
           align: "end",
           type: "money",
         },
+        // A carrier credit reduces the shipping cost — shown as a negative amount.
         cell: (info) => (
           <MoneyValue
-            value={info.row.original.chargeAmount}
+            value={signedChargeAmount(info.row.original)}
             currency={info.row.original.currency}
           />
         ),
@@ -170,6 +209,34 @@ function CarrierReconciliationContent() {
             <StatusBadge
               label={t(`carrierReconciliation.state.${state}` as MessageKey)}
               tone={STATE_TONE[state]}
+            />
+          );
+        },
+      },
+      {
+        id: "stage",
+        header: t("carrierReconciliation.columns.stage"),
+        meta: { titleKey: "carrierReconciliation.columns.stage" as MessageKey },
+        cell: (info) => {
+          const row = info.row.original;
+          const stage = carrierCostStage(row);
+          if (!stage) return "—";
+          const badge = (
+            <StatusBadge
+              label={t(`carrierReconciliation.stage.${stage}` as MessageKey)}
+              tone={COST_STAGE_TONE[stage]}
+            />
+          );
+          if (stage !== "PAID") return badge;
+          return (
+            <StackedCell
+              primary={badge}
+              secondary={[
+                t("carrierReconciliation.paid.paidOn", { date: formatDate(row.paidAt) }),
+                row.paidReference,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
             />
           );
         },
@@ -202,6 +269,16 @@ function CarrierReconciliationContent() {
                     row.reconciliationState === "CONFIRMED" ||
                     row.reconciliationState === "UNMATCHED",
                   onSelect: () => setConfirmTarget(row),
+                },
+                {
+                  key: "markPaid",
+                  label: t("carrierReconciliation.paid.action"),
+                  icon: Banknote,
+                  hidden: !canConfirm || !canMarkCarrierChargePaid(row),
+                  onSelect: () => {
+                    setPaidReference("");
+                    setPaidTarget(row);
+                  },
                 },
                 {
                   key: "unmatch",
@@ -275,9 +352,22 @@ function CarrierReconciliationContent() {
               onSelect: openImportPicker,
             },
           ]}
+          more={[
+            {
+              key: "csvTemplate",
+              label: t("carrierReconciliation.csv.template"),
+              icon: FileDown,
+              onSelect: () =>
+                downloadBlob(
+                  new Blob([carrierChargeCsvTemplate()], { type: "text/csv;charset=utf-8" }),
+                  "carrier-charges-template.csv",
+                ),
+            },
+          ]}
         />
       }
     >
+      <p className="text-caption text-muted-foreground">{t("carrierReconciliation.csv.help")}</p>
       <EnterpriseDataTable
         tableId="carrier-reconciliation"
         printTitle={t("carrierReconciliation.title")}
@@ -379,6 +469,48 @@ function CarrierReconciliationContent() {
               reportApiError(error, "common.failedToSave");
             })
             .finally(() => setIsUnmatching(false));
+        }}
+      />
+
+      <ConfirmationDialog
+        open={paidTarget != null}
+        onOpenChange={(open) => {
+          if (!open) setPaidTarget(null);
+        }}
+        title={t("carrierReconciliation.paid.dialogTitle")}
+        description={t("carrierReconciliation.paid.dialogDescription")}
+        extra={
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="carrier-charge-paid-reference">
+              {t("carrierReconciliation.paid.reference")}
+            </Label>
+            <Input
+              id="carrier-charge-paid-reference"
+              dir="auto"
+              maxLength={200}
+              value={paidReference}
+              onChange={(event) => setPaidReference(event.target.value)}
+              autoFocus
+            />
+          </div>
+        }
+        confirmLabel={t("carrierReconciliation.paid.action")}
+        confirmDisabled={!paidReference.trim()}
+        isConfirming={isMarkingPaid}
+        onConfirm={() => {
+          if (!paidTarget || !paidReference.trim()) return;
+          setIsMarkingPaid(true);
+          carrierReconciliationService
+            .markPaid(paidTarget.id, paidReference.trim())
+            .then(() => {
+              toast.success(t("carrierReconciliation.paid.saved"));
+              setPaidTarget(null);
+              void load();
+            })
+            .catch((error: unknown) => {
+              reportApiError(error, "common.failedToSave");
+            })
+            .finally(() => setIsMarkingPaid(false));
         }}
       />
     </PageWorkspace>

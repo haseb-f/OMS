@@ -8,6 +8,7 @@ const agentPortalEn = {
     statement: "Account statement",
     payouts: "Payouts to agent",
     team: "Team",
+    commission: "Commission report",
   },
   identity: {
     portal: "Agent portal",
@@ -433,10 +434,12 @@ const agentPortalEn = {
       paidOut: "Paid out",
       balance: "Balance",
       adjustments: "Adjustments (net)",
+      productCommission: "Commission — products",
+      serviceCommission: "Commission — services & courses",
     },
     deductions: {
       commission: "Commission",
-      customerShippingRetained: "Customer shipping retained",
+      customerShippingRetained: "Customer shipping retained (settles the agent shipping charge)",
       shippingFees: "Shipping fees",
       returnFees: "Return fees",
       serviceFees: "Service fees",

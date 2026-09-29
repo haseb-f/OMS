@@ -21,7 +21,10 @@ import { PermissionAction } from '../auth/decorators/permission-action.decorator
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 import { CarrierReconciliationService } from './carrier-reconciliation.service';
-import { MatchCarrierChargeDto } from './dto/match-carrier-charge.dto';
+import {
+  MarkCarrierChargePaidDto,
+  MatchCarrierChargeDto,
+} from './dto/match-carrier-charge.dto';
 
 const IMPORT_MAX_BYTES = 5 * 1024 * 1024;
 
@@ -117,5 +120,17 @@ export class CarrierReconciliationController {
   @PermissionAction('confirm')
   confirm(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.service.confirm(id, user.sub);
+  }
+
+  /** Finance records the company paid the carrier (tracking only — commission-policy.md A6). */
+  @Post(':id/mark-paid')
+  @HttpCode(200)
+  @PermissionAction('confirm')
+  markPaid(
+    @Param('id') id: string,
+    @Body() dto: MarkCarrierChargePaidDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.service.markPaid(id, dto.reference, user.sub);
   }
 }

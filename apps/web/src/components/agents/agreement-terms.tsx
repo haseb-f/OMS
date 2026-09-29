@@ -22,10 +22,24 @@ export function AgreementTerms({ agreement }: { agreement: AgentAgreement }) {
         }`}
       />
       <DetailField
-        label={t("agents.agreements.fields.commissionRate")}
+        label={t("agents.agreements.fields.productRate")}
         value={
-          <span className="num">{formatAmount(Number(agreement.commissionRatePercent))}%</span>
+          <span className="num">
+            {formatAmount(Number(agreement.productCommissionRatePercent))}%
+          </span>
         }
+      />
+      <DetailField
+        label={t("agents.agreements.fields.serviceRate")}
+        value={
+          <span className="num">
+            {formatAmount(Number(agreement.serviceCommissionRatePercent))}%
+          </span>
+        }
+      />
+      <DetailField
+        label={t("agents.agreements.fields.shippingPolicy")}
+        value={t(`agents.agreements.shippingPolicy.${agreement.shippingPolicy}`)}
       />
       <DetailField
         label={t("agents.agreements.fields.earningEvent")}

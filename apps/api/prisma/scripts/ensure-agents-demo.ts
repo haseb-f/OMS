@@ -57,7 +57,9 @@ interface AgentSpec {
   name: string;
   email: string;
   terms: {
-    commissionRatePercent: number;
+    productCommissionRatePercent: number;
+    serviceCommissionRatePercent: number;
+    shippingPolicy: 'FLAT_FEE_PER_SHIPMENT';
     commissionEarningEvent: 'DELIVERED' | 'PAYMENT_VERIFIED';
     returnCommissionTreatment: 'REVERSE' | 'RETAIN';
     customerShippingChargeOwner: Owner;
@@ -96,7 +98,9 @@ const AGENTS: AgentSpec[] = [
     name: `وكيل تجريبي A — ${T}`,
     email: 'agent-a.demo-agt@oms.local',
     terms: {
-      commissionRatePercent: 10,
+      productCommissionRatePercent: 10,
+      serviceCommissionRatePercent: 10,
+      shippingPolicy: 'FLAT_FEE_PER_SHIPMENT',
       commissionEarningEvent: 'DELIVERED',
       returnCommissionTreatment: 'REVERSE',
       customerShippingChargeOwner: 'COMPANY',
@@ -172,7 +176,9 @@ const AGENTS: AgentSpec[] = [
     name: `وكيل تجريبي B — ${T}`,
     email: 'agent-b.demo-agt@oms.local',
     terms: {
-      commissionRatePercent: 8,
+      productCommissionRatePercent: 8,
+      serviceCommissionRatePercent: 8,
+      shippingPolicy: 'FLAT_FEE_PER_SHIPMENT',
       commissionEarningEvent: 'PAYMENT_VERIFIED',
       returnCommissionTreatment: 'RETAIN',
       customerShippingChargeOwner: 'AGENT',
@@ -465,7 +471,11 @@ export async function ensureAgentsDemo(
         effectiveFrom: { lte: today },
         OR: [{ effectiveTo: null }, { effectiveTo: { gte: today } }],
       },
-      select: { id: true, agreementNumber: true, commissionRatePercent: true },
+      select: {
+        id: true,
+        agreementNumber: true,
+        productCommissionRatePercent: true,
+      },
     });
     if (!agreement) {
       const draft = await agreements.create(
@@ -488,7 +498,7 @@ export async function ensureAgentsDemo(
       agreement = {
         id: draft.id,
         agreementNumber: draft.agreementNumber,
-        commissionRatePercent: draft.commissionRatePercent,
+        productCommissionRatePercent: draft.productCommissionRatePercent,
       };
       note(`+ agreement ${draft.agreementNumber} (ACTIVE) for ${spec.key}`);
     }
@@ -541,6 +551,7 @@ export async function ensureAgentsDemo(
           isSellable: true,
           isPurchasable: p.physical,
           isInventoryItem: p.physical,
+          itemType: p.physical ? 'PRODUCT' : 'SERVICE',
           salesPrice: p.salesPrice,
           preferredWarehouseId: p.physical ? warehouse.id : undefined,
           ...(p.physical

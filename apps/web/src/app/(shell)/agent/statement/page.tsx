@@ -345,14 +345,12 @@ export default function AgentStatementPage() {
                   value={money(summary.commission.base)}
                 />
                 <DetailField
-                  label={t("agentPortal.statement.summary.commissionRate")}
-                  value={
-                    summary.commission.ratePercent != null ? (
-                      <span className="num">{summary.commission.ratePercent}%</span>
-                    ) : (
-                      "—"
-                    )
-                  }
+                  label={t("agentPortal.statement.summary.productCommission")}
+                  value={money(summary.commission.byClass.PRODUCT.commission)}
+                />
+                <DetailField
+                  label={t("agentPortal.statement.summary.serviceCommission")}
+                  value={money(summary.commission.byClass.SERVICE.commission)}
                 />
                 <DetailField
                   label={t("agentPortal.statement.summary.commission")}

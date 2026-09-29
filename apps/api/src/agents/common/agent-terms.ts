@@ -1,4 +1,5 @@
 import type { AgentAgreement } from '@prisma/client';
+import type { AgentLineCommissionRate } from '../commission/agent-commission';
 
 /**
  * Terms an agent order was submitted under (spec §2 "Snapshot"). Written once
@@ -9,7 +10,12 @@ export interface AgentTermsSnapshot {
   agreementId: string;
   agreementNumber: string;
   currencyId: string;
-  commissionRatePercent: number;
+  /** commission-policy.md A3 — per-class defaults. Absent on legacy snapshots. */
+  productCommissionRatePercent?: number;
+  serviceCommissionRatePercent?: number;
+  shippingPolicy?: 'PREDETERMINED_CHARGE' | 'FLAT_FEE_PER_SHIPMENT' | 'NONE';
+  /** Legacy single rate (orders submitted before commission-policy.md). */
+  commissionRatePercent?: number;
   commissionEarningEvent: 'DELIVERED' | 'PAYMENT_VERIFIED';
   returnCommissionTreatment: 'REVERSE' | 'RETAIN';
   customerShippingChargeOwner: 'COMPANY' | 'AGENT';
@@ -42,12 +48,26 @@ export interface AgentCustomerSnapshot {
 export interface AgentLineSnapshot {
   productId: string;
   inventoryLine: boolean;
+  /** commission-policy.md A5 — resolved at submission; absent on legacy snapshots. */
+  commission?: AgentLineCommissionRate;
 }
 
 /** What `StoreOrder.agentTermsSnapshot` holds: agreement terms + order facts. */
+/**
+ * commission-policy.md A3/A5 — the agent shipping charge fixed at submission
+ * (PREDETERMINED_CHARGE policy): the agreement rate for the order's shipping
+ * type/destination, 0 for pickup and digital-only orders.
+ */
+export interface AgentShippingChargeSnapshot {
+  amount: number;
+  source: 'RATE' | 'PICKUP' | 'DIGITAL_ONLY';
+  rateId: string | null;
+}
+
 export interface AgentOrderSnapshot extends AgentTermsSnapshot {
   customer?: AgentCustomerSnapshot;
   lines?: AgentLineSnapshot[];
+  agentShippingCharge?: AgentShippingChargeSnapshot | null;
 }
 
 export function snapshotAgreementTerms(
@@ -57,7 +77,13 @@ export function snapshotAgreementTerms(
     agreementId: agreement.id,
     agreementNumber: agreement.agreementNumber,
     currencyId: agreement.currencyId,
-    commissionRatePercent: Number(agreement.commissionRatePercent),
+    productCommissionRatePercent: Number(
+      agreement.productCommissionRatePercent,
+    ),
+    serviceCommissionRatePercent: Number(
+      agreement.serviceCommissionRatePercent,
+    ),
+    shippingPolicy: agreement.shippingPolicy,
     commissionEarningEvent: agreement.commissionEarningEvent,
     returnCommissionTreatment: agreement.returnCommissionTreatment,
     customerShippingChargeOwner: agreement.customerShippingChargeOwner,
@@ -68,6 +94,16 @@ export function snapshotAgreementTerms(
     allowAgentDestinations: agreement.allowAgentDestinations,
     payoutHoldDays: agreement.payoutHoldDays,
   };
+}
+
+/**
+ * The shipping reimbursement policy an order was submitted under. Legacy
+ * snapshots (before the policy existed) charged the flat per-shipment fee.
+ */
+export function shippingPolicyOf(
+  terms: AgentTermsSnapshot,
+): NonNullable<AgentTermsSnapshot['shippingPolicy']> {
+  return terms.shippingPolicy ?? 'FLAT_FEE_PER_SHIPMENT';
 }
 
 export function readAgentTermsSnapshot(value: unknown): AgentOrderSnapshot {

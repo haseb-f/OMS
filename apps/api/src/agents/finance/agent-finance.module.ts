@@ -8,6 +8,7 @@ import { AgentStatementService } from './agent-statement.service';
 import { AgentPayoutsService } from './agent-payouts.service';
 import { AgentCollectionsService } from './agent-collections.service';
 import { AgentAdjustmentsService } from './agent-adjustments.service';
+import { AgentCommissionReportService } from './agent-commission-report.service';
 import { AgentFinanceController } from './agent-finance.controller';
 import { AgentReturnsController } from './agent-returns.controller';
 
@@ -31,7 +32,13 @@ import { AgentReturnsController } from './agent-returns.controller';
     AgentPayoutsService,
     AgentCollectionsService,
     AgentAdjustmentsService,
+    AgentCommissionReportService,
   ],
-  exports: [AgentStatementService, AgentPayoutsService, AgentLedgerModule],
+  exports: [
+    AgentStatementService,
+    AgentPayoutsService,
+    AgentCommissionReportService,
+    AgentLedgerModule,
+  ],
 })
 export class AgentFinanceModule {}

@@ -8,6 +8,7 @@ const agentPortalAr = {
     statement: "كشف الحساب",
     payouts: "المدفوعات للوكيل",
     team: "الفريق",
+    commission: "تقرير العمولة",
   },
   identity: {
     portal: "بوابة الوكيل",
@@ -428,10 +429,12 @@ const agentPortalAr = {
       paidOut: "مصروف",
       balance: "الرصيد",
       adjustments: "التسويات (صافي)",
+      productCommission: "العمولة — المنتجات",
+      serviceCommission: "العمولة — الخدمات والدورات",
     },
     deductions: {
       commission: "العمولة",
-      customerShippingRetained: "شحن العملاء المحتجز",
+      customerShippingRetained: "شحن العميل المحتجز (يسدّد رسم شحن الوكيل)",
       shippingFees: "رسوم الشحن",
       returnFees: "رسوم المرتجعات",
       serviceFees: "رسوم الخدمة",

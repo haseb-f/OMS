@@ -18,13 +18,21 @@ import {
 } from '../../store-orders/store-order-line-amount';
 import { resolveStoreOrderLineWarehouses } from '../../store-orders/store-order-warehouse.util';
 import { AGENT_POSTING_SOURCE } from '../../accounting/posting-providers/agent-ledger-posting.provider';
-import { agentCommissionAmount } from '../pricing/agent-order-pricing';
 import {
   isAgentOrderDigitalOnly,
   readAgentTermsSnapshot,
+  shippingPolicyOf,
   type AgentOrderSnapshot,
   type AgentTermsSnapshot,
 } from '../common/agent-terms';
+import {
+  commissionReversalByLine,
+  computeOrderCommission,
+  legacyLineCommissionRate,
+  resolveLineCommissionRate,
+  settleAgentShipping,
+  type AgentLineCommissionRate,
+} from '../commission/agent-commission';
 import {
   agentBadRequest,
   agentConflict,
@@ -85,6 +93,7 @@ const ORDER_SELECT = {
         select: {
           isInventoryItem: true,
           preferredWarehouseId: true,
+          itemType: true,
           sku: true,
         },
       },
@@ -132,10 +141,40 @@ export interface ReceiveReturnInput {
 
 interface CommissionBasis {
   base: number;
-  ratePercent: number;
+  /** Legacy single-rate entries only; per-line entries carry `lines`. */
+  ratePercent?: number;
   merchandise: number;
   returnedBeforeEarning: number;
   returnIdsBeforeEarning: string[];
+  /** Commission of legacy lines whose item was never classified. */
+  unclassifiedCommission?: number;
+  /** commission-policy.md A5 — per-class totals of a per-line entry. */
+  byClass?: Record<string, { sales: number; base: number; commission: number }>;
+}
+
+type ReturnLineJson = {
+  storeOrderItemId: string;
+  quantity: number;
+  merchandiseAmount?: number;
+};
+
+/** Σ returned merchandise per order line over the given return receipts. */
+function returnedByLine(
+  returns: Array<{ lines: unknown }>,
+): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const row of returns) {
+    for (const line of row.lines as ReturnLineJson[]) {
+      map.set(
+        line.storeOrderItemId,
+        round2(
+          (map.get(line.storeOrderItemId) ?? 0) +
+            Number(line.merchandiseAmount ?? 0),
+        ),
+      );
+    }
+  }
+  return map;
 }
 
 /**
@@ -274,6 +313,9 @@ export class AgentFulfillmentService {
     if (order.fulfillmentMethod !== StoreOrderFulfillmentMethod.SHIPPING)
       return;
     const terms = this.snapshotOf(order);
+    // commission-policy.md A3: only the flat-fee policy charges per shipment;
+    // actual carrier costs are recovered from approved carrier charges.
+    if (shippingPolicyOf(terms) !== 'FLAT_FEE_PER_SHIPMENT') return;
     const fee = round2(terms.shippingFeePerShipment);
     if (fee <= 0) return;
     await this.ledger.append(
@@ -357,10 +399,46 @@ export class AgentFulfillmentService {
     return true;
   }
 
+  /**
+   * The line's commission rate as frozen at submission (A5); orders
+   * submitted before the amendment use their single legacy rate.
+   */
+  private lineRate(
+    order: AgentOrderContext,
+    terms: AgentOrderSnapshot,
+    item: AgentOrderContext['items'][number],
+  ): AgentLineCommissionRate {
+    const frozen = terms.lines?.find(
+      (line) => line.productId === item.productId,
+    );
+    if (frozen?.commission) return frozen.commission;
+    if (terms.productCommissionRatePercent != null) {
+      // Snapshot carries the per-class defaults but no per-line rate: the
+      // agreement default for the line's class (never an unrecorded override).
+      return resolveLineCommissionRate({
+        productId: item.productId,
+        itemType: item.product.itemType,
+        agreement: terms,
+        override: null,
+      });
+    }
+    if (terms.commissionRatePercent == null) {
+      throw agentConflict(
+        'AGENT_COMMISSION_RATE_MISSING',
+        'لا توجد نسبة عمولة محفوظة لهذا البند',
+        `Order ${order.internalOrderId} has no commission rate recorded for ${item.product.sku}.`,
+      );
+    }
+    return legacyLineCommissionRate(
+      item.product.itemType,
+      terms.commissionRatePercent,
+    );
+  }
+
   private async recordEarning(
     tx: Tx,
     order: AgentOrderContext,
-    terms: AgentTermsSnapshot,
+    terms: AgentOrderSnapshot,
     earnedAt: Date,
     userId?: string,
   ) {
@@ -375,19 +453,40 @@ export class AgentFulfillmentService {
     );
     const priorReturns = await tx.agentOrderReturn.findMany({
       where: { storeOrderId: order.id },
-      select: { id: true, merchandiseAmount: true },
+      select: { id: true, merchandiseAmount: true, lines: true },
     });
     const returnedBefore = round2(
       priorReturns.reduce((sum, r) => sum + Number(r.merchandiseAmount), 0),
     );
-    const base = round2(Math.max(0, merchandise - returnedBefore));
-    const commission = agentCommissionAmount(base, terms.commissionRatePercent);
+    // commission-policy.md A5: per line, with the rate frozen at submission;
+    // carrier costs never reduce the base.
+    const returnedPerLine = returnedByLine(priorReturns);
+    const result = computeOrderCommission(
+      order.items.map((item) => ({
+        key: item.id,
+        productId: item.productId,
+        storeOrderItemId: item.id,
+        salesAmount: round2(storeOrderLineAmount(item)),
+        returnedBeforeEarning: returnedPerLine.get(item.id) ?? 0,
+        rate: this.lineRate(order, terms, item),
+      })),
+    );
     const basis: CommissionBasis = {
-      base,
-      ratePercent: terms.commissionRatePercent,
+      base: result.base,
       merchandise,
       returnedBeforeEarning: returnedBefore,
       returnIdsBeforeEarning: priorReturns.map((r) => r.id),
+      byClass: result.byClass,
+      // Legacy single-rate lines of unclassified items (no class split).
+      unclassifiedCommission: round2(
+        result.lines
+          .filter((line) => !line.rate.commissionClass)
+          .reduce((sum, line) => sum + line.commission, 0),
+      ),
+      ...(terms.commissionRatePercent != null &&
+      terms.productCommissionRatePercent == null
+        ? { ratePercent: terms.commissionRatePercent }
+        : {}),
     };
     const common = {
       agentId,
@@ -396,22 +495,54 @@ export class AgentFulfillmentService {
       currencyId: terms.currencyId,
       posting: { source: AGENT_POSTING_SOURCE.CHARGE },
     } as const;
-    if (commission > 0) {
-      await this.ledger.append(
-        tx,
-        {
-          ...common,
-          entryType: AgentLedgerEntryType.COMMISSION,
-          sourceType: AGENT_SOURCE.ORDER,
-          sourceId: order.id,
-          debit: commission,
-          basis: basis as unknown as Prisma.InputJsonValue,
-          description: `Commission ${terms.commissionRatePercent}% of ${base.toFixed(2)} — order ${order.internalOrderId}`,
-        },
-        userId,
-      );
+    // Written even at 0 (e.g. a 0% item override) so the per-line detail
+    // that explains the amount is always traceable.
+    const { entry: commissionEntry, created } = await this.ledger.append(
+      tx,
+      {
+        ...common,
+        entryType: AgentLedgerEntryType.COMMISSION,
+        sourceType: AGENT_SOURCE.ORDER,
+        sourceId: order.id,
+        debit: result.commission,
+        basis: basis as unknown as Prisma.InputJsonValue,
+        description: `Commission ${describeRates(result.lines)} of ${result.base.toFixed(2)} — order ${order.internalOrderId}`,
+      },
+      userId,
+    );
+    if (created) {
+      await tx.agentCommissionLine.createMany({
+        data: result.lines.map((line) => ({
+          ledgerEntryId: commissionEntry.id,
+          agentId,
+          storeOrderId: order.id,
+          storeOrderItemId: line.storeOrderItemId,
+          productId: line.productId,
+          commissionClass: line.rate.commissionClass,
+          rateSource: line.rate.rateSource,
+          ratePercent: line.rate.ratePercent,
+          overrideId: line.rate.overrideId,
+          salesAmount: line.salesAmount,
+          returnedBeforeEarning: line.returnedBeforeEarning,
+          baseAmount: line.baseAmount,
+          amount: line.commission,
+        })),
+      });
     }
     const shipping = round2(Number(order.shippingCharge ?? 0));
+    // commission-policy.md A6: under PREDETERMINED_CHARGE the customer
+    // shipping (company money) is retained and settles the predetermined
+    // agent shipping charge — the agent is never charged it a second time.
+    const predetermined =
+      shippingPolicyOf(terms) === 'PREDETERMINED_CHARGE'
+        ? terms.agentShippingCharge
+        : null;
+    const settlement = predetermined
+      ? settleAgentShipping({
+          customerShipping: shipping,
+          predeterminedCharge: predetermined.amount,
+        })
+      : null;
     if (terms.customerShippingChargeOwner === 'COMPANY' && shipping > 0) {
       await this.ledger.append(
         tx,
@@ -421,8 +552,22 @@ export class AgentFulfillmentService {
           sourceType: AGENT_SOURCE.ORDER,
           sourceId: order.id,
           debit: shipping,
-          basis: { shippingCharge: shipping, owner: 'COMPANY' },
-          description: `Customer shipping charge retained — order ${order.internalOrderId}`,
+          basis: {
+            shippingCharge: shipping,
+            owner: 'COMPANY',
+            ...(predetermined && settlement
+              ? {
+                  agentShippingCharge: predetermined.amount,
+                  agentShippingChargeSource: predetermined.source,
+                  appliedToAgentShippingCharge:
+                    settlement.appliedToAgentShippingCharge,
+                  difference: settlement.difference,
+                }
+              : {}),
+          },
+          description: predetermined
+            ? `Customer shipping retained, settles the agent shipping charge ${predetermined.amount.toFixed(2)} — order ${order.internalOrderId}`
+            : `Customer shipping charge retained — order ${order.internalOrderId}`,
         },
         userId,
       );
@@ -722,28 +867,76 @@ export class AgentFulfillmentService {
     const before = new Set(basis.returnIdsBeforeEarning ?? []);
     const returns = await tx.agentOrderReturn.findMany({
       where: { storeOrderId: order.id },
-      select: { id: true, merchandiseAmount: true },
+      select: { id: true, merchandiseAmount: true, lines: true },
     });
-    const returnedAfter = round2(
-      returns
-        .filter((r) => !before.has(r.id))
-        .reduce((sum, r) => sum + Number(r.merchandiseAmount), 0),
-    );
-    const reversed = await tx.agentLedgerEntry.aggregate({
-      where: {
-        storeOrderId: order.id,
-        entryType: AgentLedgerEntryType.COMMISSION_REVERSAL,
-      },
-      _sum: { credit: true },
+    const afterEarning = returns.filter((r) => !before.has(r.id));
+    const earnedLines = await tx.agentCommissionLine.findMany({
+      where: { ledgerEntryId: commissionEntry.id },
     });
-    const amount = commissionReversalAmount({
-      commission: Number(commissionEntry.debit),
-      base: basis.base,
-      returnedAfterEarningCumulative: returnedAfter,
-      alreadyReversed: Number(reversed._sum.credit ?? 0),
-    });
+
+    let amount: number;
+    let reversalLines: Array<{
+      earned: (typeof earnedLines)[number];
+      returnedAfterEarning: number;
+      reversal: number;
+    }> = [];
+    if (earnedLines.length > 0) {
+      // commission-policy.md A5: reverse per line, with the line's own rate.
+      const returnedAfter = returnedByLine(afterEarning);
+      const reversedRows = await tx.agentCommissionLine.findMany({
+        where: {
+          storeOrderId: order.id,
+          ledgerEntry: { entryType: AgentLedgerEntryType.COMMISSION_REVERSAL },
+        },
+        select: { storeOrderItemId: true, amount: true },
+      });
+      const alreadyByItem = new Map<string, number>();
+      for (const row of reversedRows) {
+        const key = row.storeOrderItemId ?? '';
+        alreadyByItem.set(
+          key,
+          round2((alreadyByItem.get(key) ?? 0) + Number(row.amount)),
+        );
+      }
+      const computed = commissionReversalByLine(
+        earnedLines.map((line) => ({
+          key: line.id,
+          commission: Number(line.amount),
+          baseAmount: Number(line.baseAmount),
+          returnedAfterEarning:
+            returnedAfter.get(line.storeOrderItemId ?? '') ?? 0,
+          alreadyReversed: alreadyByItem.get(line.storeOrderItemId ?? '') ?? 0,
+        })),
+      );
+      reversalLines = computed
+        .map((line, index) => ({
+          earned: earnedLines[index],
+          returnedAfterEarning: line.returnedAfterEarning,
+          reversal: line.reversal,
+        }))
+        .filter((line) => line.reversal > 0);
+      amount = round2(reversalLines.reduce((sum, l) => sum + l.reversal, 0));
+    } else {
+      // Entries recorded before per-line detail existed: order-level rule.
+      const returnedAfter = round2(
+        afterEarning.reduce((sum, r) => sum + Number(r.merchandiseAmount), 0),
+      );
+      const reversed = await tx.agentLedgerEntry.aggregate({
+        where: {
+          storeOrderId: order.id,
+          entryType: AgentLedgerEntryType.COMMISSION_REVERSAL,
+        },
+        _sum: { credit: true },
+      });
+      amount = commissionReversalAmount({
+        commission: Number(commissionEntry.debit),
+        base: basis.base,
+        returnedAfterEarningCumulative: returnedAfter,
+        alreadyReversed: Number(reversed._sum.credit ?? 0),
+      });
+    }
     if (amount <= 0) return;
-    await this.ledger.append(
+    const { entry, created } = await this.ledger.append(
       tx,
       {
         agentId: order.agentId!,
@@ -757,13 +950,44 @@ export class AgentFulfillmentService {
         basis: {
           commissionEntryId: commissionEntry.id,
           base: basis.base,
-          ratePercent: basis.ratePercent,
-          returnedAfterEarningCumulative: returnedAfter,
+          ...(basis.ratePercent != null
+            ? { ratePercent: basis.ratePercent }
+            : {}),
         },
         description: `Commission reversed for return ${returnNumber} — order ${order.internalOrderId}`,
         posting: { source: AGENT_POSTING_SOURCE.CHARGE },
       },
       userId,
     );
+    if (created && reversalLines.length > 0) {
+      await tx.agentCommissionLine.createMany({
+        data: reversalLines.map(
+          ({ earned, returnedAfterEarning, reversal }) => ({
+            ledgerEntryId: entry.id,
+            agentId: order.agentId!,
+            storeOrderId: order.id,
+            storeOrderItemId: earned.storeOrderItemId,
+            productId: earned.productId,
+            commissionClass: earned.commissionClass,
+            rateSource: earned.rateSource,
+            ratePercent: earned.ratePercent,
+            overrideId: earned.overrideId,
+            salesAmount: earned.salesAmount,
+            returnedBeforeEarning: earned.returnedBeforeEarning,
+            baseAmount: earned.baseAmount,
+            returnedAfterEarning,
+            amount: reversal,
+          }),
+        ),
+      });
+    }
   }
+}
+
+/** "35% / 25%" — the distinct rates of an order's lines, for the entry description. */
+function describeRates(
+  lines: Array<{ rate: AgentLineCommissionRate }>,
+): string {
+  const rates = [...new Set(lines.map((line) => line.rate.ratePercent))];
+  return rates.map((rate) => `${rate}%`).join(' / ');
 }

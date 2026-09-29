@@ -1255,6 +1255,15 @@ export const navigationConfig: NavigationItem[] = [
     permissions: ["agent.statement.view"],
   },
   {
+    id: "agent-portal-commission",
+    titleKey: "agentPortal.nav.commission",
+    icon: "percent",
+    route: "/agent/commission",
+    order: 4,
+    audience: "agent",
+    permissions: ["agent.statement.view"],
+  },
+  {
     id: "agent-portal-payouts",
     titleKey: "agentPortal.nav.payouts",
     icon: "hand-coins",

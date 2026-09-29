@@ -17,6 +17,7 @@ describe('CarrierReconciliationService', () => {
     chargeFindUnique?: jest.Mock;
     chargeCreate?: jest.Mock;
     chargeFindFirst?: jest.Mock;
+    chargeFindMany?: jest.Mock;
     chargeUpdate?: jest.Mock;
     importCreate?: jest.Mock;
     importUpdate?: jest.Mock;
@@ -25,7 +26,8 @@ describe('CarrierReconciliationService', () => {
       log: jest.fn().mockResolvedValue(undefined),
       findForEntity: jest.fn(),
     };
-    const prisma = {
+    const prisma: Record<string, unknown> = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
       shipment: {
         findMany: overrides.shipmentFindMany ?? jest.fn().mockResolvedValue([]),
         findFirst: jest
@@ -59,6 +61,12 @@ describe('CarrierReconciliationService', () => {
             })),
         findFirst:
           overrides.chargeFindFirst ?? jest.fn().mockResolvedValue(null),
+        findMany: overrides.chargeFindMany ?? jest.fn().mockResolvedValue([]),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue({
+          reconciliationState: 'MATCHED',
+          shipmentId: 'shipment-1',
+        }),
         update:
           overrides.chargeUpdate ??
           jest
@@ -79,9 +87,13 @@ describe('CarrierReconciliationService', () => {
           jest.fn().mockResolvedValue({ id: 'import-1' }),
         update: overrides.importUpdate ?? jest.fn().mockResolvedValue({}),
       },
-    } as never;
+    };
+    prisma.$transaction = jest.fn((fn: (tx: unknown) => unknown) => fn(prisma));
     return {
-      service: new CarrierReconciliationService(prisma, activityLog as never),
+      service: new CarrierReconciliationService(
+        prisma as never,
+        activityLog as never,
+      ),
       prisma,
       activityLog,
     };
@@ -196,10 +208,19 @@ describe('CarrierReconciliationService', () => {
           shipmentId: 'shipment-1',
           reconciliationState: 'MATCHED',
           chargeAmount: 30,
+          chargeKind: 'BASE',
           currency: { code: 'SAR' },
         })
-        // existing-CONFIRMED-for-shipment lookup
-        .mockResolvedValueOnce({ id: 'charge-1' }),
+        .mockResolvedValue(null),
+      // existing CONFIRMED base charge on the same shipment
+      chargeFindMany: jest.fn().mockResolvedValue([
+        {
+          id: 'charge-1',
+          chargeKind: 'BASE',
+          chargeAmount: 30,
+          currencyId: 'currency-1',
+        },
+      ]),
     });
 
     await expect(service.confirm('charge-2', 'user-1')).rejects.toBeInstanceOf(
@@ -222,16 +243,17 @@ describe('CarrierReconciliationService', () => {
     const updateMock = (
       prisma as unknown as {
         carrierCharge: {
-          update: (args: {
-            where: { id: string };
+          updateMany: (args: {
+            where: Record<string, unknown>;
             data: Record<string, unknown>;
           }) => unknown;
         };
       }
-    ).carrierCharge.update;
+    ).carrierCharge.updateMany;
     expect(updateMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 'charge-1' },
+        // Conditional: a charge CONFIRMED meanwhile is never moved (M1).
+        where: { id: 'charge-1', reconciliationState: { not: 'CONFIRMED' } },
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- `expect.objectContaining()` is untyped by design
         data: expect.objectContaining({
           shipmentId: 'shipment-1',
@@ -285,6 +307,7 @@ describe('CarrierReconciliationService', () => {
           shipmentId: 'shipment-1',
           reconciliationState: 'MATCHED',
           chargeAmount: 30,
+          chargeKind: 'BASE',
           currency: { code: 'SAR' },
         })
         .mockResolvedValueOnce(null),
@@ -300,5 +323,90 @@ describe('CarrierReconciliationService', () => {
       expect.any(String),
       'user-1',
     );
+  });
+
+  const baseOnShipment = () =>
+    jest.fn().mockResolvedValue([
+      {
+        id: 'charge-1',
+        chargeKind: 'BASE',
+        chargeAmount: 30,
+        currencyId: 'currency-1',
+      },
+    ]);
+  const pendingCharge = (
+    kind: string,
+    amount: number,
+    currencyId = 'currency-1',
+  ) =>
+    jest.fn().mockResolvedValue({
+      id: 'charge-3',
+      shipmentId: 'shipment-1',
+      reconciliationState: 'MATCHED',
+      chargeAmount: amount,
+      chargeKind: kind,
+      currencyId,
+      currency: { code: 'SAR' },
+    });
+
+  it('confirm() accepts a late SURCHARGE on top of a CONFIRMED base charge', async () => {
+    const { service } = makeService({
+      chargeFindFirst: pendingCharge('SURCHARGE', 12),
+      chargeFindMany: baseOnShipment(),
+    });
+
+    const result = await service.confirm('charge-3', 'user-1');
+
+    expect(result.reconciliationState).toBe('CONFIRMED');
+  });
+
+  it('confirm() refuses a surcharge/credit without a confirmed base, in another currency, or a credit above the net cost', async () => {
+    const orphan = makeService({
+      chargeFindFirst: pendingCharge('SURCHARGE', 5),
+    });
+    await expect(orphan.service.confirm('charge-3', 'user-1')).rejects.toThrow(
+      /base carrier charge/,
+    );
+    const mixed = makeService({
+      chargeFindFirst: pendingCharge('SURCHARGE', 5, 'currency-2'),
+      chargeFindMany: baseOnShipment(),
+    });
+    await expect(mixed.service.confirm('charge-3', 'user-1')).rejects.toThrow(
+      /same currency/,
+    );
+    const tooBig = makeService({
+      chargeFindFirst: pendingCharge('CREDIT', 31),
+      chargeFindMany: baseOnShipment(),
+    });
+    await expect(tooBig.service.confirm('charge-3', 'user-1')).rejects.toThrow(
+      /exceeds/,
+    );
+  });
+
+  it('imports a negative amount as a CREDIT stored positive, and rejects an unknown Charge Kind', async () => {
+    const { service, prisma } = makeService({});
+    const header = `${CSV_HEADER},Charge Kind`;
+    const csv = `${header}
+Aramex,CR-1,TRACK-9,,-15,SAR,2026-01-02,
+Aramex,X-1,TRACK-8,,5,SAR,2026-01-02,FEE`;
+
+    const summary = await service.importCsv(csv, 'charges.csv', 'user-1');
+
+    const create = (
+      prisma as unknown as {
+        carrierCharge: { create: jest.Mock };
+      }
+    ).carrierCharge.create;
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- `expect.objectContaining()` is untyped by design
+        data: expect.objectContaining({
+          chargeKind: 'CREDIT',
+          chargeAmount: 15,
+        }),
+      }),
+    );
+    expect(summary.errorRows).toHaveLength(1);
   });
 });

@@ -49,6 +49,7 @@ export function ConfirmationDialog({
   tone,
   confirmDisabled,
   isConfirming,
+  size,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -67,6 +68,8 @@ export function ConfirmationDialog({
   confirmDisabled?: boolean;
   /** When set, the caller owns close-after-success. The action stays open and shows a spinner. */
   isConfirming?: boolean;
+  /** `lg` widens the dialog for a reviewable summary in `extra` (default keeps the compact confirm). */
+  size?: "default" | "lg";
 }) {
   const { t } = useLocale();
   const resolvedTone: ConfirmationTone = tone ?? (destructive ? "destructive" : "default");
@@ -80,7 +83,7 @@ export function ConfirmationDialog({
         onOpenChange(next);
       }}
     >
-      <AlertDialogContent>
+      <AlertDialogContent size={size}>
         <AlertDialogHeader>
           <AlertDialogTitle className={cn(showAlertIcon && "flex items-center gap-2")}>
             {showAlertIcon && (

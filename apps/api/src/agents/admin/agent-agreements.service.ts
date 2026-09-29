@@ -117,6 +117,7 @@ export class AgentAgreementsService {
     const currencyId = dto.currencyId ?? agent.currencyId;
     this.assertCurrency(currencyId, agent.currencyId);
     this.assertRange(dto.effectiveFrom, dto.effectiveTo);
+    assertShippingPolicyConsistent(dto);
     const agreement = await this.prisma.$transaction(async (tx) => {
       const agreementNumber = await this.numberingEngine.generateNumber(
         'AGENT_AGREEMENT',
@@ -131,7 +132,9 @@ export class AgentAgreementsService {
           effectiveFrom: toDateOnly(dto.effectiveFrom),
           effectiveTo: dto.effectiveTo ? toDateOnly(dto.effectiveTo) : null,
           currencyId,
-          commissionRatePercent: dto.commissionRatePercent,
+          productCommissionRatePercent: dto.productCommissionRatePercent,
+          serviceCommissionRatePercent: dto.serviceCommissionRatePercent,
+          shippingPolicy: dto.shippingPolicy,
           commissionEarningEvent: dto.commissionEarningEvent,
           returnCommissionTreatment: dto.returnCommissionTreatment,
           customerShippingChargeOwner: dto.customerShippingChargeOwner,
@@ -165,6 +168,13 @@ export class AgentAgreementsService {
         ? dto.effectiveTo
         : existing.effectiveTo?.toISOString();
     this.assertRange(from, to);
+    assertShippingPolicyConsistent({
+      shippingPolicy: dto.shippingPolicy ?? existing.shippingPolicy,
+      customerShippingChargeOwner:
+        dto.customerShippingChargeOwner ?? existing.customerShippingChargeOwner,
+      shippingFeePerShipment:
+        dto.shippingFeePerShipment ?? Number(existing.shippingFeePerShipment),
+    });
     await this.prisma.agentAgreement.update({
       where: { id: agreementId },
       data: {
@@ -178,7 +188,9 @@ export class AgentAgreementsService {
               : null
             : undefined,
         currencyId: dto.currencyId,
-        commissionRatePercent: dto.commissionRatePercent,
+        productCommissionRatePercent: dto.productCommissionRatePercent,
+        serviceCommissionRatePercent: dto.serviceCommissionRatePercent,
+        shippingPolicy: dto.shippingPolicy,
         commissionEarningEvent: dto.commissionEarningEvent,
         returnCommissionTreatment: dto.returnCommissionTreatment,
         customerShippingChargeOwner: dto.customerShippingChargeOwner,
@@ -221,6 +233,10 @@ export class AgentAgreementsService {
       }
       this.assertCurrency(agreement.currencyId, agent.currencyId);
       assertExplicitTerms(agreement);
+      assertShippingPolicyConsistent({
+        ...agreement,
+        shippingFeePerShipment: Number(agreement.shippingFeePerShipment),
+      });
       const overlapping = await tx.agentAgreement.findFirst({
         where: {
           agentId,
@@ -421,12 +437,54 @@ function overlapWhere(
   };
 }
 
+/**
+ * commission-policy.md A3: under PREDETERMINED_CHARGE the customer shipping
+ * belongs to the company and settles the agent shipping charge — so the owner
+ * must be the company and there is no second per-shipment fee. NONE never
+ * keeps a flat fee it would not charge.
+ */
+function assertShippingPolicyConsistent(terms: {
+  shippingPolicy: string;
+  customerShippingChargeOwner: string;
+  shippingFeePerShipment: number;
+}) {
+  const conflicts: string[] = [];
+  if (terms.shippingPolicy === 'PREDETERMINED_CHARGE') {
+    if (terms.customerShippingChargeOwner !== 'COMPANY') {
+      conflicts.push('customerShippingChargeOwner');
+    }
+    if (Number(terms.shippingFeePerShipment) !== 0) {
+      conflicts.push('shippingFeePerShipment');
+    }
+  }
+  if (
+    terms.shippingPolicy === 'NONE' &&
+    Number(terms.shippingFeePerShipment) !== 0
+  ) {
+    conflicts.push('shippingFeePerShipment');
+  }
+  if (conflicts.length > 0) {
+    throw agentUnprocessable(
+      'AGENT_SHIPPING_POLICY_CONFLICT',
+      'مع رسم الشحن المحدد مسبقًا يكون شحن العميل ملكًا للشركة ورسم الشحن لكل شحنة صفرًا؛ ومع تحمّل الشركة للشحن يكون رسم الشحن صفرًا — حتى لا يُحتسب الشحن مرتين',
+      'With the predetermined shipping charge the customer shipping belongs to the company and the per-shipment fee is 0; when the company bears shipping the fee is 0 — so shipping is never charged twice.',
+      { fields: conflicts },
+    );
+  }
+}
+
 /** Defense in depth: every term present and in range before activation (D3). */
 function assertExplicitTerms(agreement: AgentAgreement) {
   const missing: string[] = [];
-  const rate = Number(agreement.commissionRatePercent);
-  if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
-    missing.push('commissionRatePercent');
+  for (const key of [
+    'productCommissionRatePercent',
+    'serviceCommissionRatePercent',
+  ] as const) {
+    const rate = Number(agreement[key]);
+    if (!Number.isFinite(rate) || rate < 0 || rate > 100) missing.push(key);
+  }
+  if (!agreement.shippingPolicy) {
+    missing.push('shippingPolicy');
   }
   for (const key of [
     'shippingFeePerShipment',

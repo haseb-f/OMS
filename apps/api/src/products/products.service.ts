@@ -130,6 +130,14 @@ export class ProductsService {
     const isPurchasable = dto.isPurchasable ?? defaults.isPurchasable;
     const isSellable = dto.isSellable ?? defaults.isSellable;
     const isInventoryItem = dto.isInventoryItem ?? defaults.isInventoryItem;
+    // commission-policy.md A2 — only reliable defaults; otherwise unclassified.
+    const itemType =
+      dto.itemType ??
+      (type === ProductType.SERVICE
+        ? 'SERVICE'
+        : isInventoryItem
+          ? 'PRODUCT'
+          : null);
     const status = dto.status ?? ProductStatus.DRAFT;
 
     if (status === ProductStatus.ACTIVE) {
@@ -161,6 +169,7 @@ export class ProductsService {
             isPurchasable,
             isSellable,
             isInventoryItem,
+            itemType,
             createdBy: userId ?? null,
             updatedBy: userId ?? null,
           },
@@ -222,6 +231,8 @@ export class ProductsService {
       taxId: query.taxId,
       status: prismaEnumFilter(query.status),
       type: prismaEnumFilter(query.type),
+      itemType:
+        query.itemType === 'UNSET' ? null : (query.itemType ?? undefined),
       isInventoryItem: query.isInventoryItem,
       isSellable: query.isSellable,
       isPurchasable: query.isPurchasable,

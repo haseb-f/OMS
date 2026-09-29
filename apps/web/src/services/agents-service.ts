@@ -60,10 +60,15 @@ export interface AgentRef {
   name: string;
 }
 
+/** How the agent bears carrier costs (commission-policy.md A3). */
+export type AgentShippingPolicy = "PREDETERMINED_CHARGE" | "FLAT_FEE_PER_SHIPMENT" | "NONE";
+
 export interface AgentActiveAgreementRef {
   id: string;
   agreementNumber: string;
-  commissionRatePercent: string;
+  productCommissionRatePercent: string;
+  serviceCommissionRatePercent: string;
+  shippingPolicy: AgentShippingPolicy;
   effectiveFrom: string;
   effectiveTo: string | null;
 }
@@ -104,7 +109,9 @@ export interface AgentAgreement {
   effectiveTo: string | null;
   currencyId: string;
   currency: AgentCurrencyRef | null;
-  commissionRatePercent: string;
+  productCommissionRatePercent: string;
+  serviceCommissionRatePercent: string;
+  shippingPolicy: AgentShippingPolicy;
   commissionEarningEvent: AgentEarningEvent;
   returnCommissionTreatment: AgentReturnTreatment;
   customerShippingChargeOwner: AgentChargeOwner;
@@ -149,7 +156,9 @@ export interface AgentInput {
 export interface AgreementInput {
   effectiveFrom: string;
   effectiveTo?: string;
-  commissionRatePercent: number;
+  productCommissionRatePercent: number;
+  serviceCommissionRatePercent: number;
+  shippingPolicy: AgentShippingPolicy;
   commissionEarningEvent: AgentEarningEvent;
   returnCommissionTreatment: AgentReturnTreatment;
   customerShippingChargeOwner: AgentChargeOwner;
@@ -160,6 +169,157 @@ export interface AgreementInput {
   allowAgentDestinations: boolean;
   payoutHoldDays: number;
   notes?: string;
+}
+
+export type AgentCommissionClass = "PRODUCT" | "SERVICE";
+export type AgentCommissionRateSource =
+  "AGREEMENT_PRODUCT" | "AGREEMENT_SERVICE" | "ITEM_OVERRIDE" | "LEGACY_SINGLE_RATE";
+
+export interface AgreementPreviewSample {
+  productSales?: number;
+  serviceSales?: number;
+  customerShipping?: number;
+}
+
+/** GET /agents/:id/agreements/:agreementId/preview (commission-policy.md A3). */
+export interface AgreementPreview {
+  agreementId: string;
+  agreementNumber: string;
+  status: AgentAgreementStatus;
+  effectiveFrom: string;
+  currency: { code: string; symbol: string | null };
+  shippingPolicy: AgentShippingPolicy;
+  example: {
+    productSales: number;
+    serviceSales: number;
+    productRatePercent: number;
+    serviceRatePercent: number;
+    productCommission: number;
+    serviceCommission: number;
+    totalSales: number;
+    totalCommission: number;
+    /** Customer shipping collected — company money (A1). */
+    customerShipping: number;
+    predeterminedShippingCharge: number;
+    shippingAppliedToCharge: number;
+    shippingDifference: number;
+    totalCollected: number;
+    companyRetains: number;
+    agentEntitlement: number;
+  };
+  items: Array<{
+    id: string;
+    sku: string;
+    name: string;
+    isInventoryItem: boolean;
+    itemType: AgentCommissionClass | null;
+    /** The explicit item type (null = not classified yet). */
+    commissionClass: AgentCommissionClass | null;
+    rateSource: AgentCommissionRateSource | null;
+    ratePercent: number | null;
+    overrideId: string | null;
+    /** Why no rate: the item is unclassified, or its type has no rate. */
+    missing: "AGENT_ITEM_TYPE_REQUIRED" | "AGENT_COMMISSION_RATE_MISSING" | null;
+  }>;
+}
+
+/** GET …/commission-report (commission-policy.md A7) — internal workspace and portal. */
+export interface AgentCommissionReport {
+  agent: AgentRef;
+  period: { from: string | null; to: string | null };
+  summary: {
+    currency: { id: string; code: string; symbol: string | null };
+    products: CommissionClassTotals;
+    services: CommissionClassTotals;
+    legacySingleRate: { sales: number; commission: number; commissionReversed: number };
+    totalSales: number;
+    /** Shipping/service charges and tax paid by customers (credited with the collection). */
+    customerCharges: number;
+    returned: number;
+    totalCommission: number;
+    /** Customer shipping collected (company money) and what was retained from it. */
+    customerShipping: number;
+    agentShippingCharges: number;
+    shippingRetained: number;
+    otherCharges: number;
+    netEntitlement: number;
+    /** Actual carrier cost (company expense) still pending per order. */
+    carrierCost: {
+      ordersWithEstimateOnly: number;
+      ordersAwaitingApproval: number;
+    };
+  };
+  cash: {
+    collectedByCompany: number;
+    collectedByAgent: number;
+    customerRefundsByCompany: number;
+    balance: number;
+    pending: number;
+    availableForPayout: number;
+    paidOut: number;
+  };
+  orders: CommissionReportOrder[];
+  lines: CommissionReportLine[];
+}
+
+export interface CommissionClassTotals {
+  sales: number;
+  commissionBase: number;
+  commission: number;
+  commissionReversed: number;
+}
+
+export interface CurrencyAmount {
+  currencyCode: string;
+  amount: number;
+}
+
+export interface CommissionReportOrder {
+  storeOrderId: string;
+  orderNumber: string;
+  earnedAt: string | null;
+  dispatchedAt: string | null;
+  sales: number;
+  customerCharges: number;
+  returned: number;
+  commissionNet: number;
+  shipping: {
+    /** Collected from the customer — company money. */
+    customerShipping: number;
+    /** Predetermined agent shipping charge (PREDETERMINED_CHARGE policy), else null. */
+    agentShippingCharge: number | null;
+    /** Retained from collected funds; settles the agent shipping charge. */
+    retained: number;
+    difference: number | null;
+    /** Actual carrier cost — company expense, never an agent deduction. */
+    carrier: CarrierCostStages;
+  };
+  otherCharges: number;
+  netEntitlement: number;
+}
+
+export interface CarrierCostStages {
+  estimated: number;
+  incurredByCurrency: CurrencyAmount[];
+  approvedByCurrency: CurrencyAmount[];
+  paidByCurrency: CurrencyAmount[];
+}
+
+export interface CommissionReportLine {
+  storeOrderId: string;
+  orderNumber: string;
+  productId: string | null;
+  sku: string | null;
+  name: string | null;
+  nameEn: string | null;
+  commissionClass: AgentCommissionClass | null;
+  rateSource: AgentCommissionRateSource;
+  ratePercent: number | null;
+  salesAmount: number;
+  returnedBeforeEarning: number;
+  commissionBase: number | null;
+  commission: number;
+  commissionReversed: number;
 }
 
 export interface AgentPaymentDestination {
@@ -302,6 +462,10 @@ export interface AgentStatementSummary {
     charged: number;
     reversed: number;
     net: number;
+    /** commission-policy.md A7 — products vs services (per-line entries). */
+    byClass: Record<"PRODUCT" | "SERVICE", { sales: number; base: number; commission: number }>;
+    /** Entries earned before per-line detail (single agreement rate). */
+    legacySingleRate: number;
   };
   deductions: {
     commission: number;
@@ -544,6 +708,13 @@ export const agentsService = {
       apiClient.post<AgentAgreement>(`${base}/${agentId}/agreements`, dto),
     update: (agentId: string, agreementId: string, dto: Partial<AgreementInput>) =>
       apiClient.patch<AgentAgreement>(`${base}/${agentId}/agreements/${agreementId}`, dto),
+    /** Rates per agent product + the worked example, shown before Activate (A3). */
+    preview: (agentId: string, agreementId: string, sample: AgreementPreviewSample = {}) =>
+      apiClient.get<AgreementPreview>(
+        `${base}/${agentId}/agreements/${agreementId}/preview${buildQueryString(
+          sample as Record<string, unknown>,
+        )}`,
+      ),
     activate: (agentId: string, agreementId: string) =>
       apiClient.post<AgentAgreement>(`${base}/${agentId}/agreements/${agreementId}/activate`),
     end: (agentId: string, agreementId: string, effectiveTo?: string) =>
@@ -631,6 +802,10 @@ export const agentFinanceService = {
   ) =>
     apiClient.get<Paged<AgentLedgerLine>>(
       `${finance}/agents/${agentId}/ledger${buildQueryString(params as Record<string, unknown>)}`,
+    ),
+  commissionReport: (agentId: string, params: AgentPeriodParams = {}) =>
+    apiClient.get<AgentCommissionReport>(
+      `${finance}/agents/${agentId}/commission-report${buildQueryString(params as Record<string, unknown>)}`,
     ),
   statement: (agentId: string, params: AgentPeriodParams = {}) =>
     apiClient.get<AgentStatement>(

@@ -484,6 +484,33 @@ export class AgentStatementService {
         ),
       ),
     ].filter((r) => Number.isFinite(r));
+    // commission-policy.md A7: commission by class (from the per-line basis;
+    // legacy single-rate entries have no class split).
+    const byClass = { PRODUCT: zeroClass(), SERVICE: zeroClass() };
+    let legacyCommission = 0;
+    for (const entry of commissionEntries) {
+      const basis = entry.basis as {
+        byClass?: typeof byClass;
+        unclassifiedCommission?: number;
+      } | null;
+      const split = basis?.byClass;
+      if (!split) {
+        legacyCommission = round2(legacyCommission + entry.debit);
+        continue;
+      }
+      legacyCommission = round2(
+        legacyCommission + Number(basis?.unclassifiedCommission ?? 0),
+      );
+      for (const key of ['PRODUCT', 'SERVICE'] as const) {
+        const part = split[key];
+        if (!part) continue;
+        byClass[key] = {
+          sales: round2(byClass[key].sales + part.sales),
+          base: round2(byClass[key].base + part.base),
+          commission: round2(byClass[key].commission + part.commission),
+        };
+      }
+    }
     const companyRefunds = t('CUSTOMER_REFUND').debit;
     const agentRefunds = t('CUSTOMER_REFUND').memo;
     const adjustments = t('ADJUSTMENT');
@@ -515,6 +542,8 @@ export class AgentStatementService {
         charged: t('COMMISSION').debit,
         reversed: t('COMMISSION_REVERSAL').credit,
         net: round2(t('COMMISSION').debit - t('COMMISSION_REVERSAL').credit),
+        byClass,
+        legacySingleRate: legacyCommission,
       },
       deductions: {
         commission: round2(
@@ -870,4 +899,8 @@ export class AgentStatementService {
       },
     };
   }
+}
+
+function zeroClass() {
+  return { sales: 0, base: 0, commission: 0 };
 }

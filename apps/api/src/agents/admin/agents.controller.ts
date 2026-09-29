@@ -20,6 +20,8 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { AgentsService } from './agents.service';
 import { AgentAgreementsService } from './agent-agreements.service';
 import { AgentDestinationsService } from './agent-destinations.service';
+import { AgentCommissionRatesService } from '../commission/agent-commission-rates.service';
+import { SetProductCommissionDto } from '../commission/dto/commission-setting.dto';
 import {
   AgentStockQueryDto,
   CreateAgentDto,
@@ -27,6 +29,7 @@ import {
   UpdateAgentDto,
 } from './dto/agent.dto';
 import {
+  AgreementPreviewQueryDto,
   CreateAgreementDto,
   EndAgreementDto,
   UpdateAgreementDto,
@@ -48,7 +51,25 @@ export class AgentsController {
     private readonly agents: AgentsService,
     private readonly agreements: AgentAgreementsService,
     private readonly destinations: AgentDestinationsService,
+    private readonly commissionRates: AgentCommissionRatesService,
   ) {}
+
+  // ── Item commission settings (commission-policy.md A4) ───────────────────
+
+  @Get('products/:productId/commission')
+  productCommission(@Param('productId', ParseUUIDPipe) productId: string) {
+    return this.commissionRates.productSetting(productId);
+  }
+
+  @Put('products/:productId/commission')
+  @PermissionAction('manage')
+  setProductCommission(
+    @Param('productId', ParseUUIDPipe) productId: string,
+    @Body() dto: SetProductCommissionDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.commissionRates.setProductSetting(productId, dto, user.sub);
+  }
 
   @Get()
   findAll(@Query() query: FindAgentsQueryDto) {
@@ -144,6 +165,16 @@ export class AgentsController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.agreements.update(id, agreementId, dto, user.sub);
+  }
+
+  /** Rates each agent product would get + the worked example, shown before Activate (A3). */
+  @Get(':id/agreements/:agreementId/preview')
+  previewAgreement(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('agreementId', ParseUUIDPipe) agreementId: string,
+    @Query() query: AgreementPreviewQueryDto,
+  ) {
+    return this.commissionRates.agreementPreview(id, agreementId, query);
   }
 
   @Post(':id/agreements/:agreementId/activate')

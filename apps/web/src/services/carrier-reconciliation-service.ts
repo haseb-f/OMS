@@ -4,6 +4,9 @@ import { buildQueryString } from "@/lib/query-string";
 export type CarrierReconciliationStateValue =
   "UNMATCHED" | "MATCHED" | "REVIEW_REQUIRED" | "CONFIRMED";
 
+/** commission-policy.md A6 — amount is stored positive; CREDIT reduces the cost. */
+export type CarrierChargeKind = "BASE" | "SURCHARGE" | "CREDIT";
+
 export interface CarrierChargeRow {
   id: string;
   carrierNameRaw: string;
@@ -15,16 +18,23 @@ export interface CarrierChargeRow {
   currency?: { code: string } | null;
   chargeDate: string;
   chargeType: string | null;
+  chargeKind: CarrierChargeKind;
   reconciliationState: CarrierReconciliationStateValue;
   shipmentId: string | null;
   shipment?: {
     id: string;
     attemptNumber: number;
     storeOrderId: string | null;
-    storeOrder?: { id: string; internalOrderId: string } | null;
+    storeOrder?: {
+      id: string;
+      internalOrderId: string;
+      agent?: { id: string; name: string; agentNumber: string } | null;
+    } | null;
   } | null;
   matchedAt: string | null;
   confirmedAt: string | null;
+  paidAt: string | null;
+  paidReference: string | null;
   notes: string | null;
   createdAt: string;
 }
@@ -80,4 +90,6 @@ export const carrierReconciliationService = {
     apiClient.post<CarrierChargeRow>(`/carrier-reconciliation/${id}/unmatch`),
   confirm: (id: string) =>
     apiClient.post<CarrierChargeRow>(`/carrier-reconciliation/${id}/confirm`),
+  markPaid: (id: string, reference: string) =>
+    apiClient.post<CarrierChargeRow>(`/carrier-reconciliation/${id}/mark-paid`, { reference }),
 };
