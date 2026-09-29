@@ -10,6 +10,9 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     include: ["src/**/*.spec.{ts,tsx}"],
+    // Full EnterpriseDataTable renders under jsdom take several seconds on a
+    // loaded machine; the 5s default made them fail on time, not on behaviour.
+    testTimeout: 20000,
   },
   resolve: {
     alias: {
